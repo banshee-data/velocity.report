@@ -116,7 +116,6 @@ func packListingInputs(dir string) []string {
 	inputs := []string{
 		filepath.Join(dir, "manifest.json"),
 		filepath.Join(dir, "segment.json"),
-		filepath.Join(dir, "annotations.json"),
 		filepath.Join(dir, "proposals"),
 		filepath.Join(dir, annotation.LabelSetLinkFile),
 	}

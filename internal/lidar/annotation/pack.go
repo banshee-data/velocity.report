@@ -30,16 +30,12 @@ import (
 // PackSchemaVersion is the pack layout version. A pack whose points, ordering,
 // or encoding change is a new pack, not a revision of this one.
 //
-// Version 2 adds the returns: a packet table and, for every point, the return
-// it was decoded from. That is what lets a label set made against one run's
-// pack apply to another run's pack of the same capture. It is the only
-// version this package writes.
+// Version 2 carries the returns: a packet table and, for every point, the
+// return it was decoded from, which is what a label set cites. Version 1
+// packs, which had no returns, were migrated to label sets and are no longer
+// read; the git tag annotation-v1-reader keeps the last build that reads
+// them.
 const PackSchemaVersion = 2
-
-// PackSchemaVersionLegacy is the version 1 layout: points without returns.
-// OpenPack still reads it, for the label set migration and for packs already
-// on disk; nothing writes it.
-const PackSchemaVersionLegacy = 1
 
 // MaxPointsPerSample bounds a single frame's point count on read, so a
 // corrupt or hostile manifest cannot ask for an unbounded allocation. A Hesai
@@ -255,8 +251,10 @@ type Sample struct {
 	// HasIntensity records whether this sample's intensity bytes were
 	// measured. The block is fixed-size and zero-fills an absent column, so
 	// a zero byte cannot say which it is; only this flag can. Nil means the
-	// pack predates per-sample presence and only the manifest's pack-wide
-	// flag is known. Read it through Pack.SampleHasIntensity.
+	// sample was cut before per-sample presence was recorded, as the samples
+	// of migrated packs were (the pack digest covers them, so they keep it),
+	// and only the manifest's pack-wide flag is known. Read it through
+	// Pack.SampleHasIntensity.
 	HasIntensity *bool `json:"has_intensity,omitempty"`
 	// ReturnStart and ReturnEnd bound, in version 2, every return of the frame
 	// the sample came from, foreground or not: [start, end) in the pack's
@@ -429,7 +427,7 @@ type PackReturns struct {
 //
 // Every point needs its return, and every sample its ReturnStart and
 // ReturnEnd: a pack whose points cannot be cited by a label set is not
-// written. Version 1 packs are read, never written.
+// written.
 func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte, returns PackReturns) error {
 	return WritePackWithBackground(dir, m, samples, blocks, returns, nil, nil)
 }
@@ -543,12 +541,9 @@ func WritePackWithBackground(
 	return os.Rename(staging, dir)
 }
 
-// packDigest binds the digests an annotation depends on. Version 2 adds the
-// returns, since a label set cites points through them.
+// packDigest binds the digests a label set's view of the pack depends on:
+// the points, the samples, and the returns a label set cites them through.
 func packDigest(m Manifest) string {
-	if m.SchemaVersion == PackSchemaVersionLegacy {
-		return sha256Hex([]byte(m.PointsSHA256 + "\n" + m.SamplesSHA256))
-	}
 	return sha256Hex([]byte(m.PointsSHA256 + "\n" + m.SamplesSHA256 + "\n" + m.PacketsSHA256 + "\n" + m.ReturnsSHA256))
 }
 
@@ -615,8 +610,10 @@ func OpenPack(dir string) (*Pack, error) {
 	if err := json.Unmarshal(manifestBytes, &m); err != nil {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
-	if m.SchemaVersion != PackSchemaVersion && m.SchemaVersion != PackSchemaVersionLegacy {
-		return nil, fmt.Errorf("pack schema version %d, this build reads %d and %d", m.SchemaVersion, PackSchemaVersionLegacy, PackSchemaVersion)
+	if m.SchemaVersion != PackSchemaVersion {
+		return nil, fmt.Errorf("pack schema version %d, this build reads %d only: version 1 packs were migrated to label sets "+
+			"(docs/lidar/operations/annotation-label-set-migration.md); build the git tag annotation-v1-reader to read one",
+			m.SchemaVersion, PackSchemaVersion)
 	}
 
 	samplesBytes, err := os.ReadFile(filepath.Join(dir, samplesFile))
@@ -666,10 +663,8 @@ func OpenPack(dir string) (*Pack, error) {
 	}
 
 	pack := &Pack{Dir: dir, Manifest: m, Samples: samples, raw: raw}
-	if m.SchemaVersion == PackSchemaVersion {
-		if err := pack.openReturns(); err != nil {
-			return nil, err
-		}
+	if err := pack.openReturns(); err != nil {
+		return nil, err
 	}
 	if m.BackgroundCount > 0 {
 		if err := pack.openBackground(); err != nil {
@@ -683,7 +678,7 @@ func OpenPack(dir string) (*Pack, error) {
 func (p *Pack) openReturns() error {
 	m := p.Manifest
 	if m.ReturnLayout == nil {
-		return fmt.Errorf("version 2 pack has no return layout")
+		return fmt.Errorf("pack has no return layout")
 	}
 	if err := m.ReturnLayout.validate(); err != nil {
 		return err
@@ -742,15 +737,8 @@ func decodeReturns(b []byte) []uint64 {
 	return out
 }
 
-// HasReturns reports whether the pack is version 2 and so can be cited by a
-// label set.
-func (p *Pack) HasReturns() bool { return p.rawReturns != nil }
-
 // ReturnsAt returns one sample's return numbers, one per point in point order.
 func (p *Pack) ReturnsAt(sampleID int) ([]uint64, error) {
-	if !p.HasReturns() {
-		return nil, fmt.Errorf("version %d pack carries no returns", p.Manifest.SchemaVersion)
-	}
 	if sampleID < 0 || sampleID >= len(p.Samples) {
 		return nil, fmt.Errorf("sample %d is outside the pack's %d samples", sampleID, len(p.Samples))
 	}
@@ -828,7 +816,7 @@ func (p *Pack) BackgroundInForce(sampleID int) (Background, bool) {
 
 // SampleHasIntensity reports whether a sample's intensity bytes are
 // measurements: the sample's own flag when it recorded one, else the
-// manifest's pack-wide flag, which is the most a legacy pack can say. It is
+// manifest's pack-wide flag, which is all an older sample has. It is
 // never inferred from the bytes. Out-of-range samples are reported absent.
 func (p *Pack) SampleHasIntensity(sampleID int) bool {
 	if sampleID < 0 || sampleID >= len(p.Samples) {

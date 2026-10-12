@@ -216,7 +216,7 @@ func TestSidecarRefusesUnwritableLocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewSidecar(p)
-	if err := SaveSidecar(p, s); err == nil {
+	if err := saveMembership(p, s); err == nil {
 		t.Fatal("wrote a sidecar into a path that is not a directory")
 	}
 	if _, err := LoadSidecar(p); err == nil {
@@ -459,22 +459,6 @@ func TestDirDigestReportsAnUnreadableFile(t *testing.T) {
 
 	if _, err := dirSHA256(dir); err == nil {
 		t.Fatal("digested a directory holding a file it could not read")
-	}
-}
-
-func TestSidecarReportsAFailedCommit(t *testing.T) {
-	p := synthPack(t)
-	// A non-empty directory where the sidecar belongs cannot be replaced by a
-	// rename, so the commit step fails after the temporary file is written.
-	target := filepath.Join(p.Dir, sidecarFile)
-	if err := os.Mkdir(target, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(target, "blocker"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := SaveSidecar(p, NewSidecar(p)); err == nil {
-		t.Fatal("a sidecar reported success without committing")
 	}
 }
 

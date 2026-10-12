@@ -82,8 +82,8 @@ func TestExportWritesReturnsThatNameTheSourceReturns(t *testing.T) {
 		if err != nil {
 			t.Fatalf("split=%v: export: %v", split, err)
 		}
-		if pack.Manifest.SchemaVersion != PackSchemaVersion || !pack.HasReturns() {
-			t.Fatalf("split=%v: version %d pack, returns %v", split, pack.Manifest.SchemaVersion, pack.HasReturns())
+		if pack.Manifest.SchemaVersion != PackSchemaVersion {
+			t.Fatalf("split=%v: version %d pack", split, pack.Manifest.SchemaVersion)
 		}
 		if l := pack.Manifest.ReturnLayout; l == nil || *l != (ReturnLayout{"hesai-pandar40p", 10, 40}) {
 			t.Fatalf("layout %+v", l)

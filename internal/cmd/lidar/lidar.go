@@ -37,8 +37,8 @@ Commands:
   annotation-split
                   Freeze a reviewed, object-disjoint split over annotation
                   packs with digests, or verify a frozen one against its packs
-  labels          Capture-bound label sets: migrate version 1 packs, bind
-                  capture files, verify, publish, and census packet keys
+  labels          Capture-bound label sets: create and attach, bind capture
+                  files, verify, project, publish, and census packet keys
   observations    Verify, inspect or compare VRLOG 1.x observation containers
                   (written by pcap-replay --observations)
 

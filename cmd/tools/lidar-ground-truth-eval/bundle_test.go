@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 	_ "modernc.org/sqlite"
 )
@@ -355,8 +356,9 @@ func TestBundleRefusesAMovedAnnotationRevision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.Change = annotation.Provenance{Author: "operator", Operation: "save"}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	// A save that changes nothing makes no revision; a note is a change.
+	s.Objects[0].Notes = "noted after the bundle"
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: "operator", Operation: "note"}); err != nil {
 		t.Fatal(err)
 	}
 	if code, stderr := verify(bundle); code != 1 || !strings.Contains(stderr, "annotation (sidecar) revision is 2, pinned 1") {

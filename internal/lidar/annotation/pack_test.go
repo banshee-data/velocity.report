@@ -91,7 +91,7 @@ func TestPackRoundTripsPointsAndMembership(t *testing.T) {
 		{ObjectID: "obj_a", SampleID: 1, PointIndices: []int{},
 			Completeness: MaskComplete, Visibility: VisibleFullyOccluded, Status: StatusReviewed},
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -135,16 +135,10 @@ func TestSidecarRejectsADifferentPack(t *testing.T) {
 
 	s := NewSidecar(a)
 	s.Objects = []Object{{ObjectID: "obj_a", Class: "car", Status: StatusReviewed}}
-	if err := SaveSidecar(a, s); err != nil {
+	if err := saveMembership(a, s); err != nil {
 		t.Fatalf("save: %v", err)
 	}
-	raw, err := os.ReadFile(filepath.Join(a.Dir, sidecarFile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(b.Dir, sidecarFile), raw, 0o644); err != nil {
-		t.Fatal(err)
-	}
+	copyMembership(a, b)
 	if _, err := LoadSidecar(b); err == nil {
 		t.Fatal("a sidecar from another pack loaded against this one")
 	}
@@ -226,9 +220,10 @@ func TestCanonicalIndicesHasOneEncoding(t *testing.T) {
 	}
 }
 
-// A pack written before samples recorded their own presence has only the
-// manifest's word, and the reader must say so rather than invent a flag.
-func TestLegacyPackFallsBackToTheManifestIntensityFlag(t *testing.T) {
+// Samples cut before they recorded their own presence, as migrated packs'
+// were, have only the manifest's word, and the reader must say so rather
+// than invent a flag.
+func TestUnrecordedSamplesFallBackToTheManifestIntensityFlag(t *testing.T) {
 	for _, packWide := range []bool{true, false} {
 		dir := filepath.Join(t.TempDir(), "pack")
 		block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{2}, Z: []float32{3}})
@@ -249,7 +244,7 @@ func TestLegacyPackFallsBackToTheManifestIntensityFlag(t *testing.T) {
 			t.Fatal(err)
 		}
 		if p.IntensityPresenceIsPerSample() {
-			t.Error("a legacy pack claimed per-sample presence")
+			t.Error("a pack with unrecorded samples claimed per-sample presence")
 		}
 		if got := p.SampleHasIntensity(0); got != packWide {
 			t.Errorf("manifest %v: sample 0 has intensity = %v", packWide, got)
@@ -290,6 +285,17 @@ func TestWritePackRoundTripsPerSampleIntensityPresence(t *testing.T) {
 	}
 	if !SamplesRecordIntensityPresence(p.Samples[:2]) {
 		t.Error("two samples with flags do not count as recorded")
+	}
+}
+
+// A version 1 pack is refused with directions to the migration.
+func TestOpenPackRefusesVersion1(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "pack")
+	os.MkdirAll(dir, 0o755)
+	os.WriteFile(filepath.Join(dir, manifestFile), []byte(`{"schema_version": 1}`), 0o644)
+	_, err := OpenPack(dir)
+	if err == nil || !strings.Contains(err.Error(), "annotation-v1-reader") {
+		t.Fatalf("version 1 pack: %v", err)
 	}
 }
 
@@ -344,8 +350,8 @@ func TestPackRefusesAContradictoryIntensityFlag(t *testing.T) {
 // that names no return cannot be cited by a label set.
 func TestWritePackWritesVersion2Only(t *testing.T) {
 	p := synthPack(t)
-	if p.Manifest.SchemaVersion != PackSchemaVersion || !p.HasReturns() || p.Manifest.PacketKeyKind != PacketKeyKind {
-		t.Fatalf("wrote version %d, returns %v", p.Manifest.SchemaVersion, p.HasReturns())
+	if p.Manifest.SchemaVersion != PackSchemaVersion || p.Manifest.PacketKeyKind != PacketKeyKind {
+		t.Fatalf("wrote version %d, packet key %q", p.Manifest.SchemaVersion, p.Manifest.PacketKeyKind)
 	}
 	for _, name := range []string{packetsFile, returnsFile} {
 		if _, err := os.Stat(filepath.Join(p.Dir, name)); err != nil {

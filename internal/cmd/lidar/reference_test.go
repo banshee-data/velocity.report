@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 )
 
 func refFloat(v float64) *float64 { return &v }
@@ -49,7 +50,7 @@ func referencePack(t *testing.T) (*annotation.Pack, string) {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car", SampleID: i, PointIndices: []int{0, 1},
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	review := annotation.PhysicalReview{
@@ -232,7 +233,7 @@ func TestAnnotationReferenceValidateIsADryRun(t *testing.T) {
 	}
 	s.Objects[0].Status = annotation.StatusRejected
 	s.Change.Operation = "reject"
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	code, _, stderr := runReference("validate", "--pack", pack.Dir)
@@ -240,11 +241,15 @@ func TestAnnotationReferenceValidateIsADryRun(t *testing.T) {
 		!strings.Contains(stderr, `object "car": object "car" is rejected`) {
 		t.Fatalf("stale references: exit %d: %s", code, stderr)
 	}
-	if err := os.WriteFile(filepath.Join(pack.Dir, "annotations.json"), []byte("{"), 0o600); err != nil {
+	link, err := annotation.ReadLabelSetLink(pack.Dir)
+	if err != nil || link == nil {
+		t.Fatalf("link %v: %v", link, err)
+	}
+	if err := os.WriteFile(filepath.Join(link.LabelSetDir(pack.Dir), labelset.ManifestFile), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if code, _, _ := runReference("validate", "--pack", pack.Dir); code != 1 {
-		t.Error("validated against a damaged sidecar")
+		t.Error("validated against a damaged label set")
 	}
 }
 
@@ -285,7 +290,7 @@ func followingPack(t *testing.T) *annotation.Pack {
 				Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 		}
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	review := annotation.PhysicalReview{
@@ -485,7 +490,7 @@ func fitPack(t *testing.T) *annotation.Pack {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car", SampleID: i, PointIndices: all,
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	return pack

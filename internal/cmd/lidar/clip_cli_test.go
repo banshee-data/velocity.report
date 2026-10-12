@@ -24,7 +24,7 @@ import (
 // names when that packet is decoded again on its own.
 func checkPackReturnsAgainstCapture(t *testing.T, pack *annotation.Pack, pcap string) {
 	t.Helper()
-	if pack.Manifest.SchemaVersion != annotation.PackSchemaVersion || !pack.HasReturns() {
+	if pack.Manifest.SchemaVersion != annotation.PackSchemaVersion || len(pack.Packets) == 0 {
 		t.Fatalf("clip wrote a version %d pack without returns", pack.Manifest.SchemaVersion)
 	}
 	port, err := network.DetectUDPPort(pcap)

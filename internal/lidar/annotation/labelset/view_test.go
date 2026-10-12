@@ -60,8 +60,8 @@ func writeTestPack(t *testing.T, dir string, packets []uint64, frames []testFram
 func TestPackV2RoundTripAndTamper(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pack")
 	p := writeTestPack(t, dir, []uint64{1, 2, 3}, []testFrame{{0, 2, []uint64{5, 6, 410}}, {2, 1, []uint64{800, 801}}}, "run-a")
-	if !p.HasReturns() || p.Manifest.SchemaVersion != annotation.PackSchemaVersion {
-		t.Fatalf("version %d, returns %v", p.Manifest.SchemaVersion, p.HasReturns())
+	if p.Manifest.SchemaVersion != annotation.PackSchemaVersion || len(p.Packets) != 3 {
+		t.Fatalf("version %d, %d packets", p.Manifest.SchemaVersion, len(p.Packets))
 	}
 	got, err := p.ReturnsAt(1)
 	if err != nil || len(got) != 2 || got[0] != 800 {

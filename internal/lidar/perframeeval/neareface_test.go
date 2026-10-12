@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 )
@@ -472,19 +473,29 @@ func TestNearFaceRefusesAFrozenSplitWhoseLabelsChanged(t *testing.T) {
 	path, _ := freezeNearFace(t, f)
 	dbPath := filepath.Join(t.TempDir(), "e.db")
 	writeNearFaceDB(t, dbPath, map[string]nfBody{"exact": {}})
-	// The split pins the labels' exact bytes: one more byte and it no longer binds.
-	head := filepath.Join(f.packDir, "annotations.json")
-	b, err := os.ReadFile(head)
+	// The split pins a membership revision by its state digest. Edit the
+	// labels, then drop the journal, as a published label set has none: the
+	// pinned revision can no longer be rebuilt, and the head is not it.
+	pack, err := annotation.OpenPack(f.packDir)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(head, append(b, '\n'), 0o644); err != nil {
+	s, err := annotation.LoadSidecar(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Objects[0].Notes = "edited after the freeze"
+	ls, err := labelset.SaveMembership(pack, s, labelset.Change{Author: "op", Operation: "note"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(ls.Dir, labelset.JournalFile)); err != nil {
 		t.Fatal(err)
 	}
 	o := nfOpts(f)
 	o.SplitManifestPath = path
-	if _, err := ScoreNearFaces(o, []ArmSpec{nfArm("exact", dbPath, "exact")}); err == nil {
-		t.Fatal("a frozen split scored against labels that are not the ones it pinned")
+	if _, err := ScoreNearFaces(o, []ArmSpec{nfArm("exact", dbPath, "exact")}); err == nil || !strings.Contains(err.Error(), "predates the history") {
+		t.Fatalf("a frozen split scored against labels that are not the ones it pinned: %v", err)
 	}
 }
 

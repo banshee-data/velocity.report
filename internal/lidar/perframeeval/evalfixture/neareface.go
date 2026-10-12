@@ -6,6 +6,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -110,7 +111,8 @@ func WriteNearFacePack(dir string, o NearFaceOptions) (*NearFaceFixture, error) 
 				s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: NearFaceObject, SampleID: i, PointIndices: masks[i],
 					Completeness: annotation.MaskPartial, Visibility: annotation.VisiblePresent, Status: status})
 			}
-			return annotation.SaveSidecar(pack, s)
+			_, err := labelset.SaveMembership(pack, s, labelset.Change{Author: "fixture", Operation: "fixture"})
+			return err
 		},
 		func() error {
 			return WriteSplitManifest(path, annotation.SplitManifest{

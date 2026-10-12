@@ -255,7 +255,7 @@ func TestPhysicalEditRefusesStaleBasesAndValidatesWithoutWriting(t *testing.T) {
 	cur, _ := LoadPhysicalReferences(p)
 	pinned := s.Digest()
 	s.Change = Provenance{Author: "other", Operation: "label"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if err := savePhysicalPinned(p, cur, 0, &pinned); !errors.Is(err, ErrMembershipChanged) {
@@ -357,7 +357,7 @@ func TestPhysicalEditRejectionStaleLinksAndDamage(t *testing.T) {
 	// Rejecting the object in membership leaves the references stale; a
 	// review is a save, so it is refused until they are repaired.
 	s.Objects[0].Status = StatusRejected
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordBody, "car-1", "body-car-1")); !errors.Is(err, ErrPhysicalInvalid) {
@@ -370,7 +370,7 @@ func TestPhysicalEditRejectionStaleLinksAndDamage(t *testing.T) {
 	review := reviewOf(t, p, PhysicalRecordBody, "car-1", "body-car-1")
 	for name, damage := range map[string]func(){
 		"physical head": func() { writeFile(t, filepath.Join(p.Dir, physicalReferenceFile), []byte("{")) },
-		"sidecar":       func() { writeFile(t, filepath.Join(p.Dir, sidecarFile), []byte("{")) },
+		"sidecar":       func() { breakMembership(p) },
 	} {
 		damage()
 		if _, err := ValidatePhysicalEdit(p, edit); err == nil {
@@ -422,7 +422,7 @@ func TestPhysicalReviewPinsMembershipAndReportsDrift(t *testing.T) {
 	// A change in a frame nothing cites: no drift.
 	s.Masks[len(s.Masks)-2].PointIndices = []int{0, 1, 2, 3, 4, 5, 6} // car-1 at sample 5
 	s.Change = Provenance{Author: "op", Operation: "label"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if d := cur.ReviewDrift(p, s); len(d) != 0 {
@@ -435,7 +435,7 @@ func TestPhysicalReviewPinsMembershipAndReportsDrift(t *testing.T) {
 			s.Masks[i].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
 		}
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	drift := cur.ReviewDrift(p, s)
@@ -474,9 +474,7 @@ func TestPhysicalReviewPinsMembershipAndReportsDrift(t *testing.T) {
 		t.Fatalf("drift after re-review: %v", d)
 	}
 	// Membership history lost: nothing can show the review still holds.
-	if err := os.RemoveAll(filepath.Join(p.Dir, revisionDir)); err != nil {
-		t.Fatal(err)
-	}
+	forgetMembershipHistory(p)
 	s.Masks[0].PointIndices = []int{0, 1, 2, 3, 4, 5, 6, 7}
 	if d := out.Document.ReviewDrift(p, s); len(d) != 2 || !strings.Contains(d[0].Problem, "no longer retained") {
 		t.Fatalf("lost history drift %v", d)
@@ -578,7 +576,7 @@ func TestPhysicalHistoryAndRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Objects[0].Status = StatusRejected
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := RestorePhysicalRevision(p, req()); !errors.Is(err, ErrPhysicalInvalid) {

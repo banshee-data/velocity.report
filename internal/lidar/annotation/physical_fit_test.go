@@ -124,7 +124,7 @@ func fitScenePack(t *testing.T, scenes [][]fitBox, transform string) (*Pack, *Si
 			s.Masks = append(s.Masks, mask("post", i, post...))
 		}
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := LoadSidecar(p)

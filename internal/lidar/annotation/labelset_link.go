@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 )
 
-// LabelSetLinkFile, in a version 2 pack's directory, names the label set that
-// holds the pack's membership. It sits outside the pack digest: linking a
+// LabelSetLinkFile, in a pack's directory, names the label set that holds the
+// pack's membership. It sits outside the pack digest: linking a
 // pack to labels does not change its points.
 const LabelSetLinkFile = "label-set-link.json"
 
@@ -20,12 +20,8 @@ type LabelSetLink struct {
 	Path       string `json:"path"`
 }
 
-// ErrMembershipInLabelSet means a pack's membership lives in a label set and
-// is saved through it, never as a sidecar in the pack.
-var ErrMembershipInLabelSet = errors.New("this pack's membership is stored in a label set; save through the label set")
-
-// MembershipProjector returns the version 1 sidecar encoding of a label
-// set's membership as a linked pack shows it: point indices of that pack, at
+// MembershipProjector returns the Sidecar encoding of a label set's
+// membership as a linked pack shows it: point indices of that pack, at
 // a label set revision (0 for the head). It also returns the label set's
 // state digest at that revision, which is the projected sidecar's membership
 // token: pins on a linked pack's membership (physical references, features,
@@ -65,11 +61,8 @@ func (l LabelSetLink) LabelSetDir(packDir string) string {
 	return filepath.Join(packDir, filepath.FromSlash(l.Path))
 }
 
-// WriteLabelSetLink links a version 2 pack to a label set directory.
+// WriteLabelSetLink links a pack to a label set directory.
 func WriteLabelSetLink(p *Pack, labelSetID, labelSetDir string) error {
-	if !p.HasReturns() {
-		return fmt.Errorf("only a version 2 pack can be linked to a label set; %s is version %d", p.Dir, p.Manifest.SchemaVersion)
-	}
 	rel, err := filepath.Rel(p.Dir, labelSetDir)
 	if err != nil {
 		return err

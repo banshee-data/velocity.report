@@ -249,7 +249,7 @@ func TestPhysicalReferencesMadeStaleByAMembershipEdit(t *testing.T) {
 	}
 	s = withoutMasks(s, map[string][]int{"car-1": {3}})
 	s.Change.Operation = "review"
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("a membership edit was refused: %v", err)
 	}
 	if !bytes.Equal(physicalBytes, readPhysical(t, p)) {
@@ -288,9 +288,7 @@ func TestPhysicalReferencesMadeStaleByAMembershipEdit(t *testing.T) {
 	}
 
 	// A sidecar that cannot be read cannot be checked against.
-	if err := os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("{"), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	breakMembership(p)
 	if _, err := LoadPhysicalReferences(p); err == nil || !strings.Contains(err.Error(), "check physical reference links") {
 		t.Fatalf("loaded against a damaged sidecar: %v", err)
 	}
@@ -336,7 +334,7 @@ func TestPreparePhysicalImportChecksTheMerge(t *testing.T) {
 	s, _ := LoadSidecar(p)
 	s = withoutMasks(s, map[string][]int{"car-2": {0}})
 	s.Change.Operation = "edit"
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := PreparePhysicalImport(p, add, false); err == nil || !strings.Contains(err.Error(), `object "car-2"`) {
@@ -347,7 +345,7 @@ func TestPreparePhysicalImportChecksTheMerge(t *testing.T) {
 	}
 	for name, broken := range map[string]func(){
 		"damaged references": func() { os.WriteFile(filepath.Join(p.Dir, physicalReferenceFile), []byte("{"), 0o600) },
-		"damaged annotation": func() { os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("{"), 0o600) },
+		"damaged annotation": func() { breakMembership(p) },
 	} {
 		broken()
 		if _, err := PreparePhysicalImport(p, add, false); err == nil {

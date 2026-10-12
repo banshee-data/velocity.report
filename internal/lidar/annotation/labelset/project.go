@@ -15,10 +15,10 @@ func init() {
 }
 
 // ProjectAt renders a label set's membership at a revision (0 for the head)
-// as the version 1 sidecar a linked pack would hold: the masks of the windows
-// the pack shows, in its point indices, encoded as the version 1 writer
-// encodes. Consumers that read sidecars (splits, physical references,
-// features, evaluators) read a linked pack's membership this way unchanged.
+// in the pack's own terms: the masks of the windows the pack shows, in its
+// point indices, encoded as the annotation package's Sidecar. Consumers of a
+// pack's membership (splits, physical references, features, evaluators) read
+// it this way.
 // It returns the label set's state digest at that revision too: the token
 // that pins a linked pack's membership, the same whichever pack shows it.
 func ProjectAt(dir, labelSetID string, p *annotation.Pack, revision int) ([]byte, string, error) {

@@ -1,8 +1,8 @@
 // Package labelset stores reference labels against the returns of a capture
 // rather than the points of one run's export.
 //
-// A version 1 sidecar cites sample_id + point_index inside an annotation pack.
-// The pack is a run's foreground with the run's frame numbering, so the same
+// An annotation pack cites sample_id + point_index, and its version 1 sidecar
+// held its labels that way. The pack is a run's foreground with the run's frame numbering, so the same
 // capture replayed again, even with the same settings, gives a pack with a
 // different digest and the labels no longer apply. A label set instead cites
 // returns by (packet key, block, channel). The packet key is the first 64 bits

@@ -26,6 +26,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -163,7 +164,7 @@ func writePack(dir string) (*annotation.Pack, error) {
 		}
 	}
 	s.Change = annotation.Provenance{Author: "fixture", Operation: "fixture"}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: "fixture", Operation: "fixture"}); err != nil {
 		return nil, err
 	}
 	return pack, nil

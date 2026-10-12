@@ -29,7 +29,13 @@ func TestPackInventoryKeepsCorruptReviewDataVisibleAsErrors(t *testing.T) {
 	if item := readPackListing(dir); item.Error == "" {
 		t.Fatal("malformed manifest went unnoticed")
 	}
-	if err := os.WriteFile(manifestPath, []byte(`{"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
+	if err := os.WriteFile(manifestPath, []byte(`{"schema_version":1,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if item := readPackListing(dir); !strings.Contains(item.Error, "annotation-v1-reader") {
+		t.Fatalf("a version 1 pack was listed as readable: %+v", item)
+	}
+	if err := os.WriteFile(manifestPath, []byte(`{"schema_version":2,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if item := readPackListing(dir); item.Status != "packed" || item.Error != "" {
@@ -45,20 +51,20 @@ func TestPackInventoryKeepsCorruptReviewDataVisibleAsErrors(t *testing.T) {
 	if item := readPackListing(dir); item.ProposalLayers != 1 || item.Status != "proposed" {
 		t.Fatalf("proposal state: %+v", item)
 	}
-	sidecarPath := filepath.Join(dir, "annotations.json")
-	if err := os.WriteFile(sidecarPath, []byte("broken"), 0644); err != nil {
+	linkPath := filepath.Join(dir, annotation.LabelSetLinkFile)
+	if err := os.WriteFile(linkPath, []byte("broken"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if item := readPackListing(dir); item.Error == "" {
-		t.Fatal("malformed sidecar went unnoticed")
+	if item := readPackListing(dir); !strings.HasPrefix(item.Error, "label set link") {
+		t.Fatalf("malformed label set link went unnoticed: %+v", item)
 	}
-	if err := os.WriteFile(sidecarPath, []byte(`{"pack_digest":"sha256:other"}`), 0644); err != nil {
+	if err := os.WriteFile(linkPath, []byte(`{"label_set_id":"gone","path":"labels/gone"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if item := readPackListing(dir); item.Error != "sidecar pack digest mismatch" {
-		t.Fatalf("wrong sidecar binding: %+v", item)
+	if item := readPackListing(dir); !strings.HasPrefix(item.Error, "label set:") {
+		t.Fatalf("a link to a missing label set went unnoticed: %+v", item)
 	}
-	if err := os.Remove(sidecarPath); err != nil {
+	if err := os.Remove(linkPath); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "segment.json"), []byte(`{"pack_digest":"sha256:other"}`), 0644); err != nil {
@@ -107,7 +113,7 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	if err := os.MkdirAll(nested, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nested, "manifest.json"), []byte(`{"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nested, "manifest.json"), []byte(`{"schema_version":2,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks)
@@ -168,16 +174,5 @@ func TestPackInventoryReportsLinkedLabelSet(t *testing.T) {
 	inputs := packListingInputs(packDir)
 	if inputs[len(inputs)-1] != filepath.Join(setDir, labelset.ManifestFile) {
 		t.Fatalf("listing cache does not watch the label set: %v", inputs)
-	}
-}
-
-func TestListingNamesTheVersion2SuccessorOfAMigratedPack(t *testing.T) {
-	listed := linkMigrations([]packListing{
-		{PackDir: "/packs/v1-pack", Status: "reviewed"},
-		{PackDir: "/packs/v1-pack-v2", LabelSetID: "ls", LabelSetMigratedFrom: "v1-pack"},
-		{PackDir: "/packs/other", Status: "packed"},
-	})
-	if listed[0].MigratedTo != "/packs/v1-pack-v2" || listed[1].MigratedTo != "" || listed[2].MigratedTo != "" {
-		t.Fatalf("migrated_to %q, %q, %q", listed[0].MigratedTo, listed[1].MigratedTo, listed[2].MigratedTo)
 	}
 }

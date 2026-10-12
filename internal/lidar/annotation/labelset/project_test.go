@@ -1,8 +1,8 @@
 package labelset
 
 import (
-	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
@@ -66,7 +66,66 @@ func TestLinkedPackReadsProjectedMembership(t *testing.T) {
 	if r1.Digest() != first {
 		t.Fatalf("revision 1 projects to %s, first read %s", r1.Digest(), first)
 	}
-	if err := annotation.SaveSidecar(pack, head); !errors.Is(err, annotation.ErrMembershipInLabelSet) {
-		t.Fatalf("sidecar save on a linked pack: %v", err)
+}
+
+func TestSaveMembershipCreatesLinksAndKeepsHiddenLabels(t *testing.T) {
+	base := t.TempDir()
+	a := writeTestPack(t, filepath.Join(base, "a"), []uint64{10, 11, 12, 13},
+		[]testFrame{{0, 2, []uint64{5, 6, 7, 450}}, {2, 2, []uint64{800, 900}}}, "run-a")
+
+	// A pack with no label set has empty membership; its first save makes one
+	// beside it and links it.
+	sc, err := annotation.LoadSidecar(a)
+	if err != nil || len(sc.Masks) != 0 || sc.Digest() != "" {
+		t.Fatalf("unlinked pack membership %+v (%v)", sc, err)
+	}
+	sc.Objects = []annotation.Object{{ObjectID: "obj_a", Class: "car", Status: annotation.StatusReviewed}}
+	sc.Masks = []annotation.FrameMask{{ObjectID: "obj_a", SampleID: 0, PointIndices: []int{0, 1, 2},
+		Completeness: annotation.MaskPartial, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed}}
+	ls, err := SaveMembership(a, sc, Change{Author: "dd", Operation: "save_mask"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	link, _ := annotation.ReadLabelSetLink(a.Dir)
+	if link == nil || link.LabelSetID != ls.Manifest.LabelSetID || filepath.Dir(link.LabelSetDir(a.Dir)) != filepath.Join(base, "labels") {
+		t.Fatalf("link %+v for set %s in %s", link, ls.Manifest.LabelSetID, ls.Dir)
+	}
+	if ls.Revision() != 1 {
+		t.Fatalf("created with its membership at revision %d, want 1", ls.Revision())
+	}
+	back, err := annotation.LoadSidecar(a)
+	if err != nil || len(back.Masks) != 1 || len(back.Masks[0].PointIndices) != 3 || back.Digest() != ls.StateDigest() {
+		t.Fatalf("reloaded %+v (%v)", back, err)
+	}
+
+	// Another run of the capture, attached, edits the mask through its view:
+	// it shows returns 5, 6 and 450 but not 7, which survives.
+	b := writeTestPack(t, filepath.Join(base, "b"), []uint64{9, 10, 11, 12, 13},
+		[]testFrame{{1, 2, []uint64{405, 406, 850}}, {3, 2, []uint64{1300}}}, "run-b")
+	if err := annotation.WriteLabelSetLink(b, ls.Manifest.LabelSetID, ls.Dir); err != nil {
+		t.Fatal(err)
+	}
+	viaB, err := annotation.LoadSidecar(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(viaB.Masks) != 1 || len(viaB.Masks[0].PointIndices) != 2 {
+		t.Fatalf("run B sees %+v", viaB.Masks)
+	}
+	viaB.Masks[0].PointIndices = []int{0, 1, 2} // add return 450
+	if _, err := SaveMembership(b, viaB, Change{Author: "dd", Operation: "save_mask"}); err != nil {
+		t.Fatal(err)
+	}
+	ls, _ = Open(ls.Dir)
+	if got := ls.State.Masks[0].Members; !got.Contains(7) || !got.Contains(450) || got.Count() != 4 {
+		t.Fatalf("members after run B's edit %v", got)
+	}
+
+	// Deleting the mask through run B would lose return 7, which B does not
+	// show: refused.
+	viaB, _ = annotation.LoadSidecar(b)
+	viaB.Masks = nil
+	if _, err := SaveMembership(b, viaB, Change{Author: "dd"}); err == nil || !strings.Contains(err.Error(), "does not show") {
+		t.Fatalf("deleting a mask with hidden returns: %v", err)
 	}
 }

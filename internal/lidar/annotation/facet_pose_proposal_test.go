@@ -25,11 +25,12 @@ func ptrU32(x uint32) *uint32 { return &x }
 
 func TestFacetPoseProposalUsesSavedSpotAndNeverMutatesOrRequiresTargetTruth(t *testing.T) {
 	p, req := poseRequest(t)
-	files := []string{sidecarFile, featureFile, physicalReferenceFile}
+	files := []string{featureFile, physicalReferenceFile}
 	before := map[string][]byte{}
 	for _, f := range files {
 		before[f], _ = os.ReadFile(filepath.Join(p.Dir, f))
 	}
+	membershipBefore := membershipHead(p)
 	result, err := ProposeFacetPose(p, req)
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +43,9 @@ func TestFacetPoseProposalUsesSavedSpotAndNeverMutatesOrRequiresTargetTruth(t *t
 		if !bytes.Equal(after, before[f]) {
 			t.Fatal("proposal wrote", f)
 		}
+	}
+	if !bytes.Equal(membershipHead(p), membershipBefore) {
+		t.Fatal("proposal changed membership")
 	}
 	refs, err := LoadPhysicalReferences(p)
 	if err != nil {
@@ -241,7 +245,7 @@ func TestFacetPoseProposalRejectsStaleAndAbsentEvidence(t *testing.T) {
 			case "time":
 				req.TimestampNs++
 			case "membership unreadable":
-				os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("bad JSON"), 0600)
+				breakMembership(p)
 			case "physical unreadable":
 				os.Remove(filepath.Join(p.Dir, physicalReferenceFile))
 			case "invalid sample":
@@ -267,7 +271,7 @@ func TestFacetPoseProposalRejectsStaleAndAbsentEvidence(t *testing.T) {
 						t.Fatal(err)
 					}
 					membership.Masks[1].UncertainIndices = []int{7}
-					if err = SaveSidecar(p, membership); err != nil {
+					if err = saveMembership(p, membership); err != nil {
 						t.Fatal(err)
 					}
 					req.MembershipRevision = membership.Revision

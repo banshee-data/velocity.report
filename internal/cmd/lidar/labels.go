@@ -26,15 +26,12 @@ Usage:
   velocity lidar labels <command> [flags]
 
 Commands:
-  migrate   Carry a version 1 pack's labels into a label set by an exact
-            mapping onto the capture's returns, and write a version 2 pack
-  create    Start a label set from a version 2 pack and link the pack to it
-  attach    Add another version 2 pack of the same capture as a domain and
-            link it
+  create    Start a label set from a pack and link the pack to it
+  attach    Add another pack of the same capture as a domain and link it
   bind      Verify a capture file holds the label set's packets and record it
   verify    Replay the journal and check every revision's digest
   info      Summarise a label set
-  project   Print a linked pack's membership as a version 1 sidecar
+  project   Print a linked pack's membership in its own point indices
   publish   Copy the current state, without the journal, to a directory
   census    Count packet keys in capture files and report duplicates`
 
@@ -45,7 +42,7 @@ func LabelsMain(args []string) int {
 		return 0
 	}
 	cmds := map[string]func([]string) error{
-		"migrate": labelsMigrate, "create": labelsCreate, "attach": labelsAttach, "bind": labelsBind,
+		"create": labelsCreate, "attach": labelsAttach, "bind": labelsBind,
 		"verify": labelsVerify, "info": labelsInfo, "project": labelsProject, "publish": labelsPublish,
 		"census": labelsCensus,
 	}
@@ -76,45 +73,6 @@ func writeJSON(w io.Writer, v any) error {
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(v)
-}
-
-func labelsMigrate(args []string) error {
-	fs := flag.NewFlagSet("labels migrate", flag.ContinueOnError)
-	pack := fs.String("pack", "", "Version 1 pack directory (required)")
-	pcap := fs.String("pcap", "", "The capture the pack was cut from (required)")
-	port := fs.Int("port", 2369, "LiDAR data UDP port")
-	out := fs.String("labels", "", "Label set directory to create (required; must not exist or be empty)")
-	view := fs.String("view", "", "Directory for the version 2 copy of the pack, linked to the label set (optional)")
-	name := fs.String("name", "", "Label set name")
-	history := fs.Bool("history", true, "Convert every retained revision into the journal (false: start from the head)")
-	report := fs.String("report", "", "Write the migration report as JSON here (default: stdout)")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if *pack == "" || *pcap == "" || *out == "" {
-		fs.Usage()
-		return fmt.Errorf("--pack, --pcap and --labels are required")
-	}
-	rep, err := labelset.Migrate(labelset.MigrateConfig{
-		PackDir: *pack, PCAPPath: *pcap, UDPPort: *port, LabelSetDir: *out, ViewPackDir: *view,
-		Name: *name, Build: buildIdentity(), History: *history,
-		Progress: func(f string, a ...any) { fmt.Fprintf(os.Stderr, f+"\n", a...) },
-	})
-	if rep != nil {
-		w := io.Writer(os.Stdout)
-		if *report != "" {
-			f, ferr := os.Create(*report)
-			if ferr != nil {
-				return ferr
-			}
-			defer f.Close()
-			w = f
-		}
-		if werr := writeJSON(w, rep); werr != nil && err == nil {
-			err = werr
-		}
-	}
-	return err
 }
 
 func labelsCreate(args []string) error {
@@ -245,7 +203,7 @@ func labelsInfo(args []string) error {
 
 func labelsProject(args []string) error {
 	fs := flag.NewFlagSet("labels project", flag.ContinueOnError)
-	pack := fs.String("pack", "", "Linked version 2 pack (required)")
+	pack := fs.String("pack", "", "Linked pack (required)")
 	revision := fs.Int("revision", 0, "Label set revision (0: head)")
 	if err := fs.Parse(args); err != nil {
 		return err

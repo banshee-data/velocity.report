@@ -48,7 +48,7 @@ func draftScene(t *testing.T) (*Pack, *Sidecar) {
 	add(Object{ObjectID: "bus_n", Class: "bus", Confidence: 1, Status: StatusProposed}, 0, 9, func(m *FrameMask) { m.Status = StatusProposed })
 	add(reviewedObject("noise_n", "noise"), 0, 9, nil)
 	add(Object{ObjectID: "gone", Class: "car", Status: StatusRejected}, 0, 1, func(m *FrameMask) { m.Status = StatusRejected })
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	return p, s

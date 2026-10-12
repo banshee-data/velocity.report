@@ -8,10 +8,10 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
 
-// LayoutOf converts a version 2 pack's return layout.
+// LayoutOf converts a pack's return layout.
 func LayoutOf(p *annotation.Pack) (Layout, error) {
-	if !p.HasReturns() || p.Manifest.ReturnLayout == nil {
-		return Layout{}, fmt.Errorf("pack %s carries no returns: it is version %d", p.Dir, p.Manifest.SchemaVersion)
+	if p.Manifest.ReturnLayout == nil {
+		return Layout{}, fmt.Errorf("pack %s has no return layout", p.Dir)
 	}
 	l := p.Manifest.ReturnLayout
 	return Layout{Model: l.Model, Blocks: l.Blocks, Channels: l.Channels}, nil

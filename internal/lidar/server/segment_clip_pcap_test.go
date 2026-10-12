@@ -509,8 +509,8 @@ func TestClipRetryNeverRemovesAWholePack(t *testing.T) {
 	}
 	plain, _ := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "1")
 	reviewed, digest := writeClipAttempt(t, ws, job.JobID, clip.SegmentID, "2")
-	review := filepath.Join(reviewed, "annotations.json")
-	if err := os.WriteFile(review, []byte(`{"objects":[]}`), 0644); err != nil {
+	review := filepath.Join(reviewed, annotation.LabelSetLinkFile)
+	if err := os.WriteFile(review, []byte(`{"label_set_id":"ls","path":"../labels/ls"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	unfinished := filepath.Join(ws.annotationPacksDir, clipAttemptPrefix(job.JobID)+"3")

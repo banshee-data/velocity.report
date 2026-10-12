@@ -205,9 +205,7 @@ func TestPhysicalImportParsing(t *testing.T) {
 func TestPhysicalImportDependsOnReadableState(t *testing.T) {
 	t.Run("damaged sidecar", func(t *testing.T) {
 		p := physPack(t)
-		if err := os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("{"), 0o600); err != nil {
-			t.Fatal(err)
-		}
+		breakMembership(p)
 		if _, err := ImportPhysicalReferences(p, importOf(p), Provenance{Author: "a"}, false); err == nil {
 			t.Fatal("imported against a damaged sidecar")
 		}

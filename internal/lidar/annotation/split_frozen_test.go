@@ -63,7 +63,7 @@ func reviewSplitPack(t *testing.T, p *Pack, edit func(*Sidecar)) *Sidecar {
 		edit(s)
 	}
 	s.Change = Provenance{Author: "reviewer", Operation: "review"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	return s
@@ -625,24 +625,14 @@ func TestFrozenSplitRefusesChangesAfterFreezing(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, "parse selection record"},
-		{"pinned revision lost", func(t *testing.T, q *Pack) {
-			if err := os.Remove(filepath.Join(q.Dir, sidecarFile)); err != nil {
-				t.Fatal(err)
-			}
-		}, "load pinned annotation revision 1"},
+		{"pinned revision lost", func(t *testing.T, q *Pack) { dropMembership(q) }, "load pinned annotation revision 1"},
 		{"pinned revision rewritten", func(t *testing.T, q *Pack) {
 			s, err := LoadSidecar(q)
 			if err != nil {
 				t.Fatal(err)
 			}
 			s.Objects[0].Notes = "rewritten in place"
-			b, err := json.MarshalIndent(s, "", "  ")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(q.Dir, sidecarFile), append(b, '\n'), 0o644); err != nil {
-				t.Fatal(err)
-			}
+			rewriteMembershipHead(q, s)
 		}, "is not the bytes that were frozen"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1441,7 +1431,7 @@ func TestFreezeSplitRefusesStalePhysicalLinksAndDrift(t *testing.T) {
 	// mask at sample 5 is back to a proposal, which is membership review
 	// left unfinished.
 	unsettleMembership(s)
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1608,7 +1598,7 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 		}
 	}
 	s.Change = Provenance{Author: "op", Operation: "revise"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
@@ -1622,9 +1612,7 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 	if _, err := f.BindPhysical(p, bound); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.RemoveAll(filepath.Join(p.Dir, revisionDir)); err != nil {
-		t.Fatal(err)
-	}
+	forgetMembershipHistory(p)
 	_, bound, err = f.Bind(p)
 	if err != nil {
 		t.Fatal(err)
@@ -1783,7 +1771,7 @@ func TestPreviewFreeze(t *testing.T) {
 	// Review problems: reported, not returned as an error, and nothing
 	// would freeze.
 	unsettleMembership(s)
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	pv, err = PreviewFreeze(opts)

@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"golang.org/x/sys/unix"
 )
 
@@ -65,10 +66,21 @@ func physicalTestPack(t *testing.T, root, name string) *annotation.Pack {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car-1", SampleID: i, PointIndices: []int{0, 1, 2, 3, 4, 5, 6, 7},
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	return p
+}
+
+// labelSetManifest is the manifest of the label set a pack links, which
+// every membership save rewrites.
+func labelSetManifest(t *testing.T, packDir string) string {
+	t.Helper()
+	link, err := annotation.ReadLabelSetLink(packDir)
+	if err != nil || link == nil {
+		t.Fatalf("pack %s links no label set: %v", packDir, err)
+	}
+	return filepath.Join(link.LabelSetDir(packDir), labelset.ManifestFile)
 }
 
 // physicalTestObject is car-1 with an observed full length, a centre
@@ -155,12 +167,12 @@ func editBody(state map[string]any, objects []annotation.PhysicalObject) map[str
 
 // The whole authoring round trip over the real HTTP boundary: load an empty
 // set, validate, save a proposal, review body and keyframe separately, and
-// refuse a stale save; the membership sidecar's bytes never change.
+// refuse a stale save; the membership never changes.
 func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	p := physicalTestPack(t, root, "run-a")
-	sidecarPath := filepath.Join(p.Dir, "annotations.json")
-	sidecarBefore, err := os.ReadFile(sidecarPath)
+	membershipPath := labelSetManifest(t, p.Dir)
+	membershipBefore, err := os.ReadFile(membershipPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,12 +244,12 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 		t.Fatalf("review keyframe: %d %v", status, out)
 	}
 
-	sidecarAfter, err := os.ReadFile(sidecarPath)
+	membershipAfter, err := os.ReadFile(membershipPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(sidecarBefore, sidecarAfter) {
-		t.Fatal("physical edits changed the membership sidecar")
+	if !bytes.Equal(membershipBefore, membershipAfter) {
+		t.Fatal("physical edits changed the membership")
 	}
 }
 
@@ -414,7 +426,7 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	}
 	s.Objects[0].Status = annotation.StatusRejected
 	s.Change = annotation.Provenance{Author: "op", Operation: "reject"}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	stale := c.load("run-a/pack", p.Manifest.PackDigest)
@@ -431,7 +443,7 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	// A second revision, then a damaged head: retained history still reads,
 	// and is not presented as the head; the head itself refuses.
 	s.Objects[0].Status = annotation.StatusReviewed
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	cur := c.load("run-a/pack", p.Manifest.PackDigest)
@@ -455,11 +467,11 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(p.Dir, "physical-reference-revisions")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(p.Dir, "annotations.json"), []byte("{"), 0o644); err != nil {
+	if err := os.WriteFile(labelSetManifest(t, p.Dir), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=run-a/pack&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
-		t.Fatalf("damaged sidecar: %d %v", status, out)
+		t.Fatalf("damaged label set: %d %v", status, out)
 	}
 
 	rec := httptest.NewRecorder()
@@ -557,7 +569,7 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	}
 	s.Masks[0].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
 	s.Change = annotation.Provenance{Author: "op", Operation: "label"}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	drifted := c.load("run-a/pack", p.Manifest.PackDigest)

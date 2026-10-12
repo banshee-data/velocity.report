@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 )
 
@@ -116,7 +117,7 @@ func TestPhysicalPinnedSplitSurvivesLaterSaves(t *testing.T) {
 		}
 	}
 	s.Change = annotation.Provenance{Author: "operator", Operation: "reject"}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	if head, err := annotation.LoadPhysicalReferences(pack); err != nil || head.Revision != 2 || len(head.Stale()) == 0 {
