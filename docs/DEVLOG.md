@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 12, 2026 - Weekly research briefing
+
+- {claude/research-briefing-2026-10-12} Reviewed the week's roadside LiDAR and safety literature in a [briefing](lidar/operations/brief/research-briefing-2026-10-12.md): no definition changed; the FHWA SSAM user manual, read for the first time, confirms the 5 s PET default the behaviour plan carried as secondary (B8 answered), Waymo's ESV26-294 comparison of naturalistic and police-reported VRU rates entered the crash-data plan's sources, and an RTK-referenced probe vehicle and a point-count covariate for weather comparisons were logged as open questions.
+
 ## October 11, 2026 - LiDAR experiments, the :8081 replay, tooling, market reviews, and corrected references
 
 - Split the [LiDAR market watch](platform/hardware/lidar-market-watch.md) into one current assessment and annual review archives, preserving both published entries and their old anchors; separated model facts from offers, made availability and snippet evidence explicit, and updated the fortnightly review skill to expire offers after 28 elapsed UTC days without refreshing blocked observations (#740).
