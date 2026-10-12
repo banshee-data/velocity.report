@@ -57,7 +57,14 @@ times its size, and a selection rule in place of a search. The
 [containment corpus screen](operations/solid-body-containment-corpus-2026-10.md) scores the
 plan's first observation model, the box held to its points, on kirk0 and the 23 sites. The
 [rectangle heading screen](operations/solid-body-rectangle-heading-2026-10.md) scores the
-second, the heading observed from each frame's rectangle fit.
+second, the heading observed from each frame's rectangle fit. The
+[held-out replication](operations/geometry-convergence-heldout-2026-10.md) replays the
+candidate on each site's second segment: the heading holds, the lateral margin shrinks. The
+[region override attribution](operations/l3-region-override-attribution-kirk-2026-10.md)
+follows the zero-code L3 arms: the volatile tercile's window is the one that absorbs road users,
+switching the overrides off moves along the recall trade-off rather than across it, and an
+overrides-on retune with the height band floor at road height reaches the recall at the shipped
+false positives.
 
 ## Terminology
 

@@ -463,6 +463,8 @@ Read for the candidate this report recommends carrying, the full arm with fusion
 
 ## Recommendations
 
+_Held-out check, October 12, 2026: the [replication on second segments](geometry-convergence-heldout-2026-10.md) confirms the heading and containment findings and shrinks the lateral margin over the alignment candidate to a third._
+
 - **Carry the rectangle heading with course fusion forward as W1b's heading source**, under
   both names until W1b's remaining pieces are built: it meets G1 and G3 on kirk0 and the corpus,
   and fusion halves the lateral tail the fit alone adds.

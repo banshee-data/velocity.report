@@ -21,6 +21,13 @@ offline harness on the two labelled captures, and scored with the review's Stage
   and IDF1, but most of the flood is coherent patches it cannot tell from small objects, so it is
   necessary and not sufficient
 
+**Follow-up, October 12, 2026:** the
+[region override attribution](l3-region-override-attribution-kirk-2026-10.md) finds the opposite
+attribution to Section 4's (the volatile tercile's ×8 window, not the quiet terciles', absorbs
+road users), that the overrides-off arms are a move along the trade-off rather than a better one,
+and that an overrides-on retune with the floor at road height reaches 0.89 recall at the shipped
+false positives.
+
 ## 1. Arms
 
 All arms are the shipped `config/tuning.defaults.json` with the keys below changed in
