@@ -6,8 +6,8 @@
 //  beside the pack and links it, every save after is one journal line, an
 //  operation that writes many frames is still one, a save that changes
 //  nothing writes nothing, and undo and restore append rather than rewrite.
-//  A version 1 pack opens read only. Two runs' packs of one capture share a
-//  label set, and an edit through one keeps what only the other showed.
+//  Two runs' packs of one capture share a label set, and an edit through one
+//  keeps what only the other showed.
 //
 
 import Foundation
@@ -242,78 +242,6 @@ private func labelSetDirectory(of pack: URL) throws -> URL {
         #expect(!session.restoreRevision(1))
         #expect(session.lastError?.contains("Save or discard") == true)
         #expect(session.savedRevision == 2)
-    }
-}
-
-// MARK: - Version 1: read only
-
-@MainActor struct LegacyPackTests {
-    private func legacySidecar(packDigest: String) -> String {
-        """
-        {"schema_version": 1, "dataset_id": "ds_41b9794747f16ebe", "pack_digest": "\(packDigest)",
-         "revision": 7, "updated_utc": "2026-09-15T21:00:00Z",
-         "objects": [{"object_id": "obj_1", "class": "car", "confidence": 1, "status": "reviewed",
-                      "provenance": {"author": "dd", "created_utc": "", "revision": 1}}],
-         "masks": [{"object_id": "obj_1", "sample_id": 0, "point_indices": [0, 1, 2],
-                    "completeness": "complete", "visibility": "present", "status": "reviewed",
-                    "provenance": {"author": "dd", "created_utc": "", "revision": 1}}]}
-        """
-    }
-
-    @Test func aVersion1PackShowsItsLabelsAndRefusesToSave() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        let sidecarURL = dir.appendingPathComponent("annotations.json")
-        let bytes = Data(legacySidecar(packDigest: PackFixture.packDigest).utf8)
-        try bytes.write(to: sidecarURL)
-
-        let session = try openLabelled(dir)
-        let reason = try #require(session.readOnlyReason)
-        #expect(reason.contains("velocity lidar labels migrate --pack \(dir.path) --pcap <file>"))
-        #expect(session.sidecar.mask(objectID: "obj_1", sampleID: 0)?.pointIndices == [0, 1, 2])
-        #expect(session.savedRevision == 7)
-        #expect(session.membershipDigest == AnnotationPack.digest(bytes))
-        #expect(!session.canAttachLabelSet)
-
-        _ = session.createObject(objectClass: "bus")
-        #expect(
-            session.select(
-                polygon: SelectionPolygon(rectFrom: simd_float2(0, 0), to: simd_float2(3, 3))))
-        #expect(!session.save())
-        #expect(session.lastError?.contains("read only") == true)
-        #expect(session.conflict == nil, "read only is not a conflict to reload away")
-        #expect(!session.undoLastSave())
-        #expect(session.revisionHistory().isEmpty)
-
-        // Nothing was written: not the sidecar, not a label set.
-        #expect(try Data(contentsOf: sidecarURL) == bytes)
-        let siblings = try FileManager.default.contentsOfDirectory(atPath: dir.path)
-        #expect(
-            Set(siblings) == ["manifest.json", "samples.json", "points.bin", "annotations.json"])
-    }
-
-    @Test func aVersion1PackWithoutLabelsOpensEmptyAndReadOnly() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        let session = try openLabelled(dir)
-        #expect(session.readOnlyReason != nil)
-        #expect(session.sidecar.masks.isEmpty)
-        #expect(session.membershipSummary.contains("read only"))
-    }
-
-    @Test func aCorruptLegacySidecarFailsToOpenRatherThanReadingAsEmpty() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        try Data("{ not json".utf8).write(to: dir.appendingPathComponent("annotations.json"))
-        #expect(throws: MembershipStoreError.self) { _ = try openLabelled(dir) }
-    }
-
-    @Test func aLegacySidecarFromAnotherPackIsRefused() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        try Data(legacySidecar(packDigest: "sha256:other").utf8).write(
-            to: dir.appendingPathComponent("annotations.json"))
-        #expect(throws: MembershipStoreError.self) { _ = try openLabelled(dir) }
     }
 }
 

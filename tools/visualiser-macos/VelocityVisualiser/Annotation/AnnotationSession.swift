@@ -62,9 +62,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     // MARK: Source
 
     let pack: AnnotationPack
-    /// Where membership is kept: the label set this version 2 pack is a view
-    /// of, or a version 1 pack's annotations.json, read only.
-    private let membership: any MembershipStore
+    /// Where membership is kept: the label set this pack is a view of.
+    private let membership: LabelSetMembership
 
     /// The current saved revision plus its concurrency token.
     private var document: MembershipDocument {
@@ -82,23 +81,21 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     /// The digest of the membership this window last read or saved: the
-    /// label set's state digest, or a version 1 sidecar's byte digest.
+    /// label set's state digest.
     var membershipDigest: String { document.loadedDigest }
 
-    /// Why this window cannot save, or nil when it can. A version 1 pack is
-    /// read only: its labels are bound to one run's export.
+    /// Why this window cannot save, or nil when it can: the folder the label
+    /// sets are kept in was not granted.
     var readOnlyReason: String? { membership.readOnlyReason }
 
     /// Where membership is kept, in one line.
     var membershipSummary: String { membership.summary }
 
     /// The label set's verified capture files and the version 1 pack it was
-    /// migrated from, a line each. Empty for a version 1 pack, and for a
-    /// version 2 pack until its first save makes a label set.
+    /// migrated from, a line each. Empty until the first save makes a label
+    /// set.
     var labelSetCaptureLines: [String] {
-        guard let labels = membership as? LabelSetMembership, let store = labels.store else {
-            return []
-        }
+        guard let store = membership.store else { return [] }
         return LabelSetCaptures.lines(
             manifest: store.manifest, packets: store.baseState.packets.count,
             windows: store.baseState.windows.count, directory: store.directory)
@@ -277,13 +274,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         didSet {
             labelRevision &+= 1
             summaries = nil
-            pointClaimConflicts = sidecar.pointClaimConflicts()
         }
     }
-
-    /// Returns two objects claim in one sample. Go's tools refuse a pack with
-    /// any, so the pane lists them for repair.
-    @Published private(set) var pointClaimConflicts: [PointClaimConflict] = []
 
     /// What the object list shows of each object, worked out once per change
     /// to the sidecar. The list is redrawn on every publish, and counting an
@@ -482,8 +474,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     @Published private(set) var syncStatus: FrameSyncStatus = .off
     /// Whether the main view's frame is of the capture this pack's labels
     /// cite, by its packet keys. Nil until frame sync has matched the main
-    /// view to one of this pack's frames, and always for a version 1 pack,
-    /// which has no packets to compare with.
+    /// view to one of this pack's frames.
     @Published private(set) var replayCheck: ReplayCaptureCheck?
     /// The main view's packet keys when frame sync last matched it to a
     /// sample, kept so the check can be made again if the table changes.
@@ -621,8 +612,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     @Published private(set) var conflict: MembershipStoreError?
 
     /// Operator identity, collected rather than invented. A save without it
-    /// is refused: anonymous legacy data stays readable, but this client does
-    /// not add more of it.
+    /// is refused: labels already saved without an author stay readable, but
+    /// this client does not add more of them.
     @Published var operatorName: String = "" {
         didSet { defaults?.set(operatorName, forKey: AnnotationSession.operatorKey) }
     }
@@ -718,7 +709,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     // MARK: Init
 
     init(
-        pack: AnnotationPack, store: (any MembershipStore)? = nil,
+        pack: AnnotationPack, store: LabelSetMembership? = nil,
         defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard,
         physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient(),
         featureClient: FeatureAPIClient = FeatureAPIClient()
@@ -727,11 +718,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         self.physicalClient = physicalClient
         self.featureClient = featureClient
         self.defaults = defaults
-        let resolvedStore = store ?? MembershipStores.forPack(pack)
+        let resolvedStore = store ?? LabelSetMembership(pack: pack)
         self.membership = resolvedStore
         self.document = try resolvedStore.load()
         self.sidecar = document.sidecar
-        self.pointClaimConflicts = document.sidecar.pointClaimConflicts()
         self.orderedSamples = pack.chronologicalSamples
         self.heightBand = pack.manifest.source.heightBand ?? .pipelineDefault
         self.heightBandIsAssumed = pack.manifest.source.heightBand == nil
@@ -1676,14 +1666,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         return outside || main.finished ? first.timestampNs : nil
     }
 
-    /// True for a version 2 pack, whose packets a replay can be checked
-    /// against. A version 1 pack has none.
-    var checksReplayCapture: Bool { membership is LabelSetMembership }
-
     /// What the replay check compares with.
-    var replayCheckSubject: ReplayCheckSubject {
-        (membership as? LabelSetMembership)?.store == nil ? .pack : .labelSet
-    }
+    var replayCheckSubject: ReplayCheckSubject { membership.store == nil ? .pack : .labelSet }
 
     /// Records the main view's packet keys at a matched frame, or nil when
     /// frame sync matched none, and checks them.
@@ -1694,8 +1678,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
 
     private func refreshReplayCheck() {
         var next: ReplayCaptureCheck?
-        if let keys = matchedMainKeys, let table = replayTable() {
-            next = ReplayCaptureCheck.evaluate(frameKeys: keys, table: table)
+        if let keys = matchedMainKeys {
+            next = ReplayCaptureCheck.evaluate(frameKeys: keys, table: replayTable())
         }
         // Published only when it changes: it is checked on every followed
         // frame, and an unchanged answer is no reason to redraw.
@@ -1705,10 +1689,9 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// The table a replay is checked against. A table only grows, at its
     /// end, so its label set and length say whether the cached set is
     /// still it.
-    private func replayTable() -> Set<UInt64>? {
-        guard let labels = membership as? LabelSetMembership else { return nil }
-        let id = labels.store?.labelSetID ?? ""
-        let table = labels.packetTable
+    private func replayTable() -> Set<UInt64> {
+        let id = membership.store?.labelSetID ?? ""
+        let table = membership.packetTable
         if let cached = replayTableCache, cached.labelSetID == id, cached.count == table.count {
             return cached.keys
         }
@@ -2900,9 +2883,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         _ edited: MembershipDocument, change: Provenance
     ) throws -> MembershipDocument {
         if let reason = membership.readOnlyReason { throw MembershipStoreError.readOnly(reason) }
-        let existing = Set(document.sidecar.pointClaimConflicts().map(\.key))
-        let introduced = edited.sidecar.pointClaimConflicts().filter { !existing.contains($0.key) }
-        if !introduced.isEmpty { throw PointClaimError(conflicts: introduced) }
+        let conflicts = edited.sidecar.pointClaimConflicts()
+        if !conflicts.isEmpty { throw PointClaimError(conflicts: conflicts) }
         return try membership.save(edited.sidecar, over: document, change: change)
     }
 
@@ -2934,8 +2916,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
 
     // MARK: - Revisions
 
-    /// The label set's saved revisions, oldest first. Empty for a version 1
-    /// pack and before the first save.
+    /// The label set's saved revisions, oldest first. Empty before the first
+    /// save.
     func revisionHistory() -> [MembershipRevision] { membership.revisions() }
 
     /// Makes an earlier revision current again, as a new revision rebuilt by
@@ -2985,19 +2967,16 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
 
     // MARK: - Attaching to a label set
 
-    /// Whether this pack can be attached to an existing label set: a
-    /// version 2 pack that is not yet a view of one.
-    var canAttachLabelSet: Bool {
-        guard let labels = membership as? LabelSetMembership else { return false }
-        return labels.store == nil && labels.readOnlyReason == nil
-    }
+    /// Whether this pack can be attached to an existing label set: one that
+    /// is not yet a view of one, in a folder the app may write.
+    var canAttachLabelSet: Bool { membership.store == nil && membership.readOnlyReason == nil }
 
     /// Label sets beside this pack that share its packets. Found once and
     /// kept, because the pane asks on every redraw and finding them reads
     /// every set's packet table.
     func labelSetCandidates() -> [LabelSetCandidate] {
         if let cachedCandidates { return cachedCandidates }
-        let found = (membership as? LabelSetMembership)?.candidates() ?? []
+        let found = membership.candidates()
         cachedCandidates = found
         return found
     }
@@ -3009,8 +2988,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// window reloads to show the set's labels through this pack.
     @discardableResult func attachLabelSet(at directory: URL) -> Bool {
         lastError = nil
-        guard let labels = membership as? LabelSetMembership, canAttachLabelSet else {
-            return fail("Only a version 2 pack with no label set yet can be attached.") ?? false
+        guard canAttachLabelSet else {
+            return fail("Only a pack with no label set yet can be attached.") ?? false
         }
         guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
             return fail(
@@ -3023,7 +3002,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
         let skipped: [Int]
         do {
-            skipped = try labels.attach(
+            skipped = try membership.attach(
                 to: directory,
                 change: Provenance(
                     author: operatorName, session: sessionID,

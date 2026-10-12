@@ -240,6 +240,7 @@ struct PackFolderAccessTests {
 
     @Test func theFirstGeneratedPackAsksOnceThenOpensAndRemembers() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let folder = pack.deletingLastPathComponent()
         let (controller, asker, bookmarking, storage) = makeController(answer: folder)
 
@@ -255,10 +256,11 @@ struct PackFolderAccessTests {
 
     @Test func aLaterPackInARememberedFolderOpensWithoutAsking() throws {
         let first = try PackFixture.write()
+        defer { removePack(first) }
         let (controller, asker, _, _) = makeController(answer: first.deletingLastPathComponent())
         controller.openGeneratedPack(at: first)
 
-        let second = try PackFixture.write()
+        let second = try PackFixture.write(in: first.deletingLastPathComponent())
         controller.openGeneratedPack(at: second)
 
         #expect(controller.packName == second.lastPathComponent)
@@ -267,11 +269,13 @@ struct PackFolderAccessTests {
 
     @Test func replacingTheSessionReleasesThePreviousGrant() throws {
         let first = try PackFixture.write()
+        defer { removePack(first) }
         let (controller, _, bookmarking, _) = makeController(
             answer: first.deletingLastPathComponent())
         controller.openGeneratedPack(at: first)
 
-        controller.openGeneratedPack(at: try PackFixture.write())
+        controller.openGeneratedPack(
+            at: try PackFixture.write(in: first.deletingLastPathComponent()))
 
         #expect(bookmarking.started.count == 2)
         #expect(bookmarking.stopped.count == 1)
@@ -279,6 +283,7 @@ struct PackFolderAccessTests {
 
     @Test func closingReleasesTheGrant() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let (controller, _, bookmarking, _) = makeController(
             answer: pack.deletingLastPathComponent())
         controller.openGeneratedPack(at: pack)
@@ -291,6 +296,7 @@ struct PackFolderAccessTests {
 
     @Test func decliningToGrantLeavesAnExplanationAndNoSession() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let (controller, _, bookmarking, storage) = makeController(answer: nil)
 
         controller.openGeneratedPack(at: pack)
@@ -303,6 +309,7 @@ struct PackFolderAccessTests {
 
     @Test func grantingAFolderThatDoesNotHoldThePackIsRefused() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let unrelated = URL(fileURLWithPath: "/Volumes/lidar/somewhere-else")
         let (controller, _, _, storage) = makeController(answer: unrelated)
 
@@ -315,6 +322,7 @@ struct PackFolderAccessTests {
 
     @Test func aPackThatFailsToOpenDoesNotKeepItsGrant() throws {
         let broken = try PackFixture.write { files in files["manifest.json"] = Data("{".utf8) }
+        defer { removePack(broken) }
         let (controller, _, bookmarking, _) = makeController(
             answer: broken.deletingLastPathComponent())
 
@@ -330,6 +338,10 @@ struct PackFolderAccessTests {
     @Test func decliningWhileAPackIsOpenKeepsItAndSaysWhyInTheWindow() throws {
         let open = try PackFixture.write()
         let generated = try PackFixture.write()
+        defer {
+            removePack(open)
+            removePack(generated)
+        }
         let (controller, _, bookmarking, storage) = makeController(answer: nil)
         controller.openPack(at: open)
 
@@ -345,6 +357,7 @@ struct PackFolderAccessTests {
     /// An operator-chosen pack needs no folder grant: the panel is the grant.
     @Test func anOperatorChosenPackNeitherAsksNorStartsAccess() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let (controller, asker, bookmarking, _) = makeController(answer: nil)
 
         controller.openPack(at: pack)

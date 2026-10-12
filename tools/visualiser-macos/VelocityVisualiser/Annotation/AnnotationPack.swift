@@ -2,14 +2,17 @@
 // Reader for the immutable point packs written by Go's internal/lidar/annotation.
 //
 // A pack is one run's view of a capture: manifest.json names the point domain
-// and its digests, samples.json locates each frame's block, and points.bin
-// holds the canonical little-endian arrays. Version 2 adds packets.bin, the
-// packet table, and returns.bin, the return each point was decoded from,
-// which is what lets a label set made through one run's pack apply to another
-// run's pack of the same capture. Version 1 packs carry no returns and open
-// read-only. Nothing here writes to a pack. A pack whose bytes disagree with
-// its manifest is refused rather than opened partially, because a point index
-// only means anything under the exact digest it was recorded against.
+// and its digests, samples.json locates each frame's block, points.bin holds
+// the canonical little-endian arrays, packets.bin is the packet table, and
+// returns.bin is the return each point was decoded from. The returns are what
+// let a label set made through one run's pack apply to another run's pack of
+// the same capture. Nothing here writes to a pack. A pack whose bytes disagree
+// with its manifest is refused rather than opened partially, because a point
+// index only means anything under the exact digest it was recorded against.
+//
+// Only schema version 2 is read. A version 1 pack is refused by name
+// (AnnotationPackError.version1Pack): its labels have been migrated into label
+// sets, and the git tag annotation-v1-reader keeps the last build that reads it.
 
 import CryptoKit
 import Foundation
@@ -125,8 +128,9 @@ struct AnnotationManifest: Codable, Equatable {
     var backgroundCount: Int?
     var backgroundsSHA256: String?
     var backgroundPointsSHA256: String?
-    /// Version 2 only: how a packet divides into returns, how packets are
-    /// keyed, and the digests of the packet table and the returns.
+    /// How a packet divides into returns, how packets are keyed, and the
+    /// digests of the packet table and the returns. Optional only because Go
+    /// omits an empty value: `open` refuses a pack that lacks them.
     var returnLayout: ReturnLayout?
     var packetKey: String?
     var packetCount: Int?
@@ -224,11 +228,12 @@ struct AnnotationSample: Codable, Equatable {
     /// Whether this sample's source frame carried an intensity column. Packs
     /// cut before it was recorded have nil, and only the pack-wide flag.
     var hasIntensity: Bool? = nil
-    /// Version 2: every return of the frame the sample came from, foreground
-    /// or not, as [returnStart, returnEnd) in the pack's return numbering. A
-    /// label set's window is that range.
-    var returnStart: UInt64? = nil
-    var returnEnd: UInt64? = nil
+    /// Every return of the frame the sample came from, foreground or not, as
+    /// [returnStart, returnEnd) in the pack's return numbering. A label set's
+    /// window is that range. Go omits a zero, so absent reads as 0: the first
+    /// frame of a packet table starts at return 0 and carries no return_start.
+    var returnStart: UInt64 = 0
+    var returnEnd: UInt64 = 0
 
     enum CodingKeys: String, CodingKey {
         case sampleID = "sample_id"
@@ -241,6 +246,23 @@ struct AnnotationSample: Codable, Equatable {
         case hasIntensity = "has_intensity"
         case returnStart = "return_start"
         case returnEnd = "return_end"
+    }
+}
+
+extension AnnotationSample {
+    /// Decodes Go's sample, whose return range is written with omitempty.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        sampleID = try c.decode(Int.self, forKey: .sampleID)
+        sourceOrdinal = try c.decode(Int.self, forKey: .sourceOrdinal)
+        sourceFrameID = try c.decode(UInt64.self, forKey: .sourceFrameID)
+        timestampNs = try c.decode(Int64.self, forKey: .timestampNs)
+        sensorID = try c.decode(String.self, forKey: .sensorID)
+        pointCount = try c.decode(Int.self, forKey: .pointCount)
+        byteOffset = try c.decode(Int64.self, forKey: .byteOffset)
+        hasIntensity = try c.decodeIfPresent(Bool.self, forKey: .hasIntensity)
+        returnStart = try c.decodeIfPresent(UInt64.self, forKey: .returnStart) ?? 0
+        returnEnd = try c.decodeIfPresent(UInt64.self, forKey: .returnEnd) ?? 0
     }
 }
 
@@ -285,22 +307,43 @@ struct PackPoints: Equatable {
     }
 }
 
-enum AnnotationPackError: Error, Equatable {
+enum AnnotationPackError: Error, Equatable, CustomStringConvertible {
     case unreadable(String)
     case malformed(String)
     case digestMismatch(field: String, expected: String, actual: String)
     case unsupportedSchema(Int)
+    /// A version 1 pack: points with no returns. Refused by name, so the
+    /// operator learns where its labels went and how to read it if they must.
+    case version1Pack
     case sampleOutOfRange(Int)
     case blockOutOfBounds(sampleID: Int)
-    /// A version 1 pack was asked for what only version 2 carries.
-    case noReturns
+
+    /// What the window shows when a pack will not open.
+    var description: String {
+        switch self {
+        case .unreadable(let detail): return "cannot read \(detail)"
+        case .malformed(let detail): return detail
+        case .digestMismatch(let field, let expected, let actual):
+            return
+                "\(field) digest mismatch: the manifest says \(expected), the bytes give \(actual)"
+        case .unsupportedSchema(let version):
+            return
+                "pack schema version \(version); this build reads version \(AnnotationPack.schemaVersion)"
+        case .version1Pack:
+            return "This is a version 1 annotation pack. This build reads version 2 packs only. "
+                + "Version 1 labels were migrated into label sets: see "
+                + "docs/lidar/operations/annotation-label-set-migration.md. To read a version 1 "
+                + "pack, build the git tag annotation-v1-reader."
+        case .sampleOutOfRange(let id): return "no sample \(id) in this pack"
+        case .blockOutOfBounds(let id): return "sample \(id) lies outside points.bin"
+        }
+    }
 }
 
 /// An opened, digest-verified annotation pack.
 final class AnnotationPack {
-    /// Version 1: points without returns. Readable, not labellable.
-    static let legacySchemaVersion = 1
-    /// Version 2: the points plus the packet table and each point's return.
+    /// The only version read: the points plus the packet table and each
+    /// point's return.
     static let schemaVersion = 2
     /// The one packet key derivation version 2 packs use.
     static let packetKeyKind = "sha256-64:udp-payload"
@@ -317,20 +360,19 @@ final class AnnotationPack {
     /// carried, or from a recording that had none.
     let backgrounds: [AnnotationBackground]
 
-    /// Version 2: the packet table, keys in table order. Empty for version 1.
+    /// The packet table, keys in table order.
     let packets: [UInt64]
 
     private let raw: Data
     private let rawBackground: Data
-    /// Version 2: returns.bin, verified, and where each sample's run of it
-    /// starts. Empty for version 1.
+    /// returns.bin, verified, and where each sample's run of it starts.
     private let rawReturns: Data
     private let returnOffsets: [Int]
 
     private init(
         directory: URL, manifest: AnnotationManifest, samples: [AnnotationSample], raw: Data,
-        backgrounds: [AnnotationBackground], rawBackground: Data, packets: [UInt64] = [],
-        rawReturns: Data = Data(), returnOffsets: [Int] = []
+        backgrounds: [AnnotationBackground], rawBackground: Data, packets: [UInt64],
+        rawReturns: Data, returnOffsets: [Int]
     ) {
         self.directory = directory
         self.manifest = manifest
@@ -342,10 +384,6 @@ final class AnnotationPack {
         self.rawReturns = rawReturns
         self.returnOffsets = returnOffsets
     }
-
-    /// Whether the pack is version 2, so its points can be cited by a label
-    /// set. A version 1 pack's labels are bound to this one run's export.
-    var hasReturns: Bool { manifest.schemaVersion == AnnotationPack.schemaVersion }
 
     /// The directory a pack's label sets live under: the pack's parent, as
     /// `<annotation dir>/labels/<name>/`.
@@ -364,9 +402,10 @@ final class AnnotationPack {
         do { manifest = try decoder.decode(AnnotationManifest.self, from: manifestData) } catch {
             throw AnnotationPackError.malformed("manifest.json: \(error)")
         }
-        guard
-            manifest.schemaVersion == schemaVersion || manifest.schemaVersion == legacySchemaVersion
-        else { throw AnnotationPackError.unsupportedSchema(manifest.schemaVersion) }
+        if manifest.schemaVersion == 1 { throw AnnotationPackError.version1Pack }
+        guard manifest.schemaVersion == schemaVersion else {
+            throw AnnotationPackError.unsupportedSchema(manifest.schemaVersion)
+        }
 
         // The writer appends a newline to samples.json for readability but
         // digests the JSON without it. Trim before digesting or every pack
@@ -382,8 +421,8 @@ final class AnnotationPack {
                 field: "points.bin", expected: manifest.pointsSHA256, actual: pointsDigest)
         }
         // The pack digest binds the array digests together, so swapping a
-        // matched pair of files cannot pass as the same pack. Version 2 adds
-        // the packet table and the returns, since a label set cites points
+        // matched pair of files cannot pass as the same pack. It covers the
+        // packet table and the returns, since a label set cites points
         // through them.
         let packDigest = AnnotationPack.packDigest(of: manifest)
         guard packDigest == manifest.packDigest else {
@@ -403,11 +442,6 @@ final class AnnotationPack {
 
         let (backgrounds, backgroundData) = try openBackground(
             directory: directory, manifest: manifest, decoder: decoder)
-        guard manifest.schemaVersion == schemaVersion else {
-            return AnnotationPack(
-                directory: directory, manifest: manifest, samples: samples, raw: pointsData,
-                backgrounds: backgrounds, rawBackground: backgroundData)
-        }
         let (packets, returns, offsets) = try openReturns(
             directory: directory, manifest: manifest, samples: samples)
         return AnnotationPack(
@@ -416,18 +450,18 @@ final class AnnotationPack {
             rawReturns: returns, returnOffsets: offsets)
     }
 
-    /// The pack digest the manifest should carry: over the points and samples
-    /// digests in version 1, and over those and the packets and returns
-    /// digests in version 2, each the "sha256:…" string, newline-separated.
+    /// The pack digest the manifest should carry: over the points, samples,
+    /// packets and returns digests, each the "sha256:…" string,
+    /// newline-separated.
     static func packDigest(of manifest: AnnotationManifest) -> String {
-        var parts = [manifest.pointsSHA256, manifest.samplesSHA256]
-        if manifest.schemaVersion != legacySchemaVersion {
-            parts += [manifest.packetsSHA256 ?? "", manifest.returnsSHA256 ?? ""]
-        }
+        let parts = [
+            manifest.pointsSHA256, manifest.samplesSHA256, manifest.packetsSHA256 ?? "",
+            manifest.returnsSHA256 ?? "",
+        ]
         return digest(Data(parts.joined(separator: "\n").utf8))
     }
 
-    /// Reads and verifies a version 2 pack's packet table and returns, with
+    /// Reads and verifies the pack's packet table and returns, with
     /// the invariants Go's reader holds: no key listed twice, one return per
     /// point, returns increasing within a sample and inside its frame, and
     /// every frame inside the packet table.
@@ -435,7 +469,7 @@ final class AnnotationPack {
         directory: URL, manifest: AnnotationManifest, samples: [AnnotationSample]
     ) throws -> ([UInt64], Data, [Int]) {
         guard let layout = manifest.returnLayout else {
-            throw AnnotationPackError.malformed("version 2 pack has no return layout")
+            throw AnnotationPackError.malformed("manifest.json has no return layout")
         }
         do { try layout.validate() } catch {
             throw AnnotationPackError.malformed("return layout: \(error)")
@@ -486,11 +520,11 @@ final class AnnotationPack {
                         "sample \(i) carries id \(sample.sampleID): pack-local ids must be dense and ordered"
                     )
                 }
-                guard let start = sample.returnStart, let end = sample.returnEnd, start < end,
-                    end <= limit
-                else {
+                let start = sample.returnStart
+                let end = sample.returnEnd
+                guard start < end, end <= limit else {
                     throw AnnotationPackError.malformed(
-                        "sample \(i) frame range [\(sample.returnStart ?? 0),\(sample.returnEnd ?? 0)) is empty or outside the \(limit) returns the packet table numbers"
+                        "sample \(i) frame range [\(start),\(end)) is empty or outside the \(limit) returns the packet table numbers"
                     )
                 }
                 offsets.append(offset)
@@ -520,7 +554,6 @@ final class AnnotationPack {
     /// One sample's return numbers in the pack's own packet table, one per
     /// point in point order.
     func returns(sampleID: Int) throws -> [UInt64] {
-        guard hasReturns else { throw AnnotationPackError.noReturns }
         guard sampleID >= 0, sampleID < samples.count else {
             throw AnnotationPackError.sampleOutOfRange(sampleID)
         }

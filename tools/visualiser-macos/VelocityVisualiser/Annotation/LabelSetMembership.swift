@@ -2,19 +2,13 @@
 // What the annotation window reads and saves membership through.
 //
 // The window works in one pack's terms: masks by sample id and point index,
-// the Sidecar shape it has always edited. Where those masks are kept depends
-// on the pack:
-//
-//  - A version 2 pack is a view of a label set. Its membership is the label
-//    set projected onto the pack's samples, and a save folds the edited
-//    projection back as a delta: only the masks that changed, each through
-//    the view map so members this view does not show survive. The label set
-//    lives at <annotation dir>/labels/<name>/ and the pack points to it with
-//    label-set-link.json. Until the first save there is no label set: the
-//    first save creates one from the pack.
-//  - A version 1 pack's labels are bound to one run's export. Its
-//    annotations.json is shown as it stands, and nothing is saved: the
-//    migration carries it into a label set.
+// the Sidecar shape it edits. Those masks are kept in a label set: the pack is
+// a view of one. Its membership is the label set projected onto the pack's
+// samples, and a save folds the edited projection back as a delta: only the
+// masks that changed, each through the view map so members this view does not
+// show survive. The label set lives at <annotation dir>/labels/<name>/ and the
+// pack points to it with label-set-link.json. Until the first save there is no
+// label set: the first save creates one from the pack.
 
 import Foundation
 
@@ -23,8 +17,7 @@ struct MembershipDocument {
     /// The pack's projection: masks by sample id and point index.
     var sidecar: Sidecar
     /// The token a physical reference or a feature pins: the label set's
-    /// state digest, or for a version 1 pack the digest of annotations.json's
-    /// bytes. Empty before anything is saved.
+    /// state digest. Empty before anything is saved.
     let loadedDigest: String
     let revision: Int
 }
@@ -38,8 +31,8 @@ enum MembershipStoreError: Error, Equatable {
     case conflict(loadedRevision: Int, currentRevision: Int)
     case malformed(String)
     case unwritable(String)
-    /// The pack cannot be saved to: a version 1 pack, or a label set folder
-    /// the app has not been given.
+    /// The pack cannot be saved to: the app has not been given the folder
+    /// its label sets are kept in.
     case readOnly(String)
     /// The edit is one the label set cannot hold.
     case refused(String)
@@ -54,105 +47,6 @@ struct MembershipRevision: Equatable, Identifiable {
     var restoredFrom: Int?
 
     var id: Int { revision }
-}
-
-/// The storage behind an annotation session.
-protocol MembershipStore: AnyObject {
-    /// Why nothing can be saved, or nil when saving works.
-    var readOnlyReason: String? { get }
-    /// One line saying where membership is kept, for the window.
-    var summary: String { get }
-    /// Reads the current revision from disk.
-    func load() throws -> MembershipDocument
-    /// Saves `sidecar`, an edit of `base`, as the next revision. Writes
-    /// nothing when nothing changed.
-    func save(
-        _ sidecar: Sidecar, over base: MembershipDocument, change: Provenance
-    ) throws -> MembershipDocument
-    /// Makes an earlier revision current again as a new revision.
-    func restore(revision: Int, change: Provenance) throws -> MembershipDocument
-    /// The saved revisions, oldest first.
-    func revisions() -> [MembershipRevision]
-}
-
-extension MembershipStore { var isReadOnly: Bool { readOnlyReason != nil } }
-
-/// Picks the store a pack's membership lives in.
-enum MembershipStores {
-    static func forPack(_ pack: AnnotationPack) -> any MembershipStore {
-        pack.hasReturns ? LabelSetMembership(pack: pack) : LegacySidecarReader(pack: pack)
-    }
-
-    /// The command that moves a version 1 pack's labels into a label set.
-    static func migrateCommand(packDirectory: URL) -> String {
-        "velocity lidar labels migrate --pack \(packDirectory.path) --pcap <file>"
-    }
-}
-
-// MARK: - Version 1: read only
-
-/// Shows a version 1 pack's annotations.json as it stands. Saves are refused:
-/// those labels cite this run's sample and point numbers, and a new revision
-/// of them would be more work bound to one export. The migration moves them.
-final class LegacySidecarReader: MembershipStore {
-    let pack: AnnotationPack
-    /// The sidecar's ceiling, as the Go store has it.
-    static let maxBytes = 64 << 20
-
-    init(pack: AnnotationPack) { self.pack = pack }
-
-    var readOnlyReason: String? {
-        "Legacy pack (version 1): read only. Its labels cite this run's points, not the capture's "
-            + "returns. Migrate it with "
-            + "`\(MembershipStores.migrateCommand(packDirectory: pack.directory))`."
-    }
-
-    var summary: String {
-        FileManager.default.fileExists(atPath: url.path)
-            ? "annotations.json (version 1, read only)" : "No labels (version 1, read only)"
-    }
-
-    private var url: URL { pack.directory.appendingPathComponent("annotations.json") }
-
-    func load() throws -> MembershipDocument {
-        guard FileManager.default.fileExists(atPath: url.path) else {
-            var empty = Sidecar()
-            empty.packDigest = pack.manifest.packDigest
-            empty.datasetID = pack.manifest.datasetID
-            return MembershipDocument(sidecar: empty, loadedDigest: "", revision: 0)
-        }
-        let data: Data
-        do { data = try Data(contentsOf: url) } catch {
-            throw MembershipStoreError.malformed("read annotations.json: \(error)")
-        }
-        guard data.count <= LegacySidecarReader.maxBytes else {
-            throw MembershipStoreError.malformed("annotations.json is \(data.count) bytes")
-        }
-        let sidecar: Sidecar
-        do { sidecar = try JSONDecoder().decode(Sidecar.self, from: data) } catch {
-            // A corrupt file opens with an error, never as an empty pack: an
-            // empty pack would read as "nothing labelled yet".
-            throw MembershipStoreError.malformed("decode annotations.json: \(error)")
-        }
-        if !sidecar.packDigest.isEmpty, sidecar.packDigest != pack.manifest.packDigest {
-            throw MembershipStoreError.malformed(
-                "annotations belong to pack \(sidecar.packDigest), not \(pack.manifest.packDigest)")
-        }
-        return MembershipDocument(
-            sidecar: sidecar, loadedDigest: AnnotationPack.digest(data), revision: sidecar.revision)
-    }
-
-    func save(
-        _ sidecar: Sidecar, over base: MembershipDocument, change: Provenance
-    ) throws -> MembershipDocument {
-        throw MembershipStoreError.readOnly(readOnlyReason ?? "read only")
-    }
-
-    func restore(revision: Int, change: Provenance) throws -> MembershipDocument {
-        throw MembershipStoreError.readOnly(readOnlyReason ?? "read only")
-    }
-
-    func revisions() -> [MembershipRevision] { [] }
 }
 
 // MARK: - The link from a pack to its label set
@@ -208,11 +102,11 @@ struct LabelSetCandidate: Equatable, Identifiable {
     var id: String { directory.path }
 }
 
-// MARK: - Version 2: label sets through a view
+// MARK: - Label sets through a view
 
-/// A version 2 pack's membership, kept in a label set and seen through the
-/// pack's view map.
-final class LabelSetMembership: MembershipStore {
+/// A pack's membership, kept in a label set and seen through the pack's view
+/// map.
+final class LabelSetMembership {
     let pack: AnnotationPack
 
     /// The opened label set, or nil until the first save creates it.
@@ -244,8 +138,10 @@ final class LabelSetMembership: MembershipStore {
 
     var labelsDirectory: URL { pack.annotationDirectory.appendingPathComponent("labels") }
 
+    /// Why nothing can be saved, or nil when saving works.
     var readOnlyReason: String? { accessRefusal }
 
+    /// One line saying where membership is kept, for the window.
     var summary: String {
         guard let store else {
             return "No label set yet: the first save makes one in \(labelsDirectory.path)"
@@ -257,6 +153,7 @@ final class LabelSetMembership: MembershipStore {
 
     // MARK: Load
 
+    /// Reads the current revision from disk.
     func load() throws -> MembershipDocument {
         cachedRevisions = nil
         let link = try LabelSetLink.read(packDirectory: pack.directory)
@@ -358,6 +255,8 @@ final class LabelSetMembership: MembershipStore {
 
     // MARK: Save
 
+    /// Saves `sidecar`, an edit of `document`, as the next revision. Writes
+    /// nothing when nothing changed.
     func save(
         _ sidecar: Sidecar, over document: MembershipDocument, change: Provenance
     ) throws -> MembershipDocument {
@@ -596,6 +495,7 @@ final class LabelSetMembership: MembershipStore {
 
     // MARK: Restore and history
 
+    /// Makes an earlier revision current again as a new revision.
     func restore(revision: Int, change: Provenance) throws -> MembershipDocument {
         if let accessRefusal { throw MembershipStoreError.readOnly(accessRefusal) }
         guard let store else {

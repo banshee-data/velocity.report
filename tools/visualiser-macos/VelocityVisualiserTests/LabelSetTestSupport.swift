@@ -24,11 +24,13 @@ func parityFixture(_ name: String) throws -> Data {
     try Data(contentsOf: labelSetParityDirectory.appendingPathComponent(name))
 }
 
-/// Removes a pack written by SyntheticPack and the label sets kept beside it.
-/// Other packs are removed alone.
+/// Removes a pack written by SyntheticPack or PackFixture in a folder of its
+/// own, and the label sets kept beside it. Other packs are removed alone.
 func removePack(_ dir: URL) {
     let parent = dir.deletingLastPathComponent()
-    if parent.lastPathComponent.hasPrefix("synthetic-labels-") {
+    if parent.lastPathComponent.hasPrefix("synthetic-labels-")
+        || parent.lastPathComponent.hasPrefix(PackFixture.folderPrefix)
+    {
         try? FileManager.default.removeItem(at: parent)
     } else {
         try? FileManager.default.removeItem(at: dir)
@@ -44,10 +46,10 @@ func labelSetTemporaryDirectory() -> URL {
 }
 
 extension PackFixture {
-    /// The fixture's points as a version 2 pack, the kind the window saves
-    /// through: the same two samples and six points, with a packet table and
-    /// returns. Its bytes are this client's, not Go's, so it pins nothing;
-    /// the version 1 fixture above stays byte for byte what Go wrote.
+    /// The fixture's points written by SyntheticPack: the same two samples
+    /// and six points, on SyntheticPack's packets and source ordinals. Its
+    /// bytes are this client's, not Go's, so it pins nothing; the fixture
+    /// itself stays byte for byte what Go wrote.
     static func writeLabellable() throws -> URL {
         try SyntheticPack.write(
             [

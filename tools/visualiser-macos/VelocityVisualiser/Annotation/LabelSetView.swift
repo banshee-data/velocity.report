@@ -1,5 +1,5 @@
 // LabelSetView.swift
-// A version 2 pack as a view of a label set: which window each sample shows,
+// A pack as a view of a label set: which window each sample shows,
 // where each point falls in it, and the edits that keep what the view hides.
 //
 // Mirrors internal/lidar/annotation/labelset/view.go. Returns are joined by
@@ -11,10 +11,8 @@ import Foundation
 extension AnnotationPack {
     /// The pack's return layout, which a label set of it must share.
     func labelSetLayout() throws -> ReturnLayout {
-        guard hasReturns, let layout = manifest.returnLayout else {
-            throw LabelSetError.invalid(
-                "pack \(directory.lastPathComponent) carries no returns: it is version \(manifest.schemaVersion)"
-            )
+        guard let layout = manifest.returnLayout else {
+            throw LabelSetError.invalid("pack \(directory.lastPathComponent) has no return layout")
         }
         return layout
     }
@@ -105,9 +103,9 @@ struct LabelSetViewMap {
             // its frame range is, if one matches exactly: an empty frame is
             // where "fully occluded" is said. Go's map has no points to go
             // by here and leaves the sample unmapped.
-            if window < 0, let start = sample.returnStart, let end = sample.returnEnd, end > start,
-                let first = toSet(start), let last = toSet(end - 1), let w = windowOf(first),
-                w.start == first, w.end == last + 1
+            if window < 0, sample.returnEnd > sample.returnStart,
+                let first = toSet(sample.returnStart), let last = toSet(sample.returnEnd - 1),
+                let w = windowOf(first), w.start == first, w.end == last + 1
             {
                 window = w.windowID
             }
@@ -272,10 +270,8 @@ extension LabelSetState {
         let per = layout.perPacket
         var skipped: [Int] = []
         for (i, sample) in pack.samples.enumerated() {
-            guard let returnStart = sample.returnStart, let returnEnd = sample.returnEnd else {
-                skipped.append(i)
-                continue
-            }
+            let returnStart = sample.returnStart
+            let returnEnd = sample.returnEnd
             // A frame is a window only if its packets are consecutive in the
             // label set's table, as they are in the pack's.
             let firstPacket = Int(returnStart / per)

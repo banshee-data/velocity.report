@@ -15,7 +15,7 @@ import simd
 
 @MainActor
 private func makeSession() throws -> (AnnotationSession, URL) {
-    // The fixture's points as a version 2 pack: a version 1 pack is read only.
+    // The fixture's points, on SyntheticPack's packets and source ordinals.
     let dir = try PackFixture.writeLabellable()
     let pack = try AnnotationPack.open(directory: dir)
     let session = try AnnotationSession(pack: pack)

@@ -164,7 +164,6 @@ struct ReplayCaptureCheckTests {
         defer { removePack(dir) }
         let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
         session.operatorName = "dd"
-        #expect(session.checksReplayCapture)
         #expect(session.replayCheck == nil, "nothing is matched yet")
         let packets = session.pack.packets
         #expect(packets.count == 3)
@@ -212,15 +211,5 @@ struct ReplayCaptureCheckTests {
         #expect(session.follow(main(at: 1_100_000_000, keys: [0xBAD])) == false)
         #expect(session.syncStatus == .heldByUnsavedChanges)
         #expect(session.replayCheck == .differentCapture(of: 1))
-    }
-
-    @Test func aVersion1PackHasNoPacketsToCheck() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
-        #expect(!session.checksReplayCapture)
-        let first = try #require(session.samples.first)
-        session.follow(main(at: first.timestampNs, keys: [1, 2, 3]))
-        #expect(session.replayCheck == nil)
     }
 }

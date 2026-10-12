@@ -22,7 +22,7 @@ import simd
 /// fixture is two tiny samples of fixed bytes; following an object needs a
 /// cluster that moves by a known amount between samples.
 ///
-/// Version 2 by default, as every export now is: the packet table and each
+/// A version 2 pack, the only kind there is: the packet table and each
 /// point's return, so the window saves into a label set. Each sample is a
 /// frame of its own run of packets, and point `j` is return `j` of its
 /// frame, unless `frames` and `packets` say otherwise. The pack is written in
@@ -45,7 +45,7 @@ enum SyntheticPack {
     static func write(
         _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = [],
         intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil,
-        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2, version: Int = 2,
+        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2,
         packets explicitPackets: [UInt64]? = nil, frames explicitFrames: [Frame]? = nil,
         run: String = "synthetic.vrlog", configHash: String? = nil
     ) throws -> URL {
@@ -87,15 +87,12 @@ enum SyntheticPack {
                 contentsOf: intensities?[id] ?? [UInt8](repeating: 100, count: points.count))
             bytes.append(contentsOf: points.map(\.classification))
             let presence = (sampleIntensity?[id]).map { ", \"has_intensity\": \($0)" } ?? ""
-            var range = ""
-            if version == 2 {
-                let frame = frames[id]
-                range =
-                    ", \"return_start\": \(frame.firstPacket * per), "
-                    + "\"return_end\": \((frame.firstPacket + frame.packets) * per)"
-                for r in frame.returns {
-                    withUnsafeBytes(of: r.littleEndian) { returnBytes.append(contentsOf: $0) }
-                }
+            let frame = frames[id]
+            let range =
+                ", \"return_start\": \(frame.firstPacket * per), "
+                + "\"return_end\": \((frame.firstPacket + frame.packets) * per)"
+            for r in frame.returns {
+                withUnsafeBytes(of: r.littleEndian) { returnBytes.append(contentsOf: $0) }
             }
             entries.append(
                 """
@@ -110,11 +107,8 @@ enum SyntheticPack {
         let packetBytes = PacketKeys.encode(packets)
         let packetsSHA = AnnotationPack.digest(packetBytes)
         let returnsSHA = AnnotationPack.digest(returnBytes)
-        let packDigest =
-            version == 2
-            ? AnnotationPack.digest(
-                Data([pointsSHA, samplesSHA, packetsSHA, returnsSHA].joined(separator: "\n").utf8))
-            : AnnotationPack.digest(Data((pointsSHA + "\n" + samplesSHA).utf8))
+        let packDigest = AnnotationPack.digest(
+            Data([pointsSHA, samplesSHA, packetsSHA, returnsSHA].joined(separator: "\n").utf8))
         let band = heightBand.map { ", \"height_band\": \($0)" } ?? ""
         let config = configHash.map { ", \"config_hash\": \"\($0)\"" } ?? ""
 
@@ -147,15 +141,13 @@ enum SyntheticPack {
              "backgrounds_sha256": "\(AnnotationPack.digest(Data(backgroundsJSON.utf8)))",
              "background_points_sha256": "\(AnnotationPack.digest(backgroundBytes))"
             """
-        let returnKeys =
-            version == 2
-            ? """
+        let returnKeys = """
             , "return_layout": {"model": "\(layout.model)", "blocks": \(layout.blocks), "channels": \(layout.channels)},
              "packet_key": "sha256-64:udp-payload", "packet_count": \(packets.count),
              "packets_sha256": "\(packetsSHA)", "returns_sha256": "\(returnsSHA)"
-            """ : ""
+            """
         let manifest = """
-            {"schema_version": \(version), "dataset_id": "ds_synthetic", "created_ns": 0,
+            {"schema_version": 2, "dataset_id": "ds_synthetic", "created_ns": 0,
              "source": {"vrlog_path": "\(run)", "vrlog_header_sha256": "sha256:aa",
                         "vrlog_frames_sha256": "sha256:bb", "pcap_basename": "synthetic-capture.pcapng",
                         "sensor_id": "synthetic"\(band)\(config)},
@@ -177,10 +169,8 @@ enum SyntheticPack {
         try Data(manifest.utf8).write(to: dir.appendingPathComponent("manifest.json"))
         try Data((samplesJSON + "\n").utf8).write(to: dir.appendingPathComponent("samples.json"))
         try bytes.write(to: dir.appendingPathComponent("points.bin"))
-        if version == 2 {
-            try packetBytes.write(to: dir.appendingPathComponent("packets.bin"))
-            try returnBytes.write(to: dir.appendingPathComponent("returns.bin"))
-        }
+        try packetBytes.write(to: dir.appendingPathComponent("packets.bin"))
+        try returnBytes.write(to: dir.appendingPathComponent("returns.bin"))
         if !backdrops.isEmpty {
             try Data((backgroundsJSON + "\n").utf8).write(
                 to: dir.appendingPathComponent("backgrounds.json"))

@@ -160,11 +160,4 @@ struct LabelSetCapturesTests {
                     + "1 of \(store.state.windows.count) frames",
             ])
     }
-
-    @Test func aVersion1PackHasNoCaptureLines() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
-        #expect(session.labelSetCaptureLines.isEmpty)
-    }
 }

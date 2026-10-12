@@ -9,9 +9,8 @@
 // point index. LabelSetMembership projects a label set into that shape and
 // folds edits back as deltas.
 //
-// This client no longer writes annotations.json. A version 1 pack's sidecar
-// is read for display only (LegacySidecarReader), and the migration carries
-// it into a label set.
+// This client neither reads nor writes annotations.json: labels are kept in
+// label sets.
 
 import CryptoKit
 import Foundation
@@ -272,9 +271,6 @@ struct PointClaimConflict: Hashable {
     /// The two objects, in the order Go reports them: the earlier mask first.
     var first: String
     var second: String
-
-    /// The same conflict whichever mask came first.
-    var key: String { "\(sampleID)/\(point)/" + [first, second].sorted().joined(separator: "|") }
 }
 
 extension Sidecar {

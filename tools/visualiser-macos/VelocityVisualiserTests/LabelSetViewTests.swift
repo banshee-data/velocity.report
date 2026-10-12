@@ -35,7 +35,6 @@ struct AnnotationPackVersion2Tests {
         let pack = try writeViewPack(
             dir, packets: [1, 2, 3], frames: [(0, 2, [5, 6, 410]), (2, 1, [800, 801])], run: "run-a"
         )
-        #expect(pack.hasReturns)
         #expect(pack.manifest.schemaVersion == 2)
         #expect(pack.packets == [1, 2, 3])
         #expect(try pack.returns(sampleID: 1) == [800, 801])
@@ -79,15 +78,6 @@ struct AnnotationPackVersion2Tests {
         #expect(throws: AnnotationPackError.self) {
             _ = try writeViewPack(repeated, packets: [9, 9], frames: [(0, 1, [3])], run: "r")
         }
-    }
-
-    @Test func aVersion1PackHasNoReturnsToGive() throws {
-        let dir = try PackFixture.write()
-        defer { removePack(dir) }
-        let pack = try AnnotationPack.open(directory: dir)
-        #expect(!pack.hasReturns)
-        #expect(pack.packets.isEmpty)
-        #expect(throws: AnnotationPackError.noReturns) { try pack.returns(sampleID: 0) }
     }
 }
 

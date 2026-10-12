@@ -267,7 +267,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 @MainActor struct FeatureAuthoringTests {
     @Test func retainedEvidenceIsReadOnlyAndReturningToHeadRestoresEditing() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
         a.name = "Mirror"
@@ -303,7 +303,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func missingOrWrongRevisionNeverMasqueradesAsTheRequestedEvidence() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         service.state.document.revision = 2
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
@@ -332,7 +332,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func revisionCannotBeCombinedWithEditsOrInvalidNumbers() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         for revision in [UInt64(0), UInt64(Int32.max) + 1] {
             await #expect(throws: (any Error).self) {
                 try await client.request(pack: pack, revision: revision)
@@ -346,7 +346,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
     }
     @Test func seedEditSaveReopenAndCancelNeverWriteMembership() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let authoring = FeatureAuthoring(pack: pack, client: client)
         await authoring.load()
         #expect(authoring.canEdit)
@@ -384,7 +384,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func rejectedMissingAndOccludedSaveNoMeasuredSupport() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
         for decision in [FeatureDecision.rejected, .missing, .occluded] {
@@ -400,7 +400,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func uncertainSaveRetainsDraftAndRequiresReloadWithoutRetry() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
         a.seed(featureSeed(pack), objectID: "car")
@@ -430,7 +430,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func differentFolderAndFutureSchemaAreNotWritable() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         service.state.packDirectory += "-copy"
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
@@ -443,7 +443,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func localDocumentReopensReadOnlyWithoutService() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         try service.state.document.serializedData().write(
             to: pack.directory.appendingPathComponent("feature-proposals.pb"))
         service.refuse = true
@@ -454,7 +454,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func featureModeGuardsNavigationAndCannotSaveObjectMasks() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let session = try AnnotationSession(pack: pack, featureClient: client)
         session.workMode = .features
         await session.features.load()
@@ -898,7 +898,7 @@ struct FeatureSharedWireTests {
 @MainActor struct FacetProjectionExposureTests {
     @Test func hidingCancellingAndReopeningDoNotLaunderPreviewAssistance() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let suite = "facet-preview-test-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -951,7 +951,7 @@ struct FeatureSharedWireTests {
 @MainActor struct OfflineFacetPoseControllerTests {
     @Test func exactResponseIsReadOnlyAndAChangedFrameCannotReceiveDelayedResults() async throws {
         let (pack, _, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         service.state.document.revision = 7
         service.state.digest = "sha256:head7"
         var result = try FacetPoseFixture.proposal()
@@ -1001,7 +1001,7 @@ struct FeatureSharedWireTests {
     }
     @Test func explicitOfflineExposureSurvivesCancellationAndReopening() async throws {
         let (pack, client, _) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let suite = "offline-pose-exposure-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }

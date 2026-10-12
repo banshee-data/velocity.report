@@ -104,7 +104,7 @@ func annotationFramingHalfHeight(
     /// Asks the operator for the folder to grant, given where the pack is.
     /// Injected so the grant flow can be tested without an open panel.
     private let askForFolder: (URL) -> URL?
-    /// Asks for the folder a version 2 pack's label sets live in, the pack's
+    /// Asks for the folder a pack's label sets live in, the pack's
     /// parent, when nothing granted so far reaches it.
     private let askForLabelFolder: (URL) -> URL?
     /// Held for as long as the session it serves: a save writes the label set
@@ -187,10 +187,8 @@ func annotationFramingHalfHeight(
         labelGrant = nil
         do {
             let pack = try AnnotationPack.open(directory: directory)
-            let store = MembershipStores.forPack(pack)
-            if let labels = store as? LabelSetMembership {
-                labels.accessRefusal = labelFolderAccess(for: pack)
-            }
+            let store = LabelSetMembership(pack: pack)
+            store.accessRefusal = labelFolderAccess(for: pack)
             let opened = try AnnotationSession(pack: pack, store: store)
             session = opened
             if !ProposalLayerStore(pack: pack).hasLayers { Task { await opened.proposeObjects() } }
@@ -207,7 +205,7 @@ func annotationFramingHalfHeight(
         }
     }
 
-    /// Makes sure a version 2 pack's label sets can be written: they live
+    /// Makes sure a pack's label sets can be written: they live
     /// beside the pack, in `<annotation dir>/labels/`, which a grant on the
     /// pack alone does not reach. Returns why saving is impossible, or nil.
     ///

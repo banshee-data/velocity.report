@@ -29,7 +29,7 @@ struct AnnotationViewportInputTests {
 
         func cleanUp() {
             window.close()
-            try? FileManager.default.removeItem(at: packDirectory)
+            removePack(packDirectory)
         }
     }
 
@@ -204,7 +204,7 @@ struct AnnotationViewportInputTests {
     @Test func aClickInAnotherViewMakesItTheEditingView() throws {
         // The top view is the editing view; this mounts the front view.
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled],
@@ -261,7 +261,7 @@ struct AnnotationWorkspaceMountTests {
 
     @Test func the3DViewDrawsTheSampleAndFollowsTheSession() throws {
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let controller = AnnotationController()
         controller.openPack(at: dir)
         let session = try #require(controller.session)

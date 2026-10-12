@@ -591,17 +591,15 @@ struct MainViewLink: View {
                 // Whose packets the main view is replaying: time matches a
                 // frame, but only the packets say it is this capture. Three
                 // lines' room, for the same reason as the line above.
-                if session.checksReplayCapture {
-                    let check = session.replayCheck
-                    Text(check?.label(session.replayCheckSubject) ?? "").font(.caption2)
-                        .foregroundStyle(check?.differs == true ? Color.orange : Color.secondary)
-                        .fixedSize(horizontal: false, vertical: true).frame(
-                            minHeight: 39, alignment: .topLeading
-                        ).help(
-                            "Compares the packets the main view's frame was decoded from with "
-                                + "the packets the labels cite. Information only: nothing is "
-                                + "blocked.")
-                }
+                let check = session.replayCheck
+                Text(check?.label(session.replayCheckSubject) ?? "").font(.caption2)
+                    .foregroundStyle(check?.differs == true ? Color.orange : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true).frame(
+                        minHeight: 39, alignment: .topLeading
+                    ).help(
+                        "Compares the packets the main view's frame was decoded from with "
+                            + "the packets the labels cite. Information only: nothing is "
+                            + "blocked.")
             }
             Button("Match the main view's camera") {
                 if let camera = appState.mainCamera { scene.adopt(camera) }
