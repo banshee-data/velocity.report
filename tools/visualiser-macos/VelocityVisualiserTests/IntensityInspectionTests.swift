@@ -125,11 +125,11 @@ struct IntensityDisplaySpecTests {
         #expect(spec == expected)
     }
 
-    @Test func availabilityComesFromTheManifestNotTheBytes() {
-        #expect(IntensityAvailability(hasIntensity: true) == .packFlag)
-        #expect(IntensityAvailability(hasIntensity: false) == .absent)
+    @Test func availabilityComesFromTheFlagsNotTheBytes() {
+        #expect(IntensityAvailability(hasIntensity: true, sample: true) == .measured)
+        #expect(IntensityAvailability(hasIntensity: false, sample: false) == .absent)
         #expect(!IntensityAvailability.absent.available)
-        #expect(IntensityAvailability.packFlag.caveat.contains("per frame"))
+        #expect(IntensityAvailability.measured.caveat.contains("measurements"))
     }
 
     /// The shader indexes the same table by the exact code: intensity / 255

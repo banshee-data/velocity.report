@@ -247,10 +247,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// The evaluation report open for comparison.
     let reportInspector = PhysicalReportInspector()
 
-    /// Whether the pack's intensity is a measurement at all.
+    /// Whether this frame's intensity is a measurement at all.
     var intensityAvailability: IntensityAvailability {
         IntensityAvailability(
-            hasIntensity: pack.manifest.hasIntensity, sample: currentSample?.hasIntensity)
+            hasIntensity: pack.manifest.hasIntensity, sample: currentSample?.hasIntensity ?? false)
     }
 
     /// How the views colour by raw intensity. A display setting: it changes

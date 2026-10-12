@@ -237,7 +237,7 @@ struct PhysicalRepairDraftTests {
     private func sample(_ id: Int) -> AnnotationSample {
         AnnotationSample(
             sampleID: id, sourceOrdinal: id, sourceFrameID: 0, timestampNs: 1_000 + Int64(id) * 100,
-            sensorID: "s", pointCount: 0, byteOffset: 0)
+            sensorID: "s", pointCount: 0, byteOffset: 0, hasIntensity: true)
     }
 
     private func observedKeyframe(

@@ -23,7 +23,8 @@ struct PhysicalTrackerSeedTests {
         row.match!.offsetNs = 0
         let sample = AnnotationSample(
             sampleID: row.sampleID, sourceOrdinal: 10, sourceFrameID: 42,
-            timestampNs: row.timestampNs, sensorID: "fixture", pointCount: 0, byteOffset: 0)
+            timestampNs: row.timestampNs, sensorID: "fixture", pointCount: 0, byteOffset: 0,
+            hasIntensity: true)
         return (row, report.arms[0].arm, sample, digest)
     }
 

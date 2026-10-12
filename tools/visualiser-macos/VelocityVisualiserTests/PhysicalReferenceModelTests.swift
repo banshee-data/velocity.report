@@ -239,7 +239,7 @@ struct PhysicalDraftTests {
         AnnotationSample(
             sampleID: id, sourceOrdinal: id * 2 + 1, sourceFrameID: UInt64(100 + id),
             timestampNs: 1_000_000_000 + Int64(id) * 100_000_000, sensorID: "s", pointCount: 0,
-            byteOffset: 0)
+            byteOffset: 0, hasIntensity: true)
     }
 
     @Test func aNewBodyAndKeyframeClaimNothing() {

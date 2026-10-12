@@ -25,7 +25,9 @@ import simd
 /// A version 2 pack, the only kind there is: the packet table and each
 /// point's return, so the window saves into a label set. Each sample is a
 /// frame of its own run of packets, and point `j` is return `j` of its
-/// frame, unless `frames` and `packets` say otherwise. The pack is written in
+/// frame, unless `frames` and `packets` say otherwise. Every sample says
+/// whether it has intensity: `sampleIntensity` if given, else `hasIntensity`;
+/// the manifest's flag is whether any does. The pack is written in
 /// a directory of its own, `synthetic-labels-<uuid>/synthetic-<uuid>`, because
 /// its label sets are kept beside it; `removePack` removes both.
 enum SyntheticPack {
@@ -45,7 +47,7 @@ enum SyntheticPack {
     static func write(
         _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = [],
         intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil,
-        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2,
+        sampleIntensity: [Bool]? = nil, sourceStride: Int = 2,
         packets explicitPackets: [UInt64]? = nil, frames explicitFrames: [Frame]? = nil,
         run: String = "synthetic.vrlog", configHash: String? = nil
     ) throws -> URL {
@@ -86,7 +88,7 @@ enum SyntheticPack {
             bytes.append(
                 contentsOf: intensities?[id] ?? [UInt8](repeating: 100, count: points.count))
             bytes.append(contentsOf: points.map(\.classification))
-            let presence = (sampleIntensity?[id]).map { ", \"has_intensity\": \($0)" } ?? ""
+            let presence = ", \"has_intensity\": \(sampleIntensity?[id] ?? hasIntensity)"
             let frame = frames[id]
             let range =
                 ", \"return_start\": \(frame.firstPacket * per), "
@@ -109,6 +111,7 @@ enum SyntheticPack {
         let returnsSHA = AnnotationPack.digest(returnBytes)
         let packDigest = AnnotationPack.digest(
             Data([pointsSHA, samplesSHA, packetsSHA, returnsSHA].joined(separator: "\n").utf8))
+        let anyIntensity = samples.indices.contains { sampleIntensity?[$0] ?? hasIntensity }
         let band = heightBand.map { ", \"height_band\": \($0)" } ?? ""
         let config = configHash.map { ", \"config_hash\": \"\($0)\"" } ?? ""
 
@@ -157,7 +160,7 @@ enum SyntheticPack {
              "coverage": "foreground_only", "sample_count": \(samples.count),
              "point_count": \(samples.map(\.count).reduce(0, +)),
              "points_sha256": "\(pointsSHA)", "samples_sha256": "\(samplesSHA)",
-             "pack_digest": "\(packDigest)", "has_intensity": \(hasIntensity), "has_classification": true\(backgroundKeys)\(returnKeys)}
+             "pack_digest": "\(packDigest)", "has_intensity": \(anyIntensity), "has_classification": true\(backgroundKeys)\(returnKeys)}
             """
         let id = UUID().uuidString
         let dir =

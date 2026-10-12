@@ -225,9 +225,10 @@ struct AnnotationSample: Codable, Equatable {
     var sensorID: String
     var pointCount: Int
     var byteOffset: Int64
-    /// Whether this sample's source frame carried an intensity column. Packs
-    /// cut before it was recorded have nil, and only the pack-wide flag.
-    var hasIntensity: Bool? = nil
+    /// Whether this sample's source frame carried an intensity column. The
+    /// block zero-fills an absent column, so a zero byte cannot say which it
+    /// is; only this can. Required: a sample without it is refused.
+    var hasIntensity: Bool
     /// Every return of the frame the sample came from, foreground or not, as
     /// [returnStart, returnEnd) in the pack's return numbering. A label set's
     /// window is that range. Go omits a zero, so absent reads as 0: the first
@@ -260,7 +261,14 @@ extension AnnotationSample {
         sensorID = try c.decode(String.self, forKey: .sensorID)
         pointCount = try c.decode(Int.self, forKey: .pointCount)
         byteOffset = try c.decode(Int64.self, forKey: .byteOffset)
-        hasIntensity = try c.decodeIfPresent(Bool.self, forKey: .hasIntensity)
+        guard let flag = try c.decodeIfPresent(Bool.self, forKey: .hasIntensity) else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.hasIntensity,
+                DecodingError.Context(
+                    codingPath: c.codingPath,
+                    debugDescription: "sample \(sampleID) does not say whether it has intensity"))
+        }
+        hasIntensity = flag
         returnStart = try c.decodeIfPresent(UInt64.self, forKey: .returnStart) ?? 0
         returnEnd = try c.decodeIfPresent(UInt64.self, forKey: .returnEnd) ?? 0
     }
@@ -437,6 +445,16 @@ final class AnnotationPack {
         guard samples.count == manifest.sampleCount else {
             throw AnnotationPackError.malformed(
                 "manifest declares \(manifest.sampleCount) samples, samples.json has \(samples.count)"
+            )
+        }
+        // The manifest's flag means "any sample was measured". It is outside
+        // the pack digest, so an edit to it would pass every check above, and
+        // a true flag over samples that all say false would send the reader
+        // to zero bytes as if they were readings. Go's reader refuses it too.
+        let anyIntensity = samples.contains { $0.hasIntensity }
+        guard samples.isEmpty || anyIntensity == manifest.hasIntensity else {
+            throw AnnotationPackError.malformed(
+                "manifest has_intensity=\(manifest.hasIntensity) but the samples' own flags say \(anyIntensity)"
             )
         }
 

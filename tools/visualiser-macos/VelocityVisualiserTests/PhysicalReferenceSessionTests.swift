@@ -160,7 +160,7 @@ private func temporaryPackDir() -> URL {
 private func sample(_ id: Int) -> AnnotationSample {
     AnnotationSample(
         sampleID: id, sourceOrdinal: id, sourceFrameID: 0, timestampNs: 1_000 + Int64(id),
-        sensorID: "s", pointCount: 0, byteOffset: 0)
+        sensorID: "s", pointCount: 0, byteOffset: 0, hasIntensity: true)
 }
 
 @MainActor struct PhysicalReferenceSessionTests {
