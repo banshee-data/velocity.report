@@ -758,6 +758,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 	var frameEvidenceSink *strictFrameEvidenceSink
 	var frameEvidenceStore *observationsqlite.FrameEvidenceStore
+	var regionMap *regionEvidence
 	var evidenceDB observationsqlite.DBClient
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
@@ -800,6 +801,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		frameEvidenceStore = observationsqlite.NewFrameEvidenceStore(database)
 		defer frameEvidenceStore.Close()
 		frameEvidenceSink = &strictFrameEvidenceSink{sink: frameEvidenceStore}
+		// The L3 region map, which the per-region overrides read, goes in
+		// beside the frame evidence; see regionEvidence.
+		regionMap = newRegionEvidence(bgMgr, database)
 	}
 
 	// --- Pipeline ---
@@ -929,12 +933,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	pipelineCallback := pipeCfg.NewFrameCallback()
 
 	var frameCount int
+	var lastFrameTime time.Time
 	var boundaryChecked, settledAtBoundary bool
 	frameCallback := func(frame *l2frames.LiDARFrame) {
 		if frame == nil {
 			return
 		}
 		frameCount++
+		lastFrameTime = frame.StartTimestamp
 		// Check before consuming the first scored frame: the scored observation
 		// cannot itself be used to certify its own warm-up.
 		if !boundaryChecked && frame.StartTimestamp.UnixNano() >= scoreStart {
@@ -955,6 +961,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		if campaign != nil {
 			campaign.recordFrame(frame.StartTimestamp.UnixNano(), time.Since(started).Seconds())
 		}
+		regionMap.observe(frame.StartTimestamp)
 		refinement.flush()
 		if cfg.ProgressEvery > 0 && frameCount%cfg.ProgressEvery == 0 {
 			log.Printf("frame=%d recorded=%d", frameCount, pub.recorded)
@@ -1036,6 +1043,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	if pub.recorded == 0 {
 		return nil, fmt.Errorf("replay produced no frames: check the UDP port filter (%d) and the capture window", cfg.UDPPort)
+	}
+	// Last of the evidence, once every check above has passed, so a replay
+	// that fails writes no region map.
+	if err := regionMap.finish(lastFrameTime); err != nil {
+		return nil, fmt.Errorf("store region evidence: %w", err)
 	}
 	parserJSON, err := runtime.marshal(parserCfg)
 	if err != nil {

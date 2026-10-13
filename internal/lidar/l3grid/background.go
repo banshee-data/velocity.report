@@ -169,8 +169,53 @@ type Region struct {
 	MeanVariance float64 // mean variance of cells in this region during settling
 	CellCount    int     // number of cells in this region
 	// Volatile marks a region identified from the high-variance tercile.
-	// It is not persisted: a region restored from a snapshot reads false.
+	// It is not restored: a region restored from a snapshot reads false.
 	Volatile bool
+	// Tercile is the variance tercile the region was identified from. A
+	// merged region keeps the tercile of the region that absorbed it, as it
+	// keeps that region's parameters and Volatile flag. It is evidence only:
+	// it is persisted in the region snapshot, never read by the overrides,
+	// and not restored, so a restored region reads TercileNone.
+	Tercile VarianceTercile
+}
+
+// VarianceTercile is the settling-spread tercile of a cell, or of the region
+// it seeded, when regions were identified. It is persisted as its number.
+type VarianceTercile int8
+
+const (
+	// TercileNone means no tercile: the cell was not seen while settling,
+	// or none was recorded (a default region, a restored region).
+	TercileNone VarianceTercile = iota
+	// TercileStable is the lowest third of settling spread.
+	TercileStable
+	// TercileVariable is the middle third.
+	TercileVariable
+	// TercileVolatile is the highest third (trees, glass, and whatever
+	// moved through a cell while the grid settled).
+	TercileVolatile
+)
+
+// String names the tercile as the region code does.
+func (t VarianceTercile) String() string {
+	switch t {
+	case TercileStable:
+		return "stable"
+	case TercileVariable:
+		return "variable"
+	case TercileVolatile:
+		return "volatile"
+	}
+	return "none"
+}
+
+// varianceTercileForCategory maps IdentifyRegions' category codes (0 stable,
+// 1 variable, 2 volatile, -1 unseen) to a VarianceTercile.
+func varianceTercileForCategory(category int) VarianceTercile {
+	if category < 0 || category > 2 {
+		return TercileNone
+	}
+	return VarianceTercile(category + 1)
 }
 
 // RegionManager handles dynamic region identification and management
@@ -183,6 +228,14 @@ type RegionManager struct {
 	}
 	IdentificationComplete bool      // true once regions are identified
 	IdentificationTime     time.Time // when regions were identified
+	// CellTercile is each cell's own variance tercile at identification,
+	// before small regions were merged into their neighbours, and
+	// TercileThresholds the two settling-spread cut points that split them
+	// (a cell at or above a cut point falls in the tercile above it). Both
+	// are evidence only, persisted with the region snapshot and never read
+	// by the pipeline; nil until identification, and after a restore.
+	CellTercile       []VarianceTercile
+	TercileThresholds []float64
 }
 
 // HasDebugRange returns true if any debug range parameters are set.

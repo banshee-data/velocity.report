@@ -65,6 +65,15 @@ type RegionStore interface {
 // If the store also implements RegionStore and regions have been identified,
 // the region data is also persisted with a scene hash for future restoration.
 func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
+	return bm.PersistAt(store, reason, time.Now())
+}
+
+// PersistAt is Persist with the snapshot's time given rather than read from
+// the wall clock: the BgSnapshot's TakenUnixNanos and the region snapshot's
+// CreatedUnixNanos are both takenAt. An offline replay passes the capture's
+// frame time, so the rows it writes are a function of the capture alone.
+// Caller must NOT hold g.mu.
+func (bm *BackgroundManager) PersistAt(store BgStore, reason string, takenAt time.Time) error {
 	if bm == nil || bm.Grid == nil || store == nil {
 		return nil
 	}
@@ -91,7 +100,7 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 
 	snap := &BgSnapshot{
 		SensorID:          g.SensorID,
-		TakenUnixNanos:    time.Now().UnixNano(),
+		TakenUnixNanos:    takenAt.UnixNano(),
 		Rings:             g.Rings,
 		AzimuthBins:       g.AzimuthBins,
 		ParamsJSON:        "{}",
@@ -118,6 +127,7 @@ func (bm *BackgroundManager) Persist(store BgStore, reason string) error {
 		if regionSnap != nil {
 			// Add scene hash for future matching
 			regionSnap.GridHash = g.SceneSignature()
+			regionSnap.CreatedUnixNanos = takenAt.UnixNano()
 			if _, err := regionStore.InsertRegionSnapshot(regionSnap); err != nil {
 				opsf("[BackgroundManager] Failed to persist region snapshot: %v", err)
 				// Don't fail the main snapshot persist for region errors
