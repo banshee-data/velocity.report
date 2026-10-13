@@ -278,6 +278,11 @@ type Result struct {
 	// can pool several replays into one fit. Both nil otherwise.
 	Uncertainty        *l8analytics.UncertaintyReport
 	UncertaintySamples []l5tracks.UncertaintySample
+	// Dwell is what the dwell_policy experiment absorbed over the whole
+	// processed window, warm-up included; nil without it. The continuity
+	// stats count only the scoring window's absorbed expiries. It is also
+	// written to replay_manifest.json.
+	Dwell *pipeline.DwellReport
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -814,6 +819,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
+	var dwell *pipeline.DwellPolicy
+	if hasExperiment(experiments, ExperimentDwellPolicy) {
+		dwell = &pipeline.DwellPolicy{}
+	}
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -831,6 +840,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
+		Dwell:                     dwell,
 		MaxSamplePoints:           maxSamplePoints,
 		KeepClusterMembers:        solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
 		ObservationSourceID:       observationSourceID,
@@ -1092,6 +1102,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if noiseCalibration != nil {
 		manifest["uncertainty_calibration_id"] = noiseCalibration.ID
 	}
+	var dwellReport *pipeline.DwellReport
+	if dwell != nil {
+		// Present only under the experiment, so a replay without it writes
+		// the manifest it always wrote.
+		report := dwell.Report()
+		dwellReport = &report
+		manifest["dwell_policy"] = dwellReport
+	}
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(cfg.ContinuityCoverage)
 		manifest["solid_body_sensor_origin"] = map[string]any{"x_m": x, "y_m": y, "source": source}
@@ -1196,6 +1214,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		GroundSurfaceFit: groundSurfaceFit.Load(),
 		TimeDomain:       timeDomain,
 		Continuity:       continuity,
+		Dwell:            dwellReport,
 	}
 	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
 	return result, nil

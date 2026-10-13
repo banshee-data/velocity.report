@@ -34,6 +34,32 @@ func TestNormaliseExperimentsRejectsUnknownNames(t *testing.T) {
 	}
 }
 
+// dwell_policy is accepted by its name alone, hashes apart from the default,
+// and is not a background experiment (it needs a tracker); a near miss of the
+// name is refused rather than run as the baseline.
+func TestDwellPolicyIsAKnownExperiment(t *testing.T) {
+	got, err := ParseExperiments(" dwell_policy ")
+	if err != nil {
+		t.Fatalf("dwell_policy refused: %v", err)
+	}
+	if want := []string{ExperimentDwellPolicy}; !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	if experimentsHashSuffix(got) == nil {
+		t.Error("dwell_policy left the parameter hash as the default's")
+	}
+	if IsBackgroundExperiment(ExperimentDwellPolicy) {
+		t.Error("dwell_policy is not background-only: it needs L5")
+	}
+	for _, near := range []string{"dwell-policy", "dwell", "dwellpolicy", "Dwell_Policy"} {
+		if _, err := ParseExperiments(near); err == nil {
+			t.Errorf("%q was accepted", near)
+		} else if !strings.Contains(err.Error(), ExperimentDwellPolicy) {
+			t.Errorf("%q: error %q does not list dwell_policy among the known names", near, err)
+		}
+	}
+}
+
 func TestParseExperimentsEmptyIsShippedBehaviour(t *testing.T) {
 	for _, in := range []string{"", "  ", ","} {
 		got, err := ParseExperiments(in)
@@ -73,7 +99,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentFixedLagRTS, ExperimentFlipRule,
+		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
@@ -208,7 +234,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
+	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)

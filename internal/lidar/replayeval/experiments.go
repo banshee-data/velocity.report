@@ -49,6 +49,14 @@ const (
 	// enough similar-range foreground neighbours in the ring-by-azimuth
 	// index. Output only; the background model is untouched.
 	ExperimentSupportFilter = "support_filter"
+	// ExperimentDwellPolicy: pipeline.TrackingPipelineConfig.Dwell, the
+	// beam-wise review's dwell policy (Section 5.1): a confirmed track that
+	// has stood still for pipeline.DwellAbsorbAfter has its object's returns
+	// absorbed into the L3 background and is ended with
+	// l5tracks.ExpiryAbsorbed. It needs a tracker, so it is not a background
+	// experiment and lidar-bench refuses it. The manifest's dwell_policy
+	// section says what it absorbed.
+	ExperimentDwellPolicy = "dwell_policy"
 	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
 	// state-estimation plan question Q3: update each track at its cluster's
 	// own acquisition time rather than the frame start.
@@ -207,6 +215,7 @@ var knownExperiments = map[string]bool{
 	ExperimentFlipRule:            true,
 	ExperimentNoRegionOverrides:   true,
 	ExperimentSupportFilter:       true,
+	ExperimentDwellPolicy:         true,
 	ExperimentMeasurementTime:     true,
 	ExperimentCaptureGapPredict:   true,
 	ExperimentCoastSupport:        true,

@@ -1283,6 +1283,7 @@ func (m *mockTrackerCov) GetDeletedTrackRenderFade() time.Duration {
 func (m *mockTrackerCov) UpdateConfig(fn func(*l5tracks.TrackerConfig)) {
 	// no-op in mock
 }
+func (m *mockTrackerCov) EndAbsorbed(trackID string, at time.Time) bool { return false }
 
 // testBackgroundManagerPrePopulated creates a 40×1800 BackgroundManager with
 // every cell pre-settled to a 10 m baseline. Points at a different distance

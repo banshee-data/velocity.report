@@ -194,7 +194,7 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 	// Velocity-Trail Alignment: Compare Kalman velocity heading with
 	// displacement heading from the last two trail positions.
 	// Only compute when the track has sufficient history and speed.
-	if len(track.History) >= 2 && speed > 0.5 { // Need ≥2 points and moving
+	if len(track.History) >= 2 && speed > StationarySpeedMps { // Need ≥2 points and moving
 		prev := track.History[len(track.History)-2]
 		curr := track.History[len(track.History)-1]
 
@@ -292,7 +292,7 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 			// to align with the direction of travel.
 			speed := float32(math.Sqrt(float64(track.VX*track.VX + track.VY*track.VY)))
 			disambiguated := false
-			if speed > 0.5 { // Only disambiguate when moving (>0.5 m/s)
+			if speed > StationarySpeedMps { // Only disambiguate when moving (>0.5 m/s)
 				velHeading := float32(math.Atan2(float64(track.VY), float64(track.VX)))
 				// Compute angular difference between PCA heading and velocity heading
 				diff := newOBBHeading - velHeading
