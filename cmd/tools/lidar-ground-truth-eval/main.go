@@ -34,6 +34,13 @@
 // verify-bundle re-checks against the pinned inputs and re-runs:
 //
 //	lidar-ground-truth-eval verify-bundle -bundle DIR
+//
+// The retention subcommand (retention.go) is the geometry plan's W3 measure:
+// per reviewed mask and frame, the share of the object's returns that reached
+// an L4 cluster in a replay, how many clusters they fell into, and clusters
+// holding more than one reviewed object:
+//
+//	lidar-ground-truth-eval retention -pack DIR -split-manifest FILE -split NAME -db observations.db [-json FILE]
 package main
 
 import (
@@ -60,6 +67,9 @@ func run(args []string) int {
 	if len(args) > 0 && args[0] == "verify-bundle" {
 		return runVerifyBundle(args[1:], stderr)
 	}
+	if len(args) > 0 && args[0] == "retention" {
+		return runRetention(args[1:], stdout, stderr)
+	}
 	fs := flag.NewFlagSet("lidar-ground-truth-eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dbPath := fs.String("db", "sensor_data.db", "default AnalysisRunStore SQLite database, used when -reference-db/-candidate-db are omitted")
@@ -73,7 +83,8 @@ func run(args []string) int {
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: lidar-ground-truth-eval -reference-run-id ID -candidate-run-id ID [flags]\n")
 		fmt.Fprintf(stderr, "       lidar-ground-truth-eval perframe [flags]   (per-frame scoring against annotations; perframe -h)\n")
-		fmt.Fprintf(stderr, "       lidar-ground-truth-eval verify-bundle -bundle DIR   (re-check a physical verification bundle)\n\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval verify-bundle -bundle DIR   (re-check a physical verification bundle)\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval retention [flags]   (retention and fragmentation per reviewed mask; retention -h)\n\n")
 		fmt.Fprintf(stderr, "Scores one candidate analysis run against one labelled reference run\n")
 		fmt.Fprintf(stderr, "using adapters.EvaluateGroundTruth, and prints the GroundTruthScore as JSON.\n\nOptions:\n")
 		fs.PrintDefaults()

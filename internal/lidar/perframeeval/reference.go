@@ -95,26 +95,44 @@ type Reference struct {
 // split is bound through its own pins: the pack's manifest and selection
 // record, the pinned revision's bytes and the review it certified.
 func LoadReference(opts ReferenceOptions) (*Reference, error) {
+	ref, _, err := loadBoundReference(opts)
+	return ref, err
+}
+
+// boundReference is what LoadReference bound the reference from, kept for a
+// measure that reads the masks' returns rather than their positions.
+type boundReference struct {
+	pack     *annotation.Pack
+	sidecar  *annotation.Sidecar
+	episodes []annotation.Episode
+	points   []annotation.ReferencePoint
+}
+
+// loadBoundReference is LoadReference, also returning the bound pack,
+// annotation revision, selected episodes and policy-mapped reference points,
+// so a measure over mask returns shares every binding rule with the per-frame
+// evaluator instead of repeating them.
+func loadBoundReference(opts ReferenceOptions) (*Reference, *boundReference, error) {
 	if opts.Split == "" {
-		return nil, fmt.Errorf("no split named: say which partition to score")
+		return nil, nil, fmt.Errorf("no split named: say which partition to score")
 	}
 	pack, err := annotation.OpenPack(opts.PackDir)
 	if err != nil {
-		return nil, fmt.Errorf("open pack: %w", err)
+		return nil, nil, fmt.Errorf("open pack: %w", err)
 	}
 	manifest, sidecar, frozen, err := bindSplit(pack, opts.SplitManifestPath)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	episodes, err := manifest.SelectEpisodes(opts.Split, opts.Episodes, !opts.AllowTuningSplit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	split, _ := manifest.SplitByName(opts.Split)
 
 	points, summary, err := annotation.BuildReference(pack, sidecar, opts.Policy)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	bySample := map[int][]annotation.ReferencePoint{}
 	for _, p := range points {
@@ -125,7 +143,7 @@ func LoadReference(opts ReferenceOptions) (*Reference, error) {
 	for _, ep := range episodes {
 		er, err := buildEpisode(pack, ep, bySample, opts.Policy)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		ref.Episodes = append(ref.Episodes, er)
 	}
@@ -150,10 +168,10 @@ func LoadReference(opts ReferenceOptions) (*Reference, error) {
 	}
 	digest, err := referenceDigest(ref.Identity, ref.Episodes)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	ref.Identity.Digest = digest
-	return ref, nil
+	return ref, &boundReference{pack: pack, sidecar: sidecar, episodes: episodes, points: points}, nil
 }
 
 // bindSplit reads a split manifest of either version and binds it to the
