@@ -2015,7 +2015,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results check-experiments
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -2084,6 +2084,15 @@ test-no-results: ## Exercise the result-directory guard against real Git indexes
 	@python3 -m unittest discover -s scripts -p test_check_no_results.py
 
 .PHONY: check-no-results test-no-results
+
+experiments-graph: ## Regenerate data/experiments/DEPENDENCIES.md from the experiment specs
+	@go run ./cmd/tools/experiments graph -write
+
+check-experiments: ## Validate the experiment specs and check DEPENDENCIES.md is the fresh render
+	@go run ./cmd/tools/experiments validate
+	@go run ./cmd/tools/experiments check-graph
+
+.PHONY: experiments-graph check-experiments
 
 check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
 	@scripts/check-buildinfo-placeholder.sh
