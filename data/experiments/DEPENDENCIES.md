@@ -27,7 +27,7 @@ flowchart TB
     l3bg0009["<b>l3bg0009</b><br/>Stage B for the overrides-on retune, on a…<br/>proposed · 15m machine + 4h person<br/>manual: decide, write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
-    l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>approved · 18m machine + 10h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
+    l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>approved · 14m machine + 10h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
   end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
@@ -56,7 +56,7 @@ flowchart TB
 - [l3bg0007](l3bg/l3bg0007.md) Record the region map, and test why lanes land in the volatile tercile: ready, but a step needs tooling; 15m machine + 6h person; after l3bg0003; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0008](l3bg/l3bg0008.md) Dwell policy, and the arrival regime on a long capture: ready, but a step needs tooling; 51m machine + 19h person; after l3bg0006; asks [20261011-beamwise-background-subtraction-review #51-arrival-is-bistable-and-its-…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#51-arrival-is-bistable-and-its-clock-is-the-backgrounds-age), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 15m machine + 4h person; after l3bg0008, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
-- [l4clus0001](l4clus/l4clus0001.md) A range-adaptive DBSCAN neighbourhood, scored on fragmentation: ready, but a step needs tooling; 18m machine + 10h person; after geom0003; asks [D-28](../../docs/DECISIONS.md), [research-briefing-2025-01-to-2026-10](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md).
+- [l4clus0001](l4clus/l4clus0001.md) A range-adaptive DBSCAN neighbourhood, scored on fragmentation: ready, but a step needs tooling; 14m machine + 10h person; after geom0003; asks [D-28](../../docs/DECISIONS.md), [research-briefing-2025-01-to-2026-10](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
@@ -73,5 +73,5 @@ flowchart TB
 
 ## Totals
 
-- 7 open experiments: 3h1m machine + 74h15m person estimated.
+- 7 open experiments: 2h57m machine + 74h15m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
