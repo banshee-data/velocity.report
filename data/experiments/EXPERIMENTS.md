@@ -98,7 +98,8 @@ one directory per attempt.
   `manual:implement`, a `D-NN` in [DECISIONS.md](../../docs/DECISIONS.md) for `manual:decide`,
   the spec's report for `manual:write`; the others are recorded as given until the hub can check
   them.
-- **Refusals.** Only an approved experiment runs. A unit whose inputs are not done does not start,
+- **Refusals.** Only an approved experiment runs, and it starts only once the experiments it
+  depends on are answered. A unit whose inputs are not done does not start,
   a done unit does not start again, and a unit another worker holds is taken over only when it is
   stale, the experiment's `reclaim` is `any` and this worker passes `-reclaim`. `-force` is the
   operator's override, recorded in the unit, for all of these except the artefact.

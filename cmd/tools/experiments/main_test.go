@@ -147,6 +147,16 @@ func TestALaneMarksUnitsAndStatusFollows(t *testing.T) {
 	do(1, "status", "nope0001")
 	do(2, "status", "a", "b")
 
+	// An experiment waiting on an unanswered one does not start without -force.
+	dep := strings.Replace(strings.Replace(laneSpec, "id: abcd0001", "id: abcd0002", 1), "report: docs/r.md\n", "report: docs/r.md\ndepends_on: [abcd0001]\n", 1)
+	if err := os.WriteFile(filepath.Join(root, "data/experiments/abcd/abcd0002.md"), []byte(dep), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out := do(1, "mark", "abcd0002", "replay/a0/kirk0", "start"); !strings.Contains(out, "waits for abcd0001") {
+		t.Errorf("dependency refusal: %s", out)
+	}
+	do(0, "mark", "abcd0002", "replay/a0/kirk0", "start", "-force")
+
 	// A forced write closes on the report once it exists.
 	if err := os.WriteFile(filepath.Join(root, "docs", "r.md"), []byte("# R\n"), 0o644); err != nil {
 		t.Fatal(err)

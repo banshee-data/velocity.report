@@ -132,6 +132,10 @@ func mark(set *experiments.Set, root string, ledger *experiments.Ledger, args []
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
+	if pos[2] == string(experiments.Start) && !*force && set.Readiness(sp) == experiments.Waiting {
+		fmt.Fprintf(os.Stderr, "%s waits for %s to be answered first (-force to start anyway)\n", sp.ID, strings.Join(sp.DependsOn, ", "))
+		return 1
+	}
 	digest, err := experiments.SpecDigest(root, sp)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
