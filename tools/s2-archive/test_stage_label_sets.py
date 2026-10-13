@@ -14,16 +14,24 @@ stage_label_sets = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(stage_label_sets)
 
 # A stand-in for the velocity binary: `publish` copies labels.json to the
-# destination, `bind` appends a binding naming the file's fake digest.
+# destination (over it with --replace), `publish-view` makes the view's
+# directory, `bind` appends a binding naming the file's fake digest. Every
+# call is logged beside it.
 FAKE_VELOCITY = """#!/usr/bin/env python3
 import json, pathlib, sys
 args = sys.argv[1:]
+with open(pathlib.Path(sys.argv[0]).parent / "calls.log", "a") as log:
+    log.write(" ".join(args[2:3] + [a for a in args if a.startswith("--") and a in ("--replace",)]) + "\\n")
 get = lambda flag: args[args.index(flag) + 1]
 labels = pathlib.Path(get("--labels"))
 if args[2] == "publish":
     dest = pathlib.Path(get("--dest"))
-    dest.mkdir(parents=True)
+    dest.mkdir(parents=True, exist_ok="--replace" in args)
     (dest / "labels.json").write_text((labels / "labels.json").read_text())
+elif args[2] == "publish-view":
+    dest = pathlib.Path(get("--dest"))
+    dest.mkdir()
+    (dest / "manifest.json").write_text("{}")
 elif args[2] == "bind":
     m = json.loads((labels / "labels.json").read_text())
     m.setdefault("applies_to", []).append({"name": pathlib.Path(get("--pcap")).name, "sha256": "sha256:published"})
@@ -109,6 +117,86 @@ class StageLabelSetsTest(unittest.TestCase):
         self.assertTrue(ignore.startswith(".DS_Store\n"))
         # A published label set is never overwritten.
         self.assertEqual(stage_label_sets.main(self.argv()), 1)
+
+    def calls(self):
+        log = self.velocity.parent / "calls.log"
+        return log.read_text().splitlines() if log.exists() else []
+
+    def linked_pack(self):
+        pack = self.velocity.parent / "pack-a"
+        pack.mkdir()
+        (pack / "label-set-link.json").write_text(
+            json.dumps({"label_set_id": "id", "path": "../labels/columbus-proposals"})
+        )
+        return pack
+
+    def view_argv(self, pack, *extra):
+        return [
+            "--dataset",
+            str(self.dataset),
+            "--view",
+            str(pack),
+            "--velocity",
+            str(self.velocity),
+            *extra,
+        ]
+
+    def stem(self):
+        return self.dataset / "labels" / "20260902T1320_80858-0f4_columbus-broadway"
+
+    def test_stages_a_view_beside_its_label_set(self):
+        pack = self.linked_pack()
+        self.assertEqual(
+            stage_label_sets.main(self.view_argv(pack, "--capture-id", "a")), 0
+        )
+        self.assertTrue((self.stem() / "columbus-proposals" / "labels.json").exists())
+        self.assertTrue((self.stem() / "pack-a" / "manifest.json").exists())
+        rows = json.loads((self.dataset / "manifest.json").read_text())
+        self.assertEqual(
+            rows[0]["annotation_pack_paths"],
+            ["labels/20260902T1320_80858-0f4_columbus-broadway/pack-a"],
+        )
+        ignore = (self.dataset / ".gitignore").read_text()
+        for rule in (
+            "labels/**/.annotations.lock",
+            "labels/**/proposals/",
+            "labels/**/physical-reference-revisions/",
+        ):
+            self.assertIn(rule, ignore)
+        self.assertEqual(self.calls(), ["bind", "publish", "publish-view"])
+        # A published view is never overwritten.
+        self.assertEqual(stage_label_sets.main(self.view_argv(pack)), 1)
+
+    def test_a_set_published_at_the_same_head_is_kept(self):
+        m = json.loads((self.labels / "labels.json").read_text())
+        m["head"] = {"revision": 2233, "state": "sha256:s"}
+        (self.labels / "labels.json").write_text(json.dumps(m))
+        self.assertEqual(stage_label_sets.main(self.argv("--capture-id", "a")), 0)
+        pack = self.linked_pack()
+        self.assertEqual(stage_label_sets.main(self.view_argv(pack)), 0)
+        self.assertEqual(self.calls(), ["bind", "publish", "publish-view"])
+
+    def test_replace_refreshes_a_set_that_is_behind(self):
+        m = json.loads((self.labels / "labels.json").read_text())
+        m["head"] = {"revision": 2232, "state": "sha256:old"}
+        (self.labels / "labels.json").write_text(json.dumps(m))
+        self.assertEqual(stage_label_sets.main(self.argv("--capture-id", "a")), 0)
+        m = json.loads((self.labels / "labels.json").read_text())
+        m["head"] = {"revision": 2233, "state": "sha256:new"}
+        (self.labels / "labels.json").write_text(json.dumps(m))
+        self.assertEqual(stage_label_sets.main(self.argv()), 1)
+        self.assertEqual(stage_label_sets.main(self.argv("--replace")), 0)
+        self.assertEqual(self.calls(), ["bind", "publish", "publish --replace"])
+        published = json.loads(
+            (self.stem() / "columbus-proposals" / "labels.json").read_text()
+        )
+        self.assertEqual(published["head"]["revision"], 2233)
+
+    def test_a_view_needs_a_link(self):
+        pack = self.velocity.parent / "unlinked"
+        pack.mkdir()
+        self.assertEqual(stage_label_sets.main(self.view_argv(pack)), 1)
+        self.assertEqual(stage_label_sets.main(["--dataset", str(self.dataset)]), 1)
 
     def test_dry_run_changes_nothing(self):
         before = (self.dataset / "manifest.json").read_text()

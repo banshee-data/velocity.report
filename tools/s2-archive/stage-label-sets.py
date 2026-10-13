@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stage label sets into the Hugging Face dataset, joined to their captures.
+"""Stage label sets and their views into the Hugging Face dataset.
 
 A label set cites returns of a capture by packet key, so it applies to any
 file holding the capture's packets. This script attaches one to a dataset
@@ -9,13 +9,26 @@ its labels.json `applies_to` must name the manifest row's `raw_sha256`. With
 reads the file and records the result.
 
 For each label set it then publishes the current state (no journal, no lock)
-to labels/<capture stem>/<label set name>/, adds the path to the row's
-`label_set_paths`, and makes sure the dataset's .gitattributes and .gitignore
-carry the label set rules. It never overwrites a published label set.
+to labels/<capture stem>/<label set name>/ and adds the path to the row's
+`label_set_paths`. A set already published at the same head is left as it is;
+`--replace` refreshes one that is behind (`labels publish --replace`, which
+refuses a copy someone has edited).
+
+A label set holds no points, so it cannot be opened for editing on its own.
+Each `--view PACK` is a pack linked to a label set (its own label set is
+staged too, found through its link): it is published beside the set as
+labels/<capture stem>/<pack directory name>/ by `labels publish-view`, which
+checks it as a fresh copy would hold it, and its path is added to the row's
+`annotation_pack_paths`. A published view is never overwritten.
+
+The dataset's .gitattributes and .gitignore get the label set rules: exact
+bytes, `*.ndjson` through LFS/Xet, and every file the editors write that is
+working state rather than a record.
 
 Usage:
-  stage-label-sets.py --dataset DIR --labels DIR [--labels DIR ...]
-                      [--capture-id ID] [--velocity BIN] [--port 2369] [--dry-run]
+  stage-label-sets.py --dataset DIR [--labels DIR ...] [--view PACK ...]
+                      [--capture-id ID] [--replace] [--velocity BIN]
+                      [--port 2369] [--dry-run]
 """
 
 from __future__ import annotations
@@ -37,7 +50,14 @@ GITIGNORE = [
     "labels/**/journal-base/",
     "labels/**/.lock",
     "labels/**/*.tmp",
+    "# A view's working state: locks, revision archives, regenerated proposal layers, staging.",
+    "labels/**/.annotations.lock",
+    "labels/**/physical-reference-revisions/",
+    "labels/**/feature-proposal-revisions/",
+    "labels/**/proposals/",
+    "labels/**/.publish-view-*/",
 ]
+LINK_FILE = "label-set-link.json"
 
 
 def load_json(path: pathlib.Path):
@@ -72,6 +92,21 @@ def ensure_lines(path: pathlib.Path, lines, dry_run: bool) -> bool:
     return True
 
 
+def view_label_set(pack: pathlib.Path) -> pathlib.Path:
+    """The label set a pack is linked to."""
+    link = load_json(pack / LINK_FILE)
+    return (pack / link["path"]).resolve()
+
+
+def same_head(a, b) -> bool:
+    ha, hb = a.get("head") or {}, b.get("head") or {}
+    return (
+        bool(ha)
+        and ha.get("revision") == hb.get("revision")
+        and ha.get("state") == hb.get("state")
+    )
+
+
 def run(cmd, dry_run: bool):
     print("$ " + " ".join(str(c) for c in cmd))
     if not dry_run:
@@ -90,8 +125,22 @@ def stage(args) -> int:
         )
         return 1
     changed = False
-    for labels_dir in args.labels:
-        labels_dir = pathlib.Path(labels_dir)
+    label_dirs = [pathlib.Path(d) for d in args.labels or []]
+    views = {}
+    for pack in args.view or []:
+        pack = pathlib.Path(pack)
+        try:
+            source = view_label_set(pack)
+        except (OSError, KeyError, ValueError) as error:
+            print(f"{pack}: not a linked pack ({error})", file=sys.stderr)
+            return 1
+        if source not in {d.resolve() for d in label_dirs}:
+            label_dirs.append(source)
+        views.setdefault(source, []).append(pack)
+    if not label_dirs:
+        print("nothing to stage: give --labels or --view", file=sys.stderr)
+        return 1
+    for labels_dir in label_dirs:
         label_manifest = load_json(labels_dir / "labels.json")
         name = label_manifest.get("name") or labels_dir.name
         if args.capture_id:
@@ -138,29 +187,63 @@ def stage(args) -> int:
         row = matches[0]
         rel = pathlib.PurePosixPath("labels", stem_of(row), name)
         dest = dataset / rel
-        if dest.exists():
+        publish = [
+            args.velocity,
+            "lidar",
+            "labels",
+            "publish",
+            "--labels",
+            labels_dir,
+            "--dest",
+            dest,
+        ]
+        if not dest.exists():
+            run(publish, args.dry_run)
+        elif args.replace:
+            run(publish + ["--replace"], args.dry_run)
+        elif same_head(load_json(dest / "labels.json"), label_manifest):
             print(
-                f"{dest} exists; a published label set is never overwritten",
+                f"{rel} is already published at revision {label_manifest['head']['revision']}"
+            )
+        else:
+            print(
+                f"{dest} exists at another head; a published label set is never "
+                "overwritten (--replace refreshes one that is behind)",
                 file=sys.stderr,
             )
             return 1
-        run(
-            [
-                args.velocity,
-                "lidar",
-                "labels",
-                "publish",
-                "--labels",
-                labels_dir,
-                "--dest",
-                dest,
-            ],
-            args.dry_run,
-        )
         paths = sorted(set((row.get("label_set_paths") or []) + [str(rel)]))
         row["label_set_paths"] = paths
         changed = True
         print(f"staged {labels_dir} as {rel} for {row['capture_id']}")
+        for pack in views.get(labels_dir.resolve(), []):
+            view_rel = pathlib.PurePosixPath("labels", stem_of(row), pack.name)
+            view_dest = dataset / view_rel
+            if view_dest.exists():
+                print(
+                    f"{view_dest} exists; a published view is never overwritten",
+                    file=sys.stderr,
+                )
+                return 1
+            run(
+                [
+                    args.velocity,
+                    "lidar",
+                    "labels",
+                    "publish-view",
+                    "--pack",
+                    pack,
+                    "--labels",
+                    dest,
+                    "--dest",
+                    view_dest,
+                ],
+                args.dry_run,
+            )
+            row["annotation_pack_paths"] = sorted(
+                set((row.get("annotation_pack_paths") or []) + [str(view_rel)])
+            )
+            print(f"staged view {pack} as {view_rel}")
     if changed and not args.dry_run:
         manifest_path.write_text(dump_manifest(rows), encoding="utf-8")
     for path, lines in (
@@ -183,9 +266,18 @@ def main(argv=None) -> int:
     )
     parser.add_argument(
         "--labels",
-        required=True,
         action="append",
         help="label set directory (repeatable)",
+    )
+    parser.add_argument(
+        "--view",
+        action="append",
+        help="linked pack to publish beside its label set (repeatable)",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="refresh a published label set that is behind its source",
     )
     parser.add_argument(
         "--capture-id", help="bind to this manifest row's raw file first"
