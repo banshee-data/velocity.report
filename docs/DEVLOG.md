@@ -8,6 +8,16 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 13, 2026 - kirk0's labels published with a view you can edit from the dataset
+
+- {dd/lidar/annotation-format-v2} Made Go write `labels.json` exactly as the macOS client does, keys sorted and indented, with parity fixtures on both sides. Both rewrite it on every save, and Go's struct order meant the first window save after a Go write reordered the whole file.
+- {dd/lidar/annotation-format-v2} Added `labels publish --replace`, which refreshes a published label set that is behind its source and refuses a copy someone has edited, one that is ahead, and one that went another way.
+- {dd/lidar/annotation-format-v2} Added `annotation-reference repin`. A review pins the membership revision it was made against, and a published copy cannot rebuild an older revision, so every review would read as no longer retained after a published edit. The editor, who still has the history, moves every review whose frames the edit did not touch to the new head.
+- {dd/lidar/annotation-format-v2} Added `labels publish-view` and `labels check-view`. A view is the pack the labels were drawn on, published beside its label set with its data and physical references. `check-view` tests a view as a fresh copy of the tracked files would hold, which is the check to run before committing an edit ([guide](lidar/operations/label-sets.md#editing-from-the-dataset)).
+- {dd/lidar/annotation-format-v2} Taught `stage-label-sets.py` to stage views, to keep a set already published at the same head, and to ignore the editors' working state (locks, revision archives, regenerated proposal layers). Its tests now run in `make test-python`.
+- {dd/lidar/annotation-format-v2} Staged kirk0-reference as the dataset's first label set: kirk0 became capture `20251205T1417_8085875c_kirkham-9th` (Kirkham at 9th). Attaching the labelling run's pack made revision 2,233 with no samples skipped, and all 25 reviews re-pinned to it. `check-view` passes on the published copy. In a scratch clone, a one-mask edit committed three lines of `labels.json`, one line of `masks.ndjson` and 56 lines of `physical-references.json` (the re-pin). Nothing is pushed.
+- {dd/lidar/annotation-format-v2} Made the macOS window grant, and name, the folder that holds a pack's label set. A dataset view keeps its set beside it, not in `labels/`.
+
 ## October 12, 2026 - Capture-bound annotation label sets
 
 - {dd/lidar/annotation-format-v2} Planned capture-bound annotations ([plan](plans/lidar-capture-bound-annotation-format-plan.md)) after finding that labels bound to one run's export: two runs of kirk0 with byte-identical points got different pack digests, and every save stored the whole document (2,231 revisions, 42 GB, for a 26 MB head). Decided with the operator: the packet key is a digest of the packet's bytes, annotation stays downstream of foreground separation, only the current state is published, and the version 1 pack writer goes.

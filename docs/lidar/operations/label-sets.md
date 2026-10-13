@@ -28,16 +28,18 @@ label set cannot measure.
 
 All are `velocity lidar labels <command>`; built through `make`, so records name the build.
 
-| Command   | Use                                                                                                         |
-| --------- | ----------------------------------------------------------------------------------------------------------- |
-| `create`  | Start a label set from a pack and link the pack                                                             |
-| `attach`  | Add another pack of the same capture as a second domain and link it                                         |
-| `bind`    | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels   |
-| `verify`  | Replay the journal and check every revision's state digest                                                  |
-| `info`    | Counts, head revision and digest, bindings, and where a migrated set came from                              |
-| `project` | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N` |
-| `publish` | Copy the current state, without the journal, to an empty directory                                          |
-| `census`  | Count packet keys in capture files and report duplicates                                                    |
+| Command        | Use                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`       | Start a label set from a pack and link the pack                                                                                                           |
+| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                       |
+| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                 |
+| `verify`       | Replay the journal and check every revision's state digest                                                                                                |
+| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                            |
+| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                               |
+| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited         |
+| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it |
+| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                        |
+| `census`       | Count packet keys in capture files and report duplicates                                                                                                  |
 
 Everything that reads a pack's membership reads it through the label set: splits, physical
 references, features, the per-frame and near-face evaluators, and the server's pack listing. It is
@@ -79,6 +81,68 @@ the file. A file that holds none of the packets, or holds one twice, is refused.
 
 `tools/s2-archive/stage-label-sets.py` publishes label sets into the Hugging Face dataset, joined to
 a capture row only by `raw_sha256`. See the [dataset layout](../../../tools/s2-archive/huggingface-dataset-layout.md#label-sets).
+A set already published at the same head is left as it is, and `--replace` refreshes one that is
+behind its source. It never writes over a copy someone has edited.
+
+### Publishing a view
+
+A label set holds no points, so nothing can be drawn or edited from it alone. A **view** is a pack
+published beside its label set: `--view PACK` stages the pack's label set (found through its link)
+and runs `labels publish-view`. The view gets the pack's data and physical references, and its link
+is rewritten to the set beside it:
+
+```text
+labels/<capture stem>/
+  <label set name>/      the label set: labels.json and the head files
+  <pack directory>/      its view: manifest, samples, points, packets, returns, background,
+                         physical-references.json, label-set-link.json -> ../<label set name>
+```
+
+Publish the run the labels were drawn on, so the view shows every labelled return. `publish-view`
+refuses a pack whose foreground is not one of the set's domains, since the first save from it
+would add that foreground whole: `attach` the pack and republish the set first. It also refuses
+any physical reference pinned to a revision a copy without history cannot rebuild. Facets,
+proposal layers, locks and revision archives stay behind.
+
+### Editing from the dataset
+
+Anyone with the dataset and a build of this repository can edit a published label set. Its files
+on disk are then the new state, and the change is a small commit.
+
+1. Clone the dataset with git and Git Xet installed, and let `git diff` show LFS files as text:
+   `git config diff.lfs.textconv cat`.
+2. `git checkout -b <your branch>`.
+3. Start the server with `--lidar-annotation-dir=<clone>/labels/<capture stem>`. The window saves
+   membership itself, but physical-reference and facet saves go through the server, which finds a
+   pack only directly inside that directory.
+4. In the macOS window, **Open Annotation Pack…** the view, and grant `labels/<capture stem>` when
+   asked: the label set beside the view is written there.
+5. Edit and save. The first save of a published set copies its head to `journal-base/` and starts a
+   local journal; both are gitignored, with the locks and revision archives the editors write.
+6. Before committing, run
+   `velocity lidar annotation-reference repin --pack <view> --author <you>`, then
+   `velocity lidar labels check-view --pack <view>`. A review pins the membership it was made
+   against, and a later copy has no history to rebuild it. `repin` moves every review whose frames
+   the edit did not touch to the new head. `check-view` checks the view as a fresh copy of the
+   tracked files would hold, and names any review that needs doing again.
+7. `git status` lists the label set's `labels.json` and head files, and the view's
+   `physical-references.json` if it changed. Commit them. To propose the change, open a pull
+   request on the dataset's Hub page, then `git push origin <your branch>:refs/pr/<number>`.
+
+A one-mask edit of kirk0's view changed three lines of `labels.json` (the head), one line of
+`masks.ndjson`, and 56 lines of `physical-references.json` (the re-pin of 25 reviews).
+
+- **Branches do not merge.** Every save rewrites the head in `labels.json`, and `*.ndjson` is in
+  LFS. Two branches from one head conflict; make the second edit again on the new head.
+- **One object edit is one long line.** `objects.json` and `windows.json` are single-line canonical
+  files, so a change to any object shows as the whole line.
+- **Every save stores the whole `masks.ndjson` again in local LFS.** That is about 7 MB for kirk0.
+  Xet uploads only the chunks that changed.
+- **Splits land in the view's folder.** A split frozen through the server is written to
+  `labels/<capture stem>/splits/`. Commit it only if it is meant to be published.
+- **Facets break for later copies.** A facet pins the label set revision it was authored on, so it
+  stops loading once membership moves past that revision. `check-view` reports it; there is no
+  facet re-pin yet.
 
 ## Limits
 
@@ -86,4 +150,5 @@ a capture row only by `raw_sha256`. See the [dataset layout](../../../tools/s2-a
 - A pack can be cut only from a VRLOG recorded by a build that carries return identity; re-record
   older runs by replaying their PCAP.
 - Physical references, feature proposals and proposal layers stay bound to a pack (one run's view).
-  Their membership pins name label set revisions through the projection.
+  Their membership pins name label set revisions through the projection, so after a membership
+  edit the reviews need `annotation-reference repin` before the edit is published.
