@@ -138,6 +138,27 @@ final class LabelSetMembership {
 
     var labelsDirectory: URL { pack.annotationDirectory.appendingPathComponent("labels") }
 
+    /// Where this pack's labels are kept: its linked label set, wherever the
+    /// link puts it (a dataset view sits beside its set), or the labels
+    /// folder where the first save makes one.
+    var labelSetLocation: URL {
+        if let link = try? LabelSetLink.read(packDirectory: pack.directory) {
+            return link.directory(packDirectory: pack.directory)
+        }
+        return labelsDirectory
+    }
+
+    /// The folder a save writes in, which the app must be granted: the
+    /// pack's annotation folder when the label set is inside it, as it is
+    /// both for a pack beside `labels/` and for a dataset view beside its
+    /// set; otherwise the folder holding the linked set.
+    static func writeFolder(annotationDirectory: URL, labelSet: URL) -> URL {
+        if PackFolderAccess.folder(annotationDirectory, contains: labelSet) {
+            return annotationDirectory
+        }
+        return labelSet.deletingLastPathComponent()
+    }
+
     /// Why nothing can be saved, or nil when saving works.
     var readOnlyReason: String? { accessRefusal }
 

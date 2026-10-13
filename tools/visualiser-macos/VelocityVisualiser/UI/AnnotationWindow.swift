@@ -188,7 +188,7 @@ func annotationFramingHalfHeight(
         do {
             let pack = try AnnotationPack.open(directory: directory)
             let store = LabelSetMembership(pack: pack)
-            store.accessRefusal = labelFolderAccess(for: pack)
+            store.accessRefusal = labelFolderAccess(for: pack, labelSet: store.labelSetLocation)
             let opened = try AnnotationSession(pack: pack, store: store)
             session = opened
             if !ProposalLayerStore(pack: pack).hasLayers { Task { await opened.proposeObjects() } }
@@ -205,15 +205,17 @@ func annotationFramingHalfHeight(
         }
     }
 
-    /// Makes sure a pack's label sets can be written: they live
-    /// beside the pack, in `<annotation dir>/labels/`, which a grant on the
-    /// pack alone does not reach. Returns why saving is impossible, or nil.
+    /// Makes sure a pack's label set can be written: it lives beside the
+    /// pack, in `<annotation dir>/labels/` or, for a dataset view, next to
+    /// it, which a grant on the pack alone does not reach. Returns why saving
+    /// is impossible, or nil.
     ///
     /// Asked at opening rather than at the first save, because a save that
     /// fails for want of a folder grant fails after the operator has done
     /// the work.
-    private func labelFolderAccess(for pack: AnnotationPack) -> String? {
-        let folder = pack.annotationDirectory
+    private func labelFolderAccess(for pack: AnnotationPack, labelSet: URL) -> String? {
+        let folder = LabelSetMembership.writeFolder(
+            annotationDirectory: pack.annotationDirectory, labelSet: labelSet)
         if let grant, PackFolderAccess.folder(grant.folder, contains: folder) { return nil }
         if let remembered = folderAccess.beginAccess(for: folder) {
             labelGrant = remembered
@@ -230,8 +232,8 @@ func annotationFramingHalfHeight(
                 return nil
             }
         }
-        return "Read only: label sets for this pack are kept in \(folder.path)/labels, and the app "
-            + "has not been given that folder. Open the pack again and grant it to save."
+        return "Read only: this pack's labels are kept in \(labelSet.path), and the app has not "
+            + "been given \(folder.path). Open the pack again and grant that folder to save."
     }
 
     /// Shows a failure in the open window, where the operator is looking, or
@@ -269,8 +271,8 @@ func annotationFramingHalfHeight(
         panel.directoryURL = suggested
         panel.prompt = "Grant Access"
         panel.message =
-            "Labels for this pack are kept beside it, in this folder's labels directory, so "
-            + "every run of the capture can share them. Grant access to this folder to save."
+            "Labels for this pack are kept beside it, in this folder, so every run of the "
+            + "capture can share them. Grant access to this folder to save."
         guard panel.runModal() == .OK else { return nil }
         return panel.url
     }

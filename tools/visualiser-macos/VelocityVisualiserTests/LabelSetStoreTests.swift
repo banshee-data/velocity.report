@@ -167,8 +167,30 @@ struct LabelSetStoreTests {
             try LabelSetStore.loadRevision(published, revision: 1)
         }
 
+        // A one-mask edit of the copy is what someone with the dataset would
+        // commit: one masks.ndjson line and the head's three labels.json
+        // lines; every other head file keeps its bytes.
+        var before: [String: Data] = [:]
+        for name in LabelSetFiles.state + [LabelSetFiles.manifest] {
+            before[name] = try Data(contentsOf: published.appendingPathComponent(name))
+        }
         addMember(copy, 41)
         try copy.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
+        for (name, was) in before {
+            let now = try Data(contentsOf: published.appendingPathComponent(name))
+            let changed = zip(
+                String(decoding: was, as: UTF8.self).split(
+                    separator: "\n", omittingEmptySubsequences: false),
+                String(decoding: now, as: UTF8.self).split(
+                    separator: "\n", omittingEmptySubsequences: false)
+            ).filter { $0 != $1 }.count
+            switch name {
+            case LabelSetFiles.manifest:
+                #expect(changed == 3, "labels.json changed \(changed) lines")
+            case LabelSetFiles.masks: #expect(changed == 1, "masks.ndjson changed \(changed) lines")
+            default: #expect(now == was, "\(name) changed")
+            }
+        }
         #expect(try LabelSetStore.verify(published) == 2)
         #expect(
             try LabelSetStore.loadRevision(published, revision: 2).digest() == store.stateDigest)
@@ -199,5 +221,29 @@ struct LabelSetStoreTests {
         var bumped = manifest
         bumped.schemaVersion = 3
         #expect(throws: LabelSetError.self) { try LabelSetManifest.read(bumped.json.indentedData) }
+    }
+}
+
+/// Which folder the app needs to write a pack's labels: the pack's own
+/// annotation folder whenever the label set is inside it, which covers both
+/// layouts the tools write, and the linked set's folder otherwise.
+struct LabelSetWriteFolderTests {
+    @Test func theFolderToGrantHoldsTheLabelSet() {
+        let packs = URL(fileURLWithPath: "/data/annotation-packs")
+        #expect(
+            LabelSetMembership.writeFolder(
+                annotationDirectory: packs,
+                labelSet: packs.appendingPathComponent("labels/kirk0-reference")) == packs)
+        let stem = URL(
+            fileURLWithPath: "/hf/sf-street-speeds/labels/20251205T1417_80858-75c_kirkham-9th")
+        #expect(
+            LabelSetMembership.writeFolder(
+                annotationDirectory: stem, labelSet: stem.appendingPathComponent("kirk0-reference"))
+                == stem)
+        #expect(
+            LabelSetMembership.writeFolder(
+                annotationDirectory: packs,
+                labelSet: URL(fileURLWithPath: "/elsewhere/sets/kirk0-reference")
+            ).path == "/elsewhere/sets")
     }
 }
