@@ -33,6 +33,13 @@ Commands:
   info      Summarise a label set
   project   Print a linked pack's membership in its own point indices
   publish   Copy the current state, without the journal, to a directory
+            (--replace refreshes a published copy that is behind)
+  publish-view
+            Copy a linked pack beside a published label set as its view:
+            its data and physical references, linked to the set next to it
+  check-view
+            Check a view and its label set as a fresh copy of their tracked
+            files would hold them: run it before committing an edit
   census    Count packet keys in capture files and report duplicates`
 
 // LabelsMain routes `velocity lidar labels`.
@@ -44,7 +51,7 @@ func LabelsMain(args []string) int {
 	cmds := map[string]func([]string) error{
 		"create": labelsCreate, "attach": labelsAttach, "bind": labelsBind,
 		"verify": labelsVerify, "info": labelsInfo, "project": labelsProject, "publish": labelsPublish,
-		"census": labelsCensus,
+		"publish-view": labelsPublishView, "check-view": labelsCheckView, "census": labelsCensus,
 	}
 	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Println(labelsUsage)
@@ -244,6 +251,44 @@ func labelsPublish(args []string) error {
 	}
 	fmt.Printf("published the current state of %s to %s\n", *dir, *dest)
 	return nil
+}
+
+func labelsPublishView(args []string) error {
+	fs := flag.NewFlagSet("labels publish-view", flag.ContinueOnError)
+	pack := fs.String("pack", "", "Linked version 2 pack to publish (required)")
+	dir := fs.String("labels", "", "The published label set it becomes the view of (required)")
+	dest := fs.String("dest", "", "Destination beside the published label set, empty or absent (required)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *pack == "" || *dir == "" || *dest == "" {
+		return fmt.Errorf("--pack, --labels and --dest are required")
+	}
+	report, err := labelset.PublishView(*pack, *dir, *dest)
+	if report != nil {
+		if werr := writeJSON(os.Stdout, report); werr != nil && err == nil {
+			err = werr
+		}
+	}
+	return err
+}
+
+func labelsCheckView(args []string) error {
+	fs := flag.NewFlagSet("labels check-view", flag.ContinueOnError)
+	pack := fs.String("pack", "", "View (linked pack) to check (required)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *pack == "" {
+		return fmt.Errorf("--pack is required")
+	}
+	report, err := labelset.CheckView(*pack)
+	if report != nil {
+		if werr := writeJSON(os.Stdout, report); werr != nil && err == nil {
+			err = werr
+		}
+	}
+	return err
 }
 
 func labelsCensus(args []string) error {
