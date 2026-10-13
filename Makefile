@@ -111,6 +111,7 @@ help:
 	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
 	@echo "  install-scene-capture        Install scene-capture tool dependencies (pnpm/npm)"
 	@echo "  install-scene-capture-browser Also download the pinned headless Chromium (large download)"
+	@echo "  install-transcribe   Install the two speech-recognition engines for podcast-transcribe (pipx)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
@@ -989,7 +990,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
+.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-transcribe install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -1022,7 +1023,8 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
-	tools/grid-heatmap/test_plot_grid_heatmap.py
+	tools/grid-heatmap/test_plot_grid_heatmap.py \
+	tools/podcast-transcribe/test_podcast_transcribe.py
 install-python:
 	@echo "Setting up Python environment..."
 	@python_path=$$(command -v python$(PYTHON_VERSION) 2>/dev/null || true); \
@@ -1140,6 +1142,28 @@ install-scene-capture:
 install-scene-capture-browser: install-scene-capture
 	@echo "Downloading the pinned headless Chromium for scene-capture..."
 	@cd $(SCENE_CAPTURE_DIR) && npx playwright install chromium
+
+# Speech-recognition engines for tools/podcast-transcribe, each in its own pipx
+# venv and reused when already on PATH. Opt-in: torch and MLX are large, and the
+# models (about 1.6 GB and 2.5 GB) download on first use into ~/.cache/whisper
+# and ~/.cache/huggingface. Parakeet runs on MLX, so Apple Silicon only.
+TRANSCRIBE_WHISPER_VERSION = 20240930
+TRANSCRIBE_PARAKEET_VERSION = 0.5.3
+install-transcribe:
+	@command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg not found: brew install ffmpeg"; exit 1; }
+	@command -v pipx >/dev/null 2>&1 || { echo "pipx not found: brew install pipx"; exit 1; }
+	@if command -v whisper >/dev/null 2>&1; then \
+		echo "whisper already installed: $$(command -v whisper)"; \
+	else \
+		pipx install --python python$(PYTHON_VERSION) "openai-whisper==$(TRANSCRIBE_WHISPER_VERSION)"; \
+	fi
+	@if command -v parakeet-mlx >/dev/null 2>&1; then \
+		echo "parakeet-mlx already installed: $$(command -v parakeet-mlx)"; \
+	elif [ "$$(uname -sm)" = "Darwin arm64" ]; then \
+		pipx install --python python$(PYTHON_VERSION) "parakeet-mlx==$(TRANSCRIBE_PARAKEET_VERSION)"; \
+	else \
+		echo "parakeet-mlx needs Apple Silicon; run prepare with --pass-b openai-whisper:medium.en"; \
+	fi
 
 .PHONY: ensure-python-tools
 ensure-python-tools:
@@ -1992,7 +2016,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results check-experiments
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -2061,6 +2085,15 @@ test-no-results: ## Exercise the result-directory guard against real Git indexes
 	@python3 -m unittest discover -s scripts -p test_check_no_results.py
 
 .PHONY: check-no-results test-no-results
+
+experiments-graph: ## Regenerate data/experiments/DEPENDENCIES.md from the experiment specs
+	@go run ./cmd/tools/experiments graph -write
+
+check-experiments: ## Validate the experiment specs and check DEPENDENCIES.md is the fresh render
+	@go run ./cmd/tools/experiments validate
+	@go run ./cmd/tools/experiments check-graph
+
+.PHONY: experiments-graph check-experiments
 
 check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
 	@scripts/check-buildinfo-placeholder.sh

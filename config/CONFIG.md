@@ -218,6 +218,8 @@ fails the test rather than running as something other than its arm.
 | [solid-body-a2.json](experiments/solid-body-a2.json)                                   | The shadow plus `near_edge_tracking` (A2)            |
 | [alignment-candidate.json](experiments/alignment-candidate.json)                       | A2 with the alignment options and containment        |
 | [geometry-convergence-candidate.json](experiments/geometry-convergence-candidate.json) | The current candidate: A2 with the rectangle heading |
+| [geometry-convergence-sigma1.json](experiments/geometry-convergence-sigma1.json)       | The candidate with the rectangle fit at its own σ    |
+| [height-floor-road.json](experiments/height-floor-road.json)                           | L4 height band floor at road height (2.3 m mount)    |
 
 ### Running a set
 

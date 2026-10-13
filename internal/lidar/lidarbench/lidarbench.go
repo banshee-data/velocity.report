@@ -118,6 +118,15 @@ type Config struct {
 	// The work counters alone say how many clusters a config produced, never
 	// whether they were the real ones.
 	ClustersOutput string
+
+	// Experiments names the default-off L3 replay experiments the run
+	// switches on, and ConfigureBackground applies them to the background
+	// model before the first frame. The CLI fills both from -experiment so a
+	// sweep can score them; the names are recorded in the benchmark JSON and
+	// are part of the workload identity, so a run with experiments never
+	// compares against a baseline without them. Both empty is the gate.
+	Experiments         []string
+	ConfigureBackground func(*l3grid.BackgroundManager) error
 }
 
 // result holds the pipeline counts gathered during a benchmark run.
@@ -279,6 +288,7 @@ type BenchmarkResult struct {
 	PCAPFile          string               `json:"pcap_file"`
 	Profile           string               `json:"profile"`
 	TuningFingerprint string               `json:"tuning_fingerprint"`
+	Experiments       []string             `json:"experiments,omitempty"`
 	SystemInfo        SystemInfo           `json:"system_info"`
 	Metrics           PerformanceMetrics   `json:"metrics"`
 	RepeatSpread      *RepeatSpread        `json:"repeat_spread,omitempty"`
@@ -428,6 +438,11 @@ func runBenchmark(cfg Config) (*result, *PerformanceMetrics, error) {
 	res := &result{PCAPFile: cfg.PCAPFile}
 	stats := &analysisStats{}
 	fb := newAnalysisFrameBuilder(cfg, res)
+	if cfg.ConfigureBackground != nil {
+		if err := cfg.ConfigureBackground(fb.bgManager); err != nil {
+			return nil, nil, fmt.Errorf("apply experiments %v: %w", cfg.Experiments, err)
+		}
+	}
 	if err := fb.openClusterDump(); err != nil {
 		return nil, nil, err
 	}
@@ -968,6 +983,7 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 		PCAPFile:          filepath.Base(cfg.PCAPFile),
 		Profile:           string(benchProfile(cfg)),
 		TuningFingerprint: tuningFingerprint(cfg),
+		Experiments:       cfg.Experiments,
 		SystemInfo:        getSystemInfo(cfg.HostClass),
 		Metrics:           *metrics,
 		RepeatSpread:      spread,
@@ -1276,6 +1292,10 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult, 
 	} else if baseline.TuningFingerprint != current.TuningFingerprint {
 		reasons = append(reasons, fmt.Sprintf("tuning fingerprint %s vs %s",
 			baseline.TuningFingerprint, current.TuningFingerprint))
+	}
+
+	if b, c := strings.Join(baseline.Experiments, ","), strings.Join(current.Experiments, ","); b != c {
+		reasons = append(reasons, fmt.Sprintf("experiments [%s] vs [%s]", b, c))
 	}
 
 	// Compare capture basenames. A benchmark document records the base name,

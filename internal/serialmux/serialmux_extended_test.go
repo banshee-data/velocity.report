@@ -495,9 +495,12 @@ func TestSubscribeUnsubscribe_ConcurrentAccess(t *testing.T) {
 
 	// Start goroutines that subscribe
 	ids := make(chan string, goroutines)
+	var subscribed sync.WaitGroup
+	subscribed.Add(goroutines)
 	for i := 0; i < goroutines; i++ {
 		go func() {
 			defer wg.Done()
+			defer subscribed.Done()
 			id, _ := mux.Subscribe()
 			ids <- id
 		}()
@@ -514,8 +517,10 @@ func TestSubscribeUnsubscribe_ConcurrentAccess(t *testing.T) {
 		}
 	}()
 
-	// Wait for all subscriptions
-	time.Sleep(50 * time.Millisecond)
+	// Close ids once every subscriber has sent, not after a guessed sleep: on
+	// a slow runner a subscriber still sending when the channel closed was a
+	// data race, and a send on a closed channel.
+	subscribed.Wait()
 	close(ids)
 
 	// Wait for completion

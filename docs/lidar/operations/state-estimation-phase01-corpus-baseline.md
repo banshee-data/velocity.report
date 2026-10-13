@@ -262,7 +262,28 @@ local disk while still reading PCAPs from the external volume, and completed
 all three sites, first and repeat, in about 21 minutes. The external volume
 also disconnected once mid-run (a physical cable disconnect, not a drive
 fault — confirmed by a clean re-read afterward); the run was restarted rather
-than resumed, since the tool has no partial-corpus resume path.
+than resumed, since the tool had no partial-corpus resume path then.
+
+### Interrupted runs
+
+`phase0-summary.json` is written once the last case has finished. Each case's summary is also
+written to `<out>/<case>/case-summary.json` as soon as that case finishes, before
+`-discard-evidence` deletes its database, so a later case's failure no longer takes the finished
+cases with it. On 28 September 2026 it did: `columbus-broadway` filled the disk after
+`marina-webster-beach` had finished both arms, and only marina's log lines survived. The file holds
+the case's `phase0-summary.json` entry and the identity it was made under: the source manifest
+digest, a digest of the parameters (every flag but those that only place input or output, with
+named files by content), the experiments, and the executable's digest.
+
+To finish an interrupted run, repeat its command with `-resume`, and with
+`-existing-source-manifest` in place of `-source-manifest`, naming the same file. A case whose
+identity matches is reused; any other case replays. A build from other code therefore replays every
+case. The tool never writes over output, so before replaying anything it lists what an unfinished or
+mismatched case left behind, its output directory and per-case database, to be moved aside.
+`-resume` needs `-evidence-per-case` when evidence is written, and does not combine with
+`-uncertainty-report`, `-survey-coverage` or `-cpuprofile-dir`. An output directory that already
+holds `phase0-summary.json` is a finished run and is refused, as the preservation contract below
+requires.
 
 ## Re-run: Columbus, 16 September 2026
 
