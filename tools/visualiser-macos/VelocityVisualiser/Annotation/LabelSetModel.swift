@@ -424,15 +424,127 @@ enum LabelSetFiles {
     static let journal = "journal.ndjson"
     static let journalBase = "journal-base"
     static let lock = ".lock"
+    /// The revision a commit is making, while it makes it: written before the
+    /// journal line, removed after labels.json. A journal ahead of the head
+    /// is an interrupted save only when it is present.
+    static let pending = ".pending"
 
-    /// The order in which the state digest reads the head files.
+    /// The order in which the state digest reads the head files. These are
+    /// the canonical encoding's names; on disk the masks and foreground
+    /// returns are split into the chunk directories below.
     static let state = [packets, records, domains, windows, domainReturns, masks]
+
+    /// The head files kept whole on disk, and the directories split by window.
+    static let whole = [packets, records, domains, windows]
+    static let masksDirectory = "masks"
+    static let domainReturnsDirectory = "domain-returns"
+    static let chunkDirectories = [domainReturnsDirectory, masksDirectory]
 
     /// The bound on any one head file or journal line on read.
     static let maxBytes = 256 << 20
 }
 
+/// labels.json's storage block: how the head is laid out on disk, Go's
+/// `labelset.Storage`. Masks and foreground returns are split into files of
+/// `windowChunk` windows, named `<first>-<last>.ndjson` with six-digit
+/// numbers.
+struct LabelSetStorage: Equatable {
+    static let defaultWindowChunk = 100
+    static let maxWindowChunk = 1_000_000
+
+    var windowChunk = LabelSetStorage.defaultWindowChunk
+
+    init(windowChunk: Int = LabelSetStorage.defaultWindowChunk) { self.windowChunk = windowChunk }
+
+    init(json value: LabelSetJSON, _ context: String) throws {
+        var f = try LabelSetFields(value, context)
+        windowChunk = try f.int("window_chunk")
+        try f.finish()
+    }
+
+    var json: LabelSetJSON { .object(["window_chunk": .int(windowChunk)]) }
+
+    func validate() throws {
+        guard windowChunk >= 1, windowChunk <= LabelSetStorage.maxWindowChunk else {
+            throw LabelSetCodingError(
+                "storage window_chunk \(windowChunk), want 1 to \(LabelSetStorage.maxWindowChunk)")
+        }
+    }
+
+    /// The chunk file holding a window's masks or returns.
+    func chunkName(_ window: Int) -> String {
+        let first = window / windowChunk * windowChunk
+        return String(format: "%06d-%06d.ndjson", first, first + windowChunk - 1)
+    }
+
+    /// The span a chunk file name claims, or nil for a name that is not one.
+    static func span(of name: String) -> (first: Int, last: Int)? {
+        guard name.hasSuffix(".ndjson") else { return nil }
+        let parts = name.dropLast(".ndjson".count).split(
+            separator: "-", omittingEmptySubsequences: false)
+        guard parts.count == 2,
+            parts.allSatisfy({ $0.count >= 6 && $0.allSatisfy(\.isASCIIDigit) }),
+            let first = Int(parts[0]), let last = Int(parts[1])
+        else { return nil }
+        return (first, last)
+    }
+}
+
+extension Character { fileprivate var isASCIIDigit: Bool { isASCII && isNumber } }
+
 extension LabelSetState {
+    /// The head as it is kept on disk, keyed by slash-separated path within
+    /// the head directory: Go's `encodeStorage`. Records, domains and windows
+    /// one per line; masks and foreground returns, canonical lines in
+    /// canonical order, split by window into the chunk directories.
+    func storedFiles(_ storage: LabelSetStorage) throws -> [String: Data] {
+        try storage.validate()
+        let s = canonical
+        var files: [String: Data] = [:]
+        files[LabelSetFiles.packets] = PacketKeys.encode(s.packets)
+        files[LabelSetFiles.records] = try s.records.json().recordLayoutData
+        files[LabelSetFiles.domains] =
+            LabelSetJSON.array(try s.domains.map { try $0.json() }).recordLayoutData
+        files[LabelSetFiles.windows] = LabelSetJSON.array(s.windows.map(\.json)).recordLayoutData
+        for d in s.domainReturns {
+            let name = LabelSetFiles.domainReturnsDirectory + "/" + storage.chunkName(d.windowID)
+            files[name, default: Data()].append(d.json.canonicalLine)
+        }
+        for m in s.masks {
+            let name = LabelSetFiles.masksDirectory + "/" + storage.chunkName(m.windowID)
+            files[name, default: Data()].append(try m.json().canonicalLine)
+        }
+        return files
+    }
+
+    /// Parses the head as kept on disk, as `storedFiles` keys it. It does not
+    /// validate; callers do, against the manifest's layout.
+    static func decodeStored(files: [String: Data]) throws -> LabelSetState {
+        var s = LabelSetState()
+        s.packets = try PacketKeys.decode(
+            files[LabelSetFiles.packets] ?? Data(), name: LabelSetFiles.packets)
+        s.records = try LabelSetRecords(
+            json: LabelSetJSON.parse(files[LabelSetFiles.records] ?? Data()), LabelSetFiles.records)
+        s.domains = try LabelSetJSON.parseArray(
+            files[LabelSetFiles.domains] ?? Data(), LabelSetFiles.domains
+        ).map { try LabelSetDomain(json: $0, LabelSetFiles.domains) }
+        s.windows = try LabelSetJSON.parseArray(
+            files[LabelSetFiles.windows] ?? Data(), LabelSetFiles.windows
+        ).map { try LabelSetWindow(json: $0, LabelSetFiles.windows) }
+        for name in files.keys.sorted() {
+            if name.hasPrefix(LabelSetFiles.domainReturnsDirectory + "/") {
+                s.domainReturns += try LabelSetJSON.eachLine(files[name]!, name) {
+                    try LabelSetDomainReturns(json: $0, $1)
+                }
+            } else if name.hasPrefix(LabelSetFiles.masksDirectory + "/") {
+                s.masks += try LabelSetJSON.eachLine(files[name]!, name) {
+                    try LabelSetMask(json: $0, $1)
+                }
+            }
+        }
+        return s
+    }
+
     /// The bytes of the head files, in canonical order whatever order the
     /// state is in.
     func encodedFiles() throws -> [String: Data] {

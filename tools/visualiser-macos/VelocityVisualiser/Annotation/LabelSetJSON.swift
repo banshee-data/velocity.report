@@ -118,6 +118,50 @@ extension LabelSetJSON {
         return Data(out.utf8)
     }
 
+    /// One record per line, for the head files people read in diffs: the
+    /// canonical encoding, except that the elements of the top-level array,
+    /// or of each array that is a top-level field, sit on their own lines,
+    /// indented two spaces per level, then a newline. Go's recordLayout
+    /// writes the same bytes.
+    var recordLayoutData: Data {
+        var out = ""
+        switch self {
+        case .array(let items): LabelSetJSON.recordArray(items, indent: "", into: &out)
+        case .object(let fields) where !fields.isEmpty:
+            out += "{\n"
+            let keys = fields.keys.sorted { $0.utf8.lexicographicallyPrecedes($1.utf8) }
+            for (i, key) in keys.enumerated() {
+                out +=
+                    "  " + String(decoding: LabelSetJSON.string(key).canonicalData, as: UTF8.self)
+                out += ": "
+                if case .array(let items) = fields[key]! {
+                    LabelSetJSON.recordArray(items, indent: "  ", into: &out)
+                } else {
+                    out += String(decoding: fields[key]!.canonicalData, as: UTF8.self)
+                }
+                out += i < keys.count - 1 ? ",\n" : "\n"
+            }
+            out += "}"
+        default: out += String(decoding: canonicalData, as: UTF8.self)
+        }
+        out += "\n"
+        return Data(out.utf8)
+    }
+
+    private static func recordArray(_ items: [LabelSetJSON], indent: String, into out: inout String)
+    {
+        guard !items.isEmpty else {
+            out += "[]"
+            return
+        }
+        out += "[\n"
+        for (i, item) in items.enumerated() {
+            out += indent + "  " + String(decoding: item.canonicalData, as: UTF8.self)
+            out += i < items.count - 1 ? ",\n" : "\n"
+        }
+        out += indent + "]"
+    }
+
     private static func indent(_ value: LabelSetJSON, depth: Int, into out: inout String) {
         let pad = String(repeating: "  ", count: depth + 1)
         let close = String(repeating: "  ", count: depth)

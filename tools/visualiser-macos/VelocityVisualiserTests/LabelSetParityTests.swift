@@ -141,19 +141,34 @@ struct LabelSetParityTests {
         #expect(try state.encodedFiles() == files)
     }
 
+    /// The head as kept on disk: Swift lays the fixture state out exactly as
+    /// Go did (records one per line, masks and returns split by window), and
+    /// reads Go's files back to the same state.
+    @Test func theStoredHeadMatchesGoByteForByte() throws {
+        let want = try headFiles(labelSetParityDirectory.appendingPathComponent("storage"))
+        let state = goParityStates()[3]
+        let files = try state.storedFiles(parityStorage)
+        #expect(Set(files.keys) == Set(want.keys))
+        for (name, bytes) in want {
+            #expect(files[name] == bytes, "\(name) differs from what Go writes")
+        }
+        #expect(try LabelSetState.decodeStored(files: want).canonical == state)
+    }
+
     /// The fixture journal, applied line by line, rebuilds every revision to
     /// the digest Go recorded for it.
     @Test func replayingTheFixtureJournalReachesEveryDigest() throws {
         let dir = labelSetTemporaryDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
-        for name in LabelSetFiles.state + [LabelSetFiles.journal] {
-            try parityFixture(name).write(to: dir.appendingPathComponent(name))
-        }
+        try parityFixture(LabelSetFiles.journal).write(
+            to: dir.appendingPathComponent(LabelSetFiles.journal))
+        try putHead(dir, try headFiles(labelSetParityDirectory.appendingPathComponent("storage")))
         let digests = String(decoding: try parityFixture("digests.txt"), as: UTF8.self).split(
             separator: "\n"
         ).map { String($0.split(separator: " ")[1]) }
         var manifest = LabelSetManifest(labelSetID: "parity", layout: .pandar40P)
         manifest.head = LabelSetHead(revision: 3, state: digests[3])
+        manifest.storage = parityStorage
         try manifest.json.indentedData.write(to: dir.appendingPathComponent(LabelSetFiles.manifest))
 
         #expect(try LabelSetStore.verify(dir) == 3)

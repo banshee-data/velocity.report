@@ -179,6 +179,9 @@ struct LabelSetManifest: Equatable {
     var packetKey = PacketKeys.scheme
     var appliesTo: [LabelSetBinding] = []
     var head = LabelSetHead()
+    /// How the head is laid out on disk. Nil only in a set written before
+    /// the storage layout, which `read` refuses.
+    var storage: LabelSetStorage? = LabelSetStorage()
     var migratedFrom: LabelSetMigration?
     var note: String?
 
@@ -191,6 +194,7 @@ struct LabelSetManifest: Equatable {
         b.string("packet_key", packetKey)
         b.omitEmptyArray("applies_to", appliesTo.map(\.json))
         b.set("head", head.json)
+        if let storage { b.set("storage", storage.json) }
         if let migratedFrom { b.set("migrated_from", migratedFrom.json) }
         b.omitEmpty("note", note)
         return b.json
@@ -213,10 +217,14 @@ struct LabelSetManifest: Equatable {
         head =
             try f.value("head").map { try LabelSetHead(json: $0, "\(context) head") }
             ?? LabelSetHead()
+        storage = try f.value("storage").map { try LabelSetStorage(json: $0, "\(context) storage") }
         migratedFrom = try f.value("migrated_from").map { try LabelSetMigration(json: $0, context) }
         note = try f.optionalString("note")
         try f.finish()
     }
+
+    /// The storage layout `read` has checked is there.
+    var layoutOnDisk: LabelSetStorage { storage ?? LabelSetStorage() }
 
     /// Reads and checks labels.json: the version, key scheme and layout this
     /// build understands, or a refusal.
@@ -234,6 +242,12 @@ struct LabelSetManifest: Equatable {
                 "packet key \"\(m.packetKey)\", this build reads \"\(PacketKeys.scheme)\"")
         }
         do { try m.layout.validate() } catch { throw LabelSetError.invalid("\(error)") }
+        guard let storage = m.storage else {
+            throw LabelSetError.invalid(
+                "label set is in the single-file layout: convert it with 'velocity lidar labels relayout'"
+            )
+        }
+        do { try storage.validate() } catch { throw LabelSetError.invalid("\(error)") }
         return m
     }
 }
@@ -288,6 +302,7 @@ final class LabelSetStore {
         m.schemaVersion = LabelSetManifest.schemaVersion
         m.packetKey = PacketKeys.scheme
         if m.labelSetID.isEmpty { m.labelSetID = UUID().uuidString.lowercased() }
+        if m.storage == nil { m.storage = LabelSetStorage() }
         let next = initial.canonical
         do { try next.validate(layout: m.layout) } catch {
             throw LabelSetError.invalid("invalid label set: \(error)")
@@ -299,7 +314,7 @@ final class LabelSetStore {
         store.state = next
         let lock = try LabelSetLock(directory: directory)
         defer { lock.release() }
-        try store.commit(base: empty, change: change, restoredFrom: 0)
+        try store.commit(base: empty, change: change, restoredFrom: 0, head: nil)
         return store
     }
 
@@ -321,20 +336,37 @@ final class LabelSetStore {
 
     private static func load(_ directory: URL) throws -> LabelSetStore {
         let m = try LabelSetManifest.read(try readFile(directory, LabelSetFiles.manifest))
-        let files = try readStateFiles(directory)
-        let digest = LabelSetState.digest(of: files)
         let tip = try journalTip(directory)
+        // Only a journal one line ahead of labels.json, with the commit's
+        // marker still in place, is an interrupted save. Head files that
+        // disagree with labels.json at the same revision were changed outside
+        // the store, by a merge or by hand, and are never overwritten.
+        let interrupted = try journalState(directory, m, tip)
+        let have: [String: Data]
+        let s: LabelSetState
+        do {
+            have = try readStoredFiles(directory, m.layoutOnDisk)
+            s = try LabelSetState.decodeStored(files: have).canonical
+        } catch {
+            if interrupted { throw LabelSetLoadOutcome.needsRecovery }
+            if let error = error as? LabelSetError { throw error }
+            throw LabelSetError.invalid("\(error)")
+        }
+        if interrupted { throw LabelSetLoadOutcome.needsRecovery }
+        let digest: String
+        do { digest = try s.digest() } catch { throw LabelSetError.invalid("\(error)") }
         if digest != m.head.state
             || (tip.map { $0.revision != m.head.revision || $0.state != m.head.state } ?? false)
         {
-            if let tip, tip.revision >= m.head.revision { throw LabelSetLoadOutcome.needsRecovery }
             throw LabelSetError.invalid(
-                "head files digest \(digest), manifest says \(m.head.state) at revision \(m.head.revision)"
+                "head files digest \(digest), manifest says \(m.head.state) at revision \(m.head.revision) "
+                    + "(after a merge, 'velocity lidar labels rehead' makes the merged files the head)"
             )
         }
-        let s: LabelSetState
-        do { s = try LabelSetState.decode(files: files).canonical } catch {
-            throw LabelSetError.invalid("\(error)")
+        guard (try? s.storedFiles(m.layoutOnDisk)) == have else {
+            throw LabelSetError.invalid(
+                "the head files are not in the label set's layout (rewrite them with 'velocity lidar labels rehead')"
+            )
         }
         do { try s.validate(layout: m.layout) } catch {
             throw LabelSetError.invalid("invalid label set: \(error)")
@@ -364,19 +396,19 @@ final class LabelSetStore {
             throw LabelSetError.conflict(
                 loadedRevision: revision, currentRevision: m.head.revision, detail: nil)
         }
-        let files = try LabelSetStore.readStateFiles(directory)
-        guard LabelSetState.digest(of: files) == m.head.state else {
+        let have = try LabelSetStore.readStoredFiles(directory, m.layoutOnDisk)
+        // Go decodes the base from the files at this point. Files that are
+        // byte for byte the loaded state's layout hold that state, so the
+        // state already in memory is the base without decoding a large head
+        // again on every save.
+        guard (try? baseState.storedFiles(m.layoutOnDisk)) == have else {
             throw LabelSetError.conflict(
                 loadedRevision: revision, currentRevision: m.head.revision,
                 detail: "head files were changed outside the store")
         }
-        // Go decodes the base from the files at this point. The files digest
-        // to the loaded state's digest, so they hold the state already in
-        // memory, and decoding a large head again on every save would only
-        // repeat what the digest has proved.
         manifest = m
         state = next
-        try commit(base: baseState, change: change, restoredFrom: restoredFrom)
+        try commit(base: baseState, change: change, restoredFrom: restoredFrom, head: have)
     }
 
     /// Makes an earlier revision current again as a new revision, rebuilt by
@@ -388,9 +420,12 @@ final class LabelSetStore {
         try save(change: change, restoredFrom: old)
     }
 
-    /// Appends the delta from `base` to `state` and replaces the head. The
+    /// Appends the delta from `base` to `state` and replaces the head; `head`
+    /// is the head as read, so files it already holds are not rewritten. The
     /// caller holds the lock.
-    private func commit(base: LabelSetState, change: LabelSetChange, restoredFrom: Int) throws {
+    private func commit(
+        base: LabelSetState, change: LabelSetChange, restoredFrom: Int, head: [String: Data]?
+    ) throws {
         let next = state.canonical
         var delta: LabelSetDelta
         do { delta = try LabelSetDelta.diff(from: base, to: next) } catch {
@@ -400,7 +435,12 @@ final class LabelSetStore {
             state = next
             return
         }
-        let files = try LabelSetStore.encode(next)
+        let files: [String: Data]
+        let nextDigest: String
+        do {
+            files = try next.storedFiles(manifest.layoutOnDisk)
+            nextDigest = try next.digest()
+        } catch { throw LabelSetError.invalid("\(error)") }
         for (name, bytes) in files where bytes.count > LabelSetFiles.maxBytes {
             throw LabelSetError.invalid(
                 "\(name) would be \(bytes.count) bytes, above the \(LabelSetFiles.maxBytes) limit")
@@ -416,11 +456,13 @@ final class LabelSetStore {
         delta.revision = revision + 1
         delta.parentRevision = revision
         delta.parentState = stateDigest
-        delta.state = LabelSetState.digest(of: files)
+        delta.state = nextDigest
         delta.change = stamped
         delta.restoredFrom = restoredFrom
 
-        try LabelSetStore.ensureJournal(directory, revision: revision, state: stateDigest)
+        try LabelSetStore.writePending(
+            directory, revision: delta.revision, parentState: stateDigest)
+        try LabelSetStore.ensureJournal(directory, revision: revision, head: head)
         let line: Data
         do { line = try delta.json().canonicalLine } catch {
             throw LabelSetError.invalid("\(error)")
@@ -433,11 +475,7 @@ final class LabelSetStore {
         do { try LabelSetStore.appendJournal(directory, line) } catch {
             throw LabelSetError.io("append journal: \(error)")
         }
-        for name in LabelSetFiles.state {
-            do { try LabelSetStore.writeAtomic(directory, name, files[name] ?? Data()) } catch {
-                throw LabelSetError.io("replace \(name) (reopen to recover): \(error)")
-            }
-        }
+        try LabelSetStore.writeHead(directory, files, have: head)
         var m = manifest
         m.head = LabelSetHead(revision: delta.revision, state: delta.state, updatedUTC: now)
         do {
@@ -451,27 +489,32 @@ final class LabelSetStore {
         stateDigest = delta.state
         baseState = next
         state = next
+        try LabelSetStore.clearPending(directory)
     }
 
     /// Gives a label set without a journal (one published, or copied as its
     /// head alone) a base to grow from: a copy of the head in journal-base/
     /// and a base line naming it.
-    private static func ensureJournal(_ directory: URL, revision: Int, state: String) throws {
+    /// `head` is the head as read, which `save` has proved is the loaded
+    /// state's layout.
+    private static func ensureJournal(_ directory: URL, revision: Int, head: [String: Data]?) throws
+    {
         if FileManager.default.fileExists(
             atPath: directory.appendingPathComponent(LabelSetFiles.journal).path)
         {
             return
         }
         if revision == 0 { return }  // a new set's first line is its creation
-        let files = try readStateFiles(directory)
-        guard LabelSetState.digest(of: files) == state else {
-            throw LabelSetError.invalid("head does not match revision \(revision)'s state")
+        guard let head else { throw LabelSetError.invalid("no head to base the journal on") }
+        let state: String
+        do { state = try LabelSetState.decodeStored(files: head).canonical.digest() } catch {
+            throw LabelSetError.invalid("\(error)")
         }
         let base = directory.appendingPathComponent(LabelSetFiles.journalBase)
         do {
             try FileManager.default.createDirectory(at: base, withIntermediateDirectories: true)
         } catch { throw LabelSetError.io("create \(LabelSetFiles.journalBase): \(error)") }
-        for name in LabelSetFiles.state { try writeAtomic(base, name, files[name] ?? Data()) }
+        try writeHead(base, head, have: nil)
         var d = LabelSetDelta()
         d.revision = revision
         d.parentRevision = revision
@@ -514,6 +557,8 @@ final class LabelSetStore {
             throw LabelSetError.historyNotRetained(0)
         }
         let data = try readFile(directory, LabelSetFiles.journal)
+        let storage = try LabelSetManifest.read(try readFile(directory, LabelSetFiles.manifest))
+            .layoutOnDisk
         var state = LabelSetState().canonical
         var prevRevision = 0
         var prevState = (try? state.digest()) ?? ""
@@ -530,8 +575,8 @@ final class LabelSetStore {
             } catch { throw LabelSetError.invalid("journal line \(n): \(error)") }
             start = data.index(after: end)
             if d.base {
-                let base = try readStateDirectory(
-                    directory.appendingPathComponent(LabelSetFiles.journalBase))
+                let base = try readStoredState(
+                    directory.appendingPathComponent(LabelSetFiles.journalBase), storage)
                 guard (try? base.digest()) == d.state else {
                     throw LabelSetError.invalid("journal base does not digest to \(d.state)")
                 }
@@ -633,17 +678,23 @@ final class LabelSetStore {
             guard tip.base, tip.revision == m.head.revision else {
                 throw LabelSetError.invalid("journal does not rebuild revision \(tip.revision)")
             }
-            rebuilt = try readStateDirectory(
-                directory.appendingPathComponent(LabelSetFiles.journalBase))
+            rebuilt = try readStoredState(
+                directory.appendingPathComponent(LabelSetFiles.journalBase), m.layoutOnDisk)
         }
-        let files = try encode(rebuilt!)
-        guard LabelSetState.digest(of: files) == tip.state else {
-            throw LabelSetError.invalid(
-                "journal rebuilds revision \(tip.revision) to a different digest")
+        let files: [String: Data]
+        do {
+            guard try rebuilt!.digest() == tip.state else {
+                throw LabelSetError.invalid(
+                    "journal rebuilds revision \(tip.revision) to a different digest")
+            }
+            files = try rebuilt!.storedFiles(m.layoutOnDisk)
+        } catch let error as LabelSetError { throw error } catch {
+            throw LabelSetError.invalid("\(error)")
         }
-        for name in LabelSetFiles.state { try writeAtomic(directory, name, files[name] ?? Data()) }
+        try writeHead(directory, files, have: nil)
         m.head = LabelSetHead(revision: tip.revision, state: tip.state, updatedUTC: tip.createdUTC)
         try writeAtomic(directory, LabelSetFiles.manifest, m.json.indentedData)
+        try clearPending(directory)
     }
 
     /// What opening needs of the last complete journal line. A final line
@@ -653,6 +704,8 @@ final class LabelSetStore {
         var state: String
         var base: Bool
         var createdUTC: String
+        var parentRevision = 0
+        var parentState = ""
     }
 
     /// Reads only the tip's revision, state, base flag and time. The line
@@ -674,7 +727,67 @@ final class LabelSetStore {
         let change = object["change"] as? [String: Any]
         return JournalTip(
             revision: revision, state: state, base: (object["base"] as? Bool) ?? false,
-            createdUTC: (change?["created_utc"] as? String) ?? "")
+            createdUTC: (change?["created_utc"] as? String) ?? "",
+            parentRevision: (object["parent_revision"] as? NSNumber)?.intValue ?? 0,
+            parentState: (object["parent_state"] as? String) ?? "")
+    }
+
+    /// Whether the local journal is an interrupted save (true), at the head
+    /// (false), or another head's, which is refused: in a Git working tree
+    /// most often another branch's, since the journal is local and outlives
+    /// a checkout. Go's `journalState`.
+    private static func journalState(
+        _ directory: URL, _ m: LabelSetManifest, _ tip: JournalTip?
+    ) throws -> Bool {
+        guard let tip else { return false }
+        if let pending = try readPending(directory), tip.revision == pending.revision,
+            tip.revision == m.head.revision + 1, tip.parentRevision == m.head.revision,
+            tip.parentState == m.head.state
+        {
+            return true
+        }
+        if tip.revision != m.head.revision || tip.state != m.head.state {
+            throw LabelSetError.invalid(
+                "the local journal does not continue this head: it ends at revision \(tip.revision) and "
+                    + "labels.json names revision \(m.head.revision). It records edits to another head, in a Git "
+                    + "working tree most likely another branch's: switch back to that branch, or move "
+                    + "\(LabelSetFiles.journal) and \(LabelSetFiles.journalBase) aside to edit this one"
+            )
+        }
+        return false
+    }
+
+    /// The commit marker: the revision being made and its parent's state.
+    private static func readPending(
+        _ directory: URL
+    ) throws -> (revision: Int, parentState: String)? {
+        let url = directory.appendingPathComponent(LabelSetFiles.pending)
+        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+        do {
+            var f = try LabelSetFields(
+                LabelSetJSON.parse(try readFile(directory, LabelSetFiles.pending)),
+                LabelSetFiles.pending)
+            let pending = (try f.int("revision"), try f.string("parent_state"))
+            try f.finish()
+            return pending
+        } catch let error as LabelSetError { throw error } catch {
+            throw LabelSetError.invalid("parse \(LabelSetFiles.pending): \(error)")
+        }
+    }
+
+    private static func writePending(_ directory: URL, revision: Int, parentState: String) throws {
+        let line = LabelSetJSON.object([
+            "parent_state": .string(parentState), "revision": .int(revision),
+        ]).canonicalLine
+        try writeAtomic(directory, LabelSetFiles.pending, line)
+    }
+
+    private static func clearPending(_ directory: URL) throws {
+        let url = directory.appendingPathComponent(LabelSetFiles.pending)
+        guard FileManager.default.fileExists(atPath: url.path) else { return }
+        do { try FileManager.default.removeItem(at: url) } catch {
+            throw LabelSetError.io("remove \(LabelSetFiles.pending): \(error.localizedDescription)")
+        }
     }
 
     // MARK: Files
@@ -683,17 +796,95 @@ final class LabelSetStore {
         do { return try state.encodedFiles() } catch { throw LabelSetError.invalid("\(error)") }
     }
 
-    private static func readStateFiles(_ directory: URL) throws -> [String: Data] {
+    /// Reads the head kept under `directory`, keyed as `storedFiles` keys
+    /// it. Hidden files and interrupted writes in the chunk directories are
+    /// passed over; any other stray file, a chunk of another span, and the
+    /// old single files are refused.
+    static func readStoredFiles(
+        _ directory: URL, _ storage: LabelSetStorage
+    ) throws -> [String: Data] {
+        for old in [LabelSetFiles.masks, LabelSetFiles.domainReturns]
+        where FileManager.default.fileExists(atPath: directory.appendingPathComponent(old).path) {
+            throw LabelSetError.invalid(
+                "\(directory.lastPathComponent) holds \(old), a file of the single-file layout, beside the chunked head"
+            )
+        }
         var files: [String: Data] = [:]
-        for name in LabelSetFiles.state { files[name] = try readFile(directory, name) }
+        for name in LabelSetFiles.whole { files[name] = try readFile(directory, name) }
+        for chunkDirectory in LabelSetFiles.chunkDirectories {
+            for name in try chunkFiles(directory.appendingPathComponent(chunkDirectory)) {
+                guard let span = LabelSetStorage.span(of: name),
+                    span.first % storage.windowChunk == 0,
+                    span.last == span.first + storage.windowChunk - 1
+                else {
+                    throw LabelSetError.invalid(
+                        "\(chunkDirectory)/\(name) does not span \(storage.windowChunk) windows from a multiple of \(storage.windowChunk)"
+                    )
+                }
+                let key = chunkDirectory + "/" + name
+                files[key] = try readFile(directory, key)
+            }
+        }
         return files
     }
 
-    private static func readStateDirectory(_ directory: URL) throws -> LabelSetState {
+    /// A chunk directory's file names, sorted; a missing directory is empty.
+    private static func chunkFiles(_ directory: URL) throws -> [String] {
+        guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
+        let names: [String]
+        do { names = try FileManager.default.contentsOfDirectory(atPath: directory.path) } catch {
+            throw LabelSetError.io(
+                "list \(directory.lastPathComponent): \(error.localizedDescription)")
+        }
+        var out: [String] = []
+        for name in names.sorted() where !name.hasPrefix(".") && !name.hasSuffix(".tmp") {
+            guard LabelSetStorage.span(of: name) != nil else {
+                throw LabelSetError.invalid(
+                    "\(directory.lastPathComponent)/\(name) is not a chunk file")
+            }
+            out.append(name)
+        }
+        return out
+    }
+
+    private static func readStoredState(
+        _ directory: URL, _ storage: LabelSetStorage
+    ) throws -> LabelSetState {
         do {
-            return try LabelSetState.decode(files: try readStateFiles(directory)).canonical
+            return try LabelSetState.decodeStored(files: try readStoredFiles(directory, storage))
+                .canonical
         } catch let error as LabelSetError { throw error } catch {
             throw LabelSetError.invalid("\(error)")
+        }
+    }
+
+    /// Replaces the head under `directory` with `files`: a file whose bytes
+    /// equal `have`'s is left alone, and a chunk file no longer in `files` is
+    /// removed. Go's `writeHead`.
+    static func writeHead(_ directory: URL, _ files: [String: Data], have: [String: Data]?) throws {
+        for chunkDirectory in LabelSetFiles.chunkDirectories {
+            do {
+                try FileManager.default.createDirectory(
+                    at: directory.appendingPathComponent(chunkDirectory),
+                    withIntermediateDirectories: true)
+            } catch { throw LabelSetError.io("create \(chunkDirectory): \(error)") }
+        }
+        for name in files.keys.sorted() where have?[name] != files[name] {
+            do { try writeAtomic(directory, name, files[name]!) } catch {
+                throw LabelSetError.io("replace \(name) (reopen to recover): \(error)")
+            }
+        }
+        for chunkDirectory in LabelSetFiles.chunkDirectories {
+            for name in try chunkFiles(directory.appendingPathComponent(chunkDirectory))
+            where files[chunkDirectory + "/" + name] == nil {
+                do {
+                    try FileManager.default.removeItem(
+                        at: directory.appendingPathComponent(chunkDirectory + "/" + name))
+                } catch {
+                    throw LabelSetError.io(
+                        "remove \(chunkDirectory)/\(name) (reopen to recover): \(error)")
+                }
+            }
         }
     }
 

@@ -117,16 +117,16 @@ struct LabelSetStoreTests {
     @Test func openingRollsAnInterruptedSaveForward() throws {
         let (dir, store) = try newLabelSet()
         defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
-        var saved: [String: Data] = [:]
-        for name in LabelSetFiles.state + [LabelSetFiles.manifest] {
-            saved[name] = try Data(contentsOf: dir.appendingPathComponent(name))
-        }
+        let saved = try headFiles(dir)
+        let parent = store.stateDigest
         addMember(store, 40)
         try store.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
         let want = store.stateDigest
-        // The old head back, the new journal line kept: a crash after the
-        // append and before the head was replaced.
-        for (name, bytes) in saved { try bytes.write(to: dir.appendingPathComponent(name)) }
+        // The old head back, the new journal line and the commit's marker
+        // kept: a crash after the append and before labels.json.
+        try putHead(dir, saved)
+        try LabelSetJSON.object(["parent_state": .string(parent), "revision": .int(2)])
+            .canonicalLine.write(to: dir.appendingPathComponent(LabelSetFiles.pending))
 
         let back = try LabelSetStore.open(dir)
         #expect(back.revision == 2)
@@ -157,10 +157,7 @@ struct LabelSetStoreTests {
         // A published copy: the head and labels.json, no journal.
         let published = dir.deletingLastPathComponent().appendingPathComponent("published")
         try FileManager.default.createDirectory(at: published, withIntermediateDirectories: true)
-        for name in LabelSetFiles.state + [LabelSetFiles.manifest] {
-            try FileManager.default.copyItem(
-                at: dir.appendingPathComponent(name), to: published.appendingPathComponent(name))
-        }
+        try putHead(published, try headFiles(dir))
         let copy = try LabelSetStore.open(published)
         #expect(copy.revision == 2)
         #expect(throws: LabelSetError.self) {
@@ -170,14 +167,13 @@ struct LabelSetStoreTests {
         // A one-mask edit of the copy is what someone with the dataset would
         // commit: one masks.ndjson line and the head's three labels.json
         // lines; every other head file keeps its bytes.
-        var before: [String: Data] = [:]
-        for name in LabelSetFiles.state + [LabelSetFiles.manifest] {
-            before[name] = try Data(contentsOf: published.appendingPathComponent(name))
-        }
+        let before = try headFiles(published)
         addMember(copy, 41)
         try copy.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
+        let after = try headFiles(published)
+        #expect(Set(after.keys) == Set(before.keys))
         for (name, was) in before {
-            let now = try Data(contentsOf: published.appendingPathComponent(name))
+            let now = after[name] ?? Data()
             let changed = zip(
                 String(decoding: was, as: UTF8.self).split(
                     separator: "\n", omittingEmptySubsequences: false),
@@ -187,7 +183,8 @@ struct LabelSetStoreTests {
             switch name {
             case LabelSetFiles.manifest:
                 #expect(changed == 3, "labels.json changed \(changed) lines")
-            case LabelSetFiles.masks: #expect(changed == 1, "masks.ndjson changed \(changed) lines")
+            case "masks/000000-000099.ndjson":
+                #expect(changed == 1, "\(name) changed \(changed) lines")
             default: #expect(now == was, "\(name) changed")
             }
         }
@@ -245,5 +242,65 @@ struct LabelSetWriteFolderTests {
                 annotationDirectory: packs,
                 labelSet: URL(fileURLWithPath: "/elsewhere/sets/kirk0-reference")
             ).path == "/elsewhere/sets")
+    }
+}
+
+/// The storage layout's rules, as Go's storage tests state them.
+struct LabelSetStorageTests {
+    /// A journal ahead of the head with no commit marker is another head's,
+    /// what a Git working tree holds after editing on one branch and checking
+    /// out another: opening refuses it and rewrites nothing.
+    @Test func aForeignJournalIsNeverApplied() throws {
+        let (dir, store) = try newLabelSet()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let saved = try headFiles(dir)
+        addMember(store, 40)
+        try store.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
+        try putHead(dir, saved)
+        #expect(throws: LabelSetError.self) { try LabelSetStore.open(dir) }
+        #expect(try headFiles(dir) == saved)
+    }
+
+    /// A save rewrites only the chunk its edit changed, and removes a chunk
+    /// whose masks are all gone.
+    @Test func aSaveRewritesOnlyTheChangedChunk() throws {
+        let dir = labelSetTemporaryDirectory().appendingPathComponent("kirk0-reference")
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        var manifest = LabelSetManifest(name: "kirk0-reference", layout: .pandar40P)
+        manifest.storage = LabelSetStorage(windowChunk: 1)
+        let store = try LabelSetStore.create(
+            at: dir, manifest: manifest, initial: goTestState(),
+            change: LabelSetChange(author: "dd", operation: "create"))
+        let untouched = dir.appendingPathComponent("masks/000001-000001.ndjson")
+        let before =
+            try FileManager.default.attributesOfItem(atPath: untouched.path)[.modificationDate]
+            as? Date
+        Thread.sleep(forTimeInterval: 0.02)
+        addMember(store, 40)
+        try store.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
+        let after =
+            try FileManager.default.attributesOfItem(atPath: untouched.path)[.modificationDate]
+            as? Date
+        #expect(before == after)
+        store.state.masks.removeAll { $0.windowID == 1 }
+        try store.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
+        #expect(!FileManager.default.fileExists(atPath: untouched.path))
+        #expect(try LabelSetStore.verify(dir) == 3)
+    }
+
+    /// The old single file beside a chunked head, and a reformatted file,
+    /// are refused; Finder's .DS_Store in a chunk directory is not.
+    @Test func theHeadIsHeldToItsLayout() throws {
+        let (dir, _) = try newLabelSet()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        try Data("finder".utf8).write(to: dir.appendingPathComponent("masks/.DS_Store"))
+        _ = try LabelSetStore.open(dir)
+        let windows = dir.appendingPathComponent(LabelSetFiles.windows)
+        let laid = try Data(contentsOf: windows)
+        try LabelSetJSON.parse(laid).canonicalLine.write(to: windows)
+        #expect(throws: LabelSetError.self) { try LabelSetStore.open(dir) }
+        try laid.write(to: windows)
+        try Data().write(to: dir.appendingPathComponent(LabelSetFiles.masks))
+        #expect(throws: LabelSetError.self) { try LabelSetStore.open(dir) }
     }
 }

@@ -24,6 +24,48 @@ func parityFixture(_ name: String) throws -> Data {
     try Data(contentsOf: labelSetParityDirectory.appendingPathComponent(name))
 }
 
+/// Go's fixture head in the storage layout (testdata/parity/storage), with
+/// the chunk span Go's parityStorage declares.
+let parityStorage = LabelSetStorage(windowChunk: 1)
+
+/// Every file under a directory, keyed by slash-separated path, passing over
+/// the journal, its base, the lock, the commit marker and interrupted writes:
+/// a label set's head as Git would see it.
+func headFiles(_ directory: URL) throws -> [String: Data] {
+    var out: [String: Data] = [:]
+    let root = directory.standardizedFileURL.path
+    guard let walk = FileManager.default.enumerator(atPath: root) else { return out }
+    while let rel = walk.nextObject() as? String {
+        let url = URL(fileURLWithPath: root).appendingPathComponent(rel)
+        var isDirectory: ObjCBool = false
+        FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+        if isDirectory.boolValue {
+            if rel == LabelSetFiles.journalBase { walk.skipDescendants() }
+            continue
+        }
+        if [LabelSetFiles.journal, LabelSetFiles.lock, LabelSetFiles.pending].contains(rel)
+            || rel.hasSuffix(".tmp")
+        {
+            continue
+        }
+        out[rel] = try Data(contentsOf: url)
+    }
+    return out
+}
+
+/// Makes a label set's head files exactly `saved`.
+func putHead(_ directory: URL, _ saved: [String: Data]) throws {
+    for name in try headFiles(directory).keys where saved[name] == nil {
+        try FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+    }
+    for (name, bytes) in saved {
+        let url = directory.appendingPathComponent(name)
+        try FileManager.default.createDirectory(
+            at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try bytes.write(to: url)
+    }
+}
+
 /// Removes a pack written by SyntheticPack or PackFixture in a folder of its
 /// own, and the label sets kept beside it. Other packs are removed alone.
 func removePack(_ dir: URL) {
