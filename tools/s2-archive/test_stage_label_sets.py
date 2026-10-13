@@ -27,7 +27,11 @@ labels = pathlib.Path(get("--labels"))
 if args[2] == "publish":
     dest = pathlib.Path(get("--dest"))
     dest.mkdir(parents=True, exist_ok="--replace" in args)
-    (dest / "labels.json").write_text((labels / "labels.json").read_text())
+    for path in labels.rglob("*"):
+        if path.is_file():
+            target = dest / path.relative_to(labels)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(path.read_bytes())
 elif args[2] == "publish-view":
     dest = pathlib.Path(get("--dest"))
     dest.mkdir()
@@ -197,6 +201,31 @@ class StageLabelSetsTest(unittest.TestCase):
         pack.mkdir()
         self.assertEqual(stage_label_sets.main(self.view_argv(pack)), 1)
         self.assertEqual(stage_label_sets.main(["--dataset", str(self.dataset)]), 1)
+
+    def test_retires_the_ndjson_lfs_rule_and_ignores_the_marker(self):
+        (self.dataset / ".gitattributes").write_text(
+            "*.bin filter=lfs diff=lfs merge=lfs -text\n"
+            "labels/** -text\n"
+            "labels/**/*.ndjson filter=lfs diff=lfs merge=lfs -text\n"
+        )
+        self.assertEqual(stage_label_sets.main(self.argv("--capture-id", "a")), 0)
+        attrs = (self.dataset / ".gitattributes").read_text()
+        self.assertNotIn("*.ndjson filter=lfs", attrs)
+        self.assertIn("*.bin filter=lfs", attrs)
+        self.assertIn("labels/**/.pending", (self.dataset / ".gitignore").read_text())
+
+    def test_refuses_a_text_file_too_large_for_plain_git(self):
+        chunk = self.labels / "masks" / "000000-000099.ndjson"
+        chunk.parent.mkdir()
+        chunk.write_bytes(b"x" * (stage_label_sets.MAX_PLAIN_GIT_BYTES + 1))
+        (self.labels / "packets.bin").write_bytes(
+            b"\0" * (stage_label_sets.MAX_PLAIN_GIT_BYTES + 1)
+        )
+        self.assertEqual(stage_label_sets.main(self.argv("--capture-id", "a")), 1)
+        rows = json.loads((self.dataset / "manifest.json").read_text())
+        self.assertNotIn("label_set_paths", rows[0])
+        chunk.write_bytes(b"x" * 10)
+        self.assertEqual(stage_label_sets.main(self.argv("--replace")), 0)
 
     def test_dry_run_changes_nothing(self):
         before = (self.dataset / "manifest.json").read_text()

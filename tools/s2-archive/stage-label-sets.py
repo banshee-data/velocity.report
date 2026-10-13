@@ -41,14 +41,24 @@ import sys
 
 GITATTRIBUTES = [
     "# Label sets: digests cover exact bytes, so never convert line endings.",
+    "# Their text stays in plain Git, one record per line, so diffs and merges work;",
+    "# *.bin goes through LFS/Xet by the dataset-wide rule.",
     "labels/** -text",
+]
+# Rules an earlier staging wrote that the storage layout retires.
+OBSOLETE_GITATTRIBUTES = [
     "labels/**/*.ndjson filter=lfs diff=lfs merge=lfs -text",
 ]
+# Hugging Face refuses a push with any plain-Git file over 10 MiB, in any of
+# its commits; binary files go through LFS/Xet at any size.
+MAX_PLAIN_GIT_BYTES = 10 << 20
+LFS_SUFFIXES = (".bin", ".pb", ".pcapng", ".pdf")
 GITIGNORE = [
     "# Label set working history stays local; the dataset's Git history is the published history.",
     "labels/**/journal.ndjson",
     "labels/**/journal-base/",
     "labels/**/.lock",
+    "labels/**/.pending",
     "labels/**/*.tmp",
     "# A view's working state: locks, revision archives, regenerated proposal layers, staging.",
     "labels/**/.annotations.lock",
@@ -76,6 +86,28 @@ def stem_of(row) -> str:
 def verified_rows(rows, label_manifest):
     shas = {b.get("sha256") for b in label_manifest.get("applies_to") or []}
     return [r for r in rows if r.get("raw_sha256") in shas]
+
+
+def drop_lines(path: pathlib.Path, lines, dry_run: bool) -> bool:
+    if not path.exists():
+        return False
+    existing = path.read_text(encoding="utf-8").splitlines()
+    kept = [line for line in existing if line not in set(lines)]
+    if len(kept) == len(existing):
+        return False
+    if not dry_run:
+        path.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
+    return True
+
+
+def oversized(directory: pathlib.Path):
+    """Plain-Git files under directory too large for Hugging Face."""
+    out = []
+    for path in sorted(directory.rglob("*")):
+        if path.is_file() and not path.name.endswith(LFS_SUFFIXES):
+            if path.stat().st_size > MAX_PLAIN_GIT_BYTES:
+                out.append(path)
+    return out
 
 
 def ensure_lines(path: pathlib.Path, lines, dry_run: bool) -> bool:
@@ -212,6 +244,20 @@ def stage(args) -> int:
                 file=sys.stderr,
             )
             return 1
+        big = [] if args.dry_run else oversized(dest)
+        if big:
+            for path in big:
+                print(
+                    f"{path} is {path.stat().st_size} bytes, over the {MAX_PLAIN_GIT_BYTES} Hugging Face "
+                    "keeps in plain Git",
+                    file=sys.stderr,
+                )
+            print(
+                "split it finer: 'velocity lidar labels relayout --window-chunk N' on the source with a "
+                "smaller N, then stage again with --replace",
+                file=sys.stderr,
+            )
+            return 1
         paths = sorted(set((row.get("label_set_paths") or []) + [str(rel)]))
         row["label_set_paths"] = paths
         changed = True
@@ -246,6 +292,10 @@ def stage(args) -> int:
             print(f"staged view {pack} as {view_rel}")
     if changed and not args.dry_run:
         manifest_path.write_text(dump_manifest(rows), encoding="utf-8")
+    if drop_lines(dataset / ".gitattributes", OBSOLETE_GITATTRIBUTES, args.dry_run):
+        print(
+            f"{'would remove' if args.dry_run else 'removed'} the retired LFS rule for label set text"
+        )
     for path, lines in (
         (dataset / ".gitattributes", GITATTRIBUTES),
         (dataset / ".gitignore", GITIGNORE),
