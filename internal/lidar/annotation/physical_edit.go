@@ -473,6 +473,27 @@ type driftEntry struct {
 }
 
 func (r *PhysicalReferenceSet) reviewDrift(p *Pack, current *Sidecar) []driftEntry {
+	var out []driftEntry
+	for _, v := range r.reviewVerdicts(p, current) {
+		if v.drift != nil {
+			out = append(out, driftEntry{v.key, *v.drift})
+		}
+	}
+	return out
+}
+
+// reviewVerdict is what can be said of one reviewed, pinned record against
+// the current membership: its pin is the current membership, or an older
+// membership whose frames it rests on are unchanged (stale), or drift.
+type reviewVerdict struct {
+	key   string
+	stale bool
+	drift *LinkProblem
+}
+
+// reviewVerdicts judges every reviewed, pinned body and keyframe, in
+// document order. A record pinned to the current membership is omitted.
+func (r *PhysicalReferenceSet) reviewVerdicts(p *Pack, current *Sidecar) []reviewVerdict {
 	cache := map[int]*Sidecar{current.Revision: current}
 	membership := func(rev int) *Sidecar {
 		if s, ok := cache[rev]; ok {
@@ -485,25 +506,27 @@ func (r *PhysicalReferenceSet) reviewDrift(p *Pack, current *Sidecar) []driftEnt
 		cache[rev] = s
 		return s
 	}
-	var out []driftEntry
+	var out []reviewVerdict
 	check := func(key, record, object string, review PhysicalReview, frames []int) {
 		pin := review.ReviewedAgainst
 		if review.Status != StatusReviewed || pin == nil || pin.Digest == current.baseDigest {
 			return
 		}
+		drifted := func(problem string) {
+			out = append(out, reviewVerdict{key: key, drift: &LinkProblem{Record: record, Problem: problem}})
+		}
 		then := membership(pin.Revision)
 		if then == nil || then.baseDigest != pin.Digest {
-			out = append(out, driftEntry{key, LinkProblem{Record: record, Problem: fmt.Sprintf(
-				"reviewed against membership revision %d, which is no longer retained as reviewed: review again", pin.Revision)}})
+			drifted(fmt.Sprintf("reviewed against membership revision %d, which is no longer retained as reviewed: review again", pin.Revision))
 			return
 		}
 		for _, f := range frames {
 			if !sameMask(then.mask(object, f), current.mask(object, f)) {
-				out = append(out, driftEntry{key, LinkProblem{Record: record, Problem: fmt.Sprintf(
-					"membership at sample %d changed after review (revision %d, now %d): review again", f, pin.Revision, current.Revision)}})
+				drifted(fmt.Sprintf("membership at sample %d changed after review (revision %d, now %d): review again", f, pin.Revision, current.Revision))
 				return
 			}
 		}
+		out = append(out, reviewVerdict{key: key, stale: true})
 	}
 	for _, o := range r.Objects {
 		if o.Body != nil {
@@ -518,6 +541,61 @@ func (r *PhysicalReferenceSet) reviewDrift(p *Pack, current *Sidecar) []driftEnt
 		}
 	}
 	return out
+}
+
+// RepinUnchangedReviews moves to the current membership the pin of every
+// reviewed body and keyframe whose frames are unchanged since its review,
+// as one new revision. A published label set carries no history, so a later
+// copy cannot rebuild the membership a review pinned and would report every
+// review as no longer retained. Whoever saves a membership edit still holds
+// that history locally, and re-pins what the edit did not touch before
+// publishing it. A record whose frames changed, or whose pinned membership
+// this copy cannot rebuild, keeps its pin and is counted as drifted: it
+// needs reviewing again. Nothing is written when no pin moves.
+func RepinUnchangedReviews(p *Pack, author, session string) (repinned, drifted int, err error) {
+	if strings.TrimSpace(author) == "" {
+		return 0, 0, fmt.Errorf("%w: a re-pin names its author", ErrPhysicalInvalid)
+	}
+	doc, sidecar, err := loadPhysicalForEdit(p)
+	if err != nil {
+		return 0, 0, err
+	}
+	stale := map[string]bool{}
+	for _, v := range doc.reviewVerdicts(p, sidecar) {
+		if v.stale {
+			stale[v.key] = true
+		} else {
+			drifted++
+		}
+	}
+	if len(stale) == 0 {
+		return 0, drifted, nil
+	}
+	next := *doc
+	next.Objects = clonePhysicalObjects(doc.Objects)
+	repin := func(key string, r *PhysicalReview) {
+		if stale[key] {
+			r.ReviewedAgainst = &MembershipPin{Revision: sidecar.Revision, Digest: sidecar.baseDigest}
+			repinned++
+		}
+	}
+	for i := range next.Objects {
+		o := &next.Objects[i]
+		if o.Body != nil {
+			body := *o.Body
+			repin("body/"+body.BodyID, &body.Review)
+			o.Body = &body
+		}
+		for k := range o.Keyframes {
+			repin("keyframe/"+o.Keyframes[k].KeyframeID, &o.Keyframes[k].Review)
+		}
+	}
+	next.Change = Provenance{Author: author, Session: session, Operation: "repin_reviews"}
+	digest := sidecar.baseDigest
+	if err := savePhysicalPinned(p, &next, 0, &digest); err != nil {
+		return 0, 0, err
+	}
+	return repinned, drifted, nil
 }
 
 // UnpinnedReviews counts reviewed records that carry no membership pin:

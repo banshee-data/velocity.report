@@ -596,3 +596,107 @@ func TestPhysicalHistoryAndRestore(t *testing.T) {
 		t.Fatal("restore over a damaged head")
 	}
 }
+
+// A re-pin moves to the current membership every review whose frames an
+// edit did not touch, so a copy without membership history still sees those
+// reviews as holding; a review whose frames changed, or whose pinned
+// membership is gone, keeps its pin and is counted as drifted.
+func TestRepinUnchangedReviews(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	if _, err := SavePhysicalEdit(p, editFrom(t, p, car1Only(p))); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range []struct {
+		kind PhysicalRecordKind
+		id   string
+	}{{PhysicalRecordBody, "body-car-1"}, {PhysicalRecordKeyframe, "kf-car-1-s0"}, {PhysicalRecordKeyframe, "kf-car-1-s3"}} {
+		if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, r.kind, "car-1", r.id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, _, err := RepinUnchangedReviews(p, " ", ""); err == nil {
+		t.Fatal("a re-pin without an author was accepted")
+	}
+	before, _ := LoadPhysicalReferences(p)
+	if n, d, err := RepinUnchangedReviews(p, "op", ""); err != nil || n != 0 || d != 0 {
+		t.Fatalf("re-pin with nothing to move: %d %d %v", n, d, err)
+	}
+	if after, _ := LoadPhysicalReferences(p); after.Revision != before.Revision {
+		t.Fatalf("a re-pin that moved nothing wrote revision %d", after.Revision)
+	}
+
+	// An edit in a frame nothing cites: every review still holds.
+	s.Masks[len(s.Masks)-2].PointIndices = []int{0, 1, 2, 3, 4, 5, 6} // car-1 at sample 5
+	s.Change = Provenance{Author: "op", Operation: "label"}
+	if err := saveMembership(p, s); err != nil {
+		t.Fatal(err)
+	}
+	n, d, err := RepinUnchangedReviews(p, "op", "S1")
+	if err != nil || n != 3 || d != 0 {
+		t.Fatalf("re-pin after an uncited edit: %d re-pinned, %d drifted, %v", n, d, err)
+	}
+	head, err := LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := LoadPhysicalReferences(p)
+	if cur.Change.Operation != "repin_reviews" || cur.Change.Author != "op" {
+		t.Fatalf("re-pin change %+v", cur.Change)
+	}
+	for _, k := range cur.Objects[0].Keyframes {
+		if k.Review.Status == StatusReviewed && *k.Review.ReviewedAgainst != (MembershipPin{Revision: head.Revision, Digest: head.Digest()}) {
+			t.Fatalf("keyframe %s pin %+v, head %d %s", k.KeyframeID, k.Review.ReviewedAgainst, head.Revision, head.Digest())
+		}
+	}
+	// What a published copy sees: no earlier membership at all.
+	forgetMembershipHistory(p)
+	if drift := cur.ReviewDrift(p, head); len(drift) != 0 {
+		t.Fatalf("re-pinned reviews drift without history: %v", drift)
+	}
+}
+
+// A review whose frame an edit changed keeps its old pin, and one whose
+// pinned membership cannot be rebuilt is left alone too.
+func TestRepinLeavesChangedAndUnprovableReviews(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	if _, err := SavePhysicalEdit(p, editFrom(t, p, car1Only(p))); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"kf-car-1-s0", "kf-car-1-s3"} {
+		if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", id)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pinned, _ := LoadPhysicalReferences(p)
+	old := *pinned.Objects[0].Keyframes[1].Review.ReviewedAgainst
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 3 {
+			s.Masks[i].UncertainIndices = []int{7}
+			s.Masks[i].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+		}
+	}
+	s.Change = Provenance{Author: "op", Operation: "label"}
+	if err := saveMembership(p, s); err != nil {
+		t.Fatal(err)
+	}
+	if n, d, err := RepinUnchangedReviews(p, "op", ""); err != nil || n != 1 || d != 1 {
+		t.Fatalf("re-pin after a cited edit: %d re-pinned, %d drifted, %v", n, d, err)
+	}
+	cur, _ := LoadPhysicalReferences(p)
+	if kf, _ := cur.Keyframe("car-1", 3); *kf.Review.ReviewedAgainst != old {
+		t.Fatalf("a drifted review was re-pinned: %+v", kf.Review.ReviewedAgainst)
+	}
+
+	// Another edit, then the membership history is lost: kf-s0's pin is one
+	// revision old and can no longer be shown to hold.
+	s.Masks[len(s.Masks)-2].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+	if err := saveMembership(p, s); err != nil {
+		t.Fatal(err)
+	}
+	forgetMembershipHistory(p)
+	if n, d, err := RepinUnchangedReviews(p, "op", ""); err != nil || n != 0 || d != 2 {
+		t.Fatalf("re-pin without history: %d re-pinned, %d drifted, %v", n, d, err)
+	}
+}

@@ -110,7 +110,7 @@ func TestAnnotationReferenceRouting(t *testing.T) {
 	if code, _, stderr := runReference("export"); code != 2 || !strings.Contains(stderr, "unknown annotation-reference command") {
 		t.Errorf("unknown command exited %d: %s", code, stderr)
 	}
-	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"fit", "-h"}} {
+	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"fit", "-h"}, {"repin", "-h"}} {
 		if code, _, _ := runReference(args...); code != 0 {
 			t.Errorf("%v exited %d", args, code)
 		}
@@ -537,5 +537,21 @@ func TestAnnotationReferenceFit(t *testing.T) {
 	}
 	if code, _, _ := runReference("fit", "--pack", pack.Dir, "--object", "ghost", "--author", "op", "--out", again); code != 1 {
 		t.Errorf("an unknown object exited %d, want 1", code)
+	}
+}
+
+// repin reports what it moved; imported reviews carry no membership pin, so
+// on a pack whose reviews were all imported there is nothing to move.
+func TestAnnotationReferenceRepin(t *testing.T) {
+	pack := followingPack(t)
+	if code, _, _ := runReference("repin", "--pack", pack.Dir); code != 2 {
+		t.Fatalf("repin without --author exited %d", code)
+	}
+	if code, _, _ := runReference("repin", "--pack", pack.Dir+".missing", "--author", "op"); code != 1 {
+		t.Fatalf("repin of a missing pack exited %d", code)
+	}
+	code, stdout, stderr := runReference("repin", "--pack", pack.Dir, "--author", "op")
+	if code != 0 || !strings.Contains(stdout, "re-pinned 0 reviews to the current membership; 0 need reviewing again") {
+		t.Fatalf("repin exited %d: %s%s", code, stdout, stderr)
 	}
 }
