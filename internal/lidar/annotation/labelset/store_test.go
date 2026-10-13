@@ -184,6 +184,80 @@ func TestPublishCarriesStateOnly(t *testing.T) {
 	}
 }
 
+// Republish brings a published copy up to the source, and refuses a copy it
+// cannot show is behind the source: another set, one edited since, one ahead,
+// or one that went another way.
+func TestRepublishRefreshesOnlyAnUnchangedCopyBehindTheSource(t *testing.T) {
+	dir, ls := newSet(t)
+	addMember(t, ls, 40)
+	if err := ls.Save(Change{Author: "dd"}); err != nil {
+		t.Fatal(err)
+	}
+	dest := filepath.Join(t.TempDir(), "published")
+	if err := Publish(dir, dest); err != nil {
+		t.Fatal(err)
+	}
+	if err := Publish(dir, dest); err == nil {
+		t.Fatal("publish wrote over a published copy")
+	}
+	atTwo := filepath.Join(t.TempDir(), "source-at-2")
+	if err := os.CopyFS(atTwo, os.DirFS(dir)); err != nil {
+		t.Fatal(err)
+	}
+	addMember(t, ls, 41)
+	if err := ls.Save(Change{Author: "dd"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Republish(dir, dest); err != nil {
+		t.Fatalf("republish: %v", err)
+	}
+	pub, err := Open(dest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pub.Revision() != 3 || pub.StateDigest() != ls.StateDigest() {
+		t.Fatalf("republished at %d %s", pub.Revision(), pub.StateDigest())
+	}
+	for _, absent := range []string{JournalFile, JournalBaseDir} {
+		if _, err := os.Stat(filepath.Join(dest, absent)); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("republished copy has %s", absent)
+		}
+	}
+	if err := Republish(dir, dest); err != nil {
+		t.Fatalf("republish at the same head: %v", err)
+	}
+
+	// The copy is now ahead of the old source.
+	if err := Republish(atTwo, dest); err == nil || !strings.Contains(err.Error(), "ahead") {
+		t.Fatalf("republish from a source behind the copy: %v", err)
+	}
+	// The old source goes another way to its own revision 3.
+	old, err := Open(atTwo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	addMember(t, old, 45)
+	if err := old.Save(Change{Author: "dd"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Republish(atTwo, dest); err == nil || !strings.Contains(err.Error(), "different states") {
+		t.Fatalf("republish of a diverged copy: %v", err)
+	}
+	// Another label set.
+	otherDir, _ := newSet(t)
+	if err := Republish(otherDir, dest); err == nil || !strings.Contains(err.Error(), "holds label set") {
+		t.Fatalf("republish from another label set: %v", err)
+	}
+	// A copy edited since it was published keeps its edits.
+	addMember(t, pub, 46)
+	if err := pub.Save(Change{Author: "researcher"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := Republish(dir, dest); err == nil || !strings.Contains(err.Error(), "edited since it was published") {
+		t.Fatalf("republish over an edited copy: %v", err)
+	}
+}
+
 func TestOpenRollsForwardInterruptedSave(t *testing.T) {
 	dir, ls := newSet(t)
 	saved := map[string][]byte{}

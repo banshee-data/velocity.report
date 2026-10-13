@@ -228,13 +228,18 @@ func labelsPublish(args []string) error {
 	fs := flag.NewFlagSet("labels publish", flag.ContinueOnError)
 	dir := fs.String("labels", "", "Label set directory (required)")
 	dest := fs.String("dest", "", "Destination directory, empty or absent (required)")
+	replace := fs.Bool("replace", false, "Bring an existing published copy of this label set up to the source's state; refused if the copy has been edited, is ahead, or has diverged")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
 	if *dir == "" || *dest == "" {
 		return fmt.Errorf("--labels and --dest are required")
 	}
-	if err := labelset.Publish(*dir, *dest); err != nil {
+	publish := labelset.Publish
+	if *replace {
+		publish = labelset.Republish
+	}
+	if err := publish(*dir, *dest); err != nil {
 		return err
 	}
 	fmt.Printf("published the current state of %s to %s\n", *dir, *dest)

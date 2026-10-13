@@ -491,6 +491,70 @@ func Publish(dir, dest string) error {
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
+	root, err := os.OpenRoot(dest)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	return writePublished(root, ls)
+}
+
+// Republish brings a published copy up to its source's current state. The
+// copy must be the same label set, hold no local history (a copy someone has
+// edited is a working copy, and its edits would be lost), and sit at a
+// revision the source can show it passed through with the same state. The
+// head files are written first and labels.json last, as a save commits.
+func Republish(dir, dest string) error {
+	src, err := Open(dir)
+	if err != nil {
+		return err
+	}
+	pub, err := Open(dest)
+	if err != nil {
+		return fmt.Errorf("published copy: %w", err)
+	}
+	if pub.Manifest.LabelSetID != src.Manifest.LabelSetID {
+		return fmt.Errorf("%s holds label set %s, not %s", dest, pub.Manifest.LabelSetID, src.Manifest.LabelSetID)
+	}
+	for _, local := range []string{JournalFile, JournalBaseDir} {
+		if _, err := os.Stat(filepath.Join(dest, local)); err == nil {
+			return fmt.Errorf("%s has %s: it has been edited since it was published; publish those edits from it, or set it aside", dest, local)
+		}
+	}
+	switch {
+	case pub.Revision() > src.Revision():
+		return fmt.Errorf("%s is at revision %d, ahead of the source's %d", dest, pub.Revision(), src.Revision())
+	case pub.Revision() == src.Revision():
+		if pub.StateDigest() != src.StateDigest() {
+			return fmt.Errorf("%s and the source are both at revision %d with different states", dest, pub.Revision())
+		}
+	default:
+		then, err := LoadRevision(dir, pub.Revision())
+		if err != nil {
+			return fmt.Errorf("cannot show %s's revision %d is in the source's history: %w", dest, pub.Revision(), err)
+		}
+		if d, err := DigestOf(then); err != nil {
+			return err
+		} else if d != pub.StateDigest() {
+			return fmt.Errorf("%s's revision %d is %s, the source's was %s", dest, pub.Revision(), pub.StateDigest(), d)
+		}
+	}
+	root, err := os.OpenRoot(dest)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	lock, err := lockSet(root)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	return writePublished(root, src)
+}
+
+// writePublished writes a label set's current state and labels.json, without
+// its journal.
+func writePublished(root *os.Root, ls *LabelSet) error {
 	files, err := EncodeState(&ls.State)
 	if err != nil {
 		return err
@@ -498,11 +562,6 @@ func Publish(dir, dest string) error {
 	if StateDigest(files) != ls.StateDigest() {
 		return fmt.Errorf("state re-encodes to a different digest")
 	}
-	root, err := os.OpenRoot(dest)
-	if err != nil {
-		return err
-	}
-	defer root.Close()
 	for _, name := range stateFiles {
 		if err := writeFileAtomic(root, name, files[name]); err != nil {
 			return err
