@@ -268,7 +268,10 @@ tracks over 20 s rise 18 to 54.
    mechanism is that the tercile is drawn from each cell's spread during settling, and a cell on a
    lane through which traffic passed while the grid settled has a wide spread, so the lanes land
    in the volatile tercile with the vegetation. This run did not record the region map, so the
-   mechanism is inferred, not measured.
+   mechanism is inferred, not measured. **Since measured, and corrected:** the
+   [region map report](l3-region-tercile-mechanism-2026-10.md) confirms the volatile tercile holds
+   the flood, but kirk0's settling window held almost no moving traffic; lanes are volatile for
+   the surfaces behind them and for region merging.
 2. **Switching the overrides off moves along the trade-off, never across it.** In none of 518
    configs does it raise recall without raising the spurious clusters, and at every budget the
    best overrides-on config matches or beats the best overrides-off one; the overrides-off configs
@@ -315,7 +318,10 @@ tracks over 20 s rise 18 to 54.
   172 s capture cannot measure the long-uptime behaviour the beam-wise review's Section 5.1
   predicts, so the dwell policy remains a prerequisite for shipping any narrowed L3.
 - The volatile-tercile mechanism (lanes classified volatile by traffic during settling) is
-  inferred from the attribution, not observed: the harness does not persist the region map.
+  inferred from the attribution, not observed: the harness does not persist the region map. (It
+  now does; the [region map report](l3-region-tercile-mechanism-2026-10.md) finds the traffic
+  half does not hold on kirk0, and the [dwell policy report](l3-dwell-policy-arrival-2026-10.md)
+  measures the long-uptime behaviour.)
 - No Pi timing. Frame timings on the Mac ran under heavy contention and are not reported.
 - A tuning change moves the config fingerprint; none of these sets is a proposal to change the
   defaults without the perf baselines recaptured and a held-out score.
