@@ -1,6 +1,7 @@
 package experiments
 
 import (
+	"fmt"
 	"maps"
 	"os"
 	"path/filepath"
@@ -154,6 +155,23 @@ func TestValidateRefusesEachBrokenRule(t *testing.T) {
 		{"gate on a job", "estimate: { each: 1m }", "estimate: { each: 1m }\n    gate: { x: 1 }", "a gate belongs on a manual step"},
 		{"forward after", "  - id: write\n    kind: manual:write", "  - id: write\n    after: [later]\n    kind: manual:write", "no such step"},
 		{"reclaim", "requires:", "reclaim: sometimes\nrequires:", "want any, origin or never"},
+		{"owner", "owner: t", "owner: \"\"", "owner is empty"},
+		{"report outside docs", "status: proposed", "status: proposed\nreport: notes/x.md", "must be a Markdown file under docs/"},
+		{"answered report missing", "status: proposed", "status: answered\nreport: docs/missing.md", "report docs/missing.md does not exist"},
+		{"depends on itself", "asks: [docs/question.md#q1]", "asks: [D-1]\ndepends_on: [abcd0001]", "depends on itself"},
+		{"negative requirement", "disk_gb: 2", "disk_gb: -1", "must not be negative"},
+		{"arm without a name", "  - name: b\n", "  - name: \"\"\n", "an arm has no name"},
+		{"arm named twice", "  - name: b\n", "  - name: a0\n", "is named twice"},
+		{"arm path escapes", "tuning: config/experiments/set.json", "tuning: config/experiments/../tuning.defaults.json", "does not exist"},
+		{"case count", "count: 2", "count: 0", "cases.count must be positive"},
+		{"sites and count disagree", "count: 2", "count: 2\n  sites: [kirk0]", "lists 1 sites but count is 2"},
+		{"step without an id", "  - id: write\n", "  - id: \"\"\n", "has no id"},
+		{"step defined twice", "  - id: write\n", "  - id: label\n", "is defined twice"},
+		{"after a later step", "  - id: label\n    kind: manual:label", "  - id: label\n    after: [write]\n    kind: manual:label", "may wait only for steps listed before it"},
+		{"estimate worker", "estimate: { each: 1m }", "estimate: { each: 1m, worker: cray }", "estimate.worker \"cray\""},
+		{"actual worker", "steps:", "actual:\n  worker: cray\nsteps:", "actual.worker \"cray\""},
+		{"fan-out over absent arms", "arms:\n  - name: a0\n    tuning: config/tuning.defaults.json\n  - name: b\n    tuning: config/experiments/set.json\n    replay: [support_filter]\n", "", "fans out over arms, but the experiment has none"},
+		{"fan-out over absent cases", "cases:\n  corpus: kirk-labelled\n  count: 2\n", "", "fans out over cases, but the experiment has none"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -336,5 +354,76 @@ func TestKindsComeFromTheJobRegistry(t *testing.T) {
 		if ClassifyKind(k) == KindJob {
 			t.Errorf("%s is a job kind now: remove it from PlannedKinds", k)
 		}
+	}
+}
+
+func TestNoStepsAndAParallelBranchValidate(t *testing.T) {
+	end := strings.Index(validSpec, "steps:\n")
+	noSteps := validSpec[:end] + "steps: []\n---\n"
+	root := tree(t, map[string]string{"data/experiments/abcd/abcd0001.md": noSteps})
+	errs := load(t, root).Validate(root)
+	if len(errs) == 0 || !strings.Contains(fmt.Sprint(errs), "no steps") {
+		t.Errorf("a spec with no steps was accepted: %v", errs)
+	}
+	branch := strings.Replace(validSpec, "  - id: label\n    kind: manual:label", "  - id: label\n    after: [\"-\"]\n    kind: manual:label", 1)
+	root = tree(t, map[string]string{"data/experiments/abcd/abcd0001.md": branch})
+	if errs := load(t, root).Validate(root); len(errs) != 0 {
+		t.Errorf("after: [-] (a parallel branch) was refused: %v", errs)
+	}
+}
+
+func TestValidateReportsDuplicateIDs(t *testing.T) {
+	root := tree(t, map[string]string{
+		"data/experiments/abcd/abcd0001.md": validSpec,
+		"data/experiments/abcd/abcd0002.md": validSpec,
+	})
+	errs := fmt.Sprint(load(t, root).Validate(root))
+	if !strings.Contains(errs, "id abcd0001 is also used by") {
+		t.Errorf("a duplicate id was not reported: %s", errs)
+	}
+}
+
+func TestLoadRefusesBrokenAreasAndSpecs(t *testing.T) {
+	cases := map[string]map[string]string{
+		"does not match its directory": {"data/experiments/wxyz/README.md": "---\narea: abcd\ntitle: T\nlayers: L\nowner: t\n---\n"},
+		"field colour not found":       {"data/experiments/wxyz/README.md": "---\narea: wxyz\ncolour: red\n---\n"},
+		"not closed":                   {"data/experiments/wxyz/README.md": "---\narea: wxyz\n"},
+		"field estimated not found":    {"data/experiments/abcd/abcd0001.md": strings.Replace(validSpec, "owner: t", "owner: t\nestimated: 3h", 1)},
+		"want e.g. 90s":                {"data/experiments/abcd/abcd0001.md": strings.Replace(validSpec, "each: 1m", "each: soon", 1)},
+		"cannot unmarshal":             {"data/experiments/abcd/abcd0001.md": strings.Replace(validSpec, "estimate: { each: 1m }", "estimate: { each: [1, 2] }", 1)},
+	}
+	for want, files := range cases {
+		root := tree(t, files)
+		if _, err := Load(root); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("want a load error containing %q, got %v", want, err)
+		}
+	}
+	if _, err := Load(t.TempDir()); err == nil {
+		t.Error("a repository without data/experiments loaded")
+	}
+	if _, err := ReadFile(filepath.Join(t.TempDir(), "missing.md")); err == nil {
+		t.Error("a missing spec file was read")
+	}
+}
+
+func TestFrontMatterClosedAtTheEndOfTheFile(t *testing.T) {
+	header, err := frontMatter([]byte("---\narea: abcd\n---"))
+	if err != nil || string(header) != "area: abcd" {
+		t.Errorf("header closed at EOF: %q %v", header, err)
+	}
+	header, err = frontMatter([]byte("---\r\narea: abcd\r\n---\r\nbody\r\n"))
+	if err != nil || string(header) != "area: abcd" {
+		t.Errorf("CRLF header: %q %v", header, err)
+	}
+}
+
+func TestDependenciesDocWithNothingOpenOrAnswered(t *testing.T) {
+	set := &Set{Areas: map[string]Area{"abcd": {Area: "abcd", Title: "Empty"}}, byID: map[string]*Spec{}}
+	doc := set.DependenciesDoc()
+	if strings.Count(doc, "- None.") != 2 || !strings.Contains(doc, "- 0 open experiments: 0 machine estimated.") {
+		t.Errorf("an empty set's overview:\n%s", doc)
+	}
+	if FormatDuration(0) != "0" {
+		t.Error("FormatDuration(0)")
 	}
 }
