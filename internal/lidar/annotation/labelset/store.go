@@ -606,11 +606,28 @@ func readManifest(root *os.Root) (*Manifest, error) {
 }
 
 func writeManifest(root *os.Root, m *Manifest) error {
-	b, err := json.MarshalIndent(m, "", "  ")
+	b, err := encodeManifest(m)
 	if err != nil {
 		return err
 	}
-	return writeFileAtomic(root, ManifestFile, append(b, '\n'))
+	return writeFileAtomic(root, ManifestFile, b)
+}
+
+// encodeManifest renders labels.json as the macOS client does: the canonical
+// encoding, keys sorted, indented two spaces, then a newline. labels.json is
+// outside the state digest, but both writers save it on every revision, so a
+// second encoding would rewrite the whole file whenever the writer changed.
+func encodeManifest(m *Manifest) ([]byte, error) {
+	b, err := Canonical(m)
+	if err != nil {
+		return nil, err
+	}
+	var out bytes.Buffer
+	if err := json.Indent(&out, b, "", "  "); err != nil {
+		return nil, err
+	}
+	out.WriteByte('\n')
+	return out.Bytes(), nil
 }
 
 func readHeadFiles(root *os.Root) (map[string][]byte, error) {

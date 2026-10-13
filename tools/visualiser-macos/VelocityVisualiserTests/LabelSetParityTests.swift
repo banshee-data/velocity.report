@@ -59,6 +59,18 @@ struct LabelSetCanonicalJSONTests {
         #expect(parsed.canonicalLine == data)
     }
 
+    /// labels.json is written by both clients on every save. Go's fixture,
+    /// every field set and awkward strings included, reads into the manifest
+    /// and writes back to the same bytes, so a save after Go's changes only
+    /// the head's lines.
+    @Test func theManifestMatchesGoByteForByte() throws {
+        let data = try parityFixture("labels.json")
+        let manifest = try LabelSetManifest.read(data)
+        #expect(manifest.json.indentedData == data)
+        let minimal = LabelSetManifest(labelSetID: "parity", layout: .pandar40P)
+        #expect(minimal.json.indentedData == (try parityFixture("labels-minimal.json")))
+    }
+
     @Test func parsingRefusesWhatIsNotJSON() {
         for bad in ["{", "[1,]", "{\"a\" 1}", "01", "\"\u{1}\"", "nul", "[1] 2"] {
             #expect(throws: LabelSetCodingError.self) { try LabelSetJSON.parse(Data(bad.utf8)) }

@@ -57,6 +57,12 @@ followed by `\n`:
 
 `testdata/parity/canonical-values.json` holds the awkward cases.
 
+`labels.json` is the same encoding indented: keys sorted, two spaces per level, `": "` between a
+key and its value, empty objects and arrays as `{}` and `[]`, then `\n`. It is outside the state
+digest, but Go and the macOS client both rewrite it on every save, so they write it identically.
+Otherwise a save from the other client would reorder the whole file. `testdata/parity/labels.json`
+and `labels-minimal.json` pin it.
+
 ## State digest
 
 `sha256:` plus lower-case hex of SHA-256 over:

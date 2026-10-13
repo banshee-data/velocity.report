@@ -2,6 +2,7 @@ package labelset
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -54,6 +55,31 @@ func parityJournal(t *testing.T) ([]State, [][]byte) {
 	return states, lines
 }
 
+// parityManifest sets every labels.json field, with strings the encoders
+// could disagree on.
+func parityManifest() Manifest {
+	return Manifest{
+		SchemaVersion: SchemaVersion, LabelSetID: "dd6579b7-4705-4a95-a2a3-2a4c12bef749", Name: "kirk0 <reference> & \"twins\"",
+		Layout: Pandar40P, PacketKey: PacketKeyScheme,
+		AppliesTo: []Binding{
+			{Name: "kirk0.pcapng", SHA256: "sha256:2864", Bytes: 200657872, UDPPort: 2369, PacketsFound: 149741,
+				WindowsComplete: 832, VerifiedUTC: "2026-10-12T11:23:59Z", VerifiedBuild: "0.5.1-pre45+5d5af1fb3"},
+			{Name: "é ü 東京.pcapng", SHA256: "sha256:0f68", Bytes: 1, UDPPort: 2368, PacketsMissing: 3, WindowsPartial: 1,
+				WindowsMissing: 2, VerifiedUTC: "2026-10-13T00:00:00.123Z"},
+		},
+		Head: Head{Revision: 2232, State: "sha256:75a2", UpdatedUTC: "2026-10-12T04:23:00.123456789Z"},
+		MigratedFrom: &Migration{PackDigest: "sha256:95be", DatasetID: "ds_95be", PackDir: "ad8b9438/pack", SidecarRevision: 2232,
+			PCAPSHA256: "sha256:2864", PCAPName: "kirk0.pcapng", DecoderBuild: "0.5.1-pre45", MappingDigest: "sha256:e9d9",
+			Note: "tab\tnewline\n/slash"},
+		Note: "a note",
+	}
+}
+
+// parityManifestMinimal leaves every optional field empty.
+func parityManifestMinimal() Manifest {
+	return Manifest{SchemaVersion: SchemaVersion, LabelSetID: "parity", Layout: Pandar40P, PacketKey: PacketKeyScheme}
+}
+
 func TestParityFixtures(t *testing.T) {
 	states, lines := parityJournal(t)
 	want := map[string][]byte{}
@@ -81,6 +107,13 @@ func TestParityFixtures(t *testing.T) {
 		t.Fatal(err)
 	}
 	want["canonical-values.json"] = append(values, '\n')
+	for name, m := range map[string]Manifest{"labels.json": parityManifest(), "labels-minimal.json": parityManifestMinimal()} {
+		b, err := encodeManifest(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		want[name] = b
+	}
 
 	if *updateFixtures {
 		os.MkdirAll(parityDir, 0o755)
@@ -114,5 +147,46 @@ func TestParityFixtures(t *testing.T) {
 	}
 	if n, err := Verify(dir); err != nil || n != 3 {
 		t.Fatalf("fixture journal replays %d revisions: %v", n, err)
+	}
+}
+
+// labels.json reads back to the bytes it was written as, and a new head
+// changes only the head's three lines: a save is a small diff whichever
+// client made the previous one.
+func TestManifestReencodesByteIdentical(t *testing.T) {
+	for _, m := range []Manifest{parityManifest(), parityManifestMinimal()} {
+		b, err := encodeManifest(&m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var back Manifest
+		if err := json.Unmarshal(b, &back); err != nil {
+			t.Fatal(err)
+		}
+		again, err := encodeManifest(&back)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(b, again) {
+			t.Fatalf("%s re-encodes differently:\n%s\n%s", m.LabelSetID, b, again)
+		}
+		back.Head = Head{Revision: back.Head.Revision + 1, State: "sha256:next", UpdatedUTC: "2026-10-13T00:00:00Z"}
+		next, err := encodeManifest(&back)
+		if err != nil {
+			t.Fatal(err)
+		}
+		was, now := bytes.Split(b, []byte("\n")), bytes.Split(next, []byte("\n"))
+		if len(was) != len(now) {
+			t.Fatalf("%s: a new head changed the line count from %d to %d", m.LabelSetID, len(was), len(now))
+		}
+		changed := 0
+		for i := range was {
+			if !bytes.Equal(was[i], now[i]) {
+				changed++
+			}
+		}
+		if changed != 3 {
+			t.Fatalf("%s: a new head changed %d lines, want 3", m.LabelSetID, changed)
+		}
 	}
 }
