@@ -206,6 +206,10 @@ Mask fields keep their version 1 meaning (`object_id`, `completeness`, `visibili
 and `domain` added. The state digest is SHA-256 over the canonical encoding of `objects.json`,
 `windows.json` and `masks.ndjson`.
 
+On disk the head is kept in a storage layout decided during the build (§10): records one per line,
+and masks and domain returns split by window range into `masks/` and `domain-returns/`. The files
+above are the canonical encoding the state digest is defined over.
+
 For kirk0 the packet table is about 150,000 packets (83 s at about 1,800 packets per second), or
 1.2 MB. Mask and journal sizes are measured in Phase 3. A typical save is one mask by under 200
 indices, so the whole journal should fall from 42 GB to tens of megabytes at most.
@@ -325,6 +329,19 @@ Decided during the build, beyond §3:
 - **Reviews are re-pinned before an edit is published.** A review pins the membership revision it
   was made against, and a published copy cannot rebuild an older one. Whoever made the edit still
   has the history, and moves every review whose frames the edit did not touch to the new head.
+- **The head is kept in a storage layout, and the digest is over the canonical encoding.**
+  `objects.json`, `domains.json` and `windows.json` hold one record per line, and masks and domain
+  returns are split into files of `storage.window_chunk` windows (100 by default). A mask edit
+  rewrites one small file. Every text file stays under Hugging Face's 10 MiB plain-Git limit, so
+  the label text is plain Git: the Hub shows edited lines, and Git merges edits to different
+  masks. Since the digest does not depend on the layout, no state, journal line or pin moved;
+  `labels relayout` converted the five sets of 2026-10-12.
+- **A Git merge is finished by `labels rehead`.** It makes the merged files the next revision,
+  after validating them, and adds the merge to the local journal; `labels.json` keeps the merging
+  copy's own head.
+- **Only a marked journal is recovered.** A journal is local, so it outlives a branch checkout; a
+  journal one line ahead of the head is an interrupted save only if the commit's `.pending` marker
+  names it. Anything else is another head's journal and is refused, never applied.
 - **Returns two objects claimed in one window** in version 1 data, which later validation forbids,
   are resolved by the migration: a reviewed claim keeps the return and each proposed claim moves it
   to uncertain. Two reviewed claims refuse the migration.

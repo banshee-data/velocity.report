@@ -11,11 +11,11 @@ a journal of deltas, one line per save, not a full copy per save.
 
 ## Where things live
 
-| Path                                          | What it is                                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------------------- |
-| `<annotation dir>/labels/<name>/`             | A label set: `labels.json`, the head files, `journal.ndjson` and `.lock`        |
-| `<annotation dir>/<pack>/`                    | A pack: one run's foreground of a capture, with `packets.bin` and `returns.bin` |
-| `<annotation dir>/<pack>/label-set-link.json` | Names the label set holding the pack's membership, by id and relative path      |
+| Path                                          | What it is                                                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `<annotation dir>/labels/<name>/`             | A label set: `labels.json`, the head files (masks split into `masks/` by window), `journal.ndjson` and `.lock` |
+| `<annotation dir>/<pack>/`                    | A pack: one run's foreground of a capture, with `packets.bin` and `returns.bin`                                |
+| `<annotation dir>/<pack>/label-set-link.json` | Names the label set holding the pack's membership, by id and relative path                                     |
 
 The annotation dir is the server's `--lidar-annotation-dir` (`LIDAR_ANNOTATION_DIR` in `local.mk`).
 
@@ -39,6 +39,8 @@ All are `velocity lidar labels <command>`; built through `make`, so records name
 | `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited         |
 | `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it |
 | `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                        |
+| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                             |
+| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                              |
 | `census`       | Count packet keys in capture files and report duplicates                                                                                                  |
 
 Everything that reads a pack's membership reads it through the label set: splits, physical
@@ -107,10 +109,11 @@ proposal layers, locks and revision archives stay behind.
 ### Editing from the dataset
 
 Anyone with the dataset and a build of this repository can edit a published label set. Its files
-on disk are then the new state, and the change is a small commit.
+on disk are then the new state, and the change is a small commit. The label set's text is plain
+Git, one record per line, so the Hub shows the edited lines; only `packets.bin` and the view's
+binary files go through LFS/Xet.
 
-1. Clone the dataset with git and Git Xet installed, and let `git diff` show LFS files as text:
-   `git config diff.lfs.textconv cat`.
+1. Clone the dataset with git and Git Xet installed.
 2. `git checkout -b <your branch>`.
 3. Start the server with `--lidar-annotation-dir=<clone>/labels/<capture stem>`. The window saves
    membership itself, but physical-reference and facet saves go through the server, which finds a
@@ -118,31 +121,62 @@ on disk are then the new state, and the change is a small commit.
 4. In the macOS window, **Open Annotation Pack…** the view, and grant `labels/<capture stem>` when
    asked: the label set beside the view is written there.
 5. Edit and save. The first save of a published set copies its head to `journal-base/` and starts a
-   local journal; both are gitignored, with the locks and revision archives the editors write.
+   local journal; both are gitignored, with the locks, the commit marker and the revision archives
+   the editors write.
 6. Before committing, run
    `velocity lidar annotation-reference repin --pack <view> --author <you>`, then
    `velocity lidar labels check-view --pack <view>`. A review pins the membership it was made
    against, and a later copy has no history to rebuild it. `repin` moves every review whose frames
    the edit did not touch to the new head. `check-view` checks the view as a fresh copy of the
    tracked files would hold, and names any review that needs doing again.
-7. `git status` lists the label set's `labels.json` and head files, and the view's
-   `physical-references.json` if it changed. Commit them. To propose the change, open a pull
-   request on the dataset's Hub page, then `git push origin <your branch>:refs/pr/<number>`.
+7. `git status` lists `labels.json`, the chunk files the edit touched, and the view's
+   `physical-references.json`. Commit them. To propose the change, open a pull request on the
+   dataset's Hub page, then `git push origin <your branch>:refs/pr/<number>`.
 
-A one-mask edit of kirk0's view changed three lines of `labels.json` (the head), one line of
-`masks.ndjson`, and 56 lines of `physical-references.json` (the re-pin of 25 reviews).
+A one-mask edit of kirk0's view changes three lines of `labels.json` (the head), one line of
+`masks/000000-000099.ndjson`, and 56 lines of `physical-references.json` (the re-pin of 25
+reviews).
 
-- **Branches do not merge.** Every save rewrites the head in `labels.json`, and `*.ndjson` is in
-  LFS. Two branches from one head conflict; make the second edit again on the new head.
-- **One object edit is one long line.** `objects.json` and `windows.json` are single-line canonical
-  files, so a change to any object shows as the whole line.
-- **Every save stores the whole `masks.ndjson` again in local LFS.** That is about 7 MB for kirk0.
-  Xet uploads only the chunks that changed.
+#### Merging another branch
+
+Git merges the label set's files line by line, so two people who edited different masks merge
+cleanly there. `labels.json` conflicts, because each branch moved the head, and so does
+`physical-references.json` when both re-pinned their reviews. To finish the merge:
+
+1. Keep your own branch's copy of both files, then make the merged files the next revision:
+
+   ```bash
+   git checkout --ours -- "$SET/labels.json" "$VIEW/physical-references.json"
+   velocity lidar labels rehead --labels "$SET" --author "$NAME"
+   ```
+
+   `rehead` refuses a merge that gives one return to two objects, and adds the merge to your local
+   journal.
+
+2. `annotation-reference repin`, then `labels check-view`, as for any edit. Commit.
+
+Measured on kirk0: two clones each removed one return from a different mask in the same chunk
+file. Git merged the chunk itself and conflicted on the two files above. `rehead` made revision
+2,235, holding both edits. `repin` moved all 25 reviews, and `check-view` passed.
+
+#### Switching branches
+
+The journal, its base and the commit marker are local and ignored, so they stay when you check
+out another branch. If the journal records edits to a different head, opening the label set
+refuses it rather than applying them: switch back to the branch it belongs to, or move
+`journal.ndjson` and `journal-base/` aside to edit this one. Your edits stay safe in the branch's
+commits either way.
+
+#### What else to know
+
 - **Splits land in the view's folder.** A split frozen through the server is written to
   `labels/<capture stem>/splits/`. Commit it only if it is meant to be published.
 - **Facets break for later copies.** A facet pins the label set revision it was authored on, so it
   stops loading once membership moves past that revision. `check-view` reports it; there is no
   facet re-pin yet.
+- **Every text file must stay under 10 MiB.** Hugging Face refuses a push in which any commit holds
+  a larger plain-Git file. `check-view` and the staging script report one. Running `labels relayout`
+  with a smaller `--window-chunk` splits the chunks finer.
 
 ## Limits
 

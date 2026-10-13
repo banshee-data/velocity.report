@@ -24,27 +24,55 @@ never as a negative.
 
 ## Files
 
-| File                    | Content                                                                                    | In the state digest |
-| ----------------------- | ------------------------------------------------------------------------------------------ | ------------------- |
-| `labels.json`           | Identity, layout, packet key scheme, verified files (`applies_to`), the head, provenance   | No                  |
-| `packets.bin`           | Packet keys as little-endian uint64, in table order                                        | Yes                 |
-| `objects.json`          | `{"correspondences":[…],"dismissed_proposals":[…],"objects":[…]}`                          | Yes                 |
-| `domains.json`          | Array of domains, sorted by `domain_id`                                                    | Yes                 |
-| `windows.json`          | Array of windows, sorted by `window_id`                                                    | Yes                 |
-| `domain-returns.ndjson` | One line per (domain, window), sorted by `domain_id` then `window_id`: `returns` as ranges | Yes                 |
-| `masks.ndjson`          | One line per mask, sorted by `window_id` then `object_id`                                  | Yes                 |
-| `journal.ndjson`        | One delta per save. Local only; never published                                            | No                  |
-| `journal-base/`         | The head a journal started from, when it did not start at revision 1. Local only           | No                  |
-| `.lock`                 | Writer lock. Local only                                                                    | No                  |
+| Path                                   | Content                                                                                              |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `labels.json`                          | Identity, layout, packet key scheme, verified files (`applies_to`), the head, `storage`, provenance  |
+| `packets.bin`                          | Packet keys as little-endian uint64, in table order                                                  |
+| `objects.json`                         | `correspondences`, `dismissed_proposals` and `objects`, one record per line                          |
+| `domains.json`                         | Domains sorted by `domain_id`, one per line                                                          |
+| `windows.json`                         | Windows sorted by `window_id`, one per line                                                          |
+| `masks/<first>-<last>.ndjson`          | The masks of windows _first_ to _last_, one per line, sorted by `window_id` then `object_id`         |
+| `domain-returns/<first>-<last>.ndjson` | Domain returns of the same windows, one line per (domain, window): `returns` as ranges               |
+| `journal.ndjson`                       | One delta per save. Local only; never published                                                      |
+| `journal-base/`                        | The head a journal started from, when it did not start at revision 1, in the same layout. Local only |
+| `.lock`                                | Writer lock. Local only                                                                              |
+| `.pending`                             | The revision a save is committing, while it commits it. Local only                                   |
 
 A set of returns is written as `[[start, length], …]`: sorted, every range non-empty, and each range
 starting after the previous one's end plus one, so a set has one encoding. An empty set is `[]`.
 `uncertain` is omitted from a mask when empty; `members` never is.
 
+## Storage layout
+
+A state has one identity, its canonical encoding (below), and the files on disk are laid out for
+people reading their diffs and for plain Git. `labels.json`'s `storage.window_chunk` (100 by
+default) is how many windows each `masks/` and `domain-returns/` file spans: a file is named by its
+first and last window as six-digit numbers, starts at a multiple of the span, and exists only when
+it holds a line. A mask edit rewrites one small file, every text file can stay under Hugging Face's
+10 MiB limit for plain Git, and Git merges two branches that edited different masks line by line.
+
+- `objects.json`, `domains.json` and `windows.json` hold one record per line: the canonical
+  encoding, except that each element of the top-level array, or of an array that is a top-level
+  field, sits on its own line, indented two spaces per level, with `": "` after a key. An empty
+  array is `[]`, and the file ends in `\n`.
+- A chunk file holds canonical lines in canonical order.
+- Reading decodes the files, digests their canonical encoding, and refuses files that are not
+  exactly the layout of the state they decode to, a chunk of another span or holding another
+  window's line, and the single files of the layout before (`masks.ndjson` beside the chunks).
+  Hidden files (Finder's `.DS_Store`) and `*.tmp` in a chunk directory are passed over.
+- A save writes only the files whose bytes change and removes the chunk files it empties.
+
+`testdata/parity/storage/` holds the fixture state in this layout, one window per chunk.
+`velocity lidar labels relayout` converts a set from the single-file layout, or changes its span;
+the state, its digest and the journal are unchanged, and an interrupted run is finished by running
+it again.
+
 ## Canonical JSON
 
-Every head file except `packets.bin` and `labels.json`, and every journal line, is canonical JSON
-followed by `\n`:
+The canonical encoding of a state is `packets.bin` and five files of canonical JSON, each followed
+by `\n`: `objects.json`, `domains.json` and `windows.json` on one line, and `domain-returns.ndjson`
+and `masks.ndjson` one line per record. It defines the state digest; on disk the same content is
+kept in the storage layout above. Every journal line is canonical JSON too:
 
 - Object keys sorted by code point, no whitespace between tokens.
 - Numbers as ECMAScript `Number.prototype.toString` writes them, which is what Go's
@@ -65,14 +93,17 @@ and `labels-minimal.json` pin it.
 
 ## State digest
 
-`sha256:` plus lower-case hex of SHA-256 over:
+`sha256:` plus lower-case hex of SHA-256 over the canonical encoding:
 
 ```text
 "velocity.report label set state v2\n"
-then, for each file in the order packets.bin, objects.json, domains.json, windows.json,
+then, for each canonical file in the order packets.bin, objects.json, domains.json, windows.json,
 domain-returns.ndjson, masks.ndjson:
   "<name>\n<decimal byte length>\n" followed by the file's bytes
 ```
+
+The digest does not depend on the storage layout: a set laid out with any chunk span, or relaid,
+keeps it.
 
 `labels.json` records the head's revision and state digest. A revision is pinned as
 `(label_set_id, revision, state digest)`.
@@ -107,18 +138,41 @@ what is present, or create a mask without its fields.
 A save, holding an exclusive `flock` on `.lock`:
 
 1. checks that `labels.json`'s head is the revision and digest the editor loaded, and that the
-   head files still digest to it; otherwise the editor must reload (`ErrConflict`);
+   head files still hold it; otherwise the editor must reload (`ErrConflict`);
 2. computes the delta; writes nothing if it is empty;
-3. appends the line to `journal.ndjson` and syncs it;
-4. replaces each head file by writing a temporary file beside it, syncing and renaming;
-5. replaces `labels.json` last, which commits the revision.
+3. writes `.pending` naming the revision it makes and its parent's state;
+4. appends the line to `journal.ndjson` and syncs it;
+5. replaces each changed head file by writing a temporary file beside it, syncing and renaming,
+   and removes the chunk files it emptied;
+6. replaces `labels.json`, which commits the revision, then removes `.pending`.
 
-Opening a label set whose head disagrees with the journal's last line rebuilds the head from the
-journal. A final line without a newline is an interrupted append, never committed, and is dropped.
+Opening a label set whose journal is one line ahead of `labels.json`, with `.pending` naming that
+line and the head as its parent, rebuilds the head from the journal: that is a save interrupted
+between steps 4 and 6. A final line without a newline is an interrupted append, never committed,
+and is dropped. Any other disagreement is never repaired from the journal:
+
+- Head files that do not hold `labels.json`'s state at the journal's revision were changed outside
+  the store, by a merge or by hand, and opening refuses them.
+- A journal that neither ends at the head nor is an interrupted save records edits to another head
+  (`ErrForeignJournal`). In a Git working tree that is most often another branch's, since the
+  journal is local and outlives a checkout. Switch back to that branch, or move `journal.ndjson`
+  and `journal-base/` aside.
+
 A save to a set with no journal (a published copy) first copies its head into `journal-base/` and
 writes a base line, so editing a published set keeps local history from that point.
 
 Restoring revision _n_ appends a delta that recreates it, with `restored_from: n`.
+
+## Merging
+
+`velocity lidar labels rehead` makes the head files on disk the head, after a Git merge or a
+hand-resolved conflict. Git merges the head files of two branches that edited different masks;
+`labels.json` conflicts, since each branch moved its head, and the copy keeps its own. `Rehead`
+decodes the files in the declared layout and refuses a state that does not validate, such as two
+branches giving one return to two objects. A state other than the head's becomes the next
+revision. A local journal gets one line from its tip to that state, so its history replays through
+the merge, and it must end at `labels.json`'s head; a copy without a journal just has a new head.
+Files holding the head's state in another layout are rewritten without a revision.
 
 ## Binding a capture file
 
