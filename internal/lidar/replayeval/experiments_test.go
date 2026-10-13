@@ -22,6 +22,23 @@ func TestNormaliseExperimentsSortsAndDeduplicates(t *testing.T) {
 	}
 }
 
+// range_adaptive_eps (experiment l4clus0001) is a name the harness accepts,
+// spelled one way; a near miss is refused rather than run as the baseline.
+func TestRangeAdaptiveEpsIsAKnownExperiment(t *testing.T) {
+	got, err := ParseExperiments("range_adaptive_eps")
+	if err != nil || !reflect.DeepEqual(got, []string{ExperimentRangeAdaptiveEps}) {
+		t.Fatalf("ParseExperiments(range_adaptive_eps) = %v, %v", got, err)
+	}
+	if IsBackgroundExperiment(ExperimentRangeAdaptiveEps) {
+		t.Error("range_adaptive_eps acts on L4, not the background model")
+	}
+	for _, bad := range []string{"range-adaptive-eps", "range_adaptive", "adaptive_eps", "Range_Adaptive_Eps"} {
+		if _, err := ParseExperiments(bad); err == nil {
+			t.Errorf("%q was accepted", bad)
+		}
+	}
+}
+
 // A misspelt option must never run as the baseline and be reported as the
 // option.
 func TestNormaliseExperimentsRejectsUnknownNames(t *testing.T) {
@@ -102,7 +119,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentReacquisitionGuard, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOcclusionContinuity, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -234,7 +251,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
+	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentRangeAdaptiveEps, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)

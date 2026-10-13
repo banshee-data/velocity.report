@@ -31,6 +31,12 @@ const (
 	ExperimentCascade = "cascade"
 	// ExperimentDensityCap: pipeline DensityPreservingCap (D6).
 	ExperimentDensityCap = "density_cap"
+	// ExperimentRangeAdaptiveEps: pipeline RangeAdaptiveEps, a DBSCAN
+	// neighbourhood that grows with range in proportion to the beam spacing,
+	// never below the tuned eps (l4perception.RangeAdaptiveEps; experiment
+	// l4clus0001, decision D-28). It changes the clusters, not the tracker
+	// configuration.
+	ExperimentRangeAdaptiveEps = "range_adaptive_eps"
 	// ExperimentFlipRule: l5tracks.TrackerConfig.OBBHeadingFlipRule (P3).
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
@@ -212,6 +218,7 @@ var knownExperiments = map[string]bool{
 	ExperimentLikelihoodCost:      true,
 	ExperimentCascade:             true,
 	ExperimentDensityCap:          true,
+	ExperimentRangeAdaptiveEps:    true,
 	ExperimentFlipRule:            true,
 	ExperimentNoRegionOverrides:   true,
 	ExperimentSupportFilter:       true,

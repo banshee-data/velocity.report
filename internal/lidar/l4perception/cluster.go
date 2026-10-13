@@ -255,6 +255,11 @@ type DBSCANParams struct {
 	// evidence sample. They are the members of DBSCAN's input, after any
 	// MaxInputPoints subsampling. Default false.
 	KeepMembers bool
+	// RangeAdaptive, when set, grows each point's neighbourhood with its
+	// range from the sensor, never below Eps (see RangeAdaptiveEps). It is
+	// the replay experiment range_adaptive_eps; nil, the default, clusters
+	// at Eps everywhere exactly as before. It is ignored when Eps <= 0.
+	RangeAdaptive *RangeAdaptiveEps
 }
 
 // effectiveMinPts is the core-point threshold that leaves the density
@@ -363,12 +368,21 @@ func dbscan(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTra
 	spatialIndex := NewSpatialIndex(params.Eps)
 	spatialIndex.Build(points)
 
+	nb := &neighbourhood{si: spatialIndex, points: points, eps: params.Eps}
+	if params.RangeAdaptive != nil && params.Eps > 0 {
+		// The index keeps eps0-wide cells; the adaptive query widens its
+		// search to each point's own tolerance.
+		nb.tol2 = params.RangeAdaptive.squaredTolerances(points, params.Eps)
+		tracef("DBSCAN range-adaptive eps: lambda=%.2f step_deg=%.4f max_range=%.0f",
+			params.RangeAdaptive.Lambda, params.RangeAdaptive.AngularStepRad*180/math.Pi, params.RangeAdaptive.MaxRange)
+	}
+
 	for i := 0; i < n; i++ {
 		if labels[i] != 0 {
 			continue // Already processed
 		}
 
-		neighbors := spatialIndex.RegionQuery(points, i, params.Eps)
+		neighbors := nb.query(i, nil)
 
 		if len(neighbors) < params.MinPts {
 			labels[i] = -1 // Mark as noise
@@ -376,7 +390,7 @@ func dbscan(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTra
 		}
 
 		clusterID++
-		expandCluster(points, spatialIndex, labels, i, neighbors, clusterID, params.Eps, params.MinPts)
+		expandCluster(nb, labels, i, neighbors, clusterID, params.MinPts)
 	}
 
 	clusters := buildClusters(points, labels, clusterID, params)
@@ -457,9 +471,10 @@ func subsampleSeed(points []WorldPoint) int64 {
 }
 
 // expandCluster expands a cluster from a core point.
-func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
-	seedIdx int, neighbors []int, clusterID int, eps float64, minPts int) {
+func expandCluster(nb *neighbourhood, labels []int,
+	seedIdx int, neighbors []int, clusterID int, minPts int) {
 
+	points := nb.points
 	labels[seedIdx] = clusterID
 
 	// One scratch buffer for every neighbourhood query in this expansion. The
@@ -489,7 +504,7 @@ func expandCluster(points []WorldPoint, si *SpatialIndex, labels []int,
 		}
 
 		labels[idx] = clusterID
-		scratch = si.regionQueryInto(points, idx, eps, scratch)
+		scratch = nb.query(idx, scratch)
 
 		if len(scratch) >= minPts {
 			// Core point - add its neighbors to the queue. Points already

@@ -313,6 +313,12 @@ type TrackingPipelineConfig struct {
 	// DwellPolicy.
 	Dwell *DwellPolicy
 
+	// RangeAdaptiveEps grows DBSCAN's neighbourhood with each point's range
+	// from the sensor at l4perception.DefaultRangeAdaptiveEps, never below
+	// the tuned eps (experiment l4clus0001). Off by default; see
+	// l4perception.RangeAdaptiveEps.
+	RangeAdaptiveEps bool
+
 	// FeatureExportFunc, when non-nil, is called for every confirmed track
 	// after classification. This hook allows exporting feature vectors for
 	// ML training data collection. The callback receives the track's
@@ -448,6 +454,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 	defaultDBSCANParams.KeepMembers = cfg.KeepClusterMembers
+	if cfg.RangeAdaptiveEps {
+		// The points reach DBSCAN in the sensor frame (identity pose), so
+		// the default's origin at (0, 0) is the sensor.
+		rangeAdaptive := l4perception.DefaultRangeAdaptiveEps()
+		defaultDBSCANParams.RangeAdaptive = &rangeAdaptive
+	}
 
 	// One extraction per callback instance: the tap numbers the frames this
 	// callback sees. Nil when no ObservationFrameSink is configured.

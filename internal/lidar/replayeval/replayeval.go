@@ -841,6 +841,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
 		Dwell:                     dwell,
+		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,
 		KeepClusterMembers:        solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
 		ObservationSourceID:       observationSourceID,
