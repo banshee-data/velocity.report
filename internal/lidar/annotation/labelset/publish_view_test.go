@@ -167,6 +167,9 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 			t.Fatalf("the view carries %s", absent)
 		}
 	}
+	if !strings.Contains(strings.Join(report.Tracked, ","), "pack-a/physical-references.json") || strings.Contains(strings.Join(report.Tracked, ","), ".publish-view-") {
+		t.Fatalf("tracked %v", report.Tracked)
+	}
 	link, _ := annotation.ReadLabelSetLink(view)
 	if link == nil || link.Path != "../kirk0-reference" {
 		t.Fatalf("view link %+v", link)

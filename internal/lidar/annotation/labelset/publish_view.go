@@ -147,6 +147,12 @@ func PublishView(packDir, publishedSet, dest string) (*ViewReport, error) {
 	report, err := CheckView(tmp)
 	if report != nil {
 		report.Pack = dest
+		staging := filepath.Base(tmp) + "/"
+		for i, name := range report.Tracked {
+			if strings.HasPrefix(name, staging) {
+				report.Tracked[i] = filepath.Base(dest) + "/" + strings.TrimPrefix(name, staging)
+			}
+		}
 		sort.Strings(omitted)
 		report.Omitted = omitted
 	}
