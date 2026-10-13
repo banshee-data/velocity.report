@@ -8,10 +8,10 @@ package main
 // binary, and only here.
 
 import (
-	"encoding/json"
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
@@ -30,17 +30,6 @@ func requireKirk0(t *testing.T) {
 	}
 	if info.Size() < 1<<20 {
 		t.Skipf("reference capture is a %d-byte LFS pointer; run git lfs pull", info.Size())
-	}
-}
-
-func readJSON(t *testing.T, path string, v any) {
-	t.Helper()
-	b, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(b, v); err != nil {
-		t.Fatalf("%s: %v", path, err)
 	}
 }
 
@@ -101,6 +90,11 @@ func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "evidence", "kirk0.db")); !os.IsNotExist(err) {
 		t.Fatalf("-discard-evidence left the case database: %v", err)
+	}
+	var record caseRecord
+	readJSON(t, filepath.Join(out, "kirk0", caseSummaryFile), &record)
+	if !reflect.DeepEqual(record.Case, summary.Cases[0]) {
+		t.Fatalf("%s holds %+v\nphase0-summary.json %+v", caseSummaryFile, record.Case, summary.Cases[0])
 	}
 
 	surveyed := summary.Cases[0].CoverageSurvey
