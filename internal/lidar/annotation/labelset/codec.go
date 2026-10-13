@@ -26,6 +26,10 @@ const (
 	JournalFile       = "journal.ndjson"
 	JournalBaseDir    = "journal-base"
 	LockFile          = ".lock"
+	// PendingFile names the revision a commit is making while it makes it:
+	// written before the journal line, removed after labels.json. A journal
+	// ahead of the head is an interrupted save only when it is present.
+	PendingFile = ".pending"
 )
 
 // stateFiles is the order in which the state digest reads the head files.

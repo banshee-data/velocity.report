@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 
@@ -19,6 +20,12 @@ var updateFixtures = flag.Bool("update", false, "rewrite testdata/parity")
 // digest, a journal of three revisions with each revision's digest, and the
 // canonical encoding of awkward values.
 const parityDir = "testdata/parity"
+
+// parityStorageDir holds the fixture head in the storage layout, with
+// parityStorage's chunks.
+const parityStorageDir = "storage"
+
+var parityStorage = Storage{WindowChunk: 1}
 
 func parityJournal(t *testing.T) ([]State, [][]byte) {
 	t.Helper()
@@ -67,7 +74,8 @@ func parityManifest() Manifest {
 			{Name: "é ü 東京.pcapng", SHA256: "sha256:0f68", Bytes: 1, UDPPort: 2368, PacketsMissing: 3, WindowsPartial: 1,
 				WindowsMissing: 2, VerifiedUTC: "2026-10-13T00:00:00.123Z"},
 		},
-		Head: Head{Revision: 2232, State: "sha256:75a2", UpdatedUTC: "2026-10-12T04:23:00.123456789Z"},
+		Head:    Head{Revision: 2232, State: "sha256:75a2", UpdatedUTC: "2026-10-12T04:23:00.123456789Z"},
+		Storage: Storage{WindowChunk: 250},
 		MigratedFrom: &Migration{PackDigest: "sha256:95be", DatasetID: "ds_95be", PackDir: "ad8b9438/pack", SidecarRevision: 2232,
 			PCAPSHA256: "sha256:2864", PCAPName: "kirk0.pcapng", DecoderBuild: "0.5.1-pre45", MappingDigest: "sha256:e9d9",
 			Note: "tab\tnewline\n/slash"},
@@ -77,7 +85,8 @@ func parityManifest() Manifest {
 
 // parityManifestMinimal leaves every optional field empty.
 func parityManifestMinimal() Manifest {
-	return Manifest{SchemaVersion: SchemaVersion, LabelSetID: "parity", Layout: Pandar40P, PacketKey: PacketKeyScheme}
+	return Manifest{SchemaVersion: SchemaVersion, LabelSetID: "parity", Layout: Pandar40P, PacketKey: PacketKeyScheme,
+		Storage: Storage{WindowChunk: DefaultWindowChunk}}
 }
 
 func TestParityFixtures(t *testing.T) {
@@ -115,9 +124,20 @@ func TestParityFixtures(t *testing.T) {
 		want[name] = b
 	}
 
+	// The fixture head as it is kept on disk, one window per chunk so the
+	// chunk files are exercised: storage/<path>.
+	stored, err := encodeStorage(&states[3], parityStorage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, b := range stored {
+		want[path.Join(parityStorageDir, name)] = b
+	}
+
 	if *updateFixtures {
-		os.MkdirAll(parityDir, 0o755)
+		os.RemoveAll(filepath.Join(parityDir, parityStorageDir))
 		for name, b := range want {
+			os.MkdirAll(filepath.Dir(filepath.Join(parityDir, name)), 0o755)
 			if err := os.WriteFile(filepath.Join(parityDir, name), b, 0o644); err != nil {
 				t.Fatal(err)
 			}
@@ -133,12 +153,16 @@ func TestParityFixtures(t *testing.T) {
 		}
 	}
 
-	// The fixture journal replays to the fixture head.
+	// The fixture journal replays to the fixture head, kept in the storage
+	// layout.
 	dir := t.TempDir()
-	for name, b := range want {
+	os.WriteFile(filepath.Join(dir, JournalFile), want[JournalFile], 0o644)
+	for name, b := range stored {
+		os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755)
 		os.WriteFile(filepath.Join(dir, name), b, 0o644)
 	}
-	m := Manifest{SchemaVersion: SchemaVersion, LabelSetID: "parity", Layout: Pandar40P, PacketKey: PacketKeyScheme, Head: Head{Revision: 3}}
+	m := Manifest{SchemaVersion: SchemaVersion, LabelSetID: "parity", Layout: Pandar40P, PacketKey: PacketKeyScheme,
+		Head: Head{Revision: 3}, Storage: parityStorage}
 	m.Head.State, _ = DigestOf(&states[3])
 	root, _ := os.OpenRoot(dir)
 	defer root.Close()

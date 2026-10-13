@@ -1,6 +1,7 @@
 package labelset
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
@@ -258,23 +259,67 @@ func TestRepublishRefreshesOnlyAnUnchangedCopyBehindTheSource(t *testing.T) {
 	}
 }
 
+// headFiles reads every file of a label set but its journal, journal base,
+// lock and interrupted writes, keyed by slash-separated path.
+func headFiles(t *testing.T, dir string) map[string][]byte {
+	t.Helper()
+	out := map[string][]byte{}
+	err := filepath.WalkDir(dir, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dir, p)
+		rel = filepath.ToSlash(rel)
+		if d.IsDir() {
+			if rel == JournalBaseDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if rel == JournalFile || rel == LockFile || strings.HasSuffix(rel, ".tmp") {
+			return nil
+		}
+		b, err := os.ReadFile(p)
+		out[rel] = b
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
+}
+
+// putHead makes a label set's head files exactly saved.
+func putHead(t *testing.T, dir string, saved map[string][]byte) {
+	t.Helper()
+	for name := range headFiles(t, dir) {
+		if _, keep := saved[name]; !keep {
+			os.Remove(filepath.Join(dir, filepath.FromSlash(name)))
+		}
+	}
+	for name, b := range saved {
+		os.MkdirAll(filepath.Dir(filepath.Join(dir, filepath.FromSlash(name))), 0o755)
+		if err := os.WriteFile(filepath.Join(dir, filepath.FromSlash(name)), b, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 func TestOpenRollsForwardInterruptedSave(t *testing.T) {
 	dir, ls := newSet(t)
-	saved := map[string][]byte{}
-	for _, name := range append(append([]string(nil), stateFiles...), ManifestFile) {
-		saved[name], _ = os.ReadFile(filepath.Join(dir, name))
-	}
+	saved := headFiles(t, dir)
+	parent := ls.StateDigest()
 	addMember(t, ls, 40)
 	if err := ls.Save(Change{Author: "dd"}); err != nil {
 		t.Fatal(err)
 	}
 	want := ls.StateDigest()
-	// Put the old head back while keeping the new journal line: a crash
-	// after the append and before the head was replaced.
-	for name, b := range saved {
-		if err := os.WriteFile(filepath.Join(dir, name), b, 0o644); err != nil {
-			t.Fatal(err)
-		}
+	// Put the old head back while keeping the new journal line and the
+	// commit's marker: a crash after the append and before labels.json.
+	putHead(t, dir, saved)
+	marker, _ := canonicalLine(pendingCommit{Revision: 2, ParentState: parent})
+	if err := os.WriteFile(filepath.Join(dir, PendingFile), marker, 0o644); err != nil {
+		t.Fatal(err)
 	}
 	back, err := Open(dir)
 	if err != nil {
@@ -320,5 +365,50 @@ func TestReviewStatusSurvivesRoundTrip(t *testing.T) {
 		if m.ObjectID == "obj_b" && m.Status != annotation.StatusProposed {
 			t.Fatalf("a proposal became %s", m.Status)
 		}
+	}
+}
+
+// A journal ahead of the head with no commit marker is another head's: what
+// a Git working tree holds after editing on one branch and checking out
+// another. Opening refuses it, and nothing is rewritten.
+func TestForeignJournalIsNeverApplied(t *testing.T) {
+	dir, ls := newSet(t)
+	saved := headFiles(t, dir)
+	addMember(t, ls, 40)
+	if err := ls.Save(Change{Author: "dd"}); err != nil {
+		t.Fatal(err)
+	}
+	// Check out the other branch: its head files and labels.json come back,
+	// the ignored journal stays.
+	putHead(t, dir, saved)
+	if _, err := Open(dir); !errors.Is(err, ErrForeignJournal) {
+		t.Fatalf("a foreign journal: %v", err)
+	}
+	after := headFiles(t, dir)
+	for name, b := range saved {
+		if !bytes.Equal(after[name], b) {
+			t.Fatalf("opening rewrote %s from a foreign journal", name)
+		}
+	}
+	// A stale marker for a commit that never appended its line changes
+	// nothing either.
+	marker, _ := canonicalLine(pendingCommit{Revision: 7, ParentState: "sha256:x"})
+	os.WriteFile(filepath.Join(dir, PendingFile), marker, 0o644)
+	if _, err := Open(dir); !errors.Is(err, ErrForeignJournal) {
+		t.Fatalf("a foreign journal with a stale marker: %v", err)
+	}
+	// Moved aside, the head opens and the next save starts a journal from it.
+	os.Rename(filepath.Join(dir, JournalFile), filepath.Join(t.TempDir(), "elsewhere.ndjson"))
+	os.Remove(filepath.Join(dir, PendingFile))
+	back, err := Open(dir)
+	if err != nil || back.Revision() != 1 {
+		t.Fatalf("with the journal moved aside: %v", err)
+	}
+	addMember(t, back, 41)
+	if err := back.Save(Change{Author: "dd"}); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := Verify(dir); err != nil || n != 2 {
+		t.Fatalf("verify: %d, %v", n, err)
 	}
 }

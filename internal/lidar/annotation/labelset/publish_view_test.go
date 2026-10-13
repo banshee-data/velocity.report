@@ -190,10 +190,7 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 
 	// A researcher edits obj_a's mask through the view.
 	viewBefore := hashTree(t, view)
-	setBefore := map[string][]byte{}
-	for _, name := range append(append([]string(nil), stateFiles...), ManifestFile) {
-		setBefore[name], _ = os.ReadFile(filepath.Join(pubSet, name))
-	}
+	setBefore := headFiles(t, pubSet)
 	for i := range sc.Masks {
 		if sc.Masks[i].ObjectID == "obj_a" {
 			sc.Masks[i].PointIndices = []int{0, 1, 2}
@@ -211,16 +208,21 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 			}
 		}
 	}
+	setAfter := headFiles(t, pubSet)
+	if len(setAfter) != len(setBefore) {
+		t.Fatalf("a one-mask edit changed the head's files from %d to %d", len(setBefore), len(setAfter))
+	}
+	chunk := MasksDir + "/000000-000099.ndjson"
 	for name, b := range setBefore {
-		now, _ := os.ReadFile(filepath.Join(pubSet, name))
+		now := setAfter[name]
 		switch name {
 		case ManifestFile:
 			if n := changedLines(b, now); n != 3 {
 				t.Fatalf("labels.json changed %d lines, want the head's 3:\n%s", n, now)
 			}
-		case MasksFile:
+		case chunk:
 			if n := changedLines(b, now); n != 1 {
-				t.Fatalf("masks.ndjson changed %d lines, want 1", n)
+				t.Fatalf("%s changed %d lines, want 1", chunk, n)
 			}
 		default:
 			if !bytes.Equal(b, now) {
@@ -231,7 +233,7 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 	var local []string
 	entries, _ := os.ReadDir(pubSet)
 	for _, e := range entries {
-		if _, ok := setBefore[e.Name()]; !ok {
+		if e.Name() == JournalFile || e.Name() == JournalBaseDir || e.Name() == LockFile {
 			local = append(local, e.Name())
 		}
 	}
@@ -304,7 +306,7 @@ func TestPublishedViewEditInGit(t *testing.T) {
 		t.Fatal(err)
 	}
 	rel := func(p string) string { r, _ := filepath.Rel(dataset, p); return filepath.ToSlash(r) }
-	want := " M " + rel(filepath.Join(pubSet, ManifestFile)) + "\n M " + rel(filepath.Join(pubSet, MasksFile)) + "\n"
+	want := " M " + rel(filepath.Join(pubSet, ManifestFile)) + "\n M " + rel(filepath.Join(pubSet, MasksDir, "000000-000099.ndjson")) + "\n"
 	if got := git("status", "--porcelain"); got != want {
 		t.Fatalf("after the edit git reports\n%s\nwant\n%s", got, want)
 	}

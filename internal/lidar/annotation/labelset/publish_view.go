@@ -26,12 +26,11 @@ import (
 // CheckView answers the question a committer needs answered: would a fresh
 // copy of these tracked files open and hold, with no history behind them?
 
-// MaxPlainGitBytes is the largest file the dataset keeps in plain Git:
-// Hugging Face refuses larger ones outside LFS/Xet. The dataset routes
-// lfsSuffixes through LFS/Xet (tools/s2-archive/huggingface-dataset-layout.md).
-const MaxPlainGitBytes = 10 << 20
-
-var lfsSuffixes = []string{".bin", ".pb", ".ndjson"}
+// lfsSuffixes are the files the dataset routes through LFS/Xet: the binary
+// ones, which Hugging Face refuses in plain Git at any size. Everything else,
+// the label set's text files included, is plain Git and must stay under
+// MaxPlainGitBytes (tools/s2-archive/huggingface-dataset-layout.md).
+var lfsSuffixes = []string{".bin", ".pb"}
 
 // ViewReport describes a view and its label set as a fresh copy sees them.
 type ViewReport struct {
@@ -211,11 +210,7 @@ func CheckView(packDir string) (*ViewReport, error) {
 	if err := copyTracked(packDir, viewCopy, func(name string) bool { return tracked[name] }, report); err != nil {
 		return nil, err
 	}
-	setFiles := map[string]bool{ManifestFile: true}
-	for _, name := range stateFiles {
-		setFiles[name] = true
-	}
-	if err := copyTracked(setDir, setCopy, func(name string) bool { return setFiles[name] }, report); err != nil {
+	if err := copySetFiles(setDir, setCopy, report); err != nil {
 		return nil, err
 	}
 	for _, name := range report.Tracked {
@@ -297,6 +292,39 @@ func copyTracked(src, dest string, tracked func(string) bool, report *ViewReport
 			return err
 		}
 		report.Tracked = append(report.Tracked, filepath.Base(dest)+"/"+e.Name())
+	}
+	return nil
+}
+
+// copySetFiles copies a label set's tracked files, labels.json and its head
+// in the storage layout, into dest and names them in the report.
+func copySetFiles(src, dest string, report *ViewReport) error {
+	tracked := map[string]bool{ManifestFile: true}
+	for _, name := range wholeFiles {
+		tracked[name] = true
+	}
+	if err := copyTracked(src, dest, func(name string) bool { return tracked[name] }, report); err != nil {
+		return err
+	}
+	root, err := os.OpenRoot(src)
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	for _, dir := range chunkDirs {
+		names, err := chunkFiles(root, dir)
+		if err != nil {
+			return err
+		}
+		if err := os.MkdirAll(filepath.Join(dest, dir), 0o755); err != nil {
+			return err
+		}
+		for _, name := range names {
+			if err := copyFile(filepath.Join(src, dir, name), filepath.Join(dest, dir, name)); err != nil {
+				return err
+			}
+			report.Tracked = append(report.Tracked, filepath.Base(dest)+"/"+dir+"/"+name)
+		}
 	}
 	return nil
 }

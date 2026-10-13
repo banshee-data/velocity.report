@@ -40,6 +40,10 @@ Commands:
   check-view
             Check a view and its label set as a fresh copy of their tracked
             files would hold them: run it before committing an edit
+  rehead    Make the head files on disk the head after a Git merge: keep this
+            copy's labels.json in the conflict, then run it
+  relayout  Rewrite the head in the storage layout (from the single-file
+            layout, or with another --window-chunk); the state is unchanged
   census    Count packet keys in capture files and report duplicates`
 
 // LabelsMain routes `velocity lidar labels`.
@@ -51,7 +55,8 @@ func LabelsMain(args []string) int {
 	cmds := map[string]func([]string) error{
 		"create": labelsCreate, "attach": labelsAttach, "bind": labelsBind,
 		"verify": labelsVerify, "info": labelsInfo, "project": labelsProject, "publish": labelsPublish,
-		"publish-view": labelsPublishView, "check-view": labelsCheckView, "census": labelsCensus,
+		"publish-view": labelsPublishView, "check-view": labelsCheckView, "rehead": labelsRehead, "relayout": labelsRelayout,
+		"census": labelsCensus,
 	}
 	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Println(labelsUsage)
@@ -204,7 +209,7 @@ func labelsInfo(args []string) error {
 		"state": ls.StateDigest(), "packets": len(ls.State.Packets), "windows": len(ls.State.Windows),
 		"domains": len(ls.State.Domains), "objects": len(ls.State.Records.Objects), "masks": len(ls.State.Masks),
 		"reviewed_masks": len(ls.State.ReviewedMasks()), "members": members, "applies_to": ls.Manifest.AppliesTo,
-		"migrated_from": ls.Manifest.MigratedFrom,
+		"migrated_from": ls.Manifest.MigratedFrom, "storage": ls.Manifest.Storage,
 	})
 }
 
@@ -289,6 +294,53 @@ func labelsCheckView(args []string) error {
 		}
 	}
 	return err
+}
+
+func labelsRehead(args []string) error {
+	fs := flag.NewFlagSet("labels rehead", flag.ContinueOnError)
+	dir := fs.String("labels", "", "Label set directory (required)")
+	author := fs.String("author", "", "Who resolved the merge; recorded in the journal (required)")
+	session := fs.String("session", "", "Optional session identifier")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *dir == "" || *author == "" {
+		return fmt.Errorf("--labels and --author are required")
+	}
+	r, err := labelset.Rehead(*dir, labelset.Change{Author: *author, Session: *session})
+	if err != nil {
+		return err
+	}
+	switch {
+	case r.Revised:
+		fmt.Printf("revision %d is the merged head (%s), after %d\n", r.To.Revision, r.To.State, r.From.Revision)
+	case r.Relaid:
+		fmt.Printf("revision %d unchanged; its files were rewritten in the label set's layout\n", r.To.Revision)
+	default:
+		fmt.Printf("revision %d: the files already are the head\n", r.To.Revision)
+	}
+	return nil
+}
+
+func labelsRelayout(args []string) error {
+	fs := flag.NewFlagSet("labels relayout", flag.ContinueOnError)
+	dir := fs.String("labels", "", "Label set directory (required)")
+	chunk := fs.Int("window-chunk", labelset.DefaultWindowChunk, "Windows per masks/ and domain-returns/ file")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *dir == "" {
+		return fmt.Errorf("--labels is required")
+	}
+	if err := labelset.Relayout(*dir, *chunk); err != nil {
+		return err
+	}
+	ls, err := labelset.Open(*dir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s: revision %d (%s) in the storage layout, %d windows per chunk\n", *dir, ls.Revision(), ls.StateDigest(), *chunk)
+	return nil
 }
 
 func labelsCensus(args []string) error {

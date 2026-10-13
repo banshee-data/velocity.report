@@ -74,6 +74,7 @@ type Manifest struct {
 	PacketKey     string     `json:"packet_key"`
 	AppliesTo     []Binding  `json:"applies_to,omitempty"`
 	Head          Head       `json:"head"`
+	Storage       Storage    `json:"storage"`
 	MigratedFrom  *Migration `json:"migrated_from,omitempty"`
 	Note          string     `json:"note,omitempty"`
 }
@@ -110,6 +111,12 @@ func Create(dir string, m Manifest, initial State, change Change) (*LabelSet, er
 	if m.LabelSetID == "" {
 		m.LabelSetID = uuid.NewString()
 	}
+	if m.Storage.WindowChunk == 0 {
+		m.Storage.WindowChunk = DefaultWindowChunk
+	}
+	if err := m.Storage.validate(); err != nil {
+		return nil, err
+	}
 	next := initial.Clone()
 	next.Canonicalise()
 	if err := next.Validate(m.Layout); err != nil {
@@ -117,11 +124,11 @@ func Create(dir string, m Manifest, initial State, change Change) (*LabelSet, er
 	}
 	empty := State{}
 	empty.Canonicalise()
-	emptyFiles, err := EncodeState(&empty)
+	emptyDigest, err := DigestOf(&empty)
 	if err != nil {
 		return nil, err
 	}
-	ls := &LabelSet{Dir: dir, Manifest: m, State: next, baseState: StateDigest(emptyFiles)}
+	ls := &LabelSet{Dir: dir, Manifest: m, State: next, baseState: emptyDigest}
 	root, err := os.OpenRoot(dir)
 	if err != nil {
 		return nil, err
@@ -132,7 +139,7 @@ func Create(dir string, m Manifest, initial State, change Change) (*LabelSet, er
 		return nil, err
 	}
 	defer lock.Close()
-	if err := ls.commit(root, &empty, change, 0); err != nil {
+	if err := ls.commit(root, &empty, change, 0, nil); err != nil {
 		return nil, err
 	}
 	return ls, nil
@@ -166,30 +173,111 @@ func Open(dir string) (*LabelSet, error) {
 
 var errNeedsRecovery = errors.New("head and journal disagree")
 
+// ErrForeignJournal means the local journal records edits to another head:
+// in a Git working tree, most often another branch's, since the journal is
+// local and outlives a checkout. It is never applied to this head.
+var ErrForeignJournal = errors.New("the local journal does not continue this head")
+
+// pendingCommit is PendingFile's content.
+type pendingCommit struct {
+	Revision    int    `json:"revision"`
+	ParentState string `json:"parent_state"`
+}
+
+func readPending(root *os.Root) (*pendingCommit, error) {
+	b, err := readFile(root, PendingFile)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var p pendingCommit
+	if err := strictUnmarshal(b, &p); err != nil {
+		return nil, fmt.Errorf("parse %s: %w", PendingFile, err)
+	}
+	return &p, nil
+}
+
+// markPending records the revision a commit is about to make; clearPending
+// removes the record once labels.json names it.
+func markPending(root *os.Root, revision int, parentState string) error {
+	line, err := canonicalLine(pendingCommit{Revision: revision, ParentState: parentState})
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(root, PendingFile, line)
+}
+
+func clearPending(root *os.Root) error {
+	if err := root.Remove(PendingFile); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+// journalState classifies the local journal against the head labels.json
+// names: interrupted is a save that appended its line and stopped before
+// labels.json; a journal that is neither that nor at the head is foreign.
+func journalState(root *os.Root, m *Manifest, tip *Delta) (interrupted bool, err error) {
+	if tip == nil {
+		return false, nil
+	}
+	pending, err := readPending(root)
+	if err != nil {
+		return false, err
+	}
+	if pending != nil && tip.Revision == pending.Revision && tip.Revision == m.Head.Revision+1 &&
+		tip.ParentRevision == m.Head.Revision && tip.ParentState == m.Head.State {
+		return true, nil
+	}
+	if tip.Revision != m.Head.Revision || tip.State != m.Head.State {
+		return false, fmt.Errorf("%w: it ends at revision %d and labels.json names revision %d. It records edits to another head, "+
+			"in a Git working tree most likely another branch's: switch back to that branch, or move %s and %s aside to edit this one",
+			ErrForeignJournal, tip.Revision, m.Head.Revision, JournalFile, JournalBaseDir)
+	}
+	return false, nil
+}
+
 func load(dir string, root *os.Root) (*LabelSet, error) {
 	m, err := readManifest(root)
 	if err != nil {
 		return nil, err
 	}
-	files, err := readHeadFiles(root)
-	if err != nil {
-		return nil, err
-	}
-	digest := StateDigest(files)
 	tip, _, err := journalTip(root)
 	if err != nil {
 		return nil, err
 	}
-	if digest != m.Head.State || (tip != nil && (tip.Revision != m.Head.Revision || tip.State != m.Head.State)) {
-		if tip != nil && tip.Revision >= m.Head.Revision {
-			return nil, errNeedsRecovery
-		}
-		return nil, fmt.Errorf("head files digest %s, manifest says %s at revision %d", digest, m.Head.State, m.Head.Revision)
-	}
-	s, err := DecodeState(files)
+	// Only a journal one line ahead of labels.json, with the commit's marker
+	// still in place, is an interrupted save. Head files that disagree with
+	// labels.json at the same revision were changed outside the store, by a
+	// merge or by hand, and are never overwritten from the journal.
+	interrupted, err := journalState(root, m, tip)
 	if err != nil {
 		return nil, err
 	}
+	s, have, err := readStorage(root, ".", m.Storage)
+	if err != nil {
+		if interrupted {
+			return nil, errNeedsRecovery
+		}
+		return nil, err
+	}
+	digest, err := DigestOf(s)
+	if err != nil {
+		return nil, err
+	}
+	if interrupted {
+		return nil, errNeedsRecovery
+	}
+	if digest != m.Head.State || (tip != nil && (tip.Revision != m.Head.Revision || tip.State != m.Head.State)) {
+		return nil, fmt.Errorf("head files digest %s, manifest says %s at revision %d (after a merge, 'velocity lidar labels rehead' makes the merged files the head)",
+			digest, m.Head.State, m.Head.Revision)
+	}
+	if err := checkLayout(s, m.Storage, have); err != nil {
+		return nil, err
+	}
+	s.Canonicalise()
 	if err := s.Validate(m.Layout); err != nil {
 		return nil, fmt.Errorf("invalid label set: %w", err)
 	}
@@ -226,29 +314,28 @@ func (ls *LabelSet) save(change Change, restoredFrom int) error {
 	if m.Head.Revision != ls.baseRevision || m.Head.State != ls.baseState {
 		return ErrConflict
 	}
-	files, err := readHeadFiles(root)
+	base, have, err := readStorage(root, ".", m.Storage)
 	if err != nil {
 		return err
 	}
-	if StateDigest(files) != m.Head.State {
+	if d, err := DigestOf(base); err != nil {
+		return err
+	} else if d != m.Head.State {
 		return fmt.Errorf("head files were changed outside the store: %w", ErrConflict)
-	}
-	base, err := DecodeState(files)
-	if err != nil {
-		return err
 	}
 	base.Canonicalise()
 	pending := &LabelSet{Dir: ls.Dir, Manifest: *m, State: next, baseRevision: ls.baseRevision, baseState: ls.baseState}
-	if err := pending.commit(root, base, change, restoredFrom); err != nil {
+	if err := pending.commit(root, base, change, restoredFrom, have); err != nil {
 		return err
 	}
 	*ls = *pending
 	return nil
 }
 
-// commit appends the delta from base to ls.State and replaces the head. The
+// commit appends the delta from base to ls.State and replaces the head; have
+// is the head as read, so files it already holds are not rewritten. The
 // caller holds the lock.
-func (ls *LabelSet) commit(root *os.Root, base *State, change Change, restoredFrom int) error {
+func (ls *LabelSet) commit(root *os.Root, base *State, change Change, restoredFrom int, have map[string][]byte) error {
 	delta, err := Diff(base, &ls.State)
 	if err != nil {
 		return err
@@ -256,7 +343,7 @@ func (ls *LabelSet) commit(root *os.Root, base *State, change Change, restoredFr
 	if delta.Empty() && ls.baseRevision > 0 && restoredFrom == 0 {
 		return nil
 	}
-	files, err := EncodeState(&ls.State)
+	files, err := encodeStorage(&ls.State, ls.Manifest.Storage)
 	if err != nil {
 		return err
 	}
@@ -264,6 +351,10 @@ func (ls *LabelSet) commit(root *os.Root, base *State, change Change, restoredFr
 		if len(b) > MaxFileBytes {
 			return fmt.Errorf("%s would be %d bytes, above the %d limit", name, len(b), MaxFileBytes)
 		}
+	}
+	state, err := DigestOf(&ls.State)
+	if err != nil {
+		return err
 	}
 	if ls.baseRevision >= math.MaxInt-1 {
 		return fmt.Errorf("revision space exhausted")
@@ -278,11 +369,14 @@ func (ls *LabelSet) commit(root *os.Root, base *State, change Change, restoredFr
 	delta.Revision = ls.baseRevision + 1
 	delta.ParentRevision = ls.baseRevision
 	delta.ParentState = ls.baseState
-	delta.State = StateDigest(files)
+	delta.State = state
 	delta.Change = change
 	delta.RestoredFrom = restoredFrom
 
-	if err := ensureJournal(root, ls.baseRevision, ls.baseState); err != nil {
+	if err := markPending(root, delta.Revision, delta.ParentState); err != nil {
+		return err
+	}
+	if err := ensureJournal(root, ls.baseRevision, ls.baseState, ls.Manifest.Storage); err != nil {
 		return err
 	}
 	line, err := canonicalLine(delta)
@@ -295,23 +389,21 @@ func (ls *LabelSet) commit(root *os.Root, base *State, change Change, restoredFr
 	if err := appendJournal(root, line); err != nil {
 		return fmt.Errorf("append journal: %w", err)
 	}
-	for _, name := range stateFiles {
-		if err := writeFileAtomic(root, name, files[name]); err != nil {
-			return fmt.Errorf("replace %s (reopen to recover): %w", name, err)
-		}
+	if err := writeHead(root, ".", files, have); err != nil {
+		return err
 	}
 	ls.Manifest.Head = Head{Revision: delta.Revision, State: delta.State, UpdatedUTC: now}
 	if err := writeManifest(root, &ls.Manifest); err != nil {
 		return fmt.Errorf("replace %s (reopen to recover): %w", ManifestFile, err)
 	}
 	ls.baseRevision, ls.baseState = delta.Revision, delta.State
-	return nil
+	return clearPending(root)
 }
 
 // ensureJournal gives a label set without a journal (one published, or one
 // created by copying its head) a base to grow from: a copy of the head in
 // journal-base/ and a base line naming it.
-func ensureJournal(root *os.Root, revision int, state string) error {
+func ensureJournal(root *os.Root, revision int, state string, st Storage) error {
 	if _, err := root.Stat(JournalFile); err == nil {
 		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
@@ -320,20 +412,24 @@ func ensureJournal(root *os.Root, revision int, state string) error {
 	if revision == 0 {
 		return nil // a new set's first line is its creation
 	}
-	files, err := readHeadFiles(root)
+	head, err := readHeadState(root, ".", st)
 	if err != nil {
 		return err
 	}
-	if StateDigest(files) != state {
+	if d, err := DigestOf(head); err != nil {
+		return err
+	} else if d != state {
 		return fmt.Errorf("head does not match revision %d's state", revision)
+	}
+	files, err := encodeStorage(head, st)
+	if err != nil {
+		return err
 	}
 	if err := root.MkdirAll(JournalBaseDir, 0o755); err != nil {
 		return err
 	}
-	for _, name := range stateFiles {
-		if err := writeFileAtomic(root, filepath.Join(JournalBaseDir, name), files[name]); err != nil {
-			return err
-		}
+	if err := writeHead(root, JournalBaseDir, files, nil); err != nil {
+		return err
 	}
 	line, err := canonicalLine(Delta{Revision: revision, ParentRevision: revision, ParentState: state, State: state, Base: true,
 		Change: Change{Author: "store", Operation: "journal_base", CreatedUTC: time.Now().UTC().Format(time.RFC3339Nano)}})
@@ -396,6 +492,10 @@ func Replay(dir string, fn func(revision int, s *State, d *Delta) (bool, error))
 		return err
 	}
 	defer f.Close()
+	m, err := readManifest(root)
+	if err != nil {
+		return err
+	}
 	state := &State{}
 	state.Canonicalise()
 	prevRev, prevState := 0, ""
@@ -416,7 +516,7 @@ func Replay(dir string, fn func(revision int, s *State, d *Delta) (bool, error))
 			return fmt.Errorf("journal line %d: %w", n, err)
 		}
 		if d.Base {
-			base, err := readStateDir(root, JournalBaseDir)
+			base, err := readHeadState(root, JournalBaseDir, m.Storage)
 			if err != nil {
 				return fmt.Errorf("journal base: %w", err)
 			}
@@ -555,17 +655,17 @@ func Republish(dir, dest string) error {
 // writePublished writes a label set's current state and labels.json, without
 // its journal.
 func writePublished(root *os.Root, ls *LabelSet) error {
-	files, err := EncodeState(&ls.State)
+	files, err := encodeStorage(&ls.State, ls.Manifest.Storage)
 	if err != nil {
 		return err
 	}
-	if StateDigest(files) != ls.StateDigest() {
+	if d, err := DigestOf(&ls.State); err != nil {
+		return err
+	} else if d != ls.StateDigest() {
 		return fmt.Errorf("state re-encodes to a different digest")
 	}
-	for _, name := range stateFiles {
-		if err := writeFileAtomic(root, name, files[name]); err != nil {
-			return err
-		}
+	if err := writeHead(root, ".", files, nil); err != nil {
+		return err
 	}
 	return writeManifest(root, &ls.Manifest)
 }
@@ -594,7 +694,7 @@ func recoverHead(root *os.Root) error {
 	}
 	if rebuilt == nil {
 		if tip.Base && tip.Revision == m.Head.Revision {
-			base, err := readStateDir(root, JournalBaseDir)
+			base, err := readHeadState(root, JournalBaseDir, m.Storage)
 			if err != nil {
 				return err
 			}
@@ -603,20 +703,23 @@ func recoverHead(root *os.Root) error {
 			return fmt.Errorf("journal does not rebuild revision %d", tip.Revision)
 		}
 	}
-	files, err := EncodeState(rebuilt)
+	if d, err := DigestOf(rebuilt); err != nil {
+		return err
+	} else if d != tip.State {
+		return fmt.Errorf("journal rebuilds revision %d to a different digest", tip.Revision)
+	}
+	files, err := encodeStorage(rebuilt, m.Storage)
 	if err != nil {
 		return err
 	}
-	if StateDigest(files) != tip.State {
-		return fmt.Errorf("journal rebuilds revision %d to a different digest", tip.Revision)
-	}
-	for _, name := range stateFiles {
-		if err := writeFileAtomic(root, name, files[name]); err != nil {
-			return err
-		}
+	if err := writeHead(root, ".", files, nil); err != nil {
+		return err
 	}
 	m.Head = Head{Revision: tip.Revision, State: tip.State, UpdatedUTC: tip.Change.CreatedUTC}
-	return writeManifest(root, m)
+	if err := writeManifest(root, m); err != nil {
+		return err
+	}
+	return clearPending(root)
 }
 
 // journalTip returns the last complete journal line, and truncates an
@@ -661,6 +764,12 @@ func readManifest(root *os.Root) (*Manifest, error) {
 	if err := m.Layout.Validate(); err != nil {
 		return nil, err
 	}
+	if m.Storage.WindowChunk == 0 {
+		return nil, ErrOldLayout
+	}
+	if err := m.Storage.validate(); err != nil {
+		return nil, err
+	}
 	return &m, nil
 }
 
@@ -689,10 +798,6 @@ func encodeManifest(m *Manifest) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
-func readHeadFiles(root *os.Root) (map[string][]byte, error) {
-	return readStateFiles(root, ".")
-}
-
 func readStateFiles(root *os.Root, dir string) (map[string][]byte, error) {
 	files := make(map[string][]byte, len(stateFiles))
 	for _, name := range stateFiles {
@@ -705,12 +810,9 @@ func readStateFiles(root *os.Root, dir string) (map[string][]byte, error) {
 	return files, nil
 }
 
-func readStateDir(root *os.Root, dir string) (*State, error) {
-	files, err := readStateFiles(root, dir)
-	if err != nil {
-		return nil, err
-	}
-	s, err := DecodeState(files)
+// readHeadState reads the head kept under dir, canonicalised.
+func readHeadState(root *os.Root, dir string, st Storage) (*State, error) {
+	s, _, err := readStorage(root, dir, st)
 	if err != nil {
 		return nil, err
 	}

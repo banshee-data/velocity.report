@@ -51,5 +51,8 @@
   "name": "kirk0 <reference> & \"twins\"",
   "note": "a note",
   "packet_key": "sha256-64:udp-payload",
-  "schema_version": 2
+  "schema_version": 2,
+  "storage": {
+    "window_chunk": 250
+  }
 }
