@@ -79,8 +79,8 @@ func (spec *Spec) Estimate() (machine, human time.Duration) {
 	return machine, human
 }
 
-// manualKinds and plannedKinds list the experiment's manual and planned
-// step kinds, without repeats, in step order.
+// kindsOf lists the experiment's step kinds in one class, without repeats,
+// in step order, with any manual: prefix trimmed.
 func (spec *Spec) kindsOf(class KindClass) []string {
 	seen := map[string]bool{}
 	var out []string

@@ -66,7 +66,7 @@ names. The vocabulary table should gain:
 | manual step    | A step closed by a person recording an artefact the hub checks                                                              |
 | gate           | A manual step's numeric completion check (HINT's label thresholds)                                                          |
 | capability     | Something a worker offers a step: data it can read, tools or hardware it has                                                |
-| reclaim policy | Who may take over a step whose worker stopped renewing its lease                                                            |
+| reclaim policy | An experiment's rule for who may take over one of its steps whose worker stopped renewing its lease                         |
 
 A job, an attempt, a campaign, a run and a sweep keep their existing meanings.
 
@@ -172,7 +172,8 @@ nothing; in October that let a run fill the disk and stop two lanes.
 
 **Orphans.** A sweeper marks an attempt `lost` when its lease expires, and also flags one that
 has run three times its estimate without progress. A lost job is requeued as a new attempt, up to
-three. Who may claim it depends on the step's `reclaim` policy and the worker's own setting:
+three. Who may claim it depends on the experiment's `reclaim` policy, which covers all of its job
+steps, and the worker's own setting:
 
 | Spec `reclaim` | A worker with `reclaim_orphans` on   | A worker with it off             |
 | -------------- | ------------------------------------ | -------------------------------- |
