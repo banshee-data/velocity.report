@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -254,6 +256,20 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 	}
 	if r, err := CheckView(view); err != nil {
 		t.Fatalf("after the re-pin: %v %+v", err, r)
+	}
+}
+
+// A path that holds nothing is named as missing, with where it was looked
+// for, not reported as a pack without a label set.
+func TestCheckViewNamesAMissingPack(t *testing.T) {
+	t.Chdir(t.TempDir())
+	_, err := CheckView(filepath.Join("labels", "no-such-view"))
+	if !errors.Is(err, fs.ErrNotExist) || strings.Contains(err.Error(), "not linked") {
+		t.Fatalf("CheckView of a missing directory: %v", err)
+	}
+	wd, _ := os.Getwd()
+	if !strings.Contains(err.Error(), filepath.Join(wd, "labels", "no-such-view")) {
+		t.Fatalf("the error does not say where it looked: %v", err)
 	}
 }
 

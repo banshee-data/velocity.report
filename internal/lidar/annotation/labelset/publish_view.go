@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -179,6 +180,12 @@ func PublishView(packDir, publishedSet, dest string) (*ViewReport, error) {
 // large for plain Git unless the dataset sends it through LFS/Xet. The view
 // itself is only read.
 func CheckView(packDir string) (*ViewReport, error) {
+	// A missing link reads as an unlinked pack, so a mistyped path, or a
+	// relative one from another directory, needs saying first.
+	if _, err := os.Stat(packDir); errors.Is(err, fs.ErrNotExist) {
+		abs, _ := filepath.Abs(packDir)
+		return nil, fmt.Errorf("no pack at %s: %w", abs, fs.ErrNotExist)
+	}
 	link, err := annotation.ReadLabelSetLink(packDir)
 	if err != nil {
 		return nil, err
