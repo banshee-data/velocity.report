@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 )
 
@@ -514,7 +515,7 @@ func TestPhysicalReferenceRefusesStaleLinks(t *testing.T) {
 	}
 	s.Objects = append(s.Objects, annotation.Object{ObjectID: "obj_other", Class: "car", Status: annotation.StatusReviewed})
 	s.Change.Operation = "add"
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	doc, err := annotation.LoadPhysicalReferences(pack)

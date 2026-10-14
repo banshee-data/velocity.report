@@ -19,6 +19,7 @@ everything else here produces or feeds it.
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.              |
 | `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                   |
 | `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.    |
+| `stage-label-sets.py` | Publishes label sets into the dataset, joined to captures by digest.     |
 
 The corpus replays also read `state-estimation-phase01-corpus.json`, the cases, and
 `continuity-coverage.json`, each case's sensor coverage for the continuity experiments.

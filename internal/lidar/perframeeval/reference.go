@@ -9,6 +9,9 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	// Linked version 2 packs keep their membership in a label set; linking
+	// labelset registers the projector annotation reads it through.
+	_ "github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 

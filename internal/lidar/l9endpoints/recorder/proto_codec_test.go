@@ -1,10 +1,12 @@
 package recorder
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestSerializeDeserialize_FullFrame(t *testing.T) {
@@ -315,5 +317,69 @@ func TestDeserializeFrameProto_InvalidData(t *testing.T) {
 	_, err := deserializeFrameProto([]byte("not valid protobuf"))
 	if err == nil {
 		t.Fatal("expected error for invalid protobuf data")
+	}
+}
+
+// Return identity survives the VRLOG codec exactly, and a recording made
+// before it existed decodes as a frame without it rather than failing.
+func TestSerializeDeserialize_ReturnIdentity(t *testing.T) {
+	pc := &l9endpoints.PointCloudFrame{
+		FrameID: 3, TimestampNanos: 99, SensorID: "s",
+		X: []float32{1, 2, 3}, Y: []float32{1, 2, 3}, Z: []float32{1, 2, 3},
+		Intensity: []uint8{1, 2, 3}, Classification: []uint8{1, 1, 1}, PointCount: 3,
+		PacketKeys: []uint64{0xffffffffffffffff, 0x0123456789abcdef},
+		ReturnRefs: []uint32{398, 400, 799}, ReturnStart: 360, ReturnEnd: 800,
+		ReturnModel: "hesai-pandar40p", ReturnBlocks: 10, ReturnChannels: 40,
+	}
+	data, err := serializeFrameProto(&l9endpoints.FrameBundle{FrameID: 3, TimestampNanos: 99, PointCloud: pc})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := deserializeFrameProto(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := got.PointCloud
+	if !g.HasReturnIdentity() || !slices.Equal(g.PacketKeys, pc.PacketKeys) || !slices.Equal(g.ReturnRefs, pc.ReturnRefs) ||
+		g.ReturnStart != 360 || g.ReturnEnd != 800 || g.ReturnModel != "hesai-pandar40p" ||
+		g.ReturnBlocks != 10 || g.ReturnChannels != 40 {
+		t.Fatalf("identity changed in the round trip: %+v", g)
+	}
+
+	// The same frame as an older build recorded it.
+	var legacy pb.FrameBundle
+	if err := proto.Unmarshal(data, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	p := legacy.PointCloud
+	p.PacketKeys, p.ReturnRefs, p.ReturnStart, p.ReturnEnd = nil, nil, 0, 0
+	p.ReturnModel, p.ReturnBlocks, p.ReturnChannels = "", 0, 0
+	old, err := proto.Marshal(&legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(old) >= len(data) {
+		t.Fatal("stripping the identity did not shrink the frame")
+	}
+	decoded, err := deserializeFrameProto(old)
+	if err != nil {
+		t.Fatalf("a frame without identity no longer decodes: %v", err)
+	}
+	if decoded.PointCloud.HasReturnIdentity() || len(decoded.PointCloud.X) != 3 {
+		t.Fatalf("legacy frame decoded as %+v", decoded.PointCloud)
+	}
+}
+
+// An identity that does not hold together is not written, so a recording
+// never cites returns it cannot locate.
+func TestSerializeFrameProto_DropsUnusableReturnIdentity(t *testing.T) {
+	pc := &l9endpoints.PointCloudFrame{
+		X: []float32{1, 2}, Y: []float32{1, 2}, Z: []float32{1, 2}, PointCount: 2,
+	}
+	l9endpoints.FixtureReturnIdentity(pc, 5)
+	pc.ReturnRefs = pc.ReturnRefs[:1]
+	msg := frameBundleToStorageProto(&l9endpoints.FrameBundle{PointCloud: pc})
+	if p := msg.PointCloud; p.PacketKeys != nil || p.ReturnRefs != nil || p.ReturnEnd != 0 || p.ReturnModel != "" {
+		t.Fatalf("partial identity written: %+v", p)
 	}
 }

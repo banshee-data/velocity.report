@@ -17,6 +17,7 @@ type PointPolar struct {
 	BlockID         int
 	UDPSequence     uint32
 	RawBlockAzimuth uint16 // Original block azimuth from packet (0.01 deg units)
+	PacketKey       uint64 // Content key of the source packet (see parse.PacketKey)
 }
 
 // Point represents a point in sensor Cartesian coordinates.
@@ -38,6 +39,10 @@ type Point struct {
 	// Packet tracking for completeness validation
 	UDPSequence     uint32 // UDP sequence number for gap detection
 	RawBlockAzimuth uint16 // Original block azimuth from packet (0.01 deg units)
+
+	// PacketKey identifies the source packet by content. With BlockID and
+	// Channel it names this return in any file holding the packet.
+	PacketKey uint64
 }
 
 // SphericalToCartesian converts spherical coordinates to Cartesian.

@@ -240,6 +240,7 @@ struct PackFolderAccessTests {
 
     @Test func theFirstGeneratedPackAsksOnceThenOpensAndRemembers() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let folder = pack.deletingLastPathComponent()
         let (controller, asker, bookmarking, storage) = makeController(answer: folder)
 
@@ -255,10 +256,11 @@ struct PackFolderAccessTests {
 
     @Test func aLaterPackInARememberedFolderOpensWithoutAsking() throws {
         let first = try PackFixture.write()
+        defer { removePack(first) }
         let (controller, asker, _, _) = makeController(answer: first.deletingLastPathComponent())
         controller.openGeneratedPack(at: first)
 
-        let second = try PackFixture.write()
+        let second = try PackFixture.write(in: first.deletingLastPathComponent())
         controller.openGeneratedPack(at: second)
 
         #expect(controller.packName == second.lastPathComponent)
@@ -267,11 +269,13 @@ struct PackFolderAccessTests {
 
     @Test func replacingTheSessionReleasesThePreviousGrant() throws {
         let first = try PackFixture.write()
+        defer { removePack(first) }
         let (controller, _, bookmarking, _) = makeController(
             answer: first.deletingLastPathComponent())
         controller.openGeneratedPack(at: first)
 
-        controller.openGeneratedPack(at: try PackFixture.write())
+        controller.openGeneratedPack(
+            at: try PackFixture.write(in: first.deletingLastPathComponent()))
 
         #expect(bookmarking.started.count == 2)
         #expect(bookmarking.stopped.count == 1)
@@ -279,6 +283,7 @@ struct PackFolderAccessTests {
 
     @Test func closingReleasesTheGrant() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let (controller, _, bookmarking, _) = makeController(
             answer: pack.deletingLastPathComponent())
         controller.openGeneratedPack(at: pack)
@@ -291,6 +296,7 @@ struct PackFolderAccessTests {
 
     @Test func decliningToGrantLeavesAnExplanationAndNoSession() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let (controller, _, bookmarking, storage) = makeController(answer: nil)
 
         controller.openGeneratedPack(at: pack)
@@ -303,6 +309,7 @@ struct PackFolderAccessTests {
 
     @Test func grantingAFolderThatDoesNotHoldThePackIsRefused() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let unrelated = URL(fileURLWithPath: "/Volumes/lidar/somewhere-else")
         let (controller, _, _, storage) = makeController(answer: unrelated)
 
@@ -315,6 +322,7 @@ struct PackFolderAccessTests {
 
     @Test func aPackThatFailsToOpenDoesNotKeepItsGrant() throws {
         let broken = try PackFixture.write { files in files["manifest.json"] = Data("{".utf8) }
+        defer { removePack(broken) }
         let (controller, _, bookmarking, _) = makeController(
             answer: broken.deletingLastPathComponent())
 
@@ -325,9 +333,31 @@ struct PackFolderAccessTests {
         #expect(bookmarking.stopped.count == bookmarking.started.count)
     }
 
+    /// A pack that cannot be opened while another is open is reported in the
+    /// open window, where the operator is looking, and that pack stays open.
+    @Test func decliningWhileAPackIsOpenKeepsItAndSaysWhyInTheWindow() throws {
+        let open = try PackFixture.write()
+        let generated = try PackFixture.write()
+        defer {
+            removePack(open)
+            removePack(generated)
+        }
+        let (controller, _, bookmarking, storage) = makeController(answer: nil)
+        controller.openPack(at: open)
+
+        controller.openGeneratedPack(at: generated)
+
+        #expect(controller.packName == open.lastPathComponent)
+        #expect(controller.session?.lastError?.contains(generated.path) == true)
+        #expect(controller.lastError == nil, "said in the open window, where it is seen")
+        #expect(storage.bookmarks.isEmpty)
+        #expect(bookmarking.started.isEmpty)
+    }
+
     /// An operator-chosen pack needs no folder grant: the panel is the grant.
     @Test func anOperatorChosenPackNeitherAsksNorStartsAccess() throws {
         let pack = try PackFixture.write()
+        defer { removePack(pack) }
         let (controller, asker, bookmarking, _) = makeController(answer: nil)
 
         controller.openPack(at: pack)
@@ -335,5 +365,90 @@ struct PackFolderAccessTests {
         #expect(controller.session != nil)
         #expect(asker.askedAbout.isEmpty)
         #expect(bookmarking.started.isEmpty)
+    }
+}
+
+/// A version 2 pack saves into a label set beside it, in a folder a grant on
+/// the pack alone does not reach. The window asks for that folder when the
+/// pack opens, and opens read only, saying why, if it is not given.
+@MainActor struct LabelFolderAccessTests {
+    private final class Asker {
+        var answer: URL?
+        private(set) var askedAbout: [URL] = []
+        func ask(_ suggested: URL) -> URL? {
+            askedAbout.append(suggested)
+            return answer
+        }
+    }
+
+    /// A version 2 pack in a folder the app cannot write.
+    private func lockedPack() throws -> (pack: URL, folder: URL) {
+        let pack = try SyntheticPack.write([SyntheticPack.car(at: .zero)])
+        let folder = pack.deletingLastPathComponent()
+        try FileManager.default.setAttributes([.posixPermissions: 0o555], ofItemAtPath: folder.path)
+        return (pack, folder)
+    }
+
+    private func unlock(_ folder: URL) {
+        try? FileManager.default.setAttributes(
+            [.posixPermissions: 0o755], ofItemAtPath: folder.path)
+        try? FileManager.default.removeItem(at: folder)
+    }
+
+    @Test func aWritableFolderNeedsNoQuestion() throws {
+        let pack = try SyntheticPack.write([SyntheticPack.car(at: .zero)])
+        defer { removePack(pack) }
+        let asker = Asker()
+        let (access, _, _) = makeAccess()
+        let controller = AnnotationController(
+            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: asker.ask)
+        controller.openPack(at: pack)
+        #expect(controller.session?.readOnlyReason == nil)
+        #expect(asker.askedAbout.isEmpty)
+    }
+
+    @Test func refusingTheFolderOpensReadOnlyAndSaysWhy() throws {
+        let (pack, folder) = try lockedPack()
+        defer { unlock(folder) }
+        let asker = Asker()
+        let (access, _, storage) = makeAccess()
+        let controller = AnnotationController(
+            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: asker.ask)
+        controller.openPack(at: pack)
+
+        let session = try #require(controller.session)
+        #expect(asker.askedAbout.map(\.path) == [folder.path], "asked for the pack's parent")
+        #expect(session.readOnlyReason?.contains("\(folder.path)/labels") == true)
+        #expect(storage.bookmarks.isEmpty)
+        session.operatorName = "dd"
+        _ = session.createObject(objectClass: "car")
+        #expect(
+            session.select(
+                polygon: SelectionPolygon(rectFrom: SIMD2(-1, -1), to: SIMD2(2, 2)), mode: .replace)
+        )
+        #expect(!session.save())
+        #expect(session.lastError?.contains("Not saved") == true)
+    }
+
+    @Test func grantingTheFolderIsRememberedAndHeldForTheSession() throws {
+        let (pack, folder) = try lockedPack()
+        defer { unlock(folder) }
+        let asker = Asker()
+        asker.answer = folder
+        let (access, bookmarking, storage) = makeAccess()
+        let controller = AnnotationController(
+            folderAccess: access, askForFolder: { _ in nil }, askForLabelFolder: asker.ask)
+        controller.openPack(at: pack)
+
+        #expect(controller.session?.readOnlyReason == nil)
+        #expect(storage.bookmarks.count == 1)
+        #expect(bookmarking.started == [folder.path])
+        controller.close()
+        #expect(bookmarking.stopped == [folder.path])
+
+        // Opened again, the remembered folder is used without asking.
+        controller.openPack(at: pack)
+        #expect(asker.askedAbout.count == 1)
+        #expect(controller.session?.readOnlyReason == nil)
     }
 }

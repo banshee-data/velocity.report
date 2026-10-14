@@ -189,7 +189,7 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 		return fmt.Errorf("replay manifest has no scoring bounds")
 	}
 	report(capjobs.Progress{Current: 1, Total: 3, Detail: "exporting annotation pack"})
-	pack, err := ops.export(annotation.ExportConfig{VRLOGPath: result.VRLOGPath, OutDir: filepath.Join(out, "pack"), StartNs: manifest.ScoringStartNs, EndNs: manifest.ScoringStartNs + int64(manifest.ScoringDurationSeconds*1e9), MaxSamples: 0, Coverage: annotation.CoverageForegroundOnly, CoverageNote: "publisher records foreground points and periodic background snapshots"})
+	pack, err := ops.export(annotation.ExportConfig{VRLOGPath: result.VRLOGPath, OutDir: filepath.Join(out, "pack"), StartNs: manifest.ScoringStartNs, EndNs: manifest.ScoringStartNs + int64(manifest.ScoringDurationSeconds*1e9), MaxSamples: 0, Coverage: annotation.CoverageForegroundOnly, CoverageNote: "replay records whole frames and periodic background snapshots"})
 	if err != nil {
 		return fmt.Errorf("export: %w", err)
 	}

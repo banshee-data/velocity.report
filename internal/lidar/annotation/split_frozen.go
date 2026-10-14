@@ -288,6 +288,10 @@ type FrozenPack struct {
 	// with no physical references, and for every pack of a version 2 split.
 	Physical *FrozenPhysical `json:"physical,omitempty"`
 	Features *FrozenFeatures `json:"features,omitempty"`
+	// Captures, for a pack whose membership is a label set, are the capture
+	// files the label set verified hold its packets, by SHA-256. They bind
+	// the pack's case by content rather than by basename.
+	Captures []CaseCapture `json:"captures,omitempty"`
 }
 
 // FrozenPhysical pins one pack's physical references: the revision, the
@@ -1320,7 +1324,26 @@ func (f *FrozenSplit) deriveCaseCaptures() {
 	}
 	for _, p := range f.Packs {
 		i, ok := index[p.CaseID]
-		if !ok || p.Source.PCAPBasename == "" || f.Cases[i].hasBasename(p.Source.PCAPBasename) {
+		if !ok {
+			continue
+		}
+		// A label set's verified files bind the case by content; a basename
+		// already declared gains the digest.
+		for _, cp := range p.Captures {
+			found := false
+			for k := range f.Cases[i].Captures {
+				if have := &f.Cases[i].Captures[k]; have.Basename == cp.Basename {
+					found = true
+					if have.SHA256 == "" {
+						have.SHA256 = cp.SHA256
+					}
+				}
+			}
+			if !found {
+				f.Cases[i].Captures = append(f.Cases[i].Captures, cp)
+			}
+		}
+		if p.Source.PCAPBasename == "" || f.Cases[i].hasBasename(p.Source.PCAPBasename) {
 			continue
 		}
 		f.Cases[i].Captures = append(f.Cases[i].Captures, CaseCapture{Basename: p.Source.PCAPBasename})
@@ -1679,10 +1702,15 @@ func freezePack(dp DraftPack, baseDir string) (frozenPackResult, error) {
 	if err != nil {
 		return none, err
 	}
+	captures, err := LabelSetCaptures(pack.Dir)
+	if err != nil {
+		return none, err
+	}
 	p := FrozenPack{
 		PackDigest: pack.Manifest.PackDigest, DatasetID: pack.Manifest.DatasetID, CaseID: dp.CaseID,
 		ManifestSHA256: manifestDigest, Selection: selection, Source: frozenSource(pack),
 		SidecarRevision: s.Revision, SidecarSHA256: s.baseDigest, Episodes: m.Episodes, Physical: physical, Features: features,
+		Captures: captures,
 	}
 	roles := map[string]SplitRole{}
 	for _, split := range m.Splits {

@@ -29,7 +29,7 @@ func packOf(t *testing.T, samples ...[][2]float32) *Pack {
 		blocks = append(blocks, block)
 	}
 	dir := filepath.Join(t.TempDir(), "pack")
-	if err := WritePack(dir, Manifest{Coverage: CoverageForegroundOnly}, meta, blocks); err != nil {
+	if err := WritePack(dir, Manifest{Coverage: CoverageForegroundOnly}, meta, blocks, FixtureReturns(meta)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
 )
 
@@ -174,7 +175,7 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 	}
 	sq.Objects[0].Status = annotation.StatusProposed
 	sq.Change = annotation.Provenance{Author: "op", Operation: "unreview"}
-	if err := annotation.SaveSidecar(q, sq); err != nil {
+	if _, err := labelset.SaveMembership(q, sq, labelset.Change{Author: sq.Change.Author, Operation: sq.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	_ = p

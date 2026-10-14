@@ -308,6 +308,7 @@ func (fb *FrameBuilder) AddPointsPolar(polar []PointPolar) {
 			BlockID:         p.BlockID,
 			UDPSequence:     p.UDPSequence,
 			RawBlockAzimuth: p.RawBlockAzimuth,
+			PacketKey:       p.PacketKey,
 		})
 	}
 

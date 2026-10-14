@@ -4,13 +4,13 @@
 //
 //  Cross-implementation tests for the annotation pack reader.
 //
-//  The fixture bytes below are the real output of Go's
-//  internal/lidar/annotation.WritePack, captured verbatim. They are pinned on
-//  the Go side too, by TestSwiftFixturePackBytesAreStable, so a change to the
-//  writer fails there and names this file. Testing the decoder against bytes
-//  this implementation did not produce is the whole point: a self-consistent
-//  encoder/decoder pair can agree with each other and still disagree with the
-//  writer that actually creates the packs an operator opens.
+//  The fixture is internal/lidar/annotation/testdata/swift-pack-v2, the real
+//  output of Go's internal/lidar/annotation.WritePack, read from the
+//  repository. Go pins the same bytes (TestSwiftFixturePackBytesAreStable), so
+//  a change to the writer fails there and names this file. Testing the decoder
+//  against bytes this implementation did not produce is the whole point: a
+//  self-consistent encoder/decoder pair can agree with each other and still
+//  disagree with the writer that actually creates the packs an operator opens.
 //
 
 import Foundation
@@ -21,107 +21,87 @@ import simd
 
 // MARK: - Fixture
 
-/// One Go-written pack: two samples, six points, foreground-only coverage.
+/// One Go-written pack: two samples of four and two points, each frame on a
+/// packet of its own, foreground-only coverage.
 enum PackFixture {
-    /// points.bin, verbatim.
-    static let pointsBase64 =
-        "AACAPwAAwD8AAABAAAAgQgAAgD8AAKA/AADAPwAA8MEAAAA/AABAPwAAgD8AAEBAChQeKAEBAQIAAEBAAABgQAAAAEAAACBAAADAPwAA4D8yPAEB"
+    static let directory = labelSetRepositoryRoot.appendingPathComponent(
+        "internal/lidar/annotation/testdata/swift-pack-v2")
+    static let fileNames = [
+        "manifest.json", "samples.json", "points.bin", "packets.bin", "returns.bin",
+    ]
 
-    static let pointsSHA =
-        "sha256:f8bf067228e595dfee12c0cd3d974db11ebe5474f30e6e08fafef9da47211186"
-    static let samplesSHA =
-        "sha256:38e62501b09464832baa1bcdbcc21b3f58f2b77e58327df59cbda66109654410"
+    /// The digest Go's writer gave the fixture.
     static let packDigest =
-        "sha256:41b9794747f16ebe2722ea9f75a631f38e35f9670e14dccc3636ed480320d84c"
+        "sha256:e361672595fc28fb847b78dcd10b70aa9ecbb96fa44de2b9670bfd8af15e4cd3"
 
-    /// samples.json, verbatim including the writer's trailing newline: the
-    /// digest is taken before that newline, which is exactly the boundary a
-    /// naive reader gets wrong.
-    static let samplesJSON = """
-        [
-          {
-            "sample_id": 0,
-            "source_ordinal": 0,
-            "source_frame_id": 100,
-            "timestamp_ns": 1000000000,
-            "sensor_id": "hesai-pandar40p",
-            "point_count": 4,
-            "byte_offset": 0
-          },
-          {
-            "sample_id": 1,
-            "source_ordinal": 1,
-            "source_frame_id": 101,
-            "timestamp_ns": 1100000000,
-            "sensor_id": "hesai-pandar40p",
-            "point_count": 2,
-            "byte_offset": 56
-          }
-        ]
+    /// One of the fixture's files, as Go wrote it.
+    static func file(_ name: String) throws -> Data {
+        try Data(contentsOf: directory.appendingPathComponent(name))
+    }
 
-        """
-
-    static let manifestJSON = """
-        {
-          "schema_version": 1,
-          "dataset_id": "ds_41b9794747f16ebe",
-          "created_ns": 0,
-          "source": {
-            "vrlog_path": "fixture.vrlog",
-            "vrlog_header_sha256": "sha256:aa",
-            "vrlog_frames_sha256": "sha256:bb",
-            "sensor_id": "hesai-pandar40p",
-            "build_version": "fixture"
-          },
-          "coordinate": {
-            "units": "metres",
-            "frame_id": "sensor",
-            "reference_frame": "site",
-            "handedness": "right",
-            "origin_note": "sensor origin",
-            "transform_version": "v1"
-          },
-          "coverage": "foreground_only",
-          "coverage_note": "fixture",
-          "sample_count": 2,
-          "point_count": 6,
-          "points_sha256": "\(pointsSHA)",
-          "samples_sha256": "\(samplesSHA)",
-          "pack_digest": "\(packDigest)",
-          "has_intensity": true,
-          "has_classification": true,
-          "completeness": {
-            "requested_start_ns": 0,
-            "requested_end_ns": 0,
-            "actual_start_ns": 0,
-            "actual_end_ns": 0,
-            "frames_without_points": 0,
-            "duplicate_timestamps": 0,
-            "max_timestamp_gap_ns": 0
-          }
-        }
-
-        """
-
-    /// Writes the fixture to a fresh temporary directory.
-    /// `mutate` can corrupt one file to exercise a rejection path.
+    /// Copies the fixture into a folder of its own, or into `folder`, so a
+    /// label set made from it lands beside it and in no other test's way.
+    /// `mutate` can corrupt one file to exercise a rejection path. Remove the
+    /// copy with `removePack`.
     static func write(
-        mutate: (inout [String: Data]) -> Void = { _ in }
+        in folder: URL? = nil, mutate: (inout [String: Data]) throws -> Void = { _ in }
     ) throws -> URL {
-        let dir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pack-\(UUID().uuidString)")
+        let parent =
+            folder
+            ?? FileManager.default.temporaryDirectory.appendingPathComponent(
+                "\(PackFixture.folderPrefix)\(UUID().uuidString)")
+        let dir = parent.appendingPathComponent("pack-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-
-        var files: [String: Data] = [
-            "manifest.json": Data(manifestJSON.utf8),
-            "samples.json": Data(samplesJSON.utf8),
-            "points.bin": Data(base64Encoded: pointsBase64)!,
-        ]
-        mutate(&files)
+        var files: [String: Data] = [:]
+        for name in fileNames { files[name] = try file(name) }
+        try mutate(&files)
         for (name, data) in files {
             try data.write(to: dir.appendingPathComponent(name))
         }
         return dir
+    }
+
+    /// The prefix of the folder a copy is written in, which `removePack`
+    /// removes with it.
+    static let folderPrefix = "pack-fixture-"
+
+    /// The manifest as Go wrote it, with `edit` applied to its keys.
+    static func manifest(_ edit: (inout [String: Any]) -> Void) throws -> Data {
+        guard
+            var object = try JSONSerialization.jsonObject(with: file("manifest.json"))
+                as? [String: Any]
+        else { throw CocoaError(.fileReadCorruptFile) }
+        edit(&object)
+        return try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+    }
+
+    /// Applies `edit` to samples.json and gives the manifest the samples and
+    /// pack digests that match, so the edit gets past the digest checks to
+    /// the check under test.
+    static func redigestSamples(
+        _ files: inout [String: Data], manifest edits: (inout [String: Any]) -> Void = { _ in },
+        _ edit: (String) -> String
+    ) throws {
+        let samples = Data(edit(String(decoding: files["samples.json"]!, as: UTF8.self)).utf8)
+        files["samples.json"] = samples
+        var manifest = try JSONDecoder().decode(
+            AnnotationManifest.self, from: files["manifest.json"]!)
+        manifest.samplesSHA256 = AnnotationPack.digest(AnnotationPack.trimTrailingNewline(samples))
+        let packDigest = AnnotationPack.packDigest(of: manifest)
+        files["manifest.json"] = try PackFixture.manifest {
+            $0["samples_sha256"] = manifest.samplesSHA256
+            $0["pack_digest"] = packDigest
+            edits(&$0)
+        }
+    }
+
+    /// samples.json without sample `index`'s has_intensity line. Every
+    /// sample in the fixture records one, followed by sample 0's return_end
+    /// (its return_start is 0, which Go omits) or sample 1's return_start.
+    static func droppingIntensityFlag(_ samples: String, sample index: Int) -> String {
+        let next = index == 0 ? "\"return_end\": 400" : "\"return_start\": 400"
+        return samples.replacingOccurrences(
+            of: "\"has_intensity\": true,\n    \(next)", with: next)
     }
 }
 
@@ -130,16 +110,18 @@ enum PackFixture {
 struct AnnotationPackTests {
     @Test func opensGoWrittenPackAndDecodesCanonicalArrays() throws {
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let pack = try AnnotationPack.open(directory: dir)
 
-        #expect(pack.manifest.schemaVersion == 1)
-        #expect(pack.manifest.datasetID == "ds_41b9794747f16ebe")
+        #expect(pack.manifest.schemaVersion == 2)
+        #expect(pack.manifest.datasetID == "ds_e361672595fc28fb")
         #expect(pack.manifest.coverage == .foregroundOnly)
         #expect(pack.manifest.sampleCount == 2)
         #expect(pack.manifest.pointCount == 6)
         #expect(pack.samples.count == 2)
+        #expect(pack.manifest.packDigest == PackFixture.packDigest)
+        #expect(AnnotationPack.packDigest(of: pack.manifest) == pack.manifest.packDigest)
 
         // Sample 0: a three-point cluster plus a far outlier.
         let first = try pack.points(sampleID: 0)
@@ -152,12 +134,100 @@ struct AnnotationPackTests {
 
         // Sample 1 is read from a non-zero byte offset, so a decoder that
         // ignored ByteOffset would fail here rather than silently on sample 0.
+        #expect(pack.samples[1].byteOffset == 56)
         let second = try pack.points(sampleID: 1)
         #expect(second.count == 2)
         #expect(second.x == [3.0, 3.5])
         #expect(second.y == [2.0, 2.5])
         #expect(second.z == [1.5, 1.75])
         #expect(second.intensity == [50, 60])
+        #expect(second.x[1] == 3.5 && second.intensity[1] == 60)
+
+        // Every sample records whether its intensity was measured, and the
+        // manifest's flag is whether any was.
+        #expect(pack.samples.allSatisfy { $0.hasIntensity == true } && pack.manifest.hasIntensity)
+    }
+
+    /// When every sample records its own flag, the manifest's must be their
+    /// "any": it is outside the pack digest, so an edit to it would pass every
+    /// digest check. Go's reader refuses it too.
+    @Test func refusesAManifestIntensityFlagTheSamplesContradict() throws {
+        let dir = try PackFixture.write { files in
+            files["manifest.json"] = try PackFixture.manifest { $0["has_intensity"] = false }
+        }
+        defer { removePack(dir) }
+
+        do {
+            _ = try AnnotationPack.open(directory: dir)
+            Issue.record("expected a contradicting manifest flag to be refused")
+        } catch let error as AnnotationPackError {
+            #expect(
+                error
+                    == .malformed(
+                        "manifest has_intensity=false but the samples' own flags say true"))
+        }
+    }
+
+    /// Samples cut before per-sample presence was recorded, as the migrated
+    /// packs' were, state no flag. The pack opens, and the manifest's flag
+    /// answers for them.
+    @Test func samplesWithoutTheirOwnIntensityFlagFallBackToThePacks() throws {
+        let dir = try PackFixture.write { files in
+            try PackFixture.redigestSamples(&files) {
+                PackFixture.droppingIntensityFlag(
+                    PackFixture.droppingIntensityFlag($0, sample: 0), sample: 1)
+            }
+        }
+        defer { removePack(dir) }
+
+        let pack = try AnnotationPack.open(directory: dir)
+        #expect(pack.samples.allSatisfy { $0.hasIntensity == nil })
+        #expect(
+            IntensityAvailability(
+                hasIntensity: pack.manifest.hasIntensity, sample: pack.samples[0].hasIntensity)
+                == .packFlag)
+    }
+
+    /// With one sample silent the manifest is the only word on it, so the
+    /// manifest is not checked against the others, as in Go.
+    @Test func aPackWithSomeSamplesFlaggedIsNotCheckedAgainstTheManifest() throws {
+        let dir = try PackFixture.write { files in
+            try PackFixture.redigestSamples(
+                &files, manifest: { $0["has_intensity"] = false }
+            ) { PackFixture.droppingIntensityFlag($0, sample: 0) }
+        }
+        defer { removePack(dir) }
+
+        let pack = try AnnotationPack.open(directory: dir)
+        #expect(pack.samples[0].hasIntensity == nil && pack.samples[1].hasIntensity == true)
+        #expect(
+            IntensityAvailability(
+                hasIntensity: pack.manifest.hasIntensity, sample: pack.samples[0].hasIntensity)
+                == .absent)
+        #expect(
+            IntensityAvailability(
+                hasIntensity: pack.manifest.hasIntensity, sample: pack.samples[1].hasIntensity)
+                == .measured)
+    }
+
+    @Test func readsGosPacketTableAndReturns() throws {
+        let dir = try PackFixture.write()
+        defer { removePack(dir) }
+
+        let pack = try AnnotationPack.open(directory: dir)
+
+        #expect(pack.manifest.returnLayout == .pandar40P)
+        #expect(pack.manifest.packetCount == 2)
+        #expect(pack.packets == [0x0123_4567_89ab_cdef, 0xfedc_ba98_7654_3210])
+        #expect(try pack.returns(sampleID: 0) == [0, 41, 82, 399])
+        #expect(try pack.returns(sampleID: 1) == [400, 445])
+        // Go writes the frame range with omitempty: sample 0's frame starts
+        // at return 0, so its samples.json entry has no return_start.
+        let samplesJSON = try #require(
+            String(data: PackFixture.file("samples.json"), encoding: .utf8))
+        #expect(samplesJSON.components(separatedBy: "\"return_start\"").count == 2)
+        #expect(pack.samples[0].returnStart == 0 && pack.samples[0].returnEnd == 400)
+        #expect(pack.samples[1].returnStart == 400 && pack.samples[1].returnEnd == 800)
     }
 
     @Test func blockSizeMatchesTheWritersLayout() {
@@ -167,14 +237,16 @@ struct AnnotationPackTests {
         #expect(AnnotationPack.blockBytes(pointCount: 2) == 28)
     }
 
-    @Test func samplesDigestIgnoresTheWritersTrailingNewline() {
+    @Test func samplesDigestIgnoresTheWritersTrailingNewline() throws {
         // The writer appends a newline but digests the JSON without it. If the
         // reader digested the file as-is, every real pack would look corrupt.
-        let withNewline = Data(PackFixture.samplesJSON.utf8)
+        let withNewline = try PackFixture.file("samples.json")
         #expect(withNewline.last == 0x0A)
+        let manifest = try JSONDecoder().decode(
+            AnnotationManifest.self, from: PackFixture.file("manifest.json"))
         let trimmed = AnnotationPack.trimTrailingNewline(withNewline)
-        #expect(AnnotationPack.digest(trimmed) == PackFixture.samplesSHA)
-        #expect(AnnotationPack.digest(withNewline) != PackFixture.samplesSHA)
+        #expect(AnnotationPack.digest(trimmed) == manifest.samplesSHA256)
+        #expect(AnnotationPack.digest(withNewline) != manifest.samplesSHA256)
     }
 
     @Test func rejectsAlteredPointBytes() throws {
@@ -185,11 +257,8 @@ struct AnnotationPackTests {
             points[0] ^= 0xFF
             files["points.bin"] = points
         }
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
-        #expect(throws: AnnotationPackError.self) {
-            _ = try AnnotationPack.open(directory: dir)
-        }
         do {
             _ = try AnnotationPack.open(directory: dir)
             Issue.record("expected a digest mismatch")
@@ -202,14 +271,39 @@ struct AnnotationPackTests {
         }
     }
 
+    @Test func rejectsAlteredPacketsOrReturns() throws {
+        // A label set cites points through these, so they are held to the
+        // same standard as the points.
+        for name in ["packets.bin", "returns.bin"] {
+            let dir = try PackFixture.write { files in
+                var bytes = files[name]!
+                bytes[0] ^= 0x01
+                files[name] = bytes
+            }
+            defer { removePack(dir) }
+
+            do {
+                _ = try AnnotationPack.open(directory: dir)
+                Issue.record("expected a digest mismatch on \(name)")
+            } catch let error as AnnotationPackError {
+                guard case .digestMismatch(let field, _, _) = error else {
+                    Issue.record("expected digestMismatch, got \(error)")
+                    continue
+                }
+                #expect(field == name)
+            }
+        }
+    }
+
     @Test func rejectsAlteredSampleTable() throws {
         let dir = try PackFixture.write { files in
             // A plausible edit: repoint sample 1 at sample 0's block.
-            let tampered = PackFixture.samplesJSON.replacingOccurrences(
-                of: "\"byte_offset\": 56", with: "\"byte_offset\": 0")
-            files["samples.json"] = Data(tampered.utf8)
+            let samples = String(data: files["samples.json"]!, encoding: .utf8)!
+            files["samples.json"] = Data(
+                samples.replacingOccurrences(of: "\"byte_offset\": 56", with: "\"byte_offset\": 0")
+                    .utf8)
         }
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         do {
             _ = try AnnotationPack.open(directory: dir)
@@ -224,14 +318,14 @@ struct AnnotationPackTests {
     }
 
     @Test func rejectsAMatchedPairFromADifferentPack() throws {
-        // Both array digests are self-consistent but the pack digest that
+        // Every array digest is self-consistent but the pack digest that
         // binds them is not, so a swapped matched pair cannot pass.
         let dir = try PackFixture.write { files in
-            let tampered = PackFixture.manifestJSON.replacingOccurrences(
-                of: PackFixture.packDigest, with: "sha256:" + String(repeating: "0", count: 64))
-            files["manifest.json"] = Data(tampered.utf8)
+            files["manifest.json"] = try PackFixture.manifest {
+                $0["pack_digest"] = "sha256:" + String(repeating: "0", count: 64)
+            }
         }
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         do {
             _ = try AnnotationPack.open(directory: dir)
@@ -245,13 +339,38 @@ struct AnnotationPackTests {
         }
     }
 
+    /// A version 1 pack as Go's old writer left it: no packet table, no
+    /// returns, and a manifest without their fields.
+    @Test func refusesAVersion1PackByName() throws {
+        let dir = try PackFixture.write { files in
+            files["manifest.json"] = try PackFixture.manifest {
+                $0["schema_version"] = 1
+                for key in [
+                    "return_layout", "packet_key", "packet_count", "packets_sha256",
+                    "returns_sha256",
+                ] { $0.removeValue(forKey: key) }
+            }
+            files.removeValue(forKey: "packets.bin")
+            files.removeValue(forKey: "returns.bin")
+        }
+        defer { removePack(dir) }
+
+        do {
+            _ = try AnnotationPack.open(directory: dir)
+            Issue.record("expected a version 1 pack to be refused")
+        } catch let error as AnnotationPackError {
+            #expect(error == .version1Pack)
+            let message = "\(error)"
+            #expect(message.contains("git tag annotation-v1-reader"))
+            #expect(message.contains("docs/lidar/operations/annotation-label-set-migration.md"))
+        }
+    }
+
     @Test func refusesAnUnsupportedSchema() throws {
         let dir = try PackFixture.write { files in
-            let tampered = PackFixture.manifestJSON.replacingOccurrences(
-                of: "\"schema_version\": 1", with: "\"schema_version\": 99")
-            files["manifest.json"] = Data(tampered.utf8)
+            files["manifest.json"] = try PackFixture.manifest { $0["schema_version"] = 99 }
         }
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         do {
             _ = try AnnotationPack.open(directory: dir)
@@ -262,26 +381,26 @@ struct AnnotationPackTests {
     }
 
     @Test func missingFileReportsWhichOne() throws {
-        let dir = try PackFixture.write { files in
-            files.removeValue(forKey: "points.bin")
-        }
-        defer { try? FileManager.default.removeItem(at: dir) }
+        for name in ["points.bin", "returns.bin"] {
+            let dir = try PackFixture.write { files in files.removeValue(forKey: name) }
+            defer { removePack(dir) }
 
-        do {
-            _ = try AnnotationPack.open(directory: dir)
-            Issue.record("expected an unreadable error")
-        } catch let error as AnnotationPackError {
-            guard case .unreadable(let detail) = error else {
-                Issue.record("expected unreadable, got \(error)")
-                return
+            do {
+                _ = try AnnotationPack.open(directory: dir)
+                Issue.record("expected an unreadable error for \(name)")
+            } catch let error as AnnotationPackError {
+                guard case .unreadable(let detail) = error else {
+                    Issue.record("expected unreadable, got \(error)")
+                    continue
+                }
+                #expect(detail.contains(name))
             }
-            #expect(detail.contains("points.bin"))
         }
     }
 
     @Test func unknownSampleIsRejectedRatherThanClamped() throws {
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
 
         do {
@@ -290,11 +409,14 @@ struct AnnotationPackTests {
         } catch let error as AnnotationPackError {
             #expect(error == .sampleOutOfRange(7))
         }
+        #expect(throws: AnnotationPackError.sampleOutOfRange(7)) {
+            try pack.returns(sampleID: 7)
+        }
     }
 
     @Test func chronologicalOrderIsTotalAndReproducible() throws {
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
 
         let ordered = pack.chronologicalSamples
@@ -305,7 +427,7 @@ struct AnnotationPackTests {
 
     @Test func coverageCaveatNamesTheSourcesLimit() throws {
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
 
         // A foreground-only pack cannot support whole-scene segmentation, and

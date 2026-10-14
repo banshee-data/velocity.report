@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
 	"google.golang.org/protobuf/proto"
 )
@@ -41,7 +42,7 @@ func reviewedPack(t *testing.T, dir string, startNs int64) *annotation.Pack {
 	}
 	m := annotation.Manifest{Coverage: annotation.CoverageForegroundOnly, Source: annotation.SourceProvenance{PCAPBasename: "cap.pcap"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor", Handedness: "right", OriginNote: "test"}}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)
@@ -72,7 +73,7 @@ func saveReview(t *testing.T, p *annotation.Pack, note string) {
 		}
 	}
 	s.Change = annotation.Provenance{Author: "reviewer"}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 }

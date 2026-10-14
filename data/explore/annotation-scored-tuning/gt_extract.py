@@ -12,12 +12,17 @@ import sys
 import collections
 import math
 
-pack = sys.argv[1]
-out = sys.argv[2]
+if len(sys.argv) != 4:
+    sys.exit(
+        "usage: gt_extract.py PACK OUT MEMBERSHIP\n"
+        "MEMBERSHIP is the pack's label set membership projected onto the pack, from\n"
+        "`velocity lidar labels project --pack PACK > membership.json`"
+    )
+pack, out, sidecar = sys.argv[1:4]
 
 manifest = json.load(open(f"{pack}/manifest.json"))
 samples = json.load(open(f"{pack}/samples.json"))
-ann = json.load(open(f"{pack}/annotations.json"))
+ann = json.load(open(sidecar))
 raw = open(f"{pack}/points.bin", "rb").read()
 
 assert (

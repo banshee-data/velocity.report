@@ -70,7 +70,7 @@ func TestFrozenFacetsOptInRetainEvidenceAfterNewHeads(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.Change = Provenance{Author: "op", Operation: "review"}
-	if err = SaveSidecar(p, s); err != nil {
+	if err = saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	// Head damage is not consulted when the requested revision is archived.
@@ -88,7 +88,7 @@ func TestFrozenFacetsMembershipDriftIsASeparatePreviewProblem(t *testing.T) {
 	p, _, s, draft := savedFrozenFacets(t)
 	// A harmless revision retains the subset and can be pinned.
 	s.Change = Provenance{Author: "op", Operation: "review"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	preview, err := PreviewFreeze(freezeOptions(draft))
@@ -98,7 +98,7 @@ func TestFrozenFacetsMembershipDriftIsASeparatePreviewProblem(t *testing.T) {
 	// A formerly definite return now uncertain cannot support a frozen facet.
 	s.Masks[0].PointIndices = []int{1, 2, 3, 4, 5, 6, 7}
 	s.Masks[0].UncertainIndices = []int{0}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	preview, err = PreviewFreeze(freezeOptions(draft))
@@ -138,7 +138,7 @@ func TestFrozenFacetsRejectedMaskGivesNoSupport(t *testing.T) {
 		t.Fatal("fixture moved the facet's mask")
 	}
 	s.Change = Provenance{Author: "op", Operation: "reject"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	preview, err := PreviewFreeze(freezeOptions(draft))

@@ -29,7 +29,7 @@ actions establish membership, class, and identity independently of the tracker's
 
 The current window has no physical-box editor: it cannot record an independent expected body
 centre, yaw, full dimensions, or bumper endpoints. Its rectangle selects points; it does not
-declare a car's physical box. Optional pose fields in the sidecar do not supply that interface,
+declare a car's physical box. Optional pose fields on a mask do not supply that interface,
 and the present reference scorer uses a visible-mask position rather than a physical centre.
 
 Physical geometry review is the
@@ -63,9 +63,53 @@ The window uses the main view's words where it means the same thing.
 4. The first time, grant the packs folder when asked. It is remembered.
 
 A pack carries the run's L4 height band and the settled background in force over the excerpt.
-Packs cut before those were added have neither: generate them again. A re-export of the same
-frames has the same pack digest, so its `annotations.json` and `annotation-revisions/` apply to
-it unchanged.
+Packs cut before those were added have neither: generate them again.
+
+### Where labels are saved
+
+A pack is one run's view of a capture: its points, and the return each came from. The window keeps
+labels only in a **label set**, which cites those returns rather than the pack's points, so another
+run of the same capture can show and edit the same labels. The format is specified in the
+[labelset package README](../../../internal/lidar/annotation/labelset/README.md).
+
+- Label sets live beside the pack, in `<annotation dir>/labels/<name>/`, where the annotation dir
+  is the pack folder's parent. The pack names its set in `label-set-link.json`. The first save
+  makes the set from the pack (revision 1, `create_from_pack`) and saves the edit as revision 2.
+  If the app has not been given the annotation dir, the window asks for it when the pack opens,
+  and opens read only if refused.
+- A view published in the Hugging Face dataset sits beside its label set instead, in
+  `labels/<capture stem>/`. Open it like any pack, and grant `labels/<capture stem>` when asked.
+  To save physical references there too, start the server with
+  `--lidar-annotation-dir=<clone>/labels/<capture stem>`. Committing an edit is described in
+  [label sets](label-sets.md#editing-from-the-dataset).
+- Each save appends one line to the set's `journal.ndjson`, then rewrites the head files and
+  `labels.json`, under an exclusive lock on `.lock`. A propagation, a merge, a split or **Apply
+  to every sample** is one save. A save that changes nothing writes nothing. No snapshot is kept.
+- A save is refused if another window saved first (reload, then save again) or holds the lock
+  (retry). The unsaved selection is kept either way.
+- **Undo last save** and **Restore** (beside the revision number under the review buttons)
+  rebuild an earlier revision from the journal and save it as a new revision, recording which
+  one it restored. Nothing earlier is rewritten.
+- A pack of the same capture from another run can join an existing set: **Attach to …** lists
+  sets in `labels/` that share its packets. Its foreground becomes a second domain. An edit made
+  through one run keeps the members that only the other run shows. Removing or merging an object
+  that has labels this run cannot see is refused.
+- Under the label set's name and revision, the left column lists the capture files the set has
+  been verified against with `velocity lidar labels bind`: file name, the first 8 hex digits of
+  its SHA-256, packets found of the set's packets, and whole frames of the set's frames. Three are
+  listed, then a count. A set verified against none says so and gives the `bind` command with its
+  directory. A migrated set names the version 1 pack and revision it came from.
+
+Every pack is version 2: each point also names the return in the capture it was decoded from, by
+packet and position, which is what lets a
+[label set](../../../internal/lidar/annotation/labelset/README.md) apply to other runs of the same
+capture. A run recorded before recordings carried that identity cannot be exported, and **Generate
+from Run…** says so: replay its PCAP again with the current build and generate from the new run.
+
+The window opens version 2 packs only. Every version 1 pack that held labels was migrated, with
+its history, into a label set, as the [migration report](annotation-label-set-migration.md)
+records. Opening a version 1 pack is refused with a message that says so and names the git tag
+`annotation-v1-reader`, which keeps the last build that reads one.
 
 ### Choosing what to cut
 
@@ -73,8 +117,9 @@ An hour of labelling covers tens of seconds of a busy street, so the window matt
 speed. Open **LiDAR → Segments** at `/app/lidar/segments`, choose a run and a selector, then inspect
 the score strip and ranked windows. **Preview in scene player** shows a tuning window with the
 run's tracks. **Make case** fixes the capture and offset; **Queue clip** replays it with points and
-exports the annotation pack. The page reads review counts from `annotations.json`. Labels and
-review decisions still belong in the macOS window.
+exports the annotation pack. The page lists each pack with its label set
+([where label sets show](label-sets.md#where-it-shows)). Labels and review decisions still belong
+in the macOS window.
 
 A selector is one way of choosing: following, close following, moving traffic, a random draw, or
 one of the tracker-failure hunts. The list is grouped by category and each selector says what it
@@ -124,7 +169,7 @@ The warm-up precedes the clip and is not exported; random windows start at least
 a capture with measured packet times so that this prefix is available.
 
 When the macOS annotation window first opens a pack, it saves its moving and fixed suggestions
-as proposal layers. They load again on the next open, while dismissals live in the sidecar. The
+as proposal layers. They load again on the next open, while dismissals live in the label set. The
 pack opens near the selected segment's peak sample. Proposals are suggestions, not reference
 truth; only reviewed objects and masks count as such.
 
@@ -198,6 +243,18 @@ object is behind is left alone. Any other fit stops following, until an object i
 The arrow keys belong to the window: `←` and `→` step a frame whichever view was clicked last,
 the 3D view included, and only a text field being typed in keeps them. With **Follow the main view** on, stepping here seeks the main view to the same frame and
 moving the main view steps here; the main view has to be replaying the same run.
+
+Frames are matched by time, which cannot tell two captures apart. So when the main view is on one
+of this pack's frames, a second line compares the packets that frame was decoded from (the
+stream's packet keys) with the label set's packet table, or with the pack's own packets before
+its first save. It is information only, and blocks nothing.
+
+| Line                               | Means                                                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------- |
+| Same capture: _n_ of _m_ packets … | At least nine in ten of the frame's packets are in the table                            |
+| Partly the same capture (orange)   | Some of them are, fewer than nine in ten                                                |
+| Different capture (orange)         | None are: the main view is replaying packets this label set does not cover              |
+| Cannot check the capture           | The frame carries no packet keys: an older recording, a live source, or an older server |
 
 **Loop this pack's frames**, on by default, keeps a playing main view inside the pack: when it
 runs past the pack's last frame, or off the end of the recording, it is sent back to the first.
@@ -360,19 +417,24 @@ view is: agreed, in question, and not labelled. Click a sector to go to what is 
 A mask says which returns belong to an object. A physical reference says what is known about its
 body: where its centre or a named face was, which way it faced, how long, wide and high it is, and
 how each of those is known. The two have separate files and separate reviews. Reviewing a mask
-never reviews a pose, and the sidecar's optional `pose` is not read as a physical reference.
+never reviews a pose, and a mask's optional `pose` is not read as a physical reference.
 
-References live beside the sidecar, in `physical-references.json`, with every earlier revision
-kept byte for byte in `physical-reference-revisions/`. The store follows the sidecar's revision
-protocol and takes the same `.annotations.lock`, so a physical save does not interleave with a
-membership save by a writer that takes it. A save is refused if the base revision changed, and it
-checks every link against the sidecar as it stands at that commit. Each revision has two digests:
+The service reads a pack's membership from the label set the pack is linked to, projected onto the
+pack's samples and points, and a reference pins it by the label set's state digest. A pack with no
+label set yet has no saved membership for a reference to cite.
+
+References stay bound to the pack, in `physical-references.json` in its directory, with every
+earlier revision kept byte for byte in `physical-reference-revisions/`. A physical save takes the
+pack's `.annotations.lock`, is refused if the base revision changed, and checks every link against
+the membership as it reads it at that commit. Membership is saved through the label set, under the
+label set's own lock, so the two saves do not exclude each other: a membership edit that lands
+after that read is found on the next load, as below. Each revision has two digests:
 one over its exact bytes, and a **content digest** over the references alone. Two revisions with
 the same content share a content digest; that is what an evaluation cites.
 
 A later membership edit can still invalidate a saved reference: rejecting its object, or removing
 a mask a reference cites. Membership saves are not refused for that, because the macOS client
-saves the sidecar without reading the references. Instead every load checks the links again and
+saves membership without reading the references. Instead every load checks the links again and
 lists what no longer holds, `validate` reports it, and the next save of references refuses until
 those records are repaired or removed. Nothing is rewritten to mark them, so no file's bytes
 change.
@@ -386,7 +448,7 @@ The document is `velocity.report/physical-reference`, schema version 1. Unknown 
 | `pack_digest`, `dataset_id`         | The pack. Must match                                                                      |
 | `source`                            | Sensor, VRLOG header and frame digests, coordinate and reference frame, transform, units  |
 | `source.calibration_id`             | Optional calibration identity; evaluation holds each prediction to it                     |
-| `objects[].object_id`               | An object the sidecar declares and has not rejected                                       |
+| `objects[].object_id`               | An object the pack's membership declares and has not rejected                             |
 | `objects[].body`                    | The body belief for the whole episode: `length`, `width`, `height`, axis convention       |
 | `objects[].keyframes[]`             | One reviewed instant: sample, capture time, anchor, position, yaw, front and rear bumpers |
 | `following[]`                       | A leader, `no_leader` or `ambiguous` decision over an interval, with gaps at instants     |
@@ -561,9 +623,8 @@ would miss this, because every link can still hold while the points a person jud
 different.
 
 Membership saves refuse to make one return belong to two objects in a frame, because Go's tools,
-the physical service included, refuse a pack where one does. A pack that already has such returns
-lists them at the top of the object column, with a button to go to each frame, and can still be
-saved so they can be repaired.
+the physical service included, refuse labels where one does, and a label set cannot hold one. The
+refusal names the sample, the point and the two objects.
 
 When a proposal cannot save, common messages name the object, size field or pose frame and say
 which bound or citation is missing. **Service detail** preserves the exact validator message
@@ -1010,48 +1071,23 @@ and marks nothing unsaved.
   is the stored byte, whatever the colour settings.
 
 A pack declares intensity for the whole pack, and packs cut since presence was recorded also say
-it per frame (`has_intensity` on each sample). If a frame's source carried no intensity column,
-its stored bytes are zero-fill: the readout says unavailable and every return is drawn in a
-distinct "not measured" colour, whatever the pack-wide flag says. A pack cut before that was
-recorded has only the pack-wide flag, and the column says that a frame the source did not measure
-would read as zeros. The code is the sensor's raw byte, not a calibrated reflectance.
+it per frame (`has_intensity` on each sample). A frame that says is read by its own flag, whatever
+the pack-wide flag says: if its source carried no intensity column, its stored bytes are zero-fill,
+the readout says unavailable and every return is drawn in a distinct "not measured" colour. A frame
+that does not say, as in packs whose samples were cut before presence was recorded (the migrated
+packs among them), is read by the pack-wide flag, and the column says that a frame the source did
+not measure would read as zeros. When every frame says, a pack-wide flag that disagrees with them
+is refused when the pack opens. The code is the sensor's raw byte, not a calibrated reflectance.
 
 ## Revision history
 
-Every save archives the exact bytes it replaced as a full snapshot, so the history grows by one
-whole document per save, however small the edit. A pack of 3,700 masks writes about 25 MB each
-time: one labelled kirk0 pack reached 1,968 revisions and 38 GB in a day and a half. The history is
-the recovery path, and a frozen split pins one revision by the digest of its exact bytes, but the
-window never reads it back, so most of it is dead weight.
+A label set's history is its journal: one delta per save, rebuilt by replay and checked against
+the state digest recorded for each revision. A one-return edit writes a line of a few hundred
+bytes. A save interrupted after its journal line is rolled forward when the set is next opened.
 
-`lidar-annotation-prune` plans first and writes nothing:
-
-```bash
-go run ./cmd/tools/lidar-annotation-prune -pack "$PACK" -keep-last 200 -keep-every 1h \
-  -split splits/kirk0-split-r1.json
-```
-
-It keeps the newest `-keep-last` revisions, the oldest, one revision per `-keep-every` interval of
-what is older (by when each was archived), and every revision a `-split` file or `-protect N`
-names. Splits are read for this pack's pinned revision only. To prune, add `-apply` and a
-`-backup` path:
-
-```bash
-go run ./cmd/tools/lidar-annotation-prune -pack "$PACK" -keep-last 200 -keep-every 1h \
-  -split splits/kirk0-split-r1.json -apply -backup /Volumes/lidar/backups/kirk0-revisions.tar.gz
-```
-
-Nothing is removed until the removed revisions and the current snapshot are in a compressed tar
-with a SHA-256 manifest, and the tar has been read back and every member's digest matches the one
-taken from the pack. The removal then runs under the pack's writer lock, so the Annotation window
-can stay open: its saves archive revisions newer than any being removed. A backup that does not
-verify, a busy lock, a full volume or an archive that changed since the plan leaves that file, or
-the whole pack, as it was. To restore, `tar -xzf BACKUP -C "$PACK"`; the current snapshot comes out
-under `head/` and does not replace the live one.
-
-A pruned revision cannot be loaded or restored by number, and the store says so by name; the head
-and every kept revision are unaffected. Prune after freezing a split, and pass the split, so the
-revision it pins stays.
+Version 1 packs kept a whole snapshot per save instead. Every revision of the version 1 packs that
+held labels was carried into a label set journal, one line per revision, as the
+[migration report](annotation-label-set-migration.md) records with the sizes before and after.
 
 ## Limits
 
@@ -1062,8 +1098,13 @@ revision it pins stays.
   identities would bring its fragmentation with them.
 - Class guesses come from size and distance travelled only. The class you choose is what is
   saved.
-- Every save writes a full snapshot to `annotation-revisions/`.
-  [`lidar-annotation-prune`](#revision-history) thins them; nothing does so on its own.
+- Every save rewrites the label set's head files, so a save costs time in proportion to the whole
+  set, not the edit. Only the journal line is proportional to the edit.
+- Physical references, features and facet proposals go through the server, which reads a linked
+  pack's membership from its label set. They stay bound to the pack they were made through, and pin
+  membership by the label set's state digest; moving them into the label set is open work.
+- Proposal dismissals are kept in the label set under pack-local proposal ids, so two runs'
+  packs in one set can dismiss each other's same-numbered proposals.
 - **The grid angle is not yet synced from the scene.** A pack records the sensor, the capture
   and the run, and nothing that says which junction it stood at, so the angle cannot be looked
   up; and no server reads `map-marks.json`. The channel that should carry it already exists —

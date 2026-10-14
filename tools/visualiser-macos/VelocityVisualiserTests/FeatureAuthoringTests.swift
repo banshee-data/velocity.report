@@ -267,7 +267,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 @MainActor struct FeatureAuthoringTests {
     @Test func retainedEvidenceIsReadOnlyAndReturningToHeadRestoresEditing() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
         a.name = "Mirror"
@@ -303,7 +303,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func missingOrWrongRevisionNeverMasqueradesAsTheRequestedEvidence() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         service.state.document.revision = 2
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
@@ -332,7 +332,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func revisionCannotBeCombinedWithEditsOrInvalidNumbers() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         for revision in [UInt64(0), UInt64(Int32.max) + 1] {
             await #expect(throws: (any Error).self) {
                 try await client.request(pack: pack, revision: revision)
@@ -346,7 +346,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
     }
     @Test func seedEditSaveReopenAndCancelNeverWriteMembership() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let authoring = FeatureAuthoring(pack: pack, client: client)
         await authoring.load()
         #expect(authoring.canEdit)
@@ -384,7 +384,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func rejectedMissingAndOccludedSaveNoMeasuredSupport() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
         for decision in [FeatureDecision.rejected, .missing, .occluded] {
@@ -400,7 +400,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func uncertainSaveRetainsDraftAndRequiresReloadWithoutRetry() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
         a.seed(featureSeed(pack), objectID: "car")
@@ -430,7 +430,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func differentFolderAndFutureSchemaAreNotWritable() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         service.state.packDirectory += "-copy"
         let a = FeatureAuthoring(pack: pack, client: client)
         await a.load()
@@ -443,7 +443,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func localDocumentReopensReadOnlyWithoutService() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         try service.state.document.serializedData().write(
             to: pack.directory.appendingPathComponent("feature-proposals.pb"))
         service.refuse = true
@@ -454,7 +454,7 @@ private func featureSeed(_ pack: AnnotationPack) -> FeatureObservation {
 
     @Test func featureModeGuardsNavigationAndCannotSaveObjectMasks() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let session = try AnnotationSession(pack: pack, featureClient: client)
         session.workMode = .features
         await session.features.load()
@@ -508,7 +508,7 @@ struct FeatureSharedWireTests {
             (1.55, 0.55, 1, 1), (4, 0, 1, 1), (2.05, 0.05, 1, 1), (1.05, 0.05, 1, 1),
         ]
         let dir = try SyntheticPack.write([source, target], sourceStride: 1)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
         let service = FakeFeatureService(pack: pack)
@@ -523,7 +523,7 @@ struct FeatureSharedWireTests {
         #expect(s.select(polygon: all, mode: .replace) && s.save())
         #expect(s.stepBackward() == nil)
         service.state.membershipDigest = s.membershipDigest
-        let maskBytes = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        let maskBytes = try savedMembershipBytes(dir)
         s.workMode = .features
         await s.features.load()
         var observation = FeatureObservation()
@@ -554,14 +554,14 @@ struct FeatureSharedWireTests {
         s.editCurrentFeature()
         #expect(s.features.draft?.pointIndices == [2, 3])
         #expect(s.features.draft?.hasProposedFromSample == true)
-        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == maskBytes)
+        #expect(try savedMembershipBytes(dir) == maskBytes)
     }
 
     @Test func sphereThenOneFramePreviewEditRejectAndOcclusionKeepMaskBytes() async throws {
         let source: [SyntheticPack.Point] = [(0.05, 0.05, 1, 1), (0.1, 0.1, 1.05, 1), (3, 0, 1, 1)]
         let target = source.map { ($0.x + 1, $0.y, $0.z, $0.classification) }
         let dir = try SyntheticPack.write([source, target, []], sourceStride: 1)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
         let service = FakeFeatureService(pack: pack)
@@ -578,7 +578,7 @@ struct FeatureSharedWireTests {
         #expect(s.save())
         #expect(s.stepBackward() == nil)
         service.state.membershipDigest = s.membershipDigest
-        let before = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        let before = try savedMembershipBytes(dir)
         s.workMode = .features
         await s.features.load()
         let viewport = s.viewport(for: .top, size: CGSize(width: 600, height: 400))
@@ -633,7 +633,7 @@ struct FeatureSharedWireTests {
         #expect(s.goToFacetObservation(sampleID: 0))
         #expect(s.goToFacetObservation(sampleID: 2))
         #expect(s.featureOverlay?.decision == .occluded && s.featureOverlay?.hasSphere == false)
-        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == before)
+        #expect(try savedMembershipBytes(dir) == before)
         let reopened = FeatureAuthoring(pack: pack, client: client)
         await reopened.load()
         reopened.choose(id)
@@ -646,7 +646,7 @@ struct FeatureSharedWireTests {
     @Test func skippedSourceFrameCannotBePropagatedEvenIfSampleIDsAreAdjacent() async throws {
         let points: [SyntheticPack.Point] = [(0.05, 0.05, 1, 1), (0.1, 0.1, 1.05, 1)]
         let dir = try SyntheticPack.write([points, points])  // source ordinals 1 and 3
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let (urlSession, baseURL, register) = AnnotationMockURLProtocol.makeSession()
         let service = FakeFeatureService(pack: pack)
@@ -738,7 +738,7 @@ struct FeatureSharedWireTests {
         )
         #expect(s.save())
         service.state.membershipDigest = s.membershipDigest
-        let mask = try Data(contentsOf: dir.appendingPathComponent("annotations.json"))
+        let mask = try savedMembershipBytes(dir)
         s.workMode = .features
         await s.features.load()
         s.features.selectionTool = .lasso
@@ -778,7 +778,7 @@ struct FeatureSharedWireTests {
             polygon: SelectionPolygon(rectFrom: SIMD2(-0.2, -0.2), to: SIMD2(0.2, 0.2)),
             mode: .subtract)
         #expect(!s.features.isDirty)
-        #expect(try Data(contentsOf: dir.appendingPathComponent("annotations.json")) == mask)
+        #expect(try savedMembershipBytes(dir) == mask)
         #expect(s.features.active?.observations.first?.pointIndices == [0, 1])
     }
 
@@ -788,7 +788,7 @@ struct FeatureSharedWireTests {
             (0.05, 0.05, 1, PointClass.foreground), (1, 1, 1, PointClass.foreground),
         ]
         let dir = try SyntheticPack.write([points])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
         let service = FakeFeatureService(pack: pack)
@@ -824,7 +824,7 @@ struct FeatureSharedWireTests {
         let edge = Float(5 - FeatureSelection.envelopeMarginM / 2)
         let points: [SyntheticPack.Point] = [(-edge, 0, 1, 1), (edge, 0, 1, 1)]
         let dir = try SyntheticPack.write([points])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
         let service = FakeFeatureService(pack: pack)
@@ -898,7 +898,7 @@ struct FeatureSharedWireTests {
 @MainActor struct FacetProjectionExposureTests {
     @Test func hidingCancellingAndReopeningDoNotLaunderPreviewAssistance() async throws {
         let (pack, client, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let suite = "facet-preview-test-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
@@ -951,7 +951,7 @@ struct FeatureSharedWireTests {
 @MainActor struct OfflineFacetPoseControllerTests {
     @Test func exactResponseIsReadOnlyAndAChangedFrameCannotReceiveDelayedResults() async throws {
         let (pack, _, service) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         service.state.document.revision = 7
         service.state.digest = "sha256:head7"
         var result = try FacetPoseFixture.proposal()
@@ -1001,7 +1001,7 @@ struct FeatureSharedWireTests {
     }
     @Test func explicitOfflineExposureSurvivesCancellationAndReopening() async throws {
         let (pack, client, _) = try featureSetup()
-        defer { try? FileManager.default.removeItem(at: pack.directory) }
+        defer { removePack(pack.directory) }
         let suite = "offline-pose-exposure-" + UUID().uuidString
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }

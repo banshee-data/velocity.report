@@ -112,7 +112,7 @@ func registeredSegmentFixture(t *testing.T) (*Pack, *pb.FeatureEdit) {
 		blocks = append(blocks, b)
 	}
 	dir := filepath.Join(t.TempDir(), "segment")
-	if err := WritePack(dir, old.Manifest, old.Samples, blocks); err != nil {
+	if err := WritePack(dir, old.Manifest, old.Samples, blocks, FixtureReturns(old.Samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)

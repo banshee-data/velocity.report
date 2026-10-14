@@ -1,0 +1,18 @@
+{
+  "head": {
+    "revision": 0,
+    "state": "",
+    "updated_utc": ""
+  },
+  "label_set_id": "parity",
+  "layout": {
+    "blocks": 10,
+    "channels": 40,
+    "model": "hesai-pandar40p"
+  },
+  "packet_key": "sha256-64:udp-payload",
+  "schema_version": 2,
+  "storage": {
+    "window_chunk": 100
+  }
+}

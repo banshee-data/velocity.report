@@ -66,6 +66,27 @@ type PointCloudFrame struct {
 	DecimationRatio float32
 	PointCount      int
 
+	// Return identity, optional: what makes a point citable by a label
+	// independently of this run. Empty when any return of the frame lacked
+	// a packet key (synthetic and legacy sources), and absent from VRLOGs
+	// recorded before it existed. Check HasReturnIdentity before use.
+	//
+	// PacketKeys lists every packet that contributed a return to the frame,
+	// emitted or not, in first-seen order (see parse.PacketKey). ReturnRefs,
+	// parallel to X/Y/Z, holds each point's return number within that table:
+	// packet_index × ReturnBlocks × ReturnChannels + block × ReturnChannels +
+	// (channel − 1). [ReturnStart, ReturnEnd) bounds every return of the
+	// frame, emitted or not. Decimation keeps ReturnRefs aligned with the
+	// points it keeps; the table and the range describe the whole frame and
+	// do not change.
+	PacketKeys     []uint64
+	ReturnRefs     []uint32
+	ReturnStart    uint32
+	ReturnEnd      uint32
+	ReturnModel    string
+	ReturnBlocks   int
+	ReturnChannels int
+
 	// Reference counting for safe pool reuse in broadcast scenarios (M7).
 	// When a frame is broadcast to multiple clients, each consumer calls
 	// Retain() before use and Release() after conversion. Slices are
@@ -80,6 +101,26 @@ func (pc *PointCloudFrame) Retain() {
 		return
 	}
 	pc.refCount.Add(1)
+}
+
+// HasReturnIdentity reports whether the frame names its points' returns: a
+// layout, a packet table, a non-empty frame range inside it, and one return
+// number per point. A frame without it can be displayed but not cited.
+func (pc *PointCloudFrame) HasReturnIdentity() bool {
+	if pc == nil || len(pc.PacketKeys) == 0 || pc.ReturnModel == "" ||
+		pc.ReturnBlocks < 1 || pc.ReturnChannels < 1 || len(pc.ReturnRefs) != len(pc.X) {
+		return false
+	}
+	limit := uint64(len(pc.PacketKeys)) * uint64(pc.ReturnBlocks) * uint64(pc.ReturnChannels)
+	return pc.ReturnStart < pc.ReturnEnd && uint64(pc.ReturnEnd) <= limit
+}
+
+// clearReturnIdentity drops the identity. ReturnRefs is left to the garbage
+// collector rather than pooled: only Release knows no one else holds it.
+func (pc *PointCloudFrame) clearReturnIdentity() {
+	pc.PacketKeys, pc.ReturnRefs = nil, nil
+	pc.ReturnStart, pc.ReturnEnd = 0, 0
+	pc.ReturnModel, pc.ReturnBlocks, pc.ReturnChannels = "", 0, 0
 }
 
 // RefCount returns the current reference count (for testing/debugging).

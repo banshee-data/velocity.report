@@ -2,10 +2,10 @@
   "schema": "velocity.report/perframe-comparison",
   "schema_version": 1,
   "reference": {
-    "pack_digest": "sha256:78a963964062a0dae75840ea66d4c37ed3e86788f12c10bd04f0230243cb3fb4",
-    "dataset_id": "ds_78a963964062a0da",
+    "pack_digest": "sha256:c02bb295bea8a0477ca492c8f7659911585ae1c96cff4c1c9ab623b5fdcefc99",
+    "dataset_id": "ds_c02bb295bea8a047",
     "sidecar_revision": 1,
-    "split_manifest_digest": "sha256:93008f306b6915807ac5a55d5b6eb7126875d4fdfffc4a834ff974a5a69938bf",
+    "split_manifest_digest": "sha256:27e5dc53989df56cb1805627c0c3f7b95ec730aae8c1d80270e3e356c093631f",
     "split": "tune-physical",
     "split_role": "tuning",
     "held_out": false,
@@ -26,7 +26,7 @@
     "episodes": [
       "tune-physical-ep1"
     ],
-    "digest": "sha256:16ce55bafd6c7ea48f97337f87c20d52a938b69c0c25d40b9b4c1241d69cc01b"
+    "digest": "sha256:4a8be934fb1fb13316632c3c318512fa0452b17094c58a2a6c87a2266f0a7d68"
   },
   "gate": {
     "kind": "footprint",
@@ -163,10 +163,10 @@
       "points": 19
     },
     "reference": {
-      "pack_digest": "sha256:78a963964062a0dae75840ea66d4c37ed3e86788f12c10bd04f0230243cb3fb4",
-      "dataset_id": "ds_78a963964062a0da",
+      "pack_digest": "sha256:c02bb295bea8a0477ca492c8f7659911585ae1c96cff4c1c9ab623b5fdcefc99",
+      "dataset_id": "ds_c02bb295bea8a047",
       "sidecar_revision": 1,
-      "split_manifest_digest": "sha256:93008f306b6915807ac5a55d5b6eb7126875d4fdfffc4a834ff974a5a69938bf",
+      "split_manifest_digest": "sha256:27e5dc53989df56cb1805627c0c3f7b95ec730aae8c1d80270e3e356c093631f",
       "split": "tune-physical",
       "split_role": "tuning",
       "held_out": false,
@@ -187,7 +187,7 @@
       "episodes": [
         "tune-physical-ep1"
       ],
-      "digest": "sha256:16ce55bafd6c7ea48f97337f87c20d52a938b69c0c25d40b9b4c1241d69cc01b"
+      "digest": "sha256:4a8be934fb1fb13316632c3c318512fa0452b17094c58a2a6c87a2266f0a7d68"
     },
     "gate": {
       "kind": "footprint",
@@ -675,10 +675,10 @@
       "points": 19
     },
     "reference": {
-      "pack_digest": "sha256:78a963964062a0dae75840ea66d4c37ed3e86788f12c10bd04f0230243cb3fb4",
-      "dataset_id": "ds_78a963964062a0da",
+      "pack_digest": "sha256:c02bb295bea8a0477ca492c8f7659911585ae1c96cff4c1c9ab623b5fdcefc99",
+      "dataset_id": "ds_c02bb295bea8a047",
       "sidecar_revision": 1,
-      "split_manifest_digest": "sha256:93008f306b6915807ac5a55d5b6eb7126875d4fdfffc4a834ff974a5a69938bf",
+      "split_manifest_digest": "sha256:27e5dc53989df56cb1805627c0c3f7b95ec730aae8c1d80270e3e356c093631f",
       "split": "tune-physical",
       "split_role": "tuning",
       "held_out": false,
@@ -699,7 +699,7 @@
       "episodes": [
         "tune-physical-ep1"
       ],
-      "digest": "sha256:16ce55bafd6c7ea48f97337f87c20d52a938b69c0c25d40b9b4c1241d69cc01b"
+      "digest": "sha256:4a8be934fb1fb13316632c3c318512fa0452b17094c58a2a6c87a2266f0a7d68"
     },
     "gate": {
       "kind": "footprint",
@@ -1173,13 +1173,13 @@
   "physical": {
     "reference": {
       "method": "physical_reference_v1",
-      "pack_digest": "sha256:78a963964062a0dae75840ea66d4c37ed3e86788f12c10bd04f0230243cb3fb4",
-      "dataset_id": "ds_78a963964062a0da",
+      "pack_digest": "sha256:c02bb295bea8a0477ca492c8f7659911585ae1c96cff4c1c9ab623b5fdcefc99",
+      "dataset_id": "ds_c02bb295bea8a047",
       "sidecar_revision": 1,
       "physical_revision": 1,
       "physical_revision_digest": "sha256:fixture-revision-bytes",
-      "physical_content_digest": "sha256:2192cb509cf1766197fc12b1a38024b77dd36d954b7c7958531992be4808c485",
-      "split_manifest_digest": "sha256:93008f306b6915807ac5a55d5b6eb7126875d4fdfffc4a834ff974a5a69938bf",
+      "physical_content_digest": "sha256:285f0e0ee3cdfe36284a3ffb701694d10f9599011df0cb4dc149c74c4acfe441",
+      "split_manifest_digest": "sha256:27e5dc53989df56cb1805627c0c3f7b95ec730aae8c1d80270e3e356c093631f",
       "split": "tune-physical",
       "split_role": "tuning",
       "episodes": [
@@ -1196,13 +1196,13 @@
       "schema_version": 1,
       "reference": {
         "method": "physical_reference_v1",
-        "pack_digest": "sha256:78a963964062a0dae75840ea66d4c37ed3e86788f12c10bd04f0230243cb3fb4",
-        "dataset_id": "ds_78a963964062a0da",
+        "pack_digest": "sha256:c02bb295bea8a0477ca492c8f7659911585ae1c96cff4c1c9ab623b5fdcefc99",
+        "dataset_id": "ds_c02bb295bea8a047",
         "sidecar_revision": 1,
         "physical_revision": 1,
         "physical_revision_digest": "sha256:fixture-revision-bytes",
-        "physical_content_digest": "sha256:2192cb509cf1766197fc12b1a38024b77dd36d954b7c7958531992be4808c485",
-        "split_manifest_digest": "sha256:93008f306b6915807ac5a55d5b6eb7126875d4fdfffc4a834ff974a5a69938bf",
+        "physical_content_digest": "sha256:285f0e0ee3cdfe36284a3ffb701694d10f9599011df0cb4dc149c74c4acfe441",
+        "split_manifest_digest": "sha256:27e5dc53989df56cb1805627c0c3f7b95ec730aae8c1d80270e3e356c093631f",
         "split": "tune-physical",
         "split_role": "tuning",
         "episodes": [
@@ -4096,13 +4096,13 @@
       "schema_version": 1,
       "reference": {
         "method": "physical_reference_v1",
-        "pack_digest": "sha256:78a963964062a0dae75840ea66d4c37ed3e86788f12c10bd04f0230243cb3fb4",
-        "dataset_id": "ds_78a963964062a0da",
+        "pack_digest": "sha256:c02bb295bea8a0477ca492c8f7659911585ae1c96cff4c1c9ab623b5fdcefc99",
+        "dataset_id": "ds_c02bb295bea8a047",
         "sidecar_revision": 1,
         "physical_revision": 1,
         "physical_revision_digest": "sha256:fixture-revision-bytes",
-        "physical_content_digest": "sha256:2192cb509cf1766197fc12b1a38024b77dd36d954b7c7958531992be4808c485",
-        "split_manifest_digest": "sha256:93008f306b6915807ac5a55d5b6eb7126875d4fdfffc4a834ff974a5a69938bf",
+        "physical_content_digest": "sha256:285f0e0ee3cdfe36284a3ffb701694d10f9599011df0cb4dc149c74c4acfe441",
+        "split_manifest_digest": "sha256:27e5dc53989df56cb1805627c0c3f7b95ec730aae8c1d80270e3e356c093631f",
         "split": "tune-physical",
         "split_role": "tuning",
         "episodes": [

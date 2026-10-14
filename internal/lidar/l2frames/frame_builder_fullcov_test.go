@@ -783,3 +783,24 @@ func TestClose_UnblocksBlockingSend(t *testing.T) {
 		t.Error("expected at least 1 dropped frame from shutdown path")
 	}
 }
+
+func TestAddPointsPolar_CarriesPacketKey(t *testing.T) {
+	frames := make(chan *LiDARFrame, 4)
+	fb := NewFrameBuilder(FrameBuilderConfig{SensorID: "keys", MinFramePoints: 1, FrameCallback: func(f *LiDARFrame) { frames <- f }})
+	polar := []PointPolar{
+		{Channel: 1, Azimuth: 10, Distance: 5, Timestamp: 1, BlockID: 0, PacketKey: 0xabc},
+		{Channel: 2, Azimuth: 10, Distance: 5, Timestamp: 2, BlockID: 0, PacketKey: 0xabc},
+		{Channel: 1, Azimuth: 11, Distance: 5, Timestamp: 3, BlockID: 1, PacketKey: 0xdef},
+	}
+	fb.AddPointsPolar(polar)
+	fb.Close()
+	f := <-frames
+	if len(f.Points) != 3 {
+		t.Fatalf("frame has %d points", len(f.Points))
+	}
+	for i, p := range f.Points {
+		if p.PacketKey != polar[i].PacketKey || f.PolarPoints[i].PacketKey != polar[i].PacketKey {
+			t.Fatalf("point %d key %x, want %x", i, p.PacketKey, polar[i].PacketKey)
+		}
+	}
+}

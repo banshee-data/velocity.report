@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
@@ -223,7 +224,7 @@ func TestSegmentAPISelectionAndClipQueue(t *testing.T) {
 	}
 }
 
-func TestPackInventoryReadsSidecarReview(t *testing.T) {
+func TestPackInventoryReadsLabelSetReview(t *testing.T) {
 	ws, _ := segmentServer(t)
 	vrlog := writeTestVRLOG(t, 2)
 	pack, err := annotation.Export(annotation.ExportConfig{VRLOGPath: vrlog, OutDir: filepath.Join(ws.annotationPacksDir, "one"), Coverage: annotation.CoverageForegroundOnly})
@@ -232,9 +233,11 @@ func TestPackInventoryReadsSidecarReview(t *testing.T) {
 	}
 	side := annotation.NewSidecar(pack)
 	side.Objects = []annotation.Object{{ObjectID: "a", Class: "car", Status: annotation.StatusReviewed}, {ObjectID: "b", Class: "car", Status: annotation.StatusProposed}}
-	side.Masks = []annotation.FrameMask{{ObjectID: "a", SampleID: 0, Status: annotation.StatusReviewed}, {ObjectID: "b", SampleID: 1, Status: annotation.StatusReviewed}}
-	b, _ := json.Marshal(side)
-	if err := os.WriteFile(filepath.Join(pack.Dir, "annotations.json"), b, 0644); err != nil {
+	side.Masks = []annotation.FrameMask{{ObjectID: "a", SampleID: 0, PointIndices: []int{0},
+		Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed},
+		{ObjectID: "b", SampleID: 1, PointIndices: []int{0},
+			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed}}
+	if _, err := labelset.SaveMembership(pack, side, labelset.Change{Author: "op", Operation: "review"}); err != nil {
 		t.Fatal(err)
 	}
 	item := readPackListing(pack.Dir)

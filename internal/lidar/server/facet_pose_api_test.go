@@ -58,8 +58,8 @@ func TestFacetPoseAPIIsBoundedReadOnlyAndUsesSourceEvidence(t *testing.T) {
 		return w
 	}
 	before := map[string][]byte{}
-	for _, f := range []string{"annotations.json", "feature-proposals.pb", "physical-references.json"} {
-		before[f], _ = os.ReadFile(filepath.Join(p.Dir, f))
+	for _, f := range []string{labelSetManifest(t, p.Dir), filepath.Join(p.Dir, "feature-proposals.pb"), filepath.Join(p.Dir, "physical-references.json")} {
+		before[f], _ = os.ReadFile(f)
 	}
 	b, _ := json.Marshal(req)
 	res := call(http.MethodPost, b)
@@ -71,7 +71,7 @@ func TestFacetPoseAPIIsBoundedReadOnlyAndUsesSourceEvidence(t *testing.T) {
 		t.Fatal(err, proposal)
 	}
 	for f, b := range before {
-		after, _ := os.ReadFile(filepath.Join(p.Dir, f))
+		after, _ := os.ReadFile(f)
 		if !bytes.Equal(b, after) {
 			t.Fatal("wrote", f)
 		}

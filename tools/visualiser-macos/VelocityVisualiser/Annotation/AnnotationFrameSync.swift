@@ -51,6 +51,9 @@ struct MainViewPlayback: Equatable {
     var playing = false
     /// True once the replay has run off the end of its recording.
     var finished = false
+    /// The packets the main view's frame was decoded from, which say whose
+    /// capture it is. Empty when the source sends none.
+    var packetKeys: [UInt64] = []
 }
 
 enum AnnotationFrameSync {

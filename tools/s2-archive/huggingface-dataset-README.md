@@ -86,6 +86,8 @@ derived/
   tracks/
   maps/
   metrics/
+labels/
+  <capture stem>/
 reports/
 ```
 
@@ -93,7 +95,8 @@ Directories answer one question: what kind of artefact is this? Dates, S2
 cells, and sites do not create another staircase of folders. Filesystems are
 quite capable of becoming taxonomies without encouragement.
 
-This release populates `raw/lidar/` and `derived/scenes/`. The other directories
+This release populates `raw/lidar/` and `derived/scenes/`, and `labels/` for
+the captures that carry reference labels. The other directories
 reserve the agreed homes for later radar, track, map, metric, and report
 artefacts. Their presence is not a claim that those artefacts exist.
 
@@ -102,6 +105,38 @@ contains its manifest and one or more parts with headers, timelines, indexes,
 and compressed frame chunks. Repacking that tree as a pretend single VRLOG
 would make the name simpler and the data less useful, which is the wrong
 exchange rate.
+
+## Labels
+
+Reference labels say which returns belong to which road user, frame by frame.
+They are published as label sets, beside the capture they describe:
+
+```text
+labels/<capture stem>/
+  <label set name>/   labels.json and the head files: objects, windows, masks
+  <pack directory>/   its view: one run's points of the capture, with physical
+                      references, linked to the label set beside it
+```
+
+A label set cites returns by a digest of the sensor's UDP payload, so it
+applies to the raw PCAPNG and to any other file holding the same packets. Each
+mask names the foreground extraction it was drawn on. A return outside that
+foreground was never shown to the labeller and is unlabelled, not a negative.
+Masks are `partial`: they claim what the foreground showed, not the whole
+vehicle. The view is the run the labels were drawn on, and it is what the
+annotation tools open. A capture's manifest row lists its label sets in
+`label_set_paths` and its views in `annotation_pack_paths`.
+
+| Capture                              | Label set         | Objects | Masks (reviewed) | Physical references                                                         |
+| ------------------------------------ | ----------------- | ------: | ---------------: | --------------------------------------------------------------------------- |
+| `20251205T1417_8085875c_kirkham-9th` | `kirk0-reference` |      30 |    4,102 (4,102) | 3 vehicles: 3 bodies and 22 of 44 keyframes reviewed, 2 following decisions |
+
+The label sets are maintained with the
+[velocity.report](https://github.com/banshee-data/velocity.report) annotation
+tools. To propose a correction, clone this dataset, make a branch, edit with the
+project's annotation window, run its `repin` and `check-view` checks, and open a
+pull request. The steps, and what a change commits, are in the project's
+[label set guide](https://github.com/banshee-data/velocity.report/blob/main/docs/lidar/operations/label-sets.md#editing-from-the-dataset).
 
 ## Filenames
 
@@ -197,7 +232,10 @@ the record and the scene as the convenient view.
 - `sensor_model` is not established in the release provenance and remains
   `null`.
 - `pipeline_git_sha` is unknown for the historical splitter runs.
-- The corpus contains no ground-truth object labels.
+- Reference labels cover only the captures listed under [Labels](#labels). They
+  are foreground-domain and `partial`: a return the labelling run's foreground
+  left out is unlabelled. There are no ground-truth tracks, trajectories, or
+  reference speeds.
 - Track, map, metric, report, and radar artefacts are not included yet.
 - The filename timestamp is minute-resolution; the manifest preserves the full
   timestamp and offset.

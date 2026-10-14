@@ -171,14 +171,13 @@ struct ProposalGradingTests {
 
     @Test func acceptingAProposalIsAnObjectWithEveryFrameInOneSave() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
-        let revision = session.sidecar.revision
-
         #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
 
-        #expect(session.sidecar.revision == revision + 1)
+        // One revision for every frame, after the label set's creation.
+        #expect(session.revisionHistory().map(\.operation) == ["create_from_pack", "accept_proposal"])
         #expect(session.sidecar.objects.map(\.objectClass) == ["car"])
         #expect(session.activeObjectName == "car 1")
         #expect(session.savedSampleCount(objectID: session.activeObjectID ?? "") == 8)
@@ -198,7 +197,7 @@ struct ProposalGradingTests {
     /// place by id.
     @Test func proposingAgainKeepsTheListAndItsIds() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
@@ -227,7 +226,7 @@ struct ProposalGradingTests {
     /// nothing left to find and no duplicate of what is listed.
     @Test func proposingAgainFindsNothingTwice() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         await session.proposeObjects()
         let count = session.proposals.count
@@ -241,7 +240,7 @@ struct ProposalGradingTests {
     /// on the next run would make dismissing pointless.
     @Test func aDismissedProposalDoesNotComeBack() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
@@ -261,7 +260,7 @@ struct ProposalGradingTests {
     /// Accepting one and asking again must not re-propose what is now saved.
     @Test func whatHasBeenAcceptedIsNotProposedAgain() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
@@ -277,7 +276,7 @@ struct ProposalGradingTests {
     /// grading one means walking it from where it appears.
     @Test func selectingAProposalGoesToItsFirstFrame() async throws {
         let (session, dir) = try street(12)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
 
@@ -294,7 +293,7 @@ struct ProposalGradingTests {
     /// to be shown it, and working through it means starting where it appears.
     @Test func activatingAnObjectGoesToItsFirstLabelledFrame() async throws {
         let (session, dir) = try street(12)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
         // Only part of it, so the object starts somewhere other than frame 0.
@@ -315,7 +314,7 @@ struct ProposalGradingTests {
     /// behind a bus, and the undo for a split that should not have happened.
     @Test func mergingAnObjectTakesItsFramesAndRemovesIt() async throws {
         let (session, dir) = try street(12)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
 
@@ -342,7 +341,7 @@ struct ProposalGradingTests {
     /// union is what the thing actually covered.
     @Test func mergingUnionsAFrameBothObjectsHave() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
         #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
@@ -373,7 +372,7 @@ struct ProposalGradingTests {
         // Long enough that each remainder is still worth listing: a chain
         // shorter than ObjectProposer.minimumFrames is dropped, not re-offered.
         let (session, dir) = try street(20)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
 
@@ -403,7 +402,7 @@ struct ProposalGradingTests {
 
     @Test func mergingRefusesTheCasesThatWouldLoseWork() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
         #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
@@ -420,7 +419,7 @@ struct ProposalGradingTests {
 
     @Test func fixedClutterIsOneProposalCoveringEveryFrame() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let patch = try #require(session.proposals.first { $0.kind == .fixed })
 
@@ -431,7 +430,7 @@ struct ProposalGradingTests {
 
     @Test func acceptingPartOfAProposalLeavesTheRestProposed() async throws {
         let (session, dir) = try street(12)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
 
@@ -444,7 +443,7 @@ struct ProposalGradingTests {
 
     @Test func aProposalCanBeAddedToAnObjectThatExists() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         // The operator labelled the first frame by hand.
         let car = session.createObject(objectClass: "car")
         #expect(
@@ -467,7 +466,7 @@ struct ProposalGradingTests {
 
     @Test func aFrameTheObjectAlreadyHasIsLeftAsItWasMade() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         // Proposed first, so the chain covers frame 0, and then half the car
         // is labelled there by hand.
         await session.proposeObjects()
@@ -488,7 +487,7 @@ struct ProposalGradingTests {
 
     @Test func lookingAtAProposalGoesToItAndShowsItInEachFrame() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
 
@@ -507,7 +506,7 @@ struct ProposalGradingTests {
 
     @Test func gradingWaitsForUnsavedChanges() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
         _ = session.createObject(objectClass: "van")
@@ -522,7 +521,7 @@ struct ProposalGradingTests {
 
     @Test func proposalLayersReloadWithoutRecomputingAndDismissalSurvives() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let original = session.proposals
         #expect(ProposalLayerStore(pack: session.pack).hasLayers)
@@ -541,7 +540,7 @@ struct ProposalGradingTests {
 
     @Test func aReviewedMaskSuppressesItsImmutableProposalOnReopen() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let car = try #require(session.proposals.first { $0.kind == .moving })
         #expect(session.acceptProposal(car.id, objectClass: "car") == 8)
@@ -551,7 +550,7 @@ struct ProposalGradingTests {
 
     @Test func aLayerBoundToAnotherDigestIsRefused() async throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         await session.proposeObjects()
         let path = dir.appendingPathComponent("proposals/cluster_chain@1.json")
         // Rewrite through a dictionary because the immutable layer's fields

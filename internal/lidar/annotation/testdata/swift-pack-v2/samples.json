@@ -1,0 +1,25 @@
+[
+  {
+    "sample_id": 0,
+    "source_ordinal": 0,
+    "source_frame_id": 100,
+    "timestamp_ns": 1000000000,
+    "sensor_id": "hesai-pandar40p",
+    "point_count": 4,
+    "byte_offset": 0,
+    "has_intensity": true,
+    "return_end": 400
+  },
+  {
+    "sample_id": 1,
+    "source_ordinal": 1,
+    "source_frame_id": 101,
+    "timestamp_ns": 1100000000,
+    "sensor_id": "hesai-pandar40p",
+    "point_count": 2,
+    "byte_offset": 56,
+    "has_intensity": true,
+    "return_start": 400,
+    "return_end": 800
+  }
+]

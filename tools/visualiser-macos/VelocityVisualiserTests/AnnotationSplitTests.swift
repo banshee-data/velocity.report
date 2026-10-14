@@ -96,7 +96,7 @@ struct ObjectSplitTests {
 
     @Test func whatWasOnePedestrianBecomesTwoInEveryFrame() async throws {
         let (session, dir) = try walkers(5)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         // Labelled as one, in every frame.
         let first = session.createObject(objectClass: "pedestrian")
         #expect(session.select(polygon: everything, mode: .replace))
@@ -137,7 +137,7 @@ struct ObjectSplitTests {
 
     @Test func theSplitStopsWhereTheSecondObjectWasNeverInTheLabel() async throws {
         let (session, dir) = try walkers(4)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = session.createObject(objectClass: "pedestrian")
         // Frame 0 was labelled as the first person only; frames 1-3 as both.
         #expect(
@@ -175,7 +175,7 @@ struct ObjectSplitTests {
                 + SyntheticPack.car(at: simd_float2(Float(i) * 0.25, 1.5))
         }
         let dir = try SyntheticPack.write([SyntheticPack.car(at: .zero) + strays, both(1), both(2)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
         session.operatorName = "dd"
         let first = session.createObject(objectClass: "pedestrian")
@@ -201,7 +201,7 @@ struct ObjectSplitTests {
 
     @Test func thereIsNothingToSplitUntilPointsAreTakenOut() throws {
         let (session, dir) = try walkers(2)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "pedestrian")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -218,7 +218,7 @@ struct ObjectSplitTests {
 struct EditingViewTests {
     @Test func changingTheEditingViewMovesTheCheckViewAndDropsTheSlab() throws {
         let dir = try SyntheticPack.write([SyntheticPack.car(at: .zero), SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
         session.setSlab(DepthSlab(minDepth: 0.8, maxDepth: 1.2))
         session.beginStroke()
@@ -234,7 +234,7 @@ struct EditingViewTests {
 
     @Test func theSecondViewCheckIsAboutTheFrameAndObjectItWasMadeOn() throws {
         let dir = try SyntheticPack.write([SyntheticPack.car(at: .zero), SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
         let car = session.createObject(objectClass: "car")
         session.secondViewChecked = true

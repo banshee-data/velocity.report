@@ -138,12 +138,14 @@ func TestWritePackRejectsInconsistentInput(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "pack")
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
 
-	if err := WritePack(dir, Manifest{}, []Sample{{PointCount: 1}}, nil); err == nil {
+	one := []Sample{{PointCount: 1}}
+	if err := WritePack(dir, Manifest{}, one, nil, FixtureReturns(one)); err == nil {
 		t.Fatal("samples without blocks were written")
 	}
 	// A declared point count that disagrees with the block is the mismatch
 	// that would silently shift every later sample's offset.
-	if err := WritePack(dir, Manifest{}, []Sample{{PointCount: 5}}, [][]byte{block}); err == nil {
+	five := []Sample{{PointCount: 5}}
+	if err := WritePack(dir, Manifest{}, five, [][]byte{block}, FixtureReturns(five)); err == nil {
 		t.Fatal("a block of the wrong size was written")
 	}
 }
@@ -214,7 +216,7 @@ func TestSidecarRefusesUnwritableLocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := NewSidecar(p)
-	if err := SaveSidecar(p, s); err == nil {
+	if err := saveMembership(p, s); err == nil {
 		t.Fatal("wrote a sidecar into a path that is not a directory")
 	}
 	if _, err := LoadSidecar(p); err == nil {
@@ -381,8 +383,9 @@ func TestWritePackReportsAnUnusableDestination(t *testing.T) {
 		t.Fatal(err)
 	}
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
+	samples := []Sample{{PointCount: 1}}
 	err := WritePack(filepath.Join(base, "pack"), Manifest{Coverage: CoverageFull},
-		[]Sample{{PointCount: 1}}, [][]byte{block})
+		samples, [][]byte{block}, FixtureReturns(samples))
 	if err == nil {
 		t.Fatal("wrote a pack beneath a regular file")
 	}
@@ -434,8 +437,9 @@ func TestWritePackReportsAnUncreatableStagingDirectory(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
 
 	block, _ := encodePoints(Points{X: []float32{1}, Y: []float32{1}, Z: []float32{1}})
+	samples := []Sample{{PointCount: 1}}
 	err := WritePack(filepath.Join(parent, "pack"), Manifest{Coverage: CoverageFull},
-		[]Sample{{PointCount: 1}}, [][]byte{block})
+		samples, [][]byte{block}, FixtureReturns(samples))
 	if err == nil {
 		t.Fatal("wrote a pack into a read-only parent")
 	}
@@ -455,22 +459,6 @@ func TestDirDigestReportsAnUnreadableFile(t *testing.T) {
 
 	if _, err := dirSHA256(dir); err == nil {
 		t.Fatal("digested a directory holding a file it could not read")
-	}
-}
-
-func TestSidecarReportsAFailedCommit(t *testing.T) {
-	p := synthPack(t)
-	// A non-empty directory where the sidecar belongs cannot be replaced by a
-	// rename, so the commit step fails after the temporary file is written.
-	target := filepath.Join(p.Dir, sidecarFile)
-	if err := os.Mkdir(target, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(target, "blocker"), []byte("x"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := SaveSidecar(p, NewSidecar(p)); err == nil {
-		t.Fatal("a sidecar reported success without committing")
 	}
 }
 
