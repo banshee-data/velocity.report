@@ -175,6 +175,14 @@ revision. A local journal gets one line from its tip to that state, so its histo
 the merge, and it must end at `labels.json`'s head; a copy without a journal just has a new head.
 Files holding the head's state in another layout are rewritten without a revision.
 
+Git can finish a merge by itself (`labels git-setup`). The `labels.json` driver,
+`MergeManifests`, keeps this branch's head, adds the other branch's verified files, and records
+the merge as `merge: {base, theirs}` when both branches moved their heads. A set holding a merge
+record opens for nothing but `FinishMerge`, which clears it and reheads; the hooks run it, through
+`FinishMerges`, before Git commits the merge. A rebase does not run the hooks, and leaves sets that
+refuse to open until `finish-merge` runs. `physical-references.json` merges record by record
+(`annotation.MergePhysicalReferences`).
+
 ## Binding a capture file
 
 `Bind` reads a PCAP or PCAPNG, keys every UDP packet to or from the port, and records in

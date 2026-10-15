@@ -164,3 +164,20 @@ func TestFirstSaveInTheLayoutThenNest(t *testing.T) {
 		t.Fatalf("membership after the move: %+v %v", back, err)
 	}
 }
+
+// A dataset publishes views only: a pack anywhere else in the tree is a
+// problem for check-tree, and a nested view that holds is not.
+func TestCheckTreeFindsAPackOutsideViews(t *testing.T) {
+	root := t.TempDir()
+	labelledPack(t, filepath.Join(root, "kirk0", annotation.PacksDir, "run-a"), filepath.Join(root, "kirk0", "kirk0-reference"), "run-a")
+	r, err := CheckTree(root)
+	if err == nil || len(r.Problems) != 1 || !strings.Contains(r.Problems[0], "outside any label set's views/") {
+		t.Fatalf("%v %+v", err, r)
+	}
+	if _, err := Nest(root, false); err != nil {
+		t.Fatal(err)
+	}
+	if r, err := CheckTree(root); err != nil || len(r.Views) != 1 {
+		t.Fatalf("after nest: %v %+v", err, r)
+	}
+}

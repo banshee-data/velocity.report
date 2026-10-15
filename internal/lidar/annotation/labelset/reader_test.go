@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -26,17 +27,18 @@ func setJSONField(t *testing.T, path, field, value string) {
 
 func TestMinReaderAboveThisBuildIsRefused(t *testing.T) {
 	dir, _ := newSet(t)
-	setJSONField(t, filepath.Join(dir, ManifestFile), "min_reader", "2")
+	above := strconv.Itoa(annotation.ReaderLevel + 1)
+	setJSONField(t, filepath.Join(dir, ManifestFile), "min_reader", above)
 	_, err := Open(dir)
-	if err == nil || !strings.Contains(err.Error(), "needs reader level 2") {
-		t.Fatalf("a set needing level 2 opened: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "needs reader level "+above) {
+		t.Fatalf("a set needing a newer reader opened: %v", err)
 	}
 
 	packDir := filepath.Join(t.TempDir(), "pack")
 	writeTestPack(t, packDir, []uint64{1}, []testFrame{{0, 1, []uint64{5}}}, "run-a")
-	setJSONField(t, filepath.Join(packDir, "manifest.json"), "min_reader", "2")
-	if _, err := annotation.OpenPack(packDir); err == nil || !strings.Contains(err.Error(), "needs reader level 2") {
-		t.Fatalf("a pack needing level 2 opened: %v", err)
+	setJSONField(t, filepath.Join(packDir, "manifest.json"), "min_reader", above)
+	if _, err := annotation.OpenPack(packDir); err == nil || !strings.Contains(err.Error(), "needs reader level "+above) {
+		t.Fatalf("a pack needing a newer reader opened: %v", err)
 	}
 }
 

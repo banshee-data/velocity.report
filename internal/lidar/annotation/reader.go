@@ -11,8 +11,9 @@ import "fmt"
 // no min_reader is level 1.
 //
 // Raise ReaderLevel with the first writer that needs it, and name the level
-// and what it adds in the label set README.
-const ReaderLevel = 1
+// and what it adds in the label set README. Level 2 adds reviews pinned to
+// the masks they rest on (MembershipPin.Masks).
+const ReaderLevel = 2
 
 // CheckReader refuses a file whose min_reader is above this build's level.
 func CheckReader(what string, minReader int) error {

@@ -79,6 +79,10 @@ type Manifest struct {
 	Storage       Storage    `json:"storage"`
 	MigratedFrom  *Migration `json:"migrated_from,omitempty"`
 	Note          string     `json:"note,omitempty"`
+	// Merge marks a Git merge whose head files are not a revision yet: the
+	// merge driver writes it, FinishMerge clears it, and nothing else opens
+	// a set that has one.
+	Merge *MergeRecord `json:"merge,omitempty"`
 }
 
 // LabelSet is an opened label set. Edit State, then Save.
@@ -749,6 +753,18 @@ func journalTip(root *os.Root) (*Delta, int, error) {
 }
 
 func readManifest(root *os.Root) (*Manifest, error) {
+	m, err := readManifestOfMerge(root)
+	if err != nil {
+		return nil, err
+	}
+	if m.Merge != nil {
+		return nil, fmt.Errorf("%w: run 'velocity lidar labels finish-merge' (Git runs it from the hooks 'labels git-setup' installs)", ErrUnfinishedMerge)
+	}
+	return m, nil
+}
+
+// readManifestOfMerge is readManifest, also for a set mid-merge.
+func readManifestOfMerge(root *os.Root) (*Manifest, error) {
 	b, err := readFile(root, ManifestFile)
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", ManifestFile, err)

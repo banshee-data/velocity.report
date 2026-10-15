@@ -169,10 +169,14 @@ struct PhysicalReview: Codable, Equatable {
     }
 }
 
-/// One membership sidecar revision, by number and exact-byte digest.
+/// One membership sidecar revision, by number and exact-byte digest, and
+/// from reader level 2 the masks the review rested on (Go's
+/// `MembershipPin.Masks`), which the service judges drift by. Carried so a
+/// document sent back keeps it.
 struct PhysicalMembershipPin: Codable, Equatable {
     var revision: Int
     var digest: String
+    var masks: String?
 }
 
 /// An object's persistent body belief, apart from any keyframe's pose.

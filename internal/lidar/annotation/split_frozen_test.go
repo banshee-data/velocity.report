@@ -1591,6 +1591,45 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s0")); err != nil {
 		t.Fatal(err)
 	}
+	stripMaskPins(t, p)
+	// A membership change in a frame nothing reviewed cites.
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 5 {
+			s.Masks[i].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+		}
+	}
+	s.Change = Provenance{Author: "op", Operation: "revise"}
+	if err := saveMembership(p, s); err != nil {
+		t.Fatal(err)
+	}
+	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+	if f.Packs[0].SidecarRevision != 2 || f.Packs[0].Physical.Revision != 3 {
+		t.Fatalf("pins %+v", f.Packs[0])
+	}
+	_, bound, err := f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.BindPhysical(p, bound); err != nil {
+		t.Fatal(err)
+	}
+	forgetMembershipHistory(p)
+	_, bound, err = f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.BindPhysical(p, bound)
+	wantError(t, err, "reviewed against membership revision 1, which is no longer retained")
+}
+
+// The same, pinned to the masks it rests on: the review holds without history.
+func TestBindPhysicalHoldsMaskPinnedReviewsWithoutHistory(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	savePhysicalDoc(t, p, validPhysical(p))
+	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s0")); err != nil {
+		t.Fatal(err)
+	}
 	// A membership change in a frame nothing reviewed cites.
 	for i := range s.Masks {
 		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 5 {
@@ -1617,8 +1656,10 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = f.BindPhysical(p, bound)
-	wantError(t, err, "reviewed against membership revision 1, which is no longer retained")
+	// A review pinned to its masks still shows it holds.
+	if _, err := f.BindPhysical(p, bound); err != nil {
+		t.Fatalf("a mask-pinned review did not hold without history: %v", err)
+	}
 }
 
 // legacyVersion2 re-encodes a frozen split as the version 2 layout an

@@ -68,17 +68,22 @@ func viewSource(t *testing.T) (packDir, setDir string) {
 }
 
 // pinPhysical saves one reviewed keyframe of obj_b, resting on sample 0 and
-// pinned to the label set's current head.
+// pinned to the label set's current head and to obj_b's mask there.
 func pinPhysical(t *testing.T, p *annotation.Pack, ls *LabelSet) {
 	t.Helper()
 	doc, err := annotation.LoadPhysicalReferences(p)
 	if err != nil {
 		t.Fatal(err)
 	}
+	sc, err := annotation.LoadSidecar(p)
+	if err != nil {
+		t.Fatal(err)
+	}
 	review := annotation.PhysicalReview{
 		Status: annotation.StatusReviewed, Origin: annotation.OriginIndependent, Method: "manual_box",
 		UncertaintyAssumptions: "hard bounds", Provenance: annotation.Provenance{Author: "dd"},
-		ReviewedAgainst: &annotation.MembershipPin{Revision: ls.Revision(), Digest: ls.StateDigest()},
+		ReviewedAgainst: &annotation.MembershipPin{Revision: ls.Revision(), Digest: ls.StateDigest(),
+			Masks: sc.SupportMasksDigest("obj_b", []int{0})},
 	}
 	doc.Change = annotation.Provenance{Author: "dd", Operation: "author"}
 	doc.Objects = []annotation.PhysicalObject{{
@@ -245,18 +250,42 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 		t.Fatalf("the edit left %v beside the head files", local)
 	}
 
-	// The review rests on sample 0, which the edit changed for obj_a but not
-	// obj_b: a fresh copy cannot rebuild the pinned revision until the
-	// editor re-pins it.
-	if r, err := CheckView(view); err == nil || !strings.Contains(strings.Join(r.Problems, "\n"), "no longer retained") {
-		t.Fatalf("an unpinned edit passed the fresh-copy check: %v %+v", err, r)
+	// The review rests on obj_b's mask at sample 0, which the edit to obj_a
+	// left alone: it pins that mask, so a fresh copy sees it hold with
+	// nothing re-pinned.
+	if r, err := CheckView(view); err != nil {
+		t.Fatalf("an edit elsewhere failed the fresh-copy check: %v %+v", err, r)
 	}
-	n, drifted, err := annotation.RepinUnchangedReviews(pub, "researcher", "")
-	if err != nil || n != 1 || drifted != 0 {
+	if n, drifted, err := annotation.RepinUnchangedReviews(pub, "researcher", ""); err != nil || n != 0 || drifted != 0 {
 		t.Fatalf("re-pin: %d re-pinned, %d drifted, %v", n, drifted, err)
 	}
-	if r, err := CheckView(view); err != nil {
-		t.Fatalf("after the re-pin: %v %+v", err, r)
+
+	// A review pinned by revision only, as before reader level 2, cannot be
+	// shown to hold by a fresh copy until the editor re-pins it.
+	stripMaskPins(t, pub)
+	if r, err := CheckView(view); err == nil || !strings.Contains(strings.Join(r.Problems, "\n"), "no longer retained") {
+		t.Fatalf("a revision-only pin passed the fresh-copy check after an edit: %v %+v", err, r)
+	}
+}
+
+// stripMaskPins rewrites a pack's review pins as an older build wrote them,
+// by revision only.
+func stripMaskPins(t *testing.T, p *annotation.Pack) {
+	t.Helper()
+	doc, err := annotation.LoadPhysicalReferences(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := range doc.Objects {
+		for k := range doc.Objects[i].Keyframes {
+			if pin := doc.Objects[i].Keyframes[k].Review.ReviewedAgainst; pin != nil {
+				pin.Masks = ""
+			}
+		}
+	}
+	doc.Change = annotation.Provenance{Author: "older build", Operation: "save"}
+	if err := annotation.SavePhysicalReferences(p, doc); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -274,9 +303,10 @@ func TestCheckViewNamesAMissingPack(t *testing.T) {
 	}
 }
 
-// What a committer sees: git reports the label set's two edited files and,
-// after the re-pin, the view's physical references, with every other file
-// the editors wrote ignored by the dataset's rules.
+// What a committer sees: git reports the label set's two edited files, with
+// every other file the editors wrote ignored by the dataset's rules; the
+// view's physical references, pinned to masks the edit did not touch, are
+// unchanged by the re-pin.
 func TestPublishedViewEditInGit(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not installed")
@@ -330,7 +360,6 @@ func TestPublishedViewEditInGit(t *testing.T) {
 	if _, _, err := annotation.RepinUnchangedReviews(pub, "researcher", ""); err != nil {
 		t.Fatal(err)
 	}
-	want += " M " + rel(filepath.Join(view, annotation.PhysicalReferencesFile)) + "\n"
 	if got := git("status", "--porcelain"); got != want {
 		t.Fatalf("after the re-pin git reports\n%s\nwant\n%s", got, want)
 	}
@@ -384,8 +413,11 @@ func TestPublishViewRefuses(t *testing.T) {
 	}
 	refused("an unattached run", runB.Dir, pubSet, filepath.Join(views, "pack-b"), "labels attach")
 
-	// The source moves on: the published set is behind it. Republished, the
-	// review stays pinned to the old head, which a fresh copy cannot rebuild.
+	// The source moves on: the published set is behind it. Republished, a
+	// review pinned by revision only stays pinned to the old head, which a
+	// fresh copy cannot rebuild.
+	src, _ := annotation.OpenPack(packDir)
+	stripMaskPins(t, src)
 	ls.State.Masks[0].Members = Union(ls.State.Masks[0].Members, Ranges{{ls.State.Masks[0].Members[0].Start + 2, 1}})
 	if err := ls.Save(Change{Author: "dd", Operation: "save_mask"}); err != nil {
 		t.Fatal(err)

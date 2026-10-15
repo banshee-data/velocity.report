@@ -46,6 +46,18 @@ Commands:
             layout, or with another --window-chunk); the state is unchanged
   nest      Move an annotation tree into the layout: sets in their capture
             folder, linked packs in the set's views/, others in packs/
+  diff      What a change did to a label set, between two folders or two
+            Git revisions (--git REV[..REV] --labels SET); --format markdown
+            for a pull request
+  check-tree
+            Check every set and view of a dataset's labels/ at once
+  git-setup Install the merge drivers and hooks that let Git finish a merge
+            of label sets, in a dataset clone
+  finish-merge
+            Make merged label sets' head files their next revision (the
+            hooks git-setup installs run it)
+  merge-driver
+            The merge driver git-setup configures (head|refs %O %A %B %P)
   census    Count packet keys in capture files and report duplicates`
 
 // LabelsMain routes `velocity lidar labels`.
@@ -59,6 +71,8 @@ func LabelsMain(args []string) int {
 		"verify": labelsVerify, "info": labelsInfo, "project": labelsProject, "publish": labelsPublish,
 		"publish-view": labelsPublishView, "check-view": labelsCheckView, "rehead": labelsRehead, "relayout": labelsRelayout,
 		"nest": labelsNest, "census": labelsCensus,
+		"diff": labelsDiff, "check-tree": labelsCheckTree, "git-setup": labelsGitSetup,
+		"finish-merge": labelsFinishMerge, "merge-driver": labelsMergeDriver,
 	}
 	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Println(labelsUsage)

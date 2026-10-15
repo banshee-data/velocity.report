@@ -11,7 +11,8 @@
 import Foundation
 
 enum ReaderLevel {
-    static let current = 1
+    /// Level 2 adds reviews pinned to the masks they rest on.
+    static let current = 2
 
     /// Why this build cannot read a file that needs `minReader`, or nil.
     static func refusal(_ what: String, minReader: Int?) -> String? {

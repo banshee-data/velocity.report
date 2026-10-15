@@ -3,6 +3,7 @@ package annotation
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -178,8 +179,11 @@ func ReviewPhysicalRecord(p *Pack, req PhysicalReviewRequest) (*PhysicalEditOutc
 	next := *current
 	next.Objects = clonePhysicalObjects(current.Objects)
 	// The membership pin is checked again under the lock at commit, so the
-	// revision recorded here is the one the reviewer saw.
-	pin := &MembershipPin{Revision: sidecar.Revision, Digest: sidecar.baseDigest}
+	// revision and masks recorded here are the ones the reviewer saw.
+	pin := func(object string, frames []int) *MembershipPin {
+		return &MembershipPin{Revision: sidecar.Revision, Digest: sidecar.baseDigest,
+			Masks: sidecar.SupportMasksDigest(object, frames)}
+	}
 	found := false
 	for i := range next.Objects {
 		o := &next.Objects[i]
@@ -190,14 +194,14 @@ func ReviewPhysicalRecord(p *Pack, req PhysicalReviewRequest) (*PhysicalEditOutc
 		case PhysicalRecordBody:
 			if o.Body != nil && o.Body.BodyID == req.RecordID {
 				o.Body.Review.Status = StatusReviewed
-				o.Body.Review.ReviewedAgainst = pin
+				o.Body.Review.ReviewedAgainst = pin(o.ObjectID, bodyFrames(o.Body))
 				found = true
 			}
 		case PhysicalRecordKeyframe:
 			for k := range o.Keyframes {
 				if o.Keyframes[k].KeyframeID == req.RecordID {
 					o.Keyframes[k].Review.Status = StatusReviewed
-					o.Keyframes[k].Review.ReviewedAgainst = pin
+					o.Keyframes[k].Review.ReviewedAgainst = pin(o.ObjectID, keyframeFrames(o.Keyframes[k]))
 					found = true
 				}
 			}
@@ -515,6 +519,25 @@ func (r *PhysicalReferenceSet) reviewVerdicts(p *Pack, current *Sidecar) []revie
 		drifted := func(problem string) {
 			out = append(out, reviewVerdict{key: key, drift: &LinkProblem{Record: record, Problem: problem}})
 		}
+		// A pin of the masks themselves needs no history: the review holds
+		// while they are what the reviewer saw, whatever else changed. The
+		// sample that changed is named when the pinned revision is still
+		// retained to compare with.
+		if pin.Masks != "" {
+			if current.SupportMasksDigest(object, frames) == pin.Masks {
+				return
+			}
+			if then := membership(pin.Revision); then != nil && then.baseDigest == pin.Digest {
+				for _, f := range frames {
+					if !sameMask(then.mask(object, f), current.mask(object, f)) {
+						drifted(fmt.Sprintf("membership at sample %d changed after review (revision %d, now %d): review again", f, pin.Revision, current.Revision))
+						return
+					}
+				}
+			}
+			drifted(fmt.Sprintf("membership at the reviewed samples changed after review (reviewed at revision %d, now %d): review again", pin.Revision, current.Revision))
+			return
+		}
 		then := membership(pin.Revision)
 		if then == nil || then.baseDigest != pin.Digest {
 			drifted(fmt.Sprintf("reviewed against membership revision %d, which is no longer retained as reviewed: review again", pin.Revision))
@@ -531,21 +554,69 @@ func (r *PhysicalReferenceSet) reviewVerdicts(p *Pack, current *Sidecar) []revie
 	for _, o := range r.Objects {
 		if o.Body != nil {
 			b := o.Body
-			check("body/"+b.BodyID, fmt.Sprintf("object %q body %q", o.ObjectID, b.BodyID), o.ObjectID, b.Review,
-				supportFrames(b.Length.Support, b.Width.Support, b.Height.Support))
+			check("body/"+b.BodyID, fmt.Sprintf("object %q body %q", o.ObjectID, b.BodyID), o.ObjectID, b.Review, bodyFrames(b))
 		}
 		for _, k := range o.Keyframes {
-			frames := supportFrames(k.Position.Support, k.Yaw.Support, k.Front.Support, k.Rear.Support)
-			frames = append(frames, k.SampleID)
-			check("keyframe/"+k.KeyframeID, fmt.Sprintf("object %q keyframe %q", o.ObjectID, k.KeyframeID), o.ObjectID, k.Review, frames)
+			check("keyframe/"+k.KeyframeID, fmt.Sprintf("object %q keyframe %q", o.ObjectID, k.KeyframeID), o.ObjectID, k.Review, keyframeFrames(k))
 		}
 	}
 	return out
 }
 
+// bodyFrames are the samples a body's review rests on.
+func bodyFrames(b *BodyGeometry) []int {
+	return supportFrames(b.Length.Support, b.Width.Support, b.Height.Support)
+}
+
+// keyframeFrames are the samples a keyframe's review rests on: its support
+// and its own sample.
+func keyframeFrames(k PhysicalKeyframe) []int {
+	return append(supportFrames(k.Position.Support, k.Yaw.Support, k.Front.Support, k.Rear.Support), k.SampleID)
+}
+
+// SupportMasksDigest is the digest a mask pin records: the object's mask at
+// each of frames, in sample order, as the review saw it (members, uncertain
+// returns and status; sameMask's comparison), with an absent mask recorded
+// as absent.
+func (s *Sidecar) SupportMasksDigest(object string, frames []int) string {
+	type frameMask struct {
+		SampleID  int          `json:"sample_id"`
+		Absent    bool         `json:"absent,omitempty"`
+		Status    ReviewStatus `json:"status,omitempty"`
+		Members   []int        `json:"members,omitempty"`
+		Uncertain []int        `json:"uncertain,omitempty"`
+	}
+	samples := append([]int(nil), frames...)
+	sort.Ints(samples)
+	var out []frameMask
+	for i, f := range samples {
+		if i > 0 && f == samples[i-1] {
+			continue
+		}
+		m := s.mask(object, f)
+		if m == nil {
+			out = append(out, frameMask{SampleID: f, Absent: true})
+			continue
+		}
+		members := append([]int(nil), m.PointIndices...)
+		uncertain := append([]int(nil), m.UncertainIndices...)
+		sort.Ints(members)
+		sort.Ints(uncertain)
+		out = append(out, frameMask{SampleID: f, Status: m.Status, Members: members, Uncertain: uncertain})
+	}
+	b, err := json.Marshal(out)
+	if err != nil {
+		return ""
+	}
+	return sha256Hex(b)
+}
+
 // RepinUnchangedReviews moves to the current membership the pin of every
 // reviewed body and keyframe whose frames are unchanged since its review,
-// as one new revision. A published label set carries no history, so a later
+// as one new revision, and gives every pin it moves, or that already names
+// the current membership, the masks it rests on (MembershipPin.Masks). A
+// pin with masks needs no moving after an edit elsewhere: it holds without
+// history, so this is mostly how older pins are brought to masks. A published label set carries no history, so a later
 // copy cannot rebuild the membership a review pinned and would report every
 // review as no longer retained. Whoever saves a membership edit still holds
 // that history locally, and re-pins what the edit did not touch before
@@ -568,14 +639,14 @@ func RepinUnchangedReviews(p *Pack, author, session string) (repinned, drifted i
 			drifted++
 		}
 	}
-	if len(stale) == 0 {
-		return 0, drifted, nil
-	}
 	next := *doc
 	next.Objects = clonePhysicalObjects(doc.Objects)
-	repin := func(key string, r *PhysicalReview) {
-		if stale[key] {
-			r.ReviewedAgainst = &MembershipPin{Revision: sidecar.Revision, Digest: sidecar.baseDigest}
+	repin := func(key, object string, frames []int, r *PhysicalReview) {
+		pin := r.ReviewedAgainst
+		current := pin != nil && r.Status == StatusReviewed && pin.Digest == sidecar.baseDigest && pin.Masks == ""
+		if stale[key] || current {
+			r.ReviewedAgainst = &MembershipPin{Revision: sidecar.Revision, Digest: sidecar.baseDigest,
+				Masks: sidecar.SupportMasksDigest(object, frames)}
 			repinned++
 		}
 	}
@@ -583,12 +654,15 @@ func RepinUnchangedReviews(p *Pack, author, session string) (repinned, drifted i
 		o := &next.Objects[i]
 		if o.Body != nil {
 			body := *o.Body
-			repin("body/"+body.BodyID, &body.Review)
+			repin("body/"+body.BodyID, o.ObjectID, bodyFrames(&body), &body.Review)
 			o.Body = &body
 		}
 		for k := range o.Keyframes {
-			repin("keyframe/"+o.Keyframes[k].KeyframeID, &o.Keyframes[k].Review)
+			repin("keyframe/"+o.Keyframes[k].KeyframeID, o.ObjectID, keyframeFrames(o.Keyframes[k]), &o.Keyframes[k].Review)
 		}
+	}
+	if repinned == 0 {
+		return 0, drifted, nil
 	}
 	next.Change = Provenance{Author: author, Session: session, Operation: "repin_reviews"}
 	digest := sidecar.baseDigest

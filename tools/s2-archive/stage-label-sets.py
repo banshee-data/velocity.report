@@ -46,6 +46,10 @@ GITATTRIBUTES = [
     "# Their text stays in plain Git, one record per line, so diffs and merges work;",
     "# *.bin goes through LFS/Xet by the dataset-wide rule.",
     "labels/** -text",
+    "# Git finishes a merge of label sets through these drivers and the hooks",
+    "# 'velocity lidar labels git-setup' installs in a clone.",
+    "labels/**/labels.json merge=labelset-head",
+    "labels/**/physical-references.json merge=labelset-refs",
 ]
 # Rules an earlier staging wrote that the storage layout retires.
 OBSOLETE_GITATTRIBUTES = [
