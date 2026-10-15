@@ -447,3 +447,29 @@ func TestFindClipPackReportsAnUnreadableDirectory(t *testing.T) {
 		t.Fatalf("missing directory: %+v %v %v", pack, unfinished, err)
 	}
 }
+
+// A clip pack moved into a label set's views/ is found by its segment
+// record, and a pack whose record names another segment is not opened.
+func TestMovedClipPackIsFoundBySegment(t *testing.T) {
+	ws, _ := segmentServer(t)
+	jobID, segmentID := queuedClip(t, ws)
+	pack, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
+	stored, err := ws.storedPackDir(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(ws.annotationPacksDir, "capture", "set", annotation.ViewsDir, "v1")
+	if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(pack, moved); err != nil {
+		t.Fatal(err)
+	}
+	locator := &segmentPackLocator{ws: ws}
+	if got := locator.path(stored, segmentID); got != moved {
+		t.Fatalf("found %s, want %s", got, moved)
+	}
+	if got := locator.path(stored, "another-segment"); got != ws.segmentPackPath(stored) {
+		t.Fatalf("another segment found %s", got)
+	}
+}

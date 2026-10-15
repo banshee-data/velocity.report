@@ -175,7 +175,8 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 		return
 	}
 	placed := annotation.NewPackDir(root, annotation.CaptureName(pack.Manifest), name)
-	if err := os.MkdirAll(filepath.Dir(placed), 0o755); err == nil {
+	err = os.MkdirAll(filepath.Dir(placed), 0o755)
+	if err == nil {
 		err = os.Rename(outDir, placed)
 	}
 	if err != nil {

@@ -26,15 +26,41 @@ func (ws *Server) segmentPackPath(stored string) string {
 // set's views/ folder, the pack in the tree whose segment record names the
 // segment. The row is left as it is.
 func (ws *Server) segmentPackPathFor(stored, segmentID string) string {
-	dir := ws.segmentPackPath(stored)
+	return (&segmentPackLocator{ws: ws}).path(stored, segmentID)
+}
+
+// segmentPackLocator finds segments' packs for one request, listing the tree
+// and reading its segment records at most once however many windows ask.
+type segmentPackLocator struct {
+	ws        *Server
+	bySegment map[string][]string
+}
+
+func (l *segmentPackLocator) path(stored, segmentID string) string {
+	dir := l.ws.segmentPackPath(stored)
 	if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err == nil {
 		return dir
 	}
-	dirs, err := annotation.ListPackDirs(ws.annotationPacksDir)
-	if err != nil {
-		return dir
+	if l.bySegment == nil {
+		l.bySegment = map[string][]string{}
+		dirs, _ := annotation.ListPackDirs(l.ws.annotationPacksDir)
+		for _, candidate := range dirs {
+			b, err := os.ReadFile(filepath.Join(candidate, "segment.json"))
+			if err != nil {
+				continue
+			}
+			var rec struct {
+				Segment struct {
+					ID string `json:"id"`
+				} `json:"segment"`
+			}
+			if json.Unmarshal(b, &rec) == nil && rec.Segment.ID != "" {
+				l.bySegment[rec.Segment.ID] = append(l.bySegment[rec.Segment.ID], candidate)
+			}
+		}
 	}
-	for _, candidate := range dirs {
+	// Only a pack whose record names the segment is opened and verified.
+	for _, candidate := range l.bySegment[segmentID] {
 		if _, whole := segmentPackDigest(candidate, segmentID); whole {
 			return candidate
 		}

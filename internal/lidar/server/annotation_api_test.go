@@ -558,3 +558,27 @@ func TestHandleAnnotationExportRefusesARecordingWithoutReturnIdentity(t *testing
 		t.Errorf("a refused export left %d entries in the packs directory", len(entries))
 	}
 }
+
+// A pack that cannot be moved into its capture folder is an error, not a
+// success pointing at a folder that was never made, and leaves nothing
+// behind at the root.
+func TestHandleAnnotationExportReportsAPackItCannotPlace(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(testDB)
+	vrlogDir := writeTestVRLOG(t, 3)
+	insertRunWithVRLog(t, store, "good-run", vrlogDir)
+	packsRoot := t.TempDir()
+	// A file where the capture folder would go.
+	if err := os.WriteFile(filepath.Join(packsRoot, "capture"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws := &Server{db: testDB, annotationPacksDir: packsRoot, vrlogSafeDir: filepath.Dir(vrlogDir)}
+	rec := postAnnotationExport(ws, "good-run", map[string]any{"coverage": "full"})
+	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "capture folder") {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	if left, _ := filepath.Glob(filepath.Join(packsRoot, ".export-*")); len(left) != 0 {
+		t.Fatalf("the failed export left %v", left)
+	}
+}

@@ -180,6 +180,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 		return nil, sel, err
 	}
 	store := sqlite.NewSegmentStore(ws.db)
+	packs := &segmentPackLocator{ws: ws}
 	for i := range windows {
 		status, err := store.Status(windows[i].ID)
 		if errors.Is(err, sqlite.ErrNotFound) {
@@ -198,7 +199,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 		}
 		if status.PackDir != "" {
 			windows[i].Status = "packed"
-			windows[i].PackDir = ws.segmentPackPathFor(status.PackDir, windows[i].ID)
+			windows[i].PackDir = packs.path(status.PackDir, windows[i].ID)
 		}
 	}
 	return windows, sel, nil
