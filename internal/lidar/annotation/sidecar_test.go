@@ -1,8 +1,6 @@
 package annotation
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -36,7 +34,7 @@ func TestProposalsNeverBecomeReference(t *testing.T) {
 		{ObjectID: "obj_real", SampleID: 1, PointIndices: []int{0},
 			Completeness: MaskPartial, Visibility: VisiblePresent, Status: StatusProposed},
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	reloaded, err := LoadSidecar(p)
@@ -66,12 +64,12 @@ func TestConflictingMembershipIsRejected(t *testing.T) {
 	s.Objects = []Object{reviewedObject("obj_a", "car"), reviewedObject("obj_b", "car")}
 	s.Masks = []FrameMask{mask("obj_a", 0, 0, 1), mask("obj_b", 0, 1, 2)}
 
-	if err := SaveSidecar(p, s); err == nil {
+	if err := saveMembership(p, s); err == nil {
 		t.Fatal("a point claimed by two objects was written")
 	}
 	// The same point in different samples is not a conflict.
 	s.Masks = []FrameMask{mask("obj_a", 0, 0, 1), mask("obj_b", 1, 0, 1)}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("the same index in different samples was refused: %v", err)
 	}
 }
@@ -84,7 +82,7 @@ func TestUncertainPointsCannotAlsoBeMembers(t *testing.T) {
 	m.UncertainIndices = []int{1, 2}
 	s.Masks = []FrameMask{m}
 
-	if err := SaveSidecar(p, s); err == nil {
+	if err := saveMembership(p, s); err == nil {
 		t.Fatal("a point was both a confirmed member and uncertain")
 	}
 }
@@ -105,7 +103,7 @@ func TestReferenceIdentityIsIndependentOfPredictedTracks(t *testing.T) {
 		StartNs:  1_000_000_000, EndNs: 2_000_000_000,
 		Note: "predicted split; one physical vehicle",
 	}}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -116,7 +114,7 @@ func TestReferenceIdentityIsIndependentOfPredictedTracks(t *testing.T) {
 		t.Fatalf("reload: %v", err)
 	}
 	reloaded.Correspondences[0].TrackIDs = []string{"trk_totally_different"}
-	if err := SaveSidecar(p, reloaded); err != nil {
+	if err := saveMembership(p, reloaded); err != nil {
 		t.Fatalf("save after a fresh run: %v", err)
 	}
 
@@ -161,20 +159,21 @@ func TestSidecarRejectsUnknownReferences(t *testing.T) {
 			s := NewSidecar(p)
 			s.Objects = []Object{reviewedObject("obj_a", "car")}
 			mutate(s)
-			if err := SaveSidecar(p, s); err == nil {
+			if err := saveMembership(p, s); err == nil {
 				t.Fatal("invalid sidecar was written")
 			}
 		})
 	}
 }
 
-// A damaged sidecar must report why rather than opening as if empty, which
-// would silently discard a session's labelling.
+// Membership that cannot be read must report why rather than opening as if
+// empty, which would silently discard a session's labelling.
 func TestDamagedSidecarFailsLoudly(t *testing.T) {
 	p := synthPack(t)
-	if err := os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("{not json"), 0o644); err != nil {
+	if err := saveMembership(p, NewSidecar(p)); err != nil {
 		t.Fatal(err)
 	}
+	breakMembership(p)
 	if _, err := LoadSidecar(p); err == nil {
 		t.Fatal("a corrupt sidecar loaded as though it were valid")
 	}
@@ -198,7 +197,7 @@ func TestSaveIsCanonicalAndStable(t *testing.T) {
 	s := NewSidecar(p)
 	s.Objects = []Object{reviewedObject("obj_b", "car"), reviewedObject("obj_a", "bus")}
 	s.Masks = []FrameMask{mask("obj_b", 1, 3, 1), mask("obj_a", 0, 2, 0)}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 
@@ -223,7 +222,7 @@ func TestDismissedProposalsAreNamedOnce(t *testing.T) {
 	if err := s.Validate(p); err != nil {
 		t.Fatalf("distinct dismissals were refused: %v", err)
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatalf("save: %v", err)
 	}
 	reloaded, err := LoadSidecar(p)

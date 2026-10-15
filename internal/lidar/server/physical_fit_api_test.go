@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 )
 
 // fitTestPack writes ten samples of a stationary 4.5 by 1.8 m box side-on to
@@ -45,7 +46,7 @@ func fitTestPack(t *testing.T, root, name string) *annotation.Pack {
 			Handedness: "right", OriginNote: "sensor origin"},
 	}
 	dir := filepath.Join(root, name, "pack")
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)
@@ -63,7 +64,7 @@ func fitTestPack(t *testing.T, root, name string) *annotation.Pack {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car-1", SampleID: i, PointIndices: all,
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	return p

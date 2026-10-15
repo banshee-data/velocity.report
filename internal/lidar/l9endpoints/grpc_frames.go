@@ -93,6 +93,10 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 			DecimationMode:  pb.DecimationMode(pc.DecimationMode),
 			DecimationRatio: pc.DecimationRatio,
 			PointCount:      int32(pc.PointCount),
+			// The packets the frame was decoded from: enough for a client to
+			// check it is replaying the capture a label set names, without the
+			// per-point returns.
+			PacketKeys: pc.PacketKeys,
 		}
 	}
 

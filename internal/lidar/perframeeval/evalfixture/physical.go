@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -239,7 +240,7 @@ func writePhysicalPack(dir string) (*annotation.Pack, error) {
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor",
 			Handedness: "right", OriginNote: "fixture"},
 	}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		return nil, err
 	}
 	pack, err := annotation.OpenPack(dir)
@@ -264,7 +265,7 @@ func writePhysicalPack(dir string) (*annotation.Pack, error) {
 		s.Masks = append(s.Masks, follow, annotation.FrameMask{ObjectID: Leader, SampleID: i, PointIndices: leaderMasks[i],
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: "fixture", Operation: "fixture"}); err != nil {
 		return nil, err
 	}
 	return pack, nil

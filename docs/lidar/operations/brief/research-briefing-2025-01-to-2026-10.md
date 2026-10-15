@@ -589,7 +589,7 @@ interpretable statistical approach for roadside LiDAR background subtraction_, I
 from the abstract.
 
 1. **What they measure.** Baumann et al. treat background estimation as per-beam temporal
-   modelling and compare a cell-free-time baseline, a density-aware variant, a
+   modelling and compare a coarse-fine triangle algorithm (CFTA) baseline, a density-aware variant, a
    quantile-constrained Gaussian, a beam-wise Gaussian mixture and an image-based mixture, with
    and without spatial consistency filtering, on a new HighwayScene set (Blickfeld QB2, Ouster
    OS0 and Aeva Aeries II; 5,997 frames split 4,000, 1,000 and 997) and on 76 newly annotated
@@ -599,8 +599,8 @@ from the abstract.
    Filtering costs 6 to 39 ms a frame on a desktop CPU. Data, annotations and code are to be
    released at the HighwayScene page. Iglesias et al. build a Gaussian grid from background-only
    scans and evaluate on RCooper.
-2. **The maths.** The models are the same family as L3's per-cell EMA with Welford variance and
-   closeness thresholds; the paper's statement that per-beam statistics transfer across sensing
+2. **The maths.** The models are the same family as L3's per-cell EMA of range and absolute deviation
+   and closeness thresholds; the paper's statement that per-beam statistics transfer across sensing
    technologies is the claim to test, not accept.
 3. **What the sensor can observe.** The same.
 4. **Where it lands.** L3's foreground extraction has unit tests and the kirk0 reviewed masks, but
@@ -608,6 +608,8 @@ from the abstract.
    row for foreground extraction at all because the table is about behaviour.
 5. **Verdict.** New. Adopted as references. Proposed, not applied: run L3 on CoopScenes' annotated
    frames once released and report point-wise precision and recall beside the paper's table.
+   The code was read against L3 on October 11, 2026:
+   [beam-wise comparison](../../../../data/maths/proposals/20261011-beamwise-background-subtraction-comparison.md).
 6. **Rights.** arXiv non-exclusive licence; the datasets' terms are unread. **Confirm**.
 7. **What a survey could give back.** A fourth sensor and a residential scene to the cross-sensor
    table, if the project's masks were published in the same point-label form.

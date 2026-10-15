@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/perframeeval/evalfixture"
 )
 
@@ -63,7 +64,7 @@ func doubtAPoint(t *testing.T, pack *annotation.Pack, object string, sample int)
 		s.Masks[i].UncertainIndices = append(s.Masks[i].UncertainIndices, doubted)
 	}
 	s.Change = annotation.Provenance{Author: "op", Operation: "doubt"}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 }

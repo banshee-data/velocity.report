@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
@@ -111,12 +113,18 @@ type cachedPackListing struct {
 // proposals directory whose entries it counts. A directory's modification
 // time moves whenever an entry is added, removed or renamed.
 func packListingInputs(dir string) []string {
-	return []string{
+	inputs := []string{
 		filepath.Join(dir, "manifest.json"),
 		filepath.Join(dir, "segment.json"),
-		filepath.Join(dir, "annotations.json"),
 		filepath.Join(dir, "proposals"),
+		filepath.Join(dir, annotation.LabelSetLinkFile),
 	}
+	// A linked pack's counts come from its label set, whose manifest moves
+	// with every save.
+	if link, err := annotation.ReadLabelSetLink(dir); err == nil && link != nil {
+		inputs = append(inputs, filepath.Join(link.LabelSetDir(dir), labelset.ManifestFile))
+	}
+	return inputs
 }
 
 // list returns the listing of each pack directory, in order, reading only the

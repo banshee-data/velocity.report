@@ -63,7 +63,7 @@ func physPack(t *testing.T) *Pack {
 			Handedness: "right", OriginNote: "sensor origin"},
 	}
 	dir := filepath.Join(t.TempDir(), "pack")
-	if err := WritePack(dir, m, samples, blocks); err != nil {
+	if err := WritePack(dir, m, samples, blocks, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)
@@ -86,7 +86,7 @@ func physSidecar(t *testing.T, p *Pack) *Sidecar {
 	for i := 0; i < physSamples; i++ {
 		s.Masks = append(s.Masks, mask("car-1", i, 0, 1, 2, 3, 4, 5, 6, 7), mask("car-2", i, 8, 9, 10, 11, 12, 13, 14, 15))
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	return s
@@ -327,7 +327,7 @@ func TestReviewedMaskDoesNotBecomeReviewedPose(t *testing.T) {
 	// A reviewed mask of a reviewed object, carrying a legacy pose the
 	// client may have written, reviewed as well.
 	s.Masks[0].Pose = &Pose{CenterX: 10, Length: 4.5, Width: 1.8, Height: 1.5, Confidence: 0.99, Status: StatusReviewed}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	refs, err := LoadPhysicalReferences(p)
@@ -355,7 +355,7 @@ func TestReviewedMaskDoesNotBecomeReviewedPose(t *testing.T) {
 		s.Masks[i].Completeness = MaskComplete
 	}
 	s.Change.Operation = "review_all"
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if !bytes.Equal(physicalBefore, readPhysical(t, p)) {
@@ -583,21 +583,20 @@ func TestPhysicalStoreRefusesDamagedState(t *testing.T) {
 	t.Run("sidecar missing with history", func(t *testing.T) {
 		p := physPack(t)
 		s := physSidecar(t, p)
-		if err := SaveSidecar(p, s); err != nil {
+		if err := saveMembership(p, s); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.Remove(filepath.Join(p.Dir, sidecarFile)); err != nil {
-			t.Fatal(err)
-		}
+		dropMembership(p)
 		if err := SavePhysicalReferences(p, validPhysical(p)); err == nil {
 			t.Fatal("saved against a damaged membership head")
 		}
 	})
 	t.Run("sidecar unreadable", func(t *testing.T) {
 		p := physPack(t)
-		if err := os.Mkdir(filepath.Join(p.Dir, sidecarFile), 0o700); err != nil {
+		if err := saveMembership(p, physSidecar(t, p)); err != nil {
 			t.Fatal(err)
 		}
+		breakMembership(p)
 		if err := SavePhysicalReferences(p, validPhysical(p)); err == nil {
 			t.Fatal("saved against an unreadable sidecar")
 		}
@@ -726,7 +725,7 @@ func TestPhysicalRevisionReadFailures(t *testing.T) {
 	for i := 0; i < physSamples; i++ {
 		s.Masks = append(s.Masks, mask("car-2", i, 8, 9, 10, 11, 12, 13, 14, 15))
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if err := RestorePhysicalReferenceRevision(p, r, 1); err == nil {

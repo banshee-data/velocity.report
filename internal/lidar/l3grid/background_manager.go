@@ -44,6 +44,10 @@ type BackgroundManager struct {
 	// Safe because the pipeline callback runs synchronously on a single goroutine.
 	maskBuf []bool
 
+	// supportScratch holds the support filter's per-frame buffers, reused for
+	// the same reason as maskBuf. Only used when Params.SupportFilter is set.
+	supportScratch supportFilterScratch
+
 	// SourcePath stores the current data source path (e.g., PCAP filename).
 	// Used for region restoration: matching by source path is faster and more
 	// reliable than scene hash matching during early settling.
@@ -109,6 +113,45 @@ func (bm *BackgroundManager) SetDisableRegionOverrides(v bool) error {
 	g := bm.Grid
 	g.mu.Lock()
 	g.Params.DisableRegionOverrides = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetRegionOverrideScope limits the region overrides to the volatile or the
+// quiet terciles (replay experiments region_overrides_volatile_only and
+// region_overrides_quiet_only). See BackgroundParams.RegionOverrideScope.
+func (bm *BackgroundManager) SetRegionOverrideScope(v RegionOverrideScope) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	if v < RegionOverrideScopeAll || v > RegionOverrideScopeQuiet {
+		return fmt.Errorf("invalid region override scope %d", v)
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.RegionOverrideScope = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetSupportFilter switches the range-image support filter on with the given
+// parameters, or off with nil (the beam-wise review's E4; replay experiment
+// support_filter). See BackgroundParams.SupportFilter.
+func (bm *BackgroundManager) SetSupportFilter(p *SupportFilterParams) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	if p != nil && (p.VertNeighbours < 0 || p.HorNeighbours < 0 || p.MinSupport < 1 || p.TauBaseMetres < 0 || p.TauSlope < 0) {
+		return fmt.Errorf("invalid support filter params %+v", *p)
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	if p == nil {
+		g.Params.SupportFilter = nil
+	} else {
+		cp := *p
+		g.Params.SupportFilter = &cp
+	}
 	g.mu.Unlock()
 	return nil
 }

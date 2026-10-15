@@ -10,9 +10,90 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
+
+// checkPackReturnsAgainstCapture proves a clipped pack's returns on the real
+// capture: the pack is version 2, every packet in its table occurs exactly
+// once in the PCAP, and every point is bit for bit the return its number
+// names when that packet is decoded again on its own.
+func checkPackReturnsAgainstCapture(t *testing.T, pack *annotation.Pack, pcap string) {
+	t.Helper()
+	if pack.Manifest.SchemaVersion != annotation.PackSchemaVersion || len(pack.Packets) == 0 {
+		t.Fatalf("clip wrote a version %d pack without returns", pack.Manifest.SchemaVersion)
+	}
+	port, err := network.DetectUDPPort(pcap)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wanted := make(map[uint64]int, len(pack.Packets))
+	for i, k := range pack.Packets {
+		wanted[k] = i
+	}
+	payloads := make([][]byte, len(pack.Packets))
+	if _, err := labelset.ScanCapture(pcap, port, func(p labelset.Packet) error {
+		if i, ok := wanted[uint64(p.Key)]; ok {
+			if payloads[i] != nil {
+				return errors.New("a packet in the pack's table occurs twice in the capture")
+			}
+			payloads[i] = append([]byte(nil), p.Payload...)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := parse.LoadEmbeddedPandar40PConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	type ret struct{ block, channel int }
+	decoded := make([]map[ret][3]float32, len(payloads))
+	for i, payload := range payloads {
+		if payload == nil {
+			t.Fatalf("packet %016x of the pack's table is not in the capture", pack.Packets[i])
+		}
+		points, err := parse.NewPandar40PParser(*cfg).ParsePacket(payload)
+		if err != nil {
+			t.Fatal(err)
+		}
+		decoded[i] = make(map[ret][3]float32, len(points))
+		for _, p := range points {
+			// The frame builder's conversion, then the recorder's float32.
+			x, y, z := l2frames.SphericalToCartesian(p.Distance, p.Azimuth, p.Elevation)
+			decoded[i][ret{p.BlockID, p.Channel}] = [3]float32{float32(x), float32(y), float32(z)}
+		}
+	}
+	layout := pack.Manifest.ReturnLayout
+	per := uint64(layout.Blocks * layout.Channels)
+	points := 0
+	for s := range pack.Samples {
+		returns, err := pack.ReturnsAt(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pts, err := pack.PointsAt(s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for j, r := range returns {
+			within := r % per
+			want, ok := decoded[r/per][ret{int(within / uint64(layout.Channels)), int(within%uint64(layout.Channels)) + 1}]
+			if !ok {
+				t.Fatalf("sample %d point %d cites return %d, which its packet does not carry", s, j, r)
+			}
+			if got := [3]float32{pts.X[j], pts.Y[j], pts.Z[j]}; got != want {
+				t.Fatalf("sample %d point %d is %v, but return %d decodes to %v", s, j, got, r, want)
+			}
+			points++
+		}
+	}
+	t.Logf("%d points in %d samples match their returns in %d packets of %s", points, len(pack.Samples), len(pack.Packets), filepath.Base(pcap))
+}
 
 func TestAnnotationClipOneCommandCutsKirk0PackAndRecord(t *testing.T) {
 	if testing.Short() {
@@ -39,6 +120,7 @@ func TestAnnotationClipOneCommandCutsKirk0PackAndRecord(t *testing.T) {
 	if len(pack.Samples) == 0 || pack.Manifest.Coverage != annotation.CoverageForegroundOnly {
 		t.Fatalf("unexpected pack: %d samples, %s coverage", len(pack.Samples), pack.Manifest.Coverage)
 	}
+	checkPackReturnsAgainstCapture(t, pack, pcap)
 	b, err := os.ReadFile(filepath.Join(out, "pack", "segment.json"))
 	if err != nil {
 		t.Fatal(err)

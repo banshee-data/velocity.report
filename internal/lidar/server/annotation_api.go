@@ -158,6 +158,11 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 			strings.Contains(err.Error(), "contradicts the recording") {
 			status = http.StatusBadRequest
 		}
+		// A recording made before return identity is intact but cannot be
+		// exported as it stands: the operator records it again.
+		if errors.Is(err, annotation.ErrNoReturnIdentity) {
+			status = http.StatusUnprocessableEntity
+		}
 		ws.writeJSONError(w, status, fmt.Sprintf("annotation export failed: %v", err))
 		return
 	}

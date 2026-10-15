@@ -120,7 +120,7 @@ func TestSourceManifestRawSHA256(t *testing.T) {
 func TestResolveObservationDBPathSeparatesEvidenceFromRecordingOutput(t *testing.T) {
 	root := t.TempDir()
 	evidenceDir := filepath.Join(root, "internal-evidence")
-	got, err := resolveObservationDBPath("", evidenceDir, filepath.Join(root, "vrlogs"))
+	got, err := resolveObservationDBPath("", evidenceDir, filepath.Join(root, "vrlogs"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,10 +130,10 @@ func TestResolveObservationDBPathSeparatesEvidenceFromRecordingOutput(t *testing
 	if _, err := os.Stat(evidenceDir); err != nil {
 		t.Fatalf("evidence directory was not created: %v", err)
 	}
-	if _, err := resolveObservationDBPath(filepath.Join(root, "old.db"), evidenceDir, filepath.Join(root, "vrlogs")); err == nil {
+	if _, err := resolveObservationDBPath(filepath.Join(root, "old.db"), evidenceDir, filepath.Join(root, "vrlogs"), false); err == nil {
 		t.Fatal("accepted both an explicit evidence database and evidence directory")
 	}
-	if _, err := resolveObservationDBPath("", filepath.Join(root, "vrlogs"), filepath.Join(root, "vrlogs")); err == nil {
+	if _, err := resolveObservationDBPath("", filepath.Join(root, "vrlogs"), filepath.Join(root, "vrlogs"), false); err == nil {
 		t.Fatal("accepted evidence and recording output in the same directory")
 	}
 }

@@ -62,7 +62,7 @@ The constraints catch a divergent write. They do not replace the checks that giv
 - `segments.Allowed` refuses a finder for a role before anything is ranked, and the API says why.
 - The case endpoint checks that indexed captures cover the whole window.
 - The clip worker compares the chosen window with its replay case before it replays anything.
-- The pack's `segment.json` remains the record of how the window was chosen, and `annotations.json` the record of human review. Neither is copied into SQLite to show review state.
+- The pack's `segment.json` remains the record of how the window was chosen, and the label set it links (formerly `annotations.json`) the record of human review. Neither is copied into SQLite to show review state.
 
 ### Selectors, since migration 56
 

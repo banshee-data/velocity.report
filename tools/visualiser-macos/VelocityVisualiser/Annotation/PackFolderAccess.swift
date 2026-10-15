@@ -11,9 +11,9 @@
 //  idea the operator wanted it. Opening it fails with "Operation not
 //  permitted" even though the file is there and readable from a shell.
 //
-//  Saving has the same shape and a worse failure. SidecarStore writes
-//  annotations.json, a lock file and a revisions directory inside the pack,
-//  so a read-only grant opens the pack and then loses the first save.
+//  Saving has the same shape and a worse failure. A save writes the label
+//  set beside the pack, in <annotation dir>/labels/, and the pack's link to
+//  it, so a grant on the pack alone opens it and then loses the first save.
 //
 //  The remedy the sandbox offers is a security-scoped bookmark: ask for the
 //  packs folder once, keep the bookmark, and resolve it on later launches.

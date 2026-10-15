@@ -462,6 +462,16 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		}
 	}
 
+	// Range-image support filter (replay experiment support_filter): the
+	// foreground of a cell without enough similar-range foreground neighbours
+	// becomes background. Output only: every cell above has already been
+	// updated, so a filtered return still counted as a rejection.
+	if sf := g.Params.SupportFilter; sf != nil {
+		flipped := g.applySupportFilter(*sf, &bm.supportScratch, points, foregroundMask)
+		foregroundCount -= int64(flipped)
+		backgroundCount += int64(flipped)
+	}
+
 	// Live observation suppresses foreground during warmup while still allowing
 	// background seeding. Offline replay keeps the same model tuning but exposes
 	// foreground from frame zero so a capture that begins moving can be classified.

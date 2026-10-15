@@ -16,6 +16,9 @@ derived/
   tracks/
   maps/
   metrics/
+labels/
+  <capture stem>/<label set name>/
+  <capture stem>/<pack directory>/
 reports/
 ```
 
@@ -85,6 +88,40 @@ Paths are dataset-root-relative POSIX paths. Unknown facts are `null`, never a
 made-up sensor model, commit, duration or capture type. Additional provenance
 that does not belong in a filename may be added as clearly named manifest
 fields.
+
+## Label sets
+
+A label set holds reference objects and their per-frame membership, citing the capture's returns by
+packet key (a digest of each UDP payload), so it applies to every run of the capture and to every
+file holding its packets. The format is specified in
+[`internal/lidar/annotation/labelset/README.md`](../../internal/lidar/annotation/labelset/README.md)
+and operated as described in [label sets](../../docs/lidar/operations/label-sets.md).
+
+| Rule                  | What it means here                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Path                  | `labels/<capture stem>/<label set name>/`, the stem being the capture's raw file name without its extension                                                                                                                                                                                                                                                                                  |
+| Join                  | A row's `label_set_paths` lists the label sets attached to it. A label set is attached only when its `labels.json` `applies_to` names the row's `raw_sha256`                                                                                                                                                                                                                                 |
+| Content               | The current state only: `labels.json` and the head files, records one per line and masks and foreground returns in `masks/` and `domain-returns/` by window range. The journal, its base, the lock and the commit marker stay with whoever edits the set; the dataset's Git history is the history                                                                                           |
+| Line endings and size | `labels/** -text`. The text is plain Git, so the Hub shows edited lines and Git merges edits to different masks; every text file stays under Hugging Face's 10 MiB plain-Git limit, which staging checks. The Hub also refuses a push in which any commit holds a binary file in plain Git, even one a later commit moves to LFS/Xet. `packets.bin` goes through LFS/Xet by the `*.bin` rule |
+| Domain                | Every mask names the foreground extraction it was made on. A return outside that foreground is unlabelled, never a negative                                                                                                                                                                                                                                                                  |
+| Review status         | `reviewed` masks on `reviewed` objects are reference; `proposed` and `rejected` are not                                                                                                                                                                                                                                                                                                      |
+| View                  | `labels/<capture stem>/<pack directory>/`, beside its set: the run's pack data and physical references, linked to `../<label set name>`. A row's `annotation_pack_paths` lists them                                                                                                                                                                                                          |
+| Working state         | Ignored, never committed: the journal and its base, locks, the commit marker (`.pending`), the view's revision archives and proposal layers, and staging directories                                                                                                                                                                                                                         |
+
+Stage a label set with `tools/s2-archive/stage-label-sets.py`. With `--capture-id`, it first binds
+the label set to that row's published PCAPNG, which reads the file and records its digest. It then
+publishes the current state, adds the path to `label_set_paths` and adds the rules above to the
+dataset's `.gitattributes` and `.gitignore`. A set already published at the same head is kept;
+`--replace` refreshes one that is behind and refuses one someone has edited.
+
+A label set has no points, so it is published with a view: `--view PACK` publishes the pack the
+labels were drawn on beside its set, checked as a fresh copy would hold it, and adds it to
+`annotation_pack_paths`. A published view is never overwritten. Editing from the dataset, and what
+a change commits, is described in
+[label sets](../../docs/lidar/operations/label-sets.md#editing-from-the-dataset).
+
+The dataset card's known limits say which captures carry labels, that they are foreground-domain
+and `partial`, and how many masks are reviewed.
 
 ## Existing-artifact mapping
 

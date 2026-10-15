@@ -23,7 +23,7 @@ pytest
 pytest-cov
 
 # Development tools (formatting/linting)
-black>=26.5.1  # CVE-2026-32274 fix
+black>=26.10.1  # CVE-2026-32274 fix
 ruff
 fonttools>=4.66.1  # CVE-2025-66034 fix
 

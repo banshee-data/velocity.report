@@ -39,7 +39,7 @@ func featureFixtureForPack(t *testing.T, p *Pack) (*Pack, *pb.FeatureEdit) {
 
 func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 	p, edit := featureFixture(t)
-	maskBefore, _ := os.ReadFile(filepath.Join(p.Dir, "annotations.json"))
+	maskBefore := membershipHead(p)
 	state, err := SaveFeatures(p, edit)
 	if err != nil {
 		t.Fatal(err)
@@ -84,14 +84,14 @@ func TestFeatureRoundTripHistoryAndMaskIsolation(t *testing.T) {
 		t.Fatalf("later head damage erased history: %v", err)
 	}
 	os.WriteFile(filepath.Join(p.Dir, featureFile), latest, 0600)
-	maskAfter, _ := os.ReadFile(filepath.Join(p.Dir, "annotations.json"))
+	maskAfter := membershipHead(p)
 	if !bytes.Equal(maskBefore, maskAfter) {
 		t.Fatal("feature save changed membership")
 	}
 	// Current membership changes do not erase the interpretation of revision 1.
 	s, _ := LoadSidecar(p)
 	s.Masks[0].PointIndices = []int{2, 3}
-	if err = SaveSidecar(p, s); err != nil {
+	if err = saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = LoadFeatures(p); err != nil {
@@ -126,7 +126,7 @@ func TestLoadFeatureRevisionRefusals(t *testing.T) {
 			case "root":
 				p.Dir = filepath.Join(p.Dir, "missing")
 			case "membership":
-				os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+				breakMembership(p)
 			case "missing":
 				os.Remove(archive)
 			case "corrupt":
@@ -312,7 +312,7 @@ func TestFeatureFilesystemAndValidationFailures(t *testing.T) {
 	})
 	t.Run("damaged membership", func(t *testing.T) {
 		p, e := featureFixture(t)
-		os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+		breakMembership(p)
 		if _, err := LoadFeatures(p); err == nil {
 			t.Fatal("bad membership loaded")
 		}
@@ -408,7 +408,7 @@ func TestFeatureFilesystemAndValidationFailures(t *testing.T) {
 		s, _ := LoadSidecar(p)
 		s.Masks[0].PointIndices = []int{0, 2, 3, 4, 5, 6, 7}
 		s.Masks[0].UncertainIndices = []int{1}
-		if err := SaveSidecar(p, s); err != nil {
+		if err := saveMembership(p, s); err != nil {
 			t.Fatal(err)
 		}
 		o := e.Document.Features[0].Observations[0]
@@ -431,7 +431,7 @@ func TestFeatureHistoricalEvidenceCannotBeChangedAgainstOldMembership(t *testing
 	}
 	s, _ := LoadSidecar(p)
 	s.Change.Operation = "updated evidence"
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	next := &pb.FeatureEdit{Document: proto.Clone(first.Document).(*pb.FeatureAnnotations), BaseDigest: first.Digest, MembershipDigest: s.Digest()}
@@ -634,7 +634,7 @@ func TestFeatureEvidenceReadsEachPinOnce(t *testing.T) {
 	}
 	// With the files gone, only the held values can answer.
 	os.Remove(filepath.Join(p.Dir, physicalReferenceFile))
-	os.WriteFile(filepath.Join(p.Dir, sidecarFile), []byte("corrupt"), 0600)
+	breakMembership(p)
 	if again, err := ev.registeredObject(f); err != nil || again != object {
 		t.Fatal("physical revision read twice", err)
 	}
@@ -778,7 +778,7 @@ func TestNewFeatureRegistrationRefusesStaleMembershipButRetainsHistory(t *testin
 	}
 	membership, _ := LoadSidecar(p)
 	membership.Objects[0].Subtype = "updated label"
-	if err := SaveSidecar(p, membership); err != nil {
+	if err := saveMembership(p, membership); err != nil {
 		t.Fatal(err)
 	}
 	retained, err := SaveFeatures(p, &pb.FeatureEdit{Document: s.Document, BaseDigest: s.Digest, MembershipDigest: membership.Digest()})

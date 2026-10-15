@@ -19,11 +19,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"slices"
 	"sort"
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
@@ -119,6 +119,7 @@ func main() {
 		samplePoints        = flag.Int("sample-points", 256, "retained sample points per observation in the evidence database (1 to 1024); the solid body's near-edge measurement reads this sample")
 		evidencePerCase     = flag.Bool("evidence-per-case", false, "with -evidence-dir, write each case's evidence to <evidence-dir>/<case>.db rather than one shared observations.db")
 		discardEvidence     = flag.Bool("discard-evidence", false, "with -evidence-per-case, delete each case's database once its summary is written; for a corpus larger than the free disk")
+		resume              = flag.Bool("resume", false, "rerun into an earlier run's -out, reusing each <case>/"+caseSummaryFile+" whose source manifest, parameters, experiments and executable match this run's and replaying the other cases; output a replayed case left behind is refused, never overwritten")
 		evidenceProfile     = flag.Bool("evidence-profile", false, "print accumulated SQLite frame-evidence timings after each first replay")
 		cpuProfileDir       = flag.String("cpuprofile-dir", "", "empty directory for a pprof CPU profile of each case's repeat replay (<case>.repeat.cpu.pprof); the repeat writes no evidence, so the profile is the pipeline's own cost")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
@@ -163,9 +164,16 @@ func main() {
 	if *pcapRoot == "" {
 		fatal(fmt.Errorf("-pcap-root is required"))
 	}
+	if *resume {
+		if err := validateResume(*sourceManifestPath != "" || *existingSourceManifestPath != "",
+			*observations != "" || *evidenceDir != "", *evidencePerCase, *uncertaintyReport,
+			survey.setPath != "", *cpuProfileDir != ""); err != nil {
+			fatal(err)
+		}
+	}
 	var observationDBPath string
 	if !*sourceManifestOnly {
-		observationDBPath, err = resolveObservationDBPath(*observations, *evidenceDir, *outDir)
+		observationDBPath, err = resolveObservationDBPath(*observations, *evidenceDir, *outDir, *resume)
 		if err != nil {
 			fatal(err)
 		}
@@ -182,7 +190,7 @@ func main() {
 		}
 	}
 	if !*sourceManifestOnly {
-		if err := ensureEmptyDir(*outDir); err != nil {
+		if err := prepareOutputDir(*outDir, *resume); err != nil {
 			fatal(err)
 		}
 	}
@@ -248,49 +256,127 @@ func main() {
 		return
 	}
 
-	summaries := make([]caseSummary, 0, len(selected.Cases))
-	var uncertaintyCases []uncertaintyCase
-	for _, resolved := range resolvedCases {
-		selectedCase := resolved.corpusCase
-		paths := resolved.paths
-		sequence, err := replayeval.PrepareCaptureSequence(paths, 2369)
-		if err != nil {
-			fatal(fmt.Errorf("prepare capture sequence %s: %w", selectedCase.ID, err))
-		}
-		caseOut := filepath.Join(*outDir, selectedCase.ID)
-		first := replayeval.Config{
-			PCAPFiles: paths, OutDir: filepath.Join(caseOut, "first"), TuningFile: *tuning,
-			SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
+	identity, err := runIdentity(flag.CommandLine, sourceManifestSHA256, experiments, observationDBPath != "")
+	if err != nil {
+		fatal(err)
+	}
+	replay := corpusReplay{
+		base: replayeval.Config{
+			TuningFile: *tuning, SensorID: *sensorID, UDPPort: 2369, StartSeconds: *warmup, WarmupSeconds: *warmup,
 			CampaignMetrics: *campaignMetrics,
 			DurationSeconds: *duration, RequireSettled: *requireSettled, UseSurfaceGround: *surfaceGround,
 			SurfaceGroundRegionMetres: *surfaceGroundRegion,
-			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode), CaptureSequence: sequence,
-			Experiments: experiments, UncertaintyReport: *uncertaintyReport, UncertaintyCalibrationFile: *uncertaintyCalFile,
+			MeasurementSourceMode:     l5tracks.MeasurementSource(*measurementMode),
+			Experiments:               experiments, UncertaintyReport: *uncertaintyReport, UncertaintyCalibrationFile: *uncertaintyCalFile,
+		},
+		outDir: *outDir, observationDBPath: observationDBPath, evidenceDir: *evidenceDir,
+		evidencePerCase: *evidencePerCase, discardEvidence: *discardEvidence, samplePoints: *samplePoints,
+		evidenceProfile: *evidenceProfile, cpuProfileDir: *cpuProfileDir,
+		coverage: coverage, splitUses: split.uses, sourceManifest: verifiedSourceManifest, index: index,
+		survey: survey, identity: identity, resume: *resume,
+		prepare: replayeval.PrepareCaptureSequence, replay: replayeval.Run,
+	}
+	summaries, uncertaintyCases, err := replay.run(resolvedCases)
+	if err != nil {
+		fatal(err)
+	}
+	if *uncertaintyReport {
+		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases, split.record); err != nil {
+			fatal(err)
 		}
-		if c, ok := coverage[selectedCase.ID]; ok {
+		fmt.Printf("wrote pooled uncertainty report across %d case(s) to %s\n", len(uncertaintyCases),
+			filepath.Join(*outDir, pooledUncertaintyFile))
+	}
+	if err := writePhase0Summary(*outDir, sourceManifestSHA256, split.record, summaries); err != nil {
+		fatal(err)
+	}
+	fmt.Printf("wrote %d repeat-verified baseline(s) to %s\n", len(summaries), *outDir)
+}
+
+// corpusReplay is the per-case half of a corpus run: what the case loop
+// reads from the flags, and the two replayeval calls it makes, which a test
+// replaces with a stand-in.
+type corpusReplay struct {
+	// base is every case's first-run configuration before the case's own
+	// captures, output and evidence are filled in.
+	base              replayeval.Config
+	outDir            string
+	observationDBPath string
+	evidenceDir       string
+	evidencePerCase   bool
+	discardEvidence   bool
+	samplePoints      int
+	evidenceProfile   bool
+	cpuProfileDir     string
+	coverage          map[string]replayeval.ContinuityCoverage
+	splitUses         map[string]*replayeval.SplitUse
+	sourceManifest    *sourceManifest
+	index             map[string]indexEntry
+	survey            surveyFlags
+	identity          caseIdentity
+	resume            bool
+	prepare           func(files []string, udpPort int) (*capseq.Sequence, error)
+	replay            func(replayeval.Config) (*replayeval.Result, error)
+}
+
+// evidencePath is where a case's first run writes its evidence, or "" when
+// the run writes none.
+func (r corpusReplay) evidencePath(caseID string) string {
+	if r.observationDBPath == "" || !r.evidencePerCase {
+		return r.observationDBPath
+	}
+	return filepath.Join(r.evidenceDir, caseID+".db")
+}
+
+// run replays each case in corpus order and returns the summaries in that
+// order. Each case's summary is on disk in its output directory before its
+// evidence is discarded, so a later case's failure costs only that case.
+func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertaintyCase, error) {
+	var reused map[string]caseSummary
+	if r.resume {
+		var err error
+		if reused, err = r.resumable(cases); err != nil {
+			return nil, nil, err
+		}
+	}
+	summaries := make([]caseSummary, 0, len(cases))
+	var uncertaintyCases []uncertaintyCase
+	for _, resolved := range cases {
+		selectedCase := resolved.corpusCase
+		paths := resolved.paths
+		caseOut := filepath.Join(r.outDir, selectedCase.ID)
+		if summary, ok := reused[selectedCase.ID]; ok {
+			fmt.Printf("%s: reusing %s\n", selectedCase.ID, filepath.Join(caseOut, caseSummaryFile))
+			summaries = append(summaries, summary)
+			continue
+		}
+		sequence, err := r.prepare(paths, 2369)
+		if err != nil {
+			return nil, nil, fmt.Errorf("prepare capture sequence %s: %w", selectedCase.ID, err)
+		}
+		first := r.base
+		first.PCAPFiles, first.OutDir, first.CaptureSequence = paths, filepath.Join(caseOut, "first"), sequence
+		if c, ok := r.coverage[selectedCase.ID]; ok {
 			first.ContinuityCoverage = &c
 		}
-		first.Split = split.uses[selectedCase.ID]
-		if verifiedSourceManifest != nil {
-			first.PCAPSHA256s, err = sourceManifestCaseDigests(*verifiedSourceManifest, selectedCase.ID, len(paths))
+		first.Split = r.splitUses[selectedCase.ID]
+		if r.sourceManifest != nil {
+			first.PCAPSHA256s, err = sourceManifestCaseDigests(*r.sourceManifest, selectedCase.ID, len(paths))
 			if err != nil {
-				fatal(err)
+				return nil, nil, err
 			}
 		}
-		if observationDBPath != "" {
-			first.ObservationDBPath = observationDBPath
-			if *evidencePerCase {
-				first.ObservationDBPath = filepath.Join(*evidenceDir, selectedCase.ID+".db")
-			}
+		if r.observationDBPath != "" {
+			first.ObservationDBPath = r.evidencePath(selectedCase.ID)
 			first.ReplayCaseID = selectedCase.ID
-			first.ObservationCalibration = siteCalibration(*sensorID, index[selectedCase.ID].NorthAzimuthDeg)
-			first.ObservationMaxSamplePoints = *samplePoints
-			first.ProfileEvidence = *evidenceProfile
+			first.ObservationCalibration = siteCalibration(first.SensorID, r.index[selectedCase.ID].NorthAzimuthDeg)
+			first.ObservationMaxSamplePoints = r.samplePoints
+			first.ProfileEvidence = r.evidenceProfile
 		}
 		fmt.Printf("%s: first run across %d capture(s)\n", selectedCase.ID, len(paths))
-		firstResult, err := replayeval.Run(first)
+		firstResult, err := r.replay(first)
 		if err != nil {
-			fatal(fmt.Errorf("first run %s: %w", selectedCase.ID, err))
+			return nil, nil, fmt.Errorf("first run %s: %w", selectedCase.ID, err)
 		}
 		if firstResult.EvidencePersistence != nil {
 			stats := firstResult.EvidencePersistence
@@ -308,50 +394,50 @@ func main() {
 		repeat.ObservationMaxSamplePoints = 0
 		fmt.Printf("%s: repeat run\n", selectedCase.ID)
 		var repeatResult *replayeval.Result
-		err = profiled(cpuProfilePath(*cpuProfileDir, selectedCase.ID), func() error {
+		err = profiled(cpuProfilePath(r.cpuProfileDir, selectedCase.ID), func() error {
 			var runErr error
-			repeatResult, runErr = replayeval.Run(repeat)
+			repeatResult, runErr = r.replay(repeat)
 			return runErr
 		})
 		if err != nil {
-			fatal(fmt.Errorf("repeat run %s: %w", selectedCase.ID, err))
+			return nil, nil, fmt.Errorf("repeat run %s: %w", selectedCase.ID, err)
 		}
 		firstBaseline, err := os.ReadFile(filepath.Join(first.OutDir, "tracking_baseline.json"))
 		if err != nil {
-			fatal(err)
+			return nil, nil, err
 		}
 		repeatBaseline, err := os.ReadFile(filepath.Join(repeat.OutDir, "tracking_baseline.json"))
 		if err != nil {
-			fatal(err)
+			return nil, nil, err
 		}
 		if !bytes.Equal(firstBaseline, repeatBaseline) {
-			fatal(fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID))
+			return nil, nil, fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID)
 		}
 		// Every refinement horizon must reproduce too. Persistence is on for
 		// the first run only, which must not change a single figure.
 		var refinementArms []l8analytics.RefinementArmMetrics
 		if firstResult.Refinement != nil {
 			if repeatResult.Refinement == nil || !reflect.DeepEqual(firstResult.Refinement.Arms, repeatResult.Refinement.Arms) {
-				fatal(fmt.Errorf("refinement comparison differs on repeat for %s", selectedCase.ID))
+				return nil, nil, fmt.Errorf("refinement comparison differs on repeat for %s", selectedCase.ID)
 			}
 			refinementArms = firstResult.Refinement.Arms
 		}
-		if *uncertaintyReport {
+		if first.UncertaintyReport {
 			if err := sameFile(filepath.Join(first.OutDir, "uncertainty_calibration.json"),
 				filepath.Join(repeat.OutDir, "uncertainty_calibration.json")); err != nil {
-				fatal(fmt.Errorf("uncertainty report differs on repeat for %s: %w", selectedCase.ID, err))
+				return nil, nil, fmt.Errorf("uncertainty report differs on repeat for %s: %w", selectedCase.ID, err)
 			}
 			uncertaintyCases = append(uncertaintyCases, uncertaintyCase{
 				ID: selectedCase.ID, Report: firstResult.Uncertainty, Samples: firstResult.UncertaintySamples,
 			})
 		}
 		summary := caseSummary{
-			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: *duration,
+			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: first.DurationSeconds,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),
 			RefinementArms:        refinementArms,
-			Experiments:           experiments,
+			Experiments:           first.Experiments,
 			TimeDomain:            firstResult.TimeDomain,
 			Continuity:            firstResult.Continuity,
 		}
@@ -375,61 +461,71 @@ func main() {
 			fmt.Printf("%s: ground surface support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm\n",
 				selectedCase.ID, fit.Global.Support, fit.Global.GradientMetre, fit.Global.RMSEMetres,
 				fit.RegionCount, fit.CellMetres)
-		} else if *surfaceGround {
+		} else if first.UseSurfaceGround {
 			fmt.Printf("%s: -surface-ground set but no ground plane was fit (background did not settle in time)\n", selectedCase.ID)
 		}
-		if *uncertaintyReport {
+		if first.UncertaintyReport {
 			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")
 		}
-		if first.ObservationDBPath != "" && slices.Contains(experiments, replayeval.ExperimentSolidBody) {
+		// The solid body runs from the tuning file's block as well as from the
+		// named experiment; summarising only the latter dropped the section
+		// from every arm run from a parameter set.
+		if first.ObservationDBPath != "" && firstResult.SolidBody {
 			sb, err := summariseSolidBodies(first.ObservationDBPath, firstResult.ObservationSourceID)
 			if err != nil {
-				fatal(fmt.Errorf("solid-body summary %s: %w", selectedCase.ID, err))
+				return nil, nil, fmt.Errorf("solid-body summary %s: %w", selectedCase.ID, err)
 			}
-			sb.RetainedSamplePoints = *samplePoints
+			sb.RetainedSamplePoints = r.samplePoints
 			summary.SolidBody = &sb
 			fmt.Printf("%s: solid bodies=%d near_edge_fixes=%d (%.1f%%) lapses=%d; lateral p99 point estimates %.3f m, solid bodies %.3f m over %d body-centre windows\n",
 				selectedCase.ID, sb.SolidBodies, sb.NearEdgeFixes, 100*sb.FixShare, sb.Lapses,
 				sb.AnchorPointsCentred.P99Metres, sb.AnchorBodiesCentred.P99Metres, sb.AnchorBodiesCentred.Windows)
 		}
-		if survey.setPath != "" {
-			s, err := survey.survey(first.ObservationDBPath, first.OutDir, selectedCase.ID)
+		if r.survey.setPath != "" {
+			s, err := r.survey.survey(first.ObservationDBPath, first.OutDir, selectedCase.ID)
 			if err != nil {
-				fatal(fmt.Errorf("coverage survey %s: %w", selectedCase.ID, err))
+				return nil, nil, fmt.Errorf("coverage survey %s: %w", selectedCase.ID, err)
 			}
 			summary.CoverageSurvey = s
 			d := s.Declaration
 			fmt.Printf("%s: coverage max_range_m=%g azimuth_centre_deg=%g azimuth_half_width_deg=%g (range p%g %.2f m, max %.2f m; largest arc without an estimate %d deg) added to %s\n",
 				selectedCase.ID, d.MaxRangeMetres, d.AzimuthCentreDeg, d.AzimuthHalfWidthDeg, s.Stats.RangePercentile,
-				s.Stats.RangeAtPercentile, s.Stats.RangeMetres.Max, s.Stats.Azimuth.LargestEmptyArcDeg, survey.setPath)
+				s.Stats.RangeAtPercentile, s.Stats.RangeMetres.Max, s.Stats.Azimuth.LargestEmptyArcDeg, r.survey.setPath)
 		}
-		if *discardEvidence {
+		// The summary goes to disk before the evidence it was read from is
+		// deleted: a later case that fails, or a full disk, must not take a
+		// finished case's only record with it.
+		if err := writeCaseSummary(caseOut, r.identity, summary); err != nil {
+			return nil, nil, fmt.Errorf("case summary %s: %w", selectedCase.ID, err)
+		}
+		if r.discardEvidence {
 			if err := removeDatabase(first.ObservationDBPath); err != nil {
-				fatal(fmt.Errorf("discard evidence %s: %w", selectedCase.ID, err))
+				return nil, nil, fmt.Errorf("discard evidence %s: %w", selectedCase.ID, err)
 			}
 		}
 		summaries = append(summaries, summary)
 	}
-	if *uncertaintyReport {
-		if err := writePooledUncertaintyReport(*outDir, uncertaintyCases, split.record); err != nil {
-			fatal(err)
-		}
-		fmt.Printf("wrote pooled uncertainty report across %d case(s) to %s\n", len(uncertaintyCases),
-			filepath.Join(*outDir, pooledUncertaintyFile))
-	}
+	return summaries, uncertaintyCases, nil
+}
+
+// phase0SummaryFile is the corpus run's summary, written once every case
+// has finished.
+const phase0SummaryFile = "phase0-summary.json"
+
+// writePhase0Summary writes phase0-summary.json: every case's summary in
+// replay order, with the source manifest and frozen split they were made
+// under.
+func writePhase0Summary(outDir, sourceManifestSHA256 string, split *splitRecord, summaries []caseSummary) error {
 	b, err := json.MarshalIndent(struct {
 		SchemaVersion        int           `json:"schema_version"`
 		SourceManifestSHA256 string        `json:"source_manifest_sha256,omitempty"`
 		Split                *splitRecord  `json:"split,omitempty"`
 		Cases                []caseSummary `json:"cases"`
-	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split.record, Cases: summaries}, "", "  ")
+	}{SchemaVersion: 1, SourceManifestSHA256: sourceManifestSHA256, Split: split, Cases: summaries}, "", "  ")
 	if err != nil {
-		fatal(err)
+		return err
 	}
-	if err := os.WriteFile(filepath.Join(*outDir, "phase0-summary.json"), append(b, '\n'), 0644); err != nil {
-		fatal(err)
-	}
-	fmt.Printf("wrote %d repeat-verified baseline(s) to %s\n", len(summaries), *outDir)
+	return os.WriteFile(filepath.Join(outDir, phase0SummaryFile), append(b, '\n'), 0644)
 }
 
 // sameFile reports whether two files hold identical bytes.
@@ -498,6 +594,15 @@ func ensureEmptyDir(dir string) error {
 	return os.MkdirAll(dir, 0755)
 }
 
+// prepareOutputDir creates an output directory, which must be empty unless
+// the run resumes an earlier one written there.
+func prepareOutputDir(dir string, resume bool) error {
+	if resume {
+		return os.MkdirAll(dir, 0755)
+	}
+	return ensureEmptyDir(dir)
+}
+
 // validateEvidenceFlags checks the evidence-sizing flags against each other.
 func validateEvidenceFlags(samplePoints int, perCase, discard bool, evidenceDir string) error {
 	if samplePoints < 1 || samplePoints > 1024 {
@@ -538,7 +643,7 @@ func removeDatabase(path string) error {
 	return nil
 }
 
-func resolveObservationDBPath(observationsDB, evidenceDir, outDir string) (string, error) {
+func resolveObservationDBPath(observationsDB, evidenceDir, outDir string, resume bool) (string, error) {
 	if observationsDB != "" && evidenceDir != "" {
 		return "", fmt.Errorf("-observations-db and -evidence-dir are mutually exclusive")
 	}
@@ -548,7 +653,7 @@ func resolveObservationDBPath(observationsDB, evidenceDir, outDir string) (strin
 	if samePath(evidenceDir, outDir) {
 		return "", fmt.Errorf("-evidence-dir must differ from -out so recorded artefacts and immutable evidence remain separate")
 	}
-	if err := ensureEmptyDir(evidenceDir); err != nil {
+	if err := prepareOutputDir(evidenceDir, resume); err != nil {
 		return "", fmt.Errorf("prepare evidence directory: %w", err)
 	}
 	return filepath.Join(evidenceDir, "observations.db"), nil

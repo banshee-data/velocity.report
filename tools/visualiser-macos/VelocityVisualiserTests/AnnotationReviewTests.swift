@@ -36,7 +36,7 @@ private func referenceTruth(_ sidecar: Sidecar) -> [FrameMask] {
 struct MaskReviewTests {
     @Test func reviewingAFrameMakesItsMaskCount() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -55,7 +55,7 @@ struct MaskReviewTests {
 
     @Test func aReviewIsOfWhatIsSavedAndCheckedInTheSecondView() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
 
@@ -75,7 +75,7 @@ struct MaskReviewTests {
 
     @Test func changingAReviewedFramesPointsPutsItBackToProposed() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -97,7 +97,7 @@ struct MaskReviewTests {
     @Test func reviewingEveryFrameTurnsWhatWasFilledInIntoAgreed() throws {
         let frame = SyntheticPack.car(at: .zero) + SyntheticPack.wall
         let (session, dir) = try openSession([frame, frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let wall = session.createObject(objectClass: "building")
         #expect(session.select(polygon: roundTheWall, mode: .replace))
         #expect(session.applySelectionToAllSamples() == 3)
@@ -114,7 +114,12 @@ struct MaskReviewTests {
         let filled = try #require(session.sidecar.mask(objectID: wall.objectID, sampleID: 1))
         #expect(filled.provenance.algorithm == "footprint_carry")
         #expect(filled.provenance.operation == "review_object_masks")
-        // One save for the lot, not one per frame.
-        #expect(session.sidecar.revision == 2)
+        // One save for the lot, not one per frame: the label set's journal
+        // has its creation from the pack, the fill, and the review.
+        #expect(session.sidecar.revision == 3)
+        #expect(
+            session.revisionHistory().map(\.operation) == [
+                "create_from_pack", "apply_fixed_mask", "review_object_masks",
+            ])
     }
 }

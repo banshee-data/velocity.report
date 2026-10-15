@@ -28,6 +28,8 @@ file is just the index — start there for any layer detail.
 | Analysis worker         | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
 | Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
 | Point annotation        | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
+| Label sets              | [operations/label-sets.md](operations/label-sets.md)                                               |
+| Label set migration     | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
 | Per-frame evaluation    | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
 | Headway report oracle   | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
 | Near-edge frame cost    | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
@@ -46,6 +48,9 @@ frozen score against reviewed body-centre, size and following-gap references, on
 [solid-body alignment](operations/solid-body-physical-alignment-kirk0-2026-10.md) follows it:
 why the solid body misses both trucks, and opt-in experiments that correct their heading and
 length, guarded on the 23-site corpus. The
+[zero-code L3 arms report](operations/l3-zero-code-arms-kirk-2026-10.md) measures what
+holding the region overrides off, and narrower base windows, do to labelled recall, false
+foreground and stationary tracks on kirk0 and kirk1. The
 [geometry convergence plan](../plans/lidar-tracker-geometry-convergence-plan.md) sets out what
 replaces those patches: a heading the tracker observes every frame, and a box that holds its
 points. Its [end-on truck window spike](operations/end-on-truck-window-spike-2026-10.md)
@@ -54,7 +59,14 @@ times its size, and a selection rule in place of a search. The
 [containment corpus screen](operations/solid-body-containment-corpus-2026-10.md) scores the
 plan's first observation model, the box held to its points, on kirk0 and the 23 sites. The
 [rectangle heading screen](operations/solid-body-rectangle-heading-2026-10.md) scores the
-second, the heading observed from each frame's rectangle fit.
+second, the heading observed from each frame's rectangle fit. The
+[held-out replication](operations/geometry-convergence-heldout-2026-10.md) replays the
+candidate on each site's second segment: the heading holds, the lateral margin shrinks. The
+[region override attribution](operations/l3-region-override-attribution-kirk-2026-10.md)
+follows the zero-code L3 arms: the volatile tercile's window is the one that absorbs road users,
+switching the overrides off moves along the recall trade-off rather than across it, and an
+overrides-on retune with the height band floor at road height reaches the recall at the shipped
+false positives.
 
 ## Terminology
 

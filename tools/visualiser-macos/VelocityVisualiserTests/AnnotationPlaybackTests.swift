@@ -38,7 +38,7 @@ struct PackLoopTests {
 
     @Test func aPlayingMainViewIsSentBackToTheFirstFrameOnceItPassesTheLast() throws {
         let (session, dir) = try openSession([frame, frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first: Int64 = 1_000_000_000
 
         // Inside the pack: left alone.
@@ -54,13 +54,13 @@ struct PackLoopTests {
 
     @Test func aPausedMainViewIsLeftWhereTheOperatorPutIt() throws {
         let (session, dir) = try openSession([frame, frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(session.loopTarget(for: main(at: 9_000_000_000, playing: false)) == nil)
     }
 
     @Test func itOnlyLoopsWhenAskedToAndWhenItCan() throws {
         let (session, dir) = try openSession([frame, frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let past = main(at: 9_000_000_000)
 
         session.loopPackFrames = false
@@ -79,7 +79,7 @@ struct PackLoopTests {
 
     @Test func aPackOfOneFrameHasNothingToLoop() throws {
         let (session, dir) = try openSession([frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(session.loopTarget(for: main(at: 9_000_000_000)) == nil)
     }
 }
@@ -121,7 +121,7 @@ struct OncePerChangeTests {
         let (session, dir) = try openSession(
             [[(0, 0, 0, 1)], [(0, 0, 0, 1)], [(0, 0, 0, 1)]],
             backdrops: [(0, wall), (4, wall + parked)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         for _ in 0..<3 {
             session.step(to: 1)
@@ -151,7 +151,7 @@ struct OncePerChangeTests {
     @Test func theObjectListIsCountedOncePerChange() throws {
         let frame = SyntheticPack.car(at: .zero)
         let (session, dir) = try openSession([frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = session.createObject(objectClass: "car")
         #expect(session.summary(objectID: car.objectID).savedFrames == 0)
 
@@ -173,7 +173,7 @@ struct OncePerChangeTests {
     @Test func theWholePackIsTalliedFromEveryFrame() throws {
         let frame = SyntheticPack.car(at: .zero)
         let (session, dir) = try openSession([frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(session.packTally == LabelTally(total: 36, agreed: 0, inQuestion: 0))
 
         _ = session.createObject(objectClass: "car")

@@ -104,7 +104,7 @@ struct ViewportKeyMeaningTests {
 struct ColumnAdjustmentTests {
     @Test func theGroundMovesInWholeStepsAndDoesNotDrift() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.columnGrid.groundZ = 0
         session.adjustGroundZ(steps: 1)
@@ -125,7 +125,7 @@ struct ColumnAdjustmentTests {
     /// one press: voxel 0 off, the rest untouched.
     @Test func togglingOneVoxelLeavesTheRestOfTheStackAlone() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.enabledVoxels = ColumnGrid.allVoxelsMask
         session.toggleVoxel(0)
@@ -140,7 +140,7 @@ struct ColumnAdjustmentTests {
 
     @Test func aVoxelOutsideTheStackIsIgnored() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.enabledVoxels = ColumnGrid.stackMask
         session.toggleVoxel(-1)
@@ -156,7 +156,7 @@ struct ColumnAdjustmentTests {
 struct GridAzimuthTests {
     @Test func aHandTypedAngleMeansWhatThePersonMeant() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // The same wrapping the scene's own angle editor applies, so an angle
         // read off one and typed into the other survives the trip.
@@ -173,7 +173,7 @@ struct GridAzimuthTests {
     /// The angle is only useful if it reaches the lattice the brush paints.
     @Test func settingTheAngleTurnsTheColumnGrid() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.gridAzimuthDeg = 30
         #expect(session.columnGrid.azimuthDeg == 30)
@@ -186,7 +186,7 @@ struct GridAzimuthTests {
     /// The line has to be pasteable into map-marks.json as it stands.
     @Test func theCopiedLineIsTheOneMapMarksWants() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.gridAzimuthDeg = 3
         let line = session.mapMarksLine(siteID: "columbus-broadway")
@@ -202,7 +202,7 @@ struct GridAzimuthTests {
     /// that cannot be pasted into map-marks.json at all.
     @Test func aSiteIdWithAwkwardCharactersStillParses() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.gridAzimuthDeg = 12
 
         for awkward in [
@@ -220,7 +220,7 @@ struct GridAzimuthTests {
     /// parser, so the number is formatted in a fixed locale.
     @Test func aFractionalAngleIsWrittenWithAPoint() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.gridAzimuthDeg = 3.5
         let line = session.mapMarksLine(siteID: "columbus-broadway")
@@ -242,7 +242,7 @@ struct GridAzimuthTests {
     /// An empty one leaves an obvious blank rather than a plausible wrong id.
     @Test func anUnknownSiteLeavesAPlaceholderRatherThanAGuess() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.mapMarksLine(siteID: "   ").contains("SITE-ID"))
     }

@@ -1,5 +1,6 @@
 // Immutable proposer output, bound to the pack digest. Its objects and masks
-// use the sidecar's schema, but remain suggestions even after being reloaded.
+// use the annotation records' shapes (AnnotationRecords.swift), but remain
+// suggestions even after being reloaded.
 import Darwin
 import Foundation
 
@@ -109,7 +110,7 @@ struct ProposalLayerStore {
 
     func save(_ proposals: [ObjectProposal], algorithm: String) throws {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let timestamp = SidecarStore.utcTimestamp()
+        let timestamp = AnnotationClock.utcTimestamp()
         let provenance = Provenance(
             author: algorithm, createdUTC: timestamp, operation: "propose", algorithm: algorithm,
             algorithmVersion: "1")

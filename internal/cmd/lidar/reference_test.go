@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 )
 
 func refFloat(v float64) *float64 { return &v }
@@ -35,7 +36,7 @@ func referencePack(t *testing.T) (*annotation.Pack, string) {
 		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
 	}
-	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}); err != nil {
+	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)
@@ -49,7 +50,7 @@ func referencePack(t *testing.T) (*annotation.Pack, string) {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car", SampleID: i, PointIndices: []int{0, 1},
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	review := annotation.PhysicalReview{
@@ -109,7 +110,7 @@ func TestAnnotationReferenceRouting(t *testing.T) {
 	if code, _, stderr := runReference("export"); code != 2 || !strings.Contains(stderr, "unknown annotation-reference command") {
 		t.Errorf("unknown command exited %d: %s", code, stderr)
 	}
-	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"fit", "-h"}} {
+	for _, args := range [][]string{{"import", "-h"}, {"validate", "-h"}, {"draft-following", "-h"}, {"fit", "-h"}, {"repin", "-h"}} {
 		if code, _, _ := runReference(args...); code != 0 {
 			t.Errorf("%v exited %d", args, code)
 		}
@@ -232,7 +233,7 @@ func TestAnnotationReferenceValidateIsADryRun(t *testing.T) {
 	}
 	s.Objects[0].Status = annotation.StatusRejected
 	s.Change.Operation = "reject"
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	code, _, stderr := runReference("validate", "--pack", pack.Dir)
@@ -240,11 +241,15 @@ func TestAnnotationReferenceValidateIsADryRun(t *testing.T) {
 		!strings.Contains(stderr, `object "car": object "car" is rejected`) {
 		t.Fatalf("stale references: exit %d: %s", code, stderr)
 	}
-	if err := os.WriteFile(filepath.Join(pack.Dir, "annotations.json"), []byte("{"), 0o600); err != nil {
+	link, err := annotation.ReadLabelSetLink(pack.Dir)
+	if err != nil || link == nil {
+		t.Fatalf("link %v: %v", link, err)
+	}
+	if err := os.WriteFile(filepath.Join(link.LabelSetDir(pack.Dir), labelset.ManifestFile), []byte("{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if code, _, _ := runReference("validate", "--pack", pack.Dir); code != 1 {
-		t.Error("validated against a damaged sidecar")
+		t.Error("validated against a damaged label set")
 	}
 }
 
@@ -269,7 +274,7 @@ func followingPack(t *testing.T) *annotation.Pack {
 		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
 	}
-	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}); err != nil {
+	if err := annotation.WritePack(dir, m, samples, [][]byte{block, block}, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)
@@ -285,7 +290,7 @@ func followingPack(t *testing.T) *annotation.Pack {
 				Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 		}
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	review := annotation.PhysicalReview{
@@ -467,7 +472,7 @@ func fitPack(t *testing.T) *annotation.Pack {
 		Source:     annotation.SourceProvenance{SensorID: "s", VRLOGHeaderSHA: "sha256:h", VRLOGFramesSHA: "sha256:f"},
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor"},
 	}
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)
@@ -485,7 +490,7 @@ func fitPack(t *testing.T) *annotation.Pack {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car", SampleID: i, PointIndices: all,
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(pack, s); err != nil {
+	if _, err := labelset.SaveMembership(pack, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	return pack
@@ -532,5 +537,21 @@ func TestAnnotationReferenceFit(t *testing.T) {
 	}
 	if code, _, _ := runReference("fit", "--pack", pack.Dir, "--object", "ghost", "--author", "op", "--out", again); code != 1 {
 		t.Errorf("an unknown object exited %d, want 1", code)
+	}
+}
+
+// repin reports what it moved; imported reviews carry no membership pin, so
+// on a pack whose reviews were all imported there is nothing to move.
+func TestAnnotationReferenceRepin(t *testing.T) {
+	pack := followingPack(t)
+	if code, _, _ := runReference("repin", "--pack", pack.Dir); code != 2 {
+		t.Fatalf("repin without --author exited %d", code)
+	}
+	if code, _, _ := runReference("repin", "--pack", pack.Dir+".missing", "--author", "op"); code != 1 {
+		t.Fatalf("repin of a missing pack exited %d", code)
+	}
+	code, stdout, stderr := runReference("repin", "--pack", pack.Dir, "--author", "op")
+	if code != 0 || !strings.Contains(stdout, "re-pinned 0 reviews to the current membership; 0 need reviewing again") {
+		t.Fatalf("repin exited %d: %s%s", code, stdout, stderr)
 	}
 }

@@ -53,7 +53,7 @@ struct BackgroundPackTests {
 
     @Test func readsTheBytesGoWrites() throws {
         let dir = try SyntheticPack.write([[(0, 0, 0, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         // Swap in Go's own background files and point the manifest at them.
         try Data(base64Encoded: goBytes)!.write(to: dir.appendingPathComponent("background.bin"))
         try Data((goIndexJSON + "\n").utf8).write(
@@ -80,7 +80,7 @@ struct BackgroundPackTests {
     @Test func aTamperedBackgroundIsRefused() throws {
         let dir = try SyntheticPack.write(
             [[(0, 0, 0, 1)]], backdrops: [(0, [simd_float3(1, 2, 3)])])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let url = dir.appendingPathComponent("background.bin")
         var bytes = try Data(contentsOf: url)
         bytes[0] ^= 0xFF
@@ -94,7 +94,7 @@ struct BackgroundPackTests {
         let dir = try SyntheticPack.write(
             [[(0, 0, 0, 1)], [(0, 0, 0, 1)], [(0, 0, 0, 1)]],
             backdrops: [(0, [simd_float3(1, 1, 1)]), (4, [simd_float3(2, 2, 2)])])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let samples = pack.chronologicalSamples
 
@@ -105,7 +105,7 @@ struct BackgroundPackTests {
 
     @Test func aPackWithoutOneOpensAsItAlwaysDid() throws {
         let dir = try SyntheticPack.write([[(0, 0, 0, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         #expect(pack.backgrounds.isEmpty)
         #expect(pack.backgroundInForce(at: pack.samples[0]) == nil)
@@ -130,7 +130,7 @@ struct SessionBackgroundTests {
 
     @Test func steppingForwardAcrossAnUpdateSaysSoAndShowsWhatChanged() throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.currentBackground?.backgroundID == 0)
         #expect(!session.backgroundUpdatedHere)
@@ -150,7 +150,7 @@ struct SessionBackgroundTests {
 
     @Test func steppingBackAcrossOneIsNotNews() throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.step(to: 2)
         session.stepBackward()
 
@@ -161,7 +161,7 @@ struct SessionBackgroundTests {
 
     @Test func theBackgroundCountsAsBackgroundAndIsNeverSelected() throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.classCounts[PointClass.background] == 4)
         // The frame has one return of its own. A lasso over everything takes
@@ -172,13 +172,13 @@ struct SessionBackgroundTests {
 
     @Test func theFrameStripMarksWhereTheBackgroundChanges() throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(session.frameProgress.map(\.backgroundUpdated) == [false, false, true])
     }
 
     @Test func the3DViewIsSentEachSnapshotOnce() throws {
         let (session, dir) = try street()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let snapshot = try #require(session.currentBackground)
         func bundle(upload: Bool) -> FrameBundle {
             AnnotationScene.frame(
@@ -264,7 +264,7 @@ struct SessionProgressTests {
 
     @Test func unsavedIsInQuestionAndSavedByHandIsAgreed() throws {
         let (session, dir) = try openSession([frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(session.completeness.whole == LabelTally(total: 24, agreed: 0, inQuestion: 0))
 
         _ = session.createObject(objectClass: "car")
@@ -281,7 +281,7 @@ struct SessionProgressTests {
 
     @Test func whatAnAlgorithmPropagatedStaysInQuestion() throws {
         let (session, dir) = try openSession([frame, frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "building")
         #expect(
             session.select(
@@ -298,7 +298,7 @@ struct SessionProgressTests {
 
     @Test func aSectorTakesTheViewsToWhatIsLeftInIt() throws {
         let (session, dir) = try openSession([frame])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         // The car is in sector 0; the wall, at (20..21.5, 20), in sector 1.
         #expect(session.fitViews(toSector: 1))
         let top = session.viewport(for: .top, size: CGSize(width: 400, height: 200))
@@ -315,7 +315,7 @@ struct SessionProgressTests {
 struct ObjectNameTests {
     @Test func objectsAreNumberedWithinTheirClass() throws {
         let (session, dir) = try openSession([[(0, 0, 0, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = session.createObject(objectClass: "car")
         let walker = session.createObject(objectClass: "pedestrian")
         let second = session.createObject(objectClass: "car")

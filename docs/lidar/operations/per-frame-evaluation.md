@@ -22,7 +22,7 @@ identity switches and fragmentations, higher AssA and IDF1, at no cost in DetA.
 
 ## The reference
 
-The pack and its review sidecar become one reference point per mask. Every choice below moves the
+The pack and its labels, projected from its label set, become one reference point per mask. Every choice below moves the
 numbers, so every result records it, and two arms scored under different choices are refused.
 
 | Choice        | Default                                               | Alternative                                       |
@@ -69,7 +69,7 @@ is the file, `velocity.report/annotation-split` schema version 1. Unknown fields
 | `schema`, `schema_version`        | `velocity.report/annotation-split`, `1`                                 |
 | `pack_digest`                     | The pack's `pack_digest`; the manifest is never applied to another pack |
 | `dataset_id`                      | Optional; must match the pack's                                         |
-| `sidecar_revision`                | Optional; pins the annotation revision the split was frozen against     |
+| `sidecar_revision`                | Optional; pins the label set revision the split was frozen against      |
 | `note`                            | Free text                                                               |
 | `splits[].name`, `.role`          | A partition and its role: `tuning` or `held_out`                        |
 | `splits[].object_ids`             | Its objects; an object is in exactly one split                          |
@@ -146,7 +146,7 @@ object, `body` gives the body record's review `status` (`none`, `proposed`, `rev
 `reviewed`, `proposed` and `tracker_assisted`. `coverage` counts, per component (`position`,
 `yaw`, `length`, `width`, `height`, `front`, `rear`), the reviewed independent keyframes the
 reference layer can score (`scorable`) and those it cannot (`unavailable`), whatever the reason.
-Neither summary is read from the sidecar's pose review, which stays what it was. The pin is part
+Neither summary is read from the masks' pose review, which stays what it was. The pin is part
 of `split_digest`. A pack with no physical references has no `physical` entry, as no pack of a
 version 2 split has. The freeze summary prints, per pack, the physical revision pinned or
 `no physical references`.
@@ -319,15 +319,16 @@ go build -o bin/lidar-ground-truth-eval ./cmd/tools/lidar-ground-truth-eval
 
 ### kirk0
 
-The pack is `8e422582-…-20260922-043329` under the annotation directory
-(`LIDAR_ANNOTATION_DIR`, default `../sensor_data/lidar/annotation-packs`). Find it, and read its
-digest, current revision and review state:
+The pack is `8e422582-…-20260922-043329…-v2` under the annotation directory
+(`LIDAR_ANNOTATION_DIR`, default `../sensor_data/lidar/annotation-packs`); its labels are in the
+label set it links. Find it, and read its digest, current revision and review state:
 
 ```bash
-PACK="$(ls -d "$LIDAR_ANNOTATION_DIR"/8e422582-*-20260922-043329)"
+PACK="$(ls -d "$LIDAR_ANNOTATION_DIR"/8e422582-*-20260922-043329*-v2)"
 jq -r .pack_digest "$PACK/manifest.json"
-jq -r .revision "$PACK/annotations.json"
-jq -r '.objects[] | "\(.status) \(.class)"' "$PACK/annotations.json" | sort | uniq -c
+./velocity lidar labels project --pack "$PACK" > membership.json
+jq -r .revision membership.json
+jq -r '.objects[] | "\(.status) \(.class)"' membership.json | sort | uniq -c
 ```
 
 Write a split manifest from the field table above, beside the pack rather than inside it, for

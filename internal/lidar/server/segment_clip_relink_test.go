@@ -229,7 +229,7 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 		}
 		// An operator has worked in the second. That is the one to keep
 		// linked, whatever its name.
-		if err := os.WriteFile(filepath.Join(second, "annotations.json"), []byte(`{}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(second, annotation.LabelSetLinkFile), []byte(`{}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 		if linked, err := ws.relinkSegmentPacks(); err != nil || linked != 1 {
@@ -251,7 +251,7 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 		first, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
 		second, _ := writeClipAttempt(t, ws, jobID, segmentID, "2")
 		for _, dir := range []string{first, second} {
-			if err := os.WriteFile(filepath.Join(dir, "annotations.json"), []byte(`{}`), 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, annotation.LabelSetLinkFile), []byte(`{}`), 0644); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -273,7 +273,7 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := os.WriteFile(filepath.Join(reviewed, "annotations.json"), []byte(`{}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(reviewed, annotation.LabelSetLinkFile), []byte(`{}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 		pack, unfinished, err := ws.findClipPack(jobID, segmentID, os.ReadDir)

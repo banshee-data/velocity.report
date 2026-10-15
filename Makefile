@@ -111,6 +111,7 @@ help:
 	@echo "  install-docs-offline Install offline docs dependencies (pnpm/npm)"
 	@echo "  install-scene-capture        Install scene-capture tool dependencies (pnpm/npm)"
 	@echo "  install-scene-capture-browser Also download the pinned headless Chromium (large download)"
+	@echo "  install-transcribe   Install the two speech-recognition engines for podcast-transcribe (pipx)"
 	@echo ""
 	@echo "DEVELOPMENT SERVERS:"
 	@echo "  dev-go               Start Go server (radar disabled, Typst PDF reports)"
@@ -222,6 +223,9 @@ help:
 	@echo "  scene-assets         Rebuild every outstanding scene recording, then the pages"
 	@echo "  scene-assets-status  What is outstanding and roughly how long it will take"
 	@echo "  scene-assets-clean   Drop the .rebuilt markers so a rebuild runs again"
+	@echo "  scene-variants SET=path.json         One window per tuning config of a set, each a web scene"
+	@echo "  scene-variants-status SET=path.json  Which variants are made, and whether every config applies"
+	@echo "  scene-variants-recipes SET=path.json RECIPE=base.json  A scene-capture recipe per variant"
 	@echo "  scene-corpus-verify  Check the corpus against its manifest (SHA=1 for digests)"
 	@echo "    SITES=\"a b\" limits any of these to named sites; FORCE=1 ignores markers"
 	@echo ""
@@ -986,7 +990,7 @@ proto-gen-swift:
 # INSTALLATION
 # =============================================================================
 
-.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
+.PHONY: install-python install-web install-docs install-docs-offline install-scene-capture install-scene-capture-browser install-transcribe install-diagrams activate-web-cache clean-web clean-docs-offline ensure-web-cache codex-setup
 
 # Python environment variables (unified at repository root)
 VENV_DIR = .venv
@@ -1015,9 +1019,12 @@ PYTHON_TEST_PATHS = \
 	scripts/test_update_packaging.py \
 	tools/s2-archive/test_export_static_pcaps.py \
 	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_export_scene_variants.py \
+	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
-	tools/grid-heatmap/test_plot_grid_heatmap.py
+	tools/grid-heatmap/test_plot_grid_heatmap.py \
+	tools/podcast-transcribe/test_podcast_transcribe.py
 install-python:
 	@echo "Setting up Python environment..."
 	@python_path=$$(command -v python$(PYTHON_VERSION) 2>/dev/null || true); \
@@ -1135,6 +1142,28 @@ install-scene-capture:
 install-scene-capture-browser: install-scene-capture
 	@echo "Downloading the pinned headless Chromium for scene-capture..."
 	@cd $(SCENE_CAPTURE_DIR) && npx playwright install chromium
+
+# Speech-recognition engines for tools/podcast-transcribe, each in its own pipx
+# venv and reused when already on PATH. Opt-in: torch and MLX are large, and the
+# models (about 1.6 GB and 2.5 GB) download on first use into ~/.cache/whisper
+# and ~/.cache/huggingface. Parakeet runs on MLX, so Apple Silicon only.
+TRANSCRIBE_WHISPER_VERSION = 20240930
+TRANSCRIBE_PARAKEET_VERSION = 0.5.3
+install-transcribe:
+	@command -v ffmpeg >/dev/null 2>&1 || { echo "ffmpeg not found: brew install ffmpeg"; exit 1; }
+	@command -v pipx >/dev/null 2>&1 || { echo "pipx not found: brew install pipx"; exit 1; }
+	@if command -v whisper >/dev/null 2>&1; then \
+		echo "whisper already installed: $$(command -v whisper)"; \
+	else \
+		pipx install --python python$(PYTHON_VERSION) "openai-whisper==$(TRANSCRIBE_WHISPER_VERSION)"; \
+	fi
+	@if command -v parakeet-mlx >/dev/null 2>&1; then \
+		echo "parakeet-mlx already installed: $$(command -v parakeet-mlx)"; \
+	elif [ "$$(uname -sm)" = "Darwin arm64" ]; then \
+		pipx install --python python$(PYTHON_VERSION) "parakeet-mlx==$(TRANSCRIBE_PARAKEET_VERSION)"; \
+	else \
+		echo "parakeet-mlx needs Apple Silicon; run prepare with --pass-b openai-whisper:medium.en"; \
+	fi
 
 .PHONY: ensure-python-tools
 ensure-python-tools:
@@ -1987,7 +2016,7 @@ format-sql:
 
 .PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
-lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results
+lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results check-experiments
 	@echo "\nAll lint checks passed."
 
 check-quarter-blocks: ## [gated] Reject quarter-block Unicode chars that break Pi console rendering
@@ -2056,6 +2085,15 @@ test-no-results: ## Exercise the result-directory guard against real Git indexes
 	@python3 -m unittest discover -s scripts -p test_check_no_results.py
 
 .PHONY: check-no-results test-no-results
+
+experiments-graph: ## Regenerate data/experiments/DEPENDENCIES.md from the experiment specs
+	@go run ./cmd/tools/experiments graph -write
+
+check-experiments: ## Validate the experiment specs and check DEPENDENCIES.md is the fresh render
+	@go run ./cmd/tools/experiments validate
+	@go run ./cmd/tools/experiments check-graph
+
+.PHONY: experiments-graph check-experiments
 
 check-buildinfo: ## Reject generated build stamps committed in BuildInfo.swift
 	@scripts/check-buildinfo-placeholder.sh
@@ -2374,8 +2412,17 @@ scene-corpus-verify:
 # reachable under that name. Do not build to ./velocity — that is the operator's
 # symlink to whichever build is current, and overwriting it with a second
 # 131 MB copy is not what anyone meant.
-.PHONY: scene-assets-preflight
-scene-assets-preflight:
+.PHONY: scene-assets-preflight scene-build-preflight
+scene-assets-preflight: scene-build-preflight
+	@report=$$($(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status 2>&1) || { \
+		echo "$$report"; \
+		echo "Some sites could not be resolved to packets; nothing ran."; \
+		exit 1; }
+
+# The half of the preflight every scene batch shares, whatever it replays: the
+# binary, stamped with this checkout, and the server answering. scene-variants
+# runs it too; it resolves its own sites, from its set file.
+scene-build-preflight:
 	@if [ ! -e velocity ]; then \
 		if [ -x velocity-report-local ]; then \
 			ln -s velocity-report-local velocity; \
@@ -2397,15 +2444,56 @@ scene-assets-preflight:
 		echo "    make build-radar-local && ln -sf velocity-report-local velocity"; \
 		exit 1; \
 	fi
-	@report=$$($(SCENE_ASSETS_ENV) python3 $(SCENE_PUBLISH) $(SITES) --status 2>&1) || { \
-		echo "$$report"; \
-		echo "Some sites could not be resolved to packets; nothing ran."; \
-		exit 1; }
 	@curl -fsS --max-time 5 http://localhost:8080/api/lidar/playback/status >/dev/null 2>&1 || { \
 		echo "The LiDAR server is not answering on :8080."; \
 		echo "Start it in another shell:"; \
 		echo "    make dev-go-lidar LIDAR_PCAP_DIR=$(LIDAR_PCAP_DIR)"; \
 		exit 1; }
+
+# =============================================================================
+# SCENE VARIANT EXPORTS
+# =============================================================================
+# One window of a site replayed once for each tuning config of a set, every run
+# exported as a web scene in a published scene's assets/ layout, per
+# docs/plans/lidar-scene-variant-exports-plan.md. The replay is publish-scenes'
+# own, with the variant's tuning_config on the start request, so the replay
+# settings, corpus and binary checks are the scene-assets ones above.
+#
+# A set is local output, never committed: it goes under SCENE_VARIANTS_DIR,
+# outside the checkout, and the script refuses a directory inside it.
+#
+#     make scene-variants-status SET=tools/s2-archive/scene-variants/geometry-convergence.json
+#     make scene-variants SET=tools/s2-archive/scene-variants/geometry-convergence.json [SITES='1st-mission'] [FORCE=1] [COMPARE=1]
+#     make scene-variants-recipes SET=... RECIPE=path/to/base-recipe.json
+
+SCENE_VARIANTS_DIR ?= $(LIDAR_DATA_DIR)/scene-variants
+SCENE_VARIANTS := tools/s2-archive/export-scene-variants.py
+SCENE_VARIANTS_ENV := $(SCENE_ASSETS_ENV) SCENE_VARIANTS_DIR=$(abspath $(SCENE_VARIANTS_DIR))
+SCENE_VARIANTS_USAGE := Usage: make scene-variants SET=tools/s2-archive/scene-variants/<set>.json [SITES='a b'] [FORCE=1] [COMPARE=1]
+
+.PHONY: scene-variants scene-variants-status scene-variants-recipes
+
+# The script checks the set, the sites, the run records and every config
+# against GET /api/lidar/configs before it replays anything, and stops if any
+# of them is wrong.
+scene-variants:
+	@test -n "$(SET)" || { echo "$(SCENE_VARIANTS_USAGE)"; exit 1; }
+	@$(MAKE) --no-print-directory scene-build-preflight
+	@$(SCENE_VARIANTS_ENV) python3 $(SCENE_VARIANTS) "$(SET)" $(if $(SITES),--sites $(SITES)) $(if $(FORCE),--force) $(if $(COMPARE),--compare)
+
+# What a run would do: each variant made or outstanding, every config checked
+# against the server when it answers, and the replay time outstanding.
+scene-variants-status:
+	@test -n "$(SET)" || { echo "Usage: make scene-variants-status SET=tools/s2-archive/scene-variants/<set>.json"; exit 1; }
+	@$(SCENE_VARIANTS_ENV) python3 $(SCENE_VARIANTS) "$(SET)" --status $(if $(SITES),--sites $(SITES))
+
+# One scene-capture recipe per variant, from a hand-authored base recipe with
+# the frame and views to compare at; render each with make capture-scene.
+scene-variants-recipes:
+	@test -n "$(SET)" -a -n "$(RECIPE)" || { echo "Usage: make scene-variants-recipes SET=<set>.json RECIPE=<base-recipe>.json"; exit 1; }
+	@$(SCENE_VARIANTS_ENV) python3 $(SCENE_VARIANTS) "$(SET)" --recipes "$(RECIPE)" | while read -r recipe; do \
+		echo "  make capture-scene RECIPE=$$recipe"; \
+	done
 
 # =============================================================================
 # LIDAR SCENE CAPTURE

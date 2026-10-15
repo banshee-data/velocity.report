@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"time"
@@ -358,7 +359,23 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]l2frames.PointPolar, error
 		diagf("Packet %d parsed -> 0 points; nonzero_channels_per_block=%v; tail=%+v", p.packetCount, blockNonZero, tail)
 	}
 
+	// Every return carries the key of the packet it came from, so a label
+	// cites (packet key, block, channel) rather than a position in one run.
+	key := PacketKey(data)
+	for i := range points {
+		points[i].PacketKey = key
+	}
+
 	return points, nil
+}
+
+// PacketKey identifies a packet by its content: the first 64 bits of SHA-256
+// over the whole UDP payload, read big-endian. It does not depend on the
+// capture file, the packet's position in it or its timestamp, so a packet
+// clipped, merged or re-containered into another file keeps its key.
+func PacketKey(payload []byte) uint64 {
+	sum := sha256.Sum256(payload)
+	return binary.BigEndian.Uint64(sum[:8])
 }
 
 // parseDataBlock parses a single 124-byte data block containing measurements from all 40 channels

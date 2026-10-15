@@ -4,7 +4,10 @@ Saving one frame in the Annotation window freezes the app for seconds, and every
 whole copy of the document for good. This plan batches edits into fewer saves, moves the save off
 the main thread, and makes the copies that remain smaller.
 
-- **Status:** Draft. The prune tool for existing packs is delivered; everything else is planned
+- **Status:** Storage parts superseded. The [capture-bound annotation format](lidar-capture-bound-annotation-format-plan.md)
+  replaced the whole-document store with label sets, whose history is a journal of deltas, and on
+  2026-10-12 the version 1 store and `lidar-annotation-prune` were removed. Phase 0 and A (timings,
+  a writer off the main thread, batching) still apply to label set saves; B to D do not
 - **Layers:** L10 Clients (the macOS annotation window), annotation storage (Swift and Go writers)
 - **Target:** v0.5.2.x, because labelling hours are the constraint on every reviewed-data gate
 - **Companion plans:** [point annotation and object dataset](lidar-point-annotation-and-object-dataset-plan.md), [physical reference review](lidar-physical-reference-review-plan.md)
@@ -199,9 +202,9 @@ tool is new files only.
 
 ## Checklist
 
-- [x] `lidar-annotation-prune` for existing packs ([PR 658](https://github.com/banshee-data/velocity.report/pull/658))
+- [x] `lidar-annotation-prune` for existing packs ([PR 658](https://github.com/banshee-data/velocity.report/pull/658)); removed with the version 1 store
 - [ ] Phase 0: per-phase timings and signposts
 - [ ] A: writer actor, N edits or M seconds, flush points, state indicator
-- [ ] B: private recovery journal
-- [ ] C1: hard-link archive; C2: head cache; C3: compact encoding (Swift and Go)
-- [ ] D: retention at archive time for new saves
+- [ ] ~~B: private recovery journal~~ (superseded: the label set journal)
+- [ ] ~~C1: hard-link archive; C2: head cache; C3: compact encoding (Swift and Go)~~ (superseded)
+- [ ] ~~D: retention at archive time for new saves~~ (superseded: deltas, not copies)

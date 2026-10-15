@@ -569,7 +569,7 @@ struct MainViewLink: View {
             timestampNs: appState.currentTimestamp, logStartNs: appState.logStartTimestamp,
             logEndNs: appState.logEndTimestamp, seekable: seekable,
             playing: seekable && !appState.isPaused && !appState.replayFinished,
-            finished: seekable && appState.replayFinished)
+            finished: seekable && appState.replayFinished, packetKeys: appState.currentPacketKeys)
     }
 
     var body: some View {
@@ -588,6 +588,18 @@ struct MainViewLink: View {
                 Text(session.syncStatus.label).font(.caption2).foregroundStyle(
                     session.syncStatus == .inSync ? Color.green : Color.secondary
                 ).lineLimit(2).frame(height: 26, alignment: .topLeading)
+                // Whose packets the main view is replaying: time matches a
+                // frame, but only the packets say it is this capture. Three
+                // lines' room, for the same reason as the line above.
+                let check = session.replayCheck
+                Text(check?.label(session.replayCheckSubject) ?? "").font(.caption2)
+                    .foregroundStyle(check?.differs == true ? Color.orange : Color.secondary)
+                    .fixedSize(horizontal: false, vertical: true).frame(
+                        minHeight: 39, alignment: .topLeading
+                    ).help(
+                        "Compares the packets the main view's frame was decoded from with "
+                            + "the packets the labels cite. Information only: nothing is "
+                            + "blocked.")
             }
             Button("Match the main view's camera") {
                 if let camera = appState.mainCamera { scene.adopt(camera) }

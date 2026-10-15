@@ -1,0 +1,347 @@
+# Capture-bound annotations: labels that outlive the run, history kept as deltas
+
+A label made today belongs to one run's export of a capture, not to the capture. Replay the same
+PCAP with other settings, or even with the same settings under a new run, and the labels no longer
+apply. Each save also writes the whole document twice, so one kirk0 pack carries 42 GB of history
+for a 26 MB head. This plan binds labels to the returns in the capture, keeps history as deltas,
+and moves the existing kirk0 work across by an exact, proven mapping or not at all. It has to land
+before any annotation is published to the
+[Hugging Face dataset](../../tools/s2-archive/huggingface-dataset-layout.md).
+
+- **Status:** Implemented on `dd/lidar/annotation-format-v2` (P0–P6, §10); the kirk0 salvage and the packet key census are recorded in the [migration report](../lidar/operations/annotation-label-set-migration.md)
+- **Layers:** L1 Packets, L2 Frames, L3 Grid, L9 Endpoints (VRLOG, protobuf), L10 Clients (macOS annotation window), annotation storage, offline analysis
+- **Target:** before the first annotation is published; the format and the salvage first, the pipeline locator next
+- **Companion plans:** [VRLOG observation format](lidar-vrlog-observation-format-plan.md), [annotation save latency](lidar-annotation-save-latency-plan.md), [point annotation and object dataset](lidar-point-annotation-and-object-dataset-plan.md), [physical reference review](lidar-physical-reference-review-plan.md), [platform vocabulary](platform-vocabulary-and-data-model-plan.md)
+- **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
+
+## 1. Why the format has to change
+
+### 1.1 A label belongs to one run's export
+
+A sidecar binds to a `pack_digest`, and a mask cites `sample_id + point_index` inside that pack
+([sidecar.go](../../internal/lidar/annotation/sidecar.go)). The pack digest covers `points.bin` and
+`samples.json`. `samples.json` records the run's frame numbering, so the digest changes whenever
+the run does, even when no point does.
+
+The two kirk0 packs show it. `8e422582-…-20260922` and `ad8b9438-…-20260929` hold byte-identical
+`points.bin`, cut from two runs of `kirk0.pcapng`. Their samples number the same frames from 2497
+and from 833, so their pack digests differ and neither pack can load the other's labels. Change the
+L3 settings and the point domain itself changes, because a pack holds only the run's foreground.
+
+### 1.2 The foreground a label was made on cannot be followed into another run
+
+Annotation is downstream of foreground separation: an operator labels what an extraction kept, and
+that stays the design. What fails today is that the labelled points are known only by their place
+in one pack, so another run's foreground cannot be compared with them. A run with other L3
+settings cannot be scored against the labels at all, although the question that matters, which
+labelled returns its L3 kept, has an exact answer once labels cite returns. kirk0 was labelled on a
+deliberately generous foreground (1,833,561 points against 985,224 at the defaults). The
+[annotation-scored tuning](../lidar/operations/annotation-scored-tuning.md) found that the defaults
+lose pedestrians in L3, and return-keyed labels turn that loss into a direct count.
+
+### 1.3 Nothing ties a pack to its PCAP
+
+The manifest records `pcap_basename: kirk0.pcapng` and the digests of a VRLOG that will not be
+published. No PCAP digest is stored, so nobody holding the published capture can check that a pack
+came from it.
+
+### 1.4 Every save keeps the whole document
+
+`SaveSidecar` copies the current `annotations.json` to `annotation-revisions/N.json`, then writes the
+new head ([README](../../internal/lidar/annotation/README.md#files-and-failure-behaviour)). A
+typical save changes one mask, while the head is a pretty-printed document with one integer per line.
+
+## 2. Measurements
+
+Taken from the packs and captures on the lidar volume. Phase 0 completes the rest.
+
+| Observation                                                                                                                                                                                   | Source                                                               |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `ad8b9438` head: revision 2,232; 30 objects and 4,102 masks, all `reviewed`; all `partial` and `present`; 1,756,903 member indices; 832 samples                                               | `annotations.json`                                                   |
+| Of those masks, 2,574 were drawn by hand, 1,422 accepted from `cluster_chain` and 106 from `footprint_carry`                                                                                  | mask `provenance.algorithm`                                          |
+| History: 2,231 snapshots, 42 GB. The head is 25.9 MB pretty-printed and 9.4 MB minified                                                                                                       | `annotation-revisions/`                                              |
+| Twelve sampled consecutive saves each changed or added one mask, by 1 to 159 indices, and each wrote a 0.3 to 25.9 MB snapshot                                                                | revision pairs 3, 51, 201 … 2231                                     |
+| `8e422582-…-20260922` (the sweep's ground truth): revision 402; 67 objects (6 reviewed); 4,661 masks (442 reviewed); same `points.bin`                                                        | its `annotations.json`, `manifest.json`                              |
+| `aadfe835` (4 packs) labels `s2_sf_3_20260902132037_00002.pcap`, a source roll of the published columbus-broadway capture. The `-175735` pack's head: 13 objects, 1,054 masks, all `proposed` | its `annotations.json`                                               |
+| kirk0 packets are 1,266 bytes (UDP sequence on), in Last-return mode (0x38)                                                                                                                   | first 59,984 LiDAR packets                                           |
+| The sensor clock reads 2017-09-06 (not synchronised) but advances: sensor time is unique for 59,984 of 59,984 packets                                                                         | packet tail                                                          |
+| Record (capture) time repeats: 59,980 unique of 59,984                                                                                                                                        | PCAP record headers                                                  |
+| SHA-256 of the UDP payload is unique for 59,984 of 59,984 packets                                                                                                                             | payload bytes                                                        |
+| Clipping preserves packets: 10 of 10 sampled packets of the columbus-broadway roll appear in the published PCAPNG with identical payload, sensor time, UDP sequence and record time           | roll part `00002` against `20260902T1320_…_columbus-broadway.pcapng` |
+| No commit has touched `l1packets/parse` or `l2frames` since `0b540677`, the build that made `ad8b9438`                                                                                        | `git log`                                                            |
+
+## 3. Decisions (proposed)
+
+### D1. Labels cite returns in the capture, not points in a pack
+
+A return is identified by `(packet key, block, channel)`. The **packet key** is the first 64 bits
+of SHA-256 over the UDP payload: the bytes the sensor sent, which never change once captured,
+without Ethernet, IP or UDP headers or the capture record. It survives clipping, merging,
+PCAP-to-PCAPNG conversion and re-stamping, because none of those touch the payload. Decided (§8).
+
+| Candidate                | Why not                                                                 |
+| ------------------------ | ----------------------------------------------------------------------- |
+| Pack `sample + index`    | Run-bound (§1.1)                                                        |
+| Record time              | Repeats: 4 in 59,984 kirk0 packets                                      |
+| Packet ordinal in a file | Changes when rolls are clipped or merged into a published capture       |
+| UDP sequence             | Optional in the sensor config, resets on power-up, 32-bit wrap          |
+| Sensor time              | Unsynchronised on these captures (2017 on kirk0) and resets on power-up |
+| Coordinates              | Forbidden: coincident returns are distinct points, and decoders change  |
+
+Within a label set, the packets it covers are listed once in capture order (the **packet table**).
+A return then has a dense local **return number**:
+`packet_index × blocks × channels + block × channels + (channel − 1)`, which is 400 per packet on a
+Pandar40P. The numbering belongs to the label set's own table, not to any run.
+
+### D2. A label set binds to packets, and to files only by verification
+
+`bind` reads a PCAP, computes packet keys and records the result in `labels.json` as an
+`applies_to` entry: the file's SHA-256, packets found, missing and duplicated. A label set applies
+to any file that contains its packets. A clipped file that holds only some of them gives coverage
+for the windows it holds, and the rest are unavailable rather than empty. A key that appears twice
+in one file refuses the bind.
+
+### D3. Windows replace samples
+
+A **window** is the half-open range of return numbers the operator saw as one frame. Completeness
+and visibility are claimed per window. Another run's frames need not align with it, because scoring
+compares returns, not frames.
+
+### D4. Every mask is made on a named foreground
+
+Annotation is downstream of foreground separation. Every mask records as its `domain` the
+foreground extraction it was made on: run ID, config hash, params hash and build SHA. There is no
+all-returns domain, and no label claims to have seen a return its extraction discarded. Decided
+(§8).
+
+Scoring another run of the same capture compares returns:
+
+| Return                    | Labelling extraction kept it | Scored run kept it | Counts as                                                       |
+| ------------------------- | ---------------------------- | ------------------ | --------------------------------------------------------------- |
+| Member of a mask          | Yes                          | Yes                | Membership, scored as today                                     |
+| Member of a mask          | Yes                          | No                 | Lost by the scored run's L3                                     |
+| In the domain, in no mask | Yes                          | Yes                | Treated as the per-frame evaluator treats unlabelled foreground |
+| Outside the domain        | No                           | Yes                | Unlabelled and ignored, never a negative                        |
+
+The domain bounds what a label set can measure, so label on a generous foreground, as kirk0 was.
+Salvaged kirk0 masks carry that run's foreground as their domain.
+
+### D5. History is a journal of deltas; the head is a checkpoint
+
+Each save appends one line to `journal.ndjson`. The line holds the parent revision and parent state
+digest, author, session, operation and UTC time, the per-mask additions and removals as return
+ranges, and the field changes, then the resulting state digest. A pinned revision is
+`(label_set_id, revision, state_digest)`, rebuilt by replaying the journal and checked against the
+digest. Restoring an old revision appends a delta that recreates it.
+
+The lock and the optimistic concurrency check stay: a save names the base revision and base state
+digest. The macOS client appends and syncs one line per edit (the save-latency plan's recovery
+journal becomes the real one) and rewrites the head only in batches (that plan's part A). No
+snapshot is written per save.
+
+The journal is local working history and is never published. A published label set carries its
+current state only, and the dataset's Git history is its published history. Decided (§8).
+
+### D6. One mask per line, in one canonical encoding
+
+`masks.ndjson` holds one mask per line, sorted by window then object, with membership as sorted
+`[start, length]` ranges of return numbers. An edit to one mask changes one line, so Git and Xet
+store it as a small change rather than a new 26 MB file.
+
+### D7. Packs become views
+
+A version 2 pack is a version 1 pack plus `returns.bin` (one return number per point, parallel to
+`points.bin`) and the digest of the packet table it was built against. The window displays a view
+and translates selections into returns. Edits are deltas, so returns a view does not show are kept
+rather than dropped.
+
+Version 2 replaces version 1 outright. P2 removes the version 1 pack writer, and from then on every
+export writes a version 2 view. The version 1 reader stays, because the migration reads the old
+packs and the VRLOG plan's
+[§7](lidar-vrlog-observation-format-plan.md#71-one-selection-manifest-the-same-point-codec)
+requires legacy packs to stay readable. Decided (§8).
+
+### D8. Legacy labels move only by an exact, proven mapping
+
+The [annotation plan](lidar-point-annotation-and-object-dataset-plan.md#31-a-frozen-excerpt-pack)
+forbids rebuilding point identity by approximate coordinate matching, and the VRLOG plan allows a
+label transfer only "after proving an exact, digest-bound mapping". The migration therefore:
+
+1. Decodes the PCAP with the same L1/L2 decoder, in the pack's coordinate frame.
+2. Matches each pack point to a return with bit-identical float32 `x, y, z` among the returns of
+   that sample's frame.
+3. Accepts one-to-one matches only. A coincident pair becomes uncertain on that mask.
+4. Refuses the label set if any member has no match, reports it, and leaves the version 1 files as
+   they are.
+5. Records a mapping digest over the pack digest, the PCAP SHA-256, the decoder build and the
+   mapping table.
+
+## 4. Format version 2
+
+```text
+<label-set>/
+  labels.json               identity, sensor layout, bindings, domains, head revision and digest
+  packets.bin               packet keys, uint64 little-endian, capture order
+  windows.json              per window: return range, sensor and record time bounds
+  objects.json              objects (version 1 fields, unchanged)
+  masks.ndjson              one mask per line (D6)
+  physical-references.json  version 1 record, keyframes rebound from sample to window
+  journal.ndjson            deltas (D5); local only, never published
+  .lock                     local only, never published
+```
+
+| `labels.json` field | Meaning                                                                                      |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `schema_version`    | 2                                                                                            |
+| `label_set_id`      | Random UUID for this annotation effort; stable across revisions and files                    |
+| `sensor`            | Model, return mode, `blocks` and `channels`: the return-number layout                        |
+| `packet_key`        | `sha256-64:udp-payload`, and the packet table's digest and count                             |
+| `applies_to`        | Verified files: SHA-256, bytes, name, found, missing and duplicated packets, verifying build |
+| `domains`           | The foreground extractions masks were made on (D4)                                           |
+| `head`              | Revision, state digest, journal length and digest of its last line                           |
+| `migrated_from`     | For salvaged sets: pack digest, sidecar revision, mapping digest                             |
+
+Mask fields keep their version 1 meaning (`object_id`, `completeness`, `visibility`, `status`,
+`pose`, `provenance`), with `window_id` in place of `sample_id`, return ranges in place of indices,
+and `domain` added. The state digest is SHA-256 over the canonical encoding of `objects.json`,
+`windows.json` and `masks.ndjson`.
+
+On disk the head is kept in a storage layout decided during the build (§10): records one per line,
+and masks and domain returns split by window range into `masks/` and `domain-returns/`. The files
+above are the canonical encoding the state digest is defined over.
+
+For kirk0 the packet table is about 150,000 packets (83 s at about 1,800 packets per second), or
+1.2 MB. Mask and journal sizes are measured in Phase 3. A typical save is one mask by under 200
+indices, so the whole journal should fall from 42 GB to tens of megabytes at most.
+
+## 5. What we can salvage
+
+| Version 1 source                                                            | Version 2 result                                                                                                 | Condition                                                                                                               |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ad8b9438` revision 2,232: 30 objects, 4,102 masks, all reviewed            | Label set `kirk0-reference`, reviewed, its domain the loosened run's foreground                                  | All 1,756,903 members map one to one (D8)                                                                               |
+| Its 2,231 revision snapshots (42 GB)                                        | `journal.ndjson`, keeping each save's author, session, operation and time                                        | Replaying the journal reproduces every revision's state digest. Archiving the snapshots is then the operator's decision |
+| Its physical references and their revisions                                 | Same records, keyframes rebound from sample to window; geometry unchanged                                        | Their links still validate                                                                                              |
+| Its feature proposals, proposal layer and dismissed proposals               | Carried where they cite indices that map; otherwise regenerated, since proposals are reproducible                | Inventoried in Phase 0                                                                                                  |
+| `8e422582` revision 402, the sweep's ground truth                           | Separate label set `kirk0-sweep-gt` through the same mapping, plus an agreement report against `kirk0-reference` | Sample-to-frame alignment re-derived, because its frame numbering differs                                               |
+| `aadfe835-…-20260921-175735` revision 30: 13 objects, 1,054 masks, proposed | Proposed label set on the columbus-broadway roll, then bound to the published PCAPNG                             | The first proof that one label set applies to two files                                                                 |
+| `splits/kirk0-ad8b9438-tuning-r1.json`                                      | Re-frozen against `kirk0-reference` revision and state digest                                                    | Same object partition                                                                                                   |
+| kirk0-tuning `ground-truth.json` and its 11,861 scored configs              | Ground truth regenerated from `kirk0-sweep-gt`                                                                   | A sample of configs scores identically: same memberships in the same domain                                             |
+
+The domain costs nothing in the salvage. The kirk0 labels were made on a foreground, which is what
+every version 2 label is, so they are published as they stand, `partial` masks included, with
+their domain stated. They are not re-reviewed against returns the extraction discarded.
+
+## 6. Phases
+
+| Phase | Work                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Gate                                                                                                                |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| P0    | Finish measuring: packet-key uniqueness over every capture under `LIDAR_PCAP_DIR`; a dry-run exact match of the kirk0 pack (matched, coincident, unmatched); an inventory of every record that cites pack indices in Go, Swift, scripts and frozen splits                                                                                                                                                                                                                                                                                                                                            | No duplicate key within any capture, and every reviewed kirk0 member matches one to one, or D1 and D8 are revisited |
+| P1    | Specification and Go library: codec, validation, state digest, journal store (lock, append, replay, restore), `bind` over a PCAP. Swift parity fixtures in the style of `swift_fixture_test.go`. Package README and operations guide                                                                                                                                                                                                                                                                                                                                                                 | Round-trip, replay and restore tests; byte-identical canonical encoding from Go and the fixtures                    |
+| P2    | Return locator through the pipeline: packet key computed in L1, carried on L2 points and through L3 foreground, written to `FrameBundle` and the VRLOG. Propose the packet key as the "packet/block/channel/return locator" of the VRLOG plan's [§3.1](lidar-vrlog-observation-format-plan.md#31-session-frame-and-observation-identities). Pack export writes `returns.bin` (pack schema 2), and the version 1 writer is removed: the CLI export, the server's export endpoint and the segment clip job write version 2 only, and tests that built version 1 packs read checked-in fixtures instead | Perf gate within its committed bounds; every exported point carries a return number                                 |
+| P3    | Migration tool and salvage of §5, with a report in `docs/` recording match rates, sizes and the mapping digests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | The conditions in §5                                                                                                |
+| P4    | macOS window reads and writes label sets through views: journal append per edit, batched head, delta edits that keep members the view does not show. Takes in the save-latency plan's threading (part A) and replaces its recovery journal and snapshot slimming                                                                                                                                                                                                                                                                                                                                     | Undo, restore and conflict behaviour match the version 1 store; no per-save snapshot                                |
+| P5    | Server and scoring: label-set endpoints; the per-frame evaluator, `lidar-ground-truth-eval`, split freezing and the held-out guard read version 2 and bind by capture SHA-256                                                                                                                                                                                                                                                                                                                                                                                                                        | kirk0 scores reproduce from version 2                                                                               |
+| P6    | Publication: `labels/<capture-stem>/<label-set>/` in the dataset with the current state only, `.gitattributes` entries (`labels/** -text`, LFS for anything over 10 MB), `.gitignore` entries for `journal.ndjson` and `.lock`, the manifest join from capture to label set, and the README                                                                                                                                                                                                                                                                                                          | `bind` succeeds against the published PCAPNG for every published label set                                          |
+
+P3 does not wait for P2, because the migration decodes the PCAP itself. New labelling in version 2
+needs P2 and P4. P6 needs P3.
+
+## 7. Risks
+
+| Risk                                                          | Handling                                                                                                                                                      |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A decoder change moves coordinates                            | Packet keys are raw bytes and do not move; views are rebuilt. Only the version 1 migration depends on the decoder, and it records the build it proved against |
+| Another sensor model has a different block and channel layout | The layout is declared in `labels.json`; a second model adds its own                                                                                          |
+| Dual-return captures                                          | The block identifies the return; coincident returns stay separate returns                                                                                     |
+| Long captures make large packet tables                        | 20 minutes is about 2.2 million packets, or 17 MB. A label set lists only its windows' packets                                                                |
+| The protobuf change touches the Swift stubs and the VRLOG     | Lands with the VRLOG plan's point locator, not separately                                                                                                     |
+| The same packets appear in two published files                | Intended: one label set binds to both. Duplicates within one file refuse the bind                                                                             |
+
+## 8. Decisions and open questions
+
+Decided on October 12, 2026:
+
+1. **Packet key:** a hash of the packet's bytes, which never change once captured (D1). Not UDP
+   sequence plus sensor time.
+2. **Domain:** foreground only. Annotation is downstream of foreground separation (D4). The
+   salvaged kirk0 labels are published as foreground-domain labels, not re-reviewed against all
+   returns.
+3. **Publication:** current state only. Journals stay local, and the dataset's Git history is the
+   published history (D5).
+4. **Version 1 writer:** removed in P2. Exports write version 2 views only; the version 1 reader
+   stayed for the migration (D7).
+5. **Version 1 reader:** removed once the migration was done (P7). No dual path: the build reads
+   version 2 only, the version 1 packs are archived outside the repository, and the git tag
+   `annotation-v1-reader` keeps the last build that reads them.
+
+No questions are open at this stage.
+
+## 9. Not in scope
+
+- Dataset release versioning, multi-dataset and multi-database import.
+- Changes to object semantics, review statuses or the proposal workflow.
+- Object identity across captures.
+
+## 10. Implementation
+
+Built on `dd/lidar/annotation-format-v2`. The operations guide is
+[label sets](../lidar/operations/label-sets.md); the format specification is the
+[label set package README](../../internal/lidar/annotation/labelset/README.md).
+
+| Phase | What landed                                                                                                                                                                                                                                                                                   |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P0    | The kirk0 dry run: all 1,833,561 points of both kirk0 packs and all 1,076,843 of the columbus-broadway pack are exactly one decoded return each, none coincident                                                                                                                              |
+| P1    | `internal/lidar/annotation/labelset`: codec, validation, diff and apply, the locked journal store with replay, restore, publish and roll-forward, binding to PCAP and PCAPNG files, views; version 2 packs; Go parity fixtures for the macOS client                                           |
+| P2    | Packet keys in L1 and L2; return identity in the VRLOG point cloud (proto fields 12–18) and through every decimation; export writes version 2 packs only, and the version 1 writer is gone                                                                                                    |
+| P3    | `velocity lidar labels` (migrate, create, attach, bind, verify, info, project, publish, census) and the exact-mapping migration                                                                                                                                                               |
+| P4    | The macOS window reads and writes label sets through views; version 1 packs open read-only                                                                                                                                                                                                    |
+| P5    | Linked packs' membership is projected from their label set for splits, physical references, features, the evaluators and the server's pack listing; frozen splits bind cases to the label set's verified capture SHA-256s                                                                     |
+| P6    | `tools/s2-archive/stage-label-sets.py` and the dataset's `labels/` layout; views published beside their label sets (`labels publish-view`, `check-view`), `labels publish --replace` and `annotation-reference repin`. kirk0-reference is the first set published, with its view (2026-10-13) |
+| P7    | Clean cutover: version 1 packs, `annotations.json` and its revision store, `labels migrate`, `lidar-annotation-prune`, the server's `migrated_to` and the macOS read-only and successor paths are gone; membership is written only through label sets                                         |
+
+Decided during the build, beyond §3:
+
+- **A linked pack's membership token is the label set's state digest** at the revision, not a digest
+  of the projected sidecar bytes. Physical references, features, facet proposals and frozen splits
+  pin it, and the macOS client and Go agree on it whichever pack shows the membership.
+- **A `foreground_only` export keeps only foreground-classed points.** Clip packs were labelled
+  `foreground_only` while the replay recorded whole frames (the kirk0 clip held 3,394,879 points, of
+  which 134,004 were foreground). The pack is now the run's foreground, as D4 requires.
+- **Physical references, feature proposals and proposal layers stay bound to a pack** (one run's
+  view). Their membership pins name label set revisions through the projection; moving them into
+  the label set is a follow-on.
+- **The macOS window's first save makes two revisions**: the label set's creation from the pack,
+  then the edit, so the first edit can be undone. Saves still run on the main thread; the save
+  latency plan's threading is not taken in. Go's `labelset.SaveMembership`, which fixtures and
+  tests use, makes one: with no editor there is nothing to undo.
+- **The version 1 packs' intensity flags stay as they were.** Their samples state no per-sample
+  `has_intensity`, and the migrated packs' digests cover the samples, so the reader keeps the
+  manifest's pack-wide flag for samples that state none. This is a rule of version 2, not a
+  version 1 path.
+- **`labels.json` has one encoding.** Go writes it as the macOS client does, keys sorted and
+  indented, pinned by parity fixtures. Both rewrite it on every save, so two encodings would turn
+  every save after the other client's into a whole-file diff.
+- **A label set is published with a view.** It holds no points, so the run the labels were drawn
+  on is published beside it as a pack, with its physical references and a link to the set next to
+  it. Facets stay behind, because they pin revisions a copy without history cannot rebuild. The
+  view's foreground must already be one of the set's domains, or its first save would add the
+  whole foreground.
+- **Reviews are re-pinned before an edit is published.** A review pins the membership revision it
+  was made against, and a published copy cannot rebuild an older one. Whoever made the edit still
+  has the history, and moves every review whose frames the edit did not touch to the new head.
+- **The head is kept in a storage layout, and the digest is over the canonical encoding.**
+  `objects.json`, `domains.json` and `windows.json` hold one record per line, and masks and domain
+  returns are split into files of `storage.window_chunk` windows (100 by default). A mask edit
+  rewrites one small file. Every text file stays under Hugging Face's 10 MiB plain-Git limit, so
+  the label text is plain Git: the Hub shows edited lines, and Git merges edits to different
+  masks. Since the digest does not depend on the layout, no state, journal line or pin moved;
+  `labels relayout` converted the five sets of 2026-10-12.
+- **A Git merge is finished by `labels rehead`.** It makes the merged files the next revision,
+  after validating them, and adds the merge to the local journal; `labels.json` keeps the merging
+  copy's own head.
+- **Only a marked journal is recovered.** A journal is local, so it outlives a branch checkout; a
+  journal one line ahead of the head is an interrupted save only if the commit's `.pending` marker
+  names it. Anything else is another head's journal and is refused, never applied.
+- **Returns two objects claimed in one window** in version 1 data, which later validation forbids,
+  are resolved by the migration: a reviewed claim keeps the return and each proposed claim moves it
+  to uncertain. Two reviewed claims refuse the migration.

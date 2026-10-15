@@ -176,7 +176,7 @@ struct PropagationTests {
     @Test func aCarIsCarriedToTheEndOfThePackInOneSave() async throws {
         let positions = (0..<6).map { simd_float2(Float($0) * 0.5, 0) }
         let (session, dir) = try openSession(drive(positions))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = labelTheCar(session)
         let revision = session.sidecar.revision
 
@@ -203,7 +203,7 @@ struct PropagationTests {
     @Test func itStopsWhereTheCarIsGoneAndHandsThatFrameOver() async throws {
         let (session, dir) = try openSession(
             drive([.zero, simd_float2(0.5, 0), simd_float2(1, 0), nil, nil]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = labelTheCar(session)
 
         let outcome = try #require(await session.propagate())
@@ -223,7 +223,7 @@ struct PropagationTests {
         // inside the search, a perfect fit, and not the same car.
         let (session, dir) = try openSession(
             drive([.zero, simd_float2(0.25, 0), simd_float2(0.5, 1.75)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = labelTheCar(session)
 
         let outcome = try #require(await session.propagate())
@@ -238,7 +238,7 @@ struct PropagationTests {
 
     @Test func itStopsShortOfAnotherObjectsPoints() async throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(0.25, 0), simd_float2(0.5, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         // Someone has already called the car in the last frame a van.
         session.step(to: 2)
         _ = session.createObject(objectClass: "van")
@@ -256,7 +256,7 @@ struct PropagationTests {
     @Test func itStopsAtAFrameTheObjectAlreadyHas() async throws {
         let positions = (0..<4).map { simd_float2(Float($0) * 0.5, 0) }
         let (session, dir) = try openSession(drive(positions))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = labelTheCar(session)
         session.step(to: 2)
         session.dismissCarried()
@@ -275,7 +275,7 @@ struct PropagationTests {
     @Test func itCarriesBackwardsToo() async throws {
         let positions = (0..<4).map { simd_float2(Float($0) * 0.5, 0) }
         let (session, dir) = try openSession(drive(positions))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.step(to: 3)
         let car = labelTheCar(session)
 
@@ -288,7 +288,7 @@ struct PropagationTests {
     @Test func aFrameLimitStopsItEarly() async throws {
         let positions = (0..<6).map { simd_float2(Float($0) * 0.5, 0) }
         let (session, dir) = try openSession(drive(positions))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = labelTheCar(session)
 
         let outcome = try #require(await session.propagate(maxFrames: 2))
@@ -301,7 +301,7 @@ struct PropagationTests {
         // Three metres a frame is beyond the search from a standing start.
         let positions = (0..<5).map { simd_float2(Float($0) * 3, 0) }
         let (session, dir) = try openSession(drive(positions))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = labelTheCar(session)
 
         let first = try #require(await session.propagate())
@@ -322,7 +322,7 @@ struct PropagationTests {
 
     @Test func unsavedChangesAreSavedBeforeTheyAreCarried() async throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(0.5, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let car = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
 
@@ -333,7 +333,7 @@ struct PropagationTests {
 
     @Test func itNeedsAnObjectAndSomethingToCarry() async throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(0.5, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         #expect(await session.propagate() == nil)
         _ = session.createObject(objectClass: "car")
         #expect(await session.propagate() == nil)

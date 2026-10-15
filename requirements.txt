@@ -4,7 +4,7 @@
 #
 #    pip-compile --output-file=requirements.txt requirements.in
 #
-black==26.5.1
+black==26.10.1
     # via -r requirements.in
 certifi==2025.8.3
     # via requests
@@ -34,7 +34,7 @@ matplotlib==3.11.2
     # via -r requirements.in
 mypy-extensions==1.1.0
     # via black
-numpy==2.5.3
+numpy==2.5.4
     # via
     #   -r requirements.in
     #   contourpy
@@ -79,7 +79,7 @@ pyyaml==6.0.3
     # via -r requirements.in
 requests==2.34.2
     # via -r requirements.in
-ruff==0.16.10
+ruff==0.17.0
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil

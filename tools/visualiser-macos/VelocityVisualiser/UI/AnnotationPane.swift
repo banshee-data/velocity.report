@@ -117,41 +117,6 @@ struct AnnotationPane: View {
         reviewSection
     }
 
-    // MARK: Points claimed twice
-
-    // Go's tools refuse a pack in which one return belongs to two objects in
-    // a frame, the physical-reference service included. The window refuses
-    // to make a new one; these are ones already saved, to take out of one of
-    // the two objects.
-    @ViewBuilder private var pointClaimBanner: some View {
-        let conflicts = session.pointClaimConflicts
-        if !conflicts.isEmpty {
-            VStack(alignment: .leading, spacing: 2) {
-                Label(
-                    "\(conflicts.count) return\(conflicts.count == 1 ? "" : "s") claimed by two objects",
-                    systemImage: "exclamationmark.triangle"
-                ).font(.caption.bold()).foregroundStyle(.orange)
-                ForEach(Array(conflicts.prefix(4).enumerated()), id: \.offset) { _, c in
-                    HStack {
-                        Text(
-                            "sample \(c.sampleID) point \(c.point): \(session.displayName(objectID: c.first)) and "
-                                + session.displayName(objectID: c.second)
-                        ).font(.caption2)
-                        if let index = session.samples.firstIndex(where: {
-                            $0.sampleID == c.sampleID
-                        }) {
-                            Button("Go") { handleStep { session.step(to: index) } }.controlSize(
-                                .mini)
-                        }
-                    }
-                }
-                Text("Go's tools refuse this pack until each is in one object only.").font(
-                    .caption2
-                ).foregroundStyle(.secondary)
-            }
-        }
-    }
-
     // MARK: Source
 
     // The main view's words, for the things that are the same thing: a run,
@@ -175,7 +140,7 @@ struct AnnotationPane: View {
             // ignorance of that reads as a stronger claim than it is.
             Text(session.pack.coverageCaveat).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
-            pointClaimBanner
+            labelSetSection
 
             // The buttons above the lines that change with the frame, and
             // those lines one line each: text that grew and shrank as the
@@ -204,6 +169,45 @@ struct AnnotationPane: View {
                 "Who is labelling. Saved with every label you make, as the main view's track "
                     + "labels are. Not the name of an object or a track.")
         }
+    }
+
+    // Where the labels are kept, and, for a version 2 pack that is not yet a
+    // view of a label set, the label sets of the same capture it could join.
+    @ViewBuilder private var labelSetSection: some View {
+        Text(session.membershipSummary).font(.caption2).foregroundStyle(.secondary).fixedSize(
+            horizontal: false, vertical: true
+        ).help(
+            "Labels cite the capture's returns, so every run of the capture can share them. "
+                + "Each save adds one line to the label set's journal.")
+        // The files verified to hold the set's packets: which recordings the
+        // labels apply to, so the main view can replay the right one.
+        ForEach(Array(session.labelSetCaptureLines.enumerated()), id: \.offset) { _, line in
+            Text(line).font(.caption2).foregroundStyle(.secondary).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        if session.canAttachLabelSet {
+            ForEach(session.labelSetCandidates().prefix(3)) { candidate in
+                Button(
+                    "Attach to \(candidate.name) (\(candidate.sharedPackets) of "
+                        + "\(candidate.packPackets) packets)"
+                ) { session.attachLabelSet(at: candidate.directory) }.controlSize(.small).help(
+                    "Show and edit that label set's labels through this run: its foreground is "
+                        + "added as a new domain, and nothing already labelled is changed.")
+            }
+            Button("Attach to label set…") { chooseLabelSet() }.controlSize(.small)
+        }
+    }
+
+    private func chooseLabelSet() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.directoryURL = session.pack.annotationDirectory.appendingPathComponent("labels")
+        panel.prompt = "Attach"
+        panel.message = "Choose a label set of the same capture (a folder holding labels.json)."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        session.attachLabelSet(at: url)
     }
 
     // Which settled background is behind this frame, and how long it has been.
@@ -979,7 +983,7 @@ struct AnnotationPane: View {
             if session.navigationGuard() != nil {
                 Text("Unsaved changes").font(.caption2).foregroundStyle(.orange)
             }
-            Text("Revision \(session.sidecar.revision)").font(.caption2).foregroundStyle(.secondary)
+            revisionLine
         }.alert(
             "Review every frame of \(session.activeObjectName ?? "this object")?",
             isPresented: $showReviewAllPrompt
@@ -994,6 +998,27 @@ struct AnnotationPane: View {
                     + "are right, including frames that were filled in for you. They count as "
                     + "reference truth from then on. Changing a frame's points afterwards puts "
                     + "that frame back to unreviewed.")
+        }
+    }
+
+    // The saved revision, and the way back: undo the last save, or restore
+    // any earlier revision. Both append a revision; nothing is rewritten.
+    private var revisionLine: some View {
+        HStack(spacing: 6) {
+            Text("Revision \(session.savedRevision)").font(.caption2).foregroundStyle(.secondary)
+            if session.readOnlyReason == nil, session.savedRevision > 1 {
+                Button("Undo last save") { session.undoLastSave() }.controlSize(.mini).help(
+                    "Restores revision \(session.savedRevision - 1) as a new revision.")
+                Menu("Restore") {
+                    ForEach(session.revisionHistory().reversed().prefix(20)) { revision in
+                        Button(
+                            "\(revision.revision): \(revision.operation) by \(revision.author)"
+                                + (revision.restoredFrom.map { " (from \($0))" } ?? "")
+                        ) { session.restoreRevision(revision.revision) }.disabled(
+                            revision.revision == session.savedRevision)
+                    }
+                }.controlSize(.mini).fixedSize()
+            }
         }
     }
 

@@ -1,12 +1,12 @@
 {
   "object_id": "car",
   "membership_revision": 1,
-  "membership_digest": "sha256:f86fb584bfd5a970ab17280a11dc9583a0d0bdecc82f14ab5234bbb2bbfde774",
+  "membership_digest": "sha256:cb1cbe3ec4a998fbbb5882b018c99fdd2e5b3fc25341243549f853ce5f085344",
   "import": {
     "schema": "velocity.report/physical-reference-import",
     "schema_version": 1,
-    "pack_digest": "sha256:9d387183c064e116ebc10fa91c3718aea997b9789d961c273fda7adf4c6d2574",
-    "dataset_id": "ds_9d387183c064e116",
+    "pack_digest": "sha256:c4e5e18113cf454c736f8eb080735a551d993837a96533f6261e5e4e58032805",
+    "dataset_id": "ds_c4e5e18113cf454c",
     "source": {
       "sensor_id": "hesai-test",
       "vrlog_header_sha256": "sha256:header",
@@ -20,7 +20,7 @@
       {
         "object_id": "car",
         "body": {
-          "body_id": "body_4a264d3b9869",
+          "body_id": "body_7c8f63f399c1",
           "axis_convention": "x_front_y_left_z_up",
           "length": {
             "status": "observed",
@@ -67,7 +67,7 @@
             "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. length 4.46 ± 0.09 m: the 90th percentile of the spans of the frames that measure it end to end (each span is a lower bound, as a frame sees at most the whole body), its half-width the median bound of the longer half; width 1.77 ± 0.18 m: the 90th percentile of the spans of the frames that measure it end to end (each span is a lower bound, as a frame sees at most the whole body), its half-width the median bound of the longer half; height at least 1.10 m: the vertical span of the returns.",
             "provenance": {
               "author": "op",
-              "created_utc": "2026-10-08T23:02:15.045722Z",
+              "created_utc": "2026-10-12T09:43:19.258198Z",
               "operation": "fit_to_points",
               "revision": 0
             }
@@ -75,7 +75,7 @@
         },
         "keyframes": [
           {
-            "keyframe_id": "keyframe_b7ade6dc5822",
+            "keyframe_id": "keyframe_0ee9de57b76a",
             "sample_id": 4,
             "timestamp_ns": 1400000000,
             "anchor": {
@@ -145,14 +145,14 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.2°. front faces the sensor (±0.08 m: range 0.030, sampling 0.017, stragglers 0.000, heading 0.038); rear faces away, and the side facing the sensor does not run to it (±0.15 m: sampling 0.112, stragglers 0.000, heading 0.038). Anchor front_face, on the front face seen; along ±0.08 m, across ±0.24 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }
             }
           },
           {
-            "keyframe_id": "keyframe_8d85bcc0db36",
+            "keyframe_id": "keyframe_d9d6389d791f",
             "sample_id": 12,
             "timestamp_ns": 2200000000,
             "anchor": {
@@ -225,14 +225,14 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.0°. front faces the sensor (±0.08 m: range 0.030, sampling 0.018, stragglers 0.000, heading 0.031); rear the side facing the sensor runs to it (±0.06 m: sampling 0.031, stragglers 0.000, heading 0.031). Anchor body_centre, midway between the two ends seen; along ±0.07 m, across ±0.21 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }
             }
           },
           {
-            "keyframe_id": "keyframe_b5c9d7bcf0fa",
+            "keyframe_id": "keyframe_2b6b8118fe4d",
             "sample_id": 14,
             "timestamp_ns": 2400000000,
             "anchor": {
@@ -285,14 +285,14 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the minimum-area rectangle around this frame's returns, nearest the course, ±0.5°. front the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.019, heading 0.000); rear the side facing the sensor runs to it (±0.05 m: sampling 0.021, stragglers 0.025, heading 0.000). Anchor body_centre, midway between the two ends seen; along ±0.04 m, across ±0.14 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }
             }
           },
           {
-            "keyframe_id": "keyframe_0a3cadf959b0",
+            "keyframe_id": "keyframe_c194adbe576b",
             "sample_id": 15,
             "timestamp_ns": 2500000000,
             "anchor": {
@@ -346,14 +346,14 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the minimum-area rectangle around this frame's returns, nearest the course, ±0.5°. front the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.021, heading 0.000); rear the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.021, heading 0.000). Anchor body_centre, midway between the two ends seen; along ±0.04 m, across ±0.14 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }
             }
           },
           {
-            "keyframe_id": "keyframe_f4c7f1ddc282",
+            "keyframe_id": "keyframe_22f6156287be",
             "sample_id": 16,
             "timestamp_ns": 2600000000,
             "anchor": {
@@ -406,14 +406,14 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the minimum-area rectangle around this frame's returns, nearest the course, ±0.5°. front the side facing the sensor runs to it (±0.05 m: sampling 0.021, stragglers 0.025, heading 0.000); rear the side facing the sensor runs to it (±0.04 m: sampling 0.019, stragglers 0.019, heading 0.000). Anchor body_centre, midway between the two ends seen; along ±0.04 m, across ±0.14 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }
             }
           },
           {
-            "keyframe_id": "keyframe_332215ca4fd3",
+            "keyframe_id": "keyframe_c5e3fe96d791",
             "sample_id": 26,
             "timestamp_ns": 3600000000,
             "anchor": {
@@ -483,14 +483,14 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.2°. front faces away, and the side facing the sensor does not run to it (±0.15 m: sampling 0.112, stragglers 0.000, heading 0.038); rear faces the sensor (±0.08 m: range 0.030, sampling 0.017, stragglers 0.000, heading 0.038). Anchor rear_face, on the rear face seen; along ±0.08 m, across ±0.24 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }
             }
           },
           {
-            "keyframe_id": "keyframe_41eb513e5121",
+            "keyframe_id": "keyframe_d0cffac0f547",
             "sample_id": 29,
             "timestamp_ns": 3900000000,
             "anchor": {
@@ -557,7 +557,7 @@
               "uncertainty_assumptions": "Fitted to the reviewed returns (fit:mask_v1): the box is the plan-view envelope of the object's reviewed returns, mirrors included; a face sits at the outermost return less up to five stragglers. Bounds are conservative half-widths adding the sensor's azimuth step where a face is seen edge-on, its range accuracy where seen face-on, the stragglers ignored, and the chord the heading bound sweeps. Heading from the course of the object's centroids within a second either side, ±2.8°. front faces away, and the side facing the sensor does not run to it (±0.21 m: sampling 0.163, stragglers 0.000, heading 0.047); rear faces the sensor (±0.09 m: range 0.030, sampling 0.017, stragglers 0.000, heading 0.047). Anchor rear_face, on the rear face seen; along ±0.09 m, across ±0.27 m, combined as a radius.",
               "provenance": {
                 "author": "op",
-                "created_utc": "2026-10-08T23:02:15.045722Z",
+                "created_utc": "2026-10-12T09:43:19.258198Z",
                 "operation": "fit_to_points",
                 "revision": 0
               }

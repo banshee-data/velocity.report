@@ -188,8 +188,9 @@ around a short segment, carrying alongside its immutable points:
   and the background grid state from the [region overlay](lidar-background-region-overlay-plan.md)
 - **Proposal layers**, one immutable file per proposer and version under `proposals/`, in the
   sidecar's own schema with every record `proposed`
-- **The sidecar**, `annotations.json`, unchanged in role: the person's revisable document, and
-  the only place a `reviewed` record lives
+- **The membership**, in the [label set](../lidar/operations/label-sets.md) the pack links
+  (`annotations.json` in the pack before October 2026): the person's revisable document, and the
+  only place a `reviewed` record lives
 
 The plan's five to eight active segments are five to eight review packs. Every surface opens the
 same directory.

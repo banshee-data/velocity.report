@@ -85,7 +85,7 @@ func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]
 		}
 		attempt := filepath.Join(ws.annotationPacksDir, entry.Name())
 		dir := filepath.Join(attempt, "pack")
-		_, statErr := os.Stat(filepath.Join(dir, "annotations.json"))
+		_, statErr := os.Stat(filepath.Join(dir, annotation.LabelSetLinkFile))
 		holdsReview := statErr == nil
 		digest, whole := segmentPackDigest(dir, segmentID)
 		if !whole {

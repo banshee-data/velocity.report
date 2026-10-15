@@ -14,7 +14,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
 
-const annotationReferenceUsage = `Usage: velocity lidar annotation-reference <import|validate|draft-following|fit> --pack DIR [flags]
+const annotationReferenceUsage = `Usage: velocity lidar annotation-reference <import|validate|draft-following|fit|repin> --pack DIR [flags]
 
 Import or validate the physical references of an annotation pack: body
 dimensions, keyframe poses and following gaps, each with bounds, evidence
@@ -32,6 +32,10 @@ status and its own review, stored beside the pack's membership sidecar.
                    returns: its size and a pose at the frames that measured it and
                    at any --sample, with every bound's terms printed; it is checked
                    as an import before it is written, and nothing is stored
+  repin            After a membership edit, move every review whose frames the
+                   edit did not touch to the current membership, so a copy
+                   without membership history (a published one) still sees it
+                   hold; reviews whose frames changed keep their pin
 
 Run 'velocity lidar annotation-reference <command> -h' for flags.`
 
@@ -55,6 +59,8 @@ func annotationReferenceMain(args []string, stdout, stderr io.Writer) int {
 		return referenceDraftFollowing(args[1:], stdout, stderr)
 	case "fit":
 		return referenceFit(args[1:], stdout, stderr)
+	case "repin":
+		return referenceRepin(args[1:], stdout, stderr)
 	case "help", "-h", "--help":
 		fmt.Fprintln(stdout, annotationReferenceUsage)
 		return 0
@@ -492,4 +498,43 @@ func printReferenceSummary(stdout io.Writer, header, revisionDigest, content str
 	fmt.Fprintf(stdout, "content digest %s\n", content)
 	fmt.Fprintf(stdout, "%d objects, %d bodies, %d keyframes (%d reviewed and independent), %d following references\n",
 		len(doc.Objects), bodies, keyframes, truth, len(doc.Following))
+}
+
+func referenceRepin(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("velocity-lidar-annotation-reference-repin", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	packDir := fs.String("pack", "", "Annotation pack directory (required)")
+	author := fs.String("author", "", "Who is re-pinning; recorded as the revision's author (required)")
+	session := fs.String("session", "", "Optional session identifier recorded with the revision")
+	if code, ok := parseReferenceFlags(fs, args); !ok {
+		return code
+	}
+	for _, required := range []struct{ name, value string }{{"--pack", *packDir}, {"--author", *author}} {
+		if required.value == "" {
+			fmt.Fprintf(stderr, "error: %s is required\n", required.name)
+			fs.Usage()
+			return 2
+		}
+	}
+	pack, err := annotation.OpenPack(*packDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	repinned, drifted, err := annotation.RepinUnchangedReviews(pack, *author, *session)
+	if err != nil {
+		fmt.Fprintf(stderr, "annotation-reference: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "re-pinned %d reviews to the current membership; %d need reviewing again\n", repinned, drifted)
+	if drifted > 0 {
+		doc, derr := annotation.LoadPhysicalReferences(pack)
+		sc, serr := annotation.LoadSidecar(pack)
+		if derr == nil && serr == nil {
+			for _, d := range doc.ReviewDrift(pack, sc) {
+				fmt.Fprintf(stdout, "  %s\n", d)
+			}
+		}
+	}
+	return 0
 }

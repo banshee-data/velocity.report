@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
@@ -27,7 +29,13 @@ func TestPackInventoryKeepsCorruptReviewDataVisibleAsErrors(t *testing.T) {
 	if item := readPackListing(dir); item.Error == "" {
 		t.Fatal("malformed manifest went unnoticed")
 	}
-	if err := os.WriteFile(manifestPath, []byte(`{"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
+	if err := os.WriteFile(manifestPath, []byte(`{"schema_version":1,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if item := readPackListing(dir); !strings.Contains(item.Error, "annotation-v1-reader") {
+		t.Fatalf("a version 1 pack was listed as readable: %+v", item)
+	}
+	if err := os.WriteFile(manifestPath, []byte(`{"schema_version":2,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	if item := readPackListing(dir); item.Status != "packed" || item.Error != "" {
@@ -43,20 +51,20 @@ func TestPackInventoryKeepsCorruptReviewDataVisibleAsErrors(t *testing.T) {
 	if item := readPackListing(dir); item.ProposalLayers != 1 || item.Status != "proposed" {
 		t.Fatalf("proposal state: %+v", item)
 	}
-	sidecarPath := filepath.Join(dir, "annotations.json")
-	if err := os.WriteFile(sidecarPath, []byte("broken"), 0644); err != nil {
+	linkPath := filepath.Join(dir, annotation.LabelSetLinkFile)
+	if err := os.WriteFile(linkPath, []byte("broken"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if item := readPackListing(dir); item.Error == "" {
-		t.Fatal("malformed sidecar went unnoticed")
+	if item := readPackListing(dir); !strings.HasPrefix(item.Error, "label set link") {
+		t.Fatalf("malformed label set link went unnoticed: %+v", item)
 	}
-	if err := os.WriteFile(sidecarPath, []byte(`{"pack_digest":"sha256:other"}`), 0644); err != nil {
+	if err := os.WriteFile(linkPath, []byte(`{"label_set_id":"gone","path":"labels/gone"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if item := readPackListing(dir); item.Error != "sidecar pack digest mismatch" {
-		t.Fatalf("wrong sidecar binding: %+v", item)
+	if item := readPackListing(dir); !strings.HasPrefix(item.Error, "label set:") {
+		t.Fatalf("a link to a missing label set went unnoticed: %+v", item)
 	}
-	if err := os.Remove(sidecarPath); err != nil {
+	if err := os.Remove(linkPath); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "segment.json"), []byte(`{"pack_digest":"sha256:other"}`), 0644); err != nil {
@@ -105,7 +113,7 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	if err := os.MkdirAll(nested, 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(nested, "manifest.json"), []byte(`{"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(nested, "manifest.json"), []byte(`{"schema_version":2,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
 	response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks)
@@ -119,5 +127,52 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	ws.annotationPacksDir = file
 	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 500 {
 		t.Fatalf("unreadable pack root: %d", response.Code)
+	}
+}
+
+func TestPackInventoryReportsLinkedLabelSet(t *testing.T) {
+	base := t.TempDir()
+	packDir := filepath.Join(base, "pack")
+	pts := annotation.Points{X: []float32{1, 2}, Y: []float32{0, 0}, Z: []float32{0, 0}}
+	block, err := annotation.EncodePoints(pts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	samples := []annotation.Sample{{PointCount: 2, ReturnStart: 0, ReturnEnd: 400, TimestampNs: 1}}
+	pr := annotation.PackReturns{Layout: annotation.ReturnLayout{Model: "hesai-pandar40p", Blocks: 10, Channels: 40},
+		Packets: []uint64{42}, Returns: [][]uint64{{3, 9}}}
+	if err := annotation.WritePack(packDir, annotation.Manifest{Source: annotation.SourceProvenance{VRLOGPath: "run"}}, samples, [][]byte{block}, pr); err != nil {
+		t.Fatal(err)
+	}
+	pack, err := annotation.OpenPack(packDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	layout, state, err := labelset.NewFromPack(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	state.Records.Objects = []annotation.Object{{ObjectID: "obj", Class: "car", Status: annotation.StatusReviewed}}
+	state.Masks = []labelset.Mask{{ObjectID: "obj", WindowID: 0, DomainID: state.Domains[0].DomainID, Members: labelset.Ranges{{Start: 3, Len: 1}},
+		Completeness: annotation.MaskPartial, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed}}
+	setDir := filepath.Join(base, "labels", "set")
+	ls, err := labelset.Create(setDir, labelset.Manifest{Name: "set", Layout: layout}, state, labelset.Change{Author: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := annotation.WriteLabelSetLink(pack, ls.Manifest.LabelSetID, setDir); err != nil {
+		t.Fatal(err)
+	}
+	item := readPackListing(packDir)
+	if item.Error != "" || item.LabelSetID != ls.Manifest.LabelSetID || item.LabelSetRevision != 1 ||
+		item.ReviewedMasks != 1 || item.ReviewedObjects != 1 || item.Status != "reviewed" {
+		t.Fatalf("listing %+v", item)
+	}
+	if item.LabelSetPackets != 1 || item.LabelSetWindows != 1 || item.LabelSetCaptures != nil {
+		t.Fatalf("label set size %d packets, %d windows, captures %v", item.LabelSetPackets, item.LabelSetWindows, item.LabelSetCaptures)
+	}
+	inputs := packListingInputs(packDir)
+	if inputs[len(inputs)-1] != filepath.Join(setDir, labelset.ManifestFile) {
+		t.Fatalf("listing cache does not watch the label set: %v", inputs)
 	}
 }

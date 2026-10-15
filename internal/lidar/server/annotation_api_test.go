@@ -35,6 +35,10 @@ func writeTestVRLOG(t *testing.T, frameCount int) string {
 			Intensity: make([]uint8, n), Classification: make([]uint8, n),
 			PointCount: n,
 		}
+		// One foreground return among background: a full-coverage export
+		// sees background, and a foreground_only one keeps the foreground.
+		pc.Classification[0] = 1
+		l9endpoints.FixtureReturnIdentity(pc, uint64(i+1)<<20)
 		bundle := &l9endpoints.FrameBundle{
 			TimestampNanos: pc.TimestampNanos, PointCloud: pc,
 		}
@@ -483,6 +487,7 @@ func TestHandleAnnotationExportRefusesFullCoverageOfForegroundOnly(t *testing.T)
 		X: []float32{1, 2}, Y: []float32{1, 2}, Z: []float32{1, 2},
 		Intensity: []uint8{1, 2}, Classification: []uint8{1, 1}, PointCount: 2,
 	}
+	l9endpoints.FixtureReturnIdentity(pc, 1)
 	if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
 		t.Fatalf("record: %v", err)
 	}
@@ -505,5 +510,43 @@ func TestHandleAnnotationExportRefusesFullCoverageOfForegroundOnly(t *testing.T)
 	ok := postAnnotationExport(ws, "fg-only-run", map[string]any{"coverage": "foreground_only"})
 	if ok.Code != http.StatusOK {
 		t.Errorf("foreground_only export: status %d, body %s", ok.Code, ok.Body.String())
+	}
+}
+
+// A run recorded before return identity is intact but cannot become a
+// version 2 pack. That is neither the caller's mistake nor a server fault, so
+// it is a 422 telling the operator to record it again.
+func TestHandleAnnotationExportRefusesARecordingWithoutReturnIdentity(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	defer cleanup()
+	store := sqlite.NewAnalysisRunStore(testDB)
+	packsDir := t.TempDir()
+	ws := &Server{db: testDB, annotationPacksDir: packsDir, vrlogSafeDir: t.TempDir()}
+	dir := filepath.Join(ws.vrlogSafeDir, "old")
+	rec, err := recorder.NewRecorder(dir, "annotation-export-test")
+	if err != nil {
+		t.Fatalf("new recorder: %v", err)
+	}
+	pc := &l9endpoints.PointCloudFrame{
+		TimestampNanos: 1_000_000_000, X: []float32{1}, Y: []float32{1}, Z: []float32{1},
+		Intensity: []uint8{1}, Classification: []uint8{1}, PointCount: 1,
+	}
+	if err := rec.Record(&l9endpoints.FrameBundle{TimestampNanos: pc.TimestampNanos, PointCloud: pc}); err != nil {
+		t.Fatalf("record: %v", err)
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("close recorder: %v", err)
+	}
+	insertRunWithVRLog(t, store, "old-run", dir)
+
+	got := postAnnotationExport(ws, "old-run", map[string]any{"coverage": "foreground_only"})
+	if got.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body %s", got.Code, got.Body.String())
+	}
+	if !bytes.Contains(got.Body.Bytes(), []byte("Re-record")) {
+		t.Errorf("error body %q does not say how to fix it", got.Body.String())
+	}
+	if entries, _ := os.ReadDir(packsDir); len(entries) != 0 {
+		t.Errorf("a refused export left %d entries in the packs directory", len(entries))
 	}
 }

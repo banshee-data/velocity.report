@@ -58,6 +58,22 @@ struct AnnotationStatusStrip: View {
     @ObservedObject var session: AnnotationSession
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Read only is said before anything else: work done in a window
+            // that cannot save is work lost.
+            if let reason = session.readOnlyReason {
+                HStack(alignment: .top, spacing: 6) {
+                    Image(systemName: "lock.fill").foregroundStyle(.orange)
+                    Text(reason).foregroundStyle(.orange).textSelection(.enabled)
+                }
+            }
+            status
+        }.font(.caption).fixedSize(horizontal: false, vertical: true).frame(
+            maxWidth: .infinity, alignment: .leading
+        ).padding(.horizontal, 12).padding(.vertical, 6)
+    }
+
+    private var status: some View {
         HStack(alignment: .top, spacing: 6) {
             if let error = session.lastError {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
@@ -69,8 +85,6 @@ struct AnnotationStatusStrip: View {
                 Image(systemName: "checkmark.circle").foregroundStyle(.green)
                 Text("Saved.").foregroundStyle(.secondary)
             }
-        }.font(.caption).fixedSize(horizontal: false, vertical: true).frame(
-            maxWidth: .infinity, alignment: .leading
-        ).padding(.horizontal, 12).padding(.vertical, 6)
+        }
     }
 }

@@ -17,7 +17,7 @@ import simd
 
 @MainActor
 private func makeSession() throws -> (AnnotationSession, URL) {
-    let dir = try PackFixture.write()
+    let dir = try PackFixture.writeLabellable()
     let session = try AnnotationSession(pack: try AnnotationPack.open(directory: dir))
     session.operatorName = "dd"
     return (session, dir)
@@ -128,7 +128,7 @@ struct PointVisibilityTests {
 struct VisibilitySelectionTests {
     @Test func aHiddenClassIsNotSelectableAndTheCountSaysWhy() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.beginStroke()
         #expect(session.previewSelection(polygon: farOutlierLasso).count == 1)
@@ -142,7 +142,7 @@ struct VisibilitySelectionTests {
 
     @Test func aLassoOverEverythingTakesOnlyWhatIsShown() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.visibility.foreground = false
         #expect(session.select(polygon: everythingLasso, mode: .replace))
@@ -153,7 +153,7 @@ struct VisibilitySelectionTests {
     /// over the remainder must not take back what is already settled.
     @Test func aHiddenLabelStateCannotBeSelectedEither() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // A mask made by hand is agreed as soon as it is saved: there is no
         // algorithm's word to check, which is what "in question" means.
@@ -173,7 +173,7 @@ struct VisibilitySelectionTests {
 
     @Test func aSphereCannotBeCentredOnAHiddenReturn() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let overOutlier = simd_float2(40, -30)
         #expect(session.nearestPointIndex(toViewPoint: overOutlier, maxViewDistance: 1) == 3)
@@ -183,7 +183,7 @@ struct VisibilitySelectionTests {
 
     @Test func changingTheFilterAbandonsAStrokePreviewedUnderTheOldOne() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.beginStroke()
         session.previewSelection(polygon: everythingLasso)
@@ -195,7 +195,7 @@ struct VisibilitySelectionTests {
 
     @Test func everyClassOnIsNoFilterAtAll() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.effectiveVisibility == nil)
         session.visibility.background = false
@@ -301,7 +301,7 @@ struct TrimmedExtentTests {
 struct SessionFramingTests {
     @Test func steppingDoesNotMoveOrRescaleTheViews() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // The two fixture samples have different extents, so a view framed on
         // each sample in turn would jump here.
@@ -318,7 +318,7 @@ struct SessionFramingTests {
 
     @Test func whereTheOperatorLeftAViewIsWhereItStays() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.zoom(.top, size: viewSize, by: 0.5, aboutScreenPoint: CGPoint(x: 100, y: 50))
         session.pan(.top, size: viewSize, byPoints: CGSize(width: 30, height: -10))
@@ -335,7 +335,7 @@ struct SessionFramingTests {
 
     @Test func panningOneViewLeavesTheOthersAlone() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let front = session.viewport(for: .front, size: viewSize)
         session.pan(.top, size: viewSize, byPoints: CGSize(width: 50, height: 50))
@@ -344,7 +344,7 @@ struct SessionFramingTests {
 
     @Test func fittingTheSelectionFramesItAndForgetsThePanning() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let cluster = SelectionPolygon(rectFrom: simd_float2(0, 0), to: simd_float2(3, 3))
         #expect(session.select(polygon: cluster, mode: .replace))
         session.pan(.top, size: viewSize, byPoints: CGSize(width: 500, height: 500))
@@ -365,7 +365,7 @@ struct SessionFramingTests {
 
     @Test func fittingNothingLeavesTheViewsWhereTheyWere() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.pan(.top, size: viewSize, byPoints: CGSize(width: 40, height: 0))
         let placed = session.viewport(for: .top, size: viewSize)
         let focus = session.sceneFocus
@@ -378,7 +378,7 @@ struct SessionFramingTests {
 
     @Test func fittingTheForegroundLeavesTheGroundOut() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.fitViews(to: .foreground))
         // The ground return at (40, -30) would put the centre near (20, -14).
@@ -388,7 +388,7 @@ struct SessionFramingTests {
 
     @Test func askingToFitTwiceMovesTheCameraTwice() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = try #require(session.sceneFocus)
         session.fitViews(to: .sample)
         let second = try #require(session.sceneFocus)
@@ -397,7 +397,7 @@ struct SessionFramingTests {
 
     @Test func aSlabSetByHandIsKeptAcrossSamples() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.setSlab(DepthSlab(minDepth: -1.2, maxDepth: -0.6))
         session.stepForward()
@@ -468,7 +468,7 @@ struct SessionFrameSyncTests {
 
     @Test func followsTheMainViewToItsFrame() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.follow(main(at: 1_100_000_000)))
         #expect(session.currentSample?.sampleID == 1)
@@ -480,7 +480,7 @@ struct SessionFrameSyncTests {
 
     @Test func followingIsNotAnOperatorStep() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // A followed step must not ask the main view to seek: during playback
         // that would drag it back to a frame it has already left.
@@ -492,7 +492,7 @@ struct SessionFrameSyncTests {
 
     @Test func aFrameThisPackDoesNotHoldLeavesTheWindowWhereItIs() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(!session.follow(main(at: 3_000_000_000)))
         #expect(session.currentSample?.sampleID == 0)
@@ -501,7 +501,7 @@ struct SessionFrameSyncTests {
 
     @Test func saysWhyItCannotFollow() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.follow(main(at: 1_100_000_000, seekable: false))
         #expect(session.syncStatus == .mainNotSeekable)
@@ -516,7 +516,7 @@ struct SessionFrameSyncTests {
 
     @Test func unsavedChangesHoldTheSampleAgainstTheMainView() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everythingLasso, mode: .replace))
 
@@ -528,7 +528,7 @@ struct SessionFrameSyncTests {
 
     @Test func leadsTheMainViewOnlyWhenItIsSomewhereElse() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.seekTarget(for: main(at: 2_000_000_000)) == 1_000_000_000)
         // Within a frame of the sample already: seeking would only stutter.
@@ -539,7 +539,7 @@ struct SessionFrameSyncTests {
 
     @Test func switchedOffItNeitherFollowsNorLeads() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.syncWithMainView = false
 
         #expect(!session.follow(main(at: 1_100_000_000)))
@@ -550,7 +550,7 @@ struct SessionFrameSyncTests {
 
     @Test func aKeyPressThatArrivesByTwoRoutesIsAppliedOnce() throws {
         let (session, dir) = try makeSession()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         let start = session.sphereRadius
 
