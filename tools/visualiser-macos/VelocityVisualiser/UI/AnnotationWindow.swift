@@ -191,6 +191,7 @@ func annotationFramingHalfHeight(
             store.accessRefusal = labelFolderAccess(for: pack, labelSet: store.labelSetLocation)
             let opened = try AnnotationSession(pack: pack, store: store)
             session = opened
+            opened.refreshLabelChecks()
             if !ProposalLayerStore(pack: pack).hasLayers { Task { await opened.proposeObjects() } }
             lastError = nil
             annotationLogger.info("Opened annotation pack \(directory.lastPathComponent)")

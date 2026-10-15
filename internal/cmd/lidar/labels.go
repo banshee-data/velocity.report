@@ -46,6 +46,9 @@ Commands:
             layout, or with another --window-chunk); the state is unchanged
   nest      Move an annotation tree into the layout: sets in their capture
             folder, linked packs in the set's views/, others in packs/
+  check     Warn about likely labelling mistakes in a pack's membership: a
+            one-frame object, a gap, an impossible speed, a shared return, a
+            tiny mask, an object labelled twice (as the window's Checks panel)
   diff      What a change did to a label set, between two folders or two
             Git revisions (--git REV[..REV] --labels SET); --format markdown
             for a pull request
@@ -71,7 +74,7 @@ func LabelsMain(args []string) int {
 		"verify": labelsVerify, "info": labelsInfo, "project": labelsProject, "publish": labelsPublish,
 		"publish-view": labelsPublishView, "check-view": labelsCheckView, "rehead": labelsRehead, "relayout": labelsRelayout,
 		"nest": labelsNest, "census": labelsCensus,
-		"diff": labelsDiff, "check-tree": labelsCheckTree, "git-setup": labelsGitSetup,
+		"check": labelsCheck, "diff": labelsDiff, "check-tree": labelsCheckTree, "git-setup": labelsGitSetup,
 		"finish-merge": labelsFinishMerge, "merge-driver": labelsMergeDriver,
 	}
 	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {

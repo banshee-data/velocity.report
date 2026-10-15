@@ -70,6 +70,8 @@ struct AnnotationPane: View {
                     Divider()
                     progressSection
                     Divider()
+                    checksSection
+                    Divider()
                     proposalSection
                     Divider()
                     objectSection
@@ -258,6 +260,39 @@ struct AnnotationPane: View {
                     + "unsaved. Click a sector to go to what is left in it."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
+        }
+    }
+
+    /// What the label checks found in the saved labels: warnings, never a
+    /// refusal. A click shows the object at the sample the warning is about.
+    private var checksSection: some View {
+        let warnings = session.labelWarnings
+        let shown = 40
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Checks").font(.headline)
+                Spacer()
+                if session.labelChecksRunning {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Text(warnings.isEmpty ? "nothing to look at" : "\(warnings.count) to look at")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            ForEach(warnings.prefix(shown)) { warning in
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(LabelChecks.title(warning.rule)).font(.caption.bold())
+                    Text(warning.message).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+                }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                    .onTapGesture { if session.show(warning) != nil { showDiscardPrompt = true } }
+                    .help("Show \(warning.objectID) at sample \(warning.sampleID)")
+            }
+            if warnings.count > shown {
+                Text(
+                    "and \(warnings.count - shown) more: velocity lidar labels check --pack <this pack>"
+                ).font(.caption2).foregroundStyle(.secondary)
+            }
         }
     }
 
