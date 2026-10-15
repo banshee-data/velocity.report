@@ -22,8 +22,8 @@ checks it as a fresh copy would hold it, and its path is added to the row's
 `annotation_pack_paths`. A published view is never overwritten.
 
 The dataset's .gitattributes and .gitignore get the label set rules: exact
-bytes, `*.ndjson` through LFS/Xet, and every file the editors write that is
-working state rather than a record.
+bytes, label set text in plain Git (only `.bin` goes through LFS/Xet), and
+every file the editors write that is working state rather than a record.
 
 Usage:
   stage-label-sets.py --dataset DIR [--labels DIR ...] [--view PACK ...]
