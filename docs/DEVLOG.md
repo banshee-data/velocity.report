@@ -8,6 +8,12 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 14, 2026 - Label sets for a team of labellers
+
+- {dd/lidar/label-sets-layout} Planned the tooling a team of labellers needs before a second person is given a view ([plan](plans/lidar-label-set-team-workflow-plan.md)): one annotation tree, merges Git finishes, the object proposer in Go, `labels diff`, a one-capture clone, editing without a server, reader levels and label checks in the window. Ran Propose objects on the two pedestrian and cyclist windows cut for the dataset: 688 moving proposals at Columbus and Broadway in 114 s, 1,016 at Embarcadero and Folsom in 82 s.
+- {dd/lidar/label-sets-layout} Gave the annotation tree one layout, locally and in the dataset: `<capture>/<set>/` for a label set, `<capture>/<set>/views/<view>/` for a pack linked to it, `<capture>/packs/<run>/` for a pack not in a set yet. Exports land in their capture's `packs/`, the first save creates the set in the capture folder, and the server lists and resolves packs anywhere in the tree, so one `--lidar-annotation-dir=<clone>/labels` serves every capture. `labels nest` moves the old local tree and a dataset's set-beside-view folders into it, refusing the whole run on any problem ([layout](lidar/operations/label-sets.md#where-things-live)).
+- {dd/lidar/label-sets-layout} Added `min_reader` to `labels.json`, pack manifests and `physical-references.json`, in Go and the macOS client. A build refuses a file that needs a newer reader and says to update, rather than misreading it; files at level 1 do not carry it, so the build that merged #744 still reads them ([reader levels](lidar/operations/label-sets.md#reader-levels)).
+
 ## October 13, 2026 - kirk0's labels published with an editable view, and an experiment queue
 
 - {dd/lidar/annotation-format-v2} Made Go write `labels.json` exactly as the macOS client does, keys sorted and indented, with parity fixtures on both sides. Both rewrite it on every save, and Go's struct order meant the first window save after a Go write reordered the whole file.

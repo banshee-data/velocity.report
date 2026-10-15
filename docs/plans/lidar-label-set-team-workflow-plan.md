@@ -9,7 +9,7 @@ is handed to more than one person. It changes the tree a label set lives in, tea
 label sets, moves the object proposer to Go, adds a diff, a partial clone, editing without a
 server, a reader-level field, and the checks a labeller sees before a reviewer does.
 
-- **Status:** Planned on `dd/lidar/annotation-v2-fixes`, nothing implemented (2026-10-14)
+- **Status:** In progress: A to D built on stacked branches (2026-10-14); E and F planned (§9)
 - **Layers:** L9 Endpoints (server), L10 Clients (macOS annotation window), annotation storage,
   dataset publication
 - **Target:** before a second labeller is given a view; items 7, 1, 4 and 2 first (§4)
@@ -357,3 +357,33 @@ makes.
   versioned class list: both are workflow, not tooling, and come after a second labeller
   exists.
 - Object identity across captures; dataset release versioning.
+
+## 9. Implementation
+
+| PR  | Branch                              | State            |
+| --- | ----------------------------------- | ---------------- |
+| A   | `dd/lidar/label-sets-layout`        | Built 2026-10-14 |
+| B   | `dd/lidar/label-sets-merge`         | Planned          |
+| C   | `dd/lidar/label-sets-partial-clone` | Planned          |
+| D   | `dd/lidar/label-sets-checks`        | Planned          |
+| E   | not started                         | Planned          |
+| F   | not started                         | Planned          |
+
+Decided while building A:
+
+- **A first save does not move the pack.** It creates the set in the capture folder and links the
+  pack where it is, `../../<set>` from `packs/<run>/`. Moving a pack the window holds open, and a
+  pack a clip job's row names, was more risk than the layout is worth; `labels nest` moves linked
+  packs into `views/` when nothing is open, and a dataset only ever holds views in `views/`.
+- **A clip job's folder stays at the root** as `clip-<job>-<n>/pack/`, a pack position of its
+  own, because its row names it and its retries look for it there. Once `nest` moves a linked clip
+  pack into `views/`, the server finds it by its segment record and leaves the row alone.
+- **View names run to the second**, `<yyyymmdd>-<hhmmss>-<run, first 8>`, so two cuts of one run
+  on one day do not collide.
+- **An export is written hidden at the root**, `.export-<run>-<time>`, then renamed into its
+  capture's `packs/` once the pack says which capture it is.
+- **`min_reader` is written only above level 1**, so a file that needs nothing new stays readable
+  by the build that merged #744. Level 1 is the only level so far; B's mask-pinned reviews are the
+  first reason to raise it.
+- **Splits stay in `<root>/splits/`**, not per capture: a split spans captures.
+- The Segments page still lists packs by folder; showing capture, set and view there is left out.
