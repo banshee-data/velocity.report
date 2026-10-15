@@ -54,7 +54,9 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   further recordings go in `src/scenes/<site>/recordings/<name>/`. A recording directory holds
   either a scene export (`part-000/header.json` and `part-000/timeline.json`) or, for one with no
   3D playback such as a radar survey, a `summary.json` with `sensor_id`, `start` (ISO 8601),
-  `duration_sec`, `build_version` and a `vehicle_speed` object shaped like the timeline's.
+  `duration_sec`, `build_version` and a `vehicle_speed` object shaped like the timeline's. A
+  recording that reports no measurement is left out of the build with a warning. Two visits in one
+  month take the day in their label; two starting in the same minute take the sensor in their id.
 - **Speed limit.** Set `speedLimitMph` in the site page's front matter once the posted limit is
   confirmed. While it is blank, pages show speeds without a limit line or an over-limit share.
 - **Comparing recordings.** A site with two or more recordings gets a recording menu and a

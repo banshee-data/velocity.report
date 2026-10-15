@@ -10,10 +10,8 @@
     <div><dt>Definitions</dt><dd>Peak speed per vehicle track; tracks above {{ rec.speed.minimum if rec.speed else 5 }} mph</dd></div>
   </dl>
   <ul class="sv-prov__files">
-    {% if rec.hasPlayback %}
-      <li><a href="{{ rec.assetsUrl }}/part-000/timeline.json" download><span><b>Processed measurements</b><span class="sv-mono sv-small">DERIVED · JSON · speed summary and traffic timeline</span></span><span aria-hidden="true">⤓</span></a></li>
-    {% else %}
-      <li><a href="{{ rec.assetsUrl }}/summary.json" download><span><b>Processed measurements</b><span class="sv-mono sv-small">DERIVED · JSON · speed summary</span></span><span aria-hidden="true">⤓</span></a></li>
+    {% if rec.summaryUrl %}
+      <li><a href="{{ rec.summaryUrl }}" download><span><b>Processed measurements</b><span class="sv-mono sv-small">DERIVED · JSON · {{ rec.summaryKind }}</span></span><span aria-hidden="true">⤓</span></a></li>
     {% endif %}
     <li><a href="https://github.com/banshee-data/velocity.report"><span><b>Processing source</b><span class="sv-mono sv-small">CODE · velocity.report{% if rec.build %} @ {{ rec.build }}{% endif %}</span></span><span aria-hidden="true">↗</span></a></li>
   </ul>

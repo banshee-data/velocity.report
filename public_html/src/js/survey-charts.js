@@ -300,7 +300,11 @@ export function sparklineSvg(speed, opts = {}) {
   if (!speed) return "";
   const { width = 90, height = 22 } = opts;
   const limit = validLimit(opts.limit);
-  const { lo, hi } = opts.scale ?? { lo: 5, hi: 45 };
+  // A fixed 5–45 scale keeps listings comparable; a faster site extends it.
+  const { lo, hi } = opts.scale ?? {
+    lo: 5,
+    hi: Math.max(45, speed.bins.at(-1)?.to ?? 0),
+  };
   const peak = Math.max(...speed.bins.map((b) => b.share)) || 1;
   const x = (v) => ((v - lo) / (hi - lo)) * width;
   const out = [

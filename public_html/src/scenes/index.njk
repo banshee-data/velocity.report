@@ -132,7 +132,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
       {# The site list travels in a script block, not an attribute: a place name
          with an apostrophe in it — Fisherman's Wharf — ends a quoted attribute
          early, and the JSON arrives truncated. #}
-      <script type="application/json" id="scene-map-data">{{ scenes.sites | dump | safe }}</script>
+      <script type="application/json" id="scene-map-data">{{ scenes.sites | dump | replace("<", "\\u003c") | safe }}</script>
       <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
               integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
       <script type="module" src="{{ '/js/scene-map.js' | url }}"></script>
@@ -168,7 +168,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
               </span>
               {% if r and r.charts %}
                 <span class="sv-siterow__spark">{{ r.charts.spark | safe }}</span>
-                <span class="sv-siterow__p85 sv-mono">P85 {{ r.speed.p85 | round(1) }}{% if v.limit %}<span class="sv-muted">/{{ v.limit }}</span>{% endif %}</span>
+                <span class="sv-siterow__p85 sv-mono">P85 {{ r.speed.p85 | fixed1 }}{% if v.limit %}<span class="sv-muted">/{{ v.limit }}</span>{% endif %}</span>
               {% else %}
                 <span class="sv-siterow__spark"></span><span class="sv-siterow__p85 sv-mono sv-muted">no speed summary</span>
               {% endif %}
@@ -212,7 +212,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
                 <td class="sv-mono">{{ r.label if r else "—" }}</td>
                 <td class="sv-mono">{% if site.recordings.length > 1 %}◎ {% endif %}{{ site.recordings.length }}</td>
                 <td>{{ r.charts.spark | safe if r and r.charts }}</td>
-                <td class="sv-mono">{% if r and r.speed %}{{ r.speed.p85 | round(1) }}{% if v.limit %}<span class="sv-muted"> / {{ v.limit }}</span>{% endif %}{% else %}—{% endif %}</td>
+                <td class="sv-mono">{% if r and r.speed %}{{ r.speed.p85 | fixed1 }}{% if v.limit %}<span class="sv-muted"> / {{ v.limit }}</span>{% endif %}{% else %}—{% endif %}</td>
                 <td class="sv-mono">{{ r.overText if r else "—" }}</td>
                 <td class="sv-mono">{{ r.speed.count if r and r.speed else "—" }}</td>
                 <td class="sv-mono">{{ r.when.minutes if r else "—" }}</td>

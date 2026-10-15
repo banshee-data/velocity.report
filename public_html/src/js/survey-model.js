@@ -82,6 +82,7 @@ export function recordingWhen(startMs, durationSec) {
             : "evening";
   return {
     label: `${p.month} ${p.year}`,
+    labelDay: `${p.day} ${p.month} ${p.year}`,
     date: `${p.weekday} ${p.day} ${p.month} ${p.year}`,
     time: `${p.weekday} ${p.hour}:${p.minute}`,
     clock: `${p.hour}:${p.minute} PT`,
@@ -215,8 +216,10 @@ export function delta(current, base) {
 
 /**
  * Pick the recordings to compare and the baseline from URL-style input.
- * Unknown ids are dropped; fewer than two leaves compare off. The baseline
- * defaults to the earliest selected recording. Recordings are oldest first.
+ * Unknown ids are dropped; fewer than two leaves compare off. Changes are
+ * measured from the baseline to the newest selected recording, so the newest
+ * cannot be the baseline; the baseline defaults to the earliest. Recordings
+ * are oldest first.
  */
 export function compareSelection(recordings, ids, baseId, maxCount = 4) {
   const byId = new Map(recordings.map((r) => [r.id, r]));
@@ -226,8 +229,8 @@ export function compareSelection(recordings, ids, baseId, maxCount = 4) {
     .sort((a, b) => a.startMs - b.startMs)
     .slice(-maxCount);
   if (wanted.length < 2) return null;
-  const base = wanted.find((r) => r.id === baseId) ?? wanted[0];
   const latest = wanted.at(-1);
+  const base = wanted.find((r) => r.id === baseId && r !== latest) ?? wanted[0];
   return { recordings: wanted, base, latest };
 }
 
@@ -306,16 +309,22 @@ export function comparabilityNotes(selection) {
     });
   }
   const builds = new Set(recs.map((r) => r.build));
+  const unknown = recs.filter((r) => !r.build).map((r) => r.label);
   notes.push(
-    builds.size === 1
+    unknown.length
       ? {
-          tone: "info",
-          text: `${recs.length === 2 ? "Both" : `All ${recs.length}`} were processed with the same pipeline build (${[...builds][0]}), so method is not a factor.`,
-        }
-      : {
           tone: "warn",
-          text: "These recordings were processed with different pipeline builds. Some of the difference may come from the method rather than the street.",
-        },
+          text: `${unknown.join(", ")} ${unknown.length === 1 ? "does" : "do"} not record the pipeline build that processed ${unknown.length === 1 ? "it" : "them"}, so method cannot be ruled out as a factor.`,
+        }
+      : builds.size === 1
+        ? {
+            tone: "info",
+            text: `${recs.length === 2 ? "Both" : `All ${recs.length}`} were processed with the same pipeline build (${[...builds][0]}), so method is not a factor.`,
+          }
+        : {
+            tone: "warn",
+            text: "These recordings were processed with different pipeline builds. Some of the difference may come from the method rather than the street.",
+          },
   );
   const sensors = new Set(recs.map((r) => r.sensor));
   if (sensors.size > 1) {

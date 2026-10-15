@@ -62,8 +62,52 @@ test("state defaults to the latest recording and reads ?recording and ?compare",
     compare.recordings.map((r) => r.id),
     ["jan", "sep"],
   );
-  assert.equal(compare.base.id, "sep");
+  assert.equal(compare.base.id, "jan", "the newest cannot be the baseline");
   assert.equal(readSurveyState(json, "?compare=sep").compare, null);
+  assert.equal(readSurveyState(json, "?compare=sep").compareRequested, true);
+  assert.equal(readSurveyState(json, "").compareRequested, false);
+});
+
+test("compare drops recordings without a speed summary and keeps the newest four", () => {
+  const bare = {
+    ...rec("bare", "2026-03-01T16:05:00Z", 20),
+    speed: null,
+    families: [],
+  };
+  const withBare = JSON.stringify({
+    ...data,
+    recordings: [data.recordings[0], bare, data.recordings[1]],
+  });
+  assert.equal(
+    readSurveyState(withBare, "?compare=bare,sep").compare,
+    null,
+    "one speed-bearing recording is not a comparison",
+  );
+  const two = readSurveyState(withBare, "?compare=bare,sep,jan").compare;
+  assert.deepEqual(
+    two.recordings.map((r) => r.id),
+    ["jan", "sep"],
+  );
+
+  const many = [1, 2, 3, 4, 5].map((n) =>
+    rec(`r${n}`, `2026-0${n}-01T16:05:00Z`, 20 + n),
+  );
+  const sel = readSurveyState(
+    JSON.stringify({ ...data, recordings: many }),
+    "?compare=r1,r2,r3,r4,r5&base=r1",
+  ).compare;
+  assert.deepEqual(
+    sel.recordings.map((r) => r.id),
+    ["r2", "r3", "r4", "r5"],
+  );
+  assert.equal(
+    sel.base.id,
+    "r2",
+    "a baseline that was cut falls back to the earliest kept",
+  );
+  const html = renderCompare({ ...data, recordings: many }, sel);
+  assert.doesNotMatch(html, /undefined|NaN|null/);
+  assert.match(html, /COMPARING 4/);
 });
 
 test("compare URLs keep commas readable", () => {

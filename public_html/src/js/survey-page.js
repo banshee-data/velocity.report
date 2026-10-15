@@ -57,7 +57,7 @@ export function readSurveyState(source, search) {
       params.get("base"),
     );
   }
-  return { data, recording, compare };
+  return { data, recording, compare, compareRequested: params.has("compare") };
 }
 
 /** The query string for a comparison. */
@@ -489,8 +489,11 @@ function initLocation(root) {
   root.addEventListener("click", async (e) => {
     if (!e.target.closest("[data-share]")) return;
     const url = new URL(location.href);
-    if (!compare && recording && !url.searchParams.has("recording"))
-      url.searchParams.set("recording", recording.id);
+    if (!compare) {
+      url.searchParams.delete("compare");
+      url.searchParams.delete("base");
+      if (recording) url.searchParams.set("recording", recording.id);
+    }
     const ok = await copyText(url.toString());
     if (shareStatus) {
       shareStatus.textContent = ok ? "Link copied" : url.toString();
@@ -511,7 +514,13 @@ function initLocation(root) {
     }
     root.addEventListener("click", (e) => {
       if (!e.target.closest("[data-open-compare]")) return;
-      if (menu) menu.hidden = true;
+      error.hidden = true;
+      if (menu && !menu.hidden) {
+        // Opened from the menu: return focus to the button, not a hidden item.
+        menu.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+        button.focus();
+      }
       if (typeof dialog.showModal === "function") dialog.showModal();
       else dialog.setAttribute("open", "");
     });
@@ -538,6 +547,10 @@ function initLocation(root) {
 
   // Compare view.
   const view = root.querySelector("[data-compare-view]");
+  if (state.compareRequested && !compare && view) {
+    view.innerHTML = `<p class="sv-note">That comparison needs two or more recordings with a speed summary. Showing the ${esc(recording?.label ?? "latest")} recording instead; use Compare to pick again.</p>`;
+    view.hidden = false;
+  }
   if (compare && view) {
     for (const el of root.querySelectorAll(
       "[data-recording], [data-single-only], .sv-loc-meta",

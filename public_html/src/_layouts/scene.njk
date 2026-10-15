@@ -230,7 +230,7 @@ layout: survey.njk
           {# Each recording has its own card; survey-page.js retargets the link when another recording or the compare view is shown. #}
           <li><a href="#family-{{ family.id }}-{{ latest.id }}" data-family-link="{{ family.id }}">{{ family.name }}</a></li>
         {% endif %}{% endfor %}
-        {% if latest and latest.hasPlayback %}<li data-single-only data-evidence-link><a href="#evidence">Evidence · 3D playback</a></li>{% endif %}
+        {% if view.hasPlayback %}<li data-single-only data-evidence-link><a href="#evidence">Evidence · 3D playback</a></li>{% endif %}
         <li><a href="#methods">Data &amp; methods</a></li>
       </ul>
     </nav>
@@ -256,7 +256,7 @@ layout: survey.njk
       <div class="sv-loc-controls">
         {% if view.recordings.length > 1 %}
           <div class="sv-recselect" data-recselect>
-            <button type="button" class="sv-recselect__button" aria-haspopup="true" aria-expanded="false" aria-controls="recselect-menu" data-recselect-button>
+            <button type="button" class="sv-recselect__button" aria-expanded="false" aria-controls="recselect-menu" data-recselect-button>
               <span class="sv-mono">RECORDING</span>
               <b data-recselect-label>{{ latest.label }}</b>
               <span class="sv-mono sv-em" data-recselect-latest>LATEST</span>
@@ -319,16 +319,17 @@ layout: survey.njk
       <dialog class="sv-dialog" data-compare-dialog aria-labelledby="compare-dialog-title">
         <form method="dialog" class="sv-picker" data-compare-form>
           <h2 id="compare-dialog-title">Compare recordings</h2>
-          <p class="sv-note">Pick up to 4. The baseline is the one changes are measured against.</p>
+          <p class="sv-note">Pick up to 4. Changes are measured from the baseline to the newest recording picked.</p>
           <ul class="sv-picker__list">
-            {% for rec in view.recordings | reverse %}
+            {% for rec in view.recordings | reverse %}{% if rec.speed %}
               <li>
                 <label class="sv-picker__pick"><input type="checkbox" name="rec" value="{{ rec.id }}" checked><span class="sv-picker__box" style="--rec: {{ rec.colour }}"></span>
                   <span><b>{{ rec.label }}</b><span class="sv-picker__meta">{{ sv.sensorTag(rec.sensor, surveys.sensors) }} <span class="sv-mono">{{ rec.when.time }} · {{ rec.when.minutes }} min · {{ "speed only" if rec.sensor == "radar" else "all measurements" }}</span></span></span>
                 </label>
-                <label class="sv-picker__base sv-mono"><input type="radio" name="base" value="{{ rec.id }}"{% if loop.last %} checked{% endif %}> baseline</label>
+                {% if rec.isLatest %}<span class="sv-picker__base sv-mono sv-muted" title="Changes are measured to the newest recording">newest</span>
+                {% else %}<label class="sv-picker__base sv-mono"><input type="radio" name="base" value="{{ rec.id }}"{% if loop.last %} checked{% endif %}> baseline</label>{% endif %}
               </li>
-            {% endfor %}
+            {% endif %}{% endfor %}
           </ul>
           <p class="sv-picker__error sv-note" data-compare-error hidden>Pick at least two recordings.</p>
           <div class="sv-picker__foot">
@@ -341,7 +342,7 @@ layout: survey.njk
       </dialog>
     {% endif %}
 
-    {% if latest and latest.hasPlayback %}
+    {% if view.hasPlayback %}
     <section class="sv-section" id="evidence" aria-labelledby="evidence-title" data-single-only>
       <div class="sv-section__head">
         <p class="sv-eyebrow">Evidence</p>
@@ -394,7 +395,7 @@ layout: survey.njk
         <span class="scene-switch__track" aria-hidden="true"></span>
         <span>Trails</span>
       </label>
-      {% if sceneHasClip %}
+      {% if view.hasPointCloud %}
       <label class="scene-switch">
         <input type="checkbox" id="scene-lidar" role="switch" checked>
         <span class="scene-switch__track" aria-hidden="true"></span>
@@ -539,7 +540,7 @@ layout: survey.njk
 <script type="application/json" id="survey-data">{{ view.client | dump | replace("<", "\\u003c") | safe }}</script>
 <script type="module" src="/js/survey-page.js"></script>
 
-{% if latest and latest.hasPlayback %}
+{% if view.hasPlayback %}
 <script type="module">
   import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
   import { parseCaptureParams } from "{{ '/js/scene-capture.js' | url }}";
@@ -560,6 +561,13 @@ layout: survey.njk
     about.hidden = !open;
     aboutToggle.setAttribute("aria-expanded", String(open));
   });
+
+  // The point-cloud switches belong to recordings that have a clip.
+  const hasClip = Boolean(survey.recording.hasPointCloud);
+  for (const id of ["scene-lidar", "scene-loop-opening"]) {
+    const label = document.getElementById(id)?.closest("label");
+    if (label && !hasClip) label.hidden = true;
+  }
 
   if (!survey.compare && survey.recording.hasPlayback) mountScenePlayer({
     canvas: document.getElementById("scene-canvas"),
@@ -582,12 +590,12 @@ layout: survey.njk
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
-      lidarToggle: document.getElementById("scene-lidar"),
+      lidarToggle: hasClip ? document.getElementById("scene-lidar") : null,
       boxesToggle: document.getElementById("scene-boxes"),
       trailsToggle: document.getElementById("scene-trails"),
       backgroundToggle: document.getElementById("scene-background"),
       gridToggle: document.getElementById("scene-grid"),
-      openingLoopToggle: document.getElementById("scene-loop-opening"),
+      openingLoopToggle: hasClip ? document.getElementById("scene-loop-opening") : null,
       flyToggle: document.getElementById("scene-fly"),
       flyTip: document.getElementById("scene-fly-tip"),
       captureView: document.getElementById("scene-capture"),

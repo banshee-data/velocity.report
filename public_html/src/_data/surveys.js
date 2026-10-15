@@ -11,6 +11,8 @@
  * radar survey, a summary.json:
  *   { "sensor_id", "start": ISO-8601, "duration_sec", "build_version",
  *     "vehicle_speed": { same shape as timeline.json's vehicle_speed } }
+ * A recording that reports no measurement is left out with a warning: the
+ * page would have nothing to show for it.
  *
  * Site-level settings that are not measured, such as the posted speed limit,
  * live in each page's front matter (speedLimitMph) and are applied in the
@@ -18,20 +20,24 @@
  */
 const fs = require("fs");
 const path = require("path");
-const sceneIndex = require("./scenes.json");
 
-const SCENES = path.join(__dirname, "..", "scenes");
+const DEFAULT_SCENES = path.join(__dirname, "..", "scenes");
 
 function readJSON(file) {
-  return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
+  if (!fs.existsSync(file)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(file, "utf8"));
+  } catch (err) {
+    throw new Error(`${file}: ${err.message}`);
+  }
 }
 
-function recordingDirs(siteId) {
+function recordingDirs(scenesDir, siteId) {
   const dirs = [];
-  const assets = path.join(SCENES, siteId, "assets");
+  const assets = path.join(scenesDir, siteId, "assets");
   if (fs.existsSync(assets))
     dirs.push({ dir: assets, url: `/surveys/${siteId}/assets` });
-  const extra = path.join(SCENES, siteId, "recordings");
+  const extra = path.join(scenesDir, siteId, "recordings");
   if (fs.existsSync(extra)) {
     for (const entry of fs.readdirSync(extra, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
@@ -44,6 +50,19 @@ function recordingDirs(siteId) {
   return dirs;
 }
 
+function startTime(dir, summary, header) {
+  const ms = summary
+    ? Date.parse(summary.start)
+    : header.start_ns == null
+      ? NaN
+      : Number(BigInt(header.start_ns) / 1000000n);
+  if (!Number.isFinite(ms))
+    throw new Error(
+      `${dir}: no readable start time (summary.json "start" or header.json "start_ns")`,
+    );
+  return ms;
+}
+
 function loadRecording(model, { dir, url }) {
   const summary = readJSON(path.join(dir, "summary.json"));
   const header = readJSON(path.join(dir, "part-000", "header.json"));
@@ -51,9 +70,7 @@ function loadRecording(model, { dir, url }) {
   const source = summary ?? header;
   if (!source) return null;
 
-  const startMs = summary
-    ? Date.parse(summary.start)
-    : Number(BigInt(header.start_ns) / 1000000n);
+  const startMs = startTime(dir, summary, header);
   const durationSec = source.duration_sec ?? timeline?.duration_sec ?? 0;
   const speed = model.summariseSpeed(
     summary ? summary.vehicle_speed : timeline?.vehicle_speed,
@@ -74,6 +91,15 @@ function loadRecording(model, { dir, url }) {
     sourceSha256: header?.source_vrlog_sha256 ?? null,
     generatedAt: header?.generated_at ?? null,
     assetsUrl: url,
+    // The processed file the page offers for download, whichever exists.
+    summaryUrl: summary
+      ? `${url}/summary.json`
+      : timeline
+        ? `${url}/part-000/timeline.json`
+        : null,
+    summaryKind: summary
+      ? "speed summary"
+      : "speed summary and traffic timeline",
     hasPlayback: Boolean(
       header && fs.existsSync(path.join(dir, "manifest.json")),
     ),
@@ -83,15 +109,50 @@ function loadRecording(model, { dir, url }) {
   };
 }
 
-module.exports = async function () {
+/**
+ * Labels and ids must tell a site's recordings apart. Two visits in one
+ * month take the day in their label; two starting in the same minute (a
+ * radar and a LiDAR survey side by side) take the sensor in their id.
+ */
+function disambiguate(siteId, recordings, warn) {
+  const labels = new Map();
+  for (const r of recordings)
+    labels.set(r.label, (labels.get(r.label) ?? 0) + 1);
+  for (const r of recordings)
+    if (labels.get(r.label) > 1) r.label = r.when.labelDay;
+
+  const seen = new Set();
+  for (const r of recordings) {
+    if (seen.has(r.id)) {
+      const base = `${r.id}-${r.sensor}`;
+      let id = base;
+      for (let n = 2; seen.has(id); n += 1) id = `${base}-${n}`;
+      warn(`${siteId}: two recordings start at ${r.id}; using ${id}`);
+      r.id = id;
+    }
+    seen.add(r.id);
+  }
+}
+
+async function loadSurveys({
+  scenesDir = DEFAULT_SCENES,
+  index = require("./scenes.json"),
+  warn = (message) => console.warn(`[surveys] ${message}`),
+} = {}) {
   const model = await import("../js/survey-model.js");
 
-  const sites = sceneIndex.sites
+  const sites = index.sites
     .map((site) => {
-      const recordings = recordingDirs(site.id)
+      const recordings = recordingDirs(scenesDir, site.id)
         .map((d) => loadRecording(model, d))
         .filter(Boolean)
+        .filter((r) => {
+          if (r.families.length) return true;
+          warn(`${site.id}: ${r.assetsUrl} reports no measurement; left out`);
+          return false;
+        })
         .sort((a, b) => a.startMs - b.startMs);
+      disambiguate(site.id, recordings, warn);
       const latest = recordings.at(-1) ?? null;
       return {
         id: site.id,
@@ -138,4 +199,8 @@ module.exports = async function () {
     pipeline: { build: commonBuild, count: commonCount, builds },
     years: [...new Set(recordings.map((r) => r.when.year))].sort(),
   };
-};
+}
+
+// Eleventy calls the default export with no arguments.
+module.exports = () => loadSurveys();
+module.exports.loadSurveys = loadSurveys;

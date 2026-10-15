@@ -36,78 +36,11 @@ function offlineDocsHref(href) {
   return href;
 }
 
-/**
- * Everything a survey template needs that depends on the site's speed limit:
- * findings, shares over the limit, and the charts at a wide and a narrow size
- * (CSS shows one), so SVG text stays legible at both.
- */
-function surveyView(model, charts, site, rawLimit) {
-  const limit = model.validLimit(rawLimit);
-  const recs = site.recordings;
-  const scale = charts.speedScale(
-    recs.map((r) => r.speed),
-    limit,
-  );
-  const ymax = charts.shareCeiling(recs.map((r) => r.speed));
-  const recordings = recs.map((r, i) => {
-    const speed = r.speed;
-    const over = model.shareAtOrAbove(speed, limit);
-    return {
-      ...r,
-      colour: charts.recordingColour(i, recs.length),
-      isLatest: i === recs.length - 1,
-      over,
-      overText: model.pct(over),
-      bands: model.excessBands(speed, limit),
-      finding: model.speedFinding(speed, limit),
-      charts: speed
-        ? {
-            wide: charts.histogramSvg(speed, {
-              width: 1000,
-              height: 250,
-              limit,
-              scale,
-            }),
-            narrow: charts.histogramSvg(speed, {
-              width: 343,
-              height: 200,
-              limit,
-              scale,
-            }),
-            strip: charts.percentileStripSvg(speed, { width: 360, limit }),
-            stripNarrow: charts.percentileStripSvg(speed, {
-              width: 311,
-              limit,
-            }),
-            spark: charts.sparklineSvg(speed, { width: 90, height: 22, limit }),
-          }
-        : null,
-    };
-  });
-  return {
-    limit,
-    recordings,
-    latest: recordings.at(-1) ?? null,
-    canCompare: recordings.filter((r) => r.speed).length >= 2,
-    // What the browser needs for the recording switcher and compare view.
-    client: {
-      id: site.id,
-      title: site.title,
-      limit,
-      scale,
-      ymax,
-      recordings: recordings.map(
-        ({ charts: _c, finding: _f, bands: _b, ...r }) => r,
-      ),
-    },
-  };
-}
-
 module.exports = async function (eleventyConfig) {
   // Survey pages render the same charts at build time and in the browser, so
   // the model and chart code are ES modules under src/js, imported here.
   const surveyModel = await import("./src/js/survey-model.js");
-  const surveyCharts = await import("./src/js/survey-charts.js");
+  const { surveyView } = await import("./src/js/survey-view.js");
 
   // Add syntax highlighting plugin
   eleventyConfig.addPlugin(syntaxHighlight);
@@ -306,9 +239,9 @@ module.exports = async function (eleventyConfig) {
     }
     return limits;
   });
-  eleventyConfig.addFilter("surveyView", (site, limit) =>
-    surveyView(surveyModel, surveyCharts, site, limit),
-  );
+  eleventyConfig.addFilter("surveyView", surveyView);
+  // One decimal, always: "26.0" beside "22.6", and a dash for a missing value.
+  eleventyConfig.addFilter("fixed1", surveyModel.mph);
 
   // Add collection for guides
   eleventyConfig.addCollection("guides", function (collectionApi) {

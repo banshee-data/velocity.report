@@ -421,9 +421,6 @@ body:has(.sv-shell) {
   color: var(--em-2);
   font-size: 11px;
 }
-.sv-share-status:empty {
-  display: none;
-}
 
 .sv-recchip,
 .sv-recselect__button {

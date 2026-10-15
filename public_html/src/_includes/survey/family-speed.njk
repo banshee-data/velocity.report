@@ -34,7 +34,7 @@
           {% set peak = (rec.bands | sort(true, false, "share") | first).share %}
           <ul class="sv-bands">
             {% for b in rec.bands %}
-              <li><span class="sv-mono">{{ b.from }}–{{ b.to }} mph</span><span class="sv-bands__track"><span style="width: {{ (b.share / peak * 100) | round(1) }}%"></span></span><span class="sv-mono sv-bands__value">{{ (b.share * 100) | round(1) }}%</span></li>
+              <li><span class="sv-mono">{{ b.from }}–{{ b.to }} mph</span><span class="sv-bands__track"><span style="width: {{ (b.share / peak * 100) | round(1) }}%"></span></span><span class="sv-mono sv-bands__value">{{ (b.share * 100) | fixed1 }}%</span></li>
             {% endfor %}
           </ul>
           <p class="sv-note">Shown as magnitude bands, not pass/fail: 26 mph and 34 mph are not the same finding.</p>
@@ -55,7 +55,7 @@
     {% for p in [["p50", "P50", "Median"], ["p85", "P85", "85th pct."], ["p98", "P98", "98th pct."], ["max", "MAX", "Fastest"]] %}
       <div class="sv-keynums__cell sv-keynums__cell--{{ p[0] }}">
         <dt><span class="sv-keynums__key">{{ p[1] }}</span> {{ p[2] }}</dt>
-        <dd>{{ rec.speed[p[0]] | round(1) }}<span class="sv-unit"> mph</span></dd>
+        <dd>{{ rec.speed[p[0]] | fixed1 }}<span class="sv-unit"> mph</span></dd>
       </div>
     {% endfor %}
   </dl>

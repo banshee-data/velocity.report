@@ -133,7 +133,27 @@ test("compare needs two recordings and defaults the baseline to the earliest", (
   );
   assert.equal(sel.base.id, "a");
   assert.equal(sel.latest.id, "b");
-  assert.equal(compareSelection([a, b], ["a", "b"], "b").base.id, "b");
+  // The newest recording is what changes are measured to, never the baseline.
+  assert.equal(compareSelection([a, b], ["a", "b"], "b").base.id, "a");
+  const c = recording("c", "2026-10-02T20:21:00Z", RAW);
+  assert.equal(compareSelection([a, b, c], ["a", "b", "c"], "b").base.id, "b");
+  assert.equal(compareSelection([a, b, c], ["a", "b", "c"], "c").base.id, "a");
+});
+
+test("recording labels carry the day when a site needs it", () => {
+  const when = recordingWhen(Date.parse("2026-09-02T20:21:00Z"), 600);
+  assert.equal(when.label, "Sep 2026");
+  assert.equal(when.labelDay, "2 Sep 2026");
+});
+
+test("a recording without a pipeline build is a comparability warning", () => {
+  const a = recording("a", "2026-01-15T16:05:00Z", RAW, { build: null });
+  const b = recording("b", "2026-09-02T20:21:00Z", RAW);
+  const notes = comparabilityNotes(compareSelection([a, b], ["a", "b"]));
+  assert.equal(notes.length, 1);
+  assert.equal(notes[0].tone, "warn");
+  assert.match(notes[0].text, /^Jan 2026 does not record the pipeline build/);
+  assert.doesNotMatch(notes[0].text, /null/);
 });
 
 test("compare rows give latest minus baseline, and add the limit row only with a limit", () => {
