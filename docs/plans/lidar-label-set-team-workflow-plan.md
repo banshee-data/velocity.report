@@ -363,7 +363,7 @@ makes.
 | PR  | Branch                              | State            |
 | --- | ----------------------------------- | ---------------- |
 | A   | `dd/lidar/label-sets-layout`        | Built 2026-10-14 |
-| B   | `dd/lidar/label-sets-merge`         | Planned          |
+| B   | `dd/lidar/label-sets-merge`         | Built 2026-10-14 |
 | C   | `dd/lidar/label-sets-partial-clone` | Planned          |
 | D   | `dd/lidar/label-sets-checks`        | Planned          |
 | E   | not started                         | Planned          |
@@ -387,3 +387,20 @@ Decided while building A:
   first reason to raise it.
 - **Splits stay in `<root>/splits/`**, not per capture: a split spans captures.
 - The Segments page still lists packs by folder; showing capture, set and view there is left out.
+
+Decided while building B:
+
+- **A mask pin is a digest**, of the object's masks at the review's support samples (members,
+  uncertain returns, status). When the pinned revision is still retained, drift names the sample
+  that changed; without it, drift says the reviewed samples changed. A pin written before level 2
+  is judged by its revision, as before.
+- **`repin` upgrades pins**: a review pinned to the current membership without masks gets them,
+  so one `repin` per view brings kirk0's 25 reviews to level 2.
+- **The head driver takes the other branch's head when only it moved**, and records a merge only
+  when both did. It adds the other branch's verified files and any field only it changed.
+- **Two hooks, not one.** Git runs `pre-merge-commit` for a merge that commits itself and
+  `pre-commit` for one committed after a conflict; both run `finish-merge`, which does nothing
+  unless a `labels.json` records a merge. The hooks name the `velocity` binary `git-setup` ran
+  from.
+- **A conflicting physical reference leaves `.theirs` beside it**, the other branch's whole file,
+  rather than conflict markers in JSON.
