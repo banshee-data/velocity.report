@@ -345,6 +345,8 @@ struct PhysicalReferenceDocument: Codable, Equatable {
 
     var schema: String
     var schemaVersion: Int
+    /// The lowest reader level that reads this document (`ReaderLevel`).
+    var minReader: Int?
     var datasetID: String
     var packDigest: String
     var revision: Int
@@ -357,6 +359,7 @@ struct PhysicalReferenceDocument: Codable, Equatable {
     enum CodingKeys: String, CodingKey {
         case schema
         case schemaVersion = "schema_version"
+        case minReader = "min_reader"
         case datasetID = "dataset_id"
         case packDigest = "pack_digest"
         case revision
@@ -372,6 +375,7 @@ struct PhysicalReferenceDocument: Codable, Equatable {
     var editable: Bool {
         schema == PhysicalReferenceDocument.schema
             && schemaVersion == PhysicalReferenceDocument.supportedVersion
+            && ReaderLevel.refusal("physical references", minReader: minReader) == nil
     }
 
     func object(_ id: String) -> PhysicalObject? { objects.first { $0.objectID == id } }

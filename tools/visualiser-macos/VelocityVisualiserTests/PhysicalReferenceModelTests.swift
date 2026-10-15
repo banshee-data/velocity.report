@@ -221,16 +221,18 @@ struct PhysicalReferenceModelTests {
         #expect(PhysicalUnits.wrappedDegrees(725) == 5)
     }
 
-    @Test func packHandleIsTheFolderNameOrItsPackSubfolder() {
-        #expect(
-            PhysicalReferenceAPIClient.handle(for: URL(fileURLWithPath: "/a/packs/run-1"))
-                == "run-1")
-        #expect(
-            PhysicalReferenceAPIClient.handle(for: URL(fileURLWithPath: "/a/packs/run-1/pack"))
-                == "run-1/pack")
-        #expect(
-            PhysicalReferenceAPIClient.handle(for: URL(fileURLWithPath: "/a/packs/run-1/"))
-                == "run-1")
+    /// The handle is the pack's path from the server's root, read from its
+    /// place in the layout, as Go's ValidPackHandle accepts it.
+    @Test func packHandleIsThePacksPlaceInTheLayout() {
+        func handle(_ path: String) -> String {
+            PhysicalReferenceAPIClient.handle(for: URL(fileURLWithPath: path))
+        }
+        #expect(handle("/r/kirk0/packs/run-1") == "kirk0/packs/run-1")
+        #expect(handle("/r/kirk0/packs/run-1/") == "kirk0/packs/run-1")
+        #expect(handle("/r/kirk0/kirk0-reference/views/20260929-184718-ad8b9438")
+            == "kirk0/kirk0-reference/views/20260929-184718-ad8b9438")
+        #expect(handle("/r/clip-j-1/pack") == "clip-j-1/pack")
+        #expect(handle("/elsewhere/run-1") == "run-1")
     }
 }
 

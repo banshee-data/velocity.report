@@ -150,6 +150,7 @@ type Completeness struct {
 // Manifest is the pack's identity and contract.
 type Manifest struct {
 	SchemaVersion int    `json:"schema_version"`
+	MinReader     int    `json:"min_reader,omitempty"`
 	DatasetID     string `json:"dataset_id"`
 	CreatedNs     int64  `json:"created_ns"`
 
@@ -614,6 +615,9 @@ func OpenPack(dir string) (*Pack, error) {
 		return nil, fmt.Errorf("pack schema version %d, this build reads %d only: version 1 packs were migrated to label sets "+
 			"(docs/lidar/operations/annotation-label-set-migration.md); build the git tag annotation-v1-reader to read one",
 			m.SchemaVersion, PackSchemaVersion)
+	}
+	if err := CheckReader("pack manifest", m.MinReader); err != nil {
+		return nil, err
 	}
 
 	samplesBytes, err := os.ReadFile(filepath.Join(dir, samplesFile))

@@ -18,7 +18,7 @@ derived/
   metrics/
 labels/
   <capture stem>/<label set name>/
-  <capture stem>/<pack directory>/
+  <capture stem>/<label set name>/views/<view>/
 reports/
 ```
 
@@ -105,7 +105,7 @@ and operated as described in [label sets](../../docs/lidar/operations/label-sets
 | Line endings and size | `labels/** -text`. The text is plain Git, so the Hub shows edited lines and Git merges edits to different masks; every text file stays under Hugging Face's 10 MiB plain-Git limit, which staging checks. The Hub also refuses a push in which any commit holds a binary file in plain Git, even one a later commit moves to LFS/Xet. `packets.bin` goes through LFS/Xet by the `*.bin` rule |
 | Domain                | Every mask names the foreground extraction it was made on. A return outside that foreground is unlabelled, never a negative                                                                                                                                                                                                                                                                  |
 | Review status         | `reviewed` masks on `reviewed` objects are reference; `proposed` and `rejected` are not                                                                                                                                                                                                                                                                                                      |
-| View                  | `labels/<capture stem>/<pack directory>/`, beside its set: the run's pack data and physical references, linked to `../<label set name>`. A row's `annotation_pack_paths` lists them                                                                                                                                                                                                          |
+| View                  | `labels/<capture stem>/<label set name>/views/<view>/`, inside its set, `<view>` being the run's cut time and id: the run's pack data and physical references, linked to `../..`. A row's `annotation_pack_paths` lists them                                                                                                                                                                 |
 | Working state         | Ignored, never committed: the journal and its base, locks, the commit marker (`.pending`), the view's revision archives and proposal layers, and staging directories                                                                                                                                                                                                                         |
 
 Stage a label set with `tools/s2-archive/stage-label-sets.py`. With `--capture-id`, it first binds

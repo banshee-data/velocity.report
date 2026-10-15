@@ -205,17 +205,22 @@ func annotationFramingHalfHeight(
         }
     }
 
-    /// Makes sure a pack's label set can be written: it lives beside the
-    /// pack, in `<annotation dir>/labels/` or, for a dataset view, next to
-    /// it, which a grant on the pack alone does not reach. Returns why saving
+    /// Makes sure a pack's label set can be written: it lives in the pack's
+    /// capture folder, beside packs/ or around a view's views/ folder, which
+    /// a grant on the pack alone does not reach. Returns why saving
     /// is impossible, or nil.
     ///
     /// Asked at opening rather than at the first save, because a save that
     /// fails for want of a folder grant fails after the operator has done
     /// the work.
     private func labelFolderAccess(for pack: AnnotationPack, labelSet: URL) -> String? {
-        let folder = LabelSetMembership.writeFolder(
-            annotationDirectory: pack.annotationDirectory, labelSet: labelSet)
+        // The first save may make the capture folder itself, for a pack
+        // outside the layout: then the folder that will hold it is the one
+        // to be granted.
+        var folder = LabelSetMembership.writeFolder(
+            captureDirectory: pack.captureDirectory, labelSet: labelSet)
+        while !FileManager.default.fileExists(atPath: folder.path), folder.pathComponents.count > 1
+        { folder = folder.deletingLastPathComponent() }
         if let grant, PackFolderAccess.folder(grant.folder, contains: folder) { return nil }
         if let remembered = folderAccess.beginAccess(for: folder) {
             labelGrant = remembered

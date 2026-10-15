@@ -109,13 +109,13 @@ exchange rate.
 ## Labels
 
 Reference labels say which returns belong to which road user, frame by frame.
-They are published as label sets, beside the capture they describe:
+They are published as label sets, one folder per capture:
 
 ```text
 labels/<capture stem>/
-  <label set name>/   labels.json and the head files: objects, windows, masks
-  <pack directory>/   its view: one run's points of the capture, with physical
-                      references, linked to the label set beside it
+  <label set name>/     labels.json and the head files: objects, windows, masks
+    views/<view>/       a view: one run's points of the capture, with physical
+                        references, linked to the label set it sits in
 ```
 
 A label set cites returns by a digest of the sensor's UDP payload, so it

@@ -11,8 +11,8 @@ import (
 
 // SaveMembership writes a pack's membership, given in the pack's own samples
 // and point indices, into the label set the pack is linked to. A pack not
-// linked yet gets a label set of its own beside it, in
-// <pack parent>/labels/<name>, and a link to it. It is the Go counterpart of
+// linked yet gets a label set of its own in its capture folder,
+// <capture>/<name> (annotation.CaptureDirOf), and a link to it. It is the Go counterpart of
 // the macOS window's save.
 //
 // sc is the whole membership as this pack shows it. What the pack does not
@@ -63,7 +63,7 @@ func createForPack(p *annotation.Pack, sc *annotation.Sidecar, change Change) (*
 		stem = "pack"
 	}
 	name := stem + "-" + id[:8]
-	dir := filepath.Join(filepath.Dir(filepath.Clean(p.Dir)), "labels", name)
+	dir := filepath.Join(annotation.CaptureDirOf(p.Dir, p.Manifest), name)
 	ls, err := Create(dir, Manifest{LabelSetID: id, Name: name, Layout: layout}, *state, change)
 	if err != nil {
 		return nil, err

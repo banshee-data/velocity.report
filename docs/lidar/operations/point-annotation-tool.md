@@ -72,16 +72,15 @@ labels only in a **label set**, which cites those returns rather than the pack's
 run of the same capture can show and edit the same labels. The format is specified in the
 [labelset package README](../../../internal/lidar/annotation/labelset/README.md).
 
-- Label sets live beside the pack, in `<annotation dir>/labels/<name>/`, where the annotation dir
-  is the pack folder's parent. The pack names its set in `label-set-link.json`. The first save
-  makes the set from the pack (revision 1, `create_from_pack`) and saves the edit as revision 2.
-  If the app has not been given the annotation dir, the window asks for it when the pack opens,
-  and opens read only if refused.
-- A view published in the Hugging Face dataset sits beside its label set instead, in
-  `labels/<capture stem>/`. Open it like any pack, and grant `labels/<capture stem>` when asked.
-  To save physical references there too, start the server with
-  `--lidar-annotation-dir=<clone>/labels/<capture stem>`. Committing an edit is described in
-  [label sets](label-sets.md#editing-from-the-dataset).
+- Label sets live in the pack's capture folder, `<root>/<capture>/<name>/`, beside the capture's
+  `packs/` folder ([layout](label-sets.md#where-things-live)). The pack names its set in
+  `label-set-link.json`. The first save makes the set from the pack (revision 1,
+  `create_from_pack`) and saves the edit as revision 2. If the app has not been given the capture
+  folder, the window asks for it when the pack opens, and opens read only if refused.
+- A view, a pack in its set's `views/` folder, is opened like any pack, locally or in the Hugging
+  Face dataset; grant `labels/<capture stem>` when asked. To save physical references in the
+  dataset too, start the server with `--lidar-annotation-dir=<clone>/labels`. Committing an edit
+  is described in [label sets](label-sets.md#editing-from-the-dataset).
 - Each save appends one line to the set's `journal.ndjson`, then rewrites the head files and
   `labels.json`, under an exclusive lock on `.lock`. A propagation, a merge, a split or **Apply
   to every sample** is one save. A save that changes nothing writes nothing. No snapshot is kept.

@@ -173,6 +173,9 @@ struct LabelSetManifest: Equatable {
     static let schemaVersion = 2
 
     var schemaVersion = LabelSetManifest.schemaVersion
+    /// The lowest reader level that reads this set (`ReaderLevel`); 0 when
+    /// absent, which is level 1. Kept as read, so a save never lowers it.
+    var minReader = 0
     var labelSetID = ""
     var name: String?
     var layout = ReturnLayout.pandar40P
@@ -188,6 +191,7 @@ struct LabelSetManifest: Equatable {
     var json: LabelSetJSON {
         var b = LabelSetObjectBuilder()
         b.int("schema_version", schemaVersion)
+        b.omitZero("min_reader", minReader)
         b.string("label_set_id", labelSetID)
         b.omitEmpty("name", name)
         b.set("layout", layout.json)
@@ -209,6 +213,7 @@ struct LabelSetManifest: Equatable {
     init(json value: LabelSetJSON, _ context: String) throws {
         var f = try LabelSetFields(value, context)
         schemaVersion = try f.int("schema_version")
+        minReader = try f.int("min_reader")
         labelSetID = try f.string("label_set_id")
         name = try f.optionalString("name")
         layout = try ReturnLayout(json: f.value("layout") ?? .object([:]), "\(context) layout")
@@ -236,6 +241,9 @@ struct LabelSetManifest: Equatable {
         guard m.schemaVersion == schemaVersion else {
             throw LabelSetError.invalid(
                 "label set schema version \(m.schemaVersion), this build reads \(schemaVersion)")
+        }
+        if let refusal = ReaderLevel.refusal(LabelSetFiles.manifest, minReader: m.minReader) {
+            throw LabelSetError.invalid(refusal)
         }
         guard m.packetKey == PacketKeys.scheme else {
             throw LabelSetError.invalid(
