@@ -24,6 +24,51 @@ import (
 // errConflict is a merge driver's refusal: Git marks the file conflicted.
 var errConflict = errors.New("merge conflict")
 
+func labelsCheck(args []string) error {
+	fs := flag.NewFlagSet("labels check", flag.ContinueOnError)
+	pack := fs.String("pack", "", "Pack (a view, or a pack in packs/) whose membership to check (required)")
+	format := fs.String("format", "text", "text or json")
+	strict := fs.Bool("strict", false, "Exit 1 when anything is warned about")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *pack == "" {
+		return fmt.Errorf("--pack is required")
+	}
+	p, err := annotation.OpenPack(*pack)
+	if err != nil {
+		return err
+	}
+	s, err := annotation.LoadSidecar(p)
+	if err != nil {
+		return err
+	}
+	warnings, err := annotation.CheckLabels(p, s)
+	if err != nil {
+		return err
+	}
+	switch *format {
+	case "json":
+		if warnings == nil {
+			warnings = []annotation.LabelWarning{}
+		}
+		if err := writeJSON(os.Stdout, warnings); err != nil {
+			return err
+		}
+	case "text":
+		for _, w := range warnings {
+			fmt.Printf("%-17s sample %-6d %s\n", w.Rule, w.SampleID, w.Message)
+		}
+		fmt.Printf("%d warning(s) over %d object(s) and %d mask(s)\n", len(warnings), len(s.Objects), len(s.Masks))
+	default:
+		return fmt.Errorf("--format %q: use text or json", *format)
+	}
+	if *strict && len(warnings) > 0 {
+		os.Exit(1)
+	}
+	return nil
+}
+
 func labelsDiff(args []string) error {
 	fs := flag.NewFlagSet("labels diff", flag.ContinueOnError)
 	format := fs.String("format", "text", "text, markdown or json")

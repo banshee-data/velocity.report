@@ -274,7 +274,70 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         didSet {
             labelRevision &+= 1
             summaries = nil
+            refreshLabelChecks()
         }
+    }
+
+    // MARK: Label checks
+
+    /// What the label checks (`LabelChecks`) find in the saved membership,
+    /// worked out again after every change to it. They warn; nothing here
+    /// stops a save.
+    @Published private(set) var labelWarnings: [LabelWarning] = []
+    /// Whether the checks are running over the membership just saved.
+    @Published private(set) var labelChecksRunning = false
+    private var labelChecksGeneration = 0
+    /// Each sample's plan positions, read once: points never change, so a
+    /// save only reruns the rules.
+    private var labelCheckSamples: [Int: LabelCheckSample] = [:]
+
+    /// Runs the checks over the membership as it is now, replacing any run
+    /// still going. Points are read for samples with masks, yielding between
+    /// samples, the first time each is needed.
+    func refreshLabelChecks() {
+        labelChecksGeneration &+= 1
+        let generation = labelChecksGeneration
+        let snapshot = sidecar
+        labelChecksRunning = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let masked = Set(snapshot.masks.filter { !$0.pointIndices.isEmpty }.map(\.sampleID))
+            var samples: [LabelCheckSample] = []
+            samples.reserveCapacity(self.pack.samples.count)
+            for (i, sample) in self.pack.samples.enumerated() {
+                if let cached = self.labelCheckSamples[sample.sampleID] {
+                    samples.append(cached)
+                    continue
+                }
+                var s = LabelCheckSample(sampleID: sample.sampleID, timestampNs: sample.timestampNs)
+                if masked.contains(sample.sampleID) {
+                    if let points = try? self.pack.points(sampleID: sample.sampleID) {
+                        s.x = points.x
+                        s.y = points.y
+                    }
+                    self.labelCheckSamples[sample.sampleID] = s
+                }
+                samples.append(s)
+                if i % 16 == 0 {
+                    await Task.yield()
+                    guard generation == self.labelChecksGeneration else { return }
+                }
+            }
+            let found = LabelChecks.run(
+                samples: samples, objects: snapshot.objects, masks: snapshot.masks)
+            guard generation == self.labelChecksGeneration else { return }
+            self.labelWarnings = found
+            self.labelChecksRunning = false
+        }
+    }
+
+    /// Shows what a warning is about: its object, at its sample.
+    @discardableResult func show(_ warning: LabelWarning) -> AnnotationGuard? {
+        if let blocker = activate(objectID: warning.objectID) { return blocker }
+        guard let index = orderedSamples.firstIndex(where: { $0.sampleID == warning.sampleID }),
+            index != sampleIndex
+        else { return nil }
+        return step(to: index)
     }
 
     /// What the object list shows of each object, worked out once per change

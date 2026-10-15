@@ -45,25 +45,26 @@ label set cannot measure.
 
 All are `velocity lidar labels <command>`; built through `make`, so records name the build.
 
-| Command        | Use                                                                                                                                                                |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `create`       | Start a label set from a pack and link the pack                                                                                                                    |
-| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                                |
-| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                          |
-| `verify`       | Replay the journal and check every revision's state digest                                                                                                         |
-| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                                     |
-| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                                        |
-| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited                  |
-| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it          |
-| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                                 |
-| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                                      |
-| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                                       |
-| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--dry-run` prints the moves          |
-| `diff`         | What a change did to objects and masks, between two folders or two Git revisions (`--git REV[..REV] --labels SET`); `--format markdown` for a pull request         |
-| `check-tree`   | Check every set and view of a dataset's `labels/` at once: none mid-merge, every view holding, no pack outside a set's `views/`; `--base REV` adds each set's diff |
-| `git-setup`    | In a dataset clone: install the merge drivers and the hooks that finish a merge of label sets                                                                      |
-| `finish-merge` | Make merged sets' head files their next revision, re-pin, and check the views; the hooks run it                                                                    |
-| `census`       | Count packet keys in capture files and report duplicates                                                                                                           |
+| Command        | Use                                                                                                                                                                   |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`       | Start a label set from a pack and link the pack                                                                                                                       |
+| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                                   |
+| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                             |
+| `verify`       | Replay the journal and check every revision's state digest                                                                                                            |
+| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                                        |
+| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                                           |
+| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited                     |
+| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it             |
+| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                                    |
+| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                                         |
+| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                                          |
+| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--dry-run` prints the moves             |
+| `check`        | Warn about likely labelling mistakes in a pack's membership, as the window's Checks panel does ([checks](point-annotation-tool.md#checks)); `--strict` exits 1 on any |
+| `diff`         | What a change did to objects and masks, between two folders or two Git revisions (`--git REV[..REV] --labels SET`); `--format markdown` for a pull request            |
+| `check-tree`   | Check every set and view of a dataset's `labels/` at once: none mid-merge, every view holding, no pack outside a set's `views/`; `--base REV` adds each set's diff    |
+| `git-setup`    | In a dataset clone: install the merge drivers and the hooks that finish a merge of label sets                                                                         |
+| `finish-merge` | Make merged sets' head files their next revision, re-pin, and check the views; the hooks run it                                                                       |
+| `census`       | Count packet keys in capture files and report duplicates                                                                                                              |
 
 Everything that reads a pack's membership reads it through the label set: splits, physical
 references, features, the per-frame and near-face evaluators, and the server's pack listing. It is
