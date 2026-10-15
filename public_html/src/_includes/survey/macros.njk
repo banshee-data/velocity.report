@@ -1,0 +1,25 @@
+{# Shared survey snippets. Import with: {% import "survey/macros.njk" as sv %} #}
+
+{# A finding is a list of { text, tone } segments built by survey-model.js. #}
+{% macro finding(segments) -%}
+{%- for s in segments -%}
+{%- if s.tone == "strong" %}<b>{{ s.text }}</b>
+{%- elif s.tone == "over" %}<span class="sv-over">{{ s.text }}</span>
+{%- else %}{{ s.text }}{% endif -%}
+{%- endfor -%}
+{%- endmacro %}
+
+{% macro sensorTag(kind, sensors) -%}
+<span class="sv-sensor sv-sensor--{{ kind }}">{{ sensors[kind].tag }}</span>
+{%- endmacro %}
+
+{% macro status(state, withLabel = true) -%}
+{%- set labels = { "measured": "Measured", "missing": "Not reported", "not-recorded": "Not recorded" } -%}
+{%- set glyphs = { "measured": "●", "missing": "◌", "not-recorded": "–" } -%}
+<span class="sv-status sv-status--{{ state }}"><span aria-hidden="true">{{ glyphs[state] }}</span>{% if withLabel %} {{ labels[state] }}{% else %}<span class="sv-sr">{{ labels[state] }}</span>{% endif %}</span>
+{%- endmacro %}
+
+{# The same chart at two sizes; CSS shows one, so SVG text stays legible. #}
+{% macro chart(wide, narrow, cls = "") -%}
+<div class="sv-chart {{ cls }}"><div class="sv-chart__wide">{{ wide | safe }}</div><div class="sv-chart__narrow">{{ narrow | safe }}</div></div>
+{%- endmacro %}

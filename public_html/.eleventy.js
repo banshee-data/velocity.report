@@ -10,7 +10,9 @@ function normalisePathPrefix(value) {
   return `/${trimmed.replace(/^\/+|\/+$/g, "")}/`;
 }
 
-const pathPrefix = normalisePathPrefix(process.env.VELOCITY_PUBLIC_HTML_PATH_PREFIX);
+const pathPrefix = normalisePathPrefix(
+  process.env.VELOCITY_PUBLIC_HTML_PATH_PREFIX,
+);
 const OFFLINE_DOCS_REPO_PATH = /^(?:docs|data)\/.+/;
 const OFFLINE_DOCS_ROOT_MARKDOWN = /^[^/]+\.md$/i;
 
@@ -34,7 +36,79 @@ function offlineDocsHref(href) {
   return href;
 }
 
-module.exports = function (eleventyConfig) {
+/**
+ * Everything a survey template needs that depends on the site's speed limit:
+ * findings, shares over the limit, and the charts at a wide and a narrow size
+ * (CSS shows one), so SVG text stays legible at both.
+ */
+function surveyView(model, charts, site, rawLimit) {
+  const limit = model.validLimit(rawLimit);
+  const recs = site.recordings;
+  const scale = charts.speedScale(
+    recs.map((r) => r.speed),
+    limit,
+  );
+  const ymax = charts.shareCeiling(recs.map((r) => r.speed));
+  const recordings = recs.map((r, i) => {
+    const speed = r.speed;
+    const over = model.shareAtOrAbove(speed, limit);
+    return {
+      ...r,
+      colour: charts.recordingColour(i, recs.length),
+      isLatest: i === recs.length - 1,
+      over,
+      overText: model.pct(over),
+      bands: model.excessBands(speed, limit),
+      finding: model.speedFinding(speed, limit),
+      charts: speed
+        ? {
+            wide: charts.histogramSvg(speed, {
+              width: 1000,
+              height: 250,
+              limit,
+              scale,
+            }),
+            narrow: charts.histogramSvg(speed, {
+              width: 343,
+              height: 200,
+              limit,
+              scale,
+            }),
+            strip: charts.percentileStripSvg(speed, { width: 360, limit }),
+            stripNarrow: charts.percentileStripSvg(speed, {
+              width: 311,
+              limit,
+            }),
+            spark: charts.sparklineSvg(speed, { width: 90, height: 22, limit }),
+          }
+        : null,
+    };
+  });
+  return {
+    limit,
+    recordings,
+    latest: recordings.at(-1) ?? null,
+    canCompare: recordings.filter((r) => r.speed).length >= 2,
+    // What the browser needs for the recording switcher and compare view.
+    client: {
+      id: site.id,
+      title: site.title,
+      limit,
+      scale,
+      ymax,
+      recordings: recordings.map(
+        ({ charts: _c, finding: _f, bands: _b, ...r }) => r,
+      ),
+    },
+  };
+}
+
+module.exports = async function (eleventyConfig) {
+  // Survey pages render the same charts at build time and in the browser, so
+  // the model and chart code are ES modules under src/js, imported here.
+  const surveyModel = await import("./src/js/survey-model.js");
+  const surveyCharts = await import("./src/js/survey-charts.js");
+
   // Add syntax highlighting plugin
   eleventyConfig.addPlugin(syntaxHighlight);
 
@@ -82,20 +156,31 @@ module.exports = function (eleventyConfig) {
   // CSS font URLs are relative (see fonts.css), and therefore work in both
   // locations without this transform.
   if (pathPrefix) {
-    eleventyConfig.addTransform("link-offline-repository-docs", function (content, outputPath) {
-      if (!outputPath || !outputPath.endsWith(".html")) return content;
-      return content.replace(
-        /\bhref=(["'])(https:\/\/github\.com\/banshee-data\/velocity\.report\/(?:blob|tree)\/main\/[^"']+)\1/g,
-        (whole, quote, href) => {
-          const offlineHref = offlineDocsHref(href);
-          return offlineHref === href ? whole : `href=${quote}${offlineHref}${quote}`;
-        },
-      );
-    });
-    eleventyConfig.addTransform("prefix-offline-root-urls", function (content, outputPath) {
-      if (!outputPath || !outputPath.endsWith(".html")) return content;
-      return content.replace(/\b(href|src)=(['"])\/(?!\/|docs\/)/g, `$1=$2${pathPrefix}`);
-    });
+    eleventyConfig.addTransform(
+      "link-offline-repository-docs",
+      function (content, outputPath) {
+        if (!outputPath || !outputPath.endsWith(".html")) return content;
+        return content.replace(
+          /\bhref=(["'])(https:\/\/github\.com\/banshee-data\/velocity\.report\/(?:blob|tree)\/main\/[^"']+)\1/g,
+          (whole, quote, href) => {
+            const offlineHref = offlineDocsHref(href);
+            return offlineHref === href
+              ? whole
+              : `href=${quote}${offlineHref}${quote}`;
+          },
+        );
+      },
+    );
+    eleventyConfig.addTransform(
+      "prefix-offline-root-urls",
+      function (content, outputPath) {
+        if (!outputPath || !outputPath.endsWith(".html")) return content;
+        return content.replace(
+          /\b(href|src)=(['"])\/(?!\/|docs\/)/g,
+          `$1=$2${pathPrefix}`,
+        );
+      },
+    );
   }
 
   // Copy static files directly to output
@@ -112,12 +197,22 @@ module.exports = function (eleventyConfig) {
       [`src/scenes/${entry.name}/assets`]: `surveys/${entry.name}/assets`,
     });
   }
+  // Further recordings at a site sit beside the original one; see
+  // src/_data/surveys.js for the layout.
+  for (const entry of fs.readdirSync("src/scenes", { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (!fs.existsSync(`src/scenes/${entry.name}/recordings`)) continue;
+    eleventyConfig.addPassthroughCopy({
+      [`src/scenes/${entry.name}/recordings`]: `surveys/${entry.name}/recordings`,
+    });
+  }
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through
   eleventyConfig.addPassthroughCopy({
     "src/css/homepage.css": "css/homepage.css",
   });
+  eleventyConfig.addPassthroughCopy({ "src/css/survey.css": "css/survey.css" });
   eleventyConfig.addPassthroughCopy({ "src/css/header.css": "css/header.css" });
   eleventyConfig.addPassthroughCopy({ "src/css/footer.css": "css/footer.css" });
   eleventyConfig.addPassthroughCopy({ "src/css/fonts.css": "css/fonts.css" });
@@ -196,6 +291,24 @@ module.exports = function (eleventyConfig) {
     domDiff: true,
     watch: ["_site/css/**"],
   });
+
+  // Survey pages: the posted limit is set per site in front matter
+  // (speedLimitMph), so the listing reads it from the pages themselves.
+  eleventyConfig.addCollection("surveyLimits", function (collectionApi) {
+    const limits = {};
+    for (const item of collectionApi.getFilteredByGlob(
+      "src/scenes/*/index.njk",
+    )) {
+      if (item.data.sceneId)
+        limits[item.data.sceneId] = surveyModel.validLimit(
+          item.data.speedLimitMph,
+        );
+    }
+    return limits;
+  });
+  eleventyConfig.addFilter("surveyView", (site, limit) =>
+    surveyView(surveyModel, surveyCharts, site, limit),
+  );
 
   // Add collection for guides
   eleventyConfig.addCollection("guides", function (collectionApi) {

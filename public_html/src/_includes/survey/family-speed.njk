@@ -1,0 +1,72 @@
+{#
+  Vehicle speed card for one recording. Expects `rec` (a recording from the
+  surveyView filter) and `view`. Each metric family has a card include named
+  family-<id>.njk; the location page renders the ones a recording measured.
+#}
+{% set family = surveys.familyById.speed %}
+<section class="sv-card sv-card--accent sv-family" id="family-speed-{{ rec.id }}" aria-labelledby="speed-title-{{ rec.id }}" data-family="speed">
+  <div class="sv-card__head">
+    <h2 class="sv-card__title" id="speed-title-{{ rec.id }}">{{ family.name }}</h2>
+    {{ sv.status("measured") }}
+    <span class="sv-spacer"></span>
+    {% if view.limit %}<span class="sv-reftag" title="Compared with the posted legal limit">LAW</span>{% endif %}
+    <span class="sv-mono sv-hide-narrow">{{ family.definition }}</span>
+  </div>
+
+  <div class="sv-speed__body" data-speed-body>
+    <figure class="sv-speed__chart">
+      {{ sv.chart(rec.charts.wide, rec.charts.narrow, "sv-chart--histogram") }}
+      <figcaption class="sv-legend">
+        <span><i class="sv-swatch sv-swatch--under"></i>{% if view.limit %}below limit{% else %}vehicles{% endif %}</span>
+        {% if view.limit %}<span><i class="sv-swatch sv-swatch--over"></i>at or above limit</span>{% endif %}
+        <span>share of vehicles · {{ rec.speed.bucketSize }} mph bins</span>
+      </figcaption>
+    </figure>
+
+    <div class="sv-speed__more" id="speed-more-{{ rec.id }}" hidden>
+      <div class="sv-stack">
+        <h3 class="sv-eyebrow">Percentiles on one scale</h3>
+        {{ sv.chart(rec.charts.strip, rec.charts.stripNarrow) }}
+      </div>
+      {% if view.limit and rec.bands.length %}
+        <div class="sv-stack">
+          <h3 class="sv-eyebrow">At or above the limit</h3>
+          {% set peak = (rec.bands | sort(true, false, "share") | first).share %}
+          <ul class="sv-bands">
+            {% for b in rec.bands %}
+              <li><span class="sv-mono">{{ b.from }}–{{ b.to }} mph</span><span class="sv-bands__track"><span style="width: {{ (b.share / peak * 100) | round(1) }}%"></span></span><span class="sv-mono sv-bands__value">{{ (b.share * 100) | round(1) }}%</span></li>
+            {% endfor %}
+          </ul>
+          <p class="sv-note">Shown as magnitude bands, not pass/fail: 26 mph and 34 mph are not the same finding.</p>
+        </div>
+      {% endif %}
+      <div class="sv-stack sv-standard">
+        {% if view.limit %}
+          <p><span class="sv-reftag">LAW</span> <b>{{ view.limit }} mph posted limit</b> at this site.</p>
+        {% else %}
+          <p class="sv-note">The posted limit at this site has not been recorded yet, so speeds are shown without a limit line.</p>
+        {% endif %}
+        <p class="sv-note">Each vehicle track above {{ rec.speed.minimum }} mph counts once, at its highest observed speed, matching the radar report.</p>
+      </div>
+    </div>
+  </div>
+
+  <dl class="sv-keynums">
+    {% for p in [["p50", "P50", "Median"], ["p85", "P85", "85th pct."], ["p98", "P98", "98th pct."], ["max", "MAX", "Fastest"]] %}
+      <div class="sv-keynums__cell sv-keynums__cell--{{ p[0] }}">
+        <dt><span class="sv-keynums__key">{{ p[1] }}</span> {{ p[2] }}</dt>
+        <dd>{{ rec.speed[p[0]] | round(1) }}<span class="sv-unit"> mph</span></dd>
+      </div>
+    {% endfor %}
+  </dl>
+
+  <div class="sv-card__foot">
+    <button type="button" class="sv-btn sv-btn--small sv-btn--accent" data-expand aria-expanded="false" aria-controls="speed-more-{{ rec.id }}">
+      <span data-expand-label>+ Full distribution</span>
+    </button>
+    <button type="button" class="sv-btn sv-btn--small" data-save-chart data-chart-name="{{ sceneId }}-{{ rec.id }}-speed">⤓ Chart PNG</button>
+    {% if rec.hasPlayback %}<a class="sv-btn sv-btn--small" href="#evidence">▶ 3D playback</a>{% endif %}
+    <span class="sv-spacer"></span>
+    <span class="sv-mono sv-small">n = {{ rec.speed.count }} vehicle tracks</span>
+  </div>
+</section>

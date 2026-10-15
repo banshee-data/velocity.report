@@ -44,6 +44,30 @@ pnpm test
 
 From the repository root, `make test-public-html` runs the same suite and `make test` includes it. Pull requests that touch `public_html/` run it in CI.
 
+## Street survey pages
+
+`/surveys/` (`src/scenes/index.njk`) lists every survey site; each site page uses
+`src/_layouts/scene.njk`. Both use the dark `survey.njk` layout and `src/css/survey.css`.
+
+- **Data.** `src/_data/surveys.js` reads each site's recordings at build time, so the speed
+  figures do not wait for the 3D player. The original recording is `src/scenes/<site>/assets/`;
+  further recordings go in `src/scenes/<site>/recordings/<name>/`. A recording directory holds
+  either a scene export (`part-000/header.json` and `part-000/timeline.json`) or, for one with no
+  3D playback such as a radar survey, a `summary.json` with `sensor_id`, `start` (ISO 8601),
+  `duration_sec`, `build_version` and a `vehicle_speed` object shaped like the timeline's.
+- **Speed limit.** Set `speedLimitMph` in the site page's front matter once the posted limit is
+  confirmed. While it is blank, pages show speeds without a limit line or an over-limit share.
+- **Comparing recordings.** A site with two or more recordings gets a recording menu and a
+  compare view (`?recording=<id>`, `?compare=<id>,<id>&base=<id>`). Speed compares across radar
+  and LiDAR; other measurements are LiDAR only.
+- **New metric families.** Add the family to `FAMILIES` in `src/js/survey-model.js`, give
+  recordings a summary for it in `surveys.js` (and add its id to the recording's `families`), and
+  add a card at `src/_includes/survey/family-<id>.njk`. Filter chips and the measurement columns
+  appear on the listing once more than one family exists.
+- **Shared code.** `survey-model.js` (numbers and wording) and `survey-charts.js` (SVG charts) run
+  both in the Eleventy build and in the browser, so static pages and the compare view match.
+  `survey-page.js` adds the interactive parts.
+
 ## Deployment
 
 The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.

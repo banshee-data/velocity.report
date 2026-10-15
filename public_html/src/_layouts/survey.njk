@@ -1,0 +1,16 @@
+---
+layout: base.njk
+---
+{#
+  Survey listing and location pages. Dark instrument styling to match the
+  homepage and the shared header; the rules live in css/survey.css, which is
+  plain CSS (not processed by Tailwind).
+#}
+<link rel="stylesheet" href="/css/survey.css">
+<div class="sv-shell">
+  {% include "header.njk" %}
+  <main class="sv-main-area">
+    {{ content | safe }}
+  </main>
+  {% include "footer.njk" %}
+</div>
