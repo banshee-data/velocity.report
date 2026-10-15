@@ -616,9 +616,10 @@ func (s *Sidecar) SupportMasksDigest(object string, frames []int) string {
 // as one new revision, and gives every pin it moves, or that already names
 // the current membership, the masks it rests on (MembershipPin.Masks). A
 // pin with masks needs no moving after an edit elsewhere: it holds without
-// history, so this is mostly how older pins are brought to masks. A published label set carries no history, so a later
-// copy cannot rebuild the membership a review pinned and would report every
-// review as no longer retained. Whoever saves a membership edit still holds
+// history, so this is mostly how older pins are brought to masks. A
+// published label set carries no history, so a later copy cannot rebuild
+// the membership an older pin names and would report its review as no
+// longer retained. Whoever saves a membership edit still holds
 // that history locally, and re-pins what the edit did not touch before
 // publishing it. A record whose frames changed, or whose pinned membership
 // this copy cannot rebuild, keeps its pin and is counted as drifted: it

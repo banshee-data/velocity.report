@@ -134,7 +134,13 @@ func threeWay(inO, inT, inB bool, o, t, b []byte) (pick string, keep, conflict b
 	case same(inT, inB, t, b):
 		return "ours", inO, false
 	}
-	return "ours", inO || inT, true
+	// Both changed it differently. This branch's version stands while the
+	// conflict is resolved, or the other's when this branch deleted it: a
+	// record neither side holds is never written.
+	if !inO {
+		return "theirs", inT, true
+	}
+	return "ours", true, true
 }
 
 func sortedUnion[V any](maps ...map[string]V) []string {
