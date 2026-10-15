@@ -135,6 +135,9 @@ func savePhysicalPinned(p *Pack, r *PhysicalReferenceSet, restoredFrom int, memb
 		return fmt.Errorf("%w: %w", ErrPhysicalInvalid, err)
 	}
 
+	if level := next.requiredReader(); level > 1 && next.MinReader < level {
+		next.MinReader = level
+	}
 	b, err := json.MarshalIndent(&next, "", "  ")
 	if err != nil {
 		return err

@@ -225,6 +225,13 @@ struct LabelSetManifest: Equatable {
         storage = try f.value("storage").map { try LabelSetStorage(json: $0, "\(context) storage") }
         migratedFrom = try f.value("migrated_from").map { try LabelSetMigration(json: $0, context) }
         note = try f.optionalString("note")
+        // Go's merge driver records a Git merge here until the hooks finish
+        // it; the head files are not a revision until then.
+        if f.has("merge") {
+            throw LabelSetCodingError(
+                "\(context): the label set is in the middle of a Git merge: run "
+                    + "'velocity lidar labels finish-merge' in the dataset clone")
+        }
         try f.finish()
     }
 

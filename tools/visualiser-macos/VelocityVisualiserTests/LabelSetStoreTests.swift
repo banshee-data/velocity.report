@@ -220,6 +220,23 @@ struct LabelSetStoreTests {
         #expect(throws: LabelSetError.self) { try LabelSetManifest.read(bumped.json.indentedData) }
     }
 
+    /// A set mid-merge, as Go's merge driver leaves labels.json, is refused
+    /// with what to run.
+    @Test func aSetMidMergeIsRefused() throws {
+        let (dir, _) = try newLabelSet()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let url = dir.appendingPathComponent(LabelSetFiles.manifest)
+        var text = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        text = text.replacingOccurrences(
+            of: "{\n", with: "{\n  \"merge\": {\"base\": {\"revision\": 1, \"state\": \"s\", \"updated_utc\": \"\"}},\n",
+            options: [], range: text.range(of: "{\n"))
+        try Data(text.utf8).write(to: url)
+        do {
+            _ = try LabelSetManifest.read(Data(contentsOf: url))
+            Issue.record("a set mid-merge was read")
+        } catch { #expect("\(error)".contains("finish-merge")) }
+    }
+
     /// A set that needs a newer reader is refused; one at this build's level
     /// opens, and a save keeps its min_reader, as Go's reader tests state.
     @Test func minReaderAboveThisBuildIsRefusedAndKeptOtherwise() throws {

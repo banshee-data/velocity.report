@@ -54,6 +54,7 @@ type nestSet struct {
 	dir, target string
 	id, name    string
 	appliesTo   []Binding
+	merging     bool
 }
 
 type nestPack struct {
@@ -181,6 +182,9 @@ func Nest(root string, dryRun bool) (*NestReport, error) {
 		}
 	}
 	for _, s := range sets {
+		if s.merging {
+			problem("label set %s is in the middle of a Git merge: finish it first ('velocity lidar labels finish-merge')", rel(root, s.dir))
+		}
 		if _, err := os.Stat(filepath.Join(s.dir, PendingFile)); err == nil {
 			problem("label set %s has an interrupted save (%s): open it once to finish the save first", rel(root, s.dir), PendingFile)
 		}
@@ -268,11 +272,16 @@ func nestInventory(root string) ([]*nestSet, []*nestPack, error) {
 	walk = func(dir string, depth int) error {
 		if dir != root {
 			if _, err := os.Stat(filepath.Join(dir, ManifestFile)); err == nil {
-				ls, err := Open(dir)
+				// The manifest alone: a set mid-merge is still a set here.
+				b, err := os.ReadFile(filepath.Join(dir, ManifestFile))
 				if err != nil {
 					return fmt.Errorf("label set %s: %w", dir, err)
 				}
-				sets = append(sets, &nestSet{dir: dir, id: ls.Manifest.LabelSetID, name: ls.Manifest.Name, appliesTo: ls.Manifest.AppliesTo})
+				var m Manifest
+				if err := strictUnmarshal(b, &m); err != nil {
+					return fmt.Errorf("label set %s: %s: %w", dir, ManifestFile, err)
+				}
+				sets = append(sets, &nestSet{dir: dir, id: m.LabelSetID, name: m.Name, appliesTo: m.AppliesTo, merging: m.Merge != nil})
 			} else if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err == nil {
 				p, err := annotation.OpenPack(dir)
 				if err != nil {

@@ -45,21 +45,25 @@ label set cannot measure.
 
 All are `velocity lidar labels <command>`; built through `make`, so records name the build.
 
-| Command        | Use                                                                                                                                                       |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create`       | Start a label set from a pack and link the pack                                                                                                           |
-| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                       |
-| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                 |
-| `verify`       | Replay the journal and check every revision's state digest                                                                                                |
-| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                            |
-| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                               |
-| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited         |
-| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it |
-| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                        |
-| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                             |
-| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                              |
-| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--dry-run` prints the moves |
-| `census`       | Count packet keys in capture files and report duplicates                                                                                                  |
+| Command        | Use                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `create`       | Start a label set from a pack and link the pack                                                                                                                    |
+| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                                |
+| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                          |
+| `verify`       | Replay the journal and check every revision's state digest                                                                                                         |
+| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                                     |
+| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                                        |
+| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited                  |
+| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it          |
+| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                                 |
+| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                                      |
+| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                                       |
+| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--dry-run` prints the moves          |
+| `diff`         | What a change did to objects and masks, between two folders or two Git revisions (`--git REV[..REV] --labels SET`); `--format markdown` for a pull request         |
+| `check-tree`   | Check every set and view of a dataset's `labels/` at once: none mid-merge, every view holding, no pack outside a set's `views/`; `--base REV` adds each set's diff |
+| `git-setup`    | In a dataset clone: install the merge drivers and the hooks that finish a merge of label sets                                                                      |
+| `finish-merge` | Make merged sets' head files their next revision, re-pin, and check the views; the hooks run it                                                                    |
+| `census`       | Count packet keys in capture files and report duplicates                                                                                                           |
 
 Everything that reads a pack's membership reads it through the label set: splits, physical
 references, features, the per-frame and near-face evaluators, and the server's pack listing. It is
@@ -133,7 +137,9 @@ on disk are then the new state, and the change is a small commit. The label set'
 Git, one record per line, so the Hub shows the edited lines; only `packets.bin` and the view's
 binary files go through LFS/Xet.
 
-1. Clone the dataset with git and Git Xet installed.
+1. Clone the dataset with git and Git Xet installed, then run
+   `velocity lidar labels git-setup --repo <clone>` once. It installs the merge drivers and the
+   hooks that let Git finish a merge of label sets (below), and `diff.lfs.textconv`.
 2. `git checkout -b <your branch>`.
 3. Start the server with `--lidar-annotation-dir=<clone>/labels`. The window saves membership
    itself, but physical-reference and facet saves go through the server, which finds every view of
@@ -143,41 +149,45 @@ binary files go through LFS/Xet.
 5. Edit and save. The first save of a published set copies its head to `journal-base/` and starts a
    local journal; both are gitignored, with the locks, the commit marker and the revision archives
    the editors write.
-6. Before committing, run
-   `velocity lidar annotation-reference repin --pack <view> --author <you>`, then
-   `velocity lidar labels check-view --pack <view>`. A review pins the membership it was made
-   against, and a later copy has no history to rebuild it. `repin` moves every review whose frames
-   the edit did not touch to the new head. `check-view` checks the view as a fresh copy of the
-   tracked files would hold, and names any review that needs doing again.
-7. `git status` lists `labels.json`, the chunk files the edit touched, and the view's
-   `physical-references.json`. Commit them. To propose the change, open a pull request on the
-   dataset's Hub page, then `git push origin <your branch>:refs/pr/<number>`.
+6. Before committing, run `velocity lidar labels check-view --pack <view>`. It checks the view as a
+   fresh copy of the tracked files would hold, and names any review that needs doing again. A
+   review pins the masks it rests on, so an edit elsewhere leaves it holding; only a review pinned
+   by an older build, by revision alone, needs
+   `velocity lidar annotation-reference repin --pack <view> --author <you>` first, which also brings
+   its pin to the masks.
+7. `git status` lists `labels.json` and the chunk files the edit touched. Commit them. To describe
+   the change, `velocity lidar labels diff --git HEAD~1..HEAD --labels <set> --format markdown`
+   prints what it did to objects and masks. To propose it, open a pull request on the dataset's Hub
+   page, then `git push origin <your branch>:refs/pr/<number>`.
 
-A one-mask edit of kirk0's view changes three lines of `labels.json` (the head), one line of
-`masks/000000-000099.ndjson`, and 56 lines of `physical-references.json` (the re-pin of 25
-reviews).
+A one-mask edit of kirk0's view changes three lines of `labels.json` (the head) and one line of
+`masks/000000-000099.ndjson`. Before its reviews were pinned to their masks, the same edit also
+re-pinned 25 reviews, 56 lines of `physical-references.json`.
 
 #### Merging another branch
 
 Git merges the label set's files line by line, so two people who edited different masks merge
-cleanly there. `labels.json` conflicts, because each branch moved the head, and so does
-`physical-references.json` when both re-pinned their reviews. To finish the merge:
+cleanly there. `labels.json` cannot merge that way, since each branch moved the head. With
+`git-setup` done, Git finishes the merge itself:
 
-1. Keep your own branch's copy of both files, then make the merged files the next revision:
+- The `labels.json` driver keeps your head and records the merge in `labels.json`.
+  `physical-references.json` merges record by record: what one branch changed is that branch's.
+- Before the merge commits, the hook runs `velocity lidar labels finish-merge`: the merged files
+  become the next revision, reviews that still hold are re-pinned, and every view is checked. It
+  refuses a merge that gives one return to two objects, or a view that does not hold, and the
+  merge stops uncommitted.
+- A merge that stopped on a conflict in a chunk file: resolve it, then `git commit`; the hook runs
+  then too. A physical reference both branches changed differently is a conflict too: the other
+  branch's whole file is left beside it as `physical-references.json.theirs`.
+- A rebase, a cherry-pick or a clone without the hooks does not finish the merge, and a label set
+  that records one opens for nothing else. Run `velocity lidar labels finish-merge --root labels`
+  and commit. `labels check-tree --root labels` reports any set left mid-merge.
+- The Hub's merge button runs no drivers. A pull request that conflicts with `main` is merged
+  locally, or rebased by its author, and pushed.
 
-   ```bash
-   git checkout --ours -- "$SET/labels.json" "$VIEW/physical-references.json"
-   velocity lidar labels rehead --labels "$SET" --author "$NAME"
-   ```
-
-   `rehead` refuses a merge that gives one return to two objects, and adds the merge to your local
-   journal.
-
-2. `annotation-reference repin`, then `labels check-view`, as for any edit. Commit.
-
-Measured on kirk0: two clones each removed one return from a different mask in the same chunk
-file. Git merged the chunk itself and conflicted on the two files above. `rehead` made revision
-2,235, holding both edits. `repin` moved all 25 reviews, and `check-view` passed.
+Measured on a fixture: two clones edited the same chunk file, one changing a mask in window 0 and
+the other adding a pedestrian in window 1. Git merged the chunk, the driver recorded the merge, and
+`finish-merge` made one revision holding both, with nothing left for Git to report.
 
 #### Switching branches
 
@@ -214,5 +224,5 @@ reads level 1; the levels are listed in the
 - A pack can be cut only from a VRLOG recorded by a build that carries return identity; re-record
   older runs by replaying their PCAP.
 - Physical references, feature proposals and proposal layers stay bound to a pack (one run's view).
-  Their membership pins name label set revisions through the projection, so after a membership
-  edit the reviews need `annotation-reference repin` before the edit is published.
+  A review pins the masks it rests on; a pin written before reader level 2 names a revision only
+  and needs `annotation-reference repin` after a membership edit.
