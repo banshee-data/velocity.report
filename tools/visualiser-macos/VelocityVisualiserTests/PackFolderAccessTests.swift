@@ -418,7 +418,7 @@ struct PackFolderAccessTests {
 
         let session = try #require(controller.session)
         #expect(asker.askedAbout.map(\.path) == [folder.path], "asked for the pack's parent")
-        #expect(session.readOnlyReason?.contains("\(folder.path)/labels") == true)
+        #expect(session.readOnlyReason?.contains("\(folder.path)/synthetic-capture") == true)
         #expect(storage.bookmarks.isEmpty)
         session.operatorName = "dd"
         _ = session.createObject(objectClass: "car")

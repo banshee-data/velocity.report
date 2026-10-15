@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/google/uuid"
 	"golang.org/x/sys/unix"
 )
@@ -68,6 +69,7 @@ type Migration struct {
 // outside the state digest, so binding a file never makes a revision.
 type Manifest struct {
 	SchemaVersion int        `json:"schema_version"`
+	MinReader     int        `json:"min_reader,omitempty"`
 	LabelSetID    string     `json:"label_set_id"`
 	Name          string     `json:"name,omitempty"`
 	Layout        Layout     `json:"layout"`
@@ -757,6 +759,9 @@ func readManifest(root *os.Root) (*Manifest, error) {
 	}
 	if m.SchemaVersion != SchemaVersion {
 		return nil, fmt.Errorf("label set schema version %d, this build reads %d", m.SchemaVersion, SchemaVersion)
+	}
+	if err := annotation.CheckReader(ManifestFile, m.MinReader); err != nil {
+		return nil, err
 	}
 	if m.PacketKey != PacketKeyScheme {
 		return nil, fmt.Errorf("packet key %q, this build reads %q", m.PacketKey, PacketKeyScheme)

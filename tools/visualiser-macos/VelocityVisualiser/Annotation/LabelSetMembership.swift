@@ -6,8 +6,9 @@
 // a view of one. Its membership is the label set projected onto the pack's
 // samples, and a save folds the edited projection back as a delta: only the
 // masks that changed, each through the view map so members this view does not
-// show survive. The label set lives at <annotation dir>/labels/<name>/ and the
-// pack points to it with label-set-link.json. Until the first save there is no
+// show survive. The label set lives in the pack's capture folder,
+// <root>/<capture>/<name>/ (AnnotationTree), and the pack points to it with
+// label-set-link.json. Until the first save there is no
 // label set: the first save creates one from the pack.
 
 import Foundation
@@ -136,11 +137,13 @@ final class LabelSetMembership {
     /// before the first save makes one, the pack's own.
     var packetTable: [UInt64] { store?.baseState.packets ?? pack.packets }
 
-    var labelsDirectory: URL { pack.annotationDirectory.appendingPathComponent("labels") }
+    /// The folder the first save makes a label set in, and attaching looks
+    /// in: the pack's capture folder.
+    var labelsDirectory: URL { pack.captureDirectory }
 
     /// Where this pack's labels are kept: its linked label set, wherever the
-    /// link puts it (a dataset view sits beside its set), or the labels
-    /// folder where the first save makes one.
+    /// link puts it (a view sits inside its set), or the capture folder where
+    /// the first save makes one.
     var labelSetLocation: URL {
         if let link = try? LabelSetLink.read(packDirectory: pack.directory) {
             return link.directory(packDirectory: pack.directory)
@@ -149,13 +152,11 @@ final class LabelSetMembership {
     }
 
     /// The folder a save writes in, which the app must be granted: the
-    /// pack's annotation folder when the label set is inside it, as it is
-    /// both for a pack beside `labels/` and for a dataset view beside its
-    /// set; otherwise the folder holding the linked set.
-    static func writeFolder(annotationDirectory: URL, labelSet: URL) -> URL {
-        if PackFolderAccess.folder(annotationDirectory, contains: labelSet) {
-            return annotationDirectory
-        }
+    /// pack's capture folder when the label set is inside it, as it is for a
+    /// pack in packs/ and for a view in its set's views/; otherwise the
+    /// folder holding the linked set.
+    static func writeFolder(captureDirectory: URL, labelSet: URL) -> URL {
+        if PackFolderAccess.folder(captureDirectory, contains: labelSet) { return captureDirectory }
         return labelSet.deletingLastPathComponent()
     }
 
@@ -370,8 +371,9 @@ final class LabelSetMembership {
             try LabelSetStore.create(
                 at: directory, manifest: manifest, initial: initial, change: creation)
         }
-        try LabelSetLink(labelSetID: id, path: "../labels/\(name)").write(
-            packDirectory: pack.directory)
+        try LabelSetLink(
+            labelSetID: id, path: AnnotationTree.relativePath(from: pack.directory, to: directory)
+        ).write(packDirectory: pack.directory)
         return created
     }
 

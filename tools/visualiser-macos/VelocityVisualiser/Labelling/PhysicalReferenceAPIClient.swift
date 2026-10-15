@@ -74,13 +74,9 @@ struct PhysicalReferenceAPIClient {
     }
 
     /// The handle the service resolves a pack by: its directory relative to
-    /// the service's annotation packs directory, which is "<name>" or, for a
-    /// pack exported into a named folder, "<name>/pack".
-    static func handle(for directory: URL) -> String {
-        let last = directory.standardizedFileURL.lastPathComponent
-        guard last == "pack" else { return last }
-        return directory.standardizedFileURL.deletingLastPathComponent().lastPathComponent + "/pack"
-    }
+    /// the service's annotation packs directory, read from its place in the
+    /// layout (`AnnotationTree.handle`).
+    static func handle(for directory: URL) -> String { AnnotationTree.handle(for: directory) }
 
     func load(
         handle: String, packDigest: String, revision: Int? = nil

@@ -99,7 +99,8 @@ func pinPhysical(t *testing.T, p *annotation.Pack, ls *LabelSet) {
 	}
 }
 
-// publishViewBeside publishes the set and the view into dataset/labels/stem.
+// publishViewBeside publishes the set into dataset/labels/stem and the view
+// into the set's views/ folder.
 func publishViewBeside(t *testing.T, packDir, setDir string) (view, pubSet string, report *ViewReport) {
 	t.Helper()
 	stem := filepath.Join(t.TempDir(), "dataset", "labels", "20251205T1417_80858-75c_kirkham-9th")
@@ -107,7 +108,7 @@ func publishViewBeside(t *testing.T, packDir, setDir string) (view, pubSet strin
 	if err := Publish(setDir, pubSet); err != nil {
 		t.Fatal(err)
 	}
-	view = filepath.Join(stem, "pack-a")
+	view = filepath.Join(pubSet, annotation.ViewsDir, "pack-a")
 	report, err := PublishView(packDir, pubSet, view)
 	if err != nil {
 		t.Fatalf("publish view: %v (%+v)", err, report)
@@ -169,11 +170,11 @@ func TestPublishViewIsEditableAndCommitsSmall(t *testing.T) {
 			t.Fatalf("the view carries %s", absent)
 		}
 	}
-	if !strings.Contains(strings.Join(report.Tracked, ","), "pack-a/physical-references.json") || strings.Contains(strings.Join(report.Tracked, ","), ".publish-view-") {
+	if !strings.Contains(strings.Join(report.Tracked, ","), "kirk0-reference/views/pack-a/physical-references.json") || strings.Contains(strings.Join(report.Tracked, ","), ".publish-view-") {
 		t.Fatalf("tracked %v", report.Tracked)
 	}
 	link, _ := annotation.ReadLabelSetLink(view)
-	if link == nil || link.Path != "../kirk0-reference" {
+	if link == nil || link.Path != annotation.ViewLinkPath {
 		t.Fatalf("view link %+v", link)
 	}
 	if entries, _ := filepath.Glob(filepath.Join(filepath.Dir(view), ".publish-view-*")); len(entries) != 0 {
@@ -282,7 +283,7 @@ func TestPublishedViewEditInGit(t *testing.T) {
 	}
 	packDir, setDir := viewSource(t)
 	view, pubSet, _ := publishViewBeside(t, packDir, setDir)
-	dataset := filepath.Dir(filepath.Dir(filepath.Dir(view)))
+	dataset := filepath.Dir(filepath.Dir(filepath.Dir(pubSet)))
 	// The ignore rules tools/s2-archive/stage-label-sets.py writes; the LFS
 	// filter is left out so the test does not need git-lfs.
 	ignore := strings.Join([]string{
@@ -342,33 +343,35 @@ func TestPublishViewRefuses(t *testing.T) {
 	if err := Publish(setDir, pubSet); err != nil {
 		t.Fatal(err)
 	}
+	views := filepath.Join(pubSet, annotation.ViewsDir)
 	refused := func(name, pack, set, dest, want string) {
 		t.Helper()
 		if _, err := PublishView(pack, set, dest); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%s: %v, want %q", name, err, want)
 		}
-		if entries, _ := filepath.Glob(filepath.Join(stem, ".publish-view-*")); len(entries) != 0 {
+		if entries, _ := filepath.Glob(filepath.Join(views, ".publish-view-*")); len(entries) != 0 {
 			t.Errorf("%s left %v", name, entries)
 		}
 	}
 
-	refused("a view away from its set", packDir, pubSet, filepath.Join(t.TempDir(), "pack-a"), "beside its label set")
-	if err := os.MkdirAll(filepath.Join(stem, "full"), 0o755); err != nil {
+	refused("a view away from its set", packDir, pubSet, filepath.Join(t.TempDir(), "pack-a"), "views/ folder")
+	refused("a view beside its set", packDir, pubSet, filepath.Join(stem, "pack-a"), "views/ folder")
+	if err := os.MkdirAll(filepath.Join(views, "full"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	os.WriteFile(filepath.Join(stem, "full", "x"), nil, 0o644)
-	refused("a non-empty destination", packDir, pubSet, filepath.Join(stem, "full"), "non-empty")
+	os.WriteFile(filepath.Join(views, "full", "x"), nil, 0o644)
+	refused("a non-empty destination", packDir, pubSet, filepath.Join(views, "full"), "non-empty")
 
 	other, _ := newSet(t)
 	otherPub := filepath.Join(stem, "other")
 	if err := Publish(other, otherPub); err != nil {
 		t.Fatal(err)
 	}
-	refused("another label set", packDir, otherPub, filepath.Join(stem, "pack-a"), "is linked to label set")
+	refused("another label set", packDir, otherPub, filepath.Join(otherPub, annotation.ViewsDir, "pack-a"), "is linked to label set")
 
 	unknown := filepath.Join(packDir, "notes.txt")
 	os.WriteFile(unknown, []byte("?"), 0o644)
-	refused("an unknown file", packDir, pubSet, filepath.Join(stem, "pack-a"), "notes.txt")
+	refused("an unknown file", packDir, pubSet, filepath.Join(views, "pack-a"), "notes.txt")
 	os.Remove(unknown)
 
 	// Another run of the capture, linked but never attached: its foreground
@@ -379,7 +382,7 @@ func TestPublishViewRefuses(t *testing.T) {
 	if err := annotation.WriteLabelSetLink(runB, ls.Manifest.LabelSetID, setDir); err != nil {
 		t.Fatal(err)
 	}
-	refused("an unattached run", runB.Dir, pubSet, filepath.Join(stem, "pack-b"), "labels attach")
+	refused("an unattached run", runB.Dir, pubSet, filepath.Join(views, "pack-b"), "labels attach")
 
 	// The source moves on: the published set is behind it. Republished, the
 	// review stays pinned to the old head, which a fresh copy cannot rebuild.
@@ -387,15 +390,15 @@ func TestPublishViewRefuses(t *testing.T) {
 	if err := ls.Save(Change{Author: "dd", Operation: "save_mask"}); err != nil {
 		t.Fatal(err)
 	}
-	refused("a published set behind the pack's", packDir, pubSet, filepath.Join(stem, "pack-a"), "republish the label set first")
+	refused("a published set behind the pack's", packDir, pubSet, filepath.Join(views, "pack-a"), "republish the label set first")
 	if err := Republish(setDir, pubSet); err != nil {
 		t.Fatal(err)
 	}
-	r, err := PublishView(packDir, pubSet, filepath.Join(stem, "pack-a"))
+	r, err := PublishView(packDir, pubSet, filepath.Join(views, "pack-a"))
 	if err == nil || !strings.Contains(strings.Join(r.Problems, "\n"), "no longer retained") {
 		t.Fatalf("a review pinned before the head was published as holding: %v %+v", err, r)
 	}
-	if _, err := os.Stat(filepath.Join(stem, "pack-a")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(views, "pack-a")); !os.IsNotExist(err) {
 		t.Fatalf("a view that would not hold was put in place: %v", err)
 	}
 }

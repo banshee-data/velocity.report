@@ -47,29 +47,15 @@ func (ws *Server) handleAnnotationPacks(w http.ResponseWriter, r *http.Request) 
 		ws.writeJSONError(w, 501, "annotation packs directory is not configured")
 		return
 	}
-	entries, err := os.ReadDir(ws.annotationPacksDir)
-	if os.IsNotExist(err) {
-		ws.writeJSON(w, 200, map[string]any{"packs": []packListing{}, "count": 0})
-		return
-	}
+	// Every pack position of the layout: <capture>/packs/<run>,
+	// <capture>/<set>/views/<view> and clip-<job>/pack.
+	dirs, err := annotation.ListPackDirs(ws.annotationPacksDir)
 	if err != nil {
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
-	dirs := []string{}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		base := filepath.Join(ws.annotationPacksDir, entry.Name())
-		candidate := base
-		if _, err := os.Stat(filepath.Join(candidate, "manifest.json")); err != nil {
-			candidate = filepath.Join(base, "pack")
-		}
-		if _, err := os.Stat(filepath.Join(candidate, "manifest.json")); err != nil {
-			continue
-		}
-		dirs = append(dirs, candidate)
+	if dirs == nil {
+		dirs = []string{}
 	}
 	listed := ws.packListings.list(dirs, time.Now())
 	ws.writeJSON(w, 200, map[string]any{"packs": listed, "count": len(listed)})

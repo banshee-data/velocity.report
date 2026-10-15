@@ -219,29 +219,85 @@ struct LabelSetStoreTests {
         bumped.schemaVersion = 3
         #expect(throws: LabelSetError.self) { try LabelSetManifest.read(bumped.json.indentedData) }
     }
+
+    /// A set that needs a newer reader is refused; one at this build's level
+    /// opens, and a save keeps its min_reader, as Go's reader tests state.
+    @Test func minReaderAboveThisBuildIsRefusedAndKeptOtherwise() throws {
+        let (dir, _) = try newLabelSet()
+        defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+        let url = dir.appendingPathComponent(LabelSetFiles.manifest)
+        let written = try Data(contentsOf: url)
+        #expect(!String(decoding: written, as: UTF8.self).contains("min_reader"))
+        var manifest = try LabelSetManifest.read(written)
+
+        manifest.minReader = ReaderLevel.current + 1
+        #expect(throws: LabelSetError.self) { try LabelSetManifest.read(manifest.json.indentedData) }
+
+        manifest.minReader = ReaderLevel.current
+        try manifest.json.indentedData.write(to: url)
+        let reopened = try LabelSetStore.open(dir)
+        addMember(reopened, 40)
+        try reopened.save(change: LabelSetChange(author: "dd", operation: "save_mask"))
+        let saved = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        #expect(saved.contains("\"min_reader\": \(ReaderLevel.current)"))
+    }
 }
 
-/// Which folder the app needs to write a pack's labels: the pack's own
-/// annotation folder whenever the label set is inside it, which covers both
-/// layouts the tools write, and the linked set's folder otherwise.
+/// Which folder the app needs to write a pack's labels: the pack's capture
+/// folder whenever the label set is inside it, which covers a pack in packs/
+/// and a view in its set's views/, and the linked set's folder otherwise.
 struct LabelSetWriteFolderTests {
     @Test func theFolderToGrantHoldsTheLabelSet() {
-        let packs = URL(fileURLWithPath: "/data/annotation-packs")
+        let capture = URL(fileURLWithPath: "/data/annotation-packs/kirk0")
         #expect(
             LabelSetMembership.writeFolder(
-                annotationDirectory: packs,
-                labelSet: packs.appendingPathComponent("labels/kirk0-reference")) == packs)
-        let stem = URL(
-            fileURLWithPath: "/hf/sf-street-speeds/labels/20251205T1417_80858-75c_kirkham-9th")
+                captureDirectory: capture,
+                labelSet: capture.appendingPathComponent("kirk0-reference")) == capture)
         #expect(
             LabelSetMembership.writeFolder(
-                annotationDirectory: stem, labelSet: stem.appendingPathComponent("kirk0-reference"))
-                == stem)
-        #expect(
-            LabelSetMembership.writeFolder(
-                annotationDirectory: packs,
+                captureDirectory: capture,
                 labelSet: URL(fileURLWithPath: "/elsewhere/sets/kirk0-reference")
             ).path == "/elsewhere/sets")
+    }
+}
+
+/// The layout's rules, as Go's layout tests state them.
+struct AnnotationTreeTests {
+    @Test func captureNamesFollowGo() {
+        #expect(AnnotationTree.captureName(of: "kirk0.pcapng") == "kirk0")
+        #expect(
+            AnnotationTree.captureName(
+                of: "/Volumes/lidar/pcaps/20260902T1320_80858-0f4_columbus-broadway.pcapng")
+                == "20260902T1320_80858-0f4_columbus-broadway")
+        #expect(AnnotationTree.captureName(of: "capture.pcap.gz") == "capture")
+        #expect(AnnotationTree.captureName(of: "two words.pcap") == "two-words")
+        #expect(AnnotationTree.captureName(of: nil) == "capture")
+        #expect(AnnotationTree.captureName(of: "splits.pcapng") == "capture")
+        #expect(AnnotationTree.captureName(of: "C:\\caps\\x.pcapng") == "x")
+    }
+
+    @Test func aPacksLabelsGoInItsCaptureFolder() {
+        func capture(_ path: String) -> String {
+            AnnotationTree.captureDirectory(
+                of: URL(fileURLWithPath: path), pcapBasename: "kirk0.pcapng"
+            ).path
+        }
+        #expect(capture("/r/kirk0/packs/run-a") == "/r/kirk0")
+        #expect(capture("/r/clip-j-1/pack") == "/r/kirk0")
+        #expect(capture("/r/kirk0/kirk0-reference/views/v1") == "/r/kirk0")
+        #expect(capture("/elsewhere/run-a") == "/elsewhere/kirk0")
+    }
+
+    @Test func linksAreRelative() {
+        let root = URL(fileURLWithPath: "/r/kirk0")
+        #expect(
+            AnnotationTree.relativePath(
+                from: root.appendingPathComponent("packs/run-a"),
+                to: root.appendingPathComponent("kirk0-reference")) == "../../kirk0-reference")
+        #expect(
+            AnnotationTree.relativePath(
+                from: root.appendingPathComponent("kirk0-reference/views/v1"),
+                to: root.appendingPathComponent("kirk0-reference")) == AnnotationTree.viewLinkPath)
     }
 }
 

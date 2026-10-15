@@ -46,7 +46,7 @@ func facetPoseAPIFixture(t *testing.T) (*Server, *annotation.Pack, annotation.Fa
 	if err != nil {
 		t.Fatal(err)
 	}
-	req := annotation.FacetPoseRequest{SchemaVersion: 1, Pack: "clip/pack", PackDigest: p.Manifest.PackDigest, FeatureID: "tip", FeatureRevision: state.Document.Revision, FeatureDigest: state.Digest, MembershipRevision: membership.Revision, MembershipDigest: membership.Digest(), SampleID: 1, TimestampNs: p.Samples[1].TimestampNs, PointIndex: &zero, ReturnBoundM: .05, Confirmed: true, Author: "op", IdentityNote: "same tip", Prior: annotation.FacetPosePrior{XM: physF(10.8), YM: physF(0), YawRad: physF(0), PositionBoundM: physF(.5), YawBoundRad: physF(.02), Source: "declared experiment prior"}}
+	req := annotation.FacetPoseRequest{SchemaVersion: 1, Pack: "kirk0/packs/clip", PackDigest: p.Manifest.PackDigest, FeatureID: "tip", FeatureRevision: state.Document.Revision, FeatureDigest: state.Digest, MembershipRevision: membership.Revision, MembershipDigest: membership.Digest(), SampleID: 1, TimestampNs: p.Samples[1].TimestampNs, PointIndex: &zero, ReturnBoundM: .05, Confirmed: true, Author: "op", IdentityNote: "same tip", Prior: annotation.FacetPosePrior{XM: physF(10.8), YM: physF(0), YawRad: physF(0), PositionBoundM: physF(.5), YawBoundRad: physF(.02), Source: "declared experiment prior"}}
 	return &Server{annotationPacksDir: root}, p, req
 }
 

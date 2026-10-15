@@ -109,7 +109,7 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(root, "empty"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	nested := filepath.Join(root, "clip", "pack")
+	nested := filepath.Join(root, "clip-a", "pack")
 	if err := os.MkdirAll(nested, 0755); err != nil {
 		t.Fatal(err)
 	}

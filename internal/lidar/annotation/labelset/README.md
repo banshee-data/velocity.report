@@ -37,6 +37,7 @@ never as a negative.
 | `journal-base/`                        | The head a journal started from, when it did not start at revision 1, in the same layout. Local only |
 | `.lock`                                | Writer lock. Local only                                                                              |
 | `.pending`                             | The revision a save is committing, while it commits it. Local only                                   |
+| `views/<view>/`                        | Packs linked to the set (`label-set-link.json` → `../..`). Not part of the state                     |
 
 A set of returns is written as `[[start, length], …]`: sorted, every range non-empty, and each range
 starting after the previous one's end plus one, so a set has one encoding. An empty set is `[]`.
@@ -194,7 +195,20 @@ returns another run kept and this one did not survive the edit.
 
 `NewFromPack` starts a label set from a pack, and `AddPackDomain` adds another run's foreground
 of the same capture as a second domain. `SaveMembership` folds a pack's edited projection back
-into its label set; for a pack not linked yet, it creates a label set beside the pack, in
-`<pack parent>/labels/<capture stem>-<id>`, holding the membership as revision 1, and links it.
+into its label set; for a pack not linked yet, it creates a label set in the pack's capture
+folder (`annotation.CaptureDirOf`), `<capture>/<capture stem>-<id>`, holding the membership as
+revision 1, and links it. The tree a set and its packs sit in is in
+[`annotation/layout.go`](../layout.go); `Nest` moves an older tree into it.
 `Project` renders a revision as the pack-shaped membership the evaluators and the macOS client
 read.
+
+## Reader levels
+
+`labels.json` may carry `min_reader`, the lowest reader level that reads the set correctly, as a
+pack's `manifest.json` and `physical-references.json` may (`annotation.ReaderLevel`). A reader
+refuses a file above its level; a file without the field is level 1; a save keeps the level it
+read. It is outside the state digest. `schema_version` still changes when a format breaks.
+
+| Level | Adds                                   |
+| ----- | -------------------------------------- |
+| 1     | The storage layout, as first published |

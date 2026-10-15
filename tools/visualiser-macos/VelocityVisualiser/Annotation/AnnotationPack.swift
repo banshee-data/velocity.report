@@ -110,6 +110,8 @@ struct HeightBand: Codable, Equatable {
 /// older reader that still understands the point domain.
 struct AnnotationManifest: Codable, Equatable {
     var schemaVersion: Int
+    /// The lowest reader level that reads this pack (`ReaderLevel`).
+    var minReader: Int?
     var datasetID: String
     var createdNs: Int64
     var source: SourceProvenance
@@ -139,6 +141,7 @@ struct AnnotationManifest: Codable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
+        case minReader = "min_reader"
         case datasetID = "dataset_id"
         case createdNs = "created_ns"
         case source
@@ -387,9 +390,12 @@ final class AnnotationPack {
         self.returnOffsets = returnOffsets
     }
 
-    /// The directory a pack's label sets live under: the pack's parent, as
-    /// `<annotation dir>/labels/<name>/`.
-    var annotationDirectory: URL { directory.deletingLastPathComponent() }
+    /// The capture folder this pack's label sets live in (`AnnotationTree`):
+    /// `<root>/<capture>/` for a pack in its capture's packs/ folder or a
+    /// set's views/ folder.
+    var captureDirectory: URL {
+        AnnotationTree.captureDirectory(of: directory, pcapBasename: manifest.source.pcapBasename)
+    }
 
     /// Opens a pack directory, verifying both digests before returning. A
     /// mismatch fails closed: point indices recorded against different bytes
@@ -407,6 +413,9 @@ final class AnnotationPack {
         if manifest.schemaVersion == 1 { throw AnnotationPackError.version1Pack }
         guard manifest.schemaVersion == schemaVersion else {
             throw AnnotationPackError.unsupportedSchema(manifest.schemaVersion)
+        }
+        if let refusal = ReaderLevel.refusal("pack manifest", minReader: manifest.minReader) {
+            throw AnnotationPackError.malformed(refusal)
         }
 
         // The writer appends a newline to samples.json for readability but

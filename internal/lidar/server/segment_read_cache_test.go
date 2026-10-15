@@ -111,7 +111,7 @@ func TestSegmentRankingCarriesItsStrip(t *testing.T) {
 func TestPackListingsAreReadAgainOnlyWhenTheirFilesChange(t *testing.T) {
 	ws, _ := segmentServer(t)
 	pack, err := annotation.Export(annotation.ExportConfig{VRLOGPath: writeTestVRLOG(t, 1),
-		OutDir: filepath.Join(ws.annotationPacksDir, "one"), Coverage: annotation.CoverageForegroundOnly})
+		OutDir: annotation.NewPackDir(ws.annotationPacksDir, "capture", "one"), Coverage: annotation.CoverageForegroundOnly})
 	if err != nil {
 		t.Fatal(err)
 	}

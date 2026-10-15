@@ -11,13 +11,30 @@ a journal of deltas, one line per save, not a full copy per save.
 
 ## Where things live
 
-| Path                                          | What it is                                                                                                     |
-| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `<annotation dir>/labels/<name>/`             | A label set: `labels.json`, the head files (masks split into `masks/` by window), `journal.ndjson` and `.lock` |
-| `<annotation dir>/<pack>/`                    | A pack: one run's foreground of a capture, with `packets.bin` and `returns.bin`                                |
-| `<annotation dir>/<pack>/label-set-link.json` | Names the label set holding the pack's membership, by id and relative path                                     |
+One layout, locally and in the Hugging Face dataset, where `<root>` is `labels/`:
 
-The annotation dir is the server's `--lidar-annotation-dir` (`LIDAR_ANNOTATION_DIR` in `local.mk`).
+```text
+<root>/
+  <capture>/                 one folder per capture, named for its file's stem
+    <set>/                   a label set: labels.json, the head files (masks split into masks/ by
+                             window), journal.ndjson and .lock
+      views/<view>/          a pack linked to the set; label-set-link.json -> ../..
+    packs/<run>/             a pack not in a set yet (local only)
+  clip-<job>-<n>/pack/       a Segments clip job's pack, in the job's folder beside its recording
+  splits/                    frozen splits
+```
+
+| Path                  | What it is                                                                                            |
+| --------------------- | ----------------------------------------------------------------------------------------------------- |
+| a pack                | One run's foreground of a capture, with `packets.bin` and `returns.bin`                               |
+| `label-set-link.json` | In a pack: names the label set holding its membership, by id and path relative to the pack            |
+| `<view>`              | `<cut time>-<run>`, for example `20260929-184718-ad8b9438`; the run id and digest are in its manifest |
+
+Locally, `<root>` is the server's `--lidar-annotation-dir` (`LIDAR_ANNOTATION_DIR` in `local.mk`). An
+export lands in its capture's `packs/`. The first save from a pack creates its label set in the
+capture folder and links the pack where it is; `labels nest` later moves linked packs into their
+set's `views/`. A clip job's folder stays where the job wrote it, since the job's row names it;
+once its pack is linked, `nest` moves the pack and the server finds it again by its segment.
 
 Annotation is downstream of foreground separation. Every mask names, as its domain, the foreground
 extraction it was made on. A return outside that foreground was never shown to the labeller and is
@@ -41,13 +58,14 @@ All are `velocity lidar labels <command>`; built through `make`, so records name
 | `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                        |
 | `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                             |
 | `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                              |
+| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--dry-run` prints the moves |
 | `census`       | Count packet keys in capture files and report duplicates                                                                                                  |
 
 Everything that reads a pack's membership reads it through the label set: splits, physical
 references, features, the per-frame and near-face evaluators, and the server's pack listing. It is
 written through the label set too, by the macOS window's save or, in Go, `labelset.SaveMembership`.
-The first save to a pack with no link creates a label set beside it, in
-`<annotation dir>/labels/<capture stem>-<id>`, and links the pack. Freezing a split over a linked
+The first save to a pack with no link creates a label set in its capture folder,
+`<root>/<capture>/<capture stem>-<id>`, and links the pack. Freezing a split over a linked
 pack binds its case to the label set's verified captures by SHA-256, so a replay of any verified
 file holds its role and a different file does not.
 
@@ -57,7 +75,7 @@ file holds its role and a different file does not.
 | --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | macOS annotation window, label set line | The label set's name and revision; each verified capture file with a short SHA-256, packets found and frames covered (or the `bind` command when there are none); and, for a migrated set, the pack it came from |
 | macOS annotation window, replay check   | With "Follow the main view" on: whether the main view's current frame holds this label set's packets (same capture, partly, a different capture, or cannot check when frames carry no packet keys)               |
-| macOS annotation window, no label set   | "No label set yet": the first save makes one in `<annotation dir>/labels`; buttons attach the pack to an existing label set of the same capture, with how many packets they share                                |
+| macOS annotation window, no label set   | "No label set yet": the first save makes one in the capture folder; buttons attach the pack to an existing label set of the same capture, with how many packets they share                                       |
 | macOS annotation window, version 1 pack | Refused when opened, with where its labels went and the `annotation-v1-reader` tag that keeps the last build that reads it                                                                                       |
 | Web, Segments page, Annotation packs    | Every pack: its label set and revision, or that it has no labels yet; reviewed work; and each verified capture file                                                                                              |
 
@@ -84,20 +102,22 @@ the file. A file that holds none of the packets, or holds one twice, is refused.
 `tools/s2-archive/stage-label-sets.py` publishes label sets into the Hugging Face dataset, joined to
 a capture row only by `raw_sha256`. See the [dataset layout](../../../tools/s2-archive/huggingface-dataset-layout.md#label-sets).
 A set already published at the same head is left as it is, and `--replace` refreshes one that is
-behind its source. It never writes over a copy someone has edited.
+behind its source. It never writes over a copy someone has edited. After `labels nest` has moved published files in a
+clone, `--refresh-paths` rewrites every row's `label_set_paths` and `annotation_pack_paths` from
+what is under `labels/`.
 
 ### Publishing a view
 
 A label set holds no points, so nothing can be drawn or edited from it alone. A **view** is a pack
-published beside its label set: `--view PACK` stages the pack's label set (found through its link)
-and runs `labels publish-view`. The view gets the pack's data and physical references, and its link
-is rewritten to the set beside it:
+published in its label set's `views/` folder: `--view PACK` stages the pack's label set (found
+through its link) and runs `labels publish-view`. The view gets the pack's data and physical
+references, and its link is rewritten to the set it sits in:
 
 ```text
 labels/<capture stem>/
   <label set name>/      the label set: labels.json and the head files
-  <pack directory>/      its view: manifest, samples, points, packets, returns, background,
-                         physical-references.json, label-set-link.json -> ../<label set name>
+    views/<view>/        its view: manifest, samples, points, packets, returns, background,
+                         physical-references.json, label-set-link.json -> ../..
 ```
 
 Publish the run the labels were drawn on, so the view shows every labelled return. `publish-view`
@@ -115,11 +135,11 @@ binary files go through LFS/Xet.
 
 1. Clone the dataset with git and Git Xet installed.
 2. `git checkout -b <your branch>`.
-3. Start the server with `--lidar-annotation-dir=<clone>/labels/<capture stem>`. The window saves
-   membership itself, but physical-reference and facet saves go through the server, which finds a
-   pack only directly inside that directory.
+3. Start the server with `--lidar-annotation-dir=<clone>/labels`. The window saves membership
+   itself, but physical-reference and facet saves go through the server, which finds every view of
+   every capture under that directory.
 4. In the macOS window, **Open Annotation Pack…** the view, and grant `labels/<capture stem>` when
-   asked: the label set beside the view is written there.
+   asked: the label set around the view is written there.
 5. Edit and save. The first save of a published set copies its head to `journal-base/` and starts a
    local journal; both are gitignored, with the locks, the commit marker and the revision archives
    the editors write.
@@ -169,14 +189,24 @@ commits either way.
 
 #### What else to know
 
-- **Splits land in the view's folder.** A split frozen through the server is written to
-  `labels/<capture stem>/splits/`. Commit it only if it is meant to be published.
+- **Splits land in `labels/splits/`.** A split frozen through the server is written there. Commit
+  it only if it is meant to be published.
 - **Facets break for later copies.** A facet pins the label set revision it was authored on, so it
   stops loading once membership moves past that revision. `check-view` reports it; there is no
   facet re-pin yet.
 - **Every text file must stay under 10 MiB.** Hugging Face refuses a push in which any commit holds
   a larger plain-Git file. `check-view` and the staging script report one. Running `labels relayout`
   with a smaller `--window-chunk` splits the chunks finer.
+
+## Reader levels
+
+`labels.json`, a pack's `manifest.json` and `physical-references.json` can say, in `min_reader`,
+the lowest reader level that reads them correctly. A build refuses a file above its own level and
+says to update, rather than reading it wrongly or dropping what it does not know. `schema_version`
+changes when a format breaks; `min_reader` rises when a writer starts using something an older
+reader would misread. A file without it is level 1, and a save keeps the level it read. This build
+reads level 1; the levels are listed in the
+[label set README](../../../internal/lidar/annotation/labelset/README.md#reader-levels).
 
 ## Limits
 

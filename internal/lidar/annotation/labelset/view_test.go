@@ -17,6 +17,12 @@ type testFrame struct {
 
 func writeTestPack(t *testing.T, dir string, packets []uint64, frames []testFrame, run string) *annotation.Pack {
 	t.Helper()
+	return writeCapturePack(t, dir, "", packets, frames, run)
+}
+
+// writeCapturePack is writeTestPack for a pack that names its capture file.
+func writeCapturePack(t *testing.T, dir, pcap string, packets []uint64, frames []testFrame, run string) *annotation.Pack {
+	t.Helper()
 	per := uint64(Pandar40P.Blocks * Pandar40P.Channels)
 	var samples []annotation.Sample
 	var blocks [][]byte
@@ -39,7 +45,7 @@ func writeTestPack(t *testing.T, dir string, packets []uint64, frames []testFram
 		returns = append(returns, f.returns)
 	}
 	m := annotation.Manifest{
-		Source:     annotation.SourceProvenance{VRLOGPath: run, SensorID: "hesai-pandar40p", ConfigHash: "sha256:cfg-" + run},
+		Source:     annotation.SourceProvenance{VRLOGPath: run, PCAPBasename: pcap, SensorID: "hesai-pandar40p", ConfigHash: "sha256:cfg-" + run},
 		Coordinate: annotation.CoordinateContract{Units: "metres"},
 		Coverage:   annotation.CoverageForegroundOnly,
 	}

@@ -41,7 +41,7 @@ private func labelSetDirectory(of pack: URL) throws -> URL {
         }
     }
 
-    @Test func theFirstSaveMakesALabelSetBesideThePackAndLinksIt() throws {
+    @Test func theFirstSaveMakesALabelSetInTheCaptureFolderAndLinksIt() throws {
         let dir = try SyntheticPack.write(street())
         defer { removePack(dir) }
         let session = try openLabelled(dir)
@@ -56,7 +56,8 @@ private func labelSetDirectory(of pack: URL) throws -> URL {
         #expect(session.save())
 
         let labels = try labelSetDirectory(of: dir)
-        #expect(labels.deletingLastPathComponent().lastPathComponent == "labels")
+        // A pack outside the layout gets a capture folder beside it.
+        #expect(labels.deletingLastPathComponent().lastPathComponent == "synthetic-capture")
         #expect(
             labels.deletingLastPathComponent().deletingLastPathComponent().standardizedFileURL.path
                 == dir.deletingLastPathComponent().standardizedFileURL.path)
