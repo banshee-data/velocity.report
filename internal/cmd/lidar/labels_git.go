@@ -280,7 +280,16 @@ func labelsGitSetup(args []string) error {
 		return fmt.Errorf("%s is not a Git repository: %v", *repo, err)
 	}
 	root := strings.TrimSpace(string(top))
-	hooks := filepath.Join(root, ".githooks")
+	// The clone's own hooks folder, not a tracked one: the hooks name this
+	// machine's velocity binary.
+	gitHooks, err := exec.Command("git", "-C", root, "rev-parse", "--path-format=absolute", "--git-path", "hooks").Output()
+	if err != nil {
+		return fmt.Errorf("find the clone's hooks folder: %v", err)
+	}
+	hooks := strings.TrimSpace(string(gitHooks))
+	if out, err := exec.Command("git", "-C", root, "config", "--get", "core.hooksPath").Output(); err == nil && len(bytes.TrimSpace(out)) > 0 {
+		return fmt.Errorf("this clone runs its hooks from core.hooksPath %s: unset it, or add the label set hooks there by hand", strings.TrimSpace(string(out)))
+	}
 	if err := os.MkdirAll(hooks, 0o755); err != nil {
 		return err
 	}
@@ -294,7 +303,6 @@ func labelsGitSetup(args []string) error {
 		return fmt.Sprintf("%q lidar labels merge-driver %s %%O %%A %%B %%P", exe, kind)
 	}
 	for _, kv := range [][2]string{
-		{"core.hooksPath", ".githooks"},
 		{"merge.labelset-head.name", "velocity.report label set head"},
 		{"merge.labelset-head.driver", driver("head")},
 		{"merge.labelset-refs.name", "velocity.report physical references"},

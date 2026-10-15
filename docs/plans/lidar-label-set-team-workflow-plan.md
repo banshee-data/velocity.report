@@ -401,6 +401,6 @@ Decided while building B:
 - **Two hooks, not one.** Git runs `pre-merge-commit` for a merge that commits itself and
   `pre-commit` for one committed after a conflict; both run `finish-merge`, which does nothing
   unless a `labels.json` records a merge. The hooks name the `velocity` binary `git-setup` ran
-  from.
+  from, so they go in the clone's own `.git/hooks`, not a tracked `.githooks/` as §3.2 had it.
 - **A conflicting physical reference leaves `.theirs` beside it**, the other branch's whole file,
   rather than conflict markers in JSON.
