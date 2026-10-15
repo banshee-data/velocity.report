@@ -168,8 +168,12 @@ func (p *Publisher) SetVRLogRate(rate float32) {
 }
 
 // SeekVRLog seeks to a specific frame index in VRLOG replay.
-// Returns the current frame index after seeking (captured atomically under lock).
+// Returns the frame index it landed on. The replay loop reads frames under
+// the same lock, so nothing advances the reader between the seek and that
+// read.
 func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
+	p.vrlogPublishMu.Lock()
+	defer p.vrlogPublishMu.Unlock()
 	p.vrlogMu.Lock()
 	defer p.vrlogMu.Unlock()
 
@@ -180,6 +184,7 @@ func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
 	if err := p.vrlogReader.Seek(frameIdx); err != nil {
 		return 0, fmt.Errorf("seek failed: %w", err)
 	}
+	p.vrlogSeekGen.Add(1)
 
 	currentFrame := p.vrlogReader.CurrentFrame()
 	diagf("[Visualiser] SeekVRLog: requested=%d, landed=%d", frameIdx, currentFrame)
@@ -203,8 +208,10 @@ func (p *Publisher) SeekVRLog(frameIdx uint64) (uint64, error) {
 }
 
 // SeekVRLogTimestamp seeks to a specific timestamp in VRLOG replay.
-// Returns the current frame index after seeking (captured atomically under lock).
+// Returns the frame index it landed on, as SeekVRLog does.
 func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
+	p.vrlogPublishMu.Lock()
+	defer p.vrlogPublishMu.Unlock()
 	p.vrlogMu.Lock()
 	defer p.vrlogMu.Unlock()
 
@@ -215,6 +222,7 @@ func (p *Publisher) SeekVRLogTimestamp(timestampNs int64) (uint64, error) {
 	if err := p.vrlogReader.SeekToTimestamp(timestampNs); err != nil {
 		return 0, fmt.Errorf("seek failed: %w", err)
 	}
+	p.vrlogSeekGen.Add(1)
 
 	currentFrame := p.vrlogReader.CurrentFrame()
 	diagf("[Visualiser] SeekVRLogTimestamp: requested=%d, landed=%d", timestampNs, currentFrame)
@@ -308,20 +316,30 @@ func (p *Publisher) vrlogReplayLoop() {
 		reader := p.vrlogReader
 		sendOne := p.vrlogSendOneFrame
 		p.vrlogSendOneFrame = false
-		p.vrlogMu.Unlock()
-
 		if (isPaused && !sendOne) || reader == nil {
+			p.vrlogMu.Unlock()
 			time.Sleep(50 * time.Millisecond)
 			continue
 		}
-
+		// The frame is read under the lock seeks take, so a seek never
+		// lands between reading and advancing, and the frame index a seek
+		// reports is the one it landed on.
+		seekGen := p.vrlogSeekGen.Load()
 		frame, err := reader.ReadFrame()
+		p.vrlogMu.Unlock()
+
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				p.vrlogMu.Lock()
+				if p.vrlogSeekGen.Load() != seekGen {
+					// A seek moved the reader off the end since: play on
+					// from where it landed.
+					p.vrlogMu.Unlock()
+					continue
+				}
 				// Pause at EOF instead of stopping — keeps the VRLOG loaded
 				// so the client can Seek(0) + Play() to restart.
 				diagf("[Visualiser] VRLOG replay complete — pausing at end")
-				p.vrlogMu.Lock()
 				alreadyAtEnd := p.vrlogPaused
 				p.vrlogPaused = true
 				if p.vrlogReader != nil {
@@ -380,7 +398,19 @@ func (p *Publisher) vrlogReplayLoop() {
 		}
 		frame.PlaybackInfo.Seekable = true
 
-		// Publish to all clients
+		// Publish to all clients, unless a seek since the read, or during
+		// the pacing sleep, makes this a frame from before it. A seek holds
+		// vrlogPublishMu until it has drained the queue, so a frame checked
+		// here is either dropped or queued before that drain.
+		p.vrlogPublishMu.Lock()
+		if p.vrlogSeekGen.Load() != seekGen {
+			p.vrlogPublishMu.Unlock()
+			if frame.PointCloud != nil {
+				frame.PointCloud.Release()
+			}
+			continue
+		}
 		p.publishReplay(frame)
+		p.vrlogPublishMu.Unlock()
 	}
 }

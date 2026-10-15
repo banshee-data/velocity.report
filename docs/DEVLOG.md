@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 15, 2026 - VRLOG seek no longer races the replay loop
+
+- {dd/lidar/vrlog-seek-race} Fixed VRLOG seeks racing the replay loop, which read frames without the lock seeks take: a seek could report the frame after the one it landed on (`TestPublisher_VRLogReplay_Seek` failed in CI on #748 with "expected frame 3, got 4"), and a frame read before a seek could be published after the seek had drained the queue, so a client saw the old position after the new one. The loop now reads under the seek's lock, and a publish lock taken by both orders the loop's last check against the seek's drain.
+
 ## October 13, 2026 - kirk0's labels published with an editable view, and an experiment queue
 
 - {dd/lidar/annotation-format-v2} Made Go write `labels.json` exactly as the macOS client does, keys sorted and indented, with parity fixtures on both sides. Both rewrite it on every save, and Go's struct order meant the first window save after a Go write reordered the whole file.
