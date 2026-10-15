@@ -133,9 +133,21 @@ annotation tools open. A capture's manifest row lists its label sets in
 
 The label sets are maintained with the
 [velocity.report](https://github.com/banshee-data/velocity.report) annotation
-tools. To propose a correction, clone this dataset, make a branch, edit with the
-project's annotation window, run its `repin` and `check-view` checks, and open a
-pull request. The steps, and what a change commits, are in the project's
+tools. To label or correct a capture you need its labels, not the 74 GB of
+captures. Clone without LFS content, check out only that capture's folder, and
+fetch its LFS content alone:
+
+```bash
+GIT_LFS_SKIP_SMUDGE=1 git clone --no-checkout https://huggingface.co/datasets/banshee-data/sf-street-speeds
+cd sf-street-speeds
+git sparse-checkout set --no-cone /labels/<capture stem>/ /manifest.json /README.md /.gitattributes /.gitignore
+GIT_LFS_SKIP_SMUDGE=1 git checkout
+git lfs pull --include="labels/<capture stem>/**"
+```
+
+For kirk0 that is about 110 MB in under a minute. Then make a branch, edit with
+the project's annotation window, run its `check-view` check, and open a pull
+request. The steps, and what a change commits, are in the project's
 [label set guide](https://github.com/banshee-data/velocity.report/blob/main/docs/lidar/operations/label-sets.md#editing-from-the-dataset).
 
 ## Filenames

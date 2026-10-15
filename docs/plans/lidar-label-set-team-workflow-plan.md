@@ -364,7 +364,7 @@ makes.
 | --- | ----------------------------------- | ---------------- |
 | A   | `dd/lidar/label-sets-layout`        | Built 2026-10-14 |
 | B   | `dd/lidar/label-sets-merge`         | Built 2026-10-14 |
-| C   | `dd/lidar/label-sets-partial-clone` | Planned          |
+| C   | `dd/lidar/label-sets-partial-clone` | Built 2026-10-14 |
 | D   | `dd/lidar/label-sets-checks`        | Planned          |
 | E   | not started                         | Planned          |
 | F   | not started                         | Planned          |
@@ -404,3 +404,11 @@ Decided while building B:
   from, so they go in the clone's own `.git/hooks`, not a tracked `.githooks/` as §3.2 had it.
 - **A conflicting physical reference leaves `.theirs` beside it**, the other branch's whole file,
   rather than conflict markers in JSON.
+
+Decided while building C:
+
+- **No partial clone.** The Hub accepts `--filter=blob:none` and then fails to fetch the blobs
+  it left out ("expected 'packfile'"), so the script takes every plain-Git blob: a 2 MB pack,
+  since the captures are LFS/Xet pointers in Git. Measured for kirk0: 111 MB in 18 s.
+- **The hooks are not part of the clone.** The sparse checkout leaves out `.githooks/`; the hooks
+  `git-setup` writes go in `.git/hooks` (B).

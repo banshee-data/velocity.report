@@ -1021,6 +1021,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_publish_scenes.py \
 	tools/s2-archive/test_export_scene_variants.py \
 	tools/s2-archive/test_stage_label_sets.py \
+	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py \

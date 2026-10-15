@@ -137,9 +137,21 @@ on disk are then the new state, and the change is a small commit. The label set'
 Git, one record per line, so the Hub shows the edited lines; only `packets.bin` and the view's
 binary files go through LFS/Xet.
 
-1. Clone the dataset with git and Git Xet installed, then run
-   `velocity lidar labels git-setup --repo <clone>` once. It installs the merge drivers and the
-   hooks that let Git finish a merge of label sets (below), and `diff.lfs.textconv`.
+1. Clone the capture's labels, not the whole dataset, with git and Git Xet installed:
+
+   ```bash
+   tools/s2-archive/clone-labels.sh <capture stem> [dir]
+   ```
+
+   It clones without LFS/Xet content, checks out only `labels/<capture stem>/` and the dataset's
+   top-level files, and fetches that folder's LFS/Xet content alone: for kirk0, 111 MB in 18
+   seconds, against 74 GB for the dataset. `git sparse-checkout add labels/<other stem>` and
+   `git lfs pull --include "labels/<other stem>/**"` add another capture later. It then runs
+   `velocity lidar labels git-setup` (or says to), which installs the merge drivers and the hooks
+   that let Git finish a merge of label sets (below), and `diff.lfs.textconv`. The Hub accepts a
+   partial clone (`--filter=blob:none`) and then fails to serve the blobs it left out, so the
+   script takes every plain-Git blob, about 2 MB.
+
 2. `git checkout -b <your branch>`.
 3. Start the server with `--lidar-annotation-dir=<clone>/labels`. The window saves membership
    itself, but physical-reference and facet saves go through the server, which finds every view of
