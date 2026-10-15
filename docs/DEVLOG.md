@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 15, 2026 - VRLOG seek no longer races the replay loop
+
+- {dd/lidar/vrlog-seek-race} Fixed VRLOG seeks racing the replay loop, which read frames without the lock seeks take: a seek could report the frame after the one it landed on (`TestPublisher_VRLogReplay_Seek` failed in CI on #748 with "expected frame 3, got 4"), and a frame read before a seek could be published after the seek had drained the queue, so a client saw the old position after the new one. The loop now reads under the seek's lock, and a publish lock taken by both orders the loop's last check against the seek's drain.
+
 ## October 14, 2026 - Label sets for a team of labellers
 
 - {dd/lidar/label-sets-layout} Planned the tooling a team of labellers needs before a second person is given a view ([plan](plans/lidar-label-set-team-workflow-plan.md)): one annotation tree, merges Git finishes, the object proposer in Go, `labels diff`, a one-capture clone, editing without a server, reader levels and label checks in the window. Ran Propose objects on the two pedestrian and cyclist windows cut for the dataset: 688 moving proposals at Columbus and Broadway in 114 s, 1,016 at Embarcadero and Folsom in 82 s.
