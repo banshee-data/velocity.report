@@ -9,17 +9,18 @@ running, so a day is one continuous recording and the sites are the stretches
 within it where the platform was stationary. `site-index.json` is the output;
 everything else here produces or feeds it.
 
-| File                  | What it is                                                               |
-| --------------------- | ------------------------------------------------------------------------ |
-| `site-index.json`     | The index. Generated — edit `map-marks.json` and rebuild instead.        |
-| `map-marks.json`      | Operator-named positions and optional orientation measurements.          |
-| `site-joins.json`     | Operator assertions that separated static fragments belong to one visit. |
-| `analysis-overrides/` | Checked-in reanalyses of archived capture spans.                         |
-| `build-site-index.py` | Stitches the segment analysis and attaches positions.                    |
-| `deployments.py`      | Reconstructs recording blocks from capture filenames alone.              |
-| `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                   |
-| `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.    |
-| `stage-label-sets.py` | Publishes label sets into the dataset, joined to captures by digest.     |
+| File                  | What it is                                                                         |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| `site-index.json`     | The index. Generated — edit `map-marks.json` and rebuild instead.                  |
+| `map-marks.json`      | Operator-named positions and optional orientation measurements.                    |
+| `site-joins.json`     | Operator assertions that separated static fragments belong to one visit.           |
+| `analysis-overrides/` | Checked-in reanalyses of archived capture spans.                                   |
+| `build-site-index.py` | Stitches the segment analysis and attaches positions.                              |
+| `deployments.py`      | Reconstructs recording blocks from capture filenames alone.                        |
+| `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                             |
+| `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.              |
+| `stage-label-sets.py` | Publishes label sets into the dataset, joined to captures by digest.               |
+| `clone-labels.sh`     | Clones one capture's labels from the dataset, for labelling, without the captures. |
 
 The corpus replays also read `state-estimation-phase01-corpus.json`, the cases, and
 `continuity-coverage.json`, each case's sensor coverage for the continuity experiments.
