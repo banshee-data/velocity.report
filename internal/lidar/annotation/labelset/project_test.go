@@ -70,11 +70,11 @@ func TestLinkedPackReadsProjectedMembership(t *testing.T) {
 
 func TestSaveMembershipCreatesLinksAndKeepsHiddenLabels(t *testing.T) {
 	base := t.TempDir()
-	a := writeTestPack(t, filepath.Join(base, "a"), []uint64{10, 11, 12, 13},
+	a := writeTestPack(t, filepath.Join(base, "cap", annotation.PacksDir, "a"), []uint64{10, 11, 12, 13},
 		[]testFrame{{0, 2, []uint64{5, 6, 7, 450}}, {2, 2, []uint64{800, 900}}}, "run-a")
 
 	// A pack with no label set has empty membership; its first save makes one
-	// beside it and links it.
+	// in its capture folder, beside packs/, and links it where it is.
 	sc, err := annotation.LoadSidecar(a)
 	if err != nil || len(sc.Masks) != 0 || sc.Digest() != "" {
 		t.Fatalf("unlinked pack membership %+v (%v)", sc, err)
@@ -87,7 +87,7 @@ func TestSaveMembershipCreatesLinksAndKeepsHiddenLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	link, _ := annotation.ReadLabelSetLink(a.Dir)
-	if link == nil || link.LabelSetID != ls.Manifest.LabelSetID || filepath.Dir(link.LabelSetDir(a.Dir)) != filepath.Join(base, "labels") {
+	if link == nil || link.LabelSetID != ls.Manifest.LabelSetID || filepath.Dir(link.LabelSetDir(a.Dir)) != filepath.Join(base, "cap") || link.Path != "../../"+filepath.Base(ls.Dir) {
 		t.Fatalf("link %+v for set %s in %s", link, ls.Manifest.LabelSetID, ls.Dir)
 	}
 	if ls.Revision() != 1 {

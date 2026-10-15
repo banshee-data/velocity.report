@@ -251,6 +251,14 @@ func TestHandleAnnotationExportWritesAnOpenablePack(t *testing.T) {
 	if err != nil || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
 		t.Errorf("pack dir %q is not under the configured packs directory %q", resp.PackDir, canonicalRoot)
 	}
+	// It lands in its capture's packs/ folder, where the listing finds it,
+	// and leaves nothing behind at the root.
+	if h := filepath.ToSlash(rel); !annotation.ValidPackHandle(h) || strings.Split(h, "/")[1] != annotation.PacksDir {
+		t.Errorf("pack dir %q is not a <capture>/packs/<run> position", h)
+	}
+	if left, _ := filepath.Glob(filepath.Join(canonicalRoot, ".export-*")); len(left) != 0 {
+		t.Errorf("the export left %v", left)
+	}
 	if _, err := annotation.OpenPack(resp.PackDir); err != nil {
 		t.Errorf("the exported pack does not reopen: %v", err)
 	}

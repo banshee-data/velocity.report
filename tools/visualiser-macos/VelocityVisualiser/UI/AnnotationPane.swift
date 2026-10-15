@@ -203,7 +203,7 @@ struct AnnotationPane: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.directoryURL = session.pack.annotationDirectory.appendingPathComponent("labels")
+        panel.directoryURL = session.pack.captureDirectory
         panel.prompt = "Attach"
         panel.message = "Choose a label set of the same capture (a folder holding labels.json)."
         guard panel.runModal() == .OK, let url = panel.url else { return }

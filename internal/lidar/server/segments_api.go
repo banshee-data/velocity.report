@@ -198,7 +198,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 		}
 		if status.PackDir != "" {
 			windows[i].Status = "packed"
-			windows[i].PackDir = ws.segmentPackPath(status.PackDir)
+			windows[i].PackDir = ws.segmentPackPathFor(status.PackDir, windows[i].ID)
 		}
 	}
 	return windows, sel, nil

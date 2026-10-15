@@ -19,6 +19,9 @@ func (r *PhysicalReferenceSet) Validate(p *Pack) error {
 	if r.SchemaVersion != PhysicalReferenceSchemaVersion {
 		return fmt.Errorf("physical reference schema version %d, this build reads %d", r.SchemaVersion, PhysicalReferenceSchemaVersion)
 	}
+	if err := CheckReader(PhysicalReferencesFile, r.MinReader); err != nil {
+		return err
+	}
 	if r.Revision < 1 || r.Revision == math.MaxInt {
 		return fmt.Errorf("invalid physical reference revision %d", r.Revision)
 	}

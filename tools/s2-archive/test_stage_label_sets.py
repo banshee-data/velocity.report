@@ -34,7 +34,7 @@ if args[2] == "publish":
             target.write_bytes(path.read_bytes())
 elif args[2] == "publish-view":
     dest = pathlib.Path(get("--dest"))
-    dest.mkdir()
+    dest.mkdir(parents=True)
     (dest / "manifest.json").write_text("{}")
 elif args[2] == "bind":
     m = json.loads((labels / "labels.json").read_text())
@@ -132,6 +132,15 @@ class StageLabelSetsTest(unittest.TestCase):
         (pack / "label-set-link.json").write_text(
             json.dumps({"label_set_id": "id", "path": "../labels/columbus-proposals"})
         )
+        # Cut 2026-10-14 21:49:39 UTC from run e44ae459-….
+        (pack / "manifest.json").write_text(
+            json.dumps(
+                {
+                    "created_ns": 1792014579304685000,
+                    "source": {"vrlog_path": "e44ae459-ca38-43ee-99fd-badc3a3d7d8f"},
+                }
+            )
+        )
         return pack
 
     def view_argv(self, pack, *extra):
@@ -148,17 +157,18 @@ class StageLabelSetsTest(unittest.TestCase):
     def stem(self):
         return self.dataset / "labels" / "20260902T1320_80858-0f4_columbus-broadway"
 
-    def test_stages_a_view_beside_its_label_set(self):
+    def test_stages_a_view_in_its_label_set(self):
         pack = self.linked_pack()
         self.assertEqual(
             stage_label_sets.main(self.view_argv(pack, "--capture-id", "a")), 0
         )
         self.assertTrue((self.stem() / "columbus-proposals" / "labels.json").exists())
-        self.assertTrue((self.stem() / "pack-a" / "manifest.json").exists())
+        view = "columbus-proposals/views/20261014-214939-e44ae459"
+        self.assertTrue((self.stem() / view / "manifest.json").exists())
         rows = json.loads((self.dataset / "manifest.json").read_text())
         self.assertEqual(
             rows[0]["annotation_pack_paths"],
-            ["labels/20260902T1320_80858-0f4_columbus-broadway/pack-a"],
+            ["labels/20260902T1320_80858-0f4_columbus-broadway/" + view],
         )
         ignore = (self.dataset / ".gitignore").read_text()
         for rule in (
@@ -235,6 +245,25 @@ class StageLabelSetsTest(unittest.TestCase):
         self.assertEqual((self.dataset / "manifest.json").read_text(), before)
         self.assertFalse((self.dataset / "labels").exists())
         self.assertFalse((self.dataset / ".gitattributes").exists())
+
+    def test_refresh_paths_follows_a_nested_view(self):
+        pack = self.linked_pack()
+        self.assertEqual(
+            stage_label_sets.main(self.view_argv(pack, "--capture-id", "a")), 0
+        )
+        # 'labels nest' renamed the view; the row still names the old path.
+        views = self.stem() / "columbus-proposals" / "views"
+        (views / "20261014-214939-e44ae459").rename(views / "renamed")
+        argv = ["--dataset", str(self.dataset), "--refresh-paths"]
+        self.assertEqual(stage_label_sets.main(argv), 0)
+        rows = json.loads((self.dataset / "manifest.json").read_text())
+        stem = "labels/20260902T1320_80858-0f4_columbus-broadway/"
+        self.assertEqual(rows[0]["label_set_paths"], [stem + "columbus-proposals"])
+        self.assertEqual(
+            rows[0]["annotation_pack_paths"],
+            [stem + "columbus-proposals/views/renamed"],
+        )
+        self.assertNotIn("annotation_pack_paths", rows[1])
 
 
 if __name__ == "__main__":

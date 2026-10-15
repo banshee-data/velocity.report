@@ -100,17 +100,9 @@ func (ws *Server) resolveDraftPacks(w http.ResponseWriter, draft *annotation.Spl
 // by the same rule as the physical-reference API, without opening it.
 func (ws *Server) packHandleDir(w http.ResponseWriter, handle string) (string, bool) {
 	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(handle)))
-	parts := strings.Split(clean, "/")
-	valid := handle != "" && !filepath.IsAbs(handle) && clean == handle && len(parts) <= 2
-	for _, part := range parts {
-		valid = valid && part != "" && part != "." && part != ".."
-	}
-	if len(parts) == 2 {
-		valid = valid && parts[1] == "pack"
-	}
-	if !valid {
+	if clean != handle || !annotation.ValidPackHandle(handle) {
 		ws.writePhysicalError(w, http.StatusBadRequest, physicalCodeBadRequest,
-			fmt.Sprintf("pack handle %q is not a pack directory name under the annotation packs directory", handle))
+			fmt.Sprintf("pack handle %q is not a pack directory under the annotation packs directory: use <capture>/packs/<run>, <capture>/<set>/views/<view> or clip-<job>/pack", handle))
 		return "", false
 	}
 	dir, err := security.ResolvePathWithinDirectory(filepath.Join(ws.annotationPacksDir, filepath.FromSlash(clean)), ws.annotationPacksDir)

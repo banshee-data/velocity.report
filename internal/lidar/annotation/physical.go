@@ -360,6 +360,7 @@ type PhysicalSource struct {
 type PhysicalReferenceSet struct {
 	Schema        string     `json:"schema"`
 	SchemaVersion int        `json:"schema_version"`
+	MinReader     int        `json:"min_reader,omitempty"`
 	DatasetID     string     `json:"dataset_id"`
 	PackDigest    string     `json:"pack_digest"`
 	Revision      int        `json:"revision"`

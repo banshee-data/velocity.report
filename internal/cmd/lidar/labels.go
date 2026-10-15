@@ -35,8 +35,8 @@ Commands:
   publish   Copy the current state, without the journal, to a directory
             (--replace refreshes a published copy that is behind)
   publish-view
-            Copy a linked pack beside a published label set as its view:
-            its data and physical references, linked to the set next to it
+            Copy a linked pack into a published label set's views/ folder:
+            its data and physical references, linked to the set it is in
   check-view
             Check a view and its label set as a fresh copy of their tracked
             files would hold them: run it before committing an edit
@@ -44,6 +44,8 @@ Commands:
             copy's labels.json in the conflict, then run it
   relayout  Rewrite the head in the storage layout (from the single-file
             layout, or with another --window-chunk); the state is unchanged
+  nest      Move an annotation tree into the layout: sets in their capture
+            folder, linked packs in the set's views/, others in packs/
   census    Count packet keys in capture files and report duplicates`
 
 // LabelsMain routes `velocity lidar labels`.
@@ -56,7 +58,7 @@ func LabelsMain(args []string) int {
 		"create": labelsCreate, "attach": labelsAttach, "bind": labelsBind,
 		"verify": labelsVerify, "info": labelsInfo, "project": labelsProject, "publish": labelsPublish,
 		"publish-view": labelsPublishView, "check-view": labelsCheckView, "rehead": labelsRehead, "relayout": labelsRelayout,
-		"census": labelsCensus,
+		"nest": labelsNest, "census": labelsCensus,
 	}
 	if args[0] == "help" || args[0] == "-h" || args[0] == "--help" {
 		fmt.Println(labelsUsage)
@@ -90,7 +92,7 @@ func writeJSON(w io.Writer, v any) error {
 func labelsCreate(args []string) error {
 	fs := flag.NewFlagSet("labels create", flag.ContinueOnError)
 	pack := fs.String("pack", "", "Version 2 pack directory (required)")
-	out := fs.String("labels", "", "Label set directory to create (default: <pack parent>/labels/<name>)")
+	out := fs.String("labels", "", "Label set directory to create (default: <capture folder>/<name>, beside the pack's packs/ folder)")
 	name := fs.String("name", "", "Label set name (required)")
 	author := fs.String("author", "", "Who is creating it (required)")
 	if err := fs.Parse(args); err != nil {
@@ -105,7 +107,7 @@ func labelsCreate(args []string) error {
 	}
 	dir := *out
 	if dir == "" {
-		dir = filepath.Join(filepath.Dir(filepath.Clean(*pack)), "labels", *name)
+		dir = filepath.Join(annotation.CaptureDirOf(p.Dir, p.Manifest), *name)
 	}
 	layout, state, err := labelset.NewFromPack(p)
 	if err != nil {
@@ -262,12 +264,19 @@ func labelsPublishView(args []string) error {
 	fs := flag.NewFlagSet("labels publish-view", flag.ContinueOnError)
 	pack := fs.String("pack", "", "Linked version 2 pack to publish (required)")
 	dir := fs.String("labels", "", "The published label set it becomes the view of (required)")
-	dest := fs.String("dest", "", "Destination beside the published label set, empty or absent (required)")
+	dest := fs.String("dest", "", "Destination in the published label set's views/ folder, empty or absent (default: views/<cut time>-<run>)")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
-	if *pack == "" || *dir == "" || *dest == "" {
-		return fmt.Errorf("--pack, --labels and --dest are required")
+	if *pack == "" || *dir == "" {
+		return fmt.Errorf("--pack and --labels are required")
+	}
+	if *dest == "" {
+		p, err := annotation.OpenPack(*pack)
+		if err != nil {
+			return err
+		}
+		*dest = filepath.Join(*dir, annotation.ViewsDir, annotation.ViewName(p.Manifest))
 	}
 	report, err := labelset.PublishView(*pack, *dir, *dest)
 	if report != nil {
@@ -341,6 +350,25 @@ func labelsRelayout(args []string) error {
 	}
 	fmt.Printf("%s: revision %d (%s) in the storage layout, %d windows per chunk\n", *dir, ls.Revision(), ls.StateDigest(), *chunk)
 	return nil
+}
+
+func labelsNest(args []string) error {
+	fs := flag.NewFlagSet("labels nest", flag.ContinueOnError)
+	root := fs.String("root", "", "Annotation root: --lidar-annotation-dir, or a dataset's labels/ (required)")
+	dryRun := fs.Bool("dry-run", false, "Print the moves without making them")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *root == "" {
+		return fmt.Errorf("--root is required")
+	}
+	report, err := labelset.Nest(*root, *dryRun)
+	if report != nil {
+		if werr := writeJSON(os.Stdout, report); werr != nil && err == nil {
+			err = werr
+		}
+	}
+	return err
 }
 
 func labelsCensus(args []string) error {

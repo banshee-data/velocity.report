@@ -69,7 +69,7 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if clip.PackDir != "" {
 		// A retry of a job whose pack is recorded, present and the one the
 		// row names has nothing left to do.
-		if digest, whole := segmentPackDigest(ws.segmentPackPath(clip.PackDir), segmentID); whole && digest == clip.PackDigest {
+		if digest, whole := segmentPackDigest(ws.segmentPackPathFor(clip.PackDir, segmentID), segmentID); whole && digest == clip.PackDigest {
 			return nil
 		}
 	}

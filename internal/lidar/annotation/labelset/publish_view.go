@@ -18,8 +18,8 @@ import (
 //
 // A label set holds no points, so nothing can be drawn or edited from it
 // alone: that takes a pack, one run's view of the capture. A published view
-// is that pack copied beside the published label set, carrying its data and
-// its physical references and linked to the set next to it. Someone with the
+// is that pack copied into the published label set's views/ folder, carrying
+// its data and its physical references and linked to the set it sits in. Someone with the
 // dataset opens the view, edits, saves, and the files they would commit are
 // the label set's head files, labels.json and the view's records; the
 // journals, locks and revision archives the editors write stay local.
@@ -51,7 +51,7 @@ type ViewReport struct {
 // pack must be linked to that label set, which must hold the same head as
 // the pack's own label set and already know the pack's foreground as a
 // domain, so that the first save from the view changes only what is edited.
-// dest must be absent or empty and sit beside the published set. Facets are
+// dest must be absent or empty and sit in the published set's views/ folder. Facets are
 // left out: they pin label set revisions a published copy cannot rebuild.
 // The copy is assembled beside dest and renamed into place, then checked as
 // a fresh copy would be.
@@ -91,8 +91,11 @@ func PublishView(packDir, publishedSet, dest string) (*ViewReport, error) {
 	if domain := DomainOf(pack).DomainID; !hasDomain(&pub.State, domain) {
 		return nil, fmt.Errorf("the published label set does not know this pack's foreground %s; the first save from the view would add it whole: run 'velocity lidar labels attach' on the source and republish", domain)
 	}
-	if filepath.Clean(filepath.Dir(dest)) != filepath.Clean(filepath.Dir(publishedSet)) {
-		return nil, fmt.Errorf("a view sits beside its label set: %s is not in %s", dest, filepath.Dir(publishedSet))
+	if views := filepath.Join(publishedSet, annotation.ViewsDir); filepath.Clean(filepath.Dir(dest)) != views {
+		return nil, fmt.Errorf("a view sits in its label set's %s/ folder: %s is not in %s", annotation.ViewsDir, dest, views)
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return nil, err
 	}
 	if entries, err := os.ReadDir(dest); err == nil && len(entries) > 0 {
 		return nil, fmt.Errorf("refusing to publish into non-empty %s", dest)
@@ -147,10 +150,10 @@ func PublishView(packDir, publishedSet, dest string) (*ViewReport, error) {
 	report, err := CheckView(tmp)
 	if report != nil {
 		report.Pack = dest
-		staging := filepath.Base(tmp) + "/"
+		staging := path.Join(filepath.Base(publishedSet), annotation.ViewsDir, filepath.Base(tmp)) + "/"
 		for i, name := range report.Tracked {
 			if strings.HasPrefix(name, staging) {
-				report.Tracked[i] = filepath.Base(dest) + "/" + strings.TrimPrefix(name, staging)
+				report.Tracked[i] = path.Join(filepath.Base(publishedSet), annotation.ViewsDir, filepath.Base(dest)) + "/" + strings.TrimPrefix(name, staging)
 			}
 		}
 		sort.Strings(omitted)
@@ -194,8 +197,9 @@ func CheckView(packDir string) (*ViewReport, error) {
 		return nil, fmt.Errorf("%s is not linked to a label set", packDir)
 	}
 	setDir := link.LabelSetDir(packDir)
-	if dir, name := path.Split(link.Path); dir != "../" || name == "" || strings.ContainsAny(name, `/\`) {
-		return nil, fmt.Errorf("a view's label set sits beside it (../<name>); %s links %q", packDir, link.Path)
+	if link.Path != annotation.ViewLinkPath || filepath.Base(filepath.Dir(packDir)) != annotation.ViewsDir {
+		return nil, fmt.Errorf("a view sits in its label set's %s/ folder and links %q; %s links %q (run 'velocity lidar labels nest')",
+			annotation.ViewsDir, annotation.ViewLinkPath, packDir, link.Path)
 	}
 
 	fresh, err := os.MkdirTemp("", "check-view-")
@@ -203,8 +207,8 @@ func CheckView(packDir string) (*ViewReport, error) {
 		return nil, err
 	}
 	defer os.RemoveAll(fresh)
-	viewCopy := filepath.Join(fresh, filepath.Base(packDir))
 	setCopy := filepath.Join(fresh, filepath.Base(setDir))
+	viewCopy := filepath.Join(setCopy, annotation.ViewsDir, filepath.Base(packDir))
 	report := &ViewReport{Pack: packDir, LabelSet: setDir, LabelSetID: link.LabelSetID}
 	problem := func(format string, args ...any) {
 		report.Problems = append(report.Problems, fmt.Sprintf(format, args...))
@@ -214,10 +218,11 @@ func CheckView(packDir string) (*ViewReport, error) {
 	for _, name := range append(annotation.PackDataFiles(), annotation.PackRecordFiles()...) {
 		tracked[name] = true
 	}
-	if err := copyTracked(packDir, viewCopy, func(name string) bool { return tracked[name] }, report); err != nil {
+	if err := copySetFiles(setDir, setCopy, report); err != nil {
 		return nil, err
 	}
-	if err := copySetFiles(setDir, setCopy, report); err != nil {
+	viewPrefix := path.Join(filepath.Base(setDir), annotation.ViewsDir, filepath.Base(packDir))
+	if err := copyTracked(packDir, viewCopy, viewPrefix, func(name string) bool { return tracked[name] }, report); err != nil {
 		return nil, err
 	}
 	for _, name := range report.Tracked {
@@ -282,8 +287,8 @@ func CheckView(packDir string) (*ViewReport, error) {
 }
 
 // copyTracked copies a directory's tracked files into dest and names them in
-// the report as <directory>/<file>.
-func copyTracked(src, dest string, tracked func(string) bool, report *ViewReport) error {
+// the report as <prefix>/<file>, prefix being dest's path in the fresh copy.
+func copyTracked(src, dest, prefix string, tracked func(string) bool, report *ViewReport) error {
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
@@ -298,7 +303,7 @@ func copyTracked(src, dest string, tracked func(string) bool, report *ViewReport
 		if err := copyFile(filepath.Join(src, e.Name()), filepath.Join(dest, e.Name())); err != nil {
 			return err
 		}
-		report.Tracked = append(report.Tracked, filepath.Base(dest)+"/"+e.Name())
+		report.Tracked = append(report.Tracked, prefix+"/"+e.Name())
 	}
 	return nil
 }
@@ -310,7 +315,7 @@ func copySetFiles(src, dest string, report *ViewReport) error {
 	for _, name := range wholeFiles {
 		tracked[name] = true
 	}
-	if err := copyTracked(src, dest, func(name string) bool { return tracked[name] }, report); err != nil {
+	if err := copyTracked(src, dest, filepath.Base(dest), func(name string) bool { return tracked[name] }, report); err != nil {
 		return err
 	}
 	root, err := os.OpenRoot(src)

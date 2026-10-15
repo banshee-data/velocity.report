@@ -16,7 +16,7 @@ func TestFeatureAPI(t *testing.T) {
 	root := t.TempDir()
 	p := physicalTestPack(t, root, "clip")
 	ws := &Server{annotationPacksDir: root}
-	path := "/api/annotations/features?pack=clip/pack&pack_digest=" + url.QueryEscape(p.Manifest.PackDigest)
+	path := "/api/annotations/features?pack=kirk0/packs/clip&pack_digest=" + url.QueryEscape(p.Manifest.PackDigest)
 	call := func(method string, b []byte) *httptest.ResponseRecorder {
 		r := httptest.NewRecorder()
 		ws.handleFeatureAnnotations(r, httptest.NewRequest(method, path, bytes.NewReader(b)))
@@ -59,7 +59,7 @@ func TestFeatureAPIRejectsUnknownAndOversizedRequests(t *testing.T) {
 	root := t.TempDir()
 	p := physicalTestPack(t, root, "clip")
 	ws := &Server{annotationPacksDir: root}
-	path := "/api/annotations/features?pack=clip/pack&pack_digest=" + url.QueryEscape(p.Manifest.PackDigest)
+	path := "/api/annotations/features?pack=kirk0/packs/clip&pack_digest=" + url.QueryEscape(p.Manifest.PackDigest)
 	for _, payload := range [][]byte{{0x78, 1}, bytes.Repeat([]byte("x"), maxPhysicalRequestBytes+1)} {
 		r := httptest.NewRecorder()
 		ws.handleFeatureAnnotations(r, httptest.NewRequest(http.MethodPost, path, bytes.NewReader(payload)))
@@ -82,7 +82,7 @@ func TestFeatureRevisionAPIIsExactAndReadOnly(t *testing.T) {
 	root := t.TempDir()
 	p := physicalTestPack(t, root, "clip")
 	ws := &Server{annotationPacksDir: root}
-	path := "/api/annotations/features?pack=clip/pack&pack_digest=" + url.QueryEscape(p.Manifest.PackDigest)
+	path := "/api/annotations/features?pack=kirk0/packs/clip&pack_digest=" + url.QueryEscape(p.Manifest.PackDigest)
 	call := func(method, suffix string, payload []byte) *httptest.ResponseRecorder {
 		r := httptest.NewRecorder()
 		ws.handleFeatureAnnotations(r, httptest.NewRequest(method, path+suffix, bytes.NewReader(payload)))

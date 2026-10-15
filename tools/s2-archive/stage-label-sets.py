@@ -16,10 +16,11 @@ refuses a copy someone has edited).
 
 A label set holds no points, so it cannot be opened for editing on its own.
 Each `--view PACK` is a pack linked to a label set (its own label set is
-staged too, found through its link): it is published beside the set as
-labels/<capture stem>/<pack directory name>/ by `labels publish-view`, which
-checks it as a fresh copy would hold it, and its path is added to the row's
-`annotation_pack_paths`. A published view is never overwritten.
+staged too, found through its link): it is published into the set as
+labels/<capture stem>/<label set name>/views/<cut time>-<run>/ by
+`labels publish-view`, which checks it as a fresh copy would hold it, and its
+path is added to the row's `annotation_pack_paths`. A published view is never
+overwritten.
 
 The dataset's .gitattributes and .gitignore get the label set rules: exact
 bytes, label set text in plain Git (only `.bin` goes through LFS/Xet), and
@@ -34,6 +35,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import pathlib
 import subprocess
@@ -124,6 +126,32 @@ def ensure_lines(path: pathlib.Path, lines, dry_run: bool) -> bool:
     return True
 
 
+def capture_name_of(name: str) -> str:
+    """The layout's folder name for a file: annotation.CaptureNameOf in Go."""
+    base = name.replace("\\", "/").rsplit("/", 1)[-1]
+    for ext in (".gz", ".pcapng", ".pcap"):
+        if base.endswith(ext):
+            base = base[: -len(ext)]
+    safe = "".join(
+        c if c.isascii() and (c.isalnum() or c in "._-") else "-" for c in base
+    )
+    safe = safe.strip(".")
+    if not safe or safe in ("splits", "labels", "packs", "views"):
+        return "capture"
+    return safe
+
+
+def view_name(pack: pathlib.Path) -> str:
+    """The folder a pack takes as a view: annotation.ViewName in Go, the
+    time its run was cut, to the second, and the run's first 8 characters."""
+    manifest = load_json(pack / "manifest.json")
+    when = datetime.datetime.fromtimestamp(
+        manifest["created_ns"] // 1_000_000_000, tz=datetime.timezone.utc
+    )
+    run = capture_name_of((manifest.get("source") or {}).get("vrlog_path", ""))[:8]
+    return when.strftime("%Y%m%d-%H%M%S") + "-" + run
+
+
 def view_label_set(pack: pathlib.Path) -> pathlib.Path:
     """The label set a pack is linked to."""
     link = load_json(pack / LINK_FILE)
@@ -143,6 +171,46 @@ def run(cmd, dry_run: bool):
     print("$ " + " ".join(str(c) for c in cmd))
     if not dry_run:
         subprocess.run(cmd, check=True)
+
+
+def refresh_paths(args) -> int:
+    """Rewrite each row's label_set_paths and annotation_pack_paths from what
+    is under labels/<capture stem>/: every folder holding labels.json, and
+    every pack in its views/. A row keeps no path that is not there."""
+    dataset = pathlib.Path(args.dataset)
+    manifest_path = dataset / "manifest.json"
+    rows = load_json(manifest_path)
+    if dump_manifest(rows) != manifest_path.read_text(encoding="utf-8"):
+        print(
+            "manifest.json would not round-trip unchanged; refusing to rewrite it",
+            file=sys.stderr,
+        )
+        return 1
+    changed = False
+    for row in rows:
+        stem = dataset / "labels" / stem_of(row)
+        sets, views = [], []
+        if stem.is_dir():
+            for child in sorted(stem.iterdir()):
+                if not (child / "labels.json").is_file():
+                    continue
+                sets.append(str(child.relative_to(dataset).as_posix()))
+                views_dir = child / "views"
+                if views_dir.is_dir():
+                    for view in sorted(views_dir.iterdir()):
+                        if (view / "manifest.json").is_file():
+                            views.append(str(view.relative_to(dataset).as_posix()))
+        for key, paths in (("label_set_paths", sets), ("annotation_pack_paths", views)):
+            had = row.get(key)
+            if not paths and had is None:
+                continue
+            if had != paths:
+                print(f"{row['capture_id']}: {key} {had} -> {paths}")
+                row[key] = paths
+                changed = True
+    if changed and not args.dry_run:
+        manifest_path.write_text(dump_manifest(rows), encoding="utf-8")
+    return 0
 
 
 def stage(args) -> int:
@@ -263,7 +331,9 @@ def stage(args) -> int:
         changed = True
         print(f"staged {labels_dir} as {rel} for {row['capture_id']}")
         for pack in views.get(labels_dir.resolve(), []):
-            view_rel = pathlib.PurePosixPath("labels", stem_of(row), pack.name)
+            view_rel = pathlib.PurePosixPath(
+                "labels", stem_of(row), name, "views", view_name(pack)
+            )
             view_dest = dataset / view_rel
             if view_dest.exists():
                 print(
@@ -322,7 +392,7 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--view",
         action="append",
-        help="linked pack to publish beside its label set (repeatable)",
+        help="linked pack to publish into its label set's views/ (repeatable)",
     )
     parser.add_argument(
         "--replace",
@@ -337,9 +407,18 @@ def main(argv=None) -> int:
     )
     parser.add_argument("--port", type=int, default=2369, help="LiDAR data UDP port")
     parser.add_argument(
+        "--refresh-paths",
+        action="store_true",
+        help="rewrite every row's label set and view paths from labels/ "
+        "(after 'velocity lidar labels nest' moved them), and stage nothing",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="print what would be done"
     )
-    return stage(parser.parse_args(argv))
+    args = parser.parse_args(argv)
+    if args.refresh_paths:
+        return refresh_paths(args)
+    return stage(args)
 
 
 if __name__ == "__main__":

@@ -21,6 +21,27 @@ func (ws *Server) segmentPackPath(stored string) string {
 	return filepath.Join(ws.annotationPacksDir, filepath.FromSlash(stored))
 }
 
+// segmentPackPathFor is where a segment's pack is now: where its job row
+// says, or, once 'velocity lidar labels nest' has moved it into a label
+// set's views/ folder, the pack in the tree whose segment record names the
+// segment. The row is left as it is.
+func (ws *Server) segmentPackPathFor(stored, segmentID string) string {
+	dir := ws.segmentPackPath(stored)
+	if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err == nil {
+		return dir
+	}
+	dirs, err := annotation.ListPackDirs(ws.annotationPacksDir)
+	if err != nil {
+		return dir
+	}
+	for _, candidate := range dirs {
+		if _, whole := segmentPackDigest(candidate, segmentID); whole {
+			return candidate
+		}
+	}
+	return dir
+}
+
 // storedPackDir makes a pack directory relative to the annotation packs
 // directory, which is how the job row names it. A pack anywhere else is
 // refused: the row could not find it again after the directory moved.
