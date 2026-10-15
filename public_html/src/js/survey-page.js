@@ -417,12 +417,17 @@ function initLocation(root) {
       if (a.dataset.recordingLink === recording.id)
         a.setAttribute("aria-current", "true");
     }
+    // The "On this page" links name the latest recording's cards at build time.
+    for (const a of root.querySelectorAll("[data-family-link]"))
+      a.href = compare
+        ? `#family-${a.dataset.familyLink}`
+        : `#family-${a.dataset.familyLink}-${recording.id}`;
   }
 
   // A recording without 3D playback (a radar survey) has no evidence section.
   if (recording && !recording.hasPlayback) {
-    for (const el of root.querySelectorAll('#evidence, a[href="#evidence"]'))
-      el.closest("li, section, a").hidden = true;
+    for (const el of root.querySelectorAll("#evidence, [data-evidence-link]"))
+      el.hidden = true;
   }
 
   // Recording menu.
@@ -582,7 +587,7 @@ function initListing(root) {
       filterRows(rows, search?.value, active).map((r) => r.site),
     );
     for (const r of rows) r.el.hidden = !shown.has(r.site);
-    const n = new Set([...shown]).size;
+    const n = shown.size;
     if (count) count.textContent = `${n} ${n === 1 ? "site" : "sites"}`;
     if (empty) empty.hidden = n > 0;
   };
@@ -603,6 +608,8 @@ function initListing(root) {
     for (const panel of root.querySelectorAll("[data-view]"))
       panel.hidden = panel.dataset.view !== name;
     layout?.classList.toggle("is-table", name === "table");
+    // The map's box changes size with the layout; Leaflet re-measures on resize.
+    window.dispatchEvent(new Event("resize"));
     try {
       localStorage.setItem("survey-list-view", name);
     } catch {

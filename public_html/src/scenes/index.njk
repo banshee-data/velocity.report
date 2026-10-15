@@ -155,7 +155,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
           <li class="sv-siterow{% if not site.published %} sv-siterow--unpublished{% endif %}" id="site-{{ site.id }}" data-site-row
               data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
               data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
-              data-years="{% for rec in site.recordings %}{{ rec.when.year }} {% endfor %}">
+              data-years="{{ site.years | join(" ") }}">
             {% if site.published and site.page %}<a class="sv-siterow__link" href="{{ site.page }}">{% else %}<div class="sv-siterow__link">{% endif %}
               <span class="sv-siterow__name">
                 <span class="sv-siterow__title">{{ site.title }}</span>
@@ -204,7 +204,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
               {% set r = v.latest %}
               <tr data-site-row data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
                   data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
-                  data-years="{% for rec in site.recordings %}{{ rec.when.year }} {% endfor %}"
+                  data-years="{{ site.years | join(" ") }}"
                   data-latest="{{ r.startMs if r else '' }}" data-p85="{{ r.speed.p85 if r and r.speed else '' }}"
                   data-over="{{ r.over if r and r.over !== null else '' }}" data-count="{{ r.speed.count if r and r.speed else '' }}"
                   data-minutes="{{ r.when.minutes if r else '' }}" data-family-count="{{ site.families.length }}">

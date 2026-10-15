@@ -227,9 +227,10 @@ layout: survey.njk
       <h2 class="sv-eyebrow">On this page</h2>
       <ul class="sv-toc">
         {% for family in surveys.families %}{% if family.id in site.families %}
-          <li><a href="#family-{{ family.id }}" data-family-link="{{ family.id }}">{{ family.name }}</a></li>
+          {# Each recording has its own card; survey-page.js retargets the link when another recording or the compare view is shown. #}
+          <li><a href="#family-{{ family.id }}-{{ latest.id }}" data-family-link="{{ family.id }}">{{ family.name }}</a></li>
         {% endif %}{% endfor %}
-        {% if latest and latest.hasPlayback %}<li data-single-only><a href="#evidence">Evidence · 3D playback</a></li>{% endif %}
+        {% if latest and latest.hasPlayback %}<li data-single-only data-evidence-link><a href="#evidence">Evidence · 3D playback</a></li>{% endif %}
         <li><a href="#methods">Data &amp; methods</a></li>
       </ul>
     </nav>
@@ -535,7 +536,7 @@ layout: survey.njk
 
 {# The site list travels in a script block, not an attribute, so a title with
    an apostrophe cannot end the attribute early. #}
-<script type="application/json" id="survey-data">{{ view.client | dump | safe }}</script>
+<script type="application/json" id="survey-data">{{ view.client | dump | replace("<", "\\u003c") | safe }}</script>
 <script type="module" src="/js/survey-page.js"></script>
 
 {% if latest and latest.hasPlayback %}

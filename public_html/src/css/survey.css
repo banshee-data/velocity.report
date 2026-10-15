@@ -7,6 +7,8 @@
  * ========================================================================== */
 
 .sv-shell {
+  /* Always dark, so native controls (search, radios, dialog) follow. */
+  color-scheme: dark;
   --bg: #07090c;
   --bg-2: #0b0f14;
   --panel: #0d1218;
@@ -42,6 +44,10 @@
 }
 body:has(.sv-shell) {
   background: #07090c;
+}
+/* Several blocks set display: grid, which would beat the UA's [hidden] rule. */
+.sv-shell [hidden] {
+  display: none !important;
 }
 .sv-main-area {
   flex: 1 0 auto;

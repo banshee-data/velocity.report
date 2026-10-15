@@ -105,6 +105,7 @@ module.exports = async function () {
         recordings,
         latest,
         sensors: [...new Set(recordings.map((r) => r.sensor))],
+        years: [...new Set(recordings.map((r) => r.when.year))].sort(),
         families: model.FAMILIES.filter((f) =>
           recordings.some((r) => r.families.includes(f.id)),
         ).map((f) => f.id),
