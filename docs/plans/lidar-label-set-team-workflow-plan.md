@@ -365,7 +365,7 @@ makes.
 | A   | `dd/lidar/label-sets-layout`        | Built 2026-10-14 |
 | B   | `dd/lidar/label-sets-merge`         | Built 2026-10-14 |
 | C   | `dd/lidar/label-sets-partial-clone` | Built 2026-10-14 |
-| D   | `dd/lidar/label-sets-checks`        | Planned          |
+| D   | `dd/lidar/label-sets-checks`        | Built 2026-10-14 |
 | E   | not started                         | Planned          |
 | F   | not started                         | Planned          |
 
@@ -412,3 +412,16 @@ Decided while building C:
   since the captures are LFS/Xet pointers in Git. Measured for kirk0: 111 MB in 18 s.
 - **The hooks are not part of the clone.** The sparse checkout leaves out `.githooks/`; the hooks
   `git-setup` writes go in `.git/hooks` (B).
+
+Decided while building D:
+
+- **The rules read the pack's projection**, samples and point indices, not the label set's
+  windows: that is what the window edits and what a warning sends the labeller to.
+  `single-window` is `single-frame`.
+- **Two rules are left out.** `outside-domain` cannot happen: a label set refuses a member
+  outside its domain on every save. `review-drift` is already shown where reviews are, in the
+  Physical mode, from the server.
+- **A twin is two centres within 0.5 m in three frames**, not an overlap of footprints: simpler
+  to hold Go and Swift to, and enough to find one thing labelled twice.
+- **An empty mask is not tiny**: it says the object is not seen in that frame.
+- **The window caches each sample's points**, so a save reruns only the rules.

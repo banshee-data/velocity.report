@@ -411,6 +411,24 @@ revision it froze: review every frame of an object before putting it in a split.
 The **This frame** ring shows the frame's foreground in sixteen 22.5° sectors laid out as the top
 view is: agreed, in question, and not labelled. Click a sector to go to what is left in it.
 
+### Checks
+
+Below the ring, **Checks** lists likely mistakes in the saved labels, worked out again after every
+save. They are warnings: nothing stops a save. Click one to go to its object at the frame it is
+about. `velocity lidar labels check --pack <pack>` lists the same, from the same rules.
+
+| Check         | Warns when                                                                                                                                                    |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One frame     | An object has a mask in one frame only                                                                                                                        |
+| Gap           | An object goes more than 10 frames without a mask between two of its masks                                                                                    |
+| Speed         | Two masks of an object up to 3 frames apart put its centre further apart than its class moves: 4 m/s for a pedestrian, 15 for a cyclist, 45 for anything else |
+| Shared return | A return is in two objects' masks in one frame                                                                                                                |
+| Tiny mask     | A mask has one or two returns                                                                                                                                 |
+| Twin          | Two objects' centres are within 0.5 m in three frames or more: one thing labelled twice                                                                       |
+
+On kirk0's reviewed reference, 4,102 masks of 30 objects, the checks find 152 tiny masks (distant
+or occluded returns, mostly right) and 4 gaps, and nothing else.
+
 ## Physical references
 
 A mask says which returns belong to an object. A physical reference says what is known about its
