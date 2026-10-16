@@ -14,7 +14,7 @@ layout: survey.njk
 #}
 {% import "survey/macros.njk" as sv %}
 {% set site = surveys.byId[sceneId] %}
-{% set view = site | surveyView(speedLimitMph) %}
+{% set view = site | surveyView(site.speedLimitMph) %}
 {% set latest = view.latest %}
 
 <style>

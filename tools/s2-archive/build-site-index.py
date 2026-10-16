@@ -425,6 +425,8 @@ for number, site in enumerate(sites, 1):
             # Optional operator-measured angles; see map-marks.json.
             "grid_azimuth_deg": (mark or {}).get("grid_azimuth_deg"),
             "north_azimuth_deg": (mark or {}).get("north_azimuth_deg"),
+            # The posted limit, a fact about the street rather than the recording.
+            "speed_limit_mph": (mark or {}).get("speed_limit_mph"),
             "published_as": next(
                 (
                     scene

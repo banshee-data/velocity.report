@@ -25,7 +25,29 @@ test("every published survey site resolves to a recording with a speed summary",
     assert.ok(site.years.every((y) => y >= 2025));
     assert.match(site.latest.summaryUrl, /part-000\/timeline\.json$/);
   }
+  for (const site of surveys.sites) {
+    assert.equal(site.speedLimitMph, 25, `${site.id} limit`);
+    if (site.id !== "soma1") {
+      assert.match(
+        site.capture.raw_path,
+        /^raw\/lidar\/\d{8}T\d{4}_80858-[0-9a-f]{3}_[a-z0-9-]+\.pcapng$/,
+        site.id,
+      );
+      assert.ok(site.capture.raw_path.endsWith(`_${site.id}.pcapng`), site.id);
+      assert.equal(site.latest.raw.path, site.capture.raw_path);
+    }
+  }
+  assert.equal(
+    surveys.byId.soma1.capture,
+    null,
+    "not in the archive, so no dataset file",
+  );
+  assert.equal(surveys.byId.soma1.latest.raw, null);
   const columbus = surveys.byId["columbus-broadway"];
+  assert.equal(
+    columbus.latest.raw.download,
+    "https://huggingface.co/datasets/banshee-data/sf-street-speeds/resolve/main/raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng?download=true",
+  );
   assert.equal(columbus.latest.speed.count, 337);
   assert.equal(columbus.latest.speed.p85, 22.6);
   assert.equal(columbus.latest.build, "0.5.1-pre43");
@@ -51,6 +73,10 @@ const SPEED = {
   ],
 };
 const INDEX = {
+  dataset: {
+    repo: "banshee-data/sf-street-speeds",
+    url: "https://huggingface.co/datasets/banshee-data/sf-street-speeds",
+  },
   sites: [
     {
       id: "x",
@@ -60,6 +86,8 @@ const INDEX = {
       published: true,
       located: false,
       cells: null,
+      speed_limit_mph: 25,
+      capture: { raw_path: "raw/lidar/20260902T1320_80858-0f4_x.pcapng" },
     },
   ],
 };
@@ -95,6 +123,7 @@ test("a radar summary, a same-month visit and a same-minute pair are told apart"
       start: "2026-09-02T20:21:30Z",
       duration_sec: 900,
       build_version: "b1",
+      raw_path: "raw/radar/20260902T1321_80858-0f4_x.log",
       vehicle_speed: SPEED,
     },
     "x/recordings/later-in-month/summary.json": {
@@ -148,6 +177,23 @@ test("a radar summary, a same-month visit and a same-minute pair are told apart"
     "/surveys/x/recordings/radar-same-minute/summary.json",
   );
   assert.equal(site.recordings[3].build, null);
+  assert.equal(site.speedLimitMph, 25);
+  assert.equal(
+    site.recordings[1].raw.path,
+    "raw/lidar/20260902T1320_80858-0f4_x.pcapng",
+    "the original export is the site's capture",
+  );
+  assert.equal(
+    site.recordings[2].raw.download,
+    "https://huggingface.co/datasets/banshee-data/sf-street-speeds/resolve/main/raw/radar/20260902T1321_80858-0f4_x.log?download=true",
+  );
+  assert.equal(
+    site.recordings[3].raw,
+    null,
+    "a later recording without raw_path has no link",
+  );
+  assert.equal(site.recordings[1].raw.format, "PCAPNG");
+  assert.equal(site.recordings[2].raw.format, "LOG");
   assert.deepEqual(site.sensors, ["radar", "lidar"]);
   assert.deepEqual(sensorKinds, ["radar", "lidar"]);
   assert.equal(totals.multi, 1);

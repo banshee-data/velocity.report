@@ -32,7 +32,13 @@
     "                    is different at every site even on one street.",
     "",
     "They answer different questions and neither can be derived from the other:",
-    "the first makes the scene legible, the second makes it navigable."
+    "the first makes the scene legible, the second makes it navigable.",
+    "",
+    "  speed_limit_mph   The posted speed limit at the site, in mph. Set to 25,",
+    "                    San Francisco's default for these streets, until each",
+    "                    site's sign has been checked; correct it here and rebuild.",
+    "                    Blank means unknown: the page then shows speeds without a",
+    "                    limit line or an over-limit share."
   ],
   "marks": [
     {
@@ -44,7 +50,8 @@
       "lon": -122.4466,
       "confidence": "high",
       "grid_azimuth_deg": 3,
-      "north_azimuth_deg": 8
+      "north_azimuth_deg": 8,
+      "speed_limit_mph": 25
     },
     {
       "id": "haight-divisadero",
@@ -55,7 +62,8 @@
       "lon": -122.4372,
       "confidence": "high",
       "grid_azimuth_deg": 1,
-      "north_azimuth_deg": 101
+      "north_azimuth_deg": 101,
+      "speed_limit_mph": 25
     },
     {
       "id": "pierce-haight",
@@ -66,7 +74,8 @@
       "lon": -122.4338,
       "confidence": "high",
       "grid_azimuth_deg": 0,
-      "north_azimuth_deg": 11
+      "north_azimuth_deg": 11,
+      "speed_limit_mph": 25
     },
     {
       "id": "fulton-divisadero",
@@ -77,7 +86,8 @@
       "lon": -122.4381,
       "confidence": "high",
       "grid_azimuth_deg": 1,
-      "north_azimuth_deg": 101
+      "north_azimuth_deg": 101,
+      "speed_limit_mph": 25
     },
     {
       "id": "california-leon-baker",
@@ -88,7 +98,8 @@
       "lon": -122.4446,
       "confidence": "high",
       "grid_azimuth_deg": 1,
-      "north_azimuth_deg": 101
+      "north_azimuth_deg": 101,
+      "speed_limit_mph": 25
     },
     {
       "id": "broadway-gough",
@@ -99,7 +110,8 @@
       "lon": -122.4269,
       "confidence": "high",
       "grid_azimuth_deg": 359,
-      "north_azimuth_deg": 99
+      "north_azimuth_deg": 99,
+      "speed_limit_mph": 25
     },
     {
       "id": "laguna-eddy",
@@ -110,7 +122,8 @@
       "lon": -122.4274,
       "confidence": "high",
       "grid_azimuth_deg": 359,
-      "north_azimuth_deg": 9
+      "north_azimuth_deg": 9,
+      "speed_limit_mph": 25
     },
     {
       "id": "lombard-broderick",
@@ -121,7 +134,8 @@
       "lon": -122.444,
       "confidence": "high",
       "grid_azimuth_deg": 355,
-      "north_azimuth_deg": 97
+      "north_azimuth_deg": 97,
+      "speed_limit_mph": 25
     },
     {
       "id": "marina-broderick",
@@ -132,7 +146,8 @@
       "lon": -122.4455,
       "confidence": "high",
       "grid_azimuth_deg": 356,
-      "north_azimuth_deg": 282
+      "north_azimuth_deg": 282,
+      "speed_limit_mph": 25
     },
     {
       "id": "marina-webster-beach",
@@ -143,7 +158,8 @@
       "lon": -122.4351,
       "confidence": "high",
       "grid_azimuth_deg": 356.5,
-      "north_azimuth_deg": 231
+      "north_azimuth_deg": 231,
+      "speed_limit_mph": 25
     },
     {
       "id": "lombard-laguna",
@@ -154,7 +170,8 @@
       "lon": -122.4313,
       "confidence": "high",
       "grid_azimuth_deg": 354,
-      "north_azimuth_deg": 275
+      "north_azimuth_deg": 275,
+      "speed_limit_mph": 25
     },
     {
       "id": "columbus-north-point",
@@ -165,7 +182,8 @@
       "lon": -122.4181,
       "confidence": "high",
       "grid_azimuth_deg": 38,
-      "north_azimuth_deg": 48
+      "north_azimuth_deg": 48,
+      "speed_limit_mph": 25
     },
     {
       "id": "embarcadero-bay",
@@ -176,7 +194,8 @@
       "lon": -122.4061,
       "confidence": "high",
       "grid_azimuth_deg": 60,
-      "north_azimuth_deg": 253
+      "north_azimuth_deg": 253,
+      "speed_limit_mph": 25
     },
     {
       "id": "columbus-broadway",
@@ -187,7 +206,8 @@
       "lon": -122.4065,
       "confidence": "high",
       "grid_azimuth_deg": 27,
-      "north_azimuth_deg": 35
+      "north_azimuth_deg": 35,
+      "speed_limit_mph": 25
     },
     {
       "id": "van-ness-sacramento",
@@ -198,7 +218,8 @@
       "lon": -122.4225,
       "confidence": "high",
       "grid_azimuth_deg": 355.5,
-      "north_azimuth_deg": 10
+      "north_azimuth_deg": 10,
+      "speed_limit_mph": 25
     },
     {
       "id": "embarcadero-broadway",
@@ -209,7 +230,8 @@
       "lon": -122.3976,
       "confidence": "high",
       "grid_azimuth_deg": 2,
-      "north_azimuth_deg": 101
+      "north_azimuth_deg": 101,
+      "speed_limit_mph": 25
     },
     {
       "id": "franklin-mcallister",
@@ -220,7 +242,8 @@
       "lon": -122.4218,
       "confidence": "high",
       "grid_azimuth_deg": 4,
-      "north_azimuth_deg": 192
+      "north_azimuth_deg": 192,
+      "speed_limit_mph": 25
     },
     {
       "id": "hyde-ofarrell",
@@ -231,7 +254,8 @@
       "lon": -122.4164,
       "confidence": "high",
       "grid_azimuth_deg": 3,
-      "north_azimuth_deg": 14
+      "north_azimuth_deg": 14,
+      "speed_limit_mph": 25
     },
     {
       "id": "bush-powell",
@@ -242,7 +266,8 @@
       "lon": -122.409,
       "confidence": "high",
       "grid_azimuth_deg": 3,
-      "north_azimuth_deg": 102
+      "north_azimuth_deg": 102,
+      "speed_limit_mph": 25
     },
     {
       "id": "embarcadero-folsom",
@@ -253,7 +278,8 @@
       "lon": -122.3899,
       "confidence": "high",
       "grid_azimuth_deg": 356,
-      "north_azimuth_deg": 131
+      "north_azimuth_deg": 131,
+      "speed_limit_mph": 25
     },
     {
       "id": "1st-mission",
@@ -264,7 +290,8 @@
       "lon": -122.3974,
       "confidence": "high",
       "grid_azimuth_deg": 6,
-      "north_azimuth_deg": 51
+      "north_azimuth_deg": 51,
+      "speed_limit_mph": 25
     },
     {
       "id": "embarcadero-bryant",
@@ -275,7 +302,8 @@
       "lon": -122.3881,
       "confidence": "high",
       "grid_azimuth_deg": 308,
-      "north_azimuth_deg": 353
+      "north_azimuth_deg": 353,
+      "speed_limit_mph": 25
     },
     {
       "id": "3rd-folsom",
@@ -286,7 +314,8 @@
       "lon": -122.3986,
       "confidence": "high",
       "grid_azimuth_deg": 358,
-      "north_azimuth_deg": 223
+      "north_azimuth_deg": 223,
+      "speed_limit_mph": 25
     },
     {
       "id": "howard-6th",
@@ -298,7 +327,8 @@
       "confidence": "high",
       "note": "RIP Tess Rothstein 2019-03-08",
       "grid_azimuth_deg": 357,
-      "north_azimuth_deg": 312
+      "north_azimuth_deg": 312,
+      "speed_limit_mph": 25
     }
   ]
 }

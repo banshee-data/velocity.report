@@ -25,6 +25,7 @@ import {
   sceneStartMs,
   unpublishedSites,
 } from "./scene-sites.mjs";
+import { DATASET_REPO, DATASET_URL } from "../s2-archive/capture-names.mjs";
 
 const TOOL_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIRECTORY, "..", "..");
@@ -270,6 +271,8 @@ export async function generateSceneMap() {
     areas: groupByArea(model.sites),
     published_count: model.sites.filter((s) => s.published).length,
     recorded_count: model.sites.length,
+    // Where each capture's raw file is published; sites[].capture names the file.
+    dataset: { repo: DATASET_REPO, url: DATASET_URL },
     sites: model.sites.map((site) => ({
       id: site.id,
       title: site.title,
@@ -280,6 +283,8 @@ export async function generateSceneMap() {
       located: site.located,
       position: site.position ?? null,
       position_note: site.position_note ?? "",
+      speed_limit_mph: site.speed_limit_mph ?? null,
+      capture: site.capture ?? null,
       cells: site.cells ?? null,
       // The cell outlines the map draws. Tokens name a cell; only the vertices
       // let a viewer see where it actually falls on the street.

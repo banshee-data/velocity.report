@@ -175,3 +175,48 @@ test("map mark angles propagated by the index are canonical, including zero and 
     assert.equal(sites[0].north_azimuth_deg, north);
   }
 });
+
+test("a scene takes the posted limit from its site's mark, and an override beats it", () => {
+  const index = INDEX.map((site) =>
+    site.site === "s10" ? { ...site, speed_limit_mph: 25 } : site,
+  );
+  const scenes = [
+    at("2026-09-02T10:59:10-07:00", 1200, "a"),
+    at("2026-09-03T15:51:00-07:00", 1200, "b"),
+    at("2025-12-06T13:42:21-08:00", 600, "c"),
+  ];
+  const { sites } = buildSceneSites({
+    scenes,
+    index,
+    overrides: { c: { speed_limit_mph: 30 } },
+  });
+  const byId = Object.fromEntries(sites.map((s) => [s.id, s]));
+  assert.equal(byId["union-van-ness"].speed_limit_mph, 25);
+  assert.equal(
+    byId["soma-mission-8th"].speed_limit_mph,
+    null,
+    "a mark with no limit is unknown, not zero",
+  );
+  assert.equal(byId.c.speed_limit_mph, 30);
+});
+
+test("a scene joined to a positioned site names its raw file in the dataset", () => {
+  const { sites } = buildSceneSites({
+    scenes: [
+      at("2026-09-02T10:59:10-07:00", 1200, "a"),
+      at("2026-09-02T13:38:00-07:00", 1200, "b"),
+      at("2025-12-06T13:42:21-08:00", 600, "c"),
+    ],
+    index: INDEX,
+  });
+  const byId = Object.fromEntries(sites.map((s) => [s.id, s]));
+  assert.deepEqual(byId["union-van-ness"].capture, {
+    raw_path: "raw/lidar/20260902T1058_80858-0ec_union-van-ness.pcapng",
+  });
+  assert.equal(
+    byId["unrecognised-0902-1337"].capture,
+    null,
+    "no position, no cell, no name",
+  );
+  assert.equal(byId.c.capture, null, "not in the archive at all");
+});
