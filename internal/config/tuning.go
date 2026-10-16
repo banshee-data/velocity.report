@@ -191,6 +191,43 @@ type L5Common struct {
 	// fingerprint: the block is absent by default and the estimator off.
 	// The replay experiments of the same names set the same fields.
 	SolidBody *L5SolidBody `json:"solid_body,omitempty"`
+	// BoxModel switches on the published box model (l5tracks.BoxModelConfig):
+	// the box viewers draw, with a heading whose turn rate is bounded by
+	// speed and extents and centre that hold the cluster's points. Like
+	// SolidBody it is a pointer omitted when nil, so every config written
+	// before it existed keeps its fingerprint and the legacy box.
+	BoxModel *L5BoxModel `json:"box_model,omitempty"`
+}
+
+// L5BoxModel is the published box model's options, one tuning value per
+// l5tracks.BoxModelConfig field. Every key is required when the block is
+// present.
+type L5BoxModel struct {
+	Enabled bool `json:"enabled"`
+	// AxisSource is "rectangle_fit", which reads the cluster members and so
+	// keeps them for the frame, or "pca", the cluster box's axis.
+	AxisSource string `json:"axis_source"`
+	// CourseMinSpeedMps is the speed from which the direction of travel
+	// observes the heading and labels its length and front.
+	CourseMinSpeedMps float64 `json:"course_min_speed_mps"`
+	// MaxCurvaturePerMetre and MinYawRateDegPerSec bound the drawn box's turn
+	// rate once labelled, κ·v + ω₀; UnlabelledYawRateDegPerSec replaces ω₀
+	// before the course has labelled it.
+	MaxCurvaturePerMetre       float64 `json:"max_curvature_per_metre"`
+	MinYawRateDegPerSec        float64 `json:"min_yaw_rate_deg_per_sec"`
+	UnlabelledYawRateDegPerSec float64 `json:"unlabelled_yaw_rate_deg_per_sec"`
+	// YawAccelSigma is the heading filter's white yaw acceleration, rad/s².
+	YawAccelSigma float64 `json:"yaw_accel_sigma"`
+	// AxisSigmaScale multiplies the axis observation's standard deviation.
+	AxisSigmaScale float64 `json:"axis_sigma_scale"`
+	// CentrePull is the share of the way to the sensor-anchored centre the
+	// box moves each frame, inside the interval that holds the points.
+	CentrePull float64 `json:"centre_pull"`
+}
+
+// NeedsMembers reports whether the box model reads the cluster members.
+func (b *L5BoxModel) NeedsMembers() bool {
+	return b != nil && b.Enabled && b.AxisSource == "rectangle_fit"
 }
 
 // L5SolidBody is the solid-body estimator's options, one tuning value per

@@ -248,7 +248,7 @@ func (s *scorer) names() []string {
 }
 
 var rowHeader = []string{"variant", "track", "t_ns", "class", "speed", "x", "y", "psi_deg", "length", "width",
-	"points", "outside", "max_out", "course_deg", "dpsi_deg"}
+	"points", "outside", "max_out", "course_deg", "dpsi_deg", "span_a", "span_n"}
 
 func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 	clusterOf := map[string]int{}
@@ -355,15 +355,18 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 	speed := math.Hypot(float64(t.VX), float64(t.VY))
 	course := math.Atan2(float64(t.VY), float64(t.VX))
 	points, outside, maxOut := 0, 0, 0.0
+	spanA, spanN := 0.0, 0.0
 	if cluster != nil && b.length > 0 {
 		members := cluster.Members
 		if len(members) == 0 {
 			members = cluster.RetainedPoints
 		}
 		c, sn := math.Cos(b.psi), math.Sin(b.psi)
+		aLo, aHi, nLo, nHi := math.Inf(1), math.Inf(-1), math.Inf(1), math.Inf(-1)
 		for _, p := range members {
 			dx, dy := p.X-b.x, p.Y-b.y
 			a, n := dx*c+dy*sn, -dx*sn+dy*c
+			aLo, aHi, nLo, nHi = math.Min(aLo, a), math.Max(aHi, a), math.Min(nLo, n), math.Max(nHi, n)
 			da, dn := math.Abs(a)-b.length/2, math.Abs(n)-b.width/2
 			d := math.Hypot(math.Max(da, 0), math.Max(dn, 0))
 			if d > s.tolerance {
@@ -373,6 +376,7 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 		}
 		points = len(members)
 		if points > 0 {
+			spanA, spanN = aHi-aLo, nHi-nLo
 			agg.rows++
 			if outside > 0 {
 				agg.outsideAny++
@@ -422,7 +426,7 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 	if s.rows != nil {
 		_ = s.rows.Write([]string{name, t.TrackID, strconv.FormatInt(now, 10), s.class[t.TrackID],
 			f3(speed), f3(b.x), f3(b.y), f3(b.psi * 180 / math.Pi), f3(b.length), f3(b.width),
-			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi)})
+			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN)})
 	}
 	st.have, st.last, st.lastAt = b.length > 0, b, now
 	st.lastX, st.lastY = float64(t.X), float64(t.Y)

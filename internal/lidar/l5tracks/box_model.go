@@ -67,9 +67,11 @@ type BoxModelConfig struct {
 	// YawAccelSigma is the white yaw acceleration (rad/s²) the heading filter
 	// expects: how quickly a yaw rate may build.
 	YawAccelSigma float64
-	// MaxCurvature (1/m) and MinYawRate (rad/s) bound the yaw rate once the
-	// box is labelled: |ω| ≤ MaxCurvature·v + MinYawRate. UnlabelledYawRate
-	// replaces the bound's floor before the course has labelled the box.
+	// MaxCurvature (1/m) and MinYawRate (rad/s) bound the yaw rate:
+	// |ω| ≤ MaxCurvature·v + MinYawRate. UnlabelledYawRate replaces the
+	// floor for an unlabelled box in its first second, while its first fits
+	// settle, and for one shorter than a vehicle, which may be a person
+	// turning on the spot.
 	MaxCurvature      float64
 	MinYawRate        float64
 	UnlabelledYawRate float64
@@ -145,8 +147,9 @@ type BoxEstimator struct {
 	labelled  bool
 	psi, rate float64
 	// p is the covariance of (psi, rate).
-	p        [2][2]float64
-	refusals int
+	p         [2][2]float64
+	refusals  int
+	bornNanos int64
 	// discrete is this frame's turn of the frame that moved no box: a change
 	// of front, or the labelling instant's quarter turn. The yaw-rate bound
 	// applies to the rest.
@@ -159,6 +162,29 @@ type BoxEstimator struct {
 	offA, offN float64
 	box        BoxState
 	Stats      BoxStats
+}
+
+// updateBox advances a track's published box under TrackerConfig.BoxModel
+// from this frame's tracked state and associated cluster; a nil cluster
+// coasts it. Off, it does nothing and the box fields stay zero.
+func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNanos int64) {
+	if !t.Config.BoxModel.Enabled {
+		return
+	}
+	if track.box == nil {
+		track.box = NewBoxEstimator(t.Config.BoxModel)
+	}
+	b := track.box.Observe(BoxInput{
+		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
+		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
+		Cluster: cluster,
+	})
+	if b.Length <= 0 {
+		return
+	}
+	track.BoxX, track.BoxY = float32(b.X), float32(b.Y)
+	track.BoxHeadingRad = float32(b.HeadingRad)
+	track.BoxLength, track.BoxWidth = float32(b.Length), float32(b.Width)
 }
 
 // NewBoxEstimator starts an empty box.
@@ -181,6 +207,11 @@ const (
 	boxCourseGateRad = 45 * math.Pi / 180
 	// boxCoastRateDecay is the share of the yaw rate kept per coasted frame.
 	boxCoastRateDecay = 0.5
+	// boxVehicleLengthMetres is the drawn length from which an unlabelled box
+	// is held to a vehicle's yaw rate, and boxSettleNanos how long after its
+	// first frame it may turn faster while its first fits settle.
+	boxVehicleLengthMetres = 2.5
+	boxSettleNanos         = int64(1e9)
 )
 
 // Observe advances the box to the input's time. With a cluster it is updated
@@ -218,7 +249,7 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 	if len(pts) > 0 {
 		spans = e.correct(in, pts, speed)
 	}
-	e.limit(prev, speed, dt)
+	e.limit(prev, speed, dt, in.Nanos)
 	e.lastNanos = in.Nanos
 	e.place(in, pts, false, spans)
 	return e.box
@@ -226,6 +257,7 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 
 func (e *BoxEstimator) seed(in BoxInput, pts [][2]float64, speed float64) {
 	e.seeded = true
+	e.bornNanos = in.Nanos
 	e.p = [2][2]float64{{boxSeedSigmaRad * boxSeedSigmaRad, 0}, {0, boxSeedRateSigma * boxSeedRateSigma}}
 	axis, _, ok := e.axisObservation(in.Cluster, pts)
 	course, _, courseOK := e.courseObservation(in, speed)
@@ -366,9 +398,10 @@ func (e *BoxEstimator) update(r, v float64) {
 // limit holds the yaw rate and this frame's turn of the box to what a
 // vehicle can do at its speed. The frame's discrete turns, a change of front
 // or a label, moved no box and are not counted.
-func (e *BoxEstimator) limit(prev, speed, dt float64) {
+func (e *BoxEstimator) limit(prev, speed, dt float64, nanos int64) {
 	floor := e.cfg.MinYawRate
-	if !e.labelled && e.cfg.UnlabelledYawRate > floor {
+	settling := nanos-e.bornNanos < boxSettleNanos || e.box.Length < boxVehicleLengthMetres
+	if !e.labelled && settling && e.cfg.UnlabelledYawRate > floor {
 		floor = e.cfg.UnlabelledYawRate
 	}
 	bound := e.cfg.MaxCurvature*speed + floor

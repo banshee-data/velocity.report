@@ -2,6 +2,7 @@ package l5tracks
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
@@ -290,6 +291,9 @@ type TrackerConfig struct {
 	OBBAspectRatioLockThreshold float32 // Aspect ratio similarity below which heading is locked
 	OBBHeadingLockMaxRejections int     // Consecutive Guard 3 rejections before the lock releases (0 = never)
 	OBBAxisCoherenceEnabled     bool    // Experimental axis selection and coherent observed envelope
+	// BoxModel computes the published box (box_model.go): zero is off, and
+	// viewers draw the OBB fields at the tracked position as before.
+	BoxModel BoxModelConfig
 	// OBBHeadingFlipRule applies AB3DMOT's orientation correction before
 	// Guard 3: a PCA heading more than 90 degrees from the track's smoothed
 	// heading is flipped by 180 degrees, on the grounds that a body cannot
@@ -360,6 +364,47 @@ func SolidBodyOptionsFromTuning(sb *config.L5SolidBody) SolidBodyOptions {
 	}
 }
 
+// BoxModelConfigFromTuning is the tuning config's box model block as the
+// tracker's configuration, with the sensor at the tracking frame's origin:
+// nil, or disabled, is the model off. Every other field is the block's.
+func BoxModelConfigFromTuning(b *config.L5BoxModel) BoxModelConfig {
+	if b == nil || !b.Enabled {
+		return BoxModelConfig{}
+	}
+	cfg := DefaultBoxModelConfig()
+	cfg.Enabled = true
+	cfg.AxisSource = BoxAxisSource(b.AxisSource)
+	cfg.CourseMinSpeedMps = b.CourseMinSpeedMps
+	cfg.MaxCurvature = b.MaxCurvaturePerMetre
+	cfg.MinYawRate = b.MinYawRateDegPerSec * math.Pi / 180
+	cfg.UnlabelledYawRate = b.UnlabelledYawRateDegPerSec * math.Pi / 180
+	cfg.YawAccelSigma = b.YawAccelSigma
+	cfg.AxisSigmaScale = b.AxisSigmaScale
+	cfg.CentrePull = b.CentrePull
+	return cfg
+}
+
+// BoxModelTuningFromTracker is the tracker's box model as the tuning file's
+// block, the inverse of BoxModelConfigFromTuning for the runtime read-back;
+// nil when the model is off.
+func BoxModelTuningFromTracker(cfg TrackerConfig) *config.L5BoxModel {
+	b := cfg.BoxModel
+	if !b.Enabled {
+		return nil
+	}
+	return &config.L5BoxModel{
+		Enabled: true, AxisSource: string(b.AxisSource), CourseMinSpeedMps: b.CourseMinSpeedMps,
+		MaxCurvaturePerMetre:       b.MaxCurvature,
+		MinYawRateDegPerSec:        roundDegrees(b.MinYawRate),
+		UnlabelledYawRateDegPerSec: roundDegrees(b.UnlabelledYawRate),
+		YawAccelSigma:              b.YawAccelSigma, AxisSigmaScale: b.AxisSigmaScale, CentrePull: b.CentrePull,
+	}
+}
+
+// roundDegrees converts radians back to the degrees a block was written in,
+// to the precision a tuning file carries.
+func roundDegrees(rad float64) float64 { return math.Round(rad*180/math.Pi*1e6) / 1e6 }
+
 // SolidBodyTuningFromTracker is the tracker's solid-body configuration as
 // the tuning file's block, the inverse of SolidBodyOptionsFromTuning for the
 // runtime config read-back; nil when the estimator is off. fullMembers is the
@@ -398,6 +443,7 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 	}
 	return TrackerConfig{
 		SolidBody:                        SolidBodyOptionsFromTuning(l5cfg.SolidBody),
+		BoxModel:                         BoxModelConfigFromTuning(l5cfg.BoxModel),
 		NearEdgeTracking:                 nearEdge,
 		NearEdgeMedoidGate:               medoidGate,
 		MaxTracks:                        l5cfg.MaxTracks,

@@ -576,6 +576,17 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		}
 	}
 
+	// Step 3d: Update each matched track's published box (default off). It
+	// reads the tracked state after this frame's update and writes only the
+	// box fields.
+	if t.Config.BoxModel.Enabled {
+		for clusterIdx, trackID := range associations {
+			if track := t.Tracks[trackID]; trackID != "" && track != nil && track.TrackState != TrackDeleted {
+				t.updateBox(track, &clusters[clusterIdx], nowNanos)
+			}
+		}
+	}
+
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
 	// Confirmed tracks are allowed more miss frames (MaxMissesConfirmed)
 	// than tentative tracks (MaxMisses). During occlusion the Kalman
@@ -603,6 +614,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			if t.Config.SolidBody.Enabled {
 				t.coastSolidBody(track, inflation)
 			}
+			t.updateBox(track, nil, nowNanos)
 
 			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
@@ -769,6 +781,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	if t.Config.SolidBody.Enabled {
 		t.seedSolidBody(track, cluster)
 	}
+	t.updateBox(track, &cluster, nowNanos)
 	t.TracksCreated++
 	t.continuity.TracksBorn++
 	t.recordSupport(track, SupportObserved)
