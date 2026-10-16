@@ -114,6 +114,12 @@ func Write(dir string) (*Fixture, error) {
 }
 
 func writePack(dir string) (*annotation.Pack, error) {
+	return writePackWith(dir, annotation.FixtureReturns)
+}
+
+// writePackWith writes the scene's pack with the packet table and returns
+// returnsFor gives its samples, then its reviewed sidecar.
+func writePackWith(dir string, returnsFor func([]annotation.Sample) annotation.PackReturns) (*annotation.Pack, error) {
 	var samples []annotation.Sample
 	var blocks [][]byte
 	for i := 0; i < Samples; i++ {
@@ -137,7 +143,7 @@ func writePack(dir string) (*annotation.Pack, error) {
 		blocks = append(blocks, block)
 	}
 	m := annotation.Manifest{Coverage: annotation.CoverageForegroundOnly, Source: annotation.SourceProvenance{SensorID: "fixture"}}
-	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
+	if err := annotation.WritePack(dir, m, samples, blocks, returnsFor(samples)); err != nil {
 		return nil, err
 	}
 	pack, err := annotation.OpenPack(dir)

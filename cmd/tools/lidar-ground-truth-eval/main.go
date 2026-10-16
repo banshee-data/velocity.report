@@ -41,6 +41,13 @@
 // holding more than one reviewed object:
 //
 //	lidar-ground-truth-eval retention -pack DIR -split-manifest FILE -split NAME -db observations.db [-json FILE]
+//
+// The fate subcommand (fate.go) attributes what retention cannot: for every
+// reviewed return, the stage of a replay that lost it (L3 background, each
+// L4 rejection) or the cluster it reached, read from a foreground-complete
+// observation container and joined by packet identity:
+//
+//	lidar-ground-truth-eval fate -pack DIR -split-manifest FILE -split NAME -observations DIR [-pcap FILE] [-json FILE]
 package main
 
 import (
@@ -70,6 +77,9 @@ func run(args []string) int {
 	if len(args) > 0 && args[0] == "retention" {
 		return runRetention(args[1:], stdout, stderr)
 	}
+	if len(args) > 0 && args[0] == "fate" {
+		return runFate(args[1:], stdout, stderr)
+	}
 	fs := flag.NewFlagSet("lidar-ground-truth-eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dbPath := fs.String("db", "sensor_data.db", "default AnalysisRunStore SQLite database, used when -reference-db/-candidate-db are omitted")
@@ -84,7 +94,8 @@ func run(args []string) int {
 		fmt.Fprintf(stderr, "Usage: lidar-ground-truth-eval -reference-run-id ID -candidate-run-id ID [flags]\n")
 		fmt.Fprintf(stderr, "       lidar-ground-truth-eval perframe [flags]   (per-frame scoring against annotations; perframe -h)\n")
 		fmt.Fprintf(stderr, "       lidar-ground-truth-eval verify-bundle -bundle DIR   (re-check a physical verification bundle)\n")
-		fmt.Fprintf(stderr, "       lidar-ground-truth-eval retention [flags]   (retention and fragmentation per reviewed mask; retention -h)\n\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval retention [flags]   (retention and fragmentation per reviewed mask; retention -h)\n")
+		fmt.Fprintf(stderr, "       lidar-ground-truth-eval fate [flags]   (which pipeline stage lost each reviewed return; fate -h)\n\n")
 		fmt.Fprintf(stderr, "Scores one candidate analysis run against one labelled reference run\n")
 		fmt.Fprintf(stderr, "using adapters.EvaluateGroundTruth, and prints the GroundTruthScore as JSON.\n\nOptions:\n")
 		fs.PrintDefaults()
