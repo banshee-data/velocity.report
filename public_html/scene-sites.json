@@ -12,7 +12,8 @@
     "cover or whose map reading is known to be wrong. An override always wins,",
     "so a survey is never overwritten by a reading off the paper map.",
     "",
-    "speed_limit_mph comes from the site's mark (or an override). capture names",
+    "speed_limit_mph comes from the site's mark in map-marks.json (or an",
+    "override), read directly rather than through the archive index. capture names",
     "the recording's raw file in the Hugging Face dataset, by the same rule the",
     "staging script uses: tools/s2-archive/capture-names.mjs."
   ],

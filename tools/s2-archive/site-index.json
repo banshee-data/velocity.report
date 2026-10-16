@@ -30,7 +30,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 8,
-    "speed_limit_mph": 25,
     "published_as": "ashbury-downey"
   },
   {
@@ -70,7 +69,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 20,
     "published_as": "haight-divisadero"
   },
   {
@@ -114,7 +112,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 0,
     "north_azimuth_deg": 11,
-    "speed_limit_mph": 20,
     "published_as": "pierce-haight"
   },
   {
@@ -156,7 +153,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 20,
     "published_as": "fulton-divisadero"
   },
   {
@@ -200,7 +196,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 25,
     "published_as": "california-leon-baker"
   },
   {
@@ -242,7 +237,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 359,
     "north_azimuth_deg": 99,
-    "speed_limit_mph": 25,
     "published_as": "broadway-gough"
   },
   {
@@ -284,7 +278,6 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 359,
     "north_azimuth_deg": 9,
-    "speed_limit_mph": 25,
     "published_as": "laguna-eddy"
   },
   {
@@ -342,7 +335,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 355,
     "north_azimuth_deg": 97,
-    "speed_limit_mph": 25,
     "published_as": "lombard-broderick"
   },
   {
@@ -400,7 +392,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356,
     "north_azimuth_deg": 282,
-    "speed_limit_mph": 25,
     "published_as": "marina-broderick"
   },
   {
@@ -458,7 +449,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356.5,
     "north_azimuth_deg": 231,
-    "speed_limit_mph": 25,
     "published_as": "marina-webster-beach"
   },
   {
@@ -548,7 +538,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 354,
     "north_azimuth_deg": 275,
-    "speed_limit_mph": 25,
     "published_as": "lombard-laguna"
   },
   {
@@ -606,7 +595,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 38,
     "north_azimuth_deg": 48,
-    "speed_limit_mph": 20,
     "published_as": "columbus-north-point"
   },
   {
@@ -664,7 +652,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 60,
     "north_azimuth_deg": 253,
-    "speed_limit_mph": 25,
     "published_as": "embarcadero-bay"
   },
   {
@@ -753,7 +740,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 27,
     "north_azimuth_deg": 35,
-    "speed_limit_mph": 20,
     "published_as": "columbus-broadway"
   },
   {
@@ -811,7 +797,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 355.5,
     "north_azimuth_deg": 10,
-    "speed_limit_mph": 25,
     "published_as": "van-ness-sacramento"
   },
   {
@@ -877,7 +862,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 2,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 30,
     "published_as": "embarcadero-broadway"
   },
   {
@@ -919,7 +903,6 @@
     "pcap_split_build_version": "0.5.1-pre36",
     "grid_azimuth_deg": 4,
     "north_azimuth_deg": 192,
-    "speed_limit_mph": 25,
     "published_as": "franklin-mcallister"
   },
   {
@@ -977,7 +960,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 14,
-    "speed_limit_mph": 20,
     "published_as": "hyde-ofarrell"
   },
   {
@@ -1035,7 +1017,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 102,
-    "speed_limit_mph": 25,
     "published_as": "bush-powell"
   },
   {
@@ -1108,7 +1089,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356,
     "north_azimuth_deg": 131,
-    "speed_limit_mph": 30,
     "published_as": "embarcadero-folsom"
   },
   {
@@ -1166,7 +1146,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 6,
     "north_azimuth_deg": 51,
-    "speed_limit_mph": 25,
     "published_as": "1st-mission"
   },
   {
@@ -1232,7 +1211,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 308,
     "north_azimuth_deg": 353,
-    "speed_limit_mph": 30,
     "published_as": "embarcadero-bryant"
   },
   {
@@ -1290,7 +1268,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 358,
     "north_azimuth_deg": 223,
-    "speed_limit_mph": 25,
     "published_as": "3rd-folsom"
   },
   {
@@ -1348,7 +1325,6 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 357,
     "north_azimuth_deg": 312,
-    "speed_limit_mph": 25,
     "published_as": "howard-6th"
   }
 ]

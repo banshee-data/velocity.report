@@ -38,6 +38,7 @@ const SITE_INDEX = path.join(
   "s2-archive",
   "site-index.json",
 );
+const MARKS = path.join(REPO_ROOT, "tools", "s2-archive", "map-marks.json");
 
 /**
  * The page for one scene.
@@ -199,7 +200,8 @@ export async function generateSceneSites() {
     );
   }
   const overrides = JSON.parse(await readFile(OVERRIDES, "utf8")).scenes ?? {};
-  const doc = buildSceneSites({ scenes, index, overrides });
+  const { marks } = JSON.parse(await readFile(MARKS, "utf8"));
+  const doc = buildSceneSites({ scenes, index, marks, overrides });
   await writeFile(SOURCE, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
   return doc;
 }

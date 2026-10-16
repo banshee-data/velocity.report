@@ -83,8 +83,16 @@ const UNJOINED_NOTE =
  * worth writing out, and a position for a scene the archive index does not
  * cover or whose derived position is known to be wrong. An override always
  * wins, so a surveyed fix is never overwritten by a map reading.
+ *
+ * `marks` are the field marks from tools/s2-archive/map-marks.json. The posted
+ * limit is read from them directly rather than through the archive index: it
+ * is a fact about the street, not the recording, so changing it should not
+ * need the archive mounted to rebuild the index.
  */
-export function buildSceneSites({ scenes, index, overrides = {} }) {
+export function buildSceneSites({ scenes, index, marks = [], overrides = {} }) {
+  const limitByMark = new Map(
+    marks.map((mark) => [mark.id, mark.speed_limit_mph ?? null]),
+  );
   // Chronological, so the list reads as the campaign ran rather than as an
   // accident of naming: the ids are capture prefixes, which sort meaninglessly.
   const sites = scenes
@@ -147,7 +155,8 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
         north_azimuth_deg: site?.north_azimuth_deg ?? null,
         // The posted limit at the site, from its field mark; an override for a
         // scene with no mark. Null means unknown, and the page says so.
-        speed_limit_mph: over.speed_limit_mph ?? site?.speed_limit_mph ?? null,
+        speed_limit_mph:
+          over.speed_limit_mph ?? limitByMark.get(site?.id) ?? null,
         // Where the recording's raw file lives in the published dataset. The
         // name follows from the site, so a scene the archive does not cover
         // has none.
@@ -172,7 +181,8 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
       "cover or whose map reading is known to be wrong. An override always wins,",
       "so a survey is never overwritten by a reading off the paper map.",
       "",
-      "speed_limit_mph comes from the site's mark (or an override). capture names",
+      "speed_limit_mph comes from the site's mark in map-marks.json (or an",
+      "override), read directly rather than through the archive index. capture names",
       "the recording's raw file in the Hugging Face dataset, by the same rule the",
       "staging script uses: tools/s2-archive/capture-names.mjs.",
     ],

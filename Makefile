@@ -215,6 +215,8 @@ help:
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
 	@echo "  render-scene-map-mac|-linux  Rebuild the scene index, map and pages from the archive at its Mac or Linux path"
+	@echo "  render-scene-data    Regenerate scene-sites.json, the map and scene pages from marks and overrides (no archive needed)"
+	@echo "  check-scene-data     Fail if the generated scene files differ from what the generator writes"
 	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
 	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
@@ -2245,7 +2247,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-scene-map-mac render-scene-map-linux render-s2-composite test-s2-hilbert cache-basemap site-index
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-scene-map-mac render-scene-map-linux render-scene-data check-scene-data render-s2-composite test-s2-hilbert cache-basemap site-index
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -2304,6 +2306,30 @@ render-scene-map-mac:
 
 render-scene-map-linux:
 	@$(MAKE) --no-print-directory render-scene-map LIDAR_PCAP_DIR="$(SCENE_ARCHIVE_LINUX)"
+
+# The part of render-scene-map that needs no archive: everything downstream of
+# the checked-in site index. A change to map-marks.json fields the generator
+# reads directly (speed_limit_mph) or to scene-overrides.json needs only this.
+render-scene-data: install-s2-hilbert
+	@echo "Deriving scene-sites.json, the scene map and the scene pages..."
+	@pnpm run --silent s2-hilbert:scene-map
+
+# The files render-scene-data writes are checked in but never edited by hand.
+# Regenerate them and fail on any difference, so a hand edit — which the next
+# render would silently revert — is caught at review rather than after it.
+SCENE_DATA_OUTPUTS = public_html/scene-sites.json public_html/src/_data/scenes.json \
+	public_html/src/_includes/scene-map.svg public_html/src/scenes
+
+check-scene-data: render-scene-data
+	@if [ -n "$$(git status --porcelain -- $(SCENE_DATA_OUTPUTS))" ]; then \
+		git --no-pager diff --stat -- $(SCENE_DATA_OUTPUTS); \
+		git status --short -- $(SCENE_DATA_OUTPUTS); \
+		echo "✗ Generated scene files are out of date or were edited by hand."; \
+		echo "  Edit tools/s2-archive/map-marks.json or public_html/scene-overrides.json,"; \
+		echo "  then run 'make render-scene-data' and commit the result."; \
+		exit 1; \
+	fi
+	@echo "✓ Generated scene files match their sources"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
