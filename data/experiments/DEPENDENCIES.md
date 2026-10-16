@@ -28,6 +28,7 @@ flowchart TB
     l3bg0009["<b>l3bg0009</b><br/>Stage B for the overrides-on retune, on a…<br/>proposed · 15m machine + 4h person<br/>manual: decide, write<br/>needs tooling: ground_truth_eval"]:::proposed
     l3bg0010["<b>l3bg0010</b><br/>The region map's two levers on kirk, each…<br/>approved · 24m machine + 11h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
     l3bg0011["<b>l3bg0011</b><br/>The dwell policy's cost on labelled road…<br/>approved · 24m machine + 2h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::approved
+    l3bg0012["<b>l3bg0012</b><br/>The L3 candidates on the corpus…<br/>approved · 3h27m machine + 3h person<br/>manual: write<br/>needs tooling: corpus_screen"]:::approved
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
@@ -52,6 +53,8 @@ flowchart TB
   perf0001 --> l3bg0009
   l3bg0007 --> l3bg0010
   l3bg0008 --> l3bg0011
+  l3bg0006 --> l3bg0012
+  l3bg0008 --> l3bg0012
   geom0003 --> l4clus0001
   l3bg0005 --> perf0001
 ```
@@ -63,6 +66,7 @@ flowchart TB
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 15m machine + 4h person; after l3bg0008, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0010](l3bg/l3bg0010.md) The region map's two levers on kirk, each cell's own tercile and a volatile window bounded in metres: ready, but a step needs tooling; 24m machine + 11h person; after l3bg0007; asks [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
 - [l3bg0011](l3bg/l3bg0011.md) The dwell policy's cost on labelled road users, on kirk: ready, but a step needs tooling; 24m machine + 2h person; after l3bg0008; asks [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations).
+- [l3bg0012](l3bg/l3bg0012.md) The L3 candidates on the corpus, label-free, with the dwell policy: ready, but a step needs tooling; 3h27m machine + 3h person; after l3bg0006, l3bg0008; asks [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations), [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
@@ -82,5 +86,5 @@ flowchart TB
 
 ## Totals
 
-- 7 open experiments: 2h45m machine + 62h15m person estimated.
+- 8 open experiments: 6h12m machine + 65h15m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
