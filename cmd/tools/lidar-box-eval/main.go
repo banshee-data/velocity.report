@@ -147,15 +147,18 @@ func boxVariants() []variant {
 		with("km-free", "no yaw-rate bound", func(c *l5tracks.BoxModelConfig) {
 			c.MaxCurvature, c.MinYawRate, c.UnlabelledYawRate = 100, 100, 100
 		}),
-		with("km-yaw02", "yaw acceleration sigma 0.2 rad/s²", func(c *l5tracks.BoxModelConfig) { c.YawAccelSigma = 0.2 }),
-		with("km-yaw08", "yaw acceleration sigma 0.8 rad/s²", func(c *l5tracks.BoxModelConfig) { c.YawAccelSigma = 0.8 }),
-		with("km-v2", "course from 2 m/s", func(c *l5tracks.BoxModelConfig) { c.CourseMinSpeedMps = 2 }),
-		with("km-sig1", "axis sigma × 1", func(c *l5tracks.BoxModelConfig) { c.AxisSigmaScale = 1 }),
-		with("km-sig3", "axis sigma × 3", func(c *l5tracks.BoxModelConfig) { c.AxisSigmaScale = 3 }),
-		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
-		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
 		with("km-k15", "curvature bound 0.15 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.15 }),
 		with("km-k20", "curvature bound 0.20 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.20 }),
+		with("km-sig1", "axis sigma × 1", func(c *l5tracks.BoxModelConfig) { c.AxisSigmaScale = 1 }),
+		with("km-sig3", "axis sigma × 3", func(c *l5tracks.BoxModelConfig) { c.AxisSigmaScale = 3 }),
+		with("km-yaw02", "yaw acceleration sigma 0.2 rad/s²", func(c *l5tracks.BoxModelConfig) { c.YawAccelSigma = 0.2 }),
+		with("km-label15", "label only from a steering-grade course (15°)", func(c *l5tracks.BoxModelConfig) { c.CourseLabelMaxSigmaRad = 0 }),
+		with("km-norelabel", "no relabel safety net", func(c *l5tracks.BoxModelConfig) { c.RelabelRun = 0 }),
+		with("km-floor38", "vehicle length floor 3.8 m", func(c *l5tracks.BoxModelConfig) { c.VehicleLengthFloor = 3.8 }),
+		with("km-cheap64", "fit on 64 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 64, 2 }),
+		with("km-cheap128", "fit on 128 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 128, 2 }),
+		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
+		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
 	}
 }
 
@@ -250,13 +253,26 @@ func (s *scorer) names() []string {
 }
 
 var rowHeader = []string{"variant", "track", "t_ns", "class", "speed", "x", "y", "psi_deg", "length", "width",
-	"points", "outside", "max_out", "course_deg", "dpsi_deg", "span_a", "span_n"}
+	"points", "outside", "max_out", "course_deg", "dpsi_deg", "span_a", "span_n", "ref_axis_deg", "ref_area"}
 
 func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 	clusterOf := map[string]int{}
 	for i, id := range f.Associations {
 		if id != "" {
 			clusterOf[id] = i
+		}
+	}
+	// A track born this frame is not in the associations: it took an
+	// unassociated cluster, which its LastClusterID names.
+	byID := map[int64]int{}
+	for i := range f.Clusters {
+		byID[f.Clusters[i].ClusterID] = i
+	}
+	for _, t := range f.Tracks {
+		if _, ok := clusterOf[t.TrackID]; !ok && t.ObservationCount == 1 && t.LastObservedUnixNanos == f.At.UnixNano() {
+			if i, ok := byID[t.LastClusterID]; ok {
+				clusterOf[t.TrackID] = i
+			}
 		}
 	}
 	now := f.At.UnixNano()
@@ -436,7 +452,7 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 	if s.rows != nil {
 		_ = s.rows.Write([]string{name, t.TrackID, strconv.FormatInt(now, 10), s.class[t.TrackID],
 			f3(speed), f3(b.x), f3(b.y), f3(b.psi * 180 / math.Pi), f3(b.length), f3(b.width),
-			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN)})
+			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN), refAxis(ref), f3(ref.area)})
 	}
 	st.have, st.last, st.lastAt = b.length > 0, b, now
 	st.lastX, st.lastY = float64(t.X), float64(t.Y)
@@ -771,4 +787,12 @@ func shareBelow(v []float64, x float64) float64 {
 		}
 	}
 	return float64(n) / float64(len(v))
+}
+
+// refAxis is the row's minimum-area axis in degrees, or empty without one.
+func refAxis(ref areaRef) string {
+	if !ref.axisOK {
+		return ""
+	}
+	return f3(ref.axis * 180 / math.Pi)
 }

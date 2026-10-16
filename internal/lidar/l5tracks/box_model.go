@@ -60,6 +60,24 @@ type BoxModelConfig struct {
 	// course whose own spread, from the velocity covariance, is wider.
 	CourseMinSpeedMps float64
 	CourseMaxSigmaRad float64
+	// CourseLabelMaxSigmaRad is the wider spread at which a course may still
+	// label an unlabelled box: the choice is between headings a quarter turn
+	// apart, which a course good to 25° makes correctly nearly always, long
+	// before it is good enough to steer the heading.
+	CourseLabelMaxSigmaRad float64
+	// RelabelRun is how many consecutive frames a steering-grade course must
+	// lie more than 60° from a labelled heading before the label is turned
+	// by a quarter: the safety net for a label the course gave wrongly.
+	RelabelRun int
+	// VehicleLengthFloor, when positive, draws a labelled box whose believed
+	// width is a vehicle's (1.5 m or more) at least this long, the unseen
+	// remainder on the side away from the sensor: an end-on view of a car is
+	// not a 0.6 m box.
+	VehicleLengthFloor float64
+	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
+	// l4perception.FitRectangle's search).
+	FitMaxPoints     int
+	FitCoarseStepDeg float64
 	// CourseSideslipRad is the course's allowance for a body that does not
 	// travel exactly along its axis: sideslip, and the velocity's lag in a
 	// turn.
@@ -96,18 +114,20 @@ type BoxModelConfig struct {
 // with Enabled left to the caller.
 func DefaultBoxModelConfig() BoxModelConfig {
 	return BoxModelConfig{
-		AxisSource:        BoxAxisRectangle,
-		CourseMinSpeedMps: 1.0,
-		CourseMaxSigmaRad: 15 * math.Pi / 180,
-		CourseSideslipRad: 4 * math.Pi / 180,
-		YawAccelSigma:     0.4,
-		MaxCurvature:      0.25,
-		MinYawRate:        5 * math.Pi / 180,
-		UnlabelledYawRate: 45 * math.Pi / 180,
-		AxisSigmaScale:    1.5,
-		AxisGateSigmas:    3,
-		AxisRestartRun:    5,
-		CentrePull:        0.3,
+		AxisSource:             BoxAxisRectangle,
+		CourseMinSpeedMps:      1.0,
+		CourseMaxSigmaRad:      15 * math.Pi / 180,
+		CourseLabelMaxSigmaRad: 25 * math.Pi / 180,
+		RelabelRun:             5,
+		CourseSideslipRad:      4 * math.Pi / 180,
+		YawAccelSigma:          0.4,
+		MaxCurvature:           0.25,
+		MinYawRate:             5 * math.Pi / 180,
+		UnlabelledYawRate:      45 * math.Pi / 180,
+		AxisSigmaScale:         1.5,
+		AxisGateSigmas:         3,
+		AxisRestartRun:         5,
+		CentrePull:             0.3,
 	}
 }
 
@@ -152,6 +172,7 @@ type BoxEstimator struct {
 	// p is the covariance of (psi, rate).
 	p         [2][2]float64
 	refusals  int
+	relabels  int
 	bornNanos int64
 	// discrete is this frame's turn of the frame that moved no box: a change
 	// of front, or the labelling instant's quarter turn. The yaw-rate bound
@@ -216,6 +237,12 @@ const (
 	// boxCourseGateRad refuses a course this far from a labelled heading: a
 	// manoeuvre or a velocity still settling, not the body's axis.
 	boxCourseGateRad = 45 * math.Pi / 180
+	// boxRelabelRad is how far a steering-grade course must lie from the
+	// labelled axis, modulo a half turn, to count against the label.
+	boxRelabelRad = 60 * math.Pi / 180
+	// boxVehicleMinWidthMetres is the believed width from which a labelled
+	// box takes VehicleLengthFloor.
+	boxVehicleMinWidthMetres = 1.5
 	// boxCoastRateDecay is the share of the yaw rate kept per coasted frame.
 	boxCoastRateDecay = 0.5
 	// boxVehicleLengthMetres is the drawn length from which an unlabelled box
@@ -276,7 +303,8 @@ func (e *BoxEstimator) seed(in BoxInput, pts [][2]float64, speed float64) {
 	e.bornNanos = in.Nanos
 	e.p = [2][2]float64{{boxSeedSigmaRad * boxSeedSigmaRad, 0}, {0, boxSeedRateSigma * boxSeedRateSigma}}
 	axis, _, ok := e.axisObservation(in.Cluster, pts)
-	course, _, courseOK := e.courseObservation(in, speed)
+	course, courseSigma, courseOK := e.courseObservation(in, speed)
+	courseOK = courseOK && courseSigma <= e.labelSigma()
 	switch {
 	case courseOK && ok:
 		e.psi = nearestCandidate(axis, course)
@@ -352,21 +380,39 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 		}
 	}
 	if course, sigma, ok := e.courseObservation(in, speed); ok {
-		if !e.labelled {
+		if !e.labelled && sigma <= e.labelSigma() {
 			e.label(course)
 		}
-		r := wrapPi(course - e.psi)
-		if math.Abs(r) > math.Pi/2 {
-			// The same axis seen from the other end: the box is symmetric
-			// under a half turn, so only the front changes.
-			e.reframe(math.Pi)
-			r = wrapPi(course - e.psi)
-		}
-		if math.Abs(r) <= boxCourseGateRad {
-			e.update(r, sigma*sigma)
+		steer := e.labelled && (e.cfg.CourseMaxSigmaRad <= 0 || sigma <= e.cfg.CourseMaxSigmaRad)
+		if steer {
+			if math.Abs(foldHalf(course-e.psi)) > boxRelabelRad {
+				e.relabels++
+				if e.cfg.RelabelRun > 0 && e.relabels >= e.cfg.RelabelRun {
+					e.relabels = 0
+					e.labelled = false
+					e.label(course)
+				}
+			} else {
+				e.relabels = 0
+			}
+			r := wrapPi(course - e.psi)
+			if math.Abs(r) > math.Pi/2 {
+				// The same axis seen from the other end: the box is symmetric
+				// under a half turn, so only the front changes.
+				e.reframe(math.Pi)
+				r = wrapPi(course - e.psi)
+			}
+			if math.Abs(r) <= boxCourseGateRad {
+				e.update(r, sigma*sigma+e.cfg.CourseSideslipRad*e.cfg.CourseSideslipRad)
+			}
 		}
 	}
 	return spans
+}
+
+// labelSigma is the widest course spread that may label a box.
+func (e *BoxEstimator) labelSigma() float64 {
+	return math.Max(e.cfg.CourseLabelMaxSigmaRad, e.cfg.CourseMaxSigmaRad)
 }
 
 // label resolves which axis is the length, and the front, from the course.
@@ -461,6 +507,9 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 	}
 	length := math.Max(math.Max(e.length.estimate(), spanA), boxMinExtentMetres)
 	width := math.Max(math.Max(e.width.estimate(), spanN), boxMinExtentMetres)
+	if e.cfg.VehicleLengthFloor > 0 && e.labelled && e.width.estimate() >= boxVehicleMinWidthMetres {
+		length = math.Max(length, e.cfg.VehicleLengthFloor)
+	}
 	sa := (e.cfg.SensorX-in.X)*c + (e.cfg.SensorY-in.Y)*s
 	sn := -(e.cfg.SensorX-in.X)*s + (e.cfg.SensorY-in.Y)*c
 	e.offA = boxCentre(aLo, aHi, length, sa, e.offA, first, e.cfg.CentrePull)
@@ -532,15 +581,19 @@ func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (f
 	if len(members) == 0 {
 		members = cluster.RetainedPoints
 	}
-	fit := l4perception.FitRectangle(members)
+	fit := l4perception.FitRectangleWith(members, l4perception.RectangleFitOptions{
+		MaxPoints: e.cfg.FitMaxPoints, CoarseStepDeg: e.cfg.FitCoarseStepDeg,
+	})
 	if !fit.Known() {
 		return 0, 0, [2]float64{}, false
 	}
 	return fit.AxisRad, fit.SigmaRad * scale, [2]float64{fit.Span1, fit.Span2}, true
 }
 
-// courseObservation is the direction of travel, when the track is fast
-// enough and its velocity settled enough for it to say where the body points.
+// courseObservation is the direction of travel and its own spread, from the
+// velocity covariance across it, when the track is fast enough for it to say
+// where the body points; the callers decide whether the spread is narrow
+// enough to label the box or to steer it.
 func (e *BoxEstimator) courseObservation(in BoxInput, speed float64) (float64, float64, bool) {
 	if e.cfg.CourseMinSpeedMps <= 0 || speed < e.cfg.CourseMinSpeedMps {
 		return 0, 0, false
@@ -549,11 +602,7 @@ func (e *BoxEstimator) courseObservation(in BoxInput, speed float64) (float64, f
 	// The velocity's spread across its own direction, over the speed.
 	nx, ny := -math.Sin(course), math.Cos(course)
 	across := nx*nx*in.VelCov[0] + 2*nx*ny*in.VelCov[1] + ny*ny*in.VelCov[2]
-	sigma := math.Sqrt(math.Max(across, 0)) / speed
-	if e.cfg.CourseMaxSigmaRad > 0 && sigma > e.cfg.CourseMaxSigmaRad {
-		return 0, 0, false
-	}
-	return course, math.Hypot(sigma, e.cfg.CourseSideslipRad), true
+	return course, math.Sqrt(math.Max(across, 0)) / speed, true
 }
 
 // boxPoints is the cluster's XY: its members, else its retained sample, else

@@ -106,9 +106,37 @@ type RectangleFit struct {
 // Known reports whether the fit gave a usable axis.
 func (f RectangleFit) Known() bool { return f.Abstain == "" }
 
+// RectangleFitOptions sets the search's cost: the cap on the points read and
+// the coarse and fine steps. The zero value is FitRectangle's search.
+type RectangleFitOptions struct {
+	MaxPoints     int
+	CoarseStepDeg float64
+	FineStepDeg   float64
+}
+
+func (o RectangleFitOptions) withDefaults() RectangleFitOptions {
+	if o.MaxPoints <= 0 {
+		o.MaxPoints = RectangleFitMaxPoints
+	}
+	if o.CoarseStepDeg <= 0 {
+		o.CoarseStepDeg = RectangleFitCoarseStepDeg
+	}
+	if o.FineStepDeg <= 0 {
+		o.FineStepDeg = RectangleFitFineStepDeg
+	}
+	return o
+}
+
 // FitRectangle fits the rectangle orientation to the points' XY positions.
 func FitRectangle(points []WorldPoint) RectangleFit {
-	pts := rectanglePoints(points)
+	return FitRectangleWith(points, RectangleFitOptions{})
+}
+
+// FitRectangleWith is FitRectangle with a cheaper or dearer search: fewer
+// points or coarser steps for a caller that fits every track every frame.
+func FitRectangleWith(points []WorldPoint, opts RectangleFitOptions) RectangleFit {
+	opts = opts.withDefaults()
+	pts := rectanglePoints(points, opts.MaxPoints)
 	fit := RectangleFit{Points: len(pts)}
 	if len(pts) < RectangleFitMinPoints {
 		fit.Abstain = "too_few_points"
@@ -128,11 +156,11 @@ func FitRectangle(points []WorldPoint) RectangleFit {
 	c2 := make([]float64, len(pts))
 
 	// Coarse search over the quadrant.
-	coarse := int(90 / RectangleFitCoarseStepDeg)
+	coarse := int(90 / opts.CoarseStepDeg)
 	scores := make([]float64, coarse)
 	bestScore := math.Inf(-1)
 	for i := 0; i < coarse; i++ {
-		theta := float64(i) * RectangleFitCoarseStepDeg * math.Pi / 180
+		theta := float64(i) * opts.CoarseStepDeg * math.Pi / 180
 		scores[i] = rectangleCloseness(pts, c1, c2, theta)
 		bestScore = math.Max(bestScore, scores[i])
 	}
@@ -144,7 +172,7 @@ func FitRectangle(points []WorldPoint) RectangleFit {
 	var sx, sy, sw float64
 	for i, s := range scores {
 		if s >= threshold {
-			theta := float64(i) * RectangleFitCoarseStepDeg * math.Pi / 180
+			theta := float64(i) * opts.CoarseStepDeg * math.Pi / 180
 			sx += s * math.Cos(4*theta)
 			sy += s * math.Sin(4*theta)
 			sw += s
@@ -163,7 +191,7 @@ func FitRectangle(points []WorldPoint) RectangleFit {
 	// Refine over one coarse step either side at the fine step, the same way.
 	fineScore := bestScore
 	sx, sy = 0, 0
-	for d := -RectangleFitCoarseStepDeg; d <= RectangleFitCoarseStepDeg+1e-9; d += RectangleFitFineStepDeg {
+	for d := -opts.CoarseStepDeg; d <= opts.CoarseStepDeg+1e-9; d += opts.FineStepDeg {
 		theta := axis + d*math.Pi/180
 		s := rectangleCloseness(pts, c1, c2, theta)
 		if s > fineScore {
@@ -223,9 +251,9 @@ func FitRectangle(points []WorldPoint) RectangleFit {
 // random subset. A stride would alias the order the points arrive in (by
 // ring, or by face in a synthetic cloud) and could keep one face and drop
 // the other.
-func rectanglePoints(points []WorldPoint) [][2]float64 {
+func rectanglePoints(points []WorldPoint, maxPoints int) [][2]float64 {
 	n := len(points)
-	if n <= RectangleFitMaxPoints {
+	if n <= maxPoints {
 		out := make([][2]float64, n)
 		for i, p := range points {
 			out[i] = [2]float64{p.X, p.Y}
@@ -237,8 +265,8 @@ func rectanglePoints(points []WorldPoint) [][2]float64 {
 		idx[i] = i
 	}
 	rng := rand.New(rand.NewSource(int64(n)))
-	out := make([][2]float64, RectangleFitMaxPoints)
-	for i := 0; i < RectangleFitMaxPoints; i++ {
+	out := make([][2]float64, maxPoints)
+	for i := 0; i < maxPoints; i++ {
 		j := i + rng.Intn(n-i)
 		idx[i], idx[j] = idx[j], idx[i]
 		out[i] = [2]float64{points[idx[i]].X, points[idx[i]].Y}
