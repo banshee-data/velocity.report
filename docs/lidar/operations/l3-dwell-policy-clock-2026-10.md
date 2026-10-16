@@ -112,7 +112,11 @@ part of the capture (5.5 to 5.7 clusters a frame at 20 to 30 minutes, against CM
 ## Recommendations
 
 - **Run Stage B (l3bg0009) with the clock at 40 s**, not 20 s: on this capture it keeps every
-  moving track while clearing the long stationary ones.
+  moving track while clearing the long stationary ones. Since measured on the corpus's second
+  segment ([corpus](l3-candidates-corpus-dwell-2026-10.md)): on five-minute windows 20 s loses no
+  moving tracks either, and at 40 s absorbed objects are re-tracked 59% of the time against 38%
+  without the policy, so the no-excess result above is this placement's; Stage B runs both
+  clocks.
 - **Measure the drift tolerance next**: 1 m against a larger value, or drift measured from a
   running median of the position rather than the run's first estimate, on this placement and on
   kirk0's parked car.

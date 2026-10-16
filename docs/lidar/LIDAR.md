@@ -73,7 +73,8 @@ it suggests beats the retune. The [dwell policy](operations/l3-dwell-policy-arri
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
 tracks over a 39-minute capture, and with its [clock at 40 s](operations/l3-dwell-policy-clock-2026-10.md)
 keeps every moving track (its [drift rule](operations/l3-dwell-policy-drift-2026-10.md) barely matters
-there); on the labelled kirk captures it
+there; on the [corpus's two segments](operations/l3-candidates-corpus-dwell-2026-10.md) it
+keeps CMR's moving tracks at either clock); on the labelled kirk captures it
 [costs no moving road user](operations/l3-dwell-policy-labelled-cost-2026-10.md) and absorbs the
 parked car the reviewed pack counts. The [pose step](operations/l3-scene-change-pose-step-2026-10.md)
 shows the capture's late scene change is a knock to the sensor, then a second change and the
