@@ -7,6 +7,8 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const { loadSurveys } = require("../../_data/surveys.js");
+const { marks } = require("../../../../tools/s2-archive/map-marks.json");
+const markLimit = new Map(marks.map((m) => [m.id, m.speed_limit_mph]));
 
 // The build-time data file reads the published scene assets, so this test
 // holds the conventions it relies on against the real tree.
@@ -26,7 +28,13 @@ test("every published survey site resolves to a recording with a speed summary",
     assert.match(site.latest.summaryUrl, /part-000\/timeline\.json$/);
   }
   for (const site of surveys.sites) {
-    assert.equal(site.speedLimitMph, 25, `${site.id} limit`);
+    // The limit is set on the site's mark; a site with no mark keeps the
+    // San Francisco default.
+    assert.equal(
+      site.speedLimitMph,
+      markLimit.get(site.id) ?? 25,
+      `${site.id} limit`,
+    );
     if (site.id !== "soma1") {
       assert.match(
         site.capture.raw_path,

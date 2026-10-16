@@ -70,7 +70,7 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 20,
     "published_as": "haight-divisadero"
   },
   {
@@ -114,7 +114,7 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 0,
     "north_azimuth_deg": 11,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 20,
     "published_as": "pierce-haight"
   },
   {
@@ -156,7 +156,7 @@
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 1,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 20,
     "published_as": "fulton-divisadero"
   },
   {
@@ -606,7 +606,7 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 38,
     "north_azimuth_deg": 48,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 20,
     "published_as": "columbus-north-point"
   },
   {
@@ -753,7 +753,7 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 27,
     "north_azimuth_deg": 35,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 20,
     "published_as": "columbus-broadway"
   },
   {
@@ -877,7 +877,7 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 2,
     "north_azimuth_deg": 101,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 30,
     "published_as": "embarcadero-broadway"
   },
   {
@@ -977,7 +977,7 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 3,
     "north_azimuth_deg": 14,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 20,
     "published_as": "hyde-ofarrell"
   },
   {
@@ -1108,7 +1108,7 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 356,
     "north_azimuth_deg": 131,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 30,
     "published_as": "embarcadero-folsom"
   },
   {
@@ -1232,7 +1232,7 @@
     "pcap_split_build_version": "0.5.1-pre31",
     "grid_azimuth_deg": 308,
     "north_azimuth_deg": 353,
-    "speed_limit_mph": 25,
+    "speed_limit_mph": 30,
     "published_as": "embarcadero-bryant"
   },
   {

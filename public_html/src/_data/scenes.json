@@ -149,7 +149,7 @@
           "archive_site": "s02",
           "grid_azimuth_deg": 1,
           "north_azimuth_deg": 101,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 20,
           "capture": {
             "raw_path": "raw/lidar/20260901T1259_80858-0ac_haight-divisadero.pcapng"
           },
@@ -277,7 +277,7 @@
           "archive_site": "s03",
           "grid_azimuth_deg": 0,
           "north_azimuth_deg": 11,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 20,
           "capture": {
             "raw_path": "raw/lidar/20260901T1327_80858-0a4_pierce-haight.pcapng"
           },
@@ -405,7 +405,7 @@
           "archive_site": "s04",
           "grid_azimuth_deg": 1,
           "north_azimuth_deg": 101,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 20,
           "capture": {
             "raw_path": "raw/lidar/20260901T1359_80858-0b4_fulton-divisadero.pcapng"
           },
@@ -1429,7 +1429,7 @@
           "archive_site": "s12",
           "grid_azimuth_deg": 38,
           "north_azimuth_deg": 48,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 20,
           "capture": {
             "raw_path": "raw/lidar/20260902T1153_80858-0e4_columbus-north-point.pcapng"
           },
@@ -1685,7 +1685,7 @@
           "archive_site": "s14",
           "grid_azimuth_deg": 27,
           "north_azimuth_deg": 35,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 20,
           "capture": {
             "raw_path": "raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng"
           },
@@ -1941,7 +1941,7 @@
           "archive_site": "s16",
           "grid_azimuth_deg": 2,
           "north_azimuth_deg": 101,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 30,
           "capture": {
             "raw_path": "raw/lidar/20260902T1522_80858-05c_embarcadero-broadway.pcapng"
           },
@@ -2197,7 +2197,7 @@
           "archive_site": "s18",
           "grid_azimuth_deg": 3,
           "north_azimuth_deg": 14,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 20,
           "capture": {
             "raw_path": "raw/lidar/20260903T1105_80858-094_hyde-ofarrell.pcapng"
           },
@@ -2453,7 +2453,7 @@
           "archive_site": "s20",
           "grid_azimuth_deg": 356,
           "north_azimuth_deg": 131,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 30,
           "capture": {
             "raw_path": "raw/lidar/20260903T1317_80858-06c_embarcadero-folsom.pcapng"
           },
@@ -2709,7 +2709,7 @@
           "archive_site": "s22",
           "grid_azimuth_deg": 308,
           "north_azimuth_deg": 353,
-          "speed_limit_mph": 25,
+          "speed_limit_mph": 30,
           "capture": {
             "raw_path": "raw/lidar/20260903T1440_80858-074_embarcadero-bryant.pcapng"
           },
@@ -3222,7 +3222,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 20,
       "capture": {
         "raw_path": "raw/lidar/20260901T1259_80858-0ac_haight-divisadero.pcapng"
       },
@@ -3296,7 +3296,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 20,
       "capture": {
         "raw_path": "raw/lidar/20260901T1327_80858-0a4_pierce-haight.pcapng"
       },
@@ -3370,7 +3370,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 20,
       "capture": {
         "raw_path": "raw/lidar/20260901T1359_80858-0b4_fulton-divisadero.pcapng"
       },
@@ -3962,7 +3962,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Columbus at North Point), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 20,
       "capture": {
         "raw_path": "raw/lidar/20260902T1153_80858-0e4_columbus-north-point.pcapng"
       },
@@ -4110,7 +4110,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 20,
       "capture": {
         "raw_path": "raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng"
       },
@@ -4258,7 +4258,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 30,
       "capture": {
         "raw_path": "raw/lidar/20260902T1522_80858-05c_embarcadero-broadway.pcapng"
       },
@@ -4406,7 +4406,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Hyde at O'Farrell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 20,
       "capture": {
         "raw_path": "raw/lidar/20260903T1105_80858-094_hyde-ofarrell.pcapng"
       },
@@ -4554,7 +4554,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 30,
       "capture": {
         "raw_path": "raw/lidar/20260903T1317_80858-06c_embarcadero-folsom.pcapng"
       },
@@ -4702,7 +4702,7 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Bryant), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
-      "speed_limit_mph": 25,
+      "speed_limit_mph": 30,
       "capture": {
         "raw_path": "raw/lidar/20260903T1440_80858-074_embarcadero-bryant.pcapng"
       },
