@@ -74,6 +74,11 @@ type BoxModelConfig struct {
 	// remainder on the side away from the sensor: an end-on view of a car is
 	// not a 0.6 m box.
 	VehicleLengthFloor float64
+	// EndFacePrior seeds an unlabelled box seen as one short face across the
+	// line of sight (a strip no longer than a vehicle is wide) with its
+	// length along the line of sight: the front or back of a vehicle, which
+	// is what a roadside sensor sees of traffic coming at it or leaving.
+	EndFacePrior bool
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -305,7 +310,7 @@ func (e *BoxEstimator) seed(in BoxInput, pts [][2]float64, speed float64) {
 	e.seeded = true
 	e.bornNanos = in.Nanos
 	e.p = [2][2]float64{{boxSeedSigmaRad * boxSeedSigmaRad, 0}, {0, boxSeedRateSigma * boxSeedRateSigma}}
-	axis, _, ok := e.axisObservation(in.Cluster, pts)
+	axis, _, axisSpans, ok := e.axisWithSpans(in.Cluster, pts)
 	course, courseSigma, courseOK := e.courseObservation(in, speed)
 	courseOK = courseOK && courseSigma <= e.labelSigma()
 	switch {
@@ -317,11 +322,17 @@ func (e *BoxEstimator) seed(in BoxInput, pts [][2]float64, speed float64) {
 		e.labelled = true
 	case ok:
 		// The longer of the two spans is the length until a course says
-		// otherwise; the front is the velocity's, if it has one.
-		a, n := spansAlong(pts, axis)
+		// otherwise; the front is the velocity's, if it has one. Under the
+		// end-face prior, a short single face across the line of sight is
+		// taken for a vehicle's front or back, and the length along the
+		// line of sight.
+		a, n := axisSpans[0], axisSpans[1]
 		e.psi = axis
 		if n > a {
 			e.psi = axis + math.Pi/2
+		}
+		if e.cfg.EndFacePrior && endFaceView(math.Max(a, n), math.Min(a, n), e.psi, in, e.cfg) {
+			e.psi += math.Pi / 2
 		}
 		if speed > 0 && math.Cos(math.Atan2(in.VY, in.VX)-e.psi) < 0 {
 			e.psi += math.Pi
@@ -458,6 +469,25 @@ func (e *BoxEstimator) update(r, v float64) {
 		{(1 - k0) * p[0][0], (1 - k0) * p[0][1]},
 		{p[1][0] - k1*p[0][0], p[1][1] - k1*p[0][1]},
 	}
+}
+
+// End-face prior bounds: a face no longer than the widest vehicle and no
+// deeper than one face's returns, within 30° of square to the line of sight.
+const (
+	boxEndFaceMaxLongMetres  = 2.7
+	boxEndFaceMinLongMetres  = 1.2
+	boxEndFaceMaxShortMetres = 0.8
+	boxEndFaceMinAngleRad    = 60 * math.Pi / 180
+)
+
+// endFaceView reports whether a strip of the given spans, whose long side
+// runs along heading, looks like a vehicle's end face from the sensor.
+func endFaceView(long, short, heading float64, in BoxInput, cfg BoxModelConfig) bool {
+	if long < boxEndFaceMinLongMetres || long > boxEndFaceMaxLongMetres || short > boxEndFaceMaxShortMetres {
+		return false
+	}
+	los := math.Atan2(in.Y-cfg.SensorY, in.X-cfg.SensorX)
+	return math.Abs(foldHalf(heading-los)) >= boxEndFaceMinAngleRad
 }
 
 // boundSpeed is the speed the yaw-rate bound is allowed: the speed less

@@ -71,6 +71,7 @@ var PlannedKinds = map[string]string{
 	"scene_variants":    "one window replayed under each tuning config of a set, exported as web scenes",
 	"pi_timing":         "frame-time tails on the deployment target",
 	"chart":             "a chart rendered from step summaries",
+	"box_eval":          "lidar-box-eval: one replay scoring the drawn box, and box-model variants beside it, for containment and turning",
 }
 
 // KindClass says how a step kind is executed.

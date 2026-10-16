@@ -155,6 +155,7 @@ func boxVariants() []variant {
 		with("km-cheap64", "fit on 64 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 64, 2 }),
 		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
 		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
+		with("km-endface", "end-face prior for unlabelled strips", func(c *l5tracks.BoxModelConfig) { c.EndFacePrior = true }),
 		with("km-w5", "yaw floor 5°/s, unlabelled 45°/s, as the first build", func(c *l5tracks.BoxModelConfig) { c.MinYawRate = 5 * math.Pi / 180 }),
 	}
 }
@@ -205,16 +206,17 @@ type trackState struct {
 }
 
 type rowAgg struct {
-	rows, outsideAny, outside2pct int
-	overwide                      int
-	shareSum                      float64
-	maxOut                        []float64
-	pairs, kinematic, rest, jump  int
-	restPairs                     int
-	sideslip                      []float64
-	efficiency, axisErr           []float64
-	slip                          []float64
-	movingRows                    int
+	rows, outsideAny, outside2pct  int
+	overwide                       int
+	shareSum                       float64
+	maxOut                         []float64
+	pairs, kinematic, rest, jump   int
+	visKinematic, visRest, visJump int
+	restPairs                      int
+	sideslip                       []float64
+	efficiency, axisErr            []float64
+	slip                           []float64
+	movingRows                     int
 }
 
 type scorer struct {
@@ -442,6 +444,19 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 			if math.Abs(d) > evalJumpRad {
 				agg.jump++
 			}
+			// The drawn rectangle's own turn: a quarter turn that swaps the
+			// extents draws the same rectangle, and a square has no axis
+			// beyond a quarter turn.
+			v := visibleTurn(st.last, b)
+			if v/dt > evalCurvature*speed+evalYawSlackRad {
+				agg.visKinematic++
+			}
+			if speed < evalRestSpeed && v > evalRestTurnRad {
+				agg.visRest++
+			}
+			if v > evalJumpRad {
+				agg.visJump++
+			}
 			// The box centre's motion that the track's does not explain.
 			agg.slip = append(agg.slip, math.Hypot((b.x-st.last.x)-(float64(t.X)-st.lastX), (b.y-st.last.y)-(float64(t.Y)-st.lastY)))
 			st.sumAbs += math.Abs(d)
@@ -513,6 +528,9 @@ type Measure struct {
 	RestPairs          int     `json:"rest_pairs"`
 	RestTurnShare      float64 `json:"rest_turn_share"`
 	JumpShare          float64 `json:"jump_share"`
+	VisKinematicShare  float64 `json:"visible_kinematic_violation_share"`
+	VisRestTurnShare   float64 `json:"visible_rest_turn_share"`
+	VisJumpShare       float64 `json:"visible_jump_share"`
 	SideslipRows       int     `json:"sideslip_rows"`
 	SideslipP50        float64 `json:"sideslip_p50_deg"`
 	SideslipP90        float64 `json:"sideslip_p90_deg"`
@@ -557,6 +575,7 @@ func (s *scorer) summary() Summary {
 			"kinematic_violation_share": "share of consecutive frame pairs whose drawn-box turn rate (modulo 180°) exceeds 0.25/m × speed + 10°/s",
 			"rest_turn_share":           "share of pairs below 0.5 m/s whose drawn box turned by more than 1°",
 			"jump_share":                "share of pairs whose drawn box turned by more than 30° in one frame",
+			"visible_*":                 "the same three shares for the drawn rectangle's own turn: its long side's direction modulo 180°, or modulo 90° when either box is within 10 % of square, so a quarter turn that swaps the extents, which draws the same rectangle, is no turn",
 			"sideslip":                  "angle between the drawn box's axis and the direction of travel, modulo 180°, rows at 3 m/s or more",
 			"wiggle_deg_per_10m":        "per track, (Σ|Δψ| − |ΣΔψ|) per 10 m travelled: turning back and forth not explained by the net turn; tracks over 10 m",
 			"length_cv":                 "per track, coefficient of variation of the drawn length",
@@ -593,6 +612,9 @@ func (s *scorer) summary() Summary {
 				m.RestPairs += a.restPairs
 				m.RestTurnShare += float64(a.rest)
 				m.JumpShare += float64(a.jump)
+				m.VisKinematicShare += float64(a.visKinematic)
+				m.VisRestTurnShare += float64(a.visRest)
+				m.VisJumpShare += float64(a.visJump)
 				side = append(side, a.sideslip...)
 				eff = append(eff, a.efficiency...)
 				axisErr = append(axisErr, a.axisErr...)
@@ -622,9 +644,12 @@ func (s *scorer) summary() Summary {
 			if m.Pairs > 0 {
 				m.KinematicShare /= float64(m.Pairs)
 				m.JumpShare /= float64(m.Pairs)
+				m.VisKinematicShare /= float64(m.Pairs)
+				m.VisJumpShare /= float64(m.Pairs)
 			}
 			if m.RestPairs > 0 {
 				m.RestTurnShare /= float64(m.RestPairs)
+				m.VisRestTurnShare /= float64(m.RestPairs)
 			}
 			m.MaxOutP50, m.MaxOutP90, m.MaxOutP99 = quantile(maxOut, .5), quantile(maxOut, .9), quantile(maxOut, .99)
 			m.SideslipRows = len(side)
@@ -801,4 +826,21 @@ func refAxis(ref areaRef) string {
 		return ""
 	}
 	return f3(ref.axis * 180 / math.Pi)
+}
+
+// visibleTurn is the drawn rectangle's turn between two frames, in radians:
+// its long side's direction modulo a half turn, or modulo a quarter turn
+// when either box is nearly square.
+func visibleTurn(a, b box) float64 {
+	square := func(x box) bool { return math.Abs(x.length-x.width) < 0.1*math.Max(x.length, x.width) }
+	if square(a) || square(b) {
+		return math.Abs(0.25 * math.Atan2(math.Sin(4*(b.psi-a.psi)), math.Cos(4*(b.psi-a.psi))))
+	}
+	long := func(x box) float64 {
+		if x.width > x.length {
+			return x.psi + math.Pi/2
+		}
+		return x.psi
+	}
+	return math.Abs(foldHalf(long(b) - long(a)))
 }
