@@ -34,6 +34,7 @@ flowchart TB
     l3bg0015["<b>l3bg0015</b><br/>The dwell policy with a 40 s and a 60 s…<br/>answered · 1h20m machine + 4h person (took 1h3m)<br/>manual: implement, write"]:::answered
     l3bg0016["<b>l3bg0016</b><br/>CMR and the dwell policy on the corpus's…<br/>approved · 4h24m machine + 1h person<br/>manual: write<br/>needs tooling: corpus_screen"]:::approved
     l3bg0017["<b>l3bg0017</b><br/>The dwell policy's drift rule at 40 s…<br/>approved · 1h10m machine + 3h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::approved
+    l3bg0018["<b>l3bg0018</b><br/>CMR with the cell tercile and the support…<br/>approved · 16m machine + 1h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::approved
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
@@ -70,6 +71,7 @@ flowchart TB
   l3bg0008 --> l3bg0016
   l3bg0015 --> l3bg0016
   l3bg0015 --> l3bg0017
+  l3bg0010 --> l3bg0018
   geom0003 --> l4clus0001
   geom0003 --> l4clus0002
   l3bg0005 --> l4clus0002
@@ -83,6 +85,7 @@ flowchart TB
 - [l3bg0012](l3bg/l3bg0012.md) The L3 candidates on the corpus, label-free, with the dwell policy: ready, but a step needs tooling; 3h27m machine + 3h person; after l3bg0006, l3bg0008; asks [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations), [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
 - [l3bg0016](l3bg/l3bg0016.md) CMR and the dwell policy on the corpus's second segment, label-free: ready, but a step needs tooling; 4h24m machine + 1h person; after l3bg0006, l3bg0008, l3bg0015; asks [l3-region-override-attribution-kirk-2026-10 #7-what-this-does-not-establish](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#7-what-this-does-not-establish), [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations).
 - [l3bg0017](l3bg/l3bg0017.md) The dwell policy's drift rule at 40 s, over the Lombard–Laguna placement: ready, but a step needs tooling; 1h10m machine + 3h person; after l3bg0015; asks [l3-dwell-policy-clock-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-clock-2026-10.md#recommendations).
+- [l3bg0018](l3bg/l3bg0018.md) CMR with the cell tercile and the support filter, on kirk: ready, but a step needs tooling; 16m machine + 1h person; after l3bg0010; asks [l3-region-levers-kirk-2026-10 #recommendations](../../docs/lidar/operations/l3-region-levers-kirk-2026-10.md#recommendations).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
@@ -109,5 +112,5 @@ flowchart TB
 
 ## Totals
 
-- 7 open experiments: 10h43m machine + 46h15m person estimated.
+- 8 open experiments: 10h59m machine + 47h15m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
