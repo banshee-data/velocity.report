@@ -233,15 +233,82 @@ func TestFateNotMeasuredReasons(t *testing.T) {
 			t.Errorf("not measured %s = %d, want %d (all %v)", reason, got[reason], n, got)
 		}
 	}
-	// Sample 7's return 1 was in sample 8's frame, which is gone: with no
-	// neighbour holding it, it is now proven absent.
-	wantFates(t, "sample 7", instantAt(t, r, 7).Fates, map[string]int{FateClustered: 2, FateL3Background: 1, FateUnresolved: 1})
+	// Sample 7's return 1 was in sample 8's frame, which is gone: sample 7's
+	// frame is now the last, with no successor to search, so the return
+	// cannot be proven absent.
+	wantFates(t, "sample 7", instantAt(t, r, 7).Fates, map[string]int{FateClustered: 2, FateUnresolved: 2})
+	if n := r.Join.UnresolvedBy[UnresolvedNoNeighbour]; n != 1 || r.Join.ProvenAbsent != 1 {
+		t.Errorf("join = %+v, want sample 7's return 1 unresolved for want of a successor", r.Join)
+	}
 	// Sample 1's frame lost a packet, so its absent return may be in it.
 	if c := r.Evidence.MeasuredCompleteness; c["partial"] != 1 || c["complete"] != 3 {
 		t.Errorf("measured completeness = %v", c)
 	}
 	if !slices.ContainsFunc(r.Caveats, func(s string) bool { return strings.HasPrefix(s, "1 measured frames are not known to be complete") }) {
 		t.Errorf("no caveat for the partial frame: %q", r.Caveats)
+	}
+}
+
+// Sample 1's return 3 is in no frame's domain. It is proven absent only when
+// both neighbouring frames were searched; a missing neighbour, a neighbour
+// without returns, or a gap between them leaves it unresolved under a cause
+// the report names. A suppressed neighbour still carries L3's foreground, so
+// it can be searched.
+func TestFateProvenAbsentNeedsBothNeighbours(t *testing.T) {
+	f := fateFixture(t)
+	frameOf := func(sample int, edit func(*evalfixture.FateFrame)) func(*evalfixture.FateScenario) {
+		return func(s *evalfixture.FateScenario) {
+			for k := range s.Frames {
+				if s.Frames[k].Sample == sample {
+					edit(&s.Frames[k])
+				}
+			}
+		}
+	}
+	keep := func(want func(sample int) bool) func(*evalfixture.FateScenario) {
+		return func(s *evalfixture.FateScenario) {
+			s.Frames = slices.DeleteFunc(s.Frames, func(fr evalfixture.FateFrame) bool { return !want(fr.Sample) })
+		}
+	}
+	for _, tc := range []struct {
+		name  string
+		edit  func(*evalfixture.FateScenario)
+		cause string // "" when the return is proven absent
+	}{
+		{"both neighbours searched", func(*evalfixture.FateScenario) {}, ""},
+		{"first frame", keep(func(i int) bool { return i != 0 }), UnresolvedNoNeighbour},
+		{"last frame", keep(func(i int) bool { return i <= 1 }), UnresolvedNoNeighbour},
+		{"failed predecessor", frameOf(0, func(fr *evalfixture.FateFrame) { fr.Disposition = l4bobserve.DispositionFailed }),
+			UnresolvedNeighbourNoPoints},
+		{"failed successor", frameOf(2, func(fr *evalfixture.FateFrame) { fr.Disposition = l4bobserve.DispositionFailed }),
+			UnresolvedNeighbourNoPoints},
+		{"gap before the frame", frameOf(1, func(fr *evalfixture.FateFrame) { fr.GapBefore = true }), UnresolvedGapBesideFrame},
+		{"gap after the frame", frameOf(2, func(fr *evalfixture.FateFrame) { fr.GapBefore = true }), UnresolvedGapBesideFrame},
+		{"suppressed successor with returns",
+			frameOf(2, func(fr *evalfixture.FateFrame) { fr.Disposition = l4bobserve.DispositionSuppressed }), ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := measureFate(t, writeVariant(t, f, tc.edit))
+			s1 := instantAt(t, r, 1)
+			caveat := slices.ContainsFunc(r.Caveats, func(s string) bool { return strings.Contains(s, "neighbouring frame could not be read") })
+			if tc.cause == "" {
+				wantFates(t, "sample 1", s1.Fates, map[string]int{FateClustered: 3, FateL3Background: 1})
+				if r.Join.ProvenAbsent != 1 || caveat {
+					t.Errorf("join = %+v, caveats %q", r.Join, r.Caveats)
+				}
+				return
+			}
+			wantFates(t, "sample 1", s1.Fates, map[string]int{FateClustered: 3, FateUnresolved: 1})
+			if r.Join.ProvenAbsent != 0 || r.Join.UnresolvedBy[tc.cause] != 1 {
+				t.Errorf("join = %+v, want no return proven absent and one unresolved by %s", r.Join, tc.cause)
+			}
+			if !caveat || !slices.ContainsFunc(r.Caveats, func(s string) bool { return strings.Contains(s, tc.cause+" 1") }) {
+				t.Errorf("no caveat naming %s: %q", tc.cause, r.Caveats)
+			}
+			if md := RenderFateMarkdown(*r); !strings.Contains(md, tc.cause+" 1") {
+				t.Errorf("Markdown does not name %s:\n%s", tc.cause, md)
+			}
+		})
 	}
 }
 

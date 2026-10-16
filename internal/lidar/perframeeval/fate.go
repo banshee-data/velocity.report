@@ -51,7 +51,9 @@ import (
 //
 //   - matched: found in the frame's domain, with the fate the record gives it;
 //   - proven absent: its identity resolved, but in neither the aligned
-//     frame's domain nor its neighbours'. The domain is complete foreground,
+//     frame's domain nor either neighbouring frame's, and both neighbours
+//     were read: each exists, carries its domain, and no gap record lies
+//     between it and the aligned frame. The domain is complete foreground,
 //     so the replay's L3 called the return background: l3_background. In a
 //     frame that lost packets the return may instead never have reached L3;
 //     the report counts measured frames by completeness and says so when any
@@ -61,7 +63,13 @@ import (
 //     not attributed;
 //   - unresolved: its packet is not in the capture, or its sequence is
 //     carried by more than one packet, or two domain returns share its
-//     identity. None of these is expected; each is counted by cause.
+//     identity; or it is absent from the aligned frame and from every
+//     neighbour that could be read, but a neighbour could not be: the
+//     aligned frame is the container's first or last, a neighbour carries
+//     no returns (a failed frame, or one suppressed before L3), or a gap
+//     record lies between them. Such a return may be in the rotation that
+//     could not be read, so it is not counted as L3's. Each cause is
+//     counted; when both neighbours fail, the predecessor's cause is.
 //
 // The match rate is matched plus proven absent over the measured returns.
 //
@@ -132,12 +140,21 @@ const (
 	NotMeasuredFailed           = "failed"
 )
 
-// Causes of an unresolved return.
+// Causes of an unresolved return. The first three are failures of the join;
+// the last three say why a return absent from its frame could not be proven
+// absent, because a neighbouring frame could not be read.
 const (
 	UnresolvedNotInCapture      = "packet_not_in_capture"
 	UnresolvedAmbiguousSequence = "sequence_shared_by_packets"
 	UnresolvedAmbiguousDomain   = "identity_repeated_in_domain"
+	UnresolvedNoNeighbour       = "no_neighbouring_frame"
+	UnresolvedNeighbourNoPoints = "neighbouring_frame_without_returns"
+	UnresolvedGapBesideFrame    = "gap_beside_frame"
 )
+
+// neighbourCauses are the unresolved causes that a neighbour could not be
+// read, in the order the caveat names them.
+var neighbourCauses = []string{UnresolvedNoNeighbour, UnresolvedNeighbourNoPoints, UnresolvedGapBesideFrame}
 
 type fate uint8
 
@@ -643,8 +660,25 @@ func (f *fateFrame) index() error {
 	return nil
 }
 
-// has reports whether a frame's domain holds the identity. A nil frame
-// holds nothing.
+// unreadable says why a neighbouring frame cannot show where a return absent
+// from the aligned frame went, or "" when it can. gap reports a gap record
+// between the neighbour and the aligned frame: the rotation beside the
+// aligned frame is then lost, and the neighbour is not it.
+func unreadable(n *fateFrame, gap bool) string {
+	switch {
+	case n == nil:
+		return UnresolvedNoNeighbour
+	case gap:
+		return UnresolvedGapBesideFrame
+	case n.rec.Payload&l4bobserve.PayloadPoints == 0:
+		return UnresolvedNeighbourNoPoints
+	}
+	return ""
+}
+
+// has reports whether a frame's domain holds the identity. A nil frame, or
+// one without points, holds nothing; unreadable says whether that absence
+// proves anything.
 func (f *fateFrame) has(id uint64) (bool, error) {
 	if f == nil {
 		return false, nil
@@ -824,6 +858,12 @@ func (m *fateMeasurer) measure(g fateGroup, prev, cur, next *fateFrame) error {
 	if err != nil {
 		return err
 	}
+	// A return in neither neighbour is proven absent only if both could be
+	// read; otherwise it is unresolved, under the first neighbour's cause.
+	unchecked := unreadable(prev, cur.gapBefore)
+	if unchecked == "" {
+		unchecked = unreadable(next, next != nil && next.gapBefore)
+	}
 	ev, join := &m.report.Evidence, &m.report.Join
 	ev.MeasuredSamples++
 	ev.MeasuredCompleteness[rec.Completeness.State.String()]++
@@ -878,10 +918,14 @@ func (m *fateMeasurer) measure(g fateGroup, prev, cur, next *fateFrame) error {
 				if err != nil {
 					return err
 				}
-				if inPrev || inNext {
+				switch {
+				case inPrev || inNext:
 					tally[fateOtherFrame]++
 					join.OtherFrame++
-				} else {
+				case unchecked != "":
+					tally[fateUnresolved]++
+					join.UnresolvedBy[unchecked]++
+				default:
 					tally[fateL3Background]++
 					join.ProvenAbsent++
 				}
@@ -1064,6 +1108,18 @@ func fateCaveats(r *FateReport) []string {
 	if j.MatchRate < 1 && j.MaskReturns > 0 {
 		c = append(c, fmt.Sprintf("Match rate %.4f: %d returns were found in a neighbouring frame and %d could not be resolved (%s).",
 			j.MatchRate, j.OtherFrame, j.Unresolved, describeCounts(j.UnresolvedBy)))
+	}
+	unchecked, parts := 0, []string(nil)
+	for _, cause := range neighbourCauses {
+		if n := j.UnresolvedBy[cause]; n > 0 {
+			unchecked += n
+			parts = append(parts, fmt.Sprintf("%s %d", cause, n))
+		}
+	}
+	if unchecked > 0 {
+		c = append(c, fmt.Sprintf("%d returns absent from their frame are unresolved, not l3_background, because a neighbouring "+
+			"frame could not be read (%s): the container's first or last frame has one neighbour, a frame without returns "+
+			"cannot be searched, and a gap may hold the rotation the replay put the return in.", unchecked, strings.Join(parts, ", ")))
 	}
 	if j.Matched > 0 && j.CoordinatesAgree < j.Matched {
 		c = append(c, fmt.Sprintf("Only %d of %d matched returns have the pack's float32 coordinates: the replay placed some returns "+
