@@ -56,6 +56,10 @@ the capture ID or the human site label.
 The site slug is lowercase ASCII and hyphen-separated. It is a readable label,
 not an authoritative location identifier.
 
+The rule is implemented once, in `capture-names.mjs`, and used both by
+`stage-huggingface-dataset.mjs` and by the public site, whose survey pages link
+each capture's raw file by the name this rule gives it.
+
 ## Manifest
 
 One entry represents one capture and joins all known artifacts for it. The

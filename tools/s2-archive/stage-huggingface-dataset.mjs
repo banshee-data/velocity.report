@@ -11,13 +11,17 @@ import {
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-import { s2 } from "s2js";
+import {
+  TIMEZONE,
+  captureStem,
+  siteCells,
+  tokenDisplay,
+} from "./capture-names.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DEFAULT_INDEX = path.join(HERE, "site-index.json");
 const DEFAULT_SOURCE = "/Volumes/lidar/lidar/pcaps/s2/static-huggingface";
 const DEFAULT_README = path.join(HERE, "huggingface-dataset-README.md");
-const TIMEZONE = "America/Los_Angeles";
 
 function parseArgs(args) {
   const options = {
@@ -48,35 +52,11 @@ function parseArgs(args) {
   return options;
 }
 
-function tokenDisplay(token) {
-  return `${token.slice(0, 5)}-${token.slice(5)}`;
-}
-
-function timestampParts(timestamp) {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat("en-CA", {
-      timeZone: TIMEZONE,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hourCycle: "h23",
-    })
-      .formatToParts(new Date(timestamp))
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]),
-  );
-  return `${parts.year}${parts.month}${parts.day}T${parts.hour}${parts.minute}`;
-}
-
 function itemFor(site, source, output) {
-  const leaf = s2.cellid.fromLatLng(s2.LatLng.fromDegrees(site.lat, site.lon));
-  const l13 = s2.cellid.toToken(s2.cellid.parent(leaf, 13));
-  const l10 = s2.cellid.toToken(s2.cellid.parent(leaf, 10));
+  const { l10, l13 } = siteCells(site);
   const display = tokenDisplay(l13);
-  const timestamp = timestampParts(site.start);
-  const stem = `${timestamp}_${display}_${site.id}`;
+  // The site's pages link to this name, so it comes from the one shared rule.
+  const stem = captureStem(site);
   const legacyStem = `${site.day.replaceAll("-", "")}_${site.id}`;
   return {
     site,

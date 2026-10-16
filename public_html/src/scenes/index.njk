@@ -150,7 +150,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
 
       <ul class="sv-sitelist" data-view="list">
         {% for site in surveys.sites %}
-          {% set v = site | surveyView(collections.surveyLimits[site.id]) %}
+          {% set v = site | surveyView(site.speedLimitMph) %}
           {% set r = v.latest %}
           <li class="sv-siterow{% if not site.published %} sv-siterow--unpublished{% endif %}" id="site-{{ site.id }}" data-site-row
               data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
@@ -200,7 +200,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
           </thead>
           <tbody data-site-tbody>
             {% for site in surveys.sites %}
-              {% set v = site | surveyView(collections.surveyLimits[site.id]) %}
+              {% set v = site | surveyView(site.speedLimitMph) %}
               {% set r = v.latest %}
               <tr data-site-row data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
                   data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
