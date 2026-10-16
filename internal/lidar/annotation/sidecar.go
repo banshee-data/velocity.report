@@ -10,8 +10,6 @@ import (
 // SidecarSchemaVersion is the annotation record layout version.
 const SidecarSchemaVersion = 1
 
-const sidecarFile = "annotations.json"
-
 // ReviewStatus separates what a person has confirmed from what an algorithm
 // suggested. The distinction is load-bearing: a proposal that can quietly
 // become a reviewed label through a save-and-reload cycle would let the

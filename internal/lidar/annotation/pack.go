@@ -29,7 +29,13 @@ import (
 
 // PackSchemaVersion is the pack layout version. A pack whose points, ordering,
 // or encoding change is a new pack, not a revision of this one.
-const PackSchemaVersion = 1
+//
+// Version 2 carries the returns: a packet table and, for every point, the
+// return it was decoded from, which is what a label set cites. Version 1
+// packs, which had no returns, were migrated to label sets and are no longer
+// read; the git tag annotation-v1-reader keeps the last build that reads
+// them.
+const PackSchemaVersion = 2
 
 // MaxPointsPerSample bounds a single frame's point count on read, so a
 // corrupt or hostile manifest cannot ask for an unbounded allocation. A Hesai
@@ -44,7 +50,30 @@ const (
 	// Optional: the settled background in force over the excerpt.
 	backgroundsFile      = "backgrounds.json"
 	backgroundPointsFile = "background.bin"
+	// Version 2: the packet table and each point's return within it.
+	packetsFile = "packets.bin"
+	returnsFile = "returns.bin"
 )
+
+// ReturnLayout is how one sensor packet divides into returns. A return number
+// within a pack is packet_index × Blocks × Channels + block × Channels +
+// (channel − 1): block counted from 0, channel from 1, as the parser numbers
+// them, and packet_index a position in the pack's packet table.
+type ReturnLayout struct {
+	Model    string `json:"model"`
+	Blocks   int    `json:"blocks"`
+	Channels int    `json:"channels"`
+}
+
+// PerPacket is the number of returns one packet can carry.
+func (l ReturnLayout) PerPacket() uint64 { return uint64(l.Blocks) * uint64(l.Channels) }
+
+func (l ReturnLayout) validate() error {
+	if l.Model == "" || l.Blocks < 1 || l.Channels < 1 || l.Blocks > 1<<10 || l.Channels > 1<<10 {
+		return fmt.Errorf("invalid return layout %+v", l)
+	}
+	return nil
+}
 
 // CaptureCoverage records what the source recording could see, so a limitation
 // survives every export. A mask over a foreground-only recording is a mask
@@ -121,6 +150,7 @@ type Completeness struct {
 // Manifest is the pack's identity and contract.
 type Manifest struct {
 	SchemaVersion int    `json:"schema_version"`
+	MinReader     int    `json:"min_reader,omitempty"`
 	DatasetID     string `json:"dataset_id"`
 	CreatedNs     int64  `json:"created_ns"`
 
@@ -152,7 +182,19 @@ type Manifest struct {
 	BackgroundPointsSHA256 string `json:"background_points_sha256,omitempty"`
 
 	Completeness Completeness `json:"completeness"`
+
+	// Version 2 only. The packet table holds every packet that contributed a
+	// return to a sample's frame, keyed by the first 64 bits of SHA-256 over
+	// its UDP payload; returns.bin holds one return number per point.
+	ReturnLayout  *ReturnLayout `json:"return_layout,omitempty"`
+	PacketKeyKind string        `json:"packet_key,omitempty"`
+	PacketCount   int           `json:"packet_count,omitempty"`
+	PacketsSHA256 string        `json:"packets_sha256,omitempty"`
+	ReturnsSHA256 string        `json:"returns_sha256,omitempty"`
 }
+
+// PacketKeyKind is the only packet key derivation version 2 packs use.
+const PacketKeyKind = "sha256-64:udp-payload"
 
 // Background is one settled-background snapshot carried with a pack.
 //
@@ -210,9 +252,16 @@ type Sample struct {
 	// HasIntensity records whether this sample's intensity bytes were
 	// measured. The block is fixed-size and zero-fills an absent column, so
 	// a zero byte cannot say which it is; only this flag can. Nil means the
-	// pack predates per-sample presence and only the manifest's pack-wide
-	// flag is known. Read it through Pack.SampleHasIntensity.
+	// sample was cut before per-sample presence was recorded, as the samples
+	// of migrated packs were (the pack digest covers them, so they keep it),
+	// and only the manifest's pack-wide flag is known. Read it through
+	// Pack.SampleHasIntensity.
 	HasIntensity *bool `json:"has_intensity,omitempty"`
+	// ReturnStart and ReturnEnd bound, in version 2, every return of the frame
+	// the sample came from, foreground or not: [start, end) in the pack's
+	// return numbering. A window of a label set is that range.
+	ReturnStart uint64 `json:"return_start,omitempty"`
+	ReturnEnd   uint64 `json:"return_end,omitempty"`
 }
 
 // SamplesRecordIntensityPresence reports whether every sample states its own
@@ -272,6 +321,10 @@ type Pack struct {
 
 	raw           []byte // points.bin contents, verified against the manifest digest
 	rawBackground []byte // background.bin contents, likewise, when present
+
+	// Version 2 only: the packet table and returns.bin contents.
+	Packets    []uint64
+	rawReturns []byte
 }
 
 // sha256Hex is the digest form used throughout: "sha256:" plus lower hex, so a
@@ -358,18 +411,33 @@ func decodePoints(b []byte, n int) (Points, error) {
 	return p, nil
 }
 
-// WritePack writes a pack directory atomically: content is staged beside the
-// destination and moved into place, so an interrupted export cannot leave a
-// half-written domain that annotations would then cite.
-func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte) error {
-	return WritePackWithBackground(dir, m, samples, blocks, nil, nil)
+// PackReturns is what a version 2 pack adds to the points: the packet table
+// and, for each sample, the return each point was decoded from, in point
+// order. Returns within a sample are strictly increasing, because a frame's
+// points keep the order the parser emitted them in, and they lie within the
+// sample's [ReturnStart, ReturnEnd).
+type PackReturns struct {
+	Layout  ReturnLayout
+	Packets []uint64
+	Returns [][]uint64
+}
+
+// WritePack writes a version 2 pack directory atomically: content is staged
+// beside the destination and moved into place, so an interrupted export
+// cannot leave a half-written domain that annotations would then cite.
+//
+// Every point needs its return, and every sample its ReturnStart and
+// ReturnEnd: a pack whose points cannot be cited by a label set is not
+// written.
+func WritePack(dir string, m Manifest, samples []Sample, blocks [][]byte, returns PackReturns) error {
+	return WritePackWithBackground(dir, m, samples, blocks, returns, nil, nil)
 }
 
 // WritePackWithBackground is WritePack plus the settled-background snapshots
 // in force over the excerpt. With none it writes exactly what WritePack
-// always has: no extra files, and no extra manifest keys.
+// does: no extra files, and no extra manifest keys.
 func WritePackWithBackground(
-	dir string, m Manifest, samples []Sample, blocks [][]byte,
+	dir string, m Manifest, samples []Sample, blocks [][]byte, returns PackReturns,
 	backgrounds []Background, backgroundBlocks [][]byte,
 ) error {
 	if len(backgrounds) != len(backgroundBlocks) {
@@ -400,6 +468,12 @@ func WritePackWithBackground(
 		return fmt.Errorf("marshal samples: %w", err)
 	}
 
+	packetBytes, returnBytes, err := encodeReturns(samples, returns)
+	if err != nil {
+		return err
+	}
+	layout := returns.Layout
+
 	m.SchemaVersion = PackSchemaVersion
 	m.SampleCount = len(samples)
 	m.PointCount = 0
@@ -408,14 +482,20 @@ func WritePackWithBackground(
 	}
 	m.PointsSHA256 = sha256Hex(points)
 	m.SamplesSHA256 = sha256Hex(samplesJSON)
-	m.PackDigest = sha256Hex([]byte(m.PointsSHA256 + "\n" + m.SamplesSHA256))
-	if m.DatasetID == "" {
-		m.DatasetID = "ds_" + m.PackDigest[7:23]
-	}
-
+	m.ReturnLayout = &layout
+	m.PacketKeyKind = PacketKeyKind
+	m.PacketCount = len(returns.Packets)
+	m.PacketsSHA256 = sha256Hex(packetBytes)
+	m.ReturnsSHA256 = sha256Hex(returnBytes)
 	files := map[string][]byte{
 		pointsFile:  points,
 		samplesFile: append(samplesJSON, '\n'),
+		packetsFile: packetBytes,
+		returnsFile: returnBytes,
+	}
+	m.PackDigest = packDigest(m)
+	if m.DatasetID == "" {
+		m.DatasetID = "ds_" + m.PackDigest[7:23]
 	}
 	if len(backgrounds) > 0 {
 		var backgroundPoints []byte
@@ -462,6 +542,62 @@ func WritePackWithBackground(
 	return os.Rename(staging, dir)
 }
 
+// packDigest binds the digests a label set's view of the pack depends on:
+// the points, the samples, and the returns a label set cites them through.
+func packDigest(m Manifest) string {
+	return sha256Hex([]byte(m.PointsSHA256 + "\n" + m.SamplesSHA256 + "\n" + m.PacketsSHA256 + "\n" + m.ReturnsSHA256))
+}
+
+// encodeReturns lays out packets.bin and returns.bin and checks the returns
+// against the samples: one per point, strictly increasing within a sample, and
+// inside the sample's frame range, which lies inside the packet table.
+func encodeReturns(samples []Sample, r PackReturns) ([]byte, []byte, error) {
+	if err := r.Layout.validate(); err != nil {
+		return nil, nil, err
+	}
+	if len(r.Returns) != len(samples) {
+		return nil, nil, fmt.Errorf("%d samples but returns for %d", len(samples), len(r.Returns))
+	}
+	seen := make(map[uint64]bool, len(r.Packets))
+	packetBytes := make([]byte, 8*len(r.Packets))
+	for i, k := range r.Packets {
+		if seen[k] {
+			return nil, nil, fmt.Errorf("packet table lists key %016x twice", k)
+		}
+		seen[k] = true
+		binary.LittleEndian.PutUint64(packetBytes[8*i:], k)
+	}
+	limit := uint64(len(r.Packets)) * r.Layout.PerPacket()
+	var returnBytes []byte
+	for i, s := range samples {
+		if err := checkSampleReturns(i, s, r.Returns[i], limit); err != nil {
+			return nil, nil, err
+		}
+		for _, v := range r.Returns[i] {
+			returnBytes = binary.LittleEndian.AppendUint64(returnBytes, v)
+		}
+	}
+	return packetBytes, returnBytes, nil
+}
+
+func checkSampleReturns(i int, s Sample, returns []uint64, limit uint64) error {
+	if len(returns) != s.PointCount {
+		return fmt.Errorf("sample %d has %d points but %d returns", i, s.PointCount, len(returns))
+	}
+	if s.ReturnStart >= s.ReturnEnd || s.ReturnEnd > limit {
+		return fmt.Errorf("sample %d frame range [%d,%d) is empty or outside the %d returns the packet table numbers", i, s.ReturnStart, s.ReturnEnd, limit)
+	}
+	for j, v := range returns {
+		if v < s.ReturnStart || v >= s.ReturnEnd {
+			return fmt.Errorf("sample %d point %d is return %d, outside its frame [%d,%d)", i, j, v, s.ReturnStart, s.ReturnEnd)
+		}
+		if j > 0 && v <= returns[j-1] {
+			return fmt.Errorf("sample %d point %d: returns must increase with point order, %d follows %d", i, j, v, returns[j-1])
+		}
+	}
+	return nil
+}
+
 // OpenPack reads and verifies a pack. It fails closed: a digest that does not
 // match its content means annotations written against this pack can no longer
 // be trusted to reference the same points, and guessing is worse than
@@ -476,7 +612,12 @@ func OpenPack(dir string) (*Pack, error) {
 		return nil, fmt.Errorf("parse manifest: %w", err)
 	}
 	if m.SchemaVersion != PackSchemaVersion {
-		return nil, fmt.Errorf("pack schema version %d, this build reads %d", m.SchemaVersion, PackSchemaVersion)
+		return nil, fmt.Errorf("pack schema version %d, this build reads %d only: version 1 packs were migrated to label sets "+
+			"(docs/lidar/operations/annotation-label-set-migration.md); build the git tag annotation-v1-reader to read one",
+			m.SchemaVersion, PackSchemaVersion)
+	}
+	if err := CheckReader("pack manifest", m.MinReader); err != nil {
+		return nil, err
 	}
 
 	samplesBytes, err := os.ReadFile(filepath.Join(dir, samplesFile))
@@ -500,7 +641,7 @@ func OpenPack(dir string) (*Pack, error) {
 	if got := sha256Hex(raw); got != m.PointsSHA256 {
 		return nil, fmt.Errorf("points digest mismatch: file is %s, manifest says %s", got, m.PointsSHA256)
 	}
-	if got := sha256Hex([]byte(m.PointsSHA256 + "\n" + m.SamplesSHA256)); got != m.PackDigest {
+	if got := packDigest(m); got != m.PackDigest {
 		return nil, fmt.Errorf("pack digest mismatch: computed %s, manifest says %s", got, m.PackDigest)
 	}
 
@@ -526,12 +667,90 @@ func OpenPack(dir string) (*Pack, error) {
 	}
 
 	pack := &Pack{Dir: dir, Manifest: m, Samples: samples, raw: raw}
+	if err := pack.openReturns(); err != nil {
+		return nil, err
+	}
 	if m.BackgroundCount > 0 {
 		if err := pack.openBackground(); err != nil {
 			return nil, err
 		}
 	}
 	return pack, nil
+}
+
+// openReturns reads and verifies a version 2 pack's packet table and returns.
+func (p *Pack) openReturns() error {
+	m := p.Manifest
+	if m.ReturnLayout == nil {
+		return fmt.Errorf("pack has no return layout")
+	}
+	if err := m.ReturnLayout.validate(); err != nil {
+		return err
+	}
+	if m.PacketKeyKind != PacketKeyKind {
+		return fmt.Errorf("packet key %q, this build reads %q", m.PacketKeyKind, PacketKeyKind)
+	}
+	packetBytes, err := os.ReadFile(filepath.Join(p.Dir, packetsFile))
+	if err != nil {
+		return fmt.Errorf("read packets: %w", err)
+	}
+	if got := sha256Hex(packetBytes); got != m.PacketsSHA256 {
+		return fmt.Errorf("packets digest mismatch: file is %s, manifest says %s", got, m.PacketsSHA256)
+	}
+	returnBytes, err := os.ReadFile(filepath.Join(p.Dir, returnsFile))
+	if err != nil {
+		return fmt.Errorf("read returns: %w", err)
+	}
+	if got := sha256Hex(returnBytes); got != m.ReturnsSHA256 {
+		return fmt.Errorf("returns digest mismatch: file is %s, manifest says %s", got, m.ReturnsSHA256)
+	}
+	if len(packetBytes)%8 != 0 || len(packetBytes)/8 != m.PacketCount {
+		return fmt.Errorf("packets.bin is %d bytes for %d declared packets", len(packetBytes), m.PacketCount)
+	}
+	if int64(len(returnBytes)) != 8*m.PointCount {
+		return fmt.Errorf("returns.bin is %d bytes for %d points", len(returnBytes), m.PointCount)
+	}
+	packets := make([]uint64, m.PacketCount)
+	seen := make(map[uint64]bool, m.PacketCount)
+	for i := range packets {
+		packets[i] = binary.LittleEndian.Uint64(packetBytes[8*i:])
+		if seen[packets[i]] {
+			return fmt.Errorf("packet table lists key %016x twice", packets[i])
+		}
+		seen[packets[i]] = true
+	}
+	limit := uint64(m.PacketCount) * m.ReturnLayout.PerPacket()
+	var off int64
+	for i, s := range p.Samples {
+		returns := decodeReturns(returnBytes[off : off+8*int64(s.PointCount)])
+		if err := checkSampleReturns(i, s, returns, limit); err != nil {
+			return err
+		}
+		off += 8 * int64(s.PointCount)
+	}
+	p.Packets = packets
+	p.rawReturns = returnBytes
+	return nil
+}
+
+func decodeReturns(b []byte) []uint64 {
+	out := make([]uint64, len(b)/8)
+	for i := range out {
+		out[i] = binary.LittleEndian.Uint64(b[8*i:])
+	}
+	return out
+}
+
+// ReturnsAt returns one sample's return numbers, one per point in point order.
+func (p *Pack) ReturnsAt(sampleID int) ([]uint64, error) {
+	if sampleID < 0 || sampleID >= len(p.Samples) {
+		return nil, fmt.Errorf("sample %d is outside the pack's %d samples", sampleID, len(p.Samples))
+	}
+	var off int64
+	for _, s := range p.Samples[:sampleID] {
+		off += 8 * int64(s.PointCount)
+	}
+	return decodeReturns(p.rawReturns[off : off+8*int64(p.Samples[sampleID].PointCount)]), nil
 }
 
 // openBackground reads and verifies the background context. A pack that
@@ -601,7 +820,7 @@ func (p *Pack) BackgroundInForce(sampleID int) (Background, bool) {
 
 // SampleHasIntensity reports whether a sample's intensity bytes are
 // measurements: the sample's own flag when it recorded one, else the
-// manifest's pack-wide flag, which is the most a legacy pack can say. It is
+// manifest's pack-wide flag, which is all an older sample has. It is
 // never inferred from the bytes. Out-of-range samples are reported absent.
 func (p *Pack) SampleHasIntensity(sampleID int) bool {
 	if sampleID < 0 || sampleID >= len(p.Samples) {

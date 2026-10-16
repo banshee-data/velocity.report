@@ -25,6 +25,7 @@ func TestPhysicalValidationRefusals(t *testing.T) {
 		// Document identity and source.
 		{"schema", func(r *PhysicalReferenceSet) { r.Schema = "other" }, "schema"},
 		{"schema version", func(r *PhysicalReferenceSet) { r.SchemaVersion = 2 }, "schema version 2"},
+		{"newer reader", func(r *PhysicalReferenceSet) { r.MinReader = ReaderLevel + 1 }, "needs reader level"},
 		{"revision zero", func(r *PhysicalReferenceSet) { r.Revision = 0 }, "invalid physical reference revision"},
 		{"revision maximum", func(r *PhysicalReferenceSet) { r.Revision = math.MaxInt }, "invalid physical reference revision"},
 		{"pack digest mismatch", func(r *PhysicalReferenceSet) { r.PackDigest = "sha256:other" }, "written against pack"},

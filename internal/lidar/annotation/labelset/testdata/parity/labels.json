@@ -1,0 +1,58 @@
+{
+  "applies_to": [
+    {
+      "bytes": 200657872,
+      "name": "kirk0.pcapng",
+      "packets_found": 149741,
+      "packets_missing": 0,
+      "sha256": "sha256:2864",
+      "udp_port": 2369,
+      "verified_build": "0.5.1-pre45+5d5af1fb3",
+      "verified_utc": "2026-10-12T11:23:59Z",
+      "windows_complete": 832,
+      "windows_missing": 0,
+      "windows_partial": 0
+    },
+    {
+      "bytes": 1,
+      "name": "é ü 東京.pcapng",
+      "packets_found": 0,
+      "packets_missing": 3,
+      "sha256": "sha256:0f68",
+      "udp_port": 2368,
+      "verified_utc": "2026-10-13T00:00:00.123Z",
+      "windows_complete": 0,
+      "windows_missing": 2,
+      "windows_partial": 1
+    }
+  ],
+  "head": {
+    "revision": 2232,
+    "state": "sha256:75a2",
+    "updated_utc": "2026-10-12T04:23:00.123456789Z"
+  },
+  "label_set_id": "dd6579b7-4705-4a95-a2a3-2a4c12bef749",
+  "layout": {
+    "blocks": 10,
+    "channels": 40,
+    "model": "hesai-pandar40p"
+  },
+  "migrated_from": {
+    "dataset_id": "ds_95be",
+    "decoder_build": "0.5.1-pre45",
+    "mapping_digest": "sha256:e9d9",
+    "note": "tab\tnewline\n/slash",
+    "pack_digest": "sha256:95be",
+    "pack_dir": "ad8b9438/pack",
+    "pcap_name": "kirk0.pcapng",
+    "pcap_sha256": "sha256:2864",
+    "sidecar_revision": 2232
+  },
+  "name": "kirk0 <reference> & \"twins\"",
+  "note": "a note",
+  "packet_key": "sha256-64:udp-payload",
+  "schema_version": 2,
+  "storage": {
+    "window_chunk": 250
+  }
+}

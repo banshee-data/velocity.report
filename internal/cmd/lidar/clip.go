@@ -132,7 +132,7 @@ func annotationClipMain(args []string, ops clipOperations) int {
 		return 1
 	}
 	end := manifest.ScoringStartNs + int64(manifest.ScoringDurationSeconds*1e9)
-	pack, err := ops.export(annotation.ExportConfig{VRLOGPath: result.VRLOGPath, OutDir: filepath.Join(*output, "pack"), StartNs: manifest.ScoringStartNs, EndNs: end, MaxSamples: 0, Coverage: annotation.CoverageForegroundOnly, CoverageNote: "publisher records foreground points and periodic background snapshots"})
+	pack, err := ops.export(annotation.ExportConfig{VRLOGPath: result.VRLOGPath, OutDir: filepath.Join(*output, "pack"), StartNs: manifest.ScoringStartNs, EndNs: end, MaxSamples: 0, Coverage: annotation.CoverageForegroundOnly, CoverageNote: "replay records whole frames and periodic background snapshots"})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "annotation-clip: export: %v (recording: %s)\n", err, result.VRLOGPath)
 		return 1

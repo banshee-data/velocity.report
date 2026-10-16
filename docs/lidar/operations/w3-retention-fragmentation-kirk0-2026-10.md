@@ -38,8 +38,10 @@ is not the product's. This report measures the shipped L4 on kirk0's reviewed pa
   `lidar-state-estimation-baseline` on kirk0 (`-warmup 6 -duration 0 -sample-points 1024`), at
   commit 995036d64, as unit `replay/a0/kirk0` of geom0003.
 - **Reference.** The reviewed pack ad8b9438 (dataset ds_95be6fb22498b44a), split `kirk0-tuning`
-  of `kirk0-ad8b9438-tuning-r1.json`, in its archived version 1 form: the v2 reader is not on main.
-  The agent that built the measure checked the v2 pack on the v2 branch and got identical numbers.
+  of `kirk0-ad8b9438-tuning-r1.json`, in its archived version 1 form, since main did not yet read
+  version 2 packs. Once #744 merged, main reads version 2 only: scored from the same evidence
+  against the version 2 pack and its split `kirk0-reference-tuning-r1.json`, every table below is
+  identical.
 - **Matching.** The evidence keeps up to 1,024 sample points per cluster, and every one of them
   is bit-identical to a pack point of the same sample (459,935 of 460,065; the rest belong to no
   sample in the pack), so a cluster's points are matched to reviewed masks by exact float32
@@ -136,6 +138,9 @@ dropped, so l4clus0001 should be read on fragmentation and merges, and retention
   (`ev/observations.db`, source manifest, run log); the full report JSON kept locally, outside the
   repository.
 - **Reference:** pack digest `sha256:95be6fb22498b44a…`, split digest
-  `sha256:65c2dc41e73d8a03cc28ef96e2582e94158f0ed7d84308414de8050d7930b3d3`.
+  `sha256:65c2dc41e73d8a03cc28ef96e2582e94158f0ed7d84308414de8050d7930b3d3` (version 1, as run);
+  version 2 pack `ds_67842cb1b22b70e7`, split digest
+  `sha256:96f71edbdac4318887a0c187b7e03ba77856964e7e3381d8775c44f039c0064f`, rescored at the
+  merge with main.
 - **Run:** replay 1 min 25 s and score 4 min 3 s on the M1 Pro (estimated 1 min and 5 min); the
   measure itself was built by an agent in 15 minutes against an 8-hour estimate for a person.

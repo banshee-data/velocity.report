@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "dataset_id": "ds_e361672595fc28fb",
+  "created_ns": 0,
+  "source": {
+    "vrlog_path": "fixture.vrlog",
+    "vrlog_header_sha256": "sha256:aa",
+    "vrlog_frames_sha256": "sha256:bb",
+    "pcap_basename": "fixture.pcapng",
+    "sensor_id": "hesai-pandar40p",
+    "build_version": "fixture"
+  },
+  "coordinate": {
+    "units": "metres",
+    "frame_id": "sensor",
+    "reference_frame": "site",
+    "handedness": "right",
+    "origin_note": "sensor origin",
+    "transform_version": "v1"
+  },
+  "coverage": "foreground_only",
+  "coverage_note": "fixture",
+  "sample_count": 2,
+  "point_count": 6,
+  "points_sha256": "sha256:f8bf067228e595dfee12c0cd3d974db11ebe5474f30e6e08fafef9da47211186",
+  "samples_sha256": "sha256:a95c182bb2bbaab7430f55e47757ad1b8ffb10a0cea02573a25408c40d39796f",
+  "pack_digest": "sha256:e361672595fc28fb847b78dcd10b70aa9ecbb96fa44de2b9670bfd8af15e4cd3",
+  "has_intensity": true,
+  "has_classification": true,
+  "completeness": {
+    "requested_start_ns": 0,
+    "requested_end_ns": 0,
+    "actual_start_ns": 0,
+    "actual_end_ns": 0,
+    "frames_without_points": 0,
+    "duplicate_timestamps": 0,
+    "max_timestamp_gap_ns": 0
+  },
+  "return_layout": {
+    "model": "hesai-pandar40p",
+    "blocks": 10,
+    "channels": 40
+  },
+  "packet_key": "sha256-64:udp-payload",
+  "packet_count": 2,
+  "packets_sha256": "sha256:6ef50e6bcfea81c142f3a3f7de3a4f9ca4d274b9ddf2d048e274bd6541119de3",
+  "returns_sha256": "sha256:404a29d50b105d21a31009bcb75c4f4f2e916844fe6c3a7c7f0d53bb5d075154"
+}

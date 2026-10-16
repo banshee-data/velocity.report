@@ -88,6 +88,13 @@ struct PointCloudFrame {
     var decimationMode: DecimationMode = .none
     var decimationRatio: Float = 1.0
     var pointCount: Int = 0
+
+    /// Every packet that contributed a return to the frame, as 64-bit packet
+    /// keys (the first 8 bytes of SHA-256 over the UDP payload). About 180 a
+    /// frame. Empty when the source has no return identity: a live sensor, a
+    /// recording made before it existed, or an older server. The annotation
+    /// window compares them with a label set's packet table.
+    var packetKeys: [UInt64] = []
 }
 
 // MARK: - Clusters

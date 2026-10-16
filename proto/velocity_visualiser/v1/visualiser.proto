@@ -67,6 +67,29 @@ message PointCloudFrame {
 
   // Point count (convenience field)
   int32 point_count = 11;
+
+  // Return identity (optional). Names each point's return in the capture,
+  // independently of this run, so a label can cite it. Absent from frames
+  // recorded before it existed and from sources without packets (synthetic).
+  // Written to VRLOG recordings. The gRPC stream carries packet_keys only, so
+  // a client can tell whose packets a frame holds (about 1.4 KB a frame); the
+  // per-point fields stay out of the stream.
+  //
+  // Every packet that contributed any return to the frame, emitted here or
+  // not, in first-seen order. A key is the first 64 bits of SHA-256 over the
+  // packet's UDP payload, read big-endian.
+  repeated fixed64 packet_keys = 12 [packed = true];
+  // Per point, parallel to x/y/z: its return number within packet_keys,
+  // packet_index × return_blocks × return_channels + block × return_channels
+  // + (channel − 1), with block counted from 0 and channel from 1.
+  repeated uint32 return_refs = 13 [packed = true];
+  // Every return of the frame, emitted or not: [return_start, return_end).
+  uint32 return_start = 14;
+  uint32 return_end = 15;
+  // The layout the numbers use, e.g. "hesai-pandar40p", 10 blocks, 40 channels.
+  string return_model = 16;
+  uint32 return_blocks = 17;
+  uint32 return_channels = 18;
 }
 
 message GridMetadata {

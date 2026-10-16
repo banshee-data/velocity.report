@@ -135,6 +135,9 @@ func savePhysicalPinned(p *Pack, r *PhysicalReferenceSet, restoredFrom int, memb
 		return fmt.Errorf("%w: %w", ErrPhysicalInvalid, err)
 	}
 
+	if level := next.requiredReader(); level > 1 && next.MinReader < level {
+		next.MinReader = level
+	}
 	b, err := json.MarshalIndent(&next, "", "  ")
 	if err != nil {
 		return err
@@ -277,19 +280,9 @@ func decodePhysical(p *Pack, b []byte) (*PhysicalReferenceSet, error) {
 	return &r, nil
 }
 
-// readSidecar reads the current sidecar through an open root. An untouched
-// pack has an empty one. A caller that needs it to stay current holds the
-// annotation lock.
-func readSidecar(p *Pack, root *os.Root) (*Sidecar, error) {
-	b, err := readAnnotationFile(root, sidecarFile)
-	if errors.Is(err, os.ErrNotExist) {
-		if _, historyErr := root.Stat(revisionDir); !errors.Is(historyErr, os.ErrNotExist) {
-			return nil, fmt.Errorf("current annotation missing but history exists or is unreadable")
-		}
-		return NewSidecar(p), nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("read current annotation: %w", err)
-	}
-	return decodeSidecar(p, b)
+// readSidecar returns the pack's current membership. The root is the pack's,
+// held by a caller that has taken the annotation lock; membership itself is
+// read from the pack's label set.
+func readSidecar(p *Pack, _ *os.Root) (*Sidecar, error) {
+	return LoadSidecar(p)
 }

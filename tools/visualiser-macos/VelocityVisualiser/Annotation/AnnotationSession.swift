@@ -62,10 +62,11 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     // MARK: Source
 
     let pack: AnnotationPack
-    private let store: SidecarStore
+    /// Where membership is kept: the label set this pack is a view of.
+    private let membership: LabelSetMembership
 
-    /// The current saved snapshot plus its concurrency token.
-    private var document: SidecarDocument {
+    /// The current saved revision plus its concurrency token.
+    private var document: MembershipDocument {
         didSet {
             // Membership changed on disk: the physical references' links are
             // checked against it, so the physical session has to hear.
@@ -73,11 +74,32 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 let physical = self.physical
                 Task { await physical.membershipDidChange() }
             }
+            // A first save or an attach changes what a replay is checked
+            // against.
+            refreshReplayCheck()
         }
     }
 
-    /// The exact-byte digest of the membership this window last read or saved.
+    /// The digest of the membership this window last read or saved: the
+    /// label set's state digest.
     var membershipDigest: String { document.loadedDigest }
+
+    /// Why this window cannot save, or nil when it can: the folder the label
+    /// sets are kept in was not granted.
+    var readOnlyReason: String? { membership.readOnlyReason }
+
+    /// Where membership is kept, in one line.
+    var membershipSummary: String { membership.summary }
+
+    /// The label set's verified capture files and the version 1 pack it was
+    /// migrated from, a line each. Empty until the first save makes a label
+    /// set.
+    var labelSetCaptureLines: [String] {
+        guard let store = membership.store else { return [] }
+        return LabelSetCaptures.lines(
+            manifest: store.manifest, packets: store.baseState.packets.count,
+            windows: store.baseState.windows.count, directory: store.directory)
+    }
 
     // MARK: Physical references
 
@@ -252,13 +274,71 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         didSet {
             labelRevision &+= 1
             summaries = nil
-            pointClaimConflicts = sidecar.pointClaimConflicts()
+            refreshLabelChecks()
         }
     }
 
-    /// Returns two objects claim in one sample. Go's tools refuse a pack with
-    /// any, so the pane lists them for repair.
-    @Published private(set) var pointClaimConflicts: [PointClaimConflict] = []
+    // MARK: Label checks
+
+    /// What the label checks (`LabelChecks`) find in the saved membership,
+    /// worked out again after every change to it. They warn; nothing here
+    /// stops a save.
+    @Published private(set) var labelWarnings: [LabelWarning] = []
+    /// Whether the checks are running over the membership just saved.
+    @Published private(set) var labelChecksRunning = false
+    private var labelChecksGeneration = 0
+    /// Each sample's plan positions, read once: points never change, so a
+    /// save only reruns the rules.
+    private var labelCheckSamples: [Int: LabelCheckSample] = [:]
+
+    /// Runs the checks over the membership as it is now, replacing any run
+    /// still going. Points are read for samples with masks, yielding between
+    /// samples, the first time each is needed.
+    func refreshLabelChecks() {
+        labelChecksGeneration &+= 1
+        let generation = labelChecksGeneration
+        let snapshot = sidecar
+        labelChecksRunning = true
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            let masked = Set(snapshot.masks.filter { !$0.pointIndices.isEmpty }.map(\.sampleID))
+            var samples: [LabelCheckSample] = []
+            samples.reserveCapacity(self.pack.samples.count)
+            for (i, sample) in self.pack.samples.enumerated() {
+                if let cached = self.labelCheckSamples[sample.sampleID] {
+                    samples.append(cached)
+                    continue
+                }
+                var s = LabelCheckSample(sampleID: sample.sampleID, timestampNs: sample.timestampNs)
+                if masked.contains(sample.sampleID) {
+                    if let points = try? self.pack.points(sampleID: sample.sampleID) {
+                        s.x = points.x
+                        s.y = points.y
+                    }
+                    self.labelCheckSamples[sample.sampleID] = s
+                }
+                samples.append(s)
+                if i % 16 == 0 {
+                    await Task.yield()
+                    guard generation == self.labelChecksGeneration else { return }
+                }
+            }
+            let found = LabelChecks.run(
+                samples: samples, objects: snapshot.objects, masks: snapshot.masks)
+            guard generation == self.labelChecksGeneration else { return }
+            self.labelWarnings = found
+            self.labelChecksRunning = false
+        }
+    }
+
+    /// Shows what a warning is about: its object, at its sample.
+    @discardableResult func show(_ warning: LabelWarning) -> AnnotationGuard? {
+        if let blocker = activate(objectID: warning.objectID) { return blocker }
+        guard let index = orderedSamples.firstIndex(where: { $0.sampleID == warning.sampleID }),
+            index != sampleIndex
+        else { return nil }
+        return step(to: index)
+    }
 
     /// What the object list shows of each object, worked out once per change
     /// to the sidecar. The list is redrawn on every publish, and counting an
@@ -448,10 +528,23 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             // Physical authoring is blind: the main view draws the tracker's
             // boxes, so it does not follow or lead while a pose is authored.
             if syncWithMainView, workMode != .points { syncWithMainView = false }
-            if !syncWithMainView { syncStatus = .off }
+            if !syncWithMainView {
+                syncStatus = .off
+                matchMainView(packetKeys: nil)
+            }
         }
     }
     @Published private(set) var syncStatus: FrameSyncStatus = .off
+    /// Whether the main view's frame is of the capture this pack's labels
+    /// cite, by its packet keys. Nil until frame sync has matched the main
+    /// view to one of this pack's frames.
+    @Published private(set) var replayCheck: ReplayCaptureCheck?
+    /// The main view's packet keys when frame sync last matched it to a
+    /// sample, kept so the check can be made again if the table changes.
+    private var matchedMainKeys: [UInt64]?
+    /// The table as a set, built once per table: a label set's can hold
+    /// a hundred and fifty thousand packets, and the check runs per frame.
+    private var replayTableCache: (labelSetID: String, count: Int, keys: Set<UInt64>)?
     /// While the main view plays, keep it inside this pack's frames: when it
     /// runs past the last one, send it back to the first. A pack is a few
     /// seconds of a recording that may be minutes long, and a replay that
@@ -577,12 +670,13 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     @Published private(set) var dirtySamples: Set<Int> = []
 
     @Published private(set) var lastError: String?
-    /// Set when a save was refused because another writer advanced the file.
-    @Published private(set) var conflict: SidecarStoreError?
+    /// Set when a save was refused because another writer advanced the
+    /// label set or holds its lock.
+    @Published private(set) var conflict: MembershipStoreError?
 
     /// Operator identity, collected rather than invented. A save without it
-    /// is refused: anonymous legacy data stays readable, but this client does
-    /// not add more of it.
+    /// is refused: labels already saved without an author stay readable, but
+    /// this client does not add more of them.
     @Published var operatorName: String = "" {
         didSet { defaults?.set(operatorName, forKey: AnnotationSession.operatorKey) }
     }
@@ -678,7 +772,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     // MARK: Init
 
     init(
-        pack: AnnotationPack, store: SidecarStore? = nil,
+        pack: AnnotationPack, store: LabelSetMembership? = nil,
         defaults: UserDefaults? = AppState.isRunningUnderXCTest ? nil : .standard,
         physicalClient: PhysicalReferenceAPIClient = PhysicalReferenceAPIClient(),
         featureClient: FeatureAPIClient = FeatureAPIClient()
@@ -687,12 +781,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         self.physicalClient = physicalClient
         self.featureClient = featureClient
         self.defaults = defaults
-        let resolvedStore = store ?? SidecarStore(packDirectory: pack.directory)
-        self.store = resolvedStore
-        self.document = try resolvedStore.load(
-            packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
+        let resolvedStore = store ?? LabelSetMembership(pack: pack)
+        self.membership = resolvedStore
+        self.document = try resolvedStore.load()
         self.sidecar = document.sidecar
-        self.pointClaimConflicts = document.sidecar.pointClaimConflicts()
         self.orderedSamples = pack.chronologicalSamples
         self.heightBand = pack.manifest.source.heightBand ?? .pipelineDefault
         self.heightBandIsAssumed = pack.manifest.source.heightBand == nil
@@ -787,8 +879,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             objectID: "obj_" + UUID().uuidString.prefix(8).lowercased(), objectClass: objectClass,
             subtype: subtype, confidence: 1.0, status: .proposed,
             provenance: Provenance(
-                author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
-                operation: "create_object"))
+                author: operatorName, session: sessionID,
+                createdUTC: AnnotationClock.utcTimestamp(), operation: "create_object"))
         sidecar.objects.append(object)
         activeObjectID = object.objectID
         // The selection on screen stays: it becomes this object's unsaved
@@ -868,7 +960,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
         sidecar.objects[idx].status = .reviewed
         sidecar.objects[idx].provenance = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "review_object")
         return true
     }
@@ -933,7 +1025,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 "Enter your name under Labelled by before reviewing: a review has an author.")
         }
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: operation)
         var edited = document
         edited.sidecar = sidecar
@@ -961,10 +1053,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             sidecar = document.sidecar
             refreshFrameProgress()
             return reviewed
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
     }
 
     /// How many of the object's saved frames are reviewed.
@@ -1582,7 +1671,11 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     /// this window stepped.
     @discardableResult func follow(_ main: MainViewPlayback) -> Bool {
         guard syncWithMainView else { return false }
-        guard let target = syncTarget(for: main) else { return false }
+        guard let target = syncTarget(for: main) else {
+            matchMainView(packetKeys: nil)
+            return false
+        }
+        matchMainView(packetKeys: main.packetKeys)
         guard target != sampleIndex else {
             syncStatus = .inSync
             return false
@@ -1634,6 +1727,40 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             main.timestampNs > last.timestampNs + tolerance
             || main.timestampNs < first.timestampNs - tolerance
         return outside || main.finished ? first.timestampNs : nil
+    }
+
+    /// What the replay check compares with.
+    var replayCheckSubject: ReplayCheckSubject { membership.store == nil ? .pack : .labelSet }
+
+    /// Records the main view's packet keys at a matched frame, or nil when
+    /// frame sync matched none, and checks them.
+    private func matchMainView(packetKeys: [UInt64]?) {
+        matchedMainKeys = packetKeys
+        refreshReplayCheck()
+    }
+
+    private func refreshReplayCheck() {
+        var next: ReplayCaptureCheck?
+        if let keys = matchedMainKeys {
+            next = ReplayCaptureCheck.evaluate(frameKeys: keys, table: replayTable())
+        }
+        // Published only when it changes: it is checked on every followed
+        // frame, and an unchanged answer is no reason to redraw.
+        if next != replayCheck { replayCheck = next }
+    }
+
+    /// The table a replay is checked against. A table only grows, at its
+    /// end, so its label set and length say whether the cached set is
+    /// still it.
+    private func replayTable() -> Set<UInt64> {
+        let id = membership.store?.labelSetID ?? ""
+        let table = membership.packetTable
+        if let cached = replayTableCache, cached.labelSetID == id, cached.count == table.count {
+            return cached.keys
+        }
+        let keys = Set(table)
+        replayTableCache = (id, table.count, keys)
+        return keys
     }
 
     /// The sample the main view's frame corresponds to, recording why not when
@@ -1773,7 +1900,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.packDigest = pack.manifest.packDigest
         edited.sidecar.datasetID = pack.manifest.datasetID
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "apply_fixed_mask")
         change.algorithm = "footprint_carry"
         change.algorithmVersion = "1"
@@ -1789,7 +1916,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 mask.pointIndices = canonicalSelection
                 mask.provenance = Provenance(
                     author: operatorName, session: sessionID,
-                    createdUTC: SidecarStore.utcTimestamp(), operation: "save_mask")
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "save_mask")
             } else {
                 guard sidecar.mask(objectID: object.objectID, sampleID: sample.sampleID) == nil,
                     let points = try? pack.points(sampleID: sample.sampleID)
@@ -1821,11 +1948,12 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             savedSelection = history.current
             refreshFrameProgress()
             return written
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
     }
+
+    /// Shows a failure this window asked for but did not cause, such as a
+    /// pack it was asked to open that could not be.
+    func report(_ message: String) { let _: Bool? = fail(message) }
 
     /// Records a failure where the operator can see it and where the log can:
     /// a save that fails silently is indistinguishable from one that worked.
@@ -1910,7 +2038,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         defer { propagationProgress = nil }
 
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "propagate_mask")
         change.algorithm = "footprint_carry"
         change.algorithmVersion = "1"
@@ -1996,10 +2124,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 document = try commit(edited, change: change)
                 sidecar = document.sidecar
                 refreshFrameProgress()
-            } catch let error as SidecarStoreError {
-                conflict = error
-                return fail(AnnotationSession.describe(error))
-            } catch { return fail("\(error)") }
+            } catch { return failSave(error) }
             carryVelocity[object.objectID] = velocity * Float(direction)
         }
 
@@ -2173,10 +2298,10 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 edited,
                 change: Provenance(
                     author: operatorName, session: sessionID,
-                    createdUTC: SidecarStore.utcTimestamp(), operation: "dismiss_proposal"))
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "dismiss_proposal"))
             sidecar = document.sidecar
         } catch {
-            lastError = "Could not keep dismissal: \(error)"
+            let _: Bool? = failSave(error)
             return
         }
         for (frame, indices) in proposal.frames {
@@ -2218,7 +2343,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.packDigest = pack.manifest.packDigest
         edited.sidecar.datasetID = pack.manifest.datasetID
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "accept_proposal")
 
         let objectID: String
@@ -2255,10 +2380,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         do {
             document = try commit(edited, change: change)
             sidecar = document.sidecar
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
 
         // What was not accepted stays proposed, if there is enough of it left
         // to be worth grading.
@@ -2319,7 +2441,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         edited.sidecar.packDigest = pack.manifest.packDigest
         edited.sidecar.datasetID = pack.manifest.datasetID
         var change = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "merge_object")
 
         let moving = sidecar.masks.filter { others.contains($0.objectID) }
@@ -2350,10 +2472,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         do {
             document = try commit(edited, change: change)
             sidecar = document.sidecar
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
 
         if let active = activeObjectID, others.contains(active) { activeObjectID = targetID }
         secondViewChecked = false
@@ -2402,7 +2521,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         }
 
         let byHand = Provenance(
-            author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
+            author: operatorName, session: sessionID, createdUTC: AnnotationClock.utcTimestamp(),
             operation: "split_object")
         var carriedOver = byHand
         carriedOver.algorithm = "footprint_split"
@@ -2506,10 +2625,7 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         do {
             document = try commit(edited, change: byHand)
             sidecar = document.sidecar
-        } catch let error as SidecarStoreError {
-            conflict = error
-            return fail(AnnotationSession.describe(error))
-        } catch { return fail("\(error)") }
+        } catch { return failSave(error) }
         dirtySamples.remove(here.sampleID)
         loadSelectionForCurrentSample()
         refreshFrameProgress()
@@ -2764,8 +2880,8 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
         case .failure(let error): return fail(error.message) ?? false
         case .success(let validated):
             let change = Provenance(
-                author: operatorName, session: sessionID, createdUTC: SidecarStore.utcTimestamp(),
-                operation: "save_mask")
+                author: operatorName, session: sessionID,
+                createdUTC: AnnotationClock.utcTimestamp(), operation: "save_mask")
             var mask =
                 sidecar.mask(objectID: objectID, sampleID: sample.sampleID)
                 ?? FrameMask(objectID: objectID, sampleID: sample.sampleID)
@@ -2791,22 +2907,21 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
                 savedSelection = Set(validated)
                 refreshFrameProgress()
                 return true
-            } catch let error as SidecarStoreError {
+            } catch {
                 // Neither busy nor conflict discards the operator's dirty
                 // membership: it stays in the history for reconciliation.
-                conflict = error
-                return fail(AnnotationSession.describe(error)) ?? false
-            } catch { return fail("\(error)") ?? false }
+                return failSave(error) ?? false
+            }
         }
     }
 
-    /// Re-reads the saved snapshot, discarding unsaved membership for the
+    /// Re-reads the saved revision, discarding unsaved membership for the
     /// current sample. The explicit way to resolve a conflict after the
     /// operator has decided the other writer wins.
     func reload() {
+        cachedCandidates = nil
         do {
-            document = try store.load(
-                packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
+            document = try membership.load()
             sidecar = document.sidecar
             dirtySamples.removeAll()
             conflict = nil
@@ -2823,28 +2938,147 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
     }
 
     /// Every membership write goes through here. It refuses a save that would
-    /// make two objects claim one return, which Go's sidecar validation
-    /// refuses outright. A pack that already has such a return can still be
-    /// saved, so the operator can repair it: only a new one is refused.
-    private func commit(_ edited: SidecarDocument, change: Provenance) throws -> SidecarDocument {
-        let existing = Set(document.sidecar.pointClaimConflicts().map(\.key))
-        let introduced = edited.sidecar.pointClaimConflicts().filter { !existing.contains($0.key) }
-        if !introduced.isEmpty { throw PointClaimError(conflicts: introduced) }
-        return try store.save(edited, change: change)
+    /// make two objects claim one return, which the label set's validation
+    /// refuses outright, with the sample and point the operator can find.
+    /// One call is one revision: an operation that writes many frames (a
+    /// propagation, a merge, a split) commits them together.
+    private func commit(
+        _ edited: MembershipDocument, change: Provenance
+    ) throws -> MembershipDocument {
+        if let reason = membership.readOnlyReason { throw MembershipStoreError.readOnly(reason) }
+        let conflicts = edited.sidecar.pointClaimConflicts()
+        if !conflicts.isEmpty { throw PointClaimError(conflicts: conflicts) }
+        return try membership.save(edited.sidecar, over: document, change: change)
     }
 
-    static func describe(_ error: SidecarStoreError) -> String {
+    /// Reports a refused save. Busy and conflict are kept apart, so the
+    /// window can offer to reload; nothing here discards unsaved work.
+    private func failSave<T>(_ error: Error) -> T? {
+        if let error = error as? MembershipStoreError {
+            switch error {
+            case .busy, .conflict: conflict = error
+            default: break
+            }
+            return fail(AnnotationSession.describe(error))
+        }
+        return fail("\(error)")
+    }
+
+    static func describe(_ error: MembershipStoreError) -> String {
         switch error {
-        case .busy: return "Another writer holds the annotation lock. Retry when it finishes."
+        case .busy: return "Another writer holds the label set's lock. Retry when it finishes."
         case .conflict(let loaded, let current):
             return
-                "This pack advanced to revision \(current) while you edited revision \(loaded). Your selection is kept; reconcile before saving."
+                "The label set advanced to revision \(current) while you edited revision \(loaded). Your selection is kept; reconcile before saving."
         case .malformed(let detail): return "Annotation file problem: \(detail)"
         case .unwritable(let detail): return "Could not write: \(detail)"
-        case .tooLarge(let bytes): return "Snapshot is \(bytes) bytes, above the 64 MiB limit."
-        case .packMismatch(let expected, let actual):
-            return "Annotations belong to pack \(actual), not \(expected)."
+        case .readOnly(let reason): return "Not saved. \(reason)"
+        case .refused(let detail): return detail
         }
+    }
+
+    // MARK: - Revisions
+
+    /// The label set's saved revisions, oldest first. Empty before the first
+    /// save.
+    func revisionHistory() -> [MembershipRevision] { membership.revisions() }
+
+    /// Makes an earlier revision current again, as a new revision rebuilt by
+    /// replaying the journal. Nothing earlier is rewritten, and a restore
+    /// recreates what that revision held: it never reviews anything.
+    @discardableResult func restoreRevision(_ revision: Int) -> Bool {
+        lastError = nil
+        conflict = nil
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail(
+                "Enter your name under Labelled by before restoring: a revision has an author.")
+                ?? false
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before restoring a revision.")
+                ?? false
+        }
+        do {
+            document = try membership.restore(
+                revision: revision,
+                change: Provenance(
+                    author: operatorName, session: sessionID,
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "restore"))
+        } catch { return failSave(error) ?? false }
+        sidecar = document.sidecar
+        dirtySamples.removeAll()
+        if let id = activeObjectID, !sidecar.objects.contains(where: { $0.objectID == id }) {
+            activeObjectID = nil
+        }
+        carried = nil
+        carriedIndices = []
+        loadSelectionForCurrentSample()
+        refreshFrameProgress()
+        return true
+    }
+
+    /// Undoes the last save by restoring the revision before it.
+    @discardableResult func undoLastSave() -> Bool {
+        guard document.revision > 1 else {
+            return fail("There is no earlier saved revision to go back to.") ?? false
+        }
+        return restoreRevision(document.revision - 1)
+    }
+
+    /// The saved revision this window holds.
+    var savedRevision: Int { document.revision }
+
+    // MARK: - Attaching to a label set
+
+    /// Whether this pack can be attached to an existing label set: one that
+    /// is not yet a view of one, in a folder the app may write.
+    var canAttachLabelSet: Bool { membership.store == nil && membership.readOnlyReason == nil }
+
+    /// Label sets beside this pack that share its packets. Found once and
+    /// kept, because the pane asks on every redraw and finding them reads
+    /// every set's packet table.
+    func labelSetCandidates() -> [LabelSetCandidate] {
+        if let cachedCandidates { return cachedCandidates }
+        let found = membership.candidates()
+        cachedCandidates = found
+        return found
+    }
+
+    private var cachedCandidates: [LabelSetCandidate]?
+
+    /// Makes this pack a view of an existing label set of the same capture:
+    /// its foreground is added as a new domain, in one revision, and the
+    /// window reloads to show the set's labels through this pack.
+    @discardableResult func attachLabelSet(at directory: URL) -> Bool {
+        lastError = nil
+        guard canAttachLabelSet else {
+            return fail("Only a pack with no label set yet can be attached.") ?? false
+        }
+        guard !operatorName.trimmingCharacters(in: .whitespaces).isEmpty else {
+            return fail(
+                "Enter your name under Labelled by before attaching: a revision has an author.")
+                ?? false
+        }
+        guard navigationGuard() == nil else {
+            return fail("Save or discard this frame's changes before attaching a label set.")
+                ?? false
+        }
+        let skipped: [Int]
+        do {
+            skipped = try membership.attach(
+                to: directory,
+                change: Provenance(
+                    author: operatorName, session: sessionID,
+                    createdUTC: AnnotationClock.utcTimestamp(), operation: "add_domain"))
+        } catch { return failSave(error) ?? false }
+        reload()
+        guard lastError == nil else { return false }
+        if !skipped.isEmpty {
+            lastError =
+                "Attached. \(skipped.count) of this pack's frames were framed differently from "
+                + "the label set's and cannot be labelled through it."
+        }
+        return true
     }
 
     // MARK: - Private

@@ -447,3 +447,37 @@ func TestParsePacket_ConsecutivePackets(t *testing.T) {
 func createTestTime(year, month, day, hour, min, sec int) time.Time {
 	return time.Date(year, time.Month(month), day, hour, min, sec, 0, time.UTC)
 }
+
+// TestParsePacket_CarriesPacketKey checks every return names its packet by a
+// digest of the payload, so the same bytes keep the same key in any file.
+func TestParsePacket_CarriesPacketKey(t *testing.T) {
+	parser := NewPandar40PParser(*createTestMockConfig())
+	packet := make([]byte, testPacketSequence)
+	for i := 0; i < testBlockCount; i++ {
+		offset := i * testBlockBytes
+		binary.LittleEndian.PutUint16(packet[offset:], 0xEEFF)
+		binary.LittleEndian.PutUint16(packet[offset+2:], uint16(i*3600))
+		binary.LittleEndian.PutUint16(packet[offset+4:], 1000)
+		packet[offset+6] = 100
+	}
+	binary.LittleEndian.PutUint32(packet[testPacketSequence-4:], 7)
+	points, err := parser.ParsePacket(packet)
+	if err != nil || len(points) == 0 {
+		t.Fatalf("parse: %d points, %v", len(points), err)
+	}
+	want := PacketKey(packet)
+	for i, p := range points {
+		if p.PacketKey != want {
+			t.Fatalf("point %d key %016x, want %016x", i, p.PacketKey, want)
+		}
+	}
+	other := append([]byte(nil), packet...)
+	binary.LittleEndian.PutUint32(other[testPacketSequence-4:], 8)
+	if PacketKey(other) == want {
+		t.Fatal("packets differing in one byte share a key")
+	}
+	again, _ := NewPandar40PParser(*createTestMockConfig()).ParsePacket(packet)
+	if again[0].PacketKey != want {
+		t.Fatal("the key depends on parser state")
+	}
+}

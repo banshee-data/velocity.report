@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 )
 
 // fitTestPack writes ten samples of a stationary 4.5 by 1.8 m box side-on to
@@ -44,8 +45,8 @@ func fitTestPack(t *testing.T, root, name string) *annotation.Pack {
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor",
 			Handedness: "right", OriginNote: "sensor origin"},
 	}
-	dir := filepath.Join(root, name, "pack")
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	dir := filepath.Join(root, "kirk0", annotation.PacksDir, name)
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)
@@ -63,7 +64,7 @@ func fitTestPack(t *testing.T, root, name string) *annotation.Pack {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car-1", SampleID: i, PointIndices: all,
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -90,7 +91,7 @@ func TestPhysicalFitAPIFitsAndTheDraftSaves(t *testing.T) {
 	defer srv.Close()
 	c := physicalClient{t: t, base: srv.URL}
 
-	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	status, out := c.do(http.MethodPost, "/api/annotations/physical/fit", fitBody(state, "car-1", 4))
 	if status != http.StatusOK {
 		t.Fatalf("fit: %d %v", status, out)
@@ -106,7 +107,7 @@ func TestPhysicalFitAPIFitsAndTheDraftSaves(t *testing.T) {
 	if len(res.Frames) == 0 || res.Import == nil || len(res.Import.Objects) != 1 || res.Import.Objects[0].Body == nil {
 		t.Fatalf("fit result %+v", res)
 	}
-	if after := c.load("run-a/pack", p.Manifest.PackDigest); after["exists"] != false {
+	if after := c.load("kirk0/packs/run-a", p.Manifest.PackDigest); after["exists"] != false {
 		t.Fatal("the fit stored a document")
 	}
 	status, saved := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, res.Import.Objects))
@@ -124,7 +125,7 @@ func TestPhysicalFitAPIRefusals(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 	c := physicalClient{t: t, base: srv.URL}
-	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 
 	stale := fitBody(state, "car-1")
 	stale["membership_revision"] = 99
@@ -145,7 +146,7 @@ func TestPhysicalFitAPIRefusals(t *testing.T) {
 		{"no object", http.MethodPost, fitBody(state, ""), http.StatusBadRequest, physicalCodeBadRequest},
 		{"no membership digest", http.MethodPost, noDigest, http.StatusBadRequest, physicalCodeBadRequest},
 		{"unknown object", http.MethodPost, fitBody(state, "ghost"), http.StatusUnprocessableEntity, physicalCodeInvalid},
-		{"unknown field", http.MethodPost, `{"pack":"run-a/pack","nope":1}`, http.StatusBadRequest, physicalCodeBadRequest},
+		{"unknown field", http.MethodPost, `{"pack":"kirk0/packs/run-a","nope":1}`, http.StatusBadRequest, physicalCodeBadRequest},
 	} {
 		status, out := c.do(tc.method, "/api/annotations/physical/fit", tc.body)
 		if status != tc.status || out["code"] != tc.code {

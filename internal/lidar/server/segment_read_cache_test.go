@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"encoding/json"
 	"io/fs"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 )
 
@@ -108,28 +110,29 @@ func TestSegmentRankingCarriesItsStrip(t *testing.T) {
 
 func TestPackListingsAreReadAgainOnlyWhenTheirFilesChange(t *testing.T) {
 	ws, _ := segmentServer(t)
-	dir := filepath.Join(ws.annotationPacksDir, "one")
-	if err := os.Mkdir(dir, 0755); err != nil {
+	pack, err := annotation.Export(annotation.ExportConfig{VRLOGPath: writeTestVRLOG(t, 1),
+		OutDir: annotation.NewPackDir(ws.annotationPacksDir, "capture", "one"), Coverage: annotation.CoverageForegroundOnly})
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), []byte(`{"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	sidecar := func(status annotation.ReviewStatus) []byte {
-		side := annotation.Sidecar{PackDigest: "sha256:pack",
-			Objects: []annotation.Object{{ObjectID: "a", Class: "car", Status: status}},
-			Masks:   []annotation.FrameMask{{ObjectID: "a", Status: status}}}
-		b, err := json.Marshal(side)
+	dir := pack.Dir
+	save := func(status annotation.ReviewStatus) *labelset.LabelSet {
+		t.Helper()
+		side, err := annotation.LoadSidecar(pack)
 		if err != nil {
 			t.Fatal(err)
 		}
-		return b
+		side.Objects = []annotation.Object{{ObjectID: "a", Class: "car", Status: status}}
+		side.Masks = []annotation.FrameMask{{ObjectID: "a", SampleID: 0, PointIndices: []int{0},
+			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: status}}
+		ls, err := labelset.SaveMembership(pack, side, labelset.Change{Author: "op", Operation: "review"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return ls
 	}
-	sidecarPath := filepath.Join(dir, "annotations.json")
-	if err := os.WriteFile(sidecarPath, sidecar(annotation.StatusReviewed), 0644); err != nil {
-		t.Fatal(err)
-	}
-	status := func() string {
+	labels := filepath.Join(save(annotation.StatusReviewed).Dir, labelset.ManifestFile)
+	listing := func() packListing {
 		t.Helper()
 		response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks)
 		var body struct {
@@ -138,34 +141,40 @@ func TestPackListingsAreReadAgainOnlyWhenTheirFilesChange(t *testing.T) {
 		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil || response.Code != 200 || len(body.Packs) != 1 {
 			t.Fatalf("inventory: %d %s", response.Code, response.Body.String())
 		}
-		return body.Packs[0].Status
+		return body.Packs[0]
 	}
 
 	// A pack written a moment ago is read on every request: a coarse clock
 	// could give its next rewrite the same time.
-	if got := status(); got != "reviewed" {
-		t.Fatalf("fresh pack: %s", got)
+	if got := listing(); got.Status != "reviewed" {
+		t.Fatalf("fresh pack: %+v", got)
 	}
-	rewrite(t, sidecarPath, sidecar(annotation.StatusProposed))
-	if got := status(); got != "packed" {
-		t.Fatalf("a pack written within the settle time was not read again: %s", got)
+	save(annotation.StatusProposed)
+	if got := listing(); got.Status != "packed" {
+		t.Fatalf("a pack written within the settle time was not read again: %+v", got)
 	}
 
 	// A settled pack is read once. Unchanged stamps are an unchanged pack:
-	// the sidecar rewritten behind them is not read.
+	// the label set manifest rewritten behind them is not read.
 	hourAgo := time.Now().Add(-time.Hour)
-	age(t, hourAgo, dir)
-	if got := status(); got != "packed" {
-		t.Fatalf("settled pack: %s", got)
+	age(t, hourAgo, dir, labels)
+	name := listing().LabelSetName
+	if name == "" {
+		t.Fatal("the listing does not name the label set")
 	}
-	rewrite(t, sidecarPath, sidecar(annotation.StatusReviewed))
-	if got := status(); got != "packed" {
-		t.Fatalf("an unchanged pack was read again: %s", got)
+	b, err := os.ReadFile(labels)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renamed := strings.ToUpper(name)
+	rewrite(t, labels, bytes.Replace(b, []byte(`"`+name+`"`), []byte(`"`+renamed+`"`), 1))
+	if got := listing(); got.LabelSetName != name {
+		t.Fatalf("an unchanged pack was read again: %+v", got)
 	}
 	// Any change to a file it was read from reads it again.
-	age(t, hourAgo.Add(time.Minute), sidecarPath)
-	if got := status(); got != "reviewed" {
-		t.Fatalf("a rewritten sidecar was not read again: %s", got)
+	age(t, hourAgo.Add(time.Minute), labels)
+	if got := listing(); got.LabelSetName != renamed {
+		t.Fatalf("a rewritten label set was not read again: %+v", got)
 	}
 	proposals := filepath.Join(dir, "proposals")
 	if err := os.Mkdir(proposals, 0755); err != nil {

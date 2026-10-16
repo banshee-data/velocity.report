@@ -10,7 +10,7 @@ import simd
         let preferences = try #require(UserDefaults(suiteName: suite))
         defer { preferences.removePersistentDomain(forName: suite) }
         let dir = try SyntheticPack.write([SyntheticPack.car(at: SIMD2(5, 0))])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let pack = try AnnotationPack.open(directory: dir)
         let first = try AnnotationSession(pack: pack, defaults: preferences)
         first.physical.expose(objectIDs: ["car"], source: "run 7 · online")
@@ -234,7 +234,7 @@ import simd
 
     @Test func aValueOnlySizeSketchHasHandlesThatActAndKeepBoundsMissing() async throws {
         let dir = try SyntheticPack.write([SyntheticPack.car(at: SIMD2(5, 0))])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
         let fake = FakePhysicalService(packDir: dir.resolvingSymlinksInPath().path)
         register { try fake.handle($0) }
@@ -300,7 +300,7 @@ import simd
 
     @Test func zoomedOutAPressOnTheAnchorMovesItRatherThanResizing() async throws {
         let dir = try SyntheticPack.write([SyntheticPack.car(at: SIMD2(5, 0))])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let (transport, url, register) = AnnotationMockURLProtocol.makeSession()
         let fake = FakePhysicalService(packDir: dir.resolvingSymlinksInPath().path)
         register { try fake.handle($0) }

@@ -41,8 +41,11 @@ private func fixturePackDigest() throws -> String {
 // MARK: - Intensity presence per frame
 
 struct IntensityPresenceTests {
-    @Test func availabilityComesFromThePackAndThenTheSample() {
-        #expect(IntensityAvailability(hasIntensity: false, sample: true) == .absent)
+    /// The sample's own flag when it records one, else the pack's: Go's
+    /// Pack.SampleHasIntensity.
+    @Test func availabilityComesFromTheSampleAndThenThePack() {
+        #expect(IntensityAvailability(hasIntensity: false, sample: true) == .measured)
+        #expect(IntensityAvailability(hasIntensity: false, sample: false) == .absent)
         #expect(IntensityAvailability(hasIntensity: false, sample: nil) == .absent)
         #expect(IntensityAvailability(hasIntensity: true, sample: nil) == .packFlag)
         #expect(IntensityAvailability(hasIntensity: true, sample: true) == .measured)
@@ -63,8 +66,8 @@ struct IntensityPresenceTests {
             {"sample_id": 0, "source_ordinal": 1, "source_frame_id": 100, "timestamp_ns": 5,
              "sensor_id": "s", "point_count": 0, "byte_offset": 0}
             """
-        let legacy = try JSONDecoder().decode(AnnotationSample.self, from: Data(json.utf8))
-        #expect(legacy.hasIntensity == nil)
+        let unflagged = try JSONDecoder().decode(AnnotationSample.self, from: Data(json.utf8))
+        #expect(unflagged.hasIntensity == nil)
         let flagged = try JSONDecoder().decode(
             AnnotationSample.self,
             from: Data(

@@ -28,6 +28,8 @@ file is just the index — start there for any layer detail.
 | Analysis worker         | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
 | Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
 | Point annotation        | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
+| Label sets              | [operations/label-sets.md](operations/label-sets.md)                                               |
+| Label set migration     | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
 | Per-frame evaluation    | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
 | Headway report oracle   | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
 | Near-edge frame cost    | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |

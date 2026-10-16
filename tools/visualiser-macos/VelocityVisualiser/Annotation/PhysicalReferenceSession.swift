@@ -731,7 +731,7 @@ enum PhysicalDraft {
             status: .proposed, origin: .independent, method: "manual_box", trackerSource: nil,
             uncertaintyAssumptions: nil,
             provenance: Provenance(
-                author: author, session: session, createdUTC: SidecarStore.utcTimestamp(),
+                author: author, session: session, createdUTC: AnnotationClock.utcTimestamp(),
                 operation: "author"))
     }
 

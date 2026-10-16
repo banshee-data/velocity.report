@@ -98,7 +98,7 @@ func fitScenePack(t *testing.T, scenes [][]fitBox, transform string) (*Pack, *Si
 			Handedness: "right", OriginNote: "sensor origin", TransformVersion: transform},
 	}
 	dir := filepath.Join(t.TempDir(), "pack")
-	if err := WritePack(dir, m, samples, blocks); err != nil {
+	if err := WritePack(dir, m, samples, blocks, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)
@@ -124,7 +124,7 @@ func fitScenePack(t *testing.T, scenes [][]fitBox, transform string) (*Pack, *Si
 			s.Masks = append(s.Masks, mask("post", i, post...))
 		}
 	}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	loaded, err := LoadSidecar(p)

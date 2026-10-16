@@ -1,14 +1,20 @@
 ---
-layout: page.njk
-title: "LiDAR surveys — velocity.report"
+layout: survey.njk
+title: "Street surveys — velocity.report"
 permalink: /surveys/index.html
-description: Research views from the velocity.report LiDAR perception pipeline. Tracking and clustering are improving, but track splits and unstable trails remain.
+description: Measured road-user behaviour at fixed street sites in San Francisco, from the velocity.report LiDAR perception pipeline. No cameras, faces or plates. Results are a research preview.
 ---
+{#
+  Survey listing: map beside a list of sites, with a table view. Every row
+  is rendered here from src/_data/surveys.js; survey-page.js adds search,
+  filters, sorting and the list/table switch. Filter chips appear only when
+  they would separate something: a "multiple recordings" chip once a site
+  has two, a sensor chip once radar and LiDAR surveys are both listed, and a
+  measurement chip per family once there is more than one.
+#}
+{% import "survey/macros.njk" as sv %}
 
 <style>
-  .scenes__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
-  .scenes__sub { font-size: 1rem; line-height: 1.5; margin: 0 0 0.7rem; opacity: 0.85; max-width: 68ch; }
-  .scenes__sub:last-of-type { margin-bottom: 1.25rem; }
 
   .scenes__map { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 0.5rem; margin-bottom: 0.6rem; }
   .scenes__map svg { display: block; }
@@ -44,7 +50,8 @@ description: Research views from the velocity.report LiDAR perception pipeline. 
   @media (prefers-reduced-motion: reduce) {
     #scene-map .scene-map__site-shimmer { animation: none; }
   }
-  @media (prefers-color-scheme: dark) {
+  /* The survey pages are dark throughout, so the map always takes its dark styling. */
+  @media all {
     #scene-map { background: #172126; }
     #scene-map .scene-map-cycle-tiles { filter: invert(1) hue-rotate(180deg) brightness(0.78) contrast(0.9); }
     #scene-map .leaflet-bar a,
@@ -58,146 +65,194 @@ description: Research views from the velocity.report LiDAR perception pipeline. 
   }
   .scenes__mapnote { font-size: 0.85rem; opacity: 0.7; margin: 0 0 1.75rem; max-width: 68ch; }
 
-  .scenes__area { margin: 0 0 1.75rem; }
-  .scenes__area-name { font-size: 0.95rem; font-weight: 640; margin: 0 0 0.6rem; display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap; }
-  .scenes__area-name code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
-  .scenes__area-note { font-size: 0.8rem; font-weight: 400; opacity: 0.6; }
 
-  /* Six across on a wide screen. A card carries a name and two tokens, which
      is little enough that a half-width box was mostly empty and the listing
-     ran off the bottom of the screen instead of reading as one set. */
-  .scenes__list { display: grid; gap: 0.6rem; grid-template-columns: 1fr; margin: 0; padding: 0; list-style: none; }
-  @media (min-width: 560px) { .scenes__list { grid-template-columns: repeat(2, 1fr); } }
-  @media (min-width: 860px) { .scenes__list { grid-template-columns: repeat(3, 1fr); } }
-  @media (min-width: 1100px) { .scenes__list { grid-template-columns: repeat(4, 1fr); } }
-  @media (min-width: 1400px) { .scenes__list { grid-template-columns: repeat(6, 1fr); } }
 
-  .scene-card { border: 1px solid rgba(128, 128, 128, 0.28); border-radius: 4px; padding: 0.6rem 0.7rem; }
-  .scene-card__name { font-size: 0.95rem; font-weight: 640; margin: 0 0 0.25rem; line-height: 1.3; }
-  .scene-card__name a { text-decoration: none; }
-  .scene-card__name a:hover { text-decoration: underline; }
-  .scene-card__summary { margin: 0 0 0.7rem; font-size: 0.95rem; line-height: 1.5; opacity: 0.85; }
-  .scene-card__cells { margin: 0; font-size: 0.75rem; line-height: 1.6; }
-  .scene-card__cells dt { display: inline; opacity: 0.6; }
-  .scene-card__cells dd { display: inline; margin: 0 0.5rem 0 0.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-  .scene-card__unlocated { margin: 0; font-size: 0.85rem; line-height: 1.55; opacity: 0.7; }
-  .scene-card--recorded { border-style: dashed; }
-  .scene-card__tag { font-size: 0.75rem; font-weight: 500; opacity: 0.6; white-space: nowrap; }
 
-  .scenes__index { font-size: 0.9rem; line-height: 1.6; opacity: 0.8; max-width: 68ch; }
-  .scenes__index code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
 </style>
 
-<section class="max-w-6xl mx-auto">
-  <h1 class="scenes__title">LiDAR surveys</h1>
-  <p class="scenes__sub">
-    These are working views from the LiDAR perception pipeline, not production-ready
-    traffic results. The pipeline still produces too many split tracks and unstable
-    trails. We are improving the clustering and tracking; until those settle, a tidy
-    line on the screen remains a tidy line on the screen.
-  </p>
-  <p class="scenes__sub">
-    Each survey comes from a real street recording and shows position, size, heading
-    and speed without collecting camera images, faces or number plates. The map marks
-    every site the sensor has stood at; choose a point to inspect the current work.
-  </p>
+<div class="sv-wrap sv-list" data-survey-list>
+  <header class="sv-list__head">
+    <div class="sv-stack">
+      <h1 class="sv-list__title">Street surveys</h1>
+      <p class="sv-list__lede">Measured road-user behaviour at fixed sites. No cameras, faces or plates. Results are a research preview: the LiDAR tracker still splits some tracks and produces unstable trails.</p>
+    </div>
+    <p class="sv-mono sv-list__pipeline">
+      {{ surveys.totals.withRecordings }} sites · {{ surveys.totals.recordings }} recording{% if surveys.totals.recordings != 1 %}s{% endif %}{% if surveys.pipeline.build %}<br>pipeline <span class="sv-em">{{ surveys.pipeline.build }}</span>{% if surveys.pipeline.count < surveys.totals.withRecordings %} · {{ surveys.pipeline.count }} of {{ surveys.totals.withRecordings }} sites{% endif %}{% endif %}
+    </p>
+  </header>
 
+  <div class="sv-filters" role="search">
+    <label class="sv-search">
+      <span class="sv-sr">Search surveys</span>
+      <span aria-hidden="true">⌕</span>
+      <input type="search" placeholder="Street, intersection or cell" autocomplete="off" data-site-search>
+    </label>
+    {% if surveys.families.length > 1 %}{% for family in surveys.families %}
+      <button type="button" class="sv-chip" aria-pressed="false" data-filter="family:{{ family.id }}">Has: {{ family.name }}</button>
+    {% endfor %}{% endif %}
+    {% if surveys.sensorKinds.length > 1 %}{% for k in surveys.sensorKinds %}
+      <button type="button" class="sv-chip" aria-pressed="false" data-filter="sensor:{{ k }}">{{ surveys.sensors[k].label }}</button>
+    {% endfor %}{% endif %}
+    {% if surveys.totals.multi %}<button type="button" class="sv-chip" aria-pressed="false" data-filter="multi">Multiple recordings</button>{% endif %}
+    {% if surveys.years.length > 1 %}{% for y in surveys.years | reverse %}
+      <button type="button" class="sv-chip" aria-pressed="false" data-filter="year:{{ y }}">Recorded {{ y }}</button>
+    {% endfor %}{% endif %}
+  </div>
+
+  <div class="sv-list__layout" data-survey-layout>
+    <div class="sv-list__map">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-  <div class="scenes__map">
-    <div class="scenes__mapframe">
-      <script>document.documentElement.classList.add("scene-map-js");</script>
-      <div id="scene-map" data-coastline-url="{{ '/img/maps/sf-coastline.geojson.gz' | url }}">
-        {# No-JS fallback: the self-contained S2 diagram makes no network request. #}
-        {% include "scene-map.svg" %}
-      </div>
-      <button id="scene-map-load" class="scenes__load-map" type="button" hidden>Load Cycle map</button>
-      <div id="scene-map-consent" class="scenes__consent" role="presentation" hidden>
-        <div class="scenes__consent-card" role="alertdialog" aria-modal="true" aria-labelledby="scene-map-consent-title">
-          <div class="scenes__consent-head">
-            <h2 id="scene-map-consent-title">Download Cycle map data?</h2>
-            <button type="button" class="scenes__consent-close" data-action="close" aria-label="Close">&times;</button>
+            integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+      <div class="scenes__map">
+        <div class="scenes__mapframe">
+          <script>document.documentElement.classList.add("scene-map-js");</script>
+          <div id="scene-map" data-coastline-url="{{ '/img/maps/sf-coastline.geojson.gz' | url }}">
+            {# No-JS fallback: the self-contained S2 diagram makes no network request. #}
+            {% include "scene-map.svg" %}
           </div>
-          <p>This will request CyclOSM map tiles from OSM France. Your IP address and the map area being viewed will be sent to that external service.</p>
-          <p>The local coastline, S2 cells and survey points remain available if you cancel.</p>
-          <p>Your choice is remembered in this browser. You can switch the Cycle map off later; cached tiles stay in the browser, but no new map tiles are requested until you switch it on again.</p>
-          <div class="scenes__consent-actions">
-            <button type="button" data-action="cancel">Cancel</button>
-            <button type="button" data-action="allow">Download Cycle map</button>
+          <button id="scene-map-load" class="scenes__load-map" type="button" hidden>Load Cycle map</button>
+          <div id="scene-map-consent" class="scenes__consent" role="presentation" hidden>
+            <div class="scenes__consent-card" role="alertdialog" aria-modal="true" aria-labelledby="scene-map-consent-title">
+              <div class="scenes__consent-head">
+                <h2 id="scene-map-consent-title">Download Cycle map data?</h2>
+                <button type="button" class="scenes__consent-close" data-action="close" aria-label="Close">&times;</button>
+              </div>
+              <p>This will request CyclOSM map tiles from OSM France. Your IP address and the map area being viewed will be sent to that external service.</p>
+              <p>The local coastline, S2 cells and survey points remain available if you cancel.</p>
+              <p>Your choice is remembered in this browser. You can switch the Cycle map off later; cached tiles stay in the browser, but no new map tiles are requested until you switch it on again.</p>
+              <div class="scenes__consent-actions">
+                <button type="button" data-action="cancel">Cancel</button>
+                <button type="button" data-action="allow">Download Cycle map</button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+      {# The site list travels in a script block, not an attribute: a place name
+         with an apostrophe in it — Fisherman's Wharf — ends a quoted attribute
+         early, and the JSON arrives truncated. #}
+      <script type="application/json" id="scene-map-data">{{ scenes.sites | dump | replace("<", "\\u003c") | safe }}</script>
+      <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+              integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+      <script type="module" src="{{ '/js/scene-map.js' | url }}"></script>
     </div>
-  </div>
-  {# The site list travels in a script block, not an attribute: a place name
-     with an apostrophe in it — Fisherman's Wharf — ends a quoted attribute
-     early, and the JSON arrives truncated. #}
-  <script type="application/json" id="scene-map-data">{{ scenes.sites | dump | safe }}</script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script type="module" src="{{ '/js/scene-map.js' | url }}"></script>
-  <p class="scenes__mapnote">
-    {{ scenes.published_count }} of the {{ scenes.recorded_count }} sites here have a
-    published recording; the rest are places the sensor has been, shown so the map
-    answers where it has been rather than only what there is to watch.
-    With permission, the background uses cycling routes from
-    <a href="https://www.cyclosm.org/">CyclOSM</a>, hosted by OSM France, and
-    follows your device's light or dark appearance. Without it, the local
-    coastline and S2 geometry remain.
-    Each point is one recorded site. Click it for the name and, where there is a
-    recording, a link to it. Points carry no labels on the map: at this zoom a
-    label covers the street it stands on, and the street is the thing worth
-    seeing. Each site is listed below with its S2 level
-    {{ scenes.levels.neighbourhood }} cell, about a kilometre across, under a
-    heading for the level {{ scenes.levels.area }} area that contains it.
-  </p>
 
-  {% for area in scenes.areas %}
-    <section class="scenes__area">
-      {% if area.token %}
-        <h3 class="scenes__area-name">
-          Area <code>{{ area.display }}</code>
-          <span class="scenes__area-note">level {{ area.level }} &middot; {{ area.sites | length }} sites</span>
-        </h3>
-      {% else %}
-        <h3 class="scenes__area-name">
-          Not yet placed
-          <span class="scenes__area-note">{{ area.sites | length }} recording{% if area.sites | length != 1 %}s{% endif %}</span>
-        </h3>
-      {% endif %}
-      <ul class="scenes__list">
-        {% for site in area.sites %}
-          <li id="site-{{ site.id }}" class="scene-card{% if not site.published %} scene-card--recorded{% endif %}">
-            <h2 class="scene-card__name">
-              {% if site.page %}<a href="{{ site.page | url }}">{{ site.title }}</a>
-              {% else %}{{ site.title }}{% endif %}
-            </h2>
-            {% if site.located %}
-              {# The area is the heading above, and the level 16 site cell is
-                 finer than a hand-read position can justify: those coordinates
-                 are good to a few hundred metres and a level 16 cell is about
-                 180 across, so the token would look more exact than the thing
-                 it names. Level 13 is the grain the map draws and the grain
-                 the position supports. #}
-              <dl class="scene-card__cells">
-                <dt>L13</dt><dd>{{ site.cells.neighbourhood.display }}</dd>
-              </dl>
-            {% endif %}
-            {% if not site.published %}
-              <p class="scene-card__tag">recorded, not published</p>
-            {% endif %}
+    <div class="sv-list__sites">
+      <div class="sv-list__bar">
+        <span class="sv-mono" data-site-count aria-live="polite">{{ surveys.sites.length }} sites</span>
+        <span class="sv-spacer"></span>
+        <span class="sv-seg" role="group" aria-label="Show sites as">
+          <button type="button" aria-pressed="true" data-view-button="list">List</button>
+          <button type="button" aria-pressed="false" data-view-button="table">Table</button>
+        </span>
+      </div>
+
+      <ul class="sv-sitelist" data-view="list">
+        {% for site in surveys.sites %}
+          {% set v = site | surveyView(collections.surveyLimits[site.id]) %}
+          {% set r = v.latest %}
+          <li class="sv-siterow{% if not site.published %} sv-siterow--unpublished{% endif %}" id="site-{{ site.id }}" data-site-row
+              data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
+              data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
+              data-years="{{ site.years | join(" ") }}">
+            {% if site.published and site.page %}<a class="sv-siterow__link" href="{{ site.page }}">{% else %}<div class="sv-siterow__link">{% endif %}
+              <span class="sv-siterow__name">
+                <span class="sv-siterow__title">{{ site.title }}</span>
+                <span class="sv-mono sv-small">
+                  {%- if r %}{{ r.label }} · {{ r.when.minutes }} min{% endif -%}
+                  {%- if site.recordings.length > 1 %} · ◎ {{ site.recordings.length }} recordings{% endif -%}
+                  {%- if site.cell %} · L13 {{ site.cell }}{% elif not site.located %} · not yet placed{% endif -%}
+                  {%- if not site.published %} · recorded, not published{% endif -%}
+                </span>
+              </span>
+              {% if r and r.charts %}
+                <span class="sv-siterow__spark">{{ r.charts.spark | safe }}</span>
+                <span class="sv-siterow__p85 sv-mono">P85 {{ r.speed.p85 | fixed1 }}{% if v.limit %}<span class="sv-muted">/{{ v.limit }}</span>{% endif %}</span>
+              {% else %}
+                <span class="sv-siterow__spark"></span><span class="sv-siterow__p85 sv-mono sv-muted">no speed summary</span>
+              {% endif %}
+              {% if surveys.families.length > 1 %}
+                <span class="sv-siterow__fams" aria-label="{{ site.families.length }} of {{ surveys.families.length }} measurements">
+                  {% for family in surveys.families %}<span class="{{ 'is-on' if family.id in site.families }}" title="{{ family.name }}">{{ "●" if family.id in site.families else "·" }}</span>{% endfor %}
+                </span>
+              {% endif %}
+            {% if site.published and site.page %}</a>{% else %}</div>{% endif %}
           </li>
         {% endfor %}
       </ul>
-    </section>
-  {% endfor %}
+
+      <div class="sv-tablewrap" data-view="table" hidden>
+        <table class="sv-sitetable">
+          <caption class="sv-sr">Survey sites. Sort by a column; sites missing a value sort last, never as zero.</caption>
+          <thead>
+            <tr>
+              <th scope="col" data-sort="name" aria-sort="ascending"><button type="button">Site</button></th>
+              <th scope="col" data-sort="latest"><button type="button">Latest</button></th>
+              <th scope="col" data-sort="recordings"><button type="button">Recordings</button></th>
+              <th scope="col">Speed distribution</th>
+              <th scope="col" data-sort="p85"><button type="button">P85 / limit</button></th>
+              <th scope="col" data-sort="over"><button type="button">≥ limit</button></th>
+              <th scope="col" data-sort="count"><button type="button">Tracks</button></th>
+              <th scope="col" data-sort="minutes"><button type="button">Min</button></th>
+              {% if surveys.families.length > 1 %}<th scope="col" data-sort="familyCount"><button type="button">Measurements</button></th>{% endif %}
+            </tr>
+          </thead>
+          <tbody data-site-tbody>
+            {% for site in surveys.sites %}
+              {% set v = site | surveyView(collections.surveyLimits[site.id]) %}
+              {% set r = v.latest %}
+              <tr data-site-row data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
+                  data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
+                  data-years="{{ site.years | join(" ") }}"
+                  data-latest="{{ r.startMs if r else '' }}" data-p85="{{ r.speed.p85 if r and r.speed else '' }}"
+                  data-over="{{ r.over if r and r.over !== null else '' }}" data-count="{{ r.speed.count if r and r.speed else '' }}"
+                  data-minutes="{{ r.when.minutes if r else '' }}" data-family-count="{{ site.families.length }}">
+                <th scope="row">{% if site.published and site.page %}<a href="{{ site.page }}">{{ site.title }}</a>{% else %}{{ site.title }}{% endif %}{% if site.cell %} <span class="sv-mono sv-small">{{ site.cell }}</span>{% endif %}</th>
+                <td class="sv-mono">{{ r.label if r else "—" }}</td>
+                <td class="sv-mono">{% if site.recordings.length > 1 %}◎ {% endif %}{{ site.recordings.length }}</td>
+                <td>{{ r.charts.spark | safe if r and r.charts }}</td>
+                <td class="sv-mono">{% if r and r.speed %}{{ r.speed.p85 | fixed1 }}{% if v.limit %}<span class="sv-muted"> / {{ v.limit }}</span>{% endif %}{% else %}—{% endif %}</td>
+                <td class="sv-mono">{{ r.overText if r else "—" }}</td>
+                <td class="sv-mono">{{ r.speed.count if r and r.speed else "—" }}</td>
+                <td class="sv-mono">{{ r.when.minutes if r else "—" }}</td>
+                {% if surveys.families.length > 1 %}<td class="sv-mono">{{ site.families.length }}/{{ surveys.families.length }}</td>{% endif %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        <p class="sv-note">Sort by any measured column; there is no combined score. Sites missing a value sort last, never as zero. The ≥ limit column stays empty until a site's posted limit is recorded.</p>
+      </div>
+
+      <p class="sv-note" data-site-empty hidden>No surveys match. Clear the search or filters to see every site.</p>
+    </div>
+  </div>
+
+  <div class="sv-list__notes">
+  <p class="scenes__mapnote">
+      {{ scenes.published_count }} of the {{ scenes.recorded_count }} sites here have a
+      published recording; the rest are places the sensor has been, shown so the map
+      answers where it has been rather than only what there is to watch.
+      With permission, the background uses cycling routes from
+      <a href="https://www.cyclosm.org/">CyclOSM</a>, hosted by OSM France, and
+      follows your device's light or dark appearance. Without it, the local
+      coastline and S2 geometry remain.
+      Each point is one recorded site. Click it for the name and, where there is a
+      recording, a link to it. Points carry no labels on the map: at this zoom a
+      label covers the street it stands on, and the street is the thing worth
+      seeing. Each site is listed below with its S2 level
+      {{ scenes.levels.neighbourhood }} cell, about a kilometre across, under a
+      heading for the level {{ scenes.levels.area }} area that contains it.
+    </p>
 
   <p class="scenes__index">
-    The cells come from <a href="https://s2geometry.io/">S2</a>, which divides the
-    globe into a hierarchy of cells and names each one with a token. A token is
-    shown here as <code>80858-0f4</code>, hyphenated only to make the shared prefix
-    easy to compare; the hyphen carries no meaning and the canonical token is
-    <code>808580f4</code>. Every token on this page is derived from the survey's
-    recorded position, so a cell and the position it indexes cannot disagree.
-  </p>
-</section>
+      The cells come from <a href="https://s2geometry.io/">S2</a>, which divides the
+      globe into a hierarchy of cells and names each one with a token. A token is
+      shown here as <code>80858-0f4</code>, hyphenated only to make the shared prefix
+      easy to compare; the hyphen carries no meaning and the canonical token is
+      <code>808580f4</code>. Every token on this page is derived from the survey's
+      recorded position, so a cell and the position it indexes cannot disagree.
+    </p>
+  </div>
+</div>
+<script type="module" src="/js/survey-page.js"></script>

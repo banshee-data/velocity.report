@@ -229,7 +229,7 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 		}
 		// An operator has worked in the second. That is the one to keep
 		// linked, whatever its name.
-		if err := os.WriteFile(filepath.Join(second, "annotations.json"), []byte(`{}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(second, annotation.LabelSetLinkFile), []byte(`{}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 		if linked, err := ws.relinkSegmentPacks(); err != nil || linked != 1 {
@@ -251,7 +251,7 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 		first, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
 		second, _ := writeClipAttempt(t, ws, jobID, segmentID, "2")
 		for _, dir := range []string{first, second} {
-			if err := os.WriteFile(filepath.Join(dir, "annotations.json"), []byte(`{}`), 0644); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, annotation.LabelSetLinkFile), []byte(`{}`), 0644); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -273,7 +273,7 @@ func TestRelinkLeavesWhatItCannotRecognise(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		if err := os.WriteFile(filepath.Join(reviewed, "annotations.json"), []byte(`{}`), 0644); err != nil {
+		if err := os.WriteFile(filepath.Join(reviewed, annotation.LabelSetLinkFile), []byte(`{}`), 0644); err != nil {
 			t.Fatal(err)
 		}
 		pack, unfinished, err := ws.findClipPack(jobID, segmentID, os.ReadDir)
@@ -445,5 +445,31 @@ func TestFindClipPackReportsAnUnreadableDirectory(t *testing.T) {
 	pack, unfinished, err := ws.findClipPack("job-1", "seg-1", func(string) ([]os.DirEntry, error) { return nil, os.ErrNotExist })
 	if pack != nil || unfinished != nil || err != nil {
 		t.Fatalf("missing directory: %+v %v %v", pack, unfinished, err)
+	}
+}
+
+// A clip pack moved into a label set's views/ is found by its segment
+// record, and a pack whose record names another segment is not opened.
+func TestMovedClipPackIsFoundBySegment(t *testing.T) {
+	ws, _ := segmentServer(t)
+	jobID, segmentID := queuedClip(t, ws)
+	pack, _ := writeClipAttempt(t, ws, jobID, segmentID, "1")
+	stored, err := ws.storedPackDir(pack)
+	if err != nil {
+		t.Fatal(err)
+	}
+	moved := filepath.Join(ws.annotationPacksDir, "capture", "set", annotation.ViewsDir, "v1")
+	if err := os.MkdirAll(filepath.Dir(moved), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(pack, moved); err != nil {
+		t.Fatal(err)
+	}
+	locator := &segmentPackLocator{ws: ws}
+	if got := locator.path(stored, segmentID); got != moved {
+		t.Fatalf("found %s, want %s", got, moved)
+	}
+	if got := locator.path(stored, "another-segment"); got != ws.segmentPackPath(stored) {
+		t.Fatalf("another segment found %s", got)
 	}
 }

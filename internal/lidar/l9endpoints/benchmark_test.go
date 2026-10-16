@@ -60,6 +60,42 @@ func BenchmarkAdaptFrame_SplitStreaming(b *testing.B) {
 	}
 }
 
+// BenchmarkAdaptFrame_ReturnIdentity measures what naming every return costs:
+// the same frames keyed as the parser keys them, 400 returns to a packet, so
+// the adapter builds the packet table and numbers each point.
+func BenchmarkAdaptFrame_ReturnIdentity(b *testing.B) {
+	for _, split := range []bool{false, true} {
+		name := "full"
+		if split {
+			name = "split"
+		}
+		b.Run(name, func(b *testing.B) {
+			adapter := NewFrameAdapter("bench-sensor")
+			adapter.SplitStreaming = split
+			frame := generateBenchFrame(70000, 0)
+			for i := range frame.Points {
+				p := &frame.Points[i]
+				p.PacketKey = uint64(i/400) + 1
+				p.BlockID = (i % 400) / 40
+				p.Channel = i%40 + 1
+			}
+			mask := make([]bool, len(frame.Points))
+			for i := range mask {
+				mask[i] = i%30 == 0
+			}
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				bundle := adapter.AdaptFrame(frame, mask, nil, nil, nil).(*FrameBundle)
+				if !bundle.PointCloud.HasReturnIdentity() {
+					b.Fatal("no identity")
+				}
+				bundle.PointCloud.Release()
+			}
+		})
+	}
+}
+
 // BenchmarkFrameBundleToProto_70kPoints benchmarks protobuf conversion.
 func BenchmarkFrameBundleToProto_70kPoints(b *testing.B) {
 	bundle := generateBenchBundle(70000, 10, 5)

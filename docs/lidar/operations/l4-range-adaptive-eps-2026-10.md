@@ -48,8 +48,9 @@ scored by W3 with kirk0's two trucks as the merging test. W3 now exists
 -sample-points 1024`, at commit 76b18bfd9, through the experiment queue (units
   `replay/a0/kirk0` and `replay/eps-range/kirk0`).
 - **Score.** W3 (`lidar-ground-truth-eval retention`) against pack ad8b9438 version 1, split
-  `kirk0-tuning`. kirk1 is not scored: it has no point-level masks, so the spec was narrowed to
-  kirk0 before running.
+  `kirk0-tuning`; rescored against its version 2 pack after main moved to version 2 (#744), both
+  arms' tables are identical. kirk1 is not scored: it has no point-level masks, so the spec was
+  narrowed to kirk0 before running.
 
 ## Findings
 

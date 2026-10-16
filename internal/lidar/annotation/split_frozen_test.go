@@ -36,7 +36,7 @@ func splitPack(t *testing.T, name, pcap string, startNs int64, n int) *Pack {
 	m := Manifest{Coverage: CoverageForegroundOnly, Source: SourceProvenance{
 		SensorID: "synthetic", PCAPBasename: pcap, VRLOGFramesSHA: "sha256:frames-" + name, ParamsHash: "sha256:params",
 	}}
-	if err := WritePack(dir, m, samples, blocks); err != nil {
+	if err := WritePack(dir, m, samples, blocks, FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := OpenPack(dir)
@@ -63,7 +63,7 @@ func reviewSplitPack(t *testing.T, p *Pack, edit func(*Sidecar)) *Sidecar {
 		edit(s)
 	}
 	s.Change = Provenance{Author: "reviewer", Operation: "review"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	return s
@@ -321,7 +321,9 @@ func TestFreezeSplitKeepsOneSourceInOnePartition(t *testing.T) {
 	f := mustFreeze(t, freezeOptions(tuneEarly, onePartition(far, "far", "hold", SplitRoleHeldOut)))
 	f.Packs[0].Source.PCAPBasename, f.Packs[1].Source.PCAPBasename = "", ""
 	f.Packs[1].Source.VRLOGFramesSHA = f.Packs[0].Source.VRLOGFramesSHA
-	f.Packs[1].Source.FirstSampleNs, f.Packs[1].Source.LastSampleNs = 2e9, 4e9
+	// Packs are ordered by digest, so move whichever is second onto the first.
+	f.Packs[1].Source.FirstSampleNs = f.Packs[0].Source.FirstSampleNs + 1e9
+	f.Packs[1].Source.LastSampleNs = f.Packs[0].Source.LastSampleNs + 1e9
 	f.Tuned = mergeLedgers(f.ownTuning())
 	wantError(t, f.validate(), "are cut from vrlog:sha256:frames-")
 	// And with neither, nothing relates them.
@@ -623,24 +625,14 @@ func TestFrozenSplitRefusesChangesAfterFreezing(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, "parse selection record"},
-		{"pinned revision lost", func(t *testing.T, q *Pack) {
-			if err := os.Remove(filepath.Join(q.Dir, sidecarFile)); err != nil {
-				t.Fatal(err)
-			}
-		}, "load pinned annotation revision 1"},
+		{"pinned revision lost", func(t *testing.T, q *Pack) { dropMembership(q) }, "load pinned annotation revision 1"},
 		{"pinned revision rewritten", func(t *testing.T, q *Pack) {
 			s, err := LoadSidecar(q)
 			if err != nil {
 				t.Fatal(err)
 			}
 			s.Objects[0].Notes = "rewritten in place"
-			b, err := json.MarshalIndent(s, "", "  ")
-			if err != nil {
-				t.Fatal(err)
-			}
-			if err := os.WriteFile(filepath.Join(q.Dir, sidecarFile), append(b, '\n'), 0o644); err != nil {
-				t.Fatal(err)
-			}
+			rewriteMembershipHead(q, s)
 		}, "is not the bytes that were frozen"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1439,7 +1431,7 @@ func TestFreezeSplitRefusesStalePhysicalLinksAndDrift(t *testing.T) {
 	// mask at sample 5 is back to a proposal, which is membership review
 	// left unfinished.
 	unsettleMembership(s)
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1599,6 +1591,7 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s0")); err != nil {
 		t.Fatal(err)
 	}
+	stripMaskPins(t, p)
 	// A membership change in a frame nothing reviewed cites.
 	for i := range s.Masks {
 		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 5 {
@@ -1606,7 +1599,45 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 		}
 	}
 	s.Change = Provenance{Author: "op", Operation: "revise"}
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
+		t.Fatal(err)
+	}
+	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
+	if f.Packs[0].SidecarRevision != 2 || f.Packs[0].Physical.Revision != 3 {
+		t.Fatalf("pins %+v", f.Packs[0])
+	}
+	_, bound, err := f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.BindPhysical(p, bound); err != nil {
+		t.Fatal(err)
+	}
+	forgetMembershipHistory(p)
+	_, bound, err = f.Bind(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = f.BindPhysical(p, bound)
+	wantError(t, err, "reviewed against membership revision 1, which is no longer retained")
+}
+
+// The same, pinned to the masks it rests on: the review holds without history.
+func TestBindPhysicalHoldsMaskPinnedReviewsWithoutHistory(t *testing.T) {
+	p := physPack(t)
+	s := physSidecar(t, p)
+	savePhysicalDoc(t, p, validPhysical(p))
+	if _, err := ReviewPhysicalRecord(p, reviewOf(t, p, PhysicalRecordKeyframe, "car-1", "kf-car-1-s0")); err != nil {
+		t.Fatal(err)
+	}
+	// A membership change in a frame nothing reviewed cites.
+	for i := range s.Masks {
+		if s.Masks[i].ObjectID == "car-1" && s.Masks[i].SampleID == 5 {
+			s.Masks[i].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
+		}
+	}
+	s.Change = Provenance{Author: "op", Operation: "revise"}
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	f := mustFreeze(t, freezeOptions(physDraftPack(p, 0)))
@@ -1620,15 +1651,15 @@ func TestBindPhysicalRefusesDriftItCanNoLongerRuleOut(t *testing.T) {
 	if _, err := f.BindPhysical(p, bound); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.RemoveAll(filepath.Join(p.Dir, revisionDir)); err != nil {
-		t.Fatal(err)
-	}
+	forgetMembershipHistory(p)
 	_, bound, err = f.Bind(p)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = f.BindPhysical(p, bound)
-	wantError(t, err, "reviewed against membership revision 1, which is no longer retained")
+	// A review pinned to its masks still shows it holds.
+	if _, err := f.BindPhysical(p, bound); err != nil {
+		t.Fatalf("a mask-pinned review did not hold without history: %v", err)
+	}
 }
 
 // legacyVersion2 re-encodes a frozen split as the version 2 layout an
@@ -1781,7 +1812,7 @@ func TestPreviewFreeze(t *testing.T) {
 	// Review problems: reported, not returned as an error, and nothing
 	// would freeze.
 	unsettleMembership(s)
-	if err := SaveSidecar(p, s); err != nil {
+	if err := saveMembership(p, s); err != nil {
 		t.Fatal(err)
 	}
 	pv, err = PreviewFreeze(opts)

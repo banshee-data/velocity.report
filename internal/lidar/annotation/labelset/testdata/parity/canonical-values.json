@@ -1,0 +1,1 @@
+{"floats":[0,1,-0.5,0.1,0.75,1e-7,0.000015,123456789,1e+21,4.2,1.8000000000000003],"key":"0123456789abcdef","ranges":[[0,3],[10,1]],"strings":["plain","quote\"back\\slash","slash/ <angle> & amp","tab\tnewline\nbell\u0007","é ü 東京"]}

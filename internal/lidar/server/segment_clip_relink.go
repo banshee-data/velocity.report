@@ -21,6 +21,53 @@ func (ws *Server) segmentPackPath(stored string) string {
 	return filepath.Join(ws.annotationPacksDir, filepath.FromSlash(stored))
 }
 
+// segmentPackPathFor is where a segment's pack is now: where its job row
+// says, or, once 'velocity lidar labels nest' has moved it into a label
+// set's views/ folder, the pack in the tree whose segment record names the
+// segment. The row is left as it is.
+func (ws *Server) segmentPackPathFor(stored, segmentID string) string {
+	return (&segmentPackLocator{ws: ws}).path(stored, segmentID)
+}
+
+// segmentPackLocator finds segments' packs for one request, listing the tree
+// and reading its segment records at most once however many windows ask.
+type segmentPackLocator struct {
+	ws        *Server
+	bySegment map[string][]string
+}
+
+func (l *segmentPackLocator) path(stored, segmentID string) string {
+	dir := l.ws.segmentPackPath(stored)
+	if _, err := os.Stat(filepath.Join(dir, "manifest.json")); err == nil {
+		return dir
+	}
+	if l.bySegment == nil {
+		l.bySegment = map[string][]string{}
+		dirs, _ := annotation.ListPackDirs(l.ws.annotationPacksDir)
+		for _, candidate := range dirs {
+			b, err := os.ReadFile(filepath.Join(candidate, "segment.json"))
+			if err != nil {
+				continue
+			}
+			var rec struct {
+				Segment struct {
+					ID string `json:"id"`
+				} `json:"segment"`
+			}
+			if json.Unmarshal(b, &rec) == nil && rec.Segment.ID != "" {
+				l.bySegment[rec.Segment.ID] = append(l.bySegment[rec.Segment.ID], candidate)
+			}
+		}
+	}
+	// Only a pack whose record names the segment is opened and verified.
+	for _, candidate := range l.bySegment[segmentID] {
+		if _, whole := segmentPackDigest(candidate, segmentID); whole {
+			return candidate
+		}
+	}
+	return dir
+}
+
 // storedPackDir makes a pack directory relative to the annotation packs
 // directory, which is how the job row names it. A pack anywhere else is
 // refused: the row could not find it again after the directory moved.
@@ -85,7 +132,7 @@ func (ws *Server) findClipPack(jobID, segmentID string, readDir func(string) ([]
 		}
 		attempt := filepath.Join(ws.annotationPacksDir, entry.Name())
 		dir := filepath.Join(attempt, "pack")
-		_, statErr := os.Stat(filepath.Join(dir, "annotations.json"))
+		_, statErr := os.Stat(filepath.Join(dir, annotation.LabelSetLinkFile))
 		holdsReview := statErr == nil
 		digest, whole := segmentPackDigest(dir, segmentID)
 		if !whole {

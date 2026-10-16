@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"golang.org/x/sys/unix"
 )
 
@@ -50,8 +51,8 @@ func physicalTestPack(t *testing.T, root, name string) *annotation.Pack {
 		Coordinate: annotation.CoordinateContract{Units: "metres", FrameID: "sensor", ReferenceFrame: "sensor",
 			Handedness: "right", OriginNote: "sensor origin"},
 	}
-	dir := filepath.Join(root, name, "pack")
-	if err := annotation.WritePack(dir, m, samples, blocks); err != nil {
+	dir := filepath.Join(root, "kirk0", annotation.PacksDir, name)
+	if err := annotation.WritePack(dir, m, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	p, err := annotation.OpenPack(dir)
@@ -65,10 +66,21 @@ func physicalTestPack(t *testing.T, root, name string) *annotation.Pack {
 		s.Masks = append(s.Masks, annotation.FrameMask{ObjectID: "car-1", SampleID: i, PointIndices: []int{0, 1, 2, 3, 4, 5, 6, 7},
 			Completeness: annotation.MaskComplete, Visibility: annotation.VisiblePresent, Status: annotation.StatusReviewed})
 	}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
 	return p
+}
+
+// labelSetManifest is the manifest of the label set a pack links, which
+// every membership save rewrites.
+func labelSetManifest(t *testing.T, packDir string) string {
+	t.Helper()
+	link, err := annotation.ReadLabelSetLink(packDir)
+	if err != nil || link == nil {
+		t.Fatalf("pack %s links no label set: %v", packDir, err)
+	}
+	return filepath.Join(link.LabelSetDir(packDir), labelset.ManifestFile)
 }
 
 // physicalTestObject is car-1 with an observed full length, a centre
@@ -155,12 +167,12 @@ func editBody(state map[string]any, objects []annotation.PhysicalObject) map[str
 
 // The whole authoring round trip over the real HTTP boundary: load an empty
 // set, validate, save a proposal, review body and keyframe separately, and
-// refuse a stale save; the membership sidecar's bytes never change.
+// refuse a stale save; the membership never changes.
 func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 	root := t.TempDir()
 	p := physicalTestPack(t, root, "run-a")
-	sidecarPath := filepath.Join(p.Dir, "annotations.json")
-	sidecarBefore, err := os.ReadFile(sidecarPath)
+	membershipPath := labelSetManifest(t, p.Dir)
+	membershipBefore, err := os.ReadFile(membershipPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,7 +183,7 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 	defer srv.Close()
 	c := physicalClient{t: t, base: srv.URL}
 
-	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	if state["exists"] != false || state["revision"] != float64(1) || state["digest"] != "" || state["membership_digest"] == "" {
 		t.Fatalf("empty pack state %v", state)
 	}
@@ -183,7 +195,7 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 	if status != http.StatusOK || out["valid"] != true {
 		t.Fatalf("validate: %d %v", status, out)
 	}
-	if after := c.load("run-a/pack", p.Manifest.PackDigest); after["exists"] != false {
+	if after := c.load("kirk0/packs/run-a", p.Manifest.PackDigest); after["exists"] != false {
 		t.Fatal("validate wrote the document")
 	}
 
@@ -232,12 +244,12 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 		t.Fatalf("review keyframe: %d %v", status, out)
 	}
 
-	sidecarAfter, err := os.ReadFile(sidecarPath)
+	membershipAfter, err := os.ReadFile(membershipPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(sidecarBefore, sidecarAfter) {
-		t.Fatal("physical edits changed the membership sidecar")
+	if !bytes.Equal(membershipBefore, membershipAfter) {
+		t.Fatal("physical edits changed the membership")
 	}
 }
 
@@ -264,14 +276,14 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 	}{
 		"parent escape":      {"pack=../x&pack_digest=" + digest, 400, "bad_request", "not a pack directory"},
 		"absolute":           {"pack=" + url.QueryEscape(other.Dir) + "&pack_digest=" + digest, 400, "bad_request", "not a pack directory"},
-		"too deep":           {"pack=run-a/pack/x&pack_digest=" + digest, 400, "bad_request", "not a pack directory"},
+		"too deep":           {"pack=kirk0/packs/run-a/x&pack_digest=" + digest, 400, "bad_request", "not a pack directory"},
 		"not pack subdir":    {"pack=run-a/other&pack_digest=" + digest, 400, "bad_request", "not a pack directory"},
 		"unclean":            {"pack=run-a//pack&pack_digest=" + digest, 400, "bad_request", "not a pack directory"},
-		"missing digest":     {"pack=run-a/pack", 400, "bad_request", "pack_digest"},
-		"missing pack":       {"pack=run-b&pack_digest=" + digest, 404, "pack_not_found", ""},
-		"other pack digest":  {"pack=run-a/pack&pack_digest=sha256:other", 409, "pack_mismatch", ""},
-		"bad revision":       {"pack=run-a/pack&pack_digest=" + digest + "&revision=0", 400, "bad_request", "revision"},
-		"unretained version": {"pack=run-a/pack&pack_digest=" + digest + "&revision=4", 500, "internal", ""},
+		"missing digest":     {"pack=kirk0/packs/run-a", 400, "bad_request", "pack_digest"},
+		"missing pack":       {"pack=kirk0/packs/run-b&pack_digest=" + digest, 404, "pack_not_found", ""},
+		"other pack digest":  {"pack=kirk0/packs/run-a&pack_digest=sha256:other", 409, "pack_mismatch", ""},
+		"bad revision":       {"pack=kirk0/packs/run-a&pack_digest=" + digest + "&revision=0", 400, "bad_request", "revision"},
+		"unretained version": {"pack=kirk0/packs/run-a&pack_digest=" + digest + "&revision=4", 500, "internal", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
 			status, out := c.do(http.MethodGet, "/api/annotations/physical?"+tc.query, nil)
@@ -281,7 +293,7 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 		})
 	}
 
-	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	good := editBody(state, []annotation.PhysicalObject{physicalTestObject()})
 	withExtra := editBody(state, []annotation.PhysicalObject{physicalTestObject()})
 	withExtra["surprise"] = true
@@ -327,14 +339,14 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 	if status != http.StatusOK || out["valid"] != false || len(out["link_problems"].([]any)) == 0 {
 		t.Fatalf("validate unlinked: %d %v", status, out)
 	}
-	if after := c.load("run-a/pack", p.Manifest.PackDigest); after["exists"] != false {
+	if after := c.load("kirk0/packs/run-a", p.Manifest.PackDigest); after["exists"] != false {
 		t.Fatal("a refused request wrote the document")
 	}
 	if status, out := c.do(http.MethodGet, "/api/annotations/physical/save", nil); status != http.StatusMethodNotAllowed {
 		t.Fatalf("GET save: %d %v", status, out)
 	}
 	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
-		"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "kind": "body", "object_id": "car-1", "record_id": "b"}); status != http.StatusBadRequest {
+		"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "kind": "body", "object_id": "car-1", "record_id": "b"}); status != http.StatusBadRequest {
 		t.Fatalf("anonymous review: %d %v", status, out)
 	}
 
@@ -372,7 +384,7 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if status, out := c.do(http.MethodPost, "/api/annotations/physical", map[string]any{}); status != http.StatusMethodNotAllowed {
 		t.Fatalf("POST load: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/validate", map[string]any{"pack": "nope", "pack_digest": "d", "author": "op", "objects": []any{}}); status != http.StatusNotFound {
+	if status, out := c.do(http.MethodPost, "/api/annotations/physical/validate", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "author": "op", "objects": []any{}}); status != http.StatusNotFound {
 		t.Fatalf("validate against a missing pack: %d %v", status, out)
 	}
 	if status, out := c.do(http.MethodGet, "/api/annotations/physical/review", nil); status != http.StatusMethodNotAllowed {
@@ -381,13 +393,13 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", "{"); status != http.StatusBadRequest {
 		t.Fatalf("malformed review: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{"pack": "nope", "pack_digest": "d", "reviewer": "r"}); status != http.StatusNotFound {
+	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "reviewer": "r"}); status != http.StatusNotFound {
 		t.Fatalf("review against a missing pack: %d %v", status, out)
 	}
 
 	// Another writer holds the annotation lock: validation still answers,
 	// the save is refused as busy.
-	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	lock, err := os.OpenFile(filepath.Join(p.Dir, ".annotations.lock"), os.O_RDWR|os.O_CREATE, 0o644)
 	if err != nil {
 		t.Fatal(err)
@@ -414,10 +426,10 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	}
 	s.Objects[0].Status = annotation.StatusRejected
 	s.Change = annotation.Provenance{Author: "op", Operation: "reject"}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
-	stale := c.load("run-a/pack", p.Manifest.PackDigest)
+	stale := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	if len(stale["stale"].([]any)) == 0 {
 		t.Fatalf("the load did not report stale records: %v", stale)
 	}
@@ -431,10 +443,10 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	// A second revision, then a damaged head: retained history still reads,
 	// and is not presented as the head; the head itself refuses.
 	s.Objects[0].Status = annotation.StatusReviewed
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
-	cur := c.load("run-a/pack", p.Manifest.PackDigest)
+	cur := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	if status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(cur, []annotation.PhysicalObject{})); status != http.StatusOK {
 		t.Fatalf("second save: %d %v", status, out)
 	}
@@ -442,11 +454,11 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if err := os.WriteFile(headPath, []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	status, out = c.do(http.MethodGet, "/api/annotations/physical?pack=run-a/pack&revision=1&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil)
+	status, out = c.do(http.MethodGet, "/api/annotations/physical?pack=kirk0/packs/run-a&revision=1&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil)
 	if status != http.StatusOK || out["head"] != false || out["revision"] != float64(1) {
 		t.Fatalf("retained revision behind a damaged head: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=run-a/pack&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
+	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=kirk0/packs/run-a&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
 		t.Fatalf("damaged head: %d %v", status, out)
 	}
 	if err := os.Remove(headPath); err != nil {
@@ -455,11 +467,11 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if err := os.RemoveAll(filepath.Join(p.Dir, "physical-reference-revisions")); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(p.Dir, "annotations.json"), []byte("{"), 0o644); err != nil {
+	if err := os.WriteFile(labelSetManifest(t, p.Dir), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=run-a/pack&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
-		t.Fatalf("damaged sidecar: %d %v", status, out)
+	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=kirk0/packs/run-a&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
+		t.Fatalf("damaged label set: %d %v", status, out)
 	}
 
 	rec := httptest.NewRecorder()
@@ -477,11 +489,11 @@ func TestPhysicalStateRefusesAnUndigestableDocument(t *testing.T) {
 	obj := physicalTestObject()
 	obj.Keyframes[0].Position.XM = physF(math.NaN())
 	doc.Objects = []annotation.PhysicalObject{obj}
-	if _, err := physicalStateOf(p, "run-a/pack", doc, doc, annotation.NewSidecar(p)); err == nil {
+	if _, err := physicalStateOf(p, "kirk0/packs/run-a", doc, doc, annotation.NewSidecar(p)); err == nil {
 		t.Fatal("a non-finite document produced a state")
 	}
 	rec := httptest.NewRecorder()
-	(&Server{}).writeSavedState(rec, p, "run-a/pack", &annotation.PhysicalEditOutcome{Document: doc, Membership: annotation.NewSidecar(p)},
+	(&Server{}).writeSavedState(rec, p, "kirk0/packs/run-a", &annotation.PhysicalEditOutcome{Document: doc, Membership: annotation.NewSidecar(p)},
 		func(s *physicalPackState) any { return s })
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("an undigestable saved document answered %d", rec.Code)
@@ -501,29 +513,29 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	c := physicalClient{t: t, base: srv.URL}
 	digest := url.QueryEscape(p.Manifest.PackDigest)
 
-	state := c.load("run-a/pack", p.Manifest.PackDigest)
+	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	if drift := state["review_drift"].([]any); len(drift) != 0 {
 		t.Fatalf("drift on an empty pack: %v", drift)
 	}
 	if status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()})); status != 200 {
 		t.Fatalf("save: %d %v", status, out)
 	}
-	state = c.load("run-a/pack", p.Manifest.PackDigest)
+	state = c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	status, reviewed := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
-		"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "base_revision": state["revision"], "base_digest": state["digest"],
+		"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "base_revision": state["revision"], "base_digest": state["digest"],
 		"membership_digest": state["membership_digest"], "kind": "keyframe", "object_id": "car-1", "record_id": "kf_a", "reviewer": "rev"})
 	if status != 200 {
 		t.Fatalf("review: %d %v", status, reviewed)
 	}
 
-	status, history := c.do(http.MethodGet, "/api/annotations/physical/history?pack=run-a/pack&pack_digest="+digest, nil)
+	status, history := c.do(http.MethodGet, "/api/annotations/physical/history?pack=kirk0/packs/run-a&pack_digest="+digest, nil)
 	revisions, _ := history["revisions"].([]any)
 	if status != 200 || len(revisions) != 2 || revisions[0].(map[string]any)["head"] != true {
 		t.Fatalf("history: %d %v", status, history)
 	}
 
 	restore := func(s map[string]any, body map[string]any) (int, map[string]any) {
-		req := map[string]any{"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "base_revision": s["revision"],
+		req := map[string]any{"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "base_revision": s["revision"],
 			"base_digest": s["digest"], "membership_digest": s["membership_digest"], "revision": 1, "author": "op"}
 		for k, v := range body {
 			req[k] = v
@@ -546,7 +558,7 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 
 	// Re-review, then change the keyframe's own sample in membership: drift.
 	status, reviewed = c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
-		"pack": "run-a/pack", "pack_digest": p.Manifest.PackDigest, "base_revision": restored["revision"], "base_digest": restored["digest"],
+		"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "base_revision": restored["revision"], "base_digest": restored["digest"],
 		"membership_digest": restored["membership_digest"], "kind": "keyframe", "object_id": "car-1", "record_id": "kf_a", "reviewer": "rev"})
 	if status != 200 {
 		t.Fatalf("second review: %d %v", status, reviewed)
@@ -557,10 +569,10 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	}
 	s.Masks[0].PointIndices = []int{0, 1, 2, 3, 4, 5, 6}
 	s.Change = annotation.Provenance{Author: "op", Operation: "label"}
-	if err := annotation.SaveSidecar(p, s); err != nil {
+	if _, err := labelset.SaveMembership(p, s, labelset.Change{Author: s.Change.Author, Operation: s.Change.Operation}); err != nil {
 		t.Fatal(err)
 	}
-	drifted := c.load("run-a/pack", p.Manifest.PackDigest)
+	drifted := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
 	if drift := drifted["review_drift"].([]any); len(drift) != 1 {
 		t.Fatalf("drift after a membership change at the keyframe's sample: %v", drift)
 	}
@@ -571,10 +583,10 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 		status       int
 	}{
 		{http.MethodPost, "/api/annotations/physical/history", nil, 405},
-		{http.MethodGet, "/api/annotations/physical/history?pack=nope&pack_digest=d", nil, 404},
+		{http.MethodGet, "/api/annotations/physical/history?pack=kirk0/packs/nope&pack_digest=d", nil, 404},
 		{http.MethodGet, "/api/annotations/physical/restore", nil, 405},
 		{http.MethodPost, "/api/annotations/physical/restore", "{", 400},
-		{http.MethodPost, "/api/annotations/physical/restore", map[string]any{"pack": "nope", "pack_digest": "d", "revision": 1, "author": "a"}, 404},
+		{http.MethodPost, "/api/annotations/physical/restore", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "revision": 1, "author": "a"}, 404},
 	} {
 		if status, out := c.do(tc.method, tc.path, tc.body); status != tc.status {
 			t.Fatalf("%s %s: %d %v, want %d", tc.method, tc.path, status, out, tc.status)
@@ -583,7 +595,7 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(p.Dir, "physical-references.json"), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical/history?pack=run-a/pack&pack_digest="+digest, nil); status != 500 {
+	if status, out := c.do(http.MethodGet, "/api/annotations/physical/history?pack=kirk0/packs/run-a&pack_digest="+digest, nil); status != 500 {
 		t.Fatalf("history over a damaged head: %d %v", status, out)
 	}
 }

@@ -175,6 +175,12 @@ private let logger = DevLogger(category: "AppState")
     // Note: currentFrame is NOT @Published to avoid SwiftUI update cycles
     // Frames are delivered directly to the renderer via registerRenderer()
     var currentFrame: FrameBundle?
+    /// The packet keys of the point frame at `currentTimestamp`, set with it,
+    /// so the two always describe one frame. A background frame carries no
+    /// points and shares the time of the frame before it, so it leaves them
+    /// as they are. Empty when the source sends none. Not published: the
+    /// annotation window reads them when `currentTimestamp` moves.
+    private(set) var currentPacketKeys: [UInt64] = []
     @Published var frameCount: UInt64 = 0
     @Published var fps: Double = 0.0
 
@@ -468,6 +474,7 @@ private let logger = DevLogger(category: "AppState")
         replayFinished = false
         replayProgress = 0
         isSeekingInProgress = false
+        currentPacketKeys = []
         currentTimestamp = 0
         currentFrameID = 0
         logStartTimestamp = 0
@@ -681,6 +688,7 @@ private let logger = DevLogger(category: "AppState")
     func clearAll() {
         logger.info("clearAll() called — clearing transient data")
         currentFrame = nil
+        currentPacketKeys = []
         selectedTrackID = nil
         trackLabels = []
         pointCount = 0
@@ -1394,6 +1402,8 @@ private let logger = DevLogger(category: "AppState")
         }
 
         currentFrameID = frame.frameID
+        // Before the timestamp: whatever follows the timestamp reads these.
+        if let cloud = frame.pointCloud { currentPacketKeys = cloud.packetKeys }
         currentTimestamp = frame.timestampNanos
         frameCount += 1
 

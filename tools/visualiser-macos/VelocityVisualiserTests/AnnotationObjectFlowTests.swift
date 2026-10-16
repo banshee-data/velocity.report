@@ -21,6 +21,13 @@ import simd
 /// Writes a digest-valid pack from point lists, one per sample. The shared
 /// fixture is two tiny samples of fixed bytes; following an object needs a
 /// cluster that moves by a known amount between samples.
+///
+/// A version 2 pack, the only kind there is: the packet table and each
+/// point's return, so the window saves into a label set. Each sample is a
+/// frame of its own run of packets, and point `j` is return `j` of its
+/// frame, unless `frames` and `packets` say otherwise. The pack is written in
+/// a directory of its own, `synthetic-labels-<uuid>/synthetic-<uuid>`, because
+/// its label sets are kept beside it; `removePack` removes both.
 enum SyntheticPack {
     typealias Point = (x: Float, y: Float, z: Float, classification: UInt8)
 
@@ -29,12 +36,40 @@ enum SyntheticPack {
     /// two), and its points.
     typealias Backdrop = (ordinal: Int, points: [simd_float3])
 
+    /// One sample's frame in the pack's packet table, and the return each of
+    /// its points was decoded from (increasing, inside the frame).
+    typealias Frame = (firstPacket: Int, packets: Int, returns: [UInt64])
+
+    static let layout = ReturnLayout.pandar40P
+
     static func write(
         _ samples: [[Point]], heightBand: String? = nil, backdrops: [Backdrop] = [],
         intensities: [[UInt8]]? = nil, hasIntensity: Bool = true, directory: URL? = nil,
-        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2
+        sampleIntensity: [Bool?]? = nil, sourceStride: Int = 2,
+        packets explicitPackets: [UInt64]? = nil, frames explicitFrames: [Frame]? = nil,
+        run: String = "synthetic.vrlog", configHash: String? = nil
     ) throws -> URL {
+        // The frames: each sample on packets of its own, its points on the
+        // first returns of its first packet onwards.
+        let per = Int(layout.perPacket)
+        var frames: [Frame] = []
+        if let explicitFrames {
+            frames = explicitFrames
+        } else {
+            var next = 0
+            for points in samples {
+                let count = max(1, (points.count + per - 1) / per)
+                let start = UInt64(next * per)
+                frames.append((next, count, (0..<points.count).map { start + UInt64($0) }))
+                next += count
+            }
+        }
+        let packetCount = frames.map { $0.firstPacket + $0.packets }.max() ?? 0
+        let packets =
+            explicitPackets ?? (0..<packetCount).map { 0xC0FF_EE00_0000_0000 + UInt64($0 + 1) }
+
         var bytes = Data()
+        var returnBytes = Data()
         var entries: [String] = []
         for (id, points) in samples.enumerated() {
             let offset = bytes.count
@@ -52,18 +87,30 @@ enum SyntheticPack {
                 contentsOf: intensities?[id] ?? [UInt8](repeating: 100, count: points.count))
             bytes.append(contentsOf: points.map(\.classification))
             let presence = (sampleIntensity?[id]).map { ", \"has_intensity\": \($0)" } ?? ""
+            let frame = frames[id]
+            let range =
+                ", \"return_start\": \(frame.firstPacket * per), "
+                + "\"return_end\": \((frame.firstPacket + frame.packets) * per)"
+            for r in frame.returns {
+                withUnsafeBytes(of: r.littleEndian) { returnBytes.append(contentsOf: $0) }
+            }
             entries.append(
                 """
                 {"sample_id": \(id), "source_ordinal": \(sourceStride * id + 1), "source_frame_id": \(100 + id), \
                 "timestamp_ns": \(1_000_000_000 + id * 100_000_000), "sensor_id": "synthetic", \
-                "point_count": \(points.count), "byte_offset": \(offset)\(presence)}
+                "point_count": \(points.count), "byte_offset": \(offset)\(presence)\(range)}
                 """)
         }
         let samplesJSON = "[" + entries.joined(separator: ",") + "]"
         let pointsSHA = AnnotationPack.digest(bytes)
         let samplesSHA = AnnotationPack.digest(Data(samplesJSON.utf8))
-        let packDigest = AnnotationPack.digest(Data((pointsSHA + "\n" + samplesSHA).utf8))
+        let packetBytes = PacketKeys.encode(packets)
+        let packetsSHA = AnnotationPack.digest(packetBytes)
+        let returnsSHA = AnnotationPack.digest(returnBytes)
+        let packDigest = AnnotationPack.digest(
+            Data([pointsSHA, samplesSHA, packetsSHA, returnsSHA].joined(separator: "\n").utf8))
         let band = heightBand.map { ", \"height_band\": \($0)" } ?? ""
+        let config = configHash.map { ", \"config_hash\": \"\($0)\"" } ?? ""
 
         var backgroundBytes = Data()
         var backgroundEntries: [String] = []
@@ -94,26 +141,36 @@ enum SyntheticPack {
              "backgrounds_sha256": "\(AnnotationPack.digest(Data(backgroundsJSON.utf8)))",
              "background_points_sha256": "\(AnnotationPack.digest(backgroundBytes))"
             """
+        let returnKeys = """
+            , "return_layout": {"model": "\(layout.model)", "blocks": \(layout.blocks), "channels": \(layout.channels)},
+             "packet_key": "sha256-64:udp-payload", "packet_count": \(packets.count),
+             "packets_sha256": "\(packetsSHA)", "returns_sha256": "\(returnsSHA)"
+            """
         let manifest = """
-            {"schema_version": 1, "dataset_id": "ds_synthetic", "created_ns": 0,
-             "source": {"vrlog_path": "synthetic.vrlog", "vrlog_header_sha256": "sha256:aa",
-                        "vrlog_frames_sha256": "sha256:bb", "sensor_id": "synthetic"\(band)},
+            {"schema_version": 2, "dataset_id": "ds_synthetic", "created_ns": 0,
+             "source": {"vrlog_path": "\(run)", "vrlog_header_sha256": "sha256:aa",
+                        "vrlog_frames_sha256": "sha256:bb", "pcap_basename": "synthetic-capture.pcapng",
+                        "sensor_id": "synthetic"\(band)\(config)},
              "coordinate": {"units": "metres", "frame_id": "sensor", "reference_frame": "site",
                             "handedness": "right", "origin_note": "sensor origin",
                             "transform_version": ""},
              "coverage": "foreground_only", "sample_count": \(samples.count),
              "point_count": \(samples.map(\.count).reduce(0, +)),
              "points_sha256": "\(pointsSHA)", "samples_sha256": "\(samplesSHA)",
-             "pack_digest": "\(packDigest)", "has_intensity": \(hasIntensity), "has_classification": true\(backgroundKeys)}
+             "pack_digest": "\(packDigest)", "has_intensity": \(hasIntensity), "has_classification": true\(backgroundKeys)\(returnKeys)}
             """
+        let id = UUID().uuidString
         let dir =
             directory
             ?? FileManager.default.temporaryDirectory.appendingPathComponent(
-                "synthetic-\(UUID().uuidString)")
+                "synthetic-labels-\(id)"
+            ).appendingPathComponent("synthetic-\(id)")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         try Data(manifest.utf8).write(to: dir.appendingPathComponent("manifest.json"))
         try Data((samplesJSON + "\n").utf8).write(to: dir.appendingPathComponent("samples.json"))
         try bytes.write(to: dir.appendingPathComponent("points.bin"))
+        try packetBytes.write(to: dir.appendingPathComponent("packets.bin"))
+        try returnBytes.write(to: dir.appendingPathComponent("returns.bin"))
         if !backdrops.isEmpty {
             try Data((backgroundsJSON + "\n").utf8).write(
                 to: dir.appendingPathComponent("backgrounds.json"))
@@ -206,7 +263,7 @@ struct HeightBandTests {
         let (session, dir) = try openSession(
             [[(0, 0, -1.5, 1), (0, 0, 0, 1)]],
             heightBand: #"{"floor_m": -1.0, "ceiling_m": 0.5, "remove_ground": true}"#)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.heightBand == HeightBand(floorM: -1.0, ceilingM: 0.5, removeGround: true))
         #expect(!session.heightBandIsAssumed)
@@ -217,7 +274,7 @@ struct HeightBandTests {
 
     @Test func aPackThatRecordsNoBandGetsTheDefaultAndSaysSo() throws {
         let (session, dir) = try openSession([[(0, 0, -1.5, 1), (0, 0, -3, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         #expect(session.heightBand == .pipelineDefault)
         #expect(session.heightBandIsAssumed)
@@ -226,7 +283,7 @@ struct HeightBandTests {
 
     @Test func hidingGroundLeavesExactlyWhatTheClustererSaw() throws {
         let (session, dir) = try openSession([[(0, 0, -3, 1), (0, 0, 0, 1), (0, 0, 2, 1)]])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.visibility.ground = false
         #expect(session.select(polygon: everything, mode: .replace))
@@ -239,7 +296,7 @@ struct HeightBandTests {
 @MainActor struct ObjectOrderTests {
     @Test func namingWhatIsSelectedDoesNotThrowTheSelectionAway() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         // Select first, then say what it is: the natural order. Creating the
         // object used to reload its (empty) saved mask over the selection.
@@ -251,14 +308,13 @@ struct HeightBandTests {
         #expect(session.save())
         #expect(session.savedSelection.count == 18)
         #expect(session.navigationGuard() == nil)
-        #expect(
-            FileManager.default.fileExists(
-                atPath: dir.appendingPathComponent("annotations.json").path))
+        // Saved into a label set beside the pack, which the pack now links.
+        #expect(try LabelSetLink.read(packDirectory: dir) != nil)
     }
 
     @Test func switchingObjectsIsRefusedWithUnsavedChanges() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = session.createObject(objectClass: "car")
         let second = session.createObject(objectClass: "pedestrian")
         #expect(session.select(polygon: everything, mode: .replace))
@@ -276,7 +332,7 @@ struct HeightBandTests {
     /// out of a selection they have not saved yet.
     @Test func creatingAnObjectIsNeverRefusedByUnsavedChanges() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let first = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.navigationGuard() != nil, "the fixture should have dirty membership")
@@ -293,7 +349,7 @@ struct HeightBandTests {
 
     @Test func whatIsAlreadyLabelledIsShownWhileLabellingSomethingElse() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero) + SyntheticPack.wall])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -307,7 +363,7 @@ struct HeightBandTests {
 
     @Test func theNextStepIsAlwaysSaid() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         session.operatorName = ""
         #expect(session.nextStep?.contains("name") == true)
@@ -323,7 +379,7 @@ struct HeightBandTests {
 
     @Test func aRefusedSaveSaysSoWhereItCanBeSeen() throws {
         let (session, dir) = try openSession([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.operatorName = "  "
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
@@ -337,7 +393,7 @@ struct HeightBandTests {
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let dir = try SyntheticPack.write([SyntheticPack.car(at: .zero)])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let first = try AnnotationSession(
             pack: try AnnotationPack.open(directory: dir), defaults: defaults)
@@ -361,7 +417,7 @@ struct HeightBandTests {
 
     @Test func aStrokeTakesEverythingTheBrushPassedOver() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         session.sphereRadius = 0.3
         // The slab keeps the brush on the lower returns.
@@ -381,7 +437,7 @@ struct HeightBandTests {
 
     @Test func theBrushTakesItsDepthFromTheReturnUnderTheCursor() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         session.sphereRadius = 0.3
 
@@ -397,7 +453,7 @@ struct HeightBandTests {
 
     @Test func shiftScrollMovesTheBrushAlongTheLineOfSight() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.tool = .sphere
         session.sphereRadius = 0.3
         session.hover(atViewPoint: simd_float2(1, 0), pickDistance: 0.2)
@@ -416,7 +472,7 @@ struct HeightBandTests {
 
     @Test func hoveringShowsWhatAClickWouldTakeAndOnlyForTheSphere() throws {
         let (session, dir) = try openSession([line])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         session.sphereRadius = 0.3
 
         session.tool = .lasso
@@ -494,7 +550,7 @@ struct SelectionFootprintTests {
 
     @Test func theSelectionIsLaidOverTheNextSampleWhereTheCarWent() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(1.0, 0.5)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -519,7 +575,7 @@ struct SelectionFootprintTests {
     @Test func aNudgeMovesTheProposalInTheViewsOwnDirections() throws {
         // Three metres a sample: further than the search reaches.
         let (session, dir) = try openSession(drive([.zero, simd_float2(3, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -540,7 +596,7 @@ struct SelectionFootprintTests {
 
     @Test func theNextCarryStartsFromHowFarTheLastOneMoved() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(3, 0), simd_float2(6, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -565,7 +621,7 @@ struct SelectionFootprintTests {
         let halfWall = Array(SyntheticPack.wall.prefix(3))
         let decoy: [SyntheticPack.Point] = SyntheticPack.wall.map { ($0.x, $0.y + 1, $0.z, 1) }
         let (session, dir) = try openSession([SyntheticPack.wall, halfWall + decoy])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "building")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -581,7 +637,7 @@ struct SelectionFootprintTests {
         let halfWall = Array(SyntheticPack.wall.prefix(3))
         let decoy: [SyntheticPack.Point] = SyntheticPack.wall.map { ($0.x, $0.y + 1, $0.z, 1) }
         let (session, dir) = try openSession([SyntheticPack.wall, halfWall + decoy])
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: everything, mode: .replace))
         #expect(session.save())
@@ -593,7 +649,7 @@ struct SelectionFootprintTests {
 
     @Test func nothingIsCarriedOntoASampleAlreadyLabelledOrAcrossAJump() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(1, 0), simd_float2(2, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -612,7 +668,7 @@ struct SelectionFootprintTests {
 
     @Test func selectingByHandReplacesTheProposal() throws {
         let (session, dir) = try openSession(drive([.zero, simd_float2(1, 0)]))
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
         #expect(session.save())
@@ -639,7 +695,7 @@ struct SelectionFootprintTests {
 
     @Test func aBuildingIsSavedIntoEverySampleAndSaysHowItGotThere() throws {
         let (session, dir) = try openSession(street())
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let building = session.createObject(objectClass: "building")
         #expect(session.select(polygon: roundTheWall, mode: .replace))
 
@@ -660,7 +716,7 @@ struct SelectionFootprintTests {
 
     @Test func aSampleAlreadyMaskedIsLeftAsItWas() throws {
         let (session, dir) = try openSession(street())
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let building = session.createObject(objectClass: "building")
         // Half the wall, saved by hand in sample 1.
         session.step(to: 1)
@@ -682,7 +738,7 @@ struct SelectionFootprintTests {
 
     @Test func aCarCannotBeAppliedToEverySample() throws {
         let (session, dir) = try openSession(street())
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         _ = session.createObject(objectClass: "car")
         #expect(session.select(polygon: roundTheCar, mode: .replace))
 

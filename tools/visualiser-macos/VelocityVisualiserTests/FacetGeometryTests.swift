@@ -9,7 +9,7 @@ import simd
         let horizontal: [SyntheticPack.Point] = [(0, 0, 1, 1), (1, 0, 1, 1), (0, 1, 1, 1)]
         let vertical: [SyntheticPack.Point] = [(0, 0, 1, 1), (0, 1, 1, 1), (0, 0, 2, 1)]
         let dir = try SyntheticPack.write([horizontal, vertical], sourceStride: 1)
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
         let session = try AnnotationSession(pack: AnnotationPack.open(directory: dir))
         let first = session.facetGeometryFit(indices: [0, 1, 2], geometry: .patch)
         #expect(first.supported && abs(first.direction!.z) > 0.99)

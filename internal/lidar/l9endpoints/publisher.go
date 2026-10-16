@@ -91,8 +91,19 @@ type Publisher struct {
 	vrlogRate         float32
 	vrlogSeekSignal   chan struct{}
 	vrlogSendOneFrame bool // Send one frame after seek-while-paused
-	vrlogActive       bool
-	vrlogWg           sync.WaitGroup
+	// vrlogSeekGen counts seeks. The replay loop notes it as it reads a
+	// frame and drops the frame if a seek has happened since: the seek
+	// drained what was queued, and the frame is from before it. Written
+	// under both vrlogPublishMu and vrlogMu.
+	vrlogSeekGen atomic.Uint64
+	// vrlogPublishMu orders a seek against the replay loop's publish: the
+	// loop holds it from its check of vrlogSeekGen until the frame is
+	// queued, and a seek holds it, taken before vrlogMu, until it has
+	// drained the queue. The publish path takes vrlogMu itself, so it is
+	// never held while vrlogMu is.
+	vrlogPublishMu sync.Mutex
+	vrlogActive    bool
+	vrlogWg        sync.WaitGroup
 	// vrlogEmittedBackground records whether the active replay published a
 	// background frame of its own at startup.
 	vrlogEmittedBackground bool

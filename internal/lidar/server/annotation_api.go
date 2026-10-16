@@ -125,10 +125,18 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 
 	// One directory per request, named for the run and the moment: two
 	// exports of the same run must not collide, and Export refuses to write
-	// into an existing directory rather than merge into one.
-	outDir, err := security.ResolvePathWithinDirectory(
-		filepath.Join(ws.annotationPacksDir, fmt.Sprintf("%s-%s", runID, time.Now().UTC().Format("20060102-150405.000000000"))),
-		ws.annotationPacksDir)
+	// into an existing directory rather than merge into one. It is written
+	// hidden at the root, where no listing sees it, then moved into its
+	// capture's packs/ folder once the pack names its capture.
+	name := fmt.Sprintf("%s-%s", runID, time.Now().UTC().Format("20060102-150405.000000000"))
+	root, err := security.ResolvePathWithinDirectory(ws.annotationPacksDir, ws.annotationPacksDir)
+	if err == nil && filepath.Base(name) != name {
+		err = fmt.Errorf("run id %q names a folder path", runID)
+	}
+	var outDir string
+	if err == nil {
+		outDir, err = security.ResolvePathWithinDirectory(filepath.Join(root, ".export-"+name), root)
+	}
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not resolve pack output directory: %v", err))
 		return
@@ -158,9 +166,25 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 			strings.Contains(err.Error(), "contradicts the recording") {
 			status = http.StatusBadRequest
 		}
+		// A recording made before return identity is intact but cannot be
+		// exported as it stands: the operator records it again.
+		if errors.Is(err, annotation.ErrNoReturnIdentity) {
+			status = http.StatusUnprocessableEntity
+		}
 		ws.writeJSONError(w, status, fmt.Sprintf("annotation export failed: %v", err))
 		return
 	}
+	placed := annotation.NewPackDir(root, annotation.CaptureName(pack.Manifest), name)
+	err = os.MkdirAll(filepath.Dir(placed), 0o755)
+	if err == nil {
+		err = os.Rename(outDir, placed)
+	}
+	if err != nil {
+		_ = os.RemoveAll(outDir)
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not place the pack in its capture folder: %v", err))
+		return
+	}
+	pack.Dir = placed
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(annotationExportResponse{

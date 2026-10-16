@@ -285,10 +285,39 @@ type PhysicalReview struct {
 }
 
 // MembershipPin names one membership sidecar revision by number and by the
-// digest of its exact bytes.
+// digest of its exact bytes, and, from reader level 2, the masks the review
+// rested on. Masks is a digest of the object's masks at the record's support
+// frames (SupportMasksDigest): drift is a change to them, which a copy with
+// no history can see, so an edit elsewhere leaves the review alone. A pin
+// without Masks is judged by its revision, which needs that revision's
+// history.
 type MembershipPin struct {
 	Revision int    `json:"revision"`
 	Digest   string `json:"digest"`
+	Masks    string `json:"masks,omitempty"`
+}
+
+// MaskPinReaderLevel is the reader level a document needs once a review pins
+// the masks it rests on: an older reader refuses the field.
+const MaskPinReaderLevel = 2
+
+// requiredReader is the reader level this document's content needs.
+func (r *PhysicalReferenceSet) requiredReader() int {
+	level := 1
+	pinned := func(review PhysicalReview) {
+		if review.ReviewedAgainst != nil && review.ReviewedAgainst.Masks != "" {
+			level = MaskPinReaderLevel
+		}
+	}
+	for _, o := range r.Objects {
+		if o.Body != nil {
+			pinned(o.Body.Review)
+		}
+		for _, k := range o.Keyframes {
+			pinned(k.Review)
+		}
+	}
+	return level
 }
 
 // PhysicalKeyframe is one reviewed instant of an object's pose. It covers
@@ -360,6 +389,7 @@ type PhysicalSource struct {
 type PhysicalReferenceSet struct {
 	Schema        string     `json:"schema"`
 	SchemaVersion int        `json:"schema_version"`
+	MinReader     int        `json:"min_reader,omitempty"`
 	DatasetID     string     `json:"dataset_id"`
 	PackDigest    string     `json:"pack_digest"`
 	Revision      int        `json:"revision"`

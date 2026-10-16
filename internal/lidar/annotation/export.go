@@ -1,6 +1,7 @@
 package annotation
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -33,12 +34,23 @@ type ExportConfig struct {
 	HeightBand *HeightBand
 }
 
+// ErrNoReturnIdentity marks a recording whose point frames do not name the
+// returns they came from: one made before the VRLOG carried return identity,
+// or from a source without packets. Its points cannot become a version 2
+// pack, and the remedy is to record again from the PCAP.
+var ErrNoReturnIdentity = errors.New("recording carries no return identity")
+
 // Export cuts a frozen pack from a VRLOG.
 //
 // It reads the source and writes a new directory; the recording is never
 // modified. Frames without a point cloud are counted and skipped rather than
 // written as empty samples, because an empty sample is indistinguishable from
 // a frame where everything was occluded.
+//
+// The pack is version 2: every point carries the return it was decoded from,
+// numbered in one packet table built across the exported frames in recording
+// order. A recording without return identity is refused with
+// ErrNoReturnIdentity rather than exported as a pack no label set can cite.
 func Export(cfg ExportConfig) (*Pack, error) {
 	if cfg.VRLOGPath == "" || cfg.OutDir == "" {
 		return nil, fmt.Errorf("VRLOGPath and OutDir are required")
@@ -72,6 +84,7 @@ func Export(cfg ExportConfig) (*Pack, error) {
 	header := replayer.Header()
 
 	comp := Completeness{RequestedStartNs: cfg.StartNs, RequestedEndNs: cfg.EndNs}
+	table := newPackTable()
 	var (
 		samples  []Sample
 		blocks   [][]byte
@@ -83,6 +96,9 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		// Classed points that are not foreground. A recording that kept the
 		// whole scene has them in every frame.
 		nonForeground int64
+		// Under foreground_only coverage, the classed non-foreground points
+		// the export left out, and every point it read.
+		dropped, read int64
 
 		backgrounds      []Background
 		backgroundBlocks [][]byte
@@ -150,6 +166,22 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		if cfg.EndNs != 0 && ts > cfg.EndNs {
 			break
 		}
+		// Annotation is downstream of foreground separation. A pack that says
+		// foreground_only holds exactly the points the run classed
+		// foreground, even when the recording kept the whole frame, so its
+		// point domain is the run's foreground.
+		if cfg.Coverage == CoverageForegroundOnly {
+			read += int64(len(pc.X))
+			var n int
+			pc, n = keepForeground(pc)
+			dropped += int64(n)
+			if len(pc.X) == 0 {
+				if inWindow && frame.Background == nil {
+					comp.FramesWithoutPoints++
+				}
+				continue
+			}
+		}
 
 		block, err := encodePoints(Points{
 			X: pc.X, Y: pc.Y, Z: pc.Z,
@@ -199,6 +231,11 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		}
 		comp.ActualEndNs = ts
 
+		returnStart, returnEnd, err := table.add(ordinal-1, pc)
+		if err != nil {
+			return nil, err
+		}
+
 		if len(samples) == 0 {
 			keepPending()
 		}
@@ -209,6 +246,8 @@ func Export(cfg ExportConfig) (*Pack, error) {
 			SensorID:      header.SensorID,
 			PointCount:    len(pc.X),
 			HasIntensity:  boolPtr(intensityPresent),
+			ReturnStart:   returnStart,
+			ReturnEnd:     returnEnd,
 		})
 		blocks = append(blocks, block)
 
@@ -233,6 +272,14 @@ func Export(cfg ExportConfig) (*Pack, error) {
 			"coverage %q contradicts the recording: every point in the %d exported frames is "+
 				"classed foreground, so it kept foreground only (export it as %q)",
 			CoverageFull, len(samples), CoverageForegroundOnly)
+	}
+
+	if dropped > 0 {
+		note := fmt.Sprintf("export kept the %d foreground-classed of %d recorded points", read-dropped, read)
+		if cfg.CoverageNote != "" {
+			note = cfg.CoverageNote + "; " + note
+		}
+		cfg.CoverageNote = note
 	}
 
 	m := Manifest{
@@ -271,10 +318,164 @@ func Export(cfg ExportConfig) (*Pack, error) {
 		backgroundBlocks = backgroundBlocks[:len(backgroundBlocks)-1]
 	}
 
-	if err := WritePackWithBackground(cfg.OutDir, m, samples, blocks, backgrounds, backgroundBlocks); err != nil {
+	if err := WritePackWithBackground(cfg.OutDir, m, samples, blocks, table.returns(), backgrounds, backgroundBlocks); err != nil {
 		return nil, err
 	}
 	return OpenPack(cfg.OutDir)
+}
+
+// packTable builds a pack's packet table from the exported frames, in
+// recording order, and renumbers each frame's returns into it.
+//
+// A frame's own table lists its packets in first-seen order. A packet split
+// between two consecutive frames, as when the rotation wraps inside it, ends
+// one frame's table and starts the next one's; it is listed once. Any other
+// repetition of a packet means the recording does not identify its returns
+// uniquely, and the export is refused rather than guess which one a point
+// was.
+type packTable struct {
+	layout  ReturnLayout
+	packets []uint64
+	index   map[uint64]int
+	// The first packet of the previous sample, and where its range ended: a
+	// packet may be shared with that sample and no other, and the next
+	// sample's returns must start after it.
+	prevFirst int
+	prevEnd   uint64
+	perSample [][]uint64
+}
+
+func newPackTable() *packTable {
+	return &packTable{index: make(map[uint64]int)}
+}
+
+// add renumbers one frame's returns into the table and returns its range.
+func (t *packTable) add(ordinal int, pc *l9endpoints.PointCloudFrame) (start, end uint64, err error) {
+	if !pc.HasReturnIdentity() {
+		return 0, 0, fmt.Errorf("frame %d (ordinal): %w; it was recorded before return identity "+
+			"existed or from a source without packets. Re-record it by replaying the PCAP with this "+
+			"build, then export the new VRLOG", ordinal, ErrNoReturnIdentity)
+	}
+	layout := ReturnLayout{Model: pc.ReturnModel, Blocks: pc.ReturnBlocks, Channels: pc.ReturnChannels}
+	if err := layout.validate(); err != nil {
+		return 0, 0, fmt.Errorf("frame %d (ordinal): %w", ordinal, err)
+	}
+	if len(t.perSample) == 0 {
+		t.layout = layout
+	} else if layout != t.layout {
+		return 0, 0, fmt.Errorf("frame %d (ordinal) numbers returns as %+v, earlier frames as %+v", ordinal, layout, t.layout)
+	}
+	for i, r := range pc.ReturnRefs {
+		if r < pc.ReturnStart || r >= pc.ReturnEnd || (i > 0 && r <= pc.ReturnRefs[i-1]) {
+			return 0, 0, fmt.Errorf("frame %d (ordinal) point %d: return %d is out of point order or outside "+
+				"the frame's [%d,%d): the frame repeats a packet", ordinal, i, r, pc.ReturnStart, pc.ReturnEnd)
+		}
+	}
+
+	// The leading packets already in the table must be its tail, in order,
+	// and belong to the previous sample. Every packet after them is new.
+	keys := pc.PacketKeys
+	shared := 0
+	for shared < len(keys) {
+		if _, ok := t.index[keys[shared]]; !ok {
+			break
+		}
+		shared++
+	}
+	tail := len(t.packets) - shared
+	for j := 0; j < shared; j++ {
+		if tail < t.prevFirst || t.packets[tail+j] != keys[j] {
+			return 0, 0, t.repeated(ordinal, keys[j])
+		}
+	}
+	mapping := make([]uint64, len(keys))
+	for j := range keys {
+		if j < shared {
+			mapping[j] = uint64(tail + j)
+			continue
+		}
+		if _, ok := t.index[keys[j]]; ok {
+			return 0, 0, t.repeated(ordinal, keys[j])
+		}
+		t.index[keys[j]] = len(t.packets)
+		mapping[j] = uint64(len(t.packets))
+		t.packets = append(t.packets, keys[j])
+	}
+
+	per := layout.PerPacket()
+	renumber := func(r uint64) uint64 { return mapping[r/per]*per + r%per }
+	start, end = renumber(uint64(pc.ReturnStart)), renumber(uint64(pc.ReturnEnd)-1)+1
+	if len(t.perSample) > 0 && start < t.prevEnd {
+		return 0, 0, fmt.Errorf("frame %d (ordinal) starts at return %d, inside the previous sample's frame, "+
+			"which ends at %d: two frames claim the same returns", ordinal, start, t.prevEnd)
+	}
+	returns := make([]uint64, len(pc.ReturnRefs))
+	for i, r := range pc.ReturnRefs {
+		returns[i] = renumber(uint64(r))
+	}
+	t.perSample = append(t.perSample, returns)
+	t.prevFirst = int(mapping[0])
+	t.prevEnd = end
+	return start, end, nil
+}
+
+func (t *packTable) repeated(ordinal int, key uint64) error {
+	return fmt.Errorf("frame %d (ordinal): packet %016x appeared earlier in the recording, not only at the "+
+		"previous frame's boundary: its returns cannot be told apart, so this recording cannot be exported", ordinal, key)
+}
+
+func (t *packTable) returns() PackReturns {
+	return PackReturns{Layout: t.layout, Packets: t.packets, Returns: t.perSample}
+}
+
+// keepForeground returns the frame's foreground-classed points, with their
+// columns and returns kept aligned, and how many it left out. The frame's
+// packet table and return range are unchanged: they bound every return of
+// the frame, emitted or not. A frame without classification is returned as
+// it is.
+func keepForeground(pc *l9endpoints.PointCloudFrame) (*l9endpoints.PointCloudFrame, int) {
+	n := len(pc.X)
+	if len(pc.Classification) != n {
+		return pc, 0
+	}
+	keep := 0
+	for _, c := range pc.Classification {
+		if c == classForeground {
+			keep++
+		}
+	}
+	if keep == n {
+		return pc, 0
+	}
+	// Built field by field: the frame carries a reference count that must
+	// not be copied.
+	out := l9endpoints.PointCloudFrame{
+		FrameID: pc.FrameID, TimestampNanos: pc.TimestampNanos, SensorID: pc.SensorID,
+		DecimationMode: pc.DecimationMode, DecimationRatio: pc.DecimationRatio,
+		PacketKeys: pc.PacketKeys, ReturnStart: pc.ReturnStart, ReturnEnd: pc.ReturnEnd,
+		ReturnModel: pc.ReturnModel, ReturnBlocks: pc.ReturnBlocks, ReturnChannels: pc.ReturnChannels,
+		X: make([]float32, 0, keep), Y: make([]float32, 0, keep), Z: make([]float32, 0, keep),
+		Classification: make([]uint8, 0, keep),
+	}
+	withIntensity, withRefs := len(pc.Intensity) == n, len(pc.ReturnRefs) == n
+	for i, c := range pc.Classification {
+		if c != classForeground {
+			continue
+		}
+		out.X, out.Y, out.Z = append(out.X, pc.X[i]), append(out.Y, pc.Y[i]), append(out.Z, pc.Z[i])
+		out.Classification = append(out.Classification, c)
+		if withIntensity {
+			out.Intensity = append(out.Intensity, pc.Intensity[i])
+		}
+		if withRefs {
+			out.ReturnRefs = append(out.ReturnRefs, pc.ReturnRefs[i])
+		}
+	}
+	if withIntensity && out.Intensity == nil {
+		out.Intensity = []uint8{}
+	}
+	out.PointCount = keep
+	return &out, n - keep
 }
 
 // classForeground is the recorder's per-point class for a foreground return

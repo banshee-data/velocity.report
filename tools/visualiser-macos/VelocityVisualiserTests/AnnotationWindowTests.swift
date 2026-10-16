@@ -132,7 +132,7 @@ struct AnnotationFramingTests {
     /// route an operator takes: choose a directory, get a working session.
     @Test func openingARealPackProducesAUsableSession() throws {
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let controller = AnnotationController()
         controller.openPack(at: dir)
@@ -161,8 +161,8 @@ struct AnnotationFramingTests {
         let first = try PackFixture.write()
         let second = try PackFixture.write()
         defer {
-            try? FileManager.default.removeItem(at: first)
-            try? FileManager.default.removeItem(at: second)
+            removePack(first)
+            removePack(second)
         }
 
         let controller = AnnotationController()
@@ -179,7 +179,7 @@ struct AnnotationFramingTests {
         // Otherwise the window keeps showing the old pack's points while the
         // title and the error describe a different one.
         let dir = try PackFixture.write()
-        defer { try? FileManager.default.removeItem(at: dir) }
+        defer { removePack(dir) }
 
         let controller = AnnotationController()
         controller.openPack(at: dir)
@@ -197,6 +197,24 @@ struct AnnotationFramingTests {
         let error = controller.lastError ?? ""
         #expect(!error.isEmpty, "a failed open must say so")
         #expect(error.contains("pack-dir"), "the message must name the directory tried")
+    }
+
+    /// A version 1 pack is refused with where its labels went and how to
+    /// read it, in the window the operator opened it from.
+    @Test func openingAVersion1PackSaysWhereItsLabelsWent() throws {
+        let dir = try PackFixture.write { files in
+            files["manifest.json"] = try PackFixture.manifest { $0["schema_version"] = 1 }
+        }
+        defer { removePack(dir) }
+
+        let controller = AnnotationController()
+        controller.openPack(at: dir)
+
+        #expect(controller.session == nil)
+        let error = controller.lastError ?? ""
+        #expect(error.hasPrefix("Could not open \(dir.lastPathComponent): This is a version 1"))
+        #expect(error.contains("annotation-v1-reader"))
+        #expect(error.contains("docs/lidar/operations/annotation-label-set-migration.md"))
     }
 
     @Test func openingACorruptPackLeavesNoSession() throws {

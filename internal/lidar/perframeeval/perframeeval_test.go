@@ -509,7 +509,7 @@ func TestEpisodeRefusesDuplicateTimestamps(t *testing.T) {
 		samples = append(samples, annotation.Sample{SourceOrdinal: i, TimestampNs: 42, PointCount: 1})
 		blocks = append(blocks, block)
 	}
-	if err := annotation.WritePack(dir, annotation.Manifest{Coverage: annotation.CoverageForegroundOnly}, samples, blocks); err != nil {
+	if err := annotation.WritePack(dir, annotation.Manifest{Coverage: annotation.CoverageForegroundOnly}, samples, blocks, annotation.FixtureReturns(samples)); err != nil {
 		t.Fatal(err)
 	}
 	pack, err := annotation.OpenPack(dir)

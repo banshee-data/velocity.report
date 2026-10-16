@@ -486,9 +486,6 @@ private func columns(_ x0: Float, _ x1: Float) -> SelectionPolygon {
         ]
         let conflicts = s.pointClaimConflicts()
         #expect(conflicts == [PointClaimConflict(sampleID: 0, point: 2, first: "a", second: "b")])
-        #expect(
-            conflicts[0].key
-                == PointClaimConflict(sampleID: 0, point: 2, first: "b", second: "a").key)
     }
 
     @Test func aSaveThatWouldClaimAReturnTwiceIsRefused() throws {
@@ -502,33 +499,8 @@ private func columns(_ x0: Float, _ x1: Float) -> SelectionPolygon {
         #expect(session.select(polygon: columns(5.25, 5.7), mode: .replace))
         #expect(!session.save())
         #expect(session.lastError?.contains("would belong to both") == true)
-        #expect(session.pointClaimConflicts.isEmpty)
         #expect(session.select(polygon: columns(5.55, 5.7), mode: .replace))
         #expect(session.save())
-    }
-
-    @Test func aPackThatAlreadyHasOneCanStillBeRepaired() throws {
-        let dir = try SyntheticPack.write([SyntheticPack.car(at: simd_float2(5, 0))])
-        let pack = try AnnotationPack.open(directory: dir)
-        let store = SidecarStore(packDirectory: dir)
-        var doc = try store.load(
-            packDigest: pack.manifest.packDigest, datasetID: pack.manifest.datasetID)
-        doc.sidecar.objects = [
-            AnnotationObject(objectID: "a", objectClass: "car"),
-            AnnotationObject(objectID: "b", objectClass: "car"),
-        ]
-        doc.sidecar.masks = [
-            FrameMask(objectID: "a", sampleID: 0, pointIndices: [0, 1]),
-            FrameMask(objectID: "b", sampleID: 0, pointIndices: [1, 12]),
-        ]
-        _ = try store.save(doc, change: Provenance(author: "old", operation: "seed"))
-        let session = try AnnotationSession(pack: pack)
-        session.operatorName = "op"
-        #expect(session.pointClaimConflicts.count == 1)
-        #expect(session.activate(objectID: "b") == nil)
-        #expect(session.select(polygon: columns(5.55, 5.7), mode: .replace))
-        #expect(session.save(), "the repair itself was refused")
-        #expect(session.pointClaimConflicts.isEmpty)
     }
 }
 
