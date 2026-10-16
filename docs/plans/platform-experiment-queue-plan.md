@@ -8,8 +8,10 @@ on; and a weekly cadence in which new papers pose questions, questions become sp
 become decisions or further specs. It folds in what the job runner, the worker-pool plan, HINT,
 the review workflow and the old campaign supervisor already do, rather than building beside them.
 
-- **Status:** Proposed, 2026-10-13. Phase 0 is built on this branch: the spec format, five areas,
-  the validator, the dependency graph and fifteen specs. The queue itself is not built
+- **Status:** Proposed, 2026-10-13. Phase 0 is built (#746): the spec format, five areas, the
+  validator, the dependency graph and fifteen specs. Phase 1's progress half is built: units, a
+  state file per unit, `mark`, `units` and `status` (see [Progress](../../data/experiments/EXPERIMENTS.md#progress)).
+  Expanding a spec into campaign submissions, and the hub queue, are not built
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, hub); every LiDAR layer as a subject
 - **Related:** [job queue implementation](lidar-job-queue-implementation-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [vocabulary phase 2: jobs](platform-vocabulary-phase2-jobs-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [review workflow](lidar-review-workflow-plan.md), [priority review queue](lidar-visualiser-priority-review-queue-plan.md), [analysis worker](../lidar/operations/analysis-worker.md), [research briefing skill](../../.claude/skills/research-briefing/SKILL.md)
@@ -152,7 +154,9 @@ frontier sweep's and `make scene-variants`, and wait until a spec needs them.
 the jobs and attempts: an experiments table (slug, spec digest at approval, status read from
 Git), a steps table (state: `blocked`, `ready`, `running`, `awaiting_human`, `done`, `failed`)
 and a link from each job to its step. Until the hub exists, the Mac is hub and worker at once, as
-the runner already is.
+the runner already is, and progress is a state directory with one file per unit: the step fanned
+out over its arms and cases, which a lane marks started, done or failed, and a person closes with
+its artefact. Each unit file maps to a row of the hub's steps table when the hub arrives.
 
 **Claiming.** A worker pulls: it asks the hub for work, sending its capabilities, its worker
 class, its free scratch space and whether it reclaims orphans. The hub picks the highest-priority
@@ -256,14 +260,14 @@ flowchart LR
 
 ## 9. Phases
 
-| Phase | Work                                                                                                                                                                                     | Size | Depends on |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- |
-| 0     | The spec format, areas, validator, generated graph, `make check-experiments`, fifteen specs (seven answered from October with their actual times, eight proposed). This branch           | S    | Nothing    |
-| 1     | Single-host execution: `velocity experiments plan <slug>` expands a spec's job steps into campaign submissions on the local worker; a local step-state file; `complete` for manual steps | M    | 0          |
-| 2     | The planned kinds as job kinds, `ground_truth_eval` and `corpus_screen` first                                                                                                            | M    | 1          |
-| 3     | The hub queue: experiment and step tables, worker pull with capabilities, renewed leases, the sweeper, orphan policy, the disk gate; overlaps the worker-pool plan's phase B             | L    | The hub    |
-| 4     | Manual steps on the hub with notifications and artefact checks; HINT re-expressed as a template; review queues feeding `manual:review`                                                   | L    | 3          |
-| 5     | The cadence: the briefing skill writes specs; a weekly queue review; recommendations into specs; `try/` proposals moved into areas                                                       | S    | 0          |
+| Phase | Work                                                                                                                                                                                                                                                                              | Size | Depends on |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- |
+| 0     | The spec format, areas, validator, generated graph, `make check-experiments`, fifteen specs (seven answered from October with their actual times, eight proposed). This branch                                                                                                    | S    | Nothing    |
+| 1     | Single-host execution: `velocity experiments plan <slug>` expands a spec's job steps into campaign submissions on the local worker; a local step-state file; `complete` for manual steps. Progress (units, state files, `mark`, `units`, `status`) is built; the expansion is not | M    | 0          |
+| 2     | The planned kinds as job kinds, `ground_truth_eval` and `corpus_screen` first                                                                                                                                                                                                     | M    | 1          |
+| 3     | The hub queue: experiment and step tables, worker pull with capabilities, renewed leases, the sweeper, orphan policy, the disk gate; overlaps the worker-pool plan's phase B                                                                                                      | L    | The hub    |
+| 4     | Manual steps on the hub with notifications and artefact checks; HINT re-expressed as a template; review queues feeding `manual:review`                                                                                                                                            | L    | 3          |
+| 5     | The cadence: the briefing skill writes specs; a weekly queue review; recommendations into specs; `try/` proposals moved into areas                                                                                                                                                | S    | 0          |
 
 Phase 5 needs only Phase 0 and is worth doing first: it puts every proposal in one place before any
 of the machinery exists.

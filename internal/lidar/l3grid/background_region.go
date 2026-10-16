@@ -102,6 +102,14 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 			}
 		}
 	}
+	// Record each cell's own tercile for the evidence; merging below
+	// reassigns cells to regions of another tercile, so a region's tercile
+	// does not give back its cells'.
+	rm.CellTercile = make([]VarianceTercile, totalCells)
+	for i, category := range cellCategory {
+		rm.CellTercile[i] = varianceTercileForCategory(category)
+	}
+	rm.TercileThresholds = []float64{lowThreshold, highThreshold}
 
 	// Step 3: Use connected components to find contiguous regions
 	visited := make([]bool, totalCells)
@@ -174,6 +182,7 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 			// Assign parameters based on category
 			region.Params = rm.assignRegionParams(category, grid.Params)
 			region.Volatile = category == 2
+			region.Tercile = varianceTercileForCategory(category)
 
 			tempRegions = append(tempRegions, region)
 			regionID++
@@ -350,6 +359,7 @@ func (rm *RegionManager) createDefaultRegion(grid *BackgroundGrid) error {
 		rm.CellToRegionID[i] = 0
 	}
 	rm.Regions = []*Region{region}
+	rm.CellTercile, rm.TercileThresholds = nil, nil
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Now()
 	diagf("[RegionManager] Created single default region covering %d cells", totalCells)
@@ -398,6 +408,7 @@ func (rm *RegionManager) ToSnapshot(sensorID string, snapshotID int64) *RegionSn
 			CellList:     r.CellList,
 			MeanVariance: r.MeanVariance,
 			CellCount:    r.CellCount,
+			Tercile:      r.Tercile,
 		}
 	}
 
@@ -410,13 +421,11 @@ func (rm *RegionManager) ToSnapshot(sensorID string, snapshotID int64) *RegionSn
 	// Optionally include variance data for debugging
 	var varianceJSON string
 	if len(rm.SettlingMetrics.VariancePerCell) > 0 {
-		type VarianceData struct {
-			VariancePerCell []float64 `json:"variance_per_cell"`
-			FramesSampled   int       `json:"frames_sampled"`
-		}
 		vd := VarianceData{
-			VariancePerCell: rm.SettlingMetrics.VariancePerCell,
-			FramesSampled:   rm.SettlingMetrics.FramesSampled,
+			VariancePerCell:   rm.SettlingMetrics.VariancePerCell,
+			FramesSampled:     rm.SettlingMetrics.FramesSampled,
+			CellTercile:       rm.CellTercile,
+			TercileThresholds: rm.TercileThresholds,
 		}
 		if b, err := json.Marshal(vd); err == nil {
 			varianceJSON = string(b)
@@ -489,6 +498,10 @@ func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot, totalCells in
 			rm.SettlingMetrics.FramesSampled = vd.FramesSampled
 		}
 	}
+
+	// The terciles are evidence of an identification this manager did not
+	// run; a snapshot persisted after the restore must not carry stale ones.
+	rm.CellTercile, rm.TercileThresholds = nil, nil
 
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Unix(0, snap.CreatedUnixNanos)

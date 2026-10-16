@@ -8,6 +8,18 @@
 //	experiments show <slug>           one spec's steps, fan-out and estimate
 //	experiments new <area>            the next free slug in an area
 //
+// Progress, kept in a state directory outside the checkout (-state, or
+// $VELOCITY_EXPERIMENT_STATE, or ~/.local/state/velocity-report/experiments):
+//
+//	experiments status [slug]                       every experiment with progress, or one in detail
+//	experiments units <slug> [-step id] [-todo]     unit, arm, case, tuning, replay options: tab-separated, for a lane
+//	experiments mark <slug> <unit> start|done|failed [-out path] [-artefact a] [-note text]
+//	                 [-worker host] [-class m1pro] [-reclaim] [-wall 12m] [-force]
+//
+// A unit is one step on one arm and one case (replay/cmr/lombard-laguna), or
+// a whole step that does not fan out (write). A lane marks each unit as it
+// starts and finishes it; a person closes a manual unit with its artefact.
+//
 // Run it from the repository root, or pass -root.
 package main
 
@@ -29,9 +41,11 @@ func main() {
 func run(args []string) int {
 	fs := flag.NewFlagSet("experiments", flag.ContinueOnError)
 	root := fs.String("root", ".", "repository root")
+	state := fs.String("state", experiments.DefaultStateDir(), "progress state directory")
 	write := fs.Bool("write", false, "graph: write "+experiments.DependenciesFile+" instead of printing it")
 	fs.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: experiments [-root DIR] validate | graph [-write] | check-graph | next | show <slug> | new <area>")
+		fmt.Fprintln(os.Stderr, "usage: experiments [-root DIR] [-state DIR] validate | graph [-write] | check-graph | next | show <slug> | new <area>\n"+
+			"       | status [slug] | units <slug> [-step id] [-todo] | mark <slug> <unit> start|done|failed [flags]")
 	}
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -132,6 +146,12 @@ func run(args []string) int {
 		}
 		fmt.Printf("%s%04d\n", area, max+1)
 		return 0
+	case "status":
+		return status(set, experiments.OpenLedger(*state), rest)
+	case "units":
+		return units(set, experiments.OpenLedger(*state), rest)
+	case "mark":
+		return mark(set, *root, experiments.OpenLedger(*state), rest)
 	}
 	fs.Usage()
 	return 2

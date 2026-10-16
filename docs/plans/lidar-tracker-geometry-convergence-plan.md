@@ -320,7 +320,11 @@ scored its pairs.
   is one body, however large its area ratio against the running mean; growth admission is the
   first version of that rule. The censored likelihood and the revisable admitted-frame record of
   §9.2.2 and §9.2.3 are the estimator; they are not changed here.
-- **Upstream retention and fragmentation.** Truck 2's cab never reached the tracker and truck
+- **Upstream retention and fragmentation.** Measured on kirk0 by
+  [the W3 report](../lidar/operations/w3-retention-fragmentation-kirk0-2026-10.md) (October 13,
+  2026): half the labelled returns reach a cluster, and half the instants at 20 to 50 m are
+  split; a range-adaptive eps leaves that unchanged
+  ([report](../lidar/operations/l4-range-adaptive-eps-2026-10.md)). Truck 2's cab never reached the tracker and truck
   1's cab was two separate clusters. No observation model can place a body on points it was not
   given. The reviewed pack can score this today: for each reviewed mask, the share of its
   returns in the associated cluster, and the number of clusters its returns fall in. Those two

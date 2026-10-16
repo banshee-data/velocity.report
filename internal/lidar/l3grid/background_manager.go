@@ -438,6 +438,19 @@ func (bm *BackgroundManager) IsSettlingComplete() bool {
 	return g.SettlingComplete
 }
 
+// RegionsIdentified reports whether the region manager has identified (or
+// restored) its regions, the map the per-region overrides read. It acquires
+// a read lock internally, like IsSettlingComplete.
+func (bm *BackgroundManager) RegionsIdentified() bool {
+	if bm == nil || bm.Grid == nil {
+		return false
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.RegionMgr != nil && g.RegionMgr.IdentificationComplete
+}
+
 // ResetGrid zeros per-cell stats (AverageRangeMeters, RangeSpreadMeters, TimesSeenCount,
 // LastUpdateUnixNanos, FrozenUntilUnixNanos) and acceptance counters. Intended for
 // testing and A/B sweeps only.

@@ -24,6 +24,24 @@ const (
 	// estimator noise, so comparing the box against it measures nothing.
 	CourseAlignmentMinSpeedMps = 2.0
 
+	// StationarySpeedMps is the Kalman speed at or below which L5 treats a
+	// track as not moving. It is the threshold under which the velocity no
+	// longer resolves the OBB heading and the velocity-trail alignment is not
+	// sampled (tracking_update.go), and the stationary clock (StationaryFor)
+	// reads the same value, so L5 has one notion of stationary, not two.
+	StationarySpeedMps = 0.5
+
+	// StationaryDriftMetres bounds how far a track may move from where its
+	// stationary run began and still be in that run. Speed alone admits a
+	// creep: a queue edging forward at 0.3 m/s is under StationarySpeedMps
+	// and covers 6 m in 20 s. A metre is a sixth of that creep and just above
+	// the jitter of a still object's measured position (on kirk0, within
+	// 0.67 m of its median over 71 s), so a run survives the jitter and
+	// restarts on the creep. It is a judgement, not a fit: a track whose
+	// position jumps further, as a fragment's can, restarts its run, which
+	// errs towards leaving the track alone.
+	StationaryDriftMetres = 1.0
+
 	// SustainedLockFrames is how many consecutive locked frames count as a
 	// sustained heading lock, and equally how many consecutive unlocked frames
 	// count as a genuine release. Short locks are the guards doing their job on
@@ -106,6 +124,13 @@ type TrackedObject struct {
 	Existence         ExistenceState
 	ExpiryReason      ExpiryReason
 	inflatedCoastSecs float32
+
+	// The stationary clock; see observeStationary and StationaryFor.
+	// stationaryRun says the track is in a stationary run, which began at
+	// frame time stationarySinceNanos with the track at the anchor.
+	stationaryRun                        bool
+	stationarySinceNanos                 int64
+	stationaryAnchorX, stationaryAnchorY float32
 
 	// History of positions
 	History []TrackPoint
@@ -720,6 +745,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	t.TracksCreated++
 	t.continuity.TracksBorn++
 	t.recordSupport(track, SupportObserved)
+	observeStationary(track, nowNanos)
 	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
 		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)
 	return track
@@ -826,6 +852,7 @@ func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowN
 		track.MaxClosedOcclusionFrames = track.Misses
 	}
 	track.Misses = 0
+	observeStationary(track, nowNanos)
 	return true
 }
 

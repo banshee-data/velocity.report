@@ -23,6 +23,10 @@ var slugPattern = regexp.MustCompile(`^[a-z][a-z0-9]{3,5}[0-9]{4}$`)
 
 var decisionPattern = regexp.MustCompile(`^D-[0-9]+$`)
 
+// namePattern is an arm name, a step id or a site: each is part of a unit's
+// id and of its file under the state directory.
+var namePattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]*$`)
+
 // AreaOf returns a slug's area: everything but its last four characters.
 func AreaOf(slug string) string {
 	if len(slug) < 4 {
@@ -229,6 +233,8 @@ func (spec *Spec) validate(root string, set *Set) []error {
 	for _, a := range spec.Arms {
 		if a.Name == "" {
 			fail("an arm has no name")
+		} else if !namePattern.MatchString(a.Name) {
+			fail("arm name %q: want lower-case letters, digits, '.', '_' or '-'", a.Name)
 		} else if armNames[a.Name] {
 			fail("arm %q is named twice", a.Name)
 		}
@@ -257,6 +263,15 @@ func (spec *Spec) validate(root string, set *Set) []error {
 		if len(c.Sites) > 0 && len(c.Sites) != c.Count {
 			fail("cases.sites lists %d sites but count is %d", len(c.Sites), c.Count)
 		}
+		seen := map[string]bool{}
+		for _, site := range c.Sites {
+			if !namePattern.MatchString(site) {
+				fail("site %q: want lower-case letters, digits, '.', '_' or '-'", site)
+			} else if seen[site] {
+				fail("site %q is listed twice", site)
+			}
+			seen[site] = true
+		}
 	}
 	if len(spec.Steps) == 0 {
 		fail("no steps")
@@ -266,6 +281,9 @@ func (spec *Spec) validate(root string, set *Set) []error {
 		if st.ID == "" {
 			fail("step %d has no id", i+1)
 			continue
+		}
+		if !namePattern.MatchString(st.ID) {
+			fail("step id %q: want lower-case letters, digits, '.', '_' or '-'", st.ID)
 		}
 		if _, dup := stepIDs[st.ID]; dup {
 			fail("step %q is defined twice", st.ID)

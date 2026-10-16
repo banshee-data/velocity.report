@@ -75,6 +75,11 @@ type TrackerInterface interface {
 	// configuration under the tracker lock, making it safe for
 	// concurrent callers (e.g. HTTP tuning handlers).
 	UpdateConfig(fn func(*TrackerConfig))
+
+	// EndAbsorbed deletes a track whose object the background model has
+	// absorbed, with ExpiryAbsorbed (the pipeline's dwell policy). It
+	// returns false, changing nothing, for an unknown or deleted track.
+	EndAbsorbed(trackID string, at time.Time) bool
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

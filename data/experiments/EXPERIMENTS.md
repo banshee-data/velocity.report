@@ -77,6 +77,55 @@ time of its manual steps.
 **The body** is the proposal: the question, the method, what counts as success, what could
 mislead. Once answered, a short answer and the report link; the report itself is in `docs/`.
 
+## Progress
+
+Where an experiment is in its run is not authoring state, so it never comes to Git. Until the
+hub exists it lives in a state directory on the worker (`-state`, `$VELOCITY_EXPERIMENT_STATE`, or
+`~/.local/state/velocity-report/experiments`), with one JSON file per unit, as the job runner keeps
+one directory per attempt.
+
+- **A unit** is one step on one arm and one case: the chunk of work that starts and finishes. A
+  step over arms and cases has a unit for each pair (`replay/cmr/lombard-laguna`); a step that does
+  not fan out is one unit (`write`). Cases are named by the spec's `sites`, or `case01` onwards.
+- **States.** A unit is pending until marked, then running, done or failed. A step is done when
+  all its units are. A running unit past three times its estimate is stale: the orphan the queue
+  would hand on.
+- **Order.** A unit starts once the units it reads are done: the same arm and case of a
+  predecessor step that fans out the same way, all of a predecessor that does not. A scorecard of
+  one replay runs as soon as that replay finishes.
+- **Who marks.** The lane running a unit marks it `start` and then `done` (with `-out`, where its
+  evidence went) or `failed`. A person closes a manual unit with its artefact: a commit for
+  `manual:implement`, a `D-NN` in [DECISIONS.md](../../docs/DECISIONS.md) for `manual:decide`,
+  the spec's report for `manual:write`; the others are recorded as given until the hub can check
+  them.
+- **Refusals.** Only an approved experiment runs, and it starts only once the experiments it
+  depends on are answered. A unit whose inputs are not done does not start,
+  a done unit does not start again, and a unit another worker holds is taken over only when it is
+  stale, the experiment's `reclaim` is `any` and this worker passes `-reclaim`. `-force` is the
+  operator's override, recorded in the unit, for all of these except the artefact.
+- **Time left** is the estimate of the units not done along the longest chain of steps, and again
+  scaled by how the done units ran against their estimate. Once an experiment is answered, its
+  units' wall times are what its `actual` records.
+
+A lane reads its units, and each arm's tuning file and replay options, from the spec, so the
+spec is the one place an arm is defined:
+
+```bash
+exp="go run ./cmd/tools/experiments"
+$exp units l3bg0008 -step replay -todo |
+  while IFS=$'\t' read -r unit arm site tuning replay; do
+    $exp mark l3bg0008 "$unit" start -class m1pro || continue
+    if run_replay "$site" "$tuning" "$replay"; then
+      $exp mark l3bg0008 "$unit" done -out "$EVIDENCE/$unit"
+    else
+      $exp mark l3bg0008 "$unit" failed -note "exit $?"
+    fi
+  done
+```
+
+A restarted lane skips what is done. `experiments status` shows every approved experiment's units
+and time left, `experiments status <slug>` its steps, running units and failures.
+
 ## Commands
 
 ```bash
@@ -85,6 +134,10 @@ make experiments-graph                         # regenerate DEPENDENCIES.md
 go run ./cmd/tools/experiments next            # open experiments and what each waits for
 go run ./cmd/tools/experiments show l3bg0009   # one spec's steps, fan-out and estimate
 go run ./cmd/tools/experiments new l3bg        # the next free slug in an area
+go run ./cmd/tools/experiments status          # approved experiments: units done, time left
+go run ./cmd/tools/experiments units l3bg0008 -step replay -todo   # what a lane has left
+go run ./cmd/tools/experiments mark l3bg0008 replay/a0/lombard-laguna done -out DIR
+go run ./cmd/tools/experiments mark l3bg0008 implement done -artefact <commit>
 ```
 
 `go test ./internal/experiments` runs the same checks, so a spec cannot merge invalid or without

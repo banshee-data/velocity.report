@@ -189,9 +189,13 @@ const (
 	ExpiryOutOfFOV
 	// ExpiryNonFinite: predict or update produced a non-finite state.
 	ExpiryNonFinite
+	// ExpiryAbsorbed: the background model absorbed the track's object, so
+	// it is scenery and no longer a road user (the pipeline's dwell policy,
+	// through Tracker.EndAbsorbed). Nothing else deletes with it.
+	ExpiryAbsorbed
 )
 
-var expiryTokens = [...]string{"", "misses", "coast_age", "missed_unknown", "occluded_inferred", "out_of_fov", "non_finite"}
+var expiryTokens = [...]string{"", "misses", "coast_age", "missed_unknown", "occluded_inferred", "out_of_fov", "non_finite", "absorbed"}
 
 // String returns the expiry token, or "" for ExpiryNone.
 func (r ExpiryReason) String() string {
@@ -928,6 +932,9 @@ type ExpiryCounts struct {
 	OccludedInferred int64 `json:"occluded_inferred"`
 	OutOfFOV         int64 `json:"out_of_fov"`
 	NonFinite        int64 `json:"non_finite"`
+	// Absorbed is omitted at zero, so a replay without the dwell policy,
+	// the only thing that absorbs, writes the record it always wrote.
+	Absorbed int64 `json:"absorbed,omitempty"`
 }
 
 func (c *ExpiryCounts) observe(r ExpiryReason) {
@@ -944,6 +951,8 @@ func (c *ExpiryCounts) observe(r ExpiryReason) {
 		c.OutOfFOV++
 	case ExpiryNonFinite:
 		c.NonFinite++
+	case ExpiryAbsorbed:
+		c.Absorbed++
 	}
 }
 

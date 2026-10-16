@@ -31,6 +31,12 @@ const (
 	ExperimentCascade = "cascade"
 	// ExperimentDensityCap: pipeline DensityPreservingCap (D6).
 	ExperimentDensityCap = "density_cap"
+	// ExperimentRangeAdaptiveEps: pipeline RangeAdaptiveEps, a DBSCAN
+	// neighbourhood that grows with range in proportion to the beam spacing,
+	// never below the tuned eps (l4perception.RangeAdaptiveEps; experiment
+	// l4clus0001, decision D-28). It changes the clusters, not the tracker
+	// configuration.
+	ExperimentRangeAdaptiveEps = "range_adaptive_eps"
 	// ExperimentFlipRule: l5tracks.TrackerConfig.OBBHeadingFlipRule (P3).
 	ExperimentFlipRule = "flip_rule"
 	// ExperimentNoRegionOverrides: l3grid.BackgroundParams.DisableRegionOverrides (B8).
@@ -49,6 +55,14 @@ const (
 	// enough similar-range foreground neighbours in the ring-by-azimuth
 	// index. Output only; the background model is untouched.
 	ExperimentSupportFilter = "support_filter"
+	// ExperimentDwellPolicy: pipeline.TrackingPipelineConfig.Dwell, the
+	// beam-wise review's dwell policy (Section 5.1): a confirmed track that
+	// has stood still for pipeline.DwellAbsorbAfter has its object's returns
+	// absorbed into the L3 background and is ended with
+	// l5tracks.ExpiryAbsorbed. It needs a tracker, so it is not a background
+	// experiment and lidar-bench refuses it. The manifest's dwell_policy
+	// section says what it absorbed.
+	ExperimentDwellPolicy = "dwell_policy"
 	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
 	// state-estimation plan question Q3: update each track at its cluster's
 	// own acquisition time rather than the frame start.
@@ -204,9 +218,11 @@ var knownExperiments = map[string]bool{
 	ExperimentLikelihoodCost:      true,
 	ExperimentCascade:             true,
 	ExperimentDensityCap:          true,
+	ExperimentRangeAdaptiveEps:    true,
 	ExperimentFlipRule:            true,
 	ExperimentNoRegionOverrides:   true,
 	ExperimentSupportFilter:       true,
+	ExperimentDwellPolicy:         true,
 	ExperimentMeasurementTime:     true,
 	ExperimentCaptureGapPredict:   true,
 	ExperimentCoastSupport:        true,

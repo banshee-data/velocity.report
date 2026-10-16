@@ -306,6 +306,19 @@ type TrackingPipelineConfig struct {
 	// D6). Off by default; see l4perception.DBSCANParams.
 	DensityPreservingCap bool
 
+	// Dwell, when set, runs the dwell policy after each frame's tracking: a
+	// confirmed track stationary for DwellAbsorbAfter has its object absorbed
+	// into the L3 background and is ended. Nil, the default, runs nothing and
+	// leaves every frame as it was. Replay experiment dwell_policy; see
+	// DwellPolicy.
+	Dwell *DwellPolicy
+
+	// RangeAdaptiveEps grows DBSCAN's neighbourhood with each point's range
+	// from the sensor at l4perception.DefaultRangeAdaptiveEps, never below
+	// the tuned eps (experiment l4clus0001). Off by default; see
+	// l4perception.RangeAdaptiveEps.
+	RangeAdaptiveEps bool
+
 	// FeatureExportFunc, when non-nil, is called for every confirmed track
 	// after classification. This hook allows exporting feature vectors for
 	// ML training data collection. The callback receives the track's
@@ -390,6 +403,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	surfaceGroundCeiling := cfg.SurfaceGroundCeiling
 	surfaceGroundRegionMetres := cfg.SurfaceGroundRegionMetres
 	sensorID := cfg.SensorID
+	// The policy's pointer is shared, like the dependencies below: the
+	// callback writes its report there for the caller to read afterwards.
+	dwell := cfg.Dwell
 
 	// An unset profile means "everything", which is what every caller written
 	// before profiles existed intends.
@@ -438,6 +454,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 	defaultDBSCANParams.KeepMembers = cfg.KeepClusterMembers
+	if cfg.RangeAdaptiveEps {
+		// The points reach DBSCAN in the sensor frame (identity pose), so
+		// the default's origin at (0, 0) is the sensor.
+		rangeAdaptive := l4perception.DefaultRangeAdaptiveEps()
+		defaultDBSCANParams.RangeAdaptive = &rangeAdaptive
+	}
 
 	// One extraction per callback instance: the tap numbers the frames this
 	// callback sees. Nil when no ObservationFrameSink is configured.
@@ -1081,6 +1103,17 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			// Create a minimal bundle just for LidarView forwarding
 			// This preserves the existing behavior when gRPC is disabled
 			cfg.LidarViewAdapter.PublishFrameBundle(nil, foregroundPoints)
+		}
+
+		// Stage 6b: dwell policy (default off). It runs after the frame's
+		// outputs, so the frame that decides reports the track as it was; the
+		// absorbed cells and the ended track take effect from the next frame.
+		if dwell != nil {
+			if ft != nil {
+				ft.Stage("dwell")
+			}
+			dwell.absorbDue(cfg.BackgroundManager, cfg.Tracker, confirmedTracks, clusters,
+				foregroundPoints, sensorID, frame.StartTimestamp)
 		}
 
 		if emitTiming != nil {

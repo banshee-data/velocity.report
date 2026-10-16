@@ -27,6 +27,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
@@ -94,6 +95,9 @@ type caseSummary struct {
 	// CoverageSurvey is the declaration -survey-coverage measured from the
 	// first run, and its statistics, as added to the declaration set.
 	CoverageSurvey *replayeval.CoverageSurvey `json:"coverage_survey,omitempty"`
+	// DwellPolicy is what the dwell_policy experiment absorbed in the first
+	// run, over the whole processed window; identical on the repeat by check.
+	DwellPolicy *pipeline.DwellReport `json:"dwell_policy,omitempty"`
 }
 
 func main() {
@@ -422,6 +426,11 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			}
 			refinementArms = firstResult.Refinement.Arms
 		}
+		// The dwell policy changes the background model, so every absorption
+		// must reproduce, not only the tracks it leaves behind.
+		if !reflect.DeepEqual(firstResult.Dwell, repeatResult.Dwell) {
+			return nil, nil, fmt.Errorf("dwell policy absorptions differ on repeat for %s", selectedCase.ID)
+		}
 		if first.UncertaintyReport {
 			if err := sameFile(filepath.Join(first.OutDir, "uncertainty_calibration.json"),
 				filepath.Join(repeat.OutDir, "uncertainty_calibration.json")); err != nil {
@@ -452,6 +461,12 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			selectedCase.ID, cs.TracksBorn, cs.TracksConfirmed, cs.Reacquisitions, cs.ExpiredByReason.Misses,
 			cs.ExpiredByReason.CoastAge, cs.ExpiredByReason.MissedUnknown, cs.ExpiredByReason.OccludedInferred,
 			cs.ExpiredByReason.OutOfFOV)
+		if d := firstResult.Dwell; d != nil {
+			summary.DwellPolicy = d
+			fmt.Printf("%s: dwell policy after=%gs absorbed tracks=%d cells=%d returns=%d skipped=%d (scoring window absorbed=%d)\n",
+				selectedCase.ID, d.AbsorbAfterSeconds, d.TracksAbsorbed, d.CellsAbsorbed, d.ReturnsAbsorbed, d.Skipped,
+				cs.ExpiredByReason.Absorbed)
+		}
 		if fit := firstResult.GroundSurfaceFit; fit != nil {
 			summary.GroundSurfaceSupport = fit.Global.Support
 			summary.GroundSurfaceGradientMetre = fit.Global.GradientMetre

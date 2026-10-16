@@ -53,4 +53,18 @@ type RegionData struct {
 	CellList     []int        `json:"cell_list"`
 	MeanVariance float64      `json:"mean_variance"`
 	CellCount    int          `json:"cell_count"`
+	// Tercile is Region.Tercile: persisted as evidence, not restored.
+	Tercile VarianceTercile `json:"tercile,omitempty"`
+}
+
+// VarianceData is the settling evidence persisted in a RegionSnapshot's
+// VarianceDataJSON: the mean range spread each cell showed while the grid
+// settled, and, from identifications that recorded them, each cell's own
+// tercile and the two cut points between terciles. A snapshot restored and
+// persisted again carries no terciles.
+type VarianceData struct {
+	VariancePerCell   []float64         `json:"variance_per_cell"`
+	FramesSampled     int               `json:"frames_sampled"`
+	CellTercile       []VarianceTercile `json:"cell_tercile,omitempty"`
+	TercileThresholds []float64         `json:"tercile_thresholds,omitempty"`
 }

@@ -278,6 +278,11 @@ type Result struct {
 	// can pool several replays into one fit. Both nil otherwise.
 	Uncertainty        *l8analytics.UncertaintyReport
 	UncertaintySamples []l5tracks.UncertaintySample
+	// Dwell is what the dwell_policy experiment absorbed over the whole
+	// processed window, warm-up included; nil without it. The continuity
+	// stats count only the scoring window's absorbed expiries. It is also
+	// written to replay_manifest.json.
+	Dwell *pipeline.DwellReport
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -758,6 +763,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 	var frameEvidenceSink *strictFrameEvidenceSink
 	var frameEvidenceStore *observationsqlite.FrameEvidenceStore
+	var regionMap *regionEvidence
 	var evidenceDB observationsqlite.DBClient
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
@@ -800,6 +806,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		frameEvidenceStore = observationsqlite.NewFrameEvidenceStore(database)
 		defer frameEvidenceStore.Close()
 		frameEvidenceSink = &strictFrameEvidenceSink{sink: frameEvidenceStore}
+		// The L3 region map, which the per-region overrides read, goes in
+		// beside the frame evidence; see regionEvidence.
+		regionMap = newRegionEvidence(bgMgr, database)
 	}
 
 	// --- Pipeline ---
@@ -810,6 +819,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
+	var dwell *pipeline.DwellPolicy
+	if hasExperiment(experiments, ExperimentDwellPolicy) {
+		dwell = &pipeline.DwellPolicy{}
+	}
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -827,6 +840,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
+		Dwell:                     dwell,
+		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,
 		KeepClusterMembers:        solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
 		ObservationSourceID:       observationSourceID,
@@ -929,12 +944,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	pipelineCallback := pipeCfg.NewFrameCallback()
 
 	var frameCount int
+	var lastFrameTime time.Time
 	var boundaryChecked, settledAtBoundary bool
 	frameCallback := func(frame *l2frames.LiDARFrame) {
 		if frame == nil {
 			return
 		}
 		frameCount++
+		lastFrameTime = frame.StartTimestamp
 		// Check before consuming the first scored frame: the scored observation
 		// cannot itself be used to certify its own warm-up.
 		if !boundaryChecked && frame.StartTimestamp.UnixNano() >= scoreStart {
@@ -955,6 +972,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		if campaign != nil {
 			campaign.recordFrame(frame.StartTimestamp.UnixNano(), time.Since(started).Seconds())
 		}
+		regionMap.observe(frame.StartTimestamp)
 		refinement.flush()
 		if cfg.ProgressEvery > 0 && frameCount%cfg.ProgressEvery == 0 {
 			log.Printf("frame=%d recorded=%d", frameCount, pub.recorded)
@@ -1037,6 +1055,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if pub.recorded == 0 {
 		return nil, fmt.Errorf("replay produced no frames: check the UDP port filter (%d) and the capture window", cfg.UDPPort)
 	}
+	// Last of the evidence, once every check above has passed, so a replay
+	// that fails writes no region map.
+	if err := regionMap.finish(lastFrameTime); err != nil {
+		return nil, fmt.Errorf("store region evidence: %w", err)
+	}
 	parserJSON, err := runtime.marshal(parserCfg)
 	if err != nil {
 		return nil, fmt.Errorf("marshal calibration: %w", err)
@@ -1079,6 +1102,14 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	if noiseCalibration != nil {
 		manifest["uncertainty_calibration_id"] = noiseCalibration.ID
+	}
+	var dwellReport *pipeline.DwellReport
+	if dwell != nil {
+		// Present only under the experiment, so a replay without it writes
+		// the manifest it always wrote.
+		report := dwell.Report()
+		dwellReport = &report
+		manifest["dwell_policy"] = dwellReport
 	}
 	if hasExperiment(experiments, ExperimentSolidBody) {
 		x, y, source := solidBodyOrigin(cfg.ContinuityCoverage)
@@ -1184,6 +1215,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		GroundSurfaceFit: groundSurfaceFit.Load(),
 		TimeDomain:       timeDomain,
 		Continuity:       continuity,
+		Dwell:            dwellReport,
 	}
 	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
 	return result, nil

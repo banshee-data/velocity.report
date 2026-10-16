@@ -66,7 +66,13 @@ candidate on each site's second segment: the heading holds, the lateral margin s
 follows the zero-code L3 arms: the volatile tercile's window is the one that absorbs road users,
 switching the overrides off moves along the recall trade-off rather than across it, and an
 overrides-on retune with the height band floor at road height reaches the recall at the shipped
-false positives.
+false positives. The [region map](operations/l3-region-tercile-mechanism-2026-10.md) checks why:
+the volatile tercile holds the overrides-off flood, but lanes are there for the surfaces behind
+them, not traffic during settling. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
+hands an object stationary for 20 s to the background, which removes the retune's long stationary
+tracks over a 39-minute capture. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
+measures how much of each reviewed object reaches a cluster and into how many it splits, and the
+[range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it.
 
 ## Terminology
 

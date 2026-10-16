@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -83,9 +84,44 @@ func TestObservationStoragePreservesReplayBaseline(t *testing.T) {
 			t.Fatalf("incomplete immutable observation: %+v", record)
 		}
 	}
+	// The L3 region map is in the same evidence: the map as identified and
+	// the map the replay ended with, each linked to its grid snapshot. Like
+	// the observations, it left the baseline above untouched.
+	regionSets, err := database.ListRegionSnapshots()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(regionSets) != 2 || regionSets[0].SnapshotReason != l3grid.SnapshotReasonRegionsIdentified ||
+		regionSets[1].SnapshotReason != l3grid.SnapshotReasonReplayEnd {
+		t.Fatalf("region sets: %+v", regionSets)
+	}
+	for _, set := range regionSets {
+		if set.SourcePath != pcapPath || set.RegionCount == 0 {
+			t.Fatalf("region set: %+v", set)
+		}
+	}
+	regions, err := database.GetRegionSnapshotByID(regionSets[0].RegionSetID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	grid, err := database.GetBgSnapshotByID(regions.SnapshotID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	regionMap, err := l3grid.BuildRegionMap(grid, regions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regionMap.RegionCount != regionSets[0].RegionCount || len(regionMap.TercileThresholds) != 2 {
+		t.Fatalf("identified region map: %d regions, thresholds %v", regionMap.RegionCount, regionMap.TercileThresholds)
+	}
 	duplicate := with
 	duplicate.OutDir = filepath.Join(dir, "duplicate")
 	if _, err := Run(duplicate); err == nil || !strings.Contains(err.Error(), "immutable observation") {
 		t.Fatalf("replaying into the same immutable source succeeded: %v", err)
+	}
+	// A failed replay writes no region map.
+	if after, err := database.ListRegionSnapshots(); err != nil || len(after) != len(regionSets) {
+		t.Fatalf("failed replay changed the region sets: %d, %v", len(after), err)
 	}
 }
