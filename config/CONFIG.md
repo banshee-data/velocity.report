@@ -319,12 +319,23 @@ named scale replaces the block's.
 
 The other replay experiments have no config key yet, so a set cannot carry
 them, and the server cannot run them: `adaptive_uncertainty`,
-`likelihood_cost`, `cascade`, `density_cap`, `flip_rule`,
-`no_region_overrides`, `measurement_time`, `capture_gap_predict`,
-`coast_support`, `coast_time_inflation`, `class_coast_bounds`,
-`reacquisition_guard`, `occlusion_continuity` and `fixed_lag_rts`. An arm
-that uses one runs through the offline replay tools, and its report names the
-experiment beside the set.
+`likelihood_cost`, `cascade`, `density_cap`, `range_adaptive_eps`,
+`flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
+`region_overrides_quiet_only`, `region_overrides_cell_tercile`,
+`volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
+`dwell_policy`, `measurement_time`, `capture_gap_predict`, `coast_support`,
+`coast_time_inflation`, `class_coast_bounds`, `reacquisition_guard`,
+`occlusion_continuity` and `fixed_lag_rts`. An arm that uses one runs through
+the offline replay tools, and its report names the experiment beside the set.
+
+The L3 background experiments among them (`no_region_overrides`, the
+`region_overrides_*` and `volatile_window_cap_*` names, and `support_filter`)
+also run in `lidar-bench -experiment`. A replay names at most one of
+`no_region_overrides` and the two scopes, and at most one window cap. It may
+not name `region_overrides_cell_tercile` with `no_region_overrides`, or a
+window cap with `no_region_overrides` or `region_overrides_quiet_only`: under
+those no cell runs the override the option changes, so the arm would run as
+another and be reported under its name.
 
 ## Key order
 

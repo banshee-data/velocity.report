@@ -49,6 +49,22 @@ const (
 	// replay may name only one of the three.
 	ExperimentRegionOverridesVolatileOnly = "region_overrides_volatile_only"
 	ExperimentRegionOverridesQuietOnly    = "region_overrides_quiet_only"
+	// ExperimentRegionOverridesCellTercile:
+	// l3grid.BackgroundParams.RegionOverridesByCellTercile, each settled cell
+	// at the overrides of its own variance tercile rather than its merged
+	// region's (l3bg0010; the region map report's first lever). It combines
+	// with either scope, which then tests the cell's own tercile, and is
+	// refused with no_region_overrides, under which it would change nothing.
+	ExperimentRegionOverridesCellTercile = "region_overrides_cell_tercile"
+	// ExperimentVolatileWindowCap1m and ExperimentVolatileWindowCap2m:
+	// l3grid.BackgroundParams.VolatileWindowCapMetres at 1 m and 2 m, a
+	// volatile override's acceptance windows bounded at the larger of the
+	// cell's global window and the cap (l3bg0010; the second lever). They
+	// are two settings of one option, so a replay may name only one, and are
+	// refused with no_region_overrides and region_overrides_quiet_only, under
+	// which no cell runs a volatile override for the cap to bound.
+	ExperimentVolatileWindowCap1m = "volatile_window_cap_1m"
+	ExperimentVolatileWindowCap2m = "volatile_window_cap_2m"
 	// ExperimentSupportFilter: l3grid.BackgroundParams.SupportFilter at
 	// l3grid.DefaultSupportFilterParams, the range-image support filter of
 	// the beam-wise review (E4): a cell's foreground survives only with
@@ -235,6 +251,9 @@ var knownExperiments = map[string]bool{
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
+	ExperimentRegionOverridesCellTercile:  true,
+	ExperimentVolatileWindowCap1m:         true,
+	ExperimentVolatileWindowCap2m:         true,
 
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
@@ -310,6 +329,9 @@ var backgroundExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:           true,
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
+	ExperimentRegionOverridesCellTercile:  true,
+	ExperimentVolatileWindowCap1m:         true,
+	ExperimentVolatileWindowCap2m:         true,
 	ExperimentSupportFilter:               true,
 }
 
@@ -320,9 +342,23 @@ func IsBackgroundExperiment(name string) bool {
 	return backgroundExperiments[name]
 }
 
+// BackgroundExperiments returns the background experiments' names, sorted,
+// for a tool that accepts only those to list them.
+func BackgroundExperiments() []string {
+	names := make([]string, 0, len(backgroundExperiments))
+	for name := range backgroundExperiments {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // ValidateBackgroundExperiments refuses a selection that names more than one
-// setting of the region overrides (no_region_overrides and the two scopes), so
-// a runner can refuse it before it reads a capture rather than after.
+// setting of the region overrides (no_region_overrides and the two scopes) or
+// of the volatile window cap, or an option that the region overrides it is
+// named with would leave with nothing to change, so a runner can refuse it
+// before it reads a capture rather than after. Each refused selection would
+// otherwise run as some other arm and be reported under these names.
 func ValidateBackgroundExperiments(experiments []string) error {
 	scopes := 0
 	for _, name := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly} {
@@ -334,7 +370,42 @@ func ValidateBackgroundExperiments(experiments []string) error {
 		return fmt.Errorf("replay experiments %s, %s and %s are settings of one option; name one",
 			ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly)
 	}
+	if hasExperiment(experiments, ExperimentNoRegionOverrides) && hasExperiment(experiments, ExperimentRegionOverridesCellTercile) {
+		return fmt.Errorf("replay experiment %s chooses which overrides a cell runs at, and %s runs none, so it would change nothing; name one",
+			ExperimentRegionOverridesCellTercile, ExperimentNoRegionOverrides)
+	}
+	if _, err := volatileWindowCapFor(experiments); err != nil {
+		return err
+	}
+	for _, windowCap := range []string{ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m} {
+		if !hasExperiment(experiments, windowCap) {
+			continue
+		}
+		for _, scope := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesQuietOnly} {
+			if hasExperiment(experiments, scope) {
+				return fmt.Errorf("replay experiment %s serves no cell a volatile override, so %s would bound nothing; name one",
+					scope, windowCap)
+			}
+		}
+	}
 	return nil
+}
+
+// volatileWindowCapFor reads the volatile window cap in metres from its two
+// settings, refusing both together; zero, off, when neither is named.
+func volatileWindowCapFor(experiments []string) (float64, error) {
+	oneMetre := hasExperiment(experiments, ExperimentVolatileWindowCap1m)
+	twoMetres := hasExperiment(experiments, ExperimentVolatileWindowCap2m)
+	switch {
+	case oneMetre && twoMetres:
+		return 0, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m)
+	case oneMetre:
+		return 1, nil
+	case twoMetres:
+		return 2, nil
+	}
+	return 0, nil
 }
 
 // ApplyBackgroundExperiments switches the named L3 experiments on in a
@@ -355,6 +426,23 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 	} {
 		if hasExperiment(experiments, name) {
 			if err := bgMgr.SetRegionOverrideScope(scope); err != nil {
+				return fmt.Errorf("apply %s: %w", name, err)
+			}
+		}
+	}
+	if hasExperiment(experiments, ExperimentRegionOverridesCellTercile) {
+		if err := bgMgr.SetRegionOverridesByCellTercile(true); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentRegionOverridesCellTercile, err)
+		}
+	}
+	windowCap, err := volatileWindowCapFor(experiments)
+	if err != nil {
+		return err
+	}
+	for _, name := range []string{ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m} {
+		// At most one is named, validated above.
+		if hasExperiment(experiments, name) {
+			if err := bgMgr.SetVolatileWindowCapMetres(windowCap); err != nil {
 				return fmt.Errorf("apply %s: %w", name, err)
 			}
 		}

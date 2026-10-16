@@ -134,6 +134,40 @@ func (bm *BackgroundManager) SetRegionOverrideScope(v RegionOverrideScope) error
 	return nil
 }
 
+// SetRegionOverridesByCellTercile serves each settled cell the overrides of
+// its own variance tercile rather than its merged region's (replay experiment
+// region_overrides_cell_tercile). See
+// BackgroundParams.RegionOverridesByCellTercile.
+func (bm *BackgroundManager) SetRegionOverridesByCellTercile(v bool) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.RegionOverridesByCellTercile = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetVolatileWindowCapMetres bounds each acceptance window of a volatile
+// override at the larger of the cell's global window and v metres, or
+// switches the bound off with zero (replay experiments volatile_window_cap_1m
+// and volatile_window_cap_2m). A negative or non-finite cap is refused. See
+// BackgroundParams.VolatileWindowCapMetres.
+func (bm *BackgroundManager) SetVolatileWindowCapMetres(v float64) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	if v < 0 || math.IsNaN(v) || math.IsInf(v, 0) {
+		return fmt.Errorf("invalid volatile window cap %v m", v)
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.VolatileWindowCapMetres = v
+	g.mu.Unlock()
+	return nil
+}
+
 // SetSupportFilter switches the range-image support filter on with the given
 // parameters, or off with nil (the beam-wise review's E4; replay experiment
 // support_filter). See BackgroundParams.SupportFilter.
@@ -823,6 +857,8 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 	}
 	// read seed-from-first flag
 	seedFromFirst = g.Params.SeedFromFirstObservation
+	// Replay experiments volatile_window_cap_*: zero, the shipped value, is off.
+	volatileWindowCap := g.Params.VolatileWindowCapMetres
 	// if the manager requested diagnostics, and the observed noise changed,
 	// emit a monitoring log so operators see the applied value at runtime.
 	if enableDiag {
@@ -840,7 +876,10 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			}
 
 			// Get region-specific parameters if regions are identified
-			cellNoiseRel, cellNeighbourConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
+			cellNoiseRel, cellNeighbourConfirm, cellAlpha, cellVolatile := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
+			// As in ProcessFramePolarWithMaskAt: a volatile override's windows
+			// are bounded in metres when the cap is on.
+			capWindows := volatileWindowCap > 0 && cellVolatile
 
 			observationMean := sums[cellIdx] / float64(counts[cellIdx])
 			// Small protection when minDistances == +Inf (shouldn't happen if counts>0)
@@ -876,6 +915,13 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					neighbourCloseness := ClosenessThresholdMetres(
 						closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
 						cellNoiseRel, float64(neighbourCell.AverageRangeMeters), 0)
+					if capWindows {
+						neighbourCloseness = CappedOverrideWindowMetres(neighbourCloseness,
+							ClosenessThresholdMetres(
+								closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
+								noiseRel, float64(neighbourCell.AverageRangeMeters), 0),
+							volatileWindowCap)
+					}
 					if neighbourDiff <= neighbourCloseness {
 						neighbourConfirmCount++
 					}
@@ -891,10 +937,20 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 				closenessMultiplier, float64(cell.RangeSpreadMeters),
 				cellNoiseRel, observationMean, safety)
 			cellDiff := math.Abs(float64(cell.AverageRangeMeters) - observationMean)
+			// The decision reads acceptWindow; the freeze below keeps the
+			// uncapped closenessThreshold.
+			acceptWindow := closenessThreshold
+			if capWindows {
+				acceptWindow = CappedOverrideWindowMetres(closenessThreshold,
+					ClosenessThresholdMetres(
+						closenessMultiplier, float64(cell.RangeSpreadMeters),
+						noiseRel, observationMean, safety),
+					volatileWindowCap)
+			}
 
 			// Decide if this observation is background-like or foreground-like
 			// Use cell-specific neighbour confirmation threshold
-			isBackgroundLike := cellDiff <= closenessThreshold || neighbourConfirmCount >= cellNeighbourConfirm
+			isBackgroundLike := cellDiff <= acceptWindow || neighbourConfirmCount >= cellNeighbourConfirm
 
 			// Optionally seed empty cells from the first observation when configured.
 			// This helps PCAP replay populate a background grid when no prior history exists.
@@ -918,7 +974,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 					tracef("[ProcessFramePolar:decision] sensor=%s ring=%d azbin=%d obs_mean=%.3f cell_avg=%.3f cell_spread=%.3f times_seen=%d neighbour_confirm=%d closeness_threshold=%.3f cell_diff=%.3f is_background=%v init_if_empty=%v",
 						g.SensorID, ringIdx, azBinIdx, observationMean,
 						cell.AverageRangeMeters, cell.RangeSpreadMeters, cell.TimesSeenCount,
-						neighbourConfirmCount, closenessThreshold, cellDiff,
+						neighbourConfirmCount, acceptWindow, cellDiff,
 						isBackgroundLike, initIfEmpty)
 				}
 			}
