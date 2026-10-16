@@ -945,7 +945,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		campaign = &campaignTracker{TrackerInterface: tracker, start: scoreStart, left: map[int64]bool{}, intervals: map[int64]*confirmationInterval{}}
 		pipeCfg.Tracker = campaign
 	}
-	pipelineCallback := pipeCfg.NewFrameCallback()
+	pipelineCallback, err := pipeCfg.BuildFrameCallback()
+	if err != nil {
+		return nil, fmt.Errorf("build the tracking pipeline: %w", err)
+	}
 
 	var frameCount int
 	var lastFrameTime time.Time

@@ -505,6 +505,66 @@ func TestDwellPolicy_SetsTheTrackersRuleOnlyWhenOn(t *testing.T) {
 	}
 }
 
+// A policy built anywhere, not only by the replay's experiment table, is
+// checked where the pipeline applies it: a rule the clock does not know, or a
+// negative T, is refused before the tracker's rule is touched, as an error
+// from BuildFrameCallback and as a panic from NewFrameCallback. It would
+// otherwise run as the shipped rule while its report named another.
+func TestDwellPolicy_InvalidPolicyIsRefusedWhereApplied(t *testing.T) {
+	configured := l5tracks.StationaryRule{DriftMetres: 3}
+	newTracker := func() *l5tracks.Tracker {
+		cfg := l5tracks.DefaultTrackerConfig()
+		cfg.Stationary = configured
+		return l5tracks.NewTracker(cfg)
+	}
+	for _, c := range []struct {
+		name  string
+		dwell *DwellPolicy
+		want  string
+	}{
+		{"unknown anchor", &DwellPolicy{AbsorbAfter: 40 * time.Second, Stationary: l5tracks.StationaryRule{Anchor: "mean"}},
+			`unknown stationary anchor "mean"`},
+		{"negative drift", &DwellPolicy{Stationary: l5tracks.StationaryRule{DriftMetres: -1}}, "not a non-negative finite distance"},
+		{"NaN drift", &DwellPolicy{Stationary: l5tracks.StationaryRule{DriftMetres: float32(math.NaN())}},
+			"not a non-negative finite distance"},
+		{"negative T", &DwellPolicy{AbsorbAfter: -time.Second}, "absorb-after -1s is negative"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if err := c.dwell.Validate(); err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("Validate: %v, want %q", err, c.want)
+			}
+			tracker := newTracker()
+			cfg := &TrackingPipelineConfig{Tracker: tracker, SensorID: "dwell-invalid", Dwell: c.dwell}
+			cb, err := cfg.BuildFrameCallback()
+			if err == nil || cb != nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("BuildFrameCallback: callback %v, err %v; want %q", cb != nil, err, c.want)
+			}
+			if tracker.Config.Stationary != configured {
+				t.Errorf("a refused policy changed the tracker's rule to %+v", tracker.Config.Stationary)
+			}
+			func() {
+				defer func() {
+					r := recover()
+					if r == nil || !strings.Contains(fmt.Sprint(r), c.want) {
+						t.Errorf("NewFrameCallback: recovered %v, want a panic naming %q", r, c.want)
+					}
+				}()
+				cfg.NewFrameCallback()
+			}()
+			if tracker.Config.Stationary != configured {
+				t.Errorf("NewFrameCallback changed the tracker's rule to %+v before refusing", tracker.Config.Stationary)
+			}
+		})
+	}
+	// Valid policies and no policy build as before.
+	for _, dwell := range []*DwellPolicy{nil, {}, {AbsorbAfter: 40 * time.Second,
+		Stationary: l5tracks.StationaryRule{DriftMetres: 2, Anchor: l5tracks.StationaryAnchorMedian}}} {
+		if cb, err := (&TrackingPipelineConfig{Tracker: newTracker(), SensorID: "dwell-valid", Dwell: dwell}).BuildFrameCallback(); err != nil || cb == nil {
+			t.Errorf("policy %+v: callback %v, err %v", dwell, cb != nil, err)
+		}
+	}
+}
+
 // The report names the drift rule that ran: the shipped rule's 1 m from the
 // first estimate unless the policy sets another, and the median's window only
 // under the median.

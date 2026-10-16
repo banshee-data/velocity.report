@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"time"
@@ -62,6 +63,21 @@ type DwellPolicy struct {
 	Stationary l5tracks.StationaryRule
 
 	report DwellReport
+}
+
+// Validate refuses a policy that would run as something other than what its
+// report names: a drift rule the stationary clock does not know, which the
+// clock would run as the shipped rule (l5tracks.StationaryRule.Validate), or
+// a negative T, which would run as the default. The pipeline calls it before
+// applying the policy (TrackingPipelineConfig.BuildFrameCallback).
+func (d *DwellPolicy) Validate() error {
+	if d.AbsorbAfter < 0 {
+		return fmt.Errorf("dwell policy: absorb-after %v is negative", d.AbsorbAfter)
+	}
+	if err := d.Stationary.Validate(); err != nil {
+		return fmt.Errorf("dwell policy: %w", err)
+	}
+	return nil
 }
 
 // absorbAfter is the T the policy runs with: AbsorbAfter when it is set,

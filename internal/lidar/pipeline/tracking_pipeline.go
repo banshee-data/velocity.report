@@ -310,7 +310,9 @@ type TrackingPipelineConfig struct {
 	// confirmed track stationary for the policy's T (DwellAbsorbAfter unless
 	// DwellPolicy.AbsorbAfter sets another) has its object absorbed into the
 	// L3 background and is ended. NewFrameCallback sets the tracker's
-	// stationary drift rule to the policy's (DwellPolicy.Stationary). Nil,
+	// stationary drift rule to the policy's (DwellPolicy.Stationary), and
+	// refuses a policy DwellPolicy.Validate rejects (BuildFrameCallback
+	// returns that as an error). Nil,
 	// the default, runs nothing and leaves every frame as it was. Replay
 	// experiments dwell_policy, dwell_policy_t40, dwell_policy_t60,
 	// dwell_policy_t40_drift2m and dwell_policy_t40_median; see DwellPolicy.
@@ -389,8 +391,26 @@ type TrackingPipelineConfig struct {
 	DisableTrackPersistence *atomic.Bool
 }
 
+// BuildFrameCallback is NewFrameCallback for a config whose options come
+// from input: an invalid dwell policy (DwellPolicy.Validate) is refused with
+// an error before anything is applied, where NewFrameCallback panics.
+func (cfg *TrackingPipelineConfig) BuildFrameCallback() (func(*l2frames.LiDARFrame), error) {
+	if cfg.Dwell != nil {
+		if err := cfg.Dwell.Validate(); err != nil {
+			return nil, err
+		}
+	}
+	return cfg.NewFrameCallback(), nil
+}
+
 // NewFrameCallback creates a FrameBuilder callback that processes frames through
 // the full tracking pipeline: foreground extraction, clustering, tracking, and persistence.
+//
+// It panics if the dwell policy is invalid (DwellPolicy.Validate): such a
+// policy would run another rule than the one its report names, and that is a
+// programming error, not a run. A caller whose policy comes from input uses
+// BuildFrameCallback, which returns the error. Without a policy nothing is
+// checked.
 func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame) {
 	// Snapshot scalar config values so the closure is immune to the caller
 	// mutating *cfg after NewFrameCallback returns. Interface/pointer fields
@@ -412,7 +432,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// The clock the policy reads is L5's, so the policy's drift rule goes to
 	// the tracker here, before any frame, and the rule the report names is
 	// the one the tracker runs. Without a policy the tracker's rule is left
-	// as it was configured.
+	// as it was configured. A rule the clock does not know is refused here,
+	// where it would be applied.
+	if dwell != nil {
+		if err := dwell.Validate(); err != nil {
+			panic(fmt.Sprintf("pipeline.NewFrameCallback: %v (BuildFrameCallback returns this as an error)", err))
+		}
+	}
 	if dwell != nil && !isNilInterface(cfg.Tracker) {
 		rule := dwell.Stationary
 		cfg.Tracker.UpdateConfig(func(c *l5tracks.TrackerConfig) { c.Stationary = rule })
