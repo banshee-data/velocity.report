@@ -125,11 +125,14 @@ func main() {
 		*caseName, summary.Frames, summary.Tracks, *outPath, summary.WallSeconds)
 }
 
-// variant is one box model run beside the tracker.
+// variant is one box model run beside the tracker, or, with diagnose set,
+// one of the drawn box's parts swapped for the cluster's own to show what
+// that part costs.
 type variant struct {
-	name  string
-	about string
-	cfg   l5tracks.BoxModelConfig
+	name     string
+	about    string
+	cfg      l5tracks.BoxModelConfig
+	diagnose func(t *l5tracks.TrackedObject, c *l5tracks.WorldCluster) (box, bool)
 }
 
 func boxVariants() []variant {
@@ -156,6 +159,9 @@ func boxVariants() []variant {
 		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
 		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
 		with("km-nocourse", "no course observation or label", func(c *l5tracks.BoxModelConfig) { c.CourseMinSpeedMps = 0 }),
+		{name: "dx-centred", about: "the drawn box moved to the cluster's PCA box centre", diagnose: diagnoseCentred},
+		{name: "dx-tight", about: "the drawn heading, with extents and centre fitted to the points along it", diagnose: diagnoseTight},
+		{name: "dx-pca", about: "the cluster's own PCA box, unsmoothed", diagnose: diagnosePCA},
 	}
 }
 
@@ -202,6 +208,7 @@ type trackState struct {
 	class    string
 	estNanos int64
 	calls    int
+	diag     box
 }
 
 type rowAgg struct {
@@ -297,6 +304,13 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 		boxes[published] = publishedBox(t)
 		for _, v := range s.variants {
 			st := s.trackState(v.name, t.TrackID)
+			if v.diagnose != nil {
+				if b, ok := v.diagnose(t, cluster); ok {
+					st.diag = b
+				}
+				boxes[v.name] = st.diag
+				continue
+			}
 			if st.est == nil {
 				st.est = l5tracks.NewBoxEstimator(v.cfg)
 			}
@@ -841,4 +855,46 @@ func visibleTurn(a, b box) float64 {
 		d += math.Pi / 2
 	}
 	return math.Abs(foldHalf(d))
+}
+
+// diagnoseCentred is the drawn box at the cluster's PCA box centre: what the
+// medoid reference costs.
+func diagnoseCentred(t *l5tracks.TrackedObject, c *l5tracks.WorldCluster) (box, bool) {
+	b := publishedBox(t)
+	if c == nil || c.OBB == nil {
+		return b, false
+	}
+	b.x, b.y = float64(c.OBB.CenterX), float64(c.OBB.CenterY)
+	return b, true
+}
+
+// diagnoseTight is the drawn heading with the extents and centre of the
+// points along it: it holds every point, so its area says what the heading
+// costs.
+func diagnoseTight(t *l5tracks.TrackedObject, c *l5tracks.WorldCluster) (box, bool) {
+	b := publishedBox(t)
+	if c == nil {
+		return b, false
+	}
+	members := c.Members
+	if len(members) == 0 {
+		return b, false
+	}
+	cs, sn := math.Cos(b.psi), math.Sin(b.psi)
+	aLo, aHi, nLo, nHi := math.Inf(1), math.Inf(-1), math.Inf(1), math.Inf(-1)
+	for _, p := range members {
+		a, n := p.X*cs+p.Y*sn, -p.X*sn+p.Y*cs
+		aLo, aHi, nLo, nHi = math.Min(aLo, a), math.Max(aHi, a), math.Min(nLo, n), math.Max(nHi, n)
+	}
+	ma, mn := (aLo+aHi)/2, (nLo+nHi)/2
+	return box{x: ma*cs - mn*sn, y: ma*sn + mn*cs, psi: b.psi, length: aHi - aLo, width: nHi - nLo}, true
+}
+
+// diagnosePCA is the cluster's own PCA box, as L4 measured it this frame.
+func diagnosePCA(_ *l5tracks.TrackedObject, c *l5tracks.WorldCluster) (box, bool) {
+	if c == nil || c.OBB == nil {
+		return box{}, false
+	}
+	o := c.OBB
+	return box{x: float64(o.CenterX), y: float64(o.CenterY), psi: float64(o.HeadingRad), length: float64(o.Length), width: float64(o.Width)}, true
 }
