@@ -121,12 +121,15 @@ func DefaultBoxModelConfig() BoxModelConfig {
 		RelabelRun:             5,
 		CourseSideslipRad:      4 * math.Pi / 180,
 		YawAccelSigma:          0.4,
-		MaxCurvature:           0.25,
-		MinYawRate:             5 * math.Pi / 180,
+		MaxCurvature:           0.2,
+		MinYawRate:             3 * math.Pi / 180,
 		UnlabelledYawRate:      45 * math.Pi / 180,
 		AxisSigmaScale:         1.5,
 		AxisGateSigmas:         3,
 		AxisRestartRun:         5,
+		VehicleLengthFloor:     3.8,
+		FitMaxPoints:           128,
+		FitCoarseStepDeg:       2,
 		CentrePull:             0.3,
 	}
 }
@@ -292,7 +295,7 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 	if len(pts) > 0 {
 		spans = e.correct(in, pts, speed)
 	}
-	e.limit(prev, speed, dt, in.Nanos)
+	e.limit(prev, boundSpeed(in, speed), dt, in.Nanos)
 	e.lastNanos = in.Nanos
 	e.place(in, pts, false, spans)
 	return e.box
@@ -455,6 +458,19 @@ func (e *BoxEstimator) update(r, v float64) {
 		{(1 - k0) * p[0][0], (1 - k0) * p[0][1]},
 		{p[1][0] - k1*p[0][0], p[1][1] - k1*p[0][1]},
 	}
+}
+
+// boundSpeed is the speed the yaw-rate bound is allowed: the speed less
+// twice its own standard deviation along the velocity, never below zero. A
+// body turns only by moving, and a stopped car's filtered speed is noise
+// that would otherwise let its box rotate in place.
+func boundSpeed(in BoxInput, speed float64) float64 {
+	if speed <= 0 {
+		return 0
+	}
+	ux, uy := in.VX/speed, in.VY/speed
+	along := ux*ux*in.VelCov[0] + 2*ux*uy*in.VelCov[1] + uy*uy*in.VelCov[2]
+	return math.Max(0, speed-2*math.Sqrt(math.Max(along, 0)))
 }
 
 // limit holds the yaw rate and this frame's turn of the box to what a

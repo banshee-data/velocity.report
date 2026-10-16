@@ -143,22 +143,19 @@ func boxVariants() []variant {
 	return []variant{
 		{name: "km", about: "box model, defaults", cfg: def},
 		with("km-pca", "axis from the cluster's PCA box, no members", func(c *l5tracks.BoxModelConfig) { c.AxisSource = l5tracks.BoxAxisPCA }),
-		with("km-nocourse", "no course observation or label", func(c *l5tracks.BoxModelConfig) { c.CourseMinSpeedMps = 0 }),
 		with("km-free", "no yaw-rate bound", func(c *l5tracks.BoxModelConfig) {
 			c.MaxCurvature, c.MinYawRate, c.UnlabelledYawRate = 100, 100, 100
 		}),
 		with("km-k15", "curvature bound 0.15 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.15 }),
-		with("km-k20", "curvature bound 0.20 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.20 }),
+		with("km-k25", "curvature bound 0.25 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.25 }),
 		with("km-sig1", "axis sigma × 1", func(c *l5tracks.BoxModelConfig) { c.AxisSigmaScale = 1 }),
-		with("km-sig3", "axis sigma × 3", func(c *l5tracks.BoxModelConfig) { c.AxisSigmaScale = 3 }),
 		with("km-yaw02", "yaw acceleration sigma 0.2 rad/s²", func(c *l5tracks.BoxModelConfig) { c.YawAccelSigma = 0.2 }),
-		with("km-label15", "label only from a steering-grade course (15°)", func(c *l5tracks.BoxModelConfig) { c.CourseLabelMaxSigmaRad = 0 }),
-		with("km-norelabel", "no relabel safety net", func(c *l5tracks.BoxModelConfig) { c.RelabelRun = 0 }),
-		with("km-floor38", "vehicle length floor 3.8 m", func(c *l5tracks.BoxModelConfig) { c.VehicleLengthFloor = 3.8 }),
+		with("km-floor0", "no vehicle length floor", func(c *l5tracks.BoxModelConfig) { c.VehicleLengthFloor = 0 }),
+		with("km-full", "fit on 256 points at a 1° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 0, 0 }),
 		with("km-cheap64", "fit on 64 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 64, 2 }),
-		with("km-cheap128", "fit on 128 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 128, 2 }),
 		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
 		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
+		with("km-w5", "yaw floor 5°/s, unlabelled 45°/s, as the first build", func(c *l5tracks.BoxModelConfig) { c.MinYawRate = 5 * math.Pi / 180 }),
 	}
 }
 
@@ -216,6 +213,7 @@ type rowAgg struct {
 	restPairs                     int
 	sideslip                      []float64
 	efficiency, axisErr           []float64
+	slip                          []float64
 	movingRows                    int
 }
 
@@ -444,6 +442,8 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 			if math.Abs(d) > evalJumpRad {
 				agg.jump++
 			}
+			// The box centre's motion that the track's does not explain.
+			agg.slip = append(agg.slip, math.Hypot((b.x-st.last.x)-(float64(t.X)-st.lastX), (b.y-st.last.y)-(float64(t.Y)-st.lastY)))
 			st.sumAbs += math.Abs(d)
 			st.sumNet += d
 			st.path += math.Hypot(float64(t.X)-st.lastX, float64(t.Y)-st.lastY)
@@ -521,6 +521,9 @@ type Measure struct {
 	EfficiencyP50      float64 `json:"area_efficiency_p50"`
 	EfficiencyUnder80  float64 `json:"area_efficiency_under80_share"`
 	AxisRows           int     `json:"min_area_axis_rows"`
+	SlipP50            float64 `json:"centre_slip_p50_m"`
+	SlipP90            float64 `json:"centre_slip_p90_m"`
+	SlipP99            float64 `json:"centre_slip_p99_m"`
 	AxisErrP50         float64 `json:"min_area_axis_error_p50_deg"`
 	AxisErrP90         float64 `json:"min_area_axis_error_p90_deg"`
 	AxisErrOver10      float64 `json:"min_area_axis_error_over10_share"`
@@ -559,6 +562,7 @@ func (s *scorer) summary() Summary {
 			"length_cv":                 "per track, coefficient of variation of the drawn length",
 			"overwide_share":            "share of scored rows whose drawn box is wider than 2.8 m on its shorter side",
 			"area_efficiency":           "per row, the area of the members' minimum-area rectangle over the area of their bounding rectangle along the drawn heading: 1 when the box is turned to the points' own axis, lower the further it is turned off it; independent of the course and of the rectangle fit",
+			"centre_slip":               "per consecutive pair, the drawn box centre's displacement less the tracked position's: how far the box moves on the track",
 			"min_area_axis_error":       "per row with 30 or more members and a minimum-area rectangle of aspect 1.5 or more, the drawn axis's distance from that rectangle's axis, modulo 90°",
 		}}
 	for _, name := range s.names() {
@@ -572,7 +576,7 @@ func (s *scorer) summary() Summary {
 		for g, ids := range groups {
 			sort.Strings(ids)
 			m := &Measure{Tracks: len(ids)}
-			var maxOut, side, wiggle, lengths, widths, cvs, eff, axisErr []float64
+			var maxOut, side, wiggle, lengths, widths, cvs, eff, axisErr, slip []float64
 			var share float64
 			var estNanos int64
 			var calls int
@@ -592,6 +596,7 @@ func (s *scorer) summary() Summary {
 				side = append(side, a.sideslip...)
 				eff = append(eff, a.efficiency...)
 				axisErr = append(axisErr, a.axisErr...)
+				slip = append(slip, a.slip...)
 				if st := kept[name][id]; st != nil {
 					if st.path >= 10 {
 						wiggle = append(wiggle, (st.sumAbs-math.Abs(st.sumNet))*180/math.Pi/(st.path/10))
@@ -637,6 +642,7 @@ func (s *scorer) summary() Summary {
 			m.EfficiencyP10, m.EfficiencyP50 = quantile(eff, .1), quantile(eff, .5)
 			m.EfficiencyUnder80 = shareBelow(eff, 0.8)
 			m.AxisRows = len(axisErr)
+			m.SlipP50, m.SlipP90, m.SlipP99 = quantile(slip, .5), quantile(slip, .9), quantile(slip, .99)
 			m.AxisErrP50, m.AxisErrP90 = quantile(axisErr, .5), quantile(axisErr, .9)
 			m.AxisErrOver10 = 1 - shareBelow(axisErr, 10.000001)
 			if len(axisErr) == 0 {

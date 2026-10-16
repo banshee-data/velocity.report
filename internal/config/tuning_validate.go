@@ -498,6 +498,7 @@ func (b *L5BoxModel) Validate() error {
 		{"unlabelled_yaw_rate_deg_per_sec", b.UnlabelledYawRateDegPerSec},
 		{"axis_sigma_scale", b.AxisSigmaScale},
 		{"centre_pull", b.CentrePull},
+		{"vehicle_length_floor_metres", b.VehicleLengthFloorMetres},
 	} {
 		if math.IsNaN(f.value) || math.IsInf(f.value, 0) || f.value < 0 {
 			return fmt.Errorf("%s must be finite and non-negative, got %v", f.name, f.value)

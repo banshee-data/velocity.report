@@ -223,6 +223,10 @@ type L5BoxModel struct {
 	// CentrePull is the share of the way to the sensor-anchored centre the
 	// box moves each frame, inside the interval that holds the points.
 	CentrePull float64 `json:"centre_pull"`
+	// VehicleLengthFloorMetres draws a labelled box of a vehicle's believed
+	// width at least this long, the unseen part away from the sensor; zero
+	// draws only what was seen.
+	VehicleLengthFloorMetres float64 `json:"vehicle_length_floor_metres"`
 }
 
 // NeedsMembers reports whether the box model reads the cluster members.

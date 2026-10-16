@@ -381,6 +381,7 @@ func BoxModelConfigFromTuning(b *config.L5BoxModel) BoxModelConfig {
 	cfg.YawAccelSigma = b.YawAccelSigma
 	cfg.AxisSigmaScale = b.AxisSigmaScale
 	cfg.CentrePull = b.CentrePull
+	cfg.VehicleLengthFloor = b.VehicleLengthFloorMetres
 	return cfg
 }
 
@@ -398,6 +399,7 @@ func BoxModelTuningFromTracker(cfg TrackerConfig) *config.L5BoxModel {
 		MinYawRateDegPerSec:        roundDegrees(b.MinYawRate),
 		UnlabelledYawRateDegPerSec: roundDegrees(b.UnlabelledYawRate),
 		YawAccelSigma:              b.YawAccelSigma, AxisSigmaScale: b.AxisSigmaScale, CentrePull: b.CentrePull,
+		VehicleLengthFloorMetres: b.VehicleLengthFloor,
 	}
 }
 
