@@ -10,13 +10,15 @@
  * part-000/timeline.json) or, for a recording with no 3D playback such as a
  * radar survey, a summary.json:
  *   { "sensor_id", "start": ISO-8601, "duration_sec", "build_version",
+ *     "raw_path": dataset-relative path of its raw file, if published,
  *     "vehicle_speed": { same shape as timeline.json's vehicle_speed } }
  * A recording that reports no measurement is left out with a warning: the
  * page would have nothing to show for it.
  *
- * Site-level settings that are not measured, such as the posted speed limit,
- * live in each page's front matter (speedLimitMph) and are applied in the
- * templates.
+ * Site-level facts that are not measured come from scenes.json: the posted
+ * speed limit (speed_limit_mph, set on the site's mark in
+ * tools/s2-archive/map-marks.json) and the capture's raw file in the published
+ * dataset (capture.raw_path, named by tools/s2-archive/capture-names.mjs).
  */
 const fs = require("fs");
 const path = require("path");
@@ -63,7 +65,15 @@ function startTime(dir, summary, header) {
   return ms;
 }
 
-function loadRecording(model, { dir, url }) {
+/**
+ * One recording. `raw` is the dataset path of its raw file: the site's capture
+ * for the original export, or `raw_path` in a later recording's summary.json.
+ */
+function loadRecording(
+  model,
+  { dir, url },
+  { rawPath = null, dataset = null },
+) {
   const summary = readJSON(path.join(dir, "summary.json"));
   const header = readJSON(path.join(dir, "part-000", "header.json"));
   const timeline = readJSON(path.join(dir, "part-000", "timeline.json"));
@@ -91,6 +101,8 @@ function loadRecording(model, { dir, url }) {
     sourceSha256: header?.source_vrlog_sha256 ?? null,
     generatedAt: header?.generated_at ?? null,
     assetsUrl: url,
+    // The raw recording in the published dataset, when it has been named.
+    raw: model.datasetLinks(dataset?.url, summary?.raw_path ?? rawPath),
     // The processed file the page offers for download, whichever exists.
     summaryUrl: summary
       ? `${url}/summary.json`
@@ -140,11 +152,20 @@ async function loadSurveys({
   warn = (message) => console.warn(`[surveys] ${message}`),
 } = {}) {
   const model = await import("../js/survey-model.js");
+  const dataset = index.dataset ?? null;
 
   const sites = index.sites
     .map((site) => {
       const recordings = recordingDirs(scenesDir, site.id)
-        .map((d) => loadRecording(model, d))
+        .map((d) =>
+          loadRecording(model, d, {
+            // The site's capture is the original export under assets/.
+            rawPath: d.url.endsWith("/assets")
+              ? (site.capture?.raw_path ?? null)
+              : null,
+            dataset,
+          }),
+        )
         .filter(Boolean)
         .filter((r) => {
           if (r.families.length) return true;
@@ -163,6 +184,10 @@ async function loadSurveys({
         located: site.located,
         cell: site.cells?.neighbourhood?.display ?? null,
         area: site.cells?.area?.display ?? null,
+        // The posted limit, from the site's field mark via scenes.json; null
+        // until it is known, and the page then draws no limit line.
+        speedLimitMph: model.validLimit(site.speed_limit_mph),
+        capture: site.capture ?? null,
         recordings,
         latest,
         sensors: [...new Set(recordings.map((r) => r.sensor))],
@@ -195,6 +220,7 @@ async function loadSurveys({
       withRecordings: sites.filter((s) => s.recordings.length).length,
       multi: sites.filter((s) => s.recordings.length > 1).length,
     },
+    dataset,
     sensorKinds: [...new Set(sites.flatMap((s) => s.sensors))],
     pipeline: { build: commonBuild, count: commonCount, builds },
     years: [...new Set(recordings.map((r) => r.when.year))].sort(),

@@ -354,3 +354,17 @@ export function familyAvailability(selection, excludeId = "speed") {
     ),
   }));
 }
+
+/**
+ * Links for a file in the published dataset, from the dataset's page URL and
+ * a dataset-relative path: the file itself, and its page on the Hub.
+ */
+export function datasetLinks(datasetUrl, relativePath) {
+  if (!datasetUrl || !relativePath) return null;
+  const base = datasetUrl.replace(/\/+$/, "");
+  return {
+    path: relativePath,
+    download: `${base}/resolve/main/${relativePath}?download=true`,
+    page: `${base}/blob/main/${relativePath}`,
+  };
+}
