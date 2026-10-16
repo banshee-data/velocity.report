@@ -588,7 +588,7 @@ func (s *scorer) summary() Summary {
 			"kinematic_violation_share": "share of consecutive frame pairs whose drawn-box turn rate (modulo 180°) exceeds 0.25/m × speed + 10°/s",
 			"rest_turn_share":           "share of pairs below 0.5 m/s whose drawn box turned by more than 1°",
 			"jump_share":                "share of pairs whose drawn box turned by more than 30° in one frame",
-			"visible_*":                 "the same three shares for the drawn rectangle's own turn: the heading's change modulo 180°, plus a quarter turn when the second box's extents match the first's swapped better than as they are, so a quarter turn that swaps the extents, which draws the same rectangle, is no turn",
+			"visible_*":                 "the same three shares for the drawn rectangle's own turn: the heading's change modulo 180°, less a quarter turn when the heading turned by more than 45° and the extents swapped, so a label correction that turns the heading a quarter and swaps the extents, drawing the same rectangle, is no turn",
 			"sideslip":                  "angle between the drawn box's axis and the direction of travel, modulo 180°, rows at 3 m/s or more",
 			"wiggle_deg_per_10m":        "per track, (Σ|Δψ| − |ΣΔψ|) per 10 m travelled: turning back and forth not explained by the net turn; tracks over 10 m",
 			"length_cv":                 "per track, coefficient of variation of the drawn length",
@@ -842,19 +842,20 @@ func refAxis(ref areaRef) string {
 }
 
 // visibleTurn is the drawn rectangle's turn between two frames, in radians:
-// the heading's change modulo a half turn, or, when the second box's
-// extents match the first's swapped better than as they are, its change
-// plus a quarter turn, since a quarter turn that swaps the extents draws the
-// same rectangle. Extents that merely fluctuate about a square do not count
-// as a quarter turn.
+// the heading's change modulo a half turn, except that a heading change of
+// more than an eighth of a turn whose extents swap draws the same rectangle
+// turned by the remainder, and counts as that. A quarter turn that swaps the
+// extents (a label correcting which side is the length) is no turn; extents
+// that fluctuate about a square without the heading turning are not a
+// quarter turn either.
 func visibleTurn(a, b box) float64 {
-	d := b.psi - a.psi
+	d := foldHalf(b.psi - a.psi)
 	same := math.Abs(a.length-b.length) + math.Abs(a.width-b.width)
 	swapped := math.Abs(a.length-b.width) + math.Abs(a.width-b.length)
-	if swapped < same {
-		d += math.Pi / 2
+	if math.Abs(d) > math.Pi/4 && swapped < same {
+		d = foldHalf(d + math.Pi/2)
 	}
-	return math.Abs(foldHalf(d))
+	return math.Abs(d)
 }
 
 // diagnoseCentred is the drawn box at the cluster's PCA box centre: what the
