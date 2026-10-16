@@ -2,9 +2,10 @@
 layout: survey.njk
 ---
 {#
-  One location page, for every survey site. A page supplies sceneId,
-  sceneName and sceneIntro, and may set speedLimitMph once the posted limit
-  is known. Measurements come from src/_data/surveys.js; the 3D viewport,
+  One location page, for every survey site. src/scenes/survey-pages.11ty.js
+  paginates it over the published sites and supplies sceneId, sceneName,
+  sceneIntro and the viewer angles from the site's record; the posted limit
+  is the record's speedLimitMph. Measurements come from src/_data/surveys.js; the 3D viewport,
   transport and player wiring are the same for every site and live here, so
   a fix to one is a fix to all.
 

@@ -59,9 +59,13 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   month take the day in their label; two starting in the same minute take the sensor in their id.
 - **Speed limit.** Each site's posted limit is `speed_limit_mph` on its field mark in
   `tools/s2-archive/map-marks.json` (or in `scene-overrides.json` for a scene with no mark). It
-  reaches `src/_data/scenes.json` through `make render-scene-map`. All sites are set to 25 mph, San
-  Francisco's default, until each sign has been checked; a blank value means unknown, and the page
-  then shows speeds without a limit line or an over-limit share.
+  reaches `src/_data/scenes.json` through `make render-scene-data`, which needs no archive. Sites
+  default to 25 mph, San Francisco's default, until each sign has been checked; a blank value means
+  unknown, and the page then shows speeds without a limit line or an over-limit share.
+- **Generated, never edited.** `src/_data/scenes.json` and `src/_includes/scene-map.svg` are
+  written by `make render-scene-data` from the field marks, the overrides and the site index, and
+  each published site's page is paginated from `scenes.json` by `src/scenes/survey-pages.11ty.js`.
+  CI regenerates them (`make check-scene-data`) and fails if a committed copy differs.
 - **Raw recordings.** Each site's data-and-methods section links the capture's PCAPNG in the
   [sf-street-speeds](https://huggingface.co/datasets/banshee-data/sf-street-speeds) dataset. The
   file name is derived from the site by `tools/s2-archive/capture-names.mjs`, the same rule the

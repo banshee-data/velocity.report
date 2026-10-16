@@ -11,7 +11,7 @@ everything else here produces or feeds it.
 
 | File                  | What it is                                                                         |
 | --------------------- | ---------------------------------------------------------------------------------- |
-| `site-index.json`     | The index. Generated — edit `map-marks.json` and rebuild instead.                  |
+| `site-index.json`     | The index. Generated — edit `map-marks.json` and run `make render-scene-data`.     |
 | `map-marks.json`      | Operator-named positions and optional orientation measurements.                    |
 | `site-joins.json`     | Operator assertions that separated static fragments belong to one visit.           |
 | `analysis-overrides/` | Checked-in reanalyses of archived capture spans.                                   |
@@ -31,7 +31,7 @@ statistics in `continuity-coverage.survey.json`; kirk0's is the first. See the
 The scene catalogue being developed in [PR #569](https://github.com/banshee-data/velocity.report/pull/569) reads this index. Its map generator and `make render-scene-map` target are part of a later extraction, not this archive-tooling change. Each scene export is joined to a site
 by the wall clock in its header and inherits that site's position, so a mark
 corrected here moves the marker, the cell and the token on `/scenes/` once
-`make render-scene-map` has run. A scene the archive does not cover, or whose
+`make render-scene-data` has run. A scene the archive does not cover, or whose
 map reading is known to be wrong, is positioned in
 `public_html/scene-overrides.json` instead, and the override wins.
 
@@ -112,8 +112,18 @@ index, the map and the pages in one go, use `make render-scene-map-mac`
 (`/Volumes/lidar/lidar/pcaps`) or `make render-scene-map-linux` (`/mnt/captures/lidar`);
 override either path with `SCENE_ARCHIVE_MAC=` / `SCENE_ARCHIVE_LINUX=`.
 
+A mark edit does not need the archive. The index copies each site's mark fields (`id`, `where`,
+`lat`, `lon`, `position_confidence`, the azimuths) only because the archive tools and experiments
+read the index alone; the join behind them needs only each site's start, which the index already
+holds. `--marks-only` re-applies `map-marks.json` to the checked-in index and leaves the
+analysis-derived fields as they are. `make render-scene-data` runs it and then rebuilds the scene
+data, and CI (`make check-scene-data`) fails if the committed index or scene data differ from what
+the marks produce. The posted speed limit is not copied into the index: nothing that reads the index
+needs it, so the scene generator reads it from the marks directly.
+
 ```bash
-python3 tools/s2-archive/build-site-index.py --archive /Volumes/lidar/lidar/pcaps   # after editing map-marks.json
+python3 tools/s2-archive/build-site-index.py --archive /Volumes/lidar/lidar/pcaps   # after new analysis
+python3 tools/s2-archive/build-site-index.py --marks-only   # after editing map-marks.json
 python3 tools/s2-archive/deployments.py        # recording blocks from filenames
 ```
 

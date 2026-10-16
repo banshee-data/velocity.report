@@ -1,0 +1,41 @@
+name: 🗺️ Scene data CI
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "tools/s2-archive/**"
+      - "tools/s2-hilbert/**"
+      - "public_html/scene-overrides.json"
+      - "public_html/src/_data/scenes.json"
+      - "public_html/src/_includes/scene-map.svg"
+      - "public_html/src/scenes/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "Makefile"
+      - ".github/workflows/scene-data-ci.yml"
+      - ".github/actions/setup-node-pnpm/**"
+
+concurrency:
+  group: scene-data-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: "🗺️ Generated scene files are current"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Setup Node.js with pnpm
+        uses: ./.github/actions/setup-node-pnpm
+
+      - name: Run S2 Hilbert generator tests
+        run: make test-s2-hilbert
+
+      - name: Regenerate and compare scene files
+        run: make check-scene-data

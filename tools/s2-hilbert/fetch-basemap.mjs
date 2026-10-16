@@ -21,10 +21,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const TOOL_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIRECTORY, "..", "..");
-// The generated scene data, not scene-sites.json: the latter holds only the
-// published scenes, and the map shows every recorded site. Caching from the
-// smaller set leaves a visitor panning onto bare grid the moment a site is
-// published outside the frame the published four happened to span.
+// The generated scene data, which lists every recorded site the map shows, not
+// only the published ones. Caching from the smaller set leaves a visitor
+// panning onto bare grid the moment a site is published outside the frame the
+// published four happened to span.
 const SOURCE = path.join(
   REPO_ROOT,
   "public_html",

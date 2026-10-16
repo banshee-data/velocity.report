@@ -177,9 +177,14 @@ test("map mark angles propagated by the index are canonical, including zero and 
 });
 
 test("a scene takes the posted limit from its site's mark, and an override beats it", () => {
+  // The index carries a stale limit to show it is not the source: the mark is.
   const index = INDEX.map((site) =>
-    site.site === "s10" ? { ...site, speed_limit_mph: 25 } : site,
+    site.site === "s10" ? { ...site, speed_limit_mph: 30 } : site,
   );
+  const marks = [
+    { id: "union-van-ness", speed_limit_mph: 25 },
+    { id: "soma-mission-8th" },
+  ];
   const scenes = [
     at("2026-09-02T10:59:10-07:00", 1200, "a"),
     at("2026-09-03T15:51:00-07:00", 1200, "b"),
@@ -188,6 +193,7 @@ test("a scene takes the posted limit from its site's mark, and an override beats
   const { sites } = buildSceneSites({
     scenes,
     index,
+    marks,
     overrides: { c: { speed_limit_mph: 30 } },
   });
   const byId = Object.fromEntries(sites.map((s) => [s.id, s]));

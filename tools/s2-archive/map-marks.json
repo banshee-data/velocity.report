@@ -36,7 +36,8 @@
     "",
     "  speed_limit_mph   The posted speed limit at the site, in mph. Set to 25,",
     "                    San Francisco's default for these streets, until each",
-    "                    site's sign has been checked; correct it here and rebuild.",
+    "                    site's sign has been checked; correct it here and run",
+    "                    make render-scene-data (no archive needed).",
     "                    Blank means unknown: the page then shows speeds without a",
     "                    limit line or an over-limit share."
   ],

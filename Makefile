@@ -215,6 +215,8 @@ help:
 	@echo "  render-overlays      Generate guide-image SVG overlays (beam cones, annotations)"
 	@echo "  render               Run all render targets (diagrams + overlays)"
 	@echo "  render-scene-map-mac|-linux  Rebuild the scene index, map and pages from the archive at its Mac or Linux path"
+	@echo "  render-scene-data    Re-apply marks and overrides to the site index, page data and map (no archive needed)"
+	@echo "  check-scene-data     Fail if the generated scene files differ from what the generator writes"
 	@echo "  render-s2-hilbert    Generate S2 Hilbert-curve SVG assets for the docs infographic"
 	@echo "  render-s2-composite  Generate the four-cell L10 Hilbert orientation composite"
 	@echo "  test-s2-hilbert      Run the S2 Hilbert generator test suite"
@@ -2245,7 +2247,7 @@ render: render-diagrams render-overlays
 # out of the production Go and web builds; see tools/s2-hilbert/README.md.
 S2_HILBERT_DIR = tools/s2-hilbert
 
-.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-scene-map-mac render-scene-map-linux render-s2-composite test-s2-hilbert cache-basemap site-index
+.PHONY: install-s2-hilbert render-s2-hilbert render-scene-map render-scene-map-mac render-scene-map-linux render-scene-data check-scene-data render-s2-composite test-s2-hilbert cache-basemap site-index
 
 install-s2-hilbert:
 	@if [ ! -d node_modules/s2js ]; then \
@@ -2260,10 +2262,6 @@ render-s2-hilbert: install-s2-hilbert
 	@pnpm run --silent s2-hilbert:composite
 	@echo "✓ Assets written to $(S2_HILBERT_DIR)/generated/"
 
-# Regenerate scene-sites.json, the published scene map, and the data the scenes
-# page reads. All three derive: each export is joined to an archive site by the
-# clock in its header, and takes that site's position. The hand-authored inputs
-# are tools/s2-archive/map-marks.json and public_html/scene-overrides.json.
 # Cache the basemap tiles the scene map draws on, into the site's own assets.
 # Fetched once and skipped when present, so a rebuild costs nothing. Tiles are
 # gitignored: they are OpenStreetMap's to serve and ours only to cache, and the
@@ -2280,15 +2278,15 @@ site-index:
 	@python3 tools/s2-archive/build-site-index.py --archive "$(LIDAR_PCAP_DIR)"
 
 # Regenerate everything the scenes pages are made of, in dependency order: the
-# site index, then scene-sites.json, the map and each scene's page, then the
-# site itself.
+# site index from the archive, then the page data and the map, then the site
+# itself.
 #
-# The last step is not optional. This target writes a page for every published
-# scene, but a page only becomes a URL when Eleventy runs, so stopping before
-# the build leaves a freshly published scene answering 404 — which is exactly
-# what kept happening while this ended one step early.
+# The last step is not optional. Each published scene's page is paginated from
+# the page data, but a page only becomes a URL when Eleventy runs, so stopping
+# before the build leaves a freshly published scene answering 404 — which is
+# exactly what kept happening while this ended one step early.
 render-scene-map: install-s2-hilbert site-index
-	@echo "Deriving scene-sites.json, the scene map and the scene pages..."
+	@echo "Deriving the scene page data and the scene map..."
 	@pnpm run --silent s2-hilbert:scene-map
 	@$(MAKE) --no-print-directory build-docs
 	@echo "✓ index, scene pages, map and site rebuilt — every published scene has a URL"
@@ -2304,6 +2302,34 @@ render-scene-map-mac:
 
 render-scene-map-linux:
 	@$(MAKE) --no-print-directory render-scene-map LIDAR_PCAP_DIR="$(SCENE_ARCHIVE_LINUX)"
+
+# The part of render-scene-map that needs no archive. The hand-authored inputs
+# are tools/s2-archive/map-marks.json and public_html/scene-overrides.json; a
+# change to either needs only this. The marks are re-applied to the checked-in
+# site index (their join needs only each site's start, which the index holds),
+# then the page data and the map are derived from the index and the marks.
+render-scene-data: install-s2-hilbert
+	@echo "Re-applying the field marks to the site index..."
+	@python3 tools/s2-archive/build-site-index.py --marks-only >/dev/null
+	@echo "Deriving the scene page data and the scene map..."
+	@pnpm run --silent s2-hilbert:scene-map
+
+# The files render-scene-data writes are checked in but never edited by hand.
+# Regenerate them and fail on any difference, so a hand edit — which the next
+# render would silently revert — is caught at review rather than after it.
+SCENE_DATA_OUTPUTS = tools/s2-archive/site-index.json public_html/src/_data/scenes.json \
+	public_html/src/_includes/scene-map.svg public_html/src/scenes
+
+check-scene-data: render-scene-data
+	@if [ -n "$$(git status --porcelain -- $(SCENE_DATA_OUTPUTS))" ]; then \
+		git --no-pager diff --stat -- $(SCENE_DATA_OUTPUTS); \
+		git status --short -- $(SCENE_DATA_OUTPUTS); \
+		echo "✗ Generated scene files are out of date or were edited by hand."; \
+		echo "  Edit tools/s2-archive/map-marks.json or public_html/scene-overrides.json,"; \
+		echo "  then run 'make render-scene-data' and commit the result."; \
+		exit 1; \
+	fi
+	@echo "✓ Generated scene files match their sources"
 
 render-s2-composite: install-s2-hilbert
 	@echo "Generating the four-cell L10 composite..."
