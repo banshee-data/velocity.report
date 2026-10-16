@@ -25,6 +25,7 @@ var Corpora = map[string]Corpus{
 	"d2-second-segment": {22, "the second segment of the same sites less ashbury-downey, which has one capture; held out from every first-segment screen"},
 	"held-out-site":     {1, "embarcadero-folsom, the declared held-out site, read only for a frozen held-out score"},
 	"lombard-laguna":    {1, "the 39-minute Lombard–Laguna placement, eight segments in order: the long capture for arrival and scene-change behaviour"},
+	"s2-placements":     {23, "the whole placements of the 23 tuning and screen sites, raw captures read for geometry only; embarcadero-folsom held out"},
 }
 
 // Capabilities are what a worker can offer a step: data it can read, tools
