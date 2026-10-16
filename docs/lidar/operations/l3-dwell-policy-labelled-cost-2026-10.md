@@ -147,7 +147,8 @@ visible here: no labelled pedestrian on either kirk window stands for 20 s.
   obj_3c67a8a9 (noise in the sweep's ground truth).
 - **Keep the policy on in the corpus screen** (l3bg0012), which measures the re-track rate after
   absorption across 23 sites, and in Stage B (l3bg0009); label0001's window should include
-  standing pedestrians and a car that parks and leaves.
+  standing pedestrians and a car that parks and leaves. Since measured
+  ([the clock](l3-dwell-policy-clock-2026-10.md)): Stage B should run it at 40 s.
 
 ## Provenance
 

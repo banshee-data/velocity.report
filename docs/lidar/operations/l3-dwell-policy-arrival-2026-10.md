@@ -119,6 +119,9 @@ suggest. Observed track-instants fall by 18%, from 147,614 to 121,128.
   that built the policy measured a 56-frame recovery for a flanked car on a synthetic ring, and this
   run did not measure departures at all.
 - **Other values of T.** 20 s is fixed; a pedestrian-aware T, or a longer one, was not tried.
+  Since measured ([the clock](l3-dwell-policy-clock-2026-10.md)): at 40 s the policy keeps CMR's
+  moving tracks, absorbs a quarter as many tracks with no re-track excess, and still leaves only
+  one stationary track over 60 s.
 - **One placement, one commit pair.** a0 and CMR were replayed at 995036d64 and CMR + dwell at
   eac41ad9e; the commits between them add the region map to the evidence and the option itself,
   neither of which changes a replay with the option off.

@@ -71,7 +71,8 @@ the volatile tercile holds the overrides-off flood, but lanes are there for the 
 them, not traffic during settling; neither of the two [levers](operations/l3-region-levers-kirk-2026-10.md)
 it suggests beats the retune. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
-tracks over a 39-minute capture; on the labelled kirk captures it
+tracks over a 39-minute capture, and with its [clock at 40 s](operations/l3-dwell-policy-clock-2026-10.md)
+keeps every moving track; on the labelled kirk captures it
 [costs no moving road user](operations/l3-dwell-policy-labelled-cost-2026-10.md) and absorbs the
 parked car the reviewed pack counts. The [pose step](operations/l3-scene-change-pose-step-2026-10.md)
 shows the capture's late scene change is a knock to the sensor, then a second change and the
