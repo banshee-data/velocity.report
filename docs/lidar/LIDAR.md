@@ -68,7 +68,8 @@ switching the overrides off moves along the recall trade-off rather than across 
 overrides-on retune with the height band floor at road height reaches the recall at the shipped
 false positives. The [region map](operations/l3-region-tercile-mechanism-2026-10.md) checks why:
 the volatile tercile holds the overrides-off flood, but lanes are there for the surfaces behind
-them, not traffic during settling. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
+them, not traffic during settling; neither of the two [levers](operations/l3-region-levers-kirk-2026-10.md)
+it suggests beats the retune. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
 tracks over a 39-minute capture; on the labelled kirk captures it
 [costs no moving road user](operations/l3-dwell-policy-labelled-cost-2026-10.md) and absorbs the

@@ -138,7 +138,10 @@ settling spread's treatment of foreground.
   spread is still sound hygiene for a busy boot, but on kirk0 it would move nothing.
 - **Try the two levers this run points at**, each as an arm: overrides by each cell's own tercile
   rather than its merged region's, and a volatile window bounded in metres rather than relative to
-  range. Score both on kirk0 and kirk1 with W3 and the flood count.
+  range. Score both on kirk0 and kirk1 with W3 and the flood count. Since measured
+  ([levers](l3-region-levers-kirk-2026-10.md)): the metre cap lets half the flood back, and the
+  cell's own tercile recovers pedestrians at a small cost alone but trails CMR, and on top of it
+  trades pedestrians for three times the unlabelled clusters.
 - **Keep the region map in evidence**: it costs about 6.6 MB a case and makes every L3 arm's map
   inspectable.
 
