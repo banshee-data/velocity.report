@@ -12,6 +12,7 @@
  * Everything a scene needs then follows from the site, and the only file left
  * to edit by hand is the position itself.
  */
+import { rawLidarPath } from "../s2-archive/capture-names.mjs";
 
 /** Tolerance for the clock join, in seconds.
  *
@@ -21,8 +22,6 @@
  * drive of several minutes.
  */
 export const JOIN_TOLERANCE_SECONDS = 600;
-
-import { rawLidarPath } from "../s2-archive/capture-names.mjs";
 
 const MINUTE = 60;
 

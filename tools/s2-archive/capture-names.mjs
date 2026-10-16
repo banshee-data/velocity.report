@@ -64,11 +64,3 @@ export function rawLidarPath(site) {
   const stem = captureStem(site);
   return stem ? `raw/lidar/${stem}.pcapng` : null;
 }
-
-/** Links for a dataset-relative path: the file itself, and its page on the Hub. */
-export function datasetLinks(relativePath) {
-  return {
-    download: `${DATASET_URL}/resolve/main/${relativePath}?download=true`,
-    page: `${DATASET_URL}/blob/main/${relativePath}`,
-  };
-}

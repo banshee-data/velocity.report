@@ -192,6 +192,8 @@ test("a radar summary, a same-month visit and a same-minute pair are told apart"
     null,
     "a later recording without raw_path has no link",
   );
+  assert.equal(site.recordings[1].raw.format, "PCAPNG");
+  assert.equal(site.recordings[2].raw.format, "LOG");
   assert.deepEqual(site.sensors, ["radar", "lidar"]);
   assert.deepEqual(sensorKinds, ["radar", "lidar"]);
   assert.equal(totals.multi, 1);

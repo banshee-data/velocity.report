@@ -362,8 +362,11 @@ export function familyAvailability(selection, excludeId = "speed") {
 export function datasetLinks(datasetUrl, relativePath) {
   if (!datasetUrl || !relativePath) return null;
   const base = datasetUrl.replace(/\/+$/, "");
+  const extension = relativePath.match(/\.([a-z0-9]+)$/i)?.[1] ?? null;
   return {
     path: relativePath,
+    // The file's format as its extension says it, e.g. PCAPNG; null if it has none.
+    format: extension ? extension.toUpperCase() : null,
     download: `${base}/resolve/main/${relativePath}?download=true`,
     page: `${base}/blob/main/${relativePath}`,
   };
