@@ -124,6 +124,10 @@ suggest. Observed track-instants fall by 18%, from 147,614 to 121,128.
   needs before it can ship.
 - **Measure the cost before shipping it**: the pedestrians it absorbs and the spot it absorbs
   repeatedly, on a capture with labels, and departures on one with a car that parks and leaves.
+  Since measured on kirk0 and kirk1 ([labelled cost](l3-dwell-policy-labelled-cost-2026-10.md)):
+  no moving road user is absorbed, and the one absorption is a parked car the reviewed pack labels
+  in every frame; neither capture holds a person standing for 20 s, so the pedestrian cost is still
+  open.
 - **Treat the scene change separately**, as the existing proposal does: the policy is not a
   recovery mechanism.
 

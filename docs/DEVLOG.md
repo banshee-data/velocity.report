@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 16, 2026 - Follow-up experiments: the dwell policy on labelled road users
+
+- {claude/experiment-followup} Put the dwell policy on the two labelled kirk captures under the shipped L3 and CMR (l3bg0011): it absorbed no moving road user, and its one absorption under CMR on kirk0 was the parked car the reviewed pack labels in every frame, which accounts for the whole per-frame drop (false negatives 928 to 1,419, HOTA 0.533 to 0.494); the sweep's ground truth labels the same returns noise. Measured CMR's W3 for the first time: retention 0.869 against the shipped 0.494, fragmented instants 17% against 36%, pedestrians 0.83 against 0.17: [report](lidar/operations/l3-dwell-policy-labelled-cost-2026-10.md).
+
 ## October 15, 2026 - Survey pages lead with the speed result, and VRLOG seek no longer races the replay loop
 
 - {survey-pages-redesign} Rebuilt the street survey pages on velocity.report from the Claude Design handoff, for the one measurement published today. The listing puts the map beside a list of every site with a sparkline of its speed distribution and its P85, with search, year filters and a sortable table; a site page opens on a one-sentence key observation and the vehicle speed card (histogram, P50/P85/P98/max, an expandable detail panel, chart PNG and share link), with the 3D player below it in an Evidence section and data and methods last. The speed figures are read from each recording's exported `timeline.json` at build time (`public_html/src/_data/surveys.js`), so they no longer wait for the player; one model and chart module (`survey-model.js`, `survey-charts.js`) runs in both the Eleventy build and the browser, with 28 tests across five files.

@@ -70,7 +70,9 @@ false positives. The [region map](operations/l3-region-tercile-mechanism-2026-10
 the volatile tercile holds the overrides-off flood, but lanes are there for the surfaces behind
 them, not traffic during settling. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
-tracks over a 39-minute capture. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
+tracks over a 39-minute capture; on the labelled kirk captures it
+[costs no moving road user](operations/l3-dwell-policy-labelled-cost-2026-10.md) and absorbs the
+parked car the reviewed pack counts. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
 measures how much of each reviewed object reaches a cluster and into how many it splits, and the
 [range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it.
 
