@@ -10,22 +10,28 @@ import (
 )
 
 // Each dwell policy setting reaches a replay of kirk0 and the replay's
-// result and manifest echo the T it ran at (the harness summary's
-// dwell_policy block is the result's report). Without one the result carries
-// no report and the manifest no dwell_policy section, as before the policy
-// existed. Two seconds of capture is enough to build the policy and write
-// the report; it is far short of any T, so nothing is absorbed.
+// result and manifest echo the T and the stationary drift rule it ran with
+// (the harness summary's dwell_policy block is the result's report). Without
+// one the result carries no report and the manifest no dwell_policy section,
+// as before the policy existed. Two seconds of capture is enough to build the
+// policy and write the report; it is far short of any T, so nothing is
+// absorbed.
 func TestRunEchoesTheDwellPolicyT(t *testing.T) {
 	pcapPath := requireKirk0(t)
 	dir := t.TempDir()
 	for _, c := range []struct {
 		experiment string
 		after      float64
+		drift      float64
+		anchor     string
+		window     int
 	}{
-		{"", 0},
-		{ExperimentDwellPolicy, 20},
-		{ExperimentDwellPolicyT40, 40},
-		{ExperimentDwellPolicyT60, 60},
+		{"", 0, 0, "", 0},
+		{ExperimentDwellPolicy, 20, 1, "first_estimate", 0},
+		{ExperimentDwellPolicyT40, 40, 1, "first_estimate", 0},
+		{ExperimentDwellPolicyT60, 60, 1, "first_estimate", 0},
+		{ExperimentDwellPolicyT40Drift2m, 40, 2, "first_estimate", 0},
+		{ExperimentDwellPolicyT40Median, 40, 1, "running_median", 400},
 	} {
 		label := c.experiment
 		if label == "" {
@@ -57,14 +63,20 @@ func TestRunEchoesTheDwellPolicyT(t *testing.T) {
 			}
 			continue
 		}
-		if result.Dwell == nil || result.Dwell.AbsorbAfterSeconds != c.after {
-			t.Errorf("%s: result dwell %+v, want T %g s", label, result.Dwell, c.after)
+		if d := result.Dwell; d == nil || d.AbsorbAfterSeconds != c.after || d.StationaryDriftMetres != c.drift ||
+			d.StationaryAnchor != c.anchor || d.StationaryMedianWindowFrames != c.window {
+			t.Errorf("%s: result dwell %+v, want T %g s, %g m from %s (window %d)", label, d, c.after, c.drift, c.anchor, c.window)
 		}
 		var echoed struct {
 			AbsorbAfterSeconds float64 `json:"absorb_after_seconds"`
+			DriftMetres        float64 `json:"stationary_drift_metres"`
+			Anchor             string  `json:"stationary_anchor"`
+			WindowFrames       int     `json:"stationary_median_window_frames"`
 		}
-		if !present || json.Unmarshal(section, &echoed) != nil || echoed.AbsorbAfterSeconds != c.after {
-			t.Errorf("%s: manifest dwell_policy %s, want absorb_after_seconds %g", label, section, c.after)
+		if !present || json.Unmarshal(section, &echoed) != nil || echoed.AbsorbAfterSeconds != c.after ||
+			echoed.DriftMetres != c.drift || echoed.Anchor != c.anchor || echoed.WindowFrames != c.window {
+			t.Errorf("%s: manifest dwell_policy %s, want absorb_after_seconds %g, stationary_drift_metres %g, stationary_anchor %s, window %d",
+				label, section, c.after, c.drift, c.anchor, c.window)
 		}
 	}
 }

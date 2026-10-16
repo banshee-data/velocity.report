@@ -271,6 +271,13 @@ type TrackerConfig struct {
 	// Without NearEdgeTracking it does nothing. Default off.
 	NearEdgeMedoidGate bool
 
+	// Stationary is the stationary clock's drift rule (StationaryFor). The
+	// zero value is the shipped rule: within StationaryDriftMetres of the
+	// run's first estimate. Only the pipeline's dwell policy reads the clock,
+	// and it sets this from its own setting before the first frame, so it is
+	// a Go-level option and not a tuning key. See stationary.go.
+	Stationary StationaryRule
+
 	// Kinematics/physics limits
 	MaxReasonableSpeedMps float32 // Maximum reasonable speed (m/s; ~108 km/h at 30.0)
 	MaxPositionJumpMetres float32 // Maximum position jump between observations (metres)

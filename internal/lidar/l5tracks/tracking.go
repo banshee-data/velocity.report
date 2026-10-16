@@ -39,8 +39,19 @@ const (
 	// 0.67 m of its median over 71 s), so a run survives the jitter and
 	// restarts on the creep. It is a judgement, not a fit: a track whose
 	// position jumps further, as a fragment's can, restarts its run, which
-	// errs towards leaving the track alone.
+	// errs towards leaving the track alone. It is the default of
+	// StationaryRule.DriftMetres.
 	StationaryDriftMetres = 1.0
+
+	// StationaryMedianWindowFrames bounds the running median of
+	// StationaryAnchorMedian to the run's last this many observed estimates,
+	// so a frame costs the same however long the run. It is 40 s at 10 Hz,
+	// the T of the dwell policy that uses the median, so up to the frame the
+	// policy can act the median is the whole run's. A shorter window lets a
+	// steady creep carry the median along with it: the median trails the
+	// track by half the window's span, so a creep slower than twice the
+	// drift over the window (0.1 m/s at 200 frames) never restarts the run.
+	StationaryMedianWindowFrames = 400
 
 	// SustainedLockFrames is how many consecutive locked frames count as a
 	// sustained heading lock, and equally how many consecutive unlocked frames
@@ -128,9 +139,14 @@ type TrackedObject struct {
 	// The stationary clock; see observeStationary and StationaryFor.
 	// stationaryRun says the track is in a stationary run, which began at
 	// frame time stationarySinceNanos with the track at the anchor.
+	// stationaryWindow holds the run's recent estimates under
+	// StationaryAnchorMedian and is nil under the default rule. A snapshot
+	// shares the pointer; only the tracker, under its lock, reads or writes
+	// it.
 	stationaryRun                        bool
 	stationarySinceNanos                 int64
 	stationaryAnchorX, stationaryAnchorY float32
+	stationaryWindow                     *stationaryWindow
 
 	// History of positions
 	History []TrackPoint
@@ -745,7 +761,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	t.TracksCreated++
 	t.continuity.TracksBorn++
 	t.recordSupport(track, SupportObserved)
-	observeStationary(track, nowNanos)
+	observeStationary(track, nowNanos, t.Config.Stationary)
 	diagf("Track initialised: track_id=%s cluster_id=%d sensor=%s points=%d",
 		trackID, cluster.ClusterID, cluster.SensorID, cluster.PointsCount)
 	return track
@@ -852,7 +868,7 @@ func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowN
 		track.MaxClosedOcclusionFrames = track.Misses
 	}
 	track.Misses = 0
-	observeStationary(track, nowNanos)
+	observeStationary(track, nowNanos, t.Config.Stationary)
 	return true
 }
 

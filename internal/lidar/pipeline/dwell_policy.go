@@ -48,9 +48,18 @@ const dwellBoxMarginMetres = 0.2
 type DwellPolicy struct {
 	// AbsorbAfter is the policy's T. Zero is DwellAbsorbAfter, the 20 s of
 	// replay experiment dwell_policy; dwell_policy_t40 and dwell_policy_t60
-	// set 40 s and 60 s. The stationary speed, drift and box margin are the
-	// same at every T. Set it before the first frame and leave it.
+	// set 40 s and 60 s. The stationary speed and box margin are the same at
+	// every T. Set it before the first frame and leave it.
 	AbsorbAfter time.Duration
+
+	// Stationary is the drift rule of the stationary clock the policy reads.
+	// The clock is L5's, so the pipeline sets the tracker's
+	// l5tracks.TrackerConfig.Stationary to it when the frame callback is
+	// built, before the first frame: the rule the report names is the rule
+	// the tracker ran. The zero value is the shipped rule, 1 m from the
+	// run's first estimate; dwell_policy_t40_drift2m sets 2 m and
+	// dwell_policy_t40_median measures from the run's running median.
+	Stationary l5tracks.StationaryRule
 
 	report DwellReport
 }
@@ -67,11 +76,17 @@ func (d *DwellPolicy) absorbAfter() time.Duration {
 // DwellReport is what a dwell policy did over a run.
 type DwellReport struct {
 	// The policy's constants, so a report says what it ran with.
-	// AbsorbAfterSeconds is the T it ran at, not the default.
-	AbsorbAfterSeconds    float64 `json:"absorb_after_seconds"`
-	StationarySpeedMps    float64 `json:"stationary_speed_mps"`
-	StationaryDriftMetres float64 `json:"stationary_drift_metres"`
-	BoxMarginMetres       float64 `json:"box_margin_metres"`
+	// AbsorbAfterSeconds is the T it ran at, not the default, and
+	// StationaryDriftMetres and StationaryAnchor the clock's drift rule
+	// (l5tracks.StationaryRule) as the tracker ran it.
+	// StationaryMedianWindowFrames is the running median's window, written
+	// only when the anchor is the running median.
+	AbsorbAfterSeconds           float64 `json:"absorb_after_seconds"`
+	StationarySpeedMps           float64 `json:"stationary_speed_mps"`
+	StationaryDriftMetres        float64 `json:"stationary_drift_metres"`
+	StationaryAnchor             string  `json:"stationary_anchor"`
+	StationaryMedianWindowFrames int     `json:"stationary_median_window_frames,omitempty"`
+	BoxMarginMetres              float64 `json:"box_margin_metres"`
 
 	TracksAbsorbed  int `json:"tracks_absorbed"`
 	CellsAbsorbed   int `json:"cells_absorbed"`
@@ -103,7 +118,11 @@ func (d *DwellPolicy) Report() DwellReport {
 	r := d.report
 	r.AbsorbAfterSeconds = d.absorbAfter().Seconds()
 	r.StationarySpeedMps = l5tracks.StationarySpeedMps
-	r.StationaryDriftMetres = l5tracks.StationaryDriftMetres
+	r.StationaryDriftMetres = float64(d.Stationary.Drift())
+	r.StationaryAnchor = string(d.Stationary.AnchorMode())
+	if d.Stationary.AnchorMode() == l5tracks.StationaryAnchorMedian {
+		r.StationaryMedianWindowFrames = l5tracks.StationaryMedianWindowFrames
+	}
 	r.BoxMarginMetres = dwellBoxMarginMetres
 	r.Absorptions = append([]DwellAbsorption{}, d.report.Absorptions...)
 	return r

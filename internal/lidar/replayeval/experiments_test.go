@@ -80,19 +80,28 @@ func TestDwellPolicyIsAKnownExperiment(t *testing.T) {
 }
 
 // dwell_policy_t40 and dwell_policy_t60 (l3bg0015) are the dwell policy with
-// a 40 s and a 60 s clock. Each is accepted by its name alone, hashes apart
-// from the default and from the other settings, needs a tracker, and builds
-// the policy at its own T, which the policy's report echoes; dwell_policy
-// still builds the 20 s policy it always did, and naming none builds
+// a 40 s and a 60 s clock, and dwell_policy_t40_drift2m and
+// dwell_policy_t40_median (l3bg0017) the 40 s clock with a 2 m drift
+// tolerance and with drift measured from the run's running median. Each is
+// accepted by its name alone, hashes apart from the default and from the
+// other settings, needs a tracker, and builds the policy at its own T and
+// drift rule, which the policy's report echoes; dwell_policy still builds the
+// 20 s policy with the shipped rule it always did, and naming none builds
 // nothing. Two settings together are refused, never resolved.
 func TestDwellPolicySettings(t *testing.T) {
+	median := l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}
 	cases := []struct {
-		name  string
-		after time.Duration
+		name       string
+		after      time.Duration
+		stationary l5tracks.StationaryRule
+		drift      float64
+		anchor     string
 	}{
-		{ExperimentDwellPolicy, 20 * time.Second},
-		{ExperimentDwellPolicyT40, 40 * time.Second},
-		{ExperimentDwellPolicyT60, 60 * time.Second},
+		{ExperimentDwellPolicy, 20 * time.Second, l5tracks.StationaryRule{}, 1, "first_estimate"},
+		{ExperimentDwellPolicyT40, 40 * time.Second, l5tracks.StationaryRule{}, 1, "first_estimate"},
+		{ExperimentDwellPolicyT60, 60 * time.Second, l5tracks.StationaryRule{}, 1, "first_estimate"},
+		{ExperimentDwellPolicyT40Drift2m, 40 * time.Second, l5tracks.StationaryRule{DriftMetres: 2}, 2, "first_estimate"},
+		{ExperimentDwellPolicyT40Median, 40 * time.Second, median, 1, "running_median"},
 	}
 	suffixes := map[string]string{}
 	for _, c := range cases {
@@ -117,12 +126,12 @@ func TestDwellPolicySettings(t *testing.T) {
 		if err != nil || policy == nil {
 			t.Fatalf("%s: policy %v, %v", c.name, policy, err)
 		}
-		if policy.AbsorbAfter != c.after {
-			t.Errorf("%s: AbsorbAfter %v, want %v", c.name, policy.AbsorbAfter, c.after)
+		if policy.AbsorbAfter != c.after || policy.Stationary != c.stationary {
+			t.Errorf("%s: AbsorbAfter %v, rule %+v; want %v, %+v", c.name, policy.AbsorbAfter, policy.Stationary, c.after, c.stationary)
 		}
-		if r := policy.Report(); r.AbsorbAfterSeconds != c.after.Seconds() ||
-			r.StationarySpeedMps != l5tracks.StationarySpeedMps || r.StationaryDriftMetres != l5tracks.StationaryDriftMetres {
-			t.Errorf("%s: report %+v, want T %v and the shared stationary constants", c.name, r, c.after)
+		if r := policy.Report(); r.AbsorbAfterSeconds != c.after.Seconds() || r.StationarySpeedMps != l5tracks.StationarySpeedMps ||
+			r.StationaryDriftMetres != c.drift || r.StationaryAnchor != c.anchor {
+			t.Errorf("%s: report %+v, want T %v, %g m from %s and the shared speed", c.name, r, c.after, c.drift, c.anchor)
 		}
 	}
 	plain, err := dwellPolicyFor([]string{ExperimentDwellPolicy})
@@ -142,12 +151,18 @@ func TestDwellPolicySettings(t *testing.T) {
 		{ExperimentDwellPolicy, ExperimentDwellPolicyT60},
 		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT60},
 		{ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60},
+		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m},
+		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Median},
+		{ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median},
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT40Median},
+		{ExperimentDwellPolicyT60, ExperimentDwellPolicyT40Drift2m},
 	} {
 		if policy, err := dwellPolicyFor(refused); err == nil || !strings.Contains(err.Error(), "settings of one option") {
 			t.Errorf("%v: policy %+v, %v; want the pair refused", refused, policy, err)
 		}
 	}
-	for _, near := range []string{"dwell_policy_t20", "dwell_policy_t30", "dwell_policy_40", "dwell_policy_t40s", "dwell_policy_T60"} {
+	for _, near := range []string{"dwell_policy_t20", "dwell_policy_t30", "dwell_policy_40", "dwell_policy_t40s", "dwell_policy_T60",
+		"dwell_policy_drift2m", "dwell_policy_median", "dwell_policy_t60_median", "dwell_policy_t40_drift1m", "dwell_policy_t40_mean"} {
 		if _, err := ParseExperiments(near); err == nil {
 			t.Errorf("%q was accepted", near)
 		}
@@ -156,12 +171,17 @@ func TestDwellPolicySettings(t *testing.T) {
 
 // Two dwell policy settings are refused before any capture is read.
 func TestRunRefusesTwoDwellSettingsBeforeReadingACapture(t *testing.T) {
-	_, err := Run(Config{
-		PCAPFile: "missing.pcap", OutDir: filepath.Join(t.TempDir(), "out"), UDPPort: 2369,
-		Experiments: []string{ExperimentDwellPolicyT60, ExperimentDwellPolicy},
-	})
-	if err == nil || !strings.Contains(err.Error(), "settings of one option") {
-		t.Fatalf("got %v, want both dwell settings refused before the missing capture is read", err)
+	for _, pair := range [][]string{
+		{ExperimentDwellPolicyT60, ExperimentDwellPolicy},
+		{ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT40Drift2m},
+	} {
+		_, err := Run(Config{
+			PCAPFile: "missing.pcap", OutDir: filepath.Join(t.TempDir(), "out"), UDPPort: 2369,
+			Experiments: pair,
+		})
+		if err == nil || !strings.Contains(err.Error(), "settings of one option") {
+			t.Fatalf("%v: got %v, want both dwell settings refused before the missing capture is read", pair, err)
+		}
 	}
 }
 
@@ -205,7 +225,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy,
-		ExperimentDwellPolicyT40, ExperimentDwellPolicyT60, ExperimentFixedLagRTS, ExperimentFlipRule,
+		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
+		ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
@@ -341,6 +362,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
 	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60,
+		ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median,
 		ExperimentRangeAdaptiveEps, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly,
 		ExperimentRegionOverridesCellTercile, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)

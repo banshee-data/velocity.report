@@ -124,7 +124,8 @@ func TestBenchExperimentsAcceptsOnlyBackgroundExperiments(t *testing.T) {
 	// reported as the option, so it is refused rather than ignored. The
 	// dwell policy, at any of its settings, ends tracks, so it is one.
 	for _, name := range []string{"cascade", "solid_body", "not_an_experiment",
-		"dwell_policy", "dwell_policy_t40", "dwell_policy_t60"} {
+		"dwell_policy", "dwell_policy_t40", "dwell_policy_t60",
+		"dwell_policy_t40_drift2m", "dwell_policy_t40_median"} {
 		if _, err := benchExperiments(name); err == nil {
 			t.Errorf("%s was accepted", name)
 		}
@@ -132,7 +133,7 @@ func TestBenchExperimentsAcceptsOnlyBackgroundExperiments(t *testing.T) {
 }
 
 func TestBenchMainRejectsTrackerExperiment(t *testing.T) {
-	for _, name := range []string{"cascade", "dwell_policy_t40"} {
+	for _, name := range []string{"cascade", "dwell_policy_t40", "dwell_policy_t40_median"} {
 		if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", name}); code != 2 {
 			t.Errorf("BenchMain(-experiment %s) = %d, want 2", name, code)
 		}

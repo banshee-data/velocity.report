@@ -278,9 +278,10 @@ type Result struct {
 	// can pool several replays into one fit. Both nil otherwise.
 	Uncertainty        *l8analytics.UncertaintyReport
 	UncertaintySamples []l5tracks.UncertaintySample
-	// Dwell is what the dwell policy (dwell_policy, or its _t40 or _t60
-	// setting) absorbed over the whole processed window, warm-up included,
-	// and the T it ran at; nil without one. The continuity
+	// Dwell is what the dwell policy (dwell_policy, or its _t40, _t60,
+	// _t40_drift2m or _t40_median setting) absorbed over the whole processed
+	// window, warm-up included, with the T and the stationary drift rule it
+	// ran with; nil without one. The continuity
 	// stats count only the scoring window's absorbed expiries. It is also
 	// written to replay_manifest.json.
 	Dwell *pipeline.DwellReport

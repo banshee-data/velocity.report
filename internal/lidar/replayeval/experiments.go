@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 )
 
@@ -84,11 +85,23 @@ const (
 	// ExperimentDwellPolicyT40 and ExperimentDwellPolicyT60: the same policy
 	// with its absorb-after time at 40 s and 60 s
 	// (pipeline.DwellPolicy.AbsorbAfter; experiment l3bg0015); the stationary
-	// speed, drift and box margin are dwell_policy's. With dwell_policy they
-	// are three settings of one option, so a replay may name only one. The
-	// manifest's dwell_policy section echoes the T that ran.
+	// speed, drift rule and box margin are dwell_policy's. With dwell_policy
+	// and the two drift rules below they are settings of one option, so a
+	// replay may name only one. The manifest's dwell_policy section echoes
+	// the T that ran.
 	ExperimentDwellPolicyT40 = "dwell_policy_t40"
 	ExperimentDwellPolicyT60 = "dwell_policy_t60"
+	// ExperimentDwellPolicyT40Drift2m and ExperimentDwellPolicyT40Median:
+	// dwell_policy_t40 with the stationary clock's drift rule changed
+	// (pipeline.DwellPolicy.Stationary, l5tracks.StationaryRule; experiment
+	// l3bg0017). Drift2m allows 2 m from the run's first estimate rather than
+	// 1 m; Median keeps 1 m but measures it from the running median of the
+	// run's estimates (l5tracks.StationaryAnchorMedian). The speed and box
+	// margin are dwell_policy's. They are two more settings of the dwell
+	// policy's one option, and the manifest's dwell_policy section echoes the
+	// tolerance and anchor that ran.
+	ExperimentDwellPolicyT40Drift2m = "dwell_policy_t40_drift2m"
+	ExperimentDwellPolicyT40Median  = "dwell_policy_t40_median"
 	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
 	// state-estimation plan question Q3: update each track at its cluster's
 	// own acquisition time rather than the frame start.
@@ -267,6 +280,9 @@ var knownExperiments = map[string]bool{
 	ExperimentVolatileWindowCap1m:         true,
 	ExperimentVolatileWindowCap2m:         true,
 
+	ExperimentDwellPolicyT40Drift2m: true,
+	ExperimentDwellPolicyT40Median:  true,
+
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
 	ExperimentSolidBodyCourseFaces:    true,
@@ -420,30 +436,45 @@ func volatileWindowCapFor(experiments []string) (float64, error) {
 	return 0, nil
 }
 
+// dwellPolicySettings are the dwell policy's named settings: its T and the
+// stationary clock's drift rule. They are one option, so a replay names at
+// most one.
+var dwellPolicySettings = []struct {
+	name       string
+	after      time.Duration
+	stationary l5tracks.StationaryRule
+}{
+	{ExperimentDwellPolicy, pipeline.DwellAbsorbAfter, l5tracks.StationaryRule{}},
+	{ExperimentDwellPolicyT40, 40 * time.Second, l5tracks.StationaryRule{}},
+	{ExperimentDwellPolicyT60, 60 * time.Second, l5tracks.StationaryRule{}},
+	{ExperimentDwellPolicyT40Drift2m, 40 * time.Second, l5tracks.StationaryRule{DriftMetres: 2}},
+	{ExperimentDwellPolicyT40Median, 40 * time.Second, l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}},
+}
+
 // dwellPolicyFor builds the dwell policy the named experiments ask for: nil,
-// the default, for none of the three settings; the 20 s policy for
-// dwell_policy; and 40 s or 60 s for its two longer clocks. Naming two is
-// refused rather than resolved, because either choice would run an arm that
-// is not the one reported.
+// the default, for none of its settings; the 20 s policy for dwell_policy;
+// 40 s or 60 s for its two longer clocks; and the 40 s clock with a 2 m drift
+// tolerance or a running-median anchor for the two drift rules. Naming two
+// is refused rather than resolved, because either choice would run an arm
+// that is not the one reported.
 func dwellPolicyFor(experiments []string) (*pipeline.DwellPolicy, error) {
-	settings := []struct {
-		name  string
-		after time.Duration
-	}{
-		{ExperimentDwellPolicy, pipeline.DwellAbsorbAfter},
-		{ExperimentDwellPolicyT40, 40 * time.Second},
-		{ExperimentDwellPolicyT60, 60 * time.Second},
-	}
 	var policy *pipeline.DwellPolicy
-	for _, s := range settings {
+	for _, s := range dwellPolicySettings {
 		if !hasExperiment(experiments, s.name) {
 			continue
 		}
 		if policy != nil {
-			return nil, fmt.Errorf("replay experiments %s, %s and %s are settings of one option; name one",
-				ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60)
+			names := make([]string, len(dwellPolicySettings))
+			for i, setting := range dwellPolicySettings {
+				names[i] = setting.name
+			}
+			return nil, fmt.Errorf("replay experiments %s are settings of one option; name one",
+				strings.Join(names, ", "))
 		}
-		policy = &pipeline.DwellPolicy{AbsorbAfter: s.after}
+		if err := s.stationary.Validate(); err != nil {
+			return nil, fmt.Errorf("replay experiment %s: %w", s.name, err)
+		}
+		policy = &pipeline.DwellPolicy{AbsorbAfter: s.after, Stationary: s.stationary}
 	}
 	return policy, nil
 }

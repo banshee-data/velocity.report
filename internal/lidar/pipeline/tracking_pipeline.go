@@ -309,9 +309,11 @@ type TrackingPipelineConfig struct {
 	// Dwell, when set, runs the dwell policy after each frame's tracking: a
 	// confirmed track stationary for the policy's T (DwellAbsorbAfter unless
 	// DwellPolicy.AbsorbAfter sets another) has its object absorbed into the
-	// L3 background and is ended. Nil, the default, runs nothing and leaves
-	// every frame as it was. Replay experiments dwell_policy,
-	// dwell_policy_t40 and dwell_policy_t60; see DwellPolicy.
+	// L3 background and is ended. NewFrameCallback sets the tracker's
+	// stationary drift rule to the policy's (DwellPolicy.Stationary). Nil,
+	// the default, runs nothing and leaves every frame as it was. Replay
+	// experiments dwell_policy, dwell_policy_t40, dwell_policy_t60,
+	// dwell_policy_t40_drift2m and dwell_policy_t40_median; see DwellPolicy.
 	Dwell *DwellPolicy
 
 	// RangeAdaptiveEps grows DBSCAN's neighbourhood with each point's range
@@ -407,6 +409,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// The policy's pointer is shared, like the dependencies below: the
 	// callback writes its report there for the caller to read afterwards.
 	dwell := cfg.Dwell
+	// The clock the policy reads is L5's, so the policy's drift rule goes to
+	// the tracker here, before any frame, and the rule the report names is
+	// the one the tracker runs. Without a policy the tracker's rule is left
+	// as it was configured.
+	if dwell != nil && !isNilInterface(cfg.Tracker) {
+		rule := dwell.Stationary
+		cfg.Tracker.UpdateConfig(func(c *l5tracks.TrackerConfig) { c.Stationary = rule })
+	}
 
 	// An unset profile means "everything", which is what every caller written
 	// before profiles existed intends.
