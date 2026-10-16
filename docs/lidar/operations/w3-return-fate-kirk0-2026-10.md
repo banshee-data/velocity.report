@@ -155,7 +155,9 @@ foreground, not to every return the object produced.
 
 - **Raise or restructure the input cap under CMR** and score it (l4clus0002, running): the cap is
   now the largest single loss, and the subsample is uniform, so it thins a near truck where a cap
-  by priority or by region would not.
+  by priority or by region would not. Since measured ([input cap](l4-dbscan-input-cap-2026-10.md)):
+  lifting it recovers the returns (retention 0.869 to 0.972) but joins no fragments, and costs the
+  frame-time tail; the gaps it leaves are L3's.
 - **Try the height band floor by range** rather than one height: at −2.0 m it removes road returns
   near the sensor, as intended, and the lower parts of objects beyond 35 m.
 - **Read CMR's minimum cluster size of 8 against the 20 to 35 m gaps** before adopting it: it was

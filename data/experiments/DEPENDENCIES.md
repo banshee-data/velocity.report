@@ -26,14 +26,14 @@ flowchart TB
     l3bg0007["<b>l3bg0007</b><br/>Record the region map, and test why lanes…<br/>answered · 15m machine + 6h person (took 9m29s)<br/>manual: implement, write"]:::answered
     l3bg0008["<b>l3bg0008</b><br/>Dwell policy, and the arrival regime on a…<br/>answered · 51m machine + 19h person (took 1h22m)<br/>manual: implement, write"]:::answered
     l3bg0009["<b>l3bg0009</b><br/>Stage B for the overrides-on retune, on a…<br/>proposed · 15m machine + 4h person<br/>manual: decide, write<br/>needs tooling: ground_truth_eval"]:::proposed
-    l3bg0010["<b>l3bg0010</b><br/>The region map's two levers on kirk, each…<br/>approved · 24m machine + 11h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
+    l3bg0010["<b>l3bg0010</b><br/>The region map's two levers on kirk, each…<br/>approved · 32m machine + 11h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
     l3bg0011["<b>l3bg0011</b><br/>The dwell policy's cost on labelled road…<br/>answered · 24m machine + 2h person (took 8m22s)<br/>manual: write"]:::answered
     l3bg0012["<b>l3bg0012</b><br/>The L3 candidates on the corpus…<br/>approved · 3h27m machine + 3h person<br/>manual: write<br/>needs tooling: corpus_screen"]:::approved
     l3bg0013["<b>l3bg0013</b><br/>Was the Lombard–Laguna scene change a…<br/>answered · 10m machine + 10h person (took 6m57s)<br/>manual: implement, write"]:::answered
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
-    l4clus0002["<b>l4clus0002</b><br/>The DBSCAN input cap under CMR, on kirk<br/>approved · 24m machine + 2h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::approved
+    l4clus0002["<b>l4clus0002</b><br/>The DBSCAN input cap under CMR, on kirk<br/>answered · 24m machine + 2h person (took 35m36s)<br/>manual: write"]:::answered
   end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
@@ -68,9 +68,8 @@ flowchart TB
 
 - [geom0002](geom/geom0002.md) The low-speed label and the ambiguous row, rescreened on the young-track axis: proposed, awaiting approval; 1h2m machine + 26h person; after geom0001; asks [geometry-convergence-heldout-2026-10 #recommendations](../../docs/lidar/operations/geometry-convergence-heldout-2026-10.md#recommendations), [lidar-tracker-geometry-convergence-plan #checklist](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#checklist).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 15m machine + 4h person; after l3bg0008, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
-- [l3bg0010](l3bg/l3bg0010.md) The region map's two levers on kirk, each cell's own tercile and a volatile window bounded in metres: ready, but a step needs tooling; 24m machine + 11h person; after l3bg0007; asks [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
+- [l3bg0010](l3bg/l3bg0010.md) The region map's two levers on kirk, each cell's own tercile and a volatile window bounded in metres: ready, but a step needs tooling; 32m machine + 11h person; after l3bg0007; asks [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
 - [l3bg0012](l3bg/l3bg0012.md) The L3 candidates on the corpus, label-free, with the dwell policy: ready, but a step needs tooling; 3h27m machine + 3h person; after l3bg0006, l3bg0008; asks [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations), [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
-- [l4clus0002](l4clus/l4clus0002.md) The DBSCAN input cap under CMR, on kirk: ready, but a step needs tooling; 24m machine + 2h person; after geom0003, l3bg0005; asks [w3-retention-fragmentation-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-retention-fragmentation-kirk0-2026-10.md#recommendations).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
@@ -90,8 +89,9 @@ flowchart TB
 - [l3bg0011](l3bg/l3bg0011.md) The dwell policy's cost on labelled road users, on kirk: [report](../../docs/lidar/operations/l3-dwell-policy-labelled-cost-2026-10.md); estimated 24m, took 8m22s on m1pro; asked [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations).
 - [l3bg0013](l3bg/l3bg0013.md) Was the Lombard–Laguna scene change a sensor pose step?: [report](../../docs/lidar/operations/l3-scene-change-pose-step-2026-10.md); estimated 10m, took 6m57s on m1pro; asked [lombard-laguna-scene-change-recovery #hypothesis](../../data/experiments/try/lombard-laguna-scene-change-recovery.md#hypothesis), [lidar-scene-change-recovery-sprint-plan #work-packages](../../docs/plans/lidar-scene-change-recovery-sprint-plan.md#work-packages).
 - [l4clus0001](l4clus/l4clus0001.md) A range-adaptive DBSCAN neighbourhood, scored on fragmentation: [report](../../docs/lidar/operations/l4-range-adaptive-eps-2026-10.md); estimated 14m, took 1m7s on m1pro; asked [D-28](../../docs/DECISIONS.md), [research-briefing-2025-01-to-2026-10](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md).
+- [l4clus0002](l4clus/l4clus0002.md) The DBSCAN input cap under CMR, on kirk: [report](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md); estimated 24m, took 35m36s on m1pro; asked [w3-retention-fragmentation-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-retention-fragmentation-kirk0-2026-10.md#recommendations).
 
 ## Totals
 
-- 7 open experiments: 5h52m machine + 55h15m person estimated.
+- 6 open experiments: 5h36m machine + 53h15m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
