@@ -614,3 +614,27 @@ func createTestMockPacketWithSequence() []byte {
 
 	return packet
 }
+
+// PacketSequence reads the number the parser stamps on every return of the
+// packet, and only from a sequence-enabled payload.
+func TestPacketSequenceMatchesParsedReturns(t *testing.T) {
+	packet := createTestMockPacketWithSequence()
+	seq, ok := PacketSequence(packet)
+	if !ok || seq != 12345 {
+		t.Fatalf("PacketSequence = %d, %v; want 12345, true", seq, ok)
+	}
+	points, err := NewPandar40PParser(*createTestMockConfig()).ParsePacket(packet)
+	if err != nil || len(points) == 0 {
+		t.Fatalf("parse: %d points, %v", len(points), err)
+	}
+	for i, p := range points {
+		if p.UDPSequence != seq {
+			t.Fatalf("point %d carries sequence %d, PacketSequence says %d", i, p.UDPSequence, seq)
+		}
+	}
+	for _, n := range []int{testPacketSizeStandard, 0, testPacketSizeSequence + 1} {
+		if _, ok := PacketSequence(make([]byte, n)); ok {
+			t.Errorf("a %d-byte payload reported a sequence", n)
+		}
+	}
+}

@@ -272,8 +272,7 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]l2frames.PointPolar, error
 	case PACKET_SIZE_SEQUENCE:
 		// 1266-byte packet with 4-byte UDP sequence number at the end
 		hasSequence = true
-		// Extract sequence number (last 4 bytes, little-endian format)
-		sequenceNumber = binary.LittleEndian.Uint32(data[len(data)-SEQUENCE_SIZE:])
+		sequenceNumber, _ = PacketSequence(data)
 		// Use packet data without the sequence suffix for processing
 		packetData = data[:len(data)-SEQUENCE_SIZE]
 	default:
@@ -367,6 +366,19 @@ func (p *Pandar40PParser) ParsePacket(data []byte) ([]l2frames.PointPolar, error
 	}
 
 	return points, nil
+}
+
+// PacketSequence returns the UDP sequence number a sequence-enabled
+// (1266-byte) payload carries in its last four bytes, little-endian: the
+// number the parser stamps on every return as UDPSequence. A standard
+// 1262-byte payload carries none, and no other length is a Pandar40P packet;
+// both report false. It reads the payload as it is, so it can map a packet
+// in a capture file to the sequence the pipeline recorded for its returns.
+func PacketSequence(payload []byte) (uint32, bool) {
+	if len(payload) != PACKET_SIZE_SEQUENCE {
+		return 0, false
+	}
+	return binary.LittleEndian.Uint32(payload[len(payload)-SEQUENCE_SIZE:]), true
 }
 
 // PacketKey identifies a packet by its content: the first 64 bits of SHA-256
