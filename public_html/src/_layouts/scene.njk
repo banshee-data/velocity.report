@@ -269,7 +269,7 @@ layout: survey.njk
                   <li>
                     <a href="?recording={{ rec.id }}" data-recording-link="{{ rec.id }}">
                       <span class="sv-recselect__dot" aria-hidden="true"></span>
-                      <span><b>{{ rec.label }}</b> <span class="sv-mono">{{ rec.when.time }} · {{ rec.when.minutes }} min</span></span>
+                      <span><b>{{ rec.label }}</b> <span class="sv-mono">{{ rec.when.date }} · {{ rec.when.minutes }} min</span></span>
                       {{ sv.sensorTag(rec.sensor, surveys.sensors) }}
                       {% if rec.isLatest %}<span class="sv-mono sv-em">LATEST</span>{% endif %}
                     </a>
@@ -286,7 +286,7 @@ layout: survey.njk
         <button type="button" class="sv-btn sv-btn--small" data-share>↗ Share</button>
         <span class="sv-share-status sv-mono" data-share-status role="status" aria-live="polite"></span>
         {% for rec in view.recordings %}
-          <span class="sv-mono sv-loc-meta" data-recording-only="{{ rec.id }}"{% if not rec.isLatest %} hidden{% endif %}>{{ rec.when.minutes }} min · {{ rec.when.time }} PT{% if rec.build %} · pipeline <code>{{ rec.build }}</code>{% endif %}</span>
+          <span class="sv-mono sv-loc-meta" data-recording-only="{{ rec.id }}"{% if not rec.isLatest %} hidden{% endif %}>{{ rec.when.date }} · {{ rec.when.minutes }} min{% if rec.build %} · pipeline <code>{{ rec.build }}</code>{% endif %}</span>
         {% endfor %}
       </div>
       <p class="sv-preview">
@@ -324,7 +324,7 @@ layout: survey.njk
             {% for rec in view.recordings | reverse %}{% if rec.speed %}
               <li>
                 <label class="sv-picker__pick"><input type="checkbox" name="rec" value="{{ rec.id }}" checked><span class="sv-picker__box" style="--rec: {{ rec.colour }}"></span>
-                  <span><b>{{ rec.label }}</b><span class="sv-picker__meta">{{ sv.sensorTag(rec.sensor, surveys.sensors) }} <span class="sv-mono">{{ rec.when.time }} · {{ rec.when.minutes }} min · {{ "speed only" if rec.sensor == "radar" else "all measurements" }}</span></span></span>
+                  <span><b>{{ rec.label }}</b><span class="sv-picker__meta">{{ sv.sensorTag(rec.sensor, surveys.sensors) }} <span class="sv-mono">{{ rec.when.date }} · {{ rec.when.minutes }} min · {{ "speed only" if rec.sensor == "radar" else "all measurements" }}</span></span></span>
                 </label>
                 {% if rec.isLatest %}<span class="sv-picker__base sv-mono sv-muted" title="Changes are measured to the newest recording">newest</span>
                 {% else %}<label class="sv-picker__base sv-mono"><input type="radio" name="base" value="{{ rec.id }}"{% if loop.last %} checked{% endif %}> baseline</label>{% endif %}
@@ -528,7 +528,7 @@ layout: survey.njk
         </p>
         <p>
           The speed figures are computed from the same tracks: each vehicle track above
-          5 mph counts once, at its highest observed speed, matching the radar report.
+          5 mph counts once, at its highest observed speed.
         </p>
       </details>
     </section>

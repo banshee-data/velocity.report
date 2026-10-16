@@ -586,11 +586,8 @@ function initListing(root) {
   const read = (el) => ({ el, ...el.dataset });
   const rows = items.map(read);
   const search = root.querySelector("[data-site-search]");
-  const count = root.querySelector("[data-site-count]");
   const empty = root.querySelector("[data-site-empty]");
   const chips = [...root.querySelectorAll("[data-filter]")];
-  const views = [...root.querySelectorAll("[data-view-button]")];
-  const layout = root.querySelector("[data-survey-layout]");
 
   const apply = () => {
     const active = chips
@@ -600,9 +597,7 @@ function initListing(root) {
       filterRows(rows, search?.value, active).map((r) => r.site),
     );
     for (const r of rows) r.el.hidden = !shown.has(r.site);
-    const n = shown.size;
-    if (count) count.textContent = `${n} ${n === 1 ? "site" : "sites"}`;
-    if (empty) empty.hidden = n > 0;
+    if (empty) empty.hidden = shown.size > 0;
   };
   search?.addEventListener("input", apply);
   for (const chip of chips) {
@@ -613,29 +608,6 @@ function initListing(root) {
       );
       apply();
     });
-  }
-
-  const setView = (name) => {
-    for (const b of views)
-      b.setAttribute("aria-pressed", String(b.dataset.viewButton === name));
-    for (const panel of root.querySelectorAll("[data-view]"))
-      panel.hidden = panel.dataset.view !== name;
-    layout?.classList.toggle("is-table", name === "table");
-    // The map's box changes size with the layout; Leaflet re-measures on resize.
-    window.dispatchEvent(new Event("resize"));
-    try {
-      localStorage.setItem("survey-list-view", name);
-    } catch {
-      // A per-browser convenience only.
-    }
-  };
-  for (const b of views)
-    b.addEventListener("click", () => setView(b.dataset.viewButton));
-  try {
-    const saved = localStorage.getItem("survey-list-view");
-    if (saved === "table" || saved === "list") setView(saved);
-  } catch {
-    // Storage blocked: keep the default list view.
   }
 
   // Table sort.

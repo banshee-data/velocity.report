@@ -5,9 +5,11 @@ permalink: /surveys/index.html
 description: Measured road-user behaviour at fixed street sites in San Francisco, from the velocity.report LiDAR perception pipeline. No cameras, faces or plates. Results are a research preview.
 ---
 {#
-  Survey listing: map beside a list of sites, with a table view. Every row
-  is rendered here from src/_data/surveys.js; survey-page.js adds search,
-  filters, sorting and the list/table switch. Filter chips appear only when
+  Survey listing: map above a table of sites. Every row is rendered here
+  from src/_data/surveys.js; survey-page.js adds search, filters and
+  sorting. While each site has one recording, the table leaves out the
+  latest-recording and recording-count columns and the year chips, and the
+  page states no site or recording totals. Filter chips appear only when
   they would separate something: a "multiple recordings" chip once a site
   has two, a sensor chip once radar and LiDAR surveys are both listed, and a
   measurement chip per family once there is more than one.
@@ -77,9 +79,7 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
       <h1 class="sv-list__title">Street surveys</h1>
       <p class="sv-list__lede">Measured road-user behaviour at fixed sites. No cameras, faces or plates. Results are a research preview: the LiDAR tracker still splits some tracks and produces unstable trails.</p>
     </div>
-    <p class="sv-mono sv-list__pipeline">
-      {{ surveys.totals.withRecordings }} sites · {{ surveys.totals.recordings }} recording{% if surveys.totals.recordings != 1 %}s{% endif %}{% if surveys.pipeline.build %}<br>pipeline <span class="sv-em">{{ surveys.pipeline.build }}</span>{% if surveys.pipeline.count < surveys.totals.withRecordings %} · {{ surveys.pipeline.count }} of {{ surveys.totals.withRecordings }} sites{% endif %}{% endif %}
-    </p>
+    {% if surveys.pipeline.build %}<p class="sv-mono sv-list__pipeline">pipeline <span class="sv-em">{{ surveys.pipeline.build }}</span></p>{% endif %}
   </header>
 
   <div class="sv-filters" role="search">
@@ -95,12 +95,9 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
       <button type="button" class="sv-chip" aria-pressed="false" data-filter="sensor:{{ k }}">{{ surveys.sensors[k].label }}</button>
     {% endfor %}{% endif %}
     {% if surveys.totals.multi %}<button type="button" class="sv-chip" aria-pressed="false" data-filter="multi">Multiple recordings</button>{% endif %}
-    {% if surveys.years.length > 1 %}{% for y in surveys.years | reverse %}
-      <button type="button" class="sv-chip" aria-pressed="false" data-filter="year:{{ y }}">Recorded {{ y }}</button>
-    {% endfor %}{% endif %}
   </div>
 
-  <div class="sv-list__layout" data-survey-layout>
+  <div class="sv-list__layout">
     <div class="sv-list__map">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
             integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
@@ -139,57 +136,12 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
     </div>
 
     <div class="sv-list__sites">
-      <div class="sv-list__bar">
-        <span class="sv-mono" data-site-count aria-live="polite">{{ surveys.sites.length }} sites</span>
-        <span class="sv-spacer"></span>
-        <span class="sv-seg" role="group" aria-label="Show sites as">
-          <button type="button" aria-pressed="true" data-view-button="list">List</button>
-          <button type="button" aria-pressed="false" data-view-button="table">Table</button>
-        </span>
-      </div>
-
-      <ul class="sv-sitelist" data-view="list">
-        {% for site in surveys.sites %}
-          {% set v = site | surveyView(site.speedLimitMph) %}
-          {% set r = v.latest %}
-          <li class="sv-siterow{% if not site.published %} sv-siterow--unpublished{% endif %}" id="site-{{ site.id }}" data-site-row
-              data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
-              data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
-              data-years="{{ site.years | join(" ") }}">
-            {% if site.published and site.page %}<a class="sv-siterow__link" href="{{ site.page }}">{% else %}<div class="sv-siterow__link">{% endif %}
-              <span class="sv-siterow__name">
-                <span class="sv-siterow__title">{{ site.title }}</span>
-                <span class="sv-mono sv-small">
-                  {%- if r %}{{ r.label }} · {{ r.when.minutes }} min{% endif -%}
-                  {%- if site.recordings.length > 1 %} · ◎ {{ site.recordings.length }} recordings{% endif -%}
-                  {%- if site.cell %} · L13 {{ site.cell }}{% elif not site.located %} · not yet placed{% endif -%}
-                  {%- if not site.published %} · recorded, not published{% endif -%}
-                </span>
-              </span>
-              {% if r and r.charts %}
-                <span class="sv-siterow__spark">{{ r.charts.spark | safe }}</span>
-                <span class="sv-siterow__p85 sv-mono">P85 {{ r.speed.p85 | fixed1 }}{% if v.limit %}<span class="sv-muted">/{{ v.limit }}</span>{% endif %}</span>
-              {% else %}
-                <span class="sv-siterow__spark"></span><span class="sv-siterow__p85 sv-mono sv-muted">no speed summary</span>
-              {% endif %}
-              {% if surveys.families.length > 1 %}
-                <span class="sv-siterow__fams" aria-label="{{ site.families.length }} of {{ surveys.families.length }} measurements">
-                  {% for family in surveys.families %}<span class="{{ 'is-on' if family.id in site.families }}" title="{{ family.name }}">{{ "●" if family.id in site.families else "·" }}</span>{% endfor %}
-                </span>
-              {% endif %}
-            {% if site.published and site.page %}</a>{% else %}</div>{% endif %}
-          </li>
-        {% endfor %}
-      </ul>
-
-      <div class="sv-tablewrap" data-view="table" hidden>
+      <div class="sv-tablewrap">
         <table class="sv-sitetable">
           <caption class="sv-sr">Survey sites. Sort by a column; sites missing a value sort last, never as zero.</caption>
           <thead>
             <tr>
               <th scope="col" data-sort="name" aria-sort="ascending"><button type="button">Site</button></th>
-              <th scope="col" data-sort="latest"><button type="button">Latest</button></th>
-              <th scope="col" data-sort="recordings"><button type="button">Recordings</button></th>
               <th scope="col">Speed distribution</th>
               <th scope="col" data-sort="p85"><button type="button">P85 / limit</button></th>
               <th scope="col" data-sort="over"><button type="button">≥ limit</button></th>
@@ -205,12 +157,10 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
               <tr data-site-row data-site="{{ site.id }}" data-name="{{ site.title }}" data-cell="{{ site.cell or '' }}"
                   data-recordings="{{ site.recordings.length }}" data-sensors="{{ site.sensors | join(' ') }}" data-families="{{ site.families | join(' ') }}"
                   data-years="{{ site.years | join(" ") }}"
-                  data-latest="{{ r.startMs if r else '' }}" data-p85="{{ r.speed.p85 if r and r.speed else '' }}"
+                  data-p85="{{ r.speed.p85 if r and r.speed else '' }}"
                   data-over="{{ r.over if r and r.over !== null else '' }}" data-count="{{ r.speed.count if r and r.speed else '' }}"
                   data-minutes="{{ r.when.minutes if r else '' }}" data-family-count="{{ site.families.length }}">
                 <th scope="row">{% if site.published and site.page %}<a href="{{ site.page }}">{{ site.title }}</a>{% else %}{{ site.title }}{% endif %}{% if site.cell %} <span class="sv-mono sv-small">{{ site.cell }}</span>{% endif %}</th>
-                <td class="sv-mono">{{ r.label if r else "—" }}</td>
-                <td class="sv-mono">{% if site.recordings.length > 1 %}◎ {% endif %}{{ site.recordings.length }}</td>
                 <td>{{ r.charts.spark | safe if r and r.charts }}</td>
                 <td class="sv-mono">{% if r and r.speed %}{{ r.speed.p85 | fixed1 }}{% if v.limit %}<span class="sv-muted"> / {{ v.limit }}</span>{% endif %}{% else %}—{% endif %}</td>
                 <td class="sv-mono">{{ r.overText if r else "—" }}</td>
@@ -230,8 +180,8 @@ description: Measured road-user behaviour at fixed street sites in San Francisco
 
   <div class="sv-list__notes">
   <p class="scenes__mapnote">
-      {{ scenes.published_count }} of the {{ scenes.recorded_count }} sites here have a
-      published recording; the rest are places the sensor has been, shown so the map
+      Not every site here has a published recording; the rest are places the
+      sensor has been, shown so the map
       answers where it has been rather than only what there is to watch.
       With permission, the background uses cycling routes from
       <a href="https://www.cyclosm.org/">CyclOSM</a>, hosted by OSM France, and
