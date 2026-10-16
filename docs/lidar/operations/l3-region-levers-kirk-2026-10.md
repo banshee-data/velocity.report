@@ -130,6 +130,10 @@ higher false-positive count.
 
 ## What this does not establish
 
+- **The cap's full effect.** The cap bounds the acceptance windows only; the freeze threshold and
+  the deadlock breaker keep the uncapped window, as `BackgroundParams` documents, so a
+  low-confidence volatile cell whose returns fall outside the capped window can still be learned
+  after a few foreground frames. The caps' measured effect is partly undone on such cells.
 - **Other cap forms.** A cap relative to the cell's own settled spread, or one by range band, was
   not tried; the result says depth alone does not separate, not that no cap could.
 - **The cell tercile with a filter.** CMR plus the cell tercile plus the support filter or a larger
