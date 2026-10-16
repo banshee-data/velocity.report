@@ -189,6 +189,9 @@ type BoxEstimator struct {
 	offA, offN float64
 	box        BoxState
 	Stats      BoxStats
+	// pts and sample are per-frame scratch, kept to spare the allocations.
+	pts    [][2]float64
+	sample []l4perception.WorldPoint
 }
 
 // updateBox advances a track's published box under TrackerConfig.BoxModel
@@ -275,7 +278,8 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 		}
 	}
 	speed := math.Hypot(in.VX, in.VY)
-	pts := boxPoints(in.Cluster)
+	e.pts = boxPoints(e.pts[:0], in.Cluster)
+	pts := e.pts
 	if !e.seeded {
 		if len(pts) == 0 {
 			return e.box
@@ -597,6 +601,10 @@ func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (f
 	if len(members) == 0 {
 		members = cluster.RetainedPoints
 	}
+	if k := e.cfg.FitMaxPoints; k > 0 && len(members) > k {
+		e.sample = sampleMembers(e.sample[:0], members, k)
+		members = e.sample
+	}
 	fit := l4perception.FitRectangleWith(members, l4perception.RectangleFitOptions{
 		MaxPoints: e.cfg.FitMaxPoints, CoarseStepDeg: e.cfg.FitCoarseStepDeg,
 	})
@@ -621,30 +629,28 @@ func (e *BoxEstimator) courseObservation(in BoxInput, speed float64) (float64, f
 	return course, math.Sqrt(math.Max(across, 0)) / speed, true
 }
 
-// boxPoints is the cluster's XY: its members, else its retained sample, else
-// the corners of its OBB, which contains every member.
-func boxPoints(cluster *WorldCluster) [][2]float64 {
+// boxPoints appends to out the cluster's XY: its members, else its retained
+// sample, else the corners of its OBB, which contains every member.
+func boxPoints(out [][2]float64, cluster *WorldCluster) [][2]float64 {
 	if cluster == nil {
-		return nil
+		return out
 	}
 	src := cluster.Members
 	if len(src) == 0 {
 		src = cluster.RetainedPoints
 	}
 	if len(src) > 0 {
-		out := make([][2]float64, len(src))
-		for i, p := range src {
-			out[i] = [2]float64{p.X, p.Y}
+		for _, p := range src {
+			out = append(out, [2]float64{p.X, p.Y})
 		}
 		return out
 	}
 	b := cluster.OBB
 	if b == nil {
-		return [][2]float64{{float64(cluster.CentroidX), float64(cluster.CentroidY)}}
+		return append(out, [2]float64{float64(cluster.CentroidX), float64(cluster.CentroidY)})
 	}
 	c, s := math.Cos(float64(b.HeadingRad)), math.Sin(float64(b.HeadingRad))
 	hl, hw := float64(b.Length)/2, float64(b.Width)/2
-	out := make([][2]float64, 0, 4)
 	for _, k := range [4][2]float64{{1, 1}, {1, -1}, {-1, -1}, {-1, 1}} {
 		a, n := k[0]*hl, k[1]*hw
 		out = append(out, [2]float64{float64(b.CenterX) + a*c - n*s, float64(b.CenterY) + a*s + n*c})
@@ -741,4 +747,20 @@ func (b *windowBelief) estimate() float64 {
 		return 0
 	}
 	return top[n-1]
+}
+
+// sampleMembers appends k of the members to out, drawn with replacement by a
+// xorshift generator seeded from the member count: deterministic for a given
+// cluster, free of the ring order a stride would alias, and without the
+// seeded math/rand source and index array the fit's own subsampling builds,
+// which cost more than the fit for a box updated every frame.
+func sampleMembers(out, members []l4perception.WorldPoint, k int) []l4perception.WorldPoint {
+	x := uint64(len(members))*0x9E3779B97F4A7C15 | 1
+	for i := 0; i < k; i++ {
+		x ^= x << 13
+		x ^= x >> 7
+		x ^= x << 17
+		out = append(out, members[x%uint64(len(members))])
+	}
+	return out
 }
