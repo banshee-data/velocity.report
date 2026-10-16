@@ -136,11 +136,34 @@ higher false-positive count.
   minimum cluster size might keep the pedestrians without the false positives; not run.
 - **Held-out performance.** kirk0's pack split is a tuning split; two short captures.
 
+## Follow-up: the support filter on top (l3bg0018)
+
+The first recommendation below asked whether the support filter (E4, the replay option
+`support_filter`, which removes single-cell foreground speckle) keeps the cell tercile's
+pedestrians while taking back its false positives. It does not
+([l3bg0018](../../../data/experiments/l3bg/l3bg0018.md), same replays and scores, CMR as the
+per-frame reference, harness at a0cd49a33):
+
+| kirk0 arm                   | Recall | Car / ped / bus    | Unlabelled a frame | HOTA  | IDF1  | FP / FN     | ID switches | kirk1 covered, clusters a frame |
+| --------------------------- | -----: | ------------------ | -----------------: | ----- | ----- | ----------- | ----------: | ------------------------------- |
+| CMR                         |  0.889 | 0.90 / 0.76 / 0.92 |               0.52 | 0.533 | 0.593 | 748 / 928   |         375 | 49, 3.09                        |
+| CMR + support filter        |  0.879 | 0.90 / 0.70 / 0.92 |               0.49 | 0.559 | 0.638 | 722 / 903   |         322 | 49, 3.04                        |
+| CMR + cell tercile          |  0.914 | 0.92 / 0.88 / 0.86 |               1.55 | 0.535 | 0.585 | 1,456 / 821 |         369 | 49, 3.88                        |
+| CMR + cell tercile + filter |  0.907 | 0.92 / 0.82 / 0.86 |               1.48 | 0.516 | 0.582 | 1,437 / 838 |         302 | 49, 3.78                        |
+
+The cell tercile's extra unlabelled clusters are not single-cell speckle: the filter removes 0.07
+a frame of them and a third of the pedestrian gain with it. On CMR alone the filter is a small
+identity gain (HOTA 0.533 to 0.559, IDF1 0.593 to 0.638, 53 fewer identity switches) at six
+points of pedestrian recall, which makes it a candidate arm for Stage B in its own right, not a
+fix for the cell tercile.
+
 ## Recommendations
 
 - **Do not pursue the metre cap.** It is the overrides switched off at range.
-- **Keep the cell tercile as an option, not a candidate**: try it with CMR and the support filter
-  if pedestrian recall becomes the bottleneck after Stage B.
+- **Keep the cell tercile as an option, not a candidate**: with CMR and the support filter it
+  still triples the unlabelled clusters (the follow-up above).
+- **Consider CMR with the support filter as a Stage B arm**: HOTA 0.559 and IDF1 0.638 on kirk0
+  against CMR's 0.533 and 0.593, at six points of pedestrian recall.
 - **Leave CMR as the L3 candidate** for Stage B (l3bg0009), with the dwell policy, as planned; the
   corpus screen (l3bg0012) runs without a lever arm.
 - **Read region-merging effects gross, not net**, in any later region work: the net 5,000 cells
