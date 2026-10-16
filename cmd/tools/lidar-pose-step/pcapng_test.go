@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -254,5 +255,190 @@ func TestStaticCellsNeedCoverageAndALowSpread(t *testing.T) {
 	}
 	if s := at(14, 5.1); s.Static {
 		t.Errorf("a return nearer than the minimum range is not static: %+v", s)
+	}
+}
+
+// ngBuilder writes a little-endian pcapng file block by block, so a test can
+// lay out exactly the malformed file it needs.
+type ngBuilder struct{ b []byte }
+
+// block appends one block of the given type around body, padded to four
+// bytes, and returns its offset.
+func (g *ngBuilder) block(typ uint32, body []byte) int {
+	off := len(g.b)
+	padded := (len(body) + 3) &^ 3
+	length := uint32(12 + padded)
+	g.b = binary.LittleEndian.AppendUint32(g.b, typ)
+	g.b = binary.LittleEndian.AppendUint32(g.b, length)
+	g.b = append(g.b, body...)
+	g.b = append(g.b, make([]byte, padded-len(body))...)
+	g.b = binary.LittleEndian.AppendUint32(g.b, length)
+	return off
+}
+
+func (g *ngBuilder) section() int {
+	body := binary.LittleEndian.AppendUint32(nil, byteOrderMagic)
+	body = binary.LittleEndian.AppendUint16(body, 1)
+	body = binary.LittleEndian.AppendUint16(body, 0)
+	body = binary.LittleEndian.AppendUint64(body, math.MaxUint64) // section length unknown
+	return g.block(blockSectionHeader, body)
+}
+
+// iface describes an Ethernet interface at the default microsecond resolution.
+func (g *ngBuilder) iface() int {
+	body := binary.LittleEndian.AppendUint16(nil, 1)
+	body = binary.LittleEndian.AppendUint16(body, 0)
+	body = binary.LittleEndian.AppendUint32(body, 65535)
+	return g.block(blockInterfaceDesc, body)
+}
+
+// packet writes an Enhanced Packet Block on interface id at us microseconds
+// whose captured-length field says capLen, whatever data holds.
+func (g *ngBuilder) packet(id uint32, us uint64, capLen uint32, data []byte) int {
+	body := binary.LittleEndian.AppendUint32(nil, id)
+	body = binary.LittleEndian.AppendUint32(body, uint32(us>>32))
+	body = binary.LittleEndian.AppendUint32(body, uint32(us))
+	body = binary.LittleEndian.AppendUint32(body, capLen)
+	body = binary.LittleEndian.AppendUint32(body, uint32(len(data)))
+	body = append(body, data...)
+	return g.block(blockEnhancedPacket, body)
+}
+
+// open writes the first size bytes of the file and opens them.
+func (g *ngBuilder) open(t *testing.T, size int) *ngFile {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "c.pcapng")
+	if err := os.WriteFile(path, g.b[:size], 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := openPcapng(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { f.Close() })
+	return f
+}
+
+func readAll(f *ngFile, off int64) ([]ngPacket, error) {
+	var got []ngPacket
+	err := f.readFrom(off, func(p ngPacket) bool {
+		got = append(got, ngPacket{UnixNanos: p.UnixNanos, Iface: p.Iface, Data: append([]byte(nil), p.Data...)})
+		return true
+	})
+	return got, err
+}
+
+// A captured length or interface number from a packet block is checked as the
+// unsigned 32-bit value it is, so a value past int32 or past the block is an
+// error, never a panic or a slice into the block's trailing length word.
+func TestPacketBlockLengthsAreChecked(t *testing.T) {
+	data := []byte{1, 2, 3, 4}
+	for _, tc := range []struct {
+		name   string
+		id     uint32
+		capLen uint32
+		want   string
+	}{
+		{"whole data", 0, 4, ""},
+		{"into the trailing length", 0, 8, "claims 8 captured bytes; the block holds at most 4"},
+		{"past int32", 0, 1 << 31, "claims 2147483648 captured bytes"},
+		{"largest", 0, math.MaxUint32, "claims 4294967295 captured bytes"},
+		{"interface past int32", math.MaxUint32, 4, "names interface 4294967295, but the head of the file describes 1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var g ngBuilder
+			g.section()
+			g.iface()
+			g.packet(tc.id, 1_000_000, tc.capLen, data)
+			f := g.open(t, len(g.b))
+			got, err := readAll(f, f.firstBlock)
+			if tc.want == "" {
+				if err != nil || len(got) != 1 || string(got[0].Data) != string(data) || got[0].UnixNanos != 1e9 {
+					t.Fatalf("packets %+v, err %v", got, err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err %v, want %q", err, tc.want)
+			}
+			// The seek's resynchronising scan must not trust such a block either.
+			if _, _, _, err := f.syncAt(f.firstBlock); err != nil {
+				t.Fatalf("sync: %v", err)
+			}
+		})
+	}
+}
+
+// An interface described after the first packet block cannot be known to a
+// reader that seeks, so a read that meets it, or a packet naming it, is
+// refused with an error that says so; a read that stops before it is not. A
+// second section is refused the same way.
+func TestInterfaceAfterTheFirstPacketIsRefused(t *testing.T) {
+	var g ngBuilder
+	g.section()
+	g.iface()
+	g.packet(0, 1_000_000, 4, []byte{1, 2, 3, 4})
+	late := g.iface()
+	second := g.packet(1, 2_000_000, 4, []byte{5, 6, 7, 8})
+	f := g.open(t, len(g.b))
+	if len(f.ifaces) != 1 {
+		t.Fatalf("head holds %d interfaces, want 1", len(f.ifaces))
+	}
+	got, err := readAll(f, f.firstBlock)
+	want := fmt.Sprintf("interface description block at offset %d follows the first packet block", late)
+	if len(got) != 1 || err == nil || !strings.Contains(err.Error(), want) {
+		t.Fatalf("read over the late interface: %d packets, err %v", len(got), err)
+	}
+	if _, err := readAll(f, int64(second)); err == nil || !strings.Contains(err.Error(), "names interface 1, but the head of the file describes 1") {
+		t.Fatalf("read from its packet: %v", err)
+	}
+	n := 0
+	if err := f.readFrom(f.firstBlock, func(ngPacket) bool { n++; return false }); err != nil || n != 1 {
+		t.Fatalf("a read stopping before the late interface: %d packets, err %v", n, err)
+	}
+
+	var two ngBuilder
+	two.section()
+	two.iface()
+	two.packet(0, 1_000_000, 4, []byte{1, 2, 3, 4})
+	at := two.section()
+	tf := two.open(t, len(two.b))
+	if _, err := readAll(tf, tf.firstBlock); err == nil || !strings.Contains(err.Error(), fmt.Sprintf("a second section begins at offset %d", at)) {
+		t.Fatalf("second section: %v", err)
+	}
+}
+
+// A file that ends inside a block ends at its last whole block, whether the
+// cut falls in the block's header, just after it, or in its body, and the cut
+// is recorded; an uncut file records none.
+func TestCutCaptureEndsAtItsLastWholeBlock(t *testing.T) {
+	var g ngBuilder
+	g.section()
+	g.iface()
+	g.packet(0, 1_000_000, 4, []byte{1, 2, 3, 4})
+	g.packet(0, 2_000_000, 4, []byte{5, 6, 7, 8})
+	third := g.packet(0, 3_000_000, 4, []byte{9, 10, 11, 12})
+	for _, tc := range []struct {
+		name string
+		size int
+		want int
+		cut  int64
+	}{
+		{"whole", len(g.b), 3, -1},
+		{"in the header", third + 3, 2, int64(third)},
+		{"after the header", third + 8, 2, int64(third)},
+		{"in the body", third + 20, 2, int64(third)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := g.open(t, tc.size)
+			got, err := readAll(f, f.firstBlock)
+			if err != nil || len(got) != tc.want || f.cutAt != tc.cut {
+				t.Fatalf("%d packets, cut at %d, err %v; want %d packets, cut at %d", len(got), f.cutAt, err, tc.want, tc.cut)
+			}
+			first, last, err := f.extent()
+			if err != nil || first != 1e9 || last != int64(tc.want)*1e9 {
+				t.Fatalf("extent %d..%d, err %v", first, last, err)
+			}
+		})
 	}
 }

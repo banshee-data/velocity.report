@@ -16,6 +16,19 @@ import (
 // dumpcap, which has no index, and libpcap can only read forward. It reads one
 // section, Enhanced Packet Blocks, and each interface's timestamp resolution;
 // anything else is skipped by its length.
+//
+// Interfaces are read from the head of the file only, before the first packet
+// block: a reader that seeks cannot know of an interface described later
+// without reading everything before it. A file that describes one after its
+// first packet is refused, with an error naming the problem, when a read meets
+// that description or a packet naming an interface the head does not hold.
+//
+// A capture that ends inside a block, in its header or its body, ends at its
+// last whole block: a writer stopped mid-write leaves exactly that, and the
+// packets before the cut are sound. The cut is recorded (cutAt) so the tool
+// can say so. Every length read from the file is checked as the unsigned
+// value it is before it is used, so none overflows int or reaches past its
+// block.
 
 const (
 	blockSectionHeader  = 0x0A0D0D0A
@@ -45,6 +58,9 @@ type ngFile struct {
 	// firstBlock is the offset of the first block after the section and
 	// interface headers.
 	firstBlock int64
+	// cutAt is the offset of a final block the file ends inside, or -1 while
+	// no read has met one.
+	cutAt int64
 }
 
 type ngIface struct {
@@ -74,7 +90,7 @@ func openPcapng(path string) (*ngFile, error) {
 		f.Close()
 		return nil, err
 	}
-	n := &ngFile{path: path, f: f, size: st.Size()}
+	n := &ngFile{path: path, f: f, size: st.Size(), cutAt: -1}
 	if err := n.readHeaders(); err != nil {
 		f.Close()
 		return nil, fmt.Errorf("%s: %w", path, err)
@@ -212,8 +228,12 @@ func (n *ngFile) syncAt(off int64) (int64, int64, bool, error) {
 		if n.order.Uint32(buf[p:p+4]) != blockEnhancedPacket {
 			continue
 		}
-		length := int(n.order.Uint32(buf[p+4 : p+8]))
-		if length < 32 || length%4 != 0 || length > maxBlockLength || p+length > len(buf) {
+		length32 := n.order.Uint32(buf[p+4 : p+8])
+		if length32 < 32 || length32%4 != 0 || length32 > maxBlockLength {
+			continue
+		}
+		length := int(length32)
+		if p+length > len(buf) {
 			continue
 		}
 		if int(n.order.Uint32(buf[p+length-4:p+length])) != length {
@@ -225,14 +245,16 @@ func (n *ngFile) syncAt(off int64) (int64, int64, bool, error) {
 			if next+8 > len(buf) {
 				continue
 			}
-			nl := int(n.order.Uint32(buf[next+4 : next+8]))
-			if nl < 12 || nl%4 != 0 || nl > maxBlockLength ||
-				(next+nl <= len(buf) && int(n.order.Uint32(buf[next+nl-4:next+nl])) != nl) {
+			nl32 := n.order.Uint32(buf[next+4 : next+8])
+			if nl32 < 12 || nl32%4 != 0 || nl32 > maxBlockLength {
+				continue
+			}
+			if nl := int(nl32); next+nl <= len(buf) && n.order.Uint32(buf[next+nl-4:next+nl]) != nl32 {
 				continue
 			}
 		}
-		ifaceID := int(n.order.Uint32(buf[p+8 : p+12]))
-		if ifaceID >= len(n.ifaces) {
+		ifaceID := n.order.Uint32(buf[p+8 : p+12])
+		if uint64(ifaceID) >= uint64(len(n.ifaces)) {
 			continue
 		}
 		ticks := uint64(n.order.Uint32(buf[p+12:p+16]))<<32 | uint64(n.order.Uint32(buf[p+16:p+20]))
@@ -274,53 +296,69 @@ func (n *ngFile) seekOffset(unixNanos int64) (int64, error) {
 }
 
 // readFrom calls fn for each Enhanced Packet Block from offset off to the end
-// of the file, until fn returns false.
+// of the file, until fn returns false. A file that ends inside a block ends
+// at the block before it, and the cut is recorded in cutAt.
 func (n *ngFile) readFrom(off int64, fn func(ngPacket) bool) error {
 	r := bufio.NewReaderSize(io.NewSectionReader(n.f, off, n.size-off), 1<<20)
 	head := make([]byte, 8)
 	body := make([]byte, 0, 4096)
-	for {
+	for at := off; ; {
 		if _, err := io.ReadFull(r, head); err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			if errors.Is(err, io.ErrUnexpectedEOF) {
-				return fmt.Errorf("%s: truncated block header", n.path)
+				n.cutAt = at
+				return nil
 			}
 			return err
 		}
 		typ := n.order.Uint32(head[0:4])
-		length := int(n.order.Uint32(head[4:8]))
-		if length < 12 || length%4 != 0 || length > maxBlockLength {
-			return fmt.Errorf("%s: implausible block length %d", n.path, length)
+		length32 := n.order.Uint32(head[4:8])
+		if length32 < 12 || length32%4 != 0 || length32 > maxBlockLength {
+			return fmt.Errorf("%s: implausible block length %d at offset %d", n.path, length32, at)
 		}
+		length := int(length32)
 		if cap(body) < length-8 {
 			body = make([]byte, length-8)
 		}
 		body = body[:length-8]
 		if _, err := io.ReadFull(r, body); err != nil {
-			// A capture cut off mid-block ends where its last whole block does.
-			if errors.Is(err, io.ErrUnexpectedEOF) {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+				n.cutAt = at
 				return nil
 			}
 			return err
 		}
-		if typ != blockEnhancedPacket {
+		blockAt := at
+		at += int64(length)
+		switch typ {
+		case blockEnhancedPacket:
+		case blockSectionHeader:
+			return fmt.Errorf("%s: a second section begins at offset %d; this reader reads one section", n.path, blockAt)
+		case blockInterfaceDesc:
+			return fmt.Errorf("%s: interface description block at offset %d follows the first packet block (offset %d); "+
+				"this reader takes interfaces from the head of the file only", n.path, blockAt, n.firstBlock)
+		default:
 			continue
 		}
 		if len(body) < 24 {
-			return fmt.Errorf("%s: short packet block", n.path)
+			return fmt.Errorf("%s: short packet block at offset %d", n.path, blockAt)
 		}
-		ifaceID := int(n.order.Uint32(body[0:4]))
-		if ifaceID >= len(n.ifaces) {
-			return fmt.Errorf("%s: packet names interface %d of %d", n.path, ifaceID, len(n.ifaces))
+		ifaceID := n.order.Uint32(body[0:4])
+		if uint64(ifaceID) >= uint64(len(n.ifaces)) {
+			return fmt.Errorf("%s: packet block at offset %d names interface %d, but the head of the file describes %d; "+
+				"an interface described after the first packet block is not supported", n.path, blockAt, ifaceID, len(n.ifaces))
 		}
 		ticks := uint64(n.order.Uint32(body[4:8]))<<32 | uint64(n.order.Uint32(body[8:12]))
-		capLen := int(n.order.Uint32(body[12:16]))
-		if 20+capLen > len(body) {
-			return fmt.Errorf("%s: packet overruns its block", n.path)
+		// The packet's bytes lie between the 20 bytes of fixed fields and the
+		// trailing length word.
+		capLen := n.order.Uint32(body[12:16])
+		if uint64(capLen) > uint64(len(body)-24) {
+			return fmt.Errorf("%s: packet block at offset %d claims %d captured bytes; the block holds at most %d",
+				n.path, blockAt, capLen, len(body)-24)
 		}
-		if !fn(ngPacket{UnixNanos: n.ifaces[ifaceID].nanos(ticks), Iface: ifaceID, Data: body[20 : 20+capLen]}) {
+		if !fn(ngPacket{UnixNanos: n.ifaces[ifaceID].nanos(ticks), Iface: int(ifaceID), Data: body[20 : 20+int(capLen)]}) {
 			return nil
 		}
 	}

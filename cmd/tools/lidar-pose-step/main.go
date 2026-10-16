@@ -229,6 +229,9 @@ func main() {
 		if err != nil {
 			fatal(err)
 		}
+		if f.cutAt >= 0 {
+			fmt.Fprintf(os.Stderr, "%s: the file ends inside a block at byte %d; read to the last whole block before it\n", p, f.cutAt)
+		}
 		out.Captures = append(out.Captures, captureInfo{Path: p, SizeBytes: f.size, FirstNanos: first, LastNanos: last,
 			FirstS: rel(first, *anchorNs), LastS: rel(last, *anchorNs), file: f})
 	}
