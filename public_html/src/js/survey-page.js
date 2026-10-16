@@ -586,13 +586,13 @@ function initListing(root) {
   const read = (el) => ({ el, ...el.dataset });
   const rows = items.map(read);
   const search = root.querySelector("[data-site-search]");
-  const count = root.querySelector("[data-site-count]");
   const empty = root.querySelector("[data-site-empty]");
+  const status = root.querySelector("[data-site-status]");
   const chips = [...root.querySelectorAll("[data-filter]")];
-  const views = [...root.querySelectorAll("[data-view-button]")];
-  const layout = root.querySelector("[data-survey-layout]");
 
-  const apply = () => {
+  // The listing shows no visible site count while each site has one recording,
+  // so screen readers hear the match count from a hidden status line instead.
+  const apply = (announce = true) => {
     const active = chips
       .filter((c) => c.getAttribute("aria-pressed") === "true")
       .map((c) => c.dataset.filter);
@@ -601,10 +601,13 @@ function initListing(root) {
     );
     for (const r of rows) r.el.hidden = !shown.has(r.site);
     const n = shown.size;
-    if (count) count.textContent = `${n} ${n === 1 ? "site" : "sites"}`;
     if (empty) empty.hidden = n > 0;
+    if (status && announce)
+      status.textContent = n
+        ? `${n} ${n === 1 ? "site matches" : "sites match"}`
+        : "No surveys match";
   };
-  search?.addEventListener("input", apply);
+  search?.addEventListener("input", () => apply());
   for (const chip of chips) {
     chip.addEventListener("click", () => {
       chip.setAttribute(
@@ -613,29 +616,6 @@ function initListing(root) {
       );
       apply();
     });
-  }
-
-  const setView = (name) => {
-    for (const b of views)
-      b.setAttribute("aria-pressed", String(b.dataset.viewButton === name));
-    for (const panel of root.querySelectorAll("[data-view]"))
-      panel.hidden = panel.dataset.view !== name;
-    layout?.classList.toggle("is-table", name === "table");
-    // The map's box changes size with the layout; Leaflet re-measures on resize.
-    window.dispatchEvent(new Event("resize"));
-    try {
-      localStorage.setItem("survey-list-view", name);
-    } catch {
-      // A per-browser convenience only.
-    }
-  };
-  for (const b of views)
-    b.addEventListener("click", () => setView(b.dataset.viewButton));
-  try {
-    const saved = localStorage.getItem("survey-list-view");
-    if (saved === "table" || saved === "list") setView(saved);
-  } catch {
-    // Storage blocked: keep the default list view.
   }
 
   // Table sort.
@@ -654,7 +634,7 @@ function initListing(root) {
         tbody.append(r.el);
     });
   }
-  apply();
+  apply(false);
 }
 
 if (typeof document !== "undefined") {
