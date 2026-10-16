@@ -76,7 +76,9 @@ parked car the reviewed pack counts. The [pose step](operations/l3-scene-change-
 shows the capture's late scene change is a knock to the sensor, then a second change and the
 pickup. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
 measures how much of each reviewed object reaches a cluster and into how many it splits, and the
-[range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it.
+[range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it. The
+[return fate](operations/w3-return-fate-kirk0-2026-10.md) says which stage loses each reviewed
+return: L3 under the shipped grid, the input cap, DBSCAN noise and the height band under CMR.
 
 ## Terminology
 

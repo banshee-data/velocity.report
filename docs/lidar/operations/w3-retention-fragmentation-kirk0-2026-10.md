@@ -126,7 +126,10 @@ dropped, so l4clus0001 should be read on fragmentation and merges, and retention
 - **Score l4clus0001 on fragmentation at 20 to 50 m and on merges**, against this baseline (54%
   and 46%; no merges), with retention read only for harm.
 - **Attribute lost returns** with the replay's observation log before tuning against retention:
-  the pedestrian losses and truck 2's cab are the cases to explain.
+  the pedestrian losses and truck 2's cab are the cases to explain. Since measured
+  ([return fate](w3-return-fate-kirk0-2026-10.md)): under the shipped L3, 45% of reviewed returns,
+  79% of pedestrians' and 36% of truck 2's are called background by L3, and 97% of the returns
+  missing from fragmented instants are; L4 sets aside 6%, almost all at its input cap.
 - **Exclude parked objects from retention** or report them apart: obj_788622b5 alone is 60% of
   the near misses and is the background working as designed.
 
