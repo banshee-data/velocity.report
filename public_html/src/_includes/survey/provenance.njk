@@ -1,0 +1,18 @@
+{# Data & methods for one recording. Expects `rec`. #}
+<div class="sv-prov">
+  <dl class="sv-prov__rows">
+    <div><dt>Recorded</dt><dd>{{ rec.when.date }}, {{ rec.when.clock }} · {{ rec.when.minutes }} min</dd></div>
+    <div><dt>Sensor</dt><dd>{{ sv.sensorTag(rec.sensor, surveys.sensors) }} {% if rec.sensorId %}<code>{{ rec.sensorId }}</code> · {% endif %}no images, faces or plates</dd></div>
+    {% if rec.build %}<div><dt>Pipeline</dt><dd><code>{{ rec.build }}</code></dd></div>{% endif %}
+    {% if rec.tuningHash %}<div><dt>Tuning</dt><dd><code title="{{ rec.tuningHash }}">{{ rec.tuningHash | truncate(23, true, "…") }}</code></dd></div>{% endif %}
+    {% if rec.sourceSha256 %}<div><dt>Source VRLOG</dt><dd><code title="sha256 {{ rec.sourceSha256 }}">sha256 {{ rec.sourceSha256 | truncate(16, true, "…") }}</code></dd></div>{% endif %}
+    {% if rec.generatedAt %}<div><dt>Exported</dt><dd>{{ rec.generatedAt | replace("T", " ") | replace("Z", " UTC") }}</dd></div>{% endif %}
+    <div><dt>Definitions</dt><dd>Peak speed per vehicle track; tracks above {{ rec.speed.minimum if rec.speed else 5 }} mph</dd></div>
+  </dl>
+  <ul class="sv-prov__files">
+    {% if rec.summaryUrl %}
+      <li><a href="{{ rec.summaryUrl }}" download><span><b>Processed measurements</b><span class="sv-mono sv-small">DERIVED · JSON · {{ rec.summaryKind }}</span></span><span aria-hidden="true">⤓</span></a></li>
+    {% endif %}
+    <li><a href="https://github.com/banshee-data/velocity.report"><span><b>Processing source</b><span class="sv-mono sv-small">CODE · velocity.report{% if rec.build %} @ {{ rec.build }}{% endif %}</span></span><span aria-hidden="true">↗</span></a></li>
+  </ul>
+</div>

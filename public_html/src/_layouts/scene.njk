@@ -1,11 +1,21 @@
 ---
-layout: page.njk
+layout: survey.njk
 ---
 {#
-  One scene page, for every scene. A page supplies sceneId, sceneName and
-  sceneIntro; the viewport, transport, timeline key and player wiring are the
-  same for every scene and live here, so a fix to one is a fix to all.
+  One location page, for every survey site. A page supplies sceneId,
+  sceneName and sceneIntro, and may set speedLimitMph once the posted limit
+  is known. Measurements come from src/_data/surveys.js; the 3D viewport,
+  transport and player wiring are the same for every site and live here, so
+  a fix to one is a fix to all.
+
+  Order: key observation and measurements first, then the 3D evidence, then
+  data and methods. Each metric family a recording measured gets a card from
+  survey/family-<id>.njk; today that is vehicle speed only.
 #}
+{% import "survey/macros.njk" as sv %}
+{% set site = surveys.byId[sceneId] %}
+{% set view = site | surveyView(speedLimitMph) %}
+{% set latest = view.latest %}
 
 <style>
   .scene-page {
@@ -21,38 +31,6 @@ layout: page.njk
   .scene-dev label { display: block; margin: 0.5rem 0; }
   .scene-dev input { width: 7rem; color: #cfe3e8; background: #0b1013; border: 1px solid #2c4049; padding: 0.3rem; }
   .scene-dev p { font-size: 0.85rem; }
-  .scene-page__head { margin-bottom: 1rem; }
-  .scene-page__up { margin: 0 0 0.5rem; font-size: 0.9rem; }
-  .scene-page__up a { text-decoration: none; opacity: 0.75; }
-  .scene-page__up a:hover { text-decoration: underline; opacity: 1; }
-  .scene-page__title { font-size: clamp(1.7rem, 4vw, 2.3rem); font-weight: 650; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
-  .scene-page__sub { font-size: 1rem; line-height: 1.45; margin: 0; opacity: 0.85; }
-  .scene-page__status {
-    display: flex; align-items: flex-start; gap: 0.6rem; max-width: 68ch;
-    margin: 0.65rem 0 0; padding: 0.7rem 0.85rem; border: 1px solid #f59e0b;
-    border-radius: 0.5rem; background: rgba(255, 237, 213, 0.8); color: #4a2d0a;
-    font-size: 0.92rem; line-height: 1.5; box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.2);
-  }
-  .scene-page__status strong { font-weight: 650; opacity: 1; }
-  .scene-page__status-icon {
-    flex: 0 0 auto; width: 1.15rem; height: 1.15rem; margin-top: 0.15rem; color: #b45309;
-  }
-  .scene-page__status-icon svg {
-    display: block; width: 100%; height: 100%; stroke: currentColor; fill: none;
-    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
-  }
-  .scene-page__more {
-    background: none; border: 0; padding: 0; font: inherit; color: var(--scene-primary);
-    cursor: pointer; text-decoration: underline; text-underline-offset: 2px;
-  }
-  @media (prefers-color-scheme: dark) {
-    .scene-page__status {
-      background: rgba(129, 80, 16, 0.16); color: #f8d7a6; border-color: #f59e0b;
-      box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.35);
-    }
-    .scene-page__status-icon { color: #fbbf24; }
-  }
-  .scene-page__more:focus-visible { outline: 2px solid var(--scene-primary); outline-offset: 2px; border-radius: 2px; }
   .scene-page__privacy {
     font-size: 0.9rem; line-height: 1.55; max-width: 62ch; opacity: 0.75;
     border-left: 2px solid currentColor; padding-left: 0.9rem; margin: 0.75rem 0 0;
@@ -232,33 +210,6 @@ layout: page.njk
     .scene-timeline__canvas { flex-basis: 100%; order: -1; }
   }
   .scene-transport__stats { margin: 0.5rem 0 0; font-size: 0.86rem; opacity: 0.8; font-variant-numeric: tabular-nums; min-height: 1.3em; }
-  .scene-speed { margin-top: 2rem; }
-  .scene-speed > h2 { margin: 0 0 0.3rem; font-size: 1.35rem; }
-  .scene-speed__intro { margin: 0 0 1rem; max-width: 66ch; opacity: 0.78; }
-  .scene-speed__grid-layout { display: grid; grid-template-columns: minmax(15rem, 0.8fr) minmax(0, 1.2fr); gap: 1.5rem; align-items: start; }
-  .scene-speed__panel { min-width: 0; border-top: 1px solid #2c4049; padding-top: 0.75rem; }
-  .scene-speed__panel h3 { margin: 0 0 0.65rem; font-size: 1rem; }
-  .scene-speed__table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  .scene-speed__table th, .scene-speed__table td { padding: 0.46rem 0; border-bottom: 1px solid rgba(207, 227, 232, 0.13); }
-  .scene-speed__table th { text-align: left; font-weight: 500; }
-  .scene-speed__table td { text-align: right; font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-  .scene-speed__table i { display: inline-block; width: 0.65rem; height: 0.65rem; margin-right: 0.45rem; border: 1px solid rgba(207, 227, 232, 0.42); }
-  .scene-speed__histogram { min-height: 13rem; font-size: 0.85rem; opacity: 0.82; }
-  .scene-speed__histogram svg { display: block; width: 100%; height: auto; overflow: visible; }
-  .scene-speed__grid { stroke: rgba(15, 23, 42, 0.18); stroke-width: 1; }
-  .scene-speed__bar { fill: #4682b4; fill-opacity: 0.82; stroke: rgba(15, 23, 42, 0.32); stroke-opacity: 0.45; }
-  .scene-speed__tick { fill: #111827; font-size: 11px; font-variant-numeric: tabular-nums; }
-  .scene-speed__axis-label { fill: #111827; font-size: 12px; }
-  .scene-speed__status { margin: 0; opacity: 0.7; }
-  @media (prefers-color-scheme: dark) {
-    .scene-speed__grid { stroke: rgba(207, 227, 232, 0.16); }
-    .scene-speed__bar { stroke: #cfe3e8; stroke-opacity: 0.28; }
-    .scene-speed__tick { fill: #cfe3e8; }
-    .scene-speed__axis-label { fill: #cfe3e8; }
-  }
-  @media (max-width: 700px) {
-    .scene-speed__grid-layout { grid-template-columns: 1fr; }
-  }
 
   .scene-page__provenance { margin-top: 1.75rem; font-size: 0.88rem; line-height: 1.6; max-width: 68ch; }
   .scene-page__provenance summary { cursor: pointer; font-weight: 600; }
@@ -270,42 +221,143 @@ layout: page.njk
   }
 </style>
 
-<section class="max-w-6xl mx-auto scene-page">
-  <header class="scene-page__head">
-    <nav class="scene-page__up" aria-label="Breadcrumb">
-      <a href="{{ '/surveys/' | url }}">
-        <span aria-hidden="true">&larr;</span> All LiDAR surveys
-      </a>
+<div class="sv-wrap sv-ledger scene-page" data-survey-page>
+  <aside class="sv-ledger__side" aria-label="Survey sections">
+    <nav class="sv-side-block">
+      <h2 class="sv-eyebrow">On this page</h2>
+      <ul class="sv-toc">
+        {% for family in surveys.families %}{% if family.id in site.families %}
+          {# Each recording has its own card; survey-page.js retargets the link when another recording or the compare view is shown. #}
+          <li><a href="#family-{{ family.id }}-{{ latest.id }}" data-family-link="{{ family.id }}">{{ family.name }}</a></li>
+        {% endif %}{% endfor %}
+        {% if view.hasPlayback %}<li data-single-only data-evidence-link><a href="#evidence">Evidence · 3D playback</a></li>{% endif %}
+        <li><a href="#methods">Data &amp; methods</a></li>
+      </ul>
     </nav>
-    <h1 class="scene-page__title" id="scene-title">{{ sceneName }}</h1>
-    <p class="scene-page__sub">
-      {{ sceneIntro }}
-      <button type="button" class="scene-page__more" id="scene-about-toggle" aria-expanded="false" aria-controls="scene-about">
-        About this view
-      </button>
-    </p>
-    <p class="scene-page__status">
-      <span class="scene-page__status-icon" aria-hidden="true">
-        <svg viewBox="0 0 20 20" role="presentation">
-          <path d="M6.5 2.5h7M7.5 2.5v4.5l-2.5 4.2a2.6 2.6 0 0 0 2.2 4.3h5.6a2.6 2.6 0 0 0 2.2-4.3l-2.5-4.2V2.5M7 8.5h6M8 11.3h4"/>
-          <path d="M8.5 14.5h3M7 16.5h6"/>
-        </svg>
-      </span>
-      <span>
-        <strong>Research preview.</strong> The perception pipeline still produces too
-        many split tracks and unstable trails for production use. We are continuing to
-        improve its clustering and tracking; for now, this is a view of the work rather
-        than a finished result.
-      </span>
-    </p>
+    {% if view.recordings.length > 1 %}
+      <div class="sv-side-block">
+        <h2 class="sv-eyebrow">Recordings at this site</h2>
+        <ul class="sv-reclist">
+          {% for rec in view.recordings | reverse %}
+            <li><a href="?recording={{ rec.id }}"><i class="sv-recdot" style="background: {{ rec.colour }}"></i><span>{{ rec.label }}</span>{{ sv.sensorTag(rec.sensor, surveys.sensors) }}</a></li>
+          {% endfor %}
+        </ul>
+        {% if site.sensors.length > 1 %}<p class="sv-note">Radar: speed only. LiDAR: speed and, as they are added, other measurements.</p>{% endif %}
+      </div>
+    {% endif %}
+  </aside>
+
+  <div class="sv-ledger__main">
+    <header class="sv-loc-head">
+      <nav class="sv-crumb" aria-label="Breadcrumb">
+        <a href="/surveys/"><span aria-hidden="true">&larr;</span> All street surveys</a>{% if site.cell %} · <span>L13 {{ site.cell }}</span>{% endif %}
+      </nav>
+      <h1 class="sv-loc-title" id="scene-title">{{ sceneName }}</h1>
+      <div class="sv-loc-controls">
+        {% if view.recordings.length > 1 %}
+          <div class="sv-recselect" data-recselect>
+            <button type="button" class="sv-recselect__button" aria-expanded="false" aria-controls="recselect-menu" data-recselect-button>
+              <span class="sv-mono">RECORDING</span>
+              <b data-recselect-label>{{ latest.label }}</b>
+              <span class="sv-mono sv-em" data-recselect-latest>LATEST</span>
+              <span aria-hidden="true" class="sv-muted">▾</span>
+              <span class="sv-mono sv-recselect__count">{{ view.recordings.length }}</span>
+            </button>
+            <div class="sv-recselect__menu" id="recselect-menu" hidden data-recselect-menu>
+              <ul>
+                {% for rec in view.recordings | reverse %}
+                  <li>
+                    <a href="?recording={{ rec.id }}" data-recording-link="{{ rec.id }}">
+                      <span class="sv-recselect__dot" aria-hidden="true"></span>
+                      <span><b>{{ rec.label }}</b> <span class="sv-mono">{{ rec.when.time }} · {{ rec.when.minutes }} min</span></span>
+                      {{ sv.sensorTag(rec.sensor, surveys.sensors) }}
+                      {% if rec.isLatest %}<span class="sv-mono sv-em">LATEST</span>{% endif %}
+                    </a>
+                  </li>
+                {% endfor %}
+              </ul>
+              {% if view.canCompare %}<button type="button" class="sv-recselect__compare" data-open-compare>Compare recordings…</button>{% endif %}
+            </div>
+          </div>
+          {% if view.canCompare %}<button type="button" class="sv-btn sv-btn--small" data-open-compare data-compare-toggle>Compare</button>{% endif %}
+        {% elif latest %}
+          <span class="sv-recchip"><span class="sv-mono">RECORDING</span><b>{{ latest.label }}</b>{{ sv.sensorTag(latest.sensor, surveys.sensors) }}</span>
+        {% endif %}
+        <button type="button" class="sv-btn sv-btn--small" data-share>↗ Share</button>
+        <span class="sv-share-status sv-mono" data-share-status role="status" aria-live="polite"></span>
+        {% for rec in view.recordings %}
+          <span class="sv-mono sv-loc-meta" data-recording-only="{{ rec.id }}"{% if not rec.isLatest %} hidden{% endif %}>{{ rec.when.minutes }} min · {{ rec.when.time }} PT{% if rec.build %} · pipeline <code>{{ rec.build }}</code>{% endif %}</span>
+        {% endfor %}
+      </div>
+      <p class="sv-preview">
+        <span class="sv-preview__glyph" aria-hidden="true">◐</span>
+        <span><b>Research preview.</b> These measurements come from a LiDAR perception pipeline that still splits some tracks and produces unstable trails. Read them as a working view, not a finished traffic study.</span>
+      </p>
+    </header>
+
+    {% if not latest %}
+      <p class="sv-note">No recording is published for this site yet.</p>
+    {% endif %}
+
+    {% for rec in view.recordings %}
+      <div class="sv-recording" data-recording="{{ rec.id }}"{% if not rec.isLatest %} hidden{% endif %}>
+        {% if rec.speed %}
+          <div class="sv-finding">
+            <p class="sv-eyebrow sv-em">Key observation · vehicle speed</p>
+            <p class="sv-finding__text">{{ sv.finding(rec.finding) }}</p>
+          </div>
+        {% endif %}
+        {% for family in surveys.families %}
+          {% if family.id in rec.families %}{% include "survey/family-" + family.id + ".njk" %}{% endif %}
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    {% if view.canCompare %}
+      {# Filled by survey-page.js from the JSON below when ?compare= names two or more recordings. #}
+      <div class="sv-compare" data-compare-view hidden></div>
+      <dialog class="sv-dialog" data-compare-dialog aria-labelledby="compare-dialog-title">
+        <form method="dialog" class="sv-picker" data-compare-form>
+          <h2 id="compare-dialog-title">Compare recordings</h2>
+          <p class="sv-note">Pick up to 4. Changes are measured from the baseline to the newest recording picked.</p>
+          <ul class="sv-picker__list">
+            {% for rec in view.recordings | reverse %}{% if rec.speed %}
+              <li>
+                <label class="sv-picker__pick"><input type="checkbox" name="rec" value="{{ rec.id }}" checked><span class="sv-picker__box" style="--rec: {{ rec.colour }}"></span>
+                  <span><b>{{ rec.label }}</b><span class="sv-picker__meta">{{ sv.sensorTag(rec.sensor, surveys.sensors) }} <span class="sv-mono">{{ rec.when.time }} · {{ rec.when.minutes }} min · {{ "speed only" if rec.sensor == "radar" else "all measurements" }}</span></span></span>
+                </label>
+                {% if rec.isLatest %}<span class="sv-picker__base sv-mono sv-muted" title="Changes are measured to the newest recording">newest</span>
+                {% else %}<label class="sv-picker__base sv-mono"><input type="radio" name="base" value="{{ rec.id }}"{% if loop.last %} checked{% endif %}> baseline</label>{% endif %}
+              </li>
+            {% endif %}{% endfor %}
+          </ul>
+          <p class="sv-picker__error sv-note" data-compare-error hidden>Pick at least two recordings.</p>
+          <div class="sv-picker__foot">
+            <p class="sv-note">Speed compares across all recordings.{% if surveys.families.length > 1 %} Other measurements: LiDAR only.{% endif %}</p>
+            <span class="sv-spacer"></span>
+            <button type="button" class="sv-btn sv-btn--small" data-compare-cancel>Cancel</button>
+            <button type="submit" class="sv-btn sv-btn--small sv-btn--primary" value="compare">Compare</button>
+          </div>
+        </form>
+      </dialog>
+    {% endif %}
+
+    {% if view.hasPlayback %}
+    <section class="sv-section" id="evidence" aria-labelledby="evidence-title" data-single-only>
+      <div class="sv-section__head">
+        <p class="sv-eyebrow">Evidence</p>
+        <h2 class="sv-section__title" id="evidence-title">3D playback</h2>
+        <span class="sv-spacer"></span>
+        <button type="button" class="sv-linkbtn" id="scene-about-toggle" aria-expanded="false" aria-controls="scene-about">About this view</button>
+      </div>
+      <p class="sv-note">{{ sceneIntro }}</p>
     <p class="scene-page__privacy" id="scene-about" hidden>
-      Grey points map the street. Coloured boxes and trails are the perception
-      pipeline's current estimate of each road user's position, size, direction and
-      speed; they can split or wander while the tracking work continues. LiDAR records
-      no images, faces or number plates. The point is to understand traffic, not to
-      start collecting people's personal lives by accident.
-    </p>
-  </header>
+        Grey points map the street. Coloured boxes and trails are the perception
+        pipeline's current estimate of each road user's position, size, direction and
+        speed; they can split or wander while the tracking work continues. LiDAR records
+        no images, faces or number plates. The point is to understand traffic, not to
+        start collecting people's personal lives by accident.
+      </p>
 
   <div class="scene-stage">
     <canvas
@@ -343,7 +395,7 @@ layout: page.njk
         <span class="scene-switch__track" aria-hidden="true"></span>
         <span>Trails</span>
       </label>
-      {% if sceneHasClip %}
+      {% if view.hasPointCloud %}
       <label class="scene-switch">
         <input type="checkbox" id="scene-lidar" role="switch" checked>
         <span class="scene-switch__track" aria-hidden="true"></span>
@@ -449,50 +501,56 @@ layout: page.njk
 
   <p id="scene-stats" class="scene-transport__stats"></p>
 
-  <section class="scene-speed" id="scene-speed" aria-labelledby="scene-speed-title">
-    <h2 id="scene-speed-title">Car speeds</h2>
-    <p class="scene-speed__intro">
-      Each car track above 5 mph contributes its highest observed speed once,
-      matching the radar report.
-    </p>
-    <p class="scene-speed__status" data-speed-status>Loading speed summary…</p>
-    <div class="scene-speed__grid-layout">
-      <div class="scene-speed__panel">
-        <h3>Headline metrics</h3>
-        <table class="scene-speed__table">
-          <caption class="sr-only">Car track speed percentiles and maximum</caption>
-          <tbody data-speed-table></tbody>
-        </table>
-      </div>
-      <div class="scene-speed__panel">
-        <h3>Speed distribution</h3>
-        <div class="scene-speed__histogram" data-speed-histogram></div>
-      </div>
-    </div>
-  </section>
+      <p class="sv-note sv-evidence-note"><span class="sv-amber" aria-hidden="true">◐</span> Research preview: the tracker still splits some tracks and produces unstable trails.</p>
+    </section>
+    {% endif %}
 
-  <details class="scene-page__provenance">
-    <summary>About the data</summary>
-    <p>
-      A Hesai Pandar40P recorded the street. The perception pipeline produced the
-      source VRLOG; this page loads smaller static exports. The opening 30 seconds
-      add the measured foreground points. Boxes, trails and the timeline always come
-      from the full tracked recording, so they do not change source when the points
-      fade away. Playback follows recorded timestamps because the sensor does not
-      turn at a perfectly fixed rate.
-    </p>
-    <p data-scene-generator hidden>
-      <strong>VRLOG generator:</strong>
-      velocity.report <span data-scene-generator-version></span>
-    </p>
-  </details>
-</section>
+    <section class="sv-section" id="methods" aria-labelledby="methods-title">
+      <div class="sv-section__head">
+        <p class="sv-eyebrow">Data &amp; methods</p>
+        <h2 class="sv-section__title" id="methods-title">Source and derived data</h2>
+      </div>
+      {% for rec in view.recordings %}
+        <div data-recording-only="{{ rec.id }}"{% if not rec.isLatest %} hidden{% endif %}>
+          <p class="sv-eyebrow sv-prov__label" data-compare-only hidden><span style="color: {{ rec.colour }}">{{ rec.label }}</span></p>
+          {% include "survey/provenance.njk" %}
+        </div>
+      {% endfor %}
+      <details class="scene-page__provenance">
+        <summary>About the data</summary>
+        <p>
+          A Hesai Pandar40P recorded the street. The perception pipeline produced the
+          source VRLOG; this page loads smaller static exports. The opening 30 seconds
+          add the measured foreground points. Boxes, trails and the timeline always come
+          from the full tracked recording, so they do not change source when the points
+          fade away. Playback follows recorded timestamps because the sensor does not
+          turn at a perfectly fixed rate.
+        </p>
+        <p>
+          The speed figures are computed from the same tracks: each vehicle track above
+          5 mph counts once, at its highest observed speed, matching the radar report.
+        </p>
+      </details>
+    </section>
+  </div>
+</div>
 
+{# The site list travels in a script block, not an attribute, so a title with
+   an apostrophe cannot end the attribute early. #}
+<script type="application/json" id="survey-data">{{ view.client | dump | replace("<", "\\u003c") | safe }}</script>
+<script type="module" src="/js/survey-page.js"></script>
+
+{% if view.hasPlayback %}
 <script type="module">
   import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
   import { parseCaptureParams } from "{{ '/js/scene-capture.js' | url }}";
+  import { readSurveyState } from "{{ '/js/survey-page.js' | url }}";
 
-  const base = "{{ ('/surveys/' + sceneId + '/assets') | url }}";
+  // The player shows the selected recording, and stays unloaded while
+  // recordings are being compared (the evidence section is hidden then).
+  const survey = readSurveyState(document.getElementById("survey-data"), location.search);
+  const prefix = "{{ '/' | url }}";
+  const base = `${prefix}${survey.recording.assetsUrl.replace(/^\//, "")}`;
   const status = document.getElementById("scene-status");
   const captureView = parseCaptureParams(new URLSearchParams(location.search));
 
@@ -504,10 +562,17 @@ layout: page.njk
     aboutToggle.setAttribute("aria-expanded", String(open));
   });
 
-  mountScenePlayer({
+  // The point-cloud switches belong to recordings that have a clip.
+  const hasClip = Boolean(survey.recording.hasPointCloud);
+  for (const id of ["scene-lidar", "scene-loop-opening"]) {
+    const label = document.getElementById(id)?.closest("label");
+    if (label && !hasClip) label.hidden = true;
+  }
+
+  if (!survey.compare && survey.recording.hasPlayback) mountScenePlayer({
     canvas: document.getElementById("scene-canvas"),
     manifestURL: `${base}/manifest.json`,
-    pointCloudManifestURL: {{ "`${base}/clip/manifest.json`" if sceneHasClip else "null" }},
+    pointCloudManifestURL: survey.recording.hasPointCloud ? `${base}/clip/manifest.json` : null,
     ui: {
       siteId: "{{ sceneId }}",
       compass: document.getElementById("scene-compass"),
@@ -525,12 +590,12 @@ layout: page.njk
       labelLayer: document.getElementById("scene-labels"),
       timelineURL: `${base}/part-000/timeline.json`,
       timelineCanvas: document.getElementById("scene-timeline"),
-      lidarToggle: document.getElementById("scene-lidar"),
+      lidarToggle: hasClip ? document.getElementById("scene-lidar") : null,
       boxesToggle: document.getElementById("scene-boxes"),
       trailsToggle: document.getElementById("scene-trails"),
       backgroundToggle: document.getElementById("scene-background"),
       gridToggle: document.getElementById("scene-grid"),
-      openingLoopToggle: document.getElementById("scene-loop-opening"),
+      openingLoopToggle: hasClip ? document.getElementById("scene-loop-opening") : null,
       flyToggle: document.getElementById("scene-fly"),
       flyTip: document.getElementById("scene-fly-tip"),
       captureView: document.getElementById("scene-capture"),
@@ -544,7 +609,6 @@ layout: page.njk
       generatorVersions: document.querySelectorAll("[data-scene-generator-version]"),
       status,
       loading: document.getElementById("scene-loading"),
-      title: document.getElementById("scene-title"),
     },
     capture: captureView != null,
   }).then(async (session) => {
@@ -555,3 +619,4 @@ layout: page.njk
     status.hidden = false;
   });
 </script>
+{% endif %}
