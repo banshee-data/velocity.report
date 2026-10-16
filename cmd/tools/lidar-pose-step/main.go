@@ -236,25 +236,16 @@ func main() {
 	fmt.Fprintf(os.Stderr, "anchor %s: %s +%.3f s (placement %s)\n", out.Anchor.UTC,
 		filepath.Base(out.Anchor.Capture), out.Anchor.OffsetInFileS, out.Anchor.SinceFirstClock)
 
-	windows := map[string]*windowInfo{}
-	window := func(s0, s1 float64) (*windowInfo, error) {
-		key := windowKey(s0, s1)
-		if w, ok := windows[key]; ok {
-			return w, nil
-		}
-		start, end := abs(*anchorNs, s0), abs(*anchorNs, s1)
+	windows := newWindowSet(*anchorNs, func(key string, start, end int64) (*windowInfo, error) {
 		began := time.Now()
 		w, err := decodeWindow(out.Captures, start, end, uint16(*udpPort), cfg, sp)
-		if err != nil {
-			return nil, fmt.Errorf("window %s: %w", key, err)
+		if err == nil {
+			fmt.Fprintf(os.Stderr, "window %s: %d packets, %d rotations, %d static cells (%.1f s)\n",
+				key, w.Packets, w.Rotations, w.Static, time.Since(began).Seconds())
 		}
-		w.Key, w.StartS, w.EndS = key, s0, s1
-		fmt.Fprintf(os.Stderr, "window %s: %d packets, %d rotations, %d static cells (%.1f s)\n",
-			key, w.Packets, w.Rotations, w.Static, time.Since(began).Seconds())
-		windows[key] = w
-		out.Windows = append(out.Windows, w)
-		return w, nil
-	}
+		return w, err
+	})
+	window := windows.get
 
 	fp := defaultFitParams()
 	for _, s := range specs {
@@ -298,6 +289,7 @@ func main() {
 		}
 		out.Series = append(out.Series, sr)
 	}
+	out.Windows = windows.order
 	out.Groups = summariseGroups(out.Pairs)
 
 	if *jsonPath != "" {
@@ -462,7 +454,55 @@ func clock(s float64) string {
 	return fmt.Sprintf("%s%d:%06.3f", sign, int(m), s-60*m)
 }
 
-func windowKey(s0, s1 float64) string { return fmt.Sprintf("[%+.1f,%+.1f]", s0, s1) }
+// windowSet decodes each window once. Windows are cached by their exact
+// bounds in unix nanoseconds, not by their label, so two windows that round
+// to the same tenth of a second are still two windows.
+type windowSet struct {
+	anchor   int64
+	decode   func(key string, start, end int64) (*windowInfo, error)
+	byBounds map[[2]int64]*windowInfo
+	// order is every window decoded, in the order first asked for.
+	order []*windowInfo
+}
+
+func newWindowSet(anchor int64, decode func(key string, start, end int64) (*windowInfo, error)) *windowSet {
+	return &windowSet{anchor: anchor, decode: decode, byBounds: map[[2]int64]*windowInfo{}}
+}
+
+// get returns the window [s0, s1] in anchor-relative seconds, decoding it the
+// first time its bounds are asked for.
+func (ws *windowSet) get(s0, s1 float64) (*windowInfo, error) {
+	bounds := [2]int64{abs(ws.anchor, s0), abs(ws.anchor, s1)}
+	if w, ok := ws.byBounds[bounds]; ok {
+		return w, nil
+	}
+	key := windowKey(s0, s1)
+	w, err := ws.decode(key, bounds[0], bounds[1])
+	if err != nil {
+		return nil, fmt.Errorf("window %s: %w", key, err)
+	}
+	w.Key, w.StartS, w.EndS = key, s0, s1
+	ws.byBounds[bounds] = w
+	ws.order = append(ws.order, w)
+	return w, nil
+}
+
+// windowKey labels a window in anchor-relative seconds. Each bound has one
+// decimal where that is its exact nanosecond, and as many as it needs
+// otherwise, so windows with different bounds never share a label.
+func windowKey(s0, s1 float64) string { return "[" + secondsLabel(s0) + "," + secondsLabel(s1) + "]" }
+
+func secondsLabel(s float64) string {
+	short := fmt.Sprintf("%+.1f", s)
+	if v, err := strconv.ParseFloat(short, 64); err == nil && math.Round(v*1e9) == math.Round(s*1e9) {
+		return short
+	}
+	exact := strconv.FormatFloat(s, 'f', -1, 64)
+	if s >= 0 {
+		exact = "+" + exact
+	}
+	return exact
+}
 
 func abs(anchor int64, s float64) int64 { return anchor + int64(math.Round(s*1e9)) }
 

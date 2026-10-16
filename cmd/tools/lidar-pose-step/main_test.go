@@ -30,6 +30,44 @@ func TestPairSpec(t *testing.T) {
 	}
 }
 
+// Windows that round to the same tenth of a second are different windows:
+// each is decoded over its own bounds and labelled apart. A window asked for
+// again with the same bounds is decoded once.
+func TestWindowsAreCachedByExactBounds(t *testing.T) {
+	const anchor = int64(1788373950323299330)
+	var decoded [][2]int64
+	ws := newWindowSet(anchor, func(key string, start, end int64) (*windowInfo, error) {
+		decoded = append(decoded, [2]int64{start, end})
+		return &windowInfo{StartNanos: start, EndNanos: end}, nil
+	})
+	a, err := ws.get(-11.04, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := ws.get(-11.0, -1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	again, err := ws.get(-11.0, -1.0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a == b || again != b || len(decoded) != 2 || len(ws.order) != 2 {
+		t.Fatalf("decoded %v; windows %p %p %p", decoded, a, b, again)
+	}
+	if a.StartNanos != anchor-11_040_000_000 || b.StartNanos != anchor-11_000_000_000 || a.EndNanos != anchor-1_000_000_000 {
+		t.Fatalf("bounds %d..%d and %d..%d", a.StartNanos, a.EndNanos, b.StartNanos, b.EndNanos)
+	}
+	if a.Key != "[-11.04,-1.0]" || b.Key != "[-11.0,-1.0]" {
+		t.Fatalf("labels %q and %q", a.Key, b.Key)
+	}
+	for s, want := range map[float64]string{7: "+7.0", -611: "-611.0", 0.25: "+0.25", -0.05: "-0.05", 1.5: "+1.5"} {
+		if got := secondsLabel(s); got != want {
+			t.Errorf("label of %v = %q, want %q", s, got, want)
+		}
+	}
+}
+
 func TestAnchorMapping(t *testing.T) {
 	const s = int64(1e9)
 	caps := []captureInfo{
