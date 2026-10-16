@@ -574,7 +574,7 @@ func (s *scorer) summary() Summary {
 			"kinematic_violation_share": "share of consecutive frame pairs whose drawn-box turn rate (modulo 180°) exceeds 0.25/m × speed + 10°/s",
 			"rest_turn_share":           "share of pairs below 0.5 m/s whose drawn box turned by more than 1°",
 			"jump_share":                "share of pairs whose drawn box turned by more than 30° in one frame",
-			"visible_*":                 "the same three shares for the drawn rectangle's own turn: its long side's direction modulo 180°, or modulo 90° when either box is within 10 % of square, so a quarter turn that swaps the extents, which draws the same rectangle, is no turn",
+			"visible_*":                 "the same three shares for the drawn rectangle's own turn: the heading's change modulo 180°, plus a quarter turn when the second box's extents match the first's swapped better than as they are, so a quarter turn that swaps the extents, which draws the same rectangle, is no turn",
 			"sideslip":                  "angle between the drawn box's axis and the direction of travel, modulo 180°, rows at 3 m/s or more",
 			"wiggle_deg_per_10m":        "per track, (Σ|Δψ| − |ΣΔψ|) per 10 m travelled: turning back and forth not explained by the net turn; tracks over 10 m",
 			"length_cv":                 "per track, coefficient of variation of the drawn length",
@@ -828,18 +828,17 @@ func refAxis(ref areaRef) string {
 }
 
 // visibleTurn is the drawn rectangle's turn between two frames, in radians:
-// its long side's direction modulo a half turn, or modulo a quarter turn
-// when either box is nearly square.
+// the heading's change modulo a half turn, or, when the second box's
+// extents match the first's swapped better than as they are, its change
+// plus a quarter turn, since a quarter turn that swaps the extents draws the
+// same rectangle. Extents that merely fluctuate about a square do not count
+// as a quarter turn.
 func visibleTurn(a, b box) float64 {
-	square := func(x box) bool { return math.Abs(x.length-x.width) < 0.1*math.Max(x.length, x.width) }
-	if square(a) || square(b) {
-		return math.Abs(0.25 * math.Atan2(math.Sin(4*(b.psi-a.psi)), math.Cos(4*(b.psi-a.psi))))
+	d := b.psi - a.psi
+	same := math.Abs(a.length-b.length) + math.Abs(a.width-b.width)
+	swapped := math.Abs(a.length-b.width) + math.Abs(a.width-b.length)
+	if swapped < same {
+		d += math.Pi / 2
 	}
-	long := func(x box) float64 {
-		if x.width > x.length {
-			return x.psi + math.Pi/2
-		}
-		return x.psi
-	}
-	return math.Abs(foldHalf(long(b) - long(a)))
+	return math.Abs(foldHalf(d))
 }
