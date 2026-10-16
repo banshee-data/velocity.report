@@ -12,6 +12,7 @@
  * Everything a scene needs then follows from the site, and the only file left
  * to edit by hand is the position itself.
  */
+import { rawLidarPath } from "../s2-archive/capture-names.mjs";
 
 /** Tolerance for the clock join, in seconds.
  *
@@ -64,6 +65,12 @@ const UNLOCATED_NOTE =
   "Not yet located. The recording is joined to an archive site, but that " +
   "site's field mark could not be read; give the mark a position and this " +
   "scene inherits it.";
+
+/** The dataset's name for an archive site's capture, or null when it cannot be named. */
+function captureFor(site) {
+  const rawPath = rawLidarPath(site);
+  return rawPath ? { raw_path: rawPath } : null;
+}
 
 const UNJOINED_NOTE =
   "Not surveyed. The recording is sensor-local, so the scene plays without a " +
@@ -138,6 +145,13 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
         // second says where true north is. See map-marks.json.
         grid_azimuth_deg: site?.grid_azimuth_deg ?? null,
         north_azimuth_deg: site?.north_azimuth_deg ?? null,
+        // The posted limit at the site, from its field mark; an override for a
+        // scene with no mark. Null means unknown, and the page says so.
+        speed_limit_mph: over.speed_limit_mph ?? site?.speed_limit_mph ?? null,
+        // Where the recording's raw file lives in the published dataset. The
+        // name follows from the site, so a scene the archive does not cover
+        // has none.
+        capture: site ? captureFor(site) : null,
         position,
         position_note: note,
         position_source: source,
@@ -157,6 +171,10 @@ export function buildSceneSites({ scenes, index, overrides = {} }) {
       "title, a written summary, and a position for a scene the archive does not",
       "cover or whose map reading is known to be wrong. An override always wins,",
       "so a survey is never overwritten by a reading off the paper map.",
+      "",
+      "speed_limit_mph comes from the site's mark (or an override). capture names",
+      "the recording's raw file in the Hugging Face dataset, by the same rule the",
+      "staging script uses: tools/s2-archive/capture-names.mjs.",
     ],
     sites,
   };

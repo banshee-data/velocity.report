@@ -21,6 +21,10 @@
           "archive_site": "s01",
           "grid_azimuth_deg": 3,
           "north_azimuth_deg": 8,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1225_80858-0ac_ashbury-downey.pcapng"
+          },
           "position": {
             "lat": 37.7638,
             "lon": -122.4466,
@@ -145,6 +149,10 @@
           "archive_site": "s02",
           "grid_azimuth_deg": 1,
           "north_azimuth_deg": 101,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1259_80858-0ac_haight-divisadero.pcapng"
+          },
           "position": {
             "lat": 37.7712,
             "lon": -122.4372,
@@ -269,6 +277,10 @@
           "archive_site": "s03",
           "grid_azimuth_deg": 0,
           "north_azimuth_deg": 11,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1327_80858-0a4_pierce-haight.pcapng"
+          },
           "position": {
             "lat": 37.7718,
             "lon": -122.4338,
@@ -393,6 +405,10 @@
           "archive_site": "s04",
           "grid_azimuth_deg": 1,
           "north_azimuth_deg": 101,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1359_80858-0b4_fulton-divisadero.pcapng"
+          },
           "position": {
             "lat": 37.7768,
             "lon": -122.4381,
@@ -517,6 +533,10 @@
           "archive_site": "s05",
           "grid_azimuth_deg": 1,
           "north_azimuth_deg": 101,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1433_80858-0cc_california-leon-baker.pcapng"
+          },
           "position": {
             "lat": 37.7875,
             "lon": -122.4446,
@@ -641,6 +661,10 @@
           "archive_site": "s06",
           "grid_azimuth_deg": 359,
           "north_azimuth_deg": 99,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1510_80858-0c4_broadway-gough.pcapng"
+          },
           "position": {
             "lat": 37.7952,
             "lon": -122.4269,
@@ -765,6 +789,10 @@
           "archive_site": "s07",
           "grid_azimuth_deg": 359,
           "north_azimuth_deg": 9,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260901T1546_80858-0bc_laguna-eddy.pcapng"
+          },
           "position": {
             "lat": 37.7821,
             "lon": -122.4274,
@@ -889,6 +917,10 @@
           "archive_site": "s08",
           "grid_azimuth_deg": 355,
           "north_azimuth_deg": 97,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T0938_80858-0d4_lombard-broderick.pcapng"
+          },
           "position": {
             "lat": 37.799,
             "lon": -122.444,
@@ -1013,6 +1045,10 @@
           "archive_site": "s09",
           "grid_azimuth_deg": 356,
           "north_azimuth_deg": 282,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1003_80858-12c_marina-broderick.pcapng"
+          },
           "position": {
             "lat": 37.8053,
             "lon": -122.4455,
@@ -1137,6 +1173,10 @@
           "archive_site": "s10",
           "grid_azimuth_deg": 356.5,
           "north_azimuth_deg": 231,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1028_80858-124_marina-webster-beach.pcapng"
+          },
           "position": {
             "lat": 37.8057,
             "lon": -122.4351,
@@ -1261,6 +1301,10 @@
           "archive_site": "s11",
           "grid_azimuth_deg": 354,
           "north_azimuth_deg": 275,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1058_80858-0dc_lombard-laguna.pcapng"
+          },
           "position": {
             "lat": 37.8004,
             "lon": -122.4313,
@@ -1385,6 +1429,10 @@
           "archive_site": "s12",
           "grid_azimuth_deg": 38,
           "north_azimuth_deg": 48,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1153_80858-0e4_columbus-north-point.pcapng"
+          },
           "position": {
             "lat": 37.8059,
             "lon": -122.4181,
@@ -1509,6 +1557,10 @@
           "archive_site": "s13",
           "grid_azimuth_deg": 60,
           "north_azimuth_deg": 253,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1235_80858-0fc_embarcadero-bay.pcapng"
+          },
           "position": {
             "lat": 37.8067,
             "lon": -122.4061,
@@ -1633,6 +1685,10 @@
           "archive_site": "s14",
           "grid_azimuth_deg": 27,
           "north_azimuth_deg": 35,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng"
+          },
           "position": {
             "lat": 37.7978,
             "lon": -122.4065,
@@ -1757,6 +1813,10 @@
           "archive_site": "s15",
           "grid_azimuth_deg": 355.5,
           "north_azimuth_deg": 10,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1427_80858-0ec_van-ness-sacramento.pcapng"
+          },
           "position": {
             "lat": 37.7912,
             "lon": -122.4225,
@@ -1881,6 +1941,10 @@
           "archive_site": "s16",
           "grid_azimuth_deg": 2,
           "north_azimuth_deg": 101,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260902T1522_80858-05c_embarcadero-broadway.pcapng"
+          },
           "position": {
             "lat": 37.7991,
             "lon": -122.3976,
@@ -2005,6 +2069,10 @@
           "archive_site": "s17",
           "grid_azimuth_deg": 4,
           "north_azimuth_deg": 192,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1035_80858-09c_franklin-mcallister.pcapng"
+          },
           "position": {
             "lat": 37.7798,
             "lon": -122.4218,
@@ -2129,6 +2197,10 @@
           "archive_site": "s18",
           "grid_azimuth_deg": 3,
           "north_azimuth_deg": 14,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1105_80858-094_hyde-ofarrell.pcapng"
+          },
           "position": {
             "lat": 37.7855,
             "lon": -122.4164,
@@ -2253,6 +2325,10 @@
           "archive_site": "s19",
           "grid_azimuth_deg": 3,
           "north_azimuth_deg": 102,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1135_80858-08c_bush-powell.pcapng"
+          },
           "position": {
             "lat": 37.7901,
             "lon": -122.409,
@@ -2377,6 +2453,10 @@
           "archive_site": "s20",
           "grid_azimuth_deg": 356,
           "north_azimuth_deg": 131,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1317_80858-06c_embarcadero-folsom.pcapng"
+          },
           "position": {
             "lat": 37.791,
             "lon": -122.3899,
@@ -2501,6 +2581,10 @@
           "archive_site": "s21",
           "grid_azimuth_deg": 6,
           "north_azimuth_deg": 51,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1410_80858-064_1st-mission.pcapng"
+          },
           "position": {
             "lat": 37.7897,
             "lon": -122.3974,
@@ -2625,6 +2709,10 @@
           "archive_site": "s22",
           "grid_azimuth_deg": 308,
           "north_azimuth_deg": 353,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1440_80858-074_embarcadero-bryant.pcapng"
+          },
           "position": {
             "lat": 37.7868,
             "lon": -122.3881,
@@ -2749,6 +2837,10 @@
           "archive_site": "s23",
           "grid_azimuth_deg": 358,
           "north_azimuth_deg": 223,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1520_80858-07c_3rd-folsom.pcapng"
+          },
           "position": {
             "lat": 37.7837,
             "lon": -122.3986,
@@ -2873,6 +2965,10 @@
           "archive_site": "s24",
           "grid_azimuth_deg": 357,
           "north_azimuth_deg": 312,
+          "speed_limit_mph": 25,
+          "capture": {
+            "raw_path": "raw/lidar/20260903T1550_80858-084_howard-6th.pcapng"
+          },
           "position": {
             "lat": 37.7798,
             "lon": -122.4069,
@@ -3004,6 +3100,8 @@
           "archive_site": null,
           "grid_azimuth_deg": null,
           "north_azimuth_deg": null,
+          "speed_limit_mph": 25,
+          "capture": null,
           "position": null,
           "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
           "position_source": null,
@@ -3016,6 +3114,10 @@
   ],
   "published_count": 25,
   "recorded_count": 25,
+  "dataset": {
+    "repo": "banshee-data/sf-street-speeds",
+    "url": "https://huggingface.co/datasets/banshee-data/sf-street-speeds"
+  },
   "sites": [
     {
       "id": "soma1",
@@ -3027,6 +3129,8 @@
       "located": false,
       "position": null,
       "position_note": "Not surveyed. The recording is sensor-local, so the scene plays without a position; it cannot be placed on the map until one is measured.",
+      "speed_limit_mph": 25,
+      "capture": null,
       "cells": null,
       "cell_geometry": null
     },
@@ -3044,6 +3148,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Ashbury at Downey), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1225_80858-0ac_ashbury-downey.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3114,6 +3222,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Haight at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1259_80858-0ac_haight-divisadero.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3184,6 +3296,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Pierce at Haight), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1327_80858-0a4_pierce-haight.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3254,6 +3370,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Fulton at Divisadero), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1359_80858-0b4_fulton-divisadero.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3324,6 +3444,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (California between Leon and Baker), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1433_80858-0cc_california-leon-baker.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3394,6 +3518,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1510_80858-0c4_broadway-gough.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3464,6 +3592,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Laguna at Eddy), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260901T1546_80858-0bc_laguna-eddy.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3534,6 +3666,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Lombard at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T0938_80858-0d4_lombard-broderick.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3604,6 +3740,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Marina at Broderick), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1003_80858-12c_marina-broderick.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3674,6 +3814,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Marina between Webster and Beach), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1028_80858-124_marina-webster-beach.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3744,6 +3888,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Lombard at Laguna), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1058_80858-0dc_lombard-laguna.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3814,6 +3962,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Columbus at North Point), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1153_80858-0e4_columbus-north-point.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3884,6 +4036,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Bay), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1235_80858-0fc_embarcadero-bay.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -3954,6 +4110,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Columbus at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4024,6 +4184,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (van Ness at Sacramento), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1427_80858-0ec_van-ness-sacramento.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4094,6 +4258,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Broadway), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260902T1522_80858-05c_embarcadero-broadway.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4164,6 +4332,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Franklin at McAllister), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1035_80858-09c_franklin-mcallister.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4234,6 +4406,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Hyde at O'Farrell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1105_80858-094_hyde-ofarrell.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4304,6 +4480,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Bush at Powell), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1135_80858-08c_bush-powell.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4374,6 +4554,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1317_80858-06c_embarcadero-folsom.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4444,6 +4628,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (1st at Mission), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1410_80858-064_1st-mission.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4514,6 +4702,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Embarcadero at Bryant), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1440_80858-074_embarcadero-bryant.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4584,6 +4776,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (3rd at Folsom), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1520_80858-07c_3rd-folsom.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",
@@ -4654,6 +4850,10 @@
         "source": "operator"
       },
       "position_note": "Read from the field map (Howard at 6th), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "speed_limit_mph": 25,
+      "capture": {
+        "raw_path": "raw/lidar/20260903T1550_80858-084_howard-6th.pcapng"
+      },
       "cells": {
         "area": {
           "token": "808581",

@@ -57,8 +57,16 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   `duration_sec`, `build_version` and a `vehicle_speed` object shaped like the timeline's. A
   recording that reports no measurement is left out of the build with a warning. Two visits in one
   month take the day in their label; two starting in the same minute take the sensor in their id.
-- **Speed limit.** Set `speedLimitMph` in the site page's front matter once the posted limit is
-  confirmed. While it is blank, pages show speeds without a limit line or an over-limit share.
+- **Speed limit.** Each site's posted limit is `speed_limit_mph` on its field mark in
+  `tools/s2-archive/map-marks.json` (or in `scene-overrides.json` for a scene with no mark). It
+  reaches `src/_data/scenes.json` through `make render-scene-map`. All sites are set to 25 mph, San
+  Francisco's default, until each sign has been checked; a blank value means unknown, and the page
+  then shows speeds without a limit line or an over-limit share.
+- **Raw recordings.** Each site's data-and-methods section links the capture's PCAPNG in the
+  [sf-street-speeds](https://huggingface.co/datasets/banshee-data/sf-street-speeds) dataset. The
+  file name is derived from the site by `tools/s2-archive/capture-names.mjs`, the same rule the
+  staging script uses, so `scenes.json` carries it as `capture.raw_path`. A later recording names
+  its own file with `raw_path` in its `summary.json`.
 - **Comparing recordings.** A site with two or more recordings gets a recording menu and a
   compare view (`?recording=<id>`, `?compare=<id>,<id>&base=<id>`). Speed compares across radar
   and LiDAR; other measurements are LiDAR only.

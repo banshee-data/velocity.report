@@ -225,20 +225,7 @@ module.exports = async function (eleventyConfig) {
     watch: ["_site/css/**"],
   });
 
-  // Survey pages: the posted limit is set per site in front matter
-  // (speedLimitMph), so the listing reads it from the pages themselves.
-  eleventyConfig.addCollection("surveyLimits", function (collectionApi) {
-    const limits = {};
-    for (const item of collectionApi.getFilteredByGlob(
-      "src/scenes/*/index.njk",
-    )) {
-      if (item.data.sceneId)
-        limits[item.data.sceneId] = surveyModel.validLimit(
-          item.data.speedLimitMph,
-        );
-    }
-    return limits;
-  });
+  // Survey pages: figures, findings and charts for a site at its posted limit.
   eleventyConfig.addFilter("surveyView", surveyView);
   // One decimal, always: "26.0" beside "22.6", and a dash for a missing value.
   eleventyConfig.addFilter("fixed1", surveyModel.mph);

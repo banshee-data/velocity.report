@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   FAMILIES,
   comparabilityNotes,
+  datasetLinks,
   compareFinding,
   compareRows,
   compareSelection,
@@ -224,4 +225,24 @@ test("family availability distinguishes not recorded by the sensor from not repo
     FAMILIES.pop();
   }
   assert.equal(FAMILIES.length, 1);
+});
+
+test("dataset links name the file, its page and its format from the path", () => {
+  const links = datasetLinks(
+    "https://huggingface.co/datasets/x/y/",
+    "raw/lidar/a.pcapng",
+  );
+  assert.equal(
+    links.download,
+    "https://huggingface.co/datasets/x/y/resolve/main/raw/lidar/a.pcapng?download=true",
+  );
+  assert.equal(
+    links.page,
+    "https://huggingface.co/datasets/x/y/blob/main/raw/lidar/a.pcapng",
+  );
+  assert.equal(links.format, "PCAPNG");
+  assert.equal(datasetLinks("https://h/d", "raw/radar/a.log").format, "LOG");
+  assert.equal(datasetLinks("https://h/d", "raw/radar/noext").format, null);
+  assert.equal(datasetLinks(null, "raw/lidar/a.pcapng"), null);
+  assert.equal(datasetLinks("https://h/d", null), null);
 });
