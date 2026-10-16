@@ -8,7 +8,7 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 16, 2026 - Follow-up experiments: the dwell policy on labelled road users, and the Lombard–Laguna scene change was a knock to the sensor
+## October 16, 2026 - Follow-up experiments: unrecorded knocks to the sensor, where reviewed returns are lost, the dwell policy's clock, and CMR on both corpus segments
 
 - {claude/experiment-followup} Screened the shipped L3, CMR and CMR with the dwell policy on the first segment of all 23 corpus sites and the second segment of 22 (l3bg0012, l3bg0016): CMR's moving tracks rise from 1,331 to 2,081 and 1,339 to 2,187, up at 44 of 45 site-segments; at 20 s the policy keeps every moving track and clears every long stationary track on five-minute windows, but absorbed objects are re-tracked 15 to 21 points more often than at the same spots without it, at 40 s as at 20 s; Stage B now runs both clocks: [report](lidar/operations/l3-candidates-corpus-dwell-2026-10.md).
 - {claude/experiment-followup} Moved the dwell policy's drift rule onto L5's tracker configuration and added `dwell_policy_t40_drift2m` and `dwell_policy_t40_median` (l3bg0017): over Lombard–Laguna the running-median rule gives exactly the 1 m rule's 21 absorptions and 2 m adds one, while on kirk0 either absorbs the parked car at 40.1 s, so the 1 m first-estimate rule stays for Stage B: [report](lidar/operations/l3-dwell-policy-drift-2026-10.md).
