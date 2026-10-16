@@ -124,6 +124,8 @@ type FateFrame struct {
 	Domain      []FateReturn
 	// GapBefore records a bounded gap between the previous frame and this one.
 	GapBefore bool
+	// Partial marks the frame as having lost a packet.
+	Partial bool
 }
 
 // FateScenario is the container's frames, in order.
@@ -356,6 +358,9 @@ func fateRecord(seq uint64, f FateFrame) (l4bobserve.FrameRecord, error) {
 			{Stage: l4bobserve.StageL2Frame, Output: l4bobserve.KnownCount(n + 5)},
 			{Stage: l4bobserve.StageL3Foreground, Input: l4bobserve.KnownCount(n + 5), Output: l4bobserve.KnownCount(n), Rejected: l4bobserve.KnownCount(5)},
 		},
+	}
+	if f.Partial {
+		rec.Completeness = l4bobserve.Completeness{State: l4bobserve.CompletenessPartial, LostPackets: l4bobserve.KnownCount(1)}
 	}
 	switch f.Disposition {
 	case l4bobserve.DispositionFailed:

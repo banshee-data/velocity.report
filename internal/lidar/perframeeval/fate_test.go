@@ -167,6 +167,9 @@ func TestFateClassifiesEveryReviewedReturn(t *testing.T) {
 	if r.Reference.Split != evalfixture.SplitHeldOut || !r.Reference.HeldOut || r.Schema != FateSchema {
 		t.Errorf("reference = %+v, schema %s", r.Reference, r.Schema)
 	}
+	if ev.MeasuredCompleteness["complete"] != 5 || slices.ContainsFunc(r.Caveats, func(s string) bool { return strings.Contains(s, "known to be complete") }) {
+		t.Errorf("every measured frame is complete: %v, caveats %q", ev.MeasuredCompleteness, r.Caveats)
+	}
 
 	md := RenderFateMarkdown(*r)
 	for _, want := range []string{"# Fate of every reviewed return", "match rate 0.7000", "| all | 5 | 20 | 0.250 | 0.050 |",
@@ -203,6 +206,8 @@ func TestFateNotMeasuredReasons(t *testing.T) {
 		var kept []evalfixture.FateFrame
 		for _, fr := range s.Frames {
 			switch fr.Sample {
+			case 1:
+				fr.Partial = true
 			case 4:
 				fr.Disposition = l4bobserve.DispositionSuppressed
 			case 7:
@@ -231,6 +236,13 @@ func TestFateNotMeasuredReasons(t *testing.T) {
 	// Sample 7's return 1 was in sample 8's frame, which is gone: with no
 	// neighbour holding it, it is now proven absent.
 	wantFates(t, "sample 7", instantAt(t, r, 7).Fates, map[string]int{FateClustered: 2, FateL3Background: 1, FateUnresolved: 1})
+	// Sample 1's frame lost a packet, so its absent return may be in it.
+	if c := r.Evidence.MeasuredCompleteness; c["partial"] != 1 || c["complete"] != 3 {
+		t.Errorf("measured completeness = %v", c)
+	}
+	if !slices.ContainsFunc(r.Caveats, func(s string) bool { return strings.HasPrefix(s, "1 measured frames are not known to be complete") }) {
+		t.Errorf("no caveat for the partial frame: %q", r.Caveats)
+	}
 }
 
 // A frame within the tolerance on either side aligns with its sample; with

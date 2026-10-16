@@ -52,7 +52,10 @@ import (
 //   - matched: found in the frame's domain, with the fate the record gives it;
 //   - proven absent: its identity resolved, but in neither the aligned
 //     frame's domain nor its neighbours'. The domain is complete foreground,
-//     so the replay's L3 called the return background: l3_background;
+//     so the replay's L3 called the return background: l3_background. In a
+//     frame that lost packets the return may instead never have reached L3;
+//     the report counts measured frames by completeness and says so when any
+//     is not complete;
 //   - other_frame: found in a neighbouring frame's domain, so the replay put
 //     the return in a different rotation from the recording. It is reported,
 //     not attributed;
@@ -1065,6 +1068,10 @@ func fateCaveats(r *FateReport) []string {
 	if j.Matched > 0 && j.CoordinatesAgree < j.Matched {
 		c = append(c, fmt.Sprintf("Only %d of %d matched returns have the pack's float32 coordinates: the replay placed some returns "+
 			"elsewhere (another transform?), which the identity join does not depend on.", j.CoordinatesAgree, j.Matched))
+	}
+	if n := r.Evidence.MeasuredSamples - r.Evidence.MeasuredCompleteness[l4bobserve.CompletenessComplete.String()]; n > 0 {
+		c = append(c, fmt.Sprintf("%d measured frames are not known to be complete (%s): a return absent from one may have been "+
+			"in a lost packet rather than called background by L3.", n, describeCounts(r.Evidence.MeasuredCompleteness)))
 	}
 	if r.Total.Fates[FateVoxelReduced] > 0 {
 		c = append(c, "voxel_reduced returns are represented by another return of their voxel, which may be clustered; "+
