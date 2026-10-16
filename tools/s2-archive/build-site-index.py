@@ -35,7 +35,14 @@ _args.add_argument(
     help="archive root holding s2/analysis and s2/analysis-continuous "
     "(default: $LIDAR_PCAP_DIR, else /Volumes/lidar/lidar/pcaps)",
 )
-ARCHIVE = os.path.abspath(os.path.expanduser(_args.parse_args().archive))
+_args.add_argument(
+    "--marks-only",
+    action="store_true",
+    help="re-apply map-marks.json to the checked-in index without the archive; "
+    "the analysis-derived fields are kept as they are",
+)
+ARGS = _args.parse_args()
+ARCHIVE = os.path.abspath(os.path.expanduser(ARGS.archive))
 PER_FILE = os.path.join(ARCHIVE, "s2", "analysis")
 CONTINUOUS = os.path.join(ARCHIVE, "s2", "analysis-continuous")
 REANALYSED = os.path.join(HERE, "analysis-overrides")
@@ -49,7 +56,7 @@ OUT = os.path.join(HERE, "site-index.json")
 # The map's positions are derived from this file, so every site silently lost
 # its place. Refuse instead, and leave the index as it was.
 missing = [path for path in (PER_FILE, CONTINUOUS) if not os.path.isdir(path)]
-if missing:
+if missing and not ARGS.marks_only:
     sys.exit(
         "build-site-index: analysis not found: "
         + ", ".join(missing)
@@ -278,35 +285,6 @@ def day_of(path):
     return os.path.basename(os.path.dirname(path))[:8]
 
 
-# 9/1: analysed here as one stream, so its segments already span the day.
-continuous = [
-    p
-    for p in sorted(glob.glob(os.path.join(CONTINUOUS, "*", "*segments.json")))
-    if day_of(p) in CONTINUOUS_DAYS
-]
-continuous_segments = load(continuous, CONTINUOUS_PCAP_SPLIT_BUILD_VERSION)
-day_one = stitch(continuous_segments, BRIDGE_SECONDS) if continuous else []
-
-# Every other day: the archive's per-file analysis, stitched back together.
-replacement_reports, replaced_captures = reanalyses()
-per_file = [
-    p
-    for p in sorted(glob.glob(os.path.join(PER_FILE, "*", "segments.json")))
-    if not any(f"_{day}" in p for day in CONTINUOUS_DAYS)
-    and os.path.basename(os.path.dirname(p)) not in replaced_captures
-]
-per_file_segments = sorted(
-    load(per_file, PER_FILE_PCAP_SPLIT_BUILD_VERSION)
-    + load(replacement_reports, PER_FILE_PCAP_SPLIT_BUILD_VERSION),
-    key=lambda s: s["start"],
-)
-later = stitch(per_file_segments, BRIDGE_SECONDS)
-
-sites = sorted(day_one + later, key=lambda s: s["start"])
-
-# Every segment from both analyses, for attributing a site's captures below.
-all_segments = continuous_segments + per_file_segments
-
 with open(MARKS) as fh:
     marks = json.load(fh)["marks"]
 
@@ -341,6 +319,137 @@ for header in glob.glob(
     scene = header.split(os.sep)[-4]
     published[scene] = datetime.fromtimestamp(start_ns / 1e9, tz=PACIFIC)
 
+
+def site_id(mark, start):
+    """Identity comes from the field mark, which is named for the place and so
+    survives a site being added, dropped or reclassified."""
+    return mark["id"] if mark else f"unrecognised-{start.strftime('%m%d-%H%M')}"
+
+
+def mark_fields(mark):
+    """Everything the index copies from a site's field mark.
+
+    map-marks.json is the source; these are carried in the index only because
+    the archive tools and experiments read the index alone. --marks-only
+    rewrites exactly these from the marks, so a mark edit never needs the
+    archive mounted to reach them.
+    """
+    return {**position_fields(mark), **orientation_fields(mark)}
+
+
+def position_fields(mark):
+    return {
+        "map_mark": mark["clock"] if mark else None,
+        "where": mark["where"] if mark else None,
+        "lat": mark["lat"] if mark else None,
+        "lon": mark["lon"] if mark else None,
+        "position_confidence": mark["confidence"] if mark else "no mark matched",
+    }
+
+
+def orientation_fields(mark):
+    # Optional operator-measured angles; see map-marks.json.
+    return {
+        "grid_azimuth_deg": (mark or {}).get("grid_azimuth_deg"),
+        "north_azimuth_deg": (mark or {}).get("north_azimuth_deg"),
+    }
+
+
+def published_for(start):
+    return next(
+        (
+            scene
+            for scene, scene_start in published.items()
+            if abs((scene_start - start).total_seconds()) < 300
+        ),
+        None,
+    )
+
+
+def claim(mark, used):
+    """A mark is claimed by one site: a second site matching it gets none."""
+    if mark and mark["id"] in used:
+        return None
+    if mark:
+        used.add(mark["id"])
+    return mark
+
+
+def write_index(index):
+    with open(OUT, "w") as fh:
+        json.dump(index, fh, indent=2)
+        fh.write("\n")
+
+    by_day = {}
+    for entry in index:
+        by_day.setdefault(entry["day"], []).append(entry)
+
+    print(f"{len(index)} sites\n")
+    print(f"{'site':5s} {'day':11s} {'clock':>6s} {'mins':>6s} {'mark':>6s}  position")
+    for day in sorted(by_day):
+        for entry in by_day[day]:
+            pos = (
+                f"{entry['lat']:.4f}, {entry['lon']:.4f}  ({entry['position_confidence']})"
+                if entry["lat"] is not None
+                else f"—  ({entry['position_confidence']})"
+            )
+            print(
+                f"{entry['site']:5s} {entry['day']:11s} {entry['clock']:>6s} "
+                f"{entry['minutes']:6.1f} {str(entry['map_mark'] or '—'):>6s}  {pos}"
+            )
+        print()
+    for day in sorted(by_day):
+        located = sum(1 for e in by_day[day] if e["lat"] is not None)
+        print(f"{day}: {len(by_day[day])} sites, {located} positioned")
+    print(f"\nwritten: {OUT}")
+
+
+# The marks are hand-authored and change far more often than the analysis, and
+# the join to them needs only each site's start, which the index already holds.
+# So a mark edit is re-applied here without the archive, in the same order and
+# with the same one-site-per-mark rule as a full build.
+if ARGS.marks_only:
+    with open(OUT) as fh:
+        index = json.load(fh)
+    used = set()
+    for entry in index:
+        start = datetime.fromisoformat(entry["start"])
+        mark = claim(match({"start": start})[0], used)
+        entry["id"] = site_id(mark, start)
+        entry.update(mark_fields(mark))
+        entry["published_as"] = published_for(start)
+    write_index(index)
+    sys.exit(0)
+
+# 9/1: analysed here as one stream, so its segments already span the day.
+continuous = [
+    p
+    for p in sorted(glob.glob(os.path.join(CONTINUOUS, "*", "*segments.json")))
+    if day_of(p) in CONTINUOUS_DAYS
+]
+continuous_segments = load(continuous, CONTINUOUS_PCAP_SPLIT_BUILD_VERSION)
+day_one = stitch(continuous_segments, BRIDGE_SECONDS) if continuous else []
+
+# Every other day: the archive's per-file analysis, stitched back together.
+replacement_reports, replaced_captures = reanalyses()
+per_file = [
+    p
+    for p in sorted(glob.glob(os.path.join(PER_FILE, "*", "segments.json")))
+    if not any(f"_{day}" in p for day in CONTINUOUS_DAYS)
+    and os.path.basename(os.path.dirname(p)) not in replaced_captures
+]
+per_file_segments = sorted(
+    load(per_file, PER_FILE_PCAP_SPLIT_BUILD_VERSION)
+    + load(replacement_reports, PER_FILE_PCAP_SPLIT_BUILD_VERSION),
+    key=lambda s: s["start"],
+)
+later = stitch(per_file_segments, BRIDGE_SECONDS)
+
+sites = sorted(day_one + later, key=lambda s: s["start"])
+
+# Every segment from both analyses, for attributing a site's captures below.
+all_segments = continuous_segments + per_file_segments
+
 # A mark is claimed by one site. Keyed on the mark's id, which is unique;
 # keying it on the clock made two marks on different days collide, because the
 # sheet is a 12-hour clock and a run happens at the same hour most afternoons.
@@ -349,11 +458,7 @@ for header in glob.glob(
 # marks were lost that way.
 index, used = [], set()
 for number, site in enumerate(sites, 1):
-    mark, gap = match(site)
-    if mark and mark["id"] in used:
-        mark = None
-    if mark:
-        used.add(mark["id"])
+    mark = claim(match(site)[0], used)
     minutes = (site["end"] - site["start"]).total_seconds() / 60
     # Export follows the operator-approved *site* interval, rather than only
     # classifier-static fragments. A tripod nudge can briefly look like motion
@@ -381,11 +486,7 @@ for number, site in enumerate(sites, 1):
             # and so survives a site being added, dropped or reclassified. The
             # ordinal below is display order, not identity, and must not be
             # used as a key: it shifts whenever the set changes.
-            "id": (
-                mark["id"]
-                if mark
-                else f"unrecognised-{site['start'].strftime('%m%d-%H%M')}"
-            ),
+            "id": site_id(mark, site["start"]),
             "site": f"s{number:02d}",
             "day": site["start"].strftime("%Y-%m-%d"),
             "start": site["start"].isoformat(),
@@ -416,49 +517,11 @@ for number, site in enumerate(sites, 1):
                     for capture in segment["captures"]
                 }
             ),
-            "map_mark": mark["clock"] if mark else None,
-            "where": mark["where"] if mark else None,
-            "lat": mark["lat"] if mark else None,
-            "lon": mark["lon"] if mark else None,
-            "position_confidence": mark["confidence"] if mark else "no mark matched",
+            **position_fields(mark),
             "pcap_split_build_version": analysis_build_versions.pop(),
-            # Optional operator-measured angles; see map-marks.json.
-            "grid_azimuth_deg": (mark or {}).get("grid_azimuth_deg"),
-            "north_azimuth_deg": (mark or {}).get("north_azimuth_deg"),
-            "published_as": next(
-                (
-                    scene
-                    for scene, start in published.items()
-                    if abs((start - site["start"]).total_seconds()) < 300
-                ),
-                None,
-            ),
+            **orientation_fields(mark),
+            "published_as": published_for(site["start"]),
         }
     )
 
-with open(OUT, "w") as fh:
-    json.dump(index, fh, indent=2)
-    fh.write("\n")
-
-by_day = {}
-for entry in index:
-    by_day.setdefault(entry["day"], []).append(entry)
-
-print(f"{len(index)} sites\n")
-print(f"{'site':5s} {'day':11s} {'clock':>6s} {'mins':>6s} {'mark':>6s}  position")
-for day in sorted(by_day):
-    for entry in by_day[day]:
-        pos = (
-            f"{entry['lat']:.4f}, {entry['lon']:.4f}  ({entry['position_confidence']})"
-            if entry["lat"] is not None
-            else f"—  ({entry['position_confidence']})"
-        )
-        print(
-            f"{entry['site']:5s} {entry['day']:11s} {entry['clock']:>6s} "
-            f"{entry['minutes']:6.1f} {str(entry['map_mark'] or '—'):>6s}  {pos}"
-        )
-    print()
-for day in sorted(by_day):
-    located = sum(1 for e in by_day[day] if e["lat"] is not None)
-    print(f"{day}: {len(by_day[day])} sites, {located} positioned")
-print(f"\nwritten: {OUT}")
+write_index(index)

@@ -3,10 +3,16 @@
  * Regenerate the published scene map and the data the scenes page reads.
  *
  * Three steps, all derived. Each scene export is joined to an archive site by
- * the wall clock in its header, which gives scene-sites.json its positions;
+ * the wall clock in its header, which gives each scene its site and position;
  * the map and the page data then derive from that. So a position corrected
  * once — in tools/s2-archive/map-marks.json, or as an override for a scene the
  * archive does not cover — moves the marker, the cell and the token together.
+ *
+ * Two files come out: the page data (src/_data/scenes.json) and the map SVG.
+ * Nothing else is written, so nothing else can drift. The scene pages are
+ * paginated from the page data (src/scenes/survey-pages.11ty.js), and the
+ * scene records are held in memory between the steps rather than checked in
+ * as a second copy of what scenes.json already carries.
  */
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -29,7 +35,6 @@ import { DATASET_REPO, DATASET_URL } from "../s2-archive/capture-names.mjs";
 
 const TOOL_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIRECTORY, "..", "..");
-const SOURCE = path.join(REPO_ROOT, "public_html", "scene-sites.json");
 const OVERRIDES = path.join(REPO_ROOT, "public_html", "scene-overrides.json");
 const SCENES_DIR = path.join(REPO_ROOT, "public_html", "src", "scenes");
 const SITE_INDEX = path.join(
@@ -40,35 +45,6 @@ const SITE_INDEX = path.join(
 );
 const MARKS = path.join(REPO_ROOT, "tools", "s2-archive", "map-marks.json");
 
-/**
- * The page for one scene.
- *
- * Written from the scene's own record rather than kept by hand, because it was
- * kept by hand and drifted. Renaming the directories to the site ids left every
- * page still declaring sceneId "s2-sf-2" — the capture prefix the rename set
- * out to remove — and a newly exported scene had no page at all, so its assets
- * sat published behind a 404.
- */
-function scenePage(site, minutes, hasPointCloudClip = false) {
-  const whole = Math.round(minutes);
-  const description = hasPointCloudClip
-    ? `${whole} minutes at a San Francisco junction, with a point-cloud view over the opening 30 seconds. Measured by roadside LiDAR, with no camera images or number plates.`
-    : `${whole} minutes at a San Francisco junction, measured by roadside LiDAR. Trajectories only, no camera images or number plates.`;
-  const intro = hasPointCloudClip
-    ? `${whole} minutes at this junction, with the point cloud visible over the opening 30 seconds.`
-    : `${whole} minutes at this junction, measured by roadside LiDAR.`;
-  return `---
-layout: scene.njk
-title: "${site.title}: LiDAR survey — velocity.report"
-description: ${description}
-sceneId: ${site.id}
-sceneName: ${site.title}
-sceneIntro: ${intro}
-${hasPointCloudClip ? "sceneHasClip: true\n" : ""}gridAzimuthDeg:${site.grid_azimuth_deg == null ? "" : ` ${site.grid_azimuth_deg}`}
-northAzimuthDeg:${site.north_azimuth_deg == null ? "" : ` ${site.north_azimuth_deg}`}
----
-`;
-}
 const DATA_OUTPUT = path.join(
   REPO_ROOT,
   "public_html",
@@ -188,7 +164,7 @@ async function discoverScenes() {
   return scenes;
 }
 
-/** Regenerate scene-sites.json from the exports and the archive index. */
+/** Derive the published scene records from the exports, the index and the marks. */
 export async function generateSceneSites() {
   const index = JSON.parse(await readFile(SITE_INDEX, "utf8"));
   // Follow any site whose mark was renamed before reading what is published.
@@ -201,9 +177,7 @@ export async function generateSceneSites() {
   }
   const overrides = JSON.parse(await readFile(OVERRIDES, "utf8")).scenes ?? {};
   const { marks } = JSON.parse(await readFile(MARKS, "utf8"));
-  const doc = buildSceneSites({ scenes, index, marks, overrides });
-  await writeFile(SOURCE, `${JSON.stringify(doc, null, 2)}\n`, "utf8");
-  return doc;
+  return buildSceneSites({ scenes, index, marks, overrides });
 }
 
 /**
@@ -245,7 +219,7 @@ export async function generateSceneMap() {
     published: true,
   }));
   if (scenes.length === 0) {
-    throw new Error(`${path.relative(REPO_ROOT, SOURCE)} lists no sites.`);
+    throw new Error("no published scene joined to a site.");
   }
 
   // Every recorded site goes on the map, not only the published ones, so the
@@ -259,6 +233,7 @@ export async function generateSceneMap() {
   // The page reads only this file, so it carries the derived tokens rather than
   // asking a template to do S2 arithmetic in Nunjucks.
   const data = {
+    comment: source.comment,
     generated_by: "tools/s2-hilbert/generate-scene-map.mjs",
     levels: {
       area: LEVEL_AREA,
@@ -285,6 +260,8 @@ export async function generateSceneMap() {
       located: site.located,
       position: site.position ?? null,
       position_note: site.position_note ?? "",
+      grid_azimuth_deg: site.grid_azimuth_deg ?? null,
+      north_azimuth_deg: site.north_azimuth_deg ?? null,
       speed_limit_mph: site.speed_limit_mph ?? null,
       capture: site.capture ?? null,
       cells: site.cells ?? null,
@@ -298,39 +275,6 @@ export async function generateSceneMap() {
         : null,
     })),
   };
-
-  // Every published scene gets its page rewritten from the data above, so a
-  // page cannot name a scene something the index does not.
-  for (const site of model.sites) {
-    if (!site.published) continue;
-    const dir = path.join(SCENES_DIR, site.id);
-    try {
-      await readFile(
-        path.join(dir, "assets", "part-000", "header.json"),
-        "utf8",
-      );
-    } catch {
-      continue; // no export yet, so nothing to publish a page for
-    }
-    const header = JSON.parse(
-      await readFile(
-        path.join(dir, "assets", "part-000", "header.json"),
-        "utf8",
-      ),
-    );
-    let hasPointCloudClip = false;
-    try {
-      await readFile(path.join(dir, "assets", "clip", "manifest.json"), "utf8");
-      hasPointCloudClip = true;
-    } catch {
-      // The track-only page is the normal case.
-    }
-    await writeFile(
-      path.join(dir, "index.njk"),
-      scenePage(site, (header.duration_sec ?? 0) / 60, hasPointCloudClip),
-      "utf8",
-    );
-  }
 
   await mkdir(path.dirname(DATA_OUTPUT), { recursive: true });
   await mkdir(path.dirname(SVG_OUTPUT), { recursive: true });
@@ -346,7 +290,6 @@ if (
 ) {
   generateSceneMap()
     .then(({ written, model }) => {
-      process.stdout.write(`${path.relative(process.cwd(), SOURCE)}\n`);
       for (const file of written) {
         process.stdout.write(`${path.relative(process.cwd(), file)}\n`);
       }

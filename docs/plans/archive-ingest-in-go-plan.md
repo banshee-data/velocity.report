@@ -216,7 +216,7 @@ letting a short period pass as a location worth publishing.
 1. Let a static period reference a site; derive S2 tokens from the site's pose.
 2. One-shot import of `map-marks.json` into sites, recording each position's
    source and confidence rather than flattening it to a number.
-3. Scene publication reads the site's pose instead of `public_html/scene-sites.json`
+3. Scene publication reads the site's pose instead of `public_html/src/_data/scenes.json`
    carrying its own copy.
 
 **Milestone:** v0.6.6

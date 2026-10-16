@@ -9,6 +9,7 @@ const require = createRequire(import.meta.url);
 const { loadSurveys } = require("../../_data/surveys.js");
 const { marks } = require("../../../../tools/s2-archive/map-marks.json");
 const markLimit = new Map(marks.map((m) => [m.id, m.speed_limit_mph]));
+const markById = new Map(marks.map((m) => [m.id, m]));
 
 // The build-time data file reads the published scene assets, so this test
 // holds the conventions it relies on against the real tree.
@@ -34,6 +35,14 @@ test("every published survey site resolves to a recording with a speed summary",
       site.speedLimitMph,
       markLimit.get(site.id) ?? 25,
       `${site.id} limit`,
+    );
+    // The viewer angles reach the page from the mark, not a copy in the page.
+    const mark = markById.get(site.id);
+    assert.equal(site.gridAzimuthDeg, mark?.grid_azimuth_deg ?? null, site.id);
+    assert.equal(
+      site.northAzimuthDeg,
+      mark?.north_azimuth_deg ?? null,
+      site.id,
     );
     if (site.id !== "soma1") {
       assert.match(

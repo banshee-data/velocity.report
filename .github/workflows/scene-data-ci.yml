@@ -9,7 +9,6 @@ on:
     paths:
       - "tools/s2-archive/**"
       - "tools/s2-hilbert/**"
-      - "public_html/scene-sites.json"
       - "public_html/scene-overrides.json"
       - "public_html/src/_data/scenes.json"
       - "public_html/src/_includes/scene-map.svg"

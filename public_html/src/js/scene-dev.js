@@ -111,7 +111,7 @@ export function mountSceneDev({
         const writable = await handle.createWritable();
         await writable.write(updated);
         await writable.close();
-        output.textContent = `Saved ${siteId} to map-marks.json. Rebuild the site index and scene map to publish these angles.`;
+        output.textContent = `Saved ${siteId} to map-marks.json. Run make render-scene-data to publish these angles.`;
       } catch (error) {
         output.textContent =
           error.name === "AbortError"

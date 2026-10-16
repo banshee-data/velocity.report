@@ -187,6 +187,10 @@ async function loadSurveys({
         // The posted limit, from the site's field mark via scenes.json; null
         // until it is known, and the page then draws no limit line.
         speedLimitMph: model.validLimit(site.speed_limit_mph),
+        // Operator-measured angles from the field mark, either of which may be
+        // null; the 3D viewer turns its grid and compass by them.
+        gridAzimuthDeg: site.grid_azimuth_deg ?? null,
+        northAzimuthDeg: site.north_azimuth_deg ?? null,
         capture: site.capture ?? null,
         recordings,
         latest,
