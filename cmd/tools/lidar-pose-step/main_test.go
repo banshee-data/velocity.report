@@ -3,9 +3,12 @@ package main
 import (
 	"encoding/json"
 	"math"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 )
 
@@ -80,6 +83,97 @@ func TestSeriesFindsTheRotationAStepStartsIn(t *testing.T) {
 		}
 		if mid.SectorChanged[k] != want {
 			t.Fatalf("rotation 1 sector %d: %d of %d changed, want %d", k, mid.SectorChanged[k], mid.SectorReturns[k], want)
+		}
+	}
+}
+
+// A series keeps no per-cell samples and holds one rotation's |Δr| at a
+// time: each rotation's median is taken as it closes and its buffer reused,
+// so memory does not grow with the span's returns.
+func TestSeriesHoldsOneRotationAtATime(t *testing.T) {
+	ref := make([]cellStat, numCells)
+	for c := range ref {
+		ref[c] = cellStat{Median: 20, Static: true}
+	}
+	w := newWindowAccum()
+	w.seriesRef, w.seriesTau = ref, 0.15
+	const rotations = 40
+	var bufCap int
+	for rot := 0; rot < rotations; rot++ {
+		for bin := 0; bin < numAzBins; bin++ {
+			az := binCentreDeg(bin)
+			// Every return of rotation r is r cm from the reference, except
+			// one bin in ten at 1 m: the median is r cm.
+			d := 20 + 0.01*float64(rot)
+			if bin%10 == 0 {
+				d = 21
+			}
+			w.addPoint(l2frames.PointPolar{Channel: 7, Azimuth: az, Distance: d, RawBlockAzimuth: uint16(az * 100)})
+		}
+		if rot == 2 {
+			bufCap = cap(w.seriesAbs)
+		}
+		if len(w.seriesAbs) > numAzBins {
+			t.Fatalf("rotation %d: %d departures held, more than one rotation's %d", rot, len(w.seriesAbs), numAzBins)
+		}
+	}
+	w.closeRotation()
+	w.closeRotation() // closing twice leaves the last median alone
+	if cap(w.seriesAbs) != bufCap {
+		t.Errorf("departure buffer grew from %d to %d over %d rotations", bufCap, cap(w.seriesAbs), rotations)
+	}
+	for c, s := range w.samples {
+		if s != nil {
+			t.Fatalf("cell %d kept %d samples in series mode", c, len(s))
+		}
+	}
+	if len(w.series) != rotations {
+		t.Fatalf("%d rotations, want %d", len(w.series), rotations)
+	}
+	for rot, s := range w.series {
+		if want := 0.01 * float64(rot); math.Abs(s.MedianAbsM-want) > 1e-9 || s.Returns != numAzBins {
+			t.Errorf("rotation %d: median %.6f m of %d returns, want %.6f of %d", rot, s.MedianAbsM, s.Returns, want, numAzBins)
+		}
+	}
+}
+
+// Series end to end: every rotation of a constant scene, the last included,
+// has its median set when the span is read.
+func TestDecodeSeriesSetsEveryRotationsMedian(t *testing.T) {
+	dir := t.TempDir()
+	start := time.Unix(1788373940, 0)
+	path := filepath.Join(dir, "a.pcapng")
+	writeCapture(t, path, 9, start, 2, 2500)
+	f, err := openPcapng(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	first, last, err := f.extent()
+	if err != nil {
+		t.Fatal(err)
+	}
+	caps := []captureInfo{{Path: path, FirstNanos: first, LastNanos: last, file: f}}
+	cfg, err := parse.LoadEmbeddedPandar40PConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	sp := staticParams{MinCoverage: 0.8, MaxIQR: 0.08, MaxIQRFraction: 0.004, MinRange: 2.5, MaxRange: 120}
+	ref, err := decodeWindow(caps, start.UnixNano(), start.Add(time.Second).UnixNano(), 2369, cfg, sp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rows, err := decodeSeries(caps, start.Add(time.Second).UnixNano(), start.Add(1900*time.Millisecond).UnixNano(), 2369, cfg, ref.cells, 0.15)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) < 9 {
+		t.Fatalf("%d rotations in 0.9 s, want about 9", len(rows))
+	}
+	for k, r := range rows {
+		if r.Returns == 0 || r.MedianAbsM != 0 || r.Changed != 0 {
+			t.Errorf("rotation %d of %d: %d returns, %d changed, median %v; want none changed and a median of 0",
+				k, len(rows), r.Returns, r.Changed, r.MedianAbsM)
 		}
 	}
 }

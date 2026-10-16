@@ -290,7 +290,7 @@ func main() {
 			Span:      windowRef{StartS: s.B0, EndS: s.B1, StartNanos: start, EndNanos: end}}
 		for _, row := range acc {
 			r := seriesRow{StartS: rel(row.StartNanos, *anchorNs), Returns: row.Returns,
-				ChangedShare: share(row.Changed, row.Returns), MedianAbsM: median(row.absDelta)}
+				ChangedShare: share(row.Changed, row.Returns), MedianAbsM: row.MedianAbsM}
 			for k := range row.SectorReturns {
 				r.SectorChanged = append(r.SectorChanged, share(row.SectorChanged[k], row.SectorReturns[k]))
 			}
@@ -377,6 +377,9 @@ func decodeWindow(caps []captureInfo, start, end int64, port uint16, cfg *parse.
 	return w, nil
 }
 
+// decodeSeries reads [start, end] rotation by rotation against ref's static
+// medians. It holds one rotation's returns at a time, so a long span costs a
+// fixed-size row per rotation, not memory per return.
 func decodeSeries(caps []captureInfo, start, end int64, port uint16, cfg *parse.Pandar40PConfig,
 	ref []cellStat, tau float64) ([]rotationSample, error) {
 	acc := newWindowAccum()
@@ -385,6 +388,7 @@ func decodeSeries(caps []captureInfo, start, end int64, port uint16, cfg *parse.
 	if err := readSpan(caps, start, end, port, cfg, acc, &used); err != nil {
 		return nil, err
 	}
+	acc.closeRotation()
 	return acc.series, nil
 }
 

@@ -104,10 +104,16 @@ type windowAccum struct {
 	motorRPM    []float64
 
 	// series, when set, compares each return with a reference window's
-	// static median as it arrives, one entry per rotation.
-	seriesRef []cellStat
-	seriesTau float64
-	series    []rotationSample
+	// static median as it arrives, one entry per rotation. A series keeps no
+	// per-cell samples and no motor speeds: only the open rotation's |Δr|
+	// (seriesAbs, reused from one rotation to the next) and a fixed-size row
+	// for each rotation closed, so its memory does not grow with the span's
+	// returns.
+	seriesRef  []cellStat
+	seriesTau  float64
+	series     []rotationSample
+	seriesAbs  []float64
+	seriesOpen bool
 }
 
 // seriesSectors splits each series rotation into 30-degree sectors. The head
@@ -122,7 +128,9 @@ type rotationSample struct {
 	Changed       int
 	SectorReturns [seriesSectors]int
 	SectorChanged [seriesSectors]int
-	absDelta      []float64
+	// MedianAbsM is the median |Δr| of the rotation's returns on static
+	// reference cells, set when the rotation closes; NaN when it had none.
+	MedianAbsM float64
 }
 
 func newWindowAccum() *windowAccum {
@@ -150,7 +158,9 @@ func (w *windowAccum) addPacket(parser *parse.Pandar40PParser, unixNanos int64, 
 	if len(payload) >= parse.TAIL_START+parse.TAIL_SIZE {
 		w.returnModes[payload[parse.TAIL_START+14]]++
 	}
-	w.motorRPM = append(w.motorRPM, float64(parser.GetLastMotorSpeed()))
+	if w.seriesRef == nil {
+		w.motorRPM = append(w.motorRPM, float64(parser.GetLastMotorSpeed()))
+	}
 	for i := range points {
 		w.addPoint(points[i])
 	}
@@ -173,32 +183,53 @@ func (w *windowAccum) addPoint(p l2frames.PointPolar) {
 		return
 	}
 	w.points++
+	if w.seriesRef != nil {
+		w.addSeriesReturn(cell, p.Distance)
+		return
+	}
 	w.samples[cell] = append(w.samples[cell], float32(p.Distance))
 	if w.rotSeen[cell] == 0 || w.lastRot[cell] != w.rot {
 		w.rotSeen[cell]++
 		w.lastRot[cell] = w.rot
 	}
-	if w.seriesRef != nil {
-		ref := w.seriesRef[cell]
-		if ref.Static {
-			s := &w.series[len(w.series)-1]
-			d := math.Abs(p.Distance - ref.Median)
-			sector := (cell % numAzBins) * seriesSectors / numAzBins
-			s.Returns++
-			s.SectorReturns[sector]++
-			if d > w.seriesTau {
-				s.Changed++
-				s.SectorChanged[sector]++
-			}
-			s.absDelta = append(s.absDelta, d)
-		}
+}
+
+// addSeriesReturn counts one return against the open rotation when its cell
+// is static in the reference.
+func (w *windowAccum) addSeriesReturn(cell int, distance float64) {
+	ref := w.seriesRef[cell]
+	if !ref.Static {
+		return
 	}
+	s := &w.series[len(w.series)-1]
+	d := math.Abs(distance - ref.Median)
+	sector := (cell % numAzBins) * seriesSectors / numAzBins
+	s.Returns++
+	s.SectorReturns[sector]++
+	if d > w.seriesTau {
+		s.Changed++
+		s.SectorChanged[sector]++
+	}
+	w.seriesAbs = append(w.seriesAbs, d)
 }
 
 func (w *windowAccum) startRotation(unixNanos int64) {
 	if w.seriesRef != nil {
+		w.closeRotation()
 		w.series = append(w.series, rotationSample{StartNanos: unixNanos})
+		w.seriesOpen = true
 	}
+}
+
+// closeRotation sets the open rotation's median |Δr| and empties the buffer
+// for the next. Closing when no rotation is open does nothing.
+func (w *windowAccum) closeRotation() {
+	if !w.seriesOpen {
+		return
+	}
+	w.series[len(w.series)-1].MedianAbsM = median(w.seriesAbs)
+	w.seriesAbs = w.seriesAbs[:0]
+	w.seriesOpen = false
 }
 
 // rotations is the number of rotations the window touched, partial ones at
