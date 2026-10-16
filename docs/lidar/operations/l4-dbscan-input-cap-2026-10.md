@@ -118,7 +118,8 @@ geometry work, whose boxes are fitted to cluster points.
 
 - **Code:** the harness at b14b10175 and `velocity` and the fate tool at ae7c391c0 on
   `claude/experiment-followup`, built stamped (0.5.1-pre45); the L3 and L4 code is the same in
-  both.
+  both. The fate scores were rescored with the review fix to the fate measure (c6fdaf995, the last
+  frame's absent returns counted unresolved); no figure quoted here moved.
 - **Parameter sets:** `l3-retune-cm2-mp8-floor-cap16k.json` and `-cap100k.json`, committed with
   this report.
 - **Evidence:** `/Volumes/lidar/lidar/work/velocity-campaign/followup-20261015/l4clus0002/{replay,record}/`;

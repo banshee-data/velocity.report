@@ -32,7 +32,9 @@ reviewed masks, return by return, under the shipped defaults and the overrides-o
   The a0 replay's foreground holds 54.4% of the pack's foreground returns; CMR's holds 97.7%. Of
   each replay's own foreground, 99.9% (a0) and 95.5% (CMR) is in the pack.
 - **The join is exact.** Every reviewed return is matched by packet identity or proven absent
-  (1,678,623 of 1,678,623 in each arm), every match carries the pack's float32 coordinates, and on
+  except at the container's last frame, which has no successor to check (1,011 returns under the
+  shipped grid and 40 under CMR, left unresolved, of 1,678,623); every match carries the pack's
+  float32 coordinates, and on
   the instants W3 also scores the clustered counts agree with it exactly where clusters were not
   capped.
 
@@ -50,7 +52,9 @@ reviewed masks, return by return, under the shipped defaults and the overrides-o
   pack cites its returns by packet key, block and channel. The capture bridges the two: each
   packet's key is a digest of its payload and its sequence is the payload's last four bytes. A
   reviewed return absent from its frame's foreground, and from both neighbouring frames, is
-  `l3_background`. Coordinates are not used to join; they are checked after.
+  `l3_background`; one whose neighbour cannot be checked (a missing, empty or gapped neighbour, here
+  only the container's last frame) is unresolved. Coordinates are not used to join; they are
+  checked after.
 - **Fates.** `clustered` (in an accepted cluster, so fragments can be counted), `l3_background`,
   `height_band`, `cluster_input_cap`, `cluster_noise` (DBSCAN noise, or a group below the minimum
   cluster points) and `cluster_shape` (a cluster the diameter or aspect filters rejected; the
@@ -65,7 +69,7 @@ Fate of every reviewed return, the shipped L3 → CMR:
 | Group      | Instants | Clustered     | L3 background | Input cap     | DBSCAN noise  | Shape filters | Height band   | Missed      | Fragmented |
 | ---------- | -------: | ------------- | ------------- | ------------- | ------------- | ------------- | ------------- | ----------- | ---------- |
 | All        |    3,243 | 0.489 → 0.869 | 0.453 → 0.018 | 0.054 → 0.106 | 0.002 → 0.003 | 0.002 → 0.002 | 0.000 → 0.001 | 1,846 → 480 | 36% → 17%  |
-| Car        |    1,916 | 0.394 → 0.956 | 0.602 → 0.031 | 0.003 → 0.010 | 0.001 → 0.002 | 0.000 → 0.001 | 0.000 → 0.000 | 1,267 → 179 | 17% → 5%   |
+| Car        |    1,916 | 0.394 → 0.956 | 0.600 → 0.031 | 0.003 → 0.010 | 0.001 → 0.002 | 0.000 → 0.001 | 0.000 → 0.000 | 1,267 → 179 | 17% → 5%   |
 | Truck      |      990 | 0.559 → 0.810 | 0.346 → 0.009 | 0.090 → 0.174 | 0.002 → 0.004 | 0.002 → 0.001 | 0.001 → 0.002 | 339 → 192   | 59% → 49%  |
 | Pedestrian |      285 | 0.164 → 0.833 | 0.794 → 0.077 | 0.000 → 0.000 | 0.043 → 0.068 | 0.000 → 0.000 | 0.000 → 0.022 | 215 → 104   | 0% → 0%    |
 | Bus        |       52 | 0.274 → 0.837 | 0.672 → 0.011 | 0.000 → 0.000 | 0.008 → 0.013 | 0.046 → 0.128 | 0.000 → 0.010 | 25 → 5      | 37% → 4%   |
@@ -89,7 +93,7 @@ The objects W3 named:
 |                          | CMR     |     0.935 |         0.006 |     0.052 | 0.005 |          31 of 412 |
 | Pedestrian, obj_a99f83f4 | shipped |     0.019 |         0.948 |     0.000 | 0.032 |         135 of 143 |
 |                          | CMR     |     0.871 |         0.058 |     0.000 | 0.054 |          56 of 143 |
-| Parked car, obj_788622b5 | shipped |     0.556 |         0.440 |     0.000 | 0.004 |         617 of 771 |
+| Parked car, obj_788622b5 | shipped |     0.556 |         0.439 |     0.000 | 0.004 |         617 of 771 |
 |                          | CMR     |     0.853 |         0.140 |     0.003 | 0.002 |          11 of 771 |
 
 What the gaps between fragments are made of (the returns of a fragmented instant that are in none
@@ -171,7 +175,11 @@ foreground, not to every return the object produced.
 
 - **Code:** `lidar-ground-truth-eval fate` and `parse.PacketSequence`, written by an agent as
   a1c46e6d1, 74e149cb7 and cb07d2c11 and cherry-picked as 1fdb207af to ae7c391c0 on
-  `claude/experiment-followup`; `velocity` and the tool built stamped at ae7c391c0.
+  `claude/experiment-followup`; `velocity` and the tool built stamped at ae7c391c0. A code review
+  of the branch then found that a return near an uncheckable neighbour was counted proven absent;
+  the fix (c6fdaf995) moves the last frame's absent returns to unresolved, and every figure here is
+  from the rescore with it: of those quoted, only the shipped grid's car share (0.602 to 0.600) and
+  the parked car's (0.440 to 0.439) moved.
 - **Evidence:** `/Volumes/lidar/lidar/work/velocity-campaign/followup-20261015/geom0004/replay/{a0,cmr}/`
   (`obs.vrlog`, the replay's VRLOG and logs); the fate JSON and Markdown kept locally. The agent's
   own runs at a1c46e6d1, which match these table for table, and its W3 cross-check are under
