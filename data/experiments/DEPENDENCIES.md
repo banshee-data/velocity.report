@@ -31,6 +31,7 @@ flowchart TB
     l3bg0012["<b>l3bg0012</b><br/>The L3 candidates on the corpus…<br/>approved · 3h27m machine + 3h person<br/>manual: write<br/>needs tooling: corpus_screen"]:::approved
     l3bg0013["<b>l3bg0013</b><br/>Was the Lombard–Laguna scene change a…<br/>answered · 10m machine + 10h person (took 6m57s)<br/>manual: implement, write"]:::answered
     l3bg0014["<b>l3bg0014</b><br/>Unrecorded knocks to the sensor across…<br/>approved · 1h55m machine + 2h person<br/>manual: write<br/>needs tooling: corpus_screen"]:::approved
+    l3bg0015["<b>l3bg0015</b><br/>The dwell policy with a 40 s and a 60 s…<br/>approved · 1h20m machine + 4h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::approved
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
@@ -60,6 +61,8 @@ flowchart TB
   l3bg0008 --> l3bg0012
   l3bg0008 --> l3bg0013
   l3bg0013 --> l3bg0014
+  l3bg0008 --> l3bg0015
+  l3bg0011 --> l3bg0015
   geom0003 --> l4clus0001
   geom0003 --> l4clus0002
   l3bg0005 --> l4clus0002
@@ -72,6 +75,7 @@ flowchart TB
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 15m machine + 4h person; after l3bg0008, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0012](l3bg/l3bg0012.md) The L3 candidates on the corpus, label-free, with the dwell policy: ready, but a step needs tooling; 3h27m machine + 3h person; after l3bg0006, l3bg0008; asks [l3-dwell-policy-arrival-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#recommendations), [l3-region-tercile-mechanism-2026-10 #recommendations](../../docs/lidar/operations/l3-region-tercile-mechanism-2026-10.md#recommendations).
 - [l3bg0014](l3bg/l3bg0014.md) Unrecorded knocks to the sensor across the corpus placements: ready, but a step needs tooling; 1h55m machine + 2h person; after l3bg0013; asks [l3-scene-change-pose-step-2026-10 #recommendations](../../docs/lidar/operations/l3-scene-change-pose-step-2026-10.md#recommendations).
+- [l3bg0015](l3bg/l3bg0015.md) The dwell policy with a 40 s and a 60 s clock, over the Lombard–Laguna placement: ready, but a step needs tooling; 1h20m machine + 4h person; after l3bg0008, l3bg0011; asks [l3-dwell-policy-arrival-2026-10 #what-this-does-not-establish](../../docs/lidar/operations/l3-dwell-policy-arrival-2026-10.md#what-this-does-not-establish), [l3-dwell-policy-labelled-cost-2026-10 #recommendations](../../docs/lidar/operations/l3-dwell-policy-labelled-cost-2026-10.md#recommendations).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
@@ -96,5 +100,5 @@ flowchart TB
 
 ## Totals
 
-- 6 open experiments: 6h59m machine + 44h15m person estimated.
+- 7 open experiments: 8h19m machine + 48h15m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
