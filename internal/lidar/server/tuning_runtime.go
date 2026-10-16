@@ -169,20 +169,36 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			// The block reads back from the tracker as it was applied; off,
 			// it is absent, as a disabled block and no block are one thing.
 			l5.SolidBody = l5tracks.SolidBodyTuningFromTracker(trackerCfg, ws.clusterMembers.Load())
+			l5.BoxModel = l5tracks.BoxModelTuningFromTracker(trackerCfg)
 		}
 	}
 
 	return cfg
 }
 
-// tuningFullMembers is the tuning config's solid_body.full_members, false
-// without a block or with the estimator off.
+// tuningFullMembers is whether the tuning config needs every cluster member
+// on the tracker: solid_body.full_members, or a box model that fits the
+// rectangle to them. False without either block.
 func tuningFullMembers(cfg *cfgpkg.TuningConfig) bool {
-	if cfg == nil || cfg.L5.CvKfV1 == nil || cfg.L5.CvKfV1.SolidBody == nil {
+	if cfg == nil || cfg.L5.CvKfV1 == nil {
 		return false
 	}
-	sb := cfg.L5.CvKfV1.SolidBody
-	return sb.Enabled && sb.FullMembers
+	return l5NeedsMembers(&cfg.L5.CvKfV1.L5Common)
+}
+
+func l5NeedsMembers(l5 *cfgpkg.L5Common) bool {
+	sb := l5.SolidBody
+	return (sb != nil && sb.Enabled && sb.FullMembers) || l5.BoxModel.NeedsMembers()
+}
+
+// applyBoxModelTuning puts the config's whole box model block on the tracker
+// and the members switch, as applySolidBodyTuning does for its block.
+func applyBoxModelTuning(ws *Server, l5 *cfgpkg.L5Common) error {
+	ws.tracker.UpdateConfig(func(c *l5tracks.TrackerConfig) {
+		c.BoxModel = l5tracks.BoxModelConfigFromTuning(l5.BoxModel)
+	})
+	ws.clusterMembers.Store(l5NeedsMembers(l5))
+	return nil
 }
 
 // applySolidBodyTuning puts the config's whole solid-body block on the
@@ -198,7 +214,7 @@ func applySolidBodyTuning(ws *Server, l5 *cfgpkg.L5Common) error {
 		c.SolidBody = l5tracks.SolidBodyOptionsFromTuning(sb)
 		c.NearEdgeTracking, c.NearEdgeMedoidGate = nearEdge, gate
 	})
-	ws.clusterMembers.Store(sb != nil && sb.Enabled && sb.FullMembers)
+	ws.clusterMembers.Store(l5NeedsMembers(l5))
 	return nil
 }
 
@@ -464,6 +480,9 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 		l5 := cfg.L5.ActiveCommon()
 		if strings.HasPrefix(path, "l5.cv_kf_v1.solid_body.") {
 			return applySolidBodyTuning(ws, l5)
+		}
+		if strings.HasPrefix(path, "l5.cv_kf_v1.box_model.") {
+			return applyBoxModelTuning(ws, l5)
 		}
 		var gracePeriodErr error
 		gracePeriod := cfg.GetDeletedTrackGracePeriod()

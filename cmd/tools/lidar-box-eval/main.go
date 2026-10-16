@@ -155,6 +155,7 @@ func boxVariants() []variant {
 		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
 		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
 		with("km-k15", "curvature bound 0.15 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.15 }),
+		with("km-k20", "curvature bound 0.20 /m", func(c *l5tracks.BoxModelConfig) { c.MaxCurvature = 0.20 }),
 	}
 }
 
@@ -211,6 +212,7 @@ type rowAgg struct {
 	pairs, kinematic, rest, jump  int
 	restPairs                     int
 	sideslip                      []float64
+	efficiency, axisErr           []float64
 	movingRows                    int
 }
 
@@ -272,7 +274,8 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 			cluster = &f.Clusters[i]
 		}
 		in := l5tracks.BoxInput{Nanos: now, X: float64(t.X), Y: float64(t.Y), VX: float64(t.VX), VY: float64(t.VY),
-			VelCov: [3]float64{float64(t.P[10]), float64(t.P[11]), float64(t.P[15])}, Cluster: cluster}
+			VelCov: [3]float64{float64(t.P[10]), float64(t.P[11]), float64(t.P[15])}, Cluster: cluster,
+			Merge: t.MergeCandidate}
 		// Every variant follows every track from birth, warm-up included, so
 		// a scored frame's box has the history it would have had live.
 		boxes := map[string]box{}
@@ -299,8 +302,9 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 			continue
 		}
 		s.tracks[t.TrackID] = true
+		ref := minAreaRect(cluster)
 		for name, b := range boxes {
-			s.score(name, t, b, cluster, now)
+			s.score(name, t, b, cluster, ref, now)
 		}
 	}
 	for _, name := range s.names() {
@@ -345,7 +349,7 @@ const (
 	evalOverwideMetres = 2.8
 )
 
-func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l5tracks.WorldCluster, now int64) {
+func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l5tracks.WorldCluster, ref areaRef, now int64) {
 	st := s.trackState(name, t.TrackID)
 	agg := s.agg[name][t.TrackID]
 	if agg == nil {
@@ -377,6 +381,12 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 		points = len(members)
 		if points > 0 {
 			spanA, spanN = aHi-aLo, nHi-nLo
+			if ref.ok && spanA*spanN > 0 {
+				agg.efficiency = append(agg.efficiency, math.Min(ref.area/(spanA*spanN), 1))
+				if ref.axisOK {
+					agg.axisErr = append(agg.axisErr, foldQuarterAbs(b.psi-ref.axis)*180/math.Pi)
+				}
+			}
 			agg.rows++
 			if outside > 0 {
 				agg.outsideAny++
@@ -491,6 +501,13 @@ type Measure struct {
 	SideslipP50        float64 `json:"sideslip_p50_deg"`
 	SideslipP90        float64 `json:"sideslip_p90_deg"`
 	SideslipOver15     float64 `json:"sideslip_over15_share"`
+	EfficiencyP10      float64 `json:"area_efficiency_p10"`
+	EfficiencyP50      float64 `json:"area_efficiency_p50"`
+	EfficiencyUnder80  float64 `json:"area_efficiency_under80_share"`
+	AxisRows           int     `json:"min_area_axis_rows"`
+	AxisErrP50         float64 `json:"min_area_axis_error_p50_deg"`
+	AxisErrP90         float64 `json:"min_area_axis_error_p90_deg"`
+	AxisErrOver10      float64 `json:"min_area_axis_error_over10_share"`
 	WigglePer10mP50    float64 `json:"wiggle_deg_per_10m_p50"`
 	WigglePer10mP90    float64 `json:"wiggle_deg_per_10m_p90"`
 	LengthP50          float64 `json:"length_p50_m"`
@@ -525,6 +542,8 @@ func (s *scorer) summary() Summary {
 			"wiggle_deg_per_10m":        "per track, (Σ|Δψ| − |ΣΔψ|) per 10 m travelled: turning back and forth not explained by the net turn; tracks over 10 m",
 			"length_cv":                 "per track, coefficient of variation of the drawn length",
 			"overwide_share":            "share of scored rows whose drawn box is wider than 2.8 m on its shorter side",
+			"area_efficiency":           "per row, the area of the members' minimum-area rectangle over the area of their bounding rectangle along the drawn heading: 1 when the box is turned to the points' own axis, lower the further it is turned off it; independent of the course and of the rectangle fit",
+			"min_area_axis_error":       "per row with 30 or more members and a minimum-area rectangle of aspect 1.5 or more, the drawn axis's distance from that rectangle's axis, modulo 90°",
 		}}
 	for _, name := range s.names() {
 		groups := map[string][]string{}
@@ -537,7 +556,7 @@ func (s *scorer) summary() Summary {
 		for g, ids := range groups {
 			sort.Strings(ids)
 			m := &Measure{Tracks: len(ids)}
-			var maxOut, side, wiggle, lengths, widths, cvs []float64
+			var maxOut, side, wiggle, lengths, widths, cvs, eff, axisErr []float64
 			var share float64
 			var estNanos int64
 			var calls int
@@ -555,6 +574,8 @@ func (s *scorer) summary() Summary {
 				m.RestTurnShare += float64(a.rest)
 				m.JumpShare += float64(a.jump)
 				side = append(side, a.sideslip...)
+				eff = append(eff, a.efficiency...)
+				axisErr = append(axisErr, a.axisErr...)
 				if st := kept[name][id]; st != nil {
 					if st.path >= 10 {
 						wiggle = append(wiggle, (st.sumAbs-math.Abs(st.sumNet))*180/math.Pi/(st.path/10))
@@ -597,6 +618,14 @@ func (s *scorer) summary() Summary {
 				m.SideslipOver15 = float64(over) / float64(len(side))
 			}
 			m.WigglePer10mP50, m.WigglePer10mP90 = quantile(wiggle, .5), quantile(wiggle, .9)
+			m.EfficiencyP10, m.EfficiencyP50 = quantile(eff, .1), quantile(eff, .5)
+			m.EfficiencyUnder80 = shareBelow(eff, 0.8)
+			m.AxisRows = len(axisErr)
+			m.AxisErrP50, m.AxisErrP90 = quantile(axisErr, .5), quantile(axisErr, .9)
+			m.AxisErrOver10 = 1 - shareBelow(axisErr, 10.000001)
+			if len(axisErr) == 0 {
+				m.AxisErrOver10 = 0
+			}
 			m.LengthP50, m.WidthP50, m.LengthCVP50 = quantile(lengths, .5), quantile(widths, .5), quantile(cvs, .5)
 			if name != published && calls > 0 {
 				m.MicrosPerUpdate = float64(estNanos) / 1e3 / float64(calls)
@@ -638,4 +667,108 @@ func stddev(v []float64) float64 {
 		sum += (x - m) * (x - m)
 	}
 	return math.Sqrt(sum / float64(len(v)))
+}
+
+// areaRef is a frame's minimum-area rectangle of the members: its area, and
+// its axis when the rectangle is elongated enough to have one.
+type areaRef struct {
+	ok, axisOK bool
+	area, axis float64
+}
+
+const (
+	refMinPoints = 30
+	refMinAspect = 1.5
+)
+
+// minAreaRect is the members' minimum-area enclosing rectangle, by rotating
+// an edge of their convex hull: the optimum has a side on a hull edge.
+func minAreaRect(cluster *l5tracks.WorldCluster) areaRef {
+	if cluster == nil {
+		return areaRef{}
+	}
+	members := cluster.Members
+	if len(members) == 0 {
+		members = cluster.RetainedPoints
+	}
+	if len(members) < 3 {
+		return areaRef{}
+	}
+	pts := make([][2]float64, len(members))
+	for i, p := range members {
+		pts[i] = [2]float64{p.X, p.Y}
+	}
+	hull := convexHull(pts)
+	if len(hull) < 3 {
+		return areaRef{}
+	}
+	best := areaRef{area: math.Inf(1)}
+	var bestA, bestN float64
+	for i := range hull {
+		j := (i + 1) % len(hull)
+		theta := math.Atan2(hull[j][1]-hull[i][1], hull[j][0]-hull[i][0])
+		c, s := math.Cos(theta), math.Sin(theta)
+		aLo, aHi, nLo, nHi := math.Inf(1), math.Inf(-1), math.Inf(1), math.Inf(-1)
+		for _, p := range hull {
+			a, n := p[0]*c+p[1]*s, -p[0]*s+p[1]*c
+			aLo, aHi, nLo, nHi = math.Min(aLo, a), math.Max(aHi, a), math.Min(nLo, n), math.Max(nHi, n)
+		}
+		if area := (aHi - aLo) * (nHi - nLo); area < best.area {
+			best.area, best.axis = area, theta
+			bestA, bestN = aHi-aLo, nHi-nLo
+		}
+	}
+	if best.area <= 0 || math.IsInf(best.area, 0) {
+		return areaRef{}
+	}
+	best.ok = true
+	long, short := math.Max(bestA, bestN), math.Min(bestA, bestN)
+	best.axisOK = len(members) >= refMinPoints && short > 0 && long/short >= refMinAspect
+	return best
+}
+
+// convexHull is Andrew's monotone chain, counter-clockwise.
+func convexHull(pts [][2]float64) [][2]float64 {
+	sort.Slice(pts, func(i, j int) bool {
+		if pts[i][0] != pts[j][0] {
+			return pts[i][0] < pts[j][0]
+		}
+		return pts[i][1] < pts[j][1]
+	})
+	cross := func(o, a, b [2]float64) float64 {
+		return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0])
+	}
+	hull := make([][2]float64, 0, 2*len(pts))
+	for _, p := range pts {
+		for len(hull) >= 2 && cross(hull[len(hull)-2], hull[len(hull)-1], p) <= 0 {
+			hull = hull[:len(hull)-1]
+		}
+		hull = append(hull, p)
+	}
+	lower := len(hull) + 1
+	for i := len(pts) - 2; i >= 0; i-- {
+		p := pts[i]
+		for len(hull) >= lower && cross(hull[len(hull)-2], hull[len(hull)-1], p) <= 0 {
+			hull = hull[:len(hull)-1]
+		}
+		hull = append(hull, p)
+	}
+	return hull[:len(hull)-1]
+}
+
+func foldQuarterAbs(a float64) float64 {
+	return math.Abs(0.25 * math.Atan2(math.Sin(4*a), math.Cos(4*a)))
+}
+
+func shareBelow(v []float64, x float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	n := 0
+	for _, y := range v {
+		if y < x {
+			n++
+		}
+	}
+	return float64(n) / float64(len(v))
 }

@@ -120,6 +120,9 @@ type BoxInput struct {
 	// VelCov is the Kalman velocity covariance, [vxvx, vxvy, vyvy].
 	VelCov  [3]float64
 	Cluster *WorldCluster
+	// Merge says the tracker flagged the cluster as a probable merge
+	// (TrackedObject.MergeCandidate): its spans are not the body's.
+	Merge bool
 }
 
 // BoxState is the published box.
@@ -169,15 +172,23 @@ type BoxEstimator struct {
 // coasts it. Off, it does nothing and the box fields stay zero.
 func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNanos int64) {
 	if !t.Config.BoxModel.Enabled {
+		if track.box != nil {
+			// Switched off at run time: drop the box so viewers fall back to
+			// the legacy fields rather than drawing a frozen one.
+			track.box = nil
+			track.BoxX, track.BoxY, track.BoxHeadingRad, track.BoxLength, track.BoxWidth = 0, 0, 0, 0, 0
+		}
 		return
 	}
-	if track.box == nil {
+	if track.box == nil || track.box.cfg != t.Config.BoxModel {
+		// A new box, or a configuration changed at run time: start again
+		// rather than carry state estimated under other bounds.
 		track.box = NewBoxEstimator(t.Config.BoxModel)
 	}
 	b := track.box.Observe(BoxInput{
 		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
 		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
-		Cluster: cluster,
+		Cluster: cluster, Merge: track.MergeCandidate,
 	})
 	if b.Length <= 0 {
 		return
@@ -212,6 +223,11 @@ const (
 	// first frame it may turn faster while its first fits settle.
 	boxVehicleLengthMetres = 2.5
 	boxSettleNanos         = int64(1e9)
+	// boxMaxBelievedWidthMetres caps the width belief at the widest road
+	// vehicle allowed (2.55 m in the EU, 2.6 m in the US). The drawn box is
+	// still as wide as the frame's points: the cap only stops a merge or a
+	// stray return from widening the box beyond them.
+	boxMaxBelievedWidthMetres = 2.6
 )
 
 // Observe advances the box to the input's time. With a cluster it is updated
@@ -311,15 +327,15 @@ func (e *BoxEstimator) predict(dt float64) {
 // degrees off is not (it gains L·sin δ across).
 func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2]float64 {
 	var spans *[2]float64
-	if axis, sigma, ok := e.axisObservation(in.Cluster, pts); ok {
+	if axis, sigma, axisSpans, ok := e.axisWithSpans(in.Cluster, pts); ok {
 		r := foldQuarter(axis - e.psi)
 		v := sigma * sigma
 		gate := e.cfg.AxisGateSigmas
 		if gate <= 0 || r*r <= gate*gate*(e.p[0][0]+v) {
 			e.refusals = 0
 			e.update(r, v)
-			if math.Abs(foldQuarter(axis-e.psi)) <= 2*sigma {
-				a, n := spansAlong(pts, axis)
+			if math.Abs(foldQuarter(axis-e.psi)) <= 2*sigma && !in.Merge {
+				a, n := axisSpans[0], axisSpans[1]
 				if math.Abs(foldHalf(axis-e.psi)) > math.Pi/4 {
 					a, n = n, a
 				}
@@ -441,7 +457,7 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 	spanA, spanN := aHi-aLo, nHi-nLo
 	if evidence != nil && (in.Cluster == nil || !in.Cluster.GroundClipped) {
 		e.length.observe(evidence[0])
-		e.width.observe(evidence[1])
+		e.width.observe(math.Min(evidence[1], boxMaxBelievedWidthMetres))
 	}
 	length := math.Max(math.Max(e.length.estimate(), spanA), boxMinExtentMetres)
 	width := math.Max(math.Max(e.width.estimate(), spanN), boxMinExtentMetres)
@@ -484,8 +500,16 @@ func boxCentre(lo, hi, extent, s, carried float64, first bool, pull float64) flo
 // axisObservation is the frame's axis, modulo 90°, and its standard
 // deviation.
 func (e *BoxEstimator) axisObservation(cluster *WorldCluster, pts [][2]float64) (float64, float64, bool) {
+	axis, sigma, _, ok := e.axisWithSpans(cluster, pts)
+	return axis, sigma, ok
+}
+
+// axisWithSpans is axisObservation with the points' spans along the axis and
+// across it: the rectangle fit's, trimmed of the outermost hundredth at each
+// end, or the full spans of the points along the PCA axis.
+func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (float64, float64, [2]float64, bool) {
 	if cluster == nil {
-		return 0, 0, false
+		return 0, 0, [2]float64{}, false
 	}
 	scale := e.cfg.AxisSigmaScale
 	if scale <= 0 {
@@ -494,13 +518,15 @@ func (e *BoxEstimator) axisObservation(cluster *WorldCluster, pts [][2]float64) 
 	if e.cfg.AxisSource == BoxAxisPCA || (len(cluster.Members) == 0 && len(cluster.RetainedPoints) == 0) {
 		b := cluster.OBB
 		if b == nil || b.Length <= 0 || b.Width <= 0 {
-			return 0, 0, false
+			return 0, 0, [2]float64{}, false
 		}
 		long, short := math.Max(float64(b.Length), float64(b.Width)), math.Min(float64(b.Length), float64(b.Width))
 		if (long-short)/long < boxPCAMinAspect {
-			return 0, 0, false
+			return 0, 0, [2]float64{}, false
 		}
-		return foldQuarterPositive(float64(b.HeadingRad)), boxPCAAxisSigmaRad * scale, true
+		axis := foldQuarterPositive(float64(b.HeadingRad))
+		a, n := spansAlong(pts, axis)
+		return axis, boxPCAAxisSigmaRad * scale, [2]float64{a, n}, true
 	}
 	members := cluster.Members
 	if len(members) == 0 {
@@ -508,9 +534,9 @@ func (e *BoxEstimator) axisObservation(cluster *WorldCluster, pts [][2]float64) 
 	}
 	fit := l4perception.FitRectangle(members)
 	if !fit.Known() {
-		return 0, 0, false
+		return 0, 0, [2]float64{}, false
 	}
-	return fit.AxisRad, fit.SigmaRad * scale, true
+	return fit.AxisRad, fit.SigmaRad * scale, [2]float64{fit.Span1, fit.Span2}, true
 }
 
 // courseObservation is the direction of travel, when the track is fast

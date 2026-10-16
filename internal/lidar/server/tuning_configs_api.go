@@ -294,6 +294,9 @@ func (ws *Server) applyTuningConfigFile(rel string) (*TuningConfigInfo, error) {
 	if cfg.L5.CvKfV1 != nil && cfg.L5.CvKfV1.SolidBody == nil {
 		ws.clearSolidBodyTuning()
 	}
+	if cfg.L5.CvKfV1 != nil && cfg.L5.CvKfV1.BoxModel == nil {
+		ws.clearBoxModelTuning()
+	}
 
 	info := describeTuningConfig(abs, clean, nil)
 	ws.tuningConfigMu.Lock()
@@ -315,6 +318,24 @@ func (ws *Server) clearSolidBodyTuning() {
 		ws.tuningConfig.L5.CvKfV1.SolidBody = nil
 	}
 	ws.tuningConfigMu.Unlock()
+}
+
+// clearBoxModelTuning switches the box model off on the tracker and drops
+// the block from the stored config; the members switch then follows the
+// solid body alone.
+func (ws *Server) clearBoxModelTuning() {
+	ws.tuningConfigMu.Lock()
+	l5 := &cfgpkg.L5Common{}
+	if ws.tuningConfig != nil && ws.tuningConfig.L5.CvKfV1 != nil {
+		ws.tuningConfig.L5.CvKfV1.BoxModel = nil
+		l5.SolidBody = ws.tuningConfig.L5.CvKfV1.SolidBody
+	}
+	ws.tuningConfigMu.Unlock()
+	if ws.tracker != nil {
+		_ = applyBoxModelTuning(ws, l5)
+	} else {
+		ws.clusterMembers.Store(l5NeedsMembers(l5))
+	}
 }
 
 // activeTuning is the config file the last replay start applied and its

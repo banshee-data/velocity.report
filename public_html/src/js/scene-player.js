@@ -201,9 +201,11 @@ export class TrackVisual {
 
   /** Positions the box and its edges. Trail placement is separate: see setTrail. */
   update(t) {
-    const x = toSceneX(t.x);
+    // The box model publishes the box's own centre (bx, by), which is not
+    // the tracked position; without it the box is drawn at the track.
+    const x = toSceneX(t.bx ?? t.x);
     const y = toSceneY(t.z);
-    const z = toSceneZ(t.y);
+    const z = toSceneZ(t.by ?? t.y);
 
     const l = Math.max(t.l || 0, MIN_BOX_EXTENT);
     const w = Math.max(t.w || 0, MIN_BOX_EXTENT);
@@ -211,7 +213,6 @@ export class TrackVisual {
 
     for (const obj of [this.edges, this.fill]) {
       obj.visible = true;
-      // Track position is the oriented box centre, so it is used directly.
       obj.position.set(x, y, z);
       obj.scale.set(l, h, w);
       // ENU yaw is counter-clockwise about up; three.js rotates about +Y the

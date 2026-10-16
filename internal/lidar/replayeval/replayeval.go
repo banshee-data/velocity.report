@@ -896,7 +896,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		Dwell:                     dwell,
 		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,
-		KeepClusterMembers:        cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
+		KeepClusterMembers:        cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments) || tuningCfg.L5.CvKfV1.BoxModel.NeedsMembers(),
 		ObservationSourceID:       observationSourceID,
 		ObservationCalibrationID:  observationCalibrationID,
 		StateEstimatorID:          "cv_kf_v1",

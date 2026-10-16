@@ -280,6 +280,13 @@ type Track struct {
 	BBoxWidth      float32 // Per-frame cluster width (metres, perpendicular to heading)
 	BBoxHeight     float32 // Per-frame cluster height (metres, Z extent)
 	BBoxHeadingRad float32
+	// BBoxCenterX and BBoxCenterY are the box's centre when the tracker's box
+	// model drew it (BBoxCenterValid): the box that holds the cluster's
+	// points, centred off the tracked position. Otherwise the box is the
+	// legacy per-frame OBB, drawn at (X, Y).
+	BBoxCenterX     float32
+	BBoxCenterY     float32
+	BBoxCenterValid bool
 
 	// Features
 	HeightP95Max     float32

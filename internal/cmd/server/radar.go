@@ -697,7 +697,7 @@ func Main(args []string) int {
 				FgForwarder:         foregroundForwarder,
 				Tracker:             tracker,
 				Classifier:          classifier,
-				KeepClusterMembers:  tuningSolidBodyFullMembers(tuningCfg),
+				KeepClusterMembers:  tuningSolidBodyFullMembers(tuningCfg) || tuningBoxModelMembers(tuningCfg),
 				DB:                  lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
 				SensorID:            lidarSensorID,
 				VisualiserPublisher: visualiserPublisher,

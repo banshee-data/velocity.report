@@ -133,8 +133,13 @@ type TrackJSON struct {
 	Width    float64 `json:"w"`
 	Height   float64 `json:"h"`
 	BoxYaw   float64 `json:"bh"`
-	Class    string  `json:"c,omitempty"`
-	Conf     float64 `json:"cf,omitempty"`
+	// BoxX and BoxY are the drawn box's centre when the tracker's box model
+	// published one, which is not the tracked position; absent, the box is
+	// drawn at (X, Y).
+	BoxX  *float64 `json:"bx,omitempty"`
+	BoxY  *float64 `json:"by,omitempty"`
+	Class string   `json:"c,omitempty"`
+	Conf  float64  `json:"cf,omitempty"`
 }
 
 // Manifest composes several exported parts into one logical timeline. It
