@@ -1,6 +1,10 @@
 # Experiment: Lombard–Laguna scene-change recovery
 
 - **Status:** Proposed — measurements from the web export are available; raw replay not run
+- **Measured:** H1 holds (l3bg0013, October 16, 2026). The raw capture shows a 0.26° yaw, 0.09°
+  tilt and 6 mm step within 0.2 s at 34:00.1 into the placement (33:20.6 is the web export's
+  offset), 30 to 130 times the quiet pairs' largest, a second pose change at +121 s and the sensor
+  picked up from +285 s: [pose step](../../../docs/lidar/operations/l3-scene-change-pose-step-2026-10.md)
 - **Owner:** LiDAR pipeline maintainer; independent reference reviewer to be assigned
 - **Related plan:** [LiDAR scene-change recovery sprint](../../../docs/plans/lidar-scene-change-recovery-sprint-plan.md)
 - **Layers:** L2 evidence, L3 Grid, L4 clustering, L5 lifecycle, survey export

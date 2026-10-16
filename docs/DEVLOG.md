@@ -8,8 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 16, 2026 - Follow-up experiments: the dwell policy on labelled road users
+## October 16, 2026 - Follow-up experiments: the dwell policy on labelled road users, and the Lombard–Laguna scene change was a knock to the sensor
 
+- {claude/experiment-followup} Added `lidar-pose-step`, which fits a robust rigid transform between the static background of two raw-capture windows (median range per ring and 0.2° bin, point-to-plane under Huber and Tukey losses, sector jackknife and held-out sectors, abstention on one-plane or one-sector support), and answered the scene-change sprint's S2 with it (l3bg0013): the Lombard–Laguna event is a 0.262° yaw, 0.094° tilt and 6 mm step within 0.2 s at 34:00.1 into the placement, 30 to 130 times the largest of 18 quiet pairs and removed by the fit in every sector; a second change at +121 s removes the tilt and adds yaw, and the sensor is picked up from +285 s, 77 s of which the dwell report's last bin had read as the event's tail: [report](lidar/operations/l3-scene-change-pose-step-2026-10.md).
 - {claude/experiment-followup} Put the dwell policy on the two labelled kirk captures under the shipped L3 and CMR (l3bg0011): it absorbed no moving road user, and its one absorption under CMR on kirk0 was the parked car the reviewed pack labels in every frame, which accounts for the whole per-frame drop (false negatives 928 to 1,419, HOTA 0.533 to 0.494); the sweep's ground truth labels the same returns noise. Measured CMR's W3 for the first time: retention 0.869 against the shipped 0.494, fragmented instants 17% against 36%, pedestrians 0.83 against 0.17: [report](lidar/operations/l3-dwell-policy-labelled-cost-2026-10.md).
 
 ## October 15, 2026 - Survey pages lead with the speed result, and VRLOG seek no longer races the replay loop

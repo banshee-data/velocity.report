@@ -1,6 +1,8 @@
 # LiDAR scene-change recovery sprint
 
-- **Status:** Proposed — export analysis complete; raw-capture experiments not run
+- **Status:** Proposed — export analysis complete; S2's pose question answered from the raw capture
+  ([pose step](../lidar/operations/l3-scene-change-pose-step-2026-10.md): a physical step, then a
+  second change at +121 s); recovery not started
 - **Owner:** LiDAR pipeline maintainer; reviewer for capture labels and survey output to be assigned
 - **Scope:** Ten engineer-days, starting when raw captures and baseline provenance are available
 - **Layers:** L3 Grid, pipeline coordination, L5 lifecycle, L9 recording, public survey export

@@ -31,6 +31,10 @@ new dwell policy that hands an object stationary for 20 s to the background.
 - **The last five minutes are the scene change.** All three arms jump to 8.6 to 13.8 clusters per
   frame after the event the scene-change proposal documents (45 tracks in 0.2 s at 33:20.6); that
   is a separate problem, and the policy cuts CMR's last-bin count from 13.8 to 8.6 without solving it.
+  Since measured ([pose step](l3-scene-change-pose-step-2026-10.md)): the event is a knock to the
+  sensor at 32:50 of this replay's uptime (34:00.1 into the placement; 33:20.6 was the web export's
+  own offset), a second pose change follows at 34:51, and from 37:35 the sensor is being picked up,
+  so the last bin is not one event's tail.
 
 ## Method
 
@@ -85,7 +89,9 @@ By uptime (clusters per frame; stationary tracks alive at the bin's end; the pol
 |        35–40 |        8.75 |        13.77 |                 8.62 |        0 |         0 |           0 |       18 |
 
 The 30–35 minute bin holds the scene change at 33:20.6 placement time, and the last bin is its
-tail.
+tail. (Since measured: the knock is at 32:50 of uptime and a second pose change at 34:51, both in
+the 30–35 bin; the last bin includes about 77 s of the sensor being carried, from 37:35, past the
+site's indexed end. See the [pose step](l3-scene-change-pose-step-2026-10.md).)
 
 The absorbed tracks sat at a median 20 m from the sensor (10th to 90th percentile 5 to 49 m); they
 were classed dynamic (48), pedestrian (16), bird (12) and car (10), with a median of 23 returns and

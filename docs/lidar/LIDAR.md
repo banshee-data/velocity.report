@@ -72,7 +72,9 @@ them, not traffic during settling. The [dwell policy](operations/l3-dwell-policy
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
 tracks over a 39-minute capture; on the labelled kirk captures it
 [costs no moving road user](operations/l3-dwell-policy-labelled-cost-2026-10.md) and absorbs the
-parked car the reviewed pack counts. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
+parked car the reviewed pack counts. The [pose step](operations/l3-scene-change-pose-step-2026-10.md)
+shows the capture's late scene change is a knock to the sensor, then a second change and the
+pickup. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
 measures how much of each reviewed object reaches a cluster and into how many it splits, and the
 [range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it.
 
