@@ -95,8 +95,12 @@ type caseSummary struct {
 	// CoverageSurvey is the declaration -survey-coverage measured from the
 	// first run, and its statistics, as added to the declaration set.
 	CoverageSurvey *replayeval.CoverageSurvey `json:"coverage_survey,omitempty"`
-	// DwellPolicy is what the dwell_policy experiment absorbed in the first
-	// run, over the whole processed window; identical on the repeat by check.
+	// DwellPolicy is what the dwell policy (dwell_policy, or its _t40, _t60,
+	// _t40_drift2m or _t40_median setting) absorbed in the first run, over
+	// the whole processed window, with the T it ran at
+	// (absorb_after_seconds) and the stationary clock's drift rule
+	// (stationary_drift_metres, stationary_anchor); identical on the repeat
+	// by check.
 	DwellPolicy *pipeline.DwellReport `json:"dwell_policy,omitempty"`
 }
 
@@ -463,9 +467,9 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			cs.ExpiredByReason.OutOfFOV)
 		if d := firstResult.Dwell; d != nil {
 			summary.DwellPolicy = d
-			fmt.Printf("%s: dwell policy after=%gs absorbed tracks=%d cells=%d returns=%d skipped=%d (scoring window absorbed=%d)\n",
-				selectedCase.ID, d.AbsorbAfterSeconds, d.TracksAbsorbed, d.CellsAbsorbed, d.ReturnsAbsorbed, d.Skipped,
-				cs.ExpiredByReason.Absorbed)
+			fmt.Printf("%s: dwell policy after=%gs drift=%gm anchor=%s absorbed tracks=%d cells=%d returns=%d skipped=%d (scoring window absorbed=%d)\n",
+				selectedCase.ID, d.AbsorbAfterSeconds, d.StationaryDriftMetres, d.StationaryAnchor,
+				d.TracksAbsorbed, d.CellsAbsorbed, d.ReturnsAbsorbed, d.Skipped, cs.ExpiredByReason.Absorbed)
 		}
 		if fit := firstResult.GroundSurfaceFit; fit != nil {
 			summary.GroundSurfaceSupport = fit.Global.Support

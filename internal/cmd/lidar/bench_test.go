@@ -105,9 +105,27 @@ func TestBenchExperimentsAcceptsOnlyBackgroundExperiments(t *testing.T) {
 	if got, err := benchExperiments(""); err != nil || len(got) != 0 {
 		t.Errorf("empty flag: %v, %v; want none and no error", got, err)
 	}
+	// The l3bg0010 levers act on the background alone, so the bench runs
+	// them, alone and together.
+	for _, flagValue := range []string{"region_overrides_cell_tercile", "volatile_window_cap_1m", "volatile_window_cap_2m",
+		"region_overrides_cell_tercile,volatile_window_cap_2m,region_overrides_volatile_only"} {
+		if _, err := benchExperiments(flagValue); err != nil {
+			t.Errorf("%s refused: %v", flagValue, err)
+		}
+	}
+	// Combinations the replay harness refuses, the bench refuses too.
+	for _, flagValue := range []string{"volatile_window_cap_1m,volatile_window_cap_2m",
+		"no_region_overrides,region_overrides_cell_tercile", "region_overrides_quiet_only,volatile_window_cap_1m"} {
+		if _, err := benchExperiments(flagValue); err == nil {
+			t.Errorf("%s was accepted", flagValue)
+		}
+	}
 	// A tracker experiment would run as the baseline in the bench and be
-	// reported as the option, so it is refused rather than ignored.
-	for _, name := range []string{"cascade", "solid_body", "not_an_experiment"} {
+	// reported as the option, so it is refused rather than ignored. The
+	// dwell policy, at any of its settings, ends tracks, so it is one.
+	for _, name := range []string{"cascade", "solid_body", "not_an_experiment",
+		"dwell_policy", "dwell_policy_t40", "dwell_policy_t60",
+		"dwell_policy_t40_drift2m", "dwell_policy_t40_median"} {
 		if _, err := benchExperiments(name); err == nil {
 			t.Errorf("%s was accepted", name)
 		}
@@ -115,8 +133,10 @@ func TestBenchExperimentsAcceptsOnlyBackgroundExperiments(t *testing.T) {
 }
 
 func TestBenchMainRejectsTrackerExperiment(t *testing.T) {
-	if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", "cascade"}); code != 2 {
-		t.Errorf("BenchMain(-experiment cascade) = %d, want 2", code)
+	for _, name := range []string{"cascade", "dwell_policy_t40", "dwell_policy_t40_median"} {
+		if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", name}); code != 2 {
+			t.Errorf("BenchMain(-experiment %s) = %d, want 2", name, code)
+		}
 	}
 }
 
@@ -140,5 +160,30 @@ func TestBenchMainRunsABackgroundExperiment(t *testing.T) {
 	}
 	if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", "no_region_overrides,region_overrides_quiet_only"}); code != 2 {
 		t.Errorf("contradictory scopes: BenchMain = %d, want 2", code)
+	}
+	if code := BenchMain([]string{"-pcap", benchFixture, "-experiment", "volatile_window_cap_1m,volatile_window_cap_2m"}); code != 2 {
+		t.Errorf("both window caps: BenchMain = %d, want 2", code)
+	}
+}
+
+func TestBenchMainRunsTheRegionLevers(t *testing.T) {
+	dir := t.TempDir()
+	out := filepath.Join(dir, "bench.json")
+	code := BenchMain([]string{
+		"-pcap", benchFixture, "-output", dir, "-benchmark-output", out,
+		"-duration-seconds", "2", "-max-frames-over-budget-pct", "100", "-quiet",
+		"-experiment", "volatile_window_cap_1m,region_overrides_cell_tercile",
+	})
+	if code != 0 {
+		t.Fatalf("BenchMain = %d, want 0", code)
+	}
+	raw, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"region_overrides_cell_tercile", "volatile_window_cap_1m"} {
+		if !strings.Contains(string(raw), `"`+name+`"`) {
+			t.Errorf("benchmark JSON does not record %s:\n%s", name, raw)
+		}
 	}
 }

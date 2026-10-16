@@ -57,7 +57,7 @@ func settledThreeZoneGrid(t *testing.T, noiseRel float32) *BackgroundGrid {
 // effectiveNoise is the noise fraction the classifier would use for a cell
 // given the grid's current global parameters.
 func effectiveNoise(g *BackgroundGrid, ring int) float64 {
-	noise, _, _ := g.effectiveCellParams(g.Idx(ring, 0),
+	noise, _, _, _ := g.effectiveCellParams(g.Idx(ring, 0),
 		float64(g.Params.NoiseRelativeFraction), g.Params.NeighbourConfirmationCount,
 		float64(g.Params.BackgroundUpdateFraction))
 	return noise
@@ -110,7 +110,7 @@ func TestDisableRegionOverridesServesTheGlobals(t *testing.T) {
 		t.Errorf("effective noise fraction %.4f after a runtime change with overrides disabled, want 0.005", got)
 	}
 
-	_, neighbours, alpha := g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
+	_, neighbours, alpha, _ := g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
 	if neighbours != 3 || !approx(alpha, 0.02) {
 		t.Errorf("volatile region still overrides neighbours=%d alpha=%.4f with overrides disabled, want 3 and 0.02",
 			neighbours, alpha)
@@ -128,13 +128,13 @@ func TestRegionOverrideScopeSplitsTheTerciles(t *testing.T) {
 
 	g.Params.RegionOverrideScope = RegionOverrideScopeVolatile
 	for _, ring := range []int{0, 2} {
-		noise, neighbours, alpha := g.effectiveCellParams(g.Idx(ring, 0), 0.02, 3, 0.02)
+		noise, neighbours, alpha, _ := g.effectiveCellParams(g.Idx(ring, 0), 0.02, 3, 0.02)
 		if !approx(noise, 0.02) || neighbours != 3 || !approx(alpha, 0.02) {
 			t.Errorf("volatile scope, ring %d (stable or variable): noise %.4f neighbours %d alpha %.4f, want the globals 0.02, 3, 0.02",
 				ring, noise, neighbours, alpha)
 		}
 	}
-	noise, neighbours, alpha := g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
+	noise, neighbours, alpha, _ := g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
 	if !approx(noise, 0.16) || neighbours != 5 || !approx(alpha, 0.01) {
 		t.Errorf("volatile scope, ring 4 (volatile): noise %.4f neighbours %d alpha %.4f, want the overrides 0.16, 5, 0.01",
 			noise, neighbours, alpha)
@@ -147,7 +147,7 @@ func TestRegionOverrideScopeSplitsTheTerciles(t *testing.T) {
 	if got := effectiveNoise(g, 2); !approx(got, 0.06) {
 		t.Errorf("quiet scope, variable ring: effective noise %.4f, want the x3 override 0.06", got)
 	}
-	noise, neighbours, alpha = g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
+	noise, neighbours, alpha, _ = g.effectiveCellParams(g.Idx(4, 0), 0.02, 3, 0.02)
 	if !approx(noise, 0.02) || neighbours != 3 || !approx(alpha, 0.02) {
 		t.Errorf("quiet scope, ring 4 (volatile): noise %.4f neighbours %d alpha %.4f, want the globals 0.02, 3, 0.02",
 			noise, neighbours, alpha)

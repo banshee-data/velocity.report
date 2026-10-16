@@ -31,6 +31,10 @@ new dwell policy that hands an object stationary for 20 s to the background.
 - **The last five minutes are the scene change.** All three arms jump to 8.6 to 13.8 clusters per
   frame after the event the scene-change proposal documents (45 tracks in 0.2 s at 33:20.6); that
   is a separate problem, and the policy cuts CMR's last-bin count from 13.8 to 8.6 without solving it.
+  Since measured ([pose step](l3-scene-change-pose-step-2026-10.md)): the event is a knock to the
+  sensor at 32:50 of this replay's uptime (34:00.1 into the placement; 33:20.6 was the web export's
+  own offset), a second pose change follows at 34:51, and from 37:35 the sensor is being picked up,
+  so the last bin is not one event's tail.
 
 ## Method
 
@@ -85,7 +89,9 @@ By uptime (clusters per frame; stationary tracks alive at the bin's end; the pol
 |        35–40 |        8.75 |        13.77 |                 8.62 |        0 |         0 |           0 |       18 |
 
 The 30–35 minute bin holds the scene change at 33:20.6 placement time, and the last bin is its
-tail.
+tail. (Since measured: the knock is at 32:50 of uptime and a second pose change at 34:51, both in
+the 30–35 bin; the last bin includes about 77 s of the sensor being carried, from 37:35, past the
+site's indexed end. See the [pose step](l3-scene-change-pose-step-2026-10.md).)
 
 The absorbed tracks sat at a median 20 m from the sensor (10th to 90th percentile 5 to 49 m); they
 were classed dynamic (48), pedestrian (16), bird (12) and car (10), with a median of 23 returns and
@@ -113,6 +119,9 @@ suggest. Observed track-instants fall by 18%, from 147,614 to 121,128.
   that built the policy measured a 56-frame recovery for a flanked car on a synthetic ring, and this
   run did not measure departures at all.
 - **Other values of T.** 20 s is fixed; a pedestrian-aware T, or a longer one, was not tried.
+  Since measured ([the clock](l3-dwell-policy-clock-2026-10.md)): at 40 s the policy keeps CMR's
+  moving tracks, absorbs a quarter as many tracks with no re-track excess, and still leaves only
+  one stationary track over 60 s.
 - **One placement, one commit pair.** a0 and CMR were replayed at 995036d64 and CMR + dwell at
   eac41ad9e; the commits between them add the region map to the evidence and the option itself,
   neither of which changes a replay with the option off.
@@ -124,6 +133,10 @@ suggest. Observed track-instants fall by 18%, from 147,614 to 121,128.
   needs before it can ship.
 - **Measure the cost before shipping it**: the pedestrians it absorbs and the spot it absorbs
   repeatedly, on a capture with labels, and departures on one with a car that parks and leaves.
+  Since measured on kirk0 and kirk1 ([labelled cost](l3-dwell-policy-labelled-cost-2026-10.md)):
+  no moving road user is absorbed, and the one absorption is a parked car the reviewed pack labels
+  in every frame; neither capture holds a person standing for 20 s, so the pedestrian cost is still
+  open.
 - **Treat the scene change separately**, as the existing proposal does: the policy is not a
   recovery mechanism.
 

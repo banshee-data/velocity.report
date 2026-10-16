@@ -312,7 +312,10 @@ tracks over 20 s rise 18 to 54.
   kirk1's coverage is the only out-of-sample label check, and it counts tracks overlapping a
   first-sighting span, not detections. The per-frame scores use a tuning split.
 - The corpus screen is label-free: more clusters and tracks are not more road users, and more
-  stationary tracks may be parked cars or flicker.
+  stationary tracks may be parked cars or flicker. Since extended
+  ([corpus, both segments](l3-candidates-corpus-dwell-2026-10.md)): over all 23 first segments and
+  the 22 second segments CMR raises moving tracks at 44 of 45, and the dwell policy clears the long
+  stationary tracks it adds.
 - The arrival regime: a narrowed window makes a car that parks after settling stay foreground
   longer, and every arm that finds more road users shows more stationary tracks. An 83 s and a
   172 s capture cannot measure the long-uptime behaviour the beam-wise review's Section 5.1

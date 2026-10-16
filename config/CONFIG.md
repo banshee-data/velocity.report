@@ -319,12 +319,38 @@ named scale replaces the block's.
 
 The other replay experiments have no config key yet, so a set cannot carry
 them, and the server cannot run them: `adaptive_uncertainty`,
-`likelihood_cost`, `cascade`, `density_cap`, `flip_rule`,
-`no_region_overrides`, `measurement_time`, `capture_gap_predict`,
-`coast_support`, `coast_time_inflation`, `class_coast_bounds`,
-`reacquisition_guard`, `occlusion_continuity` and `fixed_lag_rts`. An arm
-that uses one runs through the offline replay tools, and its report names the
-experiment beside the set.
+`likelihood_cost`, `cascade`, `density_cap`, `range_adaptive_eps`,
+`flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
+`region_overrides_quiet_only`, `region_overrides_cell_tercile`,
+`volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
+`dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
+`dwell_policy_t40_drift2m`, `dwell_policy_t40_median`, `measurement_time`,
+`capture_gap_predict`, `coast_support`, `coast_time_inflation`,
+`class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity` and
+`fixed_lag_rts`. An arm that uses one runs through the offline replay tools,
+and its report names the experiment beside the set.
+
+The L3 background experiments among them (`no_region_overrides`, the
+`region_overrides_*` and `volatile_window_cap_*` names, and `support_filter`)
+also run in `lidar-bench -experiment`. A replay names at most one of
+`no_region_overrides` and the two scopes, and at most one window cap. It may
+not name `region_overrides_cell_tercile` with `no_region_overrides`, or a
+window cap with `no_region_overrides` or `region_overrides_quiet_only`: under
+those no cell runs the override the option changes, so the arm would run as
+another and be reported under its name.
+
+`dwell_policy` absorbs a track that has stood still for 20 s: at most
+0.5 m/s, and within 1 m of its estimate when the stationary run began.
+`dwell_policy_t40` and `dwell_policy_t60` are the same policy at 40 s and
+60 s, with the same speed, drift rule and box margin.
+`dwell_policy_t40_drift2m` and `dwell_policy_t40_median` keep 40 s and change
+the drift rule: 2 m from the run's first estimate, or 1 m from the running
+median of the run's estimates over its last 400 observed frames. A replay
+names at most one of the five, and the manifest's `dwell_policy` section
+records the time used as `absorb_after_seconds` and the drift rule as
+`stationary_drift_metres` and `stationary_anchor` (`first_estimate` or
+`running_median`, with `stationary_median_window_frames` for the median). The
+policy ends tracks, so `lidar-bench` refuses all five.
 
 ## Key order
 

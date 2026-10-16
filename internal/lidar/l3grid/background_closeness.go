@@ -77,3 +77,25 @@ func LockedBaselineWindowMetres(lockedMultiplier, lockedSpread, noiseRelative, o
 	}
 	return w
 }
+
+// CappedOverrideWindowMetres bounds an acceptance window computed from a
+// volatile tercile's override (BackgroundParams.VolatileWindowCapMetres): the
+// result is window, or the larger of globalWindow and capMetres when window is
+// wider than that. globalWindow is the same window computed from the global
+// parameters for the same cell and range, so a capped cell never drops below
+// what an un-overridden cell would accept, and the cap bounds only the part of
+// the window the override added. It never widens a window, and capMetres of
+// zero or less returns window unchanged.
+func CappedOverrideWindowMetres(window, globalWindow, capMetres float64) float64 {
+	if capMetres <= 0 {
+		return window
+	}
+	bound := globalWindow
+	if capMetres > bound {
+		bound = capMetres
+	}
+	if window > bound {
+		return bound
+	}
+	return window
+}

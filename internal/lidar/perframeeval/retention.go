@@ -149,6 +149,9 @@ type RetentionMask struct {
 	Class       string
 	RangeM      float64
 	Points      [][3]float32
+	// Indices are the returns' positions in the pack sample, parallel to
+	// Points: how the fate measure reaches each return's packet identity.
+	Indices []int
 }
 
 // InstantCluster is one cluster an instant's returns fell into.
@@ -420,6 +423,7 @@ func retentionMasks(b *boundReference, opts RetentionOptions) ([]RetentionMask, 
 			}
 			for _, i := range m.PointIndices {
 				rm.Points = append(rm.Points, [3]float32{pts.X[i], pts.Y[i], pts.Z[i]})
+				rm.Indices = append(rm.Indices, i)
 			}
 			masks = append(masks, rm)
 		}

@@ -71,6 +71,40 @@ type BackgroundParams struct {
 	// RegionOverrideScopeAll, so the config fingerprint does not move.
 	RegionOverrideScope RegionOverrideScope
 
+	// RegionOverridesByCellTercile makes a settled cell run at the override
+	// parameters of its own variance tercile (RegionManager.CellTercile at
+	// identification) instead of its merged region's. Merging moves cells
+	// into regions of another tercile (about 5,000 of kirk0's into volatile
+	// ones); with this on, a stable cell merged into a volatile region keeps
+	// the stable tercile's x4, and a volatile cell merged into a stable one
+	// gets the volatile tercile's x8. The parameters for each tercile are the
+	// ones identification assigned a region of that tercile, fixed from the
+	// config in force then (RegionManager.TercileParams). A cell with no
+	// tercile, unseen while the grid settled, runs at the globals; so does
+	// every cell after a restore, which records no cell terciles.
+	// RegionOverrideScope then tests the cell's own tercile, and
+	// DisableRegionOverrides wins. Go-level and default false, so the config
+	// fingerprint does not move (replay experiment
+	// region_overrides_cell_tercile, l3bg0010).
+	RegionOverridesByCellTercile bool
+
+	// VolatileWindowCapMetres, when positive, bounds the foreground
+	// acceptance windows of a cell whose parameters come from a volatile
+	// tercile's override (its region's, or its own under
+	// RegionOverridesByCellTercile): the closeness window and the
+	// locked-baseline window are each capped at the larger of the window the
+	// global parameters give that cell at that range and this many metres,
+	// so the x8 relative window no longer grows several metres deep with
+	// range. Neighbour confirmation's window is capped the same way, from the
+	// cell under test's override. The cap never widens a window, so it cannot
+	// take a cell below its global window; the freeze and stale-model
+	// thresholds keep the uncapped closeness window, and the neighbour count
+	// and update fraction overrides are untouched. Zero is off. Go-level and
+	// default zero, so the config fingerprint does not move (replay
+	// experiments volatile_window_cap_1m and volatile_window_cap_2m,
+	// l3bg0010).
+	VolatileWindowCapMetres float64
+
 	// SupportFilter, when set, runs the range-image support filter on the
 	// per-point foreground mask after every cell has been updated (the
 	// beam-wise review's E4): a cell keeps its foreground only when enough
@@ -232,10 +266,18 @@ type RegionManager struct {
 	// before small regions were merged into their neighbours, and
 	// TercileThresholds the two settling-spread cut points that split them
 	// (a cell at or above a cut point falls in the tercile above it). Both
-	// are evidence only, persisted with the region snapshot and never read
-	// by the pipeline; nil until identification, and after a restore.
+	// are persisted with the region snapshot as evidence; the pipeline reads
+	// CellTercile only under BackgroundParams.RegionOverridesByCellTercile.
+	// Nil until identification, and after a restore.
 	CellTercile       []VarianceTercile
 	TercileThresholds []float64
+	// TercileParams are the override parameters identification assigns a
+	// region of each tercile, indexed by VarianceTercile-1 (stable, variable,
+	// volatile). Every region's Params are copied from here, so a cell
+	// served by its own tercile under RegionOverridesByCellTercile runs at
+	// exactly what a region of that tercile runs at. In memory only, never
+	// persisted; nil until identification and after a restore.
+	TercileParams []RegionParams
 }
 
 // HasDebugRange returns true if any debug range parameters are set.
@@ -451,28 +493,43 @@ func (g *BackgroundGrid) sceneSignatureUnlocked() string {
 // region snapshots store 0 (the Go zero value) meaning "not explicitly set".
 // Using 0 as "disable" would cause neighbourConfirmCount >= 0 to be always true
 // in the foreground classifier, absorbing all points into the background.
-func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float64, defaultNeighbourConfirm int, defaultAlpha float64) (noiseRel float64, neighbourConfirm int, alpha float64) {
+//
+// The overrides come from the cell's merged region, or, under
+// RegionOverridesByCellTercile, from the cell's own tercile. volatile reports
+// that they were a volatile tercile's, which is what VolatileWindowCapMetres
+// bounds; it is false whenever the globals are served.
+func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float64, defaultNeighbourConfirm int, defaultAlpha float64) (noiseRel float64, neighbourConfirm int, alpha float64, volatile bool) {
 	noiseRel = defaultNoiseRel
 	neighbourConfirm = defaultNeighbourConfirm
 	alpha = defaultAlpha
 	if g.Params.DisableRegionOverrides || g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
 		return
 	}
-	regionID := g.RegionMgr.GetRegionForCell(cellIdx)
+	var regionParams *RegionParams
+	var fromVolatile bool
+	if g.Params.RegionOverridesByCellTercile {
+		tercile := g.RegionMgr.GetCellTercile(cellIdx)
+		regionParams = g.RegionMgr.GetTercileParams(tercile)
+		fromVolatile = tercile == TercileVolatile
+	} else {
+		regionID := g.RegionMgr.GetRegionForCell(cellIdx)
+		regionParams = g.RegionMgr.GetRegionParams(regionID)
+		fromVolatile = g.RegionMgr.IsVolatileRegion(regionID)
+	}
 	switch g.Params.RegionOverrideScope {
 	case RegionOverrideScopeVolatile:
-		if !g.RegionMgr.IsVolatileRegion(regionID) {
+		if !fromVolatile {
 			return
 		}
 	case RegionOverrideScopeQuiet:
-		if g.RegionMgr.IsVolatileRegion(regionID) {
+		if fromVolatile {
 			return
 		}
 	}
-	regionParams := g.RegionMgr.GetRegionParams(regionID)
 	if regionParams == nil {
 		return
 	}
+	volatile = fromVolatile
 	if v := float64(regionParams.NoiseRelativeFraction); v > 0 {
 		noiseRel = v
 	}

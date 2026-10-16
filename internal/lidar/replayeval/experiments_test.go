@@ -5,10 +5,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 )
 
 func TestNormaliseExperimentsSortsAndDeduplicates(t *testing.T) {
@@ -77,6 +79,112 @@ func TestDwellPolicyIsAKnownExperiment(t *testing.T) {
 	}
 }
 
+// dwell_policy_t40 and dwell_policy_t60 (l3bg0015) are the dwell policy with
+// a 40 s and a 60 s clock, and dwell_policy_t40_drift2m and
+// dwell_policy_t40_median (l3bg0017) the 40 s clock with a 2 m drift
+// tolerance and with drift measured from the run's running median. Each is
+// accepted by its name alone, hashes apart from the default and from the
+// other settings, needs a tracker, and builds the policy at its own T and
+// drift rule, which the policy's report echoes; dwell_policy still builds the
+// 20 s policy with the shipped rule it always did, and naming none builds
+// nothing. Two settings together are refused, never resolved.
+func TestDwellPolicySettings(t *testing.T) {
+	median := l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}
+	cases := []struct {
+		name       string
+		after      time.Duration
+		stationary l5tracks.StationaryRule
+		drift      float64
+		anchor     string
+	}{
+		{ExperimentDwellPolicy, 20 * time.Second, l5tracks.StationaryRule{}, 1, "first_estimate"},
+		{ExperimentDwellPolicyT40, 40 * time.Second, l5tracks.StationaryRule{}, 1, "first_estimate"},
+		{ExperimentDwellPolicyT60, 60 * time.Second, l5tracks.StationaryRule{}, 1, "first_estimate"},
+		{ExperimentDwellPolicyT40Drift2m, 40 * time.Second, l5tracks.StationaryRule{DriftMetres: 2}, 2, "first_estimate"},
+		{ExperimentDwellPolicyT40Median, 40 * time.Second, median, 1, "running_median"},
+	}
+	suffixes := map[string]string{}
+	for _, c := range cases {
+		got, err := ParseExperiments(" " + c.name + " ")
+		if err != nil || !reflect.DeepEqual(got, []string{c.name}) {
+			t.Fatalf("ParseExperiments(%s) = %v, %v", c.name, got, err)
+		}
+		suffix := experimentsHashSuffix(got)
+		if suffix == nil {
+			t.Errorf("%s left the parameter hash as the default's", c.name)
+		}
+		for other, s := range suffixes {
+			if s == string(suffix) {
+				t.Errorf("%s hashes as %s", c.name, other)
+			}
+		}
+		suffixes[c.name] = string(suffix)
+		if IsBackgroundExperiment(c.name) {
+			t.Errorf("%s is not background-only: it needs L5", c.name)
+		}
+		policy, err := dwellPolicyFor(got)
+		if err != nil || policy == nil {
+			t.Fatalf("%s: policy %v, %v", c.name, policy, err)
+		}
+		if policy.AbsorbAfter != c.after || policy.Stationary != c.stationary {
+			t.Errorf("%s: AbsorbAfter %v, rule %+v; want %v, %+v", c.name, policy.AbsorbAfter, policy.Stationary, c.after, c.stationary)
+		}
+		if r := policy.Report(); r.AbsorbAfterSeconds != c.after.Seconds() || r.StationarySpeedMps != l5tracks.StationarySpeedMps ||
+			r.StationaryDriftMetres != c.drift || r.StationaryAnchor != c.anchor {
+			t.Errorf("%s: report %+v, want T %v, %g m from %s and the shared speed", c.name, r, c.after, c.drift, c.anchor)
+		}
+	}
+	plain, err := dwellPolicyFor([]string{ExperimentDwellPolicy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(plain.Report(), (&pipeline.DwellPolicy{}).Report()) || pipeline.DwellAbsorbAfter != 20*time.Second {
+		t.Errorf("dwell_policy reports %+v, want the 20 s policy's %+v", plain.Report(), (&pipeline.DwellPolicy{}).Report())
+	}
+	for _, off := range [][]string{nil, {}, {ExperimentCascade, ExperimentSupportFilter}} {
+		if policy, err := dwellPolicyFor(off); err != nil || policy != nil {
+			t.Errorf("%v: policy %+v, %v; want none", off, policy, err)
+		}
+	}
+	for _, refused := range [][]string{
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT40},
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT60},
+		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT60},
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60},
+		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m},
+		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Median},
+		{ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median},
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT40Median},
+		{ExperimentDwellPolicyT60, ExperimentDwellPolicyT40Drift2m},
+	} {
+		if policy, err := dwellPolicyFor(refused); err == nil || !strings.Contains(err.Error(), "settings of one option") {
+			t.Errorf("%v: policy %+v, %v; want the pair refused", refused, policy, err)
+		}
+	}
+	for _, near := range []string{"dwell_policy_t20", "dwell_policy_t30", "dwell_policy_40", "dwell_policy_t40s", "dwell_policy_T60",
+		"dwell_policy_drift2m", "dwell_policy_median", "dwell_policy_t60_median", "dwell_policy_t40_drift1m", "dwell_policy_t40_mean"} {
+		if _, err := ParseExperiments(near); err == nil {
+			t.Errorf("%q was accepted", near)
+		}
+	}
+}
+
+// Two dwell policy settings are refused before any capture is read.
+func TestRunRefusesTwoDwellSettingsBeforeReadingACapture(t *testing.T) {
+	for _, pair := range [][]string{
+		{ExperimentDwellPolicyT60, ExperimentDwellPolicy},
+		{ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT40Drift2m},
+	} {
+		_, err := Run(Config{
+			PCAPFile: "missing.pcap", OutDir: filepath.Join(t.TempDir(), "out"), UDPPort: 2369,
+			Experiments: pair,
+		})
+		if err == nil || !strings.Contains(err.Error(), "settings of one option") {
+			t.Fatalf("%v: got %v, want both dwell settings refused before the missing capture is read", pair, err)
+		}
+	}
+}
+
 func TestParseExperimentsEmptyIsShippedBehaviour(t *testing.T) {
 	for _, in := range []string{"", "  ", ","} {
 		got, err := ParseExperiments(in)
@@ -116,10 +224,12 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy, ExperimentFixedLagRTS, ExperimentFlipRule,
+		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy,
+		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
+		ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOcclusionContinuity, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -130,7 +240,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation,
-		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter}
+		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -251,7 +361,10 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentRangeAdaptiveEps, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentFixedLagRTS} {
+	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60,
+		ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median,
+		ExperimentRangeAdaptiveEps, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly,
+		ExperimentRegionOverridesCellTercile, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
@@ -389,15 +502,26 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 		disable       bool
 		scope         l3grid.RegionOverrideScope
 		supportFilter bool
+		cellTercile   bool
+		windowCap     float64
 	}{
-		{nil, false, l3grid.RegionOverrideScopeAll, false},
-		{[]string{ExperimentNoRegionOverrides}, true, l3grid.RegionOverrideScopeAll, false},
-		{[]string{ExperimentRegionOverridesVolatileOnly}, false, l3grid.RegionOverrideScopeVolatile, false},
-		{[]string{ExperimentRegionOverridesQuietOnly}, false, l3grid.RegionOverrideScopeQuiet, false},
-		{[]string{ExperimentSupportFilter}, false, l3grid.RegionOverrideScopeAll, true},
-		{[]string{ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter}, false, l3grid.RegionOverrideScopeQuiet, true},
+		{nil, false, l3grid.RegionOverrideScopeAll, false, false, 0},
+		{[]string{ExperimentNoRegionOverrides}, true, l3grid.RegionOverrideScopeAll, false, false, 0},
+		{[]string{ExperimentRegionOverridesVolatileOnly}, false, l3grid.RegionOverrideScopeVolatile, false, false, 0},
+		{[]string{ExperimentRegionOverridesQuietOnly}, false, l3grid.RegionOverrideScopeQuiet, false, false, 0},
+		{[]string{ExperimentSupportFilter}, false, l3grid.RegionOverrideScopeAll, true, false, 0},
+		{[]string{ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter}, false, l3grid.RegionOverrideScopeQuiet, true, false, 0},
+		{[]string{ExperimentRegionOverridesCellTercile}, false, l3grid.RegionOverrideScopeAll, false, true, 0},
+		{[]string{ExperimentVolatileWindowCap1m}, false, l3grid.RegionOverrideScopeAll, false, false, 1},
+		{[]string{ExperimentVolatileWindowCap2m}, false, l3grid.RegionOverrideScopeAll, false, false, 2},
+		// The l3bg0010 levers combine with each other, the scopes they
+		// still mean something under, and the support filter.
+		{[]string{ExperimentRegionOverridesCellTercile, ExperimentVolatileWindowCap1m}, false, l3grid.RegionOverrideScopeAll, false, true, 1},
+		{[]string{ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly}, false, l3grid.RegionOverrideScopeQuiet, false, true, 0},
+		{[]string{ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesVolatileOnly, ExperimentVolatileWindowCap2m, ExperimentSupportFilter},
+			false, l3grid.RegionOverrideScopeVolatile, true, true, 2},
 		// Tracker experiments are not the background's to apply.
-		{[]string{ExperimentCascade}, false, l3grid.RegionOverrideScopeAll, false},
+		{[]string{ExperimentCascade}, false, l3grid.RegionOverrideScopeAll, false, false, 0},
 	}
 	for _, c := range cases {
 		bm := newBM(t)
@@ -405,27 +529,44 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 			t.Fatalf("%v: %v", c.names, err)
 		}
 		p := bm.Grid.Params
-		if p.DisableRegionOverrides != c.disable || p.RegionOverrideScope != c.scope || (p.SupportFilter != nil) != c.supportFilter {
-			t.Errorf("%v: disable=%v scope=%v supportFilter=%v, want %v %v %v", c.names,
-				p.DisableRegionOverrides, p.RegionOverrideScope, p.SupportFilter != nil,
-				c.disable, c.scope, c.supportFilter)
+		if p.DisableRegionOverrides != c.disable || p.RegionOverrideScope != c.scope || (p.SupportFilter != nil) != c.supportFilter ||
+			p.RegionOverridesByCellTercile != c.cellTercile || p.VolatileWindowCapMetres != c.windowCap {
+			t.Errorf("%v: disable=%v scope=%v supportFilter=%v cellTercile=%v windowCap=%v, want %v %v %v %v %v", c.names,
+				p.DisableRegionOverrides, p.RegionOverrideScope, p.SupportFilter != nil, p.RegionOverridesByCellTercile, p.VolatileWindowCapMetres,
+				c.disable, c.scope, c.supportFilter, c.cellTercile, c.windowCap)
 		}
 	}
-	for _, pair := range [][]string{
+	for _, refused := range [][]string{
 		{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly},
 		{ExperimentNoRegionOverrides, ExperimentRegionOverridesQuietOnly},
 		{ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly},
+		// Two settings of the cap.
+		{ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m},
+		// Options that would change nothing under the overrides they are
+		// named with, and so run as another arm under their names.
+		{ExperimentNoRegionOverrides, ExperimentRegionOverridesCellTercile},
+		{ExperimentNoRegionOverrides, ExperimentVolatileWindowCap1m},
+		{ExperimentRegionOverridesQuietOnly, ExperimentVolatileWindowCap2m},
+		{ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentVolatileWindowCap1m},
 	} {
-		if err := ApplyBackgroundExperiments(newBM(t), pair); err == nil {
-			t.Errorf("%v was accepted", pair)
+		if err := ApplyBackgroundExperiments(newBM(t), refused); err == nil {
+			t.Errorf("%v was accepted", refused)
 		}
 	}
 	background := map[string]bool{ExperimentNoRegionOverrides: true, ExperimentRegionOverridesVolatileOnly: true,
-		ExperimentRegionOverridesQuietOnly: true, ExperimentSupportFilter: true}
+		ExperimentRegionOverridesQuietOnly: true, ExperimentSupportFilter: true, ExperimentRegionOverridesCellTercile: true,
+		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true}
+	var wantBackground []string
 	for _, name := range KnownExperiments() {
 		if IsBackgroundExperiment(name) != background[name] {
 			t.Errorf("IsBackgroundExperiment(%s) = %v, want %v", name, !background[name], background[name])
 		}
+		if background[name] {
+			wantBackground = append(wantBackground, name)
+		}
+	}
+	if got := BackgroundExperiments(); !reflect.DeepEqual(got, wantBackground) {
+		t.Errorf("BackgroundExperiments() = %v, want %v", got, wantBackground)
 	}
 }
 
@@ -458,7 +599,8 @@ func TestSolidBodyEnabledReadsTheTuningBlockAndTheExperiment(t *testing.T) {
 // running as the baseline under its name.
 func TestApplyBackgroundExperimentsReportsAManagerItCannotSet(t *testing.T) {
 	for _, name := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly,
-		ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter} {
+		ExperimentRegionOverridesQuietOnly, ExperimentSupportFilter, ExperimentRegionOverridesCellTercile,
+		ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m} {
 		err := ApplyBackgroundExperiments(nil, []string{name})
 		if err == nil || !strings.Contains(err.Error(), name) {
 			t.Errorf("%s on a nil manager: %v, want an error naming it", name, err)
@@ -477,5 +619,12 @@ func TestRunRefusesContradictoryOverrideSettingsBeforeReadingACapture(t *testing
 	}
 	if err := ValidateBackgroundExperiments([]string{ExperimentRegionOverridesVolatileOnly, ExperimentSupportFilter}); err != nil {
 		t.Errorf("one scope with the support filter refused: %v", err)
+	}
+	_, err = Run(Config{
+		PCAPFile: "missing.pcap", OutDir: filepath.Join(t.TempDir(), "out"), UDPPort: 2369,
+		Experiments: []string{ExperimentVolatileWindowCap2m, ExperimentVolatileWindowCap1m},
+	})
+	if err == nil || !strings.Contains(err.Error(), "two settings of one option") {
+		t.Fatalf("got %v, want both window caps refused before the missing capture is read", err)
 	}
 }

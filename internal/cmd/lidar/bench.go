@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
@@ -47,7 +48,7 @@ func BenchMain(args []string) int {
 	fs.StringVar(&cfg.ClustersOutput, "clusters-output", "",
 		"Write one JSONL line per cluster per frame (frame, timestamp, centroid, bounding box, point count) for offline scoring")
 	experimentFlag := fs.String("experiment", "",
-		"Default-off L3 replay experiments to switch on, comma separated (no_region_overrides, region_overrides_volatile_only, region_overrides_quiet_only, support_filter); for offline sweeps, never the perf gate")
+		"Default-off L3 replay experiments to switch on, comma separated ("+strings.Join(replayeval.BackgroundExperiments(), ", ")+"); for offline sweeps, never the perf gate")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: lidar-bench -pcap FILE [options]\n\n")
@@ -141,7 +142,8 @@ func benchExperiments(flagValue string) ([]string, error) {
 	}
 	for _, name := range experiments {
 		if !replayeval.IsBackgroundExperiment(name) {
-			return nil, fmt.Errorf("%s is not a background experiment; lidar-bench runs only the background experiments (no_region_overrides, region_overrides_volatile_only, region_overrides_quiet_only, support_filter)", name)
+			return nil, fmt.Errorf("%s is not a background experiment; lidar-bench runs only the background experiments (%s)",
+				name, strings.Join(replayeval.BackgroundExperiments(), ", "))
 		}
 	}
 	if err := replayeval.ValidateBackgroundExperiments(experiments); err != nil {

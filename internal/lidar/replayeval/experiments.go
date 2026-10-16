@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 )
 
 // Experiments are the default-off, Go-level options a replay can switch on.
@@ -49,6 +52,22 @@ const (
 	// replay may name only one of the three.
 	ExperimentRegionOverridesVolatileOnly = "region_overrides_volatile_only"
 	ExperimentRegionOverridesQuietOnly    = "region_overrides_quiet_only"
+	// ExperimentRegionOverridesCellTercile:
+	// l3grid.BackgroundParams.RegionOverridesByCellTercile, each settled cell
+	// at the overrides of its own variance tercile rather than its merged
+	// region's (l3bg0010; the region map report's first lever). It combines
+	// with either scope, which then tests the cell's own tercile, and is
+	// refused with no_region_overrides, under which it would change nothing.
+	ExperimentRegionOverridesCellTercile = "region_overrides_cell_tercile"
+	// ExperimentVolatileWindowCap1m and ExperimentVolatileWindowCap2m:
+	// l3grid.BackgroundParams.VolatileWindowCapMetres at 1 m and 2 m, a
+	// volatile override's acceptance windows bounded at the larger of the
+	// cell's global window and the cap (l3bg0010; the second lever). They
+	// are two settings of one option, so a replay may name only one, and are
+	// refused with no_region_overrides and region_overrides_quiet_only, under
+	// which no cell runs a volatile override for the cap to bound.
+	ExperimentVolatileWindowCap1m = "volatile_window_cap_1m"
+	ExperimentVolatileWindowCap2m = "volatile_window_cap_2m"
 	// ExperimentSupportFilter: l3grid.BackgroundParams.SupportFilter at
 	// l3grid.DefaultSupportFilterParams, the range-image support filter of
 	// the beam-wise review (E4): a cell's foreground survives only with
@@ -63,6 +82,26 @@ const (
 	// experiment and lidar-bench refuses it. The manifest's dwell_policy
 	// section says what it absorbed.
 	ExperimentDwellPolicy = "dwell_policy"
+	// ExperimentDwellPolicyT40 and ExperimentDwellPolicyT60: the same policy
+	// with its absorb-after time at 40 s and 60 s
+	// (pipeline.DwellPolicy.AbsorbAfter; experiment l3bg0015); the stationary
+	// speed, drift rule and box margin are dwell_policy's. With dwell_policy
+	// and the two drift rules below they are settings of one option, so a
+	// replay may name only one. The manifest's dwell_policy section echoes
+	// the T that ran.
+	ExperimentDwellPolicyT40 = "dwell_policy_t40"
+	ExperimentDwellPolicyT60 = "dwell_policy_t60"
+	// ExperimentDwellPolicyT40Drift2m and ExperimentDwellPolicyT40Median:
+	// dwell_policy_t40 with the stationary clock's drift rule changed
+	// (pipeline.DwellPolicy.Stationary, l5tracks.StationaryRule; experiment
+	// l3bg0017). Drift2m allows 2 m from the run's first estimate rather than
+	// 1 m; Median keeps 1 m but measures it from the running median of the
+	// run's estimates (l5tracks.StationaryAnchorMedian). The speed and box
+	// margin are dwell_policy's. They are two more settings of the dwell
+	// policy's one option, and the manifest's dwell_policy section echoes the
+	// tolerance and anchor that ran.
+	ExperimentDwellPolicyT40Drift2m = "dwell_policy_t40_drift2m"
+	ExperimentDwellPolicyT40Median  = "dwell_policy_t40_median"
 	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
 	// state-estimation plan question Q3: update each track at its cluster's
 	// own acquisition time rather than the frame start.
@@ -223,6 +262,8 @@ var knownExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:   true,
 	ExperimentSupportFilter:       true,
 	ExperimentDwellPolicy:         true,
+	ExperimentDwellPolicyT40:      true,
+	ExperimentDwellPolicyT60:      true,
 	ExperimentMeasurementTime:     true,
 	ExperimentCaptureGapPredict:   true,
 	ExperimentCoastSupport:        true,
@@ -235,6 +276,12 @@ var knownExperiments = map[string]bool{
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
+	ExperimentRegionOverridesCellTercile:  true,
+	ExperimentVolatileWindowCap1m:         true,
+	ExperimentVolatileWindowCap2m:         true,
+
+	ExperimentDwellPolicyT40Drift2m: true,
+	ExperimentDwellPolicyT40Median:  true,
 
 	ExperimentSolidBodyFaceHysteresis: true,
 	ExperimentSolidBodyFaceConsider:   true,
@@ -310,6 +357,9 @@ var backgroundExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:           true,
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,
+	ExperimentRegionOverridesCellTercile:  true,
+	ExperimentVolatileWindowCap1m:         true,
+	ExperimentVolatileWindowCap2m:         true,
 	ExperimentSupportFilter:               true,
 }
 
@@ -320,9 +370,23 @@ func IsBackgroundExperiment(name string) bool {
 	return backgroundExperiments[name]
 }
 
+// BackgroundExperiments returns the background experiments' names, sorted,
+// for a tool that accepts only those to list them.
+func BackgroundExperiments() []string {
+	names := make([]string, 0, len(backgroundExperiments))
+	for name := range backgroundExperiments {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // ValidateBackgroundExperiments refuses a selection that names more than one
-// setting of the region overrides (no_region_overrides and the two scopes), so
-// a runner can refuse it before it reads a capture rather than after.
+// setting of the region overrides (no_region_overrides and the two scopes) or
+// of the volatile window cap, or an option that the region overrides it is
+// named with would leave with nothing to change, so a runner can refuse it
+// before it reads a capture rather than after. Each refused selection would
+// otherwise run as some other arm and be reported under these names.
 func ValidateBackgroundExperiments(experiments []string) error {
 	scopes := 0
 	for _, name := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly} {
@@ -334,7 +398,85 @@ func ValidateBackgroundExperiments(experiments []string) error {
 		return fmt.Errorf("replay experiments %s, %s and %s are settings of one option; name one",
 			ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly)
 	}
+	if hasExperiment(experiments, ExperimentNoRegionOverrides) && hasExperiment(experiments, ExperimentRegionOverridesCellTercile) {
+		return fmt.Errorf("replay experiment %s chooses which overrides a cell runs at, and %s runs none, so it would change nothing; name one",
+			ExperimentRegionOverridesCellTercile, ExperimentNoRegionOverrides)
+	}
+	if _, err := volatileWindowCapFor(experiments); err != nil {
+		return err
+	}
+	for _, windowCap := range []string{ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m} {
+		if !hasExperiment(experiments, windowCap) {
+			continue
+		}
+		for _, scope := range []string{ExperimentNoRegionOverrides, ExperimentRegionOverridesQuietOnly} {
+			if hasExperiment(experiments, scope) {
+				return fmt.Errorf("replay experiment %s serves no cell a volatile override, so %s would bound nothing; name one",
+					scope, windowCap)
+			}
+		}
+	}
 	return nil
+}
+
+// volatileWindowCapFor reads the volatile window cap in metres from its two
+// settings, refusing both together; zero, off, when neither is named.
+func volatileWindowCapFor(experiments []string) (float64, error) {
+	oneMetre := hasExperiment(experiments, ExperimentVolatileWindowCap1m)
+	twoMetres := hasExperiment(experiments, ExperimentVolatileWindowCap2m)
+	switch {
+	case oneMetre && twoMetres:
+		return 0, fmt.Errorf("replay experiments %s and %s are two settings of one option; name one",
+			ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m)
+	case oneMetre:
+		return 1, nil
+	case twoMetres:
+		return 2, nil
+	}
+	return 0, nil
+}
+
+// dwellPolicySettings are the dwell policy's named settings: its T and the
+// stationary clock's drift rule. They are one option, so a replay names at
+// most one.
+var dwellPolicySettings = []struct {
+	name       string
+	after      time.Duration
+	stationary l5tracks.StationaryRule
+}{
+	{ExperimentDwellPolicy, pipeline.DwellAbsorbAfter, l5tracks.StationaryRule{}},
+	{ExperimentDwellPolicyT40, 40 * time.Second, l5tracks.StationaryRule{}},
+	{ExperimentDwellPolicyT60, 60 * time.Second, l5tracks.StationaryRule{}},
+	{ExperimentDwellPolicyT40Drift2m, 40 * time.Second, l5tracks.StationaryRule{DriftMetres: 2}},
+	{ExperimentDwellPolicyT40Median, 40 * time.Second, l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}},
+}
+
+// dwellPolicyFor builds the dwell policy the named experiments ask for: nil,
+// the default, for none of its settings; the 20 s policy for dwell_policy;
+// 40 s or 60 s for its two longer clocks; and the 40 s clock with a 2 m drift
+// tolerance or a running-median anchor for the two drift rules. Naming two
+// is refused rather than resolved, because either choice would run an arm
+// that is not the one reported.
+func dwellPolicyFor(experiments []string) (*pipeline.DwellPolicy, error) {
+	var policy *pipeline.DwellPolicy
+	for _, s := range dwellPolicySettings {
+		if !hasExperiment(experiments, s.name) {
+			continue
+		}
+		if policy != nil {
+			names := make([]string, len(dwellPolicySettings))
+			for i, setting := range dwellPolicySettings {
+				names[i] = setting.name
+			}
+			return nil, fmt.Errorf("replay experiments %s are settings of one option; name one",
+				strings.Join(names, ", "))
+		}
+		if err := s.stationary.Validate(); err != nil {
+			return nil, fmt.Errorf("replay experiment %s: %w", s.name, err)
+		}
+		policy = &pipeline.DwellPolicy{AbsorbAfter: s.after, Stationary: s.stationary}
+	}
+	return policy, nil
 }
 
 // ApplyBackgroundExperiments switches the named L3 experiments on in a
@@ -355,6 +497,23 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 	} {
 		if hasExperiment(experiments, name) {
 			if err := bgMgr.SetRegionOverrideScope(scope); err != nil {
+				return fmt.Errorf("apply %s: %w", name, err)
+			}
+		}
+	}
+	if hasExperiment(experiments, ExperimentRegionOverridesCellTercile) {
+		if err := bgMgr.SetRegionOverridesByCellTercile(true); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentRegionOverridesCellTercile, err)
+		}
+	}
+	windowCap, err := volatileWindowCapFor(experiments)
+	if err != nil {
+		return err
+	}
+	for _, name := range []string{ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m} {
+		// At most one is named, validated above.
+		if hasExperiment(experiments, name) {
+			if err := bgMgr.SetVolatileWindowCapMetres(windowCap); err != nil {
 				return fmt.Errorf("apply %s: %w", name, err)
 			}
 		}

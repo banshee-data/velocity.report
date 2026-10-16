@@ -278,8 +278,10 @@ type Result struct {
 	// can pool several replays into one fit. Both nil otherwise.
 	Uncertainty        *l8analytics.UncertaintyReport
 	UncertaintySamples []l5tracks.UncertaintySample
-	// Dwell is what the dwell_policy experiment absorbed over the whole
-	// processed window, warm-up included; nil without it. The continuity
+	// Dwell is what the dwell policy (dwell_policy, or its _t40, _t60,
+	// _t40_drift2m or _t40_median setting) absorbed over the whole processed
+	// window, warm-up included, with the T and the stationary drift rule it
+	// ran with; nil without one. The continuity
 	// stats count only the scoring window's absorbed expiries. It is also
 	// written to replay_manifest.json.
 	Dwell *pipeline.DwellReport
@@ -639,6 +641,12 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if err := ValidateBackgroundExperiments(experiments); err != nil {
 		return nil, err
 	}
+	// Built here, before any capture is read, so naming two of its settings
+	// is refused at once; nil without any of them.
+	dwell, err := dwellPolicyFor(experiments)
+	if err != nil {
+		return nil, err
+	}
 	noiseCalibration, err := loadUncertaintyCalibration(cfg.UncertaintyCalibrationFile, experiments)
 	if err != nil {
 		return nil, err
@@ -819,10 +827,6 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
-	var dwell *pipeline.DwellPolicy
-	if hasExperiment(experiments, ExperimentDwellPolicy) {
-		dwell = &pipeline.DwellPolicy{}
-	}
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -941,7 +945,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		campaign = &campaignTracker{TrackerInterface: tracker, start: scoreStart, left: map[int64]bool{}, intervals: map[int64]*confirmationInterval{}}
 		pipeCfg.Tracker = campaign
 	}
-	pipelineCallback := pipeCfg.NewFrameCallback()
+	pipelineCallback, err := pipeCfg.BuildFrameCallback()
+	if err != nil {
+		return nil, fmt.Errorf("build the tracking pipeline: %w", err)
+	}
 
 	var frameCount int
 	var lastFrameTime time.Time

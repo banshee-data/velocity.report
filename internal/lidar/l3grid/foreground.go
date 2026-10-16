@@ -151,6 +151,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 	if lockedMultiplier <= 0 {
 		lockedMultiplier = DefaultLockedBaselineMultiplier
 	}
+	// Replay experiments volatile_window_cap_*: zero, the shipped value, is off.
+	volatileWindowCap := g.Params.VolatileWindowCapMetres
 
 	// Warmup gating: suppress foreground output until duration and/or frames satisfied.
 	postSettleAlpha := float64(g.Params.PostSettleUpdateFraction)
@@ -233,7 +235,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 
 		// Region-adaptive parameter overrides (if identified) must apply on the
 		// mask path as well, since this is the production runtime path.
-		cellNoiseRel, cellNeighbourConfirm, cellAlpha := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
+		cellNoiseRel, cellNeighbourConfirm, cellAlpha, cellVolatile := g.effectiveCellParams(cellIdx, noiseRel, neighConfirm, effectiveAlpha)
+		// With the cap on, a volatile override's windows are bounded in
+		// metres: each is computed a second time at the global noiseRel, and
+		// the override's may exceed that only up to the cap.
+		capWindows := volatileWindowCap > 0 && cellVolatile
 
 		// If frozen, treat as foreground but don't accumulate recFg
 		// The freeze itself is sufficient protection; accumulating recFg during freeze
@@ -289,6 +295,13 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 					neighbourCloseness := ClosenessThresholdMetres(
 						closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
 						cellNoiseRel, float64(neighbourCell.AverageRangeMeters), 0)
+					if capWindows {
+						neighbourCloseness = CappedOverrideWindowMetres(neighbourCloseness,
+							ClosenessThresholdMetres(
+								closenessMultiplier, float64(neighbourCell.RangeSpreadMeters),
+								noiseRel, float64(neighbourCell.AverageRangeMeters), 0),
+							volatileWindowCap)
+					}
 					if neighbourDiff <= neighbourCloseness {
 						neighbourConfirmCount++
 					}
@@ -307,6 +320,17 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			closenessMultiplier, float64(cell.RangeSpreadMeters),
 			cellNoiseRel, p.Distance, safety, warmupMultiplier)
 		cellDiff := math.Abs(float64(cell.AverageRangeMeters) - p.Distance)
+		// acceptWindow is the closeness window the decision reads. The freeze
+		// and stale-model thresholds below keep closenessThreshold, so the
+		// window cap moves the acceptance decision and nothing else.
+		acceptWindow := closenessThreshold
+		if capWindows {
+			acceptWindow = CappedOverrideWindowMetres(closenessThreshold,
+				ForegroundClosenessWindowMetres(
+					closenessMultiplier, float64(cell.RangeSpreadMeters),
+					noiseRel, p.Distance, safety, warmupMultiplier),
+				volatileWindowCap)
+		}
 
 		// Locked baseline classification: if cell has a locked baseline, use it for classification
 		// This protects against EMA drift during transits
@@ -318,12 +342,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			lockedWindow := LockedBaselineWindowMetres(
 				lockedMultiplier, float64(cell.LockedSpread),
 				cellNoiseRel, p.Distance, safety)
+			if capWindows {
+				lockedWindow = CappedOverrideWindowMetres(lockedWindow,
+					LockedBaselineWindowMetres(
+						lockedMultiplier, float64(cell.LockedSpread),
+						noiseRel, p.Distance, safety),
+					volatileWindowCap)
+			}
 			isWithinLockedRange = lockedDiff <= lockedWindow
 		}
 
 		// Classification decision: prioritize locked baseline if available
 		isBackgroundLike := isWithinLockedRange ||
-			cellDiff <= closenessThreshold ||
+			cellDiff <= acceptWindow ||
 			(cellNeighbourConfirm > 0 && neighbourConfirmCount >= cellNeighbourConfirm)
 
 		// Deadlock Breaker:
@@ -442,7 +473,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		if enableDiag && g.Params.IsInDebugRange(ring, az) {
 			tracef("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
 				ring, az, p.Distance, cell.AverageRangeMeters, cell.RangeSpreadMeters,
-				cellDiff, closenessThreshold, cell.TimesSeenCount, cell.RecentForegroundCount,
+				cellDiff, acceptWindow, cell.TimesSeenCount, cell.RecentForegroundCount,
 				cell.FrozenUntilUnixNanos > nowNanos, !foregroundMask[i])
 		}
 

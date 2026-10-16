@@ -68,11 +68,24 @@ switching the overrides off moves along the recall trade-off rather than across 
 overrides-on retune with the height band floor at road height reaches the recall at the shipped
 false positives. The [region map](operations/l3-region-tercile-mechanism-2026-10.md) checks why:
 the volatile tercile holds the overrides-off flood, but lanes are there for the surfaces behind
-them, not traffic during settling. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
+them, not traffic during settling; neither of the two [levers](operations/l3-region-levers-kirk-2026-10.md)
+it suggests beats the retune. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
-tracks over a 39-minute capture. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
+tracks over a 39-minute capture, and with its [clock at 40 s](operations/l3-dwell-policy-clock-2026-10.md)
+keeps every moving track (its [drift rule](operations/l3-dwell-policy-drift-2026-10.md) barely matters
+there; on the [corpus's two segments](operations/l3-candidates-corpus-dwell-2026-10.md) it
+keeps CMR's moving tracks at either clock); on the labelled kirk captures it
+[costs no moving road user](operations/l3-dwell-policy-labelled-cost-2026-10.md) and absorbs the
+parked car the reviewed pack counts. The [pose step](operations/l3-scene-change-pose-step-2026-10.md)
+shows the capture's late scene change is a knock to the sensor, then a second change and the
+pickup, and a [corpus sweep](operations/l3-corpus-pose-sweep-2026-10.md) finds unrecorded knocks at
+six other placements, four of them with one inside a scored window. The [W3 report](operations/w3-retention-fragmentation-kirk0-2026-10.md)
 measures how much of each reviewed object reaches a cluster and into how many it splits, and the
-[range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it.
+[range-adaptive eps](operations/l4-range-adaptive-eps-2026-10.md) does not change it. The
+[return fate](operations/w3-return-fate-kirk0-2026-10.md) says which stage loses each reviewed
+return: L3 under the shipped grid, the input cap, DBSCAN noise and the height band under CMR.
+Lifting the [input cap](operations/l4-dbscan-input-cap-2026-10.md) recovers the returns but joins
+no fragments.
 
 ## Terminology
 

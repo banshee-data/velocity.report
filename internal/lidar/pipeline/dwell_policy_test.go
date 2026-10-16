@@ -1,10 +1,12 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -295,8 +297,48 @@ func TestInsideBox(t *testing.T) {
 	}
 }
 
+// A longer T (the dwell_policy_t40 and _t60 replay experiments) holds the
+// same object past 20 s and absorbs it at the first observed frame at or past
+// its own T, and the report says which T ran.
+func TestDwellPolicy_AbsorbsAtItsOwnT(t *testing.T) {
+	for _, after := range []time.Duration{40 * time.Second, 60 * time.Second} {
+		t.Run(after.String(), func(t *testing.T) {
+			dwell := &DwellPolicy{AbsorbAfter: after}
+			s := newDwellScene(t, dwell)
+			before := int((after - time.Second) / dwellFramePeriod)
+			for i := 0; i < before; i++ {
+				s.step(dwellObjectMetres)
+			}
+			if r := dwell.Report(); r.TracksAbsorbed != 0 {
+				t.Fatalf("absorbed before its T of %v (the default is %v): %+v", after, DwellAbsorbAfter, r)
+			}
+			if st := s.state(); st.confirmed != 1 || st.foreground == 0 {
+				t.Fatalf("after %d frames: %d confirmed tracks and %d foreground returns, want the object still tracked",
+					before, st.confirmed, st.foreground)
+			}
+			for i := before; i < int((after+3*time.Second)/dwellFramePeriod)+1; i++ {
+				s.step(dwellObjectMetres)
+			}
+			r := dwell.Report()
+			if r.AbsorbAfterSeconds != after.Seconds() {
+				t.Errorf("report says T = %g s, want the %g s it ran at", r.AbsorbAfterSeconds, after.Seconds())
+			}
+			if r.TracksAbsorbed != 1 || len(r.Absorptions) != 1 {
+				t.Fatalf("absorbed %d tracks (%d records), want 1: %+v", r.TracksAbsorbed, len(r.Absorptions), r)
+			}
+			if got := r.Absorptions[0].StationarySeconds; got < after.Seconds() || got > after.Seconds()+0.15 {
+				t.Errorf("absorbed after %.2f s stationary, want the first observed frame at or past %v", got, after)
+			}
+			if got := absorbedDeleted(s.tracker); got != 1 {
+				t.Errorf("%d tracks ended as absorbed, want 1", got)
+			}
+		})
+	}
+}
+
 // A report carries the policy's constants and a list that marshals as [],
-// never null, when nothing was absorbed.
+// never null, when nothing was absorbed. Its T is the one the policy runs
+// at; the other constants are the same at every T.
 func TestDwellPolicy_ReportCarriesItsConstants(t *testing.T) {
 	r := (&DwellPolicy{}).Report()
 	if r.AbsorbAfterSeconds != DwellAbsorbAfter.Seconds() || r.StationarySpeedMps != l5tracks.StationarySpeedMps ||
@@ -305,5 +347,251 @@ func TestDwellPolicy_ReportCarriesItsConstants(t *testing.T) {
 	}
 	if r.Absorptions == nil {
 		t.Error("an empty report's absorptions are nil and would marshal as null")
+	}
+	if explicit := (&DwellPolicy{AbsorbAfter: DwellAbsorbAfter}).Report(); !reflect.DeepEqual(explicit, r) {
+		t.Errorf("T set to the default reports %+v, want the default's %+v", explicit, r)
+	}
+	for _, after := range []time.Duration{40 * time.Second, 60 * time.Second} {
+		got := (&DwellPolicy{AbsorbAfter: after}).Report()
+		want := r
+		want.AbsorbAfterSeconds = after.Seconds()
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("T %v: report %+v, want %+v", after, got, want)
+		}
+	}
+}
+
+// The 40 s clock's three drift rules: the shipped 1 m from the run's first
+// estimate (dwell_policy_t40), 2 m from it (dwell_policy_t40_drift2m), and
+// 1 m from the run's running median (dwell_policy_t40_median).
+var dwellDriftRules = []struct {
+	name       string
+	stationary l5tracks.StationaryRule
+}{
+	{"first estimate, 1 m", l5tracks.StationaryRule{}},
+	{"first estimate, 2 m", l5tracks.StationaryRule{DriftMetres: 2}},
+	{"running median, 1 m", l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}},
+}
+
+// dwellWanderMetres is the object's range on frame i of a still object whose
+// position wanders ±0.7 m about dwellObjectMetres, as kirk0's parked car's
+// estimate does (within 0.67 m of its median): a 20 s cosine, starting at its
+// far extreme, slow enough (0.22 m/s at most) that the track stays under
+// StationarySpeedMps throughout. Its first estimate is 1.4 m from the other
+// extreme.
+func dwellWanderMetres(i int) float64 {
+	return dwellObjectMetres + 0.7*math.Cos(2*math.Pi*float64(i)/200)
+}
+
+// The policy's drift rule reaches L5: the pipeline sets the tracker's rule to
+// the policy's before the first frame. A still object whose estimate wanders
+// ±0.7 m restarts its run under the shipped rule, whose anchor is its first
+// estimate at one extreme, so at 40 s it is not absorbed; with 2 m of
+// tolerance, or measured from the running median, its run is unbroken and it
+// is absorbed at 40 s. Each report names the rule that ran.
+func TestDwellPolicy_DriftRuleReachesL5AndSparesAWander(t *testing.T) {
+	const horizon = 45 * time.Second
+	frames := int(horizon / dwellFramePeriod)
+	for _, rule := range dwellDriftRules {
+		t.Run(rule.name, func(t *testing.T) {
+			dwell := &DwellPolicy{AbsorbAfter: 40 * time.Second, Stationary: rule.stationary}
+			s := newDwellScene(t, dwell)
+			if s.tracker.Config.Stationary != rule.stationary {
+				t.Fatalf("tracker rule %+v, want the policy's %+v", s.tracker.Config.Stationary, rule.stationary)
+			}
+			var restartedBy time.Duration
+			for i := 0; i < frames; i++ {
+				s.step(dwellWanderMetres(i))
+				at := dwellFrameTime(i)
+				for _, track := range s.tracker.GetConfirmedTracks() {
+					if track.Speed() > l5tracks.StationarySpeedMps {
+						t.Fatalf("premise: frame %d, speed %.2f m/s is over %.1f, so speed, not drift, ends the run",
+							i, track.Speed(), l5tracks.StationarySpeedMps)
+					}
+					if restartedBy == 0 && track.StationaryFor(at.UnixNano()) < at.Sub(dwellEpoch)-time.Second {
+						restartedBy = at.Sub(dwellEpoch)
+					}
+				}
+			}
+			r := dwell.Report()
+			if r.StationaryDriftMetres != float64(rule.stationary.Drift()) || r.StationaryAnchor != string(rule.stationary.AnchorMode()) {
+				t.Errorf("report names drift %g m from %q, want the %g m from %q that ran",
+					r.StationaryDriftMetres, r.StationaryAnchor, rule.stationary.Drift(), rule.stationary.AnchorMode())
+			}
+			if rule.stationary == (l5tracks.StationaryRule{}) {
+				if restartedBy == 0 || restartedBy > 10*time.Second {
+					t.Errorf("the run restarted at %v, want within the first swing (0 is never)", restartedBy)
+				}
+				if r.TracksAbsorbed != 0 {
+					t.Errorf("absorbed %+v within %v, want the restarted run short of 40 s", r.Absorptions, horizon)
+				}
+				return
+			}
+			if restartedBy != 0 {
+				t.Errorf("the run restarted by %v, want one run from birth", restartedBy)
+			}
+			if r.TracksAbsorbed != 1 || len(r.Absorptions) != 1 {
+				t.Fatalf("absorbed %d tracks (%d records), want 1: %+v", r.TracksAbsorbed, len(r.Absorptions), r)
+			}
+			a := r.Absorptions[0]
+			if a.StationarySeconds < 40 || a.StationarySeconds > 40.15 {
+				t.Errorf("absorbed after %.2f s stationary, want the first observed frame at or past 40 s", a.StationarySeconds)
+			}
+			if at := time.Duration(a.FrameUnixNanos - dwellEpoch.UnixNano()); at > 40*time.Second+150*time.Millisecond {
+				t.Errorf("absorbed at %v into the capture, want 40 s after the object appeared", at)
+			}
+			if got := absorbedDeleted(s.tracker); got != 1 {
+				t.Errorf("%d tracks ended as absorbed, want 1", got)
+			}
+		})
+	}
+}
+
+// A creep is not a dwell under any of the rules: an object that edges 3 m
+// away over 50 s at 0.06 m/s, under StationarySpeedMps throughout, restarts
+// its run before 40 s whether drift is measured from the first estimate at
+// 1 m or 2 m or from the running median, which trails a steady creep by half
+// the run.
+func TestDwellPolicy_DriftRuleStillRestartsACreep(t *testing.T) {
+	const span = 50 * time.Second
+	frames := int(span / dwellFramePeriod)
+	for _, rule := range dwellDriftRules {
+		t.Run(rule.name, func(t *testing.T) {
+			dwell := &DwellPolicy{AbsorbAfter: 40 * time.Second, Stationary: rule.stationary}
+			s := newDwellScene(t, dwell)
+			var longest time.Duration
+			for i := 0; i < frames; i++ {
+				s.step(dwellObjectMetres + 3*float64(i)/float64(frames))
+				at := dwellFrameTime(i).UnixNano()
+				for _, track := range s.tracker.GetConfirmedTracks() {
+					if track.Speed() > l5tracks.StationarySpeedMps {
+						t.Fatalf("premise: frame %d, speed %.2f m/s is over %.1f", i, track.Speed(), l5tracks.StationarySpeedMps)
+					}
+					longest = max(longest, track.StationaryFor(at))
+				}
+			}
+			if r := dwell.Report(); r.TracksAbsorbed != 0 {
+				t.Errorf("a 3 m creep was absorbed: %+v", r.Absorptions)
+			}
+			if longest >= 40*time.Second || longest == 0 {
+				t.Errorf("longest stationary run %v, want a run, restarted short of 40 s", longest)
+			}
+		})
+	}
+}
+
+// Without a policy the pipeline leaves the tracker's drift rule as it was
+// configured; with one, the tracker runs the policy's rule, the default
+// policy's being the shipped rule.
+func TestDwellPolicy_SetsTheTrackersRuleOnlyWhenOn(t *testing.T) {
+	configured := l5tracks.StationaryRule{DriftMetres: 3}
+	for _, c := range []struct {
+		name  string
+		dwell *DwellPolicy
+		want  l5tracks.StationaryRule
+	}{
+		{"off", nil, configured},
+		{"default", &DwellPolicy{}, l5tracks.StationaryRule{}},
+		{"median", &DwellPolicy{Stationary: l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}},
+			l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}},
+	} {
+		cfg := l5tracks.DefaultTrackerConfig()
+		cfg.Stationary = configured
+		tracker := l5tracks.NewTracker(cfg)
+		(&TrackingPipelineConfig{Tracker: tracker, SensorID: "dwell-rule", Dwell: c.dwell}).NewFrameCallback()
+		if tracker.Config.Stationary != c.want {
+			t.Errorf("%s: tracker rule %+v, want %+v", c.name, tracker.Config.Stationary, c.want)
+		}
+	}
+}
+
+// A policy built anywhere, not only by the replay's experiment table, is
+// checked where the pipeline applies it: a rule the clock does not know, or a
+// negative T, is refused before the tracker's rule is touched, as an error
+// from BuildFrameCallback and as a panic from NewFrameCallback. It would
+// otherwise run as the shipped rule while its report named another.
+func TestDwellPolicy_InvalidPolicyIsRefusedWhereApplied(t *testing.T) {
+	configured := l5tracks.StationaryRule{DriftMetres: 3}
+	newTracker := func() *l5tracks.Tracker {
+		cfg := l5tracks.DefaultTrackerConfig()
+		cfg.Stationary = configured
+		return l5tracks.NewTracker(cfg)
+	}
+	for _, c := range []struct {
+		name  string
+		dwell *DwellPolicy
+		want  string
+	}{
+		{"unknown anchor", &DwellPolicy{AbsorbAfter: 40 * time.Second, Stationary: l5tracks.StationaryRule{Anchor: "mean"}},
+			`unknown stationary anchor "mean"`},
+		{"negative drift", &DwellPolicy{Stationary: l5tracks.StationaryRule{DriftMetres: -1}}, "not a non-negative finite distance"},
+		{"NaN drift", &DwellPolicy{Stationary: l5tracks.StationaryRule{DriftMetres: float32(math.NaN())}},
+			"not a non-negative finite distance"},
+		{"negative T", &DwellPolicy{AbsorbAfter: -time.Second}, "absorb-after -1s is negative"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if err := c.dwell.Validate(); err == nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("Validate: %v, want %q", err, c.want)
+			}
+			tracker := newTracker()
+			cfg := &TrackingPipelineConfig{Tracker: tracker, SensorID: "dwell-invalid", Dwell: c.dwell}
+			cb, err := cfg.BuildFrameCallback()
+			if err == nil || cb != nil || !strings.Contains(err.Error(), c.want) {
+				t.Fatalf("BuildFrameCallback: callback %v, err %v; want %q", cb != nil, err, c.want)
+			}
+			if tracker.Config.Stationary != configured {
+				t.Errorf("a refused policy changed the tracker's rule to %+v", tracker.Config.Stationary)
+			}
+			func() {
+				defer func() {
+					r := recover()
+					if r == nil || !strings.Contains(fmt.Sprint(r), c.want) {
+						t.Errorf("NewFrameCallback: recovered %v, want a panic naming %q", r, c.want)
+					}
+				}()
+				cfg.NewFrameCallback()
+			}()
+			if tracker.Config.Stationary != configured {
+				t.Errorf("NewFrameCallback changed the tracker's rule to %+v before refusing", tracker.Config.Stationary)
+			}
+		})
+	}
+	// Valid policies and no policy build as before.
+	for _, dwell := range []*DwellPolicy{nil, {}, {AbsorbAfter: 40 * time.Second,
+		Stationary: l5tracks.StationaryRule{DriftMetres: 2, Anchor: l5tracks.StationaryAnchorMedian}}} {
+		if cb, err := (&TrackingPipelineConfig{Tracker: newTracker(), SensorID: "dwell-valid", Dwell: dwell}).BuildFrameCallback(); err != nil || cb == nil {
+			t.Errorf("policy %+v: callback %v, err %v", dwell, cb != nil, err)
+		}
+	}
+}
+
+// The report names the drift rule that ran: the shipped rule's 1 m from the
+// first estimate unless the policy sets another, and the median's window only
+// under the median.
+func TestDwellPolicy_ReportNamesItsDriftRule(t *testing.T) {
+	base := (&DwellPolicy{AbsorbAfter: 40 * time.Second}).Report()
+	if base.StationaryDriftMetres != 1 || base.StationaryAnchor != "first_estimate" || base.StationaryMedianWindowFrames != 0 {
+		t.Errorf("shipped rule reported as %g m from %q (window %d)", base.StationaryDriftMetres, base.StationaryAnchor, base.StationaryMedianWindowFrames)
+	}
+	drift := (&DwellPolicy{AbsorbAfter: 40 * time.Second, Stationary: l5tracks.StationaryRule{DriftMetres: 2}}).Report()
+	want := base
+	want.StationaryDriftMetres = 2
+	if !reflect.DeepEqual(drift, want) {
+		t.Errorf("2 m rule: report %+v, want %+v", drift, want)
+	}
+	median := (&DwellPolicy{AbsorbAfter: 40 * time.Second,
+		Stationary: l5tracks.StationaryRule{Anchor: l5tracks.StationaryAnchorMedian}}).Report()
+	want = base
+	want.StationaryAnchor = "running_median"
+	want.StationaryMedianWindowFrames = l5tracks.StationaryMedianWindowFrames
+	if !reflect.DeepEqual(median, want) {
+		t.Errorf("median rule: report %+v, want %+v", median, want)
+	}
+	b, err := json.Marshal(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(b), "stationary_median_window_frames") || !strings.Contains(string(b), `"stationary_anchor":"first_estimate"`) {
+		t.Errorf("shipped rule marshals as %s", b)
 	}
 }

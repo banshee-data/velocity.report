@@ -98,6 +98,9 @@ across a dropped band", or an association that joins fragments, not a range law.
 - **Look at the fragments themselves.** The W3 report's truck episodes, with the replay's
   per-return observation log, should show where the gaps are (missing returns or misplaced
   points), which decides between a gap-tolerant clustering and a fragment-joining association.
+  Since measured ([return fate](w3-return-fate-kirk0-2026-10.md)): under the shipped L3 the gaps
+  are missing returns, 97% of them called background by L3, so neither is the fix; under CMR they
+  are the input cap near the sensor, DBSCAN noise at 20 to 35 m and the height band beyond.
 - **Leave the merging test at kirk0's two trucks**, which are never close enough to merge; a capture
   with vehicles side by side is needed to test merging at all.
 

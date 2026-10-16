@@ -2,6 +2,9 @@ package l5tracks
 
 import (
 	"encoding/json"
+	"math"
+	"math/rand"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +85,167 @@ func TestStationaryFor_CreepRestartsTheRun(t *testing.T) {
 	// One metre at 0.3 m/s is 3.3 s; allow the filter's lag behind the body.
 	if limit := 5 * time.Second; longest > limit {
 		t.Errorf("a %.1f m/s creep stayed in one run for %v, want under %v", creep, longest, limit)
+	}
+}
+
+// stationaryPath tracks a single body through positions (pos(i), 2) at 10 Hz
+// from capture time 1 s under the given drift rule, and calls observe after
+// each frame with the sole live track and the frame time.
+func stationaryPath(t *testing.T, rule StationaryRule, frames int, pos func(i int) float32,
+	observe func(track *TrackedObject, at time.Time)) {
+	t.Helper()
+	cfg := DefaultTrackerConfig()
+	cfg.Stationary = rule
+	tk := NewTracker(cfg)
+	for i := 0; i < frames; i++ {
+		at := tdAt(1 + 0.1*float64(i))
+		tk.Update([]WorldCluster{ccCluster(pos(i), 2, 4.5, 1.8)}, at)
+		observe(soleActive(t, tk), at)
+	}
+}
+
+var stationaryRules = []struct {
+	name string
+	rule StationaryRule
+}{
+	{"first estimate, 1 m", StationaryRule{}},
+	{"first estimate, 2 m", StationaryRule{DriftMetres: 2}},
+	{"running median, 1 m", StationaryRule{Anchor: StationaryAnchorMedian}},
+}
+
+// A still body whose estimate wanders ±0.7 m, slowly enough to stay under
+// StationarySpeedMps, starting at one extreme: from its first estimate the
+// other extreme is 1.4 m away, so the shipped 1 m rule restarts the run on
+// the first swing, and keeps restarting. A 2 m tolerance, or 1 m from the
+// run's running median, holds one run from birth.
+func TestStationaryFor_WanderHoldsUnderTheWiderRules(t *testing.T) {
+	const frames = 500
+	wander := func(i int) float32 { return 10 + 0.7*float32(math.Cos(2*math.Pi*float64(i)/200)) }
+	for _, c := range stationaryRules {
+		t.Run(c.name, func(t *testing.T) {
+			var firstRestart, longest time.Duration
+			lo, hi := float32(math.Inf(1)), float32(math.Inf(-1))
+			birth := tdAt(1)
+			stationaryPath(t, c.rule, frames, wander, func(track *TrackedObject, at time.Time) {
+				if track.Speed() > StationarySpeedMps {
+					t.Fatalf("premise: speed %.2f m/s over %.1f at %v", track.Speed(), StationarySpeedMps, at.Sub(birth))
+				}
+				lo, hi = min(lo, track.X), max(hi, track.X)
+				held := track.StationaryFor(at.UnixNano())
+				longest = max(longest, held)
+				if firstRestart == 0 && held < at.Sub(birth) {
+					firstRestart = at.Sub(birth)
+				}
+			})
+			if lo > 9.35 || hi < 10.65 {
+				t.Fatalf("premise: the estimate spans [%.2f, %.2f], not the ±0.7 m wander", lo, hi)
+			}
+			if c.rule == (StationaryRule{}) {
+				if firstRestart == 0 || firstRestart > 10*time.Second || longest >= 20*time.Second {
+					t.Errorf("first restart at %v, longest run %v; want a restart on the first swing and no run near 20 s",
+						firstRestart, longest)
+				}
+				return
+			}
+			if want := tdAt(1 + 0.1*(frames-1)).Sub(birth); firstRestart != 0 || longest != want {
+				t.Errorf("first restart at %v, longest run %v; want one run of %v from birth", firstRestart, longest, want)
+			}
+		})
+	}
+}
+
+// A creep of 3 m over 50 s, at 0.06 m/s, restarts the run under every rule
+// before 40 s. The median trails a steady creep by half the run, so 1 m from
+// it restarts after about 2 m, as 2 m from the first estimate does. A median
+// over only the last 200 frames would trail by at most 0.6 m here and hold
+// one run throughout, which is why StationaryMedianWindowFrames is 400.
+func TestStationaryFor_CreepRestartsUnderEveryRule(t *testing.T) {
+	const frames = 500
+	creep := func(i int) float32 { return 10 + 3*float32(i)/frames }
+	for _, c := range stationaryRules {
+		t.Run(c.name, func(t *testing.T) {
+			var longest time.Duration
+			restarts := 0
+			var since int64
+			stationaryPath(t, c.rule, frames, creep, func(track *TrackedObject, at time.Time) {
+				if track.Speed() > StationarySpeedMps {
+					t.Fatalf("premise: speed %.2f m/s over %.1f", track.Speed(), StationarySpeedMps)
+				}
+				if since != 0 && track.stationaryRun && track.stationarySinceNanos != since {
+					restarts++
+				}
+				since = track.stationarySinceNanos
+				longest = max(longest, track.StationaryFor(at.UnixNano()))
+			})
+			if restarts == 0 || longest >= 40*time.Second {
+				t.Errorf("%d restarts, longest run %v; want the creep to restart its run short of 40 s", restarts, longest)
+			}
+		})
+	}
+}
+
+// The shipped rule keeps no window: a run from the first estimate costs the
+// track nothing it did not cost before the median existed.
+func TestStationaryFor_ShippedRuleKeepsNoWindow(t *testing.T) {
+	tk := stationaryRun(t, 0, 50, nil)
+	if w := soleActive(t, tk).stationaryWindow; w != nil {
+		t.Errorf("the shipped rule allocated a median window: %+v", w)
+	}
+}
+
+// The window's median is the per-axis median of the last capacity values
+// pushed since its reset, duplicates and signed zeros included, however many
+// were pushed before.
+func TestStationaryWindow_MedianOfTheLastPushes(t *testing.T) {
+	const capacity = 5
+	w := newStationaryWindow(capacity)
+	rng := rand.New(rand.NewSource(3))
+	var xs, ys []float32
+	pick := []float32{-1, 0, float32(math.Copysign(0, -1)), 0.5, 2, 2}
+	for i := 0; i < 60; i++ {
+		x := pick[rng.Intn(len(pick))]
+		y := float32(rng.NormFloat64())
+		w.push(x, y)
+		xs, ys = append(xs, x), append(ys, y)
+		if i == 30 {
+			w.reset()
+			xs, ys = xs[:0], ys[:0]
+			continue
+		}
+		gotX, gotY := w.median()
+		wantX, wantY := bruteMedian(xs, capacity), bruteMedian(ys, capacity)
+		if gotX != wantX || gotY != wantY {
+			t.Fatalf("push %d: median (%v, %v), want (%v, %v) over the last %d", i, gotX, gotY, wantX, wantY, capacity)
+		}
+		if n := min(len(xs), capacity); len(w.sortX) != n || len(w.sortY) != n || len(w.xs) != n {
+			t.Fatalf("push %d: window holds %d/%d/%d values, want %d", i, len(w.xs), len(w.sortX), len(w.sortY), n)
+		}
+	}
+}
+
+func bruteMedian(values []float32, capacity int) float32 {
+	last := append([]float32{}, values[max(0, len(values)-capacity):]...)
+	sort.Slice(last, func(i, j int) bool { return last[i] < last[j] })
+	return sortedMedian(last)
+}
+
+// The rule's zero value is the shipped rule, and Validate refuses what the
+// clock would otherwise run as something else.
+func TestStationaryRule_DefaultsAndValidate(t *testing.T) {
+	var zero StationaryRule
+	if zero.Drift() != StationaryDriftMetres || zero.AnchorMode() != StationaryAnchorFirst {
+		t.Errorf("zero rule runs %g m from %q", zero.Drift(), zero.AnchorMode())
+	}
+	for _, ok := range []StationaryRule{{}, {DriftMetres: 2}, {Anchor: StationaryAnchorMedian}, {Anchor: StationaryAnchorFirst}} {
+		if err := ok.Validate(); err != nil {
+			t.Errorf("%+v refused: %v", ok, err)
+		}
+	}
+	for _, bad := range []StationaryRule{{Anchor: "mean"}, {DriftMetres: -1}, {DriftMetres: float32(math.NaN())},
+		{DriftMetres: float32(math.Inf(1))}} {
+		if err := bad.Validate(); err == nil {
+			t.Errorf("%+v accepted", bad)
+		}
 	}
 }
 

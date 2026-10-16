@@ -110,6 +110,13 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 		rm.CellTercile[i] = varianceTercileForCategory(category)
 	}
 	rm.TercileThresholds = []float64{lowThreshold, highThreshold}
+	// One parameter set per tercile, from the config in force now. Each
+	// region below copies its tercile's, so RegionOverridesByCellTercile
+	// serves a cell exactly what a region of the cell's own tercile runs at.
+	rm.TercileParams = make([]RegionParams, 3)
+	for category := range rm.TercileParams {
+		rm.TercileParams[category] = rm.assignRegionParams(category, grid.Params)
+	}
 
 	// Step 3: Use connected components to find contiguous regions
 	visited := make([]bool, totalCells)
@@ -180,7 +187,7 @@ func (rm *RegionManager) IdentifyRegions(grid *BackgroundGrid, maxRegions int) e
 			region.MeanVariance = sumVariance / float64(len(regionCells))
 
 			// Assign parameters based on category
-			region.Params = rm.assignRegionParams(category, grid.Params)
+			region.Params = rm.TercileParams[category]
 			region.Volatile = category == 2
 			region.Tercile = varianceTercileForCategory(category)
 
@@ -359,7 +366,7 @@ func (rm *RegionManager) createDefaultRegion(grid *BackgroundGrid) error {
 		rm.CellToRegionID[i] = 0
 	}
 	rm.Regions = []*Region{region}
-	rm.CellTercile, rm.TercileThresholds = nil, nil
+	rm.CellTercile, rm.TercileThresholds, rm.TercileParams = nil, nil, nil
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Now()
 	diagf("[RegionManager] Created single default region covering %d cells", totalCells)
@@ -380,6 +387,27 @@ func (rm *RegionManager) GetRegionParams(regionID int) *RegionParams {
 		return nil
 	}
 	return &rm.Regions[regionID].Params
+}
+
+// GetCellTercile returns a cell's own variance tercile at identification:
+// TercileNone before identification, after a restore, and for a cell unseen
+// while the grid settled.
+func (rm *RegionManager) GetCellTercile(cellIdx int) VarianceTercile {
+	if !rm.IdentificationComplete || cellIdx < 0 || cellIdx >= len(rm.CellTercile) {
+		return TercileNone
+	}
+	return rm.CellTercile[cellIdx]
+}
+
+// GetTercileParams returns the override parameters identification assigned
+// a region of the given tercile, or nil for TercileNone and when none were
+// recorded (before identification, a default region, a restore).
+func (rm *RegionManager) GetTercileParams(t VarianceTercile) *RegionParams {
+	i := int(t) - 1
+	if !rm.IdentificationComplete || i < 0 || i >= len(rm.TercileParams) {
+		return nil
+	}
+	return &rm.TercileParams[i]
 }
 
 // IsVolatileRegion reports whether a region was identified from the
@@ -500,8 +528,9 @@ func (rm *RegionManager) RestoreFromSnapshot(snap *RegionSnapshot, totalCells in
 	}
 
 	// The terciles are evidence of an identification this manager did not
-	// run; a snapshot persisted after the restore must not carry stale ones.
-	rm.CellTercile, rm.TercileThresholds = nil, nil
+	// run; a snapshot persisted after the restore must not carry stale ones,
+	// and RegionOverridesByCellTercile must not serve them.
+	rm.CellTercile, rm.TercileThresholds, rm.TercileParams = nil, nil, nil
 
 	rm.IdentificationComplete = true
 	rm.IdentificationTime = time.Unix(0, snap.CreatedUnixNanos)
