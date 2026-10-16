@@ -215,6 +215,55 @@ type Config struct {
 	// case holds there, and is written to the manifest. It is provenance
 	// only: it changes no estimate and no hash.
 	Split *SplitUse
+	// TrackerTap, when set, is called after every tracker update with the
+	// clusters the tracker was given, its cluster-to-track associations and
+	// its active tracks, warm-up included (TrackerTapFrame.Scored says which).
+	// It reads tracker state and changes no estimate and no hash: a
+	// measurement tool scores the published geometry from it.
+	TrackerTap func(TrackerTapFrame)
+	// KeepClusterMembers hands every cluster its members for the frame
+	// (l4perception.DBSCANParams.KeepMembers), for a TrackerTap that measures
+	// against every return. Nothing but the solid body and the box model
+	// reads them, so it changes no estimate of a replay without those.
+	KeepClusterMembers bool
+}
+
+// TrackerTapFrame is one tracker update as Config.TrackerTap sees it. The
+// clusters are the tracker's input, with their members when
+// Config.KeepClusterMembers is set; Associations is indexed like Clusters and
+// names the track each cluster updated, or is empty; Tracks are copies of the
+// active tracks after the update. A frame with no clusters reaches the tap
+// with Clusters empty.
+type TrackerTapFrame struct {
+	At           time.Time
+	Scored       bool
+	Clusters     []l5tracks.WorldCluster
+	Associations []string
+	Tracks       []*l5tracks.TrackedObject
+}
+
+// tapTracker calls a TrackerTap after each update of the tracker it wraps.
+type tapTracker struct {
+	l5tracks.TrackerInterface
+	tap   func(TrackerTapFrame)
+	start int64
+}
+
+func (t *tapTracker) RecordBaselineEmptyFrame() {
+	if baseline, ok := t.TrackerInterface.(interface{ RecordBaselineEmptyFrame() }); ok {
+		baseline.RecordBaselineEmptyFrame()
+	}
+}
+
+func (t *tapTracker) Update(clusters []l5tracks.WorldCluster, at time.Time) {
+	t.TrackerInterface.Update(clusters, at)
+	t.tap(TrackerTapFrame{At: at, Scored: at.UnixNano() >= t.start, Clusters: clusters,
+		Associations: t.GetLastAssociations(), Tracks: t.GetActiveTracks()})
+}
+
+func (t *tapTracker) AdvanceMisses(at time.Time) {
+	t.TrackerInterface.AdvanceMisses(at)
+	t.tap(TrackerTapFrame{At: at, Scored: at.UnixNano() >= t.start, Tracks: t.GetActiveTracks()})
 }
 
 // SplitUse is a replay's place in a frozen split: the split's digest and
@@ -847,7 +896,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		Dwell:                     dwell,
 		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,
-		KeepClusterMembers:        solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
+		KeepClusterMembers:        cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments),
 		ObservationSourceID:       observationSourceID,
 		ObservationCalibrationID:  observationCalibrationID,
 		StateEstimatorID:          "cv_kf_v1",
@@ -944,6 +993,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.CampaignMetrics {
 		campaign = &campaignTracker{TrackerInterface: tracker, start: scoreStart, left: map[int64]bool{}, intervals: map[int64]*confirmationInterval{}}
 		pipeCfg.Tracker = campaign
+	}
+	if cfg.TrackerTap != nil {
+		pipeCfg.Tracker = &tapTracker{TrackerInterface: pipeCfg.Tracker, tap: cfg.TrackerTap, start: scoreStart}
 	}
 	pipelineCallback, err := pipeCfg.BuildFrameCallback()
 	if err != nil {

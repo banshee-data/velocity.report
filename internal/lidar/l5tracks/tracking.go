@@ -165,6 +165,17 @@ type TrackedObject struct {
 	AxisScoreGap      float32 // Heuristic cost margin, not calibrated confidence
 	AxisAbstentionRun int     // Consecutive axis-path abstentions, running
 
+	// The published box under the box model (TrackerConfig.BoxModel; see
+	// box_model.go): centre, heading and extents that agree with each other
+	// and with the points. Zero length when the model is off or has not
+	// seen the track's points; viewers then draw the legacy OBB fields at
+	// the tracked position.
+	BoxX, BoxY    float32
+	BoxHeadingRad float32
+	BoxLength     float32
+	BoxWidth      float32
+	box           *BoxEstimator
+
 	// Extent beliefs: revisable lower-bound estimates of the object's body
 	// dimensions, built from confidently assigned observations only. They are
 	// deliberately not running means of raw spans; see heading_extent.go.
