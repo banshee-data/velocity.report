@@ -155,6 +155,9 @@ of 14; the alignment candidate's figures are 175 to 85, 0.49 to 0.64 and 0.087 m
   these segments.
 - Per-site medians over 14 sites move by a few millimetres between segments; differences of that
   order are inside the spread the two segments show for the same arm.
+- Since measured ([corpus pose sweep](l3-corpus-pose-sweep-2026-10.md)): three second-segment
+  cases are scored across a knock to the sensor (haight-divisadero at 152 s, marina-webster-beach
+  at 145 s, van-ness-sacramento from its start), which this report did not know.
 
 ## Recommendations
 

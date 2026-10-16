@@ -141,7 +141,8 @@ sit just before and inside the pickup.
   of this placement with both pose changes in mind.
 - **Run the same fit as a corpus check**: quiet pairs at every site would show any other unrecorded
   knocks; against this placement's null (at most 0.009°), a change of a few hundredths of a degree
-  stands out.
+  stands out. Since run ([corpus pose sweep](l3-corpus-pose-sweep-2026-10.md)): seven of the 23
+  placements hold a persistent pose change, and six corpus cases are scored across one.
 
 ## Provenance
 
