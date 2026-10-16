@@ -74,11 +74,6 @@ type BoxModelConfig struct {
 	// remainder on the side away from the sensor: an end-on view of a car is
 	// not a 0.6 m box.
 	VehicleLengthFloor float64
-	// EndFacePrior seeds an unlabelled box seen as one short face across the
-	// line of sight (a strip no longer than a vehicle is wide) with its
-	// length along the line of sight: the front or back of a vehicle, which
-	// is what a roadside sensor sees of traffic coming at it or leaving.
-	EndFacePrior bool
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -93,7 +88,7 @@ type BoxModelConfig struct {
 	// MaxCurvature (1/m) and MinYawRate (rad/s) bound the yaw rate:
 	// |ω| ≤ MaxCurvature·v + MinYawRate. UnlabelledYawRate replaces the
 	// floor for an unlabelled box in its first second, while its first fits
-	// settle, and for one shorter than a vehicle, which may be a person
+	// settle, and for one smaller than a vehicle, which may be a person
 	// turning on the spot.
 	MaxCurvature      float64
 	MinYawRate        float64
@@ -133,7 +128,7 @@ func DefaultBoxModelConfig() BoxModelConfig {
 		AxisGateSigmas:         3,
 		AxisRestartRun:         5,
 		VehicleLengthFloor:     3.8,
-		FitMaxPoints:           128,
+		FitMaxPoints:           64,
 		FitCoarseStepDeg:       2,
 		CentrePull:             0.3,
 	}
@@ -253,11 +248,12 @@ const (
 	boxVehicleMinWidthMetres = 1.5
 	// boxCoastRateDecay is the share of the yaw rate kept per coasted frame.
 	boxCoastRateDecay = 0.5
-	// boxVehicleLengthMetres is the drawn length from which an unlabelled box
-	// is held to a vehicle's yaw rate, and boxSettleNanos how long after its
-	// first frame it may turn faster while its first fits settle.
-	boxVehicleLengthMetres = 2.5
-	boxSettleNanos         = int64(1e9)
+	// boxVehicleSizeMetres is the drawn box's longer side from which an
+	// unlabelled box is held to a vehicle's yaw rate, and boxSettleNanos how
+	// long after its first frame it may turn faster while its first fits
+	// settle.
+	boxVehicleSizeMetres = 2.0
+	boxSettleNanos       = int64(1e9)
 	// boxMaxBelievedWidthMetres caps the width belief at the widest road
 	// vehicle allowed (2.55 m in the EU, 2.6 m in the US). The drawn box is
 	// still as wide as the frame's points: the cap only stops a merge or a
@@ -322,17 +318,10 @@ func (e *BoxEstimator) seed(in BoxInput, pts [][2]float64, speed float64) {
 		e.labelled = true
 	case ok:
 		// The longer of the two spans is the length until a course says
-		// otherwise; the front is the velocity's, if it has one. Under the
-		// end-face prior, a short single face across the line of sight is
-		// taken for a vehicle's front or back, and the length along the
-		// line of sight.
-		a, n := axisSpans[0], axisSpans[1]
+		// otherwise; the front is the velocity's, if it has one.
 		e.psi = axis
-		if n > a {
+		if axisSpans[1] > axisSpans[0] {
 			e.psi = axis + math.Pi/2
-		}
-		if e.cfg.EndFacePrior && endFaceView(math.Max(a, n), math.Min(a, n), e.psi, in, e.cfg) {
-			e.psi += math.Pi / 2
 		}
 		if speed > 0 && math.Cos(math.Atan2(in.VY, in.VX)-e.psi) < 0 {
 			e.psi += math.Pi
@@ -471,25 +460,6 @@ func (e *BoxEstimator) update(r, v float64) {
 	}
 }
 
-// End-face prior bounds: a face no longer than the widest vehicle and no
-// deeper than one face's returns, within 30° of square to the line of sight.
-const (
-	boxEndFaceMaxLongMetres  = 2.7
-	boxEndFaceMinLongMetres  = 1.2
-	boxEndFaceMaxShortMetres = 0.8
-	boxEndFaceMinAngleRad    = 60 * math.Pi / 180
-)
-
-// endFaceView reports whether a strip of the given spans, whose long side
-// runs along heading, looks like a vehicle's end face from the sensor.
-func endFaceView(long, short, heading float64, in BoxInput, cfg BoxModelConfig) bool {
-	if long < boxEndFaceMinLongMetres || long > boxEndFaceMaxLongMetres || short > boxEndFaceMaxShortMetres {
-		return false
-	}
-	los := math.Atan2(in.Y-cfg.SensorY, in.X-cfg.SensorX)
-	return math.Abs(foldHalf(heading-los)) >= boxEndFaceMinAngleRad
-}
-
 // boundSpeed is the speed the yaw-rate bound is allowed: the speed less
 // twice its own standard deviation along the velocity, never below zero. A
 // body turns only by moving, and a stopped car's filtered speed is noise
@@ -508,7 +478,7 @@ func boundSpeed(in BoxInput, speed float64) float64 {
 // or a label, moved no box and are not counted.
 func (e *BoxEstimator) limit(prev, speed, dt float64, nanos int64) {
 	floor := e.cfg.MinYawRate
-	settling := nanos-e.bornNanos < boxSettleNanos || e.box.Length < boxVehicleLengthMetres
+	settling := nanos-e.bornNanos < boxSettleNanos || math.Max(e.box.Length, e.box.Width) < boxVehicleSizeMetres
 	if !e.labelled && settling && e.cfg.UnlabelledYawRate > floor {
 		floor = e.cfg.UnlabelledYawRate
 	}

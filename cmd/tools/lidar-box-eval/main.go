@@ -152,11 +152,10 @@ func boxVariants() []variant {
 		with("km-yaw02", "yaw acceleration sigma 0.2 rad/s²", func(c *l5tracks.BoxModelConfig) { c.YawAccelSigma = 0.2 }),
 		with("km-floor0", "no vehicle length floor", func(c *l5tracks.BoxModelConfig) { c.VehicleLengthFloor = 0 }),
 		with("km-full", "fit on 256 points at a 1° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 0, 0 }),
-		with("km-cheap64", "fit on 64 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 64, 2 }),
+		with("km-fit128", "fit on 128 points at a 2° coarse step", func(c *l5tracks.BoxModelConfig) { c.FitMaxPoints, c.FitCoarseStepDeg = 128, 2 }),
 		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
 		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
-		with("km-endface", "end-face prior for unlabelled strips", func(c *l5tracks.BoxModelConfig) { c.EndFacePrior = true }),
-		with("km-w5", "yaw floor 5°/s, unlabelled 45°/s, as the first build", func(c *l5tracks.BoxModelConfig) { c.MinYawRate = 5 * math.Pi / 180 }),
+		with("km-nocourse", "no course observation or label", func(c *l5tracks.BoxModelConfig) { c.CourseMinSpeedMps = 0 }),
 	}
 }
 

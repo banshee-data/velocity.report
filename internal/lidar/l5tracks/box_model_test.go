@@ -3,7 +3,9 @@ package l5tracks
 import (
 	"math"
 	"testing"
+	"time"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
@@ -260,5 +262,83 @@ func TestWindowBeliefCorroboratesAndForgets(t *testing.T) {
 	}
 	if got := b.estimate(); got != 2 {
 		t.Fatalf("after a window of 2 m spans: %v", got)
+	}
+}
+
+// carCluster is a WorldCluster of a car's visible faces, with its members,
+// its PCA box and its medoid as the tracker measures it.
+func carCluster(id int64, cx, cy, psi float64) WorldCluster {
+	pts := visibleFaces(cx, cy, psi, 4.5, 1.8, 20)
+	obb := l4perception.EstimateOBBFromCluster(pts)
+	x, y := medoid(pts)
+	return WorldCluster{ClusterID: id, SensorID: "box-test", CentroidX: float32(x), CentroidY: float32(y),
+		BoundingBoxLength: obb.Length, BoundingBoxWidth: obb.Width, BoundingBoxHeight: 1.5,
+		PointsCount: len(pts), OBB: &obb, Members: pts}
+}
+
+func TestTrackerPublishesABoxThatHoldsItsCluster(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.BoxModel = enabledBoxConfig()
+	tracker := NewTracker(cfg)
+	psi := 25 * math.Pi / 180
+	start := time.Unix(1_700_000_000, 0)
+	var last WorldCluster
+	for i := 0; i < 25; i++ {
+		d := float64(i) * 0.8
+		last = carCluster(int64(i+1), 8+d*math.Cos(psi), -12+d*math.Sin(psi), psi)
+		tracker.Update([]WorldCluster{last}, start.Add(time.Duration(i)*100*time.Millisecond))
+	}
+	tracks := tracker.GetConfirmedTracks()
+	if len(tracks) != 1 {
+		t.Fatalf("%d confirmed tracks, want 1", len(tracks))
+	}
+	tr := tracks[0]
+	if tr.BoxLength <= 0 {
+		t.Fatal("the box model published no box")
+	}
+	b := BoxState{X: float64(tr.BoxX), Y: float64(tr.BoxY), HeadingRad: float64(tr.BoxHeadingRad),
+		Length: float64(tr.BoxLength), Width: float64(tr.BoxWidth)}
+	assertContains(t, 24, BoxState{X: b.X, Y: b.Y, HeadingRad: b.HeadingRad, Length: b.Length + 1e-3, Width: b.Width + 1e-3}, last.Members)
+	if got := axisErrorDeg(b.HeadingRad, psi); got > 3 {
+		t.Fatalf("published box %.1f° off the car", got)
+	}
+
+	// Switched off at run time, the box is dropped rather than frozen.
+	tracker.UpdateConfig(func(c *TrackerConfig) { c.BoxModel = BoxModelConfig{} })
+	tracker.Update([]WorldCluster{carCluster(99, 8+20*math.Cos(psi), -12+20*math.Sin(psi), psi)}, start.Add(2500*time.Millisecond))
+	for _, tr := range tracker.GetActiveTracks() {
+		if tr.BoxLength != 0 {
+			t.Fatalf("box model off, but track %s still publishes a box", tr.TrackID)
+		}
+	}
+}
+
+func TestTrackerWithoutTheBoxModelPublishesNoBox(t *testing.T) {
+	tracker := NewTracker(DefaultTrackerConfig())
+	start := time.Unix(1_700_000_000, 0)
+	for i := 0; i < 8; i++ {
+		tracker.Update([]WorldCluster{carCluster(int64(i+1), 10+float64(i)*0.8, 3, 0)}, start.Add(time.Duration(i)*100*time.Millisecond))
+	}
+	for _, tr := range tracker.GetActiveTracks() {
+		if tr.BoxLength != 0 || tr.box != nil {
+			t.Fatalf("default tracker published a box: %+v", tr.BoxLength)
+		}
+	}
+}
+
+func TestBoxModelTuningRoundTrips(t *testing.T) {
+	block := &config.L5BoxModel{Enabled: true, AxisSource: "rectangle_fit", CourseMinSpeedMps: 1,
+		MaxCurvaturePerMetre: 0.2, MinYawRateDegPerSec: 3, UnlabelledYawRateDegPerSec: 45,
+		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8}
+	cfg := BoxModelConfigFromTuning(block)
+	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 {
+		t.Fatalf("block did not reach the tracker: %+v", cfg)
+	}
+	back := BoxModelTuningFromTracker(TrackerConfig{BoxModel: cfg})
+	if back == nil || *back != *block {
+		t.Fatalf("read-back %+v, want %+v", back, block)
+	}
+	if BoxModelConfigFromTuning(nil).Enabled || BoxModelTuningFromTracker(TrackerConfig{}) != nil {
+		t.Fatal("no block is the model off, both ways")
 	}
 }

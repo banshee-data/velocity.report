@@ -557,3 +557,40 @@ func TestChunkSpanIsIndependentOfStride(t *testing.T) {
 		}
 	}
 }
+
+func TestExportCarriesThePublishedBoxCentre(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "src.vrlog")
+	rec, err := recorder.NewRecorder(dir, "hesai-pandar40p")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+	for i, ts := range evenTimestamps(2) {
+		set := &l9endpoints.TrackSet{FrameID: uint64(i), TimestampNanos: ts, Tracks: []l9endpoints.Track{
+			{TrackID: "boxed", SensorID: "hesai-pandar40p", State: l9endpoints.TrackStateConfirmed,
+				X: 1, Y: 2, BBoxLength: 4.5, BBoxWidth: 1.8, BBoxHeadingRad: 0.5,
+				BBoxCenterX: 2.34567, BBoxCenterY: 1.23456, BBoxCenterValid: true},
+			{TrackID: "legacy", SensorID: "hesai-pandar40p", State: l9endpoints.TrackStateConfirmed,
+				X: 5, Y: 6, BBoxLength: 1, BBoxWidth: 1},
+		}}
+		if err := rec.Record(&l9endpoints.FrameBundle{FrameID: uint64(i), TimestampNanos: ts,
+			SensorID: "hesai-pandar40p", FrameType: l9endpoints.FrameTypeForeground, Tracks: set}); err != nil {
+			t.Fatalf("Record %d: %v", i, err)
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	out := filepath.Join(t.TempDir(), "out")
+	if _, err := Export(Options{VRLOGPath: dir, OutDir: out}); err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	for _, tr := range readFrames(t, out)[0].Tracks {
+		switch {
+		case tr.BoxX == nil && tr.BoxY == nil && tr.X == 5:
+			// The legacy box has no centre of its own and is drawn at (x, y).
+		case tr.BoxX != nil && tr.BoxY != nil && *tr.BoxX == 2.35 && *tr.BoxY == 1.23 && tr.X == 1:
+		default:
+			t.Errorf("track %+v: want the box model's centre rounded beside the tracked position, and none for the legacy box", tr)
+		}
+	}
+}

@@ -578,12 +578,11 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 
 	// Step 3d: Update each matched track's published box (default off). It
 	// reads the tracked state after this frame's update and writes only the
-	// box fields.
-	if t.Config.BoxModel.Enabled {
-		for clusterIdx, trackID := range associations {
-			if track := t.Tracks[trackID]; trackID != "" && track != nil && track.TrackState != TrackDeleted {
-				t.updateBox(track, &clusters[clusterIdx], nowNanos)
-			}
+	// box fields; with the model off it only drops a box left from when it
+	// was on.
+	for clusterIdx, trackID := range associations {
+		if track := t.Tracks[trackID]; trackID != "" && track != nil && track.TrackState != TrackDeleted {
+			t.updateBox(track, &clusters[clusterIdx], nowNanos)
 		}
 	}
 
