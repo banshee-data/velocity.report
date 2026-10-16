@@ -27,6 +27,8 @@ import (
 	"strings"
 	"time"
 
+	radarassets "github.com/banshee-data/velocity.report"
+	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -50,6 +52,8 @@ func main() {
 		requireSet = flag.Bool("require-settled", true, "refuse a capture whose background is unsettled at the scoring boundary")
 	)
 	flag.Parse()
+	// The pipeline reads the default tuning document wherever it runs from.
+	config.SetEmbeddedDefaults(radarassets.TuningDefaults)
 	if *list {
 		for _, v := range boxVariants() {
 			fmt.Printf("%-16s %s\n", v.name, v.about)
