@@ -587,9 +587,12 @@ function initListing(root) {
   const rows = items.map(read);
   const search = root.querySelector("[data-site-search]");
   const empty = root.querySelector("[data-site-empty]");
+  const status = root.querySelector("[data-site-status]");
   const chips = [...root.querySelectorAll("[data-filter]")];
 
-  const apply = () => {
+  // The listing shows no visible site count while each site has one recording,
+  // so screen readers hear the match count from a hidden status line instead.
+  const apply = (announce = true) => {
     const active = chips
       .filter((c) => c.getAttribute("aria-pressed") === "true")
       .map((c) => c.dataset.filter);
@@ -597,9 +600,14 @@ function initListing(root) {
       filterRows(rows, search?.value, active).map((r) => r.site),
     );
     for (const r of rows) r.el.hidden = !shown.has(r.site);
-    if (empty) empty.hidden = shown.size > 0;
+    const n = shown.size;
+    if (empty) empty.hidden = n > 0;
+    if (status && announce)
+      status.textContent = n
+        ? `${n} ${n === 1 ? "site matches" : "sites match"}`
+        : "No surveys match";
   };
-  search?.addEventListener("input", apply);
+  search?.addEventListener("input", () => apply());
   for (const chip of chips) {
     chip.addEventListener("click", () => {
       chip.setAttribute(
@@ -626,7 +634,7 @@ function initListing(root) {
         tbody.append(r.el);
     });
   }
-  apply();
+  apply(false);
 }
 
 if (typeof document !== "undefined") {
