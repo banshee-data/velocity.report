@@ -63,7 +63,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 1,
       "north_azimuth_deg": 101,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 20
     },
     {
       "id": "pierce-haight",
@@ -75,7 +75,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 0,
       "north_azimuth_deg": 11,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 20
     },
     {
       "id": "fulton-divisadero",
@@ -87,7 +87,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 1,
       "north_azimuth_deg": 101,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 20
     },
     {
       "id": "california-leon-baker",
@@ -183,7 +183,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 38,
       "north_azimuth_deg": 48,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 20
     },
     {
       "id": "embarcadero-bay",
@@ -207,7 +207,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 27,
       "north_azimuth_deg": 35,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 20
     },
     {
       "id": "van-ness-sacramento",
@@ -231,7 +231,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 2,
       "north_azimuth_deg": 101,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 30
     },
     {
       "id": "franklin-mcallister",
@@ -255,7 +255,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 3,
       "north_azimuth_deg": 14,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 20
     },
     {
       "id": "bush-powell",
@@ -279,7 +279,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 356,
       "north_azimuth_deg": 131,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 30
     },
     {
       "id": "1st-mission",
@@ -303,7 +303,7 @@
       "confidence": "high",
       "grid_azimuth_deg": 308,
       "north_azimuth_deg": 353,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 30
     },
     {
       "id": "3rd-folsom",
