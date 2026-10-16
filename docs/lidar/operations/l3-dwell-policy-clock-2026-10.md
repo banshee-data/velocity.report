@@ -26,10 +26,11 @@ stands for 20 s. This run tries the clock at 40 s and 60 s.
 - **60 s gives back stationary tracks and saves almost no one.** Five stationary tracks over 60 s,
   12 absorptions of which five pedestrian-classed: a few people stand still for over a minute,
   and a longer clock does not spare them; only a rule by class would.
-- **The drift rule caps the clock.** The longest stationary track is 76 s at both 40 and 60 s:
-  a track whose estimated position wanders more than 1 m from where its stationary run began
-  restarts the clock, so the tolerance, not only T, decides what is ever absorbed. On kirk0 the
-  parked car's runs end at 34.7 and 35.9 s for that reason, so 40 s absorbs nothing there.
+- **What the screen calls stationary is not always still.** The longest stationary track is 76 s
+  at both 40 and 60 s, but it moved 13.6 m, at up to 4.1 m/s, 38 to 40 s into its life: two waits
+  joined by a move, which the screen counts by its 90th-percentile speed and L5's clock rightly
+  restarts. The drift rule binds elsewhere: on kirk0 the parked car's estimated position wanders
+  1 m in 34.7 s without the car moving, so at 40 s nothing there is absorbed.
 
 ## Method
 
@@ -88,11 +89,13 @@ come back to CMR's count, and what is absorbed stays absorbed. What 40 s gives u
 stationary object now holds a track for up to 40 s before it is handed over, so stationary
 track-seconds are 1,719 rather than 625, still under half of CMR's and below the shipped grid's.
 
-Beyond 40 s little changes, because the drift rule, not the clock, ends most stationary runs: an
-estimated centre wanders as returns come and go (kirk0's parked car crosses 1 m after 34.7 s
-without moving), and once it has moved 1 m from where the run began the clock restarts. That also bounds how long anything can
-stay stationary and unabsorbed (76 s here). Five tracks classed pedestrian are absorbed at both 40
-and 60 s: people who stood still for over a minute, which no clock short of minutes avoids.
+Beyond 40 s little changes. The tracks that outlast 40 s without absorption are mostly not still
+throughout: the longest, 76 s, is a wait, a 13.6 m move and another wait, which the screen's
+percentile speed calls stationary and L5's clock does not. Where an object is still, its estimated
+centre can wander as returns come and go (kirk0's parked car crosses 1 m after 34.7 s without
+moving) and restart the clock; [l3bg0017](l3-dwell-policy-drift-2026-10.md) tests that rule. Five
+tracks classed pedestrian are absorbed at both 40 and 60 s: people who stood still for over a
+minute, which no clock short of minutes avoids.
 
 The arrival regime's growth under CMR is held back at 40 s as well as at 20 s through the clean
 part of the capture (5.5 to 5.7 clusters a frame at 20 to 30 minutes, against CMR's 6.3 to 6.7).
