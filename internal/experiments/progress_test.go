@@ -369,6 +369,24 @@ func TestLedgerFilesAndDigest(t *testing.T) {
 	}
 }
 
+// A mark that cannot be written is an error, and leaves no unit file behind.
+func TestAMarkThatCannotBeWrittenIsRefused(t *testing.T) {
+	spec, _ := progressFixture(t, nil)
+	root := t.TempDir()
+	// A file where the experiment's directory should be: the state is readable
+	// (it holds no units) but no unit can be written into it.
+	if err := os.WriteFile(filepath.Join(root, spec.ID), []byte("not a directory"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l := OpenLedger(root)
+	if _, err := apply(t, l, spec, "chart", Start, "m", 0, func(m *Mark) { m.Force = true }); err == nil {
+		t.Fatal("a mark that could not be written was accepted")
+	}
+	if recs, err := l.Records(spec.ID); err != nil || len(recs) != 0 {
+		t.Errorf("records after a refused mark: %v %v", recs, err)
+	}
+}
+
 func TestDefaultStateDir(t *testing.T) {
 	t.Setenv(StateEnv, "/x/state")
 	if DefaultStateDir() != "/x/state" {
@@ -377,5 +395,10 @@ func TestDefaultStateDir(t *testing.T) {
 	t.Setenv(StateEnv, "")
 	if !strings.HasSuffix(DefaultStateDir(), filepath.Join("velocity-report", "experiments")) {
 		t.Errorf("default %s", DefaultStateDir())
+	}
+	// With no home directory to resolve, the state lands beside the caller.
+	t.Setenv("HOME", "")
+	if got := DefaultStateDir(); got != filepath.Join(".", ".experiment-state") {
+		t.Errorf("no home: %s", got)
 	}
 }
