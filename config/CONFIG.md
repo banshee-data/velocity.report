@@ -323,10 +323,11 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
-`dwell_policy`, `measurement_time`, `capture_gap_predict`, `coast_support`,
-`coast_time_inflation`, `class_coast_bounds`, `reacquisition_guard`,
-`occlusion_continuity` and `fixed_lag_rts`. An arm that uses one runs through
-the offline replay tools, and its report names the experiment beside the set.
+`dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`, `measurement_time`,
+`capture_gap_predict`, `coast_support`, `coast_time_inflation`,
+`class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity` and
+`fixed_lag_rts`. An arm that uses one runs through the offline replay tools,
+and its report names the experiment beside the set.
 
 The L3 background experiments among them (`no_region_overrides`, the
 `region_overrides_*` and `volatile_window_cap_*` names, and `support_filter`)
@@ -336,6 +337,13 @@ not name `region_overrides_cell_tercile` with `no_region_overrides`, or a
 window cap with `no_region_overrides` or `region_overrides_quiet_only`: under
 those no cell runs the override the option changes, so the arm would run as
 another and be reported under its name.
+
+`dwell_policy` absorbs a track that has stood still for 20 s;
+`dwell_policy_t40` and `dwell_policy_t60` are the same policy at 40 s and
+60 s, with the same speed, drift and box margin. A replay names at most one of
+the three, and the manifest's `dwell_policy` section records the time used as
+`absorb_after_seconds`. The policy ends tracks, so `lidar-bench` refuses all
+three.
 
 ## Key order
 

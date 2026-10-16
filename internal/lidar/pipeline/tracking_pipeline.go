@@ -307,10 +307,11 @@ type TrackingPipelineConfig struct {
 	DensityPreservingCap bool
 
 	// Dwell, when set, runs the dwell policy after each frame's tracking: a
-	// confirmed track stationary for DwellAbsorbAfter has its object absorbed
-	// into the L3 background and is ended. Nil, the default, runs nothing and
-	// leaves every frame as it was. Replay experiment dwell_policy; see
-	// DwellPolicy.
+	// confirmed track stationary for the policy's T (DwellAbsorbAfter unless
+	// DwellPolicy.AbsorbAfter sets another) has its object absorbed into the
+	// L3 background and is ended. Nil, the default, runs nothing and leaves
+	// every frame as it was. Replay experiments dwell_policy,
+	// dwell_policy_t40 and dwell_policy_t60; see DwellPolicy.
 	Dwell *DwellPolicy
 
 	// RangeAdaptiveEps grows DBSCAN's neighbourhood with each point's range

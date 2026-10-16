@@ -5,10 +5,12 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 )
 
 func TestNormaliseExperimentsSortsAndDeduplicates(t *testing.T) {
@@ -77,6 +79,92 @@ func TestDwellPolicyIsAKnownExperiment(t *testing.T) {
 	}
 }
 
+// dwell_policy_t40 and dwell_policy_t60 (l3bg0015) are the dwell policy with
+// a 40 s and a 60 s clock. Each is accepted by its name alone, hashes apart
+// from the default and from the other settings, needs a tracker, and builds
+// the policy at its own T, which the policy's report echoes; dwell_policy
+// still builds the 20 s policy it always did, and naming none builds
+// nothing. Two settings together are refused, never resolved.
+func TestDwellPolicySettings(t *testing.T) {
+	cases := []struct {
+		name  string
+		after time.Duration
+	}{
+		{ExperimentDwellPolicy, 20 * time.Second},
+		{ExperimentDwellPolicyT40, 40 * time.Second},
+		{ExperimentDwellPolicyT60, 60 * time.Second},
+	}
+	suffixes := map[string]string{}
+	for _, c := range cases {
+		got, err := ParseExperiments(" " + c.name + " ")
+		if err != nil || !reflect.DeepEqual(got, []string{c.name}) {
+			t.Fatalf("ParseExperiments(%s) = %v, %v", c.name, got, err)
+		}
+		suffix := experimentsHashSuffix(got)
+		if suffix == nil {
+			t.Errorf("%s left the parameter hash as the default's", c.name)
+		}
+		for other, s := range suffixes {
+			if s == string(suffix) {
+				t.Errorf("%s hashes as %s", c.name, other)
+			}
+		}
+		suffixes[c.name] = string(suffix)
+		if IsBackgroundExperiment(c.name) {
+			t.Errorf("%s is not background-only: it needs L5", c.name)
+		}
+		policy, err := dwellPolicyFor(got)
+		if err != nil || policy == nil {
+			t.Fatalf("%s: policy %v, %v", c.name, policy, err)
+		}
+		if policy.AbsorbAfter != c.after {
+			t.Errorf("%s: AbsorbAfter %v, want %v", c.name, policy.AbsorbAfter, c.after)
+		}
+		if r := policy.Report(); r.AbsorbAfterSeconds != c.after.Seconds() ||
+			r.StationarySpeedMps != l5tracks.StationarySpeedMps || r.StationaryDriftMetres != l5tracks.StationaryDriftMetres {
+			t.Errorf("%s: report %+v, want T %v and the shared stationary constants", c.name, r, c.after)
+		}
+	}
+	plain, err := dwellPolicyFor([]string{ExperimentDwellPolicy})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(plain.Report(), (&pipeline.DwellPolicy{}).Report()) || pipeline.DwellAbsorbAfter != 20*time.Second {
+		t.Errorf("dwell_policy reports %+v, want the 20 s policy's %+v", plain.Report(), (&pipeline.DwellPolicy{}).Report())
+	}
+	for _, off := range [][]string{nil, {}, {ExperimentCascade, ExperimentSupportFilter}} {
+		if policy, err := dwellPolicyFor(off); err != nil || policy != nil {
+			t.Errorf("%v: policy %+v, %v; want none", off, policy, err)
+		}
+	}
+	for _, refused := range [][]string{
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT40},
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT60},
+		{ExperimentDwellPolicyT40, ExperimentDwellPolicyT60},
+		{ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60},
+	} {
+		if policy, err := dwellPolicyFor(refused); err == nil || !strings.Contains(err.Error(), "settings of one option") {
+			t.Errorf("%v: policy %+v, %v; want the pair refused", refused, policy, err)
+		}
+	}
+	for _, near := range []string{"dwell_policy_t20", "dwell_policy_t30", "dwell_policy_40", "dwell_policy_t40s", "dwell_policy_T60"} {
+		if _, err := ParseExperiments(near); err == nil {
+			t.Errorf("%q was accepted", near)
+		}
+	}
+}
+
+// Two dwell policy settings are refused before any capture is read.
+func TestRunRefusesTwoDwellSettingsBeforeReadingACapture(t *testing.T) {
+	_, err := Run(Config{
+		PCAPFile: "missing.pcap", OutDir: filepath.Join(t.TempDir(), "out"), UDPPort: 2369,
+		Experiments: []string{ExperimentDwellPolicyT60, ExperimentDwellPolicy},
+	})
+	if err == nil || !strings.Contains(err.Error(), "settings of one option") {
+		t.Fatalf("got %v, want both dwell settings refused before the missing capture is read", err)
+	}
+}
+
 func TestParseExperimentsEmptyIsShippedBehaviour(t *testing.T) {
 	for _, in := range []string{"", "  ", ","} {
 		got, err := ParseExperiments(in)
@@ -116,7 +204,8 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy, ExperimentFixedLagRTS, ExperimentFlipRule,
+		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy,
+		ExperimentDwellPolicyT40, ExperimentDwellPolicyT60, ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
@@ -251,7 +340,8 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		t.Errorf("%s was accepted without %s", ExperimentSolidBodyFullMembers, ExperimentSolidBody)
 	}
 	// Pipeline, background and observer experiments must not touch the tracker.
-	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentRangeAdaptiveEps, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly,
+	for _, name := range []string{ExperimentDensityCap, ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60,
+		ExperimentRangeAdaptiveEps, ExperimentNoRegionOverrides, ExperimentRegionOverridesVolatileOnly, ExperimentRegionOverridesQuietOnly,
 		ExperimentRegionOverridesCellTercile, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m, ExperimentSupportFilter, ExperimentFixedLagRTS} {
 		got, err := trackerConfigFor(l5, "", []string{name}, nil)
 		if err != nil {

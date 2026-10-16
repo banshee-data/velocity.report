@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
+	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 )
 
 // Experiments are the default-off, Go-level options a replay can switch on.
@@ -79,6 +81,14 @@ const (
 	// experiment and lidar-bench refuses it. The manifest's dwell_policy
 	// section says what it absorbed.
 	ExperimentDwellPolicy = "dwell_policy"
+	// ExperimentDwellPolicyT40 and ExperimentDwellPolicyT60: the same policy
+	// with its absorb-after time at 40 s and 60 s
+	// (pipeline.DwellPolicy.AbsorbAfter; experiment l3bg0015); the stationary
+	// speed, drift and box margin are dwell_policy's. With dwell_policy they
+	// are three settings of one option, so a replay may name only one. The
+	// manifest's dwell_policy section echoes the T that ran.
+	ExperimentDwellPolicyT40 = "dwell_policy_t40"
+	ExperimentDwellPolicyT60 = "dwell_policy_t60"
 	// ExperimentMeasurementTime: l5tracks.TrackerConfig.MeasurementTimePrediction,
 	// state-estimation plan question Q3: update each track at its cluster's
 	// own acquisition time rather than the frame start.
@@ -239,6 +249,8 @@ var knownExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:   true,
 	ExperimentSupportFilter:       true,
 	ExperimentDwellPolicy:         true,
+	ExperimentDwellPolicyT40:      true,
+	ExperimentDwellPolicyT60:      true,
 	ExperimentMeasurementTime:     true,
 	ExperimentCaptureGapPredict:   true,
 	ExperimentCoastSupport:        true,
@@ -406,6 +418,34 @@ func volatileWindowCapFor(experiments []string) (float64, error) {
 		return 2, nil
 	}
 	return 0, nil
+}
+
+// dwellPolicyFor builds the dwell policy the named experiments ask for: nil,
+// the default, for none of the three settings; the 20 s policy for
+// dwell_policy; and 40 s or 60 s for its two longer clocks. Naming two is
+// refused rather than resolved, because either choice would run an arm that
+// is not the one reported.
+func dwellPolicyFor(experiments []string) (*pipeline.DwellPolicy, error) {
+	settings := []struct {
+		name  string
+		after time.Duration
+	}{
+		{ExperimentDwellPolicy, pipeline.DwellAbsorbAfter},
+		{ExperimentDwellPolicyT40, 40 * time.Second},
+		{ExperimentDwellPolicyT60, 60 * time.Second},
+	}
+	var policy *pipeline.DwellPolicy
+	for _, s := range settings {
+		if !hasExperiment(experiments, s.name) {
+			continue
+		}
+		if policy != nil {
+			return nil, fmt.Errorf("replay experiments %s, %s and %s are settings of one option; name one",
+				ExperimentDwellPolicy, ExperimentDwellPolicyT40, ExperimentDwellPolicyT60)
+		}
+		policy = &pipeline.DwellPolicy{AbsorbAfter: s.after}
+	}
+	return policy, nil
 }
 
 // ApplyBackgroundExperiments switches the named L3 experiments on in a

@@ -295,8 +295,48 @@ func TestInsideBox(t *testing.T) {
 	}
 }
 
+// A longer T (the dwell_policy_t40 and _t60 replay experiments) holds the
+// same object past 20 s and absorbs it at the first observed frame at or past
+// its own T, and the report says which T ran.
+func TestDwellPolicy_AbsorbsAtItsOwnT(t *testing.T) {
+	for _, after := range []time.Duration{40 * time.Second, 60 * time.Second} {
+		t.Run(after.String(), func(t *testing.T) {
+			dwell := &DwellPolicy{AbsorbAfter: after}
+			s := newDwellScene(t, dwell)
+			before := int((after - time.Second) / dwellFramePeriod)
+			for i := 0; i < before; i++ {
+				s.step(dwellObjectMetres)
+			}
+			if r := dwell.Report(); r.TracksAbsorbed != 0 {
+				t.Fatalf("absorbed before its T of %v (the default is %v): %+v", after, DwellAbsorbAfter, r)
+			}
+			if st := s.state(); st.confirmed != 1 || st.foreground == 0 {
+				t.Fatalf("after %d frames: %d confirmed tracks and %d foreground returns, want the object still tracked",
+					before, st.confirmed, st.foreground)
+			}
+			for i := before; i < int((after+3*time.Second)/dwellFramePeriod)+1; i++ {
+				s.step(dwellObjectMetres)
+			}
+			r := dwell.Report()
+			if r.AbsorbAfterSeconds != after.Seconds() {
+				t.Errorf("report says T = %g s, want the %g s it ran at", r.AbsorbAfterSeconds, after.Seconds())
+			}
+			if r.TracksAbsorbed != 1 || len(r.Absorptions) != 1 {
+				t.Fatalf("absorbed %d tracks (%d records), want 1: %+v", r.TracksAbsorbed, len(r.Absorptions), r)
+			}
+			if got := r.Absorptions[0].StationarySeconds; got < after.Seconds() || got > after.Seconds()+0.15 {
+				t.Errorf("absorbed after %.2f s stationary, want the first observed frame at or past %v", got, after)
+			}
+			if got := absorbedDeleted(s.tracker); got != 1 {
+				t.Errorf("%d tracks ended as absorbed, want 1", got)
+			}
+		})
+	}
+}
+
 // A report carries the policy's constants and a list that marshals as [],
-// never null, when nothing was absorbed.
+// never null, when nothing was absorbed. Its T is the one the policy runs
+// at; the other constants are the same at every T.
 func TestDwellPolicy_ReportCarriesItsConstants(t *testing.T) {
 	r := (&DwellPolicy{}).Report()
 	if r.AbsorbAfterSeconds != DwellAbsorbAfter.Seconds() || r.StationarySpeedMps != l5tracks.StationarySpeedMps ||
@@ -305,5 +345,16 @@ func TestDwellPolicy_ReportCarriesItsConstants(t *testing.T) {
 	}
 	if r.Absorptions == nil {
 		t.Error("an empty report's absorptions are nil and would marshal as null")
+	}
+	if explicit := (&DwellPolicy{AbsorbAfter: DwellAbsorbAfter}).Report(); !reflect.DeepEqual(explicit, r) {
+		t.Errorf("T set to the default reports %+v, want the default's %+v", explicit, r)
+	}
+	for _, after := range []time.Duration{40 * time.Second, 60 * time.Second} {
+		got := (&DwellPolicy{AbsorbAfter: after}).Report()
+		want := r
+		want.AbsorbAfterSeconds = after.Seconds()
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("T %v: report %+v, want %+v", after, got, want)
+		}
 	}
 }

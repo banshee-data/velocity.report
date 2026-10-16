@@ -95,8 +95,10 @@ type caseSummary struct {
 	// CoverageSurvey is the declaration -survey-coverage measured from the
 	// first run, and its statistics, as added to the declaration set.
 	CoverageSurvey *replayeval.CoverageSurvey `json:"coverage_survey,omitempty"`
-	// DwellPolicy is what the dwell_policy experiment absorbed in the first
-	// run, over the whole processed window; identical on the repeat by check.
+	// DwellPolicy is what the dwell policy (dwell_policy, dwell_policy_t40
+	// or dwell_policy_t60) absorbed in the first run, over the whole
+	// processed window, with the T it ran at (absorb_after_seconds);
+	// identical on the repeat by check.
 	DwellPolicy *pipeline.DwellReport `json:"dwell_policy,omitempty"`
 }
 

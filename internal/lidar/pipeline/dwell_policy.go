@@ -11,12 +11,14 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 )
 
-// DwellAbsorbAfter is the dwell policy's T: how long a confirmed track must
-// have stood still (l5tracks.TrackedObject.StationaryFor) before its object
-// is absorbed into the background. Twenty seconds is the beam-wise review's
-// stationary-track threshold (M3, Section 5.1), the measure on which the
-// recall retunes made more long stationary tracks. It is fixed rather than a
-// tuning key so the option leaves the config fingerprint where it was.
+// DwellAbsorbAfter is the dwell policy's default T: how long a confirmed
+// track must have stood still (l5tracks.TrackedObject.StationaryFor) before
+// its object is absorbed into the background. Twenty seconds is the
+// beam-wise review's stationary-track threshold (M3, Section 5.1), the
+// measure on which the recall retunes made more long stationary tracks. It is
+// fixed rather than a tuning key so the option leaves the config fingerprint
+// where it was; a replay that tries another T names it as another experiment,
+// which sets DwellPolicy.AbsorbAfter.
 //
 // Its cost is a road user that stands longer than this: a pedestrian waiting
 // to cross, or a queue at a long signal, is absorbed and loses its track,
@@ -33,8 +35,8 @@ const dwellBoxMarginMetres = 0.2
 
 // DwellPolicy runs the dwell policy (replay experiment dwell_policy): after
 // each frame's tracking, a confirmed track observed in the frame that has been
-// stationary for DwellAbsorbAfter has the frame's foreground returns inside
-// its cluster's box absorbed into the L3 background
+// stationary for the policy's T (AbsorbAfter) has the frame's foreground
+// returns inside its cluster's box absorbed into the L3 background
 // (l3grid.BackgroundManager.AbsorbReturns), and is then ended with
 // l5tracks.ExpiryAbsorbed. From the next frame the object is background: it
 // makes no cluster and the track is gone, so neither a coasting box nor a
@@ -44,12 +46,28 @@ const dwellBoxMarginMetres = 0.2
 // pipeline callback is the policy's only writer; read Report after the last
 // frame.
 type DwellPolicy struct {
+	// AbsorbAfter is the policy's T. Zero is DwellAbsorbAfter, the 20 s of
+	// replay experiment dwell_policy; dwell_policy_t40 and dwell_policy_t60
+	// set 40 s and 60 s. The stationary speed, drift and box margin are the
+	// same at every T. Set it before the first frame and leave it.
+	AbsorbAfter time.Duration
+
 	report DwellReport
+}
+
+// absorbAfter is the T the policy runs with: AbsorbAfter when it is set,
+// DwellAbsorbAfter otherwise.
+func (d *DwellPolicy) absorbAfter() time.Duration {
+	if d.AbsorbAfter > 0 {
+		return d.AbsorbAfter
+	}
+	return DwellAbsorbAfter
 }
 
 // DwellReport is what a dwell policy did over a run.
 type DwellReport struct {
 	// The policy's constants, so a report says what it ran with.
+	// AbsorbAfterSeconds is the T it ran at, not the default.
 	AbsorbAfterSeconds    float64 `json:"absorb_after_seconds"`
 	StationarySpeedMps    float64 `json:"stationary_speed_mps"`
 	StationaryDriftMetres float64 `json:"stationary_drift_metres"`
@@ -83,7 +101,7 @@ type DwellAbsorption struct {
 // Report returns a copy of what the policy has done so far.
 func (d *DwellPolicy) Report() DwellReport {
 	r := d.report
-	r.AbsorbAfterSeconds = DwellAbsorbAfter.Seconds()
+	r.AbsorbAfterSeconds = d.absorbAfter().Seconds()
 	r.StationarySpeedMps = l5tracks.StationarySpeedMps
 	r.StationaryDriftMetres = l5tracks.StationaryDriftMetres
 	r.BoxMarginMetres = dwellBoxMarginMetres
@@ -99,11 +117,12 @@ func (d *DwellPolicy) absorbDue(bm *l3grid.BackgroundManager, tracker l5tracks.T
 	confirmed []*l5tracks.TrackedObject, clusters []l4perception.WorldCluster,
 	foreground []l2frames.PointPolar, sensorID string, at time.Time) {
 	atNanos := at.UnixNano()
+	after := d.absorbAfter()
 	var due []*l5tracks.TrackedObject
 	for _, track := range confirmed {
 		// Misses is zero only on a frame the track was observed, so its
 		// cluster is this frame's and its returns are in foreground.
-		if track.Misses == 0 && track.StationaryFor(atNanos) >= DwellAbsorbAfter {
+		if track.Misses == 0 && track.StationaryFor(atNanos) >= after {
 			due = append(due, track)
 		}
 	}
