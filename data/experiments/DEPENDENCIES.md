@@ -51,6 +51,7 @@ flowchart TB
     l5id0002["<b>l5id0002</b><br/>One vehicle, one track: ending a coasting…<br/>answered · 2h machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0003["<b>l5id0003</b><br/>One vehicle, one track: the overlap end…<br/>answered · 2h2m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0004["<b>l5id0004</b><br/>One vehicle, one track: the overlap end…<br/>answered · 1h55m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
+    l5id0005["<b>l5id0005</b><br/>One vehicle, one track: replicating…<br/>answered · 40m machine + 30m person (took 25m)<br/>manual: write"]:::answered
   end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
@@ -99,6 +100,7 @@ flowchart TB
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
   l5id0003 --> l5id0004
+  l5id0004 --> l5id0005
   l3bg0005 --> perf0001
 ```
 
@@ -143,6 +145,7 @@ flowchart TB
 - [l5id0002](l5id/l5id0002.md) One vehicle, one track: ending a coasting track that lies on a live one: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h, took 1h on m1pro; asked [l5id0001](../../data/experiments/l5id/l5id0001.md).
 - [l5id0003](l5id/l5id0003.md) One vehicle, one track: the overlap end, kept to the vehicles it observes: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h2m, took 1h on m1pro; asked [l5id0002](../../data/experiments/l5id/l5id0002.md).
 - [l5id0004](l5id/l5id0004.md) One vehicle, one track: the overlap end on the body's returns, keeping the older track: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 1h55m, took 1h on m1pro; asked [l5id0003](../../data/experiments/l5id/l5id0003.md).
+- [l5id0005](l5id/l5id0005.md) One vehicle, one track: replicating l5id0004 on the third segments: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 40m, took 25m on m1pro; asked [l5id0004](../../data/experiments/l5id/l5id0004.md).
 
 ## Totals
 
