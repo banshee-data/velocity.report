@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 )
 
@@ -741,8 +742,8 @@ func referenceGapValue(ref annotation.FollowingGap) float64 {
 // boxIoU is the intersection over union of two rotated rectangles.
 func boxIoU(a, b annotation.BoxBound) float64 {
 	pa, pb := boxCorners(a), boxCorners(b)
-	inter := polygonArea(clipConvex(pa, pb))
-	union := polygonArea(pa) + polygonArea(pb) - inter
+	inter := l4perception.PolygonArea(l4perception.ClipConvex(pa, pb))
+	union := l4perception.PolygonArea(pa) + l4perception.PolygonArea(pb) - inter
 	if union <= 0 {
 		return 0
 	}
@@ -758,45 +759,6 @@ func boxCorners(b annotation.BoxBound) [][2]float64 {
 		out = append(out, [2]float64{b.CentreXM + k[0]*c - k[1]*s, b.CentreYM + k[0]*s + k[1]*c})
 	}
 	return out
-}
-
-// clipConvex clips one convex polygon by another, both anticlockwise
-// (Sutherland-Hodgman).
-func clipConvex(subject, clip [][2]float64) [][2]float64 {
-	out := subject
-	for i := range clip {
-		a, b := clip[i], clip[(i+1)%len(clip)]
-		inside := func(p [2]float64) bool { return (b[0]-a[0])*(p[1]-a[1])-(b[1]-a[1])*(p[0]-a[0]) >= 0 }
-		in := out
-		out = nil
-		for j := range in {
-			p, q := in[j], in[(j+1)%len(in)]
-			pIn, qIn := inside(p), inside(q)
-			if pIn {
-				out = append(out, p)
-			}
-			if pIn != qIn {
-				// The edge p-q crosses the clip line a-b.
-				dx, dy := q[0]-p[0], q[1]-p[1]
-				ex, ey := b[0]-a[0], b[1]-a[1]
-				t := (ex*(p[1]-a[1]) - ey*(p[0]-a[0])) / (ey*dx - ex*dy)
-				out = append(out, [2]float64{p[0] + t*dx, p[1] + t*dy})
-			}
-		}
-		if len(out) == 0 {
-			return nil
-		}
-	}
-	return out
-}
-
-func polygonArea(p [][2]float64) float64 {
-	area := 0.0
-	for i := range p {
-		q := p[(i+1)%len(p)]
-		area += p[i][0]*q[1] - q[0]*p[i][1]
-	}
-	return math.Abs(area) / 2
 }
 
 type errorPool struct {

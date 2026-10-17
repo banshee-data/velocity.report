@@ -582,70 +582,14 @@ func (s *scorer) crossScore(f replayeval.TrackerTapFrame, rows []crossRow) {
 	}
 }
 
-// corners are a box's corners, anticlockwise.
-func (b box) corners() [][2]float64 {
-	c, s := math.Cos(b.psi), math.Sin(b.psi)
-	out := make([][2]float64, 0, 4)
-	for _, k := range [][2]float64{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}} {
-		a, n := k[0]*b.length/2, k[1]*b.width/2
-		out = append(out, [2]float64{b.x + a*c - n*s, b.y + a*s + n*c})
-	}
-	return out
-}
-
-// overlapShare is the area two boxes share over the smaller box's area.
+// overlapShare is the area two boxes share over the smaller box's area
+// (l4perception.RectOverlapShare, the tracker's overlap end's test too).
 func overlapShare(p, q box) float64 {
-	if math.Hypot(p.x-q.x, p.y-q.y) > (math.Hypot(p.length, p.width)+math.Hypot(q.length, q.width))/2 {
-		return 0
-	}
-	small := math.Min(p.length*p.width, q.length*q.width)
-	if small <= 0 {
-		return 0
-	}
-	return polygonArea(clipConvex(p.corners(), q.corners())) / small
+	return l4perception.RectOverlapShare(p.rect(), q.rect())
 }
 
-// clipConvex is the subject polygon clipped to the convex, anticlockwise
-// clip polygon (Sutherland–Hodgman).
-func clipConvex(subject, clip [][2]float64) [][2]float64 {
-	out := subject
-	for i := range clip {
-		a, b := clip[i], clip[(i+1)%len(clip)]
-		in := out
-		out = nil
-		if len(in) == 0 {
-			break
-		}
-		side := func(p [2]float64) float64 { return (b[0]-a[0])*(p[1]-a[1]) - (b[1]-a[1])*(p[0]-a[0]) }
-		prev := in[len(in)-1]
-		for _, cur := range in {
-			sp, sc := side(prev), side(cur)
-			if sc >= 0 {
-				if sp < 0 {
-					out = append(out, crossing(prev, cur, sp, sc))
-				}
-				out = append(out, cur)
-			} else if sp >= 0 {
-				out = append(out, crossing(prev, cur, sp, sc))
-			}
-			prev = cur
-		}
-	}
-	return out
-}
-
-func crossing(p, q [2]float64, sp, sq float64) [2]float64 {
-	t := sp / (sp - sq)
-	return [2]float64{p[0] + t*(q[0]-p[0]), p[1] + t*(q[1]-p[1])}
-}
-
-func polygonArea(pts [][2]float64) float64 {
-	a := 0.0
-	for i := range pts {
-		j := (i + 1) % len(pts)
-		a += pts[i][0]*pts[j][1] - pts[j][0]*pts[i][1]
-	}
-	return math.Abs(a) / 2
+func (b box) rect() l4perception.Rect {
+	return l4perception.Rect{X: b.x, Y: b.y, HeadingRad: b.psi, Length: b.length, Width: b.width}
 }
 
 func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l5tracks.WorldCluster, ref areaRef, now int64) {
