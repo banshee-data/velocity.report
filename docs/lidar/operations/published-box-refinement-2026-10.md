@@ -276,17 +276,18 @@ geom0006 and geom0007 option at its off value:
 - `lidar-bench` keeps cluster members whenever the tuning's box model reads them, so the perf
   gate measures the box model's real cost;
 - the two Mac perf baselines were recaptured for the moved fingerprint from a shared clone at the
-  change: full 7,800 ms wall (spread 2.5 %), p95 frame 23.6 ms; l3-only 4,877 ms (1.1 %). The
-  work is the same (25 tracks confirmed at once, 77 distinct).
+  final defaults: full 7,756 ms wall (spread 0.6 %), p95 frame 24.5 ms; l3-only 4,892 ms (2.9 %).
+  The work is the same (25 tracks confirmed at once, 77 distinct). A first capture at the flip,
+  before the geom0006 and geom0007 keys joined the block, had another fingerprint and was replaced.
 
-Paired on the same clone and binary, five repeats each:
+Paired on the same clone and binary at the flip, five repeats each:
 
-| Tuning            | Wall (median of 5) | Spread | Mean frame | p95 frame | p99 frame |
-| ----------------- | -----------------: | -----: | ---------: | --------: | --------: |
-| box model on      |           7,679 ms |  1.5 % |    6.18 ms |  24.42 ms |  50.05 ms |
-| box model off     |           7,603 ms |  1.2 % |    6.08 ms |  23.51 ms |  48.96 ms |
-| on (the baseline) |           7,800 ms |  2.5 % |    6.20 ms |  23.59 ms |  49.43 ms |
-| off               |           7,596 ms |  0.8 % |    6.07 ms |  23.59 ms |  49.93 ms |
+| Tuning             | Wall (median of 5) | Spread | Mean frame | p95 frame | p99 frame |
+| ------------------ | -----------------: | -----: | ---------: | --------: | --------: |
+| box model on       |           7,679 ms |  1.5 % |    6.18 ms |  24.42 ms |  50.05 ms |
+| box model off      |           7,603 ms |  1.2 % |    6.08 ms |  23.51 ms |  48.96 ms |
+| on (first capture) |           7,800 ms |  2.5 % |    6.20 ms |  23.59 ms |  49.43 ms |
+| off                |           7,596 ms |  0.8 % |    6.07 ms |  23.59 ms |  49.93 ms |
 
 The box model costs 1 to 3 % of the wall time and about 0.1 ms of mean frame time on kirk0; the
 tails move within the spread of repeats. On the Pi the same fraction would be a few milliseconds
@@ -313,7 +314,7 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 | Round 3 (CMR)               | scorer `a8da1a8d6`; `l3-retune-cm2-mp8-floor.json` as at `6e0f5ba32` less the box block, SHA-256 `58ec690d5034664748d6ec3701202074c28c4b5d7b437e532095bd17dc924148` |
 | geom0007                    | scorer `6533b390a`; defaults with the box model                                                                                                                     |
 | Defaults at the change      | `config/tuning.defaults.json` at `6e0f5ba32`, SHA-256 `5b6a7ac0a933ad33e918bfc4c537d0e528168c8bcf8bf342ad1cf5e28f226923`                                            |
-| Perf baselines              | `make perf-baseline-all` from a shared clone at `6e0f5ba32`, fingerprints full `7705356a1076`, l3-only `9884a9eae446`                                               |
+| Perf baselines              | `make perf-baseline-all` from a shared clone at `8f8ff9c9e`, fingerprints full `4c10f4e77702`, l3-only `9884a9eae446`; the on/off pairs at `6e0f5ba32`              |
 | References                  | physical-reference bundle revision 76 (pack `ds_95be6fb22498b44a`), 44 keyframes with an observed yaw                                                               |
 | Rules                       | geom0006 round 1 and round 2 in its spec; geom0007 committed at `168f2d517` before its replays                                                                      |
 | Raw outputs                 | summaries, per-frame rows and logs under the run's scratch directory on the development Mac, archived on the results share; not in Git                              |
