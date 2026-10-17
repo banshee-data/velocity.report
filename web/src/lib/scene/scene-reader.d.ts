@@ -32,6 +32,9 @@ declare module '$scene/scene-reader.js' {
 		w: number;
 		h: number;
 		bh: number;
+		/** The published box's own centre, when it differs from the track's. */
+		bx?: number;
+		by?: number;
 		c?: string;
 		cf?: number;
 	}

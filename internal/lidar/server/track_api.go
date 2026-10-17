@@ -290,6 +290,7 @@ func (api *TrackAPI) handleListObservations(w http.ResponseWriter, r *http.Reque
 			},
 			HeightP95:     obs.HeightP95,
 			IntensityMean: obs.IntensityMean,
+			Box:           observedBox(obs),
 		})
 	}
 
@@ -538,8 +539,9 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 			Width  float32 `json:"width"`
 			Height float32 `json:"height"`
 		} `json:"bounding_box"`
-		HeightP95     float32 `json:"height_p95"`
-		IntensityMean float32 `json:"intensity_mean"`
+		HeightP95     float32      `json:"height_p95"`
+		IntensityMean float32      `json:"intensity_mean"`
+		Box           *ObservedBox `json:"box,omitempty"`
 	}
 
 	response := struct {
@@ -584,6 +586,7 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 			},
 			HeightP95:     obs.HeightP95,
 			IntensityMean: obs.IntensityMean,
+			Box:           observedBox(obs),
 		})
 	}
 

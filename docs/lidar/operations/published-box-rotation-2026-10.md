@@ -529,8 +529,9 @@ frame with 50 tracks pays about 1.5 ms here. Scene assets with the box centre ar
   tracks fall in other groups, and the all-tracks tables carry them.
 - **The Pi is not timed**, and the live pipeline has never kept cluster members by default; the
   `pca` axis source is the option if keeping them is too dear.
-- **The web app's live view** draws boxes from the persisted track observations, which record the
-  legacy box: the box model reaches the visualiser and the scene assets, not that view.
+- **The web app's live view** draws boxes from the persisted track observations, which recorded
+  the legacy box: the box model reached the visualiser and the scene assets, not that view, until
+  migration 62 recorded the published box on each observation.
 - **The macOS visualiser** builds and passes its 1,289 tests with the box centre, but was not
   watched against a live stream in this run.
 - **Five-minute segments.** Each corpus case is one segment after 70 s of warm-up; long stops,
@@ -580,7 +581,8 @@ the scene player in this change draws.
 3. **Label slow vehicles from more than the course.** A displacement over a second or two labels
    a car the Kalman velocity cannot at 0.8 m/s; a class prior labels a parked car seen square on.
 4. **Persist the published box** in the track observations, so the web app's live view draws it
-   too.
+   too. Done after the box model became the default: migration 62 records the box on every
+   observation, and the live view draws it at its own centre.
 5. **Leave yaw acceleration at 0.4.** 0.2 is smoother but failed its pre-registered trial by
    0.1° of lag at p90; a smoother box should come from a better course in a turn, not a slower
    filter.

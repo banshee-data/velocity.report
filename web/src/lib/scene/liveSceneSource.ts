@@ -104,6 +104,7 @@ function toSceneTrack(
 	peakSpeed: Map<string, number>
 ): SceneTrack {
 	const classification = classByTrack.get(observation.track_id);
+	const box = observation.box;
 	return {
 		id: observation.track_id,
 		x: observation.position.x,
@@ -114,13 +115,16 @@ function toSceneTrack(
 		spd: observation.speed_mps,
 		mspd: peakSpeed.get(observation.track_id) ?? observation.speed_mps,
 		hdg: observation.heading_rad,
-		l: observation.bounding_box.length,
-		w: observation.bounding_box.width,
+		l: box ? box.length : observation.bounding_box.length,
+		w: box ? box.width : observation.bounding_box.width,
 		h: observation.bounding_box.height,
-		// The recorded heading is the box heading for a live observation:
-		// there is no separate per-frame OBB yaw on this endpoint, and
-		// inventing one would rotate boxes on no evidence.
-		bh: observation.heading_rad,
+		// The published box, when recorded, is drawn at its own centre and
+		// heading, as the visualiser and the public scenes draw it. Without
+		// one the recorded heading is the box heading: there is no separate
+		// per-frame OBB yaw on this endpoint, and inventing one would rotate
+		// boxes on no evidence.
+		bh: box ? box.heading_rad : observation.heading_rad,
+		...(box ? { bx: box.x, by: box.y } : {}),
 		c: classification?.label,
 		cf: classification?.confidence
 	};

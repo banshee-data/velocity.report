@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1641,4 +1642,68 @@ func TestTrackAPI_HandleListTracks_History_ResponseShape(t *testing.T) {
 	if _, err := time.Parse(time.RFC3339Nano, tr.LastSeen); err != nil {
 		t.Errorf("last_seen not valid RFC3339Nano: %v", err)
 	}
+}
+
+func TestTrackAPI_ObservationsCarryThePublishedBox(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	now := time.Now().UnixNano()
+	insertTestTrack(t, db, "track-box", "sensor-A", "confirmed", now-1e9, now)
+	insertTestObservation(t, db, "track-box", now-500e6, 10.0, 5.0)
+	if _, err := db.Exec(`UPDATE lidar_track_observations SET box_x = 11, box_y = 5.5, box_heading_rad = 0.25,
+		box_length = 4.4, box_width = 1.8 WHERE track_id = 'track-box' AND ts_unix_nanos = ?`, now-500e6); err != nil {
+		t.Fatal(err)
+	}
+	insertTestObservation(t, db, "track-box", now, 10.5, 5.2)
+	api := NewTrackAPI(db, "sensor-A")
+
+	check := func(name string, boxes []*ObservedBox) {
+		t.Helper()
+		var with, without int
+		for _, b := range boxes {
+			if b == nil {
+				without++
+				continue
+			}
+			with++
+			// The display frame swaps the axes: (11, 5.5) is drawn at
+			// (5.5, 11), and a heading of 0.25 rad at pi/2 - 0.25.
+			if b.X != 5.5 || b.Y != 11 || math.Abs(float64(b.HeadingRad)-(math.Pi/2-0.25)) > 1e-5 || b.Length != 4.4 || b.Width != 1.8 {
+				t.Errorf("%s: box %+v", name, *b)
+			}
+		}
+		if with != 1 || without != 1 {
+			t.Errorf("%s: %d observations with a box and %d without, want one each", name, with, without)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/observations?sensor_id=sensor-A", nil)
+	w := httptest.NewRecorder()
+	api.handleListObservations(w, req)
+	var list ObservationsListResponse
+	if err := json.NewDecoder(w.Body).Decode(&list); err != nil {
+		t.Fatal(err)
+	}
+	var boxes []*ObservedBox
+	for _, o := range list.Observations {
+		boxes = append(boxes, o.Box)
+	}
+	check("observations", boxes)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/lidar/tracks/track-box/observations", nil)
+	w = httptest.NewRecorder()
+	api.handleTrackObservations(w, req, "track-box")
+	var per struct {
+		Observations []struct {
+			Box *ObservedBox `json:"box"`
+		} `json:"observations"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&per); err != nil {
+		t.Fatal(err)
+	}
+	boxes = nil
+	for _, o := range per.Observations {
+		boxes = append(boxes, o.Box)
+	}
+	check("track observations", boxes)
 }
