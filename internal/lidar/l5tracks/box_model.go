@@ -109,6 +109,14 @@ type BoxModelConfig struct {
 	// remainder do not reach into the next vehicle. The box is never shorter
 	// than its own returns' span.
 	ExclusiveMarginMetres float64
+	// AdmitMergeSpans admits a frame's spans as extent evidence when the
+	// tracker flags the cluster a probable merge (BoxInput.Merge), up to
+	// MergeSpanMaxMetres along the body when that is positive. The flag is
+	// a growth test, so it also fires on a body growing from a fragment to
+	// its whole length, which the box would otherwise never learn. Not a
+	// tuning key: geom0009 scores it.
+	AdmitMergeSpans    bool
+	MergeSpanMaxMetres float64
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -438,12 +446,14 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 		if gate <= 0 || r*r <= gate*gate*(e.p[0][0]+v) {
 			e.refusals = 0
 			e.update(r, v)
-			if math.Abs(foldQuarter(axis-e.psi)) <= 2*sigma && !in.Merge {
+			if math.Abs(foldQuarter(axis-e.psi)) <= 2*sigma {
 				a, n := axisSpans[0], axisSpans[1]
 				if math.Abs(foldHalf(axis-e.psi)) > math.Pi/4 {
 					a, n = n, a
 				}
-				spans = &[2]float64{a, n}
+				if !in.Merge || e.admitMergeSpan(a) {
+					spans = &[2]float64{a, n}
+				}
 			}
 		} else {
 			e.refusals++
@@ -792,6 +802,12 @@ func fitRoom(lo, hi, extent, centre, roomLo, roomHi float64) (float64, float64) 
 	low := math.Max(roomLo+extent/2, hi-extent/2)
 	high := math.Min(roomHi-extent/2, lo+extent/2)
 	return extent, math.Min(math.Max(centre, low), high)
+}
+
+// admitMergeSpan reports whether a merge-flagged frame's span along the
+// body may enter the extent beliefs (AdmitMergeSpans).
+func (e *BoxEstimator) admitMergeSpan(along float64) bool {
+	return e.cfg.AdmitMergeSpans && (e.cfg.MergeSpanMaxMetres <= 0 || along <= e.cfg.MergeSpanMaxMetres)
 }
 
 // lengthFloor is the least length a labelled box of a vehicle's width is
