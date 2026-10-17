@@ -288,6 +288,7 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 		e.seed(in, pts, speed)
 		e.lastNanos = in.Nanos
 		e.place(in, pts, true, nil)
+		e.releaseScratch()
 		return e.box
 	}
 	prev := e.psi
@@ -304,7 +305,19 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 	e.limit(prev, boundSpeed(in, speed), dt, in.Nanos)
 	e.lastNanos = in.Nanos
 	e.place(in, pts, false, spans)
+	e.releaseScratch()
 	return e.box
+}
+
+// boxScratchKeep is the most points a box keeps its scratch buffer for
+// between frames: a merged cluster of thousands should not pin that much
+// memory to the track for the rest of its life.
+const boxScratchKeep = 2048
+
+func (e *BoxEstimator) releaseScratch() {
+	if cap(e.pts) > boxScratchKeep {
+		e.pts = nil
+	}
 }
 
 func (e *BoxEstimator) seed(in BoxInput, pts [][2]float64, speed float64) {
