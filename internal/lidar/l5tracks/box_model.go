@@ -117,6 +117,13 @@ type BoxModelConfig struct {
 	// tuning key: geom0009 scores it.
 	AdmitMergeSpans    bool
 	MergeSpanMaxMetres float64
+	// YieldFrames, when positive, resets a held extent belief once another
+	// cluster's returns have lain inside the box, beyond its own returns
+	// along (the length) or across it (the width), on this many consecutive
+	// frames (BoxInput.Neighbours): a length held after a real merge ends
+	// gives way to the object now in it. The vehicle floor still applies.
+	// Not a tuning key: geom0010 scores it.
+	YieldFrames int
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -213,6 +220,8 @@ type BoxStats struct {
 	Relabels, Clamps, Restarts int
 	// DisplacementLabels counts labels taken from the track's displacement.
 	DisplacementLabels int
+	// Yields counts held extents reset by YieldFrames.
+	Yields int
 }
 
 // BoxEstimator is one track's published box.
@@ -238,6 +247,9 @@ type BoxEstimator struct {
 	length    windowBelief
 	width     windowBelief
 	height    windowBelief
+	// heldAlong and heldAcross count consecutive frames with another
+	// cluster's returns inside the held part of the box (YieldFrames).
+	heldAlong, heldAcross int
 	// offA and offN place the box centre relative to the track position,
 	// along and across the heading.
 	offA, offN float64
@@ -698,15 +710,38 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 	if e.cfg.TallHeightMetres > 0 && in.Cluster != nil && !in.Merge {
 		e.height.observe(float64(in.Cluster.BoundingBoxHeight))
 	}
+	vehicleWide := e.width.estimate() >= boxVehicleMinWidthMetres
 	length := math.Max(math.Max(e.length.estimate(), spanA), boxMinExtentMetres)
 	width := math.Max(math.Max(e.width.estimate(), spanN), boxMinExtentMetres)
-	if floor := e.lengthFloor(); floor > 0 && e.labelled && e.width.estimate() >= boxVehicleMinWidthMetres {
+	if floor := e.lengthFloor(); floor > 0 && e.labelled && vehicleWide {
 		length = math.Max(length, floor)
 	}
 	sa := (e.cfg.SensorX-in.X)*c + (e.cfg.SensorY-in.Y)*s
 	sn := -(e.cfg.SensorX-in.X)*s + (e.cfg.SensorY-in.Y)*c
 	e.offA = boxCentre(aLo, aHi, length, sa, e.offA, first, e.cfg.CentrePull)
 	e.offN = boxCentre(nLo, nHi, width, sn, e.offN, first, e.cfg.CentrePull)
+	if e.cfg.YieldFrames > 0 && len(in.Neighbours) > 0 {
+		along, across := e.heldIntrusions(in, c, s, aLo, aHi, nLo, nHi, length, width)
+		e.heldAlong, e.heldAcross = runOf(e.heldAlong, along), runOf(e.heldAcross, across)
+		w := max(e.cfg.ExtentWindowSpans, 0)
+		if e.heldAlong >= e.cfg.YieldFrames {
+			e.heldAlong = 0
+			e.Stats.Yields++
+			e.length = windowBelief{window: w}
+			length = math.Max(spanA, boxMinExtentMetres)
+			if floor := e.lengthFloor(); floor > 0 && e.labelled && vehicleWide {
+				length = math.Max(length, floor)
+			}
+			e.offA = boxCentre(aLo, aHi, length, sa, e.offA, first, e.cfg.CentrePull)
+		}
+		if e.heldAcross >= e.cfg.YieldFrames {
+			e.heldAcross = 0
+			e.Stats.Yields++
+			e.width = windowBelief{window: w}
+			width = math.Max(spanN, boxMinExtentMetres)
+			e.offN = boxCentre(nLo, nHi, width, sn, e.offN, first, e.cfg.CentrePull)
+		}
+	}
 	if e.cfg.ExclusiveMarginMetres > 0 {
 		r := [4]float64{math.Inf(-1), math.Inf(1), math.Inf(-1), math.Inf(1)}
 		if len(in.Neighbours) > 0 {
@@ -802,6 +837,58 @@ func fitRoom(lo, hi, extent, centre, roomLo, roomHi float64) (float64, float64) 
 	low := math.Max(roomLo+extent/2, hi-extent/2)
 	high := math.Min(roomHi-extent/2, lo+extent/2)
 	return extent, math.Min(math.Max(centre, low), high)
+}
+
+// heldIntrusionPoints is how many returns of another cluster must lie in
+// the held part of the box for a frame to count against it (YieldFrames),
+// and heldIntrusionMargin how far inside the box and beyond the box's own
+// returns each must lie.
+const (
+	heldIntrusionPoints = 5
+	heldIntrusionMargin = 0.1
+)
+
+// heldIntrusions reports whether another cluster's returns lie inside the
+// box, as placed, beyond the box's own returns along it and across it.
+func (e *BoxEstimator) heldIntrusions(in BoxInput, c, s, aLo, aHi, nLo, nHi, length, width float64) (bool, bool) {
+	cx, cy := in.X+e.offA*c-e.offN*s, in.Y+e.offA*s+e.offN*c
+	reach := math.Hypot(length, width) / 2
+	along, across := 0, 0
+	for i := range in.Neighbours {
+		nb := &in.Neighbours[i]
+		if nb == in.Cluster || (in.Cluster != nil && nb.ClusterID != 0 && nb.ClusterID == in.Cluster.ClusterID) {
+			continue
+		}
+		pts := nb.Members
+		if len(pts) == 0 {
+			pts = nb.RetainedPoints
+		}
+		if len(pts) == 0 || math.Hypot(float64(nb.CentroidX)-cx, float64(nb.CentroidY)-cy) > reach+nbRadius(nb) {
+			continue
+		}
+		for _, p := range pts {
+			dx, dy := p.X-in.X, p.Y-in.Y
+			a, n := dx*c+dy*s, -dx*s+dy*c
+			if math.Abs(a-e.offA) >= length/2-heldIntrusionMargin || math.Abs(n-e.offN) >= width/2-heldIntrusionMargin {
+				continue
+			}
+			switch {
+			case a > aHi+heldIntrusionMargin || a < aLo-heldIntrusionMargin:
+				along++
+			case n > nHi+heldIntrusionMargin || n < nLo-heldIntrusionMargin:
+				across++
+			}
+		}
+	}
+	return along >= heldIntrusionPoints, across >= heldIntrusionPoints
+}
+
+// runOf extends a run of consecutive frames, or ends it.
+func runOf(run int, hit bool) int {
+	if hit {
+		return run + 1
+	}
+	return 0
 }
 
 // admitMergeSpan reports whether a merge-flagged frame's span along the

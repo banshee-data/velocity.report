@@ -5,10 +5,10 @@
 The box model of [geom0005](published-box-rotation-2026-10.md) holds every return and turns
 within what a vehicle can do, but it trails a turn by a few degrees, can draw a slow car across
 itself, costs a rectangle fit per track a frame, and draws kirk0's two trucks short. This report
-is one unattended run against those four: four pre-registered experiments, a check of the box
+is one unattended run against those four: five pre-registered experiments, a check of the box
 model under the L3 retune, and the change that makes the box model the default.
 
-- **Status:** Complete, 2026-10-17. One unattended run; experiments [geom0006](../../../data/experiments/geom/geom0006.md), [geom0007](../../../data/experiments/geom/geom0007.md), [geom0008](../../../data/experiments/geom/geom0008.md) and [geom0009](../../../data/experiments/geom/geom0009.md)
+- **Status:** Complete, 2026-10-17. One unattended run; experiments [geom0006](../../../data/experiments/geom/geom0006.md), [geom0007](../../../data/experiments/geom/geom0007.md), [geom0008](../../../data/experiments/geom/geom0008.md), [geom0009](../../../data/experiments/geom/geom0009.md) and [geom0010](../../../data/experiments/geom/geom0010.md)
 - **Layers:** L5 (the published box), the tuning defaults, the perf gate
 - **Related:** [published box rotation](published-box-rotation-2026-10.md), [L3 region override attribution](l3-region-override-attribution-kirk-2026-10.md), [performance regression testing](performance-regression-testing.md)
 - **Parameter sets:** the box model is in [tuning.defaults.json](../../../config/tuning.defaults.json); [box-model-off.json](../../../config/experiments/box-model-off.json) draws the legacy box
@@ -328,6 +328,26 @@ deserves a person's judgement: two and a half metres of a
 truck's length against a little under one
 vehicle row in a hundred drawn into its neighbour.
 
+### geom0010: held extents that yield
+
+geom0010 kept geom0009's merge spans and let a held extent give way: once another cluster's
+returns lay inside the box, beyond the box's own returns along it (or across it), on three
+consecutive frames, the length (or width) belief was reset to the frame's own spans, the vehicle
+floor still applying (`YieldFrames`, a Go option). On the corpus it did what it was for, but on
+kirk0 it undid the gain it was meant to keep:
+
+| Variant             | kirk0 centre p50 | Length / reviewed | Foreign returns | Neighbour overlap | At rest | Visible jumps |
+| ------------------- | ---------------: | ----------------: | --------------: | ----------------: | ------: | ------------: |
+| `km`                |           2.14 m |              0.62 |          5.95 % |           17.58 % |  3.64 % |        0.32 % |
+| `km-mergein`        |           1.20 m |              0.84 |          6.75 % |           18.27 % |  2.26 % |        0.35 % |
+| `km-mergein-yield3` |           2.17 m |              0.62 |          6.35 % |           17.72 % |  2.26 % |        0.35 % |
+
+It failed its target. The object in a truck's held box is, as often as not, another cluster of the
+same truck: kirk0's trucks reach the tracker in two or three clusters, each with a track, and the
+yield cannot tell a second fragment of one vehicle from a second vehicle. It stays off. What is
+left of the box's length is the clusters it is given (W3's fragmentation), not a rule the box can
+apply to them.
+
 ### The box with one track per vehicle
 
 Two diagnostics after geom0009, under no rule and changing no default, put the box and the
@@ -407,6 +427,7 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 | geom0007                    | scorer `6533b390a`; defaults with the box model                                                                                                                     |
 | geom0008                    | scorer stamped `5379c812e`, the tree rebased unchanged as `30ad96db7`; defaults with the box model                                                                  |
 | geom0009                    | scorer `3b35723c5`; defaults with the box model; rule committed at `e81df69fa` before the replays                                                                   |
+| geom0010                    | scorer `ca426fd29`; defaults with the box model; rule committed at `68e236249` before the replays                                                                   |
 | Defaults at the change      | `config/tuning.defaults.json` at `6e0f5ba32`, SHA-256 `5b6a7ac0a933ad33e918bfc4c537d0e528168c8bcf8bf342ad1cf5e28f226923`                                            |
 | Perf baselines              | `make perf-baseline-all` from a shared clone at `8f8ff9c9e`, fingerprints full `4c10f4e77702`, l3-only `9884a9eae446`; the on/off pairs at `6e0f5ba32`              |
 | References                  | physical-reference bundle revision 76 (pack `ds_95be6fb22498b44a`), 44 keyframes with an observed yaw                                                               |
@@ -427,8 +448,9 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 5. **Decide the merge guard with the identity option.** With one track per vehicle the box
    model's overlap is a quarter of what it is today, and with the merge spans admitted as well
    the trucks are drawn their length. Admitting a growing body's spans costs about a point of
-   vehicle rows drawn into a neighbour either way; a test that tells a growing body from two
-   bodies joining could keep the length without it.
+   vehicle rows drawn into a neighbour either way. A held extent that yields to another cluster
+   (geom0010) gives the length back, because a truck's other fragments are other clusters too:
+   the next gain is fewer fragments per vehicle, upstream.
 6. **Leave the course options off.** The lag is the velocity's; work on it belongs with the
    tracker's motion model, not the box.
 7. **Republish the scene assets** from replays under the new defaults so velocity.report draws
