@@ -238,6 +238,12 @@ Per site the observed frames still swing, from 83 % (Laguna at Eddy, Embarcadero
 rule read. Keeping the older track is also what lifts the reviewed figures past every other arm:
 association accuracy 0.736 against 0.679, IDF1 0.435 against 0.350.
 
+On kirk1, whose labelled reference holds road-user spans rather than per-frame masks (49 road
+users), `body-older` recovers 3 one-to-one by temporal overlap against a0's 4 and covers the same
+38; under the shipped L3 so few are recovered one-to-one that this neither supports nor
+contradicts it. On the corpus it takes the share of vehicle rows whose box overlaps another
+confirmed track's from 17.6 % to 5.0 % ([published box refinement](published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle)).
+
 It does not fix the drawn box on kirk0's trucks. Truck 1 still leaves drawn about 6.4 m long and
 truck 2's leaving box is still a new track's, and the reviewed axis p90 is 13.4° against 8.4°:
 some surviving tracks restart their box unconverged. That is the box's next question, not this
