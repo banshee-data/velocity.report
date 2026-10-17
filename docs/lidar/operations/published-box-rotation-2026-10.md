@@ -167,7 +167,12 @@ away from the sensor.
 fields, `bbox_center_x`, `bbox_center_y` and `bbox_center_valid` (protobuf fields 36 to 38), which
 the VRLOG and gRPC codecs carry. The scene export writes them as `bx` and `by`; the scene player
 and the macOS visualiser draw the box there, and at the track when they are absent. A recording
-made with the model off is drawn exactly as before.
+made with the model off is drawn exactly as before. A viewer that predates the centre fields draws
+the new box at the tracked position: on the tuning sites that still leaves a return outside on
+85.4 % of vehicle frames (97.0 % today), half the share of returns outside (8.0 % against 16.9 %)
+and the farthest 1.35 m out at p90 (2.00 m today), with the heading and its turns the box
+model's. An old viewer draws a better box than today's; only a new one draws a box that holds
+every return.
 
 **Configuration.** The optional `l5.cv_kf_v1.box_model` block, absent from the defaults, so the
 shipped fingerprint is unchanged ([CONFIG.md](../../../config/CONFIG.md#l5-box-model)). Its
