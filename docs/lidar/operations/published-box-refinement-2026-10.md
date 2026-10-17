@@ -289,7 +289,7 @@ the margin. On four of truck 1's keyframes the shorter box handed the nearest-bo
 other track on the same truck, whose axis is further off. It fails the clause all the same, and
 it is the duplicate tracks again. What the margin cannot reach is the rest of the overlap: two
 tracks on one cluster share its returns, which no margin between clusters separates. The option
-stays, off; the fifth segments stay unread.
+stays off; the fifth segments stay unread.
 
 ## The box model in the defaults
 
