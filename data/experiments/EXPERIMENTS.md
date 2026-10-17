@@ -26,6 +26,7 @@ directory with a `README.md` whose YAML header gives `area`, `title`, `layers` a
 | `l3bg`   | L3 background model                   |
 | `l4clus` | L4 clustering                         |
 | `geom`   | Solid-body geometry                   |
+| `l5id`   | L5 identity                           |
 | `perf`   | Performance on the deployment target  |
 | `label`  | Labelled data: capture, label, freeze |
 
