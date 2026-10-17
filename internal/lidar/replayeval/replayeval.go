@@ -1299,6 +1299,11 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	trackerConfig.OverlapEndFrames = overlapEnd
+	trackerConfig.OverlapEndOnBody = hasExperiment(experiments, ExperimentOverlapEndBody)
+	trackerConfig.OverlapEndKeepOlder = hasExperiment(experiments, ExperimentOverlapEndOlder)
+	if overlapEnd == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {
+		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiments %q qualify the overlap end without it; name overlap_end_1 or overlap_end_3", experiments)
+	}
 	oc, err := occlusionContinuityFor(experiments, coverage)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err

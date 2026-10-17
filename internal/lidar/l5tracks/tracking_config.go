@@ -196,6 +196,18 @@ type TrackerConfig struct {
 	// live track is that track's duplicate, not an occluded road user. Zero
 	// is off. See overlap_end.go.
 	OverlapEndFrames int
+	// OverlapEndOnBody changes the overlap end's test: the coasting track's
+	// predicted position must lie within a live confirmed track's observed
+	// returns (its cluster's extent along the live track's drawn heading,
+	// grown by a quarter metre), not its drawn box on the live one's. A
+	// drawn box carries a floor and held extents that can reach into the
+	// next car in a queue; a prediction inside another track's returns is
+	// on that body. OverlapEndKeepOlder ends the younger of the two, so the
+	// identity with the longer history survives: when that is the live
+	// track, its observation this frame goes with it and the older takes
+	// the cluster back next frame.
+	OverlapEndOnBody    bool
+	OverlapEndKeepOlder bool
 
 	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
 	// cyclist or motorcyclist with a cluster outside that label's geometric

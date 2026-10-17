@@ -230,7 +230,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
+		ExperimentOverlapEndOlder, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -645,5 +646,18 @@ func TestOverlapEndSettingsAreExclusive(t *testing.T) {
 	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
 	if _, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEnd3}, nil); err == nil {
 		t.Fatal("both overlap end settings were accepted")
+	}
+	// The qualifiers need the overlap end, and reach their own fields.
+	for _, q := range []string{ExperimentOverlapEndBody, ExperimentOverlapEndOlder} {
+		if _, err := trackerConfigFor(l5, "", []string{q}, nil); err == nil {
+			t.Errorf("%s was accepted without the overlap end", q)
+		}
+	}
+	got, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEndBody, ExperimentOverlapEndOlder}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.OverlapEndFrames != 1 || !got.OverlapEndOnBody || !got.OverlapEndKeepOlder {
+		t.Fatalf("qualified overlap end: frames %d body %v older %v", got.OverlapEndFrames, got.OverlapEndOnBody, got.OverlapEndKeepOlder)
 	}
 }
