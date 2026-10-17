@@ -176,6 +176,10 @@ func boxVariants() []variant {
 		with("km-disp1", "label from 1 m of straight displacement", func(c *l5tracks.BoxModelConfig) { c.DisplacementLabelMetres = 1 }),
 		with("km-disp2", "label from 2 m of straight displacement", func(c *l5tracks.BoxModelConfig) { c.DisplacementLabelMetres = 2 }),
 		with("km-minarea", "axis from the members' minimum-area rectangle", func(c *l5tracks.BoxModelConfig) { c.AxisSource = l5tracks.BoxAxisMinArea }),
+		with("km-u20", "unlabelled yaw-rate floor 20°/s", func(c *l5tracks.BoxModelConfig) { c.UnlabelledYawRate = 20 * math.Pi / 180 }),
+		with("km-disp1-u20", "displacement labels at 1 m and the unlabelled floor at 20°/s", func(c *l5tracks.BoxModelConfig) {
+			c.DisplacementLabelMetres, c.UnlabelledYawRate = 1, 20*math.Pi/180
+		}),
 		with("km-yaw02-lead04", "yaw acceleration 0.2 rad/s² with the course led by 0.4 s", func(c *l5tracks.BoxModelConfig) {
 			c.YawAccelSigma, c.CourseLeadSec = 0.2, 0.4
 		}),
