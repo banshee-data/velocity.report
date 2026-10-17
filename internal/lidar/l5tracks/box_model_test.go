@@ -623,3 +623,42 @@ func TestTrackerGivesTheBoxTheFramesClusters(t *testing.T) {
 		t.Fatal("no box for the car's front face")
 	}
 }
+
+func TestBoxModelAdmitMergeSpansLetsAGrowingBodyTeachItsLength(t *testing.T) {
+	// A 10 m truck seen whole for a second while the tracker flags every
+	// frame a probable merge (it grew from a fragment), then only its rear
+	// 4 m: refusing the flagged spans leaves the belief at the partial view.
+	run := func(admit bool, max float64) float64 {
+		cfg := enabledBoxConfig()
+		cfg.AdmitMergeSpans, cfg.MergeSpanMaxMetres = admit, max
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 30; i++ {
+			x := 8 + 0.5*float64(i)
+			pts := visibleFaces(x, 3, 0, 10, 2.5, 20)
+			if i >= 10 {
+				kept := pts[:0]
+				for _, p := range pts {
+					if p.X <= x-1 {
+						kept = append(kept, p)
+					}
+				}
+				pts = kept
+			}
+			in := boxInput(int64(i)*1e8, pts, 5, 0)
+			in.Merge = i < 10
+			b = e.Observe(in)
+			assertContains(t, i, b, pts)
+		}
+		return b.Length
+	}
+	if got := run(false, 0); got > 6 {
+		t.Fatalf("refusing the flagged spans kept %.1f m; the test needs it short", got)
+	}
+	if got := run(true, 0); got < 9.5 {
+		t.Fatalf("admitting the flagged spans drew %.1f m, want the whole 10", got)
+	}
+	if got := run(true, 8); got > 6 {
+		t.Fatalf("a 10 m span past the 8 m cap was admitted: %.1f m", got)
+	}
+}
