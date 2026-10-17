@@ -82,7 +82,7 @@
       "deleted_track_grace_period": "5s",
       "min_observations_for_classification": 5,
       "box_model": {
-        "enabled": true,
+        "enabled": false,
         "axis_source": "rectangle_fit",
         "course_min_speed_mps": 1.0,
         "max_curvature_per_metre": 0.2,

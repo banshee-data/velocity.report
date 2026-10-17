@@ -314,7 +314,9 @@ func TestTrackerPublishesABoxThatHoldsItsCluster(t *testing.T) {
 }
 
 func TestTrackerWithoutTheBoxModelPublishesNoBox(t *testing.T) {
-	tracker := NewTracker(DefaultTrackerConfig())
+	cfg := DefaultTrackerConfig()
+	cfg.BoxModel = BoxModelConfig{}
+	tracker := NewTracker(cfg)
 	start := time.Unix(1_700_000_000, 0)
 	for i := 0; i < 8; i++ {
 		tracker.Update([]WorldCluster{carCluster(int64(i+1), 10+float64(i)*0.8, 3, 0)}, start.Add(time.Duration(i)*100*time.Millisecond))

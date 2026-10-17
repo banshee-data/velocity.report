@@ -146,7 +146,22 @@ parity between them.
       "merge_size_ratio": 2.5,
       "split_size_ratio": 0.3,
       "deleted_track_grace_period": "5s",
-      "min_observations_for_classification": 5
+      "min_observations_for_classification": 5,
+      "box_model": {
+        "enabled": true,
+        "axis_source": "rectangle_fit",
+        "course_min_speed_mps": 1.0,
+        "max_curvature_per_metre": 0.2,
+        "min_yaw_rate_deg_per_sec": 3,
+        "unlabelled_yaw_rate_deg_per_sec": 45,
+        "yaw_accel_sigma": 0.4,
+        "axis_sigma_scale": 1.5,
+        "centre_pull": 0.3,
+        "vehicle_length_floor_metres": 3.8,
+        "course_lead_sec": 0,
+        "course_rate_tau_sec": 0,
+        "displacement_label_metres": 0
+      }
     }
   },
   "pipeline": {
@@ -520,32 +535,35 @@ not negative.
 
 ### L5 box model
 
-Optional. The block is absent from the defaults, and a config without it
-publishes the legacy box: the tracked position, the smoothed OBB heading and
-the frame's PCA extents. With `enabled`, the tracker publishes a box whose
-centre, heading and extents hold the cluster's points and whose turn rate is
-bounded by speed; the tracks themselves are unchanged. When the block is
-present, every key is required. Schema: [L5BoxModel](../internal/config/tuning.go).
-Model: [box_model.go](../internal/lidar/l5tracks/box_model.go). Report:
-[published box rotation](../docs/lidar/operations/published-box-rotation-2026-10.md).
-Parameter set: [box-model.json](experiments/box-model.json).
+On by default since geom0006. With `enabled`, the tracker publishes a box whose centre, heading
+and extents hold the cluster's points and whose turn rate is bounded by speed; the tracks
+themselves are unchanged. A config without the block, or with `enabled` false
+([box-model-off.json](experiments/box-model-off.json)), publishes the legacy box: the tracked
+position, the smoothed OBB heading and the frame's PCA extents. When the block is present, every
+key is required. Schema: [L5BoxModel](../internal/config/tuning.go). Model:
+[box_model.go](../internal/lidar/l5tracks/box_model.go). Reports:
+[published box rotation](../docs/lidar/operations/published-box-rotation-2026-10.md),
+[refinement](../docs/lidar/operations/published-box-refinement-2026-10.md).
 
-Rules: `axis_source` is `rectangle_fit` or `pca`; every number is finite and
-not negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1.
-`rectangle_fit` keeps every cluster member for the frame, in memory only.
+Rules: `axis_source` is `rectangle_fit`, `min_area` or `pca`; every number is finite and not
+negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1. `rectangle_fit` and
+`min_area` keep every cluster member for the frame, in memory only.
 
-| Path (under `l5.cv_kf_v1.box_model.`) | Type    | Notes                                                                                                                                   |
-| ------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                             | bool    | Publishes the box model's box in place of the legacy OBB fields, with its own centre.                                                   |
-| `axis_source`                         | string  | `rectangle_fit`: the closeness fit on the members, the axis of an L or an end-on strip. `pca`: the cluster box's axis, no members kept. |
-| `course_min_speed_mps`                | float64 | Speed from which the direction of travel steers the heading and labels which side is the length. The report's set uses `1.0`.           |
-| `max_curvature_per_metre`             | float64 | κ in the turn-rate bound κ·v + ω₀: the tightest turn a vehicle makes, `0.2` (a 5 m radius).                                             |
-| `min_yaw_rate_deg_per_sec`            | float64 | ω₀ for a labelled or vehicle-sized box, in degrees a second: how fast it may turn at rest. `3`.                                         |
-| `unlabelled_yaw_rate_deg_per_sec`     | float64 | ω₀ for a box in its first second or smaller than a vehicle, which may be a person turning on the spot. `45`.                            |
-| `yaw_accel_sigma`                     | float64 | The heading filter's white yaw acceleration, rad/s². `0.4`.                                                                             |
-| `axis_sigma_scale`                    | float64 | Multiplies the axis observation's standard deviation. `1.5`.                                                                            |
-| `centre_pull`                         | float64 | Share of the way to the sensor-anchored placement the centre moves each frame, inside the interval that holds the points. `0.3`.        |
-| `vehicle_length_floor_metres`         | float64 | A labelled box of a vehicle's believed width (1.5 m or more) is drawn at least this long, the unseen part away from the sensor. `3.8`.  |
+| Path (under `l5.cv_kf_v1.box_model.`) | Type    | Notes                                                                                                                                                            |
+| ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                             | bool    | Publishes the box model's box in place of the legacy OBB fields, with its own centre.                                                                            |
+| `axis_source`                         | string  | `rectangle_fit`: the closeness fit on the members. `min_area`: the members' minimum-area rectangle, cheaper and worse on L views. `pca`: the cluster box's axis. |
+| `course_min_speed_mps`                | float64 | Speed from which the direction of travel steers the heading and labels which side is the length. `1.0`.                                                          |
+| `max_curvature_per_metre`             | float64 | κ in the turn-rate bound κ·v + ω₀: the tightest turn a vehicle makes, `0.2` (a 5 m radius).                                                                      |
+| `min_yaw_rate_deg_per_sec`            | float64 | ω₀ for a labelled or vehicle-sized box, in degrees a second: how fast it may turn at rest. `3`.                                                                  |
+| `unlabelled_yaw_rate_deg_per_sec`     | float64 | ω₀ for a box in its first second or smaller than a vehicle, which may be a person turning on the spot. `45`.                                                     |
+| `yaw_accel_sigma`                     | float64 | The heading filter's white yaw acceleration, rad/s². `0.4`.                                                                                                      |
+| `axis_sigma_scale`                    | float64 | Multiplies the axis observation's standard deviation. `1.5`.                                                                                                     |
+| `centre_pull`                         | float64 | Share of the way to the sensor-anchored placement the centre moves each frame, inside the interval that holds the points. `0.3`.                                 |
+| `vehicle_length_floor_metres`         | float64 | A labelled box of a vehicle's believed width (1.5 m or more) is drawn at least this long, the unseen part away from the sensor. `3.8`.                           |
+| `course_lead_sec`                     | float64 | Leads the course by its own rate times this many seconds, against the Kalman velocity's lag in a turn. `0` (geom0006: 0.4 s cut the turn lag by 0.3°).           |
+| `course_rate_tau_sec`                 | float64 | Adds (tau·rate)² to a turning course's variance, so it weighs less against the shape. `0` (no gain in geom0006).                                                 |
+| `displacement_label_metres`           | float64 | Labels a box from the track's straight displacement over up to two seconds once it is this long. `0` (geom0006: did not hold out of sample).                     |
 
 ### Pipeline
 
