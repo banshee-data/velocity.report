@@ -62,6 +62,12 @@ func tuningSolidBodyFullMembers(cfg *config.TuningConfig) bool {
 	return cfg.L5.CvKfV1.SolidBody.Enabled && cfg.L5.CvKfV1.SolidBody.FullMembers
 }
 
+// tuningBoxModelMembers is whether the tuning config's box model fits the
+// rectangle to the cluster members, which the pipeline must then keep.
+func tuningBoxModelMembers(cfg *config.TuningConfig) bool {
+	return cfg != nil && cfg.L5.CvKfV1 != nil && cfg.L5.CvKfV1.BoxModel.NeedsMembers()
+}
+
 type ringElevationsSetter interface {
 	SetRingElevations([]float64) error
 }

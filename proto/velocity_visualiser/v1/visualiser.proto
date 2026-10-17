@@ -277,6 +277,14 @@ message Track {
   // Heading source (for debug rendering: colour-code boxes by heading origin)
   // 0=PCA (raw), 1=velocity-disambiguated, 2=displacement-disambiguated, 3=locked
   int32 heading_source = 35;
+
+  // Box centre (world frame) when the tracker's box model publishes the box:
+  // the centre of the box that holds the cluster's points, which is not the
+  // tracked position (x, y). With bbox_center_valid false the box is the
+  // legacy per-frame OBB and is drawn at (x, y).
+  float bbox_center_x = 36;
+  float bbox_center_y = 37;
+  bool bbox_center_valid = 38;
 }
 
 message TrackPoint {

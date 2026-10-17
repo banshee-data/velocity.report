@@ -165,6 +165,17 @@ type TrackedObject struct {
 	AxisScoreGap      float32 // Heuristic cost margin, not calibrated confidence
 	AxisAbstentionRun int     // Consecutive axis-path abstentions, running
 
+	// The published box under the box model (TrackerConfig.BoxModel; see
+	// box_model.go): centre, heading and extents that agree with each other
+	// and with the points. Zero length when the model is off or has not
+	// seen the track's points; viewers then draw the legacy OBB fields at
+	// the tracked position.
+	BoxX, BoxY    float32
+	BoxHeadingRad float32
+	BoxLength     float32
+	BoxWidth      float32
+	box           *BoxEstimator
+
 	// Extent beliefs: revisable lower-bound estimates of the object's body
 	// dimensions, built from confidently assigned observations only. They are
 	// deliberately not running means of raw spans; see heading_extent.go.
@@ -565,6 +576,16 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 		}
 	}
 
+	// Step 3d: Update each matched track's published box (default off). It
+	// reads the tracked state after this frame's update and writes only the
+	// box fields; with the model off it only drops a box left from when it
+	// was on.
+	for clusterIdx, trackID := range associations {
+		if track := t.Tracks[trackID]; trackID != "" && track != nil && track.TrackState != TrackDeleted {
+			t.updateBox(track, &clusters[clusterIdx], nowNanos)
+		}
+	}
+
 	// Step 4: Handle unmatched tracks with occlusion-aware coasting.
 	// Confirmed tracks are allowed more miss frames (MaxMissesConfirmed)
 	// than tentative tracks (MaxMisses). During occlusion the Kalman
@@ -592,6 +613,7 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 			if t.Config.SolidBody.Enabled {
 				t.coastSolidBody(track, inflation)
 			}
+			t.updateBox(track, nil, nowNanos)
 
 			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
@@ -758,6 +780,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 	if t.Config.SolidBody.Enabled {
 		t.seedSolidBody(track, cluster)
 	}
+	t.updateBox(track, &cluster, nowNanos)
 	t.TracksCreated++
 	t.continuity.TracksBorn++
 	t.recordSupport(track, SupportObserved)

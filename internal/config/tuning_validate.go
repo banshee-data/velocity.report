@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 )
@@ -323,6 +324,9 @@ func (c *L5Common) Validate() error {
 	if err := c.SolidBody.Validate(); err != nil {
 		return fmt.Errorf("solid_body: %w", err)
 	}
+	if err := c.BoxModel.Validate(); err != nil {
+		return fmt.Errorf("box_model: %w", err)
+	}
 	if c.GatingDistanceSquared <= 0 {
 		return fmt.Errorf("gating_distance_squared must be positive, got %f", c.GatingDistanceSquared)
 	}
@@ -468,6 +472,43 @@ func (s *L5SolidBody) Validate() error {
 	}
 	if s.EndFaceCentringOpenPrior && !s.EndFaceCentring {
 		return fmt.Errorf("end_face_centring_open_prior is a setting of end_face_centring and needs it")
+	}
+	return nil
+}
+
+// Validate checks the box model block: a known axis source, and bounds and
+// scales that are finite and non-negative, with a positive yaw acceleration
+// and a centre pull within [0, 1]. A nil block is the model off and valid.
+func (b *L5BoxModel) Validate() error {
+	if b == nil {
+		return nil
+	}
+	switch b.AxisSource {
+	case "rectangle_fit", "pca":
+	default:
+		return fmt.Errorf("axis_source must be rectangle_fit or pca, got %q", b.AxisSource)
+	}
+	for _, f := range []struct {
+		name  string
+		value float64
+	}{
+		{"course_min_speed_mps", b.CourseMinSpeedMps},
+		{"max_curvature_per_metre", b.MaxCurvaturePerMetre},
+		{"min_yaw_rate_deg_per_sec", b.MinYawRateDegPerSec},
+		{"unlabelled_yaw_rate_deg_per_sec", b.UnlabelledYawRateDegPerSec},
+		{"axis_sigma_scale", b.AxisSigmaScale},
+		{"centre_pull", b.CentrePull},
+		{"vehicle_length_floor_metres", b.VehicleLengthFloorMetres},
+	} {
+		if math.IsNaN(f.value) || math.IsInf(f.value, 0) || f.value < 0 {
+			return fmt.Errorf("%s must be finite and non-negative, got %v", f.name, f.value)
+		}
+	}
+	if !(b.YawAccelSigma > 0) || math.IsInf(b.YawAccelSigma, 0) {
+		return fmt.Errorf("yaw_accel_sigma must be positive, got %v", b.YawAccelSigma)
+	}
+	if b.CentrePull > 1 {
+		return fmt.Errorf("centre_pull must be within [0, 1], got %v", b.CentrePull)
 	}
 	return nil
 }

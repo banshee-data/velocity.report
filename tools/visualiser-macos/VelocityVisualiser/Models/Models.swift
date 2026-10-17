@@ -250,6 +250,17 @@ struct Track {
     // Rendering hints
     var alpha: Float = 1.0  // Opacity [0,1]; 1.0 = fully visible, used for fade-out
     var headingSource: HeadingSource = .pca  // Source of heading for debug rendering
+
+    // Box centre when the tracker's box model drew the box (proto fields
+    // 36-38): the centre of the box that holds the cluster's points, which is
+    // not the tracked position. A legacy box is drawn at (x, y).
+    var bboxCenterX: Float = 0
+    var bboxCenterY: Float = 0
+    var bboxCenterValid: Bool = false
+
+    /// Where the box is drawn: its own centre when published, else the track.
+    var boxCentreX: Float { bboxCenterValid ? bboxCenterX : x }
+    var boxCentreY: Float { bboxCenterValid ? bboxCenterY : y }
 }
 
 struct TrackPoint {

@@ -385,6 +385,11 @@ func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (
 					Class:    t.ObjectClass,
 					Conf:     round2(t.ClassConfidence),
 				})
+				if t.BBoxCenterValid {
+					bx, by := round2(t.BBoxCenterX), round2(t.BBoxCenterY)
+					out.Tracks[len(out.Tracks)-1].BoxX = &bx
+					out.Tracks[len(out.Tracks)-1].BoxY = &by
+				}
 			}
 		}
 	}

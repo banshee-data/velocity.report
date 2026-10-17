@@ -406,6 +406,18 @@ func flattenSamplePoints(points [][3]float32) []float32 {
 	return flat
 }
 
+// publishBox replaces the legacy per-frame OBB with the tracker's box model
+// when it has drawn one: the heading, extents and centre that hold the
+// cluster's points. The tracked position and velocity are unchanged.
+func publishBox(track *Track, t *l5tracks.TrackedObject) {
+	if t.BoxLength <= 0 {
+		return
+	}
+	track.BBoxLength, track.BBoxWidth = t.BoxLength, t.BoxWidth
+	track.BBoxHeadingRad = t.BoxHeadingRad
+	track.BBoxCenterX, track.BBoxCenterY, track.BBoxCenterValid = t.BoxX, t.BoxY, true
+}
+
 // adaptTracks converts TrackedObjects to the canonical Track format.
 func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp time.Time) *TrackSet {
 	activeTracks := tracker.GetActiveTracks()
@@ -451,6 +463,8 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			Alpha:             1.0, // Fully visible
 			HeadingSource:     int(t.HeadingSource),
 		}
+
+		publishBox(&track, t)
 
 		// Copy covariance
 		if t.P != [16]float32{} {
@@ -536,6 +550,7 @@ func (a *FrameAdapter) adaptTracks(tracker l5tracks.TrackerInterface, timestamp 
 			OcclusionCount:    t.OcclusionCount,
 			Alpha:             alpha, // Fade from 1.0 → 0.0 over grace period
 		}
+		publishBox(&track, t)
 
 		ts.Tracks = append(ts.Tracks, track)
 

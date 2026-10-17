@@ -168,7 +168,7 @@ func TestRectangleClosenessMatchesTheMinMaxForm(t *testing.T) {
 	}
 	rng := rand.New(rand.NewSource(13))
 	for trial := 0; trial < 20; trial++ {
-		pts := rectanglePoints(rectangleCloud(rng, 2+rng.Float64()*8, 1+rng.Float64()*1.5, rng.Float64()*math.Pi, 30*rng.Float64(), -10, trial%2 == 0, 20+rng.Intn(200), 0.03))
+		pts := rectanglePoints(rectangleCloud(rng, 2+rng.Float64()*8, 1+rng.Float64()*1.5, rng.Float64()*math.Pi, 30*rng.Float64(), -10, trial%2 == 0, 20+rng.Intn(200), 0.03), RectangleFitMaxPoints)
 		c1, c2 := make([]float64, len(pts)), make([]float64, len(pts))
 		for deg := 0.0; deg < 90; deg += 0.25 {
 			theta := deg * math.Pi / 180

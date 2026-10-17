@@ -531,8 +531,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let heading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
 
             // Transform point into box-local coordinates (rotate by -heading)
-            let dx = px - track.x
-            let dy = py - track.y
+            let dx = px - track.boxCentreX
+            let dy = py - track.boxCentreY
             let cosH = cos(-heading)
             let sinH = sin(-heading)
             let localX = dx * cosH - dy * sinH
@@ -566,7 +566,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             // fall back to velocity heading if OBB heading unavailable.
             let boxHeading = track.bboxHeadingRad != 0 ? track.bboxHeadingRad : track.headingRad
             let rotation = simd_float4x4(rotationZ: boxHeading)
-            let translation = simd_float4x4(translation: simd_float3(track.x, track.y, track.z))
+            // The box model publishes the box's own centre; a legacy box is
+            // drawn at the tracked position.
+            let translation = simd_float4x4(
+                translation: simd_float3(track.boxCentreX, track.boxCentreY, track.z))
             let transform = translation * rotation * scale
 
             // Add transform (16 floats)
@@ -1214,19 +1217,17 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let sinH = sin(boxHeading)
 
             // 4 corners of the box base in world space
+            let cx = track.boxCentreX
+            let cy = track.boxCentreY
             let corners: [simd_float3] = [
                 simd_float3(
-                    track.x + cosH * halfL - sinH * halfW, track.y + sinH * halfL + cosH * halfW,
-                    track.z),
+                    cx + cosH * halfL - sinH * halfW, cy + sinH * halfL + cosH * halfW, track.z),
                 simd_float3(
-                    track.x + cosH * halfL + sinH * halfW, track.y + sinH * halfL - cosH * halfW,
-                    track.z),
+                    cx + cosH * halfL + sinH * halfW, cy + sinH * halfL - cosH * halfW, track.z),
                 simd_float3(
-                    track.x - cosH * halfL + sinH * halfW, track.y - sinH * halfL - cosH * halfW,
-                    track.z),
+                    cx - cosH * halfL + sinH * halfW, cy - sinH * halfL - cosH * halfW, track.z),
                 simd_float3(
-                    track.x - cosH * halfL - sinH * halfW, track.y - sinH * halfL + cosH * halfW,
-                    track.z),
+                    cx - cosH * halfL - sinH * halfW, cy - sinH * halfL + cosH * halfW, track.z),
             ]
 
             // Project corners to screen

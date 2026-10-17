@@ -188,9 +188,9 @@ Hot-reloadable parameters:
 - L3 engine parameters (`l3.ema_baseline_v1.*`)
 - L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
 - L5 tracker parameters (`l5.cv_kf_v1.*`), including the optional
-  `l5.cv_kf_v1.solid_body` block. A block is applied whole: every key is
-  required, and the block's own rules are checked before any of it reaches
-  the tracker.
+  `l5.cv_kf_v1.solid_body` and `l5.cv_kf_v1.box_model` blocks. A block is
+  applied whole: every key is required, and the block's own rules are
+  checked before any of it reaches the tracker.
 
 `l1.*`, `pipeline.*`, the engine selectors, and every L4 key except the
 three DBSCAN keys above are startup-only.
@@ -517,6 +517,35 @@ not negative.
 | `rectangle_heading`                    | bool    | The rectangle fit is the body's heading observation (W1b), filtered modulo 90° and labelled by the course.                   |
 | `rectangle_course_fusion`              | bool    | With the rectangle heading, the course is a second observation of the axis at speed.                                         |
 | `rectangle_sigma_scale`                | float64 | Multiplies the rectangle fit's standard deviation in the axis filter; `0` means one. The candidate uses `1.5`.               |
+
+### L5 box model
+
+Optional. The block is absent from the defaults, and a config without it
+publishes the legacy box: the tracked position, the smoothed OBB heading and
+the frame's PCA extents. With `enabled`, the tracker publishes a box whose
+centre, heading and extents hold the cluster's points and whose turn rate is
+bounded by speed; the tracks themselves are unchanged. When the block is
+present, every key is required. Schema: [L5BoxModel](../internal/config/tuning.go).
+Model: [box_model.go](../internal/lidar/l5tracks/box_model.go). Report:
+[published box rotation](../docs/lidar/operations/published-box-rotation-2026-10.md).
+Parameter set: [box-model.json](experiments/box-model.json).
+
+Rules: `axis_source` is `rectangle_fit` or `pca`; every number is finite and
+not negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1.
+`rectangle_fit` keeps every cluster member for the frame, in memory only.
+
+| Path (under `l5.cv_kf_v1.box_model.`) | Type    | Notes                                                                                                                                   |
+| ------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                             | bool    | Publishes the box model's box in place of the legacy OBB fields, with its own centre.                                                   |
+| `axis_source`                         | string  | `rectangle_fit`: the closeness fit on the members, the axis of an L or an end-on strip. `pca`: the cluster box's axis, no members kept. |
+| `course_min_speed_mps`                | float64 | Speed from which the direction of travel steers the heading and labels which side is the length. The report's set uses `1.0`.           |
+| `max_curvature_per_metre`             | float64 | κ in the turn-rate bound κ·v + ω₀: the tightest turn a vehicle makes, `0.2` (a 5 m radius).                                             |
+| `min_yaw_rate_deg_per_sec`            | float64 | ω₀ for a labelled or vehicle-sized box, in degrees a second: how fast it may turn at rest. `3`.                                         |
+| `unlabelled_yaw_rate_deg_per_sec`     | float64 | ω₀ for a box in its first second or smaller than a vehicle, which may be a person turning on the spot. `45`.                            |
+| `yaw_accel_sigma`                     | float64 | The heading filter's white yaw acceleration, rad/s². `0.4`.                                                                             |
+| `axis_sigma_scale`                    | float64 | Multiplies the axis observation's standard deviation. `1.5`.                                                                            |
+| `centre_pull`                         | float64 | Share of the way to the sensor-anchored placement the centre moves each frame, inside the interval that holds the points. `0.3`.        |
+| `vehicle_length_floor_metres`         | float64 | A labelled box of a vehicle's believed width (1.5 m or more) is drawn at least this long, the unseen part away from the sensor. `3.8`.  |
 
 ### Pipeline
 

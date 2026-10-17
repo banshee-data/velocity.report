@@ -378,3 +378,35 @@ func TestStartupIncompatibilityNamesEverySkippedKey(t *testing.T) {
 		t.Fatalf("a refused file became active: %q", p)
 	}
 }
+
+// A file with the box model and no solid body keeps the cluster members on:
+// clearing the absent solid body must not switch off the members the box
+// model's rectangle fit reads. The defaults then switch both off.
+func TestApplyTuningConfigFileKeepsTheBoxModelsMembers(t *testing.T) {
+	dir := writeConfigTree(t)
+	box := cfgpkg.MustLoadDefaultConfig()
+	box.L5.CvKfV1.BoxModel = &cfgpkg.L5BoxModel{Enabled: true, AxisSource: "rectangle_fit", CourseMinSpeedMps: 1,
+		MaxCurvaturePerMetre: 0.2, MinYawRateDegPerSec: 3, UnlabelledYawRateDegPerSec: 45, YawAccelSigma: 0.4,
+		AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8}
+	data, err := json.MarshalIndent(box, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "experiments", "box-model.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ws := newConfigTestServer(t, "sensor-box", dir)
+
+	if _, err := ws.applyTuningConfigFile("experiments/box-model.json"); err != nil {
+		t.Fatalf("the box model was refused: %v", err)
+	}
+	if got := ws.tracker.GetConfig(); !got.BoxModel.Enabled || got.SolidBody.Enabled || !ws.clusterMembers.Load() {
+		t.Fatalf("box model %v solid body %v members %v; want the box model on with its members", got.BoxModel.Enabled, got.SolidBody.Enabled, ws.clusterMembers.Load())
+	}
+	if _, err := ws.applyTuningConfigFile("tuning.defaults.json"); err != nil {
+		t.Fatal(err)
+	}
+	if got := ws.tracker.GetConfig(); got.BoxModel.Enabled || ws.clusterMembers.Load() {
+		t.Fatalf("the defaults left the box model %v and members %v", got.BoxModel.Enabled, ws.clusterMembers.Load())
+	}
+}
