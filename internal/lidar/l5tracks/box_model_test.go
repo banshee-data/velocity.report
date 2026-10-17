@@ -243,25 +243,95 @@ func TestBoxModelRelabelsAnEndOnViewOnce(t *testing.T) {
 }
 
 func TestWindowBeliefCorroboratesAndForgets(t *testing.T) {
-	var b windowBelief
-	if b.estimate() != 0 {
+	b, life := windowBelief{window: 50}, windowBelief{}
+	if b.estimate() != 0 || life.estimate() != 0 {
 		t.Fatal("empty belief is not zero")
 	}
 	b.observe(4)
 	if b.estimate() != 4 {
 		t.Fatalf("one span: %v", b.estimate())
 	}
+	life.observe(4)
 	for _, v := range []float64{4.2, 9.5, 4.4, 4.3} {
 		b.observe(v)
+		life.observe(v)
 	}
 	if got := b.estimate(); got != 4.3 {
 		t.Fatalf("third largest of 4, 4.2, 9.5, 4.4, 4.3 = %v, want 4.3", got)
 	}
-	for i := 0; i < boxBeliefWindow; i++ {
+	if got := life.estimate(); got != 4.3 {
+		t.Fatalf("whole life: third largest = %v, want 4.3", got)
+	}
+	for i := 0; i < b.window; i++ {
 		b.observe(2)
+		life.observe(2)
 	}
 	if got := b.estimate(); got != 2 {
 		t.Fatalf("after a window of 2 m spans: %v", got)
+	}
+	if got := life.estimate(); got != 4.3 || len(life.spans) != boxBeliefCorroboration {
+		t.Fatalf("whole life forgot: %v over %d spans", got, len(life.spans))
+	}
+}
+
+func TestBoxModelExtentMemoryKeepsATruckWhole(t *testing.T) {
+	// A 10 m truck leaves the sensor along x at 5 m/s, seen whole for a
+	// second and then only its rear 4 m, the rest hidden behind a parked van.
+	run := func(window int) float64 {
+		cfg := enabledBoxConfig()
+		cfg.ExtentWindowSpans = window
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 100; i++ {
+			x := 8 + 0.5*float64(i)
+			pts := visibleFaces(x, 3, 0, 10, 2.5, 20)
+			if i >= 10 {
+				kept := pts[:0]
+				for _, p := range pts {
+					if p.X <= x-1 {
+						kept = append(kept, p)
+					}
+				}
+				pts = kept
+			}
+			b = e.Observe(boxInput(int64(i)*1e8, pts, 5, 0))
+			assertContains(t, i, b, pts)
+		}
+		return b.Length
+	}
+	if got := run(50); got > 6 {
+		t.Fatalf("a 50-span window kept %.1f m; the test needs it to forget", got)
+	}
+	if got := run(0); got < 9.5 {
+		t.Fatalf("whole-life memory drew the truck %.1f m long, want 10", got)
+	}
+}
+
+func TestBoxModelTallFloorDrawsAnEndOnTruckLonger(t *testing.T) {
+	// A body driving straight at the sensor shows only its front face, a
+	// 2.5 m strip; a truck's is 3.2 m tall, a car's 1.5 m.
+	run := func(height float64, cfg BoxModelConfig) float64 {
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 30; i++ {
+			pts := visibleFaces(40-0.5*float64(i), 0, math.Pi, 10, 2.5, 20)
+			in := boxInput(int64(i)*1e8, pts, -5, 0)
+			in.Cluster.BoundingBoxHeight = float32(height)
+			b = e.Observe(in)
+			assertContains(t, i, b, pts)
+		}
+		return b.Length
+	}
+	plain, tall := enabledBoxConfig(), enabledBoxConfig()
+	tall.TallHeightMetres, tall.TallLengthFloorMetres = 2.6, 6
+	if got := run(3.2, plain); math.Abs(got-3.8) > 1e-9 {
+		t.Fatalf("without the tall floor the truck is %.2f m, want the 3.8 m vehicle floor", got)
+	}
+	if got := run(3.2, tall); math.Abs(got-6) > 1e-9 {
+		t.Fatalf("tall truck drawn %.2f m, want 6", got)
+	}
+	if got := run(1.5, tall); math.Abs(got-3.8) > 1e-9 {
+		t.Fatalf("a car under the tall floor drawn %.2f m, want 3.8", got)
 	}
 }
 
@@ -314,7 +384,9 @@ func TestTrackerPublishesABoxThatHoldsItsCluster(t *testing.T) {
 }
 
 func TestTrackerWithoutTheBoxModelPublishesNoBox(t *testing.T) {
-	tracker := NewTracker(DefaultTrackerConfig())
+	cfg := DefaultTrackerConfig()
+	cfg.BoxModel = BoxModelConfig{}
+	tracker := NewTracker(cfg)
 	start := time.Unix(1_700_000_000, 0)
 	for i := 0; i < 8; i++ {
 		tracker.Update([]WorldCluster{carCluster(int64(i+1), 10+float64(i)*0.8, 3, 0)}, start.Add(time.Duration(i)*100*time.Millisecond))
@@ -329,9 +401,13 @@ func TestTrackerWithoutTheBoxModelPublishesNoBox(t *testing.T) {
 func TestBoxModelTuningRoundTrips(t *testing.T) {
 	block := &config.L5BoxModel{Enabled: true, AxisSource: "rectangle_fit", CourseMinSpeedMps: 1,
 		MaxCurvaturePerMetre: 0.2, MinYawRateDegPerSec: 3, UnlabelledYawRateDegPerSec: 45,
-		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8}
+		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8,
+		CourseLeadSec: 0.4, CourseRateTauSec: 0.2, DisplacementLabelMetres: 1.5,
+		ExtentWindowSpans: 150, TallHeightMetres: 2.6, TallLengthFloorMetres: 6}
 	cfg := BoxModelConfigFromTuning(block)
-	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 {
+	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 ||
+		cfg.CourseLeadSec != 0.4 || cfg.CourseRateTauSec != 0.2 || cfg.DisplacementLabelMetres != 1.5 ||
+		cfg.ExtentWindowSpans != 150 || cfg.TallHeightMetres != 2.6 || cfg.TallLengthFloorMetres != 6 {
 		t.Fatalf("block did not reach the tracker: %+v", cfg)
 	}
 	back := BoxModelTuningFromTracker(TrackerConfig{BoxModel: cfg})
@@ -340,5 +416,87 @@ func TestBoxModelTuningRoundTrips(t *testing.T) {
 	}
 	if BoxModelConfigFromTuning(nil).Enabled || BoxModelTuningFromTracker(TrackerConfig{}) != nil {
 		t.Fatal("no block is the model off, both ways")
+	}
+}
+
+// arcLag drives a car round a 10 m arc at 6 m/s, with the velocity a
+// constant-velocity filter would report (lagging the tangent by lagFrames),
+// and returns the box's mean lag behind the body over the turn, in degrees.
+func arcLag(t *testing.T, cfg BoxModelConfig, lagFrames int) float64 {
+	t.Helper()
+	e := NewBoxEstimator(cfg)
+	const radius, speed, dt = 10.0, 6.0, 0.1
+	omega := speed / radius
+	sum, n := 0.0, 0
+	for i := 0; i < 40; i++ {
+		theta := -math.Pi/2 + omega*dt*float64(i)
+		psi := theta + math.Pi/2
+		vel := psi - omega*dt*float64(lagFrames)
+		pts := visibleFaces(15+radius*math.Cos(theta), 5+radius*math.Sin(theta), psi, 4.5, 1.8, 20)
+		b := e.Observe(boxInput(int64(i)*1e8, pts, speed*math.Cos(vel), speed*math.Sin(vel)))
+		assertContains(t, i, b, pts)
+		if i >= 15 {
+			sum += foldHalf(psi-b.HeadingRad) * 180 / math.Pi
+			n++
+		}
+	}
+	return sum / float64(n)
+}
+
+func TestBoxModelCourseLeadCutsTheLagInATurn(t *testing.T) {
+	base := enabledBoxConfig()
+	lagged := arcLag(t, base, 4)
+	lead := base
+	lead.CourseLeadSec = 0.4
+	tau := base
+	tau.CourseRateTauSec = 0.4
+	if l := arcLag(t, lead, 4); l >= lagged-1 {
+		t.Fatalf("course lead: lag %.2f° against %.2f° without", l, lagged)
+	}
+	if l := arcLag(t, tau, 4); l >= lagged {
+		t.Fatalf("rate-weighted course: lag %.2f° against %.2f° without", l, lagged)
+	}
+}
+
+func TestBoxModelLabelsACreepingCarFromItsDisplacement(t *testing.T) {
+	// A car creeping toward the sensor at 0.8 m/s shows its front, a strip
+	// across the body, and never reaches the course's speed: without a
+	// displacement label its length is drawn across it.
+	run := func(cfg BoxModelConfig) float64 {
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 40; i++ {
+			x := 30 - 0.08*float64(i)
+			pts := visibleFaces(x, 0.5, math.Pi, 4.5, 1.8, 30)
+			b = e.Observe(boxInput(int64(i)*1e8, pts, -0.8, 0))
+			assertContains(t, i, b, pts)
+		}
+		return axisErrorDeg(b.HeadingRad, math.Pi)
+	}
+	without, with := enabledBoxConfig(), enabledBoxConfig()
+	with.DisplacementLabelMetres = 1.0
+	if got := run(without); got < 80 {
+		t.Fatalf("without the displacement label the creeping car is %.1f° off; the test needs it wrong", got)
+	}
+	if got := run(with); got > 3 {
+		t.Fatalf("displacement-labelled box %.1f° off the body", got)
+	}
+}
+
+func TestBoxModelMinAreaAxisHoldsTheBody(t *testing.T) {
+	cfg := enabledBoxConfig()
+	cfg.AxisSource = BoxAxisMinArea
+	e := NewBoxEstimator(cfg)
+	psi := 35 * math.Pi / 180
+	for i := 0; i < 30; i++ {
+		d := float64(i) * 0.7
+		pts := visibleFaces(14+d*math.Cos(psi), -9+d*math.Sin(psi), psi, 4.5, 1.8, 20)
+		b := e.Observe(boxInput(int64(i)*1e8, pts, 7*math.Cos(psi), 7*math.Sin(psi)))
+		assertContains(t, i, b, pts)
+		// An exact L's hull ties the body's rectangle with the one on its
+		// hypotenuse, so the axis wanders within the course's pull.
+		if i >= 5 && axisErrorDeg(b.HeadingRad, psi) > 6 {
+			t.Fatalf("frame %d: %.1f° off", i, axisErrorDeg(b.HeadingRad, psi))
+		}
 	}
 }

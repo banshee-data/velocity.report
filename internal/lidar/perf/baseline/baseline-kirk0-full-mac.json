@@ -1,63 +1,64 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-05T19:56:56Z",
+  "timestamp": "2026-10-17T06:28:18Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "full",
-  "tuning_fingerprint": "fd35b0b28fc1",
+  "tuning_fingerprint": "4c10f4e77702",
   "system_info": {
     "goos": "darwin",
     "goarch": "arm64",
     "host_class": "mac",
     "num_cpu": 8,
-    "go_version": "go1.26.5",
-    "commit_hash": "901b250eeb8b"
+    "go_version": "go1.27.1",
+    "commit_hash": "8f8ff9c9e1e6"
   },
   "metrics": {
-    "wall_clock_ms": 8980,
+    "wall_clock_ms": 7756,
     "frame_time_stats": {
-      "min_ms": 2.71925,
-      "max_ms": 95.651959,
-      "avg_ms": 8.134179832932698,
-      "p50_ms": 3.964792,
-      "p95_ms": 34.287167,
-      "p99_ms": 77.900542,
+      "min_ms": 2.038208,
+      "max_ms": 60.567375,
+      "avg_ms": 6.245677629807697,
+      "p50_ms": 3.478667,
+      "p95_ms": 24.537958,
+      "p99_ms": 51.331417,
       "samples": 832
     },
-    "frames_per_second": 92.65033407572383,
-    "packets_per_second": 16674.944320712693,
-    "points_per_second": 6389360.356347439,
-    "heap_alloc_bytes": 18233384,
-    "total_alloc_bytes": 17358045288,
-    "num_gc": 742,
-    "gc_pause_ns": 50053380,
-    "pipeline_time_ms": 8980,
-    "cluster_time_ms": 3872,
-    "tracking_time_ms": 14,
+    "frames_per_second": 107.27178958225889,
+    "packets_per_second": 19306.47240845797,
+    "points_per_second": 7397686.436307374,
+    "heap_alloc_bytes": 19020976,
+    "total_alloc_bytes": 19951707832,
+    "num_gc": 847,
+    "gc_pause_ns": 54850973,
+    "pipeline_time_ms": 7756,
+    "cluster_time_ms": 2707,
+    "tracking_time_ms": 84,
     "classify_time_ms": 6,
     "work": {
       "frames": 832,
       "foreground_points": 985224,
       "background_points": 56391232,
       "clusters": 2863,
-      "confirmed_tracks": 25
+      "confirmed_tracks": 25,
+      "distinct_confirmed_tracks": 77
     },
     "frame_budget": {
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 95.651959
+      "worst_ms": 60.567375
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      8948,
-      8968,
-      8980,
-      9000,
-      9075
+      7721,
+      7733,
+      7756,
+      7763,
+      7768
     ],
-    "median_ms": 8980,
-    "spread_pct": 1.4193115780062584
+    "median_ms": 7756,
+    "spread_pct": 0.6087294391918145
   }
 }

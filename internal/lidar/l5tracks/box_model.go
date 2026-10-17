@@ -48,6 +48,10 @@ const (
 	// BoxAxisPCA folds the cluster OBB's PCA heading to an axis: for a
 	// pipeline that keeps no points.
 	BoxAxisPCA BoxAxisSource = "pca"
+	// BoxAxisMinArea takes the axis of the members' minimum-area rectangle,
+	// from their convex hull: cheaper than the rectangle fit, and blind to
+	// which of an exact L's two rectangles is the body.
+	BoxAxisMinArea BoxAxisSource = "min_area"
 )
 
 // BoxModelConfig is the published box's configuration. The zero value is
@@ -75,6 +79,30 @@ type BoxModelConfig struct {
 	// remainder on the side away from the sensor: an end-on view of a car is
 	// not a 0.6 m box.
 	VehicleLengthFloor float64
+	// CourseLeadSec moves the course forward by its own rate, over the last
+	// half second, times this lead: the Kalman velocity's lag in a turn.
+	// CourseRateTauSec adds (tau·rate)² to the course's variance, so a
+	// course that is turning weighs less against the shape's axis. Both need
+	// the course on consecutive frames. (Observing the yaw rate from the
+	// course's rate was tried and removes none of the lag: the lag is in the
+	// course itself, not in the filter's rate.)
+	CourseLeadSec    float64
+	CourseRateTauSec float64
+	// DisplacementLabelMetres, when positive, labels an unlabelled box from
+	// the track's own displacement over up to two seconds once it is at
+	// least this long and nearly straight: the label a car creeping below
+	// the course's speed would otherwise not get.
+	DisplacementLabelMetres float64
+	// ExtentWindowSpans is how many of the most recent admitted spans the
+	// length and width beliefs take their corroborated maximum over; zero
+	// keeps the largest spans of the whole life.
+	ExtentWindowSpans int
+	// TallLengthFloorMetres, when larger than VehicleLengthFloor, replaces it
+	// for a labelled box of a vehicle's width whose corroborated vertical
+	// extent is TallHeightMetres or more: a body that tall is a van, a truck
+	// or a bus, which an end-on view draws far shorter than it is.
+	TallHeightMetres      float64
+	TallLengthFloorMetres float64
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -129,6 +157,7 @@ func DefaultBoxModelConfig() BoxModelConfig {
 		AxisGateSigmas:         3,
 		AxisRestartRun:         5,
 		VehicleLengthFloor:     3.8,
+		ExtentWindowSpans:      50,
 		FitMaxPoints:           64,
 		FitCoarseStepDeg:       2,
 		CentrePull:             0.3,
@@ -165,6 +194,8 @@ type BoxStats struct {
 	// frames whose heading change the yaw-rate bound cut; Restarts axis
 	// refusal runs that reopened the heading.
 	Relabels, Clamps, Restarts int
+	// DisplacementLabels counts labels taken from the track's displacement.
+	DisplacementLabels int
 }
 
 // BoxEstimator is one track's published box.
@@ -174,9 +205,13 @@ type BoxEstimator struct {
 	labelled  bool
 	psi, rate float64
 	// p is the covariance of (psi, rate).
-	p         [2][2]float64
-	refusals  int
-	relabels  int
+	p        [2][2]float64
+	refusals int
+	relabels int
+	// courses and positions are short histories for the course's rate and
+	// the displacement label.
+	courses   []timedAngle
+	positions []timedPoint
 	bornNanos int64
 	// discrete is this frame's turn of the frame that moved no box: a change
 	// of front, or the labelling instant's quarter turn. The yaw-rate bound
@@ -185,6 +220,7 @@ type BoxEstimator struct {
 	lastNanos int64
 	length    windowBelief
 	width     windowBelief
+	height    windowBelief
 	// offA and offN place the box centre relative to the track position,
 	// along and across the heading.
 	offA, offN float64
@@ -228,7 +264,13 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 
 // NewBoxEstimator starts an empty box.
 func NewBoxEstimator(cfg BoxModelConfig) *BoxEstimator {
-	return &BoxEstimator{cfg: cfg}
+	w := max(cfg.ExtentWindowSpans, 0)
+	return &BoxEstimator{
+		cfg:    cfg,
+		length: windowBelief{window: w},
+		width:  windowBelief{window: w},
+		height: windowBelief{window: w},
+	}
 }
 
 // State is the current published box.
@@ -241,6 +283,10 @@ const (
 	boxSeedRateSigma   = 0.3
 	boxPCAAxisSigmaRad = 8 * math.Pi / 180
 	boxPCAMinAspect    = 0.25
+	// boxMinAreaSigmaRad and boxMinAreaAspect are the minimum-area axis's
+	// standard deviation and the aspect below which it abstains.
+	boxMinAreaSigmaRad = 5 * math.Pi / 180
+	boxMinAreaAspect   = 1.2
 	// boxCourseGateRad refuses a course this far from a labelled heading: a
 	// manoeuvre or a velocity still settling, not the body's axis.
 	boxCourseGateRad = 45 * math.Pi / 180
@@ -400,11 +446,22 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 			}
 		}
 	}
-	if course, sigma, ok := e.courseObservation(in, speed); ok {
+	course, sigma, courseOK := e.courseObservation(in, speed)
+	if !e.labelled && !(courseOK && sigma <= e.labelSigma()) {
+		e.labelFromDisplacement(in)
+	}
+	if courseOK {
 		if !e.labelled && sigma <= e.labelSigma() {
 			e.label(course)
 		}
 		steer := e.labelled && (e.cfg.CourseMaxSigmaRad <= 0 || sigma <= e.cfg.CourseMaxSigmaRad)
+		rate, haveRate := 0.0, false
+		if steer {
+			rate, haveRate = e.courseRate(course, in.Nanos)
+			if haveRate && e.cfg.CourseLeadSec > 0 {
+				course = wrapPi(course + e.cfg.CourseLeadSec*rate)
+			}
+		}
 		if steer {
 			if math.Abs(foldHalf(course-e.psi)) > boxRelabelRad {
 				e.relabels++
@@ -424,11 +481,91 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 				r = wrapPi(course - e.psi)
 			}
 			if math.Abs(r) <= boxCourseGateRad {
-				e.update(r, sigma*sigma+e.cfg.CourseSideslipRad*e.cfg.CourseSideslipRad)
+				v := sigma*sigma + e.cfg.CourseSideslipRad*e.cfg.CourseSideslipRad
+				if haveRate && e.cfg.CourseRateTauSec > 0 {
+					v += math.Pow(e.cfg.CourseRateTauSec*rate, 2)
+				}
+				e.update(r, v)
 			}
 		}
 	}
 	return spans
+}
+
+// timedAngle and timedPoint are history samples.
+type timedAngle struct {
+	nanos int64
+	a     float64
+}
+
+type timedPoint struct {
+	nanos int64
+	x, y  float64
+}
+
+const (
+	// boxRateBaseline bounds how far back the course's rate is measured
+	// from: at least the shorter, at most the longer.
+	boxRateMinBaselineNanos = int64(300e6)
+	boxRateMaxBaselineNanos = int64(600e6)
+	// boxDisplacementWindowNanos is the longest displacement the label
+	// reads, boxDisplacementMinNanos the shortest, and
+	// boxDisplacementStraightness the chord over the path it needs.
+	boxDisplacementWindowNanos  = int64(2e9)
+	boxDisplacementMinNanos     = int64(800e6)
+	boxDisplacementStraightness = 0.8
+)
+
+// courseRate records this frame's steering-grade course and returns its rate
+// over the last half second or so, when the history reaches back far enough.
+func (e *BoxEstimator) courseRate(course float64, nanos int64) (float64, bool) {
+	keep := e.courses[:0]
+	for _, c := range e.courses {
+		if nanos-c.nanos <= boxRateMaxBaselineNanos {
+			keep = append(keep, c)
+		}
+	}
+	e.courses = append(keep, timedAngle{nanos, course})
+	first := e.courses[0]
+	dt := float64(nanos-first.nanos) / 1e9
+	if nanos-first.nanos < boxRateMinBaselineNanos || dt <= 0 {
+		return 0, false
+	}
+	return wrapPi(course-first.a) / dt, true
+}
+
+// labelFromDisplacement labels an unlabelled box from the track's own
+// displacement, when DisplacementLabelMetres is set and the track has moved
+// that far, nearly straight, over the last two seconds.
+func (e *BoxEstimator) labelFromDisplacement(in BoxInput) {
+	if e.cfg.DisplacementLabelMetres <= 0 {
+		return
+	}
+	keep := e.positions[:0]
+	for _, p := range e.positions {
+		if in.Nanos-p.nanos <= boxDisplacementWindowNanos {
+			keep = append(keep, p)
+		}
+	}
+	e.positions = append(keep, timedPoint{in.Nanos, in.X, in.Y})
+	first := e.positions[0]
+	if in.Nanos-first.nanos < boxDisplacementMinNanos {
+		return
+	}
+	dx, dy := in.X-first.x, in.Y-first.y
+	chord := math.Hypot(dx, dy)
+	if chord < e.cfg.DisplacementLabelMetres {
+		return
+	}
+	path := 0.0
+	for i := 1; i < len(e.positions); i++ {
+		path += math.Hypot(e.positions[i].x-e.positions[i-1].x, e.positions[i].y-e.positions[i-1].y)
+	}
+	if path <= 0 || chord/path < boxDisplacementStraightness {
+		return
+	}
+	e.label(math.Atan2(dy, dx))
+	e.Stats.DisplacementLabels++
 }
 
 // labelSigma is the widest course spread that may label a box.
@@ -539,10 +676,13 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 		e.length.observe(evidence[0])
 		e.width.observe(math.Min(evidence[1], boxMaxBelievedWidthMetres))
 	}
+	if e.cfg.TallHeightMetres > 0 && in.Cluster != nil && !in.Merge {
+		e.height.observe(float64(in.Cluster.BoundingBoxHeight))
+	}
 	length := math.Max(math.Max(e.length.estimate(), spanA), boxMinExtentMetres)
 	width := math.Max(math.Max(e.width.estimate(), spanN), boxMinExtentMetres)
-	if e.cfg.VehicleLengthFloor > 0 && e.labelled && e.width.estimate() >= boxVehicleMinWidthMetres {
-		length = math.Max(length, e.cfg.VehicleLengthFloor)
+	if floor := e.lengthFloor(); floor > 0 && e.labelled && e.width.estimate() >= boxVehicleMinWidthMetres {
+		length = math.Max(length, floor)
 	}
 	sa := (e.cfg.SensorX-in.X)*c + (e.cfg.SensorY-in.Y)*s
 	sn := -(e.cfg.SensorX-in.X)*s + (e.cfg.SensorY-in.Y)*c
@@ -552,6 +692,16 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 		X: in.X + e.offA*c - e.offN*s, Y: in.Y + e.offA*s + e.offN*c,
 		HeadingRad: e.psi, Length: length, Width: width, Labelled: e.labelled,
 	}
+}
+
+// lengthFloor is the least length a labelled box of a vehicle's width is
+// drawn: the tall floor once the height belief reaches TallHeightMetres.
+func (e *BoxEstimator) lengthFloor() float64 {
+	floor := e.cfg.VehicleLengthFloor
+	if e.cfg.TallHeightMetres > 0 && e.cfg.TallLengthFloorMetres > floor && e.height.estimate() >= e.cfg.TallHeightMetres {
+		floor = e.cfg.TallLengthFloorMetres
+	}
+	return floor
 }
 
 // boxCentre places a box of the given extent along one axis: inside the
@@ -591,6 +741,21 @@ func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (f
 	scale := e.cfg.AxisSigmaScale
 	if scale <= 0 {
 		scale = 1
+	}
+	if e.cfg.AxisSource == BoxAxisMinArea && (len(cluster.Members) > 0 || len(cluster.RetainedPoints) > 0) {
+		members := cluster.Members
+		if len(members) == 0 {
+			members = cluster.RetainedPoints
+		}
+		if k := e.cfg.FitMaxPoints; k > 0 && len(members) > k {
+			e.sample = sampleMembers(e.sample[:0], members, k)
+			members = e.sample
+		}
+		r, ok := l4perception.MinAreaRectangle(members)
+		if !ok || math.Max(r.Span1, r.Span2) < boxMinAreaAspect*math.Min(r.Span1, r.Span2) {
+			return 0, 0, [2]float64{}, false
+		}
+		return r.AxisRad, boxMinAreaSigmaRad * scale, [2]float64{r.Span1, r.Span2}, true
 	}
 	if e.cfg.AxisSource == BoxAxisPCA || (len(cluster.Members) == 0 && len(cluster.RetainedPoints) == 0) {
 		b := cluster.OBB
@@ -709,30 +874,46 @@ func foldQuarterPositive(a float64) float64 {
 }
 
 // windowBelief is a corroborated maximum over the most recent admitted spans:
-// the third largest of the last boxBeliefWindow. A body's dimensions do not
-// change, but a merged cluster corroborates itself for as long as the merge
-// lasts; the window lets the box return to the body once it ends, where a
-// whole-life maximum holds the merge's size until the track does.
+// the third largest of the last window (ExtentWindowSpans). A body's
+// dimensions do not change, but a merged cluster corroborates itself for as
+// long as the merge lasts; the window lets the box return to the body once
+// it ends, where a whole-life maximum (window zero) holds the merge's size
+// until the track does.
 type windowBelief struct {
-	spans []float64
-	next  int
+	window int
+	spans  []float64
+	next   int
 }
 
-const (
-	boxBeliefWindow        = 50
-	boxBeliefCorroboration = 3
-)
+const boxBeliefCorroboration = 3
 
 func (b *windowBelief) observe(span float64) {
 	if span <= 0 || math.IsNaN(span) || math.IsInf(span, 0) {
 		return
 	}
-	if len(b.spans) < boxBeliefWindow {
+	if b.window <= 0 {
+		// The whole life: only the largest few can ever be the estimate.
+		if len(b.spans) < boxBeliefCorroboration {
+			b.spans = append(b.spans, span)
+			return
+		}
+		least := 0
+		for i, v := range b.spans {
+			if v < b.spans[least] {
+				least = i
+			}
+		}
+		if span > b.spans[least] {
+			b.spans[least] = span
+		}
+		return
+	}
+	if len(b.spans) < b.window {
 		b.spans = append(b.spans, span)
 		return
 	}
 	b.spans[b.next] = span
-	b.next = (b.next + 1) % boxBeliefWindow
+	b.next = (b.next + 1) % b.window
 }
 
 // estimate is the third largest admitted span, or the smallest of fewer.

@@ -11,7 +11,9 @@ segments of 23 corpus sites, the two labelled kirk captures and kirk0's reviewed
 - **Status:** Complete, 2026-10-16. One unattended run; experiment [geom0005](../../../data/experiments/geom/geom0005.md)
 - **Layers:** L5 (the published box), L9 (frame bundle, VRLOG, gRPC), scene export and the scene player, the macOS visualiser
 - **Related:** [geometry convergence plan](../../plans/lidar-tracker-geometry-convergence-plan.md), [rectangle heading screen](solid-body-rectangle-heading-2026-10.md), [containment screen](solid-body-containment-corpus-2026-10.md), [criteria record](geometry-convergence-criteria.md)
-- **Parameter set:** [box-model.json](../../../config/experiments/box-model.json)
+- **Parameter set:** `config/experiments/box-model.json`, since geom0006 the box model block of
+  the [defaults](../../../config/tuning.defaults.json); [box-model-off.json](../../../config/experiments/box-model-off.json)
+  draws the legacy box
 
 ## Summary
 
@@ -44,7 +46,7 @@ segments of 23 corpus sites, the two labelled kirk captures and kirk0's reviewed
   also wiggles a little more on a straight road (6.8° per 10 m at the median against 3.2°): it
   follows the measured axis, where the EMA is steady because it does not.
 - **Not on by default.** The block is absent from the defaults, so the fingerprint and the perf
-  baselines stand. [box-model.json](../../../config/experiments/box-model.json) turns it on for a
+  baselines stand. `box-model.json` turns it on for a
   server, a replay or a scene publication; making it the default waits on its timing on the Pi
   and the perf baselines its fingerprint will move.
 - **Still wrong.** A car labelled before it moves faster than about 1 m/s can be drawn a quarter
@@ -183,7 +185,7 @@ file at replay start, and as a runtime patch; switched off at run time, every pu
 dropped rather than frozen.
 
 **Tracks unchanged.** kirk0 replayed through the Phase 0 harness under the defaults and under
-[box-model.json](../../../config/experiments/box-model.json) gives byte-identical
+`box-model.json` gives byte-identical
 `tracking_baseline.json` and `confirmed_duration.json`.
 
 **On a server.** A server built from this change, started with box-model.json as its `--config`
@@ -554,9 +556,11 @@ frame with 50 tracks pays about 1.5 ms here. Scene assets with the box centre ar
 ## Seeing it
 
 Build the server and the visualiser from this change (`make build-radar-local`, `make build-mac`).
-Start the server with `--config config/experiments/box-model.json`, or start a replay with
-box-model.json chosen in the 8081 replay form's Tuning Config list (`tuning_config` on
-`POST /api/lidar/pcap/start`). The visualiser then draws the box model's box at its own centre.
+Since geom0006 the box model is in the defaults, so a server or replay draws it unless its tuning
+switches it off; [box-model-off.json](../../../config/experiments/box-model-off.json) (the
+server's `--config`, or chosen in the 8081 replay form's Tuning Config list, `tuning_config` on
+`POST /api/lidar/pcap/start`) draws the legacy box beside it. The visualiser draws the box model's
+box at its own centre.
 A scene exported from that replay's VRLOG (`velocity scene export`) carries `bx` and `by`, which
 the scene player in this change draws.
 
@@ -570,7 +574,9 @@ the scene player in this change draws.
 2. **Make it the default once the Pi has timed it.** Time a replay on the Pi 5 under live load
    with box-model.json against the defaults (the `pi` step of geom0005), choose the `pca` axis
    source if keeping members is too dear there, then add the block to the defaults and recapture
-   the perf baselines in the same change.
+   the perf baselines in the same change. geom0006 made it the default, with the baselines
+   recaptured, before the Pi timing, which is still owed
+   ([refinement report](published-box-refinement-2026-10.md)).
 3. **Label slow vehicles from more than the course.** A displacement over a second or two labels
    a car the Kalman velocity cannot at 0.8 m/s; a class prior labels a parked car seen square on.
 4. **Persist the published box** in the track observations, so the web app's live view draws it

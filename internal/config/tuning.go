@@ -204,8 +204,9 @@ type L5Common struct {
 // present.
 type L5BoxModel struct {
 	Enabled bool `json:"enabled"`
-	// AxisSource is "rectangle_fit", which reads the cluster members and so
-	// keeps them for the frame, or "pca", the cluster box's axis.
+	// AxisSource is "rectangle_fit" or "min_area", which read the cluster
+	// members and so keep them for the frame, or "pca", the cluster box's
+	// axis.
 	AxisSource string `json:"axis_source"`
 	// CourseMinSpeedMps is the speed from which the direction of travel
 	// observes the heading and labels its length and front.
@@ -227,11 +228,28 @@ type L5BoxModel struct {
 	// width at least this long, the unseen part away from the sensor; zero
 	// draws only what was seen.
 	VehicleLengthFloorMetres float64 `json:"vehicle_length_floor_metres"`
+	// CourseLeadSec leads the course by its own rate times this many
+	// seconds, against the Kalman velocity's lag in a turn; zero is off.
+	CourseLeadSec float64 `json:"course_lead_sec"`
+	// CourseRateTauSec weighs a turning course less: its variance gains
+	// (tau·rate)²; zero is off.
+	CourseRateTauSec float64 `json:"course_rate_tau_sec"`
+	// DisplacementLabelMetres labels a box from the track's straight
+	// displacement over up to two seconds once it is this long; zero is off.
+	DisplacementLabelMetres float64 `json:"displacement_label_metres"`
+	// ExtentWindowSpans is how many of the latest admitted spans the length
+	// and width are the corroborated maximum of; zero keeps the whole life's.
+	ExtentWindowSpans int `json:"extent_window_spans"`
+	// TallLengthFloorMetres replaces the vehicle floor for a labelled body
+	// whose corroborated vertical extent is TallHeightMetres or more; zero
+	// TallHeightMetres is off.
+	TallHeightMetres      float64 `json:"tall_height_metres"`
+	TallLengthFloorMetres float64 `json:"tall_length_floor_metres"`
 }
 
 // NeedsMembers reports whether the box model reads the cluster members.
 func (b *L5BoxModel) NeedsMembers() bool {
-	return b != nil && b.Enabled && b.AxisSource == "rectangle_fit"
+	return b != nil && b.Enabled && (b.AxisSource == "rectangle_fit" || b.AxisSource == "min_area")
 }
 
 // L5SolidBody is the solid-body estimator's options, one tuning value per

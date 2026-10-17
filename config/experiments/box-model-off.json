@@ -82,7 +82,7 @@
       "deleted_track_grace_period": "5s",
       "min_observations_for_classification": 5,
       "box_model": {
-        "enabled": true,
+        "enabled": false,
         "axis_source": "rectangle_fit",
         "course_min_speed_mps": 1.0,
         "max_curvature_per_metre": 0.2,
@@ -91,7 +91,13 @@
         "yaw_accel_sigma": 0.4,
         "axis_sigma_scale": 1.5,
         "centre_pull": 0.3,
-        "vehicle_length_floor_metres": 3.8
+        "vehicle_length_floor_metres": 3.8,
+        "course_lead_sec": 0,
+        "course_rate_tau_sec": 0,
+        "displacement_label_metres": 0,
+        "extent_window_spans": 50,
+        "tall_height_metres": 0,
+        "tall_length_floor_metres": 0
       }
     }
   },

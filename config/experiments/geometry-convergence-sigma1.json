@@ -103,6 +103,24 @@
         "rectangle_heading": true,
         "rectangle_course_fusion": true,
         "rectangle_sigma_scale": 0
+      },
+      "box_model": {
+        "enabled": true,
+        "axis_source": "rectangle_fit",
+        "course_min_speed_mps": 1.0,
+        "max_curvature_per_metre": 0.2,
+        "min_yaw_rate_deg_per_sec": 3,
+        "unlabelled_yaw_rate_deg_per_sec": 45,
+        "yaw_accel_sigma": 0.4,
+        "axis_sigma_scale": 1.5,
+        "centre_pull": 0.3,
+        "vehicle_length_floor_metres": 3.8,
+        "course_lead_sec": 0,
+        "course_rate_tau_sec": 0,
+        "displacement_label_metres": 0,
+        "extent_window_spans": 50,
+        "tall_height_metres": 0,
+        "tall_length_floor_metres": 0
       }
     }
   },

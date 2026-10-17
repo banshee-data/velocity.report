@@ -484,9 +484,9 @@ func (b *L5BoxModel) Validate() error {
 		return nil
 	}
 	switch b.AxisSource {
-	case "rectangle_fit", "pca":
+	case "rectangle_fit", "min_area", "pca":
 	default:
-		return fmt.Errorf("axis_source must be rectangle_fit or pca, got %q", b.AxisSource)
+		return fmt.Errorf("axis_source must be rectangle_fit, min_area or pca, got %q", b.AxisSource)
 	}
 	for _, f := range []struct {
 		name  string
@@ -499,10 +499,18 @@ func (b *L5BoxModel) Validate() error {
 		{"axis_sigma_scale", b.AxisSigmaScale},
 		{"centre_pull", b.CentrePull},
 		{"vehicle_length_floor_metres", b.VehicleLengthFloorMetres},
+		{"course_lead_sec", b.CourseLeadSec},
+		{"course_rate_tau_sec", b.CourseRateTauSec},
+		{"displacement_label_metres", b.DisplacementLabelMetres},
+		{"tall_height_metres", b.TallHeightMetres},
+		{"tall_length_floor_metres", b.TallLengthFloorMetres},
 	} {
 		if math.IsNaN(f.value) || math.IsInf(f.value, 0) || f.value < 0 {
 			return fmt.Errorf("%s must be finite and non-negative, got %v", f.name, f.value)
 		}
+	}
+	if b.ExtentWindowSpans < 0 {
+		return fmt.Errorf("extent_window_spans must be non-negative, got %d", b.ExtentWindowSpans)
 	}
 	if !(b.YawAccelSigma > 0) || math.IsInf(b.YawAccelSigma, 0) {
 		return fmt.Errorf("yaw_accel_sigma must be positive, got %v", b.YawAccelSigma)

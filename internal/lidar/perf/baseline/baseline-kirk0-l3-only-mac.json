@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-05T19:57:25Z",
+  "timestamp": "2026-10-17T06:28:46Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "l3-only",
   "tuning_fingerprint": "9884a9eae446",
@@ -9,28 +9,28 @@
     "goarch": "arm64",
     "host_class": "mac",
     "num_cpu": 8,
-    "go_version": "go1.26.5",
-    "commit_hash": "901b250eeb8b"
+    "go_version": "go1.27.1",
+    "commit_hash": "8f8ff9c9e1e6"
   },
   "metrics": {
-    "wall_clock_ms": 5033,
+    "wall_clock_ms": 4892,
     "frame_time_stats": {
-      "min_ms": 2.725958,
-      "max_ms": 15.864208,
-      "avg_ms": 3.3721264819711556,
-      "p50_ms": 3.341,
-      "p95_ms": 3.568875,
-      "p99_ms": 3.7055,
+      "min_ms": 2.108291,
+      "max_ms": 14.9505,
+      "avg_ms": 2.8381697247596174,
+      "p50_ms": 2.854458,
+      "p95_ms": 3.01,
+      "p99_ms": 3.175916,
       "samples": 832
     },
-    "frames_per_second": 165.30896085833498,
-    "packets_per_second": 29751.837870057618,
-    "points_per_second": 11400050.864295648,
-    "heap_alloc_bytes": 18196936,
-    "total_alloc_bytes": 16898689616,
-    "num_gc": 704,
-    "gc_pause_ns": 47243347,
-    "pipeline_time_ms": 5033,
+    "frames_per_second": 170.07358953393293,
+    "packets_per_second": 30609.362224039247,
+    "points_per_second": 11728629.59934587,
+    "heap_alloc_bytes": 18879696,
+    "total_alloc_bytes": 19436059096,
+    "num_gc": 836,
+    "gc_pause_ns": 52833760,
+    "pipeline_time_ms": 4892,
     "cluster_time_ms": 0,
     "tracking_time_ms": 0,
     "classify_time_ms": 0,
@@ -45,19 +45,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 15.864208
+      "worst_ms": 14.9505
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      5003,
-      5009,
-      5033,
-      5036,
-      5112
+      4870,
+      4879,
+      4892,
+      4922,
+      5010
     ],
-    "median_ms": 5033,
-    "spread_pct": 2.178692784329402
+    "median_ms": 4892,
+    "spread_pct": 2.8747433264887063
   }
 }

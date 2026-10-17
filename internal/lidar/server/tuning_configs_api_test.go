@@ -160,12 +160,14 @@ func TestApplyTuningConfigFile(t *testing.T) {
 	ws := newConfigTestServer(t, "sensor-apply", dir)
 	bm := l3grid.GetBackgroundManager("sensor-apply")
 
+	// The defaults' box model keeps the members on from the start.
+	membersBefore := ws.clusterMembers.Load()
 	for _, bad := range []string{"", "../tuning.defaults.json", "/etc/passwd", "README.md", "experiments/missing.json", "profiles/detect.json"} {
 		if _, err := ws.applyTuningConfigFile(bad); err == nil {
 			t.Fatalf("%q was applied", bad)
 		}
 	}
-	if got := ws.tracker.GetConfig(); got.SolidBody.Enabled || ws.clusterMembers.Load() {
+	if got := ws.tracker.GetConfig(); got.SolidBody.Enabled || ws.clusterMembers.Load() != membersBefore {
 		t.Fatalf("a refused file reached the tracker: %+v", got.SolidBody)
 	}
 	if p, _ := ws.activeTuning(); p != "" {
@@ -193,7 +195,7 @@ func TestApplyTuningConfigFile(t *testing.T) {
 	}
 
 	// The listing now marks it active, and applying the defaults switches
-	// the body off again, members included.
+	// the body off again; the members stay on for the defaults' box model.
 	rec := httptest.NewRecorder()
 	ws.handleListTuningConfigs(rec, httptest.NewRequest(http.MethodGet, "/api/lidar/configs", nil))
 	if !strings.Contains(rec.Body.String(), `"path":"experiments/candidate.json","kind":"tuning"`) || !strings.Contains(rec.Body.String(), `"active":true`) {
@@ -202,8 +204,8 @@ func TestApplyTuningConfigFile(t *testing.T) {
 	if _, err := ws.applyTuningConfigFile("tuning.defaults.json"); err != nil {
 		t.Fatal(err)
 	}
-	if got := ws.tracker.GetConfig(); got.SolidBody.Enabled || got.NearEdgeTracking || ws.clusterMembers.Load() {
-		t.Fatalf("the defaults did not switch the body off: %+v", got.SolidBody)
+	if got := ws.tracker.GetConfig(); got.SolidBody.Enabled || got.NearEdgeTracking || ws.clusterMembers.Load() != got.BoxModel.Enabled {
+		t.Fatalf("the defaults did not switch the body off: %+v, members %v", got.SolidBody, ws.clusterMembers.Load())
 	}
 	if sb := ws.runtimeTuningConfig(bm).L5.CvKfV1.SolidBody; sb != nil {
 		t.Fatalf("the runtime config carries a block with the body off: %+v", sb)
@@ -381,7 +383,8 @@ func TestStartupIncompatibilityNamesEverySkippedKey(t *testing.T) {
 
 // A file with the box model and no solid body keeps the cluster members on:
 // clearing the absent solid body must not switch off the members the box
-// model's rectangle fit reads. The defaults then switch both off.
+// model's rectangle fit reads. A file with the box model off, and no solid
+// body, then switches both off.
 func TestApplyTuningConfigFileKeepsTheBoxModelsMembers(t *testing.T) {
 	dir := writeConfigTree(t)
 	box := cfgpkg.MustLoadDefaultConfig()
@@ -403,10 +406,19 @@ func TestApplyTuningConfigFileKeepsTheBoxModelsMembers(t *testing.T) {
 	if got := ws.tracker.GetConfig(); !got.BoxModel.Enabled || got.SolidBody.Enabled || !ws.clusterMembers.Load() {
 		t.Fatalf("box model %v solid body %v members %v; want the box model on with its members", got.BoxModel.Enabled, got.SolidBody.Enabled, ws.clusterMembers.Load())
 	}
-	if _, err := ws.applyTuningConfigFile("tuning.defaults.json"); err != nil {
+	off := cfgpkg.MustLoadDefaultConfig()
+	off.L5.CvKfV1.BoxModel = nil
+	data, err = json.MarshalIndent(off, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "experiments", "box-off.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ws.applyTuningConfigFile("experiments/box-off.json"); err != nil {
 		t.Fatal(err)
 	}
 	if got := ws.tracker.GetConfig(); got.BoxModel.Enabled || ws.clusterMembers.Load() {
-		t.Fatalf("the defaults left the box model %v and members %v", got.BoxModel.Enabled, ws.clusterMembers.Load())
+		t.Fatalf("a file without the box model left it %v and members %v", got.BoxModel.Enabled, ws.clusterMembers.Load())
 	}
 }

@@ -117,3 +117,27 @@ func TestSelectVariants(t *testing.T) {
 		t.Fatal("an unknown variant was accepted")
 	}
 }
+
+func TestOverlapShareOfBoxes(t *testing.T) {
+	a := box{x: 0, y: 0, psi: 0, length: 4, width: 2}
+	for _, c := range []struct {
+		name string
+		b    box
+		want float64
+	}{
+		{"the same box", a, 1},
+		{"half along its length", box{x: 2, y: 0, psi: 0, length: 4, width: 2}, 0.5},
+		{"apart", box{x: 5, y: 0, psi: 0, length: 4, width: 2}, 0},
+		{"a small box inside", box{x: 0.5, y: 0, psi: 0.3, length: 1, width: 0.5}, 1},
+		// A 2 m square crossing the middle at a quarter turn shares 2 × 2 m².
+		{"a quarter turn across", box{x: 0, y: 0, psi: math.Pi / 2, length: 2, width: 2}, 1},
+		{"a quarter turn of itself", box{x: 0, y: 0, psi: math.Pi / 2, length: 4, width: 2}, 0.5},
+	} {
+		if got := overlapShare(a, c.b); math.Abs(got-c.want) > 1e-9 {
+			t.Errorf("%s: overlap %.4f, want %.4f", c.name, got, c.want)
+		}
+		if got := overlapShare(c.b, a); math.Abs(got-c.want) > 1e-9 {
+			t.Errorf("%s, the other way: overlap %.4f, want %.4f", c.name, got, c.want)
+		}
+	}
+}

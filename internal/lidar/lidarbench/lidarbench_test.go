@@ -8,6 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/config"
 )
 
 func TestComputeFrameTimeStats(t *testing.T) {
@@ -114,5 +116,28 @@ func TestCompareWithBaseline(t *testing.T) {
 	// Missing baseline file → nil, no regression.
 	if c, r := compareWithBaseline(filepath.Join(dir, "nope.json"), current, 0.10); c != nil || r {
 		t.Fatalf("missing baseline = (%v, %v), want (nil, false)", c, r)
+	}
+}
+
+// The bench keeps the cluster members when the tuning's box model or solid
+// body reads them, as the server does, so the gate times what a device pays.
+func TestKeepClusterMembersFollowsTheTuning(t *testing.T) {
+	cfg := config.MustLoadDefaultConfig()
+	cfg.L5.CvKfV1.BoxModel = nil
+	cfg.L5.CvKfV1.SolidBody = nil
+	if keepClusterMembers(cfg) {
+		t.Fatal("no block keeps members")
+	}
+	cfg.L5.CvKfV1.BoxModel = &config.L5BoxModel{Enabled: true, AxisSource: "rectangle_fit"}
+	if !keepClusterMembers(cfg) {
+		t.Fatal("a rectangle-fit box model must keep members")
+	}
+	cfg.L5.CvKfV1.BoxModel.AxisSource = "pca"
+	if keepClusterMembers(cfg) {
+		t.Fatal("a PCA box model reads no members")
+	}
+	cfg.L5.CvKfV1.SolidBody = &config.L5SolidBody{Enabled: true, FullMembers: true}
+	if !keepClusterMembers(cfg) {
+		t.Fatal("a solid body with full members must keep them")
 	}
 }
