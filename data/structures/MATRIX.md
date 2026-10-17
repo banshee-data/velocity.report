@@ -351,6 +351,11 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_track_observations`       | `bounding_box_height`               | REAL          | ✅  | ✅  | -   |
 | `lidar_track_observations`       | `height_p95`                        | REAL          | ✅  | ✅  | -   |
 | `lidar_track_observations`       | `intensity_mean`                    | REAL          | ✅  | ✅  | -   |
+| `lidar_track_observations`       | `box_x`                             | REAL          | ✅  | ✅  | -   |
+| `lidar_track_observations`       | `box_y`                             | REAL          | ✅  | ✅  | -   |
+| `lidar_track_observations`       | `box_heading_rad`                   | REAL          | ✅  | ✅  | -   |
+| `lidar_track_observations`       | `box_length`                        | REAL          | ✅  | ✅  | -   |
+| `lidar_track_observations`       | `box_width`                         | REAL          | ✅  | ✅  | -   |
 | `lidar_run_tracks`               | `run_id`                            | TEXT PK       | ✅  | ✅  | -   |
 | `lidar_run_tracks`               | `track_id`                          | TEXT PK       | ✅  | ✅  | -   |
 | `lidar_run_tracks`               | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
