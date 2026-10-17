@@ -180,6 +180,13 @@ dropped rather than frozen.
 [box-model.json](../../../config/experiments/box-model.json) gives byte-identical
 `tracking_baseline.json` and `confirmed_duration.json`.
 
+**On a server.** A server built from this change, started with box-model.json as its `--config`
+on spare ports beside the running one, reads the block back whole from `/api/lidar/params`; a
+kirk0 replay through `/api/lidar/pcap/start` streams every track over gRPC with its box centre
+set (7,702 of 7,702 tracks before the switch below, the centre up to 3.9 m from the tracked
+position on the trucks); and a runtime patch setting `enabled` false drops the block from the
+read-back and the centre from every frame after it, mid-replay.
+
 ## Method
 
 **The scorer.** `lidar-box-eval` ([main.go](../../../cmd/tools/lidar-box-eval/main.go)) replays
