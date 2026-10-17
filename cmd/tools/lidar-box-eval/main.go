@@ -629,18 +629,24 @@ type Measure struct {
 	TurnAbsP90         float64 `json:"turn_abs_error_p90_deg"`
 	StraightAbsP50     float64 `json:"straight_abs_error_p50_deg"`
 	StraightAbsP90     float64 `json:"straight_abs_error_p90_deg"`
-	SlipP50            float64 `json:"centre_slip_p50_m"`
-	SlipP90            float64 `json:"centre_slip_p90_m"`
-	SlipP99            float64 `json:"centre_slip_p99_m"`
-	AxisErrP50         float64 `json:"min_area_axis_error_p50_deg"`
-	AxisErrP90         float64 `json:"min_area_axis_error_p90_deg"`
-	AxisErrOver10      float64 `json:"min_area_axis_error_over10_share"`
-	WigglePer10mP50    float64 `json:"wiggle_deg_per_10m_p50"`
-	WigglePer10mP90    float64 `json:"wiggle_deg_per_10m_p90"`
-	LengthP50          float64 `json:"length_p50_m"`
-	WidthP50           float64 `json:"width_p50_m"`
-	LengthCVP50        float64 `json:"length_cv_p50"`
-	MicrosPerUpdate    float64 `json:"micros_per_update,omitempty"`
+	SlowFrames         int     `json:"slow_frames"`
+	// TurnLags and StraightErrors are the samples behind the turn and
+	// straight figures, to the tenth of a degree, for pooling across runs.
+	TurnLags        []float64 `json:"turn_lags_deg,omitempty"`
+	StraightErrors  []float64 `json:"straight_errors_deg,omitempty"`
+	SlowLabelErrors float64   `json:"slow_label_error_share"`
+	SlipP50         float64   `json:"centre_slip_p50_m"`
+	SlipP90         float64   `json:"centre_slip_p90_m"`
+	SlipP99         float64   `json:"centre_slip_p99_m"`
+	AxisErrP50      float64   `json:"min_area_axis_error_p50_deg"`
+	AxisErrP90      float64   `json:"min_area_axis_error_p90_deg"`
+	AxisErrOver10   float64   `json:"min_area_axis_error_over10_share"`
+	WigglePer10mP50 float64   `json:"wiggle_deg_per_10m_p50"`
+	WigglePer10mP90 float64   `json:"wiggle_deg_per_10m_p90"`
+	LengthP50       float64   `json:"length_p50_m"`
+	WidthP50        float64   `json:"width_p50_m"`
+	LengthCVP50     float64   `json:"length_cv_p50"`
+	MicrosPerUpdate float64   `json:"micros_per_update,omitempty"`
 }
 
 func group(class string) string {
@@ -672,6 +678,7 @@ func (s *scorer) summary() Summary {
 			"overwide_share":            "share of scored rows whose drawn box is wider than 2.8 m on its shorter side",
 			"area_efficiency":           "per row, the area of the members' minimum-area rectangle over the area of their bounding rectangle along the drawn heading: 1 when the box is turned to the points' own axis, lower the further it is turned off it; independent of the course and of the rectangle fit",
 			"turn_lag":                  "against a centred course (the tracked position's direction over ±3 frames, at least 1 m apart), on frames at 3 m/s or more whose centred course turns 10°/s or faster: the drawn axis's signed error in the turn's sense, positive behind the turn, modulo 180°; turn_abs_error is its magnitude",
+			"slow_label_error_share":    "frames at 0.5 to 3 m/s, with a centred course over ±10 frames at least 1 m long, whose drawn axis is more than 60° from it modulo 180°: a box drawn across a slow vehicle",
 			"straight_abs_error":        "the drawn axis's error against the centred course on frames at 3 m/s or more turning slower than 3°/s",
 			"centre_slip":               "per consecutive pair, the drawn box centre's displacement less the tracked position's: how far the box moves on the track",
 			"min_area_axis_error":       "per row with 30 or more members and a minimum-area rectangle of aspect 1.5 or more, the drawn axis's distance from that rectangle's axis, modulo 90°",
@@ -689,6 +696,7 @@ func (s *scorer) summary() Summary {
 			m := &Measure{Tracks: len(ids)}
 			var maxOut, side, wiggle, lengths, widths, cvs, eff, axisErr, slip []float64
 			var turnLag, turnAbs, straightAbs []float64
+			slowFrames, slowWrong := 0, 0
 			var share float64
 			var estNanos int64
 			var calls int
@@ -728,6 +736,8 @@ func (s *scorer) summary() Summary {
 					calls += st.calls
 					tl, ta, sa := turnErrors(st.traj)
 					turnLag, turnAbs, straightAbs = append(turnLag, tl...), append(turnAbs, ta...), append(straightAbs, sa...)
+					sf, sw := slowLabelErrors(st.traj)
+					slowFrames, slowWrong = slowFrames+sf, slowWrong+sw
 				}
 			}
 			if m.Rows > 0 {
@@ -767,6 +777,11 @@ func (s *scorer) summary() Summary {
 			m.TurnLagP50, m.TurnLagP90 = quantile(turnLag, .5), quantile(turnLag, .9)
 			m.TurnAbsP50, m.TurnAbsP90 = quantile(turnAbs, .5), quantile(turnAbs, .9)
 			m.StraightAbsP50, m.StraightAbsP90 = quantile(straightAbs, .5), quantile(straightAbs, .9)
+			m.TurnLags, m.StraightErrors = tenths(turnLag), tenths(straightAbs)
+			m.SlowFrames = slowFrames
+			if slowFrames > 0 {
+				m.SlowLabelErrors = float64(slowWrong) / float64(slowFrames)
+			}
 			m.AxisErrP50, m.AxisErrP90 = quantile(axisErr, .5), quantile(axisErr, .9)
 			m.AxisErrOver10 = 1 - shareBelow(axisErr, 10.000001)
 			if len(axisErr) == 0 {
@@ -1096,4 +1111,34 @@ func turnErrors(traj []trajPoint) (lag, abs, straight []float64) {
 		}
 	}
 	return lag, abs, straight
+}
+
+// slowLabelErrors counts a track's slow frames (0.5 to 3 m/s) that have a
+// centred course over ±10 frames at least 1 m long, and those whose drawn
+// axis is more than 60° from it: the box drawn across a slow vehicle.
+func slowLabelErrors(traj []trajPoint) (frames, wrong int) {
+	const half = 10
+	for i := half; i+half < len(traj); i++ {
+		p := traj[i]
+		if p.speed < 0.5 || p.speed >= 3 {
+			continue
+		}
+		a, b := traj[i-half], traj[i+half]
+		if float64(b.t-a.t)/1e9 > 2.5 || math.Hypot(b.x-a.x, b.y-a.y) < 1 {
+			continue
+		}
+		frames++
+		if math.Abs(foldHalf(math.Atan2(b.y-a.y, b.x-a.x)-p.psi)) > 60*math.Pi/180 {
+			wrong++
+		}
+	}
+	return frames, wrong
+}
+
+func tenths(v []float64) []float64 {
+	out := make([]float64, len(v))
+	for i, x := range v {
+		out[i] = math.Round(x*10) / 10
+	}
+	return out
 }
