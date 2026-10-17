@@ -171,6 +171,7 @@ func boxVariants() []variant {
 		{name: "dx-centred", about: "the drawn box moved to the cluster's PCA box centre", diagnose: diagnoseCentred},
 		{name: "dx-tight", about: "the drawn heading, with extents and centre fitted to the points along it", diagnose: diagnoseTight},
 		{name: "dx-pca", about: "the cluster's own PCA box, unsmoothed", diagnose: diagnosePCA},
+		{name: "dx-km-at-track", about: "the km box drawn at the tracked position, as a viewer that ignores the box centre draws it (needs km)", diagnose: diagnoseAtTrack},
 	}
 }
 
@@ -354,6 +355,12 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 			st.estNanos += time.Since(started).Nanoseconds()
 			st.calls++
 			boxes[v.name] = box{b.X, b.Y, b.HeadingRad, b.Length, b.Width}
+		}
+		if b, ok := boxes["km"]; ok {
+			if _, want := boxes["dx-km-at-track"]; want {
+				b.x, b.y = float64(t.X), float64(t.Y)
+				boxes["dx-km-at-track"] = b
+			}
 		}
 		if !f.Scored || t.TrackState != l5tracks.TrackConfirmed {
 			// Keep the continuity state current so the first scored pair is
@@ -993,4 +1000,10 @@ func (s *scorer) writeTraces(path string) error {
 		}
 	}
 	return nil
+}
+
+// diagnoseAtTrack only marks the variant; the frame loop fills it from the
+// km box, which it computes first.
+func diagnoseAtTrack(_ *l5tracks.TrackedObject, _ *l5tracks.WorldCluster) (box, bool) {
+	return box{}, false
 }
