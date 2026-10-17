@@ -51,6 +51,7 @@ flowchart TB
     l5id0002["<b>l5id0002</b><br/>One vehicle, one track: ending a coasting…<br/>answered · 2h machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0003["<b>l5id0003</b><br/>One vehicle, one track: the overlap end…<br/>answered · 2h2m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0004["<b>l5id0004</b><br/>One vehicle, one track: the overlap end…<br/>answered · 1h55m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
+    l5id0005["<b>l5id0005</b><br/>One vehicle, one track: replicating…<br/>approved · 40m machine + 30m person<br/>manual: write<br/>needs tooling: box_eval"]:::approved
   end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
@@ -99,6 +100,7 @@ flowchart TB
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
   l5id0003 --> l5id0004
+  l5id0004 --> l5id0005
   l3bg0005 --> perf0001
 ```
 
@@ -106,6 +108,7 @@ flowchart TB
 
 - [geom0002](geom/geom0002.md) The low-speed label and the ambiguous row, rescreened on the young-track axis: proposed, awaiting approval; 1h2m machine + 26h person; after geom0001; asks [geometry-convergence-heldout-2026-10 #recommendations](../../docs/lidar/operations/geometry-convergence-heldout-2026-10.md#recommendations), [lidar-tracker-geometry-convergence-plan #checklist](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#checklist).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
+- [l5id0005](l5id/l5id0005.md) One vehicle, one track: replicating l5id0004 on the third segments: ready, but a step needs tooling; 40m machine + 30m person; after l5id0004; asks [l5id0004](../../data/experiments/l5id/l5id0004.md).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
@@ -146,5 +149,5 @@ flowchart TB
 
 ## Totals
 
-- 4 open experiments: 1h47m machine + 39h15m person estimated.
+- 5 open experiments: 2h27m machine + 39h45m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
