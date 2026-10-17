@@ -99,6 +99,26 @@ describe('buildLiveFrames', () => {
 		expect(track.bh).toBe(1.5);
 	});
 
+	it('draws the published box at its own centre and heading when one was recorded', () => {
+		const { frames } = buildLiveFrames([
+			observation('a', '2026-09-16T10:00:00.000Z', {
+				position: { x: 10, y: -4, z: 1.2 },
+				heading_rad: 1.5,
+				bounding_box: { length: 1.8, width: 0.4, height: 1.6 },
+				box: { x: 11.2, y: -4.1, heading_rad: 1.45, length: 4.4, width: 1.8 }
+			}),
+			observation('b', '2026-09-16T10:00:00.000Z')
+		]);
+
+		const a = frames[0].tr!.find((t) => t.id === 'a')!;
+		expect(a).toMatchObject({ x: 10, y: -4, bx: 11.2, by: -4.1, bh: 1.45, l: 4.4, w: 1.8, h: 1.6 });
+		// Without a recorded box the legacy fields stand and no centre is set.
+		const b = frames[0].tr!.find((t) => t.id === 'b')!;
+		expect(b.bx).toBeUndefined();
+		expect(b.by).toBeUndefined();
+		expect(b).toMatchObject({ l: 4.5, w: 1.8, bh: 0.75 });
+	});
+
 	it('carries each track lifetime peak speed on every one of its frames', () => {
 		const { frames } = buildLiveFrames([
 			observation('a', '2026-09-16T10:00:00.000Z', { speed_mps: 3 }),

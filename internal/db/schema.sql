@@ -782,6 +782,11 @@
         , intensity_mean REAL
         , frame_unix_nanos INTEGER
         , measurement_source TEXT NOT NULL DEFAULT 'legacy_centroid_v0'
+        , box_x REAL
+        , box_y REAL
+        , box_heading_rad REAL
+        , box_length REAL
+        , box_width REAL
         , PRIMARY KEY (track_id, ts_unix_nanos)
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );

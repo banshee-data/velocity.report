@@ -45,6 +45,25 @@ type TrackObservation struct {
 	BoundingBoxHeight float32
 	HeightP95         float32
 	IntensityMean     float32
+
+	// The published box (TrackedObject.Box*): its own centre, heading and
+	// extents in the world frame. BoxLength zero means the track had none,
+	// stored as NULL, and a viewer draws the legacy box at the position.
+	BoxX, BoxY    float32
+	BoxHeadingRad float32
+	BoxLength     float32
+	BoxWidth      float32
+}
+
+// HasBox reports whether the observation carries a published box.
+func (o *TrackObservation) HasBox() bool { return o.BoxLength > 0 && o.BoxWidth > 0 }
+
+// boxArgs are the published box's column values, all NULL without one.
+func (o *TrackObservation) boxArgs() []any {
+	if !o.HasBox() {
+		return []any{nil, nil, nil, nil, nil}
+	}
+	return []any{o.BoxX, o.BoxY, o.BoxHeadingRad, o.BoxLength, o.BoxWidth}
 }
 
 // Executor is satisfied by both *sql.DB and *sql.Tx, allowing callers to pass
@@ -141,11 +160,12 @@ func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
-			height_p95, intensity_mean
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			height_p95, intensity_mean,
+			box_x, box_y, box_heading_rad, box_length, box_width
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	_, err := exec.Exec(query,
+	args := []any{
 		obs.TrackID,
 		obs.TSUnixNanos,
 		obs.FrameUnixNanos,
@@ -155,7 +175,8 @@ func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 		obs.VelocityX, obs.VelocityY, obs.SpeedMps, obs.HeadingRad,
 		obs.BoundingBoxLength, obs.BoundingBoxWidth, obs.BoundingBoxHeight,
 		obs.HeightP95, obs.IntensityMean,
-	)
+	}
+	_, err := exec.Exec(query, append(args, obs.boxArgs()...)...)
 	if err != nil {
 		return fmt.Errorf("insert track observation: %w", err)
 	}
@@ -325,7 +346,9 @@ func GetTrackObservationsInRange(db DBClient, sensorID string, startNanos, endNa
 			o.x, o.y, o.z,
 			o.velocity_x, o.velocity_y, o.speed_mps, o.heading_rad,
 			o.bounding_box_length, o.bounding_box_width, o.bounding_box_height,
-			o.height_p95, o.intensity_mean
+			o.height_p95, o.intensity_mean,
+			COALESCE(o.box_x, 0), COALESCE(o.box_y, 0), COALESCE(o.box_heading_rad, 0),
+			COALESCE(o.box_length, 0), COALESCE(o.box_width, 0)
 		FROM lidar_track_observations o
 		JOIN lidar_tracks t ON o.track_id = t.track_id
 		WHERE t.sensor_id = ? AND o.ts_unix_nanos BETWEEN ? AND ?
@@ -359,6 +382,7 @@ func GetTrackObservationsInRange(db DBClient, sensorID string, startNanos, endNa
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
 			&obs.HeightP95, &obs.IntensityMean,
+			&obs.BoxX, &obs.BoxY, &obs.BoxHeadingRad, &obs.BoxLength, &obs.BoxWidth,
 		); err != nil {
 			return nil, fmt.Errorf("scan track observation: %w", err)
 		}
@@ -542,7 +566,9 @@ func GetTrackObservations(db DBClient, trackID string, limit int) ([]*TrackObser
 			x, y, z,
 			velocity_x, velocity_y, speed_mps, heading_rad,
 			bounding_box_length, bounding_box_width, bounding_box_height,
-			height_p95, intensity_mean
+			height_p95, intensity_mean,
+			COALESCE(box_x, 0), COALESCE(box_y, 0), COALESCE(box_heading_rad, 0),
+			COALESCE(box_length, 0), COALESCE(box_width, 0)
 		FROM lidar_track_observations
 		WHERE track_id = ?
 		ORDER BY ts_unix_nanos DESC
@@ -568,6 +594,7 @@ func GetTrackObservations(db DBClient, trackID string, limit int) ([]*TrackObser
 			&obs.VelocityX, &obs.VelocityY, &obs.SpeedMps, &obs.HeadingRad,
 			&obs.BoundingBoxLength, &obs.BoundingBoxWidth, &obs.BoundingBoxHeight,
 			&obs.HeightP95, &obs.IntensityMean,
+			&obs.BoxX, &obs.BoxY, &obs.BoxHeadingRad, &obs.BoxLength, &obs.BoxWidth,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan observation: %w", err)

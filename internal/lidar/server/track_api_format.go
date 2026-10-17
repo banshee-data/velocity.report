@@ -8,6 +8,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
 // TrackResponse represents a track in JSON API responses.
@@ -121,6 +122,31 @@ type ObservationResponse struct {
 	} `json:"bounding_box"`
 	HeightP95     float32 `json:"height_p95"`
 	IntensityMean float32 `json:"intensity_mean"`
+	// Box is the tracker's published box when it had one: absent on rows
+	// written without the box model or before it was stored.
+	Box *ObservedBox `json:"box,omitempty"`
+}
+
+// ObservedBox is the published box in the display frame: its own centre,
+// heading and extents, which hold the track's returns, as the visualiser
+// and the scene assets draw it.
+type ObservedBox struct {
+	X          float32 `json:"x"`
+	Y          float32 `json:"y"`
+	HeadingRad float32 `json:"heading_rad"`
+	Length     float32 `json:"length"`
+	Width      float32 `json:"width"`
+}
+
+// observedBox is the observation's published box in the display frame, or
+// nil without one.
+func observedBox(obs *sqlite.TrackObservation) *ObservedBox {
+	if !obs.HasBox() {
+		return nil
+	}
+	x, y := toDisplayFrame(obs.BoxX, obs.BoxY)
+	return &ObservedBox{X: x, Y: y, HeadingRad: headingToDisplayFrame(obs.BoxHeadingRad),
+		Length: obs.BoxLength, Width: obs.BoxWidth}
 }
 
 // TrackSummaryResponse is the JSON response for track summary statistics.
@@ -154,6 +180,14 @@ func toDisplayFrame(x, y float32) (float32, float32) {
 
 func headingFromVelocity(vx, vy float32) float32 {
 	return float32(math.Atan2(float64(vy), float64(vx)))
+}
+
+// headingToDisplayFrame maps a world-frame heading into the display frame,
+// whose axes are the world's swapped (toDisplayFrame).
+func headingToDisplayFrame(h float32) float32 {
+	s, c := math.Sincos(float64(h))
+	x, y := toDisplayFrame(float32(c), float32(s))
+	return headingFromVelocity(x, y)
 }
 
 func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackResponse {
