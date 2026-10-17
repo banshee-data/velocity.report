@@ -29,8 +29,8 @@ segments of 23 corpus sites, the two labelled kirk captures and kirk0's reviewed
   centre that hold every return. Held out, no vehicle frame leaves a return outside it; its axis
   is 1.6° from the direction of travel at the median and 5.9° at p90; visible turn-rate
   violations fall from 3.7 % to 0.6 % of frame pairs, turning at rest from 19.8 % to 2.3 %, and
-  one-frame turns over 30° from 1.29 % to 0.30 %. The second segment of 22 sites, read once after
-  the defaults were fixed, agrees on every figure. On kirk0's 44 reviewed poses its axis is 2.1°
+  one-frame turns over 30° from 1.29 % to 0.30 %. The second and third segments of 22 sites,
+  each read once after the defaults were fixed, agree on every figure. On kirk0's 44 reviewed poses its axis is 2.1°
   from the reference at the median and 8.4° at p90, against 8.4° and 79° today.
 - **The tracks are unchanged**: kirk0's tracking baseline is byte-identical with the block on.
   The box model writes only the published box.
@@ -297,6 +297,25 @@ and the box is wider than 2.8 m on 8.5 % of vehicle frames against 6.3 %. Three 
 segments span an unrecorded knock to the sensor
 ([pose sweep](l3-corpus-pose-sweep-2026-10.md)); it moves the background, not the box.
 
+**Third segments, and the yaw acceleration decided.** Yaw acceleration 0.2 rad/s² had smoothed
+the box on both first-segment sets, but the held-out figures had been read when that was seen.
+So a rule was written down first: adopt 0.2 only if, on the third segment of every site that has
+one (22, Embarcadero at Folsom excluded), scored once, the wiggle's median and p90 both fall, the
+three turning shares rise by no more than a tenth plus 0.1 points, the sideslip median and p90
+rise by no more than 0.5°, and no return falls outside. Vehicles:
+
+| Variant     | Tracks |   Rows | Rows with a return outside | Visible turn-rate violations | Turning at rest | Visible jumps over 30° | Sideslip median | Sideslip p90 | Wiggle median | Wiggle p90 | Length |  Width |
+| ----------- | -----: | -----: | -------------------------: | ---------------------------: | --------------: | ---------------------: | --------------: | -----------: | ------------: | ---------: | -----: | -----: |
+| `published` |    354 | 15,212 |                     96.6 % |                        3.8 % |           8.1 % |                 0.93 % |           15.7° |        62.6° |          2.9° |      28.1° | 3.90 m | 1.73 m |
+| `km`        |    354 | 15,212 |                      0.0 % |                        0.7 % |           1.2 % |                 0.23 % |            1.6° |         6.2° |          6.8° |      16.1° | 4.29 m | 1.90 m |
+| `km-yaw02`  |    354 | 15,212 |                      0.0 % |                        0.7 % |           1.0 % |                 0.23 % |            1.5° |         6.8° |          6.0° |      14.8° | 4.29 m | 1.90 m |
+
+0.2 smooths the box (wiggle median 6.0° against 6.8°, p90 14.8° against 16.1°) and turns at rest
+less, but it trails the direction of travel by 0.6° more at p90 (6.80° against 6.20°), past the
+rule's 0.5°. Yaw acceleration stays at 0.4. The third segments also repeat the main result a
+third time: no return outside against 96.6 %, the axis 1.6° from the direction of travel at the
+median against 15.7°.
+
 **Size and axis.** Tuning sites, vehicles:
 
 | Variant     | Length, median | Width, median | Length CV | Wider than 2.8 m | Area efficiency p10 | Area efficiency median | Minimum-area axis error median |   p90 |
@@ -447,9 +466,9 @@ Held out:
   against 6.9° at p90 on the tuning sites). 1.5 is kept, as the W1b screen chose for the solid
   body.
 - **Yaw acceleration** 0.2 rad/s² against 0.4 smooths the wiggle (5.8° against 7.1° per 10 m at
-  the median on the tuning sites, 5.4° against 6.8° held out) at no visible cost elsewhere. It was
-  not chosen before the held-out score was read, so 0.4 stays; 0.2 is the first candidate for a
-  smoother box.
+  the median on the tuning sites, 5.4° against 6.8° held out). Its trial on the third segments,
+  under a rule written first, is above: it lagged the direction of travel by 0.1° more than the
+  rule allowed, so 0.4 stays.
 - **The vehicle length floor** draws end-on cars at 3.8 m instead of their face. It moves the
   matched centre on kirk0 by 0.1 m and adds a few visible quarter turns at labelling (0.35 %
   against 0.26 %), where the box grows along its other axis.
@@ -518,8 +537,18 @@ frame with 50 tracks pays about 1.5 ms here. Scene assets with the box centre ar
 | Identity check and timing | `lidar-state-estimation-baseline` on kirk0 with `-warmup 20 -campaign-metrics`: the identity check at `f125ec74d` and again at `33acd141a`, the timing at `33acd141a`                                                                                                             |
 | Tuning passes             | nine passes on the eight tuning sites, with kirk0, at `c4c4fdbda`, `88a82a5fd`, `b21e07138`, `2da081947`, `6a8f44d55`, `d4ce8ee75`, `f125ec74d`, `33acd141a` and `039557b73`                                                                                                      |
 | Held-out scores           | three: at `f125ec74d`, before the box model drew the fit's members itself for cost; at `33acd141a` and `039557b73` on the final model, as the scorer's visible-turn rule was corrected. No setting of the model changed after the first was read; the figures above are the third |
+| Third segments            | the third distinct capture of each site in `tools/s2-archive/site-index.json` after the first two, 22 sites; scorer `e1625bed4`, 70 s warm-up; the yaw acceleration rule written at 2026-10-17T00:35:19Z, before the replays                                                      |
 | Second segments           | the D2 second-segment site index, 22 sites; scorer `e1625bed4` (the final model), 70 s warm-up, no per-frame rows kept                                                                                                                                                            |
 | Raw outputs               | summaries, per-frame rows and traces under the run's scratch directory on the development Mac, not in Git                                                                                                                                                                         |
+
+## Seeing it
+
+Build the server and the visualiser from this change (`make build-radar-local`, `make build-mac`).
+Start the server with `--config config/experiments/box-model.json`, or start a replay with
+box-model.json chosen in the 8081 replay form's Tuning Config list (`tuning_config` on
+`POST /api/lidar/pcap/start`). The visualiser then draws the box model's box at its own centre.
+A scene exported from that replay's VRLOG (`velocity scene export`) carries `bx` and `by`, which
+the scene player in this change draws.
 
 ## Recommendations
 
@@ -536,8 +565,9 @@ frame with 50 tracks pays about 1.5 ms here. Scene assets with the box centre ar
    a car the Kalman velocity cannot at 0.8 m/s; a class prior labels a parked car seen square on.
 4. **Persist the published box** in the track observations, so the web app's live view draws it
    too.
-5. **Try yaw acceleration 0.2 rad/s²** on a fresh capture: it smoothed the box on both corpus
-   halves at no visible cost.
+5. **Leave yaw acceleration at 0.4.** 0.2 is smoother but failed its pre-registered trial by
+   0.1° of lag at p90; a smoother box should come from a better course in a turn, not a slower
+   filter.
 6. **Upstream.** The truncated trucks and the merged clusters are L3 and L4 problems (the
    [return fate report](w3-return-fate-kirk0-2026-10.md)); a box that holds its returns draws
    them faithfully, as wide or as short as the evidence is.
