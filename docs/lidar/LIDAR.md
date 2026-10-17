@@ -67,7 +67,9 @@ observations into the box the visualiser and the scene assets draw, which held i
 only 3 % of vehicle frames: a box model that holds them all and turns no faster than a vehicle can, with the tracks
 unchanged. The [refinement report](operations/published-box-refinement-2026-10.md) makes that box
 model the default and finds that what remains of its errors is upstream: the course's lag is the
-Kalman velocity's, and a truck drawn short is a truck held by two tracks. The
+Kalman velocity's, and a truck drawn short is a truck held by two tracks. The [duplicate tracks report](operations/l5-duplicate-tracks-2026-10.md) counts those: a
+quarter of vehicle tracks share their vehicle with another, and none of the identity options
+tried holds one track per vehicle on held-out data without losing a car. The
 [region override attribution](operations/l3-region-override-attribution-kirk-2026-10.md)
 follows the zero-code L3 arms: the volatile tercile's window is the one that absorbs road users,
 switching the overrides off moves along the recall trade-off rather than across it, and an

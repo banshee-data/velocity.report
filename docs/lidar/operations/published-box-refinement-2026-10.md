@@ -359,7 +359,8 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 3. **Do not stop the box at its neighbours yet.** geom0008 stopped its unseen part at the next
    cluster and gained too little: most of what remains is two tracks on one cluster.
 4. **Fix duplicate tracks on one vehicle before the box's length.** Truck 1 is held by two tracks
-   while it passes; the box can only be as whole as the track it belongs to.
+   while it passes; the box can only be as whole as the track it belongs to. The [duplicate tracks report](l5-duplicate-tracks-2026-10.md) counts them and tries the
+   tracker's identity options against them.
 5. **Leave the course options off.** The lag is the velocity's; work on it belongs with the
    tracker's motion model, not the box.
 6. **Republish the scene assets** from replays under the new defaults so velocity.report draws
