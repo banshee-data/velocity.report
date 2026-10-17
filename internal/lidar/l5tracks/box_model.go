@@ -48,6 +48,10 @@ const (
 	// BoxAxisPCA folds the cluster OBB's PCA heading to an axis: for a
 	// pipeline that keeps no points.
 	BoxAxisPCA BoxAxisSource = "pca"
+	// BoxAxisMinArea takes the axis of the members' minimum-area rectangle,
+	// from their convex hull: cheaper than the rectangle fit, and blind to
+	// which of an exact L's two rectangles is the body.
+	BoxAxisMinArea BoxAxisSource = "min_area"
 )
 
 // BoxModelConfig is the published box's configuration. The zero value is
@@ -75,6 +79,20 @@ type BoxModelConfig struct {
 	// remainder on the side away from the sensor: an end-on view of a car is
 	// not a 0.6 m box.
 	VehicleLengthFloor float64
+	// CourseLeadSec moves the course forward by its own rate, over the last
+	// half second, times this lead: the Kalman velocity's lag in a turn.
+	// CourseRateTauSec adds (tau·rate)² to the course's variance, so a
+	// course that is turning weighs less against the shape's axis. Both need
+	// the course on consecutive frames. (Observing the yaw rate from the
+	// course's rate was tried and removes none of the lag: the lag is in the
+	// course itself, not in the filter's rate.)
+	CourseLeadSec    float64
+	CourseRateTauSec float64
+	// DisplacementLabelMetres, when positive, labels an unlabelled box from
+	// the track's own displacement over up to two seconds once it is at
+	// least this long and nearly straight: the label a car creeping below
+	// the course's speed would otherwise not get.
+	DisplacementLabelMetres float64
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -165,6 +183,8 @@ type BoxStats struct {
 	// frames whose heading change the yaw-rate bound cut; Restarts axis
 	// refusal runs that reopened the heading.
 	Relabels, Clamps, Restarts int
+	// DisplacementLabels counts labels taken from the track's displacement.
+	DisplacementLabels int
 }
 
 // BoxEstimator is one track's published box.
@@ -174,9 +194,13 @@ type BoxEstimator struct {
 	labelled  bool
 	psi, rate float64
 	// p is the covariance of (psi, rate).
-	p         [2][2]float64
-	refusals  int
-	relabels  int
+	p        [2][2]float64
+	refusals int
+	relabels int
+	// courses and positions are short histories for the course's rate and
+	// the displacement label.
+	courses   []timedAngle
+	positions []timedPoint
 	bornNanos int64
 	// discrete is this frame's turn of the frame that moved no box: a change
 	// of front, or the labelling instant's quarter turn. The yaw-rate bound
@@ -241,6 +265,10 @@ const (
 	boxSeedRateSigma   = 0.3
 	boxPCAAxisSigmaRad = 8 * math.Pi / 180
 	boxPCAMinAspect    = 0.25
+	// boxMinAreaSigmaRad and boxMinAreaAspect are the minimum-area axis's
+	// standard deviation and the aspect below which it abstains.
+	boxMinAreaSigmaRad = 5 * math.Pi / 180
+	boxMinAreaAspect   = 1.2
 	// boxCourseGateRad refuses a course this far from a labelled heading: a
 	// manoeuvre or a velocity still settling, not the body's axis.
 	boxCourseGateRad = 45 * math.Pi / 180
@@ -400,11 +428,22 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 			}
 		}
 	}
-	if course, sigma, ok := e.courseObservation(in, speed); ok {
+	course, sigma, courseOK := e.courseObservation(in, speed)
+	if !e.labelled && !(courseOK && sigma <= e.labelSigma()) {
+		e.labelFromDisplacement(in)
+	}
+	if courseOK {
 		if !e.labelled && sigma <= e.labelSigma() {
 			e.label(course)
 		}
 		steer := e.labelled && (e.cfg.CourseMaxSigmaRad <= 0 || sigma <= e.cfg.CourseMaxSigmaRad)
+		rate, haveRate := 0.0, false
+		if steer {
+			rate, haveRate = e.courseRate(course, in.Nanos)
+			if haveRate && e.cfg.CourseLeadSec > 0 {
+				course = wrapPi(course + e.cfg.CourseLeadSec*rate)
+			}
+		}
 		if steer {
 			if math.Abs(foldHalf(course-e.psi)) > boxRelabelRad {
 				e.relabels++
@@ -424,11 +463,91 @@ func (e *BoxEstimator) correct(in BoxInput, pts [][2]float64, speed float64) *[2
 				r = wrapPi(course - e.psi)
 			}
 			if math.Abs(r) <= boxCourseGateRad {
-				e.update(r, sigma*sigma+e.cfg.CourseSideslipRad*e.cfg.CourseSideslipRad)
+				v := sigma*sigma + e.cfg.CourseSideslipRad*e.cfg.CourseSideslipRad
+				if haveRate && e.cfg.CourseRateTauSec > 0 {
+					v += math.Pow(e.cfg.CourseRateTauSec*rate, 2)
+				}
+				e.update(r, v)
 			}
 		}
 	}
 	return spans
+}
+
+// timedAngle and timedPoint are history samples.
+type timedAngle struct {
+	nanos int64
+	a     float64
+}
+
+type timedPoint struct {
+	nanos int64
+	x, y  float64
+}
+
+const (
+	// boxRateBaseline bounds how far back the course's rate is measured
+	// from: at least the shorter, at most the longer.
+	boxRateMinBaselineNanos = int64(300e6)
+	boxRateMaxBaselineNanos = int64(600e6)
+	// boxDisplacementWindowNanos is the longest displacement the label
+	// reads, boxDisplacementMinNanos the shortest, and
+	// boxDisplacementStraightness the chord over the path it needs.
+	boxDisplacementWindowNanos  = int64(2e9)
+	boxDisplacementMinNanos     = int64(800e6)
+	boxDisplacementStraightness = 0.8
+)
+
+// courseRate records this frame's steering-grade course and returns its rate
+// over the last half second or so, when the history reaches back far enough.
+func (e *BoxEstimator) courseRate(course float64, nanos int64) (float64, bool) {
+	keep := e.courses[:0]
+	for _, c := range e.courses {
+		if nanos-c.nanos <= boxRateMaxBaselineNanos {
+			keep = append(keep, c)
+		}
+	}
+	e.courses = append(keep, timedAngle{nanos, course})
+	first := e.courses[0]
+	dt := float64(nanos-first.nanos) / 1e9
+	if nanos-first.nanos < boxRateMinBaselineNanos || dt <= 0 {
+		return 0, false
+	}
+	return wrapPi(course-first.a) / dt, true
+}
+
+// labelFromDisplacement labels an unlabelled box from the track's own
+// displacement, when DisplacementLabelMetres is set and the track has moved
+// that far, nearly straight, over the last two seconds.
+func (e *BoxEstimator) labelFromDisplacement(in BoxInput) {
+	if e.cfg.DisplacementLabelMetres <= 0 {
+		return
+	}
+	keep := e.positions[:0]
+	for _, p := range e.positions {
+		if in.Nanos-p.nanos <= boxDisplacementWindowNanos {
+			keep = append(keep, p)
+		}
+	}
+	e.positions = append(keep, timedPoint{in.Nanos, in.X, in.Y})
+	first := e.positions[0]
+	if in.Nanos-first.nanos < boxDisplacementMinNanos {
+		return
+	}
+	dx, dy := in.X-first.x, in.Y-first.y
+	chord := math.Hypot(dx, dy)
+	if chord < e.cfg.DisplacementLabelMetres {
+		return
+	}
+	path := 0.0
+	for i := 1; i < len(e.positions); i++ {
+		path += math.Hypot(e.positions[i].x-e.positions[i-1].x, e.positions[i].y-e.positions[i-1].y)
+	}
+	if path <= 0 || chord/path < boxDisplacementStraightness {
+		return
+	}
+	e.label(math.Atan2(dy, dx))
+	e.Stats.DisplacementLabels++
 }
 
 // labelSigma is the widest course spread that may label a box.
@@ -591,6 +710,21 @@ func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (f
 	scale := e.cfg.AxisSigmaScale
 	if scale <= 0 {
 		scale = 1
+	}
+	if e.cfg.AxisSource == BoxAxisMinArea && (len(cluster.Members) > 0 || len(cluster.RetainedPoints) > 0) {
+		members := cluster.Members
+		if len(members) == 0 {
+			members = cluster.RetainedPoints
+		}
+		if k := e.cfg.FitMaxPoints; k > 0 && len(members) > k {
+			e.sample = sampleMembers(e.sample[:0], members, k)
+			members = e.sample
+		}
+		r, ok := l4perception.MinAreaRectangle(members)
+		if !ok || math.Max(r.Span1, r.Span2) < boxMinAreaAspect*math.Min(r.Span1, r.Span2) {
+			return 0, 0, [2]float64{}, false
+		}
+		return r.AxisRad, boxMinAreaSigmaRad * scale, [2]float64{r.Span1, r.Span2}, true
 	}
 	if e.cfg.AxisSource == BoxAxisPCA || (len(cluster.Members) == 0 && len(cluster.RetainedPoints) == 0) {
 		b := cluster.OBB

@@ -342,3 +342,85 @@ func TestBoxModelTuningRoundTrips(t *testing.T) {
 		t.Fatal("no block is the model off, both ways")
 	}
 }
+
+// arcLag drives a car round a 10 m arc at 6 m/s, with the velocity a
+// constant-velocity filter would report (lagging the tangent by lagFrames),
+// and returns the box's mean lag behind the body over the turn, in degrees.
+func arcLag(t *testing.T, cfg BoxModelConfig, lagFrames int) float64 {
+	t.Helper()
+	e := NewBoxEstimator(cfg)
+	const radius, speed, dt = 10.0, 6.0, 0.1
+	omega := speed / radius
+	sum, n := 0.0, 0
+	for i := 0; i < 40; i++ {
+		theta := -math.Pi/2 + omega*dt*float64(i)
+		psi := theta + math.Pi/2
+		vel := psi - omega*dt*float64(lagFrames)
+		pts := visibleFaces(15+radius*math.Cos(theta), 5+radius*math.Sin(theta), psi, 4.5, 1.8, 20)
+		b := e.Observe(boxInput(int64(i)*1e8, pts, speed*math.Cos(vel), speed*math.Sin(vel)))
+		assertContains(t, i, b, pts)
+		if i >= 15 {
+			sum += foldHalf(psi-b.HeadingRad) * 180 / math.Pi
+			n++
+		}
+	}
+	return sum / float64(n)
+}
+
+func TestBoxModelCourseLeadCutsTheLagInATurn(t *testing.T) {
+	base := enabledBoxConfig()
+	lagged := arcLag(t, base, 4)
+	lead := base
+	lead.CourseLeadSec = 0.4
+	tau := base
+	tau.CourseRateTauSec = 0.4
+	if l := arcLag(t, lead, 4); l >= lagged-1 {
+		t.Fatalf("course lead: lag %.2f° against %.2f° without", l, lagged)
+	}
+	if l := arcLag(t, tau, 4); l >= lagged {
+		t.Fatalf("rate-weighted course: lag %.2f° against %.2f° without", l, lagged)
+	}
+}
+
+func TestBoxModelLabelsACreepingCarFromItsDisplacement(t *testing.T) {
+	// A car creeping toward the sensor at 0.8 m/s shows its front, a strip
+	// across the body, and never reaches the course's speed: without a
+	// displacement label its length is drawn across it.
+	run := func(cfg BoxModelConfig) float64 {
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 40; i++ {
+			x := 30 - 0.08*float64(i)
+			pts := visibleFaces(x, 0.5, math.Pi, 4.5, 1.8, 30)
+			b = e.Observe(boxInput(int64(i)*1e8, pts, -0.8, 0))
+			assertContains(t, i, b, pts)
+		}
+		return axisErrorDeg(b.HeadingRad, math.Pi)
+	}
+	without, with := enabledBoxConfig(), enabledBoxConfig()
+	with.DisplacementLabelMetres = 1.0
+	if got := run(without); got < 80 {
+		t.Fatalf("without the displacement label the creeping car is %.1f° off; the test needs it wrong", got)
+	}
+	if got := run(with); got > 3 {
+		t.Fatalf("displacement-labelled box %.1f° off the body", got)
+	}
+}
+
+func TestBoxModelMinAreaAxisHoldsTheBody(t *testing.T) {
+	cfg := enabledBoxConfig()
+	cfg.AxisSource = BoxAxisMinArea
+	e := NewBoxEstimator(cfg)
+	psi := 35 * math.Pi / 180
+	for i := 0; i < 30; i++ {
+		d := float64(i) * 0.7
+		pts := visibleFaces(14+d*math.Cos(psi), -9+d*math.Sin(psi), psi, 4.5, 1.8, 20)
+		b := e.Observe(boxInput(int64(i)*1e8, pts, 7*math.Cos(psi), 7*math.Sin(psi)))
+		assertContains(t, i, b, pts)
+		// An exact L's hull ties the body's rectangle with the one on its
+		// hypotenuse, so the axis wanders within the course's pull.
+		if i >= 5 && axisErrorDeg(b.HeadingRad, psi) > 6 {
+			t.Fatalf("frame %d: %.1f° off", i, axisErrorDeg(b.HeadingRad, psi))
+		}
+	}
+}

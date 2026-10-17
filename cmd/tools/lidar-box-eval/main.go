@@ -168,6 +168,17 @@ func boxVariants() []variant {
 		with("km-pull0", "centre carried only, no sensor anchoring", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 0 }),
 		with("km-pull1", "centre anchored every frame", func(c *l5tracks.BoxModelConfig) { c.CentrePull = 1 }),
 		with("km-nocourse", "no course observation or label", func(c *l5tracks.BoxModelConfig) { c.CourseMinSpeedMps = 0 }),
+		with("km-lead02", "course led by 0.2 s of its rate", func(c *l5tracks.BoxModelConfig) { c.CourseLeadSec = 0.2 }),
+		with("km-lead04", "course led by 0.4 s of its rate", func(c *l5tracks.BoxModelConfig) { c.CourseLeadSec = 0.4 }),
+		with("km-lead06", "course led by 0.6 s of its rate", func(c *l5tracks.BoxModelConfig) { c.CourseLeadSec = 0.6 }),
+		with("km-tau04", "course variance plus (0.4 s × rate)²", func(c *l5tracks.BoxModelConfig) { c.CourseRateTauSec = 0.4 }),
+		with("km-tau08", "course variance plus (0.8 s × rate)²", func(c *l5tracks.BoxModelConfig) { c.CourseRateTauSec = 0.8 }),
+		with("km-disp1", "label from 1 m of straight displacement", func(c *l5tracks.BoxModelConfig) { c.DisplacementLabelMetres = 1 }),
+		with("km-disp2", "label from 2 m of straight displacement", func(c *l5tracks.BoxModelConfig) { c.DisplacementLabelMetres = 2 }),
+		with("km-minarea", "axis from the members' minimum-area rectangle", func(c *l5tracks.BoxModelConfig) { c.AxisSource = l5tracks.BoxAxisMinArea }),
+		with("km-yaw02-lead04", "yaw acceleration 0.2 rad/s² with the course led by 0.4 s", func(c *l5tracks.BoxModelConfig) {
+			c.YawAccelSigma, c.CourseLeadSec = 0.2, 0.4
+		}),
 		{name: "dx-centred", about: "the drawn box moved to the cluster's PCA box centre", diagnose: diagnoseCentred},
 		{name: "dx-tight", about: "the drawn heading, with extents and centre fitted to the points along it", diagnose: diagnoseTight},
 		{name: "dx-pca", about: "the cluster's own PCA box, unsmoothed", diagnose: diagnosePCA},
