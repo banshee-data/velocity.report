@@ -1292,6 +1292,8 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
+	trackerConfig.TentativePriority = hasExperiment(experiments, ExperimentTentativePriority)
+	trackerConfig.ClassIdentity = hasExperiment(experiments, ExperimentClassIdentity)
 	oc, err := occlusionContinuityFor(experiments, coverage)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
@@ -1536,7 +1538,8 @@ func occlusionContinuityFor(experiments []string, coverage *ContinuityCoverage) 
 	oc.ExplainAbsence = all || hasExperiment(experiments, ExperimentCoastSupport)
 	oc.CaptureTimeInflation = all || hasExperiment(experiments, ExperimentCoastTimeInflation)
 	oc.ClassCoastBounds = all || hasExperiment(experiments, ExperimentClassCoastBounds)
-	oc.ReacquisitionGuard = all || hasExperiment(experiments, ExperimentReacquisitionGuard)
+	oc.ContestedRejoin = hasExperiment(experiments, ExperimentContestedRejoin)
+	oc.ReacquisitionGuard = all || oc.ContestedRejoin || hasExperiment(experiments, ExperimentReacquisitionGuard)
 	if !oc.ExplainAbsence && !oc.CaptureTimeInflation && !oc.ClassCoastBounds && !oc.ReacquisitionGuard {
 		return l5tracks.OcclusionContinuityConfig{}, nil
 	}

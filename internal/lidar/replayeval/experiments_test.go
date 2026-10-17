@@ -224,7 +224,8 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy,
+		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContestedRejoin,
+		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
 		ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
@@ -240,7 +241,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation,
-		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentTentativePriority,
+		ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -274,6 +276,14 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
 		},
+		// ContestedRejoin does nothing without the guard, so it brings it.
+		ExperimentContestedRejoin: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) {
+				o.ReacquisitionGuard, o.ContestedRejoin = true, true
+			})
+		},
+		ExperimentTentativePriority: func(c *l5tracks.TrackerConfig) { c.TentativePriority = true },
+		ExperimentClassIdentity:     func(c *l5tracks.TrackerConfig) { c.ClassIdentity = true },
 		// The replay tracks in the sensor frame, so the origin is the
 		// sensor, derived from the identity tracking transform.
 		ExperimentSolidBody: func(c *l5tracks.TrackerConfig) {

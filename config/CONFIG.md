@@ -345,8 +345,9 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
 `dwell_policy_t40_drift2m`, `dwell_policy_t40_median`, `measurement_time`,
 `capture_gap_predict`, `coast_support`, `coast_time_inflation`,
-`class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity` and
-`fixed_lag_rts`. An arm that uses one runs through the offline replay tools,
+`class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
+`contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,
+`class_identity` and `fixed_lag_rts`. An arm that uses one runs through the offline replay tools,
 and its report names the experiment beside the set.
 
 The L3 background experiments among them (`no_region_overrides`, the

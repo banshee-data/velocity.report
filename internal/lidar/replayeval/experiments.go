@@ -129,6 +129,16 @@ const (
 	ExperimentClassCoastBounds = "class_coast_bounds"
 	// ExperimentReacquisitionGuard: ReacquisitionGuard.
 	ExperimentReacquisitionGuard = "reacquisition_guard"
+	// Reacquisition and identity (Sprint 0.5.2.2), each a TrackerConfig
+	// option the tuning file does not carry:
+	//   - ExperimentContestedRejoin: OcclusionContinuityConfig.ContestedRejoin
+	//     with the ReacquisitionGuard it needs, so a track that missed the
+	//     last frame cannot take a cluster a live track explains about as well;
+	//   - ExperimentTentativePriority: TrackerConfig.TentativePriority;
+	//   - ExperimentClassIdentity: TrackerConfig.ClassIdentity.
+	ExperimentContestedRejoin   = "contested_rejoin"
+	ExperimentTentativePriority = "tentative_priority"
+	ExperimentClassIdentity     = "class_identity"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -271,6 +281,9 @@ var knownExperiments = map[string]bool{
 	ExperimentClassCoastBounds:    true,
 	ExperimentReacquisitionGuard:  true,
 	ExperimentOcclusionContinuity: true,
+	ExperimentContestedRejoin:     true,
+	ExperimentTentativePriority:   true,
+	ExperimentClassIdentity:       true,
 	ExperimentFixedLagRTS:         true,
 	ExperimentSolidBody:           true,
 
