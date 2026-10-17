@@ -350,7 +350,9 @@ minimum-area rectangle of each frame's returns is an independent check on the ax
 favours per-frame fits: the raw PCA box agrees with it better at p90 than the box model does. It
 is a coarse check, not truth: a moving car's returns are sheared across one sweep of a spinning
 sensor, so its minimum-area rectangle is a parallelogram's (at 8 m/s, a car the box model holds
-1.7 m wide is 17° off its minimum-area axis), and a partial view has no rectangle to find.
+1.7 m wide is 17° off its minimum-area axis), a partial view has no rectangle to find, and an
+exact L's hull is a right triangle, whose rectangle on the hypotenuse has the same area as the
+body's, so the reference cannot choose between them.
 Against kirk0's reviewed poses, where the yaw was reviewed, the box model is the closer of the
 two by a wide margin (below).
 

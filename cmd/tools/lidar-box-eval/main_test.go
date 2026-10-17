@@ -46,9 +46,29 @@ func lShape(psi float64) []l4perception.WorldPoint {
 	return out
 }
 
-func TestMinAreaRectFindsTheBodyAxisOfAnL(t *testing.T) {
+// outline is a 4.5 × 1.8 m body's four sides.
+func outline(psi float64) []l4perception.WorldPoint {
+	c, s := math.Cos(psi), math.Sin(psi)
+	var out []l4perception.WorldPoint
+	add := func(a, n float64) {
+		out = append(out, l4perception.WorldPoint{X: 10 + a*c - n*s, Y: 5 + a*s + n*c})
+	}
+	for i := 0; i <= 45; i++ {
+		a := -2.25 + 0.1*float64(i)
+		add(a, -0.9)
+		add(a, 0.9)
+	}
+	for i := 1; i < 18; i++ {
+		n := -0.9 + 0.1*float64(i)
+		add(-2.25, n)
+		add(2.25, n)
+	}
+	return out
+}
+
+func TestMinAreaRectFindsTheBodyAxisOfAnOutline(t *testing.T) {
 	psi := 0.4
-	ref := minAreaRect(&l5tracks.WorldCluster{Members: lShape(psi)})
+	ref := minAreaRect(&l5tracks.WorldCluster{Members: outline(psi)})
 	if !ref.ok || !ref.axisOK {
 		t.Fatalf("no reference: %+v", ref)
 	}
@@ -57,6 +77,16 @@ func TestMinAreaRectFindsTheBodyAxisOfAnL(t *testing.T) {
 	}
 	if math.Abs(ref.area-4.5*1.8) > 0.05 {
 		t.Fatalf("area %.2f m², want the 4.5 × 1.8 body", ref.area)
+	}
+}
+
+// An exact L's hull is a right triangle, and the rectangle on its hypotenuse
+// has the legs' product for its area, the same as the body's: the reference
+// cannot choose between them, so it is a coarse check on L views.
+func TestMinAreaRectOfAnLHasTheBodyArea(t *testing.T) {
+	ref := minAreaRect(&l5tracks.WorldCluster{Members: lShape(0.4)})
+	if !ref.ok || math.Abs(ref.area-4.5*1.8) > 0.05 {
+		t.Fatalf("area %.2f m², want 8.1 whichever rectangle it chose", ref.area)
 	}
 }
 
