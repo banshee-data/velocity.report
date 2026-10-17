@@ -219,6 +219,17 @@ type trackState struct {
 	estNanos int64
 	calls    int
 	diag     box
+	// traj is the track's scored frames, for the turn measures computed at
+	// the end against a centred course.
+	traj []trajPoint
+}
+
+// trajPoint is one scored frame: the tracked position, the speed and the
+// drawn heading.
+type trajPoint struct {
+	t           int64
+	x, y, speed float64
+	psi         float64
 }
 
 type rowAgg struct {
@@ -527,6 +538,9 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 			f3(speed), f3(b.x), f3(b.y), f3(b.psi * 180 / math.Pi), f3(b.length), f3(b.width),
 			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN), refAxis(ref), f3(ref.area)})
 	}
+	if b.length > 0 {
+		st.traj = append(st.traj, trajPoint{t: now, x: float64(t.X), y: float64(t.Y), speed: speed, psi: b.psi})
+	}
 	st.have, st.last, st.lastAt = b.length > 0, b, now
 	st.lastX, st.lastY = float64(t.X), float64(t.Y)
 	st.class = s.class[t.TrackID]
@@ -597,6 +611,13 @@ type Measure struct {
 	EfficiencyP50      float64 `json:"area_efficiency_p50"`
 	EfficiencyUnder80  float64 `json:"area_efficiency_under80_share"`
 	AxisRows           int     `json:"min_area_axis_rows"`
+	TurnFrames         int     `json:"turn_frames"`
+	TurnLagP50         float64 `json:"turn_lag_p50_deg"`
+	TurnLagP90         float64 `json:"turn_lag_p90_deg"`
+	TurnAbsP50         float64 `json:"turn_abs_error_p50_deg"`
+	TurnAbsP90         float64 `json:"turn_abs_error_p90_deg"`
+	StraightAbsP50     float64 `json:"straight_abs_error_p50_deg"`
+	StraightAbsP90     float64 `json:"straight_abs_error_p90_deg"`
 	SlipP50            float64 `json:"centre_slip_p50_m"`
 	SlipP90            float64 `json:"centre_slip_p90_m"`
 	SlipP99            float64 `json:"centre_slip_p99_m"`
@@ -639,6 +660,8 @@ func (s *scorer) summary() Summary {
 			"length_cv":                 "per track, coefficient of variation of the drawn length",
 			"overwide_share":            "share of scored rows whose drawn box is wider than 2.8 m on its shorter side",
 			"area_efficiency":           "per row, the area of the members' minimum-area rectangle over the area of their bounding rectangle along the drawn heading: 1 when the box is turned to the points' own axis, lower the further it is turned off it; independent of the course and of the rectangle fit",
+			"turn_lag":                  "against a centred course (the tracked position's direction over ±3 frames, at least 1 m apart), on frames at 3 m/s or more whose centred course turns 10°/s or faster: the drawn axis's signed error in the turn's sense, positive behind the turn, modulo 180°; turn_abs_error is its magnitude",
+			"straight_abs_error":        "the drawn axis's error against the centred course on frames at 3 m/s or more turning slower than 3°/s",
 			"centre_slip":               "per consecutive pair, the drawn box centre's displacement less the tracked position's: how far the box moves on the track",
 			"min_area_axis_error":       "per row with 30 or more members and a minimum-area rectangle of aspect 1.5 or more, the drawn axis's distance from that rectangle's axis, modulo 90°",
 		}}
@@ -654,6 +677,7 @@ func (s *scorer) summary() Summary {
 			sort.Strings(ids)
 			m := &Measure{Tracks: len(ids)}
 			var maxOut, side, wiggle, lengths, widths, cvs, eff, axisErr, slip []float64
+			var turnLag, turnAbs, straightAbs []float64
 			var share float64
 			var estNanos int64
 			var calls int
@@ -691,6 +715,8 @@ func (s *scorer) summary() Summary {
 					}
 					estNanos += st.estNanos
 					calls += st.calls
+					tl, ta, sa := turnErrors(st.traj)
+					turnLag, turnAbs, straightAbs = append(turnLag, tl...), append(turnAbs, ta...), append(straightAbs, sa...)
 				}
 			}
 			if m.Rows > 0 {
@@ -726,6 +752,10 @@ func (s *scorer) summary() Summary {
 			m.EfficiencyUnder80 = shareBelow(eff, 0.8)
 			m.AxisRows = len(axisErr)
 			m.SlipP50, m.SlipP90, m.SlipP99 = quantile(slip, .5), quantile(slip, .9), quantile(slip, .99)
+			m.TurnFrames = len(turnLag)
+			m.TurnLagP50, m.TurnLagP90 = quantile(turnLag, .5), quantile(turnLag, .9)
+			m.TurnAbsP50, m.TurnAbsP90 = quantile(turnAbs, .5), quantile(turnAbs, .9)
+			m.StraightAbsP50, m.StraightAbsP90 = quantile(straightAbs, .5), quantile(straightAbs, .9)
 			m.AxisErrP50, m.AxisErrP90 = quantile(axisErr, .5), quantile(axisErr, .9)
 			m.AxisErrOver10 = 1 - shareBelow(axisErr, 10.000001)
 			if len(axisErr) == 0 {
@@ -1006,4 +1036,53 @@ func (s *scorer) writeTraces(path string) error {
 // km box, which it computes first.
 func diagnoseAtTrack(_ *l5tracks.TrackedObject, _ *l5tracks.WorldCluster) (box, bool) {
 	return box{}, false
+}
+
+// Turn measure bounds.
+const (
+	turnHalfWindow   = 3
+	turnMinChord     = 1.0
+	turnMinSpeed     = 3.0
+	turnMinRateRad   = 10 * math.Pi / 180
+	straightMaxRate  = 3 * math.Pi / 180
+	turnMaxWindowSec = 0.8
+)
+
+// turnErrors measures a track's drawn heading against its own centred
+// course: the direction from the tracked position three frames back to three
+// frames on, which a causal filter cannot see and so cannot lag. It returns
+// the signed error in the turn's sense on turning frames (positive behind the
+// turn), the same magnitudes, and the magnitudes on straight frames, all in
+// degrees and modulo 180°.
+func turnErrors(traj []trajPoint) (lag, abs, straight []float64) {
+	n := len(traj)
+	course := make([]float64, n)
+	ok := make([]bool, n)
+	for i := turnHalfWindow; i+turnHalfWindow < n; i++ {
+		a, b := traj[i-turnHalfWindow], traj[i+turnHalfWindow]
+		if float64(b.t-a.t)/1e9 > turnMaxWindowSec || math.Hypot(b.x-a.x, b.y-a.y) < turnMinChord {
+			continue
+		}
+		course[i], ok[i] = math.Atan2(b.y-a.y, b.x-a.x), true
+	}
+	for i := 1; i+1 < n; i++ {
+		if !ok[i] || !ok[i-1] || !ok[i+1] || traj[i].speed < turnMinSpeed {
+			continue
+		}
+		dt := float64(traj[i+1].t-traj[i-1].t) / 1e9
+		if dt <= 0 {
+			continue
+		}
+		d := course[i+1] - course[i-1]
+		rate := math.Atan2(math.Sin(d), math.Cos(d)) / dt
+		e := foldHalf(course[i] - traj[i].psi)
+		switch {
+		case math.Abs(rate) >= turnMinRateRad:
+			lag = append(lag, e*math.Copysign(1, rate)*180/math.Pi)
+			abs = append(abs, math.Abs(e)*180/math.Pi)
+		case math.Abs(rate) < straightMaxRate:
+			straight = append(straight, math.Abs(e)*180/math.Pi)
+		}
+	}
+	return lag, abs, straight
 }
