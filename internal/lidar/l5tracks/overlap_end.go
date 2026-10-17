@@ -1,6 +1,10 @@
 package l5tracks
 
-import "github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+import (
+	"math"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+)
 
 // The overlap end (TrackerConfig.OverlapEndFrames): a coasting track whose
 // drawn box lies on a live confirmed track's is ended. Two road users cannot
