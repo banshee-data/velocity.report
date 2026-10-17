@@ -202,6 +202,13 @@ func boxVariants() []variant {
 		}),
 		with("km-excl01", "the unseen part stops 0.1 m short of another cluster's return, and at the sensor's side", func(c *l5tracks.BoxModelConfig) { c.ExclusiveMarginMetres = 0.1 }),
 		with("km-excl03", "the unseen part stops 0.3 m short of another cluster's return, and at the sensor's side", func(c *l5tracks.BoxModelConfig) { c.ExclusiveMarginMetres = 0.3 }),
+		with("km-mergein", "a merge-flagged frame's spans enter the extent beliefs", func(c *l5tracks.BoxModelConfig) { c.AdmitMergeSpans = true }),
+		with("km-mergein12", "a merge-flagged frame's spans enter the extent beliefs up to 12 m along", func(c *l5tracks.BoxModelConfig) {
+			c.AdmitMergeSpans, c.MergeSpanMaxMetres = true, 12
+		}),
+		with("km-mergein-yield3", "merge-flagged spans admitted, and a held extent reset after three frames with another object in it", func(c *l5tracks.BoxModelConfig) {
+			c.AdmitMergeSpans, c.YieldFrames = true, 3
+		}),
 		with("km-yaw02-lead04", "yaw acceleration 0.2 rad/s² with the course led by 0.4 s", func(c *l5tracks.BoxModelConfig) {
 			c.YawAccelSigma, c.CourseLeadSec = 0.2, 0.4
 		}),

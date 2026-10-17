@@ -5,10 +5,10 @@
 The box model of [geom0005](published-box-rotation-2026-10.md) holds every return and turns
 within what a vehicle can do, but it trails a turn by a few degrees, can draw a slow car across
 itself, costs a rectangle fit per track a frame, and draws kirk0's two trucks short. This report
-is one unattended run against those four: three pre-registered experiments, a check of the box
+is one unattended run against those four: five pre-registered experiments, a check of the box
 model under the L3 retune, and the change that makes the box model the default.
 
-- **Status:** Complete, 2026-10-17. One unattended run; experiments [geom0006](../../../data/experiments/geom/geom0006.md), [geom0007](../../../data/experiments/geom/geom0007.md) and [geom0008](../../../data/experiments/geom/geom0008.md)
+- **Status:** Complete, 2026-10-17. One unattended run; experiments [geom0006](../../../data/experiments/geom/geom0006.md), [geom0007](../../../data/experiments/geom/geom0007.md), [geom0008](../../../data/experiments/geom/geom0008.md), [geom0009](../../../data/experiments/geom/geom0009.md) and [geom0010](../../../data/experiments/geom/geom0010.md)
 - **Layers:** L5 (the published box), the tuning defaults, the perf gate
 - **Related:** [published box rotation](published-box-rotation-2026-10.md), [L3 region override attribution](l3-region-override-attribution-kirk-2026-10.md), [performance regression testing](performance-regression-testing.md)
 - **Parameter sets:** the box model is in [tuning.defaults.json](../../../config/tuning.defaults.json); [box-model-off.json](../../../config/experiments/box-model-off.json) draws the legacy box
@@ -52,6 +52,13 @@ model under the L3 retune, and the change that makes the box model the default.
   returns, and no reach toward the sensor (geom0008), cut foreign returns from 6.0 % to 3.2 % and
   overlap from 17.6 % to 14.9 %, short of the rule's half and 3 points, and made the box jump as
   neighbours came and went. It stays off. What remains of the overlap is two tracks on one cluster.
+- **The trucks are short because the merge guard refuses a growing body (geom0009).** The
+  tracker's merge flag is a growth test, so it fires on a truck that grows from a fragment to its
+  whole length, and the box model refused those spans. Admitting them takes kirk0's reviewed
+  centre error from 2.14 m to 1.20 m at the median and the length ratio from 0.62 to 0.84; truck 1
+  leaves drawn 9 m long instead of 6.4 m. It failed its rule by a tenth of a point: 6.75 % of
+  vehicle rows hold another cluster's returns against a limit of 6.65 %. It stays off, the
+  clearest trade-off this run found.
 
 ## Question
 
@@ -291,6 +298,81 @@ it is the duplicate tracks again. What the margin cannot reach is the rest of th
 tracks on one cluster share its returns, which no margin between clusters separates. The option
 stays off; the fifth segments stay unread.
 
+### geom0009: the merge guard
+
+geom0007 found truck 1's close pass flagged a probable merge on every frame and put it down to the
+two tracks sharing it. With l5id0004's overlap end removing the second track, the truck is one
+track through the pass, yet 34 of its 50 frames there are still flagged: the tracker's
+`MergeCandidate` is a growth test (the cluster's area over the track's history, above 2.5), and a
+track that began on a fragment of the truck grows past it as the whole truck comes into view. The
+box model refuses a flagged frame's spans as extent evidence, so the belief never learns the
+length.
+
+geom0009 admitted them: always (`km-mergein`), or when the span along the body is 12 m or less
+(`km-mergein12`), as Go-only options scored by `lidar-box-eval`. Under the defaults, with the
+duplicate tracks still in place:
+
+| Variant        | kirk0 centre p50 | kirk0 centre p90 | Length / reviewed | kirk0 axis p90 | Foreign returns | Neighbour overlap | Over 13 m | At rest | Visible jumps |
+| -------------- | ---------------: | ---------------: | ----------------: | -------------: | --------------: | ----------------: | --------: | ------: | ------------: |
+| `km`           |           2.14 m |           4.16 m |              0.62 |           8.4° |          5.95 % |           17.58 % |    0.00 % |   3.6 % |        0.32 % |
+| `km-mergein`   |           1.20 m |           3.97 m |              0.84 |           8.4° |          6.75 % |           18.27 % |    0.00 % |   2.3 % |        0.35 % |
+| `km-mergein12` |           1.20 m |           3.97 m |              0.84 |           8.4° |          6.75 % |           18.27 % |    0.00 % |   2.3 % |        0.35 % |
+
+The target was met by a wide margin: truck 1 leaves drawn 8.8 to 9 m long against its reviewed
+10.6 m, where it was 6.4 m, and the car is drawn as before. Every other clause held but one: boxes
+holding five or more returns of another cluster rose from 5.95 % to 6.75 % of vehicle rows, past
+the limit of 6.65 %. A real merge of two vehicles now teaches a box their joint length too, and no
+box grew past 13 m. The 12 m cap changed nothing on these captures. Both failed; the option stays
+off and the fifth segments stay unread for box measures. It is the trade-off of this run that most
+deserves a person's judgement: two and a half metres of a
+truck's length against a little under one
+vehicle row in a hundred drawn into its neighbour.
+
+### geom0010: held extents that yield
+
+geom0010 kept geom0009's merge spans and let a held extent give way: once another cluster's
+returns lay inside the box, beyond the box's own returns along it (or across it), on three
+consecutive frames, the length (or width) belief was reset to the frame's own spans, the vehicle
+floor still applying (`YieldFrames`, a Go option). On the corpus it did what it was for, but on
+kirk0 it undid the gain it was meant to keep:
+
+| Variant             | kirk0 centre p50 | Length / reviewed | Foreign returns | Neighbour overlap | At rest | Visible jumps |
+| ------------------- | ---------------: | ----------------: | --------------: | ----------------: | ------: | ------------: |
+| `km`                |           2.14 m |              0.62 |          5.95 % |           17.58 % |  3.64 % |        0.32 % |
+| `km-mergein`        |           1.20 m |              0.84 |          6.75 % |           18.27 % |  2.26 % |        0.35 % |
+| `km-mergein-yield3` |           2.17 m |              0.62 |          6.35 % |           17.72 % |  2.26 % |        0.35 % |
+
+It failed its target. The object in a truck's held box is, as often as not, another cluster of the
+same truck: kirk0's trucks reach the tracker in two or three clusters, each with a track, and the
+yield cannot tell a second fragment of one vehicle from a second vehicle. It stays off. What is
+left of the box's length is the clusters it is given (W3's fragmentation), not a rule the box can
+apply to them.
+
+### The box with one track per vehicle
+
+Two diagnostics after geom0009, under no rule and changing no default, put the box and the
+identity work together. Both replay the 23 first segments and kirk with l5id0004's `body-older`
+tracks (the overlap end on the body's returns, keeping the older track) and score the box model
+beside the merge-span admission:
+
+| Tracks       | Box          | Foreign returns | Neighbour overlap | At rest | kirk0 centre p50 | Length / reviewed | kirk0 axis p90 |
+| ------------ | ------------ | --------------: | ----------------: | ------: | ---------------: | ----------------: | -------------: |
+| defaults     | `km`         |          5.95 % |           17.58 % |  3.64 % |           2.14 m |              0.62 |           8.4° |
+| defaults     | `km-mergein` |          6.75 % |           18.27 % |  2.26 % |           1.20 m |              0.84 |           8.4° |
+| `body-older` | `km`         |          5.90 % |            4.98 % |  2.79 % |           2.00 m |              0.60 |          13.4° |
+| `body-older` | `km-mergein` |          6.86 % |            5.71 % |  2.79 % |           0.66 m |              0.87 |          13.4° |
+
+- **Most of the box model's overlap is duplicate tracks.** With one track per vehicle the share of
+  vehicle rows overlapping another confirmed track's box falls from 17.6 % to 5.0 %: the box was
+  drawn over a second track's box, not into a second vehicle.
+- **The merge-span cost is not.** Admitting a flagged frame's spans still adds about a point of
+  rows holding another cluster's returns (5.90 % to 6.86 %): after a real merge ends, the held
+  length reaches the next object.
+- **Together they draw the trucks.** With both, kirk0's reviewed centre error is 0.66 m at the
+  median and the trucks leave drawn 9.1 to 9.3 m long against 9.6 and 10.6 m, at the price of the
+  reviewed axis p90 that keeping the older track costs (13.4° against 8.4°): a surviving track's
+  box sometimes restarts unconverged.
+
 ## The box model in the defaults
 
 geom0005 asked for the Pi timing before the box model became the default. The direction for this
@@ -344,6 +426,8 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 | Round 3 (CMR)               | scorer `a8da1a8d6`; `l3-retune-cm2-mp8-floor.json` as at `6e0f5ba32` less the box block, SHA-256 `58ec690d5034664748d6ec3701202074c28c4b5d7b437e532095bd17dc924148` |
 | geom0007                    | scorer `6533b390a`; defaults with the box model                                                                                                                     |
 | geom0008                    | scorer stamped `5379c812e`, the tree rebased unchanged as `30ad96db7`; defaults with the box model                                                                  |
+| geom0009                    | scorer `3b35723c5`; defaults with the box model; rule committed at `e81df69fa` before the replays                                                                   |
+| geom0010                    | scorer `ca426fd29`; defaults with the box model; rule committed at `68e236249` before the replays                                                                   |
 | Defaults at the change      | `config/tuning.defaults.json` at `6e0f5ba32`, SHA-256 `5b6a7ac0a933ad33e918bfc4c537d0e528168c8bcf8bf342ad1cf5e28f226923`                                            |
 | Perf baselines              | `make perf-baseline-all` from a shared clone at `8f8ff9c9e`, fingerprints full `4c10f4e77702`, l3-only `9884a9eae446`; the on/off pairs at `6e0f5ba32`              |
 | References                  | physical-reference bundle revision 76 (pack `ds_95be6fb22498b44a`), 44 keyframes with an observed yaw                                                               |
@@ -361,7 +445,13 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 4. **Fix duplicate tracks on one vehicle before the box's length.** Truck 1 is held by two tracks
    while it passes; the box can only be as whole as the track it belongs to. The [duplicate tracks report](l5-duplicate-tracks-2026-10.md) counts them and tries the
    tracker's identity options against them.
-5. **Leave the course options off.** The lag is the velocity's; work on it belongs with the
+5. **Decide the merge guard with the identity option.** With one track per vehicle the box
+   model's overlap is a quarter of what it is today, and with the merge spans admitted as well
+   the trucks are drawn their length. Admitting a growing body's spans costs about a point of
+   vehicle rows drawn into a neighbour either way. A held extent that yields to another cluster
+   (geom0010) gives the length back, because a truck's other fragments are other clusters too:
+   the next gain is fewer fragments per vehicle, upstream.
+6. **Leave the course options off.** The lag is the velocity's; work on it belongs with the
    tracker's motion model, not the box.
-6. **Republish the scene assets** from replays under the new defaults so velocity.report draws
+7. **Republish the scene assets** from replays under the new defaults so velocity.report draws
    the box model.

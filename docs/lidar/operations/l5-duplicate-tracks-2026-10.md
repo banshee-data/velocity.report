@@ -7,7 +7,7 @@ defect it could not fix to one cause: two confirmed tracks on one vehicle. This 
 how often that happens and scores the tracker's default-off identity options against it, under a
 rule committed before their replays.
 
-- **Status:** Screen complete, 2026-10-17. One unattended run; experiment [l5id0001](../../../data/experiments/l5id/l5id0001.md)
+- **Status:** Screen complete, 2026-10-17. One unattended run; experiment [l5id0001](../../../data/experiments/l5id/l5id0001.md) to [l5id0005](../../../data/experiments/l5id/l5id0005.md)
 - **Layers:** L5 (association, reacquisition, identity)
 - **Related:** [published box refinement](published-box-refinement-2026-10.md), [time-domain model](../architecture/time-domain-model.md), [W3 retention and fragmentation](w3-retention-fragmentation-kirk0-2026-10.md), [gap analysis](../../../data/maths/paper-implementation-gap-analysis.md)
 - **Parameter set:** the [defaults](../../../config/tuning.defaults.json) for every arm; the options are replay experiments, not tuning keys
@@ -238,10 +238,31 @@ Per site the observed frames still swing, from 83 % (Laguna at Eddy, Embarcadero
 rule read. Keeping the older track is also what lifts the reviewed figures past every other arm:
 association accuracy 0.736 against 0.679, IDF1 0.435 against 0.350.
 
+On kirk1, whose labelled reference holds road-user spans rather than per-frame masks (49 road
+users), `body-older` recovers 3 one-to-one by temporal overlap against a0's 4 and covers the same
+38; under the shipped L3 so few are recovered one-to-one that this neither supports nor
+contradicts it. On the corpus it takes the share of vehicle rows whose box overlaps another
+confirmed track's from 17.6 % to 5.0 % ([published box refinement](published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle)).
+
 It does not fix the drawn box on kirk0's trucks. Truck 1 still leaves drawn about 6.4 m long and
 truck 2's leaving box is still a new track's, and the reviewed axis p90 is 13.4° against 8.4°:
 some surviving tracks restart their box unconverged. That is the box's next question, not this
 rule's.
+
+### l5id0005: the third segments
+
+A replication under a rule committed before its replays: `body-older` against a0 on the third
+segment of the same 22 sites, read for the box model's rotation in geom0005 but never for identity.
+
+| Arm          | Vehicle tracks | Duplicate pairs | Pairs per 100 tracks | Observed vehicle frames | Of a0's |
+| ------------ | -------------: | --------------: | -------------------: | ----------------------: | ------: |
+| `a0`         |          1,244 |             230 |                 18.5 |                  34,223 |         |
+| `body-older` |            991 |              14 |                  1.4 |                  34,380 | 100.5 % |
+
+It replicated: the duplicates fall by 17.1 per hundred against the 7.1 required, and the observed
+vehicle frames hold. Two sets of 22 captures neither tuned nor screened on now agree with the
+tuning set; what is still missing before it ships is a per-frame identity comparison on a labelled
+held-out window.
 
 ## Limitations
 

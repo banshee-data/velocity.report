@@ -19,6 +19,8 @@ flowchart TB
     geom0006["<b>geom0006</b><br/>Refining the published box: turn lag…<br/>answered · 53m machine + 5h person (took 2h)<br/>manual: implement, write"]:::answered
     geom0007["<b>geom0007</b><br/>The published box's length: a memory that…<br/>answered · 43m machine + 4h person (took 1h)<br/>manual: implement, write"]:::answered
     geom0008["<b>geom0008</b><br/>An exclusive published box: the unseen…<br/>answered · 43m machine + 3h person (took 1h)<br/>manual: implement, write"]:::answered
+    geom0009["<b>geom0009</b><br/>The published box's merge guard: letting…<br/>answered · 43m machine + 2h person (took 30m)<br/>manual: implement, write"]:::answered
+    geom0010["<b>geom0010</b><br/>The published box's held extents yield to…<br/>answered · 43m machine + 2h person (took 30m)<br/>manual: implement, write"]:::answered
   end
   subgraph area_l3bg ["l3bg: L3 background model"]
     l3bg0001["<b>l3bg0001</b><br/>Zero-code L3 arms on the labelled kirk…<br/>answered · 23m machine + 3h person<br/>manual: write"]:::answered
@@ -49,6 +51,7 @@ flowchart TB
     l5id0002["<b>l5id0002</b><br/>One vehicle, one track: ending a coasting…<br/>answered · 2h machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0003["<b>l5id0003</b><br/>One vehicle, one track: the overlap end…<br/>answered · 2h2m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0004["<b>l5id0004</b><br/>One vehicle, one track: the overlap end…<br/>answered · 1h55m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
+    l5id0005["<b>l5id0005</b><br/>One vehicle, one track: replicating…<br/>answered · 40m machine + 30m person (took 25m)<br/>manual: write"]:::answered
   end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
@@ -61,6 +64,9 @@ flowchart TB
   geom0005 --> geom0006
   geom0006 --> geom0007
   geom0007 --> geom0008
+  geom0007 --> geom0009
+  l5id0004 --> geom0009
+  geom0009 --> geom0010
   l3bg0001 --> l3bg0002
   l3bg0002 --> l3bg0003
   l3bg0003 --> l3bg0004
@@ -94,6 +100,7 @@ flowchart TB
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
   l5id0003 --> l5id0004
+  l5id0004 --> l5id0005
   l3bg0005 --> perf0001
 ```
 
@@ -113,6 +120,8 @@ flowchart TB
 - [geom0006](geom/geom0006.md) Refining the published box: turn lag, slow labels and a cheaper axis: [report](../../docs/lidar/operations/published-box-refinement-2026-10.md); estimated 53m, took 2h on m1pro; asked [published-box-rotation-2026-10 #recommendations](../../docs/lidar/operations/published-box-rotation-2026-10.md#recommendations).
 - [geom0007](geom/geom0007.md) The published box's length: a memory that keeps a truck whole, and a prior for one never seen whole: [report](../../docs/lidar/operations/published-box-refinement-2026-10.md); estimated 43m, took 1h on m1pro; asked [published-box-rotation-2026-10 #recommendations](../../docs/lidar/operations/published-box-rotation-2026-10.md#recommendations).
 - [geom0008](geom/geom0008.md) An exclusive published box: the unseen part stops at a neighbour's returns: [report](../../docs/lidar/operations/published-box-refinement-2026-10.md); estimated 43m, took 1h on m1pro; asked [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations).
+- [geom0009](geom/geom0009.md) The published box's merge guard: letting a growing body teach the box its length: [report](../../docs/lidar/operations/published-box-refinement-2026-10.md); estimated 43m, took 30m on m1pro; asked [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations).
+- [geom0010](geom/geom0010.md) The published box's held extents yield to another object: the trucks' length without the merge's cost: [report](../../docs/lidar/operations/published-box-refinement-2026-10.md); estimated 43m, took 30m on m1pro; asked [geom0009](../../data/experiments/geom/geom0009.md).
 - [l3bg0001](l3bg/l3bg0001.md) Zero-code L3 arms on the labelled kirk captures: [report](../../docs/lidar/operations/l3-zero-code-arms-kirk-2026-10.md); asked [20261011-beamwise-background-subtraction-review #6-order-and-cost-of-the-steps-s…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#6-order-and-cost-of-the-steps-section-62).
 - [l3bg0002](l3bg/l3bg0002.md) E4 support filter with the overrides off: [report](../../docs/lidar/operations/l3-zero-code-arms-kirk-2026-10.md); asked [l3-zero-code-arms-kirk-2026-10 #6-recommendations](../../docs/lidar/operations/l3-zero-code-arms-kirk-2026-10.md#6-recommendations).
 - [l3bg0003](l3bg/l3bg0003.md) Which region-override tercile absorbs road users, and a road-height floor: [report](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md); estimated 20m, took 15m on m1pro; asked [l3-zero-code-arms-kirk-2026-10 #83-reading](../../docs/lidar/operations/l3-zero-code-arms-kirk-2026-10.md#83-reading).
@@ -136,6 +145,7 @@ flowchart TB
 - [l5id0002](l5id/l5id0002.md) One vehicle, one track: ending a coasting track that lies on a live one: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h, took 1h on m1pro; asked [l5id0001](../../data/experiments/l5id/l5id0001.md).
 - [l5id0003](l5id/l5id0003.md) One vehicle, one track: the overlap end, kept to the vehicles it observes: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h2m, took 1h on m1pro; asked [l5id0002](../../data/experiments/l5id/l5id0002.md).
 - [l5id0004](l5id/l5id0004.md) One vehicle, one track: the overlap end on the body's returns, keeping the older track: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 1h55m, took 1h on m1pro; asked [l5id0003](../../data/experiments/l5id/l5id0003.md).
+- [l5id0005](l5id/l5id0005.md) One vehicle, one track: replicating l5id0004 on the third segments: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 40m, took 25m on m1pro; asked [l5id0004](../../data/experiments/l5id/l5id0004.md).
 
 ## Totals
 
