@@ -1,9 +1,12 @@
 package db
 
 import (
+	"fmt"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"testing"
+	"testing/fstest"
 )
 
 // TestMigrateUp tests applying all migrations
@@ -937,5 +940,40 @@ func TestOpenDB_ExistingDB(t *testing.T) {
 
 	if db2 == nil {
 		t.Fatal("Expected non-nil database")
+	}
+}
+
+// A run of migrations that each add a column to one table, among many tables
+// that do not change, climbs towards a 100% match one version at a time. The
+// detection once stopped three versions after its first 98% match and so
+// could not see the latest version of such a run.
+func TestDetectSchemaVersion_FindsTheLatestOfARunOfAddedColumns(t *testing.T) {
+	var create strings.Builder
+	for i := 0; i < 60; i++ {
+		fmt.Fprintf(&create, "CREATE TABLE t%d (id INTEGER PRIMARY KEY);\n", i)
+	}
+	create.WriteString("CREATE TABLE grows (id INTEGER PRIMARY KEY);\n")
+	files := fstest.MapFS{
+		"000001_create.up.sql":   {Data: []byte(create.String())},
+		"000001_create.down.sql": {Data: []byte("SELECT 1;")},
+	}
+	for v := 2; v <= 7; v++ {
+		files[fmt.Sprintf("%06d_add_c%d.up.sql", v, v)] = &fstest.MapFile{Data: []byte(fmt.Sprintf("ALTER TABLE grows ADD COLUMN c%d REAL;", v))}
+		files[fmt.Sprintf("%06d_add_c%d.down.sql", v, v)] = &fstest.MapFile{Data: []byte(fmt.Sprintf("ALTER TABLE grows DROP COLUMN c%d;", v))}
+	}
+	db, err := OpenDB(filepath.Join(t.TempDir(), "run.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := db.MigrateUp(files); err != nil {
+		t.Fatal(err)
+	}
+	version, score, diffs, err := db.DetectSchemaVersion(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if version != 7 || score != 100 {
+		t.Fatalf("detected v%d at %d%% (%v), want v7 at 100%%", version, score, diffs)
 	}
 }

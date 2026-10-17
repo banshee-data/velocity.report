@@ -1077,6 +1077,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						BoundingBoxHeight: track.OBBHeight,
 						HeightP95:         track.HeightP95Max,
 						IntensityMean:     track.IntensityMeanAvg,
+						// The published box, which the web app's live view
+						// draws in place of the OBB when it is present.
+						BoxX: track.BoxX, BoxY: track.BoxY, BoxHeadingRad: track.BoxHeadingRad,
+						BoxLength: track.BoxLength, BoxWidth: track.BoxWidth,
 					}
 					if err := sqlite.InsertTrackObservation(dbTx, obs); err != nil {
 						opsf("Failed to insert observation for track %s: %v", track.TrackID, err)
