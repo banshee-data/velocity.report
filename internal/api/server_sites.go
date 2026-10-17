@@ -58,7 +58,15 @@ func (s *Server) listSites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(sites); err != nil {
+	var response any = sites
+	if s.hardened() && !canReadConfiguration(r) {
+		projected := make([]any, 0, len(sites))
+		for i := range sites {
+			projected = append(projected, s.siteResponse(r, &sites[i]))
+		}
+		response = projected
+	}
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode sites")
 		return
 	}
@@ -75,7 +83,7 @@ func (s *Server) getSite(w http.ResponseWriter, r *http.Request, id int) {
 		return
 	}
 
-	if err := json.NewEncoder(w).Encode(site); err != nil {
+	if err := json.NewEncoder(w).Encode(s.siteResponse(r, site)); err != nil {
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode site")
 		return
 	}

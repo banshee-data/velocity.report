@@ -29,12 +29,16 @@ import (
 	"log"
 	"math/rand"
 	"os/exec"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"tailscale.com/client/local"
+	"tailscale.com/client/tailscale/apitype"
 	"tailscale.com/ipn"
 	"tailscale.com/ipn/ipnstate"
+	"tailscale.com/tailcfg"
 )
 
 // LocalServeHTTPTarget is the default URL `tailscale serve` proxies to when
@@ -70,6 +74,7 @@ type LocalClient interface {
 	// substitute on a logged-out node.
 	Start(ctx context.Context, opts ipn.Options) error
 	WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error)
+	WhoIs(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error)
 }
 
 // BusWatcher is the slice of *local.IPNBusWatcher we depend on.
@@ -110,6 +115,9 @@ func (r *realLocalClient) Start(ctx context.Context, opts ipn.Options) error {
 }
 func (r *realLocalClient) WatchIPNBus(ctx context.Context, mask ipn.NotifyWatchOpt) (BusWatcher, error) {
 	return r.c.WatchIPNBus(ctx, mask)
+}
+func (r *realLocalClient) WhoIs(ctx context.Context, remoteAddr string) (*apitype.WhoIsResponse, error) {
+	return r.c.WhoIs(ctx, remoteAddr)
 }
 
 // SystemdActor performs the privileged systemd lifecycle operations
@@ -163,7 +171,12 @@ type Manager struct {
 	// Defaults to LocalServeHTTPTarget; the server overrides it with the
 	// address derived from its own --listen flag (WithServeTarget) so the
 	// published HTTPS endpoint always points at the port we actually serve.
-	serveTarget string
+	serveTarget       string
+	serveCapabilities []tailcfg.PeerCapability
+
+	// serveForwards caches the ports unmanaged Serve handlers forward to
+	// (see UnmanagedServePorts).  It has its own lock.
+	serveForwards serveForwardsCache
 
 	mu          sync.RWMutex
 	browseURL   string    // most recent BrowseToURL from the IPN bus, if any
@@ -195,6 +208,10 @@ type Manager struct {
 	// rand source for backoff jitter (seeded per-Manager so multiple
 	// devices don't synchronise their reconnects).
 	rng *rand.Rand
+
+	// Cache consulted by the api layer's auth middleware.  Short-TTL
+	// and process-local; see peercaps.go.
+	peerCache peerCache
 }
 
 // Option configures a Manager at construction time.
@@ -222,6 +239,16 @@ func WithServeTarget(target string) Option {
 		if target != "" {
 			m.serveTarget = target
 		}
+	}
+}
+
+// WithServeCapabilities enables the hardened backend contract and reconciles it
+// on the first Running event after restart. The operator selects this profile
+// through OS-controlled startup configuration; HTTP cannot activate it.
+func WithServeCapabilities() Option {
+	return func(m *Manager) {
+		m.serveCapabilities = []tailcfg.PeerCapability{CapView, CapAdmin}
+		m.enableEpoch = 1
 	}
 }
 
@@ -505,24 +532,45 @@ func (m *Manager) enableServe(ctx context.Context) error {
 	if host == "" {
 		return errMagicDNSNotReady
 	}
+	if len(m.serveCapabilities) != 0 && !supportsServeCapabilities(st.Version) {
+		return fmt.Errorf("hardened Serve requires tailscaled 1.92 or later (reported %q)", st.Version)
+	}
 
 	target := m.serveTarget
 	if target == "" {
 		target = LocalServeHTTPTarget
 	}
 	cfg.SetWebHandler(
-		&ipn.HTTPHandler{Proxy: target},
+		&ipn.HTTPHandler{Proxy: target, AcceptAppCaps: m.serveCapabilities},
 		host,
 		443,
 		"/",
 		true, // useTLS
 		"",   // mds (service name) — not a Tailscale Service
 	)
+	if len(m.serveCapabilities) != 0 {
+		// This profile refuses public ingress both in application policy and in
+		// the managed daemon configuration. Do not inherit a prior Funnel flag.
+		cfg.AllowFunnel = nil
+	}
 
 	if err := m.lc.SetServeConfig(ctx, cfg); err != nil {
 		return fmt.Errorf("set serve config: %w", err)
 	}
 	return nil
+}
+
+func supportsServeCapabilities(version string) bool {
+	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
+	if len(parts) < 2 {
+		return false
+	}
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return false
+	}
+	minor, err := strconv.Atoi(parts[1])
+	return err == nil && (major > 1 || (major == 1 && minor >= 92))
 }
 
 // stripTrailingDot returns dns without its trailing dot, if any.
@@ -601,6 +649,10 @@ type Status struct {
 	// `tailscale serve`, or "" on success / no run yet.  The most
 	// common cause is HTTPS certs not being enabled on the tailnet.
 	ServeError string `json:"serve_error,omitempty"`
+	// Redacted is true when the API left out what this caller may not
+	// see: a tailnet peer without a view grant gets the state fields
+	// alone, and one without admin no login URL.
+	Redacted bool `json:"redacted,omitempty"`
 	// Version increments whenever the observable status changes.  Clients
 	// echo it back as `?v=<version>&wait=<secs>` to long-poll for the next
 	// change instead of polling on a timer.

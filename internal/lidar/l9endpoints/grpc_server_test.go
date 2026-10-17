@@ -183,8 +183,8 @@ func TestServer_GetCapabilities(t *testing.T) {
 	if !caps.SupportsReplay {
 		t.Error("expected SupportsReplay=true")
 	}
-	if !caps.SupportsRecording {
-		t.Error("expected SupportsRecording=true")
+	if caps.SupportsRecording {
+		t.Error("unimplemented recording RPCs must not be advertised")
 	}
 	if len(caps.AvailableSensors) != 1 || caps.AvailableSensors[0] != "hesai-test" {
 		t.Errorf("expected AvailableSensors=[hesai-test], got %v", caps.AvailableSensors)

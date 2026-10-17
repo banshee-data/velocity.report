@@ -9,7 +9,12 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 - Endpoint security and input validation
 - Rate limiting and CORS configuration
 - WebSocket streaming security
-- Currently no authentication (local network only) — API key auth planned
+- Default `off` preserves existing access; `on` enforces Tailscale grants with the LAN/loopback bypass.
+- Opt-in `hardened` checks operation/resource permissions: anonymous aggregate/PDF reading, verified Tailscale routine administration, OS-local maintenance/access management.
+- Dedicated loopback Serve capability backend; origin and forwarding checks; alternate LiDAR HTTP/full gRPC remain loopback. Native users/groups and authenticated LAN gRPC are later work.
+- A Serve TCP forward, TCP Funnel or other Serve handler velocity.report did not install arrives from tailscaled on the host with client-written headers. With `on` or `hardened`, every listener drops connections from the host while one targets its port, and HTTP listeners recheck each request (`access.GuardListener`, `access.GuardHandler`; tailscaled's Serve configuration is read at most every five seconds, and an unreadable configuration or undecidable target fails closed). With `on`, the ungated LiDAR HTTP listener must be loopback, as gRPC is in every profile. `off` checks nothing.
+- DNS rebinding: a page in a LAN browser that re-resolves its own name to the device is same-origin, so only `Host` names it. Every profile's HTTP listeners (main, Serve backend, LiDAR) answer only addresses, `localhost`, single-label names, private suffixes (`.local`, `.lan`, `.home`, `.home.arpa`, `.internal`, `.localdomain`), `.ts.net` and `--allowed-hosts` names (`access.HostPolicy`). Without it, `off`/`on` let such a page start Tailscale enrolment and read the login URL.
+- Canonical [access policy and acceptance boundary](../../docs/plans/platform-access-control-hardening-plan.md).
 
 ### LIDAR UDP Listener (192.168.100.151)
 
@@ -21,7 +26,7 @@ Canonical attack surface map for velocity.report. Shared reference for all agent
 
 ### Radar Serial (/dev/ttyUSB0)
 
-- Serial command surface: the OPS24x API command set (AN-010-Z) is fixed, config/query-only, and non-destructive — there is no firmware-flash command. The `/admin/radar/command` endpoint therefore forwards any command to the sensor; the control is access restriction (localhost-only binding, planned API auth), not command-string filtering. `internal/radar/commands.go` holds an **advisory** catalogue of documented commands (`KnownCommands`): unknown commands are still forwarded but logged with a warning, and the catalogue is exposed read-only via `GET /api/commands` to power a dashboard command dropdown. Do not mistake the catalogue for an allowlist — it is not a security boundary.
+- Serial command surface: the OPS24x API command set (AN-010-Z) is fixed, config/query-only, and non-destructive — there is no firmware-flash command. The `/admin/radar/command` endpoint therefore forwards any command to the sensor; the control is access restriction (listener containment and the selected operation policy), not command-string filtering. `internal/radar/commands.go` holds an **advisory** catalogue of documented commands (`KnownCommands`): unknown commands are still forwarded but logged with a warning, and the catalogue is exposed read-only via `GET /api/commands` to power a dashboard command dropdown. Do not mistake the catalogue for an allowlist — it is not a security boundary.
 - Buffer overflows in serial parsing
 - Device spoofing
 - Privilege escalation via device permissions

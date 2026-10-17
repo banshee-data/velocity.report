@@ -13,6 +13,11 @@ tags: [networking, tailscale, remote-access]
 
 This is optional. The device is fully functional on a local network without Tailscale. Enrol it only if you want remote access.
 
+The Settings enrolment flow below applies to compatibility profiles. In the optional
+hardened profile, routine admin grants do not permit enrolment or disabling Tailscale;
+those actions require an OS-authorised session. See the
+[activation and recovery runbook](https://github.com/banshee-data/velocity.report/blob/main/docs/platform/operations/tailscale-remote-access.md#hardened-profile).
+
 ## Why you might want this
 
 Share the dashboard with a neighbour, a council staffer, or anyone else who has Tailscale — they can open it from home, without you opening ports or setting up a VPN. Also handy for reaching the device yourself if it's deployed somewhere you don't live.

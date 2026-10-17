@@ -23,6 +23,13 @@ Safer streets start with measured traffic speeds.
 
 One afternoon, a Raspberry Pi, and a radar sensor. By the evening you will have a speed monitor logging every vehicle that passes, a live dashboard, and the beginnings of the local dataset you will carry to your next council meeting. No cameras, no licence plates, no cloud accounts: just local speed data on hardware you own.
 
+For a device on a shared LAN, the optional hardened access profile lets neighbours
+view charts and download existing ordinary PDFs while settings changes, report
+creation and source downloads require Tailscale permissions. Activation and recovery
+currently require an OS-authorised console or SSH session; there are no native user
+accounts yet. Follow the [operator runbook](https://github.com/banshee-data/velocity.report/blob/main/docs/platform/operations/tailscale-remote-access.md#hardened-profile)
+before enabling it. The default setup retains its existing access policy.
+
 ## Before you begin
 
 You need two devices for setup: a computer to flash the SD card, and a Raspberry Pi to run the radar service. The Pi is the sensor host. The computer is only for setup.

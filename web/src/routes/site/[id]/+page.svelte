@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { access, hasPermission } from '#lib/stores/access.js';
 	import { goto } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import {
@@ -187,6 +188,7 @@
 	}
 
 	async function savePeriod() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		if (!siteId || !validatePeriodForm()) {
 			return;
 		}
@@ -234,6 +236,7 @@
 	}
 
 	async function handleSave() {
+		if (!hasPermission($access, 'configuration:write')) return;
 		if (!validateForm()) {
 			return;
 		}
@@ -504,7 +507,11 @@
 							</label>
 
 							<div class="flex flex-wrap gap-3">
-								<Button on:click={savePeriod} disabled={savingPeriod} icon={mdiContentSave}>
+								<Button
+									on:click={savePeriod}
+									disabled={savingPeriod || !hasPermission($access, 'configuration:write')}
+									icon={mdiContentSave}
+								>
 									{periodForm.id ? 'Update Period' : 'Add Period'}
 								</Button>
 								<Button on:click={resetPeriodForm} variant="outline">Reset</Button>
@@ -591,13 +598,17 @@
 
 					<!-- Actions -->
 					<div class="flex justify-end gap-2">
-						<Button on:click={handleCancel} variant="outline" disabled={saving}>Cancel</Button>
+						<Button
+							on:click={handleCancel}
+							variant="outline"
+							disabled={saving || !hasPermission($access, 'configuration:write')}>Cancel</Button
+						>
 						<Button
 							on:click={handleSave}
 							icon={mdiContentSave}
 							variant="fill"
 							color="primary"
-							disabled={saving}
+							disabled={saving || !hasPermission($access, 'configuration:write')}
 						>
 							{saving ? 'Saving…' : isNewSite ? 'Create Site' : 'Save Changes'}
 						</Button>
