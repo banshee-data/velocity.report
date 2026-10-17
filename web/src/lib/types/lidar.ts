@@ -93,6 +93,18 @@ export interface TrackObservation {
 		width: number;
 		height: number;
 	};
+	/**
+	 * The tracker's published box, when it had one: its own centre, heading
+	 * and extents (display frame, metres and radians), which hold the
+	 * track's returns. Absent on observations recorded without the box model.
+	 */
+	box?: {
+		x: number;
+		y: number;
+		heading_rad: number;
+		length: number;
+		width: number;
+	};
 }
 
 /**

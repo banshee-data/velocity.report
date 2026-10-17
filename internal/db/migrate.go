@@ -462,39 +462,36 @@ func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, mat
 			bestDifferences = diffs
 		}
 
-		// Early exit optimization for high similarity scores:
-		// If we found a ≥98% match and there are many remaining versions to check,
-		// we can stop early because later versions will likely have lower scores
-		// (extra tables/columns added).
-		// Exception: Continue if we have a 100% match, as later versions might also
-		// be 100% (data-only migrations that don't change schema structure).
+		// Early exit for high similarity scores: once a version matches at
+		// 98% or more, walk on only while the later versions stay that close,
+		// and stop at the first that falls below: past the best match, later
+		// migrations add tables and columns the schema does not have. A run
+		// of migrations that each add a column the schema has climbs towards
+		// 100% one version at a time, so the walk must not stop at a fixed
+		// count (it once stopped three versions on and missed the latest).
+		// Exception: continue at 100%, as later versions might also be 100%
+		// (data-only migrations that don't change schema structure).
 		if score >= 98 && score < 100 && version > 1 {
-			remainingVersions := latestVersion - version
-			if remainingVersions > 3 {
-				// Found a very close match with many versions remaining.
-				// Check up to 3 more versions to be thorough, then stop.
-				for i := uint(1); i <= 3 && version+i <= latestVersion; i++ {
-					nextVersion := version + i
-					if err := tmpWrapper.MigrateTo(migrationsFS, nextVersion); err != nil {
-						continue
-					}
-					schemaAtNext, err := tmpWrapper.GetDatabaseSchema()
-					if err != nil {
-						continue
-					}
-					nextScore, nextDiffs := CompareSchemas(currentSchema, schemaAtNext)
-					if nextScore > bestScore {
-						bestScore = nextScore
-						bestVersion = nextVersion
-						bestDifferences = nextDiffs
-					}
-					// Stop if score drops below 98% - we've passed the best match
-					if nextScore < 98 {
-						break
-					}
+			for nextVersion := version + 1; nextVersion <= latestVersion; nextVersion++ {
+				if err := tmpWrapper.MigrateTo(migrationsFS, nextVersion); err != nil {
+					continue
 				}
-				break
+				schemaAtNext, err := tmpWrapper.GetDatabaseSchema()
+				if err != nil {
+					continue
+				}
+				nextScore, nextDiffs := CompareSchemas(currentSchema, schemaAtNext)
+				if nextScore > bestScore || (nextScore == 100 && bestScore == 100) {
+					bestScore = nextScore
+					bestVersion = nextVersion
+					bestDifferences = nextDiffs
+				}
+				// Stop once the score drops below 98%: we've passed the best match.
+				if nextScore < 98 {
+					break
+				}
 			}
+			break
 		}
 	}
 

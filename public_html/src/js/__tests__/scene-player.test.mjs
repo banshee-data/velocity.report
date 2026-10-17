@@ -63,7 +63,17 @@ describe("buildTrailHistories", () => {
 describe("TrackVisual box placement", () => {
   test("draws a published box centre, not the tracked position", () => {
     const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
-    visual.update({ x: 10, y: 4, z: 1, bx: 11.5, by: 3, l: 4.5, w: 1.8, h: 1.5, bh: 0 });
+    visual.update({
+      x: 10,
+      y: 4,
+      z: 1,
+      bx: 11.5,
+      by: 3,
+      l: 4.5,
+      w: 1.8,
+      h: 1.5,
+      bh: 0,
+    });
     assert.equal(visual.edges.position.x, 11.5, "east is the box centre's");
     assert.equal(visual.edges.position.z, -3, "north is the box centre's");
   });

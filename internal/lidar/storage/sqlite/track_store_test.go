@@ -292,3 +292,43 @@ func TestGetActiveTracksFilterByState(t *testing.T) {
 		t.Errorf("Expected 2 active (non-deleted) tracks, got %d", len(active))
 	}
 }
+
+func TestTrackObservationKeepsThePublishedBox(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	if _, err := db.Exec(`INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, track_state,
+		start_unix_nanos, end_unix_nanos, observation_count, avg_speed_mps, max_speed_mps,
+		bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
+		height_p95_max, intensity_mean_avg)
+		VALUES ('box-t1', 'box-sensor', 'world', 'confirmed', 1000, 3000, 2, 1, 2, 1, 1, 1, 1, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	with := &TrackObservation{TrackID: "box-t1", TSUnixNanos: 1000, FrameID: "world", MeasurementSource: "medoid_v0",
+		X: 10, Y: 2, BoundingBoxLength: 1.8, BoundingBoxWidth: 0.4,
+		BoxX: 11.5, BoxY: 2.1, BoxHeadingRad: 0.3, BoxLength: 4.4, BoxWidth: 1.8}
+	without := &TrackObservation{TrackID: "box-t1", TSUnixNanos: 2000, FrameID: "world", MeasurementSource: "medoid_v0",
+		X: 11, Y: 2, BoundingBoxLength: 1.8, BoundingBoxWidth: 0.4}
+	for _, o := range []*TrackObservation{with, without} {
+		if err := InsertTrackObservation(db, o); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var nulls int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_track_observations WHERE box_length IS NULL`).Scan(&nulls); err != nil || nulls != 1 {
+		t.Fatalf("an observation without a box is stored as NULL: %d rows (%v)", nulls, err)
+	}
+	ranged, err := GetTrackObservationsInRange(db, "box-sensor", 0, 5000, 10, "")
+	if err != nil || len(ranged) != 2 {
+		t.Fatalf("range read: %d, %v", len(ranged), err)
+	}
+	if got := ranged[0]; !got.HasBox() || got.BoxX != 11.5 || got.BoxY != 2.1 || got.BoxHeadingRad != 0.3 || got.BoxLength != 4.4 || got.BoxWidth != 1.8 {
+		t.Fatalf("the box did not round-trip: %+v", got)
+	}
+	if ranged[1].HasBox() {
+		t.Fatalf("a box appeared on an observation without one: %+v", ranged[1])
+	}
+	latest, err := GetTrackObservations(db, "box-t1", 10)
+	if err != nil || len(latest) != 2 || latest[0].HasBox() || !latest[1].HasBox() {
+		t.Fatalf("per-track read (newest first): %+v, %v", latest, err)
+	}
+}
