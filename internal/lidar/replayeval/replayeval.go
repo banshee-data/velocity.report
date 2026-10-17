@@ -1294,6 +1294,11 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
 	trackerConfig.TentativePriority = hasExperiment(experiments, ExperimentTentativePriority)
 	trackerConfig.ClassIdentity = hasExperiment(experiments, ExperimentClassIdentity)
+	overlapEnd, err := overlapEndFramesFor(experiments)
+	if err != nil {
+		return l5tracks.TrackerConfig{}, err
+	}
+	trackerConfig.OverlapEndFrames = overlapEnd
 	oc, err := occlusionContinuityFor(experiments, coverage)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
@@ -1556,6 +1561,21 @@ func occlusionContinuityFor(experiments []string, coverage *ContinuityCoverage) 
 		coverage.apply(&oc)
 	}
 	return oc, nil
+}
+
+// overlapEndFramesFor is the overlap end's frame count from its two
+// settings, which a replay may not name together.
+func overlapEndFramesFor(experiments []string) (int, error) {
+	one, three := hasExperiment(experiments, ExperimentOverlapEnd1), hasExperiment(experiments, ExperimentOverlapEnd3)
+	switch {
+	case one && three:
+		return 0, fmt.Errorf("replay experiments %q name both overlap end settings; name one", experiments)
+	case one:
+		return 1, nil
+	case three:
+		return 3, nil
+	}
+	return 0, nil
 }
 
 // needsCoverage reports whether the experiments classify an absence or bound

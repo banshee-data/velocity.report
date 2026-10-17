@@ -189,6 +189,14 @@ type TrackerConfig struct {
 	// identity.go.
 	TentativePriority bool
 
+	// OverlapEndFrames ends a coasting track whose drawn box shares more
+	// than half the smaller box's area with a confirmed track matched this
+	// frame, once it has done so on this many frames of its current coast:
+	// two bodies cannot occupy the same ground, so a prediction lying on a
+	// live track is that track's duplicate, not an occluded road user. Zero
+	// is off. See overlap_end.go.
+	OverlapEndFrames int
+
 	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
 	// cyclist or motorcyclist with a cluster outside that label's geometric
 	// envelope: larger than anything L6 would accept as the label (gap

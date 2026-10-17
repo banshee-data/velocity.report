@@ -175,6 +175,9 @@ type TrackedObject struct {
 	BoxLength     float32
 	BoxWidth      float32
 	box           *BoxEstimator
+	// overlapCoasts counts this coast's frames whose drawn box lay on a
+	// live confirmed track's (TrackerConfig.OverlapEndFrames).
+	overlapCoasts int
 
 	// Extent beliefs: revisable lower-bound estimates of the object's body
 	// dimensions, built from confidently assigned observations only. They are
@@ -601,6 +604,10 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// recorded as coasted, or classified when absence explanation is on;
 	// under ClassCoastBounds the capture-time class bound replaces the miss
 	// count as the expiry rule.
+	var live []drawnRect
+	if t.Config.OverlapEndFrames > 0 {
+		live = t.liveConfirmedRects(matchedTracks)
+	}
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
 			t.observeBaselineAssociation(track, false)
@@ -620,6 +627,14 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				t.coastSolidBody(track, inflation)
 			}
 			t.updateBox(track, nil, nowNanos)
+			if t.Config.OverlapEndFrames > 0 && coastsOnLive(track, live) {
+				track.overlapCoasts++
+				if track.overlapCoasts >= t.Config.OverlapEndFrames {
+					t.deleteExpired(track, nowNanos, ExpiryOverlapped)
+					deletedThisFrame++
+					continue
+				}
+			}
 
 			// Append predicted (coasted) position to history
 			distFromOrigin := track.X*track.X + track.Y*track.Y
@@ -897,6 +912,7 @@ func (t *Tracker) updateMatched(track *TrackedObject, cluster WorldCluster, nowN
 		track.MaxClosedOcclusionFrames = track.Misses
 	}
 	track.Misses = 0
+	track.overlapCoasts = 0
 	observeStationary(track, nowNanos, t.Config.Stationary)
 	return true
 }
