@@ -37,9 +37,19 @@ rule committed before their replays.
   18 % fewer on the busiest site, where the box model's floored boxes of queued cars overlap and
   the rule takes two cars for one. It stays off. The overlap test needs the body's observed
   returns, not its drawn box, to tell a duplicate from a neighbour.
-- **Nothing is adopted.** Every option stays off. Two clauses of the pre-registered rules measured
-  vehicle retention badly and were replaced before the next experiment, each time before its
-  figures were computed, and the held-out segments were the decision.
+- **On the body's returns, keeping the older track, it passes (l5id0004).** Ending a coasting
+  track only when its predicted position lies within a live track's observed returns, and ending
+  the younger of the two rather than the coasting one, takes duplicates from 15.5 to 1.3 per
+  hundred vehicle tracks on the tuning set and from 15.1 to 1.2 on the second segment of 22 sites,
+  never scored for identity, with observed vehicle frames 99.6 % and 101.7 % of the defaults'. On
+  kirk0's reviewed pack IDF1 rises from 0.350 to 0.435, HOTA from 0.376 to 0.395 and association
+  accuracy from 0.679 to 0.736, identity switches fall from 124 to 24 and false positives from 722
+  to 664, with matches level.
+- **Promising, not adopted.** Every option stays off by default: an identity change needs a
+  held-out per-frame identity comparison before it ships, and the labelled held-out window is
+  label0001's. Two clauses of the earlier rules measured vehicle retention badly and were replaced,
+  each time before the next experiment's figures were computed; the held-out segments were the
+  decision every time.
 
 ## Question
 
@@ -196,6 +206,43 @@ truck 1 still leaves drawn about 6.4 m long, and truck 2's leaving box is a new 
 long against 9.4 m, because the rule ends the coasting track whatever its age, and the survivor is
 sometimes the younger one with the shorter memory.
 
+### l5id0004: on the body's returns, keeping the older track
+
+`OverlapEndOnBody` (replay qualifier `overlap_end_body`) changes the overlap end's test: the
+coasting track's predicted position must lie within a live confirmed track's observed returns,
+their extent along the live track's heading grown by a quarter metre. `OverlapEndKeepOlder`
+(`overlap_end_older`) ends the younger of the two: when that is the live track, the older takes
+the cluster back the next frame.
+
+Tuning set (first segment of 23 sites and the two kirk captures) and kirk0's tuning split:
+
+| Arm          | Pairs per 100 tracks | Observed vehicle frames | Of a0's | Matches | False positives | Identity switches | Fragmentations |  HOTA |  AssA |  IDF1 |
+| ------------ | -------------------: | ----------------------: | ------: | ------: | --------------: | ----------------: | -------------: | ----: | ----: | ----: |
+| `a0`         |                 15.5 |                  38,775 |         |   1,394 |             722 |               124 |             48 | 0.376 | 0.679 | 0.350 |
+| `body`       |                  1.3 |                  38,305 |  98.8 % |   1,413 |             683 |                28 |             45 | 0.374 | 0.662 | 0.392 |
+| `body-older` |                  1.3 |                  38,608 |  99.6 % |   1,393 |             664 |                24 |             53 | 0.395 | 0.736 | 0.435 |
+
+Both passed and were scored on the second segment of 22 sites (the D2 second-segment index), read
+for the box model's rotation in geom0005 but never for identity:
+
+| Arm          | Vehicle tracks | Duplicate pairs | Pairs per 100 tracks | Observed vehicle frames | Of a0's | Verdict |
+| ------------ | -------------: | --------------: | -------------------: | ----------------------: | ------: | ------- |
+| `a0`         |          1,328 |             201 |                 15.1 |                  33,982 |         |         |
+| `body`       |          1,207 |              14 |                  1.2 |                  33,218 | 97.75 % | fails   |
+| `body-older` |          1,118 |              13 |                  1.2 |                  34,556 | 101.7 % | passes  |
+
+The on-body test alone failed by a quarter of a point. Keeping the older track passed: the
+duplicates fall as far as on the tuning set, and the observed vehicle frames do not fall at all.
+Per site the observed frames still swing, from 83 % (Laguna at Eddy, Embarcadero at Broadway) to
+187 % (Lombard at Broderick), so the pooled figure is what the
+rule read. Keeping the older track is also what lifts the reviewed figures past every other arm:
+association accuracy 0.736 against 0.679, IDF1 0.435 against 0.350.
+
+It does not fix the drawn box on kirk0's trucks. Truck 1 still leaves drawn about 6.4 m long and
+truck 2's leaving box is still a new track's, and the reviewed axis p90 is 13.4° against 8.4°:
+some surviving tracks restart their box unconverged. That is the box's next question, not this
+rule's.
+
 ## Limitations
 
 - **One reviewed capture.** The identity scores are kirk0's tuning split: 21 reviewed objects,
@@ -211,26 +258,28 @@ sometimes the younger one with the shorter memory.
 
 ## Provenance
 
-| Item        | Value                                                                                                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| l5id0001    | tools at `9c3847fed` (`lidar-box-eval`, `lidar-state-estimation-baseline`, `lidar-ground-truth-eval`); rule committed in the same tree, before any candidate replay    |
-| l5id0002    | tools at `791da30ba`; `OverlapEndFrames` and its replay names in that tree; rule committed in it, before its replays                                                   |
-| l5id0003    | `lidar-box-eval` at `bc5c8999f`, the tracker unchanged from `791da30ba`; rule committed in it, before any observed-frame figure                                        |
-| Tuning      | `config/tuning.defaults.json` for every arm (parameter hash `sha256:c2a4fe43…`); the options are replay experiments                                                    |
-| Captures    | first segment of 23 corpus sites (70 s warm-up), kirk0 and kirk1's first 270 s (20 s); held out, the fifth segment of 9 sites from the NAS capture archive             |
-| References  | reviewed pack `ds_67842cb1b22b70e7`, sidecar revision 2232, split `kirk0-tuning` of `kirk0-reference-tuning-r1.json` (manifest `sha256:5df49517…`), footprint gate 1 m |
-| Raw outputs | summaries, evidence databases and per-frame scores under the run's scratch directory and the LiDAR volume, archived on the results share; not in Git                   |
+| Item        | Value                                                                                                                                                                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| l5id0001    | tools at `9c3847fed` (`lidar-box-eval`, `lidar-state-estimation-baseline`, `lidar-ground-truth-eval`); rule committed in the same tree, before any candidate replay                                                 |
+| l5id0002    | tools at `791da30ba`; `OverlapEndFrames` and its replay names in that tree; rule committed in it, before its replays                                                                                                |
+| l5id0003    | `lidar-box-eval` at `bc5c8999f`, the tracker unchanged from `791da30ba`; rule committed in it, before any observed-frame figure                                                                                     |
+| l5id0004    | tools at `843ab61ae`, the tree rebased unchanged but for the shared geometry's home as `f9656b755`; rule committed before its replays                                                                               |
+| Tuning      | `config/tuning.defaults.json` for every arm (parameter hash `sha256:c2a4fe43…`); the options are replay experiments                                                                                                 |
+| Captures    | first segment of 23 corpus sites (70 s warm-up), kirk0 and kirk1's first 270 s (20 s); held out, the fifth segment of 9 sites (l5id0003) and the second segment of 22 sites (l5id0004) from the NAS capture archive |
+| References  | reviewed pack `ds_67842cb1b22b70e7`, sidecar revision 2232, split `kirk0-tuning` of `kirk0-reference-tuning-r1.json` (manifest `sha256:5df49517…`), footprint gate 1 m                                              |
+| Raw outputs | summaries, evidence databases and per-frame scores under the run's scratch directory and the LiDAR volume, archived on the results share; not in Git                                                                |
 
 ## Recommendations
 
-1. **Keep every identity option off.** None held one track per vehicle on held-out data without
-   losing vehicles or association accuracy.
-2. **Test the overlap end on the body, not the box.** End a coasting track only when its predicted
-   position lies within a live track's observed returns (its cluster's hull), not when two drawn
-   boxes overlap: the drawn box is what reached into the next car in a queue.
-3. **Keep the older identity.** When two tracks hold one body, end the younger: the older carries
-   the converged heading and the learned length the published box needs.
-4. **Score identity on a labelled held-out window before any option ships** (label0001), as the
-   backlog asks.
-5. **Read tentative priority again.** It was the one option that improved every reviewed figure;
-   its duplicates fell only by a seventh, but nothing it did was worse.
+1. **Make the overlap end on the body, keeping the older track, the default once label0001's window
+   scores it.** It is the one option that held one track per vehicle on held-out data without
+   losing vehicles, and it lifts every reviewed identity figure. Shipping it needs the per-frame
+   identity comparison on a labelled held-out window the backlog asks for, and a decision on
+   whether the three options become tuning keys.
+2. **Keep every other identity option off.** None held one track per vehicle on held-out data
+   without losing vehicles or association accuracy.
+3. **Read tentative priority again with the overlap end.** It improved every reviewed figure on
+   its own; with the box-overlap end it took fragmentations to 31.
+4. **Give a surviving track's box its history.** When the overlap end keeps a track whose box has
+   not converged, the drawn box restarts; the published box could inherit the ended track's
+   heading and extent beliefs.
