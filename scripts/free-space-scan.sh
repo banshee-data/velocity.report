@@ -2,7 +2,7 @@
 # free-space-scan.sh - read-only survey of where disk space can be freed.
 #
 #   scripts/free-space-scan.sh            scan the internal disk, the lidar volume and the NAS shares
-#   MIN_MB=500 scripts/free-space-scan.sh lower the size threshold (default 1000 MB)
+#   scripts/free-space-scan.sh --min-mb 500   lower the size threshold (default 1000 MB)
 #
 # Never deletes, moves or writes anything. It prints candidates with a class, a suggested
 # NAS share and whether a PASS record matching its name exists. Moving and deleting are
@@ -21,6 +21,15 @@ NAS_HOST=${NAS_HOST:-arrow.local}
 CODE_DIR=${CODE_DIR:-$HOME/code}
 MIN_MB=${MIN_MB:-1000}
 SCAN_TIMEOUT=${SCAN_TIMEOUT:-300}
+while [ $# -gt 0 ]; do
+  case $1 in
+    --min-mb) MIN_MB=${2:?--min-mb needs a number}; shift ;;
+    -h | --help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+case $MIN_MB in '' | *[!0-9]*) echo "--min-mb must be a whole number of MB" >&2; exit 2 ;; esac
 VALIDATE_DIR="$LIDAR/offload/_logs"
 
 limited() { perl -e 'alarm shift; exec @ARGV' "$SCAN_TIMEOUT" "$@"; }

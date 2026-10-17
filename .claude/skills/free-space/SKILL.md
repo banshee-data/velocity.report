@@ -22,7 +22,8 @@ deleting originals is always the user's step.
 ### 1. Scan
 
 ```bash
-scripts/free-space-scan.sh            # MIN_MB=1000 by default
+scripts/free-space-scan.sh                  # threshold 1000 MB
+scripts/free-space-scan.sh --min-mb 500     # pass the skill's --min-mb through unchanged
 ```
 
 It reports free space, NAS mount state, large items under the home folder, `~/Library`,
