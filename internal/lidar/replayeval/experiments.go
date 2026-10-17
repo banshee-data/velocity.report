@@ -129,6 +129,23 @@ const (
 	ExperimentClassCoastBounds = "class_coast_bounds"
 	// ExperimentReacquisitionGuard: ReacquisitionGuard.
 	ExperimentReacquisitionGuard = "reacquisition_guard"
+	// Reacquisition and identity (Sprint 0.5.2.2), each a TrackerConfig
+	// option the tuning file does not carry:
+	//   - ExperimentContestedRejoin: OcclusionContinuityConfig.ContestedRejoin
+	//     with the ReacquisitionGuard it needs, so a track that missed the
+	//     last frame cannot take a cluster a live track explains about as well;
+	//   - ExperimentTentativePriority: TrackerConfig.TentativePriority;
+	//   - ExperimentClassIdentity: TrackerConfig.ClassIdentity.
+	ExperimentContestedRejoin   = "contested_rejoin"
+	ExperimentTentativePriority = "tentative_priority"
+	ExperimentClassIdentity     = "class_identity"
+	// ExperimentOverlapEnd1 and ExperimentOverlapEnd3 are
+	// TrackerConfig.OverlapEndFrames at one and three: a coasting track whose
+	// drawn box lies on a live confirmed track's ends on its first, or third,
+	// such frame of a coast. Two settings of one option, so a replay may
+	// name only one.
+	ExperimentOverlapEnd1 = "overlap_end_1"
+	ExperimentOverlapEnd3 = "overlap_end_3"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -271,6 +288,11 @@ var knownExperiments = map[string]bool{
 	ExperimentClassCoastBounds:    true,
 	ExperimentReacquisitionGuard:  true,
 	ExperimentOcclusionContinuity: true,
+	ExperimentContestedRejoin:     true,
+	ExperimentTentativePriority:   true,
+	ExperimentClassIdentity:       true,
+	ExperimentOverlapEnd1:         true,
+	ExperimentOverlapEnd3:         true,
 	ExperimentFixedLagRTS:         true,
 	ExperimentSolidBody:           true,
 

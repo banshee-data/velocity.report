@@ -44,6 +44,11 @@ flowchart TB
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
     l4clus0002["<b>l4clus0002</b><br/>The DBSCAN input cap under CMR, on kirk<br/>answered · 24m machine + 2h person (took 35m36s)<br/>manual: write"]:::answered
   end
+  subgraph area_l5id ["l5id: L5 identity"]
+    l5id0001["<b>l5id0001</b><br/>One vehicle, one track: the identity…<br/>answered · 2h40m machine + 3h person (took 1h)<br/>manual: implement, write"]:::answered
+    l5id0002["<b>l5id0002</b><br/>One vehicle, one track: ending a coasting…<br/>answered · 2h machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
+    l5id0003["<b>l5id0003</b><br/>One vehicle, one track: the overlap end…<br/>answered · 2h2m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
+  end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
   end
@@ -84,6 +89,9 @@ flowchart TB
   geom0003 --> l4clus0001
   geom0003 --> l4clus0002
   l3bg0005 --> l4clus0002
+  geom0008 --> l5id0001
+  l5id0001 --> l5id0002
+  l5id0002 --> l5id0003
   l3bg0005 --> perf0001
 ```
 
@@ -122,6 +130,9 @@ flowchart TB
 - [l3bg0018](l3bg/l3bg0018.md) CMR with the cell tercile and the support filter, on kirk: [report](../../docs/lidar/operations/l3-region-levers-kirk-2026-10.md); estimated 16m, took 42m on m1pro; asked [l3-region-levers-kirk-2026-10 #recommendations](../../docs/lidar/operations/l3-region-levers-kirk-2026-10.md#recommendations).
 - [l4clus0001](l4clus/l4clus0001.md) A range-adaptive DBSCAN neighbourhood, scored on fragmentation: [report](../../docs/lidar/operations/l4-range-adaptive-eps-2026-10.md); estimated 14m, took 1m7s on m1pro; asked [D-28](../../docs/DECISIONS.md), [research-briefing-2025-01-to-2026-10](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md).
 - [l4clus0002](l4clus/l4clus0002.md) The DBSCAN input cap under CMR, on kirk: [report](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md); estimated 24m, took 35m36s on m1pro; asked [w3-retention-fragmentation-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-retention-fragmentation-kirk0-2026-10.md#recommendations).
+- [l5id0001](l5id/l5id0001.md) One vehicle, one track: the identity options against duplicate tracks: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h40m, took 1h on m1pro; asked [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [BACKLOG](../../docs/BACKLOG.md).
+- [l5id0002](l5id/l5id0002.md) One vehicle, one track: ending a coasting track that lies on a live one: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h, took 1h on m1pro; asked [l5id0001](../../data/experiments/l5id/l5id0001.md).
+- [l5id0003](l5id/l5id0003.md) One vehicle, one track: the overlap end, kept to the vehicles it observes: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h2m, took 1h on m1pro; asked [l5id0002](../../data/experiments/l5id/l5id0002.md).
 
 ## Totals
 

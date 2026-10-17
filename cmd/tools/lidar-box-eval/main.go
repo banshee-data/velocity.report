@@ -51,6 +51,7 @@ func main() {
 		sensorY    = flag.Float64("sensor-y", 0, "sensor Y in the world frame")
 		tolerance  = flag.Float64("tolerance", 0.10, "a point is outside a box when further than this beyond its edge (metres)")
 		requireSet = flag.Bool("require-settled", true, "refuse a capture whose background is unsettled at the scoring boundary")
+		experiment = flag.String("experiment", "", "replay experiments for the pipeline and tracker, comma separated (replayeval names)")
 		tracePath  = flag.String("trace", "", "optional JSONL of moving vehicle tracks (3 m/s or more, 20 frames or more): each frame's members, sampled, and the published and km boxes, for plotting")
 	)
 	flag.Parse()
@@ -66,6 +67,10 @@ func main() {
 		log.Fatal("-pcap and -out are required")
 	}
 	chosen, err := selectVariants(*variants)
+	if err != nil {
+		log.Fatal(err)
+	}
+	experiments, err := replayeval.ParseExperiments(*experiment)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,6 +110,7 @@ func main() {
 		DurationSeconds:    *duration,
 		RequireSettled:     *requireSet,
 		KeepClusterMembers: true,
+		Experiments:        experiments,
 		TrackerTap:         sc.frame,
 	})
 	if err != nil {
@@ -116,9 +122,11 @@ func main() {
 		}
 	}
 	summary := sc.summary()
+	summary.Duplicates = sc.duplicates()
 	summary.Case = *caseName
 	summary.Captures = strings.Split(*pcaps, ",")
 	summary.Tuning = *tuning
+	summary.Experiments = experiments
 	summary.WarmupSeconds, summary.DurationSeconds = *warmup, *duration
 	summary.Tolerance = *tolerance
 	summary.Build = version.Version + " " + version.GitSHA
@@ -296,6 +304,11 @@ type scorer struct {
 	agg map[string]map[string]*rowAgg
 	// traces, when set, keeps each scored track's frames for -trace.
 	traces map[string]*trace
+	// vehicleFrames and dupFrames are the duplicate counts: each confirmed
+	// track's vehicle-sized scored frames, and each overlapping pair's.
+	vehicleFrames  map[string]int
+	observedFrames map[string]int
+	dupFrames      map[[2]string]int
 }
 
 // trace is one track's frames for plotting.
@@ -326,7 +339,8 @@ const published = "published"
 
 func newScorer(vs []variant, tolerance float64) *scorer {
 	s := &scorer{variants: vs, tolerance: tolerance, tracks: map[string]bool{}, class: map[string]string{},
-		state: map[string]map[string]*trackState{}, agg: map[string]map[string]*rowAgg{}}
+		state: map[string]map[string]*trackState{}, agg: map[string]map[string]*rowAgg{},
+		vehicleFrames: map[string]int{}, observedFrames: map[string]int{}, dupFrames: map[[2]string]int{}}
 	for _, name := range s.names() {
 		s.state[name] = map[string]*trackState{}
 		s.agg[name] = map[string]*rowAgg{}
@@ -437,6 +451,13 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 		cross = append(cross, crossRow{id: t.TrackID, cluster: ci, boxes: boxes})
 	}
 	s.crossScore(f, cross)
+	if f.Scored {
+		confirmed := map[string]bool{}
+		for _, t := range f.Tracks {
+			confirmed[t.TrackID] = t.TrackState == l5tracks.TrackConfirmed
+		}
+		s.countDuplicates(cross, confirmed)
+	}
 	for _, name := range s.names() {
 		for id := range s.state[name] {
 			if !live[id] {
@@ -561,70 +582,14 @@ func (s *scorer) crossScore(f replayeval.TrackerTapFrame, rows []crossRow) {
 	}
 }
 
-// corners are a box's corners, anticlockwise.
-func (b box) corners() [][2]float64 {
-	c, s := math.Cos(b.psi), math.Sin(b.psi)
-	out := make([][2]float64, 0, 4)
-	for _, k := range [][2]float64{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}} {
-		a, n := k[0]*b.length/2, k[1]*b.width/2
-		out = append(out, [2]float64{b.x + a*c - n*s, b.y + a*s + n*c})
-	}
-	return out
-}
-
-// overlapShare is the area two boxes share over the smaller box's area.
+// overlapShare is the area two boxes share over the smaller box's area
+// (l4perception.RectOverlapShare, the tracker's overlap end's test too).
 func overlapShare(p, q box) float64 {
-	if math.Hypot(p.x-q.x, p.y-q.y) > (math.Hypot(p.length, p.width)+math.Hypot(q.length, q.width))/2 {
-		return 0
-	}
-	small := math.Min(p.length*p.width, q.length*q.width)
-	if small <= 0 {
-		return 0
-	}
-	return polygonArea(clipConvex(p.corners(), q.corners())) / small
+	return l4perception.RectOverlapShare(p.rect(), q.rect())
 }
 
-// clipConvex is the subject polygon clipped to the convex, anticlockwise
-// clip polygon (Sutherland–Hodgman).
-func clipConvex(subject, clip [][2]float64) [][2]float64 {
-	out := subject
-	for i := range clip {
-		a, b := clip[i], clip[(i+1)%len(clip)]
-		in := out
-		out = nil
-		if len(in) == 0 {
-			break
-		}
-		side := func(p [2]float64) float64 { return (b[0]-a[0])*(p[1]-a[1]) - (b[1]-a[1])*(p[0]-a[0]) }
-		prev := in[len(in)-1]
-		for _, cur := range in {
-			sp, sc := side(prev), side(cur)
-			if sc >= 0 {
-				if sp < 0 {
-					out = append(out, crossing(prev, cur, sp, sc))
-				}
-				out = append(out, cur)
-			} else if sp >= 0 {
-				out = append(out, crossing(prev, cur, sp, sc))
-			}
-			prev = cur
-		}
-	}
-	return out
-}
-
-func crossing(p, q [2]float64, sp, sq float64) [2]float64 {
-	t := sp / (sp - sq)
-	return [2]float64{p[0] + t*(q[0]-p[0]), p[1] + t*(q[1]-p[1])}
-}
-
-func polygonArea(pts [][2]float64) float64 {
-	a := 0.0
-	for i := range pts {
-		j := (i + 1) % len(pts)
-		a += pts[i][0]*pts[j][1] - pts[j][0]*pts[i][1]
-	}
-	return math.Abs(a) / 2
+func (b box) rect() l4perception.Rect {
+	return l4perception.Rect{X: b.x, Y: b.y, HeadingRad: b.psi, Length: b.length, Width: b.width}
 }
 
 func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l5tracks.WorldCluster, ref areaRef, now int64) {
@@ -778,6 +743,7 @@ type Summary struct {
 	Case            string                         `json:"case"`
 	Captures        []string                       `json:"captures"`
 	Tuning          string                         `json:"tuning"`
+	Experiments     []string                       `json:"experiments,omitempty"`
 	Recording       string                         `json:"-"`
 	Build           string                         `json:"build"`
 	WarmupSeconds   float64                        `json:"warmup_seconds"`
@@ -787,7 +753,87 @@ type Summary struct {
 	Tracks          int                            `json:"confirmed_tracks"`
 	WallSeconds     float64                        `json:"wall_seconds"`
 	Variants        map[string]map[string]*Measure `json:"variants"`
+	Duplicates      Duplicates                     `json:"duplicates"`
 	Definitions     map[string]string              `json:"definitions"`
+}
+
+// Duplicates counts confirmed tracks drawn on one vehicle, from the published
+// boxes: a pair of vehicle-sized boxes (longer side 3 m or more) sharing more
+// than half the smaller box's area is two tracks on one body, since two
+// vehicles cannot overlap. A pair that does so on five or more scored frames
+// is a duplicate pair.
+type Duplicates struct {
+	// VehicleTracks are confirmed tracks drawn vehicle-sized on five or more
+	// scored frames, and VehicleFrames their vehicle-sized rows.
+	VehicleTracks int `json:"vehicle_tracks"`
+	VehicleFrames int `json:"vehicle_frames"`
+	// ObservedVehicleFrames are the vehicle-sized rows in which the track
+	// held a cluster: coasting rows excluded, so ending a coasting duplicate
+	// does not lower it and a vehicle no confirmed track holds does.
+	ObservedVehicleFrames int `json:"observed_vehicle_frames"`
+	// Pairs are duplicate pairs, Tracks the tracks in one or more, and
+	// PairFrames the overlapping pair-frames of every pair.
+	Pairs      int `json:"pairs"`
+	Tracks     int `json:"tracks"`
+	PairFrames int `json:"pair_frames"`
+}
+
+const (
+	dupVehicleMetres = 3.0
+	dupOverlapShare  = 0.5
+	dupMinFrames     = 5
+)
+
+// countDuplicates records one scored frame's vehicle-sized published boxes
+// and their overlapping pairs.
+func (s *scorer) countDuplicates(rows []crossRow, confirmed map[string]bool) {
+	var big []crossRow
+	for _, r := range rows {
+		b, ok := r.boxes[published]
+		if ok && confirmed[r.id] && math.Max(b.length, b.width) >= dupVehicleMetres {
+			big = append(big, r)
+			s.vehicleFrames[r.id]++
+			if r.cluster >= 0 {
+				s.observedFrames[r.id]++
+			}
+		}
+	}
+	for i := range big {
+		for j := i + 1; j < len(big); j++ {
+			if overlapShare(big[i].boxes[published], big[j].boxes[published]) > dupOverlapShare {
+				a, b := big[i].id, big[j].id
+				if b < a {
+					a, b = b, a
+				}
+				s.dupFrames[[2]string{a, b}]++
+			}
+		}
+	}
+}
+
+func (s *scorer) duplicates() Duplicates {
+	var d Duplicates
+	for _, n := range s.vehicleFrames {
+		if n >= dupMinFrames {
+			d.VehicleTracks++
+			d.VehicleFrames += n
+		}
+	}
+	for id, n := range s.observedFrames {
+		if s.vehicleFrames[id] >= dupMinFrames {
+			d.ObservedVehicleFrames += n
+		}
+	}
+	tracks := map[string]bool{}
+	for p, n := range s.dupFrames {
+		d.PairFrames += n
+		if n >= dupMinFrames {
+			d.Pairs++
+			tracks[p[0]], tracks[p[1]] = true, true
+		}
+	}
+	d.Tracks = len(tracks)
+	return d
 }
 
 // Measure is one variant's figures over one group of tracks.

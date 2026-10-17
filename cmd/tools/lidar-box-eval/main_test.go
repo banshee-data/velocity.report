@@ -141,3 +141,28 @@ func TestOverlapShareOfBoxes(t *testing.T) {
 		}
 	}
 }
+
+func TestDuplicatesCountTwoTracksOnOneVehicle(t *testing.T) {
+	s := newScorer(nil, 0.1)
+	car := box{x: 10, y: 0, psi: 0, length: 4.5, width: 1.8}
+	twin := box{x: 10.4, y: 0.1, psi: 0.05, length: 3.8, width: 1.8}
+	next := box{x: 16, y: 0, psi: 0, length: 4.5, width: 1.8}
+	person := box{x: 10, y: 0, psi: 0, length: 0.6, width: 0.5}
+	confirmed := map[string]bool{"a": true, "b": true, "c": true, "p": true}
+	for i := 0; i < 6; i++ {
+		rows := []crossRow{
+			{id: "a", cluster: 0, boxes: map[string]box{published: car}},
+			{id: "c", cluster: 1, boxes: map[string]box{published: next}},
+			{id: "p", cluster: 2, boxes: map[string]box{published: person}},
+		}
+		if i < 5 {
+			// The twin coasts on the car: no cluster of its own.
+			rows = append(rows, crossRow{id: "b", cluster: -1, boxes: map[string]box{published: twin}})
+		}
+		s.countDuplicates(rows, confirmed)
+	}
+	d := s.duplicates()
+	if d.VehicleTracks != 3 || d.Pairs != 1 || d.Tracks != 2 || d.PairFrames != 5 || d.ObservedVehicleFrames != 12 {
+		t.Fatalf("duplicates %+v, want 3 vehicle tracks and one pair of two tracks over 5 frames", d)
+	}
+}

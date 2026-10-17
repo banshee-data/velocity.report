@@ -224,12 +224,13 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentDensityCap, ExperimentDwellPolicy,
+		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContestedRejoin,
+		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
 		ExperimentFixedLagRTS, ExperimentFlipRule,
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
-		ExperimentOcclusionContinuity, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -240,7 +241,8 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation,
-		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
+		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentTentativePriority,
+		ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}
@@ -274,6 +276,16 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentReacquisitionGuard: func(c *l5tracks.TrackerConfig) {
 			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) { o.ReacquisitionGuard = true })
 		},
+		// ContestedRejoin does nothing without the guard, so it brings it.
+		ExperimentContestedRejoin: func(c *l5tracks.TrackerConfig) {
+			c.OcclusionContinuity = continuityWith(func(o *l5tracks.OcclusionContinuityConfig) {
+				o.ReacquisitionGuard, o.ContestedRejoin = true, true
+			})
+		},
+		ExperimentTentativePriority: func(c *l5tracks.TrackerConfig) { c.TentativePriority = true },
+		ExperimentClassIdentity:     func(c *l5tracks.TrackerConfig) { c.ClassIdentity = true },
+		ExperimentOverlapEnd1:       func(c *l5tracks.TrackerConfig) { c.OverlapEndFrames = 1 },
+		ExperimentOverlapEnd3:       func(c *l5tracks.TrackerConfig) { c.OverlapEndFrames = 3 },
 		// The replay tracks in the sensor frame, so the origin is the
 		// sensor, derived from the identity tracking transform.
 		ExperimentSolidBody: func(c *l5tracks.TrackerConfig) {
@@ -626,5 +638,12 @@ func TestRunRefusesContradictoryOverrideSettingsBeforeReadingACapture(t *testing
 	})
 	if err == nil || !strings.Contains(err.Error(), "two settings of one option") {
 		t.Fatalf("got %v, want both window caps refused before the missing capture is read", err)
+	}
+}
+
+func TestOverlapEndSettingsAreExclusive(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEnd3}, nil); err == nil {
+		t.Fatal("both overlap end settings were accepted")
 	}
 }

@@ -193,9 +193,12 @@ const (
 	// it is scenery and no longer a road user (the pipeline's dwell policy,
 	// through Tracker.EndAbsorbed). Nothing else deletes with it.
 	ExpiryAbsorbed
+	// ExpiryOverlapped: a coasting track's drawn box lay on a live confirmed
+	// track's (TrackerConfig.OverlapEndFrames): a duplicate of it.
+	ExpiryOverlapped
 )
 
-var expiryTokens = [...]string{"", "misses", "coast_age", "missed_unknown", "occluded_inferred", "out_of_fov", "non_finite", "absorbed"}
+var expiryTokens = [...]string{"", "misses", "coast_age", "missed_unknown", "occluded_inferred", "out_of_fov", "non_finite", "absorbed", "overlapped"}
 
 // String returns the expiry token, or "" for ExpiryNone.
 func (r ExpiryReason) String() string {
@@ -935,6 +938,9 @@ type ExpiryCounts struct {
 	// Absorbed is omitted at zero, so a replay without the dwell policy,
 	// the only thing that absorbs, writes the record it always wrote.
 	Absorbed int64 `json:"absorbed,omitempty"`
+	// Overlapped is omitted at zero for the same reason: only
+	// TrackerConfig.OverlapEndFrames ends a track with it.
+	Overlapped int64 `json:"overlapped,omitempty"`
 }
 
 func (c *ExpiryCounts) observe(r ExpiryReason) {
@@ -953,6 +959,8 @@ func (c *ExpiryCounts) observe(r ExpiryReason) {
 		c.NonFinite++
 	case ExpiryAbsorbed:
 		c.Absorbed++
+	case ExpiryOverlapped:
+		c.Overlapped++
 	}
 }
 
