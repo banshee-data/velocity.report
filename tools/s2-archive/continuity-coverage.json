@@ -144,7 +144,7 @@
     "azimuth_half_width_deg": 180
   },
   "kirk0": {
-    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git unknown, unstamped): case kirk0, captures sha256:ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 91.72 m, rounded up; sector from 52 to 257 deg anticlockwise: no estimate in the 155 deg from 257 (sector threshold 90 deg)",
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git unknown, unstamped): case kirk0, captures sha256:ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6, default replay params sha256:4c10f4e777027c5938601af1c1eccc5d4a566b0a05c3847d7bfa45b54dbc0b56; max_range_m is the maximum online-estimate range, 91.72 m, rounded up; sector from 52 to 257 deg anticlockwise: no estimate in the 155 deg from 257 (sector threshold 90 deg)",
     "sensor_x_m": 0,
     "sensor_y_m": 0,
     "min_range_m": 0,
