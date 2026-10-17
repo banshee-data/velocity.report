@@ -606,7 +606,11 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// count as the expiry rule.
 	var live []drawnRect
 	if t.Config.OverlapEndFrames > 0 {
-		live = t.liveConfirmedRects(matchedTracks)
+		if t.Config.OverlapEndOnBody {
+			live = t.liveConfirmedBodies(clusters, associations)
+		} else {
+			live = t.liveConfirmedRects(matchedTracks)
+		}
 	}
 	for trackID, track := range t.Tracks {
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
@@ -627,12 +631,19 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				t.coastSolidBody(track, inflation)
 			}
 			t.updateBox(track, nil, nowNanos)
-			if t.Config.OverlapEndFrames > 0 && coastsOnLive(track, live) {
-				track.overlapCoasts++
-				if track.overlapCoasts >= t.Config.OverlapEndFrames {
-					t.deleteExpired(track, nowNanos, ExpiryOverlapped)
-					deletedThisFrame++
-					continue
+			if t.Config.OverlapEndFrames > 0 {
+				if on, hit := t.coastsOn(track, live); hit {
+					track.overlapCoasts++
+					if track.overlapCoasts >= t.Config.OverlapEndFrames {
+						victim := t.overlapVictim(track, on)
+						t.deleteExpired(victim, nowNanos, ExpiryOverlapped)
+						deletedThisFrame++
+						if victim == track {
+							continue
+						}
+						live = withoutRect(live, on)
+						track.overlapCoasts = 0
+					}
 				}
 			}
 

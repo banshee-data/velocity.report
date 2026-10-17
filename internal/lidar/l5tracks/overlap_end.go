@@ -49,19 +49,102 @@ func (t *Tracker) liveConfirmedRects(matched map[string]bool) []drawnRect {
 	return out
 }
 
-// coastsOnLive reports whether the coasting track's drawn box shares more
-// than overlapEndShare of the smaller box with any live confirmed track's.
-func coastsOnLive(track *TrackedObject, live []drawnRect) bool {
+// overlapEndBodyMargin grows a live body's observed extent for the
+// on-body test: a prediction a little outside the returns is still on them.
+const overlapEndBodyMargin = 0.25
+
+// coastsOn reports the live confirmed track a coasting track lies on, by the
+// configured test: its drawn box over half another's (the default), or its
+// predicted position within another's observed returns (OverlapEndOnBody).
+func (t *Tracker) coastsOn(track *TrackedObject, live []drawnRect) (string, bool) {
+	if t.Config.OverlapEndOnBody {
+		for _, l := range live {
+			if l.id != track.TrackID && rectContains(l, float64(track.X), float64(track.Y)) {
+				return l.id, true
+			}
+		}
+		return "", false
+	}
 	r, ok := drawnBoxOf(track)
 	if !ok {
-		return false
+		return "", false
 	}
 	for _, l := range live {
 		if l.id != r.id && rectOverlapShare(r, l) > overlapEndShare {
-			return true
+			return l.id, true
 		}
 	}
-	return false
+	return "", false
+}
+
+// overlapVictim is the track the overlap end ends: the coasting one, or
+// with OverlapEndKeepOlder whichever of the two was created later.
+func (t *Tracker) overlapVictim(coasting *TrackedObject, liveID string) *TrackedObject {
+	if !t.Config.OverlapEndKeepOlder {
+		return coasting
+	}
+	if l := t.Tracks[liveID]; l != nil && l.TrackState != TrackDeleted && l.CreationSequence > coasting.CreationSequence {
+		return l
+	}
+	return coasting
+}
+
+// liveConfirmedBodies are the observed extents of the confirmed tracks
+// matched this frame: each cluster's members' extent along the track's drawn
+// heading, grown by overlapEndBodyMargin, or the cluster's PCA box without
+// members.
+func (t *Tracker) liveConfirmedBodies(clusters []WorldCluster, associations []string) []drawnRect {
+	var out []drawnRect
+	for ci, id := range associations {
+		track := t.Tracks[id]
+		if id == "" || track == nil || track.TrackState != TrackConfirmed || ci >= len(clusters) {
+			continue
+		}
+		c := &clusters[ci]
+		pts := c.Members
+		if len(pts) == 0 {
+			pts = c.RetainedPoints
+		}
+		if len(pts) == 0 {
+			if c.OBB != nil && c.OBB.Length > 0 {
+				out = append(out, drawnRect{id, float64(c.OBB.CenterX), float64(c.OBB.CenterY), float64(c.OBB.HeadingRad),
+					float64(c.OBB.Length) + 2*overlapEndBodyMargin, float64(c.OBB.Width) + 2*overlapEndBodyMargin})
+			}
+			continue
+		}
+		psi := float64(track.OBBHeadingRad)
+		if r, ok := drawnBoxOf(track); ok {
+			psi = r.psi
+		}
+		cs, sn := math.Cos(psi), math.Sin(psi)
+		aLo, aHi, nLo, nHi := math.Inf(1), math.Inf(-1), math.Inf(1), math.Inf(-1)
+		for _, p := range pts {
+			a, n := p.X*cs+p.Y*sn, -p.X*sn+p.Y*cs
+			aLo, aHi, nLo, nHi = math.Min(aLo, a), math.Max(aHi, a), math.Min(nLo, n), math.Max(nHi, n)
+		}
+		ca, cn := (aLo+aHi)/2, (nLo+nHi)/2
+		out = append(out, drawnRect{id, ca*cs - cn*sn, ca*sn + cn*cs, psi,
+			aHi - aLo + 2*overlapEndBodyMargin, nHi - nLo + 2*overlapEndBodyMargin})
+	}
+	return out
+}
+
+// rectContains reports whether (x, y) lies within the rectangle.
+func rectContains(r drawnRect, x, y float64) bool {
+	cs, sn := math.Cos(r.psi), math.Sin(r.psi)
+	dx, dy := x-r.x, y-r.y
+	return math.Abs(dx*cs+dy*sn) <= r.length/2 && math.Abs(-dx*sn+dy*cs) <= r.wd/2
+}
+
+// withoutRect drops the named track's rectangle.
+func withoutRect(rs []drawnRect, id string) []drawnRect {
+	out := rs[:0:0]
+	for _, r := range rs {
+		if r.id != id {
+			out = append(out, r)
+		}
+	}
+	return out
 }
 
 // rectOverlapShare is the area two rectangles share over the smaller one's

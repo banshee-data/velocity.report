@@ -146,6 +146,11 @@ const (
 	// name only one.
 	ExperimentOverlapEnd1 = "overlap_end_1"
 	ExperimentOverlapEnd3 = "overlap_end_3"
+	// ExperimentOverlapEndBody (TrackerConfig.OverlapEndOnBody) and
+	// ExperimentOverlapEndOlder (OverlapEndKeepOlder) qualify one of the two
+	// and are refused without it: the on-body test, and ending the younger.
+	ExperimentOverlapEndBody  = "overlap_end_body"
+	ExperimentOverlapEndOlder = "overlap_end_older"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -293,6 +298,8 @@ var knownExperiments = map[string]bool{
 	ExperimentClassIdentity:       true,
 	ExperimentOverlapEnd1:         true,
 	ExperimentOverlapEnd3:         true,
+	ExperimentOverlapEndBody:      true,
+	ExperimentOverlapEndOlder:     true,
 	ExperimentFixedLagRTS:         true,
 	ExperimentSolidBody:           true,
 
