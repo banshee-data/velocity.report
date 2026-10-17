@@ -504,6 +504,7 @@ func (b *L5BoxModel) Validate() error {
 		{"displacement_label_metres", b.DisplacementLabelMetres},
 		{"tall_height_metres", b.TallHeightMetres},
 		{"tall_length_floor_metres", b.TallLengthFloorMetres},
+		{"exclusive_margin_metres", b.ExclusiveMarginMetres},
 	} {
 		if math.IsNaN(f.value) || math.IsInf(f.value, 0) || f.value < 0 {
 			return fmt.Errorf("%s must be finite and non-negative, got %v", f.name, f.value)

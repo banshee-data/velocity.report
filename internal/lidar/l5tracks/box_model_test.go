@@ -403,11 +403,12 @@ func TestBoxModelTuningRoundTrips(t *testing.T) {
 		MaxCurvaturePerMetre: 0.2, MinYawRateDegPerSec: 3, UnlabelledYawRateDegPerSec: 45,
 		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8,
 		CourseLeadSec: 0.4, CourseRateTauSec: 0.2, DisplacementLabelMetres: 1.5,
-		ExtentWindowSpans: 150, TallHeightMetres: 2.6, TallLengthFloorMetres: 6}
+		ExtentWindowSpans: 150, TallHeightMetres: 2.6, TallLengthFloorMetres: 6, ExclusiveMarginMetres: 0.2}
 	cfg := BoxModelConfigFromTuning(block)
 	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 ||
 		cfg.CourseLeadSec != 0.4 || cfg.CourseRateTauSec != 0.2 || cfg.DisplacementLabelMetres != 1.5 ||
-		cfg.ExtentWindowSpans != 150 || cfg.TallHeightMetres != 2.6 || cfg.TallLengthFloorMetres != 6 {
+		cfg.ExtentWindowSpans != 150 || cfg.TallHeightMetres != 2.6 || cfg.TallLengthFloorMetres != 6 ||
+		cfg.ExclusiveMarginMetres != 0.2 {
 		t.Fatalf("block did not reach the tracker: %+v", cfg)
 	}
 	back := BoxModelTuningFromTracker(TrackerConfig{BoxModel: cfg})
@@ -498,5 +499,127 @@ func TestBoxModelMinAreaAxisHoldsTheBody(t *testing.T) {
 		if i >= 5 && axisErrorDeg(b.HeadingRad, psi) > 6 {
 			t.Fatalf("frame %d: %.1f° off", i, axisErrorDeg(b.HeadingRad, psi))
 		}
+	}
+}
+
+// countInside is how many points lie inside the box by more than tol.
+func countInside(b BoxState, pts []l4perception.WorldPoint, tol float64) int {
+	c, s := math.Cos(b.HeadingRad), math.Sin(b.HeadingRad)
+	n := 0
+	for _, p := range pts {
+		dx, dy := p.X-b.X, p.Y-b.Y
+		if math.Abs(dx*c+dy*s) < b.Length/2-tol && math.Abs(-dx*s+dy*c) < b.Width/2-tol {
+			n++
+		}
+	}
+	return n
+}
+
+func TestBoxModelExclusiveMarginStopsAtANeighbour(t *testing.T) {
+	// A car driving at the sensor shows only its front face; the vehicle
+	// floor draws it 3.8 m long, away from the sensor, through a second
+	// cluster 1.5 m behind the face.
+	run := func(margin float64) (BoxState, int) {
+		cfg := enabledBoxConfig()
+		cfg.ExclusiveMarginMetres = margin
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		var inside int
+		for i := 0; i < 30; i++ {
+			x := 30 - 0.5*float64(i)
+			pts := visibleFaces(x, 0, math.Pi, 4.5, 1.8, 20)
+			var other []l4perception.WorldPoint
+			for k := 0; k <= 10; k++ {
+				other = append(other, l4perception.WorldPoint{X: x - 2.25 + 1.5, Y: -0.5 + 0.1*float64(k)})
+			}
+			in := boxInput(int64(i)*1e8, pts, -5, 0)
+			in.Cluster.ClusterID = 1
+			in.Neighbours = []WorldCluster{*in.Cluster, {ClusterID: 2, CentroidX: float32(x - 0.75), Members: other}}
+			b = e.Observe(in)
+			assertContains(t, i, b, pts)
+			inside = countInside(b, other, 0)
+		}
+		return b, inside
+	}
+	b, inside := run(0)
+	if math.Abs(b.Length-3.8) > 1e-9 || inside == 0 {
+		t.Fatalf("without the margin: length %.2f holding %d of the neighbour's returns; the test needs the floor through it", b.Length, inside)
+	}
+	b, inside = run(0.1)
+	if inside != 0 {
+		t.Fatalf("exclusive box holds %d of the neighbour's returns", inside)
+	}
+	if math.Abs(b.Length-1.4) > 1e-6 {
+		t.Fatalf("exclusive box %.3f m long, want 1.4 (1.5 m to the neighbour less 0.1)", b.Length)
+	}
+}
+
+func TestFitRoomHoldsTheReturnsInsideTheRoom(t *testing.T) {
+	for _, c := range []struct {
+		name                         string
+		lo, hi, extent, centre       float64
+		roomLo, roomHi               float64
+		wantExtent, wantLo, wantHigh float64
+	}{
+		{"no neighbours", -1, 1, 4, 1, math.Inf(-1), math.Inf(1), 4, -1, 1},
+		{"room shorter than the extent", -1, 1, 4, 1, -1.5, 1.5, 3, 0, 0},
+		{"room inside the returns", -1, 1, 4, 1, -0.5, 0.5, 2, 0, 0},
+		{"room on one side", -1, 1, 4, -1, -1, 3, 4, 1, 1},
+	} {
+		ext, ctr := fitRoom(c.lo, c.hi, c.extent, c.centre, c.roomLo, c.roomHi)
+		if math.Abs(ext-c.wantExtent) > 1e-12 || ctr < c.wantLo-1e-12 || ctr > c.wantHigh+1e-12 {
+			t.Errorf("%s: extent %.3f centre %.3f, want %.3f within [%.3f, %.3f]", c.name, ext, ctr, c.wantExtent, c.wantLo, c.wantHigh)
+		}
+		if ctr-ext/2 > c.lo+1e-12 || ctr+ext/2 < c.hi-1e-12 {
+			t.Errorf("%s: box [%.3f, %.3f] does not hold the returns [%.3f, %.3f]", c.name, ctr-ext/2, ctr+ext/2, c.lo, c.hi)
+		}
+	}
+}
+
+func TestTrackerGivesTheBoxTheFramesClusters(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.BoxModel = enabledBoxConfig()
+	cfg.BoxModel.ExclusiveMarginMetres = 0.1
+	tracker := NewTracker(cfg)
+	start := time.Unix(1_700_000_000, 0)
+	a := carCluster(1, 30, 0, math.Pi)
+	for i := 0; i < 25; i++ {
+		x := 30 - 0.5*float64(i)
+		a = carCluster(1, x, 0, math.Pi)
+		var front []l4perception.WorldPoint
+		for _, p := range a.Members {
+			if p.X < x-2.2 {
+				front = append(front, p)
+			}
+		}
+		a.Members = front
+		var other []l4perception.WorldPoint
+		for k := 0; k <= 10; k++ {
+			other = append(other, l4perception.WorldPoint{X: x - 2.25 + 1.5, Y: -0.5 + 0.1*float64(k)})
+		}
+		b := WorldCluster{ClusterID: 2, SensorID: "box-test", CentroidX: float32(x - 0.75), CentroidY: 0,
+			BoundingBoxLength: 1, BoundingBoxWidth: 0.1, BoundingBoxHeight: 1, PointsCount: len(other), Members: other}
+		tracker.Update([]WorldCluster{a, b}, start.Add(time.Duration(i)*100*time.Millisecond))
+	}
+	if tracker.frameClusters != nil {
+		t.Fatal("the frame's clusters outlived the update")
+	}
+	found := false
+	for _, tr := range tracker.Tracks {
+		if tr.BoxLength <= 0 || math.Abs(float64(tr.X)-(30-0.5*24-2.25)) > 1.5 {
+			continue
+		}
+		found = true
+		box := BoxState{X: float64(tr.BoxX), Y: float64(tr.BoxY), HeadingRad: float64(tr.BoxHeadingRad), Length: float64(tr.BoxLength), Width: float64(tr.BoxWidth)}
+		var other []l4perception.WorldPoint
+		for k := 0; k <= 10; k++ {
+			other = append(other, l4perception.WorldPoint{X: 30 - 0.5*24 - 2.25 + 1.5, Y: -0.5 + 0.1*float64(k)})
+		}
+		if n := countInside(box, other, 0); n != 0 {
+			t.Fatalf("the car's box holds %d returns of the next cluster: %+v", n, box)
+		}
+	}
+	if !found {
+		t.Fatal("no box for the car's front face")
 	}
 }

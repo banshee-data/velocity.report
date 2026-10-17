@@ -388,6 +388,7 @@ func BoxModelConfigFromTuning(b *config.L5BoxModel) BoxModelConfig {
 	cfg.ExtentWindowSpans = b.ExtentWindowSpans
 	cfg.TallHeightMetres = b.TallHeightMetres
 	cfg.TallLengthFloorMetres = b.TallLengthFloorMetres
+	cfg.ExclusiveMarginMetres = b.ExclusiveMarginMetres
 	return cfg
 }
 
@@ -410,6 +411,7 @@ func BoxModelTuningFromTracker(cfg TrackerConfig) *config.L5BoxModel {
 		DisplacementLabelMetres: b.DisplacementLabelMetres,
 		ExtentWindowSpans:       b.ExtentWindowSpans,
 		TallHeightMetres:        b.TallHeightMetres, TallLengthFloorMetres: b.TallLengthFloorMetres,
+		ExclusiveMarginMetres: b.ExclusiveMarginMetres,
 	}
 }
 

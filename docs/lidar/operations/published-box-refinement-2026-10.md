@@ -5,10 +5,10 @@
 The box model of [geom0005](published-box-rotation-2026-10.md) holds every return and turns
 within what a vehicle can do, but it trails a turn by a few degrees, can draw a slow car across
 itself, costs a rectangle fit per track a frame, and draws kirk0's two trucks short. This report
-is one unattended run against those four: two pre-registered experiments, a check of the box
+is one unattended run against those four: three pre-registered experiments, a check of the box
 model under the L3 retune, and the change that makes the box model the default.
 
-- **Status:** Complete, 2026-10-17. One unattended run; experiments [geom0006](../../../data/experiments/geom/geom0006.md) and [geom0007](../../../data/experiments/geom/geom0007.md)
+- **Status:** Complete, 2026-10-17. One unattended run; experiments [geom0006](../../../data/experiments/geom/geom0006.md), [geom0007](../../../data/experiments/geom/geom0007.md) and [geom0008](../../../data/experiments/geom/geom0008.md)
 - **Layers:** L5 (the published box), the tuning defaults, the perf gate
 - **Related:** [published box rotation](published-box-rotation-2026-10.md), [L3 region override attribution](l3-region-override-attribution-kirk-2026-10.md), [performance regression testing](performance-regression-testing.md)
 - **Parameter sets:** the box model is in [tuning.defaults.json](../../../config/tuning.defaults.json); [box-model-off.json](../../../config/experiments/box-model-off.json) draws the legacy box
@@ -48,6 +48,10 @@ model under the L3 retune, and the change that makes the box model the default.
   another confirmed track's box on 17.6 % (10.7 %). The legacy figure is mostly two tracks on one
   vehicle; the difference is the box model's floor and held extents reaching into the next
   vehicle.
+- **Stopping the box at its neighbours was not enough.** A margin short of the next cluster's
+  returns, and no reach toward the sensor (geom0008), cut foreign returns from 6.0 % to 3.2 % and
+  overlap from 17.6 % to 14.9 %, short of the rule's half and 3 points, and made the box jump as
+  neighbours came and went. It stays off. What remains of the overlap is two tracks on one cluster.
 
 ## Question
 
@@ -69,6 +73,7 @@ Each option is a key in the `box_model` block, off at the defaults' value
 | `axis_source: min_area`                          | The members' minimum-area rectangle's axis in place of the rectangle fit, abstaining when its aspect is under 1.2 ([min_area_rect.go](../../../internal/lidar/l4perception/min_area_rect.go)) |
 | `extent_window_spans`                            | How many admitted spans the length and width are the third largest of: 50 as before, or the whole life at 0                                                                                   |
 | `tall_height_metres`, `tall_length_floor_metres` | A labelled box of a vehicle's width whose corroborated vertical extent reaches the height is drawn at least the floor long                                                                    |
+| `exclusive_margin_metres`                        | The part of the box beyond its own returns stops this far short of another cluster's return in its path, and on the sensor's side at its nearest return                                       |
 
 Observing the yaw rate from the course's rate was also built and removed: it moved none of the
 lag, because the lag is in the course itself, not in the filter's rate.
@@ -261,6 +266,31 @@ floor and the unseen remainder drawn away from the sensor, the corroborated exte
 the view shrinks) hold another cluster's returns on 6 % of vehicle rows against 1.3 %, and
 overlap another track's box on 17.6 % against 10.7 %. geom0005 did not measure this.
 
+### geom0008: an exclusive box
+
+geom0008 stopped the part of the box beyond its own returns a margin short of another cluster's
+return in its path, and on the sensor's side at its own nearest return (space the sensor saw
+through), never shorter than its own returns' span (`exclusive_margin_metres`). The rule,
+committed before the replays, asked for the foreign-return share to halve and the overlap share
+to fall by 3 points, with the box model's turn, straight-road, centre-slip and reviewed-pose
+figures held. On the 23 first segments and kirk (447 vehicle tracks, 14,365 rows):
+
+| Variant      | Foreign returns | Neighbour overlap | Centre slip p90 | At rest | Visible rate violations | Straight p90 | kirk0 axis p90 | kirk0 centre p50 |
+| ------------ | --------------: | ----------------: | --------------: | ------: | ----------------------: | -----------: | -------------: | ---------------: |
+| `km`         |          5.95 % |           17.58 % |          0.33 m |   3.6 % |                   0.8 % |         6.1° |           8.4° |           2.14 m |
+| margin 0.1 m |          3.19 % |           14.90 % |          0.43 m |   3.6 % |                   0.8 % |         6.1° |          14.0° |           2.24 m |
+| margin 0.3 m |          3.15 % |           14.65 % |          0.44 m |   3.6 % |                   0.7 % |         6.1° |          14.0° |           2.25 m |
+
+Both failed. Foreign returns fell by 46 % and 47 %, short of half; overlap by 2.7 and 2.9
+points, short of 3; the centre slip's p90 rose past its limit of 0.41 m, because a box that stops
+at a neighbour jumps when the neighbour comes and goes; and kirk0's reviewed axis p90 rose by
+5.6°. That last is not a heading the box drew: each track's heading is the same with and without
+the margin. On four of truck 1's keyframes the shorter box handed the nearest-box match to the
+other track on the same truck, whose axis is further off. It fails the clause all the same, and
+it is the duplicate tracks again. What the margin cannot reach is the rest of the overlap: two
+tracks on one cluster share its returns, which no margin between clusters separates. The option
+stays off; the fifth segments stay unread.
+
 ## The box model in the defaults
 
 geom0005 asked for the Pi timing before the box model became the default. The direction for this
@@ -313,10 +343,11 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 | Round 2 and fourth segments | scorer `a8da1a8d6`; fourth segments of 20 sites, 70 s warm-up                                                                                                       |
 | Round 3 (CMR)               | scorer `a8da1a8d6`; `l3-retune-cm2-mp8-floor.json` as at `6e0f5ba32` less the box block, SHA-256 `58ec690d5034664748d6ec3701202074c28c4b5d7b437e532095bd17dc924148` |
 | geom0007                    | scorer `6533b390a`; defaults with the box model                                                                                                                     |
+| geom0008                    | scorer stamped `5379c812e`, the tree rebased unchanged as `30ad96db7`; defaults with the box model                                                                  |
 | Defaults at the change      | `config/tuning.defaults.json` at `6e0f5ba32`, SHA-256 `5b6a7ac0a933ad33e918bfc4c537d0e528168c8bcf8bf342ad1cf5e28f226923`                                            |
 | Perf baselines              | `make perf-baseline-all` from a shared clone at `8f8ff9c9e`, fingerprints full `4c10f4e77702`, l3-only `9884a9eae446`; the on/off pairs at `6e0f5ba32`              |
 | References                  | physical-reference bundle revision 76 (pack `ds_95be6fb22498b44a`), 44 keyframes with an observed yaw                                                               |
-| Rules                       | geom0006 round 1 and round 2 in its spec; geom0007 committed at `168f2d517` before its replays                                                                      |
+| Rules                       | geom0006 round 1 and round 2 in its spec; geom0007 committed at `168f2d517` and geom0008 at `da1657eb1`, each before its replays                                    |
 | Raw outputs                 | summaries, per-frame rows and logs under the run's scratch directory on the development Mac, archived on the results share; not in Git                              |
 
 ## Recommendations
@@ -325,8 +356,8 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
    owed, and `axis_source: pca` is the fallback if the fit is too dear there.
 2. **Adopt the L3 retune on its own evidence.** The box model is better under it, not worse;
    nothing here blocks l3bg0009.
-3. **Stop the box at its neighbours.** The unseen part of a box, drawn from the length floor or
-   a held extent, should end where another cluster's returns begin.
+3. **Do not stop the box at its neighbours yet.** geom0008 stopped its unseen part at the next
+   cluster and gained too little: most of what remains is two tracks on one cluster.
 4. **Fix duplicate tracks on one vehicle before the box's length.** Truck 1 is held by two tracks
    while it passes; the box can only be as whole as the track it belongs to.
 5. **Leave the course options off.** The lag is the velocity's; work on it belongs with the

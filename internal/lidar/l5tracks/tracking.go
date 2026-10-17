@@ -296,6 +296,10 @@ type Tracker struct {
 	// time. See time_domain.go.
 	LastUpdateNanos int64
 
+	// frameClusters are this update's clusters, for the published box's
+	// neighbours; nil outside Update.
+	frameClusters []WorldCluster
+
 	// timeStats records the capture-time stream for diagnostics.
 	timeStats TimeDomainStats
 	// continuity records support, expiry and reacquisition for diagnostics.
@@ -454,6 +458,8 @@ func NewTracker(config TrackerConfig) *Tracker {
 func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	t.frameClusters = clusters
+	defer func() { t.frameClusters = nil }()
 
 	nowNanos := timestamp.UnixNano()
 

@@ -103,6 +103,12 @@ type BoxModelConfig struct {
 	// or a bus, which an end-on view draws far shorter than it is.
 	TallHeightMetres      float64
 	TallLengthFloorMetres float64
+	// ExclusiveMarginMetres, when positive, stops the part of the box beyond
+	// its own returns this far short of another cluster's return in its
+	// path (BoxInput.Neighbours): the floor, a held extent and the unseen
+	// remainder do not reach into the next vehicle. The box is never shorter
+	// than its own returns' span.
+	ExclusiveMarginMetres float64
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -176,6 +182,9 @@ type BoxInput struct {
 	// Merge says the tracker flagged the cluster as a probable merge
 	// (TrackedObject.MergeCandidate): its spans are not the body's.
 	Merge bool
+	// Neighbours are the frame's clusters, the box's own among them or not;
+	// read only with ExclusiveMarginMetres.
+	Neighbours []WorldCluster
 }
 
 // BoxState is the published box.
@@ -252,7 +261,7 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 	b := track.box.Observe(BoxInput{
 		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
 		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
-		Cluster: cluster, Merge: track.MergeCandidate,
+		Cluster: cluster, Merge: track.MergeCandidate, Neighbours: t.frameClusters,
 	})
 	if b.Length <= 0 {
 		return
@@ -688,10 +697,101 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 	sn := -(e.cfg.SensorX-in.X)*s + (e.cfg.SensorY-in.Y)*c
 	e.offA = boxCentre(aLo, aHi, length, sa, e.offA, first, e.cfg.CentrePull)
 	e.offN = boxCentre(nLo, nHi, width, sn, e.offN, first, e.cfg.CentrePull)
+	if e.cfg.ExclusiveMarginMetres > 0 {
+		r := [4]float64{math.Inf(-1), math.Inf(1), math.Inf(-1), math.Inf(1)}
+		if len(in.Neighbours) > 0 {
+			r = e.room(in, c, s, aLo, aHi, nLo, nHi, length, width)
+		}
+		// The sensor saw through the space between it and the nearest
+		// return: no part of the body is there.
+		r[0], r[1] = sensorSide(sa, aLo, aHi, r[0], r[1])
+		r[2], r[3] = sensorSide(sn, nLo, nHi, r[2], r[3])
+		length, e.offA = fitRoom(aLo, aHi, length, e.offA, r[0], r[1])
+		width, e.offN = fitRoom(nLo, nHi, width, e.offN, r[2], r[3])
+	}
 	e.box = BoxState{
 		X: in.X + e.offA*c - e.offN*s, Y: in.Y + e.offA*s + e.offN*c,
 		HeadingRad: e.psi, Length: length, Width: width, Labelled: e.labelled,
 	}
+}
+
+// room is how far the box may reach along its axes, relative to the track
+// position: [aMin, aMax, nMin, nMax], from the returns of other clusters
+// inside the box as placed, each stopping the axis on which it lies beyond
+// the box's own returns (the one it lies further beyond, when both) a
+// margin short of it. A return inside the own returns' rectangle stops
+// nothing: the box must hold its own.
+func (e *BoxEstimator) room(in BoxInput, c, s, aLo, aHi, nLo, nHi, length, width float64) [4]float64 {
+	r := [4]float64{math.Inf(-1), math.Inf(1), math.Inf(-1), math.Inf(1)}
+	m := e.cfg.ExclusiveMarginMetres
+	cx, cy := in.X+e.offA*c-e.offN*s, in.Y+e.offA*s+e.offN*c
+	reach := math.Hypot(length, width)/2 + m
+	for i := range in.Neighbours {
+		nb := &in.Neighbours[i]
+		if nb == in.Cluster || (in.Cluster != nil && nb.ClusterID != 0 && nb.ClusterID == in.Cluster.ClusterID) {
+			continue
+		}
+		pts := nb.Members
+		if len(pts) == 0 {
+			pts = nb.RetainedPoints
+		}
+		if len(pts) == 0 || math.Hypot(float64(nb.CentroidX)-cx, float64(nb.CentroidY)-cy) > reach+nbRadius(nb) {
+			continue
+		}
+		for _, p := range pts {
+			dx, dy := p.X-in.X, p.Y-in.Y
+			a, n := dx*c+dy*s, -dx*s+dy*c
+			if math.Abs(a-e.offA) >= length/2+m || math.Abs(n-e.offN) >= width/2+m {
+				continue
+			}
+			beyondA := math.Max(a-aHi, aLo-a)
+			beyondN := math.Max(n-nHi, nLo-n)
+			switch {
+			case beyondA <= 0 && beyondN <= 0:
+			case beyondA >= beyondN && a > aHi:
+				r[1] = math.Min(r[1], a-m)
+			case beyondA >= beyondN:
+				r[0] = math.Max(r[0], a+m)
+			case n > nHi:
+				r[3] = math.Min(r[3], n-m)
+			default:
+				r[2] = math.Max(r[2], n+m)
+			}
+		}
+	}
+	return r
+}
+
+// nbRadius bounds a cluster's returns' distance from its centroid by its PCA
+// box's half diagonal, or 2 m without one.
+func nbRadius(nb *WorldCluster) float64 {
+	if nb.OBB != nil {
+		return math.Hypot(float64(nb.OBB.Length), float64(nb.OBB.Width))/2 + 0.5
+	}
+	return 2
+}
+
+// sensorSide closes the room on the sensor's side of the returns [lo, hi]
+// at the nearest return, when the sensor at s lies beyond them.
+func sensorSide(s, lo, hi, roomLo, roomHi float64) (float64, float64) {
+	switch {
+	case s >= hi:
+		roomHi = math.Min(roomHi, hi)
+	case s <= lo:
+		roomLo = math.Max(roomLo, lo)
+	}
+	return roomLo, roomHi
+}
+
+// fitRoom shortens an extent to the room [lo', hi'] the neighbours leave,
+// never below the own returns' span [lo, hi], and moves the centre inside
+// both the room and the interval that holds the returns.
+func fitRoom(lo, hi, extent, centre, roomLo, roomHi float64) (float64, float64) {
+	roomLo, roomHi = math.Min(roomLo, lo), math.Max(roomHi, hi)
+	extent = math.Max(math.Min(extent, roomHi-roomLo), hi-lo)
+	low := math.Max(roomLo+extent/2, hi-extent/2)
+	high := math.Min(roomHi-extent/2, lo+extent/2)
+	return extent, math.Min(math.Max(centre, low), high)
 }
 
 // lengthFloor is the least length a labelled box of a vehicle's width is

@@ -97,7 +97,8 @@
         "displacement_label_metres": 0,
         "extent_window_spans": 50,
         "tall_height_metres": 0,
-        "tall_length_floor_metres": 0
+        "tall_length_floor_metres": 0,
+        "exclusive_margin_metres": 0
       }
     }
   },
