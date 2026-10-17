@@ -151,17 +151,18 @@ func TestDuplicatesCountTwoTracksOnOneVehicle(t *testing.T) {
 	confirmed := map[string]bool{"a": true, "b": true, "c": true, "p": true}
 	for i := 0; i < 6; i++ {
 		rows := []crossRow{
-			{id: "a", boxes: map[string]box{published: car}},
-			{id: "c", boxes: map[string]box{published: next}},
-			{id: "p", boxes: map[string]box{published: person}},
+			{id: "a", cluster: 0, boxes: map[string]box{published: car}},
+			{id: "c", cluster: 1, boxes: map[string]box{published: next}},
+			{id: "p", cluster: 2, boxes: map[string]box{published: person}},
 		}
 		if i < 5 {
-			rows = append(rows, crossRow{id: "b", boxes: map[string]box{published: twin}})
+			// The twin coasts on the car: no cluster of its own.
+			rows = append(rows, crossRow{id: "b", cluster: -1, boxes: map[string]box{published: twin}})
 		}
 		s.countDuplicates(rows, confirmed)
 	}
 	d := s.duplicates()
-	if d.VehicleTracks != 3 || d.Pairs != 1 || d.Tracks != 2 || d.PairFrames != 5 {
+	if d.VehicleTracks != 3 || d.Pairs != 1 || d.Tracks != 2 || d.PairFrames != 5 || d.ObservedVehicleFrames != 12 {
 		t.Fatalf("duplicates %+v, want 3 vehicle tracks and one pair of two tracks over 5 frames", d)
 	}
 }

@@ -306,8 +306,9 @@ type scorer struct {
 	traces map[string]*trace
 	// vehicleFrames and dupFrames are the duplicate counts: each confirmed
 	// track's vehicle-sized scored frames, and each overlapping pair's.
-	vehicleFrames map[string]int
-	dupFrames     map[[2]string]int
+	vehicleFrames  map[string]int
+	observedFrames map[string]int
+	dupFrames      map[[2]string]int
 }
 
 // trace is one track's frames for plotting.
@@ -339,7 +340,7 @@ const published = "published"
 func newScorer(vs []variant, tolerance float64) *scorer {
 	s := &scorer{variants: vs, tolerance: tolerance, tracks: map[string]bool{}, class: map[string]string{},
 		state: map[string]map[string]*trackState{}, agg: map[string]map[string]*rowAgg{},
-		vehicleFrames: map[string]int{}, dupFrames: map[[2]string]int{}}
+		vehicleFrames: map[string]int{}, observedFrames: map[string]int{}, dupFrames: map[[2]string]int{}}
 	for _, name := range s.names() {
 		s.state[name] = map[string]*trackState{}
 		s.agg[name] = map[string]*rowAgg{}
@@ -822,6 +823,10 @@ type Duplicates struct {
 	// scored frames, and VehicleFrames their vehicle-sized rows.
 	VehicleTracks int `json:"vehicle_tracks"`
 	VehicleFrames int `json:"vehicle_frames"`
+	// ObservedVehicleFrames are the vehicle-sized rows in which the track
+	// held a cluster: coasting rows excluded, so ending a coasting duplicate
+	// does not lower it and a vehicle no confirmed track holds does.
+	ObservedVehicleFrames int `json:"observed_vehicle_frames"`
 	// Pairs are duplicate pairs, Tracks the tracks in one or more, and
 	// PairFrames the overlapping pair-frames of every pair.
 	Pairs      int `json:"pairs"`
@@ -844,6 +849,9 @@ func (s *scorer) countDuplicates(rows []crossRow, confirmed map[string]bool) {
 		if ok && confirmed[r.id] && math.Max(b.length, b.width) >= dupVehicleMetres {
 			big = append(big, r)
 			s.vehicleFrames[r.id]++
+			if r.cluster >= 0 {
+				s.observedFrames[r.id]++
+			}
 		}
 	}
 	for i := range big {
@@ -865,6 +873,11 @@ func (s *scorer) duplicates() Duplicates {
 		if n >= dupMinFrames {
 			d.VehicleTracks++
 			d.VehicleFrames += n
+		}
+	}
+	for id, n := range s.observedFrames {
+		if s.vehicleFrames[id] >= dupMinFrames {
+			d.ObservedVehicleFrames += n
 		}
 	}
 	tracks := map[string]bool{}
