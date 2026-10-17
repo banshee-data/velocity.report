@@ -341,7 +341,8 @@ func (s *scorer) names() []string {
 }
 
 var rowHeader = []string{"variant", "track", "t_ns", "class", "speed", "x", "y", "psi_deg", "length", "width",
-	"points", "outside", "max_out", "course_deg", "dpsi_deg", "span_a", "span_n", "ref_axis_deg", "ref_area"}
+	"points", "outside", "max_out", "course_deg", "dpsi_deg", "span_a", "span_n", "ref_axis_deg", "ref_area",
+	"merge", "height", "ground_clipped"}
 
 func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 	clusterOf := map[string]int{}
@@ -730,7 +731,8 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 	if s.rows != nil {
 		_ = s.rows.Write([]string{name, t.TrackID, strconv.FormatInt(now, 10), s.class[t.TrackID],
 			f3(speed), f3(b.x), f3(b.y), f3(b.psi * 180 / math.Pi), f3(b.length), f3(b.width),
-			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN), refAxis(ref), f3(ref.area)})
+			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN), refAxis(ref), f3(ref.area),
+			strconv.FormatBool(t.MergeCandidate), f3(clusterHeight(cluster)), strconv.FormatBool(cluster != nil && cluster.GroundClipped)})
 	}
 	if b.length > 0 {
 		st.traj = append(st.traj, trajPoint{t: now, x: float64(t.X), y: float64(t.Y), speed: speed, psi: b.psi})
@@ -750,6 +752,14 @@ func (s *scorer) keep(name, id string, st *trackState) {
 		kept[name] = map[string]*trackState{}
 	}
 	kept[name][id] = st
+}
+
+// clusterHeight is the cluster's vertical extent, NaN without one.
+func clusterHeight(c *l5tracks.WorldCluster) float64 {
+	if c == nil {
+		return math.NaN()
+	}
+	return float64(c.BoundingBoxHeight)
 }
 
 func f3(v float64) string {
