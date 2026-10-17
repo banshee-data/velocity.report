@@ -91,7 +91,10 @@
         "yaw_accel_sigma": 0.4,
         "axis_sigma_scale": 1.5,
         "centre_pull": 0.3,
-        "vehicle_length_floor_metres": 3.8
+        "vehicle_length_floor_metres": 3.8,
+        "course_lead_sec": 0,
+        "course_rate_tau_sec": 0,
+        "displacement_label_metres": 0
       }
     }
   },

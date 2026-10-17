@@ -329,9 +329,11 @@ func TestTrackerWithoutTheBoxModelPublishesNoBox(t *testing.T) {
 func TestBoxModelTuningRoundTrips(t *testing.T) {
 	block := &config.L5BoxModel{Enabled: true, AxisSource: "rectangle_fit", CourseMinSpeedMps: 1,
 		MaxCurvaturePerMetre: 0.2, MinYawRateDegPerSec: 3, UnlabelledYawRateDegPerSec: 45,
-		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8}
+		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8,
+		CourseLeadSec: 0.4, CourseRateTauSec: 0.2, DisplacementLabelMetres: 1.5}
 	cfg := BoxModelConfigFromTuning(block)
-	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 {
+	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 ||
+		cfg.CourseLeadSec != 0.4 || cfg.CourseRateTauSec != 0.2 || cfg.DisplacementLabelMetres != 1.5 {
 		t.Fatalf("block did not reach the tracker: %+v", cfg)
 	}
 	back := BoxModelTuningFromTracker(TrackerConfig{BoxModel: cfg})
