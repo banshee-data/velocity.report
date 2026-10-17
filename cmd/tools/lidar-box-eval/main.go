@@ -50,6 +50,7 @@ func main() {
 		sensorY    = flag.Float64("sensor-y", 0, "sensor Y in the world frame")
 		tolerance  = flag.Float64("tolerance", 0.10, "a point is outside a box when further than this beyond its edge (metres)")
 		requireSet = flag.Bool("require-settled", true, "refuse a capture whose background is unsettled at the scoring boundary")
+		tracePath  = flag.String("trace", "", "optional JSONL of moving vehicle tracks (3 m/s or more, 20 frames or more): each frame's members, sampled, and the published and km boxes, for plotting")
 	)
 	flag.Parse()
 	// The pipeline reads the default tuning document wherever it runs from.
@@ -72,6 +73,9 @@ func main() {
 	}
 
 	sc := newScorer(chosen, *tolerance)
+	if *tracePath != "" {
+		sc.traces = map[string]*trace{}
+	}
 	if *rowsPath != "" {
 		f, err := os.Create(*rowsPath)
 		if err != nil {
@@ -104,6 +108,11 @@ func main() {
 	})
 	if err != nil {
 		log.Fatal(err)
+	}
+	if *tracePath != "" {
+		if err := sc.writeTraces(*tracePath); err != nil {
+			log.Fatal(err)
+		}
 	}
 	summary := sc.summary()
 	summary.Case = *caseName
@@ -236,7 +245,33 @@ type scorer struct {
 	// agg holds per variant, per track, the per-row results; groups are
 	// assembled at the end from each track's final class.
 	agg map[string]map[string]*rowAgg
+	// traces, when set, keeps each scored track's frames for -trace.
+	traces map[string]*trace
 }
+
+// trace is one track's frames for plotting.
+type trace struct {
+	Track  string       `json:"track"`
+	Class  string       `json:"class"`
+	Frames []traceFrame `json:"frames"`
+	maxV   float64
+}
+
+type traceFrame struct {
+	TimeNs int64          `json:"t_ns"`
+	Speed  float64        `json:"speed"`
+	Points [][2]float64   `json:"points"`
+	Boxes  map[string]box `json:"boxes"`
+}
+
+func (b box) MarshalJSON() ([]byte, error) {
+	return json.Marshal([5]float64{b.x, b.y, b.psi, b.length, b.width})
+}
+
+const (
+	traceMaxPoints = 60
+	traceMaxFrames = 300
+)
 
 const published = "published"
 
@@ -331,6 +366,9 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 			continue
 		}
 		s.tracks[t.TrackID] = true
+		if s.traces != nil {
+			s.keepTrace(t, cluster, boxes, now)
+		}
 		ref := minAreaRect(cluster)
 		for name, b := range boxes {
 			s.score(name, t, b, cluster, ref, now)
@@ -898,4 +936,61 @@ func diagnosePCA(_ *l5tracks.TrackedObject, c *l5tracks.WorldCluster) (box, bool
 	}
 	o := c.OBB
 	return box{x: float64(o.CenterX), y: float64(o.CenterY), psi: float64(o.HeadingRad), length: float64(o.Length), width: float64(o.Width)}, true
+}
+
+func (s *scorer) keepTrace(t *l5tracks.TrackedObject, cluster *l5tracks.WorldCluster, boxes map[string]box, now int64) {
+	tr := s.traces[t.TrackID]
+	if tr == nil {
+		tr = &trace{Track: t.TrackID}
+		s.traces[t.TrackID] = tr
+	}
+	if len(tr.Frames) >= traceMaxFrames {
+		return
+	}
+	speed := math.Hypot(float64(t.VX), float64(t.VY))
+	tr.maxV = math.Max(tr.maxV, speed)
+	f := traceFrame{TimeNs: now, Speed: speed, Boxes: map[string]box{}}
+	for _, name := range []string{published, "km"} {
+		if b, ok := boxes[name]; ok {
+			f.Boxes[name] = b
+		}
+	}
+	if cluster != nil {
+		members := cluster.Members
+		step := 1
+		if len(members) > traceMaxPoints {
+			step = (len(members) + traceMaxPoints - 1) / traceMaxPoints
+		}
+		for i := 0; i < len(members); i += step {
+			f.Points = append(f.Points, [2]float64{members[i].X, members[i].Y})
+		}
+	}
+	tr.Frames = append(tr.Frames, f)
+}
+
+// writeTraces writes the vehicle tracks that moved at 3 m/s or more for 20
+// frames or more; a plot selects among them.
+func (s *scorer) writeTraces(path string) error {
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	ids := make([]string, 0, len(s.traces))
+	for id := range s.traces {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	for _, id := range ids {
+		tr := s.traces[id]
+		tr.Class = s.class[id]
+		if group(tr.Class) != "vehicle" || tr.maxV < 3 || len(tr.Frames) < 20 {
+			continue
+		}
+		if err := enc.Encode(tr); err != nil {
+			return err
+		}
+	}
+	return nil
 }
