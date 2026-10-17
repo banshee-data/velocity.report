@@ -896,7 +896,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		Dwell:                     dwell,
 		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,
-		KeepClusterMembers:        cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments) || tuningCfg.L5.CvKfV1.BoxModel.NeedsMembers(),
+		KeepClusterMembers:        cfg.KeepClusterMembers || solidBodyFullMembers(tuningCfg.L5.CvKfV1, experiments) || boxModelMembers(tuningCfg.L5.CvKfV1),
 		ObservationSourceID:       observationSourceID,
 		ObservationCalibrationID:  observationCalibrationID,
 		StateEstimatorID:          "cv_kf_v1",
@@ -1392,6 +1392,12 @@ func solidBodyEnabled(cfg *config.TuningConfig, experiments []string) bool {
 
 // solidBodyFullMembers says the tracker is handed every cluster member: the
 // tuning file's solid_body.full_members, or the experiment of that name.
+// boxModelMembers is whether the tuning's box model reads the cluster members;
+// false without an L5 block.
+func boxModelMembers(l5 *config.L5CvKfV1) bool {
+	return l5 != nil && l5.BoxModel.NeedsMembers()
+}
+
 func solidBodyFullMembers(l5 *config.L5CvKfV1, experiments []string) bool {
 	if l5 != nil && l5.SolidBody != nil && l5.SolidBody.Enabled && l5.SolidBody.FullMembers {
 		return true
