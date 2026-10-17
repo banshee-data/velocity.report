@@ -1,38 +1,38 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-17T05:30:22Z",
+  "timestamp": "2026-10-17T06:28:18Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "full",
-  "tuning_fingerprint": "7705356a1076",
+  "tuning_fingerprint": "4c10f4e77702",
   "system_info": {
     "goos": "darwin",
     "goarch": "arm64",
     "host_class": "mac",
     "num_cpu": 8,
     "go_version": "go1.27.1",
-    "commit_hash": "6e0f5ba32f96"
+    "commit_hash": "8f8ff9c9e1e6"
   },
   "metrics": {
-    "wall_clock_ms": 7800,
+    "wall_clock_ms": 7756,
     "frame_time_stats": {
-      "min_ms": 2.078375,
-      "max_ms": 58.830833,
-      "avg_ms": 6.1963382956730735,
-      "p50_ms": 3.485375,
-      "p95_ms": 23.587166,
-      "p99_ms": 49.425667,
+      "min_ms": 2.038208,
+      "max_ms": 60.567375,
+      "avg_ms": 6.245677629807697,
+      "p50_ms": 3.478667,
+      "p95_ms": 24.537958,
+      "p99_ms": 51.331417,
       "samples": 832
     },
-    "frames_per_second": 106.66666666666667,
-    "packets_per_second": 19197.5641025641,
-    "points_per_second": 7355955.897435898,
-    "heap_alloc_bytes": 19016312,
-    "total_alloc_bytes": 19949301632,
-    "num_gc": 844,
-    "gc_pause_ns": 63227885,
-    "pipeline_time_ms": 7800,
-    "cluster_time_ms": 2639,
-    "tracking_time_ms": 85,
+    "frames_per_second": 107.27178958225889,
+    "packets_per_second": 19306.47240845797,
+    "points_per_second": 7397686.436307374,
+    "heap_alloc_bytes": 19020976,
+    "total_alloc_bytes": 19951707832,
+    "num_gc": 847,
+    "gc_pause_ns": 54850973,
+    "pipeline_time_ms": 7756,
+    "cluster_time_ms": 2707,
+    "tracking_time_ms": 84,
     "classify_time_ms": 6,
     "work": {
       "frames": 832,
@@ -46,19 +46,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 58.830833
+      "worst_ms": 60.567375
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      7718,
-      7744,
-      7800,
-      7854,
-      7909
+      7721,
+      7733,
+      7756,
+      7763,
+      7768
     ],
-    "median_ms": 7800,
-    "spread_pct": 2.4747343871469294
+    "median_ms": 7756,
+    "spread_pct": 0.6087294391918145
   }
 }

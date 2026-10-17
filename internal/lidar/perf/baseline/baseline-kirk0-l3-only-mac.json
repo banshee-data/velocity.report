@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-17T05:30:51Z",
+  "timestamp": "2026-10-17T06:28:46Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "l3-only",
   "tuning_fingerprint": "9884a9eae446",
@@ -10,27 +10,27 @@
     "host_class": "mac",
     "num_cpu": 8,
     "go_version": "go1.27.1",
-    "commit_hash": "6e0f5ba32f96"
+    "commit_hash": "8f8ff9c9e1e6"
   },
   "metrics": {
-    "wall_clock_ms": 4877,
+    "wall_clock_ms": 4892,
     "frame_time_stats": {
-      "min_ms": 2.063458,
-      "max_ms": 15.088833,
-      "avg_ms": 2.8344899411057702,
-      "p50_ms": 2.844958,
-      "p95_ms": 3.027542,
-      "p99_ms": 3.282834,
+      "min_ms": 2.108291,
+      "max_ms": 14.9505,
+      "avg_ms": 2.8381697247596174,
+      "p50_ms": 2.854458,
+      "p95_ms": 3.01,
+      "p99_ms": 3.175916,
       "samples": 832
     },
-    "frames_per_second": 170.59667828583147,
-    "packets_per_second": 30703.506253844578,
-    "points_per_second": 11764702.891121592,
-    "heap_alloc_bytes": 18882744,
-    "total_alloc_bytes": 19436052272,
-    "num_gc": 834,
-    "gc_pause_ns": 55231445,
-    "pipeline_time_ms": 4877,
+    "frames_per_second": 170.07358953393293,
+    "packets_per_second": 30609.362224039247,
+    "points_per_second": 11728629.59934587,
+    "heap_alloc_bytes": 18879696,
+    "total_alloc_bytes": 19436059096,
+    "num_gc": 836,
+    "gc_pause_ns": 52833760,
+    "pipeline_time_ms": 4892,
     "cluster_time_ms": 0,
     "tracking_time_ms": 0,
     "classify_time_ms": 0,
@@ -45,19 +45,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 15.088833
+      "worst_ms": 14.9505
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      4854,
-      4869,
-      4877,
-      4899,
-      4908
+      4870,
+      4879,
+      4892,
+      4922,
+      5010
     ],
-    "median_ms": 4877,
-    "spread_pct": 1.1124845488257107
+    "median_ms": 4892,
+    "spread_pct": 2.8747433264887063
   }
 }
