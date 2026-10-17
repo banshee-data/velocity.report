@@ -328,6 +328,31 @@ deserves a person's judgement: two and a half metres of a
 truck's length against a little under one
 vehicle row in a hundred drawn into its neighbour.
 
+### The box with one track per vehicle
+
+Two diagnostics after geom0009, under no rule and changing no default, put the box and the
+identity work together. Both replay the 23 first segments and kirk with l5id0004's `body-older`
+tracks (the overlap end on the body's returns, keeping the older track) and score the box model
+beside the merge-span admission:
+
+| Tracks       | Box          | Foreign returns | Neighbour overlap | At rest | kirk0 centre p50 | Length / reviewed | kirk0 axis p90 |
+| ------------ | ------------ | --------------: | ----------------: | ------: | ---------------: | ----------------: | -------------: |
+| defaults     | `km`         |          5.95 % |           17.58 % |  3.64 % |           2.14 m |              0.62 |           8.4° |
+| defaults     | `km-mergein` |          6.75 % |           18.27 % |  2.26 % |           1.20 m |              0.84 |           8.4° |
+| `body-older` | `km`         |          5.90 % |            4.98 % |  2.79 % |           2.00 m |              0.60 |          13.4° |
+| `body-older` | `km-mergein` |          6.86 % |            5.71 % |  2.79 % |           0.66 m |              0.87 |          13.4° |
+
+- **Most of the box model's overlap is duplicate tracks.** With one track per vehicle the share of
+  vehicle rows overlapping another confirmed track's box falls from 17.6 % to 5.0 %: the box was
+  drawn over a second track's box, not into a second vehicle.
+- **The merge-span cost is not.** Admitting a flagged frame's spans still adds about a point of
+  rows holding another cluster's returns (5.90 % to 6.86 %): after a real merge ends, the held
+  length reaches the next object.
+- **Together they draw the trucks.** With both, kirk0's reviewed centre error is 0.66 m at the
+  median and the trucks leave drawn 9.1 to 9.3 m long against 9.6 and 10.6 m, at the price of the
+  reviewed axis p90 that keeping the older track costs (13.4° against 8.4°): a surviving track's
+  box sometimes restarts unconverged.
+
 ## The box model in the defaults
 
 geom0005 asked for the Pi timing before the box model became the default. The direction for this
@@ -399,10 +424,11 @@ a frame at most, inside the 98 ms budget, but that is an extrapolation, not a me
 4. **Fix duplicate tracks on one vehicle before the box's length.** Truck 1 is held by two tracks
    while it passes; the box can only be as whole as the track it belongs to. The [duplicate tracks report](l5-duplicate-tracks-2026-10.md) counts them and tries the
    tracker's identity options against them.
-5. **Decide the merge guard.** Admitting a growing body's spans draws the trucks their length
-   and costs 0.8 % of vehicle rows drawn into a neighbour; a test that tells a growing body from
-   two bodies joining (the cluster contiguous along its length, or the same track alone on it)
-   could keep the first without the second.
+5. **Decide the merge guard with the identity option.** With one track per vehicle the box
+   model's overlap is a quarter of what it is today, and with the merge spans admitted as well
+   the trucks are drawn their length. Admitting a growing body's spans costs about a point of
+   vehicle rows drawn into a neighbour either way; a test that tells a growing body from two
+   bodies joining could keep the length without it.
 6. **Leave the course options off.** The lag is the velocity's; work on it belongs with the
    tracker's motion model, not the box.
 7. **Republish the scene assets** from replays under the new defaults so velocity.report draws
