@@ -385,6 +385,9 @@ func BoxModelConfigFromTuning(b *config.L5BoxModel) BoxModelConfig {
 	cfg.CourseLeadSec = b.CourseLeadSec
 	cfg.CourseRateTauSec = b.CourseRateTauSec
 	cfg.DisplacementLabelMetres = b.DisplacementLabelMetres
+	cfg.ExtentWindowSpans = b.ExtentWindowSpans
+	cfg.TallHeightMetres = b.TallHeightMetres
+	cfg.TallLengthFloorMetres = b.TallLengthFloorMetres
 	return cfg
 }
 
@@ -405,6 +408,8 @@ func BoxModelTuningFromTracker(cfg TrackerConfig) *config.L5BoxModel {
 		VehicleLengthFloorMetres: b.VehicleLengthFloor,
 		CourseLeadSec:            b.CourseLeadSec, CourseRateTauSec: b.CourseRateTauSec,
 		DisplacementLabelMetres: b.DisplacementLabelMetres,
+		ExtentWindowSpans:       b.ExtentWindowSpans,
+		TallHeightMetres:        b.TallHeightMetres, TallLengthFloorMetres: b.TallLengthFloorMetres,
 	}
 }
 

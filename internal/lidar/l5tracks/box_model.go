@@ -93,6 +93,16 @@ type BoxModelConfig struct {
 	// least this long and nearly straight: the label a car creeping below
 	// the course's speed would otherwise not get.
 	DisplacementLabelMetres float64
+	// ExtentWindowSpans is how many of the most recent admitted spans the
+	// length and width beliefs take their corroborated maximum over; zero
+	// keeps the largest spans of the whole life.
+	ExtentWindowSpans int
+	// TallLengthFloorMetres, when larger than VehicleLengthFloor, replaces it
+	// for a labelled box of a vehicle's width whose corroborated vertical
+	// extent is TallHeightMetres or more: a body that tall is a van, a truck
+	// or a bus, which an end-on view draws far shorter than it is.
+	TallHeightMetres      float64
+	TallLengthFloorMetres float64
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -147,6 +157,7 @@ func DefaultBoxModelConfig() BoxModelConfig {
 		AxisGateSigmas:         3,
 		AxisRestartRun:         5,
 		VehicleLengthFloor:     3.8,
+		ExtentWindowSpans:      50,
 		FitMaxPoints:           64,
 		FitCoarseStepDeg:       2,
 		CentrePull:             0.3,
@@ -209,6 +220,7 @@ type BoxEstimator struct {
 	lastNanos int64
 	length    windowBelief
 	width     windowBelief
+	height    windowBelief
 	// offA and offN place the box centre relative to the track position,
 	// along and across the heading.
 	offA, offN float64
@@ -252,7 +264,13 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 
 // NewBoxEstimator starts an empty box.
 func NewBoxEstimator(cfg BoxModelConfig) *BoxEstimator {
-	return &BoxEstimator{cfg: cfg}
+	w := max(cfg.ExtentWindowSpans, 0)
+	return &BoxEstimator{
+		cfg:    cfg,
+		length: windowBelief{window: w},
+		width:  windowBelief{window: w},
+		height: windowBelief{window: w},
+	}
 }
 
 // State is the current published box.
@@ -658,10 +676,13 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 		e.length.observe(evidence[0])
 		e.width.observe(math.Min(evidence[1], boxMaxBelievedWidthMetres))
 	}
+	if e.cfg.TallHeightMetres > 0 && in.Cluster != nil && !in.Merge {
+		e.height.observe(float64(in.Cluster.BoundingBoxHeight))
+	}
 	length := math.Max(math.Max(e.length.estimate(), spanA), boxMinExtentMetres)
 	width := math.Max(math.Max(e.width.estimate(), spanN), boxMinExtentMetres)
-	if e.cfg.VehicleLengthFloor > 0 && e.labelled && e.width.estimate() >= boxVehicleMinWidthMetres {
-		length = math.Max(length, e.cfg.VehicleLengthFloor)
+	if floor := e.lengthFloor(); floor > 0 && e.labelled && e.width.estimate() >= boxVehicleMinWidthMetres {
+		length = math.Max(length, floor)
 	}
 	sa := (e.cfg.SensorX-in.X)*c + (e.cfg.SensorY-in.Y)*s
 	sn := -(e.cfg.SensorX-in.X)*s + (e.cfg.SensorY-in.Y)*c
@@ -671,6 +692,16 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 		X: in.X + e.offA*c - e.offN*s, Y: in.Y + e.offA*s + e.offN*c,
 		HeadingRad: e.psi, Length: length, Width: width, Labelled: e.labelled,
 	}
+}
+
+// lengthFloor is the least length a labelled box of a vehicle's width is
+// drawn: the tall floor once the height belief reaches TallHeightMetres.
+func (e *BoxEstimator) lengthFloor() float64 {
+	floor := e.cfg.VehicleLengthFloor
+	if e.cfg.TallHeightMetres > 0 && e.cfg.TallLengthFloorMetres > floor && e.height.estimate() >= e.cfg.TallHeightMetres {
+		floor = e.cfg.TallLengthFloorMetres
+	}
+	return floor
 }
 
 // boxCentre places a box of the given extent along one axis: inside the
@@ -843,30 +874,46 @@ func foldQuarterPositive(a float64) float64 {
 }
 
 // windowBelief is a corroborated maximum over the most recent admitted spans:
-// the third largest of the last boxBeliefWindow. A body's dimensions do not
-// change, but a merged cluster corroborates itself for as long as the merge
-// lasts; the window lets the box return to the body once it ends, where a
-// whole-life maximum holds the merge's size until the track does.
+// the third largest of the last window (ExtentWindowSpans). A body's
+// dimensions do not change, but a merged cluster corroborates itself for as
+// long as the merge lasts; the window lets the box return to the body once
+// it ends, where a whole-life maximum (window zero) holds the merge's size
+// until the track does.
 type windowBelief struct {
-	spans []float64
-	next  int
+	window int
+	spans  []float64
+	next   int
 }
 
-const (
-	boxBeliefWindow        = 50
-	boxBeliefCorroboration = 3
-)
+const boxBeliefCorroboration = 3
 
 func (b *windowBelief) observe(span float64) {
 	if span <= 0 || math.IsNaN(span) || math.IsInf(span, 0) {
 		return
 	}
-	if len(b.spans) < boxBeliefWindow {
+	if b.window <= 0 {
+		// The whole life: only the largest few can ever be the estimate.
+		if len(b.spans) < boxBeliefCorroboration {
+			b.spans = append(b.spans, span)
+			return
+		}
+		least := 0
+		for i, v := range b.spans {
+			if v < b.spans[least] {
+				least = i
+			}
+		}
+		if span > b.spans[least] {
+			b.spans[least] = span
+		}
+		return
+	}
+	if len(b.spans) < b.window {
 		b.spans = append(b.spans, span)
 		return
 	}
 	b.spans[b.next] = span
-	b.next = (b.next + 1) % boxBeliefWindow
+	b.next = (b.next + 1) % b.window
 }
 
 // estimate is the third largest admitted span, or the smallest of fewer.

@@ -117,7 +117,10 @@
         "vehicle_length_floor_metres": 3.8,
         "course_lead_sec": 0,
         "course_rate_tau_sec": 0,
-        "displacement_label_metres": 0
+        "displacement_label_metres": 0,
+        "extent_window_spans": 50,
+        "tall_height_metres": 0,
+        "tall_length_floor_metres": 0
       }
     }
   },

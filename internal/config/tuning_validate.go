@@ -502,10 +502,15 @@ func (b *L5BoxModel) Validate() error {
 		{"course_lead_sec", b.CourseLeadSec},
 		{"course_rate_tau_sec", b.CourseRateTauSec},
 		{"displacement_label_metres", b.DisplacementLabelMetres},
+		{"tall_height_metres", b.TallHeightMetres},
+		{"tall_length_floor_metres", b.TallLengthFloorMetres},
 	} {
 		if math.IsNaN(f.value) || math.IsInf(f.value, 0) || f.value < 0 {
 			return fmt.Errorf("%s must be finite and non-negative, got %v", f.name, f.value)
 		}
+	}
+	if b.ExtentWindowSpans < 0 {
+		return fmt.Errorf("extent_window_spans must be non-negative, got %d", b.ExtentWindowSpans)
 	}
 	if !(b.YawAccelSigma > 0) || math.IsInf(b.YawAccelSigma, 0) {
 		return fmt.Errorf("yaw_accel_sigma must be positive, got %v", b.YawAccelSigma)

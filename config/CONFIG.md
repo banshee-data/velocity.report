@@ -160,7 +160,10 @@ parity between them.
         "vehicle_length_floor_metres": 3.8,
         "course_lead_sec": 0,
         "course_rate_tau_sec": 0,
-        "displacement_label_metres": 0
+        "displacement_label_metres": 0,
+        "extent_window_spans": 50,
+        "tall_height_metres": 0,
+        "tall_length_floor_metres": 0
       }
     }
   },
@@ -564,6 +567,9 @@ negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1. `rectangle_
 | `course_lead_sec`                     | float64 | Leads the course by its own rate times this many seconds, against the Kalman velocity's lag in a turn. `0` (geom0006: 0.4 s cut the turn lag by 0.3°).           |
 | `course_rate_tau_sec`                 | float64 | Adds (tau·rate)² to a turning course's variance, so it weighs less against the shape. `0` (no gain in geom0006).                                                 |
 | `displacement_label_metres`           | float64 | Labels a box from the track's straight displacement over up to two seconds once it is this long. `0` (geom0006: did not hold out of sample).                     |
+| `extent_window_spans`                 | int     | How many of the latest admitted spans the length and width are the third largest of; `0` keeps the whole life's. `50` (five seconds of a vehicle in view).       |
+| `tall_height_metres`                  | float64 | The corroborated vertical extent from which a labelled box of a vehicle's width takes `tall_length_floor_metres` instead of the vehicle floor. `0` is off.       |
+| `tall_length_floor_metres`            | float64 | The length floor for a tall body: a van, truck or bus seen end-on. `0`.                                                                                          |
 
 ### Pipeline
 

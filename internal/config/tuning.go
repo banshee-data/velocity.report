@@ -237,6 +237,14 @@ type L5BoxModel struct {
 	// DisplacementLabelMetres labels a box from the track's straight
 	// displacement over up to two seconds once it is this long; zero is off.
 	DisplacementLabelMetres float64 `json:"displacement_label_metres"`
+	// ExtentWindowSpans is how many of the latest admitted spans the length
+	// and width are the corroborated maximum of; zero keeps the whole life's.
+	ExtentWindowSpans int `json:"extent_window_spans"`
+	// TallLengthFloorMetres replaces the vehicle floor for a labelled body
+	// whose corroborated vertical extent is TallHeightMetres or more; zero
+	// TallHeightMetres is off.
+	TallHeightMetres      float64 `json:"tall_height_metres"`
+	TallLengthFloorMetres float64 `json:"tall_length_floor_metres"`
 }
 
 // NeedsMembers reports whether the box model reads the cluster members.

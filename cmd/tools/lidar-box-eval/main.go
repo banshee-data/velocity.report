@@ -29,6 +29,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 	"github.com/banshee-data/velocity.report/internal/version"
@@ -180,6 +181,17 @@ func boxVariants() []variant {
 		with("km-disp1-u20", "displacement labels at 1 m and the unlabelled floor at 20°/s", func(c *l5tracks.BoxModelConfig) {
 			c.DisplacementLabelMetres, c.UnlabelledYawRate = 1, 20*math.Pi/180
 		}),
+		with("km-win150", "extent beliefs over the last 150 admitted spans", func(c *l5tracks.BoxModelConfig) { c.ExtentWindowSpans = 150 }),
+		with("km-life", "extent beliefs over the whole life", func(c *l5tracks.BoxModelConfig) { c.ExtentWindowSpans = 0 }),
+		with("km-tall6", "a 6 m length floor for a body 2.6 m tall or more", func(c *l5tracks.BoxModelConfig) {
+			c.TallHeightMetres, c.TallLengthFloorMetres = 2.6, 6
+		}),
+		with("km-win150-tall6", "extent beliefs over 150 spans with the tall floor", func(c *l5tracks.BoxModelConfig) {
+			c.ExtentWindowSpans, c.TallHeightMetres, c.TallLengthFloorMetres = 150, 2.6, 6
+		}),
+		with("km-life-tall6", "whole-life extent beliefs with the tall floor", func(c *l5tracks.BoxModelConfig) {
+			c.ExtentWindowSpans, c.TallHeightMetres, c.TallLengthFloorMetres = 0, 2.6, 6
+		}),
 		with("km-yaw02-lead04", "yaw acceleration 0.2 rad/s² with the course led by 0.4 s", func(c *l5tracks.BoxModelConfig) {
 			c.YawAccelSigma, c.CourseLeadSec = 0.2, 0.4
 		}),
@@ -234,6 +246,8 @@ type trackState struct {
 	estNanos int64
 	calls    int
 	diag     box
+	// maxLength is the longest box drawn for the track so far.
+	maxLength float64
 	// traj is the track's scored frames, for the turn measures computed at
 	// the end against a centred course.
 	traj []trajPoint
@@ -259,6 +273,12 @@ type rowAgg struct {
 	efficiency, axisErr            []float64
 	slip                           []float64
 	movingRows                     int
+	// crossRows are the rows measured against the frame's other clusters
+	// and confirmed tracks' boxes; foreign, overlap and overlong count the
+	// boxes that hold another cluster's returns, overlap another box, or
+	// are longer than any road vehicle; shrink the rows drawn shorter than
+	// three quarters of the track's longest.
+	crossRows, foreign, overlap, overlong, shrink int
 }
 
 type scorer struct {
@@ -345,6 +365,7 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 	}
 	now := f.At.UnixNano()
 	live := map[string]bool{}
+	var cross []crossRow
 	if f.Scored {
 		s.frames++
 	}
@@ -406,7 +427,13 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 		for name, b := range boxes {
 			s.score(name, t, b, cluster, ref, now)
 		}
+		ci := -1
+		if i, ok := clusterOf[t.TrackID]; ok && i < len(f.Clusters) {
+			ci = i
+		}
+		cross = append(cross, crossRow{id: t.TrackID, cluster: ci, boxes: boxes})
 	}
+	s.crossScore(f, cross)
 	for _, name := range s.names() {
 		for id := range s.state[name] {
 			if !live[id] {
@@ -447,7 +474,155 @@ const (
 	// (2.6 m in the US and the EU) with a margin: a box whose shorter side
 	// exceeds it is drawn across a merge or along a wrong axis.
 	evalOverwideMetres = 2.8
+	// evalForeignPoints is how many returns of another cluster a box must
+	// hold to count as holding it, evalOverlapShare the share of the smaller
+	// box two boxes must share to overlap, and evalOverlongMetres longer
+	// than a rigid road vehicle (a 12 m bus) with a margin.
+	evalForeignPoints  = 5
+	evalOverlapShare   = 0.1
+	evalOverlongMetres = 13.0
+	evalShrinkRatio    = 0.75
 )
+
+// crossRow is a scored row's boxes and its cluster, for the measures that
+// need the whole frame.
+type crossRow struct {
+	id      string
+	cluster int
+	boxes   map[string]box
+}
+
+func clusterPoints(c *l5tracks.WorldCluster) []l4perception.WorldPoint {
+	if len(c.Members) > 0 {
+		return c.Members
+	}
+	return c.RetainedPoints
+}
+
+// crossScore counts, per variant and scored row with a cluster, the boxes
+// that hold five or more returns of another cluster inside them by the
+// tolerance, overlap another confirmed track's box by a tenth of the
+// smaller, or are longer than 13 m: what a box keeping a merge's size draws.
+func (s *scorer) crossScore(f replayeval.TrackerTapFrame, rows []crossRow) {
+	type disc struct{ x, y, r float64 }
+	discs := make([]disc, len(f.Clusters))
+	for i := range f.Clusters {
+		c := &f.Clusters[i]
+		x, y, r := float64(c.CentroidX), float64(c.CentroidY), 0.0
+		for _, p := range clusterPoints(c) {
+			r = math.Max(r, math.Hypot(p.X-x, p.Y-y))
+		}
+		discs[i] = disc{x, y, r}
+	}
+	for _, name := range s.names() {
+		for i, r := range rows {
+			b, ok := r.boxes[name]
+			agg := s.agg[name][r.id]
+			if !ok || b.length <= 0 || r.cluster < 0 || agg == nil {
+				continue
+			}
+			agg.crossRows++
+			if b.length > evalOverlongMetres {
+				agg.overlong++
+			}
+			half := math.Hypot(b.length, b.width) / 2
+			c, sn := math.Cos(b.psi), math.Sin(b.psi)
+			foreign := 0
+			for j := range f.Clusters {
+				d := discs[j]
+				if j == r.cluster || math.Hypot(d.x-b.x, d.y-b.y) > half+d.r {
+					continue
+				}
+				for _, p := range clusterPoints(&f.Clusters[j]) {
+					dx, dy := p.X-b.x, p.Y-b.y
+					a, n := dx*c+dy*sn, -dx*sn+dy*c
+					if math.Abs(a) < b.length/2-s.tolerance && math.Abs(n) < b.width/2-s.tolerance {
+						foreign++
+					}
+				}
+			}
+			if foreign >= evalForeignPoints {
+				agg.foreign++
+			}
+			for k, o := range rows {
+				ob, ok := o.boxes[name]
+				if k == i || !ok || ob.length <= 0 {
+					continue
+				}
+				if overlapShare(b, ob) > evalOverlapShare {
+					agg.overlap++
+					break
+				}
+			}
+		}
+	}
+}
+
+// corners are a box's corners, anticlockwise.
+func (b box) corners() [][2]float64 {
+	c, s := math.Cos(b.psi), math.Sin(b.psi)
+	out := make([][2]float64, 0, 4)
+	for _, k := range [][2]float64{{1, 1}, {-1, 1}, {-1, -1}, {1, -1}} {
+		a, n := k[0]*b.length/2, k[1]*b.width/2
+		out = append(out, [2]float64{b.x + a*c - n*s, b.y + a*s + n*c})
+	}
+	return out
+}
+
+// overlapShare is the area two boxes share over the smaller box's area.
+func overlapShare(p, q box) float64 {
+	if math.Hypot(p.x-q.x, p.y-q.y) > (math.Hypot(p.length, p.width)+math.Hypot(q.length, q.width))/2 {
+		return 0
+	}
+	small := math.Min(p.length*p.width, q.length*q.width)
+	if small <= 0 {
+		return 0
+	}
+	return polygonArea(clipConvex(p.corners(), q.corners())) / small
+}
+
+// clipConvex is the subject polygon clipped to the convex, anticlockwise
+// clip polygon (Sutherland–Hodgman).
+func clipConvex(subject, clip [][2]float64) [][2]float64 {
+	out := subject
+	for i := range clip {
+		a, b := clip[i], clip[(i+1)%len(clip)]
+		in := out
+		out = nil
+		if len(in) == 0 {
+			break
+		}
+		side := func(p [2]float64) float64 { return (b[0]-a[0])*(p[1]-a[1]) - (b[1]-a[1])*(p[0]-a[0]) }
+		prev := in[len(in)-1]
+		for _, cur := range in {
+			sp, sc := side(prev), side(cur)
+			if sc >= 0 {
+				if sp < 0 {
+					out = append(out, crossing(prev, cur, sp, sc))
+				}
+				out = append(out, cur)
+			} else if sp >= 0 {
+				out = append(out, crossing(prev, cur, sp, sc))
+			}
+			prev = cur
+		}
+	}
+	return out
+}
+
+func crossing(p, q [2]float64, sp, sq float64) [2]float64 {
+	t := sp / (sp - sq)
+	return [2]float64{p[0] + t*(q[0]-p[0]), p[1] + t*(q[1]-p[1])}
+}
+
+func polygonArea(pts [][2]float64) float64 {
+	a := 0.0
+	for i := range pts {
+		j := (i + 1) % len(pts)
+		a += pts[i][0]*pts[j][1] - pts[j][0]*pts[i][1]
+	}
+	return math.Abs(a) / 2
+}
 
 func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l5tracks.WorldCluster, ref areaRef, now int64) {
 	st := s.trackState(name, t.TrackID)
@@ -500,6 +675,10 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 			if math.Min(b.length, b.width) > evalOverwideMetres {
 				agg.overwide++
 			}
+			if b.length < evalShrinkRatio*st.maxLength {
+				agg.shrink++
+			}
+			st.maxLength = math.Max(st.maxLength, b.length)
 			st.lengths = append(st.lengths, b.length)
 			st.widths = append(st.widths, b.width)
 			st.rows++
@@ -651,6 +830,11 @@ type Measure struct {
 	WidthP50        float64   `json:"width_p50_m"`
 	LengthCVP50     float64   `json:"length_cv_p50"`
 	MicrosPerUpdate float64   `json:"micros_per_update,omitempty"`
+	CrossRows       int       `json:"cross_rows"`
+	ForeignShare    float64   `json:"foreign_points_share"`
+	OverlapShare    float64   `json:"neighbour_overlap_share"`
+	OverlongShare   float64   `json:"overlong_share"`
+	ShrinkShare     float64   `json:"shrink_share"`
 }
 
 func group(class string) string {
@@ -685,6 +869,10 @@ func (s *scorer) summary() Summary {
 			"slow_label_error_share":    "frames at 0.5 to 3 m/s, with a centred course over ±10 frames at least 1 m long, whose drawn axis is more than 60° from it modulo 180°: a box drawn across a slow vehicle",
 			"straight_abs_error":        "the drawn axis's error against the centred course on frames at 3 m/s or more turning slower than 3°/s",
 			"centre_slip":               "per consecutive pair, the drawn box centre's displacement less the tracked position's: how far the box moves on the track",
+			"foreign_points_share":      "share of rows with a cluster whose drawn box holds five or more returns of another cluster, each inside by the tolerance",
+			"neighbour_overlap_share":   "share of rows with a cluster whose drawn box shares more than a tenth of the smaller box's area with another confirmed track's box",
+			"overlong_share":            "share of rows with a cluster whose drawn box is longer than 13 m",
+			"shrink_share":              "share of scored rows whose drawn length is under three quarters of the longest drawn for the track so far",
 			"min_area_axis_error":       "per row with 30 or more members and a minimum-area rectangle of aspect 1.5 or more, the drawn axis's distance from that rectangle's axis, modulo 90°",
 		}}
 	for _, name := range s.names() {
@@ -710,6 +898,11 @@ func (s *scorer) summary() Summary {
 				m.OutsideAnyShare += float64(a.outsideAny)
 				m.Outside2pctShare += float64(a.outside2pct)
 				m.OverwideShare += float64(a.overwide)
+				m.CrossRows += a.crossRows
+				m.ForeignShare += float64(a.foreign)
+				m.OverlapShare += float64(a.overlap)
+				m.OverlongShare += float64(a.overlong)
+				m.ShrinkShare += float64(a.shrink)
 				share += a.shareSum
 				maxOut = append(maxOut, a.maxOut...)
 				m.Pairs += a.pairs
@@ -749,6 +942,12 @@ func (s *scorer) summary() Summary {
 				m.Outside2pctShare /= float64(m.Rows)
 				m.OverwideShare /= float64(m.Rows)
 				m.OutsidePointsShare = share / float64(m.Rows)
+				m.ShrinkShare /= float64(m.Rows)
+			}
+			if m.CrossRows > 0 {
+				m.ForeignShare /= float64(m.CrossRows)
+				m.OverlapShare /= float64(m.CrossRows)
+				m.OverlongShare /= float64(m.CrossRows)
 			}
 			if m.Pairs > 0 {
 				m.KinematicShare /= float64(m.Pairs)

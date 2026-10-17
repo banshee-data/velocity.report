@@ -243,25 +243,95 @@ func TestBoxModelRelabelsAnEndOnViewOnce(t *testing.T) {
 }
 
 func TestWindowBeliefCorroboratesAndForgets(t *testing.T) {
-	var b windowBelief
-	if b.estimate() != 0 {
+	b, life := windowBelief{window: 50}, windowBelief{}
+	if b.estimate() != 0 || life.estimate() != 0 {
 		t.Fatal("empty belief is not zero")
 	}
 	b.observe(4)
 	if b.estimate() != 4 {
 		t.Fatalf("one span: %v", b.estimate())
 	}
+	life.observe(4)
 	for _, v := range []float64{4.2, 9.5, 4.4, 4.3} {
 		b.observe(v)
+		life.observe(v)
 	}
 	if got := b.estimate(); got != 4.3 {
 		t.Fatalf("third largest of 4, 4.2, 9.5, 4.4, 4.3 = %v, want 4.3", got)
 	}
-	for i := 0; i < boxBeliefWindow; i++ {
+	if got := life.estimate(); got != 4.3 {
+		t.Fatalf("whole life: third largest = %v, want 4.3", got)
+	}
+	for i := 0; i < b.window; i++ {
 		b.observe(2)
+		life.observe(2)
 	}
 	if got := b.estimate(); got != 2 {
 		t.Fatalf("after a window of 2 m spans: %v", got)
+	}
+	if got := life.estimate(); got != 4.3 || len(life.spans) != boxBeliefCorroboration {
+		t.Fatalf("whole life forgot: %v over %d spans", got, len(life.spans))
+	}
+}
+
+func TestBoxModelExtentMemoryKeepsATruckWhole(t *testing.T) {
+	// A 10 m truck leaves the sensor along x at 5 m/s, seen whole for a
+	// second and then only its rear 4 m, the rest hidden behind a parked van.
+	run := func(window int) float64 {
+		cfg := enabledBoxConfig()
+		cfg.ExtentWindowSpans = window
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 100; i++ {
+			x := 8 + 0.5*float64(i)
+			pts := visibleFaces(x, 3, 0, 10, 2.5, 20)
+			if i >= 10 {
+				kept := pts[:0]
+				for _, p := range pts {
+					if p.X <= x-1 {
+						kept = append(kept, p)
+					}
+				}
+				pts = kept
+			}
+			b = e.Observe(boxInput(int64(i)*1e8, pts, 5, 0))
+			assertContains(t, i, b, pts)
+		}
+		return b.Length
+	}
+	if got := run(50); got > 6 {
+		t.Fatalf("a 50-span window kept %.1f m; the test needs it to forget", got)
+	}
+	if got := run(0); got < 9.5 {
+		t.Fatalf("whole-life memory drew the truck %.1f m long, want 10", got)
+	}
+}
+
+func TestBoxModelTallFloorDrawsAnEndOnTruckLonger(t *testing.T) {
+	// A body driving straight at the sensor shows only its front face, a
+	// 2.5 m strip; a truck's is 3.2 m tall, a car's 1.5 m.
+	run := func(height float64, cfg BoxModelConfig) float64 {
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 30; i++ {
+			pts := visibleFaces(40-0.5*float64(i), 0, math.Pi, 10, 2.5, 20)
+			in := boxInput(int64(i)*1e8, pts, -5, 0)
+			in.Cluster.BoundingBoxHeight = float32(height)
+			b = e.Observe(in)
+			assertContains(t, i, b, pts)
+		}
+		return b.Length
+	}
+	plain, tall := enabledBoxConfig(), enabledBoxConfig()
+	tall.TallHeightMetres, tall.TallLengthFloorMetres = 2.6, 6
+	if got := run(3.2, plain); math.Abs(got-3.8) > 1e-9 {
+		t.Fatalf("without the tall floor the truck is %.2f m, want the 3.8 m vehicle floor", got)
+	}
+	if got := run(3.2, tall); math.Abs(got-6) > 1e-9 {
+		t.Fatalf("tall truck drawn %.2f m, want 6", got)
+	}
+	if got := run(1.5, tall); math.Abs(got-3.8) > 1e-9 {
+		t.Fatalf("a car under the tall floor drawn %.2f m, want 3.8", got)
 	}
 }
 
@@ -332,10 +402,12 @@ func TestBoxModelTuningRoundTrips(t *testing.T) {
 	block := &config.L5BoxModel{Enabled: true, AxisSource: "rectangle_fit", CourseMinSpeedMps: 1,
 		MaxCurvaturePerMetre: 0.2, MinYawRateDegPerSec: 3, UnlabelledYawRateDegPerSec: 45,
 		YawAccelSigma: 0.4, AxisSigmaScale: 1.5, CentrePull: 0.3, VehicleLengthFloorMetres: 3.8,
-		CourseLeadSec: 0.4, CourseRateTauSec: 0.2, DisplacementLabelMetres: 1.5}
+		CourseLeadSec: 0.4, CourseRateTauSec: 0.2, DisplacementLabelMetres: 1.5,
+		ExtentWindowSpans: 150, TallHeightMetres: 2.6, TallLengthFloorMetres: 6}
 	cfg := BoxModelConfigFromTuning(block)
 	if !cfg.Enabled || math.Abs(cfg.MinYawRate-3*math.Pi/180) > 1e-12 || cfg.VehicleLengthFloor != 3.8 ||
-		cfg.CourseLeadSec != 0.4 || cfg.CourseRateTauSec != 0.2 || cfg.DisplacementLabelMetres != 1.5 {
+		cfg.CourseLeadSec != 0.4 || cfg.CourseRateTauSec != 0.2 || cfg.DisplacementLabelMetres != 1.5 ||
+		cfg.ExtentWindowSpans != 150 || cfg.TallHeightMetres != 2.6 || cfg.TallLengthFloorMetres != 6 {
 		t.Fatalf("block did not reach the tracker: %+v", cfg)
 	}
 	back := BoxModelTuningFromTracker(TrackerConfig{BoxModel: cfg})
