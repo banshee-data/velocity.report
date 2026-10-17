@@ -671,7 +671,9 @@ final class LockedState<Value>: @unchecked Sendable {
                             ?? .none,
                         motionModel: MotionModel(rawValue: Int(t.motionModel.rawValue)) ?? .cv,
                         alpha: t.alpha > 0 ? t.alpha : 1.0,
-                        headingSource: HeadingSource(rawValue: Int(t.headingSource)) ?? .pca)
+                        headingSource: HeadingSource(rawValue: Int(t.headingSource)) ?? .pca,
+                        bboxCenterX: t.bboxCenterX, bboxCenterY: t.bboxCenterY,
+                        bboxCenterValid: t.bboxCenterValid)
                 },
                 trails: proto.tracks.trails.map { trail in
                     TrackTrail(
