@@ -206,6 +206,9 @@ func boxVariants() []variant {
 		with("km-mergein12", "a merge-flagged frame's spans enter the extent beliefs up to 12 m along", func(c *l5tracks.BoxModelConfig) {
 			c.AdmitMergeSpans, c.MergeSpanMaxMetres = true, 12
 		}),
+		with("km-mergein-yield3", "merge-flagged spans admitted, and a held extent reset after three frames with another object in it", func(c *l5tracks.BoxModelConfig) {
+			c.AdmitMergeSpans, c.YieldFrames = true, 3
+		}),
 		with("km-yaw02-lead04", "yaw acceleration 0.2 rad/s² with the course led by 0.4 s", func(c *l5tracks.BoxModelConfig) {
 			c.YawAccelSigma, c.CourseLeadSec = 0.2, 0.4
 		}),

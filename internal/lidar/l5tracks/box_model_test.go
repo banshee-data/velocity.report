@@ -662,3 +662,55 @@ func TestBoxModelAdmitMergeSpansLetsAGrowingBodyTeachItsLength(t *testing.T) {
 		t.Fatalf("a 10 m span past the 8 m cap was admitted: %.1f m", got)
 	}
 }
+
+func TestBoxModelYieldFramesLetsAHeldLengthGiveWay(t *testing.T) {
+	// A truck admitted 10 m long through merge-flagged frames, then seen
+	// only by its rear 4 m with a second object standing in the held part
+	// of the box: with YieldFrames the held length gives way after three
+	// frames; without it the box goes on holding the object.
+	run := func(yield int, intruder bool) (BoxState, *BoxEstimator) {
+		cfg := enabledBoxConfig()
+		cfg.AdmitMergeSpans, cfg.YieldFrames = true, yield
+		e := NewBoxEstimator(cfg)
+		var b BoxState
+		for i := 0; i < 20; i++ {
+			x := 8 + 0.5*float64(i)
+			pts := visibleFaces(x, 3, 0, 10, 2.5, 20)
+			if i >= 10 {
+				kept := pts[:0]
+				for _, p := range pts {
+					if p.X <= x-1 {
+						kept = append(kept, p)
+					}
+				}
+				pts = kept
+			}
+			in := boxInput(int64(i)*1e8, pts, 5, 0)
+			in.Merge = i < 10
+			in.Cluster.ClusterID = 1
+			if intruder && i >= 10 {
+				var other []l4perception.WorldPoint
+				for k := 0; k <= 10; k++ {
+					other = append(other, l4perception.WorldPoint{X: x + 2, Y: 2.6 + 0.08*float64(k)})
+				}
+				in.Neighbours = []WorldCluster{*in.Cluster, {ClusterID: 2, CentroidX: float32(x + 2), CentroidY: 3, Members: other}}
+			}
+			b = e.Observe(in)
+			assertContains(t, i, b, pts)
+		}
+		return b, e
+	}
+	if b, _ := run(0, true); b.Length < 9.5 {
+		t.Fatalf("without yielding the held length is %.1f m; the test needs it held", b.Length)
+	}
+	if b, _ := run(3, false); b.Length < 9.5 {
+		t.Fatalf("with nothing in the held part the length gave way: %.1f m", b.Length)
+	}
+	b, e := run(3, true)
+	if b.Length > 6 || e.Stats.Yields == 0 {
+		t.Fatalf("the held length did not give way to the object in it: %.1f m, %d yields", b.Length, e.Stats.Yields)
+	}
+	if b.Length < 3.8-1e-9 {
+		t.Fatalf("the vehicle floor was lost in the yield: %.2f m", b.Length)
+	}
+}
