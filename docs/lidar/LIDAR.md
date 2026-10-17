@@ -62,6 +62,10 @@ plan's first observation model, the box held to its points, on kirk0 and the 23 
 second, the heading observed from each frame's rectangle fit. The
 [held-out replication](operations/geometry-convergence-heldout-2026-10.md) replays the
 candidate on each site's second segment: the heading holds, the lateral margin shrinks. The
+[published box report](operations/published-box-rotation-2026-10.md) puts the same two
+observations into the box the visualiser and the scene assets draw, which held its returns on
+only 3 % of vehicle frames: a box model that holds them all and turns no faster than a vehicle can, with the tracks
+unchanged. The
 [region override attribution](operations/l3-region-override-attribution-kirk-2026-10.md)
 follows the zero-code L3 arms: the volatile tercile's window is the one that absorbs road users,
 switching the overrides off moves along the recall trade-off rather than across it, and an

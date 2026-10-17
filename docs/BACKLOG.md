@@ -143,6 +143,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.5.7 - Tracker correctness + robustness (057)
 
+- Published box model on by default: the `box_model` block holds every return in the drawn box and bounds its turn by speed, with the tracks unchanged ([report](lidar/operations/published-box-rotation-2026-10.md), parameter set `config/experiments/box-model.json`). Before it ships in the defaults: time it on the Pi 5 under live load (the `pi` step of geom0005; on the Mac it adds about 30 µs per track a frame and keeps every cluster member for the frame), recapture the perf baselines its fingerprint change refuses, label the slow and square views the course cannot (car 8 at 0.8 m/s), and republish the scene assets so velocity.report draws the new box: [geom0005](../data/experiments/geom/geom0005.md) `M`
+
 - Bounded scene-change recovery candidate: implement the cause-supported strategy default-off with capture-time deadlines, explicit unavailable intervals and coherent model/pose epochs and track identity; preserve stopped road users: [scene-change sprint](plans/lidar-scene-change-recovery-sprint-plan.md) `L` {math}
 
 - Heading candidate acceptance: finish D2.4 comparison UI and candidate-specific held-out review. Keep axis and association candidates disabled until their gates pass; 0.5.2 still reviews physical heading and identity for the corrected baseline. The D2.1 selector's input becomes W1's measured axis rather than the PCA box, and W1 owns the labelling rule it consumes: [design doc](plans/lidar-heading-coherence-sprint-plan.md), [convergence plan](plans/lidar-tracker-geometry-convergence-plan.md#5-upcoming-work-that-addresses-these) `M`
