@@ -23,7 +23,8 @@ segments of 23 corpus sites, the two labelled kirk captures and kirk0's reviewed
   direction of travel at the median and 58° at p90. Moving that box onto the cluster's centre
   still leaves 63 %; the raw PCA box holds every return but turns faster than a vehicle can on
   13 % of frame pairs. The smoothing that stops the spinning is what lets the box leave its
-  returns.
+  returns. At 3 m/s or more today's box is drawn across the car, more than 60° from the
+  direction of travel, on 10.8 % of vehicle frames on the tuning sites; the box model on 0.14 %.
 - **The box model** draws a heading filtered from each frame's rectangle fit and the course, its
   turn bounded by κ·v + ω₀ on a speed the velocity's own noise cannot explain, with extents and a
   centre that hold every return. Held out, no vehicle frame leaves a return outside it; its axis
@@ -258,7 +259,9 @@ nine passes on the tuning sites; each pass's build is in the provenance section.
 On the tuning sites, the box model holds every return of every vehicle frame (the first table
 above) and turns as a vehicle does: visible turn-rate violations 0.9 % of pairs against 6.1 %,
 turning at rest 3.9 % against 34.8 %, visible one-frame turns over 30° 0.35 % against 1.32 %, and
-an axis 1.6° from the direction of travel at the median (15.4° today). Its heading turns by more
+an axis 1.6° from the direction of travel at the median (15.4° today). At 3 m/s or more, of 8,028
+vehicle frames, today's box is more than 60° from the direction of travel (drawn across the car)
+on 10.8 % and 15° to 60° off on 37.7 %; the box model on 0.14 % and 3.0 %. Its heading turns by more
 than 30° in a frame on 1.15 % of pairs, nearly all of them the labelling instant's quarter turn
 with the extents swapped, which draws the same rectangle.
 
