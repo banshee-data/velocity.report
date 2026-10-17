@@ -618,6 +618,9 @@ type analysisFrameBuilder struct {
 	cfg        Config
 	res        *result
 	profile    config.Profile
+	// keepMembers is whether L4 hands the tracker every cluster member, as
+	// the server does for the same tuning.
+	keepMembers bool
 
 	clusterFile *os.File
 	clusterOut  *bufio.Writer
@@ -641,6 +644,7 @@ func newAnalysisFrameBuilder(cfg Config, res *result) *analysisFrameBuilder {
 		cfg:            cfg,
 		res:            res,
 		profile:        benchProfile(cfg),
+		keepMembers:    keepClusterMembers(cfg.Tuning),
 		confirmedSeen:  map[string]bool{},
 		frameTimes:     make([]float64, 0, defaultFrameCapacity),
 	}
@@ -780,6 +784,9 @@ func (fb *analysisFrameBuilder) processCurrentFrame() {
 			dbscanParams.Eps = float64(p.ForegroundDBSCANEps)
 		}
 	}
+	// The members a measurement model reads, kept as the server keeps them,
+	// so the gate times what the tuning will cost on a device.
+	dbscanParams.KeepMembers = fb.keepMembers
 	clusters := l4perception.DBSCAN(worldPoints, dbscanParams)
 	atomic.AddInt64(&fb.clusterTimeNs, time.Since(clusterStart).Nanoseconds())
 	fb.res.TotalClusters += len(clusters)
@@ -888,6 +895,18 @@ func createBackgroundManager(sensorID string, tuningCfg *config.TuningConfig) *l
 	tuningCfg = tuningOrEmbedded(tuningCfg)
 	bgConfig := l3grid.BackgroundConfigFromActiveTuning(tuningCfg)
 	return l3grid.NewBackgroundManager(sensorID, 40, 1800, bgConfig.ToBackgroundParams(), nil)
+}
+
+// keepClusterMembers is whether the tuning's L5 reads every cluster member:
+// the solid body with full members, or a box model that fits the rectangle.
+func keepClusterMembers(tuningCfg *config.TuningConfig) bool {
+	t := tuningOrEmbedded(tuningCfg)
+	if t == nil || t.L5.CvKfV1 == nil {
+		return false
+	}
+	l5 := t.L5.CvKfV1
+	sb := l5.SolidBody
+	return (sb != nil && sb.Enabled && sb.FullMembers) || l5.BoxModel.NeedsMembers()
 }
 
 // createTracker builds the L5 tracker from tuning exactly as the live server
