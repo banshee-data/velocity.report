@@ -29,6 +29,10 @@ type replayCallbackDrainer interface {
 	WaitForCallbacks()
 }
 
+// errRecordingUnavailable fails a replay that asked for a VRLOG recording the
+// server could not start, before any packets are replayed into it.
+var errRecordingUnavailable = errors.New("VRLOG recording could not start (is the visualiser publisher running? start the server with --lidar-forward-mode=grpc or both); replay not run")
+
 var (
 	countPCAPPackets       = network.CountPCAPPackets
 	readPCAPFile           = network.ReadPCAPFile
@@ -740,10 +744,17 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			// An empty path means the recorder could not start — most often no
 			// visualiser publisher is configured. Reporting recording=true then
 			// would be its own small lie, so only the successful case is marked.
+			//
+			// It also fails the run before the recorded pass. The caller asked
+			// for a recording, and replaying without one still ends the run
+			// 'completed' with no VRLOG: a scene batch once spent forty minutes
+			// a site that way, every site, before anything read the output.
 			recordingPath := ws.onRecordingStart(runID)
 			recordingStarted = true
 			if recordingPath != "" {
 				ws.setRecording(runID, recordingPath)
+			} else {
+				err = errRecordingUnavailable
 			}
 		}
 

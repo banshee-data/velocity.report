@@ -74,6 +74,43 @@ func TestStartReportsListenFailure(t *testing.T) {
 	}
 }
 
+// TestStartFallsBackFromAHeldPort is the server's configuration: a stale
+// server holding the gRPC port must not stop a second one publishing, because
+// VRLOG recording runs through the publisher and is lost without it.
+func TestStartFallsBackFromAHeldPort(t *testing.T) {
+	held, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("could not reserve a port: %v", err)
+	}
+	defer held.Close()
+
+	pub := NewPublisher(Config{ListenAddr: held.Addr().String(), ListenFallback: true})
+	if err := pub.Start(); err != nil {
+		t.Fatalf("Start with ListenFallback on a held port: %v", err)
+	}
+	defer pub.Stop()
+
+	if !pub.running.Load() {
+		t.Error("publisher not running after a fallback bind")
+	}
+	got := pub.Addr()
+	if got == "" || got == held.Addr().String() {
+		t.Errorf("Addr() = %q, want a port other than the held %s", got, held.Addr())
+	}
+	conn, err := net.Dial("tcp", got)
+	if err != nil {
+		t.Fatalf("nothing listening on the fallback address %s: %v", got, err)
+	}
+	conn.Close()
+}
+
+// TestAddrBeforeStartIsEmpty: Addr names a bound listener or nothing.
+func TestAddrBeforeStartIsEmpty(t *testing.T) {
+	if got := NewPublisher(Config{ListenAddr: "127.0.0.1:0"}).Addr(); got != "" {
+		t.Errorf("Addr() before Start = %q, want empty", got)
+	}
+}
+
 // TestStartRejectsSecondCall covers the already-running guard. Start is reached
 // from both the serve path and the reconciler, so a double call is reachable
 // rather than hypothetical.

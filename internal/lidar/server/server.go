@@ -21,6 +21,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/netutil"
 )
 
 // ParamDef defines a configuration parameter for display and editing
@@ -56,6 +57,8 @@ func (e *switchError) Unwrap() error { return e.err }
 // It provides endpoints for health checks and real-time status information
 type Server struct {
 	address           string
+	listenFallback    bool
+	boundAddr         atomic.Value // string; set by Start once its listener is bound
 	stats             *PacketStats
 	server            *http.Server
 	onReady           func() // run by Start once it is serving; see SetOnReady
@@ -263,7 +266,11 @@ type PlaybackStatusInfo struct {
 
 // Config contains configuration options for the web server
 type Config struct {
-	Address           string
+	Address string
+	// ListenFallback binds a free port on the same host when another process
+	// already holds Address, instead of failing Start. Addr reports the port
+	// actually bound.
+	ListenFallback    bool
 	Stats             *PacketStats
 	ForwardingEnabled bool
 	ForwardAddr       string
@@ -397,6 +404,7 @@ func NewServer(config Config) *Server {
 
 	ws := &Server{
 		address:            config.Address,
+		listenFallback:     config.ListenFallback,
 		stats:              config.Stats,
 		forwardingEnabled:  config.ForwardingEnabled,
 		forwardAddr:        config.ForwardAddr,
@@ -492,6 +500,13 @@ func listenAddress(configured string) string {
 	return configured
 }
 
+// Addr is the address Start bound, which differs from the configured one
+// after a fallback. Empty until Start has bound its listener.
+func (ws *Server) Addr() string {
+	addr, _ := ws.boundAddr.Load().(string)
+	return addr
+}
+
 // SetOnReady registers fn to run once Start is serving: its HTTP listener
 // is bound and, in live mode, its UDP listener too. Call it before Start.
 func (ws *Server) SetOnReady(fn func()) {
@@ -507,17 +522,34 @@ func (ws *Server) Start(ctx context.Context) error {
 	// Bind before starting anything else, so a port already in use is a
 	// startup error rather than a fatal exit from the serving goroutine.
 	addr := listenAddress(ws.server.Addr)
-	ln, err := net.Listen("tcp", addr)
+	var ln net.Listener
+	var err error
+	if ws.listenFallback {
+		var fellBack bool
+		ln, fellBack, err = netutil.ListenTCPWithFallback(addr)
+		if fellBack {
+			opsf("monitor: %s is held by another process; listening on %s instead", addr, ln.Addr())
+		}
+	} else {
+		ln, err = net.Listen("tcp", addr)
+	}
 	if err != nil {
 		return fmt.Errorf("listen on %s: %w", addr, err)
 	}
+	ws.boundAddr.Store(ln.Addr().String())
 
 	ws.dataSourceMu.Lock()
 	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {
 		if err := ws.startLiveListenerLocked(); err != nil {
-			ws.dataSourceMu.Unlock()
-			_ = ln.Close()
-			return err
+			// The live port is the sensor's and cannot move. A server that
+			// tolerates another on the host serves replays without it, the
+			// same way a parked replay does when the listener cannot restart.
+			if !ws.listenFallback {
+				ws.dataSourceMu.Unlock()
+				_ = ln.Close()
+				return err
+			}
+			opsf("monitor: no live listener (%v); serving replays only. Another server is likely receiving the sensor", err)
 		}
 	}
 	ws.dataSourceMu.Unlock()
