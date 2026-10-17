@@ -192,6 +192,8 @@ func boxVariants() []variant {
 		with("km-life-tall6", "whole-life extent beliefs with the tall floor", func(c *l5tracks.BoxModelConfig) {
 			c.ExtentWindowSpans, c.TallHeightMetres, c.TallLengthFloorMetres = 0, 2.6, 6
 		}),
+		with("km-excl01", "the unseen part stops 0.1 m short of another cluster's return, and at the sensor's side", func(c *l5tracks.BoxModelConfig) { c.ExclusiveMarginMetres = 0.1 }),
+		with("km-excl03", "the unseen part stops 0.3 m short of another cluster's return, and at the sensor's side", func(c *l5tracks.BoxModelConfig) { c.ExclusiveMarginMetres = 0.3 }),
 		with("km-yaw02-lead04", "yaw acceleration 0.2 rad/s² with the course led by 0.4 s", func(c *l5tracks.BoxModelConfig) {
 			c.YawAccelSigma, c.CourseLeadSec = 0.2, 0.4
 		}),
@@ -381,7 +383,7 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 		}
 		in := l5tracks.BoxInput{Nanos: now, X: float64(t.X), Y: float64(t.Y), VX: float64(t.VX), VY: float64(t.VY),
 			VelCov: [3]float64{float64(t.P[10]), float64(t.P[11]), float64(t.P[15])}, Cluster: cluster,
-			Merge: t.MergeCandidate}
+			Merge: t.MergeCandidate, Neighbours: f.Clusters}
 		// Every variant follows every track from birth, warm-up included, so
 		// a scored frame's box has the history it would have had live.
 		boxes := map[string]box{}

@@ -163,7 +163,8 @@ parity between them.
         "displacement_label_metres": 0,
         "extent_window_spans": 50,
         "tall_height_metres": 0,
-        "tall_length_floor_metres": 0
+        "tall_length_floor_metres": 0,
+        "exclusive_margin_metres": 0
       }
     }
   },
@@ -552,24 +553,25 @@ Rules: `axis_source` is `rectangle_fit`, `min_area` or `pca`; every number is fi
 negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1. `rectangle_fit` and
 `min_area` keep every cluster member for the frame, in memory only.
 
-| Path (under `l5.cv_kf_v1.box_model.`) | Type    | Notes                                                                                                                                                            |
-| ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`                             | bool    | Publishes the box model's box in place of the legacy OBB fields, with its own centre.                                                                            |
-| `axis_source`                         | string  | `rectangle_fit`: the closeness fit on the members. `min_area`: the members' minimum-area rectangle, cheaper and worse on L views. `pca`: the cluster box's axis. |
-| `course_min_speed_mps`                | float64 | Speed from which the direction of travel steers the heading and labels which side is the length. `1.0`.                                                          |
-| `max_curvature_per_metre`             | float64 | κ in the turn-rate bound κ·v + ω₀: the tightest turn a vehicle makes, `0.2` (a 5 m radius).                                                                      |
-| `min_yaw_rate_deg_per_sec`            | float64 | ω₀ for a labelled or vehicle-sized box, in degrees a second: how fast it may turn at rest. `3`.                                                                  |
-| `unlabelled_yaw_rate_deg_per_sec`     | float64 | ω₀ for a box in its first second or smaller than a vehicle, which may be a person turning on the spot. `45`.                                                     |
-| `yaw_accel_sigma`                     | float64 | The heading filter's white yaw acceleration, rad/s². `0.4`.                                                                                                      |
-| `axis_sigma_scale`                    | float64 | Multiplies the axis observation's standard deviation. `1.5`.                                                                                                     |
-| `centre_pull`                         | float64 | Share of the way to the sensor-anchored placement the centre moves each frame, inside the interval that holds the points. `0.3`.                                 |
-| `vehicle_length_floor_metres`         | float64 | A labelled box of a vehicle's believed width (1.5 m or more) is drawn at least this long, the unseen part away from the sensor. `3.8`.                           |
-| `course_lead_sec`                     | float64 | Leads the course by its own rate times this many seconds, against the Kalman velocity's lag in a turn. `0` (geom0006: 0.4 s cut the turn lag by 0.3°).           |
-| `course_rate_tau_sec`                 | float64 | Adds (tau·rate)² to a turning course's variance, so it weighs less against the shape. `0` (no gain in geom0006).                                                 |
-| `displacement_label_metres`           | float64 | Labels a box from the track's straight displacement over up to two seconds once it is this long. `0` (geom0006: did not hold out of sample).                     |
-| `extent_window_spans`                 | int     | How many of the latest admitted spans the length and width are the third largest of; `0` keeps the whole life's. `50` (five seconds of a vehicle in view).       |
-| `tall_height_metres`                  | float64 | The corroborated vertical extent from which a labelled box of a vehicle's width takes `tall_length_floor_metres` instead of the vehicle floor. `0` is off.       |
-| `tall_length_floor_metres`            | float64 | The length floor for a tall body: a van, truck or bus seen end-on. `0`.                                                                                          |
+| Path (under `l5.cv_kf_v1.box_model.`) | Type    | Notes                                                                                                                                                                |
+| ------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enabled`                             | bool    | Publishes the box model's box in place of the legacy OBB fields, with its own centre.                                                                                |
+| `axis_source`                         | string  | `rectangle_fit`: the closeness fit on the members. `min_area`: the members' minimum-area rectangle, cheaper and worse on L views. `pca`: the cluster box's axis.     |
+| `course_min_speed_mps`                | float64 | Speed from which the direction of travel steers the heading and labels which side is the length. `1.0`.                                                              |
+| `max_curvature_per_metre`             | float64 | κ in the turn-rate bound κ·v + ω₀: the tightest turn a vehicle makes, `0.2` (a 5 m radius).                                                                          |
+| `min_yaw_rate_deg_per_sec`            | float64 | ω₀ for a labelled or vehicle-sized box, in degrees a second: how fast it may turn at rest. `3`.                                                                      |
+| `unlabelled_yaw_rate_deg_per_sec`     | float64 | ω₀ for a box in its first second or smaller than a vehicle, which may be a person turning on the spot. `45`.                                                         |
+| `yaw_accel_sigma`                     | float64 | The heading filter's white yaw acceleration, rad/s². `0.4`.                                                                                                          |
+| `axis_sigma_scale`                    | float64 | Multiplies the axis observation's standard deviation. `1.5`.                                                                                                         |
+| `centre_pull`                         | float64 | Share of the way to the sensor-anchored placement the centre moves each frame, inside the interval that holds the points. `0.3`.                                     |
+| `vehicle_length_floor_metres`         | float64 | A labelled box of a vehicle's believed width (1.5 m or more) is drawn at least this long, the unseen part away from the sensor. `3.8`.                               |
+| `course_lead_sec`                     | float64 | Leads the course by its own rate times this many seconds, against the Kalman velocity's lag in a turn. `0` (geom0006: 0.4 s cut the turn lag by 0.3°).               |
+| `course_rate_tau_sec`                 | float64 | Adds (tau·rate)² to a turning course's variance, so it weighs less against the shape. `0` (no gain in geom0006).                                                     |
+| `displacement_label_metres`           | float64 | Labels a box from the track's straight displacement over up to two seconds once it is this long. `0` (geom0006: did not hold out of sample).                         |
+| `extent_window_spans`                 | int     | How many of the latest admitted spans the length and width are the third largest of; `0` keeps the whole life's. `50` (five seconds of a vehicle in view).           |
+| `tall_height_metres`                  | float64 | The corroborated vertical extent from which a labelled box of a vehicle's width takes `tall_length_floor_metres` instead of the vehicle floor. `0` is off.           |
+| `tall_length_floor_metres`            | float64 | The length floor for a tall body: a van, truck or bus seen end-on. `0`.                                                                                              |
+| `exclusive_margin_metres`             | float64 | Stops the part of the box beyond its own returns this far short of another cluster's return in its path, and on the sensor's side at its nearest return. `0` is off. |
 
 ### Pipeline
 

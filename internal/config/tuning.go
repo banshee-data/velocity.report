@@ -245,6 +245,9 @@ type L5BoxModel struct {
 	// TallHeightMetres is off.
 	TallHeightMetres      float64 `json:"tall_height_metres"`
 	TallLengthFloorMetres float64 `json:"tall_length_floor_metres"`
+	// ExclusiveMarginMetres stops the box's unseen part this far short of
+	// another cluster's return in its path; zero is off.
+	ExclusiveMarginMetres float64 `json:"exclusive_margin_metres"`
 }
 
 // NeedsMembers reports whether the box model reads the cluster members.
