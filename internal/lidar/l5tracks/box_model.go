@@ -26,8 +26,9 @@ import (
 //     |ω| ≤ κ·v + ω₀, so it cannot spin at rest and turns no tighter than a
 //     car can. Before the course has labelled which axis is the length, the
 //     bound is looser.
-//   - The extents are the larger of a corroborated belief (extentBelief) and
-//     this frame's span of the points along the heading.
+//   - The extents are the larger of a corroborated belief (windowBelief, over
+//     the spans the fit measured along the body's own axes) and this frame's
+//     span of the points along the heading, so the box always holds them.
 //   - The centre is placed so that the box contains this frame's points: as
 //     near as containment allows to where the previous box moved with the
 //     track, pulled toward the placement that puts the unseen remainder on
@@ -566,16 +567,10 @@ func boxCentre(lo, hi, extent, s, carried float64, first bool, pull float64) flo
 	return target
 }
 
-// axisObservation is the frame's axis, modulo 90°, and its standard
-// deviation.
-func (e *BoxEstimator) axisObservation(cluster *WorldCluster, pts [][2]float64) (float64, float64, bool) {
-	axis, sigma, _, ok := e.axisWithSpans(cluster, pts)
-	return axis, sigma, ok
-}
-
-// axisWithSpans is axisObservation with the points' spans along the axis and
-// across it: the rectangle fit's, trimmed of the outermost hundredth at each
-// end, or the full spans of the points along the PCA axis.
+// axisWithSpans is the frame's axis, modulo 90°, its standard deviation,
+// and the points' spans along the axis and across it: the rectangle fit's,
+// trimmed of the outermost hundredth at each end, or the full spans of the
+// points along the PCA axis.
 func (e *BoxEstimator) axisWithSpans(cluster *WorldCluster, pts [][2]float64) (float64, float64, [2]float64, bool) {
 	if cluster == nil {
 		return 0, 0, [2]float64{}, false
