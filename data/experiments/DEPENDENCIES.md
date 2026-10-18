@@ -21,6 +21,7 @@ flowchart TB
     geom0008["<b>geom0008</b><br/>An exclusive published box: the unseen…<br/>answered · 43m machine + 3h person (took 1h)<br/>manual: implement, write"]:::answered
     geom0009["<b>geom0009</b><br/>The published box's merge guard: letting…<br/>answered · 43m machine + 2h person (took 30m)<br/>manual: implement, write"]:::answered
     geom0010["<b>geom0010</b><br/>The published box's held extents yield to…<br/>answered · 43m machine + 2h person (took 30m)<br/>manual: implement, write"]:::answered
+    geom0011["<b>geom0011</b><br/>Centre against extent: how much of the…<br/>proposed · 9m machine + 3h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_l3bg ["l3bg: L3 background model"]
     l3bg0001["<b>l3bg0001</b><br/>Zero-code L3 arms on the labelled kirk…<br/>answered · 23m machine + 3h person<br/>manual: write"]:::answered
@@ -41,10 +42,12 @@ flowchart TB
     l3bg0016["<b>l3bg0016</b><br/>CMR and the dwell policy on the corpus's…<br/>answered · 5h30m machine + 1h person (took 4h)<br/>manual: write"]:::answered
     l3bg0017["<b>l3bg0017</b><br/>The dwell policy's drift rule at 40 s…<br/>answered · 1h10m machine + 3h person (took 1h41m)<br/>manual: implement, write"]:::answered
     l3bg0018["<b>l3bg0018</b><br/>CMR with the cell tercile and the support…<br/>answered · 16m machine + 1h person (took 42m)<br/>manual: write"]:::answered
+    l3bg0019["<b>l3bg0019</b><br/>Where the Stage B arms lose a reviewed…<br/>proposed · 16m machine + 1h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
     l4clus0002["<b>l4clus0002</b><br/>The DBSCAN input cap under CMR, on kirk<br/>answered · 24m machine + 2h person (took 35m36s)<br/>manual: write"]:::answered
+    l4clus0003["<b>l4clus0003</b><br/>CMR's minimum cluster size against the…<br/>proposed · 20m machine + 1h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_l5id ["l5id: L5 identity"]
     l5id0001["<b>l5id0001</b><br/>One vehicle, one track: the identity…<br/>answered · 2h40m machine + 3h person (took 1h)<br/>manual: implement, write"]:::answered
@@ -52,9 +55,18 @@ flowchart TB
     l5id0003["<b>l5id0003</b><br/>One vehicle, one track: the overlap end…<br/>answered · 2h2m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0004["<b>l5id0004</b><br/>One vehicle, one track: the overlap end…<br/>answered · 1h55m machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0005["<b>l5id0005</b><br/>One vehicle, one track: replicating…<br/>answered · 40m machine + 30m person (took 25m)<br/>manual: write"]:::answered
+    l5id0006["<b>l5id0006</b><br/>One vehicle, one track: the survivor's…<br/>proposed · 2h24m machine + 4h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
+  end
+  subgraph area_l8fol ["l8fol: L8 following"]
+    l8fol0001["<b>l8fol0001</b><br/>Both parties observed (B1): following…<br/>proposed · 1h24m machine + 2h person<br/>manual: write<br/>needs tooling: corpus_screen"]:::proposed
+    l8fol0002["<b>l8fol0002</b><br/>Class evidence for the following gate…<br/>proposed · 24m machine + 5h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
+    l8fol0003["<b>l8fol0003</b><br/>The published box as the physical…<br/>proposed · 55m machine + 7h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval, corpus_screen"]:::proposed
+    l8fol0004["<b>l8fol0004</b><br/>The following limits, predeclared on…<br/>proposed · 6m machine + 12h person<br/>manual: annotate, implement, decide, write<br/>needs tooling: ground_truth_eval"]:::proposed
+    l8fol0005["<b>l8fol0005</b><br/>The first held-out following score, on…<br/>proposed · 18m machine + 3h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_label ["label: Labelled data"]
     label0001["<b>label0001</b><br/>A labelled, frozen held-out window at…<br/>proposed · 8h15m person<br/>manual: capture, annotate, review, freeze"]:::proposed
+    label0002["<b>label0002</b><br/>Physical references and following records…<br/>proposed · 5h15m person<br/>manual: annotate, freeze"]:::proposed
   end
   subgraph area_perf ["perf: Performance on the deployment target"]
     perf0001["<b>perf0001</b><br/>The overrides-on retune's frame times on…<br/>proposed · 20m machine + 1h person<br/>manual: write<br/>needs tooling: pi_timing"]:::proposed
@@ -93,22 +105,39 @@ flowchart TB
   l3bg0018 --> l3bg0016
   l3bg0015 --> l3bg0017
   l3bg0010 --> l3bg0018
+  geom0004 --> l3bg0019
+  l3bg0018 --> l3bg0019
   geom0003 --> l4clus0001
   geom0003 --> l4clus0002
   l3bg0005 --> l4clus0002
+  l4clus0002 --> l4clus0003
   geom0008 --> l5id0001
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
   l5id0003 --> l5id0004
   l5id0004 --> l5id0005
+  l5id0005 --> l5id0006
+  l8fol0004 --> l8fol0005
+  label0002 --> l8fol0005
+  label0001 --> label0002
   l3bg0005 --> perf0001
 ```
 
 ## Open experiments
 
 - [geom0002](geom/geom0002.md) The low-speed label and the ambiguous row, rescreened on the young-track axis: proposed, awaiting approval; 1h2m machine + 26h person; after geom0001; asks [geometry-convergence-heldout-2026-10 #recommendations](../../docs/lidar/operations/geometry-convergence-heldout-2026-10.md#recommendations), [lidar-tracker-geometry-convergence-plan #checklist](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#checklist).
+- [geom0011](geom/geom0011.md) Centre against extent: how much of the reference centre error is the body's length (W9): proposed, awaiting approval; 9m machine + 3h person; asks [D-28](../../docs/DECISIONS.md), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [physical-reference-pilot-kirk0-2026-10 #interpretation](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#interpretation), [research-briefing-2025-01-to-2026-10 #schäfer-alrifaee-and-hashemi-ad…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#schäfer-alrifaee-and-hashemi-advanced-intelligent-systems-2026).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
+- [l3bg0019](l3bg/l3bg0019.md) Where the Stage B arms lose a reviewed return, return by return, on kirk0: proposed, awaiting approval; 16m machine + 1h person; after geom0004, l3bg0018; asks [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations), [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l3-candidates-corpus-dwell-2026-10 #recommendations](../../docs/lidar/operations/l3-candidates-corpus-dwell-2026-10.md#recommendations).
+- [l4clus0003](l4clus/l4clus0003.md) CMR's minimum cluster size against the mid-range fragments, on kirk: proposed, awaiting approval; 20m machine + 1h person; after l4clus0002; asks [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations).
+- [l5id0006](l5id/l5id0006.md) One vehicle, one track: the survivor's box, and tentative priority with the overlap end: proposed, awaiting approval; 2h24m machine + 4h person; after l5id0005; asks [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [published-box-refinement-2026-10 #the-box-with-one-track-per-vehi…](../../docs/lidar/operations/published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
+- [l8fol0001](l8fol/l8fol0001.md) Both parties observed (B1): following opportunity on the corpus, label-free: proposed, awaiting approval; 1h24m machine + 2h person; asks [lidar-behaviour-analytics-plan #13-open-research-questions](../../docs/plans/lidar-behaviour-analytics-plan.md#13-open-research-questions), [0.5.2-sprint-review #r5-encounter-totals-are-not-uni…](../../docs/lidar/operations/0.5.2-sprint-review.md#r5-encounter-totals-are-not-unique-follower-opportunity), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
+- [l8fol0002](l8fol/l8fol0002.md) Class evidence for the following gate: reviewed road users' tracks and the class they end with: proposed, awaiting approval; 24m machine + 5h person; asks [headway-report-oracle #provisional-field-run](../../docs/lidar/operations/headway-report-oracle.md#provisional-field-run), [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
+- [l8fol0003](l8fol/l8fol0003.md) The published box as the physical endpoint source: kirk0's reference gaps and the field run's paths: proposed, awaiting approval; 55m machine + 7h person; asks [physical-reference-pilot-kirk0-2026-10 #recommendations](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#recommendations), [headway-report-oracle #provisional-field-run](../../docs/lidar/operations/headway-report-oracle.md#provisional-field-run), [lidar-052-mvp-sprint-plan #s5-and-s7-one-explainable-measu…](../../docs/plans/lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population), [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
+- [l8fol0004](l8fol/l8fol0004.md) The following limits, predeclared on kirk0's pairs, and a scorer that reads the leader truth: proposed, awaiting approval; 6m machine + 12h person; asks [lidar-physical-reference-review-plan #scoring-and-inspection](../../docs/plans/lidar-physical-reference-review-plan.md#scoring-and-inspection), [0.5.2-sprint-review #r6-the-held-out-gap-scorer-is-a…](../../docs/lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [geometry-convergence-criteria #criteria](../../docs/lidar/operations/geometry-convergence-criteria.md#criteria), [physical-reference-pilot-kirk0-2026-10 #recommendations](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#recommendations).
+- [l8fol0005](l8fol/l8fol0005.md) The first held-out following score, on the labelled window's pairs: waiting on a dependency; 18m machine + 3h person; after l8fol0004, label0002; asks [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
+- [label0002](label/label0002.md) Physical references and following records on the held-out window: waiting on a dependency; 5h15m person; after label0001; asks [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [lidar-physical-reference-review-plan #checklist](../../docs/plans/lidar-physical-reference-review-plan.md#checklist), [end-on-truck-window-spike-2026-10 #the-capture-request](../../docs/lidar/operations/end-on-truck-window-spike-2026-10.md#the-capture-request), [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [experiment-review-2026-10-18 #labelling-and-annotation-priori…](../../docs/lidar/operations/experiment-review-2026-10-18.md#labelling-and-annotation-priorities).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 
 ## Answered
@@ -149,5 +178,5 @@ flowchart TB
 
 ## Totals
 
-- 4 open experiments: 1h47m machine + 39h15m person estimated.
+- 14 open experiments: 8h3m machine + 82h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.

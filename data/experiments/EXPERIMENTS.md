@@ -29,6 +29,7 @@ directory with a `README.md` whose YAML header gives `area`, `title`, `layers` a
 | `l5id`   | L5 identity                           |
 | `perf`   | Performance on the deployment target  |
 | `label`  | Labelled data: capture, label, freeze |
+| `l8fol`  | L8 following                          |
 
 ## A spec
 

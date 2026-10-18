@@ -318,6 +318,7 @@ The following repository workflow skills are available as Claude Code slash comm
 | lidar-market-review   | `/lidar-market-review [date]`     | Fortnightly LiDAR price review: update the market watch Latest table and log               |
 | podcast-transcript    | `/podcast-transcript <url>`       | Two-pass ASR of a podcast, reconciled and checked; full text archived, docs summarise      |
 | run-experiments       | `/run-experiments [12h] [area]`   | Unattended experiment run: pick the most impactful, rule first, adopt what passes, PR each |
+| experiment-review     | `/experiment-review [goal]`       | Weekly queue review: rank next experiments, labelling priorities, superseded items, specs  |
 | free-space            | `/free-space [--min-mb N]`        | Find disk space to free; plan verified moves of captures and results to the NAS            |
 
 Skill definitions: [.claude/skills/\*/SKILL.md](.claude/skills/).
