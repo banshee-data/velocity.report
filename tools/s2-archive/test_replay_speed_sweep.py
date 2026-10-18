@@ -127,7 +127,7 @@ class CorpusCaptureTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 sweep.corpus_capture(tmp, "fulton-divisadero")
 
-    def test_every_arm_is_the_spec_s(self):
+    def test_every_arm_is_the_spec_s_or_the_settling_diagnostic(self):
         self.assertEqual(
             set(sweep.ARMS),
             {
@@ -139,12 +139,15 @@ class CorpusCaptureTest(unittest.TestCase):
                 "x1",
                 "x2",
                 "x4",
+                "analysis-settle",
             },
         )
         # Only the two replay-l3 arms run the substituted L3.
         for name, (mode, _, keep, tuning) in sweep.ARMS.items():
             substituted = (mode != "analysis" and not keep) or tuning == sweep.REPLAY_L3
             self.assertEqual(substituted, name.endswith("replay-l3"), name)
+        # Only the settling diagnostic settles first.
+        self.assertEqual(sweep.SETTLE_ARMS, {"analysis-settle"})
 
 
 if __name__ == "__main__":

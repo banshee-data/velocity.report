@@ -47,7 +47,11 @@ ARMS = {
     "x1": ("realtime", 0, True, DEFAULTS),
     "x2": ("scaled", 2.0, True, DEFAULTS),
     "x4": ("scaled", 4.0, True, DEFAULTS),
+    # Not one of the spec's arms: analysis with the settling pass, to see whether
+    # it removes the dependence on the server's previous replay.
+    "analysis-settle": ("analysis", 0, False, DEFAULTS),
 }
+SETTLE_ARMS = {"analysis-settle"}
 
 # The published scene's export settings (publish-scenes.py).
 STRIDE = 2
@@ -121,7 +125,7 @@ def run_unit(args):
         "pcap_file": pcap_file,
         "analysis_mode": True,
         "speed_mode": mode,
-        "settle_before_recording": False,
+        "settle_before_recording": args.arm in SETTLE_ARMS,
         "duration_seconds": round(duration, 3),
         "tuning_config": tuning,
     }

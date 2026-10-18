@@ -29,11 +29,18 @@ whether 0.5x is the right ratio if pacing stays.
 - **Analysis mode is about 17 times faster** than 0.5x: 1.8, 2.4 and 4.1 minutes against 32, 41
   and 68. Every replay at every speed processed exactly the capture's rotations, with no frame
   dropped and none throttled.
-- **The rule fails analysis mode**, on the carry-over: one site's two analysis repeats disagree in
-  194 frames, and two sites differ from x0.25 by more than 2 %. Its fallback finds no paced ratio
-  within 2 % of x0.25 on every case either, so 0.5x keeps its place by the rule's last clause.
-  The rule was written assuming a replay is a function of its speed. It is not, and the run that
-  tests the question again should start each replay on a fresh server.
+- **The rule could not answer its question, and keeps 0.5x by default.** Its clauses were applied
+  to the pre-registered replays, which ran several captures in turn on each server, so every
+  comparison mixed speed with the previous replay. Analysis mode's failures were all that mix: its
+  two embarcadero-bay repeats followed different captures, and the x0.25 replays it was measured
+  against were affected by their own predecessors. Nothing here shows analysis mode losing frames
+  or being nondeterministic: on fresh servers it processed every rotation and repeated exactly.
+  The rule is not loosened after the fact. 0.5x stays until the question is asked again on fresh
+  servers, where on this evidence analysis mode looks likely to pass.
+- **Settling first does not remove the carry-over.** Settled analysis replays of one capture, on a
+  fresh server and after another site, still differ (ashbury-downey 385 against 319 confirmed
+  tracks), and settling changes the result against an unsettled replay. Whatever survives also
+  survives the settling pass's grid reload and tracking reset.
 - **The L3 override paced replays substitute more than doubles foreground**: 2.4 to 5.8 clusters a
   frame at ashbury-downey, 3.1 to 7.8 at embarcadero-bay, 5.6 to 11.6 at columbus-broadway, and 1.4
   to 1.6 times the confirmed tracks. Every scene published at 0.5x ran it, and its header records
@@ -185,6 +192,28 @@ speed. A paced replay that cannot keep its pace departs from the result by a few
 hundred or fewer: 179 of 9,552 at embarcadero-bay 4x, and 10 and 45 of 20,330 at
 columbus-broadway 2x and 4x, against the analysis replays they otherwise match.
 
+### The settling pass, after the rule
+
+The scenes are published without the settling pass (`settle_before_recording`), because it trains
+the background on the traffic the recording exists to show. Whether settling first would remove
+the dependence on the previous replay was asked after the rule was applied, with four more
+replays: analysis mode with the settling pass, on a fresh server and again after the other site.
+
+| Replay (settled first)                | Confirmed tracks | Track rows | Clusters / frame, both passes |
+| ------------------------------------- | ---------------: | ---------: | ----------------------------: |
+| embarcadero-bay, fresh server         |              878 |     27,203 |                         3.044 |
+| embarcadero-bay, after ashbury-downey |              791 |     31,318 |                         3.482 |
+| ashbury-downey, fresh server          |              385 |     29,190 |                         2.556 |
+| ashbury-downey, after embarcadero-bay |              319 |     23,965 |                         2.092 |
+
+Tracks and rows are the recorded pass's; the run record counts clusters over both passes. The
+settled pairs disagree as much as the unsettled ones (8,729 and 9,361 frames differ),
+and ashbury-downey after embarcadero-bay lands near the unsettled replay after the same
+predecessor (319 tracks against 313). Settling also moves the fresh result itself (embarcadero-bay
+858 to 878 tracks, ashbury-downey 382 to 385) and doubles the replay's time (3.4 and 4.4 minutes).
+So settling does not clear the carried state, which survives the pass's reload of the settled grid
+and its reset of tracking: that points away from the L3 grid and the tracker as where it lives.
+
 ### Wall time
 
 Analysis mode took 1.8, 2.4 and 4.1 minutes; x0.5 took 32.1, 41.1 and 68.1: 5.6 %, 5.8 % and
@@ -203,15 +232,18 @@ all four of its clauses hold on every case.
 | Within 2 % of x0.25's clusters, tracks and rows         | **Fails** on ashbury-downey (rows −6.0 %, tracks −7.6 %) and columbus-broadway (rows +21.6 %); holds on embarcadero-bay (equal) |
 | At most a quarter of x0.5's wall time                   | Holds (about 6 %)                                                                                                               |
 
-Analysis mode is not adopted. The fallback names the fastest paced ratio within 2 % of x0.25 on
+Under the rule analysis mode is not adopted. The fallback names the fastest paced ratio within 2 % of x0.25 on
 every case: none qualifies (x0.5 is 12 % from x0.25 at embarcadero-bay, x1 20 % at
 ashbury-downey, x2 and x4 22 % at columbus-broadway), so 0.5x keeps its place under the rule's
 last clause.
 
 What the rule measured was not what it was written to measure. Every clause that failed, failed
-on the difference between replays that followed different predecessors on their server, and
-the diagnostic shows that difference vanishes, at every speed, when each replay starts on a fresh
-server. The rule is not loosened here: the next run asks the question again on fresh servers.
+on the difference between replays that followed different predecessors on their server, and the
+diagnostic shows that difference vanishes, at every speed that keeps its pace, when each replay
+starts on a fresh server. The extra frame came from a replay that followed another; every
+fresh-server replay processed exactly the capture's rotations. So these are failures of the test,
+not findings against analysis mode. The rule is not loosened here: the verdict stands because it
+was the rule, and the next run asks the question again on fresh servers.
 
 ## Interpretation
 
@@ -257,7 +289,8 @@ hash rather than the L3 they ran.
 
 1. **Find and clear the state that survives between replays**, so every replay starts from what a
    fresh server starts from. Until then, a batch that wants reproducible scenes should start each
-   scene on a fresh server.
+   scene on a fresh server. Settling first is not a substitute: it does not clear the carried
+   state, and it trains the background on the traffic the scene shows.
 2. **Then ask perf0002's question again on fresh servers** (analysis twice and x0.25 per case,
    about two and a half hours for these three). On fresh servers the diagnostic's analysis
    replays matched x0.25 at two sites and 2x at all three, so analysis mode looks likely to pass,
