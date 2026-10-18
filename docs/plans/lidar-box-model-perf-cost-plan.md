@@ -1,4 +1,4 @@
-# What the published box model cost: an A/B of #764 to #772 on a quiet host
+# What the published box model cost: an A/B of #764 to #777 on a quiet host
 
 The box model went on by default in #765, and the same pull request recaptured the Mac perf
 baselines. A tuning change moves the fingerprint, the comparator refuses the old baseline, and the
@@ -82,9 +82,11 @@ changed, and the cost belongs to whatever else moved.
 - **The off path.** A1 and A3 above A0's spread mean an option that is off still costs something,
   a defect in its own right; record which and open an issue.
 - **The A/B threshold.** The gate ships at 1.10. If A0's per-round ratios on hydra and the first
-  CI run (0.999 full, 1.000 l3-only, 5 rounds) stay within ±1 %, lower `PERF_AB_THRESHOLD` and the
-  workflow's `THRESHOLD` to 1.05 in the report's pull request. At 1.10 the gate would pass A2 even
-  at the top of the devlog's range.
+  CI run (0.999 full, 1.000 l3-only, 5 rounds) stay within ±1 %, tighten the gate to 1.05 in the
+  report's pull request. The knobs hold the fraction above 1, so that is `0.05`, not `1.05`: the
+  Makefile's `PERF_AB_THRESHOLD`, the workflow's `THRESHOLD` env (which `perf-ab.sh` reads), and
+  `perf_ab_compare.py`'s `--threshold` default. At 1.10 the gate would pass A2 even at the top of
+  the devlog's range.
 
 ## 5. Output
 
