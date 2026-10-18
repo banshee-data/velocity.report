@@ -125,6 +125,7 @@ The slash-command skills live in [.claude/skills/](../../../.claude/skills). The
 | trace-matrix      | `/trace-matrix [task-group]`   | Trace backend surfaces against MATRIX.md                         |
 | fix-links         | `/fix-links [path]`            | Fix dead links and stale backtick paths in Markdown              |
 | research-briefing | `/research-briefing [--since]` | Weekly LiDAR and safety literature review against the repository |
+| experiment-review | `/experiment-review [goal]`    | Weekly queue review: next experiments, labelling, specs          |
 
 Rule: if a procedure is reusable and user-invocable, it belongs in a `SKILL.md`, not in an agent body.
 

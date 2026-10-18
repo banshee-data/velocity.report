@@ -656,6 +656,10 @@ func Main(args []string) int {
 			if forwardMode == "grpc" || forwardMode == "both" {
 				vizConfig := l9endpoints.DefaultConfig()
 				vizConfig.ListenAddr = *lidarGRPCListen
+				// A second server on the same host — a stale one, or a worktree's —
+				// must not stop this one recording: VRLOG recording runs through
+				// the publisher, so failing here loses every recording.
+				vizConfig.ListenFallback = true
 				vizConfig.SensorID = lidarSensorID
 				vizConfig.EnableDebug = *debugMode
 				vizConfig.MaxClients = 5
@@ -680,7 +684,7 @@ func Main(args []string) int {
 					log.Printf("Visualiser background split streaming enabled (interval=%s)", vizConfig.BackgroundInterval)
 				}
 
-				log.Printf("Visualiser gRPC server started on %s", *lidarGRPCListen)
+				log.Printf("Visualiser gRPC server started on %s", visualiserPublisher.Addr())
 			}
 
 			// Initialise LidarView adapter for UDP forwarding if needed
@@ -798,6 +802,7 @@ func Main(args []string) int {
 		// Pass the same PacketStats instance to the webserver so it shows live stats
 		lidarServer = server.NewServer(server.Config{
 			Address:            *lidarListen,
+			ListenFallback:     true,
 			Stats:              packetStats,
 			ForwardingEnabled:  *lidarForward && lidarForwardPortCfg > 0,
 			ForwardAddr:        *lidarFwdAddr,
@@ -824,6 +829,7 @@ func Main(args []string) int {
 			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
 			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},
 			OnPCAPTimestamps:   pcapTimestampsCallback(visualiserServer),
+			RecordingAvailable: func() bool { return visualiserPublisher != nil },
 			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")

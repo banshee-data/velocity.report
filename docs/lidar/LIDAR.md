@@ -93,7 +93,9 @@ measures how much of each reviewed object reaches a cluster and into how many it
 [return fate](operations/w3-return-fate-kirk0-2026-10.md) says which stage loses each reviewed
 return: L3 under the shipped grid, the input cap, DBSCAN noise and the height band under CMR.
 Lifting the [input cap](operations/l4-dbscan-input-cap-2026-10.md) recovers the returns but joins
-no fragments.
+no fragments. The [October 18 experiment review](operations/experiment-review-2026-10-18.md) reads all of
+this for the following-distance metric: what each line established, the next week's experiments
+and labelling, and the one labelled window three adoptions wait on.
 
 ## Terminology
 

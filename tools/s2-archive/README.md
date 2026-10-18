@@ -238,6 +238,20 @@ that model on the very traffic the recording exists to show. The reasoning is
 in `publish-scenes.py`. Override them with `SCENE_SPEED_RATIO`, `SCENE_SETTLE`
 and `SCENE_SPEED_MODE` if an experiment needs different ones.
 
+### Replay speed
+
+Half speed costs a full rebuild about 18 hours, and the evidence for it is one
+capture. The pipeline has changed under that evidence: the L3 warm-up now runs
+on capture time, not wall clock, so the stated reason may no longer hold. A
+scaled replay also substitutes its own L3 settings for the tuning file's
+(closeness 2 against 3, safety margin 0.30 m against 0.15, neighbour
+confirmation 5 against 3), so the analysis-against-half-speed comparison it
+rests on compared two L3 configurations as well as two speeds. Every scene
+published at half speed ran those substituted settings, though its header
+records the tuning file's hash. Whether analysis mode records every frame and
+loses nothing, and if not which paced ratio is the fastest that does, is
+[perf0002](../../data/experiments/perf/perf0002.md).
+
 `SCENE_SOURCE=archive` replays the original rolling captures instead, joined
 and clipped the way the scenes published before the dataset existed were made.
 Keep it for reproducing one of those; the corpus is the default.
