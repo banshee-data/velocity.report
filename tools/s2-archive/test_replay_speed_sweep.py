@@ -142,10 +142,12 @@ class CorpusCaptureTest(unittest.TestCase):
                 "analysis-settle",
             },
         )
-        # Only the two replay-l3 arms run the substituted L3.
-        for name, (mode, _, keep, tuning) in sweep.ARMS.items():
-            substituted = (mode != "analysis" and not keep) or tuning == sweep.REPLAY_L3
-            self.assertEqual(substituted, name.endswith("replay-l3"), name)
+        # Only the two replay-l3 arms run the once-substituted L3, and they do it
+        # through their tuning file: no arm asks the server for anything else.
+        for name, (_, _, tuning) in sweep.ARMS.items():
+            self.assertEqual(
+                tuning == sweep.REPLAY_L3, name.endswith("replay-l3"), name
+            )
         # Only the settling diagnostic settles first.
         self.assertEqual(sweep.SETTLE_ARMS, {"analysis-settle"})
 

@@ -771,25 +771,10 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		if err == nil && replayCfg.SpeedMode == "analysis" {
 			err = runPass(ws.packetForwarder)
 		} else if err == nil {
-			// Apply PCAP-friendly background params and restore afterward,
-			// unless the caller asked for the tuning file's own L3.
-			var restoreParams func()
-			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil && !replayCfg.KeepTuningL3 {
-				orig := bgManager.GetParams()
-				tuned := replayL3Override(orig)
-				if err := bgManager.SetParams(tuned); err != nil {
-					opsf("failed to apply PCAP-tuned background params: %v", err)
-				}
-				restoreParams = func() {
-					if err := bgManager.SetParams(orig); err != nil {
-						opsf("failed to restore original background params: %v", err)
-					}
-				}
-			}
-			if restoreParams != nil {
-				defer restoreParams()
-			}
-
+			// A paced replay runs the tuning file's L3 as written, as analysis
+			// mode and live input do. Until October 2026 it substituted five
+			// L3 values here for the replay's duration, so a paced replay ran
+			// an L3 its tuning hash did not name (perf0002).
 			// Realtime or scaled ratio
 			multiplier := replayCfg.SpeedRatio
 			if replayCfg.SpeedMode == "realtime" {
@@ -954,18 +939,4 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	}(resolvedPath, ctx, cancel, done, replayCfg, runID, plan)
 
 	return nil
-}
-
-// replayL3Override is the L3 a paced (realtime or scaled) replay runs in place
-// of the tuning file's: five values chosen for PCAP replay. Analysis mode, and
-// a paced replay started with KeepTuningL3, run the tuning file as written.
-// config/experiments/replay-l3-overrides.json holds the same five values, so an
-// analysis replay can run this L3 too (perf0002).
-func replayL3Override(p l3grid.BackgroundParams) l3grid.BackgroundParams {
-	p.SeedFromFirstObservation = true
-	p.ClosenessSensitivityMultiplier = 2.0
-	p.NoiseRelativeFraction = 0.02
-	p.NeighbourConfirmationCount = 5
-	p.SafetyMarginMetres = 0.3
-	return p
 }

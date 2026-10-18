@@ -97,18 +97,19 @@ keys other than DBSCAN's three. Without the field, the replay runs on the
 server's current parameters. See
 [Experiment parameter sets](../../../config/CONFIG.md#experiment-parameter-sets).
 
-`keep_tuning_l3` is optional. A `scaled` or `realtime` replay substitutes five
-L3 values for the tuning file's while it runs (closeness 2.0, safety margin
-0.30 m, neighbour confirmation 5, seed from first observation, noise relative
-0.02) and restores them afterwards; with `keep_tuning_l3: true` it runs the
-tuning file's L3 as written. Analysis mode never substitutes them.
-`config/experiments/replay-l3-overrides.json` holds the substituted values, for
-running them in analysis mode.
+Every speed mode runs the tuning file's L3 as written. **Until October 2026
+(#782) a `scaled` or `realtime` replay substituted five L3 values for the file's
+while it ran** (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5,
+seed from first observation, noise relative 0.02), so a paced replay ran an L3
+its `tuning_hash` did not name, while analysis mode, live input and the offline
+tools ran the file. That is a breaking change for reproducing a paced replay
+made before it: the scenes published before then ran the substituted L3, and
+`config/experiments/replay-l3-overrides.json` holds it as an ordinary parameter
+set. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
 
 **Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
 `pcap_file` (resolved path), `analysis_mode: true`, and the requested
-`settle_before_recording` and `keep_tuning_l3` values, and `replay_l3_override`,
-whether the replay runs the substituted L3. With `tuning_config`, it also returns
+`settle_before_recording` value. With `tuning_config`, it also returns
 `tuning_config` and `tuning_fingerprint`, the applied file's fingerprint.
 
 ### List tuning configs

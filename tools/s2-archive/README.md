@@ -242,13 +242,16 @@ and `SCENE_SPEED_MODE` if an experiment needs different ones.
 
 Half speed costs a full rebuild about 18 hours, and the evidence for it is one
 capture. The pipeline has changed under that evidence: the L3 warm-up now runs
-on capture time, not wall clock, so the stated reason may no longer hold. A
-scaled replay also substitutes its own L3 settings for the tuning file's
-(closeness 2 against 3, safety margin 0.30 m against 0.15, neighbour
+on capture time, not wall clock, so the stated reason may no longer hold. Until
+October 2026 a scaled replay also substituted its own L3 settings for the tuning
+file's (closeness 2 against 3, safety margin 0.30 m against 0.15, neighbour
 confirmation 5 against 3), so the analysis-against-half-speed comparison it
 rests on compared two L3 configurations as well as two speeds. Every scene
-published at half speed ran those substituted settings, though its header
-records the tuning file's hash. Whether analysis mode records every frame and
+published before then ran those substituted settings, though its header records
+the tuning file's hash; since #782 every replay runs the file as written, and
+[l3bg0023](../../data/experiments/l3bg/l3bg0023.md) decides, before the scenes
+are republished, whether the defaults should carry any of the three keys so the
+scenes do not lose real tracks. Whether analysis mode records every frame and
 loses nothing, and if not which paced ratio is the fastest that does, is
 [perf0002](../../data/experiments/perf/perf0002.md).
 
@@ -268,8 +271,8 @@ capture per arm, as `publish-scenes.py` replays it, with the VRLOG counted
 the published stride and start frame, and the server's log for the replay kept
 beside them. `table` gathers the units into one table, taking total clusters
 from the server's run record (the VRLOG holds only the clusters no track took),
-and `compare` matches two exported scenes row for row. Paced arms that should
-run the tuning file's own L3 send `keep_tuning_l3`.
+and `compare` matches two exported scenes row for row. Every arm runs the L3 of
+the tuning file it names.
 
 `SCENE_SOURCE=archive` replays the original rolling captures instead, joined
 and clipped the way the scenes published before the dataset existed were made.

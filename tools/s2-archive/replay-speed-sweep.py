@@ -37,19 +37,20 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 DEFAULTS = "tuning.defaults.json"
 REPLAY_L3 = "experiments/replay-l3-overrides.json"
 
-# speed_mode, speed_ratio (scaled only), keep_tuning_l3 (paced only), tuning.
+# speed_mode, speed_ratio (scaled only), tuning. Every arm runs its tuning file's L3
+# as written: the paced L3 substitution the server made until October 2026 is gone.
 ARMS = {
-    "analysis": ("analysis", 0, False, DEFAULTS),
-    "analysis-replay-l3": ("analysis", 0, False, REPLAY_L3),
-    "x0.25": ("scaled", 0.25, True, DEFAULTS),
-    "x0.5": ("scaled", 0.5, True, DEFAULTS),
-    "x0.5-replay-l3": ("scaled", 0.5, False, DEFAULTS),
-    "x1": ("realtime", 0, True, DEFAULTS),
-    "x2": ("scaled", 2.0, True, DEFAULTS),
-    "x4": ("scaled", 4.0, True, DEFAULTS),
+    "analysis": ("analysis", 0, DEFAULTS),
+    "analysis-replay-l3": ("analysis", 0, REPLAY_L3),
+    "x0.25": ("scaled", 0.25, DEFAULTS),
+    "x0.5": ("scaled", 0.5, DEFAULTS),
+    "x0.5-replay-l3": ("scaled", 0.5, REPLAY_L3),
+    "x1": ("realtime", 0, DEFAULTS),
+    "x2": ("scaled", 2.0, DEFAULTS),
+    "x4": ("scaled", 4.0, DEFAULTS),
     # Not one of the spec's arms: analysis with the settling pass, to see whether
     # it removes the dependence on the server's previous replay.
-    "analysis-settle": ("analysis", 0, False, DEFAULTS),
+    "analysis-settle": ("analysis", 0, DEFAULTS),
 }
 SETTLE_ARMS = {"analysis-settle"}
 
@@ -119,7 +120,7 @@ def run_unit(args):
     publish = load_publish(args.api, args.db)
     rel, duration = corpus_capture(args.corpus_dir, args.case)
     pcap_file = os.path.join(args.corpus_subdir, rel) if args.corpus_subdir else rel
-    mode, ratio, keep, tuning = ARMS[args.arm]
+    mode, ratio, tuning = ARMS[args.arm]
 
     payload = {
         "pcap_file": pcap_file,
@@ -131,8 +132,6 @@ def run_unit(args):
     }
     if mode == "scaled":
         payload["speed_ratio"] = ratio
-    if keep:
-        payload["keep_tuning_l3"] = True
 
     publish.stop_any_replay()
     if not publish.wait_for_idle(120):

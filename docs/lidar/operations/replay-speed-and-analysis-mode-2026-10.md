@@ -47,10 +47,13 @@ whether 0.5x is the right ratio if pacing stays.
   fresh server and after another site, still differ (ashbury-downey 385 against 319 confirmed
   tracks), and settling changes the result against an unsettled replay. Both states act in the
   settling pass as they do in a plain replay.
-- **The L3 override paced replays substitute more than doubles foreground**: 2.4 to 5.8 clusters a
-  frame at ashbury-downey, 3.1 to 7.8 at embarcadero-bay, 5.6 to 11.6 at columbus-broadway, and 1.4
-  to 1.6 times the confirmed tracks. Every scene published at 0.5x ran it, and its header records
-  the tuning file's hash, not the L3 it ran.
+- **The L3 paced replays substituted more than doubles foreground**: 2.4 to 5.8 clusters a frame
+  at ashbury-downey, 3.1 to 7.8 at embarcadero-bay, 5.6 to 11.6 at columbus-broadway, and 1.4 to
+  1.6 times the confirmed tracks. Every scene published at 0.5x ran it, and its header records the
+  tuning file's hash, not the L3 it ran. **The substitution is removed with this report**: every
+  replay now runs its tuning file's L3, the one the experiments measure and live input runs. Which
+  of its three keys the defaults should carry, so the republished scenes do not lose real tracks,
+  is [l3bg0023](../../../data/experiments/l3bg/l3bg0023.md), to run before the republish.
 
 ## Method
 
@@ -74,10 +77,14 @@ server never carries one arm's parameters into the next.
 | `x1`                 | realtime          | the defaults' L3 (`keep_tuning_l3`)                               |
 | `x2`, `x4`           | scaled, 2 and 4   | the defaults' L3 (`keep_tuning_l3`)                               |
 
-`keep_tuning_l3` is the replay option this experiment added: without it a scaled or realtime
-replay substitutes five L3 values for the tuning file's (closeness 2.0 against 3, safety margin
-0.30 m against 0.15, neighbour confirmation 5 against 3; seed from first observation and noise
-relative 0.02 unchanged).
+Until this experiment a scaled or realtime replay substituted five L3 values for the tuning
+file's (closeness 2.0 against 3, safety margin 0.30 m against 0.15, neighbour confirmation 5
+against 3; seed from first observation and noise relative 0.02 unchanged), and analysis mode did
+not. The replays here ran a build with a transitional request option that skipped the
+substitution, so paced arms could run the file's L3; the substitution and the option were both
+removed in the PR that carries this report (#782), so every replay now runs the tuning file's L3
+as written. That is a breaking change for reproducing a paced replay made before it (see
+[the API note](pcap-analysis-mode.md#start-pcap-replay-analysis-mode)).
 
 **Running.** Paced arms ran on four servers at once, each with its own ports, database and VRLOG
 directory, pulling units from one queue; a paced replay's wall time is set by its ratio, and the
@@ -348,9 +355,13 @@ hash rather than the L3 they ran.
    on one server without restarts. On new processes analysis mode matched x0.25 at two sites and
    2x at all three, so it looks likely to pass, which would cut a 24-site batch from about 18 hours
    to about one.
-5. **Record the L3 a replay ran in its VRLOG header**, not only the tuning file's hash, so a scene
-   that ran the override says so. Whether published scenes should keep the override is a tuning
-   decision for an `l3bg` spec, as the spec said.
+5. **Decide what the defaults' L3 should carry before republishing**
+   ([l3bg0023](../../../data/experiments/l3bg/l3bg0023.md)): the substitution is gone, so a
+   scene's header now names the L3 it ran, but the defaults find 28 to 38 % fewer confirmed
+   tracks than the substituted L3 did on these sites, and nobody has measured which is right. The
+   spec scores the defaults, the substituted L3 and its two halves on the corpus and on kirk's
+   labels, and moves keys into the defaults only if the defaults lose real tracks. perf0003 then
+   re-asks the pacing question under whatever L3 that leaves.
 6. **Export published scenes by capture time, not VRLOG position.** `--start-frame 400` counts
    background snapshots taken on the wall clock, so two exports of one capture can start a frame
    apart and, at stride 2, hold alternate frames.
@@ -358,8 +369,9 @@ hash rather than the L3 they ran.
 ## Provenance
 
 - **Code:** branch `claude/perf0002-replay-speed`; the replays ran the binary built at `53f80c92`
-  (`velocity-report v0.5.1-pre45`), with `keep_tuning_l3` added in `a7118201`. The driver is
-  `tools/s2-archive/replay-speed-sweep.py` at the branch head.
+  (`velocity-report v0.5.1-pre45`), which carried the transitional `keep_tuning_l3` option added
+  in `a7118201` and removed, with the substitution itself, before the branch merged. The driver
+  is `tools/s2-archive/replay-speed-sweep.py` at the branch head.
 - **Tuning:** `config/tuning.defaults.json` (fingerprint `c2a4fe43ac43`) and
   `config/experiments/replay-l3-overrides.json`, each named in every replay's start request.
 - **Captures:** `sf-street-speeds/raw/lidar/20260901T1225_80858-0ac_ashbury-downey.pcapng`,

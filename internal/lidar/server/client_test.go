@@ -772,7 +772,6 @@ func TestClient_StartPCAPReplayWithConfig_Success(t *testing.T) {
 		DurationSeconds:       30,
 		AnalysisMode:          true,
 		SettleBeforeRecording: true,
-		KeepTuningL3:          true,
 		MaxRetries:            1,
 	})
 	if err != nil {
@@ -793,9 +792,6 @@ func TestClient_StartPCAPReplayWithConfig_Success(t *testing.T) {
 	}
 	if received["settle_before_recording"].(bool) != true {
 		t.Fatalf("unexpected settle_before_recording: %v", received["settle_before_recording"])
-	}
-	if received["keep_tuning_l3"] != true {
-		t.Fatalf("unexpected keep_tuning_l3: %v", received["keep_tuning_l3"])
 	}
 }
 

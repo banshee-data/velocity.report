@@ -38,7 +38,6 @@ type ReplayConfig struct {
 	AnalysisMode          bool            // When true, preserve grid after completion
 	DisableRecording      bool            // When true, skip VRLOG recording during PCAP replay
 	SettleBeforeRecording bool            // When true, warm and reload the grid before recording a second pass
-	KeepTuningL3          bool            // When true, a paced replay runs the tuning file's L3, without replayL3Override
 	SensorID              string          // Optional sensor override for analysis-run provenance
 	PreferredRunID        string          // Optional caller-supplied run identifier
 	ParentRunID           string          // Optional lineage for reprocess runs

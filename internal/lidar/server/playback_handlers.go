@@ -43,7 +43,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var enablePlots bool
 	var benchmarkMode bool
 	var settleBeforeRecording bool
-	var keepTuningL3 bool
 	// A tuning config file under the server's config directory, applied to
 	// the running pipeline before the replay starts; empty keeps the
 	// parameters the server has.
@@ -75,7 +74,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			EnablePlots           bool    `json:"enable_plots"`
 			BenchmarkMode         bool    `json:"benchmark_mode"`
 			SettleBeforeRecording bool    `json:"settle_before_recording"`
-			KeepTuningL3          bool    `json:"keep_tuning_l3"`
 			TuningConfig          string  `json:"tuning_config"`
 		}
 		// Set defaults
@@ -107,7 +105,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enablePlots = req.EnablePlots
 		benchmarkMode = req.BenchmarkMode
 		settleBeforeRecording = req.SettleBeforeRecording
-		keepTuningL3 = req.KeepTuningL3
 		tuningConfig = req.TuningConfig
 	} else {
 		// Parse form data (default for HTML forms)
@@ -165,7 +162,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 		benchmarkMode = r.FormValue("benchmark_mode") == "true" || r.FormValue("benchmark_mode") == "1"
 		settleBeforeRecording = r.FormValue("settle_before_recording") == "true" || r.FormValue("settle_before_recording") == "1"
-		keepTuningL3 = r.FormValue("keep_tuning_l3") == "true" || r.FormValue("keep_tuning_l3") == "1"
 		tuningConfig = r.FormValue("tuning_config")
 	}
 
@@ -233,7 +229,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		SpeedRatio:            speedRatio,
 		AnalysisMode:          analysisMode,
 		SettleBeforeRecording: settleBeforeRecording,
-		KeepTuningL3:          keepTuningL3,
 		SensorID:              ws.sensorID,
 		DebugRingMin:          debugRingMin,
 		DebugRingMax:          debugRingMax,
@@ -279,8 +274,6 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		"pcap_file":               currentFile,
 		"analysis_mode":           analysisMode,
 		"settle_before_recording": settleBeforeRecording,
-		"keep_tuning_l3":          keepTuningL3,
-		"replay_l3_override":      speedMode != "analysis" && !keepTuningL3,
 		"tuning_config":           activePath,
 		"tuning_fingerprint":      activeFingerprint,
 	})
