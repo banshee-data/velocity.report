@@ -191,6 +191,7 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 
 	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		mgr.SetSourcePath("")
+		mgr.SetRegionStoreUse(true, true)
 	}
 
 	// A listener that will not bind is a real fault, but it is a separate one

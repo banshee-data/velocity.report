@@ -309,6 +309,9 @@ func (bm *BackgroundManager) tryRestoreRegionsFromStoreLocked() bool {
 
 	// Mark attempted so we only try once per settling cycle
 	g.regionRestoreAttempted = true
+	if bm.noRegionRestore.Load() {
+		return false
+	}
 
 	regionStore, ok := bm.store.(RegionStore)
 	if !ok || regionStore == nil {
@@ -423,7 +426,7 @@ func (bm *BackgroundManager) restoreFromSnapshotLocked(regionStore RegionStore, 
 // Releases and re-acquires the lock for DB I/O.
 func (bm *BackgroundManager) persistRegionsOnSettleLocked() {
 	g := bm.Grid
-	if bm.store == nil || g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete {
+	if bm.store == nil || g.RegionMgr == nil || !g.RegionMgr.IdentificationComplete || bm.noRegionPersist.Load() {
 		return
 	}
 	regionStore, ok := bm.store.(RegionStore)

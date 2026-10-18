@@ -344,7 +344,7 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
-`dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
+`settling_honest`, `dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
 `dwell_policy_t40_drift2m`, `dwell_policy_t40_median`, `measurement_time`,
 `capture_gap_predict`, `coast_support`, `coast_time_inflation`,
 `class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
@@ -354,8 +354,8 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 and its report names the experiment beside the set.
 
 The L3 background experiments among them (`no_region_overrides`, the
-`region_overrides_*` and `volatile_window_cap_*` names, and `support_filter`)
-also run in `lidar-bench -experiment`. A replay names at most one of
+`region_overrides_*` and `volatile_window_cap_*` names, `support_filter` and
+`settling_honest`) also run in `lidar-bench -experiment`. A replay names at most one of
 `no_region_overrides` and the two scopes, and at most one window cap. It may
 not name `region_overrides_cell_tercile` with `no_region_overrides`, or a
 window cap with `no_region_overrides` or `region_overrides_quiet_only`: under

@@ -187,7 +187,15 @@ func (g *BackgroundGrid) settlingConvergedLocked() bool {
 	}
 	g.settlingCheckCounter = 0
 
+	// Whether a previous check left spreads to compare against: without
+	// them the spread delta is not measured and reads as zero.
+	measured := len(g.prevSpreads) == len(g.Cells)
 	metrics := g.evaluateSettlingLocked(0)
+	if g.Params.SettlingHonestFirstCheck && !measured {
+		diagf("[BackgroundManager] Settling not converged for sensor=%s: spread delta not yet measured (first check)",
+			g.SensorID)
+		return false
+	}
 	converged := metrics.IsConverged(thresholds)
 
 	// Report the measurement, not just the verdict. "Still settling" with no

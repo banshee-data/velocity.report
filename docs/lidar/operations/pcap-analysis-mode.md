@@ -107,6 +107,18 @@ made before it: the scenes published before then ran the substituted L3, and
 `config/experiments/replay-l3-overrides.json` holds it as an ordinary parameter
 set. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
 
+A replay starts from nothing, whatever the server replayed before it. Every
+replay resets the background grid, including the state its settling check
+keeps between checks, so a reused server settles as a new one does. And a PCAP
+replay neither restores a region map and grid that an earlier run persisted to
+the database (by source path, or by the scene signature when no path matches)
+nor persists its own, so the same capture replayed twice against one database
+records the same thing both times; a replay with `settle_before_recording`
+persists its own settle, which its recorded pass reloads. Live input keeps
+both uses of the store: a sensor restarted on a scene it knows skips settling.
+Until October 2026 neither held, and a replay's result depended on the
+server's history ([l3bg0021](../../../data/experiments/l3bg/l3bg0021.md)).
+
 **Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
 `pcap_file` (resolved path), `analysis_mode: true`, and the requested
 `settle_before_recording` value. With `tuning_config`, it also returns
