@@ -19,13 +19,19 @@ whether 0.5x is the right ratio if pacing stays.
   scene, row for row, on all three sites, and two fresh analysis replays agree with each other. A
   replay that falls behind its pace differs in a small share of frames: embarcadero-bay at 4x,
   which took 5.8 minutes for a nominal 4, in 179 of 9,552.
-- **The server's previous replay does.** A replay that follows another on the same server
-  records something else. The divergence starts within the first second of capture time, and it
-  moves track rows by up to 22 % (columbus-broadway, 84,175 against 102,328) and confirmed
-  tracks by up to a fifth (ashbury-downey, 313 against 382). The pre-registered arms ran several
-  replays per server, so their spread across speeds was this carry-over, not pacing. A scene batch
-  replays every site on one server, so **each published scene depends on the site replayed
-  before it**.
+- **The server's history does, through two L3 states.** A replay that follows another on the
+  same server records something else, from within the first second of capture time, moving track
+  rows by up to 22 % (columbus-broadway, 84,175 against 102,328) and confirmed tracks by up to a
+  fifth (ashbury-downey, 313 against 382). The lanes' debug logs name the states. First, the
+  convergence state `ResetGrid` leaves in memory: a new process passes its first convergence check
+  at frame 59 because it has no previous spreads to compare, while a reused process compares
+  against the previous capture's and then never meets the 0.001 threshold, so it settles at the
+  30 s ceiling instead. Second, the region store: a settled replay persists its region map and
+  grid by source path, and any later replay of that capture against the same database restores
+  both at frame 10, whatever its own tuning. The pre-registered arms ran several replays per
+  server, so their spread across speeds was these two, not pacing. A scene batch replays every
+  site on one server against one database, so **a published scene depends on whether its server
+  was fresh and on what that database already held for its capture**.
 - **Analysis mode is about 17 times faster** than 0.5x: 1.8, 2.4 and 4.1 minutes against 32, 41
   and 68. Every replay at every speed processed exactly the capture's rotations, with no frame
   dropped and none throttled.
@@ -39,8 +45,8 @@ whether 0.5x is the right ratio if pacing stays.
   servers, where on this evidence analysis mode looks likely to pass.
 - **Settling first does not remove the carry-over.** Settled analysis replays of one capture, on a
   fresh server and after another site, still differ (ashbury-downey 385 against 319 confirmed
-  tracks), and settling changes the result against an unsettled replay. Whatever survives also
-  survives the settling pass's grid reload and tracking reset.
+  tracks), and settling changes the result against an unsettled replay. Both states act in the
+  settling pass as they do in a plain replay.
 - **The L3 override paced replays substitute more than doubles foreground**: 2.4 to 5.8 clusters a
   frame at ashbury-downey, 3.1 to 7.8 at embarcadero-bay, 5.6 to 11.6 at columbus-broadway, and 1.4
   to 1.6 times the confirmed tracks. Every scene published at 0.5x ran it, and its header records
@@ -168,6 +174,23 @@ x4 (45); and columbus-broadway's two x0.5 repeats disagree in 19,969 of 20,330 f
 replays disagree, the first differing frame is 0.9 s into the capture in every pair checked but
 four, which part at 5.9 s, 284 s, 296 s and 487 s.
 
+Read against the lanes' debug logs, every outcome is one of four server histories (the next
+section names the mechanisms). Confirmed tracks per outcome:
+
+| Outcome                                          | ashbury-downey | embarcadero-bay | columbus-broadway |
+| ------------------------------------------------ | -------------: | --------------: | ----------------: |
+| New process, regions identified at frame 59      |            382 |             858 |             2,576 |
+| Reused process, regions identified at frame 300  |            313 |             774 |             2,421 |
+| Restore of the new process's snapshot            |            385 |             876 |             2,580 |
+| Restore of the reused process's snapshot         |              . |             789 |             2,535 |
+| Restore of a snapshot made under the L3 override |            353 |             791 |                 . |
+
+Each cell is one or more replays that agree row for row with each other, at any speed: the first
+row is the sweep's first unit on a lane and the diagnostic's fresh replays; the second is a lane's
+first replay of a capture after another; the restores are every later replay of a capture on its
+lane, taking whichever snapshot that lane's database held for it, including one identified under
+`x0.5-replay-l3`'s substituted L3 and then restored for a replay under the defaults.
+
 ### Determinism
 
 | Pair                             | ashbury-downey | embarcadero-bay   | columbus-broadway    |
@@ -211,8 +234,8 @@ settled pairs disagree as much as the unsettled ones (8,729 and 9,361 frames dif
 and ashbury-downey after embarcadero-bay lands near the unsettled replay after the same
 predecessor (319 tracks against 313). Settling also moves the fresh result itself (embarcadero-bay
 858 to 878 tracks, ashbury-downey 382 to 385) and doubles the replay's time (3.4 and 4.4 minutes).
-So settling does not clear the carried state, which survives the pass's reload of the settled grid
-and its reset of tracking: that points away from the L3 grid and the tracker as where it lives.
+So settling does not clear the carried state: the settling pass takes the same first convergence
+check and the same restore at frame 10 as a plain replay, and then reloads the grid it settled.
 
 ### Wall time
 
@@ -255,17 +278,37 @@ that the frame builder still times its buffer and cleanup on arrival, which a re
 sees differently. That is a reason to
 prefer analysis mode, which has no pace to fall behind.
 
-Something survives from one replay to the next. `resetAllState` clears the frame builder, the L3
-grid and the tracker before every replay; it does not clear what the tracking pipeline holds
-outside them (the classifier, the pipeline's own per-frame state, and anything else built once at
-startup), nor anything a tuning file leaves set when the next file does not name it. The DBSCAN
-subsample is seeded from each frame's points, so it is not the cause. Which state it is, this run
-does not establish. That the first divergence is usually 0.9 s into the capture says it acts from
-the replay's first frames.
+Two L3 states survive from one replay to the next, and the lanes' debug logs show both acting in
+every lane:
 
-For published scenes this means the scene a site gets depends on which site the batch replayed
-before it, and a single site republished alone gets a third result. The October 17 rerun that
-matched the September recording would have matched only if its predecessor matched too.
+1. **The convergence state.** `ResetGrid` clears the cells, the warm-up counters and the region
+   manager, but not `BackgroundGrid.prevSpreads`, `prevRegionIDs`, `settlingCheckCounter`,
+   `settlingAnnounced` or `LastObservedNoiseRel`. Convergence is judged by the change in each
+   cell's spread between checks. On a new process the first check has no previous spreads, the
+   delta is zero, and settling completes "on convergence" after 5.9 s, at frame 59: every first
+   replay on a lane logged exactly that. On a reused process the first check compares against the
+   previous capture's spreads (`spread_delta 0.71 > 0.001`), then the real delta settles to 0.004
+   to 0.005 a check and never reaches 0.001, so settling runs to the 30 s ceiling: every later
+   replay that identified its regions logged `variance samples: 300`. Neither is right. The first
+   is a check that cannot fail; the second is the honest criterion, which these scenes do not
+   meet, so the ceiling decides.
+2. **The region store.** When settling completes, the server persists the region map and the grid
+   cells to `lidar_bg_regions` and `lidar_bg_snapshot`, keyed by source path, so that a sensor
+   restarted on a scene it knows can skip settling. Ten frames into any later replay of the same
+   capture against the same database, it restores both and marks settling complete. Every repeat
+   of a capture on a lane logged `Restored 50 regions from snapshot ... by source_path`, taking
+   whichever snapshot that database held: the new process's, the reused process's, or one made
+   under the substituted L3 for a replay that then ran the defaults. When no snapshot matches the
+   path, the lookup falls back to a hash of the grid's scene signature.
+
+That the first divergence is 0.9 s into the capture is the second mechanism's frame 10 and the
+first's different settling, both acting before the first track confirms. For published scenes it
+means a scene depends on whether its server was fresh and on what the database already held for
+its capture: a batch's first site settles at frame 59, every other site at frame 300 unless the
+database holds its snapshot from an earlier batch, in which case it runs that batch's regions and
+background. The development database holds two region snapshots for published-corpus captures and
+178 with no source path, which the signature fallback can match. The October 17 rerun that matched
+the September recording may have matched by restoring September's snapshot.
 
 The L3 override is the larger effect on content, and it is a tuning question, not a speed one:
 closeness 2 against 3 roughly doubles the foreground and clusters, adds 40 to 65 % confirmed tracks
@@ -276,10 +319,12 @@ hash rather than the L3 they ran.
 
 - **Which replay is right.** None of these sites is labelled. Agreement between replays says the
   result is reproducible, not that its tracks are correct.
-- **Which state carries over.** The diagnostic shows that a predecessor changes the result and a
-  fresh server removes the change; it does not name the state.
-- **That the fresh-server result is what a long-running live server sees.** A deployed sensor runs
-  live input continuously; this concerns replays only.
+- **That the two states are the whole of it.** The logs show each acting in every lane and the
+  four outcomes account for every replay; that clearing both makes any sequence of replays
+  reproduce a new process is l3bg0021's test.
+- **What a live server does.** A deployed sensor's start-up takes the same first convergence check
+  as a new process, so it settles at about 6 s by the same accident; what it should do is a
+  decision l3bg0021 asks for, not a finding here.
 - **Three sites.** A quiet residential corner, the shortest stretch and a busy junction. Busier or
   longer captures could reveal a speed effect these did not, though none of them showed one.
 - **The analysis replays' wall time on a quiet machine.** Other sessions were running on the host;
@@ -287,18 +332,26 @@ hash rather than the L3 they ran.
 
 ## Recommendations
 
-1. **Find and clear the state that survives between replays**, so every replay starts from what a
-   fresh server starts from. Until then, a batch that wants reproducible scenes should start each
-   scene on a fresh server. Settling first is not a substitute: it does not clear the carried
-   state, and it trains the background on the traffic the scene shows.
-2. **Then ask perf0002's question again on fresh servers** (analysis twice and x0.25 per case,
-   about two and a half hours for these three). On fresh servers the diagnostic's analysis
-   replays matched x0.25 at two sites and 2x at all three, so analysis mode looks likely to pass,
-   which would cut a 24-site batch from about 18 hours to about one.
-3. **Record the L3 a replay ran in its VRLOG header**, not only the tuning file's hash, so a scene
+1. **Confirm the two states in isolation** ([l3bg0020](../../../data/experiments/l3bg/l3bg0020.md)):
+   four server histories, each one replay of two short captures, each predicted from the sweep's
+   outcomes above and checked against the debug log. About half an hour.
+2. **Clear them** ([l3bg0021](../../../data/experiments/l3bg/l3bg0021.md)): `ResetGrid` resets
+   the convergence state; a PCAP replay neither persists nor restores region snapshots unless
+   asked; and the first convergence check gets chosen semantics, scored on kirk0 and kirk1. The
+   test is an interleaved sequence of replays on one server, never restarted, each identical row
+   for row to a new process. Until that lands, a batch that wants reproducible scenes starts each
+   scene on a new process with an empty database. Settling first is not a substitute.
+3. **Ask whether the honest criterion is ever met**
+   ([l3bg0022](../../../data/experiments/l3bg/l3bg0022.md)): the spread delta flattens near
+   0.005 against a threshold of 0.001, so every honest settle waits out the ceiling.
+4. **Then ask perf0002's question again** ([perf0003](../../../data/experiments/perf/perf0003.md))
+   on one server without restarts. On new processes analysis mode matched x0.25 at two sites and
+   2x at all three, so it looks likely to pass, which would cut a 24-site batch from about 18 hours
+   to about one.
+5. **Record the L3 a replay ran in its VRLOG header**, not only the tuning file's hash, so a scene
    that ran the override says so. Whether published scenes should keep the override is a tuning
    decision for an `l3bg` spec, as the spec said.
-4. **Export published scenes by capture time, not VRLOG position.** `--start-frame 400` counts
+6. **Export published scenes by capture time, not VRLOG position.** `--start-frame 400` counts
    background snapshots taken on the wall clock, so two exports of one capture can start a frame
    apart and, at stride 2, hold alternate frames.
 
@@ -313,8 +366,9 @@ hash rather than the L3 they ran.
   `20260902T1235_80858-0fc_embarcadero-bay.pcapng` and
   `20260902T1320_80858-0f4_columbus-broadway.pcapng`, copied unchanged to the internal disk.
 - **Host:** the development Mac (M1 Pro, 8 cores, 16 GB), October 18, 2026, 00:44 to 06:10 PDT.
-- **Raw output** (VRLOGs, per-unit results, analyses, scenes, server and lane logs, the tables and
-  comparisons) is archived outside the repository at
+- **Raw output** (VRLOGs, per-unit results, analyses, scenes, server and lane logs including the
+  debug logs the two mechanisms were read from, the tables and comparisons) is archived outside the
+  repository at
   `/Volumes/banshee-results/velocity-campaign/perf0002-20261018/`. Lane 1's server database was
   replaced during the diagnostic; its run-record totals for the sweep's units are kept in the
   archived `table.json`.

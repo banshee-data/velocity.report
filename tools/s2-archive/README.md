@@ -253,11 +253,14 @@ loses nothing, and if not which paced ratio is the fastest that does, is
 [perf0002](../../data/experiments/perf/perf0002.md).
 
 Its answer ([report](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md)):
-speed is not what changes a replay. On a fresh server analysis mode, 0.25x and 2x record the same
-scene row for row, but the server carries state from one replay to the next, so a site replayed
-after another records something else, by up to a fifth of its tracks. A batch replays every site on
-one server, so each published scene depends on the site before it. Half speed stays until that
-is cleared and the question is asked again.
+speed is not what changes a replay. On a new process analysis mode, 0.25x and 2x record the same
+scene row for row, but two L3 states survive a replay: the settling convergence state `ResetGrid`
+leaves in memory, which makes a new process settle at 6 s and a reused one at 30 s, and the region
+snapshot a settled replay persists by source path and the next replay of that capture restores
+from the database at frame 10. A batch replays every site on one server against one database, so
+a published scene depends on whether its server was fresh and on what the database already held
+for its capture, by up to a fifth of its tracks. Half speed stays until l3bg0021 clears both and
+perf0003 asks the question again.
 
 `replay-speed-sweep.py` runs that experiment's arms: one replay of a corpus
 capture per arm, as `publish-scenes.py` replays it, with the VRLOG counted

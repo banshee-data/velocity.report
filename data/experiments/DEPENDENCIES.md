@@ -43,6 +43,9 @@ flowchart TB
     l3bg0017["<b>l3bg0017</b><br/>The dwell policy's drift rule at 40 s…<br/>answered · 1h10m machine + 3h person (took 1h41m)<br/>manual: implement, write"]:::answered
     l3bg0018["<b>l3bg0018</b><br/>CMR with the cell tercile and the support…<br/>answered · 16m machine + 1h person (took 42m)<br/>manual: write"]:::answered
     l3bg0019["<b>l3bg0019</b><br/>Where the Stage B arms lose a reviewed…<br/>proposed · 16m machine + 1h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::proposed
+    l3bg0020["<b>l3bg0020</b><br/>Why a replay depends on the server's…<br/>proposed · 32m machine + 1h person<br/>manual: write<br/>needs tooling: scene_variants"]:::proposed
+    l3bg0021["<b>l3bg0021</b><br/>A replay that starts from nothing, the…<br/>proposed · 1h28m machine + 6h person<br/>manual: implement, decide, write<br/>needs tooling: scene_variants, ground_truth_eval"]:::proposed
+    l3bg0022["<b>l3bg0022</b><br/>Does the background converge by its own…<br/>proposed · 58m machine + 2h person<br/>manual: write<br/>needs tooling: corpus_screen, ground_truth_eval"]:::proposed
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
@@ -71,6 +74,7 @@ flowchart TB
   subgraph area_perf ["perf: Performance on the deployment target"]
     perf0001["<b>perf0001</b><br/>The overrides-on retune's frame times on…<br/>proposed · 20m machine + 1h person<br/>manual: write<br/>needs tooling: pi_timing"]:::proposed
     perf0002["<b>perf0002</b><br/>Which replay speed a published scene…<br/>answered · 10h machine + 5h person (took 5h30m)<br/>manual: implement, write"]:::answered
+    perf0003["<b>perf0003</b><br/>Analysis mode for published scenes, asked…<br/>proposed · 3h45m machine + 1h person<br/>manual: write<br/>needs tooling: scene_variants"]:::proposed
   end
   geom0001 --> geom0002
   geom0003 --> geom0004
@@ -108,6 +112,9 @@ flowchart TB
   l3bg0010 --> l3bg0018
   geom0004 --> l3bg0019
   l3bg0018 --> l3bg0019
+  perf0002 --> l3bg0020
+  l3bg0020 --> l3bg0021
+  l3bg0021 --> l3bg0022
   geom0003 --> l4clus0001
   geom0003 --> l4clus0002
   l3bg0005 --> l4clus0002
@@ -122,6 +129,7 @@ flowchart TB
   label0002 --> l8fol0005
   label0001 --> label0002
   l3bg0005 --> perf0001
+  l3bg0021 --> perf0003
 ```
 
 ## Open experiments
@@ -130,6 +138,9 @@ flowchart TB
 - [geom0011](geom/geom0011.md) Centre against extent: how much of the reference centre error is the body's length (W9): proposed, awaiting approval; 9m machine + 3h person; asks [D-28](../../docs/DECISIONS.md), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [physical-reference-pilot-kirk0-2026-10 #interpretation](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#interpretation), [research-briefing-2025-01-to-2026-10 #schäfer-alrifaee-and-hashemi-ad…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#schäfer-alrifaee-and-hashemi-advanced-intelligent-systems-2026).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0019](l3bg/l3bg0019.md) Where the Stage B arms lose a reviewed return, return by return, on kirk0: proposed, awaiting approval; 16m machine + 1h person; after geom0004, l3bg0018; asks [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations), [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l3-candidates-corpus-dwell-2026-10 #recommendations](../../docs/lidar/operations/l3-candidates-corpus-dwell-2026-10.md#recommendations).
+- [l3bg0020](l3bg/l3bg0020.md) Why a replay depends on the server's history, the two L3 states isolated: proposed, awaiting approval; 32m machine + 1h person; after perf0002; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
+- [l3bg0021](l3bg/l3bg0021.md) A replay that starts from nothing, the settling state reset and the region store kept out of replays: waiting on a dependency; 1h28m machine + 6h person; after l3bg0020; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
+- [l3bg0022](l3bg/l3bg0022.md) Does the background converge by its own criterion before the ceiling, on the corpus: waiting on a dependency; 58m machine + 2h person; after l3bg0021; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
 - [l4clus0003](l4clus/l4clus0003.md) CMR's minimum cluster size against the mid-range fragments, on kirk: proposed, awaiting approval; 20m machine + 1h person; after l4clus0002; asks [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations).
 - [l5id0006](l5id/l5id0006.md) One vehicle, one track: the survivor's box, and tentative priority with the overlap end: proposed, awaiting approval; 2h24m machine + 4h person; after l5id0005; asks [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [published-box-refinement-2026-10 #the-box-with-one-track-per-vehi…](../../docs/lidar/operations/published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
 - [l8fol0001](l8fol/l8fol0001.md) Both parties observed (B1): following opportunity on the corpus, label-free: proposed, awaiting approval; 1h24m machine + 2h person; asks [lidar-behaviour-analytics-plan #13-open-research-questions](../../docs/plans/lidar-behaviour-analytics-plan.md#13-open-research-questions), [0.5.2-sprint-review #r5-encounter-totals-are-not-uni…](../../docs/lidar/operations/0.5.2-sprint-review.md#r5-encounter-totals-are-not-unique-follower-opportunity), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
@@ -140,6 +151,7 @@ flowchart TB
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [label0002](label/label0002.md) Physical references and following records on the held-out window: waiting on a dependency; 5h15m person; after label0001; asks [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [lidar-physical-reference-review-plan #checklist](../../docs/plans/lidar-physical-reference-review-plan.md#checklist), [end-on-truck-window-spike-2026-10 #the-capture-request](../../docs/lidar/operations/end-on-truck-window-spike-2026-10.md#the-capture-request), [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [experiment-review-2026-10-18 #labelling-and-annotation-priori…](../../docs/lidar/operations/experiment-review-2026-10-18.md#labelling-and-annotation-priorities).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
+- [perf0003](perf/perf0003.md) Analysis mode for published scenes, asked again on a server that starts each replay from nothing: waiting on a dependency; 3h45m machine + 1h person; after l3bg0021; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
 
 ## Answered
 
@@ -180,5 +192,5 @@ flowchart TB
 
 ## Totals
 
-- 14 open experiments: 8h3m machine + 82h30m person estimated.
+- 18 open experiments: 14h46m machine + 92h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
