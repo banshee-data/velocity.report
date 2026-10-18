@@ -9,6 +9,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
+	"github.com/banshee-data/velocity.report/internal/netutil"
 	"google.golang.org/grpc"
 )
 
@@ -16,6 +17,11 @@ import (
 type Config struct {
 	// ListenAddr is the address to listen on (e.g., "localhost:50051")
 	ListenAddr string
+
+	// ListenFallback binds a free port on the same host when another process
+	// already holds ListenAddr, instead of failing Start. Addr reports the
+	// port actually bound.
+	ListenFallback bool
 
 	// SensorID is the default sensor ID for streaming
 	SensorID string
@@ -379,11 +385,22 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 	}
 
 	diagf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
-	lis, err := net.Listen("tcp", p.config.ListenAddr)
+	var lis net.Listener
+	var err error
+	if p.config.ListenFallback {
+		var fellBack bool
+		lis, fellBack, err = netutil.ListenTCPWithFallback(p.config.ListenAddr)
+		if fellBack {
+			opsf("[Visualiser] %s is held by another process; gRPC bound to %s instead. Point the visualiser at that address.",
+				p.config.ListenAddr, lis.Addr())
+		}
+	} else {
+		lis, err = net.Listen("tcp", p.config.ListenAddr)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
-	diagf("[Visualiser] Successfully bound to %s", p.config.ListenAddr)
+	diagf("[Visualiser] Successfully bound to %s", lis.Addr())
 	p.listener = lis
 
 	// Configure max message size for large point clouds (64k+ points).
@@ -407,7 +424,7 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 	p.wg.Add(1)
 	go func() {
 		defer p.wg.Done()
-		diagf("[Visualiser] gRPC server listening on %s", p.config.ListenAddr)
+		diagf("[Visualiser] gRPC server listening on %s", lis.Addr())
 		diagf("[Visualiser] Waiting for client connections...")
 		if err := p.server.Serve(lis); err != nil && p.running.Load() {
 			opsf("[Visualiser] gRPC server error: %v", err)
@@ -415,6 +432,15 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 	}()
 
 	return nil
+}
+
+// Addr is the address the gRPC server is bound to, which differs from
+// Config.ListenAddr after a fallback. Empty before Start succeeds.
+func (p *Publisher) Addr() string {
+	if p.listener == nil {
+		return ""
+	}
+	return p.listener.Addr().String()
 }
 
 // Stop gracefully stops the gRPC server.
