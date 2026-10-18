@@ -70,7 +70,7 @@ flowchart TB
   end
   subgraph area_perf ["perf: Performance on the deployment target"]
     perf0001["<b>perf0001</b><br/>The overrides-on retune's frame times on…<br/>proposed · 20m machine + 1h person<br/>manual: write<br/>needs tooling: pi_timing"]:::proposed
-    perf0002["<b>perf0002</b><br/>Which replay speed a published scene…<br/>proposed · 10h machine + 5h person<br/>manual: implement, write<br/>needs tooling: scene_variants"]:::proposed
+    perf0002["<b>perf0002</b><br/>Which replay speed a published scene…<br/>answered · 10h machine + 5h person (took 5h30m)<br/>manual: implement, write"]:::answered
   end
   geom0001 --> geom0002
   geom0003 --> geom0004
@@ -140,7 +140,6 @@ flowchart TB
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [label0002](label/label0002.md) Physical references and following records on the held-out window: waiting on a dependency; 5h15m person; after label0001; asks [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [lidar-physical-reference-review-plan #checklist](../../docs/plans/lidar-physical-reference-review-plan.md#checklist), [end-on-truck-window-spike-2026-10 #the-capture-request](../../docs/lidar/operations/end-on-truck-window-spike-2026-10.md#the-capture-request), [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [experiment-review-2026-10-18 #labelling-and-annotation-priori…](../../docs/lidar/operations/experiment-review-2026-10-18.md#labelling-and-annotation-priorities).
 - [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
-- [perf0002](perf/perf0002.md) Which replay speed a published scene should use, and whether analysis mode loses anything: proposed, awaiting approval; 10h machine + 5h person; asks [README #replay-speed](../../tools/s2-archive/README.md#replay-speed).
 
 ## Answered
 
@@ -177,8 +176,9 @@ flowchart TB
 - [l5id0003](l5id/l5id0003.md) One vehicle, one track: the overlap end, kept to the vehicles it observes: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 2h2m, took 1h on m1pro; asked [l5id0002](../../data/experiments/l5id/l5id0002.md).
 - [l5id0004](l5id/l5id0004.md) One vehicle, one track: the overlap end on the body's returns, keeping the older track: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 1h55m, took 1h on m1pro; asked [l5id0003](../../data/experiments/l5id/l5id0003.md).
 - [l5id0005](l5id/l5id0005.md) One vehicle, one track: replicating l5id0004 on the third segments: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 40m, took 25m on m1pro; asked [l5id0004](../../data/experiments/l5id/l5id0004.md).
+- [perf0002](perf/perf0002.md) Which replay speed a published scene should use, and whether analysis mode loses anything: [report](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md); estimated 10h, took 5h30m on m1pro; asked [README #replay-speed](../../tools/s2-archive/README.md#replay-speed).
 
 ## Totals
 
-- 15 open experiments: 18h3m machine + 87h30m person estimated.
+- 14 open experiments: 8h3m machine + 82h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.

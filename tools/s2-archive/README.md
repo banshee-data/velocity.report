@@ -252,6 +252,13 @@ records the tuning file's hash. Whether analysis mode records every frame and
 loses nothing, and if not which paced ratio is the fastest that does, is
 [perf0002](../../data/experiments/perf/perf0002.md).
 
+Its answer ([report](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md)):
+speed is not what changes a replay. On a fresh server analysis mode, 0.25x and 2x record the same
+scene row for row, but the server carries state from one replay to the next, so a site replayed
+after another records something else, by up to a fifth of its tracks. A batch replays every site on
+one server, so each published scene depends on the site before it. Half speed stays until that
+is cleared and the question is asked again.
+
 `replay-speed-sweep.py` runs that experiment's arms: one replay of a corpus
 capture per arm, as `publish-scenes.py` replays it, with the VRLOG counted
 (`vrlog-check`), summarised (`vrlog-analyse report`) and exported as a scene at
