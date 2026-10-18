@@ -252,7 +252,8 @@ flowchart LR
   what reopens it, as the skill already requires.
 - **Through the week.** Workers run approved job steps; people close manual steps. The
   dependency graph and `experiments next` say what is waiting on whom.
-- **The weekly queue review**, in the weekly retro or as its own skill: approve or retire proposed
+- **The weekly queue review**, the [`/experiment-review` skill](../../.claude/skills/experiment-review/SKILL.md)
+  (its first run is the [October 18 review](../lidar/operations/experiment-review-2026-10-18.md)): it proposes and the owner approves or retires proposed
   specs; read the open queue, the longest chain and every manual step waiting more than a week;
   compare estimates with actuals; turn answered experiments into decisions (`manual:decide`) and
   the briefing's decisions table; and write each report recommendation that calls for more work
@@ -283,8 +284,9 @@ of the machinery exists.
    the hub and build the queue once.
 4. **Remote defaults.** Whether `swan` and remote workers reclaim orphans by default, and whether
    any manual kind besides `manual:label` should carry a numeric gate.
-5. **The review's home.** The weekly retro skill, or a new queue-review skill that writes nothing
-   but approvals and retirements.
+5. **The review's home.** Answered 2026-10-18: its own skill, `/experiment-review`, which writes
+   the review, proposed specs and backlog edits, and approves nothing; the owner approves in the
+   spec's `status`.
 
 ## 11. Risks
 
