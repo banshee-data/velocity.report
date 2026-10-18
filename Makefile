@@ -159,6 +159,7 @@ help:
 	@echo "PERFORMANCE:"
 	@echo "  test-perf            Perf gate for one profile (PROFILE=full|l3-only|detect)"
 	@echo "  test-perf-all        Perf gate across every gated profile"
+	@echo "  test-perf-ab         Benchmark BASE (default: merge base) against this tree, alternately"
 	@echo "  perf-baseline        Capture a baseline for one profile (median of 5 runs)"
 	@echo "  perf-baseline-all    Capture baselines for every gated profile"
 	@echo ""
@@ -1011,6 +1012,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \
+	scripts/test_perf_ab_compare.py \
 	scripts/test_plan_lidar_volume_reorg.py \
 	scripts/test_rekey_lidar_capture_index.py \
 	scripts/test_release_radar_remote.py \
@@ -1803,6 +1805,17 @@ test-perf-all:
 		$(MAKE) --no-print-directory test-perf PROFILE=$$profile || EXIT_CODE=1; \
 	done; \
 	exit $$EXIT_CODE
+
+# Benchmark a base commit against this working tree on this machine, alternately,
+# and fail when the change costs more than PERF_AB_THRESHOLD of wall clock. A
+# committed baseline cannot measure a change that also recaptures it; this can.
+#     make test-perf-ab                       # against the merge base with origin/main
+#     make test-perf-ab BASE=79ac3fee~1 ROUNDS=9
+PERF_AB_THRESHOLD ?= 0.10
+.PHONY: test-perf-ab
+test-perf-ab:
+	@ROUNDS="$${ROUNDS:-5}" PROFILES="$(PERF_GATED_PROFILES)" THRESHOLD="$(PERF_AB_THRESHOLD)" \
+		./scripts/perf-ab.sh $(BASE)
 
 # Capture a baseline for one profile as the median of PERF_BASELINE_REPEATS
 # runs. Run this on the hardware the gate runs on: a baseline captured

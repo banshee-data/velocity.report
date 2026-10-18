@@ -185,15 +185,16 @@ answer.
 
 ### Which cells are gated
 
-| Cell            | Status                | Gate                                                                      |
-| --------------- | --------------------- | ------------------------------------------------------------------------- |
-| `ci` x full     | Gated, nightly        | Relative regression against the `ci` baseline                             |
-| `ci` x l3-only  | Gated, nightly        | Relative regression against the `ci` baseline                             |
-| `mac` x full    | Advisory, on demand   | Developer's own check before proposing a change                           |
-| `mac` x l3-only | Advisory, on demand   | As above                                                                  |
-| `pi` x full     | **Not yet automated** | The absolute frame-budget check is the one that matters                   |
-| `pi` x l3-only  | **Not yet automated** | As above                                                                  |
-| `detect` (any)  | Measurable, not gated | An unexercised gated profile is numbers nobody can explain when they move |
+| Cell            | Status                | Gate                                                                              |
+| --------------- | --------------------- | --------------------------------------------------------------------------------- |
+| `ci` x full     | Gated, nightly        | Relative regression against the `ci` baseline                                     |
+| `ci` x l3-only  | Gated, nightly        | Relative regression against the `ci` baseline                                     |
+| `ci` A/B        | Gated, every LiDAR PR | The PR's head against its base on one runner; see [A/B](#ab-the-cost-of-a-change) |
+| `mac` x full    | Advisory, on demand   | Developer's own check before proposing a change                                   |
+| `mac` x l3-only | Advisory, on demand   | As above                                                                          |
+| `pi` x full     | **Not yet automated** | The absolute frame-budget check is the one that matters                           |
+| `pi` x l3-only  | **Not yet automated** | As above                                                                          |
+| `detect` (any)  | Measurable, not gated | An unexercised gated profile is numbers nobody can explain when they move         |
 
 The Pi rows are the gap. Until the device runs the gate on a schedule, "fast enough" is
 asserted rather than measured, and every committed number describes hardware the product does
@@ -366,6 +367,30 @@ automatically on a pull request touching the perf harness, the tuning config or 
 baselines themselves. Download its `perf-baselines-gated` artifact and commit the
 `-ci` files alongside your change.
 
+Recapturing in the same pull request means the baseline cannot say what that change
+cost: the old numbers are refused and the new ones become the reference. The A/B gate
+answers that question instead.
+
+### A/B: the cost of a change
+
+The ⚡ Perf A/B workflow runs on every pull request that touches the pipeline, its
+tuning or the harness. It builds `lidar-bench` at the pull request's base and at its
+head, and replays kirk0 through both on the same runner, five rounds per gated profile,
+alternating which goes first. Each binary runs with its own tree's tuning defaults, so a
+tuning change is measured as the change it is rather than refused as a workload
+mismatch. The gate is the median, over rounds, of head ÷ base wall clock; above 1.10
+fails. Comparing within a round cancels what the runner was doing at the time, which is
+why the threshold can be tighter than the nightly's 0.50 across runs on different days.
+
+```bash
+make test-perf-ab                        # against the merge base with origin/main
+make test-perf-ab BASE=79ac3fee~1 ROUNDS=9
+PCAP=/path/to/kirk0.pcapng make test-perf-ab   # where Git LFS is not installed
+```
+
+The summary lists the work counters of both sides: a change that does more work is
+expected to cost more, and the table shows how much of each.
+
 ### Measuring a shallower profile
 
 Useful when tuning the background model: `l3-only` runs L3 and stops, so a run costs
@@ -491,32 +516,23 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 
 ## CI integration
 
-### GitHub actions example
+### GitHub Actions workflows
 
-A GitHub Actions workflow triggers on pull requests that modify `internal/lidar/**` or `cmd/tools/lidar-bench/**`. The job runs on `ubuntu-latest` with Go 1.22 and `libpcap-dev` installed. Steps:
+| Workflow                                       | When                                                    | What it does                                                              |
+| ---------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
+| ⚡ Perf A/B (`perf-ab.yml`)                    | Pull requests touching the pipeline, tuning or harness  | Head against base on one runner; fails above 1.10 of base wall clock      |
+| ⚡ Performance Regression (nightly)            | Nightly, on `main`                                      | `make test-perf-all` against the committed `-ci` baselines and the budget |
+| 📏 Capture Perf Baseline (`perf-baseline.yml`) | Pull requests touching the harness or tuning; on demand | Captures `-ci` baselines and uploads them as an artifact to commit        |
 
-1. Check out the repository.
-2. Build `lidar-bench` with the `pcap` build tag.
-3. Download the gold standard PCAP file from shared storage (`$PCAP_STORAGE_URL`).
-4. Run the performance benchmark with `-compare-baseline` pointing at the committed baseline JSON; the step fails on regression.
-5. Upload the benchmark results JSON as a build artifact (always, regardless of pass/fail).
+The capture is kirk0, fetched through Git LFS (`actions/checkout` with `lfs: true`).
 
 ### Baseline management
 
-Store baselines in the repository for reproducibility:
-
-```
-baselines/
-├── gold-standard-baseline.json
-├── high-density-baseline.json
-└── README.md  # Documents baseline creation date and hardware
-```
-
-Update baselines when:
-
-- Intentional performance improvements are merged
-- Hardware or Go version changes affect measurements
-- Gold standard PCAP files are updated
+Baselines live in `internal/lidar/perf/baseline/`, one per cell:
+`baseline-<capture>-<profile>-<host class>.json`. Each records its tuning fingerprint,
+platform, host class and the commit it measured. Until October 2026 no `-ci` file was
+committed, so the nightly fell back to the frame-budget check alone without failing;
+the first pair was captured on `main` at `0504248c` with nine repeats.
 
 ## Understanding metrics
 

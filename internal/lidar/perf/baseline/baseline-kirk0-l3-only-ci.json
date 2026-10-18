@@ -1,0 +1,67 @@
+{
+  "version": "2.0",
+  "timestamp": "2026-10-18T04:39:49Z",
+  "pcap_file": "kirk0.pcapng",
+  "profile": "l3-only",
+  "tuning_fingerprint": "9884a9eae446",
+  "system_info": {
+    "goos": "linux",
+    "goarch": "amd64",
+    "host_class": "ci",
+    "num_cpu": 4,
+    "go_version": "go1.27.1",
+    "commit_hash": "0504248c3b5e"
+  },
+  "metrics": {
+    "wall_clock_ms": 7471,
+    "frame_time_stats": {
+      "min_ms": 3.056492,
+      "max_ms": 19.660307,
+      "avg_ms": 4.60816308293269,
+      "p50_ms": 4.649969,
+      "p95_ms": 4.800073,
+      "p99_ms": 4.861832,
+      "samples": 832
+    },
+    "frames_per_second": 111.36394057020479,
+    "packets_per_second": 20042.9661357248,
+    "points_per_second": 7679889.70686655,
+    "heap_alloc_bytes": 17077184,
+    "total_alloc_bytes": 19436088048,
+    "num_gc": 852,
+    "gc_pause_ns": 32485402,
+    "pipeline_time_ms": 7470,
+    "cluster_time_ms": 0,
+    "tracking_time_ms": 0,
+    "classify_time_ms": 0,
+    "work": {
+      "frames": 832,
+      "foreground_points": 985224,
+      "background_points": 56391232,
+      "clusters": 0,
+      "confirmed_tracks": 0
+    },
+    "frame_budget": {
+      "budget_ms": 98,
+      "frames_over": 0,
+      "frames_over_pct": 0,
+      "worst_ms": 19.660307
+    }
+  },
+  "repeat_spread": {
+    "runs": 9,
+    "wall_clock_ms": [
+      7415,
+      7432,
+      7436,
+      7438,
+      7471,
+      7477,
+      7496,
+      7508,
+      7511
+    ],
+    "median_ms": 7471,
+    "spread_pct": 1.2946729602157787
+  }
+}
