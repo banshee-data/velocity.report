@@ -266,6 +266,7 @@ type PCAPReplayConfig struct {
 	MaxRetries            int
 	AnalysisMode          bool    // When true, preserve grid after PCAP completion
 	SettleBeforeRecording bool    // When true, warm and reload the grid before recording
+	KeepTuningL3          bool    // When true, a paced replay runs the tuning file's L3 without the replay override
 	SpeedMode             string  // "analysis", "realtime", or "scaled"
 	SpeedRatio            float64 // Multiplier for "scaled" mode (e.g. 0.5 = half speed)
 	TuningConfig          string  // A config file under the server's config directory to apply first
@@ -294,6 +295,9 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 	}
 	if cfg.SettleBeforeRecording {
 		payload["settle_before_recording"] = true
+	}
+	if cfg.KeepTuningL3 {
+		payload["keep_tuning_l3"] = true
 	}
 	if cfg.SpeedMode != "" {
 		payload["speed_mode"] = cfg.SpeedMode

@@ -771,16 +771,12 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		if err == nil && replayCfg.SpeedMode == "analysis" {
 			err = runPass(ws.packetForwarder)
 		} else if err == nil {
-			// Apply PCAP-friendly background params and restore afterward.
+			// Apply PCAP-friendly background params and restore afterward,
+			// unless the caller asked for the tuning file's own L3.
 			var restoreParams func()
-			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil {
+			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil && !replayCfg.KeepTuningL3 {
 				orig := bgManager.GetParams()
-				tuned := orig
-				tuned.SeedFromFirstObservation = true
-				tuned.ClosenessSensitivityMultiplier = 2.0
-				tuned.NoiseRelativeFraction = 0.02
-				tuned.NeighbourConfirmationCount = 5
-				tuned.SafetyMarginMetres = 0.3
+				tuned := replayL3Override(orig)
 				if err := bgManager.SetParams(tuned); err != nil {
 					opsf("failed to apply PCAP-tuned background params: %v", err)
 				}
@@ -958,4 +954,18 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	}(resolvedPath, ctx, cancel, done, replayCfg, runID, plan)
 
 	return nil
+}
+
+// replayL3Override is the L3 a paced (realtime or scaled) replay runs in place
+// of the tuning file's: five values chosen for PCAP replay. Analysis mode, and
+// a paced replay started with KeepTuningL3, run the tuning file as written.
+// config/experiments/replay-l3-overrides.json holds the same five values, so an
+// analysis replay can run this L3 too (perf0002).
+func replayL3Override(p l3grid.BackgroundParams) l3grid.BackgroundParams {
+	p.SeedFromFirstObservation = true
+	p.ClosenessSensitivityMultiplier = 2.0
+	p.NoiseRelativeFraction = 0.02
+	p.NeighbourConfirmationCount = 5
+	p.SafetyMarginMetres = 0.3
+	return p
 }
