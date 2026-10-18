@@ -252,6 +252,15 @@ records the tuning file's hash. Whether analysis mode records every frame and
 loses nothing, and if not which paced ratio is the fastest that does, is
 [perf0002](../../data/experiments/perf/perf0002.md).
 
+`replay-speed-sweep.py` runs that experiment's arms: one replay of a corpus
+capture per arm, as `publish-scenes.py` replays it, with the VRLOG counted
+(`vrlog-check`), summarised (`vrlog-analyse report`) and exported as a scene at
+the published stride and start frame, and the server's log for the replay kept
+beside them. `table` gathers the units into one table, taking total clusters
+from the server's run record (the VRLOG holds only the clusters no track took),
+and `compare` matches two exported scenes row for row. Paced arms that should
+run the tuning file's own L3 send `keep_tuning_l3`.
+
 `SCENE_SOURCE=archive` replays the original rolling captures instead, joined
 and clipped the way the scenes published before the dataset existed were made.
 Keep it for reproducing one of those; the corpus is the default.
