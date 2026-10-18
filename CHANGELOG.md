@@ -51,6 +51,19 @@ not decide what ships, it does not get a vote merely because it has learned to h
 
 See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
+## [Unreleased]
+
+### Changed
+
+- A `scaled` or `realtime` PCAP replay now runs the tuning file's L3 as written, as analysis mode
+  and live input always did. Until now it substituted five L3 values for the replay's duration
+  (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5, seed from first observation,
+  noise relative 0.02), so a paced replay ran an L3 its recorded tuning hash did not name. This is
+  a breaking change for reproducing a paced replay or a published scene made before it; the
+  substituted L3 is kept as the parameter set `config/experiments/replay-l3-overrides.json`.
+  Scene publishing names its tuning file on every start (`REPLAY_TUNING_CONFIG`), and the dev
+  servers resolve replay tuning files under `config/` (`--lidar-config-dir`).
+
 ## [0.5.1] - 2026-05-11 🌞 `Sunny Southeast`
 
 This release makes the system easier to ship, easier to trust, and easier to use on the device it

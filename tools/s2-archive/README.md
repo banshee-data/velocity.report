@@ -242,15 +242,37 @@ and `SCENE_SPEED_MODE` if an experiment needs different ones.
 
 Half speed costs a full rebuild about 18 hours, and the evidence for it is one
 capture. The pipeline has changed under that evidence: the L3 warm-up now runs
-on capture time, not wall clock, so the stated reason may no longer hold. A
-scaled replay also substitutes its own L3 settings for the tuning file's
-(closeness 2 against 3, safety margin 0.30 m against 0.15, neighbour
+on capture time, not wall clock, so the stated reason may no longer hold. Until
+October 2026 a scaled replay also substituted its own L3 settings for the tuning
+file's (closeness 2 against 3, safety margin 0.30 m against 0.15, neighbour
 confirmation 5 against 3), so the analysis-against-half-speed comparison it
 rests on compared two L3 configurations as well as two speeds. Every scene
-published at half speed ran those substituted settings, though its header
-records the tuning file's hash. Whether analysis mode records every frame and
+published before then ran those substituted settings, though its header records
+the tuning file's hash; since #782 every replay runs the file as written, and
+[l3bg0023](../../data/experiments/l3bg/l3bg0023.md) decides, before the scenes
+are republished, whether the defaults should carry any of the three keys so the
+scenes do not lose real tracks. Whether analysis mode records every frame and
 loses nothing, and if not which paced ratio is the fastest that does, is
 [perf0002](../../data/experiments/perf/perf0002.md).
+
+Its answer ([report](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md)):
+speed is not what changes a replay. On a new process analysis mode, 0.25x and 2x record the same
+scene row for row, but two L3 states survive a replay: the settling convergence state `ResetGrid`
+leaves in memory, which makes a new process settle at 6 s and a reused one at 30 s, and the region
+snapshot a settled replay persists by source path and the next replay of that capture restores
+from the database at frame 10. A batch replays every site on one server against one database, so
+a published scene depends on whether its server was fresh and on what the database already held
+for its capture, by up to a fifth of its tracks. Half speed stays until l3bg0021 clears both and
+perf0003 asks the question again.
+
+`replay-speed-sweep.py` runs that experiment's arms: one replay of a corpus
+capture per arm, as `publish-scenes.py` replays it, with the VRLOG counted
+(`vrlog-check`), summarised (`vrlog-analyse report`) and exported as a scene at
+the published stride and start frame, and the server's log for the replay kept
+beside them. `table` gathers the units into one table, taking total clusters
+from the server's run record (the VRLOG holds only the clusters no track took),
+and `compare` matches two exported scenes row for row. Every arm runs the L3 of
+the tuning file it names.
 
 `SCENE_SOURCE=archive` replays the original rolling captures instead, joined
 and clipped the way the scenes published before the dataset existed were made.
