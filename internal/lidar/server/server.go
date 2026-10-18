@@ -187,7 +187,9 @@ type Server struct {
 
 	// Recording lifecycle callbacks
 	onRecordingStart func(runID string) string
-	onRecordingStop  func(runID string) string
+	// recordingAvailable probes whether onRecordingStart can record; nil = yes.
+	recordingAvailable func() bool
+	onRecordingStop    func(runID string) string
 
 	// Playback control callbacks
 	onPlaybackPause func()
@@ -339,6 +341,13 @@ type Config struct {
 	// can report recording state instead of leaving it in a closure local.
 	OnRecordingStart func(runID string) string
 
+	// RecordingAvailable reports, without starting anything, whether
+	// OnRecordingStart has what it needs. A replay that will record checks it
+	// before its first pass, so one that cannot record fails before the
+	// settling pass reads the capture rather than after it. Nil means
+	// available, and OnRecordingStart's empty path remains the final word.
+	RecordingAvailable func() bool
+
 	// OnRecordingStop is called when VRLOG recording stops.
 	// The callback receives the run ID and should return the path to the recorded VRLOG.
 	OnRecordingStop func(runID string) string
@@ -434,6 +443,7 @@ func NewServer(config Config) *Server {
 		onPCAPProgress:     config.OnPCAPProgress,
 		onPCAPTimestamps:   config.OnPCAPTimestamps,
 		onRecordingStart:   config.OnRecordingStart,
+		recordingAvailable: config.RecordingAvailable,
 		onRecordingStop:    config.OnRecordingStop,
 		onPlaybackPause:    config.OnPlaybackPause,
 		onPlaybackPlay:     config.OnPlaybackPlay,

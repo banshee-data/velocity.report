@@ -705,6 +705,14 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 
 		var err error
+		// A replay that will record checks it can before its first pass. The
+		// recorder itself starts only after settling, so without this a run
+		// that cannot record still reads the whole capture once to settle.
+		willRecord := runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil
+		if willRecord && ws.recordingAvailable != nil && !ws.recordingAvailable() {
+			err = errRecordingUnavailable
+		}
+
 		// Enable blocking frame channel for ALL PCAP replay modes so every
 		// sensor rotation is processed without silent drops. This guarantees
 		// deterministic 1:1 PCAP-frame-to-VRLOG-frame mapping regardless of
@@ -714,7 +722,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			defer fb.SetBlockOnFrameChannel(false)
 		}
 
-		if replayCfg.SettleBeforeRecording {
+		if err == nil && replayCfg.SettleBeforeRecording {
 			// Name the pass. Both passes replay the same window and report the
 			// same source and in-progress flag, and packet progress restarts
 			// between them, so without this a progress display runs 0-100%
@@ -736,7 +744,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		}
 
 		var recordingStarted bool
-		if err == nil && runID != "" && !replayCfg.DisableRecording && ws.onRecordingStart != nil {
+		if err == nil && willRecord {
 			// Publish where the recorder is writing so the status surfaces can
 			// report it. Previously this was a goroutine-local bool paired with
 			// a closure local in the radar command, so nothing could observe it.
@@ -745,7 +753,9 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 			// visualiser publisher is configured. Reporting recording=true then
 			// would be its own small lie, so only the successful case is marked.
 			//
-			// It also fails the run before the recorded pass. The caller asked
+			// It also fails the run before the recorded pass, for a recorder
+			// that failed although RecordingAvailable said yes (a VRLOG
+			// directory it cannot create, say). The caller asked
 			// for a recording, and replaying without one still ends the run
 			// 'completed' with no VRLOG: a scene batch once spent forty minutes
 			// a site that way, every site, before anything read the output.

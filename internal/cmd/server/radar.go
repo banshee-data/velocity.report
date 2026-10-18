@@ -829,6 +829,7 @@ func Main(args []string) int {
 			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
 			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},
 			OnPCAPTimestamps:   pcapTimestampsCallback(visualiserServer),
+			RecordingAvailable: func() bool { return visualiserPublisher != nil },
 			OnRecordingStart: func(runID string) string {
 				if visualiserPublisher == nil {
 					log.Printf("[Visualiser] VRLOG recording skipped (publisher not initialised)")

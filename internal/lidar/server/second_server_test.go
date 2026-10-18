@@ -22,11 +22,26 @@ import (
 // ran to the end and reported 'completed' with no VRLOG — forty minutes a site
 // before the exporter found nothing to export.
 
+// replayOpts is what varies between the replays below: what the recorder
+// returns, whether the availability probe is wired and what it says, and
+// whether the replay settles first, as publish-scenes.py does by default.
+type replayOpts struct {
+	recordingPath string
+	available     func() bool
+	settle        bool
+}
+
 // replayWithRecorder replays one stub capture in analysis mode with recording
 // requested, the way publish-scenes.py starts a scene, and reports how many
 // times the capture was read and the run record the replay left behind.
 func replayWithRecorder(t *testing.T, recordingPath string) (reads int, run *sqlite.AnalysisRun, ws *Server) {
 	t.Helper()
+	return replayWith(t, replayOpts{recordingPath: recordingPath})
+}
+
+func replayWith(t *testing.T, opts replayOpts) (reads int, run *sqlite.AnalysisRun, ws *Server) {
+	t.Helper()
+	recordingPath := opts.recordingPath
 	restore := restoreDatasourceHandlerSeams()
 	t.Cleanup(restore)
 
@@ -47,23 +62,26 @@ func replayWithRecorder(t *testing.T, recordingPath string) (reads int, run *sql
 		reads++
 		return nil
 	}
+	prepareSettledPCAPReplay = func(*Server, string, string) error { return nil }
 
 	ws = NewServer(Config{
-		Address:          ":0",
-		Stats:            NewPacketStats(),
-		SensorID:         sensorID,
-		PCAPSafeDir:      tmpDir,
-		DB:               dbWrapped,
-		Parser:           &mockTimestampParser{},
-		OnRecordingStart: func(string) string { return recordingPath },
-		OnRecordingStop:  func(string) string { return recordingPath },
+		Address:            ":0",
+		Stats:              NewPacketStats(),
+		SensorID:           sensorID,
+		PCAPSafeDir:        tmpDir,
+		DB:                 dbWrapped,
+		Parser:             &mockTimestampParser{},
+		RecordingAvailable: opts.available,
+		OnRecordingStart:   func(string) string { return recordingPath },
+		OnRecordingStop:    func(string) string { return recordingPath },
 	})
 	ws.setBaseContext(context.Background())
 
 	if err := ws.startPCAPLockedWithConfig("scene.pcap", ReplayConfig{
-		AnalysisMode: true,
-		SpeedMode:    "analysis",
-		SensorID:     sensorID,
+		AnalysisMode:          true,
+		SettleBeforeRecording: opts.settle,
+		SpeedMode:             "analysis",
+		SensorID:              sensorID,
 	}); err != nil {
 		t.Fatalf("startPCAPLockedWithConfig: %v", err)
 	}
@@ -96,6 +114,56 @@ func TestReplay_RecordingUnavailableFailsTheRunBeforeReplaying(t *testing.T) {
 	}
 	if ws.PipelineState().Recording {
 		t.Error("recording reported active although it never started")
+	}
+}
+
+// Settling is publish-scenes.py's default, and the recorder starts only after
+// the settling pass. The availability probe fails the run before that pass, so
+// a run that cannot record does not read the whole capture once to settle.
+func TestReplay_RecordingUnavailableFailsBeforeTheSettlingPass(t *testing.T) {
+	reads, run, _ := replayWith(t, replayOpts{
+		available: func() bool { return false },
+		settle:    true,
+	})
+
+	if reads != 0 {
+		t.Errorf("capture read %d time(s) although the probe said recording is unavailable; want 0", reads)
+	}
+	if run.Status != "failed" || !strings.Contains(run.ErrorMessage, "VRLOG recording could not start") {
+		t.Errorf("run = %q (%q), want failed naming the recording", run.Status, run.ErrorMessage)
+	}
+}
+
+// A recorder that fails although the probe said yes is still caught when it
+// starts: the settling pass has run, the recorded pass does not, and the run
+// fails rather than completing with no VRLOG.
+func TestReplay_RecorderFailingAfterAPassingProbeStillFailsTheRun(t *testing.T) {
+	reads, run, _ := replayWith(t, replayOpts{
+		available: func() bool { return true },
+		settle:    true,
+	})
+
+	if reads != 1 {
+		t.Errorf("capture read %d time(s), want 1 (the settling pass only)", reads)
+	}
+	if run.Status != "failed" {
+		t.Errorf("run status = %q, want failed", run.Status)
+	}
+}
+
+// With a recorder that works, settling and recording both run and complete.
+func TestReplay_SettledRecordingReplaysTwiceAndCompletes(t *testing.T) {
+	reads, run, _ := replayWith(t, replayOpts{
+		recordingPath: "/tmp/scene.vrlog",
+		available:     func() bool { return true },
+		settle:        true,
+	})
+
+	if reads != 2 {
+		t.Errorf("capture read %d time(s), want 2 (settle, then record)", reads)
+	}
+	if run.Status != "completed" {
+		t.Errorf("run status = %q, want completed (error %q)", run.Status, run.ErrorMessage)
 	}
 }
 
