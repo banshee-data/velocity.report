@@ -12,6 +12,7 @@ result.json is skipped.
         --db /path/server.db --log /path/server.log --out RUN \\
         --case ashbury-downey --arm x0.5 [--repeat 2]
     replay-speed-sweep.py table RUN          # the per-arm, per-case table
+    replay-speed-sweep.py export-full RUN    # every frame of every unit, for compare
     replay-speed-sweep.py compare A B        # two exported scenes, row for row
 
 Everything written goes under --out, outside the checkout: raw output never
@@ -210,21 +211,69 @@ def run_unit(args):
     )
 
 
+def export_full(run):
+    """Every unit's VRLOG again, every frame from the first (scene-full/).
+
+    The published export starts at a VRLOG position and keeps every other
+    frame, so two replays whose VRLOGs hold a different number of background
+    snapshots export alternate frames and share none. Comparing replays row
+    for row needs every frame.
+    """
+    for case in sorted(os.listdir(run)):
+        for arm in ARMS:
+            base = os.path.join(run, case, arm)
+            if not os.path.isdir(base):
+                continue
+            for rep in sorted(os.listdir(base)):
+                unit = os.path.join(base, rep)
+                out = os.path.join(unit, "scene-full")
+                if not os.path.exists(
+                    os.path.join(unit, "result.json")
+                ) or os.path.exists(os.path.join(out, "header.json")):
+                    continue
+                with open(os.path.join(unit, "result.json")) as f:
+                    vrlog = json.load(f)["vrlog"]
+                tool(
+                    os.path.join(REPO, "velocity"),
+                    "scene",
+                    "export",
+                    "--vrlog",
+                    vrlog,
+                    "--out",
+                    out,
+                    "--site",
+                    case,
+                    "--title",
+                    case,
+                    "--stride",
+                    "1",
+                    "--start-frame",
+                    "0",
+                )
+                print(f"exported {unit}")
+
+
 def scene_frames(scene):
-    """{frame: [track rows]} from an exported scene's NDJSON chunks."""
+    """{capture time in ms: [track rows]} from an exported scene's NDJSON chunks.
+
+    Frames are keyed by capture time, not by "f": f is the server's running
+    frame counter, and t is measured from the scene's first frame, which
+    --start-frame picks by VRLOG position. A VRLOG interleaves background
+    snapshots on the wall clock, so two replays of one capture can start their
+    scenes a frame or two apart.
+    """
+    with open(os.path.join(scene, "header.json")) as f:
+        start_ns = int(json.load(f)["start_ns"])
     frames = {}
-    part = (
-        os.path.join(scene, "frames")
-        if os.path.isdir(os.path.join(scene, "frames"))
-        else scene
-    )
+    part = os.path.join(scene, "frames")
     for name in sorted(os.listdir(part)):
         if not name.endswith(".ndjson.gz"):
             continue
         with gzip.open(os.path.join(part, name), "rt") as f:
             for line in f:
                 record = json.loads(line)
-                frames[record["f"]] = record.get("tr", [])
+                key = round((start_ns + record["t"] * 1000) / 1e6)
+                frames[key] = record.get("tr", [])
     return frames
 
 
@@ -277,7 +326,11 @@ def compare(a, b):
         "tracks_a": len(ids_a),
         "tracks_b": len(ids_b),
         "tracks_mapped": len(mapping),
-        "identical": len(fa) == len(fb) == len(common) and differing_frames == 0,
+        "frames_only_a": len(fa) - len(common),
+        "frames_only_b": len(fb) - len(common),
+        # Over the frames both scenes hold: a scene can start a frame or two
+        # later than another (see scene_frames), which is not a disagreement.
+        "identical": bool(common) and differing_frames == 0,
     }
 
 
@@ -389,12 +442,16 @@ def main():
         default=[],
         help="a server database holding the runs' records; repeat",
     )
+    e = sub.add_parser("export-full")
+    e.add_argument("run")
     c = sub.add_parser("compare")
     c.add_argument("a")
     c.add_argument("b")
     args = parser.parse_args()
     if args.command == "run":
         run_unit(args)
+    elif args.command == "export-full":
+        export_full(args.run)
     elif args.command == "table":
         table(args.run, args.db)
     else:

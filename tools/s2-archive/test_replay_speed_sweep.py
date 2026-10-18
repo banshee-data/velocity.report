@@ -24,11 +24,17 @@ sys.modules["replay_speed_sweep"] = sweep
 spec.loader.exec_module(sweep)
 
 
-def write_scene(root, frames):
+def write_scene(root, frames, start_ns=1_000_000_000):
     os.makedirs(os.path.join(root, "frames"))
+    with open(os.path.join(root, "header.json"), "w") as f:
+        json.dump({"start_ns": str(start_ns)}, f)
     with gzip.open(os.path.join(root, "frames", "chunk_0000.ndjson.gz"), "wt") as f:
         for number, tracks in frames:
-            f.write(json.dumps({"f": number, "t": number * 100, "tr": tracks}) + "\n")
+            # t in microseconds from the scene's start; f a server counter.
+            f.write(
+                json.dumps({"f": 9000 + number, "t": number * 100_000, "tr": tracks})
+                + "\n"
+            )
 
 
 def row(track_id, x, y, c="car"):
@@ -62,6 +68,17 @@ class CompareTest(unittest.TestCase):
         self.assertEqual(result["tracks_mapped"], 2)
         self.assertEqual(result["rows_matched"], 3)
 
+    def test_scenes_that_start_a_frame_apart_compare_on_capture_time(self):
+        # B's scene starts 100 ms later, so its t and f are offset; the rows agree.
+        a = [(1, [row("1a", 1, 2)]), (2, [row("1a", 2, 2)])]
+        b = [(1, [row("zz", 2, 2)])]
+        with tempfile.TemporaryDirectory() as tmp:
+            write_scene(os.path.join(tmp, "a"), a, start_ns=1_000_000_000)
+            write_scene(os.path.join(tmp, "b"), b, start_ns=1_100_000_000)
+            result = sweep.compare(os.path.join(tmp, "a"), os.path.join(tmp, "b"))
+        self.assertEqual(result["frames_common"], 1)
+        self.assertEqual(result["frames_differing"], 0)
+
     def test_a_moved_row_is_a_difference(self):
         a = [(1, [row("1a", 1, 2)]), (3, [row("1a", 2, 2)])]
         b = [(1, [row("zz", 1, 2)]), (3, [row("zz", 2.01, 2)])]
@@ -77,10 +94,12 @@ class CompareTest(unittest.TestCase):
         result = self.compare(a, b)
         self.assertFalse(result["identical"])
 
-    def test_a_missing_frame_is_a_difference(self):
+    def test_a_frame_only_one_scene_holds_is_counted(self):
         a = [(1, [row("1a", 1, 2)]), (3, [])]
         b = [(1, [row("zz", 1, 2)])]
-        self.assertFalse(self.compare(a, b)["identical"])
+        result = self.compare(a, b)
+        self.assertEqual(result["frames_only_a"], 1)
+        self.assertTrue(result["identical"])
 
 
 class CorpusCaptureTest(unittest.TestCase):
