@@ -6,8 +6,11 @@
   baseline, because traffic around an automated vehicle follows it differently. One open
   question for the owner. Revised October 19 after the owner supplied both journal full texts:
   Chu et al. and the Palermo study are now read in full, and no verdict changed. Corrected: the
-  Waymo evidence in Chu et al. is weak, their headway is front to front, and the Palermo risks
-  are averages that a few fast sites dominate.
+  Waymo evidence in Chu et al. is weak, their headway includes a vehicle length, and the Palermo
+  risks are averages that a few fast sites dominate. A second revision the same day read five
+  follow-up papers the owner supplied (Jiao et al. 2024, Michael et al. 2000, Kröyer 2015, Rosén
+  et al. 2011, Torrisi et al. 2026) and added all seven read papers to `references.bib`. Jiao et
+  al. make the Chu et al. result contested, not settled, and three new open questions follow.
 - **Scope:** Roadside and infrastructure LiDAR perception, and the safety and behaviour literature
   the analytics cite, first listed or newly surfaced October 12 to 19, 2026. No third-party
   briefing was supplied. The October 11 briefing is still on its own branch
@@ -43,8 +46,10 @@ autonomous vehicle whose presence and behaviour influence the surrounding traffi
 now stand behind that sentence as its citation, read in full. Their evidence comes almost
 entirely from Lyft's Palo Alto fleet. Their Waymo sample is 50 matched pairs, and its headway
 difference is not significant, so the citation supports the general claim and not a measured
-effect in Waymo data. Their headway is front to front and this plan's is a net gap, so their
-numbers are not comparable with a site's. The paper raises one question for reports at sites that
+effect in Waymo data. Jiao et al. (2024), on the same Lyft data, attribute most of the headway
+difference to how the data were collected rather than to drivers, so the citation now names both.
+Their headway includes a vehicle length and this plan's is a net gap, so their numbers are not
+comparable with a site's. The paper raises one question for reports at sites that
 automated fleets serve (Q1).
 
 The roadside camera-and-radar paper validates its extent against templates that set the extent,
@@ -112,10 +117,13 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
    (position RMSE 1.84 m against 0.14 m; 48% of manual-vehicle jerk values exceeded 15 m/s³
    before cleaning). The paper does not say how TGSIM was collected.
 
-   Headway is Eq. 4, THW = (X_L − X_F) / V_F. TTC (Eq. 3) subtracts the leader length L from the
-   same position difference, so X is a front position and **THW is front-to-front headway**,
-   computed at each 0.1 s step. "Critical" means THW < 2 s, citing Michael, Leeming and Dwyer
-   (2000). In the speed-based Lyft data, human followers behind matched automated leaders had a
+   Headway is Eq. 4, THW = (X_L − X_F) / V_F, computed at each 0.1 s step. It is a **gross
+   headway: the position difference includes a vehicle length**. TTC (Eq. 3) subtracts the
+   leader length L from the same difference, which treats X as a front position. But Lyft
+   positions are 3D box centroids (Jiao et al. 2024, Section 2.1), so Eq. 4 is centroid to
+   centroid. That equals front to front only when the two vehicles are the same length.
+   "Critical" means THW < 2 s, citing Michael, Leeming and Dwyer (2000), who present the 2 s
+   figure as a driver-training rule, not a measured threshold. In the speed-based Lyft data, human followers behind matched automated leaders had a
    mean THW of 1.959 s against 2.698 s behind matched manual leaders (Cohen's d = −0.67), with
    65.3% against 39.3% of time below 2 s. The position-based set agrees. Mean TTC and minimum TTC
    were smaller only in the speed-based set (d ≈ −0.1). Waymo, 50 pairs: 2.476 s against
@@ -130,18 +138,26 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
      headway difference that is not significant. The abstract's "similar changes appear in the
      other two datasets" holds for TGSIM's headway and not for Waymo's.
    - **Measurement is not symmetric.** In MV–AV events the human follower is sensed by the
-     leader's rear-facing sensors. In MV–MV events both vehicles are sensed at a distance. Noise
-     in the manual-vehicle trajectories differs between the groups. The paper smooths the data
-     (outlier replacement, then a Daubechies-6 wavelet with all detail coefficients dropped)
-     but does not test whether sensing geometry alone could move headway.
+     leader's rear-facing sensors. In MV–MV events both vehicles are sensed at a distance. The
+     paper smooths the data (outlier replacement, then a Daubechies-6 wavelet with all detail
+     coefficients dropped) but does not test whether sensing geometry alone could move headway.
+     Jiao et al. (2024) show the asymmetry in the same Lyft data. The lengths detected for
+     vehicles directly behind an automated vehicle cluster at 4.0 and 5.0 m instead of following
+     the normal spread of passing vehicles. Their stationary length sums average 9.25 m behind
+     an automated vehicle against 8.79 m between two manual vehicles.
    - **Matching leaves the cause open.** The paper uses TGSIM, whose cars look like any other, to
      argue that the effect is behavioural rather than visual. Its mediation analysis finds that the
      leader's speed and acceleration variability explain part of the headway difference, and
      the authors say plainly that variability "do[es] not fully account" for it. That leaves risk
      adaptation and drivers' attitudes to automated vehicles open. Their own literature disagrees:
      Wen et al. (2022) and Wang et al. (2025) found shorter headways behind Waymo vehicles; Hu et
-     al. (2023) found no difference; and Jiao et al. (2024) give alternative explanations. That
-     is a contested result, not a settled one.
+     al. (2023) found no difference. Jiao et al. (2024), read in the follow-up section below,
+     reach the opposite reading from the same Lyft fleet: observation bias plays a "remarkable
+     (probably primary)" role. Chu et al. match on leader speed, which partly controls Jiao's
+     first factor (the mix of following states). It does not control the second: the automated
+     leaders are 20 cars running one algorithm, while the manual leaders are tens of thousands of
+     different drivers. Chu et al. cite Jiao et al. only in passing. That is a contested result,
+     not a settled one.
    - **The sample is dated.** Lyft data is from 2019–2020 at low speed (followers around 11 m/s),
      and the authors say it may not represent current automated driving.
 3. **Sensor.** The sensor sees passages, not who or what drives them. It cannot tell an automated
@@ -151,7 +167,7 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
    classification: where automated fleets operate, a share of observed following passages has an
    automated leader, and that share is unknown to the report. Their headway is not this plan's.
    The plan's `THW` is a net time gap ([Section 8.3](../../../plans/lidar-behaviour-analytics-plan.md#83-following-behaviour)),
-   shorter than front-to-front headway by about L/V_F. For a 4.5 m car at 11 m/s that is about
+   shorter than gross headway by about L/V_F. For a 4.5 m car at 11 m/s that is about
    0.4 s, which is the same size as the effect. A site's net-gap share below 2 s must never be
    set beside the paper's 39% or 65%.
 4. **Lands.** The behaviour plan's Section 11 table already says of Waymo Open Motion: "Not a
@@ -164,13 +180,13 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
    band is labelled `no_established_threshold`; that still holds.
 5. **Verdict.**
 
-   | Claim                                                          | Verdict                                                                                                                                                  |
-   | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-   | Human followers keep shorter headways behind automated leaders | **New and adopted** as the citation for the existing Waymo Open Motion caveat, read in full; evidence mainly from Lyft, Waymo difference not significant |
-   | Automated followers keep longer headways than human ones       | Already holds: the same row's reason for not treating the dataset as a human baseline                                                                    |
-   | Leader type as a stratum of a site's following distribution    | **Open question** Q1, as a limitations sentence only; the sensor cannot observe the stratum                                                              |
-   | THW < 2 s as "critical" or "dangerous"                         | Not adopted: the plan labels the 2.0 s band `no_established_threshold`, and the paper's headway is front to front, not a net gap                         |
-   | "Riskier" and "safer" as descriptions of followers             | Not adopted: verdict words; the plan describes headway distributions, never a driver's conduct                                                           |
+   | Claim                                                          | Verdict                                                                                                                                                                                                  |
+   | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+   | Human followers keep shorter headways behind automated leaders | **New and adopted** as the citation for the existing Waymo Open Motion caveat, read in full; evidence mainly from Lyft, Waymo difference not significant; contested by Jiao et al. 2024, cited beside it |
+   | Automated followers keep longer headways than human ones       | Already holds: the same row's reason for not treating the dataset as a human baseline                                                                                                                    |
+   | Leader type as a stratum of a site's following distribution    | **Open question** Q1, as a limitations sentence only; the sensor cannot observe the stratum                                                                                                              |
+   | THW < 2 s as "critical" or "dangerous"                         | Not adopted: the plan labels the 2.0 s band `no_established_threshold`, and the paper's headway is gross, not a net gap                                                                                  |
+   | "Riskier" and "safer" as descriptions of followers             | Not adopted: verdict words; the plan describes headway distributions, never a driver's conduct                                                                                                           |
 
 6. **Rights.** CC BY-NC-ND 4.0, confirmed on the article. Citation with credit and short
    quotation are within it; no figure is reproduced and no adapted material is made.
@@ -179,7 +195,7 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
    follower headway behind leaders with low speed variance differs from headway behind leaders
    with high variance, holding leader speed. The paper's mediation model is exactly that test,
    with the leader's speed and acceleration standard deviations as mediators. A site could copy
-   its design, using net gap rather than front-to-front headway. It stays a research-note
+   its design, using net gap rather than gross headway. It stays a research-note
    hypothesis over observed pairs, after the behaviour plan's B1 gate is met; it is not proposed
    as work.
 
@@ -273,16 +289,22 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
      a vehicle whose travel speed was measured. A percentile of segment speeds is not the
      striking vehicle's speed (Kröyer 2015, which the paper cites), so here the bound is on a
      hypothetical vehicle at that percentile. The authors call their risks "comparative
-     estimates", not absolute probabilities. Davis (2001) was fitted to older crash data, the
-     kind Rosén, Stigson and Sander (2011) find biased toward severe outcomes, and the plan does
-     not list it.
+     estimates", not absolute probabilities.
+   - **The curve is sound but dated.** Davis (2001) refits Ashton's 1970s Birmingham crashes,
+     weighted to the UK's 1976 severity proportions. Rosén, Stigson and Sander (2011) count it
+     among the few bias-adjusted curves (about 7% fatal at 50 km/h for ages 15–59) and call it
+     "fairly reliable" for crashes of the 1960s and 70s. For crashes in the 2000s they point to
+     Rosén and Sander (2009), which the plan already uses. Applying the 1976 fleet and medical
+     care to Palermo in 2015–2022 is the paper's real weakness, and the plan does not list
+     Davis (2001).
 3. **Sensor.** A site measures travel-speed distributions at a point, with a real denominator over
    observed time. The probe percentiles here are a different instrument: their sample size is
-   stated, but the share of the traffic it represents is not. The paper cites Torrisi et al.
-   (2026), which compared TomTom floating-car data with fixed radar in an Italian city and found
-   uneven probe coverage and some underestimation of speed. That is direct evidence on how a
-   roadside instrument compares with probe percentiles; it is in the to-fetch list. The method is
-   one a report could imitate, which is why the plan forbids it unqualified.
+   stated, but the share of the traffic it represents is not. Torrisi et al. (2026), which the
+   paper cites and which is read below, measure that share at 14 radar sections in Catania: a
+   median of about 3.5% of vehicles. Probe and radar P50 and P85 agreed within about 1 km/h on
+   clean segments, but differed by up to 21 km/h where the probe segment ran through a junction.
+   Pedestrian crashes cluster at junctions. The method is one a report could imitate, which is
+   why the plan forbids it unqualified.
 4. **Lands.** The crash-data plan's harm-curve row already says the curves give harm at
    **impact** speed, and that "applied to measured speeds the curve is an upper bound, and the
    report says so". Already holds. The plan's curves are Tefft 2013, Rosén and Sander 2009,
@@ -295,40 +317,178 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
 7. **Survey.** A site could reproduce the calculation, labelled as an upper bound, from its own
    percentiles; the plan already specifies that and nothing new is proposed.
 
+## Follow-up reading, October 19
+
+The owner supplied five papers from the first revision's to-fetch list. Each was read in full.
+Two bear on the following metric and three on the harm curves and speed data.
+
+### Jiao, Li, Calvert, van Cranenburgh and van Lint: alternative explanations for shorter headways (_Transportation Research Part C_ 164, 104673, 2024)
+
+1. **Measures.** The same Lyft Level 5 fleet as Chu et al. (20 vehicles, Palo Alto, October 2019
+   to March 2020), through the car-following set of Li et al. (2023). The baseline difference in
+   per-case minimum time headway, human behind automated against human behind human, is 0.61 s,
+   and the spread is 0.48 s narrower. Three alternatives to a change in drivers are tested.
+   - **Following states.** Each time step is labelled with one of seven regimes (cruising,
+     following, accelerating, decelerating, free acceleration, free deceleration, stationary).
+     Restricting to constant-speed following cuts the difference from 0.61 s to 0.33 s (1.46 s
+     against 1.79 s). Free-following regimes are 20.0% of human–human minimums and 9.2% of
+     human–automated ones.
+   - **Leader homogeneity.** Calibrated Intelligent Driver Models of 1,227 human followers are
+     made to follow one human leader or 1,227 different human leaders. One leader shortens the
+     mean minimum headway by 0.275 s (Gipps' model: 0.31 s), with no automation involved.
+   - **Leader characteristics.** An LSTM classifier picks out automated leaders that drive like
+     humans. Followers keep 0.10 to 0.13 s longer headways behind those than behind automated
+     leaders that drive like machines.
+
+   Headway is centroid to centroid divided by follower speed, because lengths detected behind an
+   automated vehicle are unreliable. Code is public. CC BY 4.0.
+
+2. **Maths.** The three effects are not additive, and the authors say so. The simulation result
+   is the strongest: it isolates leader homogeneity in human-only data. The paper does not rule
+   out a change in drivers, and it cites a "Wizard of Oz" study (Soni et al. 2022) in which
+   drivers told the leader was automated did not follow closer. Together with Chu et al.'s TGSIM
+   argument, the evidence points to how the leader drives, not what drivers believe about it.
+3. **Sensor.** Two lessons transfer directly. First, a headway distribution depends on the mix
+   of following states in it, so a site's distribution is only comparable with another's if
+   free following is excluded the same way. Second, a homogeneous leader population shortens and
+   narrows follower headways on its own. A site whose leaders are mostly one kind (a bus route, a
+   delivery fleet, a platoon behind a signal) will show this without any change in drivers.
+4. **Lands.** The plan's `following_valid_time` is "time both parties were in view, same path,
+   `F` behind `L`" ([Section 8.3](../../../plans/lidar-behaviour-analytics-plan.md#83-following-behaviour)).
+   It has no constrained-following test, so free following is counted (Q2).
+5. **Verdict.** **New and adopted** as the counter-citation beside Chu et al. in the Waymo Open
+   Motion row. The following-state finding is raised as Q2.
+
+### Michael, Leeming and Dwyer: headway on urban streets (_Transportation Research Part F_ 3, 55–64, 2000)
+
+1. **Measures.** Roadside video of all lanes on three urban arterials in Memphis, autumn 1998, in
+   free-flowing traffic only. Headway was coded by hand with mouse clicks, front of leader to
+   front of follower past a point (the Evans 1991 definition). About 25,000 headways were
+   recorded and 12,393 below 4 s kept. Following the "leader" definition of Wasielewski (1979),
+   vehicles 4 s or more behind are treated as not following. Headways of 400 ms or less are
+   stated to be inaccurate. 49.4% of followers kept 2 s or more, and 933 (7.5%) kept under 1 s.
+   A hand-held "Help Prevent Crashes Please Don't Tailgate" sign raised the mean from 2.11 s to
+   2.29 s (effect size 0.21). A sign without the word "crashes" had no effect.
+2. **Maths.** Means and shares only. All differences by location, time of day and lane were
+   "small" effect sizes. The 2 s figure is introduced as what driver-training programmes teach,
+   not as a measured threshold.
+3. **Sensor.** This is the closest prior art to the sensor's following measurement: a fixed
+   roadside observer, free flow, all lanes, a following cut-off. It measures gross passage
+   headway at a point, while the plan measures net gap over a path, so its numbers are not
+   comparable either. It is the source Chu et al. cite for the 2 s "critical" threshold, and it
+   supports the plan's line that the two-second rule "is driver education".
+4. **Lands.** The plan's two-second paragraph and `no_established_threshold` label already hold.
+   Its 4 s cut-off is one answer to Q2.
+5. **Verdict.** Cited, not adopted as a threshold. Copyright Elsevier; citation only.
+
+### Kröyer: injury severity and mean travel speed (_IATSS Research_ 39, 42–50, 2015)
+
+1. **Measures.** Swedish STRADA pedestrian crashes, 2004–2008. Dataset 1 has 8,166 crashes
+   (272 fatal). Dataset 2 is 79 crashes drawn from Scania by severity (31 minor, 29 severe, 19
+   fatal), daytime, dry, run-over crashes excluded. At each dataset 2 site, the spot speeds of
+   free-flowing vehicles on the crash vehicle's approach were measured (at least 59 per site).
+   A weighted multinomial logit relates severity to site mean speed and age. Mean site speeds:
+   36.6 km/h for minor, 40.5 for severe and 48.9 for fatal crashes. Fatal crashes were rare
+   below a site mean of about 40 km/h (1 of 19). About 31% of severe injuries occurred at sites
+   with mean speeds below 35 km/h.
+2. **Maths.** Weighted for the outcome-based sampling. Mean speed separates fatal from minor
+   crashes (p = 0.004) but not minor from severe (p = 0.114). The author attributes this partly
+   to the crash vehicle's speed departing from the site mean. With 19 fatal crashes, the
+   intervals are wide, and the speed effect per km/h (−0.086 in the logit for minor against
+   fatal) is not a curve a report could print.
+3. **Sensor.** Its independent variable is the one this sensor measures: mean free-flow speed
+   at a fixed point on a site's approach. That makes it the most directly matched study in the
+   literature read so far, and the weakest statistically. It also states the point the Palermo
+   section makes: a site's speed distribution relates to the striking vehicle's speed only
+   probabilistically.
+4. **Lands.** The crash-data plan's harm curves are all impact-speed curves. Kröyer is not a
+   replacement; it is the evidence for how travel speed relates to outcome, which the plan's
+   upper-bound caveat currently states without a source (Q4).
+5. **Verdict.** Cited as context, not adopted as a curve. Copyright IATSS; citation only.
+
+### Rosén, Stigson and Sander: review of pedestrian fatality-risk curves (_Accident Analysis & Prevention_ 43, 25–33, 2011)
+
+1. **Measures.** A review of every published curve of pedestrian fatality risk against car
+   impact speed, judged on sampling and statistics. Curves fitted directly to samples biased
+   toward severe crashes (Ashton 1980, Pasanen 1992, Anderson et al., Oh et al.) give 35–90%
+   fatality at 50 km/h. Bias-adjusted ones (Davis 2001, Cuerden et al. 2007, Hannawald and Kauer
+   2004, Rosén and Sander 2009) give about 10%.
+2. **Maths.** Two cautions apply to any curve the plan prints. Random error in impact speed
+   flattens a curve and systematic error shifts it. And every published risk is conditional on
+   the pedestrian being injured at all.
+3. **Sensor.** None directly. It confirms that the plan's chosen curves are the bias-adjusted
+   ones and that Davis (2001) is reliable for a 1970s fleet only.
+4. **Lands.** The crash-data plan already uses Rosén and Sander (2009) and Tefft (2013). Already
+   holds; this review is the reason to keep Davis (2001) and Pasanen (1992) out.
+5. **Verdict.** Cited in the Palermo section. Copyright Elsevier; citation only.
+
+### Torrisi, Calabrò, Oliveira, Inturri, Cavalieri and Ignaccolo: floating-car data against fixed radar (_Research in Transportation Business & Management_ 64, 101565, 2026)
+
+1. **Measures.** Fourteen MobilTraf300 radar sections on Catania's entry and exit roads (50 km/h
+   limit), the whole of 2023, against TomTom Traffic Stats for the matching segments, aggregated
+   to hours. Probe vehicles were a median 3.5% of radar counts (about 1% at 05:00, 4.7% at
+   20:00), higher on lower-volume roads. Probe speeds ran lower: 34% of probe speeds exceeded
+   50 km/h against 46% of radar speeds. The mean-speed bias was mostly −9 to +1 km/h (median
+   about −5). P50 and P85 differences were within about 1 km/h. One section just past a signal
+   showed −21 km/h, because the probe segment included the queue.
+2. **Maths.** The radar speeds were available only as hourly 10 km/h histograms, and percentiles
+   were reconstructed from bin midpoints. Percentile agreement within 1 km/h is finer than that
+   resolution, so it shows the distributions are aligned, not that either instrument is accurate
+   to 1 km/h. The radar is treated as ground truth without its own validation, and speeds above
+   110 km/h were dropped as unreliable.
+3. **Sensor.** This is the comparison a site report would face: a point instrument against probe
+   percentiles. On clean segments the medians and 85th percentiles agree. Shares above the limit
+   and means do not, and junction segments do not at all. A report should never set its share
+   above the limit against a probe figure.
+4. **Lands.** No plan compares site speeds with probe data. Recorded for when one does.
+5. **Verdict.** Recorded, not adopted. CC BY-NC-ND 4.0; citation only.
+
 ## What changes
 
 In this change:
 
 - [Behaviour analytics plan](../../../plans/lidar-behaviour-analytics-plan.md): the Waymo Open
   Motion row in Section 11 cites Chu et al. for the influence of automated vehicles on the traffic
-  around them; this briefing is linked under "Weekly literature review".
+  around them, with Jiao et al. beside it as the contested reading; this briefing is linked under
+  "Weekly literature review".
+- [`references.bib`](../../../../data/maths/references.bib): seven entries for the papers read in
+  full here (`Chu2026`, `Jiao2024`, `Kroyer2015`, `Michael2000`, `Rosen2011`, `Torrisi2026`,
+  `Yasir2026`), mapped in the [reference audit](reference-audit.md).
 - A devlog bullet.
 
 Nothing in code, the metrics registry, benchmark kinds or definitions.
 
 ## Open questions
 
-| ID  | Question                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Q1  | Should the headway report's limitations text say, for a site within an automated fleet's service area, that an unknown share of observed following passages may have an automated leader, and that published evidence (Chu et al. 2026) finds followers keep shorter headways behind such leaders? The sensor cannot observe the share and must not try; the sentence would be a population note, not a stratum. If adopted, it cites the direction only. Chu et al. measure front-to-front headway on Lyft data from 2019–2020, so no figure of theirs belongs beside a site's net gap. |
+| ID  | Question                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Q1  | Should the headway report's limitations text say, for a site within an automated fleet's service area, that an unknown share of observed following passages may have an automated leader, and that published evidence (Chu et al. 2026) finds followers keep shorter headways behind such leaders? The sensor cannot observe the share and must not try; the sentence would be a population note, not a stratum. If adopted, it cites the direction only. Chu et al. measure gross headway on Lyft data from 2019–2020, so no figure of theirs belongs beside a site's net gap, and Jiao et al. (2024) attribute much of the difference to observation bias, so the sentence should say the evidence is contested. |
+| Q2  | Should `following_valid_time` require constrained following, not just "in view, same path, `F` behind `L`"? Jiao et al. (2024) show that the mix of free and constrained following alone moved a headway comparison from 0.61 s to 0.33 s. Michael et al. (2000) drop followers 4 s or more behind, after Wasielewski (1979). The choice is a THW ceiling (simple, and conventional in roadside studies) or a regime test (closer to what following means, and harder to validate). Either way, every distribution should state the rule it used.                                                                                                                                                                  |
+| Q3  | Should the `time_headway` alias of `interaction.following_net_time_gap_s`, and the plan's `distance_headway` and `thw_*` feature names, be renamed before any report publishes them? In the literature read here (Evans 1991 via Michael et al.; Jiao et al.; Chu et al.), headway means a gross measure that includes a vehicle length. The plan computes a net gap and already says so in prose, but a reader who sees "headway" will compare it with gross figures that run about L/V longer.                                                                                                                                                                                                                   |
+| Q4  | Should the crash-data plan cite Kröyer (2015) for its caveat that a site's travel-speed distribution relates to harm only through the unknown speed of the striking vehicle? It is the one study read whose predictor is the site's mean free-flow speed, which is what this sensor measures. It rests on 19 fatal crashes and is context, not a curve to print.                                                                                                                                                                                                                                                                                                                                                   |
 
 The October 11 briefing's three questions remain open on its own branch and are not repeated.
 
 ## Sources checked
 
-| Source                                                                             | Status                                                                           |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| arXiv 2610.18417, Agrawal, Bhanderi and Elger                                      | Read                                                                             |
-| arXiv 2610.22306, Adari, ARC-SORT                                                  | Read in part (abstract, introduction, Figure 2, tables)                          |
-| arXiv 2610.14544, InfraWorld                                                       | Read in part (abstract)                                                          |
-| Chu, Gao, Xu and Liu, _Communications Engineering_, doi:10.1038/s44172-026-00793-3 | Read (full text supplied by the owner, Article in Press; supplementary not read) |
-| Yasir et al., Palermo study, doi:10.3389/ffutr.2026.1805850                        | Read (full text supplied by the owner)                                           |
-| Waymo and MADD coverage of the sober-baseline paper, October 8 and 14              | Superseded (the preprint is read in full in the analysis)                        |
-| Waymo safety hub, 270 million miles through June 2026                              | **Confirm** (search summary; automated-driving rate, out of scope)               |
-| AAA Foundation, _Attitudes Toward Speeding_, August 2026                           | Superseded (held by the attitudes plan)                                          |
-| IIHS and HLDI, speed safety cameras sheet, October 2026                            | Superseded (read in the October 12 briefing)                                     |
-| NHTSA early estimate, first quarter of 2026; NSC first half of 2026                | **Confirm** (search summaries; FARS remains the plan's fatal source)             |
-| arXiv past-week listings, cs.RO, cs.CV, eess.SP                                    | Read (titles filtered; abstracts read for the three above)                       |
+| Source                                                                                                | Status                                                                           |
+| ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| arXiv 2610.18417, Agrawal, Bhanderi and Elger                                                         | Read                                                                             |
+| arXiv 2610.22306, Adari, ARC-SORT                                                                     | Read in part (abstract, introduction, Figure 2, tables)                          |
+| arXiv 2610.14544, InfraWorld                                                                          | Read in part (abstract)                                                          |
+| Chu, Gao, Xu and Liu, _Communications Engineering_, doi:10.1038/s44172-026-00793-3                    | Read (full text supplied by the owner, Article in Press; supplementary not read) |
+| Yasir et al., Palermo study, doi:10.3389/ffutr.2026.1805850                                           | Read (full text supplied by the owner)                                           |
+| Jiao et al., _Transportation Research Part C_ 164, doi:10.1016/j.trc.2024.104673                      | Read (full text supplied by the owner)                                           |
+| Michael, Leeming and Dwyer, _Transportation Research Part F_ 3, doi:10.1016/S1369-8478(00)00015-2     | Read (full text supplied by the owner)                                           |
+| Kröyer, _IATSS Research_ 39, doi:10.1016/j.iatssr.2014.08.001                                         | Read (full text supplied by the owner)                                           |
+| Rosén, Stigson and Sander, _Accident Analysis & Prevention_ 43, doi:10.1016/j.aap.2010.04.003         | Read (full text supplied by the owner)                                           |
+| Torrisi et al., _Research in Transportation Business & Management_ 64, doi:10.1016/j.rtbm.2025.101565 | Read (full text supplied by the owner)                                           |
+| Waymo and MADD coverage of the sober-baseline paper, October 8 and 14                                 | Superseded (the preprint is read in full in the analysis)                        |
+| Waymo safety hub, 270 million miles through June 2026                                                 | **Confirm** (search summary; automated-driving rate, out of scope)               |
+| AAA Foundation, _Attitudes Toward Speeding_, August 2026                                              | Superseded (held by the attitudes plan)                                          |
+| IIHS and HLDI, speed safety cameras sheet, October 2026                                               | Superseded (read in the October 12 briefing)                                     |
+| NHTSA early estimate, first quarter of 2026; NSC first half of 2026                                   | **Confirm** (search summaries; FARS remains the plan's fatal source)             |
+| arXiv past-week listings, cs.RO, cs.CV, eess.SP                                                       | Read (titles filtered; abstracts read for the three above)                       |
 
 ## Provenance
 
@@ -366,48 +526,49 @@ lidar volume (`ffutr-7-1805850.pdf`, `s44172-026-00793-3_reference.pdf`). They w
 `pdftotext -layout`, and the Davis (2001) risks at the reported mean speeds were recomputed from
 the paper's Eq. 1 and 2. The PDFs are not committed.
 
+Second revision, October 19: the owner supplied five more PDFs to the same folder
+(`1-s2.0-S0968090X24001943-main.pdf`, `michael2000.pdf`, `10.1016@j.iatssr.2014.08.001.pdf`,
+`10.1016@j.aap.2010.04.003.pdf`, `1-s2.0-S2210539525002822-main.pdf`), read with `pdftotext`.
+Every DOI in this briefing and its to-fetch list was checked against Crossref on October 19.
+
 ## To fetch
 
-Ordered by what each would settle. None is held in `references.bib` unless marked.
+Every DOI below was checked against Crossref on October 19. None is in `references.bib`.
 
-Following and headway (Chu et al. follow-ups):
+Following and headway:
 
-- Jiao, Li, Calvert, van Cranenburgh and van Lint 2024, _Transportation Research Part C_ 164,
-  104673: alternative explanations for shorter headways behind automated vehicles. This is the
-  main rival reading of the Chu et al. result and the first to read before Q1 is decided.
-- Michael, Leeming and Dwyer 2000, _Transportation Research Part F_ 3, 55–64: observed headway on
-  urban streets. It is the source of Chu et al.'s 2 s "critical" cut-off and a roadside
-  observational headway study, the closest prior art to this sensor's following measurement.
-  Check its headway definition against the plan's net gap.
-- Chu et al. supplementary information and the Zenodo deposit
-  (https://doi.org/10.5281/zenodo.21783161): Suppl. Tables 15–21 (Waymo and TGSIM) and the
-  extracted events, from which a net-gap version of their headway could be recomputed with the
-  leader length.
-- Hu, Zheng, Chen, Zhang and Sun 2022, _Transportation Research Part C_ 134, 103490: processing
-  and quality of Waymo Open Dataset trajectories. It bears on the plan's Section 11 use of Waymo
-  data, and it recommends against Waymo's speed-based trajectories.
-- Punzo, Borzacchiello and Ciuffo 2011, _Transportation Research Part C_ 19, 1243–1262: trajectory
-  accuracy checks (jerk magnitude and sign-inversion tests). Compare with the plan's Section 8.2.1
-  on jerk before L5 trajectories are quality-scored the same way.
-- Ammourah et al. 2025, _Transportation Research Record_ 2679, 1768–1784: how TGSIM was
-  collected. If it is an infrastructure or overhead dataset, it is a candidate evaluation set for
-  Section 11.
-- Wen, Cui and Jian 2022, _Accident Analysis & Prevention_ 172, 106689, and Hu, Zheng, Chen and
-  Sun 2023, _IEEE T-ITS_ 24, 6711–6724: the earlier Waymo results that disagree with each other.
+- Chu et al. supplementary information (Suppl. Tables 15–21, Waymo and TGSIM) and the Zenodo
+  deposit, https://doi.org/10.5281/zenodo.21783161. The extracted events would let their headway
+  be recomputed as a net gap.
+- Hu, Zheng, Chen, Zhang and Sun 2022, _Transportation Research Part C_ 134, 103490,
+  https://doi.org/10.1016/j.trc.2021.103490: processing and quality of Waymo Open Dataset
+  trajectories, the source of Chu et al.'s Waymo events. Relevant to the plan's Section 11 use of
+  Waymo data.
+- Punzo, Borzacchiello and Ciuffo 2011, _Transportation Research Part C_ 19(6), 1243–1262,
+  https://doi.org/10.1016/j.trc.2010.12.007: trajectory accuracy checks (jerk magnitude and sign
+  inversion). Compare with the plan's Section 8.2.1 before L5 trajectories are scored that way.
+- Ammourah et al. 2025 (online July 2024), _Transportation Research Record_ 2679, 1768–1784,
+  https://doi.org/10.1177/03611981241257257: how TGSIM was collected, and whether it is an
+  infrastructure or overhead dataset that could serve Section 11.
+- Soni, Reddy, Tsapi, van Arem and Farah 2022, _Transportation Research Part F_ 86, 48–64,
+  https://doi.org/10.1016/j.trf.2022.02.002: the "Wizard of Oz" study in which drivers told the
+  leader was automated did not follow closer.
+- Wen, Cui and Jian 2022, _Accident Analysis & Prevention_ 172, 106689,
+  https://doi.org/10.1016/j.aap.2022.106689, and Hu, Zheng, Chen and Sun 2023, _IEEE
+  Transactions on Intelligent Transportation Systems_ 24, 6711–6724,
+  https://doi.org/10.1109/TITS.2023.3258145: the earlier Waymo results that disagree.
 
-Harm curves and speed data (Palermo follow-ups):
+Harm curves:
 
-- Kröyer 2015, _IATSS Research_ 39, 42–50: pedestrian injury severity against **travel** speed, not
-  impact speed. This sensor measures travel speed, so this may be the most directly applicable
-  curve for the crash-data plan's harm paragraph.
-- Rosén, Stigson and Sander 2011, _Accident Analysis & Prevention_ 43, 25–33: review of fatality-
-  risk curves and the sampling bias in older ones. It decides whether a curve like Davis (2001)
-  should ever be printed. The repository holds Rosén and Sander 2009, not this.
-- Torrisi et al. 2026, _Research in Transportation Business & Management_ 64, 101565
-  (doi:10.1016/j.rtbm.2025.101565): TomTom floating-car data against fixed radar in an Italian
-  city. Evidence on how probe percentiles compare with a roadside instrument.
-- Davis 2001, _Transportation Research Record_ 1773, 108–113: the curve itself and the data it was
-  fitted to, only if the harm-paragraph work needs to rule it out explicitly.
+- Davis 2001, _Transportation Research Record_ 1773, 108–113, https://doi.org/10.3141/1773-13:
+  only if the harm-paragraph work needs to rule the curve out explicitly; Rosén et al. (2011)
+  already give the reason.
 
-Carried from October 12 and still unread: https://doi.org/10.1016/j.aap.2026.108696 (Wu et al.)
-and https://doi.org/10.1177/03611981251327216 (Dean et al.)
+Carried from October 12 and still unread:
+
+- Wu et al. 2026, _Accident Analysis & Prevention_ 236, 108696,
+  https://doi.org/10.1016/j.aap.2026.108696: crash risk from pre-crash trajectories, matched
+  case-control.
+- Dean, Doerzaph and Riexinger 2025, _Transportation Research Record_ 2680, 29–42,
+  https://doi.org/10.1177/03611981251327216: Safe System speed limits through injury modification
+  factors.
