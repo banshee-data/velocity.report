@@ -114,7 +114,9 @@ replay neither restores a region map and grid that an earlier run persisted to
 the database (by source path, or by the scene signature when no path matches)
 nor persists its own, so the same capture replayed twice against one database
 records the same thing both times; a replay with `settle_before_recording`
-persists its own settle, which its recorded pass reloads. Live input keeps
+persists its own settle, which its recorded pass reloads. And a replay's frames
+end only on their azimuth wrap: the idle timer that finalises a live frame when
+the sensor stops sending no longer cuts a rotation whose reader stalled. Live input keeps
 both uses of the store: a sensor restarted on a scene it knows skips settling.
 Until October 2026 neither held, and a replay's result depended on the
 server's history ([l3bg0021](../../../data/experiments/l3bg/l3bg0021.md)).
