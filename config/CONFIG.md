@@ -351,7 +351,10 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,
 `class_identity`, `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, and `fixed_lag_rts`. An arm that uses one runs through the offline replay tools,
-and its report names the experiment beside the set.
+and its report names the experiment beside the set. The whole-track arm of `fixed_lag_rts` is
+also what `velocity scene export --smoothed-trail` draws, from the filter record every replay
+has recorded beside its VRLOG since October 2026 (`filter_record.ndjson.gz`); the export's
+header names the trail's estimator and stage.
 
 The L3 background experiments among them (`no_region_overrides`, the
 `region_overrides_*` and `volatile_window_cap_*` names, and `support_filter`)

@@ -119,6 +119,10 @@ type Arm struct {
 	Tuning string `yaml:"tuning"`
 	// Replay names default-off replay options (the -experiment names).
 	Replay []string `yaml:"replay"`
+	// Export names default-off options of the arm's scene export, for a
+	// step that exports web scenes: `velocity scene export` flags without
+	// their dashes, as the scene-variants set file names them.
+	Export []string `yaml:"export"`
 }
 
 // Cases is the data an experiment's steps fan out over.

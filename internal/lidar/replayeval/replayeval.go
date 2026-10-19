@@ -981,8 +981,25 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("apply %s: %w", ExperimentFixedLagRTS, err)
 		}
-		tracker.SetFilterStepObserver(refinement)
 	}
+	// The recording keeps the tracker's filter record beside its chunks
+	// (recorder.FilterRecordFile), so a scene export of it can draw the
+	// smoothed trail; the refinement harness, when on, watches the same
+	// frames. Attached before the first frame so every chain is seen whole.
+	filterRecord, err := recorder.NewFilterRecordWriter(cfg.OutDir, recorder.FilterRecordHeader{
+		SensorID: cfg.SensorID, EstimatorID: pipeCfg.StateEstimatorID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("record filter steps: %w", err)
+	}
+	// Idempotent, as the recorder's is: the explicit close below reports
+	// what this one would swallow on an early return.
+	defer filterRecord.Close()
+	observers := l5tracks.FilterStepObservers{filterRecord}
+	if refinement != nil {
+		observers = append(observers, refinement)
+	}
+	tracker.SetFilterStepObserver(observers)
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
 		collector.SetEnabled(true)
@@ -1086,6 +1103,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 	if cerr := runtime.closeRecorder(rec); cerr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("close recording: %w", cerr)
+	}
+	if cerr := filterRecord.Close(); cerr != nil && replayErr == nil {
+		replayErr = fmt.Errorf("close filter record: %w", cerr)
 	}
 	if frameEvidenceErr := frameEvidenceSink.Err(); frameEvidenceErr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("store frame evidence: %w", frameEvidenceErr)

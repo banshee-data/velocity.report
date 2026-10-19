@@ -250,7 +250,7 @@ class CheckConfigsTests(unittest.TestCase):
 def fake_export(header):
     """An export that writes the files a real one does, with the given header."""
 
-    def export(vrlog, out_dir, site, title, kind=None, extra=None):
+    def export(vrlog, out_dir, site, title, kind=None, extra=None, trail=None):
         os.makedirs(out_dir, exist_ok=True)
         if kind == "background":
             open(os.path.join(out_dir, "background.json.gz"), "wb").close()
@@ -477,7 +477,9 @@ class MainTests(unittest.TestCase):
             },
         }
 
-    def export_for(self, vrlog, out_dir, site, title, kind=None, extra=None):
+    def export_for(
+        self, vrlog, out_dir, site, title, kind=None, extra=None, trail=None
+    ):
         tuning_config = os.path.basename(vrlog)[: -len(".vrlog")]
         tuning_config = next(
             path for path in self.hashes if path.endswith(tuning_config)
@@ -562,3 +564,197 @@ class MainTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TrailTests(unittest.TestCase):
+    def test_a_variant_draws_the_online_trail_unless_it_says_otherwise(self):
+        spec = variants.validate_set(
+            a_set(
+                baseline="defaults",
+                variants=[
+                    {"id": "defaults", "tuning_config": "tuning.defaults.json"},
+                    {
+                        "id": "smooth",
+                        "tuning_config": "tuning.defaults.json",
+                        "trail": "smoothed",
+                    },
+                ],
+            )
+        )
+        self.assertEqual([v["trail"] for v in spec["variants"]], ["online", "smoothed"])
+
+    def test_an_unknown_trail_is_refused(self):
+        with self.assertRaisesRegex(
+            variants.SetError, "smooth.*trail SCENE_TRAIL='wavy'"
+        ):
+            variants.validate_set(
+                a_set(
+                    baseline="smooth",
+                    variants=[
+                        {
+                            "id": "smooth",
+                            "tuning_config": "tuning.defaults.json",
+                            "trail": "wavy",
+                        }
+                    ],
+                )
+            )
+
+    def test_the_checked_in_smoothed_trail_set_pairs_one_recording(self):
+        path = os.path.join(variants.HERE, "scene-variants", "smoothed-trail.json")
+        spec = variants.load_set(path)
+        self.assertEqual(spec["baseline"], "online")
+        self.assertEqual(
+            [(v["id"], v["tuning_config"], v["trail"]) for v in spec["variants"]],
+            [
+                ("online", "tuning.defaults.json", "online"),
+                ("smoothed", "tuning.defaults.json", "smoothed"),
+            ],
+        )
+        self.assertEqual(len(spec["sites"]), 23)
+        self.assertNotIn("embarcadero-folsom", [s["site"] for s in spec["sites"]])
+
+
+class SharedRecordingTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out_root = self.tmp.name
+        self.spec = {
+            "set_id": "pair",
+            "variants": [
+                {
+                    "id": "online",
+                    "label": "Online",
+                    "tuning_config": "tuning.defaults.json",
+                    "trail": "online",
+                },
+                {
+                    "id": "smoothed",
+                    "label": "Smoothed",
+                    "tuning_config": "tuning.defaults.json",
+                    "trail": "smoothed",
+                },
+                {
+                    "id": "a2",
+                    "label": "A2",
+                    "tuning_config": "experiments/a2.json",
+                    "trail": "online",
+                },
+            ],
+        }
+        self.vrlog = os.path.join(self.tmp.name, "run.vrlog")
+        os.makedirs(self.vrlog)
+        open(os.path.join(self.vrlog, "header.json"), "w").close()
+        self.header = {
+            "tuning_hash": "sha256:aaa",
+            "build_version": "0.5.1-pre50",
+            "frame_count": 300,
+            "duration_sec": 60.0,
+            "source_vrlog_sha256": "bbb",
+            "trail_estimator": "cv_kf_v1+rts_fixed_assignment_v1/final",
+        }
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def done(self, variant_id, vrlog=None, fingerprint="fp-defaults"):
+        vdir = variants.variant_dir(self.out_root, "pair", "1st-mission", variant_id)
+        os.makedirs(vdir, exist_ok=True)
+        with open(os.path.join(vdir, variants.MARKER), "w") as fh:
+            json.dump(
+                {
+                    "tuning_config": "tuning.defaults.json",
+                    "fingerprint": fingerprint,
+                    "applied_fingerprint": fingerprint,
+                    "run_id": "run-online",
+                    "vrlog": vrlog or self.vrlog,
+                    "minutes_taken": 20,
+                },
+                fh,
+            )
+        return vdir
+
+    def test_a_later_variant_with_the_same_file_exports_the_earlier_recording(self):
+        self.done("online")
+        shared = variants.shared_recording(
+            self.spec, self.spec["variants"][1], "1st-mission", self.out_root
+        )
+        self.assertEqual(shared["vrlog"], self.vrlog)
+        self.assertEqual(shared["recording_of"], "online")
+        self.assertEqual(shared["applied_fingerprint"], "fp-defaults")
+
+    def test_another_file_or_a_missing_recording_is_not_shared(self):
+        self.done("online")
+        self.assertIsNone(
+            variants.shared_recording(
+                self.spec, self.spec["variants"][2], "1st-mission", self.out_root
+            )
+        )
+        self.done("online", vrlog=os.path.join(self.tmp.name, "gone.vrlog"))
+        self.assertIsNone(
+            variants.shared_recording(
+                self.spec, self.spec["variants"][1], "1st-mission", self.out_root
+            )
+        )
+        # The first variant of a file records; it never looks forward.
+        self.assertIsNone(
+            variants.shared_recording(
+                self.spec, self.spec["variants"][0], "1st-mission", self.out_root
+            )
+        )
+
+    def test_the_shared_export_is_not_replayed_and_asks_for_its_trail(self):
+        self.done("online")
+        smoothed = self.spec["variants"][1]
+        vdir = variants.variant_dir(self.out_root, "pair", "1st-mission", "smoothed")
+        os.makedirs(vdir)
+        with mock.patch.object(publish, "replay") as replay, mock.patch.object(
+            publish, "export", side_effect=fake_export(self.header)
+        ) as export, contextlib.redirect_stdout(io.StringIO()):
+            record = variants.export_variant(
+                a_scene(),
+                smoothed,
+                vdir,
+                "fp-defaults",
+                spec=self.spec,
+                out_root=self.out_root,
+            )
+        replay.assert_not_called()
+        self.assertEqual(export.call_args_list[0].kwargs["trail"], "smoothed")
+        self.assertEqual(export.call_args_list[0].args[0], self.vrlog)
+        self.assertEqual(record["recording_of"], "online")
+        self.assertEqual(record["trail"], "smoothed")
+        self.assertEqual(record["trail_estimator"], self.header["trail_estimator"])
+        self.assertEqual(variants.read_marker(vdir)["recording_of"], "online")
+
+    def test_set_checks_allow_one_recording_drawn_two_ways_only(self):
+        def record(variant_id, trail_estimator, recording_of="", sha="bbb"):
+            return {
+                "id": variant_id,
+                "tuning_hash": "h1",
+                "build_version": "b",
+                "trail_estimator": trail_estimator,
+                "recording_of": recording_of,
+                "source_vrlog_sha256": sha,
+            }
+
+        paired = {
+            "s": [
+                record("online", "cv_kf_v1/online"),
+                record(
+                    "smoothed",
+                    "cv_kf_v1+rts_fixed_assignment_v1/final",
+                    recording_of="online",
+                ),
+            ]
+        }
+        self.assertEqual(variants.set_checks(paired), [])
+        twice = {"s": [record("a", "cv_kf_v1/online"), record("b", "cv_kf_v1/online")]}
+        self.assertIn("did not reach the pipeline", variants.set_checks(twice)[0])
+        drifted = {
+            "s": [
+                record("online", "cv_kf_v1/online"),
+                record("smoothed", "x/final", recording_of="online", sha="other"),
+            ]
+        }
+        self.assertIn("different source_vrlog_sha256", variants.set_checks(drifted)[0])

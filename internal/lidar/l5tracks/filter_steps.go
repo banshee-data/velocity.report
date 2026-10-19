@@ -340,3 +340,19 @@ func sortFilterFrame(frame *FilterFrame) {
 		return a.TrackID < b.TrackID
 	})
 }
+
+// FilterStepObservers fans one frame out to several observers, in order, so
+// a recording of the filter record and a smoother can watch the same tracker.
+// Every observer is handed the same frame: none may modify it, which is the
+// bargain the refinement harness already makes between its smoothers. A nil
+// entry is skipped.
+type FilterStepObservers []FilterStepObserver
+
+// ObserveFilterFrame implements FilterStepObserver.
+func (o FilterStepObservers) ObserveFilterFrame(frame FilterFrame) {
+	for _, observer := range o {
+		if observer != nil {
+			observer.ObserveFilterFrame(frame)
+		}
+	}
+}

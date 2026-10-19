@@ -5,11 +5,17 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/banshee-data/velocity.report/internal/config"
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
@@ -329,5 +335,65 @@ func TestHintRunCreator_CreateSweepRun_InvalidJSON(t *testing.T) {
 	_, err := creator.CreateSweepRun("sensor-1", "capture.pcap", json.RawMessage(`{"bad"`), 0, 0)
 	if err == nil || !strings.Contains(err.Error(), "parsing paramsJSON for reference run") {
 		t.Fatalf("expected paramsJSON parse error, got %v", err)
+	}
+}
+
+type filterRecordHostStub struct{ observer l5tracks.FilterStepObserver }
+
+func (s *filterRecordHostStub) SetFilterStepObserver(o l5tracks.FilterStepObserver) { s.observer = o }
+
+func TestAttachFilterRecordOnlyForAReplay(t *testing.T) {
+	var logs []string
+	logf := func(format string, args ...any) { logs = append(logs, fmt.Sprintf(format, args...)) }
+
+	// A live recording attaches nothing: the device path is unchanged.
+	live := &filterRecordHostStub{}
+	if w := attachFilterRecord(live, recordingSourceInfoStub{source: server.DataSourceLive}, t.TempDir(), "sensor-a", logf); w != nil || live.observer != nil {
+		t.Fatalf("a live recording attached a filter record: %v %v", w, live.observer)
+	}
+	// Nor does a missing tracker or source, however the replay is sourced.
+	var noTracker *l5tracks.Tracker
+	if w := attachFilterRecord(noTracker, recordingSourceInfoStub{source: server.DataSourcePCAPAnalysis}, t.TempDir(), "sensor-a", logf); w != nil {
+		t.Fatalf("a nil tracker attached a filter record: %v", w)
+	}
+
+	for _, src := range []server.DataSource{server.DataSourcePCAP, server.DataSourcePCAPAnalysis} {
+		host := &filterRecordHostStub{}
+		dir := filepath.Join(t.TempDir(), "run.vrlog")
+		w := attachFilterRecord(host, recordingSourceInfoStub{source: src}, dir, "sensor-a", logf)
+		if w == nil || host.observer == nil {
+			t.Fatalf("%s: no filter record attached", src)
+		}
+		if host.observer != l5tracks.FilterStepObserver(w) {
+			t.Fatalf("%s: the tracker observes %T, not the sidecar writer", src, host.observer)
+		}
+		w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 7})
+		detachFilterRecord(host, w, logf)
+		if host.observer != nil {
+			t.Fatalf("%s: the tracker still records after detach", src)
+		}
+		if !recorder.HasFilterRecord(dir) {
+			t.Fatalf("%s: no %s beside the recording", src, recorder.FilterRecordFile)
+		}
+		header, err := recorder.ReadFilterRecord(dir, func(l5tracks.FilterFrame) error { return nil })
+		if err != nil {
+			t.Fatalf("%s: read: %v", src, err)
+		}
+		if header.EstimatorID != config.ImplementedL5Engine || header.SensorID != "sensor-a" {
+			t.Fatalf("%s: header %+v", src, header)
+		}
+	}
+	// Detaching nothing is a no-op, and a sidecar that cannot be opened is
+	// logged rather than fatal.
+	detachFilterRecord(&filterRecordHostStub{}, nil, logf)
+	blocked := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(blocked, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if w := attachFilterRecord(&filterRecordHostStub{}, recordingSourceInfoStub{source: server.DataSourcePCAP}, filepath.Join(blocked, "run.vrlog"), "sensor-a", logf); w != nil {
+		t.Fatalf("an unopenable sidecar returned a writer: %v", w)
+	}
+	if len(logs) == 0 || !strings.Contains(logs[len(logs)-1], "filter record not started") {
+		t.Fatalf("logs %q, want the sidecar failure logged", logs)
 	}
 }

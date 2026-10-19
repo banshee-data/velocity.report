@@ -262,6 +262,7 @@ Logs are stored as **chunked protobuf streams** with an index for efficient seek
 <log_file>.vrlog
 ├── header.json                 # metadata
 ├── index.bin                   # frame index for seeking
+├── filter_record.ndjson.gz     # the tracker's filter record; replay recordings only
 └── frames/
     ├── chunk_0000.pb          # frames 0-999
     ├── chunk_0001.pb          # frames 1000-1999
@@ -269,6 +270,13 @@ Logs are stored as **chunked protobuf streams** with an index for efficient seek
 ```
 
 **Header (JSON):** Contains `version`, `created_ns`, `sensor_id`, `total_frames`, `start_ns`/`end_ns` time range, and nested `coordinate_frame` (frame_id + reference_frame).
+
+**Filter record (gzipped NDJSON, replay recordings only):** the tracker's own
+record of every filter step (prior, posterior, the interval it predicted
+across, the observation), one line per `Update` after a header line naming the
+estimator. A `FrameBundle` track carries only the posterior; this is what a
+retrospective smoother needs, and `velocity scene export --smoothed-trail`
+reads it. A live recording has none, and every reader of the chunks ignores it.
 
 **Index (binary)**:
 

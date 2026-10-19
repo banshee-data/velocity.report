@@ -12,6 +12,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/parse"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/server"
@@ -410,5 +411,49 @@ func (p visualiserPlaybackProbe) PlaybackPosition() server.PlaybackPosition {
 		LogStartNs:   info.LogStartNs,
 		LogEndNs:     info.LogEndNs,
 		ReplayEpoch:  info.ReplayEpoch,
+	}
+}
+
+// filterRecordHost is the tracker's hook for its filter record
+// (*l5tracks.Tracker.SetFilterStepObserver).
+type filterRecordHost interface {
+	SetFilterStepObserver(l5tracks.FilterStepObserver)
+}
+
+// attachFilterRecord opens the filter-record sidecar beside a recording and
+// attaches it to the tracker, when the recording is of a PCAP replay. The
+// live pipeline attaches no observer (filter_steps.go), so a live recording
+// gets no sidecar and the device path is unchanged. Returns nil when nothing
+// was attached; a sidecar that cannot be opened is logged and the recording
+// goes on without it, since the VRLOG is the one thing a replay must leave.
+func attachFilterRecord(tracker filterRecordHost, source recordingSourceInfo, recordPath, sensorID string, logf logfFunc) *recorder.FilterRecordWriter {
+	if isNilHelperTarget(tracker) || isNilHelperTarget(source) {
+		return nil
+	}
+	if src := source.CurrentSource(); src != server.DataSourcePCAP && src != server.DataSourcePCAPAnalysis {
+		return nil
+	}
+	w, err := recorder.NewFilterRecordWriter(recordPath, recorder.FilterRecordHeader{
+		SensorID: sensorID, EstimatorID: config.ImplementedL5Engine,
+	})
+	if err != nil {
+		logf("[Visualiser] filter record not started, the recording will have no smoothed trail: %v", err)
+		return nil
+	}
+	tracker.SetFilterStepObserver(w)
+	return w
+}
+
+// detachFilterRecord stops the tracker recording its filter record and closes
+// the sidecar, logging a write error. Safe on a nil writer.
+func detachFilterRecord(tracker filterRecordHost, w *recorder.FilterRecordWriter, logf logfFunc) {
+	if w == nil {
+		return
+	}
+	if !isNilHelperTarget(tracker) {
+		tracker.SetFilterStepObserver(nil)
+	}
+	if err := w.Close(); err != nil {
+		logf("[Visualiser] filter record incomplete: %v", err)
 	}
 }

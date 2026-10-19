@@ -2396,6 +2396,11 @@ SCENE_SPEED_MODE ?= scaled
 SCENE_SPEED_RATIO ?= 0.5
 SCENE_SETTLE ?= 0
 SCENE_SOURCE ?= corpus
+# Which estimate the published trail draws: online (the tracker's posterior,
+# as every scene so far) or smoothed (the whole-track RTS smoother over the
+# replay's filter record, `velocity scene export --smoothed-trail`). The export
+# header's trail_estimator names which. Decided by l5est0002; online until then.
+SCENE_TRAIL ?= online
 # Named on every replay start, relative to the server's --lidar-config-dir
 # (config/ under dev-go-lidar), so a batch never inherits a file the server
 # last had applied from the :8081 form.
@@ -2408,7 +2413,8 @@ SCENE_ASSETS_ENV := \
 	REPLAY_SPEED_MODE=$(SCENE_SPEED_MODE) \
 	REPLAY_SPEED_RATIO=$(SCENE_SPEED_RATIO) \
 	REPLAY_SETTLE=$(SCENE_SETTLE) \
-	REPLAY_TUNING_CONFIG=$(SCENE_TUNING_CONFIG)
+	REPLAY_TUNING_CONFIG=$(SCENE_TUNING_CONFIG) \
+	SCENE_TRAIL=$(SCENE_TRAIL)
 
 SCENE_PUBLISH := tools/s2-archive/publish-scenes.py
 SCENES_DIR := public_html/src/scenes

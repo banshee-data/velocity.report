@@ -47,6 +47,15 @@ The environment the batch expects, in full:
       REPLAY_TUNING_CONFIG=tuning.defaults.json \
       python3 tools/s2-archive/publish-scenes.py
 
+  SCENE_TRAIL=online
+      Which estimate the trail draws. "online" is the tracker's posterior,
+      what every scene so far draws. "smoothed" asks the export for the
+      whole-track RTS smoother's estimate (velocity scene export
+      --smoothed-trail), which needs the filter record a replay has kept
+      beside its VRLOG since October 2026; the export header's
+      trail_estimator says which was written. l5est0002 decides whether
+      smoothed ships; online until it does.
+
   LIDAR_API_URL=http://localhost:8080/api/lidar
       Optional: direct an isolated worktree run to its own LiDAR server.
 
@@ -100,6 +109,10 @@ SETTLE = os.environ.get("REPLAY_SETTLE", "1") not in ("0", "false", "False")
 # Named on every start, so a scene runs the file this says and not whatever the
 # server last had applied. Relative to the server's --lidar-config-dir.
 TUNING_CONFIG = os.environ.get("REPLAY_TUNING_CONFIG", "tuning.defaults.json")
+# The trail's estimate: the tracker's posterior, or the whole-track smoother's
+# (see the module docstring). Checked in main() before anything replays.
+TRAILS = ("online", "smoothed")
+TRAIL = os.environ.get("SCENE_TRAIL", "online")
 SENSOR = "hesai-pandar40p"
 # Where the run records are. DB_PATH is what the dev target starts the server
 # with, so following it keeps the two from naming different files: a server
@@ -243,7 +256,25 @@ def newest_run(basename, since_ns=None):
         return connection.execute(query, params).fetchone()
 
 
-def export(vrlog, out_dir, site, title, kind=None, extra=None):
+def trail_problem(trail=None):
+    """Why the trail setting cannot be run, or None if it can."""
+    trail = TRAIL if trail is None else trail
+    if trail not in TRAILS:
+        return f"SCENE_TRAIL={trail!r}: want one of {', '.join(TRAILS)}"
+    return None
+
+
+def export(vrlog, out_dir, site, title, kind=None, extra=None, trail=None):
+    """Run `velocity scene export` and return what it printed.
+
+    trail is the batch's SCENE_TRAIL unless given: a smoothed trail is asked
+    of the tracks and clip exports, which carry tracks; a background export
+    has none.
+    """
+    trail = TRAIL if trail is None else trail
+    problem = trail_problem(trail)
+    if problem:
+        raise RuntimeError(problem)
     command = [
         VELOCITY,
         "scene",
@@ -258,6 +289,8 @@ def export(vrlog, out_dir, site, title, kind=None, extra=None):
         title,
     ]
     command += ["--export", kind] if kind else ["--stride", STRIDE]
+    if trail == "smoothed" and kind != "background":
+        command.append("--smoothed-trail")
     command += extra or []
     done = subprocess.run(command, capture_output=True, text=True, cwd=REPO)
     if done.returncode != 0:
@@ -767,6 +800,9 @@ def report_status(scenes, problems):
 
 
 def main():
+    problem = trail_problem()
+    if problem:
+        raise SystemExit(problem)
     parser = argparse.ArgumentParser(
         description="Publish the web scene assets for the S2 archive sites."
     )

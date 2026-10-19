@@ -61,6 +61,9 @@ flowchart TB
     l4clus0002["<b>l4clus0002</b><br/>The DBSCAN input cap under CMR, on kirk<br/>answered · 24m machine + 2h person (took 35m36s)<br/>manual: write"]:::answered
     l4clus0003["<b>l4clus0003</b><br/>CMR's minimum cluster size against the…<br/>proposed · 20m machine + 1h person<br/>manual: write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
+  subgraph area_l5est ["l5est: L5 state estimation"]
+    l5est0002["<b>l5est0002</b><br/>The published trail as the whole-track…<br/>proposed · 10h44m machine + 4h person<br/>manual: implement, write<br/>needs tooling: scene_variants"]:::proposed
+  end
   subgraph area_l5id ["l5id: L5 identity"]
     l5id0001["<b>l5id0001</b><br/>One vehicle, one track: the identity…<br/>answered · 2h40m machine + 3h person (took 1h)<br/>manual: implement, write"]:::answered
     l5id0002["<b>l5id0002</b><br/>One vehicle, one track: ending a coasting…<br/>answered · 2h machine + 2h person (took 1h)<br/>manual: implement, write"]:::answered
@@ -164,6 +167,7 @@ flowchart TB
 - [l3bg0022](l3bg/l3bg0022.md) Does the background converge by its own criterion before the ceiling, on the corpus: waiting on a dependency; 58m machine + 2h person; after l3bg0021; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
 - [l3bg0023](l3bg/l3bg0023.md) One L3 for every replay, without losing tracks, which of the once-substituted keys the defaults should carry: proposed, awaiting approval; 5h52m machine + 2h person; after perf0002; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
 - [l4clus0003](l4clus/l4clus0003.md) CMR's minimum cluster size against the mid-range fragments, on kirk: proposed, awaiting approval; 20m machine + 1h person; after l4clus0002; asks [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations).
+- [l5est0002](l5est/l5est0002.md) The published trail as the whole-track smoother's estimate, not the online posterior: proposed, awaiting approval; 10h44m machine + 4h person; asks [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [retrospective-refinement-criteria #selection-rule](../../docs/lidar/operations/retrospective-refinement-criteria.md#selection-rule), [lidar-state-estimation-plan #10-retrospective-refinement](../../docs/plans/lidar-state-estimation-plan.md#10-retrospective-refinement).
 - [l5id0006](l5id/l5id0006.md) One vehicle, one track: the survivor's box, and tentative priority with the overlap end: proposed, awaiting approval; 2h24m machine + 4h person; after l5id0005; asks [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [published-box-refinement-2026-10 #the-box-with-one-track-per-vehi…](../../docs/lidar/operations/published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
 - [l8fol0001](l8fol/l8fol0001.md) Both parties observed (B1): following opportunity on the corpus, label-free: proposed, awaiting approval; 1h24m machine + 2h person; asks [lidar-behaviour-analytics-plan #13-open-research-questions](../../docs/plans/lidar-behaviour-analytics-plan.md#13-open-research-questions), [0.5.2-sprint-review #r5-encounter-totals-are-not-uni…](../../docs/lidar/operations/0.5.2-sprint-review.md#r5-encounter-totals-are-not-unique-follower-opportunity), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
 - [l8fol0002](l8fol/l8fol0002.md) Class evidence for the following gate: reviewed road users' tracks and the class they end with: proposed, awaiting approval; 24m machine + 5h person; asks [headway-report-oracle #provisional-field-run](../../docs/lidar/operations/headway-report-oracle.md#provisional-field-run), [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
@@ -214,5 +218,5 @@ flowchart TB
 
 ## Totals
 
-- 25 open experiments: 40h30m machine + 122h30m person estimated.
+- 26 open experiments: 51h14m machine + 126h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.

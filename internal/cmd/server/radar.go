@@ -606,7 +606,8 @@ func Main(args []string) int {
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
-		var liveObservations *liveObservationCapture // nil unless --lidar-observation-dir is set
+		var vrlogFilterRecord *recorder.FilterRecordWriter // the replay's filter record, beside its VRLOG
+		var liveObservations *liveObservationCapture       // nil unless --lidar-observation-dir is set
 
 		// Optional foreground-only forwarder (Pandar40-compatible) for live mode
 		if *lidarFGForward && lidarFGForwardPortCfg > 0 {
@@ -840,6 +841,8 @@ func Main(args []string) int {
 
 				if vrlogRecorder != nil {
 					visualiserPublisher.ClearRecorder()
+					detachFilterRecord(tracker, vrlogFilterRecord, log.Printf)
+					vrlogFilterRecord = nil
 					_ = vrlogRecorder.Close()
 					vrlogRecorder = nil
 					vrlogRecorderPath = ""
@@ -865,6 +868,11 @@ func Main(args []string) int {
 				vrlogRecorder = rec
 				vrlogRecorderPath = rec.Path()
 				visualiserPublisher.SetRecorder(rec)
+				// A replay's recording also keeps the tracker's filter record,
+				// which the scene export's smoothed trail reads. Attached
+				// before the recorded pass, so every chain is seen whole; a
+				// live recording attaches nothing.
+				vrlogFilterRecord = attachFilterRecord(tracker, lidarServer, rec.Path(), lidarSensorID, log.Printf)
 
 				// Open the recording with the background, so a replay of it has
 				// a scene from its first frame. Without this the background
@@ -893,6 +901,8 @@ func Main(args []string) int {
 					return ""
 				}
 				visualiserPublisher.ClearRecorder()
+				detachFilterRecord(tracker, vrlogFilterRecord, log.Printf)
+				vrlogFilterRecord = nil
 				_ = vrlogRecorder.Close()
 				path := vrlogRecorderPath
 				vrlogRecorder = nil

@@ -84,6 +84,7 @@ arms:
   - name: b
     tuning: config/experiments/set.json
     replay: [support_filter]
+    export: [smoothed_trail]
 cases:
   corpus: kirk-labelled
   count: 2
@@ -145,6 +146,7 @@ func TestValidateRefusesEachBrokenRule(t *testing.T) {
 		{"arm outside parameter sets", "tuning: config/experiments/set.json", "tuning: scratch/mine.json", "must be config/tuning.defaults.json or a parameter set"},
 		{"arm file missing", "tuning: config/experiments/set.json", "tuning: config/experiments/gone.json", "does not exist"},
 		{"replay option list", "replay: [support_filter]", "replay: [\"a,b\"]", "must be one -experiment name"},
+		{"export option", "export: [smoothed_trail]", "export: [zebra]", "export option \"zebra\""},
 		{"corpus", "corpus: kirk-labelled", "corpus: everything", "corpus \"everything\""},
 		{"count exceeds corpus", "count: 2", "count: 9", "exceeds corpus"},
 		{"unknown kind", "kind: manual:write", "kind: shell", "kind \"shell\""},
@@ -170,7 +172,7 @@ func TestValidateRefusesEachBrokenRule(t *testing.T) {
 		{"after a later step", "  - id: label\n    kind: manual:label", "  - id: label\n    after: [write]\n    kind: manual:label", "may wait only for steps listed before it"},
 		{"estimate worker", "estimate: { each: 1m }", "estimate: { each: 1m, worker: cray }", "estimate.worker \"cray\""},
 		{"actual worker", "steps:", "actual:\n  worker: cray\nsteps:", "actual.worker \"cray\""},
-		{"fan-out over absent arms", "arms:\n  - name: a0\n    tuning: config/tuning.defaults.json\n  - name: b\n    tuning: config/experiments/set.json\n    replay: [support_filter]\n", "", "fans out over arms, but the experiment has none"},
+		{"fan-out over absent arms", "arms:\n  - name: a0\n    tuning: config/tuning.defaults.json\n  - name: b\n    tuning: config/experiments/set.json\n    replay: [support_filter]\n    export: [smoothed_trail]\n", "", "fans out over arms, but the experiment has none"},
 		{"fan-out over absent cases", "cases:\n  corpus: kirk-labelled\n  count: 2\n", "", "fans out over cases, but the experiment has none"},
 	}
 	for _, c := range cases {
