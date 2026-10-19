@@ -28,6 +28,7 @@ older entries stay put, however tempting hindsight may be.
 - Recorded the CPU model in every benchmark document and on the perf workflows' run pages, warning when a baseline came from another CPU: the same kirk0 work read 10,250 ms on one hosted runner and 12,905 ms on another (#792).
 - Captured the CI perf baselines again on `main` after #787, nine repeats on an AMD EPYC 7763 (full 16,244 ms, l3-only 10,964 ms), and tabled three hosted-runner bands for identical kirk0 work, 7.5 to 14.4 s on the earlier L3, so one `-ci` baseline fits none of them well (#793).
 - {claude/perf-baseline-per-cpu-20261019} Kept a perf baseline per runner CPU model beside the class one: `lidar-bench` compares against `baseline-kirk0-full-ci-amd-epyc-7763.json` on an EPYC 7763 and falls back to the class baseline when its CPU has none, and captures write both; seeded for the EPYC 7763 and 9V74.
+- {codex/recording-use-guard-plan-060} Planned the v0.6.0 recording-use guard: reserve unlabelled placement groups by capture digest, require one admission check across tuning/replay/job entry points, and retain policy and exposure history beside frozen reference splits; added the delivery item under v0.6.0: [plan](plans/lidar-recording-use-guard-plan.md).
 
 ## October 18, 2026 - The following-distance metric's next seven days: an experiment review and its skill
 
