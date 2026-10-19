@@ -218,6 +218,13 @@ the Mac and the CI baselines are recaptured for the new fingerprint. The cluster
 a few between the two because floating point differs between arm64 and amd64. The p95 frame is a
 third of the 98 ms budget on the Mac and under half of it on CI; the Pi is slower, and unmeasured.
 
+The CI baselines committed with the change (full 16,630 ms, l3-only 11,018 ms) were captured on a
+slower runner than the pair they replace. The previous defaults read 10,250 ms when that pair was
+captured and 12,905 ms on this change's A/B runner, about 1.26 times as long, so most of the
+baseline's rise is the runner's and not the change's. A nightly run on a faster runner would pass
+against it with room to hide a real regression; the pair is to be captured again on `main` after
+the merge, over nine repeats as the first pair was.
+
 **Against the values the paced replays substituted, nothing moves.** The previous defaults are the
 L3 the perf harness, live input and analysis replays ran; the server's scaled replays ran the
 substituted values, which are now the defaults. On the Mac, five interleaved rounds of the parent
@@ -250,8 +257,8 @@ users there too, and more noise.
   standing rule for an L3 retune is a labelled held-out window (label0001, l3bg0009), which does
   not exist yet; the corpus held-out read is label-free.
 - **Cost on the deployed sensor.** The substituted L3 doubles clusters a frame (4.3 to 8.2, site
-  median); the Pi's frame time under it is unmeasured (perf0001 asks the same question of the CMR
-  retune).
+  median); the Pi's frame time under it is unmeasured (perf0001 times it beside the L3 before it
+  and CMR).
 - **That three keys is the right set.** The two halves bracket it; a finer sweep could find a
   closeness between 2 and 3 that keeps identity without the other two keys.
 - **The vehicle-sized proxy.** Corpus tracks are classed by cluster box size, not by a label;
@@ -260,9 +267,12 @@ users there too, and more noise.
 
 ## Recommendations
 
-1. **Time the new defaults on the Pi (perf0001).** Clusters a frame roughly double against the
-   previous defaults (4.3 to 8.2, site median on the corpus) and the Mac's p95 frame time rises
-   from 25 to 35 ms; the deployed sensor is unmeasured.
+1. **Time the new defaults on the Pi (perf0001) before a release carries them to one.** Clusters a
+   frame roughly double against the previous defaults (4.3 to 8.2, site median on the corpus) and
+   the p95 frame time rises from 25 to 35 ms on the Mac and from 32 to 46 ms on CI; the defaults
+   are built into the binary, so the first device upgrade to a release with them changes the
+   live L3. If the Pi cannot afford them, the L3 it can afford becomes the defaults everyone
+   runs, not a Pi-only profile.
 2. **Look for an L3 with CMR's noise and the substituted L3's identity:** spurious clusters fell to
    a third under CMR's noise controls while identity switches nearly doubled, so the minimum
    cluster size and the floor are worth separating. The next L3 rule should measure spurious

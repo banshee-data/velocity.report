@@ -82,7 +82,7 @@ flowchart TB
     label0002["<b>label0002</b><br/>Physical references and following records…<br/>proposed · 5h15m person<br/>manual: annotate, freeze"]:::proposed
   end
   subgraph area_perf ["perf: Performance on the deployment target"]
-    perf0001["<b>perf0001</b><br/>The overrides-on retune's frame times on…<br/>proposed · 20m machine + 1h person<br/>manual: write<br/>needs tooling: pi_timing"]:::proposed
+    perf0001["<b>perf0001</b><br/>The Pi's frame times under the defaults'…<br/>proposed · 30m machine + 1h person<br/>manual: write<br/>needs tooling: pi_timing"]:::proposed
     perf0002["<b>perf0002</b><br/>Which replay speed a published scene…<br/>answered · 10h machine + 5h person (took 5h30m)<br/>manual: implement, write"]:::answered
     perf0003["<b>perf0003</b><br/>Pacing does not change a replay, asked…<br/>proposed · 5h machine + 1h person<br/>manual: write<br/>needs tooling: scene_variants"]:::proposed
   end
@@ -145,6 +145,7 @@ flowchart TB
   label0002 --> l8fol0005
   label0001 --> label0002
   l3bg0005 --> perf0001
+  l3bg0024 --> perf0001
   l3bg0021 --> perf0003
   l3bg0023 --> perf0003
 ```
@@ -171,7 +172,7 @@ flowchart TB
 - [l8fol0005](l8fol/l8fol0005.md) The first held-out following score, on the labelled window's pairs: waiting on a dependency; 18m machine + 3h person; after l8fol0004, label0002; asks [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
 - [label0002](label/label0002.md) Physical references and following records on the held-out window: waiting on a dependency; 5h15m person; after label0001; asks [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [lidar-physical-reference-review-plan #checklist](../../docs/plans/lidar-physical-reference-review-plan.md#checklist), [end-on-truck-window-spike-2026-10 #the-capture-request](../../docs/lidar/operations/end-on-truck-window-spike-2026-10.md#the-capture-request), [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [experiment-review-2026-10-18 #labelling-and-annotation-priori…](../../docs/lidar/operations/experiment-review-2026-10-18.md#labelling-and-annotation-priorities).
-- [perf0001](perf/perf0001.md) The overrides-on retune's frame times on the Pi: proposed, awaiting approval; 20m machine + 1h person; after l3bg0005; asks [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
+- [perf0001](perf/perf0001.md) The Pi's frame times under the defaults' L3, the L3 before it, and CMR: proposed, awaiting approval; 30m machine + 1h person; after l3bg0005, l3bg0024; asks [replay-l3-consolidation-2026-10 #recommendations](../../docs/lidar/operations/replay-l3-consolidation-2026-10.md#recommendations), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [perf0003](perf/perf0003.md) Pacing does not change a replay, asked again on a server that starts each replay from nothing, under the consolidated L3: proposed, awaiting approval; 5h machine + 1h person; after l3bg0021, l3bg0023; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
 
 ## Answered
@@ -217,5 +218,5 @@ flowchart TB
 
 ## Totals
 
-- 22 open experiments: 32h38m machine + 113h30m person estimated.
+- 22 open experiments: 32h48m machine + 113h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
