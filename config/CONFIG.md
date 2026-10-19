@@ -74,10 +74,10 @@ parity between them.
     "engine": "ema_baseline_v1",
     "ema_baseline_v1": {
       "background_update_fraction": 0.02,
-      "closeness_multiplier": 3,
-      "safety_margin_metres": 0.15,
+      "closeness_multiplier": 2.0,
+      "safety_margin_metres": 0.3,
       "noise_relative": 0.02,
-      "neighbour_confirmation_count": 3,
+      "neighbour_confirmation_count": 5,
       "seed_from_first": true,
       "warmup_duration_nanos": 30000000000,
       "warmup_min_frames": 100,

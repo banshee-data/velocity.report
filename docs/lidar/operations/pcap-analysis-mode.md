@@ -103,9 +103,9 @@ while it ran** (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5,
 seed from first observation, noise relative 0.02), so a paced replay ran an L3
 its `tuning_hash` did not name, while analysis mode, live input and the offline
 tools ran the file. That is a breaking change for reproducing a paced replay
-made before it: the scenes published before then ran the substituted L3, and
-`config/experiments/replay-l3-overrides.json` holds it as an ordinary parameter
-set. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
+made before it: the scenes published before then ran the substituted L3. That
+L3 has since become the defaults' (l3bg0023), and the defaults' previous L3 is
+the parameter set `config/experiments/l3-pre-consolidation.json`. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
 
 A replay starts from nothing, whatever the server replayed before it. Every
 replay resets the background grid, including the state its settling check

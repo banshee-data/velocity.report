@@ -147,17 +147,21 @@ func runParkedCarDeparture(t *testing.T, roadCells, dwell, maxAfter int) parkedC
 // one return, decrements once and freezes for 5 s, until the warmup ramp has
 // widened the window enough that the 7 m deviation is within three times it
 // and the deadlock breaker relearns. The review measured first cell clear /
-// half / all at 3,104 / 3,104 / 3,109 frames after departure.
+// half / all at 3,104 / 3,104 / 3,109 frames after departure, with the
+// defaults' closeness 3 and safety margin 0.15 m. Since l3bg0024 the defaults
+// carry closeness 2, margin 0.3 m and neighbour confirmation 5, whose
+// narrower window takes longer to widen past the 7 m deviation: 4,574 /
+// 4,623 / 4,623 frames, about half as long again.
 func TestMask_DepartureGhost_UnflankedLastsDwell(t *testing.T) {
 	const (
 		dwell    = 1000
-		maxAfter = 4500
-		lowBand  = 2500
-		highBand = 4000
+		maxAfter = 6000
+		lowBand  = 4000
+		highBand = 5500
 	)
 	res := runParkedCarDeparture(t, 0, dwell, maxAfter)
 	first, half, all := res.clearFrames()
-	t.Logf("unflanked ghost after a %d-frame dwell: every car cell foreground for %d frames; first cell clear %d, half %d, all %d (review: 3,104 / 3,104 / 3,109)",
+	t.Logf("unflanked ghost after a %d-frame dwell: every car cell foreground for %d frames; first cell clear %d, half %d, all %d (closeness 2: 4,574 / 4,623 / 4,623; the review's closeness 3: 3,104 / 3,104 / 3,109)",
 		dwell, res.continuousGhost, first, half, all)
 
 	if res.continuousGhost < lowBand {
@@ -204,18 +208,20 @@ func TestMask_DepartureGhost_FlankedErodesInSeconds(t *testing.T) {
 // Bound. With region overrides off the window at range r for a cell of
 // spread s and count at the floor (WarmupMultiplier(3) = 3.91) is
 //
-//	w = 3*(s + 0.02*r + 0.01)*3.91 + 0.15
+//	w = 2*(s + 0.02*r + 0.01)*3.91 + 0.3
 //
-// from ForegroundClosenessWindowMetres with the shipped multiplier 3,
-// noise_relative 0.02, closeness floor 0.01 m and safety margin 0.15 m.
+// from ForegroundClosenessWindowMetres with the shipped multiplier 2,
+// noise_relative 0.02, closeness floor 0.01 m and safety margin 0.3 m (the
+// defaults since l3bg0024; the review's multiplier 3 and margin 0.15 m gave
+// 0.70*r + 35*s + 0.80, 6.78 m at 8 m, below the depth all the same).
 // The freeze fires while delta > 3*w (freeze_threshold_multiplier 3), and
 // the deadlock breaker only ever sees a cell that is not freezing, since a
 // frozen cell does not accumulate RecentForegroundCount and a thaw resets
 // it. So the car is absorbed only if
 //
-//	delta <= 3*(3*(s + 0.02*r + 0.01)*3.91 + 0.15) = 0.70*r + 35*s + 0.80
+//	delta <= 3*(2*(s + 0.02*r + 0.01)*3.91 + 0.3) = 0.47*r + 23.5*s + 1.13
 //
-// which at r = 8 m with s near 0.01 m is 6.78 m, below the 7 m depth. The
+// which at r = 8 m with s near 0.01 m is 5.12 m, below the 7 m depth. The
 // breaker never fires and the freeze cycles for ever. The review ran the
 // car for 9,000 frames and saw no cell absorb it.
 func TestMask_Arrival_NeverAbsorbedWithoutRegionOverrides(t *testing.T) {

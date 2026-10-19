@@ -35,10 +35,15 @@ func kirk0MovingWindow(t *testing.T, outDir string) Config {
 // and capture-time coast age exist for. Warmed from a later start the same
 // seconds carry noise clusters and no gap, which is why this window starts at
 // zero.
+// kirk0GapWindow is 8 s of kirk0 in which the tracker sees a capture-time gap
+// longer than max_predict_dt, which the time-domain options need. It runs the
+// L3 the defaults carried before l3bg0024: under the closeness 2 since, every
+// frame of the window has foreground, so the gap this test exercises is gone.
 func kirk0GapWindow(t *testing.T, outDir string) Config {
 	return Config{
 		PCAPFile: requireKirk0(t), OutDir: outDir, SensorID: "test-replay", UDPPort: 2369,
 		StartSeconds: 20, WarmupSeconds: 20, DurationSeconds: 8,
+		TuningFile: "../../../config/experiments/l3-pre-consolidation.json",
 	}
 }
 

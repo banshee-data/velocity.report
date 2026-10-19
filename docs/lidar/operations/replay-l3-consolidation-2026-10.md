@@ -1,16 +1,19 @@
-# One L3 for every replay: whether the defaults lose tracks, October 2026
+# One L3 for every replay: the defaults lost half the tracks, and now carry the best L3 measured, October 2026
 
 Until #782 a scaled or realtime replay substituted three L3 values for the tuning file's while it
 ran (closeness 2.0 against 3, safety margin 0.30 m against 0.15, neighbour confirmation 5 against
 3), and every published scene ran them. #782 removed the substitution, so every replay now runs
 its tuning file's L3, the one live input and the experiment tools run. This experiment asks
 whether the defaults' L3 materially loses tracks or shortens them against the substituted one,
-and if it does, which of the three keys the defaults should carry.
+and if it does, which of the three keys the defaults should carry; l3bg0024 then chose the best
+L3 measured for the defaults, against the CMR retune.
 
-- **Status:** Measured, October 18–19, 2026 (experiment
-  [l3bg0023](../../../data/experiments/l3bg/l3bg0023.md)). The rule passes the substituted L3;
-  it is not made the default, under the standing gate for an L3 retune and for costs the rule did
-  not measure (below)
+- **Status:** Measured, October 18–19, 2026 (experiments
+  [l3bg0023](../../../data/experiments/l3bg/l3bg0023.md) and
+  [l3bg0024](../../../data/experiments/l3bg/l3bg0024.md)). **Shipped:** the defaults carry the
+  substituted L3 (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5) for live input and
+  every replay, with the noise costs below; the previous L3 is
+  `config/experiments/l3-pre-consolidation.json`
 - **Layers:** L3 foreground extraction; its effect on L4 clusters and L5 tracks
 - **Related:** [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md) (perf0002),
   [replay determinism](replay-determinism-2026-10.md) (l3bg0020, l3bg0021),
@@ -37,14 +40,17 @@ and if it does, which of the three keys the defaults should carry.
   substituted L3 whole, three keys. On the second segment of 22 sites, read for L3 for the first
   time, it keeps its gain: 2,495 vehicle-sized tracks against 1,281 (+95 %, against +89 % on the
   first segment) and life p50 4.8 s against 4.0. The rule passes it.
-- **It is not made the default here, for three reasons.** It has costs the rule did not measure:
-  five times the spurious clusters on kirk0's labels (1.64 a frame against 0.31), three to ten
-  times the stationary tracks lasting a minute on the corpus, and twice the road-surface
-  clusters; and two of L3's characterisation tests fail under it, a departed car's ghost lasting
-  past the test's window among them. An L3 retune that changes live behaviour waits, as the CMR
-  retune with the same closeness 2 does, for a labelled held-out window (label0001) and the Pi's
-  frame time (perf0001), and doubling clusters a frame is exactly what the Pi timing is for. The
-  change is prepared, as a patch, for when those gates are met.
+- **It has costs the rule did not measure:** five times the spurious clusters on kirk0's labels
+  (1.64 a frame against 0.31), three to ten times the stationary tracks lasting a minute on the
+  corpus, twice the road-surface clusters, and a departed car's ghost lasting about half as long
+  again. The CMR retune was built to take that noise back, so l3bg0024 scored it beside the
+  substituted L3 on one build, under a rule written first: CMR has a third of the spurious
+  clusters but nearly twice the identity switches (IDF1 0.593 against 0.656), and CMR with the
+  substituted L3's margin and neighbour keys does no better (0.621). The substituted L3 is the only
+  arm within 0.02 of the best on both identity measures, so it is the best L3 currently known,
+  and the defaults now carry it. The repository's standing gate for an L3 retune (a labelled
+  held-out window, label0001, and the Pi's frame time, perf0001) was set aside by decision: one
+  L3 everywhere, at the best values measured. Both remain owed.
 
 ## Method
 
@@ -161,17 +167,35 @@ and the same evidence shows:
 | Corpus stationary tracks over 60 s, first / held out         |       5 / 8 |     51 / 27 |      39 / . |            8 / . |
 | Road-surface clusters a frame, site median, first / held out | 0.22 / 0.23 | 0.47 / 0.63 |    0.49 / . |         0.21 / . |
 
-With the three keys in the defaults, two of L3's characterisation tests also fail. The closeness
-threshold at 100 m falls from more than a vehicle length to 4.38 m, which retires a note in the
-gap analysis (HW1). And a parked car's departure ghost, which the stationary-object review measured
-clearing about 3,100 frames after the car left, stays foreground for the test's whole 4,500-frame
-window: a narrower closeness band takes longer to admit the road behind a car that has gone. That
+With the three keys in the defaults, two of L3's characterisation tests had to be revisited, and
+were: the closeness threshold at 100 m falls from 6.27 m, more than a vehicle length, to 4.38 m,
+just under one, which changes a note in the gap analysis (HW1); and a parked car's departure
+ghost, which the stationary-object review measured clearing about 3,100 frames after the car left
+at closeness 3, now clears after about 4,600 (4,574 / 4,623 / 4,623 for the first, median and last
+cell): a narrower closeness band takes longer to admit the road behind a car that has gone. That
 is the stationary-ghost problem the CMR retune met with the same closeness 2, and the reason the
 dwell policy was studied beside it (l3bg0008, l3bg0016).
 
-So the substituted L3 trades noise for detection, as CMR does. CMR adds the noise controls
-(minimum cluster size 8, the height-band floor at road height) and is the candidate the standing
-gate is already set up to judge.
+So the substituted L3 trades noise for detection, as CMR does.
+
+## l3bg0024: the best L3 currently known
+
+The rule was written before the replays (2026-10-19): an arm is eligible if its kirk0 HOTA and
+IDF1 are each within 0.02 of the highest of the three, its car recall within 3 points of the
+highest and its kirk1 coverage within 2 of the most; the eligible arm with the fewest kirk0
+spurious clusters is chosen, confirmed on the corpus unless it is the substituted L3, whose screen
+l3bg0023 holds. All three ran on one build (`fcbd67a4c`), kirk0 whole and kirk1's trim, as above.
+
+| Arm                                                                   | kirk0 HOTA |  IDF1 | ID switches | Car recall | Spurious clusters a frame | Hits on labelled noise | kirk1 covered | Eligible        |
+| --------------------------------------------------------------------- | ---------: | ----: | ----------: | ---------: | ------------------------: | ---------------------: | ------------: | --------------- |
+| `replay-l3` (closeness 2, margin 0.3, n 5)                            |      0.542 | 0.656 |         196 |      0.941 |                      1.64 |                   1.14 |      49 of 49 | yes             |
+| `cmr` (closeness 2, post-settle 0.005, minimum cluster 8, floor −2.0) |      0.533 | 0.593 |         375 |      0.904 |                      0.52 |                   0.90 |      49 of 49 | no: IDF1 −0.063 |
+| `cmr-mn` (CMR with margin 0.3, n 5)                                   |      0.536 | 0.621 |         374 |      0.916 |                      0.53 |                   0.99 |      49 of 49 | no: IDF1 −0.035 |
+
+The substituted L3 is the only eligible arm and is chosen; its corpus screen is l3bg0023's. CMR's
+noise controls take back two thirds of the spurious clusters, and CMR nearly doubles the identity
+switches; which of its four keys costs the identity is not measured here, and an arm that kept
+CMR's noise and the substituted L3's identity has not been found.
 
 ## Interpretation
 
@@ -206,20 +230,19 @@ users there too, and more noise.
 
 ## Recommendations
 
-1. **Keep the defaults' L3 until the standing gate is met.** The adoption is prepared (the three
-   keys in the defaults, the profiles and the L4/L5 parameter sets; the L3 sets' rows naming the
-   old values they keep; the substituted L3's own set removed and the old L3 kept as
-   `l3-pre-consolidation.json`); it needs, besides label0001 and perf0001, the two
-   characterisation tests revisited and the perf baselines recaptured.
-2. **Judge the substituted L3 beside CMR in l3bg0009's Stage B**, on the labelled held-out window:
-   both narrow closeness to 2 and differ in how they take the extra noise back.
-3. **Before the scenes are republished, choose their L3 explicitly.** `publish-scenes.py` now
-   names its tuning file; the published scenes ran the substituted L3, and republishing them under
-   today's defaults would draw about half the vehicles. Naming the substituted L3 for the scenes
-   would keep them as published until the defaults change, at the cost of the scenes and live
-   input running different L3s, recorded in the scene's header.
-4. **Measure noise in the next L3 rule.** Spurious clusters, stationary tracks and road-surface
-   clusters belong beside recall in any rule that compares L3s.
+1. **Time the new defaults on the Pi (perf0001).** Clusters a frame roughly double against the
+   previous defaults (4.3 to 8.2, site median on the corpus); the Mac perf baselines are recaptured
+   for the new fingerprint, but the deployed sensor is unmeasured.
+2. **Look for an L3 with CMR's noise and the substituted L3's identity:** spurious clusters fell to
+   a third under CMR's noise controls while identity switches nearly doubled, so the minimum
+   cluster size and the floor are worth separating. The next L3 rule should measure spurious
+   clusters, stationary tracks and road-surface clusters beside recall and identity.
+3. **Score the new defaults on the labelled held-out window when label0001 exists**, beside CMR,
+   in l3bg0009's Stage B; kirk is one site and its split is the tuning split.
+4. **Revisit the dwell policy under the new defaults** (l3bg0008, l3bg0016): long stationary
+   tracks are three to ten times as many, and the departure ghost lasts half as long again.
+5. **Republish the scenes once, after perf0003**, under the defaults: they ran this L3 before, so
+   their track counts should hold, and their headers will now name the L3 they ran.
 
 ## Provenance
 

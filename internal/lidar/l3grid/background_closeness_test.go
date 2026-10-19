@@ -88,25 +88,27 @@ func TestClosenessOverConservatismGrowsWithRange(t *testing.T) {
 	t.Logf("threshold inflation over a spec-faithful model: %.1fx at 5 m, %.1fx at 100 m", near, far)
 }
 
-func TestLongRangeClosenessThresholdExceedsAVehicleLength(t *testing.T) {
+func TestLongRangeClosenessThresholdAgainstAVehicleLength(t *testing.T) {
 	// What the growth above costs. classification accepts an observation as
 	// background when it sits within the threshold of the cell's learned
 	// range, so the threshold is the minimum range separation a foreground
-	// object needs to register at all. At 100 m that separation is larger than
-	// a car, which means the noise model — not the sensor, and not the
-	// clustering that follows — sets the long-range detection floor.
+	// object needs to register at all. Under the multiplier 3 and safety
+	// margin 0.15 m the defaults carried until l3bg0024, the 100 m separation
+	// was 6.27 m, larger than a car, so the noise model set the long-range
+	// detection floor. Under the multiplier 2 and margin 0.3 m since, it is
+	// 4.38 m: just under a vehicle length.
 	//
-	// Asserted rather than logged so that a tuning change which brings the
-	// long-range threshold under a vehicle length shows up as a failure here
-	// and gets this note revisited.
+	// Asserted rather than logged so that a tuning change which takes the
+	// long-range threshold back over a vehicle length shows up as a failure
+	// here and gets the gap analysis's HW1 note revisited.
 	const typicalVehicleLengthMetres = 4.5
 	multiplier, noiseRelative, safety := shippedClosenessParams(t)
 
 	spec := specRangeAccuracyMetres(100)
 	got := ClosenessThresholdMetres(multiplier, spec, noiseRelative, 100, safety)
 
-	if got <= typicalVehicleLengthMetres {
-		t.Errorf("the 100 m closeness threshold is now %.2f m, within a vehicle length (%.1f m): HW1's long-range cost has changed and the note in the gap analysis needs revisiting",
+	if got >= typicalVehicleLengthMetres {
+		t.Errorf("the 100 m closeness threshold is now %.2f m, at least a vehicle length (%.1f m): HW1's long-range cost has changed and the note in the gap analysis needs revisiting",
 			got, typicalVehicleLengthMetres)
 	}
 	t.Logf("100 m closeness threshold %.2f m against a %.1f m vehicle: a foreground return must differ from the learned background range by more than %.1f vehicle lengths",
