@@ -91,12 +91,22 @@ Every document carries a workload identity:
 | `profile`            | Which layers ran                                               |
 | `tuning_fingerprint` | Hash of the whole resolved tuning config                       |
 | `pcap_file`          | Which capture                                                  |
-| `system_info`        | Platform, CPU count, Go version                                |
+| `system_info`        | Platform, host class, CPU count and model, Go version          |
 | `metrics.work`       | Frames, foreground points, background points, clusters, tracks |
 
 The comparator **refuses** to compare runs whose identity differs, and says which
 field diverged. It does not emit a delta between incomparable things. A baseline
 with no `profile` or no `tuning_fingerprint` is refused outright.
+
+Within `system_info`, platform and host class refuse; CPU count, CPU model and Go
+version only warn, naming both values. A hosted runner's CPU model is not the job's to
+choose: runners of one class and CPU count are given different CPU generations, and
+kirk0's full profile has taken about a quarter longer on one than another for the same
+tuning and identical work counters. Read a regression against a baseline from another
+CPU model as the machine's until an A/B run on one runner says otherwise. The model is
+the first `model name` in `/proc/cpuinfo` on Linux, the board's `Model` line on a
+Raspberry Pi, and `machdep.cpu.brand_string` on macOS; baselines captured before
+October 2026 do not carry it.
 
 Work counters carry a 10% tolerance rather than requiring equality, to absorb small
 genuine detection changes without demanding an emergency re-baseline. They are
@@ -530,7 +540,7 @@ The capture is kirk0, fetched through Git LFS (`actions/checkout` with `lfs: tru
 
 Baselines live in `internal/lidar/perf/baseline/`, one per cell:
 `baseline-<capture>-<profile>-<host class>.json`. Each records its tuning fingerprint,
-platform, host class and the commit it measured. Until October 2026 no `-ci` file was
+platform, host class, CPU model and the commit it measured. Until October 2026 no `-ci` file was
 committed, so the nightly fell back to the frame-budget check alone without failing;
 the first pair was captured on `main` at `0504248c` with nine repeats.
 
@@ -555,6 +565,7 @@ The benchmark output file (version `1.0`) contains three top-level sections:
 | `goos`        | string | OS (e.g. `linux`)           |
 | `goarch`      | string | Architecture (e.g. `amd64`) |
 | `num_cpu`     | int    | CPU count                   |
+| `cpu_model`   | string | Processor, or the Pi board  |
 | `go_version`  | string | Go version                  |
 | `commit_hash` | string | Git commit SHA              |
 

@@ -80,6 +80,15 @@ jobs:
       - name: Build offline docs stub for embed
         run: ./scripts/ensure-docs-stub.sh
 
+      - name: Record runner CPU
+        # Hosted runners differ in CPU generation, and kirk0's full profile
+        # takes about a quarter longer on the slower ones for the same work.
+        # Shown on the run page so a run can be read against its machine; the
+        # benchmark documents record it too, as system_info.cpu_model.
+        run: |
+          cpu="$(lscpu | grep -m1 'Model name' | sed 's/^Model name:[[:space:]]*//')"
+          echo "Runner CPU: ${cpu:-unknown}" | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Capture baseline
         env:
           CI: "true"
