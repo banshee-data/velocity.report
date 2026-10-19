@@ -102,10 +102,19 @@ jobs:
             make perf-baseline PROFILE="$PROFILE"
           fi
 
-      - name: Show captured baselines
+      - name: Collect captured baselines
+        # Only what this run wrote: the class baselines and this runner's
+        # per-CPU copies, as files changed or added against the checkout.
+        # Committed per-CPU baselines for other CPUs stay out of the artifact,
+        # so nothing in it can be mistaken for a fresh capture.
         run: |
-          for f in internal/lidar/perf/baseline/baseline-*-ci.json; do
-            echo "===== $f ====="
+          shopt -s nullglob
+          out="$RUNNER_TEMP/captured-baselines"
+          mkdir -p "$out"
+          git ls-files -m -o --exclude-standard -- 'internal/lidar/perf/baseline/*.json' |
+            while read -r f; do cp "$f" "$out/"; done
+          for f in "$out"/*.json; do
+            echo "===== $(basename "$f") ====="
             cat "$f"
           done
 
@@ -113,5 +122,5 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: perf-baselines-${{ inputs.profile || 'gated' }}
-          path: internal/lidar/perf/baseline/baseline-*-ci.json
+          path: ${{ runner.temp }}/captured-baselines/*.json
           if-no-files-found: error

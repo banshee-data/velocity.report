@@ -18,6 +18,7 @@ older entries stay put, however tempting hindsight may be.
 - {claude/l3-consolidation-20261018} Measured the new defaults' cost on a CI runner as well as the Mac: kirk0's full profile runs 1.23x wall clock and its p95 frame rises from 32 to 46 ms of the 98 ms budget, against the Mac's 1.22x; against the values paced replays used to substitute, the Mac reads a ratio of 0.999 and identical tracks.
 - {claude/l3-consolidation-20261018} Rewrote perf0001 to time the new defaults on a Pi 5 beside the L3 before them and CMR, under a rule written first: if the Pi cannot afford them, the L3 it can afford becomes the defaults everyone runs, not a Pi-only profile.
 - {claude/perf-cpu-model-20261019} Recorded the CPU model in every benchmark document and on the perf workflows' run pages, warning when a baseline came from another CPU: the same kirk0 work read 10,250 ms on one hosted runner and 12,905 ms on another.
+- {claude/perf-baseline-per-cpu-20261019} Kept a perf baseline per runner CPU model beside the class one: `lidar-bench` compares against `baseline-kirk0-full-ci-amd-epyc-7763.json` on an EPYC 7763 and falls back to the class baseline when its CPU has none, and captures write both; seeded for the EPYC 7763 and 9V74.
 
 ## October 18, 2026 - The following-distance metric's next seven days: an experiment review and its skill
 
