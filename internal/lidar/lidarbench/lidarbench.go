@@ -229,8 +229,13 @@ type SystemInfo struct {
 	// point the platform pair silently stops distinguishing a quiet
 	// single-purpose device from a shared virtualised one. Their timings have
 	// nothing to say about each other.
-	HostClass  string `json:"host_class,omitempty"`
-	NumCPU     int    `json:"num_cpu"`
+	HostClass string `json:"host_class,omitempty"`
+	NumCPU    int    `json:"num_cpu"`
+	// CPUModel names the processor, or the board on a Raspberry Pi. Hosted
+	// runners of one class and CPU count are given different CPU generations
+	// from job to job, and the same work takes a quarter longer on the slower
+	// ones; without the model a baseline cannot say which it measured.
+	CPUModel   string `json:"cpu_model,omitempty"`
 	GoVersion  string `json:"go_version"`
 	CommitHash string `json:"commit_hash,omitempty"`
 }
@@ -278,7 +283,7 @@ func detectHostClass() string {
 // BenchmarkResult is the JSON document written per run and read as a baseline.
 //
 // Profile and TuningFingerprint are the workload identity. A baseline records
-// hardware (goos, goarch, num_cpu, go_version) and, before these fields,
+// hardware (goos, goarch, num_cpu, cpu_model, go_version) and, before these fields,
 // nothing at all about what it measured — so two runs with different layer
 // depth or different tuning produced incomparable numbers and the file could
 // not say which one you were holding.
@@ -976,6 +981,7 @@ func getSystemInfo(hostClass string) SystemInfo {
 		GOARCH:    runtime.GOARCH,
 		HostClass: hostClass,
 		NumCPU:    runtime.NumCPU(),
+		CPUModel:  cpuModel(),
 		GoVersion: runtime.Version(),
 	}
 	if buildInfo, ok := readBenchmarkBuildInfo(); ok {
@@ -1234,6 +1240,9 @@ func printBenchmarkSummary(result *BenchmarkResult) {
 	metrics := &result.Metrics
 	fmt.Printf("\n========== Benchmark Summary ==========\n")
 	fmt.Printf("Profile: %s  tuning: %s\n", result.Profile, result.TuningFingerprint)
+	if info := result.SystemInfo; info.CPUModel != "" {
+		fmt.Printf("Host: %s, %d CPUs, %s\n", info.HostClass, info.NumCPU, info.CPUModel)
+	}
 	fmt.Printf("Work: frames=%d foreground=%d clusters=%d tracks=%d (distinct %d)\n",
 		metrics.Work.Frames, metrics.Work.ForegroundPoints,
 		metrics.Work.Clusters, metrics.Work.ConfirmedTracks, metrics.Work.DistinctConfirmedTracks)
@@ -1328,8 +1337,9 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult, 
 	// Architecture is part of the workload identity, not a footnote. Timings
 	// from arm64 say nothing about amd64, and a committed local baseline is
 	// otherwise a trap for the next person to run the gate on a different
-	// machine. CPU count and Go version only warn: they shift the numbers
-	// without making the comparison meaningless.
+	// machine. CPU count, CPU model and Go version only warn: they shift the
+	// numbers without making the comparison meaningless, and a hosted runner's
+	// CPU model is not the job's to choose.
 	if b, c := baseline.SystemInfo, current.SystemInfo; b.GOOS != "" || b.GOARCH != "" {
 		switch {
 		case b.GOOS != c.GOOS || b.GOARCH != c.GOARCH:
@@ -1347,6 +1357,10 @@ func checkWorkloadIdentity(baseline *BenchmarkResult, current *BenchmarkResult, 
 			if b.NumCPU != 0 && b.NumCPU != c.NumCPU {
 				log.Printf("Warning: baseline was captured on %d CPUs, this run has %d; timings are not directly comparable",
 					b.NumCPU, c.NumCPU)
+			}
+			if b.CPUModel != "" && c.CPUModel != "" && b.CPUModel != c.CPUModel {
+				log.Printf("Warning: baseline was captured on %s, this run is on %s; timings are not directly comparable",
+					b.CPUModel, c.CPUModel)
 			}
 			if b.GoVersion != "" && b.GoVersion != c.GoVersion {
 				log.Printf("Warning: baseline was captured with %s, this run uses %s",
