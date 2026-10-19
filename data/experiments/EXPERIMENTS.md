@@ -27,11 +27,11 @@ directory with a `README.md` whose YAML header gives `area`, `title`, `layers` a
 | `l4clus` | L4 clustering                                              |
 | `geom`   | Solid-body geometry                                        |
 | `l5id`   | L5 identity                                                |
-| `l5est`  | L5 state estimation: the filter, its noise and its trail   |
 | `perf`   | Performance on the deployment target                       |
 | `label`  | Labelled data: capture, label, freeze                      |
 | `l8fol`  | L8 following                                               |
 | `ground` | Ground model: the surface, the clip, the frame and the box |
+| `host`   | Roles, hosts and reproducibility                           |
 | `l5est`  | L5 state estimation: the filter, the smoother, the trail   |
 
 ## A spec
