@@ -27,6 +27,7 @@ For project-wide numeric constants and default thresholds, see
 - `/docs/COVERAGE.md` # Test coverage tracking
 - `/docs/DEVLOG.md` # Chronological development notes
 - `/docs/DEBUGGING.md` # Cross-component debugging guide
+- `/docs/SCHEMA_CHANGES.md` # Pending renames and schema changes, with their reasoning
 
 ## Scope rules
 

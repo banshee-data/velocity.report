@@ -121,6 +121,7 @@ of the same works; its duplicate mentions use the same keys.
 
 | Source mention                                                            | BibTeX key         | Source                                            |
 | ------------------------------------------------------------------------- | ------------------ | ------------------------------------------------- |
+| How the TGSIM trajectory datasets were collected                          | `Ammourah2025`     | [October 19 briefing][oct19], follow-up reading   |
 | Are the speed-crash models applicable for low speeds?                     | `Ambros2025`       | Low-speed speed-change model                      |
 | Heterogeneity of 30 km/h speed interventions                              | `Ambros2026`       | Low-speed speed-change model                      |
 | Speed-limit compliance in San Francisco and Phoenix                       | `Campolettano2025` | Campolettano section                              |
@@ -140,6 +141,7 @@ of the same works; its duplicate mentions use the same keys.
 | Lower urban speed limits and pedestrian accident patients                 | `Lee2025`          | Not adopted list                                  |
 | Observed headway on urban streets                                         | `Michael2000`      | [October 19 briefing][oct19], follow-up reading   |
 | Modern US pedestrian injury curve with front-end height                   | `Monfort2025`      | Monfort and Mueller section; also weekly briefing |
+| Checking vehicle trajectory accuracy (NGSIM)                              | `Punzo2011`        | [October 19 briefing][oct19], follow-up reading   |
 | Pedestrian fatality risk as a function of car impact speed                | `Rosen2009`        | Monfort and Mueller section                       |
 | Review of pedestrian fatality-risk curves and their sampling bias         | `Rosen2011`        | [October 19 briefing][oct19], follow-up reading   |
 | From Stoplights to On-Ramps                                               | `Scanlon2026a`     | Benchmark-alignment family; sources checked       |

@@ -9,7 +9,9 @@
   Waymo evidence in Chu et al. is weak, their headway includes a vehicle length, and the Palermo
   risks are averages that a few fast sites dominate. A second revision the same day read five
   follow-up papers the owner supplied (Jiao et al. 2024, Michael et al. 2000, Kröyer 2015, Rosén
-  et al. 2011, Torrisi et al. 2026) and added all seven read papers to `references.bib`. Jiao et
+  et al. 2011, Torrisi et al. 2026) and added the papers read in full to `references.bib`. A third
+  revision read Punzo et al. 2011 and Ammourah et al. (TGSIM), explored Q2, logged Q3 as a
+  candidate rename and applied Q4. Jiao et
   al. make the Chu et al. result contested, not settled, and three new open questions follow.
 - **Scope:** Roadside and infrastructure LiDAR perception, and the safety and behaviour literature
   the analytics cite, first listed or newly surfaced October 12 to 19, 2026. No third-party
@@ -115,7 +117,9 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
    driver on board). The Lyft and Waymo trajectories come from the automated vehicles' own
    sensors. For a manual vehicle these are far noisier than for the automated vehicle itself
    (position RMSE 1.84 m against 0.14 m; 48% of manual-vehicle jerk values exceeded 15 m/s³
-   before cleaning). The paper does not say how TGSIM was collected.
+   before cleaning). TGSIM was recorded from a helicopter and from overpass and rooftop cameras,
+   with each position at the front bumper (Ammourah et al. 2024, read below), so its headways
+   are front to front.
 
    Headway is Eq. 4, THW = (X_L − X_F) / V_F, computed at each 0.1 s step. It is a **gross
    headway: the position difference includes a vehicle length**. TTC (Eq. 3) subtracts the
@@ -319,8 +323,8 @@ August 2026 attitudes report, the October 2026 IIHS speed-camera sheet and NHTSA
 
 ## Follow-up reading, October 19
 
-The owner supplied five papers from the first revision's to-fetch list. Each was read in full.
-Two bear on the following metric and three on the harm curves and speed data.
+The owner supplied seven papers from the first revision's to-fetch list, in two batches. Each
+was read in full. Four bear on the following metric, three on the harm curves and speed data.
 
 ### Jiao, Li, Calvert, van Cranenburgh and van Lint: alternative explanations for shorter headways (_Transportation Research Part C_ 164, 104673, 2024)
 
@@ -443,6 +447,170 @@ Two bear on the following metric and three on the harm curves and speed data.
 4. **Lands.** No plan compares site speeds with probe data. Recorded for when one does.
 5. **Verdict.** Recorded, not adopted. CC BY-NC-ND 4.0; citation only.
 
+### Punzo, Borzacchiello and Ciuffo: checking trajectory accuracy (_Transportation Research Part C_ 19, 1243–1262, 2011)
+
+1. **Measures.** A method for checking the accuracy of vehicle trajectory data without ground
+   truth, applied to every NGSIM dataset (I-80, US-101, Lankershim, Peachtree). It has three
+   tests:
+   - **Jerk.** The share of samples above 15 m/s³ (beyond what a vehicle can do), and the share
+     of 1 s windows with more than one change of sign in jerk.
+   - **Platoon consistency.** Each vehicle's trajectory is integrated from its speeds and the
+     inter-vehicle spacing this implies is compared with the observed one. Spacing below 5 m,
+     front to front, means the trajectories have the cars colliding.
+   - **Spectrum.** Energy above about 1 Hz in speed and acceleration, where human and vehicle
+     responses do not reach, is treated as noise.
+
+   NGSIM failed all three: 6.5–17.4% of jerk values above 15 m/s³, and 74.6–94.3% of 1 s windows
+   with more than one sign change.
+
+2. **Maths.** Differentiation amplifies noise, so any speed or acceleration taken from positions
+   needs filtering that keeps the integrated positions consistent with the measured spacing.
+   Internal consistency of one vehicle (speed integrates back to position) is not enough; the
+   pair must agree too. Chu et al. took their 15 m/s³ and sign-inversion thresholds from this
+   paper.
+3. **Sensor.** The plan already refuses raw finite-difference jerk (Section 8.2.1: about
+   28 m/s³ of noise at 0.2 s spacing). At 5 Hz a 1 s window holds five samples, so the
+   sign-inversion test needs adapting. The transferable test is platoon consistency. The
+   following metric's gap comes from two tracks' positions, and a check that it agrees with the
+   gap implied by integrating both tracks' speeds would catch a biased pair before it reaches a
+   rate. The plan's `non_positive_gap` reason is the crude form of that check.
+4. **Lands.** Section 8.2.1 (jerk) and the following fixtures in Section 8.3. Nothing changes
+   now; this is a candidate quality test for L5 trajectories and following pairs.
+5. **Verdict.** Cited, not adopted. Copyright Elsevier; citation only.
+
+### Ammourah et al.: how TGSIM was collected (_Transportation Research Record_ 2679, 1768–1784, 2025; online 2024)
+
+1. **Measures.** Six trajectory datasets of SAE Level 1–3 vehicles among human traffic, made by
+   three methods:
+   - **Helicopter.** Hovering or following the automated vehicles at 700–1,000 ft, 8K video at
+     30 fps, on I-90/I-94 and I-294 near Chicago, including a three-car ACC platoon.
+   - **Overpass cameras.** On I-395 in Washington, D.C., 1080p at 30 fps over 0.34 mi.
+   - **Rooftop cameras.** Twelve cameras on five buildings over four blocks of Foggy Bottom,
+     Washington, D.C., with a Level 3 vehicle, pedestrians, cyclists and scooters, three hours
+     of evening peak.
+
+   Detection uses a pre-trained CNN detector and tracker on stabilised frames. Each vehicle's
+   position is its front bumper, a Kalman filter smooths it, and camera hand-offs are matched by
+   hand. Every trajectory was inspected, and zero-speed, short and wrong-way ones were removed.
+   The automated vehicles carried GPS and IMUs as ground truth, but the paper reports no
+   comparison of video against GPS and no accuracy figure. A run yields 400–500 trajectories.
+   The ACC platoon drove near the limit, slower than the traffic around it, so its immediate
+   follower kept changing. That fits Chu et al.'s 29 human-behind-automated events.
+
+2. **Maths.** None beyond the pipeline: no error statistics, which is the gap Punzo et al. (2011)
+   say every trajectory dataset should close before use.
+3. **Sensor.** The Foggy Bottom set is the closest public dataset read so far to what this
+   sensor sees: fixed, infrastructure-mounted, urban intersections, with vulnerable road users.
+   It is camera-based, and its accuracy is unquantified. The GPS on the automated vehicles is a
+   physical reference that could be used to quantify it, if the GPS logs are released.
+4. **Lands.** The behaviour plan's Section 11 evaluation datasets. It is a candidate for
+   geometry and interaction structure, with the same caveat as Waymo Open Motion: automated
+   vehicles in the stream, and accuracy to be measured before use. Open via the U.S. DOT ITS
+   DataHub.
+5. **Verdict.** Recorded as a Section 11 candidate, not added to the plan until its accuracy is
+   checked. SAGE copyright with author reuse terms; citation only.
+
+## Q2 explored: a speed floor and a time ceiling for valid following
+
+The owner's starting point (October 19) is a speed floor of about 2 mph and an upper time bound
+near 6 s, perhaps lower, with the options still to be explored. This section sets out what each
+choice would change. It decides nothing; the limits belong in the following record that
+[l8fol0004](../../../../data/experiments/l8fol/l8fol0004.md) pins before any held-out window is
+read.
+
+**What the code does now.** `FollowingParams.SpeedFloorMps` suppresses net time gap below a
+follower speed (`below_speed_floor`). It has no default; the fixtures use 0.5 m/s, and the plan
+places the measurement noise floor near 0.3 m/s at 5 Hz (Section 8.11). Standstill already does
+not count as following opportunity, but its spatial gap stays valid. Leader choice is bounded in
+space, not time: `PairingParams.MaxLeaderRangeM`, 60 m centre to centre in the fixtures. There
+is no time ceiling, and `following_valid_time` has no test that the follower is constrained by
+the leader. Both live in `internal/lidar/l8behaviour` (`following.go`, `pairing.go`).
+
+**What the literature read here used.**
+
+| Source              | Floor                                               | Upper bound                            | Headway kind |
+| ------------------- | --------------------------------------------------- | -------------------------------------- | ------------ |
+| Chu et al. 2026     | Follower above 1 m/s (2.2 mph) at the event's start | Gap under 85 m; event of at least 15 s | Gross        |
+| Jiao et al. 2024    | Stationary below 0.1 m/s is its own regime          | Regime test (Newell time gap, DTW lag) | Gross        |
+| Michael et al. 2000 | Free-flowing traffic only                           | 4 s, after Wasielewski (1979)          | Gross        |
+| Plan, as built      | 0.5 m/s in fixtures (noise near 0.3 m/s)            | 60 m centre to centre                  | Net          |
+
+**Repercussions of a speed floor near 2 mph (0.89 m/s).**
+
+1. **It is a behavioural floor, not a measurement one.** At 5 Hz, speed uncertainty near the
+   floor is about 0.2 to 0.35 m/s (Section 8.11). That is 22–39% of 0.89 m/s, and the net time
+   gap inherits the whole relative error. At 4.5 mph (2 m/s) it is 10–17%; at 10 mph, 4–8%. So
+   2 mph removes creep and standstill, but the time gaps just above it are still too noisy to
+   publish as values.
+2. **It should be a second parameter, not a raised `SpeedFloorMps`.** Two roles are in play: a
+   measurement floor, where net time gap is undefined (keep near the noise, about 0.3–0.5 m/s);
+   and an opportunity floor, below which time is queue or creep and does not count toward
+   `following_valid_time`. The spatial gap stays valid there, which is how the code treats
+   standstill already. Merging the two would hide which one suppressed an instant.
+3. **Low-speed following is mostly queue discharge.** Between the floor and about 10 mph, gaps
+   of 2–8 m give time gaps of 1–4 s that describe a queue, not a driver's chosen margin. One
+   option is to report the spatial gap below a band edge (say 10 mph) and the time gap above it.
+   Another is to keep both, with every distribution stratified by follower speed band; the plan
+   already stratifies the observation budget by speed (Section 3).
+4. **It moves the denominator.** Every instant below the floor leaves `following_valid_time`, so
+   `thw_below_X_rate` changes even when no gap does. The floor belongs in the parameter hash
+   and beside every published rate.
+
+**Repercussions of an upper time bound.**
+
+1. **The 60 m leader range already caps the time gap, but only at speed.** The implied ceiling
+   is about (60 − 4.5) m / v:
+
+   | Follower speed | Implied cap from the 60 m range | L/v (gross − net, 4.5 m car) |
+   | -------------- | ------------------------------- | ---------------------------- |
+   | 2 mph          | 62 s                            | 5.0 s                        |
+   | 10 mph         | 12.4 s                          | 1.0 s                        |
+   | 20 mph         | 6.2 s                           | 0.5 s                        |
+   | 25 mph         | 5.0 s                           | 0.4 s                        |
+   | 30 mph         | 4.1 s                           | 0.34 s                       |
+   | 35 mph         | 3.5 s                           | 0.29 s                       |
+
+   So a 6 s ceiling binds only below about 21 mph, a 4 s ceiling below about 31 mph, and a 3 s
+   ceiling below about 41 mph. At typical urban speeds the choice between 4 and 6 s matters
+   mainly in slower traffic. Above about 25 mph, the observed path (51–60 m median, Section 3)
+   is the real limit, because both parties must be in view.
+
+2. **The ceiling sets the rates.** For a ceiling C, the share below a band X is
+   F(X) / F(C), where F is the time-gap distribution. Lowering C from 6 s to 4 s raises every
+   `thw_below_X_rate` without any driver changing. This is the mechanism Jiao et al. measured:
+   the mix of free and constrained following moved their comparison from 0.61 s to 0.33 s. A
+   rate is only comparable with another at the same floor and ceiling, and both are printed
+   with it.
+3. **A per-instant ceiling flickers.** A pair hovering near C would enter and leave valid
+   following every few frames, fragmenting the "maximal contiguous runs" the plan reports
+   (Section 10). The usual remedy is hysteresis: enter below C, leave only after the time gap
+   stays above C plus a margin (say 0.5 s) for a minimum dwell (say 1 s, five samples at 5 Hz).
+   The same applies to the speed floor in stop-and-go traffic.
+4. **Net against gross.** The cut-offs in the literature are on gross headway. A net-gap ceiling
+   equal to a gross one admits more distant pairs by L/v: 0.4 s at 25 mph, but 1 s at 10 mph. A
+   4 s gross convention is about 3.6 s net at 25 mph. If the ceiling is chosen to match Michael
+   et al. or Wasielewski, say so and convert; otherwise call it a net-gap ceiling of our own.
+5. **It is not a following test.** A time gap under C does not prove the follower is responding
+   to the leader. In 10-second passages at 5 Hz, a response test like Jiao's (lagged speed
+   correlation) has little to work with. A ceiling is a practical proxy, and the report should
+   call it one.
+
+**Options.**
+
+| Option                                                                                                   | For                                                                          | Against                                                                      |
+| -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| A. Floor 2 mph, ceiling 6 s, hysteresis                                                                  | Wide; drops creep and plainly free following; close to Chu's 1 m/s           | Binds only below ~21 mph; noisy time gaps just above the floor still counted |
+| B. Floor 2 mph, ceiling 4 s (converted to net), hysteresis                                               | Matches the roadside convention (Michael, Wasielewski), so rates compare     | Drops some genuine following in free flow; rates rise against option A       |
+| C. Two floors (measurement ~0.4 m/s, opportunity 2 mph), ceiling 4 or 6 s, spatial gap only below 10 mph | Keeps queue behaviour as a spatial measure; time gap only where it is stable | Two reporting modes; more to explain; needs the band edge chosen             |
+| D. Report at several ceilings (3, 4, 6 s) as a sensitivity                                               | Shows how much the answer depends on the choice                              | Not a definition: a report still needs one headline value                    |
+
+**Recommendation for the l8fol0004 decision.** Option C with a 4 s or 6 s net ceiling chosen on
+kirk0's reviewed pairs, with option D's sensitivity in the report. The draft following records
+(`leader`, `no_leader`, `ambiguous`) are where the ceiling's effect can first be seen: count how
+many reviewed `leader` records each candidate ceiling would drop. Record the floor, ceiling,
+margin and dwell in the following record and the parameter hash. Until that decision, no rate is
+published.
+
 ## What changes
 
 In this change:
@@ -451,9 +619,14 @@ In this change:
   Motion row in Section 11 cites Chu et al. for the influence of automated vehicles on the traffic
   around them, with Jiao et al. beside it as the contested reading; this briefing is linked under
   "Weekly literature review".
-- [`references.bib`](../../../../data/maths/references.bib): seven entries for the papers read in
-  full here (`Chu2026`, `Jiao2024`, `Kroyer2015`, `Michael2000`, `Rosen2011`, `Torrisi2026`,
-  `Yasir2026`), mapped in the [reference audit](reference-audit.md).
+- [Crash-data integration plan](../../../plans/platform-crash-data-integration-plan.md): the harm-curve
+  row cites Kröyer (2015) for its travel-speed caveat, with a sources-table row (Q4).
+- [SCHEMA_CHANGES.md](../../../SCHEMA_CHANGES.md): a new log of pending renames and schema changes
+  across the repository, starting with the headway names (Q3); listed in
+  [DOCS.md](../../../DOCS.md).
+- [`references.bib`](../../../../data/maths/references.bib): nine entries for the papers read in
+  full here (`Ammourah2025`, `Chu2026`, `Jiao2024`, `Kroyer2015`, `Michael2000`, `Punzo2011`,
+  `Rosen2011`, `Torrisi2026`, `Yasir2026`), mapped in the [reference audit](reference-audit.md).
 - A devlog bullet.
 
 Nothing in code, the metrics registry, benchmark kinds or definitions.
@@ -463,9 +636,9 @@ Nothing in code, the metrics registry, benchmark kinds or definitions.
 | ID  | Question                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Q1  | Should the headway report's limitations text say, for a site within an automated fleet's service area, that an unknown share of observed following passages may have an automated leader, and that published evidence (Chu et al. 2026) finds followers keep shorter headways behind such leaders? The sensor cannot observe the share and must not try; the sentence would be a population note, not a stratum. If adopted, it cites the direction only. Chu et al. measure gross headway on Lyft data from 2019–2020, so no figure of theirs belongs beside a site's net gap, and Jiao et al. (2024) attribute much of the difference to observation bias, so the sentence should say the evidence is contested. |
-| Q2  | Should `following_valid_time` require constrained following, not just "in view, same path, `F` behind `L`"? Jiao et al. (2024) show that the mix of free and constrained following alone moved a headway comparison from 0.61 s to 0.33 s. Michael et al. (2000) drop followers 4 s or more behind, after Wasielewski (1979). The choice is a THW ceiling (simple, and conventional in roadside studies) or a regime test (closer to what following means, and harder to validate). Either way, every distribution should state the rule it used.                                                                                                                                                                  |
-| Q3  | Should the `time_headway` alias of `interaction.following_net_time_gap_s`, and the plan's `distance_headway` and `thw_*` feature names, be renamed before any report publishes them? In the literature read here (Evans 1991 via Michael et al.; Jiao et al.; Chu et al.), headway means a gross measure that includes a vehicle length. The plan computes a net gap and already says so in prose, but a reader who sees "headway" will compare it with gross figures that run about L/V longer.                                                                                                                                                                                                                   |
-| Q4  | Should the crash-data plan cite Kröyer (2015) for its caveat that a site's travel-speed distribution relates to harm only through the unknown speed of the striking vehicle? It is the one study read whose predictor is the site's mean free-flow speed, which is what this sensor measures. It rests on 19 fatal crashes and is context, not a curve to print.                                                                                                                                                                                                                                                                                                                                                   |
+| Q2  | **Explored, not decided** (owner, October 19: a floor near 2 mph and a ceiling near 6 s, perhaps lower). Should `following_valid_time` require constrained following? Jiao et al. (2024) show the mix of free and constrained following alone moved a headway comparison from 0.61 s to 0.33 s. The [Q2 section](#q2-explored-a-speed-floor-and-a-time-ceiling-for-valid-following) sets out the repercussions and four options, and recommends two floors and a 4 or 6 s net ceiling with hysteresis, decided on kirk0's reviewed pairs in l8fol0004's following record. No rate is published before then.                                                                                                        |
+| Q3  | **Decided: no rename yet** (owner, October 19). The `time_headway` alias of `interaction.following_net_time_gap_s` and the plan's `distance_headway` and `thw_*` names describe a net gap, while the literature uses headway for a gross measure about L/v longer. The candidate is logged in [SCHEMA_CHANGES.md](../../../SCHEMA_CHANGES.md#headway-names-on-a-net-gap), started here with the repository's other pending renames, to be considered before a report publishes these names.                                                                                                                                                                                                                        |
+| Q4  | **Decided yes** (owner, October 19). The [crash-data plan](../../../plans/platform-crash-data-integration-plan.md)'s harm-curve row now cites Kröyer (2015) for its travel-speed caveat, with a row in its sources table. It is context, not a curve to print.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 The October 11 briefing's three questions remain open on its own branch and are not repeated.
 
@@ -483,6 +656,8 @@ The October 11 briefing's three questions remain open on its own branch and are 
 | Kröyer, _IATSS Research_ 39, doi:10.1016/j.iatssr.2014.08.001                                         | Read (full text supplied by the owner)                                           |
 | Rosén, Stigson and Sander, _Accident Analysis & Prevention_ 43, doi:10.1016/j.aap.2010.04.003         | Read (full text supplied by the owner)                                           |
 | Torrisi et al., _Research in Transportation Business & Management_ 64, doi:10.1016/j.rtbm.2025.101565 | Read (full text supplied by the owner)                                           |
+| Punzo, Borzacchiello and Ciuffo, _Transportation Research Part C_ 19, doi:10.1016/j.trc.2010.12.007   | Read (full text supplied by the owner)                                           |
+| Ammourah et al., _Transportation Research Record_ 2679, doi:10.1177/03611981241257257                 | Read (full text supplied by the owner)                                           |
 | Waymo and MADD coverage of the sober-baseline paper, October 8 and 14                                 | Superseded (the preprint is read in full in the analysis)                        |
 | Waymo safety hub, 270 million miles through June 2026                                                 | **Confirm** (search summary; automated-driving rate, out of scope)               |
 | AAA Foundation, _Attitudes Toward Speeding_, August 2026                                              | Superseded (held by the attitudes plan)                                          |
@@ -531,6 +706,12 @@ Second revision, October 19: the owner supplied five more PDFs to the same folde
 `10.1016@j.aap.2010.04.003.pdf`, `1-s2.0-S2210539525002822-main.pdf`), read with `pdftotext`.
 Every DOI in this briefing and its to-fetch list was checked against Crossref on October 19.
 
+Third revision, October 19: `punzo2011.pdf` and
+`ammourah-et-al-2024-introduction-to-the-third-generation-simulation-dataset-data-collection-and-trajectory-extraction.pdf`
+from the same folder, read with `pdftotext`. The Q2 figures (implied ceilings from the 60 m leader
+range, relative speed error at the floor, L/v) are arithmetic from the stated inputs, not
+measurements.
+
 ## To fetch
 
 Every DOI below was checked against Crossref on October 19. None is in `references.bib`.
@@ -544,12 +725,6 @@ Following and headway:
   https://doi.org/10.1016/j.trc.2021.103490: processing and quality of Waymo Open Dataset
   trajectories, the source of Chu et al.'s Waymo events. Relevant to the plan's Section 11 use of
   Waymo data.
-- Punzo, Borzacchiello and Ciuffo 2011, _Transportation Research Part C_ 19(6), 1243–1262,
-  https://doi.org/10.1016/j.trc.2010.12.007: trajectory accuracy checks (jerk magnitude and sign
-  inversion). Compare with the plan's Section 8.2.1 before L5 trajectories are scored that way.
-- Ammourah et al. 2025 (online July 2024), _Transportation Research Record_ 2679, 1768–1784,
-  https://doi.org/10.1177/03611981241257257: how TGSIM was collected, and whether it is an
-  infrastructure or overhead dataset that could serve Section 11.
 - Soni, Reddy, Tsapi, van Arem and Farah 2022, _Transportation Research Part F_ 86, 48–64,
   https://doi.org/10.1016/j.trf.2022.02.002: the "Wizard of Oz" study in which drivers told the
   leader was automated did not follow closer.
