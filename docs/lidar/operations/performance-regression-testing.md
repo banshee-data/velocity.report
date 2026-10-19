@@ -542,7 +542,33 @@ Baselines live in `internal/lidar/perf/baseline/`, one per cell:
 `baseline-<capture>-<profile>-<host class>.json`. Each records its tuning fingerprint,
 platform, host class, CPU model and the commit it measured. Until October 2026 no `-ci` file was
 committed, so the nightly fell back to the frame-budget check alone without failing;
-the first pair was captured on `main` at `0504248c` with nine repeats.
+the first pair was captured on `main` at `0504248c` with nine repeats. #787 moved the
+defaults' L3 and so the fingerprint, and the pair was captured again on `main` at
+`008026cf2`, nine repeats, on an AMD EPYC 7763: full 16,244 ms, l3-only 10,964 ms.
+
+**One `-ci` baseline cannot fit every hosted runner.** Every runner has 4 CPUs, but in
+the 36 captures from October 15 to 19, kirk0's full profile fell into three bands by
+CPU, each with identical work counters within its L3:
+
+| Runner CPU       | Full profile, the L3 before #787 | Full profile, today's defaults | Captures |
+| ---------------- | -------------------------------: | -----------------------------: | -------: |
+| Not yet recorded |                     7.5 to 8.3 s |                              — |        6 |
+| AMD EPYC 9V74    |                   10.2 to 10.9 s |                         13.2 s |    6 + 1 |
+| AMD EPYC 7763    |                   13.0 to 14.4 s |                 16.2 to 16.6 s |   20 + 3 |
+
+The CPU was recorded for three of them, from #792 on: an EPYC 7763 at 13.2 s on the
+earlier L3, and on today's defaults an EPYC 9V74 at 13.2 s and an EPYC 7763 at 16.2 s
+(the committed pair). That the earlier L3's middle band is the 9V74 is inferred from the
+ratio between the two CPUs on today's defaults (0.81), which the bands' ratio matches
+(0.77).
+
+The committed pair is from the slowest band, which is also the commonest, so a nightly
+run never fails for its runner alone. The cost is a wider blind spot: at the 50 %
+threshold a change has to cost about 1.5 times as much on an EPYC 7763 before the nightly
+fails, about 1.85 times on an EPYC 9V74, and roughly 2.6 times on the fastest band (an
+estimate from the earlier L3's ratio between the bands). The ⚡ Perf A/B gate, which
+measures base and head on one runner, is what catches a 10 % change. A nightly run on
+another CPU warns and names both.
 
 ## Understanding metrics
 

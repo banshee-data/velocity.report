@@ -223,7 +223,11 @@ slower runner than the pair they replace. The previous defaults read 10,250 ms w
 captured and 12,905 ms on this change's A/B runner, about 1.26 times as long, so most of the
 baseline's rise is the runner's and not the change's. A nightly run on a faster runner would pass
 against it with room to hide a real regression; the pair is to be captured again on `main` after
-the merge, over nine repeats as the first pair was.
+the merge, over nine repeats as the first pair was. It was, at `008026cf2` on October 19: full
+16,244 ms and l3-only 10,964 ms, on an AMD EPYC 7763 again. The run history shows three bands of
+hosted runner for this workload, of which the 7763 is the slowest and the first pair's the middle
+one; the bands are tabled in
+[performance regression testing](performance-regression-testing.md#baseline-management).
 
 **Against the values the paced replays substituted, nothing moves.** The previous defaults are the
 L3 the perf harness, live input and analysis replays ran; the server's scaled replays ran the
