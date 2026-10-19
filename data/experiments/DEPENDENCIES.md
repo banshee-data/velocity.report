@@ -23,6 +23,12 @@ flowchart TB
     geom0010["<b>geom0010</b><br/>The published box's held extents yield to…<br/>answered · 43m machine + 2h person (took 30m)<br/>manual: implement, write"]:::answered
     geom0011["<b>geom0011</b><br/>Centre against extent: how much of the…<br/>proposed · 9m machine + 3h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
+  subgraph area_ground ["ground: Ground model and the plane the tracks live in"]
+    ground0001["<b>ground0001</b><br/>Where the ground is: each site's surface…<br/>proposed · 1h9m machine + 4h person<br/>manual: implement, write"]:::proposed
+    ground0002["<b>ground0002</b><br/>The vertical clip follows the ground: the…<br/>proposed · 6h20m machine + 6h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
+    ground0003["<b>ground0003</b><br/>The planar state in the ground's frame: x…<br/>proposed · 56m machine + 6h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
+    ground0004["<b>ground0004</b><br/>The published box on the ground: its base…<br/>proposed · 1h24m machine + 3h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
+  end
   subgraph area_l3bg ["l3bg: L3 background model"]
     l3bg0001["<b>l3bg0001</b><br/>Zero-code L3 arms on the labelled kirk…<br/>answered · 23m machine + 3h person<br/>manual: write"]:::answered
     l3bg0002["<b>l3bg0002</b><br/>E4 support filter with the overrides off<br/>answered · 18m machine + 5h person<br/>manual: implement, write"]:::answered
@@ -85,6 +91,9 @@ flowchart TB
   geom0007 --> geom0009
   l5id0004 --> geom0009
   geom0009 --> geom0010
+  ground0001 --> ground0003
+  ground0002 --> ground0003
+  ground0002 --> ground0004
   l3bg0001 --> l3bg0002
   l3bg0002 --> l3bg0003
   l3bg0003 --> l3bg0004
@@ -139,6 +148,10 @@ flowchart TB
 
 - [geom0002](geom/geom0002.md) The low-speed label and the ambiguous row, rescreened on the young-track axis: proposed, awaiting approval; 1h2m machine + 26h person; after geom0001; asks [geometry-convergence-heldout-2026-10 #recommendations](../../docs/lidar/operations/geometry-convergence-heldout-2026-10.md#recommendations), [lidar-tracker-geometry-convergence-plan #checklist](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#checklist).
 - [geom0011](geom/geom0011.md) Centre against extent: how much of the reference centre error is the body's length (W9): proposed, awaiting approval; 9m machine + 3h person; asks [D-28](../../docs/DECISIONS.md), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [physical-reference-pilot-kirk0-2026-10 #interpretation](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#interpretation), [research-briefing-2025-01-to-2026-10 #schäfer-alrifaee-and-hashemi-ad…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#schäfer-alrifaee-and-hashemi-advanced-intelligent-systems-2026).
+- [ground0001](ground/ground0001.md) Where the ground is: each site's surface against the sensor's plane, and how far the tracks leave it: proposed, awaiting approval; 1h9m machine + 4h person; asks [BACKLOG](../../docs/BACKLOG.md), [lidar-state-estimation-plan #21-p11-is-a-correctness-problem…](../../docs/plans/lidar-state-estimation-plan.md#21-p11-is-a-correctness-problem-not-a-future-refinement), [paper-implementation-gap-analysis #8-patchwork-lim-et-al-2022](../../data/maths/paper-implementation-gap-analysis.md#8-patchwork-lim-et-al-2022), [state-estimation-phase01-corpus-baseline #p11-ground-plane-fit-measured-p…](../../docs/lidar/operations/state-estimation-phase01-corpus-baseline.md#p11-ground-plane-fit-measured-per-site).
+- [ground0002](ground/ground0002.md) The vertical clip follows the ground: the surface clip against the height band, on jitter, the labelled score and cost: proposed, awaiting approval; 6h20m machine + 6h person; asks [BACKLOG](../../docs/BACKLOG.md), [lidar-state-estimation-plan #21-p11-is-a-correctness-problem…](../../docs/plans/lidar-state-estimation-plan.md#21-p11-is-a-correctness-problem-not-a-future-refinement), [paper-implementation-gap-analysis #8-patchwork-lim-et-al-2022](../../data/maths/paper-implementation-gap-analysis.md#8-patchwork-lim-et-al-2022), [l5-tracking-noise-parameter-sweep](../../data/experiments/try/l5-tracking-noise-parameter-sweep.md).
+- [ground0003](ground/ground0003.md) The planar state in the ground's frame: x and y of the fitted surface instead of the sensor's horizontal plane: waiting on a dependency; 56m machine + 6h person; after ground0001, ground0002; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [research-briefing-2025-01-to-2026-10 #schäfer-alrifaee-and-hashemi-ad…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#schäfer-alrifaee-and-hashemi-advanced-intelligent-systems-2026), [BACKLOG](../../docs/BACKLOG.md).
+- [ground0004](ground/ground0004.md) The published box on the ground: its base from the surface and its height from a held belief, not the frame's cluster: waiting on a dependency; 1h24m machine + 3h person; after ground0002; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [BACKLOG](../../docs/BACKLOG.md).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0019](l3bg/l3bg0019.md) Where the Stage B arms lose a reviewed return, return by return, on kirk0: proposed, awaiting approval; 16m machine + 1h person; after geom0004, l3bg0018; asks [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations), [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l3-candidates-corpus-dwell-2026-10 #recommendations](../../docs/lidar/operations/l3-candidates-corpus-dwell-2026-10.md#recommendations).
 - [l3bg0022](l3bg/l3bg0022.md) Does the background converge by its own criterion before the ceiling, on the corpus: proposed, awaiting approval; 58m machine + 2h person; after l3bg0021; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
@@ -196,5 +209,5 @@ flowchart TB
 
 ## Totals
 
-- 16 open experiments: 14h1m machine + 85h30m person estimated.
+- 20 open experiments: 23h50m machine + 104h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
