@@ -116,9 +116,10 @@ type Frame struct {
 // what a renderer needs and nothing else; covariance, lifecycle counters and
 // internal quality metrics are dropped.
 type TrackJSON struct {
-	ID    string  `json:"id"`
-	X     float64 `json:"x"`
-	Y     float64 `json:"y"`
+	ID string  `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+	// Z is the base of the box, not its centre: the box spans Z to Z+Height.
 	Z     float64 `json:"z"`
 	VX    float64 `json:"vx"`
 	VY    float64 `json:"vy"`

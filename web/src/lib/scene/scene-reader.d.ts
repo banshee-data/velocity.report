@@ -22,6 +22,7 @@ declare module '$scene/scene-reader.js' {
 		id: string;
 		x: number;
 		y: number;
+		/** Base of the box, not its centre: the box spans z to z + h. */
 		z: number;
 		vx: number;
 		vy: number;
