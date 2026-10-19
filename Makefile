@@ -1025,6 +1025,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_publish_scenes.py \
 	tools/s2-archive/test_export_scene_variants.py \
 	tools/s2-archive/test_replay_speed_sweep.py \
+	tools/s2-archive/test_scene_trail_stats.py \
 	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
