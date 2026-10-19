@@ -143,7 +143,10 @@ def run_unit(args):
     started = publish.api(f"/pcap/start?sensor_id={publish.SENSOR}", payload)
     time.sleep(5)
     pace = {"scaled": ratio, "realtime": 1.0}.get(mode)
-    budget = max(900, (duration / pace if pace else duration) * 1.5 + 600)
+    # A floor for a host under memory pressure, where an analysis replay that
+    # takes minutes alone has taken forty (SWEEP_MIN_BUDGET_S, default 15 min).
+    floor = float(os.environ.get("SWEEP_MIN_BUDGET_S", "900"))
+    budget = max(floor, (duration / pace if pace else duration) * 1.5 + 600)
     if not publish.wait_for_idle(budget):
         raise RuntimeError(f"replay did not finish within {budget / 60:.0f} min")
     wall = time.time() - began

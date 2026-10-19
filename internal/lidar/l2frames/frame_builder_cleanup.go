@@ -525,7 +525,15 @@ func (fb *FrameBuilder) cleanupFrames() {
 
 	// DEBUG: If a current frame exists but hasn't been moved to buffer (wrap not detected),
 	// force-finalize it after a short age so callbacks and buffering can be exercised.
-	if fb.currentFrame != nil {
+	//
+	// Not while blocking, which is a replay: there the reader, not the sensor,
+	// sets the pace, and a reader that stalls longer than the buffer timeout
+	// (a host short of memory) would have the rotation it was reading cut in
+	// two here, its remainder then discarded as an incomplete frame, so the
+	// same capture replayed twice could record different frames (l3bg0020). A
+	// replay's frames end on their azimuth wrap, and its last on the flush at
+	// the end of the replay.
+	if fb.currentFrame != nil && !fb.blockOnFrameChannel {
 		ageSource := fb.currentFrame.EndWallTime
 		if ageSource.IsZero() {
 			ageSource = fb.currentFrame.EndTimestamp
