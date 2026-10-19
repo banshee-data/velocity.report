@@ -71,6 +71,17 @@ type Header struct {
 	TuningHash        string `json:"tuning_hash,omitempty"`
 	BuildVersion      string `json:"build_version,omitempty"`
 	GeneratedAt       string `json:"generated_at"`
+
+	// TrailEstimator names the estimate each track's x, y, vx and vy are, as
+	// the persisted estimates name theirs: the estimator, then the stage.
+	// "cv_kf_v1/online" is the filter's own posterior, the trail of every
+	// export before the field existed; "cv_kf_v1+rts_fixed_assignment_v1/final"
+	// is the whole-track smoother's (trail.go). Everything else a track
+	// carries is the tracker's own whichever it is.
+	TrailEstimator string `json:"trail_estimator,omitempty"`
+	// TrailSmoothing accounts for a smoothed trail: what the smoother
+	// released, by stage, and how many track frames it reached.
+	TrailSmoothing *TrailSmoothingSummary `json:"trail_smoothing,omitempty"`
 }
 
 // CoordinateFrame is the spatial reference, minus any georeferencing origin.
@@ -114,11 +125,13 @@ type Frame struct {
 
 // TrackJSON is the viewer-facing projection of l9endpoints.Track. It carries
 // what a renderer needs and nothing else; covariance, lifecycle counters and
-// internal quality metrics are dropped.
+// internal quality metrics are dropped. X, Y, VX and VY are the estimate
+// Header.TrailEstimator names.
 type TrackJSON struct {
-	ID    string  `json:"id"`
-	X     float64 `json:"x"`
-	Y     float64 `json:"y"`
+	ID string  `json:"id"`
+	X  float64 `json:"x"`
+	Y  float64 `json:"y"`
+	// Z is the base of the box, not its centre: the box spans Z to Z+Height.
 	Z     float64 `json:"z"`
 	VX    float64 `json:"vx"`
 	VY    float64 `json:"vy"`

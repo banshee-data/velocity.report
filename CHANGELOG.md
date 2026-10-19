@@ -65,7 +65,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 - The defaults' L3 is now that substituted L3 (closeness 2.0, safety margin 0.30 m, neighbour
   confirmation 5), for live input and every replay alike. Under the previous defaults a replay
   found about half the vehicle tracks on the corpus and scored HOTA 0.376 against 0.542 on kirk0's
-  labels (l3bg0023); of the L3s measured, this one scores best on kirk's labels (l3bg0024). It also
+  labels (l3bg0023); of the L3s measured, this one scores best on kirk's labels (l3bg0025). It also
   finds about five times the spurious clusters and more long-lived stationary tracks, and a
   departed vehicle's ghost lasts about half as long again. The previous L3 is kept as
   `config/experiments/l3-pre-consolidation.json`.

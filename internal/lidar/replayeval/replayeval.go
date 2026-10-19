@@ -876,6 +876,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
+	useSurfaceGround := cfg.UseSurfaceGround || hasExperiment(experiments, ExperimentSurfaceGround)
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -888,7 +889,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
-		UseSurfaceGround:          cfg.UseSurfaceGround,
+		UseSurfaceGround:          useSurfaceGround,
+		GroundSurfaceForTracker:   hasExperiment(experiments, ExperimentBoxGround),
 		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
@@ -961,7 +963,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		pipeCfg.ObservationFrameSink = observationFrameSink
 	}
 	var groundSurfaceFit atomic.Pointer[l3grid.RegionalGroundSurface]
-	if cfg.UseSurfaceGround {
+	if useSurfaceGround || pipeCfg.GroundSurfaceForTracker {
 		pipeCfg.GroundSurfaceFit = &groundSurfaceFit
 	}
 	// The refinement harness observes the tracker's filter record; it is
@@ -981,8 +983,25 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		if err != nil {
 			return nil, fmt.Errorf("apply %s: %w", ExperimentFixedLagRTS, err)
 		}
-		tracker.SetFilterStepObserver(refinement)
 	}
+	// The recording keeps the tracker's filter record beside its chunks
+	// (recorder.FilterRecordFile), so a scene export of it can draw the
+	// smoothed trail; the refinement harness, when on, watches the same
+	// frames. Attached before the first frame so every chain is seen whole.
+	filterRecord, err := recorder.NewFilterRecordWriter(cfg.OutDir, recorder.FilterRecordHeader{
+		SensorID: cfg.SensorID, EstimatorID: pipeCfg.StateEstimatorID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("record filter steps: %w", err)
+	}
+	// Idempotent, as the recorder's is: the explicit close below reports
+	// what this one would swallow on an early return.
+	defer filterRecord.Close()
+	observers := l5tracks.FilterStepObservers{filterRecord}
+	if refinement != nil {
+		observers = append(observers, refinement)
+	}
+	tracker.SetFilterStepObserver(observers)
 	if cfg.IncludeDebug {
 		collector := debug.NewDebugCollector()
 		collector.SetEnabled(true)
@@ -1086,6 +1105,9 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 
 	if cerr := runtime.closeRecorder(rec); cerr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("close recording: %w", cerr)
+	}
+	if cerr := filterRecord.Close(); cerr != nil && replayErr == nil {
+		replayErr = fmt.Errorf("close filter record: %w", cerr)
 	}
 	if frameEvidenceErr := frameEvidenceSink.Err(); frameEvidenceErr != nil && replayErr == nil {
 		replayErr = fmt.Errorf("store frame evidence: %w", frameEvidenceErr)
@@ -1299,6 +1321,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	trackerConfig.OverlapEndFrames = overlapEnd
+	if hasExperiment(experiments, ExperimentBoxGround) {
+		if !trackerConfig.BoxModel.Enabled {
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s stands the box model's box on the ground, and the tuning file's box model is off", ExperimentBoxGround)
+		}
+		trackerConfig.BoxModel.GroundAnchor = true
+	}
 	trackerConfig.OverlapEndOnBody = hasExperiment(experiments, ExperimentOverlapEndBody)
 	trackerConfig.OverlapEndKeepOlder = hasExperiment(experiments, ExperimentOverlapEndOlder)
 	if overlapEnd == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {

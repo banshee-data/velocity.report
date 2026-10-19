@@ -583,3 +583,38 @@ class AssetsTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TrailTests(unittest.TestCase):
+    def run_export(self, trail=None, kind=None):
+        with mock.patch.object(publish_scenes.subprocess, "run") as run:
+            run.return_value = mock.Mock(returncode=0, stdout="wrote x\n", stderr="")
+            publish_scenes.export(
+                "run.vrlog", "out", "site", "Title", kind=kind, trail=trail
+            )
+        return run.call_args.args[0]
+
+    def test_the_default_trail_is_the_online_one(self):
+        self.assertEqual(publish_scenes.TRAIL, "online")
+        self.assertNotIn("--smoothed-trail", self.run_export())
+        self.assertNotIn("--smoothed-trail", self.run_export(kind="clip"))
+
+    def test_a_smoothed_trail_is_asked_of_the_exports_that_carry_tracks(self):
+        self.assertIn("--smoothed-trail", self.run_export(trail="smoothed"))
+        self.assertIn(
+            "--smoothed-trail", self.run_export(trail="smoothed", kind="clip")
+        )
+        self.assertNotIn(
+            "--smoothed-trail", self.run_export(trail="smoothed", kind="background")
+        )
+
+    def test_the_batch_setting_is_the_default_and_an_unknown_one_is_refused(self):
+        with mock.patch.object(publish_scenes, "TRAIL", "smoothed"):
+            self.assertIn("--smoothed-trail", self.run_export())
+            self.assertIsNone(publish_scenes.trail_problem())
+        with mock.patch.object(publish_scenes, "TRAIL", "wavy"):
+            self.assertIn("wavy", publish_scenes.trail_problem())
+            with self.assertRaises(RuntimeError):
+                self.run_export()
+            with self.assertRaises(SystemExit):
+                publish_scenes.main()

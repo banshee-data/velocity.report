@@ -148,7 +148,7 @@ func runParkedCarDeparture(t *testing.T, roadCells, dwell, maxAfter int) parkedC
 // widened the window enough that the 7 m deviation is within three times it
 // and the deadlock breaker relearns. The review measured first cell clear /
 // half / all at 3,104 / 3,104 / 3,109 frames after departure, with the
-// defaults' closeness 3 and safety margin 0.15 m. Since l3bg0024 the defaults
+// defaults' closeness 3 and safety margin 0.15 m. Since l3bg0025 the defaults
 // carry closeness 2, margin 0.3 m and neighbour confirmation 5, whose
 // narrower window takes longer to widen past the 7 m deviation: 4,574 /
 // 4,623 / 4,623 frames, about half as long again.
@@ -212,7 +212,7 @@ func TestMask_DepartureGhost_FlankedErodesInSeconds(t *testing.T) {
 //
 // from ForegroundClosenessWindowMetres with the shipped multiplier 2,
 // noise_relative 0.02, closeness floor 0.01 m and safety margin 0.3 m (the
-// defaults since l3bg0024; the review's multiplier 3 and margin 0.15 m gave
+// defaults since l3bg0025; the review's multiplier 3 and margin 0.15 m gave
 // 0.70*r + 35*s + 0.80, 6.78 m at 8 m, below the depth all the same).
 // The freeze fires while delta > 3*w (freeze_threshold_multiplier 3), and
 // the deadlock breaker only ever sees a cell that is not freezing, since a

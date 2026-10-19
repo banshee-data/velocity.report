@@ -62,15 +62,15 @@ function colourFor(cls) {
 }
 
 /**
- * One track's position in scene coordinates, with the same vertical trail
- * offset TrackVisual has always drawn at: just above the box's base rather
- * than at its centre. Shared by live rendering and trail-history
- * reconstruction so a historical sample and a currently-rendered box use
- * identical placement math.
+ * One track's position in scene coordinates, lifted just clear of the box's
+ * base. The scene format's `z` is that base (the cluster's lowest return,
+ * which the OBB carries as its CenterZ), not the box's centre, so the trail
+ * sits at z itself and does not move when the box's height changes. Shared
+ * by live rendering and trail-history reconstruction so a historical sample
+ * and a currently-rendered box use identical placement math.
  */
 export function sceneTrailPoint(t) {
-  const h = Math.max(t.h || 0, MIN_BOX_EXTENT);
-  return [toSceneX(t.x), toSceneY(t.z) - h / 2 + 0.05, toSceneZ(t.y)];
+  return [toSceneX(t.x), toSceneY(t.z) + 0.05, toSceneZ(t.y)];
 }
 
 /**
@@ -204,12 +204,17 @@ export class TrackVisual {
     // The box model publishes the box's own centre (bx, by), which is not
     // the tracked position; without it the box is drawn at the track.
     const x = toSceneX(t.bx ?? t.x);
-    const y = toSceneY(t.z);
     const z = toSceneZ(t.by ?? t.y);
 
     const l = Math.max(t.l || 0, MIN_BOX_EXTENT);
     const w = Math.max(t.w || 0, MIN_BOX_EXTENT);
     const h = Math.max(t.h || 0, MIN_BOX_EXTENT);
+
+    // `z` is the box's base, not its centre. The unit geometry is centred on
+    // its origin, so the object sits h/2 above the base to put the base at
+    // z; the macOS visualiser's unit box runs 0..1 and needs no lift. The
+    // object's position stays the box centre, which labels hang from.
+    const y = toSceneY(t.z) + h / 2;
 
     for (const obj of [this.edges, this.fill]) {
       obj.visible = true;
@@ -550,7 +555,8 @@ export async function mountScenePlayer({
       for (const t of f.tr ?? []) {
         xs.push(toSceneX(t.x));
         zs.push(toSceneZ(t.y));
-        bases.push(toSceneY(t.z) - (t.h || 0) / 2);
+        // z is already the box's base; see TrackVisual.update.
+        bases.push(toSceneY(t.z));
       }
     }
     if (!bases.length) return { centerX: 0, centerZ: 0, groundY: 0, span: 60 };

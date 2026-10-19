@@ -408,7 +408,8 @@ func flattenSamplePoints(points [][3]float32) []float32 {
 
 // publishBox replaces the legacy per-frame OBB with the tracker's box model
 // when it has drawn one: the heading, extents and centre that hold the
-// cluster's points. The tracked position and velocity are unchanged.
+// cluster's points, and under the ground anchor its base and height. The
+// tracked position and velocity are unchanged.
 func publishBox(track *Track, t *l5tracks.TrackedObject) {
 	if t.BoxLength <= 0 {
 		return
@@ -416,6 +417,12 @@ func publishBox(track *Track, t *l5tracks.TrackedObject) {
 	track.BBoxLength, track.BBoxWidth = t.BoxLength, t.BoxWidth
 	track.BBoxHeadingRad = t.BoxHeadingRad
 	track.BBoxCenterX, track.BBoxCenterY, track.BBoxCenterValid = t.BoxX, t.BoxY, true
+	if t.BoxHeight > 0 {
+		// Under the ground anchor the box stands on the fitted surface: its
+		// base and height replace this frame's lowest return and cluster
+		// height, which stay on the tracked object (LatestZ, OBBHeight).
+		track.Z, track.BBoxHeight = t.BoxZ, t.BoxHeight
+	}
 }
 
 // adaptTracks converts TrackedObjects to the canonical Track format.

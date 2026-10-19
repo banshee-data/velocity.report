@@ -22,6 +22,7 @@ declare module '$scene/scene-reader.js' {
 		id: string;
 		x: number;
 		y: number;
+		/** Base of the box, not its centre: the box spans z to z + h. */
 		z: number;
 		vx: number;
 		vy: number;
@@ -58,6 +59,12 @@ declare module '$scene/scene-reader.js' {
 		duration_sec?: number;
 		build_version?: string;
 		coordinate_frame?: { frame_id?: string; reference_frame?: string };
+		/**
+		 * Which estimate each track's x, y, vx, vy are: "cv_kf_v1/online" is
+		 * the tracker's posterior (and what an export without the field is);
+		 * "cv_kf_v1+rts_fixed_assignment_v1/final" is the whole-track smoother's.
+		 */
+		trail_estimator?: string;
 	}
 
 	export class SceneError extends Error {

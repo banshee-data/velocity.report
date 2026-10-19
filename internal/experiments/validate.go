@@ -249,6 +249,11 @@ func (spec *Spec) validate(root string, set *Set) []error {
 				fail("arm %q: replay option %q must be one -experiment name", a.Name, r)
 			}
 		}
+		for _, e := range a.Export {
+			if _, ok := ExportOptions[e]; !ok {
+				fail("arm %q: export option %q is not one of %s", a.Name, e, sortedKeys(ExportOptions))
+			}
+		}
 	}
 	if c := spec.Cases; c != nil {
 		corpus, ok := Corpora[c.Corpus]

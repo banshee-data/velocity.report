@@ -173,6 +173,40 @@ func (s RegionalGroundSurface) HeightAt(x, y float64) float64 {
 	return s.Global.HeightAt(x, y)
 }
 
+// BlendedHeightAt is HeightAt without its steps. Each cell's plane is fitted
+// on its own, so neighbouring planes can disagree at their shared edge, and
+// HeightAt steps there by the disagreement: up to 0.4 m on kirk0, where it
+// was most of what moved a box stood on the surface. This blends the planes
+// of the four cells whose centres surround the position, each evaluated at
+// the position, with bilinear weights from its distance to their centres, so
+// it is continuous everywhere and equals HeightAt at a cell's centre. A cell
+// without its own plane contributes Global's.
+func (s RegionalGroundSurface) BlendedHeightAt(x, y float64) float64 {
+	c := s.CellMetres
+	if c <= 0 {
+		return s.HeightAt(x, y)
+	}
+	fx, fy := x/c-0.5, y/c-0.5
+	ix, iy := math.Floor(fx), math.Floor(fy)
+	tx, ty := fx-ix, fy-iy
+	at := func(i, j float64) float64 {
+		if surface, ok := s.regions[regionKey{ix: int(i), iy: int(j)}]; ok {
+			return surface.HeightAt(x, y)
+		}
+		return s.Global.HeightAt(x, y)
+	}
+	return (1-tx)*(1-ty)*at(ix, iy) + tx*(1-ty)*at(ix+1, iy) +
+		(1-tx)*ty*at(ix, iy+1) + tx*ty*at(ix+1, iy+1)
+}
+
+// BlendedSurface queries a regional surface through BlendedHeightAt, for a
+// reader that needs a continuous height, such as the published box's base,
+// rather than the clip's per-cell planes.
+type BlendedSurface struct{ Surface *RegionalGroundSurface }
+
+// HeightAt is the surface's BlendedHeightAt.
+func (b BlendedSurface) HeightAt(x, y float64) float64 { return b.Surface.BlendedHeightAt(x, y) }
+
 // FitRegionalGroundSurface fits one global plane exactly as FitGroundSurface
 // does, then independently re-fits every cellMetres x cellMetres cell that
 // has at least enough settled background points of its own, using the same

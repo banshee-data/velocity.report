@@ -124,6 +124,17 @@ type BoxModelConfig struct {
 	// gives way to the object now in it. The vehicle floor still applies.
 	// Not a tuning key: geom0010 scores it.
 	YieldFrames int
+	// GroundAnchor stands the published box on the ground: its base at the
+	// fitted surface's height under the box centre (BoxInput.Surface) and
+	// its height a corroborated belief in the body's top above that base,
+	// never lower than this frame's top. The frame's lowest return, which
+	// climbs with range as the lower body leaves the foreground, is then no
+	// longer the base. Without a surface the base and height are the
+	// cluster's, as they are with the option off. Nothing on the plane reads
+	// it, so the centre, heading and extents are the same with it as
+	// without. Not a tuning key: ground0004 scores it (replay experiment
+	// box_ground).
+	GroundAnchor bool
 	// FitMaxPoints and FitCoarseStepDeg set the rectangle fit's cost (zero is
 	// l4perception.FitRectangle's search).
 	FitMaxPoints     int
@@ -200,6 +211,9 @@ type BoxInput struct {
 	// Neighbours are the frame's clusters, the box's own among them or not;
 	// read only with ExclusiveMarginMetres.
 	Neighbours []WorldCluster
+	// Surface is the fitted ground surface, nil until one is fitted; read
+	// only with GroundAnchor.
+	Surface l4perception.HeightSurface
 }
 
 // BoxState is the published box.
@@ -210,6 +224,12 @@ type BoxState struct {
 	Width      float64
 	// Labelled says the course has resolved which axis is the length.
 	Labelled bool
+	// Base and Height are the box's vertical under GroundAnchor: the z of
+	// its base and its height above it, both zero with the option off.
+	// OnSurface says the base was read from the fitted surface rather than
+	// from the cluster's lowest return.
+	Base, Height float64
+	OnSurface    bool
 }
 
 // BoxStats counts a box's discrete events.
@@ -222,6 +242,12 @@ type BoxStats struct {
 	DisplacementLabels int
 	// Yields counts held extents reset by YieldFrames.
 	Yields int
+	// LowBelowBase and LowAboveBase count, under GroundAnchor with a
+	// surface, the associated frames whose cluster's lowest return lies more
+	// than 0.2 m below the drawn base (a surface that misfits, or a body
+	// below it) or more than 0.5 m above it (the lower body unseen, which is
+	// what the anchor is for).
+	LowBelowBase, LowAboveBase int
 }
 
 // BoxEstimator is one track's published box.
@@ -247,6 +273,13 @@ type BoxEstimator struct {
 	length    windowBelief
 	width     windowBelief
 	height    windowBelief
+	// top is the belief in the body's top above its base under
+	// GroundAnchor; base and drawnHeight are the vertical last drawn, and
+	// vertical says one has been.
+	top         windowBelief
+	base        float64
+	drawnHeight float64
+	vertical    bool
 	// heldAlong and heldAcross count consecutive frames with another
 	// cluster's returns inside the held part of the box (YieldFrames).
 	heldAlong, heldAcross int
@@ -270,6 +303,7 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 			// the legacy fields rather than drawing a frozen one.
 			track.box = nil
 			track.BoxX, track.BoxY, track.BoxHeadingRad, track.BoxLength, track.BoxWidth = 0, 0, 0, 0, 0
+			track.BoxZ, track.BoxHeight = 0, 0
 		}
 		return
 	}
@@ -282,6 +316,7 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 		Nanos: nowNanos, X: float64(track.X), Y: float64(track.Y), VX: float64(track.VX), VY: float64(track.VY),
 		VelCov:  [3]float64{float64(track.P[10]), float64(track.P[11]), float64(track.P[15])},
 		Cluster: cluster, Merge: track.MergeCandidate, Neighbours: t.frameClusters,
+		Surface: t.groundSurface,
 	})
 	if b.Length <= 0 {
 		return
@@ -289,6 +324,16 @@ func (t *Tracker) updateBox(track *TrackedObject, cluster *WorldCluster, nowNano
 	track.BoxX, track.BoxY = float32(b.X), float32(b.Y)
 	track.BoxHeadingRad = float32(b.HeadingRad)
 	track.BoxLength, track.BoxWidth = float32(b.Length), float32(b.Width)
+	track.BoxZ, track.BoxHeight = float32(b.Base), float32(b.Height)
+}
+
+// SetGroundSurface gives the published box the fitted ground surface to stand
+// on under BoxModelConfig.GroundAnchor; nil withdraws it. Without the option
+// the surface is held and never read.
+func (t *Tracker) SetGroundSurface(s l4perception.HeightSurface) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.groundSurface = s
 }
 
 // NewBoxEstimator starts an empty box.
@@ -299,6 +344,7 @@ func NewBoxEstimator(cfg BoxModelConfig) *BoxEstimator {
 		length: windowBelief{window: w},
 		width:  windowBelief{window: w},
 		height: windowBelief{window: w},
+		top:    windowBelief{window: w},
 	}
 }
 
@@ -363,6 +409,7 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 		e.seed(in, pts, speed)
 		e.lastNanos = in.Nanos
 		e.place(in, pts, true, nil)
+		e.anchor(in)
 		e.releaseScratch()
 		return e.box
 	}
@@ -380,6 +427,7 @@ func (e *BoxEstimator) Observe(in BoxInput) BoxState {
 	e.limit(prev, boundSpeed(in, speed), dt, in.Nanos)
 	e.lastNanos = in.Nanos
 	e.place(in, pts, false, spans)
+	e.anchor(in)
 	e.releaseScratch()
 	return e.box
 }
@@ -758,6 +806,62 @@ func (e *BoxEstimator) place(in BoxInput, pts [][2]float64, first bool, evidence
 		X: in.X + e.offA*c - e.offN*s, Y: in.Y + e.offA*s + e.offN*c,
 		HeadingRad: e.psi, Length: length, Width: width, Labelled: e.labelled,
 	}
+}
+
+// boxLowBelowBaseMetres and boxLowAboveBaseMetres are how far a cluster's
+// lowest return may lie below or above the anchored base before the frame is
+// counted (BoxStats.LowBelowBase, LowAboveBase).
+const (
+	boxLowBelowBaseMetres = 0.2
+	boxLowAboveBaseMetres = 0.5
+)
+
+// anchor sets the box's vertical under GroundAnchor, once place has set its
+// centre. With a surface the base is the surface's height under the centre
+// and the height the larger of the top belief and this frame's top above
+// that base, so the box holds its points from the road up. Without one both
+// are the cluster's, exactly what a viewer draws with the option off, and a
+// coasting box keeps the vertical it last drew.
+func (e *BoxEstimator) anchor(in BoxInput) {
+	if !e.cfg.GroundAnchor {
+		return
+	}
+	var obb *l4perception.OrientedBoundingBox
+	if in.Cluster != nil {
+		obb = in.Cluster.OBB
+	}
+	if in.Surface == nil {
+		if obb != nil {
+			e.base, e.drawnHeight, e.vertical = float64(obb.CenterZ), float64(obb.Height), true
+		}
+		if e.vertical {
+			e.box.Base, e.box.Height = e.base, math.Max(e.drawnHeight, boxMinExtentMetres)
+		}
+		return
+	}
+	e.base, e.vertical = in.Surface.HeightAt(e.box.X, e.box.Y), true
+	height := e.top.estimate()
+	if obb != nil {
+		low := float64(obb.CenterZ)
+		top := low + float64(obb.Height) - e.base
+		// A merged cluster's top is another body's as often as this one's.
+		if !in.Merge {
+			e.top.observe(top)
+			height = e.top.estimate()
+		}
+		height = math.Max(height, top)
+		switch {
+		case low < e.base-boxLowBelowBaseMetres:
+			e.Stats.LowBelowBase++
+		case low > e.base+boxLowAboveBaseMetres:
+			e.Stats.LowAboveBase++
+		}
+	}
+	if height <= 0 {
+		height = e.drawnHeight
+	}
+	e.drawnHeight = height
+	e.box.Base, e.box.Height, e.box.OnSurface = e.base, math.Max(height, boxMinExtentMetres), true
 }
 
 // room is how far the box may reach along its axes, relative to the track

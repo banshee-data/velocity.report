@@ -40,6 +40,14 @@ var Capabilities = map[string]string{
 	"pcap-build":   "a Go toolchain and libpcap, to build the tools at the job's commit",
 }
 
+// ExportOptions are the default-off options an arm's scene export can name
+// (`velocity scene export` flags without their dashes), for steps that
+// export web scenes. An arm that names one is the same replay as an arm
+// that does not, exported differently.
+var ExportOptions = map[string]string{
+	"smoothed_trail": "--smoothed-trail: the trail as the whole-track RTS smoother's estimate rather than the online posterior",
+}
+
 // WorkerClasses are the machines an estimate can be made for.
 var WorkerClasses = map[string]string{
 	"m1pro":  "the development Mac (M1 Pro, 8 cores, 16 GB)",

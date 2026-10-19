@@ -93,7 +93,7 @@ func TestLongRangeClosenessThresholdAgainstAVehicleLength(t *testing.T) {
 	// background when it sits within the threshold of the cell's learned
 	// range, so the threshold is the minimum range separation a foreground
 	// object needs to register at all. Under the multiplier 3 and safety
-	// margin 0.15 m the defaults carried until l3bg0024, the 100 m separation
+	// margin 0.15 m the defaults carried until l3bg0025, the 100 m separation
 	// was 6.27 m, larger than a car, so the noise model set the long-range
 	// detection floor. Under the multiplier 2 and margin 0.3 m since, it is
 	// 4.38 m: just under a vehicle length.

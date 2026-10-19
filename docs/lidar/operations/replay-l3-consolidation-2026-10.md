@@ -5,12 +5,12 @@ ran (closeness 2.0 against 3, safety margin 0.30 m against 0.15, neighbour confi
 3), and every published scene ran them. #782 removed the substitution, so every replay now runs
 its tuning file's L3, the one live input and the experiment tools run. This experiment asks
 whether the defaults' L3 materially loses tracks or shortens them against the substituted one,
-and if it does, which of the three keys the defaults should carry; l3bg0024 then chose the best
+and if it does, which of the three keys the defaults should carry; l3bg0025 then chose the best
 L3 measured for the defaults, against the CMR retune.
 
 - **Status:** Measured, October 18–19, 2026 (experiments
   [l3bg0023](../../../data/experiments/l3bg/l3bg0023.md) and
-  [l3bg0024](../../../data/experiments/l3bg/l3bg0024.md)). **Shipped:** the defaults carry the
+  [l3bg0025](../../../data/experiments/l3bg/l3bg0025.md)). **Shipped:** the defaults carry the
   substituted L3 (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5) for live input and
   every replay, with the noise costs below; the previous L3 is
   `config/experiments/l3-pre-consolidation.json`
@@ -43,7 +43,7 @@ L3 measured for the defaults, against the CMR retune.
 - **It has costs the rule did not measure:** five times the spurious clusters on kirk0's labels
   (1.64 a frame against 0.31), three to ten times the stationary tracks lasting a minute on the
   corpus, twice the road-surface clusters, and a departed car's ghost lasting about half as long
-  again. The CMR retune was built to take that noise back, so l3bg0024 scored it beside the
+  again. The CMR retune was built to take that noise back, so l3bg0025 scored it beside the
   substituted L3 on one build, under a rule written first: CMR has a third of the spurious
   clusters but nearly twice the identity switches (IDF1 0.593 against 0.656), and CMR with the
   substituted L3's margin and neighbour keys does no better (0.621). The substituted L3 is the only
@@ -178,7 +178,7 @@ dwell policy was studied beside it (l3bg0008, l3bg0016).
 
 So the substituted L3 trades noise for detection, as CMR does.
 
-## l3bg0024: the best L3 currently known
+## l3bg0025: the best L3 currently known
 
 The rule was written before the replays (2026-10-19): an arm is eligible if its kirk0 HOTA and
 IDF1 are each within 0.02 of the highest of the three, its car recall within 3 points of the
@@ -231,7 +231,7 @@ substituted values, which are now the defaults. On the Mac, five interleaved rou
 build running `replay-l3-overrides.json` against the adoption build running the new defaults read
 9,489 and 9,461 ms, a median per-round ratio of 0.999, with the same tuning fingerprint
 (`15fe4df885c8`) and 5,810 clusters each. An offline kirk0 replay under the new defaults matches
-l3bg0024's `replay-l3` arm row for row: 4,339 track estimates on 105 tracks, from 5,104
+l3bg0025's `replay-l3` arm row for row: 4,339 track estimates on 105 tracks, from 5,104
 observations, with identical positions and velocities.
 
 ## Interpretation
