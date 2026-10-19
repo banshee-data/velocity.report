@@ -632,6 +632,12 @@ class SetTest(unittest.TestCase):
             dict(ONLINE_HEADER, site="site-b"),
         )
         os.makedirs(os.path.join(root, "site-b", "compare"))
+        # The set's own files beside the sites: never a site.
+        os.makedirs(os.path.join(root, "recipes", "site-a"))
+        with open(os.path.join(root, "recipes", "site-a", "online.json"), "w") as fh:
+            json.dump({}, fh)
+        with open(os.path.join(root, "set.json"), "w") as fh:
+            json.dump({"set_id": "smoothed-trail"}, fh)
         return root
 
     def test_every_site_with_both_exports_is_read(self):
@@ -641,6 +647,7 @@ class SetTest(unittest.TestCase):
             self.assertEqual([site for site, _, _ in pairs], ["site-a"])
             self.assertEqual(len(notes), 1)
             self.assertIn("site-b: skipped", notes[0])
+            self.assertFalse(any("recipes" in note for note in notes))
             out_json, out_md = os.path.join(tmp, "set.json"), os.path.join(
                 tmp, "set.md"
             )

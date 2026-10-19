@@ -70,6 +70,9 @@ HEADER_KEYS = (
     "tuning_hash",
 )
 
+# Directories export-scene-variants.py writes beside the sites of a set, never a site.
+RESERVED_SET_DIRS = ("recipes",)
+
 NAN = float("nan")
 
 
@@ -823,11 +826,15 @@ def run_pair(args):
 
 
 def set_pairs(root, online_variant, smoothed_variant):
-    """The sites of a variant set's output: <root>/<site>/<variant>/assets/part-000."""
+    """The sites of a variant set's output: <root>/<site>/<variant>/assets/part-000.
+
+    A site lacking either export is noted and skipped; the set's own recipes/
+    directory, a sibling of the sites, is not a site and is passed over silently.
+    """
     pairs, notes = [], []
     for site in sorted(os.listdir(root)):
         site_dir = os.path.join(root, site)
-        if not os.path.isdir(site_dir):
+        if not os.path.isdir(site_dir) or site in RESERVED_SET_DIRS:
             continue
         parts = [
             os.path.join(site_dir, variant, "assets", "part-000")
