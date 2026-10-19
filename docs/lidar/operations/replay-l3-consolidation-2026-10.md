@@ -197,24 +197,35 @@ noise controls take back two thirds of the spurious clusters, and CMR nearly dou
 switches; which of its four keys costs the identity is not measured here, and an arm that kept
 CMR's noise and the substituted L3's identity has not been found.
 
-## What it costs on the Mac
+## What it costs, on the Mac and on CI
 
-The A/B gate (`scripts/perf-ab.sh`, five interleaved rounds of kirk0 on the development Mac,
-the change against its parent) puts the cost of the new defaults at:
+The A/B gate (`scripts/perf-ab.sh`, five interleaved rounds of kirk0, the change against its
+parent) puts the cost of the new defaults at the following, on the development Mac and on the
+PR's hosted runner (the ⚡ Perf A/B job):
 
-| Full profile              | Previous defaults | New defaults | Ratio |
-| ------------------------- | ----------------: | -----------: | ----: |
-| Wall clock (ms)           |             7,979 |        9,771 |  1.22 |
-| Mean frame (ms)           |              6.42 |         8.47 |  1.34 |
-| p95 frame (ms)            |              24.7 |         35.2 |  1.41 |
-| Foreground points         |           985,224 |    1,760,445 |       |
-| Clusters                  |             2,863 |        5,810 |       |
-| Distinct confirmed tracks |                77 |          130 |       |
+| Full profile              | Mac, previous |  Mac, new | Ratio | CI, previous |   CI, new | Ratio |
+| ------------------------- | ------------: | --------: | ----: | -----------: | --------: | ----: |
+| Wall clock (ms)           |         7,979 |     9,771 |  1.22 |       12,905 |    15,905 |  1.24 |
+| Mean frame (ms)           |          6.42 |      8.47 |  1.34 |        10.07 |     13.60 |  1.35 |
+| p95 frame (ms)            |          24.7 |      35.2 |  1.41 |         32.3 |      46.1 |  1.43 |
+| Foreground points         |       985,224 | 1,760,445 |       |      985,224 | 1,760,445 |       |
+| Clusters                  |         2,863 |     5,810 |       |        2,862 |     5,814 |       |
+| Distinct confirmed tracks |            77 |       130 |       |           77 |       130 |       |
 
-The l3-only profile moves by 4 %. The cost is the extra foreground the change exists to keep, so
-the gate's 10 % threshold fails for the full profile by design, and the Mac baselines are
-recaptured for the new fingerprint. The p95 frame is a third of the 98 ms budget on the Mac; the
-Pi is slower, and unmeasured.
+The l3-only profile moves by 4 % on the Mac and 12 % on CI. The cost is the extra foreground the
+change exists to keep, so the gate's 10 % threshold fails for the full profile by design, and both
+the Mac and the CI baselines are recaptured for the new fingerprint. The cluster counts differ by
+a few between the two because floating point differs between arm64 and amd64. The p95 frame is a
+third of the 98 ms budget on the Mac and under half of it on CI; the Pi is slower, and unmeasured.
+
+**Against the values the paced replays substituted, nothing moves.** The previous defaults are the
+L3 the perf harness, live input and analysis replays ran; the server's scaled replays ran the
+substituted values, which are now the defaults. On the Mac, five interleaved rounds of the parent
+build running `replay-l3-overrides.json` against the adoption build running the new defaults read
+9,489 and 9,461 ms, a median per-round ratio of 0.999, with the same tuning fingerprint
+(`15fe4df885c8`) and 5,810 clusters each. An offline kirk0 replay under the new defaults matches
+l3bg0024's `replay-l3` arm row for row: 4,339 track estimates on 105 tracks, from 5,104
+observations, with identical positions and velocities.
 
 ## Interpretation
 
@@ -279,7 +290,9 @@ users there too, and more noise.
   references `dd98c68e`, `60a4774c`.
 - **Host:** the development Mac (M1 Pro, 8 cores, 16 GB), October 18–19, 2026, sharing memory with
   other work: replays that take 2 to 3 minutes alone took 5 to 25, which changes no result (the
-  replays are deterministic, l3bg0021).
+  replays are deterministic, l3bg0021). The CI figures are the ⚡ Perf A/B job of workflow run
+  `39277972978` on an amd64 hosted runner, and the CI baselines come from the 📏 Capture (gated)
+  artifact of run `39277972883`.
 - **Raw output** (evidence databases, screens, scores and logs) is outside the repository:
   evidence on the LiDAR volume under `work/velocity-campaign/consol-20261018/l3bg0023/`, archived
   to `/Volumes/banshee-results/velocity-campaign/consol-20261018/`.
