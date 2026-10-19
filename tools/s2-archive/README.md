@@ -350,6 +350,31 @@ file is made again.
 
 The server is left on the last variant's parameters, and the run says which.
 
+### Reading two trails of one recording
+
+`scene-trail-stats.py` is the reader the l5est0002 spec names
+(`data/experiments/l5est/l5est0002.md`, which PR #789 adds): it takes the
+online and the smoothed export of one recording, pairs their tracks by
+identifier and frame, refuses the pair if anything but x, y, vx, vy differs
+(identifiers, frames, z, h, bx, by, spd, hdg, class), keeps the moving vehicle
+tracks (20 samples or more, mean `spd` 3 m/s or more, median `h` 1.2 m or more)
+and reports the spec's measures per track and pooled per site: departure from
+constant velocity, the exported velocity against the trail and the step
+residual, the lateral residual from the track's own line, the smoothed trail's
+along-course offset from the online one, and the peak 0.5 s course rate kept.
+It reads the exports only (`header.json`, `index.json`, the chunks under
+`frames/`) and reports the header's `trail_estimator` and `trail_smoothing`
+counts.
+
+```bash
+python3 tools/s2-archive/scene-trail-stats.py pair A/online/assets/part-000 A/smoothed/assets/part-000 --json a.json
+python3 tools/s2-archive/scene-trail-stats.py set $SCENE_VARIANTS_DIR/smoothed-trail --json sites.json --markdown sites.md
+```
+
+`pair` reports one site; `set` walks a set's output, one row per site, and
+`--tracks` adds every track's row to either. The Markdown goes to stdout unless
+`--markdown` names a file; the exit code is 1 when a pair is refused.
+
 ## Rebuild inputs and publication state
 
 The scripts read the local archive at `/Volumes/lidar/lidar/pcaps/s2`; the PCAPs and analysis JSON are not included in this PR. The committed index is an archive snapshot, not evidence that every linked recording is published on `main`. Its `published_as` fields record scene identifiers observed on the development branch. A rebuild on a checkout without those exports sets the corresponding fields to null.
