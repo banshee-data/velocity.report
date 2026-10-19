@@ -21,15 +21,16 @@ digits) and a four-digit number, for example `l3bg0006` or `label0001`. The file
 `go run ./cmd/tools/experiments new <area>` prints the next free one. A new area is a new
 directory with a `README.md` whose YAML header gives `area`, `title`, `layers` and `owner`.
 
-| Area     | Subject                               |
-| -------- | ------------------------------------- |
-| `l3bg`   | L3 background model                   |
-| `l4clus` | L4 clustering                         |
-| `geom`   | Solid-body geometry                   |
-| `l5id`   | L5 identity                           |
-| `perf`   | Performance on the deployment target  |
-| `label`  | Labelled data: capture, label, freeze |
-| `l8fol`  | L8 following                          |
+| Area     | Subject                                                    |
+| -------- | ---------------------------------------------------------- |
+| `l3bg`   | L3 background model                                        |
+| `l4clus` | L4 clustering                                              |
+| `geom`   | Solid-body geometry                                        |
+| `l5id`   | L5 identity                                                |
+| `perf`   | Performance on the deployment target                       |
+| `label`  | Labelled data: capture, label, freeze                      |
+| `l8fol`  | L8 following                                               |
+| `ground` | Ground model: the surface, the clip, the frame and the box |
 
 ## A spec
 
