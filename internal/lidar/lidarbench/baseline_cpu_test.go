@@ -157,4 +157,7 @@ func TestHandleBenchmarkOutputWritesAPerCPUCopy(t *testing.T) {
 	if string(class) != string(copied) {
 		t.Error("the per-CPU copy differs from the class baseline")
 	}
+	if !strings.HasSuffix(string(class), "}\n") {
+		t.Error("a baseline should end with a newline, as a committed text file does")
+	}
 }

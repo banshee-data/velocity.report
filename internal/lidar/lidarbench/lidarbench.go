@@ -1071,6 +1071,9 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 		log.Printf("Error marshaling benchmark result: %v", err)
 		return 1
 	}
+	// A committed baseline is a text file, and the end-of-file hook would
+	// otherwise add the newline to every capture before it could be committed.
+	data = append(data, '\n')
 	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
 		log.Printf("Error writing benchmark file: %v", err)
 		return 1
