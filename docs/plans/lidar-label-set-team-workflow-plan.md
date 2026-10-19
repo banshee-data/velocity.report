@@ -362,12 +362,13 @@ makes.
 
 | PR  | Branch                              | State            |
 | --- | ----------------------------------- | ---------------- |
-| A   | `dd/lidar/label-sets-layout`        | Built 2026-10-14 |
-| B   | `dd/lidar/label-sets-merge`         | Built 2026-10-14 |
-| C   | `dd/lidar/label-sets-partial-clone` | Built 2026-10-14 |
-| D   | `dd/lidar/label-sets-checks`        | Built 2026-10-14 |
+| A   | `dd/lidar/label-sets-layout`        | Merged #748      |
+| B   | `dd/lidar/label-sets-merge`         | Merged #749      |
+| C   | `dd/lidar/label-sets-partial-clone` | Merged #750      |
+| D   | `dd/lidar/label-sets-checks`        | Merged #751      |
 | E   | not started                         | Planned          |
 | F   | not started                         | Planned          |
+| G   | `dd/lidar/labels-into-dataset`      | Built 2026-10-19 |
 
 Decided while building A:
 
@@ -425,3 +426,22 @@ Decided while building D:
   to hold Go and Swift to, and enough to find one thing labelled twice.
 - **An empty mask is not tiny**: it says the object is not seen in that frame.
 - **The window caches each sample's points**, so a save reruns only the rules.
+
+Added after D, as G, when the work moved into the dataset clone (2026-10-19):
+
+- **The annotation directory is the clone's `labels/`.** The local `annotation-packs/` folder
+  predated the dataset, and publishing was a copy from it; with one layout in both, the copy only
+  duplicated work. The server is pointed at `<clone>/labels`, and what is labelled is committed.
+- **A pack in `<capture>/packs/` is published**, labelled or not, and `check-tree` holds it: an
+  unlabelled one must open; a linked one, `../../<set>`, holds as a view does.
+- **`nest --into <clone>/labels --dataset <clone>`** gathers a tree kept elsewhere. Capture
+  folders are named for the dataset capture a set is bound to by SHA-256, not by the file the run
+  replayed (`s2_sf_3_…` for the Columbus sets). A set or pack the dataset already holds at the same
+  head takes the local history and working state; the local copies go to `.gathered-<time>/`.
+- **Facets stay local**: the dataset ignores `feature-proposals.pb`, and `check-view` no longer
+  checks it. So do export staging, a clip job's recording and segment records.
+- **Rehearsed on copies of the real trees**: five sets, five views and two packs gathered;
+  kirk0-reference took its 2,233-revision journal; four migrated sets needed `labels attach`, as
+  kirk0-reference did before it was published; then `check-tree` was clean, and a Git stage of the
+  result held 131 files, 32 through LFS, no working state, nothing binary or over 10 MiB in plain
+  Git.
