@@ -32,6 +32,7 @@ directory with a `README.md` whose YAML header gives `area`, `title`, `layers` a
 | `label`  | Labelled data: capture, label, freeze                      |
 | `l8fol`  | L8 following                                               |
 | `ground` | Ground model: the surface, the clip, the frame and the box |
+| `l5est`  | L5 state estimation: the filter, the smoother, the trail   |
 
 ## A spec
 
@@ -39,23 +40,23 @@ A spec is a Markdown file whose YAML header the validator reads and whose body i
 [l3bg0006](l3bg/l3bg0006.md) is a complete answered example; [l3bg0009](l3bg/l3bg0009.md) and
 [label0001](label/label0001.md) show manual steps and dependencies.
 
-| Field        | Required                      | Meaning                                                                                                                                                                                   |
-| ------------ | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`         | yes                           | The slug; must match the file name and a registered area.                                                                                                                                 |
-| `title`      | yes                           | One line.                                                                                                                                                                                 |
-| `status`     | yes                           | `proposed`, `approved`, `answered` or `retired`. Authoring state only: queued, running and waiting are the queue's, never written here.                                                   |
-| `owner`      | yes                           | Who approves and answers it.                                                                                                                                                              |
-| `created`    | yes                           | `YYYY-MM-DD`.                                                                                                                                                                             |
-| `asks`       | yes                           | The questions it answers: the repository path of the Markdown that poses each (briefing, plan, report, proposal), with an optional `#anchor`, or a decision id such as `D-28`.            |
-| `depends_on` | no                            | Slugs whose answers this one needs first.                                                                                                                                                 |
-| `report`     | once answered                 | The report under `docs/` that answers it. A proposed spec may name the report it intends.                                                                                                 |
-| `reason`     | once retired                  | Why it will not run.                                                                                                                                                                      |
-| `requires`   | no                            | `capabilities` a worker must offer, `disk_gb` of free scratch space before a step starts, `cores`.                                                                                        |
-| `reclaim`    | no                            | Who may take over a step whose worker stopped: `any` (the default: a worker configured to reclaim orphans), `origin` (only the worker that started it) or `never` (the operator decides). |
-| `arms`       | if a step fans out over arms  | Each a `name`, a `tuning` file (`config/tuning.defaults.json` or a parameter set under `config/experiments/`) and any `replay` options (`-experiment` names).                             |
-| `cases`      | if a step fans out over cases | A named `corpus` and a `count`, optionally the `sites`.                                                                                                                                   |
-| `steps`      | yes                           | In order; see below.                                                                                                                                                                      |
-| `actual`     | no                            | For an answered spec: the `wall` time it took and on which `worker`, to calibrate the next estimate.                                                                                      |
+| Field        | Required                      | Meaning                                                                                                                                                                                                                    |
+| ------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`         | yes                           | The slug; must match the file name and a registered area.                                                                                                                                                                  |
+| `title`      | yes                           | One line.                                                                                                                                                                                                                  |
+| `status`     | yes                           | `proposed`, `approved`, `answered` or `retired`. Authoring state only: queued, running and waiting are the queue's, never written here.                                                                                    |
+| `owner`      | yes                           | Who approves and answers it.                                                                                                                                                                                               |
+| `created`    | yes                           | `YYYY-MM-DD`.                                                                                                                                                                                                              |
+| `asks`       | yes                           | The questions it answers: the repository path of the Markdown that poses each (briefing, plan, report, proposal), with an optional `#anchor`, or a decision id such as `D-28`.                                             |
+| `depends_on` | no                            | Slugs whose answers this one needs first.                                                                                                                                                                                  |
+| `report`     | once answered                 | The report under `docs/` that answers it. A proposed spec may name the report it intends.                                                                                                                                  |
+| `reason`     | once retired                  | Why it will not run.                                                                                                                                                                                                       |
+| `requires`   | no                            | `capabilities` a worker must offer, `disk_gb` of free scratch space before a step starts, `cores`.                                                                                                                         |
+| `reclaim`    | no                            | Who may take over a step whose worker stopped: `any` (the default: a worker configured to reclaim orphans), `origin` (only the worker that started it) or `never` (the operator decides).                                  |
+| `arms`       | if a step fans out over arms  | Each a `name`, a `tuning` file (`config/tuning.defaults.json` or a parameter set under `config/experiments/`), any `replay` options (`-experiment` names) and any `export` options of its scene export (`smoothed_trail`). |
+| `cases`      | if a step fans out over cases | A named `corpus` and a `count`, optionally the `sites`.                                                                                                                                                                    |
+| `steps`      | yes                           | In order; see below.                                                                                                                                                                                                       |
+| `actual`     | no                            | For an answered spec: the `wall` time it took and on which `worker`, to calibrate the next estimate.                                                                                                                       |
 
 **Steps.** Each has an `id`, a `kind`, an `estimate`, and optionally `after` (the steps it waits
 for; by default the one before it, `-` for none), `over` (`arms`, `cases` or both, to fan out),

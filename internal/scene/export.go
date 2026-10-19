@@ -67,6 +67,12 @@ type Options struct {
 	// identifier. A published export re-keys, so a trajectory cannot be linked
 	// across parts or sites.
 	KeepTrackIDs bool
+	// SmoothedTrail writes each track's x, y, vx, vy as the whole-track RTS
+	// smoother's estimate rather than the filter's online posterior (see
+	// trail.go). It needs the recording's filter record, which a replay
+	// writes beside its chunks; the header then names the trail's
+	// estimator and stage. Off, the trail is the posterior, as before.
+	SmoothedTrail bool
 }
 
 // Result reports what an export produced.
@@ -140,6 +146,18 @@ func Export(opts Options) (*Result, error) {
 	total := int(rep.TotalFrames())
 	if total == 0 {
 		return nil, fmt.Errorf("vrlog %s contains no frames", opts.VRLOGPath)
+	}
+
+	// The smoothed trail is decided before any frame is read: a recording
+	// that cannot be smoothed must not be half-exported as though it could.
+	var trail *smoothedTrail
+	trailEstimator := TrailEstimatorOnline
+	if opts.SmoothedTrail {
+		trail, err = loadSmoothedTrail(opts.VRLOGPath)
+		if err != nil {
+			return nil, fmt.Errorf("smoothed trail: %w", err)
+		}
+		trailEstimator = trail.estimator
 	}
 
 	start := opts.StartFrame
@@ -220,7 +238,7 @@ func Export(opts Options) (*Result, error) {
 		}
 		sourceFramesRead++
 
-		frame, ok := projectFrame(fb, opts, keys)
+		frame, ok := projectFrame(fb, opts, keys, trail)
 		if !ok {
 			skipped++
 			continue
@@ -280,6 +298,14 @@ func Export(opts Options) (*Result, error) {
 	if retained == 0 {
 		return nil, fmt.Errorf("no frames retained from %s: nothing to publish", opts.VRLOGPath)
 	}
+	// A filter record that matches none of the recording's track frames is
+	// another recording's, or the frames' capture times are not the
+	// tracker's: either way the trail would be the online one under a
+	// smoothed name.
+	if trail != nil && trail.summary.Substituted == 0 && trail.summary.OnlineFallback > 0 {
+		return nil, fmt.Errorf("smoothed trail: the filter record matches none of the %d track frames read from %s",
+			trail.summary.OnlineFallback, opts.VRLOGPath)
+	}
 
 	// A handful of out-of-order frames is the known first-frame artefact. A
 	// large share means the recording's time domain is genuinely mixed, and
@@ -311,6 +337,11 @@ func Export(opts Options) (*Result, error) {
 		TuningHash:          src.TuningHash,
 		BuildVersion:        src.BuildVersion,
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
+		TrailEstimator:      trailEstimator,
+	}
+	if trail != nil {
+		summary := trail.summary
+		hdr.TrailSmoothing = &summary
 	}
 	if sum, err := sourceFingerprint(opts.VRLOGPath); err == nil {
 		hdr.SourceVRLOGSHA256 = sum
@@ -341,8 +372,9 @@ func Export(opts Options) (*Result, error) {
 
 // projectFrame narrows a FrameBundle to the viewer-facing record for the
 // requested export kind. It reports false when the frame carries nothing worth
-// publishing.
-func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (Frame, bool) {
+// publishing. trail, when set, supplies each track's smoothed state in place
+// of the recorded posterior.
+func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer, trail *smoothedTrail) (Frame, bool) {
 	if fb == nil || fb.TimestampNanos == 0 {
 		return Frame{}, false
 	}
@@ -368,13 +400,16 @@ func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer) (
 				if t.State == l9endpoints.TrackStateDeleted {
 					continue
 				}
+				// The four state components are the only thing a smoothed
+				// trail changes; the rest of the record is the tracker's.
+				x, y, vx, vy := trail.state(t.TrackID, fb.TimestampNanos, t.X, t.Y, t.VX, t.VY)
 				out.Tracks = append(out.Tracks, TrackJSON{
 					ID:       trackID(t.TrackID, opts, keys),
-					X:        round2(t.X),
-					Y:        round2(t.Y),
+					X:        round2(x),
+					Y:        round2(y),
 					Z:        round2(t.Z),
-					VX:       round2(t.VX),
-					VY:       round2(t.VY),
+					VX:       round2(vx),
+					VY:       round2(vy),
 					Speed:    round2(t.SpeedMps),
 					MaxSpeed: round2(t.MaxSpeedMps),
 					Heading:  round3(t.HeadingRad),

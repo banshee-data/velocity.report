@@ -16,6 +16,14 @@ through publish-scenes.py's own replay with the variant's tuning_config, and the
 same exporter at the same settings, written in the layout of a published scene's
 assets/ so the scene player opens it unchanged.
 
+A variant may also name a "trail": "online" (the default, the tracker's
+posterior) or "smoothed" (the whole-track RTS smoother over the replay's
+filter record, `velocity scene export --smoothed-trail`). Two variants with
+the same tuning_config share one recording at each site: the second is
+exported from the first's VRLOG rather than replayed again, because a replay
+can carry state from the one before it on the same server process (perf0002),
+and an export option is a comparison of exports, not of replays.
+
 Nothing here is a second replay path or a second exporter: publish-scenes.py is
 loaded as a module, the way its tests load it, and its plan(), replay(),
 export(), write_assets_manifest() and swap_assets() are the ones called.
@@ -140,6 +148,11 @@ def validate_set(raw):
             problems.append(f"{where} ({variant_id}): tuning_config {problem}")
             continue
         label = entry.get("label") or variant_id
+        trail = entry.get("trail", "online")
+        problem = publish.trail_problem(trail)
+        if problem:
+            problems.append(f"{where} ({variant_id}): trail {problem}")
+            continue
         variants.append(
             {
                 "id": variant_id,
@@ -147,6 +160,7 @@ def validate_set(raw):
                 "tuning_config": os.path.normpath(tuning_config.strip()).replace(
                     os.sep, "/"
                 ),
+                "trail": trail,
             }
         )
 
@@ -330,6 +344,9 @@ def record_from_disk(variant, vdir):
         "id": variant["id"],
         "label": variant["label"],
         "tuning_config": variant["tuning_config"],
+        "trail": variant.get("trail", "online"),
+        "trail_estimator": header.get("trail_estimator", ""),
+        "recording_of": marker.get("recording_of", ""),
         "listed_fingerprint": marker.get("fingerprint", ""),
         "applied_fingerprint": marker.get("applied_fingerprint", ""),
         "run_id": marker.get("run_id", ""),
@@ -344,11 +361,41 @@ def record_from_disk(variant, vdir):
     }
 
 
-def export_variant(scene, variant, vdir, listed_fingerprint):
+def shared_recording(spec, variant, site, out_root):
+    """A finished variant's recording this one can be exported from, or None.
+
+    Variants with one tuning_config are one replay: the first made at a site
+    records it, and the others export its VRLOG. Only a variant listed before
+    this one, done at this site with the same file and its recording still on
+    disk, is reused; the marker names which, and the set checks that the two
+    exports came from one recording.
+    """
+    if spec is None:
+        return None
+    for other in spec["variants"]:
+        if other["id"] == variant["id"]:
+            break
+        if other["tuning_config"] != variant["tuning_config"]:
+            continue
+        marker = read_marker(variant_dir(out_root, spec["set_id"], site, other["id"]))
+        vrlog = (marker or {}).get("vrlog", "")
+        if vrlog and os.path.exists(os.path.join(vrlog, "header.json")):
+            return {
+                "vrlog": vrlog,
+                "run_id": marker.get("run_id", ""),
+                "recording_of": other["id"],
+                "applied_fingerprint": marker.get("applied_fingerprint", ""),
+            }
+    return None
+
+
+def export_variant(scene, variant, vdir, listed_fingerprint, spec=None, out_root=None):
     """Replay the scene under the variant's file and export it as a web scene.
 
     Built beside the variant's assets and swapped in only when whole, as a
     published scene is, so a failed variant leaves the last good one in place.
+    A variant whose tuning_config an earlier variant has already replayed at
+    this site is exported from that recording (shared_recording).
     """
     site, title = scene["site"], scene["title"]
     live = os.path.join(vdir, "assets")
@@ -358,18 +405,26 @@ def export_variant(scene, variant, vdir, listed_fingerprint):
     os.makedirs(assets, exist_ok=True)
 
     started = time.time()
-    ran = publish.replay(scene, tuning_config=variant["tuning_config"])
-    echoed_path = ran["start"].get("tuning_config", "")
-    echoed = ran["start"].get("tuning_fingerprint", "")
-    if echoed_path != variant["tuning_config"]:
-        raise RuntimeError(
-            f"the server says it applied {echoed_path!r}, not {variant['tuning_config']!r}"
+    shared = shared_recording(spec, variant, site, out_root)
+    if shared:
+        log(
+            f"  exporting the recording of {shared['recording_of']} rather than replaying"
         )
-    if echoed != listed_fingerprint:
-        raise RuntimeError(
-            f"the server applied fingerprint {echoed!r} where the listing said "
-            f"{listed_fingerprint!r}: the file changed during the batch"
-        )
+        ran = {"vrlog": shared["vrlog"], "run_id": shared["run_id"], "start": {}}
+        echoed = shared["applied_fingerprint"]
+    else:
+        ran = publish.replay(scene, tuning_config=variant["tuning_config"])
+        echoed_path = ran["start"].get("tuning_config", "")
+        echoed = ran["start"].get("tuning_fingerprint", "")
+        if echoed_path != variant["tuning_config"]:
+            raise RuntimeError(
+                f"the server says it applied {echoed_path!r}, not {variant['tuning_config']!r}"
+            )
+        if echoed != listed_fingerprint:
+            raise RuntimeError(
+                f"the server applied fingerprint {echoed!r} where the listing said "
+                f"{listed_fingerprint!r}: the file changed during the batch"
+            )
 
     scene_title = f"{title}: {variant['label']}"
     summary = publish.export(
@@ -378,6 +433,7 @@ def export_variant(scene, variant, vdir, listed_fingerprint):
         site,
         scene_title,
         extra=["--start-frame", str(publish.TRANSIENT_FRAMES)],
+        trail=variant.get("trail", "online"),
     )
     for line in summary.splitlines()[1:]:
         log("      " + line.strip())
@@ -396,10 +452,12 @@ def export_variant(scene, variant, vdir, listed_fingerprint):
         json.dump(
             {
                 "tuning_config": variant["tuning_config"],
+                "trail": variant.get("trail", "online"),
                 "fingerprint": listed_fingerprint,
                 "applied_fingerprint": echoed,
                 "run_id": ran["run_id"],
                 "vrlog": ran["vrlog"],
+                "recording_of": shared["recording_of"] if shared else "",
                 "minutes_taken": round(minutes, 2),
             },
             fh,
@@ -419,6 +477,7 @@ def set_checks(records_by_site):
     problems = []
     for site, records in records_by_site.items():
         by_hash = {}
+        by_id = {record["id"]: record for record in records}
         for record in records:
             tuning_hash = record.get("tuning_hash")
             if not tuning_hash:
@@ -426,13 +485,25 @@ def set_checks(records_by_site):
                     f"{site}/{record['id']}: the export records no tuning_hash"
                 )
                 continue
-            if tuning_hash in by_hash:
+            # Two variants may share a tuning hash only as two exports of
+            # one recording that draw different trails; two of one trail are
+            # the same scene twice.
+            key = (tuning_hash, record.get("trail_estimator", ""))
+            if key in by_hash:
                 problems.append(
-                    f"{site}: {record['id']} and {by_hash[tuning_hash]} exported the same "
-                    f"tuning_hash {tuning_hash}, so one file's changes did not reach the pipeline"
+                    f"{site}: {record['id']} and {by_hash[key]} exported the same "
+                    f"tuning_hash {tuning_hash} and trail, so one file's changes did not reach the pipeline"
                 )
             else:
-                by_hash[tuning_hash] = record["id"]
+                by_hash[key] = record["id"]
+            source = by_id.get(record.get("recording_of") or "")
+            if source and source.get("source_vrlog_sha256") != record.get(
+                "source_vrlog_sha256"
+            ):
+                problems.append(
+                    f"{site}: {record['id']} was exported from {source['id']}'s recording "
+                    "but names a different source_vrlog_sha256"
+                )
     builds = sorted(
         {
             record.get("build_version", "")
@@ -619,7 +690,14 @@ def report_status(spec, scenes, problems, fingerprints, out_root):
             else:
                 mark = "OUTSTANDING"
                 outstanding_minutes += scene["minutes"]
-            print(f"    {mark:<16} {variant['id']:<16} {variant['tuning_config']}")
+            trail = (
+                ""
+                if variant.get("trail", "online") == "online"
+                else "  trail: smoothed"
+            )
+            print(
+                f"    {mark:<16} {variant['id']:<16} {variant['tuning_config']}{trail}"
+            )
     for problem in problems:
         print(f"  PROBLEM  {problem}")
     if outstanding_minutes:
@@ -761,7 +839,9 @@ def main(argv=None):
                     f"({fingerprint}), {scene['minutes']:.1f} min ==="
                 )
                 try:
-                    record = export_variant(scene, variant, vdir, fingerprint)
+                    record = export_variant(
+                        scene, variant, vdir, fingerprint, spec=spec, out_root=out_root
+                    )
                 except Exception as error:  # one bad variant must not end the set
                     log(f"  FAILED {site}/{variant['id']}: {error}")
                     failures.append(f"{site}/{variant['id']}: {error}")

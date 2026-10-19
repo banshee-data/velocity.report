@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "set_id": "smoothed-trail",
+  "description": "l5est0002 (data/experiments/l5est/l5est0002.md): the published trail as the whole-track RTS smoother's estimate against the online posterior. One replay of the shipped defaults per site, exported twice: the smoothed variant reuses the online variant's recording and differs from it only in each track's x, y, vx, vy. Whole sites, as published; embarcadero-folsom is held out.",
+  "baseline": "online",
+  "variants": [
+    {
+      "id": "online",
+      "label": "Online posterior (a0)",
+      "tuning_config": "tuning.defaults.json"
+    },
+    {
+      "id": "smoothed",
+      "label": "Whole-track smoother",
+      "tuning_config": "tuning.defaults.json",
+      "trail": "smoothed"
+    }
+  ],
+  "sites": [
+    "ashbury-downey",
+    "haight-divisadero",
+    "pierce-haight",
+    "fulton-divisadero",
+    "california-leon-baker",
+    "broadway-gough",
+    "laguna-eddy",
+    "lombard-broderick",
+    "marina-broderick",
+    "marina-webster-beach",
+    "lombard-laguna",
+    "columbus-north-point",
+    "embarcadero-bay",
+    "columbus-broadway",
+    "van-ness-sacramento",
+    "embarcadero-broadway",
+    "franklin-mcallister",
+    "hyde-ofarrell",
+    "bush-powell",
+    "1st-mission",
+    "embarcadero-bryant",
+    "3rd-folsom",
+    "howard-6th"
+  ]
+}

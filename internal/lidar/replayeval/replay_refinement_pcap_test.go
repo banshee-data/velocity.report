@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
 	"github.com/banshee-data/velocity.report/internal/lidar/pipeline"
 	observationsqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -43,6 +45,22 @@ func TestFixedLagRTSReplayOnKirk0(t *testing.T) {
 	report := result.Refinement
 	if report == nil || len(report.Arms) != len(RefinementHorizons)+1 || !report.Persisted {
 		t.Fatalf("refinement report missing or incomplete: %+v", report)
+	}
+	// The recording keeps the filter record the harness smoothed, so a scene
+	// export of it can draw the whole-track arm: the same steps, released
+	// the same way.
+	if !recorder.HasFilterRecord(cfg.OutDir) {
+		t.Errorf("%s has no %s beside its chunks", cfg.OutDir, recorder.FilterRecordFile)
+	} else {
+		var steps int64
+		if _, err := recorder.ReadFilterRecord(cfg.OutDir, func(frame l5tracks.FilterFrame) error {
+			steps += int64(len(frame.Steps))
+			return nil
+		}); err != nil {
+			t.Errorf("read the filter record: %v", err)
+		} else if whole := report.Smoothers[len(report.Smoothers)-1].Stats; steps != whole.Steps {
+			t.Errorf("the filter record holds %d steps, the whole-track smoother saw %d", steps, whole.Steps)
+		}
 	}
 	onFile, err := os.ReadFile(filepath.Join(cfg.OutDir, "refinement_report.json"))
 	if err != nil {

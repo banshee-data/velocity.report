@@ -65,12 +65,14 @@ func exportMain(args []string) int {
 	fs.IntVar(&opts.MaxPointsPerFrame, "max-points", 0, "Cap foreground points per frame in a clip export (0 = uncapped)")
 	fs.Float64Var(&opts.VoxelMetres, "voxel", sceneexport.DefaultBackgroundVoxel, "Downsampling grid for a background export, in metres")
 	fs.Float64Var(&opts.BucketSeconds, "bucket-seconds", sceneexport.DefaultBucketSeconds, "Timeline summary resolution in seconds")
+	fs.BoolVar(&opts.SmoothedTrail, "smoothed-trail", false, "Write each track's x, y, vx, vy as the whole-track RTS smoother's estimate rather than the filter's online posterior; needs the recording's filter record, which a replay writes beside its chunks")
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
 		fs.PrintDefaults()
 		fmt.Fprintf(os.Stderr, "\nExamples:\n")
 		fmt.Fprintf(os.Stderr, "  velocity scene export --vrlog run.vrlog --out web/part-000 --stride 2\n")
 		fmt.Fprintf(os.Stderr, "  velocity scene export --vrlog run.vrlog --out web/clip-0 --export clip --frame-count 300\n")
+		fmt.Fprintf(os.Stderr, "  velocity scene export --vrlog run.vrlog --out web/part-000 --stride 2 --smoothed-trail\n")
 	}
 
 	if err := fs.Parse(args); err != nil {
@@ -90,6 +92,10 @@ func exportMain(args []string) int {
 		opts.Kind = sceneexport.Kind(kind)
 	default:
 		fmt.Fprintf(os.Stderr, "error: unknown --export %q (want tracks, clip, or background)\n", kind)
+		return 2
+	}
+	if opts.SmoothedTrail && opts.Kind == sceneexport.KindBackground {
+		fmt.Fprintln(os.Stderr, "error: --smoothed-trail applies to tracks and clip exports; a background export has no trail")
 		return 2
 	}
 
@@ -115,6 +121,13 @@ func exportMain(args []string) int {
 	}
 	if res.DroppedNonMonotonic > 0 {
 		fmt.Printf("  dropped       %d frame(s) with non-monotonic timestamps\n", res.DroppedNonMonotonic)
+	}
+	if res.Header.TrailEstimator != "" {
+		fmt.Printf("  trail         %s\n", res.Header.TrailEstimator)
+	}
+	if s := res.Header.TrailSmoothing; s != nil {
+		fmt.Printf("  smoothed      %d states final, %d fixed_lag; %d track frames revised, %d left online\n",
+			s.Final, s.FixedLag, s.Substituted, s.OnlineFallback)
 	}
 	if res.PointCount > 0 {
 		fmt.Printf("  points        %d\n", res.PointCount)
