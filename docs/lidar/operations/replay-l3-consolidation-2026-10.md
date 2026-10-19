@@ -197,6 +197,25 @@ noise controls take back two thirds of the spurious clusters, and CMR nearly dou
 switches; which of its four keys costs the identity is not measured here, and an arm that kept
 CMR's noise and the substituted L3's identity has not been found.
 
+## What it costs on the Mac
+
+The A/B gate (`scripts/perf-ab.sh`, five interleaved rounds of kirk0 on the development Mac,
+the change against its parent) puts the cost of the new defaults at:
+
+| Full profile              | Previous defaults | New defaults | Ratio |
+| ------------------------- | ----------------: | -----------: | ----: |
+| Wall clock (ms)           |             7,979 |        9,771 |  1.22 |
+| Mean frame (ms)           |              6.42 |         8.47 |  1.34 |
+| p95 frame (ms)            |              24.7 |         35.2 |  1.41 |
+| Foreground points         |           985,224 |    1,760,445 |       |
+| Clusters                  |             2,863 |        5,810 |       |
+| Distinct confirmed tracks |                77 |          130 |       |
+
+The l3-only profile moves by 4 %. The cost is the extra foreground the change exists to keep, so
+the gate's 10 % threshold fails for the full profile by design, and the Mac baselines are
+recaptured for the new fingerprint. The p95 frame is a third of the 98 ms budget on the Mac; the
+Pi is slower, and unmeasured.
+
 ## Interpretation
 
 Closeness is the width of the band around each cell's background range inside which a return
@@ -231,8 +250,8 @@ users there too, and more noise.
 ## Recommendations
 
 1. **Time the new defaults on the Pi (perf0001).** Clusters a frame roughly double against the
-   previous defaults (4.3 to 8.2, site median on the corpus); the Mac perf baselines are recaptured
-   for the new fingerprint, but the deployed sensor is unmeasured.
+   previous defaults (4.3 to 8.2, site median on the corpus) and the Mac's p95 frame time rises
+   from 25 to 35 ms; the deployed sensor is unmeasured.
 2. **Look for an L3 with CMR's noise and the substituted L3's identity:** spurious clusters fell to
    a third under CMR's noise controls while identity switches nearly doubled, so the minimum
    cluster size and the floor are worth separating. The next L3 rule should measure spurious
