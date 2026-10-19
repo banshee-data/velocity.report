@@ -1,6 +1,6 @@
 # Simplification and deprecation plan
 
-- **Status:** Approved (Phase 1 complete; image-surface items absorbed into the v0.5.1 consolidation plan)
+- **Status:** Approved (Phase 1 complete; image-surface items absorbed into the v0.5.1 consolidation plan; Make targets re-baselined October 19, 2026 as Project F)
 - **Canonical:** [simplification-deprecation.md](../platform/operations/simplification-deprecation.md)
 - **Related:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — owns the image apt-surface and `cmd/` consolidation in v0.5.1
 
@@ -59,27 +59,55 @@ This plan is scoped to capabilities that are not essential to the core query-ser
 
 ### 1) Make target candidates
 
-#### A. deployment legacy surface (high priority)
+The February candidates are done or carried below: the deploy targets (`setup-radar`,
+`deploy-*`, `build-deploy*`) were removed in v0.5.1, and none remains. The plot, stats and API
+wrappers are still present, and the Makefile has grown around them.
 
-- `setup-radar` (already labelled legacy in Make help)
-- `deploy-install`, `deploy-upgrade`, `deploy-status`, `deploy-health`
-- `build-deploy`, `build-deploy-linux`: replaced by `build-ctl`, `build-ctl-linux`
-- `deploy-install-latex`, `deploy-install-latex-minimal`, `deploy-update-deps`
+#### Re-baseline (October 19, 2026)
 
-Rationale: these are superseded by the image-builder direction once [#210](../BACKLOG.md) lands.
+| Measure                                                                      | Value                                                                   |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Targets                                                                      | 231 (118 in February), in 2,857 lines                                   |
+| Listed by the hand-written `help` block                                      | 177; 54 unlisted; two sentence fragments echoed as if they were targets |
+| Targets with a `##` comment                                                  | 19                                                                      |
+| Targets called by CI                                                         | 36                                                                      |
+| Targets nothing calls (no CI step, skill, doc, script, code or other target) | 68                                                                      |
+| CI steps that run a script or `pnpm` directly instead of a Make target       | 27                                                                      |
 
-#### B. data visualisation wrappers (medium priority)
+Every target was traced to its callers in `.github/workflows`, `.claude` and `.github` skills,
+agents and knowledge, the Markdown docs, `scripts/`, `tools/`, `image/` and the other Make targets.
 
-- `plot-noise-sweep`, `plot-multisweep`, `plot-noise-buckets`
-- `stats-live`, `stats-pcap`
+#### Dispositions
 
-Rationale: these duplicate visibility goals already being migrated under frontend consolidation [#252](../BACKLOG.md).
+| Group                           | Targets                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Count | Callers today                                                                                                            | Disposition                                                                                                                                                                                                                                                                                            |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A. Aliases                      | `build-radar-linux`, `build-radar-mac`, `build-radar-mac-intel`, `build-ctl`, `build-ctl-linux`, `build-tools`, `build-velocity-linux-embed`, `build-radar-linux-embed`, `build-radar-local`, `codex-setup`, `lint-docs-offline`, `config-order-check`, `config-order-sync`, `readme-maths-check`, `readme-maths-check-strict`, `render-scene-map-mac`, `render-scene-map-linux`                                                                                                                                                                                                                                                  |    17 | `build-radar-local`: five skills, AGENTS.md and eight more docs; `build-radar-linux`: two skills; `build-ctl`: one skill | Delete. Callers move to the canonical name in the same PR. One tombstone rule fails `build-radar-*` with the new name for one release. `build-radar-local` is `build-velocity` writing `velocity-report-local`; dropping it leaves one dev binary, `velocity`, which the scene publisher already needs |
+| B. API curl wrappers            | `api-grid-status`, `api-grid-reset`, `api-grid-heatmap`, `api-snapshot`, `api-snapshots`, `api-acceptance`, `api-acceptance-reset`, `api-params`, `api-params-set`, `api-persist`, `api-export-snapshot`, `api-export-next-frame`, `api-status`, `api-start-pcap`, `api-stop-pcap`, `api-switch-data-source`                                                                                                                                                                                                                                                                                                                      |    16 | none; all default to :8081                                                                                               | Delete the Make wrappers. The scripts stay in `scripts/api/lidar` with their README, and their default port moves to :8080 with the :8081 retirement                                                                                                                                                   |
+| C. Migration wrappers           | `migrate-up`, `migrate-down`, `migrate-status`, `migrate-detect`, `migrate-version`, `migrate-force`, `migrate-baseline`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |     7 | none                                                                                                                     | Delete. `velocity data migrate <command>` is the interface; COMMANDS.md documents it                                                                                                                                                                                                                   |
+| D. Python plot and stats        | `plot-noise-sweep`, `plot-multisweep`, `plot-noise-buckets`, `stats-live`, `stats-pcap`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |     5 | docs only                                                                                                                | Delete. The `data/explore` scripts stay runnable where they are; `tools/grid-heatmap` goes, which is what D-17 already records as done                                                                                                                                                                 |
+| E. Wrappers of `velocity lidar` | `build-pcap-split`, `run-pcap-split`, `run-settling-eval`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |     3 | one doc                                                                                                                  | Delete with `cmd/tools/pcap-split` and `cmd/tools/settling-eval`; `velocity lidar pcap-split` and `velocity lidar settling-eval` remain                                                                                                                                                                |
+| F. Conveniences nothing calls   | `print-version`, `version-exact`, `git-fs`, `git-files`, `dev-vis-server`, `record-sample`, `vrlog-analyse`, `run-pcap-stats`, `run-pcap-stats-10s`, `render`, `cache-basemap`, `build-embedded-assets`, `release-radar-remote`, `test-go-coverage-summary`, `report-backtick-paths`, `schema-erd-dot`, `schema-erd-from-dot`, `debug-mac-cycles`, `profile-macos-lidar`                                                                                                                                                                                                                                                          |    19 | none                                                                                                                     | Delete. A target someone runs by hand moves to `scripts/` with a usage line instead; `release-radar-remote` is the SSH install path D-14 retired, beside `velocity device upgrade --binary`                                                                                                            |
+| G. Variants that fold           | `log-go-cat`, `log-go-tail-all` into `log-go-tail`; `dev-go-lidar-trace` into `dev-go-lidar` with a log level; `dev-go-kill-server`, `dev-docs-kill`, `dev-docs-offline-kill` into the dev targets that start the servers; `test-go-coverage-gate` into `test-go-cov-pcap`; `clean-web`, `clean-mac`, `clean-docs-offline` into one `clean`; `install-docs`, `install-docs-offline`, `install-scene-capture`, `install-s2-hilbert` into one install for a pnpm workspace; `install-transcribe` with the podcast tool's move out; `build-docs-public-html`, `verify-docs-public-html-build` into the site build with a path prefix |    17 | the image build calls `build-docs-public-html`; one skill calls `install-transcribe`                                     | Fold. The image build and the skill change in the same PR                                                                                                                                                                                                                                              |
+| H. Names that mislead           | `build-radar-static`, `build-radar-static-amd64`, `build-radar-static-arm64`, `build-radar-linux-docker`, `test-radar-static-arm64-vm`, `test-radar-static-golden-pcap`, `release-build-darwin-radar`, `release-package-linux-radar`, `build-docs`, `dev-docs`, `install-web`                                                                                                                                                                                                                                                                                                                                                     |    11 | CI calls `build-radar-static` twice, `build-docs` once and the two release targets once each                             | Rename: `velocity` in place of `radar`, no `-radar` suffix on release targets, `site` for the public site that `build-docs` builds today, and one JavaScript install. Callers move in the same PR; the tombstone rule covers the old names for one release                                             |
 
-#### C. API shortcut wrappers (medium priority)
+The other 136 targets stay as they are: the quality gate, the builds, the release and macOS
+signing chain, protobuf, the dev servers, the test and coverage targets, perf and evidence runs,
+the gated checks, the experiment targets, and the scene publishing targets until the survey
+site leaves the repository.
 
-- `api-*` shortcut targets that wrap HTTP endpoints (e.g. `api-grid-status`, `api-params`, `api-start-pcap`)
+**Result.** 231 targets less the 84 deleted or folded, plus one new `clean`: 148, against a
+budget of 150.
 
-Rationale: useful for development, but not required as first-class public workflow once UI and API docs are consolidated.
+#### Keeping the count down
+
+1. **Generated help.** Each public target carries a `##` comment and `make help` prints them by section; a target without one is internal and hidden. The 226-line echo block goes, and with it the 54 targets it forgot.
+2. **A Make check in lint.** It fails on an alias recipe (a single `$(MAKE)` call or a single prerequisite with nothing else), fails on a public target without a `##` comment, and reports the count against the budget. Advisory for one release, then gated.
+3. **CI calls Make.** The 27 direct steps move to targets, most of which already exist: `check-md-links` for the two link checkers, `lint-web`, `test-web` and `build-web` for the web steps, the static VM test for the image workflow, and a `check-lfs` target for the four LFS validations.
+4. **Includes after the trim.** Splitting the Makefile into one include per concern under `mk/` is worth doing once the file is smaller; doing it first would turn every deletion into a cross-file conflict.
+
+Under D-20, Make targets sit inside the release unit: the docs, skills and workflows that call
+them change in the same commit. They never need an alias, only a tombstone for the person who
+types the old name.
 
 ### 2) `cmd/` app and tool candidates
 
@@ -145,11 +173,11 @@ Rationale: candidate for deprecation when monitor/frontend consolidation retires
 ## Prioritised deprecation targets
 
 1. **`cmd/deploy` replaced by `velocity device …`** (✅ v0.5.1)
-2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`): replaced by the on-device `velocity device …` lifecycle
+2. **Deployment Make target cleanup** (`setup-radar`, `deploy-*`, `build-deploy*`): replaced by the on-device `velocity device …` lifecycle (✅ v0.5.1)
 3. **Data model and API compat-shim removal** ([sub-plan](v050-backward-compatibility-shim-removal-plan.md)): v0.5.0 breaking changes
 4. **`cmd/transit-backfill` and unowned tools cleanup**
 5. **LiDAR forwarding flag simplification**
-6. **Stats/plot/API-shortcut target consolidation after #252 parity**
+6. **Make target trim to a budget of 150** (Project F): stats, plot and API-shortcut wrappers no longer wait for #252 parity
 
 ## Migration guidance: deploy tool → `velocity device`
 
@@ -303,15 +331,15 @@ sub-plan:
 ### Project b (P1): deploy retirement gate
 
 - [x] Define explicit removal gate: #210 image pipeline operational + packaging path confirmed
-- [ ] Remove legacy deploy targets once the gate is met
-- [ ] Remove `cmd/deploy` binary once migration period closes
+- [x] Remove legacy deploy targets once the gate is met (none remain, checked October 19, 2026)
+- [x] Remove `cmd/deploy` binary once migration period closes (`cmd/` holds only `velocity` and `tools`)
 - [ ] Update setup/deployment docs to image-first workflow
 
 ### Project c (P2): metrics/stats/frontend consolidation
 
 - [ ] Complete #252 status/regions/sweep migration
-- [ ] Retire duplicated stats/plot targets replaced by UI parity
-- [ ] Collapse or demote `api-*` Make shortcuts to internal developer scripts
+- [ ] Retire duplicated stats/plot targets: moved to Project F, which deletes them without waiting for parity
+- [ ] Collapse or demote `api-*` Make shortcuts to internal developer scripts: moved to Project F
 - [ ] Deprecate `--lidar-listen` when port split is removed
 
 ### Project d (P2): CLI simplification pass
@@ -319,6 +347,15 @@ sub-plan:
 - [ ] Deprecate low-use LiDAR foreground-forward flags
 - [ ] Group and document advanced transit worker flags
 - [ ] Simplify PDF mode flags for operators while keeping backward compatibility for one release
+
+### Project f (P1): Make target trim (October 2026 re-baseline)
+
+- [ ] Delete groups A to F of the [dispositions](#dispositions) and fold group G, moving every caller in the same PR (`M`)
+- [ ] Rename group H with one tombstone rule for the old names, removed after one release (`S`)
+- [ ] Generate `make help` from `##` comments and delete the echo block (`S`)
+- [ ] Add the Make check to lint, advisory for one release and then gated (`S`)
+- [ ] Move the 27 direct CI steps onto Make targets (`S`)
+- [ ] Split the Makefile into includes under `mk/` after the trim (`S`)
 
 ### Project e (P1): data model and API compat-shim removal; retired to backlog
 

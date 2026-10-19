@@ -161,32 +161,171 @@ alias and a retirement item removes them in v0.6.7, two minor versions later. D-
 decided "no temporary dual-format shims". No item has started, and while it waited migration 039
 reused `lidar_scenes` for a second concept.
 
-| Option                                                                                                                                                                             | Effort | Risk                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------- |
-| a. Run the programme as written: eighteen items, aliases, retirement in v0.6.7                                                                                                     | `XL`   | Two names for everything for a year; never finishes |
-| b. Three one-release cutovers (clip, sites, labels), each one PR series: migration rename, Go types, routes, UI copy, with an alias only on the public API and CLI for one release | `L`    | Three breaking releases, each small and announced   |
-| c. Rename nothing; document the four names                                                                                                                                         | `S`    | The next feature adds a fifth                       |
+| Option                                                                                                                                                           | Effort | Risk                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------- |
+| a. Run the programme as written: eighteen items, aliases, retirement in v0.6.7                                                                                   | `XL`   | Two names for everything for a year; never finishes |
+| b. Three one-release cutovers (clip, sites, labels), each one PR series: migration rename, Go types, routes, UI copy, with old names treated as D-20 allows (P5) | `L`    | Three breaking releases, each small and announced   |
+| c. Rename nothing; document the four names                                                                                                                       | `S`    | The next feature adds a fifth                       |
 
 **Do b.** Order by consumer count: clip first (Item 2: `lidar_replay_cases` to `lidar_clips`,
 `ReplayCase` to `Clip`, `/api/lidar/scenes` to `/api/lidar/clips`), then one `sites` table
 (Item 14, which unblocks every map and the survey export), then one label table (Item 7). The
-remaining items become feature work on the roles (jobs, Item 11) or wait for a consumer.
+remaining items become feature work on the roles (jobs, Item 11) or wait for a consumer. Each
+cutover treats an old name by who still depends on it, as P5 sets out: most need no alias at
+all.
 
 #### P5. Decisions that the code does not keep
 
-**Finding.** D-09 records five namespaces; the binary has nine. D-14 says removal before v0.6.0;
-the Makefile grew from 118 to 231 targets. D-20 says no shims; the vocabulary programme is
-eighteen shims. The SQL boundary hub says "Implemented" and the check greps an import string that
-two type aliases bypass. Nothing re-reads a decision after it is recorded.
+**Finding.** A decision is recorded once and never re-read. Of the 29 in
+[DECISIONS.md](../DECISIONS.md), 22 were checked against the code on October 19: 9 are kept, 5 have
+drifted and 2 have partly drifted, 2 have been overtaken by delivered work without being restated,
+3 are decided and unbuilt, and 1 is pending as scheduled. The other 7 were not checked. Nothing in
+CI, the skills or the plan template asks whether a change keeps or breaks a decision, so a plan can
+contradict one without citing it: the vocabulary programme proposes eighteen alias items under a
+decision (D-20) that forbids temporary aliases, and does not mention D-20.
 
-| Option                                                                                            | Effort | Risk                                      |
-| ------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------- |
-| a. Leave the register as a history                                                                | none   | It is read as the present                 |
-| b. Each decision names the check or the artefact that evidences it; the weekly retro re-reads one | `S`    | Some decisions have no checkable artefact |
-| c. Re-decide everything                                                                           | `L`    | Churn                                     |
+##### Audit, October 19, 2026
 
-**Do b.** Record D-30 to D-34 (the ADRs below) with their evidence, and mark D-09, D-14 and D-20
-superseded or restated.
+| Decision                        | State          | Evidence                                                                                                                                                                              | Fix                                                                       |
+| ------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| D-01 fused schema deferred      | Kept           | No fused transit table                                                                                                                                                                | none                                                                      |
+| D-02 FFT deferred               | Kept           | No FFT ingest                                                                                                                                                                         | none                                                                      |
+| D-03 transit deduplication      | Unbuilt        | Scheduled v0.8.0                                                                                                                                                                      | none                                                                      |
+| D-04 geometry-coherent tracking | Drifted        | Decided for the v0.6 cycle; the backlog carries #391 in v0.5.7                                                                                                                        | Restate the placement or move the item                                    |
+| D-05 maths sequencing           | Kept           | P1 v0.5.7, P2 and P4 v1.0, P3 v2.0 in the backlog                                                                                                                                     | none                                                                      |
+| D-07 track labelling Phase 9    | Overtaken      | The plan's Phase 9 is profile comparison; Swift-native labelling shipped through the annotation window and label sets                                                                 | Restate as profile comparison, or retire                                  |
+| D-08 report footprint           | Kept           | `typst_embed` is the default build tag                                                                                                                                                | none                                                                      |
+| D-09 single binary              | Kept           | One `cmd/velocity`; the packaging hub lists five namespaces where the binary dispatches nine                                                                                          | Correct the hub doc; keep D-09 by the closure test (C1)                   |
+| D-11 ECharts to LayerChart      | Pending        | go-echarts still in `go.mod`; report charts are Go SVG as decided                                                                                                                     | none until v0.7.0                                                         |
+| D-14 simplification by v0.6.0   | Drifted        | Deploy surface removed; plot, stats and API wrappers, `--lidar-listen` and the foreground-forward flags remain; Make targets grew from 118 to 231                                     | The Make trim below                                                       |
+| D-16 speed limit schedules      | Drifted        | Decided for v0.8; the backlog carries it in v1.0                                                                                                                                      | Restate the placement                                                     |
+| D-17 PDF to Go                  | Drifted        | Says `grid-heatmap` moved to a Go subcommand and the Python stack is gone; no such subcommand exists and `tools/grid-heatmap/plot_grid_heatmap.py` (1,413 lines) still runs from Make | Delete the Python tool and its two targets; the PDF half is kept          |
+| D-18 percentile semantics       | Partly drifted | `l6objects` still computes per-track p50, p85 and p95 speed features (`classification.go:241`)                                                                                        | Rename them as profile features or remove them with the speed metric item |
+| D-19 peak to max                | Kept           | Landed in #352                                                                                                                                                                        | none                                                                      |
+| D-20 no compatibility shims     | Drifted        | Nineteen old names and readers survive; the register below                                                                                                                            | The register and its test                                                 |
+| D-21 debug overlay control      | Kept           | `include_debug` gates emission                                                                                                                                                        | none                                                                      |
+| D-22 reflash-only upgrades      | Overtaken      | `velocity device upgrade` reads `release.json` and installs a versioned binary in place (v0.5.1)                                                                                      | Restate: operator-initiated network upgrade, opt-in under tenet 1         |
+| D-23 TicTacTail in `pkg/`       | Unbuilt        | No `pkg/` directory; no code                                                                                                                                                          | Retire (see the boundaries section)                                       |
+| D-24 no persisted percentiles   | Kept           | No per-track speed percentile column in the schema                                                                                                                                    | none                                                                      |
+| D-25 dual-native agents         | Partly drifted | The drift check runs in two skills, not CI; each pair differs by 32 to 194 lines                                                                                                      | Generate one side, or run the check in CI                                 |
+| D-26 static Linux binaries      | Kept           | `verify-static-elf.sh` refuses a dynamic ELF before staging                                                                                                                           | none                                                                      |
+| D-27 capture identity           | Unbuilt        | The scan's content tag hashes the size and the first chunk; no whole-file digest column; `rekey-lidar-capture-index.py` works around path identity                                    | Vocabulary Phase 2 Item 3, as scheduled                                   |
+
+Not checked: D-06, D-10, D-12, D-13, D-15, D-28, D-29.
+
+##### How a decision stays kept
+
+| Option                                                                                                                                                    | Effort | Risk                                      |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ----------------------------------------- |
+| a. Leave the register as a history                                                                                                                        | none   | It is read as the present                 |
+| b. Each decision names what keeps it and carries a state; plans cite the decisions they rely on or would break; the audit above is re-run at release prep | `S`    | Some decisions can only be kept by review |
+| c. Re-decide everything                                                                                                                                   | `L`    | Churn, and the same drift a year later    |
+
+**Do b**, in four parts:
+
+1. **Kept by.** Each decision gains one line naming the check, test or artefact that fails when the decision is broken: the closure test for D-09, the Make check for D-14, the register test for D-20, `verify-static-elf.sh` for D-26. Where only review can keep it, the line names the skill that reviews it. A decision that can name neither is a preference and belongs in the vision.
+2. **State.** Kept, Drifted (naming the backlog item that fixes it), Overtaken (restated in the next edit), Unbuilt (naming its release), or Superseded by D-NN. Nothing is deleted from the register.
+3. **Plans cite decisions.** The plan template gains a `Decisions` metadata line listing what the plan relies on or proposes to supersede; `/plan-review` checks a plan against the decisions its subject touches and refuses one that contradicts a decision it does not cite.
+4. **Audit at release.** `/release-prep` re-runs the audit table above; `/weekly-retro` takes the review-only decisions in turn.
+
+This stays inside DECISIONS.md's own cadence: Ruth records the states and the restatements in
+one edit, D-30 to D-34 join with their Kept-by lines from the start, and D-04, D-07, D-16 and
+D-22 are restated in the same edit.
+
+##### D-20 in practice: who can still depend on an old name
+
+D-20 allows two exceptions: database upgrade detection, and aliases that are architecturally
+necessary. The register below shows that "necessary" has been read as "convenient". A precise
+test, taken from tenet 7: **an old name, field or format is necessary only while something the
+release does not replace depends on it.**
+
+A release replaces the binary, the web app, the embedded docs and the bundled dependencies, and
+with them every Make target, script, skill and doc in the repository at that commit. It does not
+replace four things: the files on a flashed device that `velocity device upgrade` leaves alone
+(the systemd unit, sudoers, the profile aliases); the macOS app, which ships as its own DMG; data
+at rest (databases, recordings, packs, label sets, an operator's tuning files); and anything
+published outside the repository (site URLs, the Hugging Face layout, `release.json`).
+
+| Who depends on the old name                                                | Treatment                                                                                                  | Lifetime                                                  |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| The release unit: web, docs, Make, in-repo scripts and skills, Go packages | Rename every caller in the same PR; no alias                                                               | none                                                      |
+| A person typing a command, flag or Make target                             | A tombstone: the old name fails and prints the new one; it never does the work, so it is not a dual format | one minor release                                         |
+| The macOS app                                                              | A registered alias; the app moves to the new name in the same PR                                           | until the next DMG is the oldest supported                |
+| A file on a device that the upgrade does not rewrite                       | A registered alias, or teach the upgrade to rewrite the file                                               | until the upgrade rewrites it                             |
+| Data at rest                                                               | A migration: SQL for databases (the named exception), a converter with a verify step for files             | the old reader goes one minor release after the converter |
+| Published URLs and dataset layouts                                         | A permanent redirect, or a versioned layout                                                                | permanent, and not a shim                                 |
+
+##### The register, October 19, 2026
+
+| Surviving shim                                                    | Where                                                      | Who still depends on it                                                                                 | Treatment                                                                                                      | When            |
+| ----------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------- |
+| `velocity-report` program name runs `serve`                       | `internal/cmd/root/root.go`                                | The systemd unit on flashed devices; also the dev build `velocity-report-local` and the scene publisher | Necessary for devices: register it. The dev build produces `velocity` and docs say `velocity serve`            | v0.5.8 dev side |
+| `/api/lidar/pcap/stop` and `/vrlog/stop` alias `/replay/stop`     | `internal/lidar/server/routes.go:108`                      | The macOS app (`RunTrackLabelAPIClient.swift:199,218`); the scene publisher and two scripts             | Necessary for the app: register it, switch the app and scripts now, remove after the next DMG                  | v0.5.8          |
+| `/api/lidar/tracks/history` aliases `/api/lidar/tracks`           | `routes.go:191`                                            | One web file, one script                                                                                | Release unit: rename the callers, delete                                                                       | v0.5.8          |
+| `/api/lidar/monitor` aliases `/api/lidar/server`                  | `routes.go:52`                                             | One script                                                                                              | Delete                                                                                                         | v0.5.8          |
+| `-tuning` flag aliases `-config`                                  | `internal/cmd/lidar/settling.go:28`                        | In-repo docs and scripts                                                                                | Tombstone for one release                                                                                      | v0.5.8          |
+| Legacy polling fallback in the tuning client                      | `internal/lidar/server/client.go:406`                      | `velocity tune`, which ships in the same binary as the server it polls                                  | Delete                                                                                                         | v0.5.8          |
+| `MakeLegacyParamSet`, `ParamSetTypeLegacy`                        | `internal/lidar/storage/configasset/configasset.go:20,120` | No production caller                                                                                    | Delete                                                                                                         | v0.5.8          |
+| Root `internal/lidar/aliases.go` and the alias shims in l4 and l6 | as named                                                   | Root-package tests only; not on the v0.5.0 record's retained list                                       | Delete (C2)                                                                                                    | v0.5.8          |
+| Version 1 `legacy_pack` annotation packs                          | `internal/lidar/annotation/features.go:96,255`             | None: the label-set migration report records all five packs migrated                                    | Delete the reader; `LegacySampleID` stays, as lineage rather than compatibility                                | v0.5.8          |
+| `COALESCE(measurement_source, 'legacy_centroid_v0')`              | `internal/lidar/storage/sqlite/track_store.go:345,565`     | Rows written before the column existed                                                                  | Backfill migration, then delete the expression                                                                 | v0.5.8          |
+| Legacy JSON VRLOG frames                                          | `internal/lidar/l9endpoints/recorder/recorder.go:374`      | Three recordings on one development machine                                                             | Convert and verify, then delete the decoder (already a v0.5.5 item)                                            | v0.5.8          |
+| `pcap_file` projection on replay cases                            | `internal/lidar/storage/sqlite/replay_case_files.go`       | 11 web files and 12 scripts                                                                             | Release unit: move readers to the case-file table and drop the column in one PR, not in v0.6.7                 | clip cutover    |
+| `pcap` data-source wire value                                     | `internal/lidar/server/pipeline_state.go:37,96`            | Web, two macOS files, three scripts                                                                     | Renamed by the clip cutover; then a registered alias for the app only                                          | clip cutover    |
+| `split` and `merge` read as legacy tag labels                     | macOS `RunBrowserState.swift:51`                           | Stored `user_label` values                                                                              | Migration to quality flags, then delete the branch                                                             | labels cutover  |
+| Recorder `TuningHash`, marked "deprecated transition field"       | `recorder.go:91,345`                                       | Read by scene export and the analysis report                                                            | Not a shim yet: either un-deprecate it or move its readers to the run's tuning fingerprint and stop writing it | decide v0.5.8   |
+| `config-migrate`, flat v1 tuning to v2                            | `cmd/tools/config-migrate`                                 | Operators' own tuning files                                                                             | A converter, allowed; register it for removal                                                                  | v0.6.0          |
+| Database legacy detection                                         | `internal/db/migrate.go`, `migrate_cli.go`                 | Databases from before migrations                                                                        | Allowed by D-20 by name                                                                                        | keep            |
+| Type aliases in l3grid, l6objects and storage types               | `types.go` in each                                         | Import cycles                                                                                           | Retained by the v0.5.0 record; re-check after C2                                                               | keep            |
+| Seventeen Make target aliases                                     | `Makefile`                                                 | Five skills, AGENTS.md and nine docs                                                                    | Release unit: rename callers, delete, one tombstone rule for `build-radar-*`                                   | v0.5.8          |
+
+Two items look like shims and are not: the legacy box path is an experiment arm (`box-model-off`),
+which C8 governs, and the macOS point-buffer path was reclassified as renderer work in the
+[v0.5.0 migration record](../platform/operations/v050-release-migration.md). Separately, 36
+operator-facing strings in `internal/db` still say `velocity-report migrate`, which is stale text
+rather than a shim and should say `velocity data migrate`.
+
+**Keeping it kept.** The register lives beside the v0.5.0 migration record as a table with one
+row per surviving name, its consumer, its treatment and the release that removes it. A test
+fails when the Makefile's `VERSION` reaches a row's removal release, so an alias cannot outlive
+its row. Route aliases are declared through the route table with the row they belong to, flags
+through one tombstone helper, and the Make check below refuses an alias recipe; a dual reader in
+code is caught by `/review-pr`, which reads the register.
+
+**What it does to the vocabulary programme.** Most of its aliases are never created. Tables
+rename by migration; Go types, web routes, UI copy, scripts and docs rename in one PR; the CLI
+and flags get tombstones; only the routes the macOS app calls get registered aliases, and the
+public `/scenes/` pages get permanent redirects to `/surveys/`. Item 18, the retirement release,
+shrinks to the rows that remain in the register. This keeps D-20 as written and revises the
+first draft of ADR-2 below.
+
+##### Make targets
+
+D-14's Make half is the clearest drift: 118 targets in February, 231 now, 2,857 lines, a
+hand-written help block that lists 177 targets, omits 54 and echoes two sentence fragments as
+if they were targets, 68 targets that nothing calls, and 27 CI steps that bypass Make although
+the coding standards say workflows call Make targets. The full inventory, with a disposition for
+every target, is in the
+[simplification plan](platform-simplification-and-deprecation-plan.md#1-make-target-candidates).
+In short:
+
+| Group                                                                                     | Targets | Disposition                                                                             |
+| ----------------------------------------------------------------------------------------- | ------: | --------------------------------------------------------------------------------------- |
+| Aliases (`build-radar-*`, `build-ctl*`, `build-tools`, `*-embed`, config and maths twins) |      17 | Delete; callers renamed in the same PR; one tombstone rule for one release              |
+| `api-*` curl wrappers, all aimed at :8081                                                 |      16 | Delete the Make wrappers; the scripts stay in `scripts/api/lidar` with their README     |
+| `migrate-*` wrappers of `velocity data migrate`                                           |       7 | Delete; the CLI is the interface                                                        |
+| Python plot and stats wrappers                                                            |       5 | Delete, with `tools/grid-heatmap` (D-17)                                                |
+| Wrappers of `velocity lidar` subcommands                                                  |       3 | Delete with the thin `cmd/tools` wrappers                                               |
+| Conveniences nothing calls                                                                |      19 | Delete, or move to `scripts/` if someone runs one by hand                               |
+| Variants that fold into one target and a variable                                         |      17 | Fold: logs, dev kills, cleans, the five JavaScript installs, the two public-site builds |
+| Names that still say `radar` or call the public site "docs"                               |      11 | Rename; callers (CI, the image build, skills) in the same PR                            |
+
+That leaves 147 targets, and the folds add one, `clean`: 148, inside a budget of 150. Three
+structural changes keep it there: help generated from each target's `##` comment instead of a
+hand-kept echo block; a `check-make` lint that refuses an alias recipe and an undocumented public
+target and reports the count against the budget; and CI steps that call Make targets rather than
+scripts. Splitting the Makefile into includes by concern is worth doing after the trim, not before
+it.
 
 #### P6. Experiment arms that point at a moving target
 
@@ -357,7 +496,7 @@ plan shrinks to what the code shows is worth finishing.
 | 15   | Deterministic track identity                                                                                                                                                                                            | Specification; scenes "not yet reproducible" (#783)                                  | Finish                                                   | `M`    | v0.5.9            |
 | 16   | Run tracks missing six quality columns                                                                                                                                                                                  | Snapshot loses data the live table prunes                                            | Finish                                                   | `S`    | v0.5.8            |
 | 17   | VRLOG JSON 0.5 decoder                                                                                                                                                                                                  | Three recordings on one machine still use it                                         | Delete after converting                                  | `S`    | v0.5.8            |
-| 18   | Simplification plan                                                                                                                                                                                                     | Approved in February; targets grew from 118 to 231                                   | Restart as deletions                                     | `M`    | v0.5.8            |
+| 18   | Simplification plan                                                                                                                                                                                                     | Approved in February; targets grew from 118 to 231                                   | Trim to 148 (P5, Project F)                              | `M`    | v0.5.8            |
 | 19   | Scene assets in git and in the Pi image                                                                                                                                                                                 | 66 MB, growing per site                                                              | Finish: LFS or Hugging Face, image carries a pointer     | `S`    | v0.6.6            |
 | 20   | Svelte 5 runes migration                                                                                                                                                                                                | 1 of 25 files                                                                        | Finish one file per touched route, or state the deferral | `M`    | v0.7.0            |
 | 21   | #503 Tailscale ACL roles                                                                                                                                                                                                | A PR conflicted since v0.5.1                                                         | Decide: rebase or close                                  | `S`    | Now               |
@@ -481,13 +620,13 @@ role gets its own binary, image or installer.
 
 For Ruth to ratify, supersede or reject. Each names the evidence that will show it is kept.
 
-| ADR   | Decision                                                                                                                                                                                                                               | Alternatives considered                                | Evidenced by                                                 |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
-| ADR-1 | One binary carries the roles edge, hub, worker and the clients device and jobs; a role is a composition root plus a CI-asserted closure; kinds are compiled into the binary that runs them; restates D-09                              | Binaries per role; the NAS as a separate hub authority | The closure test in `make lint-go`                           |
-| ADR-2 | Renames are one-release cutovers: internal names rename in one migration and PR series with no alias; the public API and CLI carry an alias for one release; restates D-20 and cuts the vocabulary programme to clip, sites and labels | The eighteen-item alias programme                      | No alias older than one minor version                        |
-| ADR-3 | Planning limits: twelve Active plans, twelve items per release bucket, two sentences per item, sprint sub-buckets live in programme plans; a version is tagged from `main`, not promised to a theme                                    | Themed versions; unlimited plans                       | `report-plan-hygiene` and the backlog lint                   |
-| ADR-4 | A hub doc records shipped behaviour; a plan records intent; a hub stub for an unbuilt feature is removed                                                                                                                               | Hub-first documentation                                | No hub doc with a "Source plan" header and no implementation |
-| ADR-5 | The public survey site, its publishing tooling and its assets leave the product repository in two steps; `velocity scene export` is the contract                                                                                       | Keep the monorepo; LFS only                            | No scene assets in git; the image carries a pointer          |
+| ADR   | Decision                                                                                                                                                                                                                                                                                                                                                                      | Alternatives considered                                                   | Evidenced by                                                 |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| ADR-1 | One binary carries the roles edge, hub, worker and the clients device and jobs; a role is a composition root plus a CI-asserted closure; kinds are compiled into the binary that runs them; restates D-09                                                                                                                                                                     | Binaries per role; the NAS as a separate hub authority                    | The closure test in `make lint-go`                           |
+| ADR-2 | Renames are one-release cutovers that keep D-20: an old name survives only while something the release does not replace depends on it (the macOS app, a device file the upgrade leaves alone, data at rest, a published URL), as a registered alias, a migration or a redirect; people get tombstones, not aliases; the vocabulary programme is cut to clip, sites and labels | The eighteen-item alias programme; one-release aliases on the API and CLI | The compatibility register test                              |
+| ADR-3 | Planning limits: twelve Active plans, twelve items per release bucket, two sentences per item, sprint sub-buckets live in programme plans; a version is tagged from `main`, not promised to a theme                                                                                                                                                                           | Themed versions; unlimited plans                                          | `report-plan-hygiene` and the backlog lint                   |
+| ADR-4 | A hub doc records shipped behaviour; a plan records intent; a hub stub for an unbuilt feature is removed                                                                                                                                                                                                                                                                      | Hub-first documentation                                                   | No hub doc with a "Source plan" header and no implementation |
+| ADR-5 | The public survey site, its publishing tooling and its assets leave the product repository in two steps; `velocity scene export` is the contract                                                                                                                                                                                                                              | Keep the monorepo; LFS only                                               | No scene assets in git; the image carries a pointer          |
 
 ## Proposed backlog changes
 
@@ -504,6 +643,7 @@ consolidated, moved or completed.
 | v0.5.8 (hygiene)            | Pull in: the deletions (rank 1 to 3), the gate and the moves (4 to 7, 16, 17), vocabulary Item 11, #252 surface consolidation from v0.7.0; push out: typed UUIDs, maths coherence Items 1, 4 and 5, `time.Sleep` reduction                                                |
 | v0.5.9                      | Add the lifecycle, SQL boundary, logging, configuration, clock and deterministic identity items (rank 9 to 15)                                                                                                                                                            |
 | v0.5.10, v0.5.11            | Vocabulary Items 7 and 8 become the labels cutover; Items 9 and 11 are absorbed by the one-queue item; the rest wait for a consumer                                                                                                                                       |
+| v0.6.0                      | The Project B item's deploy targets and `cmd/deploy` are already gone; close it with the v0.5.1 PR that removed them once its docs task is checked                                                                                                                        |
 | v0.6.4 macOS local server   | Keep, after the roles: the Mac runs a hub and a worker locally, which is what the plan wants                                                                                                                                                                              |
 | v0.6.5 design system        | Park until v0.7.0                                                                                                                                                                                                                                                         |
 | v0.6.6 web scene publishing | Add the two extraction steps of ADR-5; the asset move comes first                                                                                                                                                                                                         |
@@ -522,13 +662,16 @@ Added to v0.5.8 in this PR, each linking back here:
 - Split the root embed package
 - Delete the dead code and dead tables the review lists
 - Experiment specs pin the defaults' fingerprint; one status vocabulary
+- Make targets to a budget of 150 (split from the v0.5.10 consolidation item, which keeps the stats surfaces and CLI flags)
+- Compatibility register for D-20, and the removal of the shims no exception covers
+- Decision audit kept current: Kept-by lines, states, and plans that cite decisions
 - Scene assets out of git and out of the image (v0.6.6)
 
 ### Items to merge
 
 - cmd-server-decomposition and go-cmd-extraction: one plan, one item
 - Worker pool, job queue implementation and vocabulary Item 11: one item, "one queue"
-- Simplification programme and the Makefile trim: one item, "delete to 150 targets"
+- Simplification programme and the Makefile trim: the trim is its own v0.5.8 item (Project F of the simplification plan)
 
 ## Proposed experiments
 
@@ -555,7 +698,7 @@ validator carries the field.
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Flo    | The backlog re-baseline above; the v0.5.2 tag decision with Ruth; the WIP limit; the parking pass over the 80 unstarted plans                                    |
 | Appius | The moves table, in the order given; the merged cmd/server plan; the one-queue design against host0002; the closure test first, because it keeps the rest honest |
-| Ruth   | ADR-1 to ADR-5 as D-30 to D-34; the fate of D-09, D-14, D-20 and D-23                                                                                            |
+| Ruth   | ADR-1 to ADR-5 as D-30 to D-34 with Kept-by lines; the states from the P5 audit; restating D-04, D-07, D-16 and D-22; the fate of D-09, D-14, D-20 and D-23      |
 | Euler  | host0003's attribution method when rows differ (float order, clock, goroutine scheduling)                                                                        |
 | Malory | The worker's claim API before it is built: token scope, what a result bundle may contain, and that a worker can never write the hub's database                   |
 | Terry  | The backlog item lint's wording and the `Parked` status in the plan hygiene docs                                                                                 |
@@ -585,11 +728,14 @@ validator carries the field.
 - [x] Four read-only surveys: unfinished migrations and renames; package topology and role closures; UI and tooling surfaces; experiment infrastructure
 - [x] Findings, anti-patterns, the ranked list, the boundary decisions, the roles design and the ADRs
 - [x] Three experiment specs in the `host` area; backlog items under v0.5.8; devlog entry
+- [x] P5 explored: a decision audit, the D-20 consumer test and register, and a disposition for every Make target
 
 ### Outstanding
 
 - [ ] Flo: backlog re-baseline and the parking pass (`M`)
 - [ ] Ruth: ADR-1 to ADR-5 decided (`S`)
+- [ ] Ruth: decision states and Kept-by lines from the P5 audit (`S`)
+- [ ] Appius: the Make trim (Project F) and the compatibility register with its test (`M`)
 - [ ] Appius: the closure test and the first three moves (`M`)
 - [ ] Appius: one queue, in-binary kinds, host0002 run (`M`)
 - [ ] The v0.5.2 tag (`S`)
