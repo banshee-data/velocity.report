@@ -1930,3 +1930,27 @@ func TestFrameAdapter_AdaptTracks_DeletedTrackProcessing(t *testing.T) {
 		t.Error("expected to find a deleted track with fade-out alpha")
 	}
 }
+
+// Under the ground anchor the published box stands on the fitted surface: its
+// base and height replace the frame's lowest return and cluster height, which
+// a viewer draws when the anchor is off.
+func TestPublishBoxCarriesTheGroundAnchoredVertical(t *testing.T) {
+	tracked := &l5tracks.TrackedObject{
+		BoxX: 10, BoxY: 2, BoxHeadingRad: 0.3, BoxLength: 4.5, BoxWidth: 1.8,
+		LatestZ: -1.2, OBBHeight: 0.4,
+	}
+	track := Track{Z: tracked.LatestZ, BBoxHeight: tracked.OBBHeight}
+	publishBox(&track, tracked)
+	if track.Z != -1.2 || track.BBoxHeight != 0.4 {
+		t.Fatalf("anchor off: z %.2f, height %.2f; want the frame's -1.2 and 0.4", track.Z, track.BBoxHeight)
+	}
+	tracked.BoxZ, tracked.BoxHeight = -2.3, 1.5
+	track = Track{Z: tracked.LatestZ, BBoxHeight: tracked.OBBHeight}
+	publishBox(&track, tracked)
+	if track.Z != -2.3 || track.BBoxHeight != 1.5 {
+		t.Fatalf("anchored: z %.2f, height %.2f; want the box's -2.3 and 1.5", track.Z, track.BBoxHeight)
+	}
+	if !track.BBoxCenterValid || track.BBoxCenterX != 10 {
+		t.Fatalf("the box's plane was not published: %+v", track)
+	}
+}

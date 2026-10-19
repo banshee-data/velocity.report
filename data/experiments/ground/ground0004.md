@@ -88,3 +88,17 @@ leaked into the plane.
 **What it does not establish.** Anything about speed, identity or the footprint. Whether a
 viewer wants the base or the centre reported: the option publishes the base and the height, from
 which either is drawn.
+
+**Implemented, 2026-10-18.** The replay experiment `box_ground` sets
+`l5tracks.BoxModelConfig.GroundAnchor` and fits the regional surface for the box whether or not
+the clip reads it, and `surface_ground` names the clip, so both arms run as written. The box
+stands on the regional surface blended across cell edges (`l3grid.BlendedHeightAt`), not on the
+clip's per-cell planes: on kirk0 the per-cell planes stepped by up to 0.4 m where a track
+crossed a 10 m cell edge, which accounted for 50 of the 54 frame-to-frame base changes over
+0.1 m. The clip is unchanged. lidar-box-eval reports the published box's `base_step_rms_m`,
+`height_step_rms_m` and the shares of rows whose lowest return lies 0.5 m above the drawn base
+or 0.2 m below it, which are this spec's base and height RMS. kirk0, development evidence and not
+this spec's result: on vehicle tracks the base RMS fell from 0.169 m to 0.014 m and the height
+RMS from 0.214 m to 0.065 m, the plane was identical row for row, and the lowest return lay more
+than 0.5 m above the drawn base on 98 % of vehicle rows. The drawn heights grow by what the base
+drops, so kirk0's reviewed heights are the clause to read first.

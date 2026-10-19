@@ -263,6 +263,11 @@ type trackState struct {
 	estNanos int64
 	calls    int
 	diag     box
+	// vert, lastBase and lastHeight are the published box's last drawn
+	// vertical, for its frame-to-frame change.
+	vert       bool
+	lastBase   float64
+	lastHeight float64
 	// maxLength is the longest box drawn for the track so far.
 	maxLength float64
 	// traj is the track's scored frames, for the turn measures computed at
@@ -296,6 +301,12 @@ type rowAgg struct {
 	// are longer than any road vehicle; shrink the rows drawn shorter than
 	// three quarters of the track's longest.
 	crossRows, foreign, overlap, overlong, shrink int
+	// baseStep and heightStep are the published box's drawn base and height
+	// changes between consecutive frames; vertRows the associated rows its
+	// vertical was read on, and lowAbove and lowBelow those whose cluster's
+	// lowest return lay above or below the drawn base by the bounds.
+	baseStep, heightStep         []float64
+	vertRows, lowAbove, lowBelow int
 }
 
 type scorer struct {
@@ -365,7 +376,7 @@ func (s *scorer) names() []string {
 
 var rowHeader = []string{"variant", "track", "t_ns", "class", "speed", "x", "y", "psi_deg", "length", "width",
 	"points", "outside", "max_out", "course_deg", "dpsi_deg", "span_a", "span_n", "ref_axis_deg", "ref_area",
-	"merge", "height", "ground_clipped"}
+	"merge", "height", "ground_clipped", "lowest_z", "drawn_base_z", "drawn_height"}
 
 func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 	clusterOf := map[string]int{}
@@ -440,6 +451,10 @@ func (s *scorer) frame(f replayeval.TrackerTapFrame) {
 				st := s.trackState(name, t.TrackID)
 				st.have, st.last, st.lastAt = b.length > 0, b, now
 				st.lastX, st.lastY = float64(t.X), float64(t.Y)
+				if name == published {
+					st.lastBase, st.lastHeight = publishedVertical(t)
+					st.vert = true
+				}
 			}
 			continue
 		}
@@ -479,6 +494,49 @@ func publishedBox(t *l5tracks.TrackedObject) box {
 		return box{float64(t.BoxX), float64(t.BoxY), float64(t.BoxHeadingRad), float64(t.BoxLength), float64(t.BoxWidth)}
 	}
 	return box{float64(t.X), float64(t.Y), float64(t.OBBHeadingRad), float64(t.OBBLength), float64(t.OBBWidth)}
+}
+
+// publishedVertical is the base and height a viewer draws for the track: the
+// ground-anchored box's under box_ground, otherwise this frame's lowest return
+// and cluster height.
+func publishedVertical(t *l5tracks.TrackedObject) (base, height float64) {
+	if t.BoxHeight > 0 {
+		return float64(t.BoxZ), float64(t.BoxHeight)
+	}
+	return float64(t.LatestZ), float64(t.OBBHeight)
+}
+
+// Vertical bounds: a cluster's lowest return further than these above or
+// below the drawn base is counted, the lower body unseen or a base drawn
+// above the body.
+const (
+	evalLowAboveBase = 0.5
+	evalLowBelowBase = 0.2
+)
+
+// scoreVertical records the published box's vertical for one scored row: its
+// change since the previous frame, and where the cluster's lowest return lies
+// against the drawn base. It reads the continuity state before score updates
+// it.
+func (s *scorer) scoreVertical(agg *rowAgg, st *trackState, t *l5tracks.TrackedObject, cluster *l5tracks.WorldCluster, now int64) {
+	base, height := publishedVertical(t)
+	if cluster != nil && cluster.OBB != nil {
+		agg.vertRows++
+		low := float64(cluster.OBB.CenterZ)
+		switch {
+		case low > base+evalLowAboveBase:
+			agg.lowAbove++
+		case low < base-evalLowBelowBase:
+			agg.lowBelow++
+		}
+	}
+	if st.vert {
+		if dt := float64(now-st.lastAt) / 1e9; dt > 0 && dt <= evalMaxPairDt {
+			agg.baseStep = append(agg.baseStep, base-st.lastBase)
+			agg.heightStep = append(agg.heightStep, height-st.lastHeight)
+		}
+	}
+	st.vert, st.lastBase, st.lastHeight = true, base, height
 }
 
 func (s *scorer) trackState(name, id string) *trackState {
@@ -606,6 +664,13 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 		agg = &rowAgg{}
 		s.agg[name][t.TrackID] = agg
 	}
+	// The drawn vertical is the published box's alone; the variants draw
+	// only a footprint, so their rows leave it blank.
+	drawnBase, drawnHeight := math.NaN(), math.NaN()
+	if name == published {
+		s.scoreVertical(agg, st, t, cluster, now)
+		drawnBase, drawnHeight = publishedVertical(t)
+	}
 	speed := math.Hypot(float64(t.VX), float64(t.VY))
 	course := math.Atan2(float64(t.VY), float64(t.VX))
 	points, outside, maxOut := 0, 0, 0.0
@@ -706,7 +771,8 @@ func (s *scorer) score(name string, t *l5tracks.TrackedObject, b box, cluster *l
 		_ = s.rows.Write([]string{name, t.TrackID, strconv.FormatInt(now, 10), s.class[t.TrackID],
 			f3(speed), f3(b.x), f3(b.y), f3(b.psi * 180 / math.Pi), f3(b.length), f3(b.width),
 			strconv.Itoa(points), strconv.Itoa(outside), f3(maxOut), f3(course * 180 / math.Pi), f3(dpsi), f3(spanA), f3(spanN), refAxis(ref), f3(ref.area),
-			strconv.FormatBool(t.MergeCandidate), f3(clusterHeight(cluster)), strconv.FormatBool(cluster != nil && cluster.GroundClipped)})
+			strconv.FormatBool(t.MergeCandidate), f3(clusterHeight(cluster)), strconv.FormatBool(cluster != nil && cluster.GroundClipped),
+			f3(clusterLowest(cluster)), f3(drawnBase), f3(drawnHeight)})
 	}
 	if b.length > 0 {
 		st.traj = append(st.traj, trajPoint{t: now, x: float64(t.X), y: float64(t.Y), speed: speed, psi: b.psi})
@@ -726,6 +792,14 @@ func (s *scorer) keep(name, id string, st *trackState) {
 		kept[name] = map[string]*trackState{}
 	}
 	kept[name][id] = st
+}
+
+// clusterLowest is the cluster's lowest return, NaN without one.
+func clusterLowest(c *l5tracks.WorldCluster) float64 {
+	if c == nil || c.OBB == nil {
+		return math.NaN()
+	}
+	return float64(c.OBB.CenterZ)
 }
 
 // clusterHeight is the cluster's vertical extent, NaN without one.
@@ -900,6 +974,16 @@ type Measure struct {
 	OverlapShare    float64   `json:"neighbour_overlap_share"`
 	OverlongShare   float64   `json:"overlong_share"`
 	ShrinkShare     float64   `json:"shrink_share"`
+	// The published box's vertical, zero for every other variant: the RMS
+	// change of its drawn base and height between consecutive frames over
+	// VerticalPairs, and the shares of VerticalRows whose cluster's lowest
+	// return lay more than 0.5 m above the drawn base or 0.2 m below it.
+	VerticalPairs     int     `json:"vertical_pairs"`
+	BaseStepRMS       float64 `json:"base_step_rms_m"`
+	HeightStepRMS     float64 `json:"height_step_rms_m"`
+	VerticalRows      int     `json:"vertical_rows"`
+	LowAboveBaseShare float64 `json:"lowest_above_base_share"`
+	LowBelowBaseShare float64 `json:"lowest_below_base_share"`
 }
 
 func group(class string) string {
@@ -939,6 +1023,10 @@ func (s *scorer) summary() Summary {
 			"overlong_share":            "share of rows with a cluster whose drawn box is longer than 13 m",
 			"shrink_share":              "share of scored rows whose drawn length is under three quarters of the longest drawn for the track so far",
 			"min_area_axis_error":       "per row with 30 or more members and a minimum-area rectangle of aspect 1.5 or more, the drawn axis's distance from that rectangle's axis, modulo 90°",
+			"base_step_rms":             "published only: RMS over consecutive pairs of the change in the drawn base z, which is the cluster's lowest return unless box_ground stands the box on the fitted surface",
+			"height_step_rms":           "published only: RMS over consecutive pairs of the change in the drawn height",
+			"lowest_above_base_share":   "published only: share of rows with a cluster whose lowest return lies more than 0.5 m above the drawn base: the lower body unseen",
+			"lowest_below_base_share":   "published only: share of rows with a cluster whose lowest return lies more than 0.2 m below the drawn base: a base drawn above the body",
 		}}
 	for _, name := range s.names() {
 		groups := map[string][]string{}
@@ -952,6 +1040,7 @@ func (s *scorer) summary() Summary {
 			sort.Strings(ids)
 			m := &Measure{Tracks: len(ids)}
 			var maxOut, side, wiggle, lengths, widths, cvs, eff, axisErr, slip []float64
+			var baseStep, heightStep []float64
 			var turnLag, turnAbs, straightAbs []float64
 			slowFrames, slowWrong := 0, 0
 			var share float64
@@ -982,6 +1071,10 @@ func (s *scorer) summary() Summary {
 				eff = append(eff, a.efficiency...)
 				axisErr = append(axisErr, a.axisErr...)
 				slip = append(slip, a.slip...)
+				baseStep, heightStep = append(baseStep, a.baseStep...), append(heightStep, a.heightStep...)
+				m.VerticalRows += a.vertRows
+				m.LowAboveBaseShare += float64(a.lowAbove)
+				m.LowBelowBaseShare += float64(a.lowBelow)
 				if st := kept[name][id]; st != nil {
 					if st.path >= 10 {
 						wiggle = append(wiggle, (st.sumAbs-math.Abs(st.sumNet))*180/math.Pi/(st.path/10))
@@ -1041,6 +1134,12 @@ func (s *scorer) summary() Summary {
 			m.EfficiencyUnder80 = shareBelow(eff, 0.8)
 			m.AxisRows = len(axisErr)
 			m.SlipP50, m.SlipP90, m.SlipP99 = quantile(slip, .5), quantile(slip, .9), quantile(slip, .99)
+			m.VerticalPairs = len(baseStep)
+			m.BaseStepRMS, m.HeightStepRMS = rms(baseStep), rms(heightStep)
+			if m.VerticalRows > 0 {
+				m.LowAboveBaseShare /= float64(m.VerticalRows)
+				m.LowBelowBaseShare /= float64(m.VerticalRows)
+			}
 			m.TurnFrames = len(turnLag)
 			m.TurnLagP50, m.TurnLagP90 = quantile(turnLag, .5), quantile(turnLag, .9)
 			m.TurnAbsP50, m.TurnAbsP90 = quantile(turnAbs, .5), quantile(turnAbs, .9)
@@ -1080,6 +1179,18 @@ func quantile(v []float64, q float64) float64 {
 }
 
 func median(v []float64) float64 { return quantile(v, .5) }
+
+// rms is the root mean square, zero for no values.
+func rms(v []float64) float64 {
+	if len(v) == 0 {
+		return 0
+	}
+	var sum float64
+	for _, x := range v {
+		sum += x * x
+	}
+	return math.Sqrt(sum / float64(len(v)))
+}
 
 func mean(v []float64) float64 {
 	sum := 0.0

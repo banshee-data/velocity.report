@@ -205,3 +205,35 @@ func TestFitRegionalGroundSurfaceFromBackgroundFailsClosedBeforeGridEvidence(t *
 		t.Fatal("accepted nil manager")
 	}
 }
+
+// Two neighbouring cells fitted half a metre apart: HeightAt steps by the
+// whole disagreement at their shared edge, and a box standing on it would
+// hop there. BlendedHeightAt meets each cell's plane at its centre and
+// crosses the edge without a step.
+func TestBlendedHeightAtHasNoStepAtACellEdge(t *testing.T) {
+	var points []PointASC
+	points = append(points, flatRegion(2, 2, -2.3)...)  // cell (0, 0), centre (5, 5)
+	points = append(points, flatRegion(12, 2, -1.8)...) // cell (1, 0), centre (15, 5)
+	regional, err := FitRegionalGroundSurface(points, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regional.RegionCount != 2 {
+		t.Fatalf("region count = %d, want 2", regional.RegionCount)
+	}
+	const eps = 1e-6
+	if step := regional.HeightAt(10+eps, 5) - regional.HeightAt(10-eps, 5); math.Abs(step) < 0.4 {
+		t.Fatalf("HeightAt steps %.3f m at the edge, want the cells' half-metre disagreement", step)
+	}
+	if step := regional.BlendedHeightAt(10+eps, 5) - regional.BlendedHeightAt(10-eps, 5); math.Abs(step) > 1e-4 {
+		t.Fatalf("BlendedHeightAt steps %.4f m at the edge, want none", step)
+	}
+	for _, c := range []struct{ x, want float64 }{{5, -2.3}, {15, -1.8}, {10, -2.05}} {
+		if got := regional.BlendedHeightAt(c.x, 5); math.Abs(got-c.want) > 1e-6 {
+			t.Errorf("BlendedHeightAt(%.0f, 5) = %.4f, want %.4f", c.x, got, c.want)
+		}
+	}
+	if got := (BlendedSurface{Surface: &regional}).HeightAt(15, 5); math.Abs(got-(-1.8)) > 1e-6 {
+		t.Fatalf("BlendedSurface.HeightAt = %.4f, want the blended height -1.8", got)
+	}
+}
