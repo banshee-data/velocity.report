@@ -53,6 +53,7 @@ flowchart TB
     l3bg0021["<b>l3bg0021</b><br/>A replay that starts from nothing, the…<br/>answered · 1h28m machine + 6h person (took 3h)<br/>manual: implement, decide, write"]:::answered
     l3bg0022["<b>l3bg0022</b><br/>Does the background converge by its own…<br/>proposed · 58m machine + 2h person<br/>manual: write<br/>needs tooling: corpus_screen, ground_truth_eval"]:::proposed
     l3bg0023["<b>l3bg0023</b><br/>One L3 for every replay, without losing…<br/>answered · 5h52m machine + 2h person (took 9h)<br/>manual: write"]:::answered
+    l3bg0024["<b>l3bg0024</b><br/>The best L3 currently known, chosen for…<br/>approved · 1h42m machine + 1h person<br/>manual: write<br/>needs tooling: ground_truth_eval, corpus_screen"]:::approved
   end
   subgraph area_l4clus ["l4clus: L4 clustering"]
     l4clus0001["<b>l4clus0001</b><br/>A range-adaptive DBSCAN neighbourhood…<br/>answered · 14m machine + 10h person (took 1m7s)<br/>manual: implement, write"]:::answered
@@ -126,6 +127,7 @@ flowchart TB
   l3bg0020 --> l3bg0021
   l3bg0021 --> l3bg0022
   perf0002 --> l3bg0023
+  l3bg0023 --> l3bg0024
   geom0003 --> l4clus0001
   geom0003 --> l4clus0002
   l3bg0005 --> l4clus0002
@@ -155,6 +157,7 @@ flowchart TB
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0019](l3bg/l3bg0019.md) Where the Stage B arms lose a reviewed return, return by return, on kirk0: proposed, awaiting approval; 16m machine + 1h person; after geom0004, l3bg0018; asks [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations), [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l3-candidates-corpus-dwell-2026-10 #recommendations](../../docs/lidar/operations/l3-candidates-corpus-dwell-2026-10.md#recommendations).
 - [l3bg0022](l3bg/l3bg0022.md) Does the background converge by its own criterion before the ceiling, on the corpus: proposed, awaiting approval; 58m machine + 2h person; after l3bg0021; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
+- [l3bg0024](l3bg/l3bg0024.md) The best L3 currently known, chosen for the defaults from the substituted replay L3 and CMR: ready, but a step needs tooling; 1h42m machine + 1h person; after l3bg0023; asks [replay-l3-consolidation-2026-10 #recommendations](../../docs/lidar/operations/replay-l3-consolidation-2026-10.md#recommendations).
 - [l4clus0003](l4clus/l4clus0003.md) CMR's minimum cluster size against the mid-range fragments, on kirk: proposed, awaiting approval; 20m machine + 1h person; after l4clus0002; asks [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations).
 - [l5id0006](l5id/l5id0006.md) One vehicle, one track: the survivor's box, and tentative priority with the overlap end: proposed, awaiting approval; 2h24m machine + 4h person; after l5id0005; asks [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [published-box-refinement-2026-10 #the-box-with-one-track-per-vehi…](../../docs/lidar/operations/published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
 - [l8fol0001](l8fol/l8fol0001.md) Both parties observed (B1): following opportunity on the corpus, label-free: proposed, awaiting approval; 1h24m machine + 2h person; asks [lidar-behaviour-analytics-plan #13-open-research-questions](../../docs/plans/lidar-behaviour-analytics-plan.md#13-open-research-questions), [0.5.2-sprint-review #r5-encounter-totals-are-not-uni…](../../docs/lidar/operations/0.5.2-sprint-review.md#r5-encounter-totals-are-not-unique-follower-opportunity), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
@@ -209,5 +212,5 @@ flowchart TB
 
 ## Totals
 
-- 20 open experiments: 23h50m machine + 104h30m person estimated.
+- 21 open experiments: 25h32m machine + 105h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.
