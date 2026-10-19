@@ -68,6 +68,9 @@ type Config struct {
 	Tuning *config.TuningConfig
 
 	BenchmarkOutput string
+	// PerCPUCopy also writes the benchmark document under the per-CPU
+	// baseline name for this host's CPU model, beside BenchmarkOutput.
+	PerCPUCopy      bool
 	CompareBaseline string
 	// HostClass overrides the detected performance-matrix row. Empty means
 	// detect it.
@@ -1028,7 +1031,7 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 	}
 
 	if cfg.CompareBaseline != "" {
-		baseline, err := readBaseline(cfg.CompareBaseline)
+		choice, err := chooseBaseline(cfg.CompareBaseline, &benchResult, workTolerance(cfg))
 		switch {
 		case err != nil:
 			// A comparison that was asked for and could not happen is a
@@ -1037,15 +1040,18 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 			fmt.Fprintf(os.Stderr, "\n[BASELINE UNREADABLE] %v\n", err)
 			exitCode = 1
 		default:
-			if idErr := checkWorkloadIdentity(baseline, &benchResult, workTolerance(cfg)); idErr != nil {
-				fmt.Fprintf(os.Stderr, "\n[BASELINE REFUSED] %v\n", idErr)
+			// Which baseline was read is part of the result, so it is printed
+			// whether or not the run is quiet.
+			fmt.Fprintf(os.Stderr, "\n[BASELINE] %s\n", choice.Notice)
+			if choice.Identity != nil {
+				fmt.Fprintf(os.Stderr, "\n[BASELINE REFUSED] %v\n", choice.Identity)
 				fmt.Fprintf(os.Stderr,
 					"Not reporting a regression: these runs did not measure the same workload.\n"+
 						"Regenerate the baseline for this profile before reading any comparison.\n")
 				exitCode = 1
 			} else {
 				comparison, hasRegression := compareMetrics(
-					filepath.Base(cfg.CompareBaseline), baseline, metrics, cfg.RegressionThreshold)
+					filepath.Base(choice.Path), choice.Baseline, metrics, cfg.RegressionThreshold)
 				benchResult.Comparison = comparison
 				printComparisonSummary(comparison, cfg.RegressionThreshold)
 				if hasRegression {
@@ -1065,9 +1071,22 @@ func handleBenchmarkOutput(cfg Config, res *result, metrics *PerformanceMetrics,
 		log.Printf("Error marshaling benchmark result: %v", err)
 		return 1
 	}
+	// A committed baseline is a text file, and the end-of-file hook would
+	// otherwise add the newline to every capture before it could be committed.
+	data = append(data, '\n')
 	if err := os.WriteFile(outputPath, data, 0o644); err != nil {
 		log.Printf("Error writing benchmark file: %v", err)
 		return 1
+	}
+	if cfg.PerCPUCopy {
+		if cpuPath := perCPUBaselinePath(outputPath, benchResult.SystemInfo.CPUModel); cpuPath == "" {
+			fmt.Fprintf(os.Stderr, "\n[BASELINE] this host's CPU is not named; no per-CPU copy of %s written\n", outputPath)
+		} else if err := os.WriteFile(cpuPath, data, 0o644); err != nil {
+			log.Printf("Error writing the per-CPU copy: %v", err)
+			return 1
+		} else {
+			fmt.Printf("Per-CPU copy: %s\n", cpuPath)
+		}
 	}
 
 	if !cfg.Quiet {

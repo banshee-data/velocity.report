@@ -102,8 +102,10 @@ Within `system_info`, platform and host class refuse; CPU count, CPU model and G
 version only warn, naming both values. A hosted runner's CPU model is not the job's to
 choose: runners of one class and CPU count are given different CPU generations, and
 kirk0's full profile has taken about a quarter longer on one than another for the same
-tuning and identical work counters. Read a regression against a baseline from another
-CPU model as the machine's until an A/B run on one runner says otherwise. The model is
+tuning and identical work counters. A comparison avoids that where it can, reading the
+baseline captured on its own CPU model ([baselines per CPU model](#baselines-per-cpu-model));
+against another CPU's, read a regression as the machine's until an A/B run on one runner
+says otherwise. The model is
 the first `model name` in `/proc/cpuinfo` on Linux, the board's `Model` line on a
 Raspberry Pi, and `machdep.cpu.brand_string` on macOS; baselines captured before
 October 2026 do not carry it.
@@ -255,9 +257,10 @@ identical code over the same capture on one machine produced worst-frame times f
 
 ### Create a baseline benchmark
 
-Baselines are named `baseline-<capture>-<profile>[-ci].json`, with the `-ci` suffix
-for runner hardware and no suffix for local. Capture them with the Makefile rather
-than by hand, so the repeat count and output path stay consistent:
+Baselines are named `baseline-<capture>-<profile>-<host class>.json`, and a capture
+writes a copy named for its host's CPU model beside it
+([baselines per CPU model](#baselines-per-cpu-model)). Capture them with the Makefile
+rather than by hand, so the repeat count and output paths stay consistent:
 
 ```bash
 # Capture one profile locally as the median of five runs
@@ -532,16 +535,52 @@ Choose PCAP files that provide comprehensive pipeline coverage:
 | ---------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------- |
 | ⚡ Perf A/B (`perf-ab.yml`)                    | Pull requests touching the pipeline, tuning or harness  | Head against base on one runner; fails above 1.10 of base wall clock      |
 | ⚡ Performance Regression (nightly)            | Nightly, on `main`                                      | `make test-perf-all` against the committed `-ci` baselines and the budget |
-| 📏 Capture Perf Baseline (`perf-baseline.yml`) | Pull requests touching the harness or tuning; on demand | Captures `-ci` baselines and uploads them as an artifact to commit        |
+| 📏 Capture Perf Baseline (`perf-baseline.yml`) | Pull requests touching the harness or tuning; on demand | Captures `-ci` baselines, class and per-CPU; uploads only what it wrote   |
 
 The capture is kirk0, fetched through Git LFS (`actions/checkout` with `lfs: true`).
 
+### Baselines per CPU model
+
+Hosted runners of one class are given different CPU generations, and kirk0's full
+profile has taken from 7.5 to 14.4 s on them for identical work, so one baseline per
+class either fails a run for its runner or hides a regression behind it. A baseline is
+therefore also kept per CPU model, beside the class one:
+
+| File                                        | What it measured                           |
+| ------------------------------------------- | ------------------------------------------ |
+| `baseline-kirk0-full-ci.json`               | Whichever runner captured it: the fallback |
+| `baseline-kirk0-full-ci-amd-epyc-7763.json` | An AMD EPYC 7763                           |
+| `baseline-kirk0-full-ci-amd-epyc-9v74.json` | An AMD EPYC 9V74                           |
+
+`make test-perf` names the class baseline, and `lidar-bench` compares against the
+per-CPU baseline beside it when there is one for the runner's CPU and it measured the
+same workload, and against the class baseline otherwise. A per-CPU baseline from an
+earlier tuning falls back rather than refusing, so it is clutter, not a trap. Every
+comparison prints which file it read, as a `[BASELINE]` line, whether or not the run is
+quiet. The name is the CPU model in lower case, without trademarks, core counts,
+"Processor", "CPU", clock speed or board revision: `amd-epyc-7763`,
+`intel-xeon-platinum-8370c`, `apple-m1-pro`, `raspberry-pi-5-model-b`.
+
+`make perf-baseline` writes both, the class baseline and its host's per-CPU copy
+(`-per-cpu-copy`). The 📏 Capture Perf Baseline artifact holds only the files its run
+wrote, so a committed baseline for another CPU is never mistaken for a fresh one. A run
+lands on whichever CPU the pool gives it, so a CPU's baseline arrives with the first
+capture that lands there: commit its per-CPU files from the artifact. A tuning change
+that captures the class pair again should capture or remove the per-CPU files too.
+
+The October 2026 set covers the two CPUs seen most: the EPYC 7763 from `main` at
+`008026cf2` (nine repeats: full 16,244 ms, l3-only 10,964 ms) and the EPYC 9V74 from
+#792's capture (five repeats: full 13,169 ms, l3-only 9,017 ms). The fastest band seen
+(7.5 to 8.3 s on the earlier L3) has no baseline yet; a nightly run there compares
+against the class baseline and says so.
+
 ### Baseline management
 
-Baselines live in `internal/lidar/perf/baseline/`, one per cell:
-`baseline-<capture>-<profile>-<host class>.json`. Each records its tuning fingerprint,
-platform, host class, CPU model and the commit it measured. Until October 2026 no `-ci` file was
-committed, so the nightly fell back to the frame-budget check alone without failing;
+Baselines live in `internal/lidar/perf/baseline/`, one per cell,
+`baseline-<capture>-<profile>-<host class>.json`, and one per CPU model captured. Each
+records its tuning fingerprint, platform, host class, CPU model and the commit it
+measured. Until October 2026 no `-ci` file was committed, so the nightly fell back to
+the frame-budget check alone without failing;
 the first pair was captured on `main` at `0504248c` with nine repeats. #787 moved the
 defaults' L3 and so the fingerprint, and the pair was captured again on `main` at
 `008026cf2`, nine repeats, on an AMD EPYC 7763: full 16,244 ms, l3-only 10,964 ms.
@@ -562,13 +601,13 @@ earlier L3, and on today's defaults an EPYC 9V74 at 13.2 s and an EPYC 7763 at 1
 ratio between the two CPUs on today's defaults (0.81), which the bands' ratio matches
 (0.77).
 
-The committed pair is from the slowest band, which is also the commonest, so a nightly
-run never fails for its runner alone. The cost is a wider blind spot: at the 50 %
-threshold a change has to cost about 1.5 times as much on an EPYC 7763 before the nightly
-fails, about 1.85 times on an EPYC 9V74, and roughly 2.6 times on the fastest band (an
+The EPYC 7763 and 9V74 have their own baselines ([above](#baselines-per-cpu-model)), so
+a nightly run on either is held to its own CPU's at the 50 % threshold. The class pair is
+from the slowest band, which is also the commonest, so a run on a CPU without its own
+baseline never fails for its runner alone; the cost there is a wider blind spot, a change
+having to cost roughly 2.6 times as much on the fastest band before the nightly fails (an
 estimate from the earlier L3's ratio between the bands). The ⚡ Perf A/B gate, which
-measures base and head on one runner, is what catches a 10 % change. A nightly run on
-another CPU warns and names both.
+measures base and head on one runner, is what catches a 10 % change.
 
 ## Understanding metrics
 

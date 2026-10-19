@@ -1821,7 +1821,9 @@ test-perf-ab:
 
 # Capture a baseline for one profile as the median of PERF_BASELINE_REPEATS
 # runs. Run this on the hardware the gate runs on: a baseline captured
-# elsewhere measures that other machine.
+# elsewhere measures that other machine. It writes the host class's baseline
+# and a copy named for this host's CPU model, which test-perf prefers on a
+# host with that CPU; hosted runners of one class differ by CPU generation.
 perf-baseline:
 	@NAME="$${NAME:-kirk0}"; \
 	BASE_NAME="$${NAME%.*}"; \
@@ -1837,7 +1839,7 @@ perf-baseline:
 		./lidar-bench -pcap "$$PCAP_FILE" -profile "$$PROFILE" \
 			-repeat "$(PERF_BASELINE_REPEATS)" \
 			-max-frames-over-budget-pct 100 \
-			-benchmark-output "$$BASELINE_FILE" || EXIT_CODE=$$?; \
+			-benchmark-output "$$BASELINE_FILE" -per-cpu-copy || EXIT_CODE=$$?; \
 	fi; \
 	rm -f lidar-bench; \
 	if [ $$EXIT_CODE -ne 0 ]; then \

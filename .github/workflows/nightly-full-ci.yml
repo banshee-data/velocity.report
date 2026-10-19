@@ -472,3 +472,4 @@ jobs:
           path: |
             *_benchmark.json
             internal/lidar/perf/baseline/baseline-*-ci.json
+            internal/lidar/perf/baseline/baseline-*-ci-*.json

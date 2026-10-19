@@ -1,0 +1,65 @@
+{
+  "version": "2.0",
+  "timestamp": "2026-10-19T19:30:33Z",
+  "pcap_file": "kirk0.pcapng",
+  "profile": "full",
+  "tuning_fingerprint": "15fe4df885c8",
+  "system_info": {
+    "goos": "linux",
+    "goarch": "amd64",
+    "host_class": "ci",
+    "num_cpu": 4,
+    "cpu_model": "AMD EPYC 9V74 80-Core Processor",
+    "go_version": "go1.27.1",
+    "commit_hash": "3073b8cee67b"
+  },
+  "metrics": {
+    "wall_clock_ms": 13169,
+    "frame_time_stats": {
+      "min_ms": 3.700047,
+      "max_ms": 54.319224,
+      "avg_ms": 10.762335115384632,
+      "p50_ms": 7.904442,
+      "p95_ms": 37.607371,
+      "p99_ms": 44.199769,
+      "samples": 832
+    },
+    "frames_per_second": 63.178677196446195,
+    "packets_per_second": 11370.71911306857,
+    "points_per_second": 4356933.40420685,
+    "heap_alloc_bytes": 17241896,
+    "total_alloc_bytes": 20358379160,
+    "num_gc": 878,
+    "gc_pause_ns": 41486427,
+    "pipeline_time_ms": 13169,
+    "cluster_time_ms": 3872,
+    "tracking_time_ms": 196,
+    "classify_time_ms": 17,
+    "work": {
+      "frames": 832,
+      "foreground_points": 1760445,
+      "background_points": 55616011,
+      "clusters": 5814,
+      "confirmed_tracks": 39,
+      "distinct_confirmed_tracks": 130
+    },
+    "frame_budget": {
+      "budget_ms": 98,
+      "frames_over": 0,
+      "frames_over_pct": 0,
+      "worst_ms": 54.319224
+    }
+  },
+  "repeat_spread": {
+    "runs": 5,
+    "wall_clock_ms": [
+      13125,
+      13133,
+      13169,
+      13252,
+      13262
+    ],
+    "median_ms": 13169,
+    "spread_pct": 1.0438095238095237
+  }
+}
