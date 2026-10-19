@@ -98,6 +98,11 @@ func isNilInterface(i interface{}) bool {
 // backward-compatible alias packages.
 var IsNilInterface = isNilInterface
 
+// fitGroundSurface fits the regional ground surface from the settled
+// background. It is a variable so a test can stand in a surface without
+// settling a grid with ring elevations; nothing else replaces it.
+var fitGroundSurface = l3grid.FitRegionalGroundSurfaceFromBackground
+
 // heapBytes returns the current heap allocation in bytes.
 func heapBytes() uint64 {
 	var m runtime.MemStats
@@ -353,6 +358,12 @@ type TrackingPipelineConfig struct {
 	SurfaceGroundFloor   float64 // metres above the fitted surface; default 0.2
 	SurfaceGroundCeiling float64 // metres above the fitted surface; default 4.5
 
+	// GroundSurfaceForTracker fits the same surface for the tracker's
+	// published box (l5tracks.BoxModelConfig.GroundAnchor) and hands it to
+	// the tracker, whether or not UseSurfaceGround clips by it: the clip is
+	// unchanged. Off by default; the replay experiment box_ground sets it.
+	GroundSurfaceForTracker bool
+
 	// SurfaceGroundRegionMetres is the per-side size of the grid cells the
 	// surface-ground fit re-fits independently, so a crest, valley, or a
 	// driveway apron meeting the road at a different grade is not forced
@@ -422,6 +433,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	heightBandCeiling := cfg.HeightBandCeiling
 	removeGround := cfg.RemoveGround
 	useSurfaceGround := cfg.UseSurfaceGround
+	surfaceForTracker := cfg.GroundSurfaceForTracker
 	surfaceGroundFloor := cfg.SurfaceGroundFloor
 	surfaceGroundCeiling := cfg.SurfaceGroundCeiling
 	surfaceGroundRegionMetres := cfg.SurfaceGroundRegionMetres
@@ -795,22 +807,30 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// plane, and the road is at approximately −2.3 m for the deployed ~2.3 m mount.
 		filteredPoints := worldPoints
 		var lowerGroundRejected []l4perception.WorldPoint
-		if removeGround {
-			if useSurfaceGround && groundSurface == nil {
-				surface, err := l3grid.FitRegionalGroundSurfaceFromBackground(cfg.BackgroundManager, surfaceGroundRegionMetres)
-				if err == nil {
-					groundSurface = &surface
-					if cfg.GroundSurfaceFit != nil {
-						cfg.GroundSurfaceFit.Store(&surface)
-					}
-					tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm",
-						surface.Global.Support, surface.Global.GradientMetre, surface.Global.RMSEMetres,
-						surface.RegionCount, surface.CellMetres)
-				} else {
-					logSurfaceGroundFallbackOnce.Do(func() { diagf("Surface-ground filter waiting for settled background: %v", err) })
+		// The surface is fitted once, when the background has settled, for
+		// the clip, the tracker's published box, or both.
+		if ((removeGround && useSurfaceGround) || surfaceForTracker) && groundSurface == nil {
+			surface, err := fitGroundSurface(cfg.BackgroundManager, surfaceGroundRegionMetres)
+			if err == nil {
+				groundSurface = &surface
+				if cfg.GroundSurfaceFit != nil {
+					cfg.GroundSurfaceFit.Store(&surface)
 				}
+				if surfaceForTracker && cfg.Tracker != nil {
+					// The box reads the blended surface: the clip's
+					// per-cell planes step at cell edges, which a base
+					// stood on them would draw as a hop.
+					cfg.Tracker.SetGroundSurface(l3grid.BlendedSurface{Surface: groundSurface})
+				}
+				tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm",
+					surface.Global.Support, surface.Global.GradientMetre, surface.Global.RMSEMetres,
+					surface.RegionCount, surface.CellMetres)
+			} else {
+				logSurfaceGroundFallbackOnce.Do(func() { diagf("Surface-ground fit waiting for settled background: %v", err) })
 			}
-			if groundSurface != nil {
+		}
+		if removeGround {
+			if useSurfaceGround && groundSurface != nil {
 				floor, ceiling := surfaceGroundFloor, surfaceGroundCeiling
 				if floor == 0 {
 					floor = .2

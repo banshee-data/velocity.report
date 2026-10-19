@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 )
 
 const (
@@ -174,7 +176,13 @@ type TrackedObject struct {
 	BoxHeadingRad float32
 	BoxLength     float32
 	BoxWidth      float32
-	box           *BoxEstimator
+	// BoxZ and BoxHeight are the published box's base and height when
+	// BoxModelConfig.GroundAnchor stands it on the fitted surface; zero
+	// otherwise, when viewers draw LatestZ and OBBHeight, which stay this
+	// frame's cluster values either way.
+	BoxZ      float32
+	BoxHeight float32
+	box       *BoxEstimator
 	// overlapCoasts counts this coast's frames whose drawn box lay on a
 	// live confirmed track's (TrackerConfig.OverlapEndFrames).
 	overlapCoasts int
@@ -302,6 +310,10 @@ type Tracker struct {
 	// frameClusters are this update's clusters, for the published box's
 	// neighbours; nil outside Update.
 	frameClusters []WorldCluster
+
+	// groundSurface is the fitted ground surface the published box stands
+	// on under BoxModelConfig.GroundAnchor; nil until SetGroundSurface.
+	groundSurface l4perception.HeightSurface
 
 	// timeStats records the capture-time stream for diagnostics.
 	timeStats TimeDomainStats
