@@ -2,6 +2,7 @@ package scene
 
 import (
 	"math"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -279,3 +280,32 @@ func TestExportSmoothedTrailRefusesAnotherRecordingsRecord(t *testing.T) {
 }
 
 func parseStartNs(s string) (int64, error) { return strconv.ParseInt(s, 10, 64) }
+
+func TestExportSmoothedTrailRefusesARecordItCannotRead(t *testing.T) {
+	src, _ := recordTrackedScene(t, false)
+	if err := os.WriteFile(filepath.Join(src, recorder.FilterRecordFile), []byte("not gzip"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Export(Options{VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "out"), SmoothedTrail: true}); err == nil ||
+		!strings.Contains(err.Error(), "filter record") {
+		t.Fatalf("err = %v, want the filter record's read error", err)
+	}
+}
+
+func TestExportSmoothedTrailRefusesARecordWithNoStates(t *testing.T) {
+	// A replay that stopped before its first frame leaves a header and
+	// nothing else: there is no smoothed state to draw, and the export must
+	// not fall back to the online trail under a smoothed name.
+	src, _ := recordTrackedScene(t, false)
+	w, err := recorder.NewFilterRecordWriter(src, recorder.FilterRecordHeader{EstimatorID: "cv_kf_v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Export(Options{VRLOGPath: src, OutDir: filepath.Join(t.TempDir(), "out"), SmoothedTrail: true}); err == nil ||
+		!strings.Contains(err.Error(), "released no states") {
+		t.Fatalf("err = %v, want a refusal of a record with no states", err)
+	}
+}

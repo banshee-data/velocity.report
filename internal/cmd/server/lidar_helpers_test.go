@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -395,5 +396,19 @@ func TestAttachFilterRecordOnlyForAReplay(t *testing.T) {
 	}
 	if len(logs) == 0 || !strings.Contains(logs[len(logs)-1], "filter record not started") {
 		t.Fatalf("logs %q, want the sidecar failure logged", logs)
+	}
+	// A recording whose sidecar failed mid-way is logged at detach, not lost:
+	// a frame JSON cannot carry (NaN) is the write failure here.
+	host := &filterRecordHostStub{}
+	w := attachFilterRecord(host, recordingSourceInfoStub{source: server.DataSourcePCAP}, filepath.Join(t.TempDir(), "run.vrlog"), "sensor-a", logf)
+	if w == nil {
+		t.Fatal("no filter record attached")
+	}
+	w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 9, Steps: []l5tracks.FilterStep{
+		{TrackID: "t", Posterior: l5tracks.FilterMoments{X: float32(math.NaN())}},
+	}})
+	detachFilterRecord(host, w, logf)
+	if !strings.Contains(logs[len(logs)-1], "filter record incomplete") {
+		t.Fatalf("logs %q, want the failed recording logged at detach", logs)
 	}
 }

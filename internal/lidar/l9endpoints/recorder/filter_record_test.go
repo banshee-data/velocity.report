@@ -1,9 +1,15 @@
 package recorder
 
 import (
+	"bytes"
+	"compress/gzip"
+	"errors"
+	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,5 +187,130 @@ func TestFilterRecordCloseIsIdempotentAndDropsLateFrames(t *testing.T) {
 	}
 	if n != 1 {
 		t.Fatalf("read %d frames, want the one written before Close", n)
+	}
+}
+
+// writeSidecar writes lines as a gzipped sidecar in dir, so a reader test can
+// hand ReadFilterRecord what a writer never produces.
+func writeSidecar(t *testing.T, dir string, lines ...string) {
+	t.Helper()
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	for _, l := range lines {
+		if _, err := gz.Write([]byte(l + "\n")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, FilterRecordFile), b.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFilterRecordReaderRefusesWhatAWriterNeverWrites(t *testing.T) {
+	header := fmt.Sprintf(`{"version":%d,"estimator_id":"cv_kf_v1"}`, filterRecordVersion)
+	for _, tc := range []struct {
+		name  string
+		lines []string
+		want  string
+	}{
+		{"a header that is not JSON", []string{"not json"}, "read header"},
+		{"another version", []string{fmt.Sprintf(`{"version":%d,"estimator_id":"cv_kf_v1"}`, filterRecordVersion+1)}, "this reader knows"},
+		{"a header without an estimator", []string{fmt.Sprintf(`{"version":%d}`, filterRecordVersion)}, "names no estimator"},
+		{"a frame that is not JSON", []string{header, "{"}, "line 2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeSidecar(t, dir, tc.lines...)
+			_, err := ReadFilterRecord(dir, func(l5tracks.FilterFrame) error { return nil })
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("err = %v, want one saying %q", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestFilterRecordReaderStopsAtTheVisitorsError(t *testing.T) {
+	dir := t.TempDir()
+	w, err := NewFilterRecordWriter(dir, FilterRecordHeader{EstimatorID: "cv_kf_v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 1})
+	w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 2})
+	if err := w.Close(); err != nil {
+		t.Fatal(err)
+	}
+	stop := errors.New("stop")
+	var n int
+	_, err = ReadFilterRecord(dir, func(l5tracks.FilterFrame) error { n++; return stop })
+	if !errors.Is(err, stop) || n != 1 {
+		t.Fatalf("err = %v after %d frames, want the visitor's error after the first", err, n)
+	}
+}
+
+func TestFilterRecordWriterReportsWhereItCannotWrite(t *testing.T) {
+	header := FilterRecordHeader{EstimatorID: "cv_kf_v1"}
+	// The VRLOG directory's parent is a file, so the directory cannot exist.
+	file := filepath.Join(t.TempDir(), "file")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewFilterRecordWriter(filepath.Join(file, "run.vrlog"), header); err == nil {
+		t.Fatal("a VRLOG directory under a file was accepted")
+	}
+	// The sidecar's name is taken by a directory.
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, FilterRecordFile), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if HasFilterRecord(dir) {
+		t.Fatal("a directory in the sidecar's place reports a filter record")
+	}
+	if _, err := NewFilterRecordWriter(dir, header); err == nil {
+		t.Fatal("a sidecar path held by a directory was accepted")
+	}
+}
+
+func TestFilterRecordWriterKeepsTheFirstErrorOfTheRecording(t *testing.T) {
+	dir := t.TempDir()
+	w, err := NewFilterRecordWriter(dir, FilterRecordHeader{EstimatorID: "cv_kf_v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := w.Path(), filepath.Join(dir, FilterRecordFile); got != want {
+		t.Fatalf("Path() = %q, want %q", got, want)
+	}
+	// JSON has no NaN, so a frame carrying one cannot be written; the frame
+	// is not counted, later frames are dropped, and Close says why.
+	nan := float32(math.NaN())
+	w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 7, Steps: []l5tracks.FilterStep{
+		{TrackID: "t", FrameUnixNanos: 7, Posterior: l5tracks.FilterMoments{X: nan}},
+	}})
+	w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 8})
+	if frames, _ := w.Counts(); frames != 0 {
+		t.Fatalf("counted %d frames after a failed write, want 0", frames)
+	}
+	if err := w.Close(); err == nil || !strings.Contains(err.Error(), "write frame at 7") {
+		t.Fatalf("Close: %v, want the failed frame's error", err)
+	}
+}
+
+func TestFilterRecordWriterReportsAFailedFlush(t *testing.T) {
+	dir := t.TempDir()
+	w, err := NewFilterRecordWriter(dir, FilterRecordHeader{EstimatorID: "cv_kf_v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w.ObserveFilterFrame(l5tracks.FilterFrame{FrameUnixNanos: 1})
+	// The file is gone from under the buffered writer, as when a volume is
+	// unmounted mid-recording: the flush at Close is where it shows.
+	if err := w.file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Close(); err == nil {
+		t.Fatal("Close succeeded with its file already closed")
 	}
 }
