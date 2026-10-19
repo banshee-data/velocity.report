@@ -45,7 +45,9 @@ Commands:
   relayout  Rewrite the head in the storage layout (from the single-file
             layout, or with another --window-chunk); the state is unchanged
   nest      Move an annotation tree into the layout: sets in their capture
-            folder, linked packs in the set's views/, others in packs/
+            folder, linked packs in the set's views/, others in packs/;
+            --into DIR --dataset CLONE moves a local tree into a dataset's
+            labels/, adopting the local history of what it already holds
   check     Warn about likely labelling mistakes in a pack's membership: a
             one-frame object, a gap, an impossible speed, a shared return, a
             tiny mask, an object labelled twice (as the window's Checks panel)
@@ -372,6 +374,8 @@ func labelsRelayout(args []string) error {
 func labelsNest(args []string) error {
 	fs := flag.NewFlagSet("labels nest", flag.ContinueOnError)
 	root := fs.String("root", "", "Annotation root: --lidar-annotation-dir, or a dataset's labels/ (required)")
+	into := fs.String("into", "", "Move the tree at --root into this one instead, a dataset's labels/ (which must be in the layout already)")
+	dataset := fs.String("dataset", "", "With --into: the dataset clone, whose manifest.json names each set's capture folder by its bound file")
 	dryRun := fs.Bool("dry-run", false, "Print the moves without making them")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -379,7 +383,16 @@ func labelsNest(args []string) error {
 	if *root == "" {
 		return fmt.Errorf("--root is required")
 	}
-	report, err := labelset.Nest(*root, *dryRun)
+	if *dataset != "" && *into == "" {
+		return fmt.Errorf("--dataset goes with --into")
+	}
+	var report *labelset.NestReport
+	var err error
+	if *into != "" {
+		report, err = labelset.Gather(*root, *into, labelset.GatherOptions{Dataset: *dataset, DryRun: *dryRun})
+	} else {
+		report, err = labelset.Nest(*root, *dryRun)
+	}
 	if report != nil {
 		if werr := writeJSON(os.Stdout, report); werr != nil && err == nil {
 			err = werr
