@@ -1,43 +1,43 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-17T06:25:49Z",
+  "timestamp": "2026-10-19T05:12:08Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "l3-only",
-  "tuning_fingerprint": "9884a9eae446",
+  "tuning_fingerprint": "b615d2db6f9d",
   "system_info": {
     "goos": "darwin",
     "goarch": "arm64",
     "host_class": "mac",
     "num_cpu": 8,
     "go_version": "go1.27.1",
-    "commit_hash": "c85a8c143ab0"
+    "commit_hash": "05033eba0775"
   },
   "metrics": {
-    "wall_clock_ms": 4849,
+    "wall_clock_ms": 5458,
     "frame_time_stats": {
-      "min_ms": 2.105542,
-      "max_ms": 15.118041,
-      "avg_ms": 2.8171047596153853,
-      "p50_ms": 2.840167,
-      "p95_ms": 2.959667,
-      "p99_ms": 3.027958,
+      "min_ms": 2.638,
+      "max_ms": 17.070292,
+      "avg_ms": 3.373742846153844,
+      "p50_ms": 3.355416,
+      "p95_ms": 3.597459,
+      "p99_ms": 4.146333,
       "samples": 832
     },
-    "frames_per_second": 171.58176943699732,
-    "packets_per_second": 30880.80016498247,
-    "points_per_second": 11832636.832336564,
-    "heap_alloc_bytes": 18894016,
-    "total_alloc_bytes": 19436052048,
-    "num_gc": 836,
-    "gc_pause_ns": 53093197,
-    "pipeline_time_ms": 4849,
+    "frames_per_second": 152.4367900329791,
+    "packets_per_second": 27435.141077317698,
+    "points_per_second": 10512359.105899597,
+    "heap_alloc_bytes": 18896160,
+    "total_alloc_bytes": 19493023544,
+    "num_gc": 842,
+    "gc_pause_ns": 56715377,
+    "pipeline_time_ms": 5458,
     "cluster_time_ms": 0,
     "tracking_time_ms": 0,
     "classify_time_ms": 0,
     "work": {
       "frames": 832,
-      "foreground_points": 985224,
-      "background_points": 56391232,
+      "foreground_points": 1760445,
+      "background_points": 55616011,
       "clusters": 0,
       "confirmed_tracks": 0
     },
@@ -45,19 +45,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 15.118041
+      "worst_ms": 17.070292
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      4826,
-      4831,
-      4849,
-      4870,
-      4906
+      5305,
+      5341,
+      5458,
+      5459,
+      5545
     ],
-    "median_ms": 4849,
-    "spread_pct": 1.6576875259013677
+    "median_ms": 5458,
+    "spread_pct": 4.524033930254477
   }
 }

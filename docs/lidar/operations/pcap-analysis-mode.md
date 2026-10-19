@@ -103,9 +103,23 @@ while it ran** (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5,
 seed from first observation, noise relative 0.02), so a paced replay ran an L3
 its `tuning_hash` did not name, while analysis mode, live input and the offline
 tools ran the file. That is a breaking change for reproducing a paced replay
-made before it: the scenes published before then ran the substituted L3, and
-`config/experiments/replay-l3-overrides.json` holds it as an ordinary parameter
-set. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
+made before it: the scenes published before then ran the substituted L3. That
+L3 has since become the defaults' (l3bg0023), and the defaults' previous L3 is
+the parameter set `config/experiments/l3-pre-consolidation.json`. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
+
+A replay starts from nothing, whatever the server replayed before it. Every
+replay resets the background grid, including the state its settling check
+keeps between checks, so a reused server settles as a new one does. And a PCAP
+replay neither restores a region map and grid that an earlier run persisted to
+the database (by source path, or by the scene signature when no path matches)
+nor persists its own, so the same capture replayed twice against one database
+records the same thing both times; a replay with `settle_before_recording`
+persists its own settle, which its recorded pass reloads. And a replay's frames
+end only on their azimuth wrap: the idle timer that finalises a live frame when
+the sensor stops sending no longer cuts a rotation whose reader stalled. Live input keeps
+both uses of the store: a sensor restarted on a scene it knows skips settling.
+Until October 2026 neither held, and a replay's result depended on the
+server's history ([l3bg0021](../../../data/experiments/l3bg/l3bg0021.md)).
 
 **Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
 `pcap_file` (resolved path), `analysis_mode: true`, and the requested

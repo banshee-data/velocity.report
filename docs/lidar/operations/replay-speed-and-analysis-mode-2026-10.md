@@ -67,15 +67,15 @@ the same disk. VRLOGs were written to the LiDAR volume, never to the disk a capt
 (grid preserved), no settling pass, and the arm's speed. Every replay names its tuning file, so a
 server never carries one arm's parameters into the next.
 
-| Arm                  | Speed mode, ratio | L3                                                                |
-| -------------------- | ----------------- | ----------------------------------------------------------------- |
-| `analysis`           | analysis          | the defaults' L3                                                  |
-| `analysis-replay-l3` | analysis          | `config/experiments/replay-l3-overrides.json`: the substituted L3 |
-| `x0.25`              | scaled, 0.25      | the defaults' L3 (`keep_tuning_l3`)                               |
-| `x0.5`               | scaled, 0.5       | the defaults' L3 (`keep_tuning_l3`)                               |
-| `x0.5-replay-l3`     | scaled, 0.5       | the substituted L3: today's published configuration               |
-| `x1`                 | realtime          | the defaults' L3 (`keep_tuning_l3`)                               |
-| `x2`, `x4`           | scaled, 2 and 4   | the defaults' L3 (`keep_tuning_l3`)                               |
+| Arm                  | Speed mode, ratio | L3                                                                                                            |
+| -------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------- |
+| `analysis`           | analysis          | the defaults' L3                                                                                              |
+| `analysis-replay-l3` | analysis          | the parameter set `replay-l3-overrides.json` (removed once l3bg0023 made it the defaults): the substituted L3 |
+| `x0.25`              | scaled, 0.25      | the defaults' L3 (the substitution skipped)                                                                   |
+| `x0.5`               | scaled, 0.5       | the defaults' L3 (the substitution skipped)                                                                   |
+| `x0.5-replay-l3`     | scaled, 0.5       | the substituted L3: today's published configuration                                                           |
+| `x1`                 | realtime          | the defaults' L3 (the substitution skipped)                                                                   |
+| `x2`, `x4`           | scaled, 2 and 4   | the defaults' L3 (the substitution skipped)                                                                   |
 
 Until this experiment a scaled or realtime replay substituted five L3 values for the tuning
 file's (closeness 2.0 against 3, safety margin 0.30 m against 0.15, neighbour confirmation 5
@@ -373,7 +373,7 @@ hash rather than the L3 they ran.
   in `a7118201` and removed, with the substitution itself, before the branch merged. The driver
   is `tools/s2-archive/replay-speed-sweep.py` at the branch head.
 - **Tuning:** `config/tuning.defaults.json` (fingerprint `c2a4fe43ac43`) and
-  `config/experiments/replay-l3-overrides.json`, each named in every replay's start request.
+  `replay-l3-overrides.json`, each named in every replay's start request.
 - **Captures:** `sf-street-speeds/raw/lidar/20260901T1225_80858-0ac_ashbury-downey.pcapng`,
   `20260902T1235_80858-0fc_embarcadero-bay.pcapng` and
   `20260902T1320_80858-0f4_columbus-broadway.pcapng`, copied unchanged to the internal disk.

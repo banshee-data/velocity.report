@@ -442,12 +442,11 @@ func TestCleanupFrames_CurrentFrameEndTimestampFallback(t *testing.T) {
 	})
 	defer fb.Close()
 
-	// Use blocking mode so finalizeCurrentFrame calls finalizeFrame directly
-	fb.SetBlockOnFrameChannel(true)
-
 	old := time.Now().Add(-10 * time.Second)
 
 	// Set current frame with EndWallTime zero but EndTimestamp set and old.
+	// Not blocking: a blocking (replay) builder never finalises an idle frame;
+	// see TestReplayDoesNotCutAStalledRotation.
 	// cleanupFrames takes its own lock, so we only hold the lock for setup.
 	fb.mu.Lock()
 	fb.currentFrame = &LiDARFrame{
@@ -461,6 +460,9 @@ func TestCleanupFrames_CurrentFrameEndTimestampFallback(t *testing.T) {
 	}
 	fb.mu.Unlock()
 
+	// The first cleanup moves the idle frame to the buffer; the second
+	// releases it, since its EndTimestamp is long past the buffer timeout.
+	fb.cleanupFrames()
 	fb.cleanupFrames()
 
 	time.Sleep(100 * time.Millisecond)

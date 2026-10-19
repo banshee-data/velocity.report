@@ -35,16 +35,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
 
 DEFAULTS = "tuning.defaults.json"
-REPLAY_L3 = "experiments/replay-l3-overrides.json"
 
 # speed_mode, speed_ratio (scaled only), tuning. Every arm runs its tuning file's L3
 # as written: the paced L3 substitution the server made until October 2026 is gone.
 ARMS = {
     "analysis": ("analysis", 0, DEFAULTS),
-    "analysis-replay-l3": ("analysis", 0, REPLAY_L3),
     "x0.25": ("scaled", 0.25, DEFAULTS),
     "x0.5": ("scaled", 0.5, DEFAULTS),
-    "x0.5-replay-l3": ("scaled", 0.5, REPLAY_L3),
     "x1": ("realtime", 0, DEFAULTS),
     "x2": ("scaled", 2.0, DEFAULTS),
     "x4": ("scaled", 4.0, DEFAULTS),
@@ -143,7 +140,10 @@ def run_unit(args):
     started = publish.api(f"/pcap/start?sensor_id={publish.SENSOR}", payload)
     time.sleep(5)
     pace = {"scaled": ratio, "realtime": 1.0}.get(mode)
-    budget = max(900, (duration / pace if pace else duration) * 1.5 + 600)
+    # A floor for a host under memory pressure, where an analysis replay that
+    # takes minutes alone has taken forty (SWEEP_MIN_BUDGET_S, default 15 min).
+    floor = float(os.environ.get("SWEEP_MIN_BUDGET_S", "900"))
+    budget = max(floor, (duration / pace if pace else duration) * 1.5 + 600)
     if not publish.wait_for_idle(budget):
         raise RuntimeError(f"replay did not finish within {budget / 60:.0f} min")
     wall = time.time() - began

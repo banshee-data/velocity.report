@@ -1,43 +1,43 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-18T04:39:49Z",
+  "timestamp": "2026-10-19T15:29:53Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "l3-only",
-  "tuning_fingerprint": "9884a9eae446",
+  "tuning_fingerprint": "b615d2db6f9d",
   "system_info": {
     "goos": "linux",
     "goarch": "amd64",
     "host_class": "ci",
     "num_cpu": 4,
     "go_version": "go1.27.1",
-    "commit_hash": "0504248c3b5e"
+    "commit_hash": "94b12d4a6aae"
   },
   "metrics": {
-    "wall_clock_ms": 7471,
+    "wall_clock_ms": 11018,
     "frame_time_stats": {
-      "min_ms": 3.056492,
-      "max_ms": 19.660307,
-      "avg_ms": 4.60816308293269,
-      "p50_ms": 4.649969,
-      "p95_ms": 4.800073,
-      "p99_ms": 4.861832,
+      "min_ms": 5.259962,
+      "max_ms": 27.862773,
+      "avg_ms": 7.761202914663465,
+      "p50_ms": 7.811993,
+      "p95_ms": 8.107463,
+      "p99_ms": 8.447295,
       "samples": 832
     },
-    "frames_per_second": 111.36394057020479,
-    "packets_per_second": 20042.9661357248,
-    "points_per_second": 7679889.70686655,
-    "heap_alloc_bytes": 17077184,
-    "total_alloc_bytes": 19436088048,
-    "num_gc": 852,
-    "gc_pause_ns": 32485402,
-    "pipeline_time_ms": 7470,
+    "frames_per_second": 75.51279724087856,
+    "packets_per_second": 13590.57905245961,
+    "points_per_second": 5207520.058086767,
+    "heap_alloc_bytes": 17076688,
+    "total_alloc_bytes": 19493011360,
+    "num_gc": 848,
+    "gc_pause_ns": 38046569,
+    "pipeline_time_ms": 11018,
     "cluster_time_ms": 0,
     "tracking_time_ms": 0,
     "classify_time_ms": 0,
     "work": {
       "frames": 832,
-      "foreground_points": 985224,
-      "background_points": 56391232,
+      "foreground_points": 1760445,
+      "background_points": 55616011,
       "clusters": 0,
       "confirmed_tracks": 0
     },
@@ -45,23 +45,19 @@
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 19.660307
+      "worst_ms": 27.862773
     }
   },
   "repeat_spread": {
-    "runs": 9,
+    "runs": 5,
     "wall_clock_ms": [
-      7415,
-      7432,
-      7436,
-      7438,
-      7471,
-      7477,
-      7496,
-      7508,
-      7511
+      10944,
+      10966,
+      11018,
+      11019,
+      11205
     ],
-    "median_ms": 7471,
-    "spread_pct": 1.2946729602157787
+    "median_ms": 11018,
+    "spread_pct": 2.384868421052632
   }
 }

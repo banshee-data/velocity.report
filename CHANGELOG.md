@@ -59,10 +59,19 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   and live input always did. Until now it substituted five L3 values for the replay's duration
   (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5, seed from first observation,
   noise relative 0.02), so a paced replay ran an L3 its recorded tuning hash did not name. This is
-  a breaking change for reproducing a paced replay or a published scene made before it; the
-  substituted L3 is kept as the parameter set `config/experiments/replay-l3-overrides.json`.
-  Scene publishing names its tuning file on every start (`REPLAY_TUNING_CONFIG`), and the dev
-  servers resolve replay tuning files under `config/` (`--lidar-config-dir`).
+  a breaking change for reproducing a paced replay or a published scene made before it. Scene
+  publishing names its tuning file on every start (`REPLAY_TUNING_CONFIG`), and the dev servers
+  resolve replay tuning files under `config/` (`--lidar-config-dir`).
+- The defaults' L3 is now that substituted L3 (closeness 2.0, safety margin 0.30 m, neighbour
+  confirmation 5), for live input and every replay alike. Under the previous defaults a replay
+  found about half the vehicle tracks on the corpus and scored HOTA 0.376 against 0.542 on kirk0's
+  labels (l3bg0023); of the L3s measured, this one scores best on kirk's labels (l3bg0025). It also
+  finds about five times the spurious clusters and more long-lived stationary tracks, and a
+  departed vehicle's ghost lasts about half as long again. The previous L3 is kept as
+  `config/experiments/l3-pre-consolidation.json`.
+- A replay starts from nothing, whatever the server replayed before it: the background grid's
+  settling state is reset, a PCAP replay neither restores nor persists a region snapshot (except
+  its own settling pass), and a replay's frames end only on their azimuth wrap (l3bg0021).
 
 ## [0.5.1] - 2026-05-11 🌞 `Sunny Southeast`
 

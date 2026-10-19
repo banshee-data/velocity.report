@@ -144,13 +144,13 @@
     "azimuth_half_width_deg": 180
   },
   "kirk0": {
-    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git unknown, unstamped): case kirk0, captures sha256:ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6, default replay params sha256:c2a4fe43ac43d0ef6d0127f9675fccee84a31677d9dfd0193711b0fe0c226eba; max_range_m is the maximum online-estimate range, 91.72 m, rounded up; sector from 52 to 257 deg anticlockwise: no estimate in the 155 deg from 257 (sector threshold 90 deg)",
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git unknown, unstamped): case kirk0, captures sha256:ae16ca0125f84113f59170337b1f7c9f42dce99f8579c69a0c2246c3b733c0b6, default replay params sha256:15fe4df885c81ef308cf944458e12f0296a887f9ad0f175ebd5ccc58a06bb022; max_range_m is the maximum online-estimate range, 91.69 m, rounded up; sector from 48 to 263 deg anticlockwise: no estimate in the 145 deg from 263 (sector threshold 90 deg)",
     "sensor_x_m": 0,
     "sensor_y_m": 0,
     "min_range_m": 0,
     "max_range_m": 92,
-    "azimuth_centre_deg": 154.5,
-    "azimuth_half_width_deg": 102.5
+    "azimuth_centre_deg": 155.5,
+    "azimuth_half_width_deg": 107.5
   },
   "laguna-eddy": {
     "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case laguna-eddy, captures sha256:c355c14b93c4024e18043e94663b9b24bd31d3efa009a0a30d109cdf4abbb2af, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 156.59 m, rounded up; full circle: the largest arc without an estimate is 0 deg, under the 90 deg that makes a sector",

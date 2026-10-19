@@ -74,10 +74,10 @@ parity between them.
     "engine": "ema_baseline_v1",
     "ema_baseline_v1": {
       "background_update_fraction": 0.02,
-      "closeness_multiplier": 3,
-      "safety_margin_metres": 0.15,
+      "closeness_multiplier": 2.0,
+      "safety_margin_metres": 0.3,
       "noise_relative": 0.02,
-      "neighbour_confirmation_count": 3,
+      "neighbour_confirmation_count": 5,
       "seed_from_first": true,
       "warmup_duration_nanos": 30000000000,
       "warmup_min_frames": 100,
@@ -344,7 +344,7 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
-`dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
+`settling_honest`, `dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
 `dwell_policy_t40_drift2m`, `dwell_policy_t40_median`, `measurement_time`,
 `capture_gap_predict`, `coast_support`, `coast_time_inflation`,
 `class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
@@ -358,8 +358,8 @@ has recorded beside its VRLOG since October 2026 (`filter_record.ndjson.gz`); th
 header names the trail's estimator and stage.
 
 The L3 background experiments among them (`no_region_overrides`, the
-`region_overrides_*` and `volatile_window_cap_*` names, and `support_filter`)
-also run in `lidar-bench -experiment`. A replay names at most one of
+`region_overrides_*` and `volatile_window_cap_*` names, `support_filter` and
+`settling_honest`) also run in `lidar-bench -experiment`. A replay names at most one of
 `no_region_overrides` and the two scopes, and at most one window cap. It may
 not name `region_overrides_cell_tercile` with `no_region_overrides`, or a
 window cap with `no_region_overrides` or `region_overrides_quiet_only`: under

@@ -231,7 +231,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOverlapEndOlder, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -569,7 +569,7 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 	}
 	background := map[string]bool{ExperimentNoRegionOverrides: true, ExperimentRegionOverridesVolatileOnly: true,
 		ExperimentRegionOverridesQuietOnly: true, ExperimentSupportFilter: true, ExperimentRegionOverridesCellTercile: true,
-		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true}
+		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true, ExperimentSettlingHonest: true}
 	var wantBackground []string
 	for _, name := range KnownExperiments() {
 		if IsBackgroundExperiment(name) != background[name] {
@@ -660,6 +660,28 @@ func TestOverlapEndSettingsAreExclusive(t *testing.T) {
 	}
 	if got.OverlapEndFrames != 1 || !got.OverlapEndOnBody || !got.OverlapEndKeepOlder {
 		t.Fatalf("qualified overlap end: frames %d body %v older %v", got.OverlapEndFrames, got.OverlapEndOnBody, got.OverlapEndKeepOlder)
+	}
+}
+
+// settling_honest is a background experiment, so lidar-bench accepts it, and
+// it sets the first-check semantics on the manager it is applied to.
+func TestSettlingHonestExperiment(t *testing.T) {
+	names, err := NormaliseExperiments([]string{ExperimentSettlingHonest})
+	if err != nil {
+		t.Fatalf("NormaliseExperiments: %v", err)
+	}
+	if !IsBackgroundExperiment(ExperimentSettlingHonest) {
+		t.Error("settling_honest should be a background experiment")
+	}
+	bm := l3grid.NewBackgroundManagerDI("settling-honest", 2, 4, l3grid.BackgroundParams{}, nil)
+	if bm.GetParams().SettlingHonestFirstCheck {
+		t.Fatal("the default is the passing first check")
+	}
+	if err := ApplyBackgroundExperiments(bm, names); err != nil {
+		t.Fatalf("ApplyBackgroundExperiments: %v", err)
+	}
+	if !bm.GetParams().SettlingHonestFirstCheck {
+		t.Error("settling_honest did not set SettlingHonestFirstCheck")
 	}
 }
 

@@ -132,22 +132,17 @@ class CorpusCaptureTest(unittest.TestCase):
             set(sweep.ARMS),
             {
                 "analysis",
-                "analysis-replay-l3",
                 "x0.25",
                 "x0.5",
-                "x0.5-replay-l3",
                 "x1",
                 "x2",
                 "x4",
                 "analysis-settle",
             },
         )
-        # Only the two replay-l3 arms run the once-substituted L3, and they do it
-        # through their tuning file: no arm asks the server for anything else.
+        # Every arm runs the defaults: pacing is the only thing the arms vary.
         for name, (_, _, tuning) in sweep.ARMS.items():
-            self.assertEqual(
-                tuning == sweep.REPLAY_L3, name.endswith("replay-l3"), name
-            )
+            self.assertEqual(tuning, sweep.DEFAULTS, name)
         # Only the settling diagnostic settles first.
         self.assertEqual(sweep.SETTLE_ARMS, {"analysis-settle"})
 

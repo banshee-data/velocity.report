@@ -34,6 +34,13 @@ type BackgroundManager struct {
 	// frameProcessCount tracks the number of ProcessFramePolar calls for rate-limited diagnostics.
 	// Accessed atomically to allow concurrent ProcessFramePolar invocations.
 	frameProcessCount int64
+	// noRegionRestore and noRegionPersist switch off the region store's two
+	// uses: restoring a persisted region map and grid ten frames into
+	// settling, and persisting them when settling completes. Both false, the
+	// zero value, is live input's behaviour; SetRegionStoreUse sets them.
+	noRegionRestore atomic.Bool
+	noRegionPersist atomic.Bool
+
 	// replayMode disables foreground-output suppression during warmup. It leaves
 	// the background model parameters unchanged, allowing offline tools to use
 	// the same tuning as live while still detecting a capture that starts moving.
@@ -145,6 +152,44 @@ func (bm *BackgroundManager) SetRegionOverridesByCellTercile(v bool) error {
 	g := bm.Grid
 	g.mu.Lock()
 	g.Params.RegionOverridesByCellTercile = v
+	g.mu.Unlock()
+	return nil
+}
+
+// SetRegionStoreUse sets whether settling may restore a persisted region map
+// and grid by source path or scene signature, and whether a completed settle
+// persists one. Live input uses both, which is what the store is for: a
+// sensor restarted on a scene it knows skips settling. A PCAP replay uses
+// neither, so it runs from its own packets whatever the database holds; a
+// replay with a settling pass persists its own settle, which the recorded
+// pass then reloads explicitly (l3bg0021).
+func (bm *BackgroundManager) SetRegionStoreUse(restore, persist bool) {
+	if bm == nil {
+		return
+	}
+	bm.noRegionRestore.Store(!restore)
+	bm.noRegionPersist.Store(!persist)
+}
+
+// RegionStoreUse reports what SetRegionStoreUse last set: whether settling may
+// restore a persisted region map, and whether a completed settle persists one.
+func (bm *BackgroundManager) RegionStoreUse() (restore, persist bool) {
+	if bm == nil {
+		return false, false
+	}
+	return !bm.noRegionRestore.Load(), !bm.noRegionPersist.Load()
+}
+
+// SetSettlingHonestFirstCheck makes the first convergence check after a reset
+// fail on its unmeasured spread delta (replay experiment settling_honest). See
+// BackgroundParams.SettlingHonestFirstCheck.
+func (bm *BackgroundManager) SetSettlingHonestFirstCheck(v bool) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.SettlingHonestFirstCheck = v
 	g.mu.Unlock()
 	return nil
 }
@@ -528,6 +573,17 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g.ForegroundCount = 0
 	g.BackgroundCount = 0
 	g.nonzeroCellCount = 0
+
+	// Reset the convergence evaluation's state. Left set, the first check
+	// after a reset compared this grid's spreads against the previous
+	// source's, so a reused manager settled differently from a new one: at
+	// the warm-up ceiling where a new one settles at its first check
+	// (l3bg0020).
+	g.prevSpreads = nil
+	g.prevRegionIDs = nil
+	g.settlingCheckCounter = 0
+	g.settlingAnnounced = false
+	g.LastObservedNoiseRel = 0
 
 	// Reset settling state for region identification
 	g.SettlingComplete = false

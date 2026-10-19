@@ -222,6 +222,7 @@ func (ws *Server) StopPCAPForSweep() error {
 
 	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
 		mgr.SetSourcePath("")
+		mgr.SetRegionStoreUse(true, true)
 	}
 
 	if err := ws.startLiveListenerLocked(); err != nil {
@@ -549,6 +550,11 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	// settle-before-recording failed on every relative path.
 	if mgr := l3grid.GetBackgroundManager(ws.replayAnalysisSensorID(replayCfg)); mgr != nil {
 		mgr.SetSourcePath(resolvedPath)
+		// A replay runs from its own packets: it restores no region map a
+		// previous run persisted, and persists one only for its own settling
+		// pass to reload. Otherwise the same capture replayed twice against
+		// one database runs the first replay's regions the second time.
+		mgr.SetRegionStoreUse(false, replayCfg.SettleBeforeRecording)
 	}
 
 	runID := ""

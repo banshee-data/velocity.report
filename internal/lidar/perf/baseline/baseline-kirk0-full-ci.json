@@ -1,68 +1,64 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-18T04:38:40Z",
+  "timestamp": "2026-10-19T15:28:56Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "full",
-  "tuning_fingerprint": "c2a4fe43ac43",
+  "tuning_fingerprint": "15fe4df885c8",
   "system_info": {
     "goos": "linux",
     "goarch": "amd64",
     "host_class": "ci",
     "num_cpu": 4,
     "go_version": "go1.27.1",
-    "commit_hash": "0504248c3b5e"
+    "commit_hash": "94b12d4a6aae"
   },
   "metrics": {
-    "wall_clock_ms": 10250,
+    "wall_clock_ms": 16630,
     "frame_time_stats": {
-      "min_ms": 3.003959,
-      "max_ms": 51.781659,
-      "avg_ms": 7.779211091346147,
-      "p50_ms": 5.243221,
-      "p95_ms": 25.125818,
-      "p99_ms": 44.816965,
+      "min_ms": 4.912551,
+      "max_ms": 69.074087,
+      "avg_ms": 14.190718381009617,
+      "p50_ms": 10.448459,
+      "p95_ms": 47.780569,
+      "p99_ms": 60.645493,
       "samples": 832
     },
-    "frames_per_second": 81.17073170731707,
-    "packets_per_second": 14608.878048780487,
-    "points_per_second": 5597703.024390244,
-    "heap_alloc_bytes": 17194344,
-    "total_alloc_bytes": 19950683192,
-    "num_gc": 867,
-    "gc_pause_ns": 33664762,
-    "pipeline_time_ms": 10250,
-    "cluster_time_ms": 2487,
-    "tracking_time_ms": 98,
-    "classify_time_ms": 7,
+    "frames_per_second": 50.030066145520145,
+    "packets_per_second": 9004.26939266386,
+    "points_per_second": 3450177.7510523153,
+    "heap_alloc_bytes": 17247144,
+    "total_alloc_bytes": 20358334368,
+    "num_gc": 856,
+    "gc_pause_ns": 41263066,
+    "pipeline_time_ms": 16630,
+    "cluster_time_ms": 4938,
+    "tracking_time_ms": 209,
+    "classify_time_ms": 18,
     "work": {
       "frames": 832,
-      "foreground_points": 985224,
-      "background_points": 56391232,
-      "clusters": 2862,
-      "confirmed_tracks": 25,
-      "distinct_confirmed_tracks": 77
+      "foreground_points": 1760445,
+      "background_points": 55616011,
+      "clusters": 5814,
+      "confirmed_tracks": 39,
+      "distinct_confirmed_tracks": 130
     },
     "frame_budget": {
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 51.781659
+      "worst_ms": 69.074087
     }
   },
   "repeat_spread": {
-    "runs": 9,
+    "runs": 5,
     "wall_clock_ms": [
-      10205,
-      10219,
-      10224,
-      10231,
-      10250,
-      10250,
-      10275,
-      10298,
-      10329
+      16521,
+      16585,
+      16630,
+      16645,
+      16712
     ],
-    "median_ms": 10250,
-    "spread_pct": 1.215090641842234
+    "median_ms": 16630,
+    "spread_pct": 1.1561043520368015
   }
 }

@@ -1,64 +1,64 @@
 {
   "version": "2.0",
-  "timestamp": "2026-10-17T06:25:22Z",
+  "timestamp": "2026-10-19T05:11:35Z",
   "pcap_file": "kirk0.pcapng",
   "profile": "full",
-  "tuning_fingerprint": "c2a4fe43ac43",
+  "tuning_fingerprint": "15fe4df885c8",
   "system_info": {
     "goos": "darwin",
     "goarch": "arm64",
     "host_class": "mac",
     "num_cpu": 8,
     "go_version": "go1.27.1",
-    "commit_hash": "c85a8c143ab0"
+    "commit_hash": "05033eba0775"
   },
   "metrics": {
-    "wall_clock_ms": 7713,
+    "wall_clock_ms": 9742,
     "frame_time_stats": {
-      "min_ms": 2.117375,
-      "max_ms": 66.256,
-      "avg_ms": 6.161962598557694,
-      "p50_ms": 3.481667,
-      "p95_ms": 24.19025,
-      "p99_ms": 49.525958,
+      "min_ms": 2.615833,
+      "max_ms": 52.077333,
+      "avg_ms": 8.454231173076924,
+      "p50_ms": 5.406834,
+      "p95_ms": 35.427792,
+      "p99_ms": 47.574792,
       "samples": 832
     },
-    "frames_per_second": 107.869830156878,
-    "packets_per_second": 19414.10605471282,
-    "points_per_second": 7438928.562167768,
-    "heap_alloc_bytes": 19012352,
-    "total_alloc_bytes": 19952192248,
-    "num_gc": 849,
-    "gc_pause_ns": 56331345,
-    "pipeline_time_ms": 7713,
-    "cluster_time_ms": 2643,
-    "tracking_time_ms": 84,
-    "classify_time_ms": 6,
+    "frames_per_second": 85.40340792445082,
+    "packets_per_second": 15370.663108191335,
+    "points_per_second": 5889597.20796551,
+    "heap_alloc_bytes": 19059032,
+    "total_alloc_bytes": 20360665240,
+    "num_gc": 850,
+    "gc_pause_ns": 62296415,
+    "pipeline_time_ms": 9742,
+    "cluster_time_ms": 3972,
+    "tracking_time_ms": 163,
+    "classify_time_ms": 15,
     "work": {
       "frames": 832,
-      "foreground_points": 985224,
-      "background_points": 56391232,
-      "clusters": 2863,
-      "confirmed_tracks": 25,
-      "distinct_confirmed_tracks": 77
+      "foreground_points": 1760445,
+      "background_points": 55616011,
+      "clusters": 5810,
+      "confirmed_tracks": 39,
+      "distinct_confirmed_tracks": 130
     },
     "frame_budget": {
       "budget_ms": 98,
       "frames_over": 0,
       "frames_over_pct": 0,
-      "worst_ms": 66.256
+      "worst_ms": 52.077333
     }
   },
   "repeat_spread": {
     "runs": 5,
     "wall_clock_ms": [
-      7653,
-      7690,
-      7713,
-      7748,
-      7752
+      9715,
+      9728,
+      9742,
+      9816,
+      9893
     ],
-    "median_ms": 7713,
-    "spread_pct": 1.293610348882791
+    "median_ms": 9742,
+    "spread_pct": 1.8322182192485845
   }
 }

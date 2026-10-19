@@ -28,7 +28,18 @@ type BackgroundParams struct {
 	// SettlingCheckInterval is how many frames apart convergence is evaluated.
 	// Evaluation walks every cell, so it is not run per frame. Zero means the
 	// default.
-	SettlingCheckInterval      int
+	SettlingCheckInterval int
+	// SettlingHonestFirstCheck makes the first convergence check after a
+	// reset fail rather than pass. Convergence is judged by the change in
+	// each cell's spread since the previous check, and the first check has
+	// no previous one: by default its delta counts as zero, so a grid
+	// settles at the first check after the frame minimum whose coverage and
+	// confidence are met (about frame 59 at 10 Hz). Honest treats an
+	// undefined delta as not converged, so settling waits for a measured
+	// delta under the threshold or the warm-up ceiling. Go-level and default
+	// false, so the config fingerprint does not move (replay experiment
+	// settling_honest, l3bg0021).
+	SettlingHonestFirstCheck   bool
 	PostSettleUpdateFraction   float32 // optional lower alpha after settle for stability
 	ForegroundMinClusterPoints int     // min points for a cluster to be forwarded/considered
 	ForegroundDBSCANEps        float32 // clustering radius for foreground gating

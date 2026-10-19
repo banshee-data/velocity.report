@@ -74,6 +74,10 @@ const (
 	// enough similar-range foreground neighbours in the ring-by-azimuth
 	// index. Output only; the background model is untouched.
 	ExperimentSupportFilter = "support_filter"
+	// ExperimentSettlingHonest: l3grid.BackgroundParams.SettlingHonestFirstCheck,
+	// the first convergence check after a reset failing on its unmeasured
+	// spread delta instead of passing on it (l3bg0021).
+	ExperimentSettlingHonest = "settling_honest"
 	// ExperimentDwellPolicy: pipeline.TrackingPipelineConfig.Dwell, the
 	// beam-wise review's dwell policy (Section 5.1): a confirmed track that
 	// has stood still for pipeline.DwellAbsorbAfter has its object's returns
@@ -297,6 +301,7 @@ var knownExperiments = map[string]bool{
 	ExperimentFlipRule:            true,
 	ExperimentNoRegionOverrides:   true,
 	ExperimentSupportFilter:       true,
+	ExperimentSettlingHonest:      true,
 	ExperimentDwellPolicy:         true,
 	ExperimentDwellPolicyT40:      true,
 	ExperimentDwellPolicyT60:      true,
@@ -406,6 +411,7 @@ var backgroundExperiments = map[string]bool{
 	ExperimentVolatileWindowCap1m:         true,
 	ExperimentVolatileWindowCap2m:         true,
 	ExperimentSupportFilter:               true,
+	ExperimentSettlingHonest:              true,
 }
 
 // IsBackgroundExperiment reports whether an experiment acts on the L3
@@ -567,6 +573,11 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 		params := l3grid.DefaultSupportFilterParams()
 		if err := bgMgr.SetSupportFilter(&params); err != nil {
 			return fmt.Errorf("apply %s: %w", ExperimentSupportFilter, err)
+		}
+	}
+	if hasExperiment(experiments, ExperimentSettlingHonest) {
+		if err := bgMgr.SetSettlingHonestFirstCheck(true); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentSettlingHonest, err)
 		}
 	}
 	return nil

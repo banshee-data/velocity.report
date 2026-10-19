@@ -103,8 +103,12 @@ func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	}
 	d, st := surveyed.Declaration, surveyed.Stats
 	t.Logf("kirk0 survey: %+v; range %+v; azimuth %+v", d, st.RangeMetres, st.Azimuth)
-	if math.Round(st.RangeMetres.Max*10)/10 != 91.7 || math.Round(st.RangeMetres.P90*10)/10 != 42.8 || d.MaxRangeMetres != 92 {
-		t.Fatalf("range max %.2f m, p90 %.2f m, declared %g m; the hand-made declaration read 91.7 m (p90 42.8 m) and declared 92 m",
+	// Under the defaults' L3 before l3bg0025 the survey read p90 42.8 m;
+	// the closeness 2 since tracks further out. The p90 differs in its second
+	// decimal between arm64 (44.97 m) and amd64 (44.94 m), so it is held to
+	// 0.1 m rather than rounded.
+	if math.Round(st.RangeMetres.Max*10)/10 != 91.7 || math.Abs(st.RangeMetres.P90-45.0) > 0.1 || d.MaxRangeMetres != 92 {
+		t.Fatalf("range max %.2f m, p90 %.2f m, declared %g m; the hand-made declaration read 91.7 m (p90 45.0 m) and declared 92 m",
 			st.RangeMetres.Max, st.RangeMetres.P90, d.MaxRangeMetres)
 	}
 	set, err := replayeval.LoadContinuityCoverageSet(surveyPath)
