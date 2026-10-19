@@ -268,7 +268,9 @@ fails the test rather than running as something other than its arm.
   and the [plan](../docs/plans/lidar-scene-variant-exports-plan.md).
 
 The config directory is `--lidar-config-dir`, by default the directory of
-`--config`. A file can be applied at a replay start when its engine
+`--config`; the Makefile's `dev-go-lidar` targets pass `config/`, so a file is
+named as `tuning.defaults.json` or `experiments/<set>.json` there as on a
+deployed server. A file can be applied at a replay start when its engine
 selectors, `pipeline` block and L4 keys other than DBSCAN's three match the
 running server's. `l1` is not compared, because the replay sets the source.
 Apply such a file and the server runs every key in it; any other file needs

@@ -113,9 +113,7 @@ def render(results, threshold):
     for r in results:
         verdict = "❌ regressed" if r["regressed"] else "✅ within threshold"
         tb, th = r["tuning"]
-        tuning = (
-            f"tuning `{tb}` → `{th}`" if tb != th else f"tuning `{tb}` (unchanged)"
-        )
+        tuning = f"tuning `{tb}` → `{th}`" if tb != th else f"tuning `{tb}` (unchanged)"
         out += [
             f"### {r['profile']}: {verdict}",
             "",

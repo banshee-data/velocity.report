@@ -97,6 +97,16 @@ keys other than DBSCAN's three. Without the field, the replay runs on the
 server's current parameters. See
 [Experiment parameter sets](../../../config/CONFIG.md#experiment-parameter-sets).
 
+Every speed mode runs the tuning file's L3 as written. **Until October 2026
+(#782) a `scaled` or `realtime` replay substituted five L3 values for the file's
+while it ran** (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5,
+seed from first observation, noise relative 0.02), so a paced replay ran an L3
+its `tuning_hash` did not name, while analysis mode, live input and the offline
+tools ran the file. That is a breaking change for reproducing a paced replay
+made before it: the scenes published before then ran the substituted L3, and
+`config/experiments/replay-l3-overrides.json` holds it as an ordinary parameter
+set. See [replay speed and analysis mode](replay-speed-and-analysis-mode-2026-10.md).
+
 **Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
 `pcap_file` (resolved path), `analysis_mode: true`, and the requested
 `settle_before_recording` value. With `tuning_config`, it also returns

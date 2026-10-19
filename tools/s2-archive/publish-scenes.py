@@ -17,15 +17,23 @@ Run directly only when you want something the target does not offer:
     python3 tools/s2-archive/publish-scenes.py            # everything outstanding
     python3 tools/s2-archive/publish-scenes.py laguna-eddy  # or named sites
 
-Two settings matter and neither is the default:
+Three settings matter and none is the default:
 
   REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5
-      Analysis mode replays as fast as the pipeline will take packets, and the
-      background model's warm-up is gated on wall clock, so a fast replay puts
-      most of the recording inside it. Measured on one capture: 2.0 clusters
-      per frame in analysis mode against 16.8 at half speed, and a VRLOG
-      holding 23% of the frames it was given. Every rate from 0.5x down scores
-      the same, so 0.5x is the fastest one that loses nothing.
+      Half speed was chosen in September from one capture, where analysis mode
+      found 2.0 clusters per frame against 16.8 at half speed. perf0002
+      (docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md) found
+      that difference was not the speed: it was an L3 the paced path
+      substituted (removed in October 2026) and state the server carried from
+      one replay to the next. On a new process every speed records the same
+      scene. Half speed stays until that state is cleared and perf0003 asks
+      again.
+
+  REPLAY_TUNING_CONFIG=tuning.defaults.json
+      The tuning file every scene replays under, named on each start so a batch
+      never inherits whatever file the server last had applied. A path relative
+      to the server's --lidar-config-dir; make dev-go-lidar sets that to
+      config/.
 
   REPLAY_SETTLE=0
       settle_before_recording replays the same window twice, settling on the
@@ -36,6 +44,7 @@ Two settings matter and neither is the default:
 The environment the batch expects, in full:
 
     REPLAY_SETTLE=0 REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5 \
+      REPLAY_TUNING_CONFIG=tuning.defaults.json \
       python3 tools/s2-archive/publish-scenes.py
 
   LIDAR_API_URL=http://localhost:8080/api/lidar
@@ -88,6 +97,9 @@ PCAP_SUBDIR = os.environ.get("REPLAY_PCAP_SUBDIR", "s2")
 SPEED_MODE = os.environ.get("REPLAY_SPEED_MODE", "analysis")
 SPEED_RATIO = float(os.environ.get("REPLAY_SPEED_RATIO", "0") or 0)
 SETTLE = os.environ.get("REPLAY_SETTLE", "1") not in ("0", "false", "False")
+# Named on every start, so a scene runs the file this says and not whatever the
+# server last had applied. Relative to the server's --lidar-config-dir.
+TUNING_CONFIG = os.environ.get("REPLAY_TUNING_CONFIG", "tuning.defaults.json")
 SENSOR = "hesai-pandar40p"
 # Where the run records are. DB_PATH is what the dev target starts the server
 # with, so following it keeps the two from naming different files: a server
@@ -254,8 +266,8 @@ def export(vrlog, out_dir, site, title, kind=None, extra=None):
 
 
 def replay_stretch(scene):
-    """Replay the whole stretch as one sequence and return its VRLOG."""
-    return replay(scene)["vrlog"]
+    """Replay the whole stretch as one sequence, under the batch's tuning file."""
+    return replay(scene, TUNING_CONFIG)["vrlog"]
 
 
 def replay(scene, tuning_config=None):

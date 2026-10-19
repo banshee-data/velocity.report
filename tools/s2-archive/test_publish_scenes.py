@@ -548,7 +548,10 @@ class ReplayTests(unittest.TestCase):
             return_value={"vrlog": "/v/x", "run_id": "r", "start": {}},
         ) as replay:
             self.assertEqual(publish_scenes.replay_stretch(self.scene()), "/v/x")
-        replay.assert_called_once_with(self.scene())
+        # The batch's tuning file is named on every start, so a scene never runs
+        # whatever file the server last had applied.
+        replay.assert_called_once_with(self.scene(), publish_scenes.TUNING_CONFIG)
+        self.assertEqual(publish_scenes.TUNING_CONFIG, "tuning.defaults.json")
 
 
 class AssetsTests(unittest.TestCase):

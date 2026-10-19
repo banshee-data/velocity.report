@@ -39,7 +39,7 @@ LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
 # Passed by every dev target that starts the LiDAR pipeline. The Makefile owns
 # the defaults and passes them as explicit CLI flags so the binary gets the
 # same resolved paths regardless of its working directory.
-LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR))
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR)) --lidar-config-dir=$(CURDIR)/config
 
 # =============================================================================
 # HELP TARGET (default)
@@ -1024,6 +1024,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_export_static_pcaps.py \
 	tools/s2-archive/test_publish_scenes.py \
 	tools/s2-archive/test_export_scene_variants.py \
+	tools/s2-archive/test_replay_speed_sweep.py \
 	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
@@ -2395,6 +2396,10 @@ SCENE_SPEED_MODE ?= scaled
 SCENE_SPEED_RATIO ?= 0.5
 SCENE_SETTLE ?= 0
 SCENE_SOURCE ?= corpus
+# Named on every replay start, relative to the server's --lidar-config-dir
+# (config/ under dev-go-lidar), so a batch never inherits a file the server
+# last had applied from the :8081 form.
+SCENE_TUNING_CONFIG ?= tuning.defaults.json
 
 SCENE_ASSETS_ENV := \
 	LIDAR_PCAP_DIR=$(abspath $(LIDAR_PCAP_DIR)) \
@@ -2402,7 +2407,8 @@ SCENE_ASSETS_ENV := \
 	SCENE_SOURCE=$(SCENE_SOURCE) \
 	REPLAY_SPEED_MODE=$(SCENE_SPEED_MODE) \
 	REPLAY_SPEED_RATIO=$(SCENE_SPEED_RATIO) \
-	REPLAY_SETTLE=$(SCENE_SETTLE)
+	REPLAY_SETTLE=$(SCENE_SETTLE) \
+	REPLAY_TUNING_CONFIG=$(SCENE_TUNING_CONFIG)
 
 SCENE_PUBLISH := tools/s2-archive/publish-scenes.py
 SCENES_DIR := public_html/src/scenes

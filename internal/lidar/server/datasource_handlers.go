@@ -771,29 +771,10 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		if err == nil && replayCfg.SpeedMode == "analysis" {
 			err = runPass(ws.packetForwarder)
 		} else if err == nil {
-			// Apply PCAP-friendly background params and restore afterward.
-			var restoreParams func()
-			if bgManager := l3grid.GetBackgroundManager(sensorID); bgManager != nil {
-				orig := bgManager.GetParams()
-				tuned := orig
-				tuned.SeedFromFirstObservation = true
-				tuned.ClosenessSensitivityMultiplier = 2.0
-				tuned.NoiseRelativeFraction = 0.02
-				tuned.NeighbourConfirmationCount = 5
-				tuned.SafetyMarginMetres = 0.3
-				if err := bgManager.SetParams(tuned); err != nil {
-					opsf("failed to apply PCAP-tuned background params: %v", err)
-				}
-				restoreParams = func() {
-					if err := bgManager.SetParams(orig); err != nil {
-						opsf("failed to restore original background params: %v", err)
-					}
-				}
-			}
-			if restoreParams != nil {
-				defer restoreParams()
-			}
-
+			// A paced replay runs the tuning file's L3 as written, as analysis
+			// mode and live input do. Until October 2026 it substituted five
+			// L3 values here for the replay's duration, so a paced replay ran
+			// an L3 its tuning hash did not name (perf0002).
 			// Realtime or scaled ratio
 			multiplier := replayCfg.SpeedRatio
 			if replayCfg.SpeedMode == "realtime" {
