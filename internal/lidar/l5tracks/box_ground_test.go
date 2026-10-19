@@ -224,3 +224,33 @@ func TestTrackerStandsThePublishedBoxOnTheSurface(t *testing.T) {
 		t.Fatalf("LatestZ %.2f and OBBHeight %.2f, want the frame's cluster %.2f and %.2f", tr.LatestZ, tr.OBBHeight, last.OBB.CenterZ, last.OBB.Height)
 	}
 }
+
+func TestBoxGroundAnchorCountsALowestReturnBelowTheBase(t *testing.T) {
+	// A surface fitted 0.5 m above the road under one cell: the body's lowest
+	// return lies below the drawn base, which the stats record.
+	e := NewBoxEstimator(groundBoxConfig())
+	in := passingCar(0, 0.4, 8, -2.3, -0.8)
+	in.Surface = planeSurface{c: -1.8}
+	e.Observe(in)
+	if e.Stats.LowBelowBase != 1 || e.Stats.LowAboveBase != 0 {
+		t.Fatalf("stats %+v, want one frame below the base", e.Stats)
+	}
+}
+
+func TestBoxGroundAnchorKeepsItsHeightWhenOnlyMergesWereSeen(t *testing.T) {
+	// Every frame so far was a merge, so the top belief is empty: a coasting
+	// frame keeps the height last drawn rather than collapsing to nothing.
+	road := planeSurface{c: -2.3}
+	e := NewBoxEstimator(groundBoxConfig())
+	var last BoxState
+	for i := 0; i < 3; i++ {
+		in := passingCar(i, 0.4, 8, -1.4, -0.8)
+		in.Merge, in.Surface = true, road
+		last = e.Observe(in)
+	}
+	coast := passingCar(3, 0.4, 8, 0, 0)
+	coast.Cluster, coast.Surface = nil, road
+	if b := e.Observe(coast); !near(b.Height, last.Height) || !near(b.Height, 1.5) {
+		t.Fatalf("coasting height %.3f, want the 1.5 m last drawn", b.Height)
+	}
+}

@@ -237,3 +237,12 @@ func TestBlendedHeightAtHasNoStepAtACellEdge(t *testing.T) {
 		t.Fatalf("BlendedSurface.HeightAt = %.4f, want the blended height -1.8", got)
 	}
 }
+
+func TestBlendedHeightAtWithoutCellsIsTheGlobalPlane(t *testing.T) {
+	// A surface built without a cell size (the zero value) has no cells to
+	// blend, so it answers as HeightAt does: the global plane.
+	s := RegionalGroundSurface{Global: GroundSurface{A: 0.01, C: -2}}
+	if got, want := s.BlendedHeightAt(50, 3), s.HeightAt(50, 3); math.Abs(got-want) > 1e-9 {
+		t.Fatalf("BlendedHeightAt = %.4f, want the global plane's %.4f", got, want)
+	}
+}

@@ -98,6 +98,11 @@ func isNilInterface(i interface{}) bool {
 // backward-compatible alias packages.
 var IsNilInterface = isNilInterface
 
+// fitGroundSurface fits the regional ground surface from the settled
+// background. It is a variable so a test can stand in a surface without
+// settling a grid with ring elevations; nothing else replaces it.
+var fitGroundSurface = l3grid.FitRegionalGroundSurfaceFromBackground
+
 // heapBytes returns the current heap allocation in bytes.
 func heapBytes() uint64 {
 	var m runtime.MemStats
@@ -805,7 +810,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// The surface is fitted once, when the background has settled, for
 		// the clip, the tracker's published box, or both.
 		if ((removeGround && useSurfaceGround) || surfaceForTracker) && groundSurface == nil {
-			surface, err := l3grid.FitRegionalGroundSurfaceFromBackground(cfg.BackgroundManager, surfaceGroundRegionMetres)
+			surface, err := fitGroundSurface(cfg.BackgroundManager, surfaceGroundRegionMetres)
 			if err == nil {
 				groundSurface = &surface
 				if cfg.GroundSurfaceFit != nil {
