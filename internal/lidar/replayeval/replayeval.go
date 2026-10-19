@@ -876,6 +876,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
+	useSurfaceGround := cfg.UseSurfaceGround || hasExperiment(experiments, ExperimentSurfaceGround)
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -888,7 +889,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
-		UseSurfaceGround:          cfg.UseSurfaceGround,
+		UseSurfaceGround:          useSurfaceGround,
+		GroundSurfaceForTracker:   hasExperiment(experiments, ExperimentBoxGround),
 		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
@@ -961,7 +963,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		pipeCfg.ObservationFrameSink = observationFrameSink
 	}
 	var groundSurfaceFit atomic.Pointer[l3grid.RegionalGroundSurface]
-	if cfg.UseSurfaceGround {
+	if useSurfaceGround || pipeCfg.GroundSurfaceForTracker {
 		pipeCfg.GroundSurfaceFit = &groundSurfaceFit
 	}
 	// The refinement harness observes the tracker's filter record; it is
@@ -1319,6 +1321,12 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 		return l5tracks.TrackerConfig{}, err
 	}
 	trackerConfig.OverlapEndFrames = overlapEnd
+	if hasExperiment(experiments, ExperimentBoxGround) {
+		if !trackerConfig.BoxModel.Enabled {
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s stands the box model's box on the ground, and the tuning file's box model is off", ExperimentBoxGround)
+		}
+		trackerConfig.BoxModel.GroundAnchor = true
+	}
 	trackerConfig.OverlapEndOnBody = hasExperiment(experiments, ExperimentOverlapEndBody)
 	trackerConfig.OverlapEndKeepOlder = hasExperiment(experiments, ExperimentOverlapEndOlder)
 	if overlapEnd == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {

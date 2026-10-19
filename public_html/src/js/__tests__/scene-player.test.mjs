@@ -15,18 +15,33 @@ import {
   sceneGroundToENU,
   sceneTrailPoint,
 } from "../scene-player.js";
+import { toSceneY } from "../scene-coords.js";
 
 describe("sceneTrailPoint", () => {
-  test("applies the ENU->scene transform and the base-of-box offset", () => {
-    const p = sceneTrailPoint({ x: 3, y: 5, z: 1, h: 2 });
+  // The scene format's z is the box's base (the cluster's lowest return),
+  // not its centre, so the trail sits just above z itself. The player used
+  // to subtract half the box height here, which put the trail h/2 below the
+  // base and moved it every time the box's height changed.
+  test("applies the ENU->scene transform and sits just above the base", () => {
+    const p = sceneTrailPoint({ x: 3, y: 5, z: -2, h: 2 });
     assert.equal(p[0], 3, "east stays x");
-    assert.equal(p[1], 1 - 2 / 2 + 0.05, "up becomes y, offset to the base");
+    assert.equal(
+      p[1],
+      toSceneY(-2) + 0.05,
+      "up becomes y, just above the base",
+    );
     assert.equal(p[2], -5, "north becomes -z");
   });
 
-  test("floors the height used for the offset, matching the rendered box", () => {
-    const p = sceneTrailPoint({ x: 0, y: 0, z: 1, h: 0.01 });
-    assert.equal(p[1], 1 - 0.9 / 2 + 0.05, "tiny height is floored to 0.9");
+  test("does not move when the box height changes", () => {
+    const tall = sceneTrailPoint({ x: 0, y: 0, z: -2, h: 2 });
+    const short = sceneTrailPoint({ x: 0, y: 0, z: -2, h: 1.5 });
+    assert.equal(tall[1], short[1], "same base, same trail height");
+  });
+
+  test("a track with no height is placed like any other", () => {
+    const p = sceneTrailPoint({ x: 0, y: 0, z: 1 });
+    assert.equal(p[1], 1 + 0.05);
   });
 });
 
@@ -83,6 +98,40 @@ describe("TrackVisual box placement", () => {
     visual.update({ x: 10, y: 4, z: 1, l: 4.5, w: 1.8, h: 1.5, bh: 0 });
     assert.equal(visual.edges.position.x, 10);
     assert.equal(visual.edges.position.z, -4);
+  });
+
+  test("draws the box with its base at z, not its centre", () => {
+    // z is the cluster's lowest return, so a 2 m tall box at z = -2 stands
+    // from -2 up to 0. Centring the unit geometry on z sank it to -3..-1,
+    // and put the trail a further metre below where the data said the base
+    // was. Fill and edges are placed by the same code, so both are checked.
+    const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
+    const t = { x: 0, y: 0, z: -2, l: 4.5, w: 1.8, h: 2, bh: 0 };
+    visual.update(t);
+    for (const obj of [visual.fill, visual.edges]) {
+      const box = new THREE.Box3().setFromObject(obj);
+      assert.ok(Math.abs(box.min.y - toSceneY(-2)) < 1e-6, "base at z");
+      assert.ok(
+        Math.abs(box.max.y - (toSceneY(-2) + 2)) < 1e-6,
+        "top at z + h",
+      );
+    }
+    assert.equal(
+      visual.edges.position.y,
+      toSceneY(-2) + 1,
+      "the object's position is the box centre, which labels hang from",
+    );
+    const trail = sceneTrailPoint(t);
+    assert.equal(trail[1], toSceneY(-2) + 0.05, "trail just above the base");
+  });
+
+  test("the box's base does not move when only its height changes", () => {
+    const visual = new TrackVisual(new THREE.Scene(), 0x00ff00);
+    const bases = [1.5, 2].map((h) => {
+      visual.update({ x: 0, y: 0, z: -2, l: 4.5, w: 1.8, h, bh: 0 });
+      return new THREE.Box3().setFromObject(visual.fill).min.y;
+    });
+    assert.ok(Math.abs(bases[0] - bases[1]) < 1e-6, "same z, same base");
   });
 });
 

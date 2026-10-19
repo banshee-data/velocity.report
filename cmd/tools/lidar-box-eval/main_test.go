@@ -166,3 +166,52 @@ func TestDuplicatesCountTwoTracksOnOneVehicle(t *testing.T) {
 		t.Fatalf("duplicates %+v, want 3 vehicle tracks and one pair of two tracks over 5 frames", d)
 	}
 }
+
+// The published box's vertical is the anchored box's when box_ground drew
+// one, and otherwise the frame's lowest return and cluster height: what a
+// viewer draws either way.
+func TestPublishedVerticalIsWhatAViewerDraws(t *testing.T) {
+	tr := &l5tracks.TrackedObject{LatestZ: -1.2, OBBHeight: 0.4}
+	if base, h := publishedVertical(tr); base != float64(float32(-1.2)) || h != float64(float32(0.4)) {
+		t.Fatalf("legacy vertical %.2f / %.2f, want the frame's -1.2 / 0.4", base, h)
+	}
+	tr.BoxZ, tr.BoxHeight = -2.3, 1.5
+	if base, h := publishedVertical(tr); base != float64(float32(-2.3)) || h != 1.5 {
+		t.Fatalf("anchored vertical %.2f / %.2f, want the box's -2.3 / 1.5", base, h)
+	}
+}
+
+func TestScoreVerticalMeasuresTheDrawnBaseFrameToFrame(t *testing.T) {
+	s := newScorer(nil, 0.1)
+	agg, st := &rowAgg{}, &trackState{}
+	lows := []float32{-2.0, -1.4, -0.8}
+	for i, low := range lows {
+		tr := &l5tracks.TrackedObject{LatestZ: low, OBBHeight: -0.5 - low}
+		cluster := &l5tracks.WorldCluster{OBB: &l4perception.OrientedBoundingBox{CenterZ: low, Height: -0.5 - low}}
+		now := int64(i) * 1e8
+		s.scoreVertical(agg, st, tr, cluster, now)
+		st.lastAt = now
+	}
+	if len(agg.baseStep) != 2 || agg.vertRows != 3 {
+		t.Fatalf("%d base steps over %d rows, want 2 over 3", len(agg.baseStep), agg.vertRows)
+	}
+	if got := rms(agg.baseStep); math.Abs(got-0.6) > 1e-6 {
+		t.Fatalf("legacy base step RMS %.3f, want the lowest return's 0.6 m hops", got)
+	}
+	if agg.lowAbove != 0 || agg.lowBelow != 0 {
+		t.Fatalf("a legacy base is the lowest return, so nothing lies off it: %+v", agg)
+	}
+	// The same frames, anchored on a road at -2.3: the base holds, and two
+	// of the three lowest returns lie more than 0.5 m above it.
+	agg, st = &rowAgg{}, &trackState{}
+	for i, low := range lows {
+		tr := &l5tracks.TrackedObject{LatestZ: low, OBBHeight: -0.5 - low, BoxZ: -2.3, BoxHeight: 1.8}
+		cluster := &l5tracks.WorldCluster{OBB: &l4perception.OrientedBoundingBox{CenterZ: low, Height: -0.5 - low}}
+		now := int64(i) * 1e8
+		s.scoreVertical(agg, st, tr, cluster, now)
+		st.lastAt = now
+	}
+	if rms(agg.baseStep) != 0 || rms(agg.heightStep) != 0 || agg.lowAbove != 2 {
+		t.Fatalf("anchored: base RMS %.3f, height RMS %.3f, %d above; want 0, 0 and 2", rms(agg.baseStep), rms(agg.heightStep), agg.lowAbove)
+	}
+}

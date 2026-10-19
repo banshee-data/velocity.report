@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -242,7 +242,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentSolidBodyRectangleFit, ExperimentSolidBodyRectangleHeading, ExperimentSolidBodyRectangleSigmaMid,
 		ExperimentSolidBodyRectangleSigmaWide,
 		ExperimentSolidBodyReferenceTranslation,
-		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentTentativePriority,
+		ExperimentSolidBodyVehicleExtentFloor, ExperimentSupportFilter, ExperimentSurfaceGround, ExperimentTentativePriority,
 		ExperimentVolatileWindowCap1m, ExperimentVolatileWindowCap2m}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("got %v, want %v", got, want)
@@ -287,6 +287,7 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		ExperimentClassIdentity:     func(c *l5tracks.TrackerConfig) { c.ClassIdentity = true },
 		ExperimentOverlapEnd1:       func(c *l5tracks.TrackerConfig) { c.OverlapEndFrames = 1 },
 		ExperimentOverlapEnd3:       func(c *l5tracks.TrackerConfig) { c.OverlapEndFrames = 3 },
+		ExperimentBoxGround:         func(c *l5tracks.TrackerConfig) { c.BoxModel.GroundAnchor = true },
 		// The replay tracks in the sensor frame, so the origin is the
 		// sensor, derived from the identity tracking transform.
 		ExperimentSolidBody: func(c *l5tracks.TrackerConfig) {
@@ -659,5 +660,27 @@ func TestOverlapEndSettingsAreExclusive(t *testing.T) {
 	}
 	if got.OverlapEndFrames != 1 || !got.OverlapEndOnBody || !got.OverlapEndKeepOlder {
 		t.Fatalf("qualified overlap end: frames %d body %v older %v", got.OverlapEndFrames, got.OverlapEndOnBody, got.OverlapEndKeepOlder)
+	}
+}
+
+// box_ground stands the box model's box on the ground, so without the box
+// model it would change nothing and run as the baseline under its name.
+func TestBoxGroundNeedsTheBoxModel(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	l5.BoxModel = nil
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentBoxGround}, nil); err == nil {
+		t.Fatal("box_ground was accepted with the box model off")
+	}
+}
+
+// The ground specs' arms name surface_ground and box_ground as replay
+// options, which the runner passes to -experiment; both must parse.
+func TestGroundSpecsReplayOptionsParse(t *testing.T) {
+	got, err := ParseExperiments("surface_ground,box_ground")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{ExperimentBoxGround, ExperimentSurfaceGround}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v", got, want)
 	}
 }

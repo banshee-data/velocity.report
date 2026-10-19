@@ -1,6 +1,10 @@
 package l5tracks
 
-import "time"
+import (
+	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
+)
 
 // TrackerInterface abstracts the tracking implementation.
 // This interface enables dependency injection and golden replay testing
@@ -80,6 +84,12 @@ type TrackerInterface interface {
 	// absorbed, with ExpiryAbsorbed (the pipeline's dwell policy). It
 	// returns false, changing nothing, for an unknown or deleted track.
 	EndAbsorbed(trackID string, at time.Time) bool
+
+	// SetGroundSurface gives the published box the fitted ground surface to
+	// stand on under BoxModelConfig.GroundAnchor; nil withdraws it. It is on
+	// the interface rather than asserted for, so a wrapper that embeds the
+	// interface forwards it rather than hiding it.
+	SetGroundSurface(surface l4perception.HeightSurface)
 }
 
 // Verify at compile time that *Tracker implements TrackerInterface.

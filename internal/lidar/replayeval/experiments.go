@@ -272,6 +272,20 @@ const (
 	// a medoid-referenced track is, instead of A2's face residual. It
 	// qualifies near_edge_track and is refused without it.
 	ExperimentNearEdgeTrackA1 = "near_edge_track_a1"
+	// ExperimentSurfaceGround: Config.UseSurfaceGround by name, P11's lower
+	// clip on height above the surface fitted from the settled background
+	// rather than on absolute sensor Z, so a spec's arm can name it as it
+	// names any other option (ground0002 to ground0005). The tools' own
+	// surface-ground flags set the same field; the name also folds the
+	// option into the parameter hash, which the flags do not.
+	ExperimentSurfaceGround = "surface_ground"
+	// ExperimentBoxGround: l5tracks.BoxModelConfig.GroundAnchor, the
+	// published box's base at the fitted surface's height under its centre
+	// and its height a held belief in the body's top above it
+	// (ground0004), with pipeline.TrackingPipelineConfig.
+	// GroundSurfaceForTracker fitting that surface whether or not the clip
+	// reads it. It needs the tuning file's box model and is refused without.
+	ExperimentBoxGround = "box_ground"
 )
 
 var knownExperiments = map[string]bool{
@@ -335,6 +349,8 @@ var knownExperiments = map[string]bool{
 	ExperimentSolidBodyRectangleCourseFusion:    true,
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
+	ExperimentSurfaceGround:                     true,
+	ExperimentBoxGround:                         true,
 }
 
 // KnownExperiments returns every accepted experiment name, sorted.
