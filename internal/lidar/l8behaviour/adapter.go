@@ -546,9 +546,9 @@ type PersistedSolidBody struct {
 	Reading        l5tracks.SolidBodyReading
 }
 
-// SolidBodyGaps counts the persisted solid bodies
-// TrajectoriesFromSolidBodiesWithGaps held as gaps rather than samples, by the contract condition each refused
-// (InvalidSampleError's Reason).
+// SolidBodyGaps counts the persisted solid bodies that
+// TrajectoriesFromSolidBodiesWithGaps held as gaps rather than samples, by
+// the contract condition each refused (InvalidSampleError's Reason).
 type SolidBodyGaps struct {
 	Rows     int
 	ByReason map[string]int
