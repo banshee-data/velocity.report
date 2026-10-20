@@ -10,7 +10,7 @@ The first exit is a working provisional MVP; field promotion requires separate e
 - **Acceptance platform:** macOS on Apple Silicon; stationary, single-sensor captures first
 - **Review:** [merged-batch audit and fresh evidence](../lidar/operations/0.5.2-sprint-review.md)
 - **Owners:** [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [VRLOG](lidar-vrlog-observation-format-plan.md), [visual design](../ui/DESIGN.md)
-- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---tailgating-metric--distribution-052)
+- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---following-distance-evidence-052)
 - **Reference tooling:** [segment finder and Svelte segments page](https://github.com/banshee-data/velocity.report/pull/615)
 
 ## Sprint outcome and scope
@@ -328,6 +328,24 @@ and suppressed opportunity, and wrong-leader tolerance. Choose these against the
 resolution and independently measurable reference precision on tuning data. This review does not
 invent field-calibrated limits. A missing threshold or unobservable bumper makes the gate
 **insufficient evidence**, never pass.
+
+### Following gate completeness: state on October 20, 2026
+
+The backlog item for this gate names what remains; this section holds the narrative it used to
+carry. The gate needs split digests, independent pair and no-leader truth with wrong-leader
+checks, expected strata and reference uncertainty, and what the v2 statistical review found:
+per-stratum unmatched and unscorable shares, interval verdicts from a bootstrap over encounters,
+encounters counted by body rather than by track-id pair, and an unmatched share that is a true
+miss rate ([review R6](../lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate)).
+
+| Piece                       | State                                                                                                                                                                                                                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Split vehicles as followers | A vehicle seen as two tracks (a truck's cab and body, l5id0001) reads as a follower at a gap of a metre or less. The gate must count such pairs; l5id0004's overlap end does not remove them while both tracks hold clusters ([report](../lidar/operations/l5-duplicate-tracks-2026-10.md)) |
+| Independent leader truth    | Exists: reviewed following records (#714) carry a leader, `no_leader` or `ambiguous`                                                                                                                                                                                                        |
+| Scorer reads the records    | Open: the physical scorer does not yet read the reviewed following records                                                                                                                                                                                                                  |
+| Bodies counted by object id | Open                                                                                                                                                                                                                                                                                        |
+| Bootstrap verdict           | Open: an interval over encounters, not a point estimate                                                                                                                                                                                                                                     |
+| Limits on tuning references | Open: [l8fol0004](../../data/experiments/l8fol/l8fol0004.md) pins them on kirk0's pairs                                                                                                                                                                                                     |
 
 ### Evidence runs to schedule
 

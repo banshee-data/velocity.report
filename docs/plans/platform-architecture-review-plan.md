@@ -1,6 +1,7 @@
 # Architecture review: anti-patterns, unfinished work, and the shape of the project (v0.5.x)
 
-- **Status:** Proposed, for planning review (Flo) and decision (Ruth); changes no code
+- **Status:** Active; reviewed by Flo (needs revision: corrected October 20, 2026, see [Flo's review](#flos-review-and-what-it-corrected)) and decided by Ruth (D-30 to D-35); changes no code
+- **Decisions:** D-09, D-14, D-20, D-23, D-27, D-30, D-31, D-32, D-33, D-34, D-35
 - **Layers:** Cross-cutting (Go packages and CLI roles, schema, web, macOS, public site, experiments, planning)
 - **Target:** v0.5.8 for the deletions and the boundary gates; a re-baselined backlog for the rest
 - **Companion plans:** [platform-vocabulary-and-data-model-plan](platform-vocabulary-and-data-model-plan.md), [go-codebase-structural-hygiene-plan](go-codebase-structural-hygiene-plan.md), [go-cmd-extraction-plan](go-cmd-extraction-plan.md), [cmd-server-decomposition-plan](cmd-server-decomposition-plan.md), [lidar-worker-pool-and-results-hub-plan](lidar-worker-pool-and-results-hub-plan.md), [lidar-job-queue-implementation-plan](lidar-job-queue-implementation-plan.md), [platform-simplification-and-deprecation-plan](platform-simplification-and-deprecation-plan.md), [web-frontend-consolidation-plan](web-frontend-consolidation-plan.md), [platform-experiment-queue-plan](platform-experiment-queue-plan.md), [binary-size-reduction-plan](binary-size-reduction-plan.md)
@@ -10,7 +11,8 @@ A read of the backlog, the plans and the code as they stand at `acdb03e`, writte
 questions: which habits have become anti-patterns and what replaces them; which half-finished
 migrations and renames to finish, cut down or delete; what belongs in another project; and how
 one binary should carry several roles. It ends with the backlog changes proposed to Flo, the
-design work handed to Appius, and three experiments that put numbers on the role question.
+design work handed to Appius, and four experiments that put numbers on the role question.
+Where a later section records a decision or a correction, it governs the text above it.
 
 ## Summary
 
@@ -20,16 +22,17 @@ write their rule before their replays. What has gone wrong is at the edges, and 
 same mistake in different clothes: the project adds a second way of doing something and keeps
 the first.
 
-1. **Planning has outrun delivery.** 307 open backlog items in 23 release buckets, 149 active plan files holding 53,560 lines, and a version string still at `0.5.1-pre45` five months after the changelog dated 0.5.1. The v0.5.2 bucket holds 55 items against the register's own cap of ten to twelve.
+1. **Planning has outrun delivery.** 307 open backlog items in 25 release buckets (and 11 deferred), 149 active plan files holding 53,560 lines, and a version string at `0.5.1-pre45` with no final v0.5.1: the latest full release is v0.5.0 from March, the newest tag the prerelease v0.5.1-pre31 from September 1. The v0.5.2 bucket holds 55 items against the register's own cap of ten to twelve.
 2. **Renames are planned as alias programmes, not cutovers.** The vocabulary programme has 11 sub-plans, 18 items and a retirement item in v0.6.7; none has touched code. Meanwhile one concept carries four names across four tiers, and "scene" was renamed away from one table and given to another.
 3. **The one binary links everything for every role.** `velocity jobs` needs no internal package yet ships libpcap, Typst, gRPC and tailsql. The frame model lives in the gRPC package, so 37 packages link gRPC; an alias package drags the pipeline into L1 ingest; the LiDAR layer rules are documented but nothing enforces them.
 4. **Two of everything.** Three job systems, two HTTP listeners serving the same routes in three registration styles, four logging styles in fifteen copied files, eight configuration mechanisms, five chart stacks, five JavaScript package roots, and 231 Make targets against a simplification plan that baselined 118.
-5. **Experiments are the strongest practice in the repository and still leak.** 63 specs with a rule-first discipline, but the `approved` state has never been used, 31 answered specs point an arm at a defaults file that has since changed, and 14 reports have no spec.
+5. **Experiments are the strongest practice in the repository and still leak.** 63 specs (67 with this branch's host specs) with a rule-first discipline, but the `approved` state has never been used, 31 answered specs point an arm at a defaults file that has since changed, and 14 reports have no spec.
 
 The recommendation is a reduction: delete before you build, cut the vocabulary programme to three
 one-release cutovers, make roles a property of the import graph rather than a set of binaries,
-move the public survey site out of the product repository in two steps, and tag what is on `main`
-as v0.5.2 before another fifty PRs land in "Unreleased".
+move the public survey site out of the product repository in two steps, and cut what is on
+`main` as v0.5.1 before another fifty PRs land in "Unreleased". This review first proposed
+v0.5.2; Ruth's decision is v0.5.1, because no final v0.5.1 exists.
 
 ## Current state
 
@@ -38,19 +41,19 @@ Everything below was measured on `acdb03e` on October 19, 2026. Counts are from 
 
 ### Planning and releases
 
-| Measure                                      | Value                                                                                                            |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Version string (Makefile)                    | `0.5.1-pre45`; the changelog dates 0.5.1 to May 11, 2026; no tags in the checkout                                |
-| PRs merged October 11 to 19                  | 50, all into the changelog's Unreleased section, one of them a breaking change                                   |
-| Open backlog items                           | 307 in 23 release buckets; 204 complete                                                                          |
-| Largest bucket                               | v0.5.2 with 55 items in five sprint sub-buckets; DECISIONS.md caps a milestone at 10 to 12                       |
-| Backlog item length                          | 372 characters on average; 36 items over 600; the file's own rule is two sentences                               |
-| Plan files                                   | 185, of which 36 are graduated symlinks; 149 active, 53,560 lines                                                |
-| Plan status words                            | 80 proposed, draft or planned; 11 `Active` and 7 `In progress` (18 active under D-32); 9 implemented; 5 complete |
-| Vocabulary programme                         | 1 programme plan (1,294 lines) and 11 sub-plans, every one "outlined, not implemented"                           |
-| Visualiser proposals from February 2026      | 10 plans; twelve visualiser hub docs carry a "Source plan" header, most describing features that do not exist    |
-| Markdown mass under docs/, data/ and config/ | 516 files, 138,786 lines; plans are 39 % of it                                                                   |
-| Experiment specs                             | 63 (38 answered, 25 proposed, 0 approved); 37 dated reports; 18 parameter sets                                   |
+| Measure                                      | Value                                                                                                                                                                                              |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Version string (Makefile)                    | `0.5.1-pre45`; the changelog dates 0.5.1 to May 11, 2026; GitHub's newest tag is the prerelease v0.5.1-pre31 (September 1) and its latest full release v0.5.0 (March 25); the checkout has no tags |
+| PRs merged October 11 to 19                  | 50, all into the changelog's Unreleased section, one of them a breaking change                                                                                                                     |
+| Open backlog items                           | 307 in 25 release buckets, plus 11 deferred (v∞); 204 complete                                                                                                                                     |
+| Largest bucket                               | v0.5.2 with 55 items in five sprint sub-buckets; DECISIONS.md caps a milestone at 10 to 12                                                                                                         |
+| Backlog item length                          | 372 characters on average; 36 items over 600; the file's own rule is two sentences                                                                                                                 |
+| Plan files                                   | 185, of which 36 are graduated symlinks; 149 active, 53,560 lines                                                                                                                                  |
+| Plan status words                            | 80 proposed, draft or planned; 11 `Active` and 7 `In progress` (18 active under D-32); 9 implemented; 5 complete                                                                                   |
+| Vocabulary programme                         | 1 programme plan (1,294 lines) and 11 sub-plans, every one "outlined, not implemented"                                                                                                             |
+| Visualiser proposals from February 2026      | 10 plans; twelve visualiser hub docs carry a "Source plan" header, most describing features that do not exist                                                                                      |
+| Markdown mass under docs/, data/ and config/ | 516 files, 138,786 lines; plans are 39 % of it                                                                                                                                                     |
+| Experiment specs                             | 63 (38 answered, 25 proposed, 0 approved); 37 dated reports; 18 parameter sets; 67 with this branch's four host specs                                                                              |
 
 ### Code
 
@@ -59,7 +62,7 @@ Everything below was measured on `acdb03e` on October 19, 2026. Counts are from 
 | Go packages                          | 106 (30 under cmd/, 76 under internal/); 193,083 non-test lines, 262,531 test lines                                                                      |
 | LiDAR share                          | 143,549 non-test lines, 74 % of the Go; 30 packages beside the nine layer packages                                                                       |
 | Files over the 600-line soft ceiling | 75 non-generated source files; 17 over 1,000; `server.Main` is 890 lines with 42 global flags                                                            |
-| Make targets                         | 231 unique (180 in `make help`), 2,857 lines; the simplification plan's February baseline was 118                                                        |
+| Make targets                         | 231 unique (176 in `make help`, 55 omitted), 2,857 lines; the simplification plan's February baseline was 118                                            |
 | Schema                               | 45 tables, 62 migrations; `radar_commands` and `radar_command_log` have no reader or writer, `radar_transit_links` no reader, `lidar_clusters` no writer |
 | Listeners                            | :8080 and :8081 both serve every LiDAR route; :50051 gRPC; :8084 worker; three route-registration styles                                                 |
 | Logging                              | 393 `log.*` calls, 439 `Opsf/Diagf/Tracef`, 199 stderr writes, 15 copied `debug.go` files, no slog, no metrics registry                                  |
@@ -74,23 +77,23 @@ Everything below was measured on `acdb03e` on October 19, 2026. Counts are from 
 
 ## Findings
 
-| Area                                 | Current state                                                                                               | Severity | Release view                         |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------ |
-| Release cadence                      | Five months of work in Unreleased; version string and changelog disagree                                    | High     | Now: tag v0.5.2 from `main`          |
-| Backlog shape                        | 307 items, paragraphs not items, 55 in one bucket, progress narrative inline                                | High     | Now: re-baseline (Flo)               |
-| Plan corpus                          | 149 active plans, 80 not started, two ready to graduate, twelve hub docs headed by a source plan            | Medium   | Now: WIP limit and parking           |
-| Vocabulary programme                 | 18 items, multi-release aliases, nothing in code; collisions already appearing (`lidar_scenes` twice)       | High     | v0.5.8: three cutovers               |
-| Role closures                        | Every role links everything; cgo always on; no closure or layer gate                                        | High     | v0.5.8: gate, then the moves         |
-| Frame model in the transport package | `FrameBundle` in `l9endpoints`; 37 packages link gRPC                                                       | High     | v0.5.8                               |
-| Alias package and upward edges       | `internal/lidar/aliases.go`; six layer violations; ingest links SQLite and tailsql                          | High     | v0.5.8                               |
-| Job systems                          | Three queues, two ID formats, a worker that compiles the repository at run time                             | High     | v0.5.8: one queue (Item 11 moved up) |
-| Duplicate surfaces                   | Legacy :8081 dashboards, chart JSON API with no client, five chart stacks, dead export code                 | Medium   | v0.5.8: delete                       |
-| SQL boundary                         | Type aliases defeat the check; raw SQL in five packages; `internal/db` owns LiDAR tables and embeds tailsql | Medium   | v0.5.8                               |
-| Lifecycle                            | No supervisor; seven Start/Stop signatures; the transit worker lives in the DB package; HTTP owns ingest    | Medium   | v0.5.9                               |
-| Logging and configuration            | Four logging styles; eight configuration mechanisms; five phantom engines                                   | Medium   | v0.5.9                               |
-| Public survey stack                  | A second product in the monorepo; 66 MB of assets copied into every Pi image                                | Medium   | v0.6.6: extract in two steps         |
-| Experiment registry                  | `approved` unused; arms drift with the defaults; reports without specs                                      | Medium   | Now: pin the fingerprint             |
-| Test corpus                          | 263k test lines, 203 `time.Sleep` sites, 6.4k lines of Jest testing legacy JS slated for deletion           | Low      | With the deletions                   |
+| Area                                 | Current state                                                                                               | Severity | Release view                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------ |
+| Release cadence                      | Five months of work in Unreleased; version string and changelog disagree                                    | High     | Now: cut v0.5.1 from `main`                |
+| Backlog shape                        | 307 items, paragraphs not items, 55 in one bucket, progress narrative inline                                | High     | Re-baselined October 20 (Flo)              |
+| Plan corpus                          | 149 active plans, 80 not started, two ready to graduate, twelve hub docs headed by a source plan            | Medium   | Now: WIP limit and parking                 |
+| Vocabulary programme                 | 18 items, multi-release aliases, nothing in code; collisions already appearing (`lidar_scenes` twice)       | High     | Three renames (D-31): v0.5.10, clip queued |
+| Role closures                        | Every role links everything; cgo always on; no closure or layer gate                                        | High     | v0.5.8: gate, then the moves               |
+| Frame model in the transport package | `FrameBundle` in `l9endpoints`; 37 packages link gRPC                                                       | High     | v0.5.8                                     |
+| Alias package and upward edges       | `internal/lidar/aliases.go`; six layer violations; ingest links SQLite and tailsql                          | High     | v0.5.8                                     |
+| Job systems                          | Three queues, two ID formats, a worker that compiles the repository at run time                             | High     | One queue after the Phase 1 exit (D-30)    |
+| Duplicate surfaces                   | Legacy :8081 dashboards, chart JSON API with no client, five chart stacks, dead export code                 | Medium   | v0.5.8: #252 Phase 1; :8081 later          |
+| SQL boundary                         | Type aliases defeat the check; raw SQL in five packages; `internal/db` owns LiDAR tables and embeds tailsql | Medium   | Queued: boundaries and identity            |
+| Lifecycle                            | No supervisor; seven Start/Stop signatures; the transit worker lives in the DB package; HTTP owns ingest    | Medium   | Queued: boundaries and identity            |
+| Logging and configuration            | Four logging styles; eight configuration mechanisms; five phantom engines                                   | Medium   | Queued: boundaries and identity            |
+| Public survey stack                  | A second product in the monorepo; 66 MB of assets copied into every Pi image                                | Medium   | v0.6.6: extract in two steps               |
+| Experiment registry                  | `approved` unused; arms drift with the defaults; reports without specs                                      | Medium   | v0.5.8: pin the fingerprint                |
+| Test corpus                          | 263k test lines, 203 `time.Sleep` sites, 6.4k lines of Jest testing legacy JS slated for deletion           | Low      | With the deletions                         |
 
 ## Anti-patterns and their fixes
 
@@ -101,22 +104,26 @@ recommendation. Effort uses the backlog's `S`, `M`, `L` scale.
 
 #### P1. The version is a theme, not a tag
 
-**Finding.** `VERSION := 0.5.1-pre45` while CHANGELOG.md dates 0.5.1 to May 11, 2026. The
-Unreleased section carries the L3 consolidation, which is a breaking change for reproducing a
-paced replay. Fifty PRs landed in nine days. The backlog's "v0.5.2 Tailgating metric" is a
-programme of 55 items that will not be done this year, so nothing can be called v0.5.2 and
-nothing is tagged. Release engineering is in place (static builds, versioned installs, atomic
-swaps) and unused.
+**Finding.** `VERSION := 0.5.1-pre45` while CHANGELOG.md dates 0.5.1 to May 11, 2026. GitHub
+carries v0.5.1 prereleases up to pre31 (September 1) and no final v0.5.1; the latest full release
+is v0.5.0 from March 25, so the stable channel still serves March's build. The Unreleased section
+carries the L3 consolidation, which is a breaking change for reproducing a paced replay. Fifty PRs
+landed in nine days. The backlog's "v0.5.2 Tailgating metric" is a programme of 55 items that will
+not be done this year, so the next version is promised to a theme rather than cut from a build.
+Release engineering is in place (static builds, versioned installs, atomic swaps) and has not
+produced a final release since March.
 
-| Option                                                                                                    | Effort | Risk                                                                                        |
-| --------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------- |
-| a. Keep the themed buckets and wait for the tailgating metric                                             | none   | Another five months in Unreleased; the Pi runs May's build                                  |
-| b. Tag what is on `main` as v0.5.2 now, retitle the bucket to what shipped, carry the programme as a plan | `S`    | The changelog's v0.5.2 entry is "consolidated L3, published box, label sets", which is true |
-| c. Switch to date-based versions                                                                          | `M`    | Breaks the version check and the image naming                                               |
+| Option                                                                                                             | Effort | Risk                                                                       |
+| ------------------------------------------------------------------------------------------------------------------ | ------ | -------------------------------------------------------------------------- |
+| a. Keep the themed buckets and wait for the tailgating metric                                                      | none   | Another five months in Unreleased; the stable channel keeps March's v0.5.0 |
+| b. Cut what is on `main` as the next version now, retitle the bucket to its outcome, carry the programme as a plan | `S`    | The breaking L3 change must lead the release notes                         |
+| c. Switch to date-based versions                                                                                   | `M`    | Breaks the version check and the image naming                              |
 
 **Do b.** A version names a build, a programme names an intent; the backlog conflates them. After
 the tag, a release is cut whenever `main` carries a user-visible change and the perf gate is
-green, and the themed titles move to programme plans.
+green, and the themed titles move to programme plans. This review first named the cut v0.5.2;
+the version is v0.5.1, because no final v0.5.1 exists and the prerelease line is 0.5.1
+([Work unit F](deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s)).
 
 #### P2. The backlog is a progress log wearing a list's clothes
 
@@ -143,15 +150,17 @@ hub docs in all, spawned a hub doc stub under docs/ui/visualiser/ that begins "S
 describes a feature that does not exist, which inverts the graduation rule in
 [canonical-plan-graduation.md](../platform/architecture/canonical-plan-graduation.md).
 
-| Option                                                                                                                                                           | Effort | Risk                                                |
-| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------- |
-| a. Leave the corpus; plans are cheap to write                                                                                                                    | none   | They are not cheap to read, link-check or keep true |
-| b. A WIP limit of twelve Active plans; everything else Proposed or Parked with a one-line reason; graduate the two; move the ten hub stubs back into their plans | `M`    | A judgement call per plan, once                     |
-| c. Delete the parked plans                                                                                                                                       | `S`    | Loses design work that cost real thought            |
+| Option                                                                                                                                                                 | Effort | Risk                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | --------------------------------------------------- |
+| a. Leave the corpus; plans are cheap to write                                                                                                                          | none   | They are not cheap to read, link-check or keep true |
+| b. A WIP limit of twelve Active plans; everything else Proposed or Parked with a one-line reason; graduate the two; remove the twelve hub stubs once no row links them | `M`    | A judgement call per plan, once                     |
+| c. Delete the parked plans                                                                                                                                             | `S`    | Loses design work that cost real thought            |
 
 **Do b.** Add `Parked` to the status vocabulary and an advisory in `report-plan-hygiene` that
 lists Active plans without a linked PR in the last 90 days. A hub doc records shipped behaviour;
-a plan records intent.
+a plan records intent. Live backlog rows link six of the twelve stubs, so the six unlinked ones
+(physics checks, priority review queue, QC dashboard and audit, split and merge repair, track
+event timeline, track quality scoring) go first and the six linked ones go when their rows move.
 
 #### P4. Rename by alias programme
 
@@ -172,7 +181,9 @@ reused `lidar_scenes` for a second concept.
 (Item 14, which unblocks every map and the survey export), then one label table (Item 7). The
 remaining items become feature work on the roles (jobs, Item 11) or wait for a consumer. Each
 cutover treats an old name by who still depends on it, as P5 sets out: most need no alias at
-all.
+all. Decided as D-31 with one change: the three are Phase 1 renames of terminology only, and the
+sites merge and one label table wait for Phase 2 ([Phase 1 under
+D-31](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)).
 
 #### P5. Decisions that the code does not keep
 
@@ -257,7 +268,7 @@ first draft of ADR-2 below.
 ##### Make targets
 
 D-14's Make half is the clearest drift: 118 targets in February, 231 now, 2,857 lines, a
-hand-written help block that lists 177 targets, omits 54 and echoes two sentence fragments as
+hand-written help block that lists 176 targets, omits 55 and echoes two sentence fragments as
 if they were targets, 68 targets that nothing calls, and 27 CI steps that bypass Make although
 the coding standards say workflows call Make targets. The full inventory, with a disposition for
 every target, is in the
@@ -357,9 +368,10 @@ before a second worker exists. No October report cites the worker; the runs were
 | b. One queue in SQLite owned by `velocity serve`; the worker claims over HTTP; kinds are compiled into the binary; a job records build version, tuning fingerprint and capture digest | `M`    | Kinds must be on `main` to run, which is the point |
 | c. Delete the worker and keep shell lanes                                                                                                                                             | `S`    | Experiments stay hand-run and unrepeatable         |
 
-**Do b.** It is vocabulary Item 11 moved from v0.5.11 to v0.5.8 and widened to absorb the worker
-pool and job queue plans. Experiment host0002 checks that an in-binary kind reproduces a built
-tool row for row.
+**Do b.** It is vocabulary Item 11 widened to absorb the worker pool and job queue plans.
+Experiment host0002 checks that an in-binary kind reproduces a built tool row for row. This
+review first moved it to v0.5.8; D-30 adopts the design and leaves the implementation after the
+vocabulary Phase 1 exit, as D-27 records.
 
 #### C5. God package, god function, HTTP that owns ingest
 
@@ -401,8 +413,11 @@ test them from the web tree. Grid and region views are rendered five ways includ
 matplotlib tool. Three site maps. Six link checkers. Five JavaScript roots.
 
 **Do this.** The consolidation plan's Phase 1 is "one day of consumer-free deletions" and has not
-started. Do it, then move sweep start to Svelte (Phase 5) and retire :8081 (Phase 2). One pnpm
-workspace; one Go-served SVG for grid views. `M` in total, most of it deletion.
+started. Do it, then move sweep start to Svelte (Phase 5) and retire :8081 (Phase 2). The :8081
+replay form is AGENTS.md's documented arm-run path, so the Svelte form replaces it and AGENTS.md
+moves in the same change. One pnpm workspace; one Go-served SVG for grid views. `M` in total, most
+of it deletion. The chart JSON API is the five `/api/lidar/chart/*` routes in
+`internal/lidar/server/chart_api.go`; the SVG endpoints under `/api/charts/` are live and stay.
 
 #### C8. Experiment switches accrete as configuration
 
@@ -432,34 +447,34 @@ dashboards. `M`, mostly deletion.
 Ranked by what it unblocks. "Delete" means the code and the plan both go; "cut down" means the
 plan shrinks to what the code shows is worth finishing.
 
-| Rank | Work                                                                                                                                                                                                                    | State today                                                                          | Decision                                                 | Effort | Release                |
-| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------- | ------ | ---------------------- |
-| 1    | Legacy :8081 dashboards, chart JSON API, go-echarts                                                                                                                                                                     | Fully present; Phase 1 of the consolidation plan ("one day") not started             | Delete                                                   | `S`    | v0.5.8                 |
-| 2    | Dead code: five phantom engines, `httputil`, `fsutil`, `adapters/track_export.go`, `training_data.go`, L6 curation helpers, three thin `cmd/tools` wrappers, two one-shot backfills, 12 unreferenced scripts, `tox.ini` | Zero production callers                                                              | Delete                                                   | `S`    | v0.5.8                 |
-| 3    | Dead tables: `radar_commands`, `radar_command_log`, `radar_transit_links`, `lidar_clusters`                                                                                                                             | No reader, no writer, or write-only                                                  | Delete                                                   | `S`    | v0.5.8                 |
-| 4    | Layer gate and role closures                                                                                                                                                                                            | Rules documented, nothing enforced                                                   | Finish                                                   | `M`    | v0.5.8                 |
-| 5    | Alias package and six upward edges                                                                                                                                                                                      | Present                                                                              | Finish                                                   | `M`    | v0.5.8                 |
-| 6    | Frame model out of the gRPC package                                                                                                                                                                                     | Not started                                                                          | Finish                                                   | `M`    | v0.5.8                 |
-| 7    | One job queue (Item 11) absorbing worker pool and job queue plans                                                                                                                                                       | Three systems; worker builds from source                                             | Cut down                                                 | `M`    | after the Phase 1 exit |
-| 8    | Vocabulary programme                                                                                                                                                                                                    | 18 items, none started                                                               | Cut down to clip, sites, labels                          | `L`    | v0.5.8 to v0.5.10      |
-| 9    | cmd/server decomposition and cmd extraction                                                                                                                                                                             | Two Draft plans on one 1,489-line file                                               | Merge and finish                                         | `L`    | v0.5.9                 |
-| 10   | Lifecycle supervisor; transit worker out of `internal/db`                                                                                                                                                               | Not started                                                                          | Finish                                                   | `M`    | v0.5.9                 |
-| 11   | SQL boundary made real; `LabelStore` wired                                                                                                                                                                              | Nominal; `LabelStore` exists and is unused                                           | Finish                                                   | `M`    | v0.5.9                 |
-| 12   | Structured logging                                                                                                                                                                                                      | Draft, unscheduled, "no backlog item"; 15 copied `debug.go`                          | Finish minimally with slog                               | `M`    | v0.5.9                 |
-| 13   | Configuration: path-walking defaults, env reads in L1, duplicate structs                                                                                                                                                | Phase 2B proposed                                                                    | Finish                                                   | `M`    | v0.5.9                 |
-| 14   | Clock abstraction phases A to C                                                                                                                                                                                         | `timeutil.Clock` has no production importer; 7 ad hoc `now` fields; 257 `time.Now()` | Finish                                                   | `M`    | v0.5.9                 |
-| 15   | Deterministic track identity                                                                                                                                                                                            | Specification; scenes "not yet reproducible" (#783)                                  | Finish                                                   | `M`    | v0.5.9                 |
-| 16   | Run tracks missing six quality columns                                                                                                                                                                                  | Snapshot loses data the live table prunes                                            | Finish                                                   | `S`    | v0.5.8                 |
-| 17   | VRLOG JSON 0.5 decoder                                                                                                                                                                                                  | Three recordings on one machine still use it                                         | Delete after converting                                  | `S`    | v0.5.8                 |
-| 18   | Simplification plan                                                                                                                                                                                                     | Approved in February; targets grew from 118 to 231                                   | Trim to 148 (P5, Project F)                              | `M`    | v0.5.8                 |
-| 19   | Scene assets in git and in the Pi image                                                                                                                                                                                 | 66 MB, growing per site                                                              | Finish: LFS or Hugging Face, image carries a pointer     | `S`    | v0.6.6                 |
-| 20   | Svelte 5 runes migration                                                                                                                                                                                                | 1 of 25 files                                                                        | Finish one file per touched route, or state the deferral | `M`    | v0.7.0                 |
-| 21   | #503 Tailscale ACL roles                                                                                                                                                                                                | A PR conflicted since v0.5.1                                                         | Decide: rebase or close                                  | `S`    | Now                    |
-| 22   | Ten February visualiser proposals and their hub stubs                                                                                                                                                                   | Nothing built; the annotation window superseded several                              | Park; delete the stubs                                   | `S`    | Now                    |
-| 23   | Dynamic algorithm selection                                                                                                                                                                                             | "Branch-history design, not active on main"                                          | Park                                                     | `S`    | Now                    |
-| 24   | TicTacTail (D-23)                                                                                                                                                                                                       | No code, one consumer                                                                | Retire the decision                                      | `S`    | Now                    |
-| 25   | Typed UUID prefixes                                                                                                                                                                                                     | Proposed; depends on the nouns                                                       | Park until the cutovers                                  | none   | v0.6.x                 |
-| 26   | Two plans ready to graduate                                                                                                                                                                                             | go-runtime-pipeline-correctness, lidar-captures-multi-file-cases                     | Graduate                                                 | `S`    | Now                    |
+| Rank | Work                                                                                                                                                                                                                    | State today                                                                                            | Decision                                                                                                | Effort | Release                 |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------ | ----------------------- |
+| 1    | #252 Phase 1: the consumer-free legacy handlers, the chart JSON API (`/api/lidar/chart/*`), go-echarts                                                                                                                  | Fully present; Phase 1 ("one day") not started; the :8081 replay form is the AGENTS.md arm-run path    | Delete Phase 1 now; retire :8081 after the Svelte replay form and sweep start                           | `S`    | v0.5.8; :8081 with #252 |
+| 2    | Dead code: five phantom engines, `httputil`, `fsutil`, `adapters/track_export.go`, `training_data.go`, L6 curation helpers, three thin `cmd/tools` wrappers, two one-shot backfills, 12 unreferenced scripts, `tox.ini` | Zero production callers                                                                                | Delete                                                                                                  | `S`    | v0.5.8                  |
+| 3    | Unwritten and unread tables: `lidar_clusters` (no writer, three readers), `radar_transit_links` (a writer, no reader), `radar_commands` and `radar_command_log` (neither)                                               | Write-only, read-only or unused                                                                        | Give each a consumer or remove it with its readers and writer; the radar command tables stay for Item 9 | `S`    | v0.5.8                  |
+| 4    | Layer gate and role closures                                                                                                                                                                                            | Rules documented, nothing enforced                                                                     | Finish                                                                                                  | `M`    | v0.5.8                  |
+| 5    | Alias package and six upward edges                                                                                                                                                                                      | Present                                                                                                | Finish                                                                                                  | `M`    | v0.5.8                  |
+| 6    | Frame model out of the gRPC package                                                                                                                                                                                     | Not started                                                                                            | Finish                                                                                                  | `M`    | v0.5.8                  |
+| 7    | One job queue (Item 11) absorbing worker pool and job queue plans                                                                                                                                                       | Three systems; worker builds from source                                                               | Cut down                                                                                                | `M`    | after the Phase 1 exit  |
+| 8    | Vocabulary programme                                                                                                                                                                                                    | 18 items, none started                                                                                 | Three Phase 1 renames (D-31)                                                                            | `L`    | v0.5.10; clip queued    |
+| 9    | cmd/server decomposition and cmd extraction                                                                                                                                                                             | Two Draft plans on one 1,489-line file                                                                 | Merge and finish                                                                                        | `L`    | queued (boundaries)     |
+| 10   | Lifecycle supervisor; transit worker out of `internal/db`                                                                                                                                                               | Not started                                                                                            | Finish                                                                                                  | `M`    | queued (boundaries)     |
+| 11   | SQL boundary made real; `LabelStore` wired                                                                                                                                                                              | Nominal; `LabelStore` exists and is unused                                                             | Finish                                                                                                  | `M`    | queued (boundaries)     |
+| 12   | Structured logging                                                                                                                                                                                                      | Draft, unscheduled, "no backlog item"; 15 copied `debug.go`                                            | Finish minimally with slog                                                                              | `M`    | queued (boundaries)     |
+| 13   | Configuration: path-walking defaults, env reads in L1, duplicate structs                                                                                                                                                | Phase 2B proposed                                                                                      | Finish                                                                                                  | `M`    | queued (boundaries)     |
+| 14   | Clock abstraction phases A to C                                                                                                                                                                                         | `timeutil.Clock` has no production importer; 7 ad hoc `now` fields; 257 `time.Now()`                   | Finish                                                                                                  | `M`    | queued (boundaries)     |
+| 15   | Deterministic track identity                                                                                                                                                                                            | Specification; scenes "not yet reproducible" (#783)                                                    | Finish                                                                                                  | `M`    | v0.5.4                  |
+| 16   | Run-track snapshot missing the six quality columns                                                                                                                                                                      | `lidar_tracks` writes them since #690; the run snapshot's insert writes none                           | Finish                                                                                                  | `S`    | v0.5.4                  |
+| 17   | VRLOG JSON 0.5 decoder                                                                                                                                                                                                  | Three recordings on one machine still use it                                                           | Delete after converting                                                                                 | `S`    | v0.5.5                  |
+| 18   | Simplification plan                                                                                                                                                                                                     | Approved in February; targets grew from 118 to 231                                                     | Trim to 148 (P5, Project F)                                                                             | `M`    | v0.5.8                  |
+| 19   | Scene assets in git and in the Pi image                                                                                                                                                                                 | 66 MB, growing per site                                                                                | Finish: LFS or Hugging Face, image carries a pointer                                                    | `S`    | v0.6.6                  |
+| 20   | Svelte 5 runes migration                                                                                                                                                                                                | 1 of 25 files                                                                                          | Finish one file per touched route, or state the deferral                                                | `M`    | v0.7.0                  |
+| 21   | #503 Tailscale ACL roles                                                                                                                                                                                                | A PR conflicted since v0.5.1                                                                           | Moved to v0.6.0                                                                                         | `S`    | v0.6.0                  |
+| 22   | Ten February visualiser proposals and twelve hub stubs                                                                                                                                                                  | Nothing built; the annotation window superseded several                                                | Park the plans; remove the six unlinked stubs, the rest when their rows move                            | `S`    | Now                     |
+| 23   | Dynamic algorithm selection                                                                                                                                                                                             | "Branch-history design, not active on main"                                                            | Park; its two v0.5.6 rows and one v2.0 row keep their links                                             | `S`    | Now                     |
+| 24   | TicTacTail (D-23)                                                                                                                                                                                                       | No code, one consumer                                                                                  | Withdrawn (D-35)                                                                                        | `S`    | Now                     |
+| 25   | Typed UUID prefixes                                                                                                                                                                                                     | Proposed; depends on the nouns                                                                         | Park until the cutovers                                                                                 | none   | v0.6.x                  |
+| 26   | Two plans ready to graduate                                                                                                                                                                                             | go-runtime-pipeline-correctness marked Complete here; lidar-captures-multi-file-cases already Complete | Symlink in the next PR (two-PR rule)                                                                    | `S`    | Now                     |
 
 ## Project boundaries: what to split out and what to keep
 
@@ -598,7 +613,7 @@ proposals, the decisions govern.
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Tag `main` as v0.5.2 (P1)                                                                       | Cut v0.5.1 from `main`: there is no v0.5.1 tag or release, the prerelease line users follow is 0.5.1, and the latest full release is v0.5.0 from March |
 | Sprint sub-buckets and narrative move into plans; the backlog shows the next twelve (P2, ADR-3) | Narrative and sequence may move to plans; every outstanding item stays in BACKLOG.md; overflow moves to the next slot, never out (D-32)                |
-| Twelve Active plans (P3)                                                                        | Twelve active bodies of work, counting `In progress` as active and a programme with its phase plans once; 18 are active today                          |
+| Twelve Active plans (P3)                                                                        | Twelve active bodies of work, counting `In progress` as active and a programme with its phase plans once; 18 were active before the limit was applied  |
 | Hub docs record only shipped behaviour (ADR-4)                                                  | A hub doc states what ships and may carry a design if it says so; a stub presenting an unbuilt feature as present is removed (D-33)                    |
 | The scene-player package first, then the site leaves (ADR-5)                                    | The asset move first; the package only when the external repository needs it, pinned to a revision (D-34)                                              |
 | One queue in v0.5.8 (C4)                                                                        | Design adopted (D-30); implementation after the vocabulary Phase 1 exit, as D-27 records; no new source-built worker kinds meanwhile                   |
@@ -620,10 +635,53 @@ new plan, and five drafted plans were folded back before merge.
 | C1 roles as closures         | [Work unit G](deploy-single-binary-image-consolidation-plan.md#work-unit-g-roles-as-asserted-closures-d-30-m) of the same consolidation plan, and the decided design in [go-package-structure.md](../platform/architecture/go-package-structure.md#roles-in-the-one-binary-decided-design-d-30) |
 | C4 one job queue             | [Section 12](lidar-worker-pool-and-results-hub-plan.md#12-one-queue-kinds-in-the-binary-d-30) of the worker pool plan, now the single active plan for the queue; the job queue map is superseded into it                                                                                        |
 
+### Flo's review and what it corrected
+
+Flo read the first draft against the backlog, the decisions, the tenets and the release record,
+and returned "needs revision": the direction held, but six findings blocked applying it as
+written. Each is resolved below, by a correction to this review or by a decision.
+
+| Blocking finding                                                                                                                                                 | Resolution                                                                                                                                                                                         |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| B1. The tag premise: the draft said nothing was tagged and rested v0.5.2 on a changelog entry that does not exist                                                | P1 corrected against GitHub's releases; Ruth decided the cut is v0.5.1                                                                                                                             |
+| B2. Rank 1 deleted the :8081 dashboards in v0.5.8, which removes the replay form and sweep start AGENTS.md names for running an arm                              | Rank 1 narrowed to #252 Phase 1; :8081 retires after the Svelte replay form and sweep start, with AGENTS.md in the same change                                                                     |
+| B3. Rank 3 called four tables dead: `radar_transit_links` has a writer, `lidar_clusters` three readers, and vocabulary Item 9 populates the radar command tables | One row: each table gets a consumer or goes with its readers and writer; the radar command tables stay for Item 9; `lidar_clusters` is decided by the v0.5.4 Phase 3 row first                     |
+| B4. The backlog would have shown only the next twelve, against its own governance rule                                                                           | D-32: overflow moves to the next slot or a named queued slot, and never out of the file                                                                                                            |
+| B5. The host specs ran from the defaults file, which is P6's own defect, on a Pi 5 when the deployed device is a Pi 4                                            | Each spec pins the defaults' fingerprint; the device is an open question below, and no Pi step runs until it is answered                                                                           |
+| B6. A hub and workers read against tenet 4's "no clustering, no replication"                                                                                     | D-30: each data-owning host is the one authority for its own jobs and no two hosts share a database; a worker returns a result bundle the hub accepts, and the Pi runs edge and hub in one process |
+
+The other corrections, applied in place above: the help count (176 listed, 55 omitted); the
+release buckets (25, and 11 deferred); the spec count at `acdb03e` and on this branch; the stub
+count (twelve, six of them linked from live rows); the chart JSON API named by its routes; the
+three cutovers placed where the backlog puts them; the VRLOG JSON decoder in v0.5.5, where its row
+already is; identity in v0.5.4, where it already is; rank 16, which had no open row and has one
+now; #290's remainder kept as the v0.5.1 gate rather than moved; and the `pcap_file` projection
+dropping with the clip rename, as Ruth ruled under D-31, in the plan that still said v0.6.6.
+
+**The WIP limit, applied.** Eighteen plans were Active or In progress. Eleven are now Parked with
+a reason and a revisit trigger: binary size reduction, the architecture graph, deterministic scene
+capture, the hub restructure, the setup guide, unpopulated data structures, the foundations fix-it,
+the clock abstraction, the VRLOG observation format, documentation standardisation and structural
+hygiene. Two are Complete and graduate in the next PR: runtime pipeline correctness and the RPi
+imager fork. Serial configuration stays Active only until the v0.5.1 tag, as Work unit F's
+release-candidate gate. Counting the plans being worked under other status words, eleven bodies
+of work are active: this review, simplification, the image consolidation and v0.5.1 cut, the 0.5.2
+sprint, behaviour analytics, geometry convergence, state estimation, the label-set workflow,
+physical references, the experiment queue, and serial configuration until the tag.
+
+**Proposed, not applied.** Flo's broader parking pass would park about 125 further plans in
+eleven groups (the February visualiser proposals, the vocabulary sub-plans, labelling and
+annotation, geometry and tracking reference plans, deferred and future work, scene publishing,
+external projects, safety reporting, platform and documentation, and open investigations). It
+changes no outstanding work and waits for the owner. Also not applied: replacing the v0.9.0
+coverage target, which is a scope change its plan must record first; rows for VISION's phases B
+to E; and Flo's notes on the release-prep skill (fetch tags before `git describe`, and run the
+perf gate), which go to the next release-prep change.
+
 ### Open questions for the owner
 
 1. Whether a declared breaking change in 0.x raises the minor version. It does not block the v0.5.1 cut.
-2. #503 (rebase or close) and the remainder of #290 (an operator validation), both moved to the next slot before the cut.
+2. #503: rebase or close; it now sits in v0.6.0. #290's remainder stays in v0.5.1 as the release-candidate gate.
 3. Retire `grid-heatmap` (the default under restated D-17), or keep a Go-served grid view.
 4. D-16's v1.0 placement, after posted speed limits.
 5. Which scene data may be public, before the survey site leaves (D-34 step 2).
@@ -631,64 +689,73 @@ new plan, and five drafted plans were folded back before merge.
 7. When the NAS hub is deployed.
 8. D-25's persona length: restate the bound or trim the personas; run the drift check in CI meanwhile.
 9. The seven unaudited decisions (D-06, D-10, D-12, D-13, D-15, D-28, D-29), at the first release audit.
+10. The device of record for the release gate and the host experiments: the Pi 4 the hardware module names, or a Pi 5. No host Pi step runs until this is answered.
+11. VISION's phases B to E (the query engine, the JSON API, the transit browser and export) have no backlog rows: add them, or restate VISION.
+12. The parking pass over about 125 unstarted plans, as Flo proposed it.
+13. Whether the vehicle encyclopedia and spatial priors rows stay in this backlog's External section or move with their repositories.
 
-## Proposed backlog changes
+## Backlog changes applied
 
-For Flo's planning review. The governance rule holds: nothing is deleted; items are split,
-consolidated, moved or completed.
+The first draft proposed these changes for Flo's planning review; its proposals are in this
+file's history. Flo found several wrong against the backlog as it stood, and Ruth's decisions
+changed others, so this section records what the re-baseline of October 20, 2026 applied. The
+governance rule held: no outstanding row left the file, and every row moved, split, merged or
+completed is accounted for in that change (522 rows before, 527 after: four merges, three splits,
+six new rows).
 
-### By bucket
+### By slot
 
-| Bucket                      | Proposal                                                                                                                                                                                                                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v0.5.1                      | Decide #503 (rebase or close); move #290's remainder to v0.8.0 with the auto-detect item; close the bucket                                                                                                                                                                |
-| v0.5.2                      | Retitle to what `main` ships (consolidated L3, published box, label sets, replays from nothing); tag it; move the five sprint sub-buckets into a "following distance programme" plan with the 0.5.2 sprint plan as its checklist; keep at most twelve items in the bucket |
-| v0.5.3 to v0.5.7            | Keep as programme phases under the same plan; the backlog shows only the next twelve                                                                                                                                                                                      |
-| v0.5.8 (hygiene)            | Pull in: the deletions (rank 1 to 3), the gate and the moves (4 to 7, 16, 17), vocabulary Item 11, #252 surface consolidation from v0.7.0; push out: typed UUIDs, maths coherence Items 1, 4 and 5, `time.Sleep` reduction                                                |
-| v0.5.9                      | Add the lifecycle, SQL boundary, logging, configuration, clock and deterministic identity items (rank 9 to 15)                                                                                                                                                            |
-| v0.5.10, v0.5.11            | Vocabulary Items 7 and 8 become the labels cutover; Items 9 and 11 are absorbed by the one-queue item; the rest wait for a consumer                                                                                                                                       |
-| v0.6.0                      | The Project B item's deploy targets and `cmd/deploy` are already gone; close it with the v0.5.1 PR that removed them once its docs task is checked                                                                                                                        |
-| v0.6.4 macOS local server   | Keep, after the roles: the Mac runs a hub and a worker locally, which is what the plan wants                                                                                                                                                                              |
-| v0.6.5 design system        | Park until v0.7.0                                                                                                                                                                                                                                                         |
-| v0.6.6 web scene publishing | Add the two extraction steps of ADR-5; the asset move comes first                                                                                                                                                                                                         |
-| v0.7.0 united frontend      | #252 moves to v0.5.8; the rest stays                                                                                                                                                                                                                                      |
-| v0.8.0                      | Retire TicTacTail Phase 1 to deferred (D-23 superseded)                                                                                                                                                                                                                   |
-| v0.9.0                      | Replace "coverage ≥ 95.5 %" with boundary tests and a serve smoke test                                                                                                                                                                                                    |
-| v∞                          | Add the parked plans with their one-line reasons                                                                                                                                                                                                                          |
+| Slot                 | Applied                                                                                                                                                                                                                |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v0.5.1               | #503 moved to v0.6.0; #290 restated as the release-candidate gate it is; a row for the cut itself ([Work unit F](deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s)) |
+| v0.5.2               | Retitled "Following-distance evidence" for its outcome, not for what shipped; sprint sub-buckets removed, their order kept in the 052 sprint plan; twelve rows, two moved to v0.5.3; W0 to Complete                    |
+| v0.5.3 to v0.5.11    | Kept, each at twelve rows or fewer; rows over the cap moved to the queued slots below, never out of the file                                                                                                           |
+| v0.5.4               | The run-track quality row (rank 16), which had none                                                                                                                                                                    |
+| v0.5.8               | The review's rows, narrowed: dead code with #252 Phase 1 only; unwritten and unread tables each given a consumer or removed with their readers and writer; the register test; the fingerprint row                      |
+| v0.5.10              | The labels and sites renames (D-31), beside the existing clip-site row                                                                                                                                                 |
+| Queued slots         | Thirteen named queues, numbered when each becomes next; the lifecycle, SQL boundary and logging rows join "Boundaries and identity"; one queue, typed UUIDs and the Phase 2 vocabulary items wait on the exit          |
+| v0.6.5 design system | Moved whole, text unchanged, to Parked outside the slot cap, with the February visualiser rows and the bumper sticker tool                                                                                             |
+| v0.7.0               | #252 Phases 2 to 7 stay; retiring :8081 waits for the Svelte replay form and sweep start, and moves AGENTS.md's arm-run path with it                                                                                   |
+| v0.8.0               | TicTacTail to v∞ (D-35)                                                                                                                                                                                                |
+| v0.9.0               | The coverage target is unchanged: replacing it is a scope change its plan must record first                                                                                                                            |
+| v1.0, v2.0           | Vehicle encyclopedia and spatial priors rows moved to an External section until the owner decides (Flo's D15)                                                                                                          |
 
-### New items
+### New rows
 
-Added to v0.5.8 in this PR, each linking back here:
+- Cut v0.5.1 from `main` (v0.5.1)
+- Run-track snapshot quality (v0.5.4)
+- Unwritten and unread tables (v0.5.8)
+- Lifecycle supervisor, SQL boundary made real, structured logging (Boundaries and identity)
 
-- Role closure and layer gate in `make lint-go`
-- Delete the alias package and fix the six layer edges
-- Frame model out of the gRPC package
-- Split the root embed package
-- Delete the dead code and dead tables the review lists
-- Experiment specs pin the defaults' fingerprint; one status vocabulary
-- Make targets to a budget of 150 (split from the v0.5.10 consolidation item, which keeps the stats surfaces and CLI flags)
-- Compatibility register for D-20, and the removal of the shims no exception covers
-- Decision audit kept current: Kept-by lines, states, and plans that cite decisions
-- Scene assets out of git and out of the image (v0.6.6)
+### Merged and split
 
-### Items to merge
-
-- cmd-server-decomposition and go-cmd-extraction: one plan, one item
-- Worker pool, job queue implementation and vocabulary Item 11: one item, "one queue"
-- Simplification programme and the Makefile trim: the trim is its own v0.5.8 item (Project F of the simplification plan)
+| Change                                              | Result                                                                                    |
+| --------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Distributed sweep workers merged into one job queue | One row, after the Phase 1 exit                                                           |
+| Vocabulary delivery gate and Item 1 merged          | One row for the Phase 1 vocabulary under D-31                                             |
+| Retire the Go-embedded dashboards merged into #252  | One row for Phases 2 to 7                                                                 |
+| The two profile comparison rows merged              | One row under restated D-07                                                               |
+| Item 7 split                                        | The labels rename (Phase 1) and the label table consolidation (Phase 2)                   |
+| Item 9 split                                        | The transit worker's move to `internal/radar` (code) and the radar tracker jobs (Phase 2) |
+| Item 14 split                                       | The sites rename (Phase 1) and the site merge (Phase 2)                                   |
+| The Make trim                                       | A split, not a merge: its own v0.5.8 row, Project F of the simplification plan            |
 
 ## Proposed experiments
 
-Three specs in a new `host` area (roles, hosts and reproducibility), written under the registry's
-rules with their rule before any run. They put numbers on the two questions this review cannot
-settle by reading: whether a role-scoped build is worth more than the gate, and whether a worker
-reproduces a result across hosts.
+Four specs in a new `host` area (roles, hosts and reproducibility), written under the registry's
+rules with their rule before any run. They put numbers on the questions this review cannot settle
+by reading: whether a role-scoped build is worth more than the gate, whether a worker reproduces a
+result across hosts, and whether the binary can drop cgo. Each pins the defaults' fingerprint
+(`15fe4df885c8`) in its body, as the experiment queue plan's Section 12 will require. Their Pi
+steps name the Pi 5 on the bench; the deployed device is a Pi 4, which is an open question
+below.
 
-| Spec     | Question                                                                                                                                   | Rule in one line                                                                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
-| host0001 | What does each role cost on the Pi 5 and the Mac: the one binary against builds without Typst, without pcap, and worker-only               | Keep one binary unless the edge build shrinks by a quarter and idle memory by a sixth; the closure gate is adopted regardless |
-| host0002 | Does a kind compiled into the binary reproduce the tool the worker builds from a checkout, row for row, and how much sooner does it answer | Adopt in-binary kinds when the rows are identical on kirk0 and three corpus cases and time to first result at least halves    |
-| host0003 | Does one capture under one fingerprint give the same rows on the Mac, the blade and the Pi                                                 | Identical track rows across hosts, or the difference is attributed and the deterministic identity item moves up               |
+| Spec     | Question                                                                                                                                     | Rule in one line                                                                                                               |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| host0001 | What does each role cost on the Pi 5 and the Mac: the one binary against builds without Typst, without pcap, and worker-only                 | Keep one binary unless the edge build shrinks by a quarter and idle memory by a sixth; the closure gate is adopted regardless  |
+| host0002 | Does a kind compiled into the binary reproduce the tool the worker builds from a checkout, row for row, and how much sooner does it answer   | Adopt in-binary kinds when the rows are identical on the four corpus cases and time to first result at least halves            |
+| host0003 | Does one capture under one fingerprint give the same rows on the Mac, the blade and the Pi                                                   | Identical track rows across hosts, or the difference is attributed, with identity differences sent to the v0.5.4 identity item |
+| host0004 | Does a pure-Go capture reader (`pcapgo`) give libpcap's packets, frames and tracks, at no more than 5 % slower on the Mac and 10 % on the Pi | Drop libpcap when packets, frames and track rows are identical on all four cases and the speed bounds hold                     |
 
 Updates to existing specs, for their owner rather than this PR: l3bg0009's arms describe the
 pre-consolidation L3 and should be restated against l3bg0025; perf0002's note and three reports
@@ -700,9 +767,9 @@ validator carries the field.
 
 | Who    | What                                                                                                                                                             |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Flo    | The backlog re-baseline above; the v0.5.2 tag decision with Ruth; the WIP limit; the parking pass over the 80 unstarted plans                                    |
+| Flo    | Done on October 20: the re-baseline and the WIP limit. Open: the parking pass over the unstarted plans, proposed in Flo's review                                 |
 | Appius | The moves table, in the order given; the merged cmd/server plan; the one-queue design against host0002; the closure test first, because it keeps the rest honest |
-| Ruth   | ADR-1 to ADR-5 as D-30 to D-34 with Kept-by lines; the states from the P5 audit; restating D-04, D-07, D-16 and D-22; the fate of D-09, D-14, D-20 and D-23      |
+| Ruth   | Done on October 20: D-30 to D-35, the audit's states, seven restatements and the Kept-by lines                                                                   |
 | Euler  | host0003's attribution method when rows differ (float order, clock, goroutine scheduling)                                                                        |
 | Malory | The worker's claim API before it is built: token scope, what a result bundle may contain, and that a worker can never write the hub's database                   |
 | Terry  | The backlog item lint's wording and the `Parked` status in the plan hygiene docs                                                                                 |
@@ -710,20 +777,21 @@ validator carries the field.
 ## Dependencies
 
 - The closure test (C2) precedes every move; without it the moves regress.
-- The one-queue item precedes host0002; host0001 and host0003 need only a Pi 5 and the static build.
-- The clip cutover precedes the survey export and the sites cutover precedes every map item.
-- The scene-player package precedes the survey site's extraction.
+- The one-queue item precedes host0002; host0001, host0003 and host0004 need only a Pi and the static build.
+- The clip rename precedes the survey export; the site merge (Phase 2) precedes every map item.
+- The asset move precedes the survey site's extraction; the scene-player package comes only if the
+  external repository needs it (D-34).
 
 ## Risks
 
-| Risk                                                               | Likelihood | Impact | Mitigation                                                                                |
-| ------------------------------------------------------------------ | ---------- | ------ | ----------------------------------------------------------------------------------------- |
-| The deletions remove something a shell lane or a Mac workflow uses | Medium     | Low    | Each deletion PR lists its consumers from the surveys; the Mac workflows run before merge |
-| The moves collide with the perception branches in flight           | High       | Medium | Land the gate first; the moves are mechanical and small; rebase cost is known             |
-| Three cutovers are three breaking releases                         | Certain    | Low    | Each is announced in the changelog; aliases on the public API and CLI for one release     |
-| The survey site extraction stalls on the asset move                | Medium     | Low    | The asset move is independent and first                                                   |
-| Role closures make a worker-only feature harder to add             | Low        | Low    | The test names the closure; widening it is a one-line, reviewed change                    |
-| host0001 shows no benefit from role builds                         | Likely     | None   | That is a result: one build, one binary, and the gate                                     |
+| Risk                                                               | Likelihood | Impact | Mitigation                                                                                                     |
+| ------------------------------------------------------------------ | ---------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| The deletions remove something a shell lane or a Mac workflow uses | Medium     | Low    | Each deletion PR lists its consumers from the surveys; the Mac workflows run before merge                      |
+| The moves collide with the perception branches in flight           | High       | Medium | Land the gate first; the moves are mechanical and small; rebase cost is known                                  |
+| Three renames are three breaking releases                          | Certain    | Low    | Each is announced in the changelog; tombstones for people and registered aliases only for the macOS app (D-31) |
+| The survey site extraction stalls on the asset move                | Medium     | Low    | The asset move is independent and first                                                                        |
+| Role closures make a worker-only feature harder to add             | Low        | Low    | The test names the closure; widening it is a one-line, reviewed change                                         |
+| host0001 shows no benefit from role builds                         | Likely     | None   | That is a result: one build, one binary, and the gate                                                          |
 
 ## Checklist
 
@@ -731,24 +799,26 @@ validator carries the field.
 
 - [x] Four read-only surveys: unfinished migrations and renames; package topology and role closures; UI and tooling surfaces; experiment infrastructure
 - [x] Findings, anti-patterns, the ranked list, the boundary decisions, the roles design and the ADRs
-- [x] Three experiment specs in the `host` area; backlog items under v0.5.8; devlog entry
+- [x] Four experiment specs in the `host` area, each pinning the defaults' fingerprint; backlog items under v0.5.8; devlog entry
 - [x] P5 explored: a decision audit, the D-20 consumer test and register, and a disposition for every Make target
+- [x] Flo: the review corrected and the backlog re-baselined; the WIP limit applied to plan statuses
+- [x] Ruth: ADR-1 to ADR-5 decided as D-30 to D-34, and D-35
+- [x] Ruth: decision states and Kept-by lines from the P5 audit
 
 ### Outstanding
 
-- [ ] Flo: backlog re-baseline and the parking pass (`M`)
-- [ ] Ruth: ADR-1 to ADR-5 decided (`S`)
-- [ ] Ruth: decision states and Kept-by lines from the P5 audit (`S`)
 - [ ] Appius: the Make trim (Project F) and the compatibility register with its test (`M`)
 - [ ] Appius: the closure test and the first three moves (`M`)
 - [ ] Appius: one queue, in-binary kinds, host0002 run (`M`)
-- [ ] The v0.5.2 tag (`S`)
-- [ ] host0001 and host0003 run on the Pi 5 (`M`)
+- [ ] Flo: the parking pass over the unstarted plans (`M`)
+- [ ] The v0.5.1 cut, under Work unit F (`S`)
+- [ ] host0001, host0003 and host0004 run, on the device the owner names (`M`)
+- [ ] Remove the six unlinked visualiser stubs and repoint their plans (`S`)
 
 ### Deferred
 
 - [ ] Role-scoped binaries: only if host0001 says so
-- [ ] The survey site repository: after the scene-player package exists
+- [ ] The survey site repository: after the asset move (D-34)
 
 ### Accepted residuals (no action planned)
 

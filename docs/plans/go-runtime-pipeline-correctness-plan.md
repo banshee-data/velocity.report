@@ -1,6 +1,6 @@
 # Go runtime pipeline correctness and cleanup remediation plan
 
-- **Status:** Active; Phases 1–4 delivered, the rest deferred to other plans, so it is ready for graduation
+- **Status:** Complete; Phases 1–4 delivered and the rest moved to other plans. Graduates to a symlink in a later PR under the two-PR rule
 - **Layers:** Go server, LiDAR replay/tracking pipeline, radar DB derivation, API capability reporting
 - **Canonical:** [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md)
 - **Target:** v0.5.1-v0.5.9; runtime correctness gates land early, contract/API fixes follow at v0.5.8-v0.5.9, and structural follow-through remains scheduled in the existing cleanup milestones.

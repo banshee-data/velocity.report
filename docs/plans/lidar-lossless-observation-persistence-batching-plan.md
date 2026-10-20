@@ -4,7 +4,7 @@
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, SQLite offline replay storage
 - **Target:** Sprint 0.5.2.0
-- **Backlog:** [State-estimation evidence sprint](../BACKLOG.md#sprint-0520-trustworthy-replay-evidence)
+- **Backlog:** delivered rows are in [Complete](../BACKLOG.md#complete); the persistence work after it is the [Persistence and recovery queue](../BACKLOG.md#persistence-and-recovery)
 - **Related:** [State estimation](lidar-state-estimation-plan.md), [test corpus](lidar-test-corpus-plan.md), [performance measurement harness](lidar-performance-measurement-harness-plan.md), [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
 
 The sections below preserve the original SQLite performance and equivalence design. The branch now

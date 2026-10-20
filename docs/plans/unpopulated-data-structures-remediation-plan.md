@@ -7,7 +7,7 @@ but never persisted, exposed via API, or consumed by any presentation
 surface: plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-- **Status:** Active; Phases 1, 2, and 4 implemented; Phases 3 and 5–8 proposed
+- **Status:** Parked (D-32, October 20, 2026): Phases 1, 2 and 4 implemented; Phase 3's decision is a v0.5.4 row and Phases 5, 6 and 8 a v0.8.0 row. Revisit when v0.5.4 is the next release
 - **Related:** [Backend → Surface Matrix](../../data/structures/MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---

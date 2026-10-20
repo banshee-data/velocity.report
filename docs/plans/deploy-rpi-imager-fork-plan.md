@@ -1,6 +1,6 @@
 # velocity.report Raspberry Pi imager: design document
 
-- **Status:** Active; Phase 1 complete (v0.5.1), Phase 2 cancelled (replaced by Typst cutover)
+- **Status:** Complete; Phase 1 delivered for v0.5.1 and Phase 2 cancelled (replaced by the Typst cutover). Graduates to a symlink in a later PR under the two-PR rule
 - **Layers:** Cross-cutting (deployment infrastructure)
 - **Related:** [deploy-distribution-packaging-plan.md](./deploy-distribution-packaging-plan.md) § 8.2, [frontend-consolidation.md](./web-frontend-consolidation-plan.md) (LiDAR toggle dependency), [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) (image surface consolidation)
 - **Canonical:** [rpi-imager.md](../platform/operations/rpi-imager.md)

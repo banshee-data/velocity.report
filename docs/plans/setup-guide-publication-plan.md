@@ -1,6 +1,6 @@
 # Setup guide publication plan
 
-- **Status:** Active
+- **Status:** Parked (D-32, October 20, 2026): no backlog row of its own. Revisit at the v0.5.1 tag, when the simplification plan's last Project B task moves the setup docs to the image-first workflow
 - **Canonical:** [setup.md](../../public_html/src/guides/setup.md)
 
 Checklist of remaining items before the setup guide at [public_html/src/guides/setup.md](../../public_html/src/guides/setup.md) is ready for public consumption.
