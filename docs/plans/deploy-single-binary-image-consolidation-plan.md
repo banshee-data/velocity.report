@@ -231,7 +231,7 @@ follow is 0.5.1, and closing it is what makes the CHANGELOG's heading true.
 3. Tags fetched (`git fetch --tags`; a fresh checkout carries none), then the `[0.5.1]` section rewritten to cover `v0.5.0..main`, with the breaking change first under a BREAKING marker, and dated on the day of the tag.
 4. `VERSION := 0.5.1` in the Makefile and the macOS project version in the same commit.
 5. On the cut commit: `make lint`, `make test` and the perf gate pass; a binary built through `make` reports 0.5.1 and HEAD's sha; the image boots on the device of record with the API answering on `:80`, the static Tailscale install validated on Pi OS bookworm and trixie (Work unit B's release gate), a USB serial adapter and a deliberately changed serial setting validated across a reload (#290), and a report generated. The device of record is the Pi 4 the hardware module names, as the owner confirmed on October 20, 2026.
-6. The debug SQL console queries through its own read-only handle, the change on `claude/debug-sql-read-only` merged with its test (the owner, October 20, 2026).
+6. The debug SQL console queries through its own read-only handle (the owner, October 20, 2026). Met: merged with its test in #819.
 7. The owner tags; `/release-prep` runs `update-release-json` and `check-release-hashes`, so the stable and prerelease entries both point at the release.
 
 **After the cut.** A version is tagged when the owner cuts it from `main` (D-32). There is no

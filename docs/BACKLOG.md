@@ -16,7 +16,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
 - [#290] (#11) Serial configuration, v0.5.1 release gate: validate a USB serial adapter and a deliberately changed-setting reload on the v0.5.1 release candidate; device and baud auto-detect is the v0.8.0 item: [implementation plan](plans/serial-configuration-implementation-plan.md) `S`
-- Debug SQL console on a read-only handle: the console at `/debug/tailsql/` queries through its own `mode=ro`, `query_only` handle on the database file, with a test that writes sent through it are refused; built on `claude/debug-sql-read-only`, and the v0.5.1 cut waits on it: [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s) `S`
 - Cut v0.5.1 from `main`: the `:80` image smoke test, the CHANGELOG section rewritten over `v0.5.0..main` with the breaking L3 change first, `VERSION` and the macOS version set, the gates and a Pi boot on the release candidate, then the owner's tag and the stable channel updated: [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s) `S`
 
 ### v0.5.2.0 - ECharts retirement (052.0)
@@ -498,6 +497,7 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 
 ## Complete
 
+- [#819] Debug SQL console on a read-only handle: the console at `/debug/tailsql/` queries through its own `mode=ro`, `query_only` handle on the database file, and a test finds writes sent through it refused and the data unchanged; a v0.5.1 gate under [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s)
 - [#756] Range-adaptive eps sweep arm (D-28): measured on October 13, 2026 against the W3 retention and fragmentation gate; it barely moves W3 and no cluster merges two objects, so the defaults are unchanged: [report](lidar/operations/l4-range-adaptive-eps-2026-10.md)
 - Geometry levels predeclared (W0): the twelve levels pinned with their operational tests in the [criteria record](lidar/operations/geometry-convergence-criteria.md), the identity band above the one measured no-op, and the containment share and observed spans on every solid-body row; the scorer citing the record is the physical scoring criteria item: [levels](plans/lidar-tracker-geometry-convergence-plan.md#3-what-acceptable-looks-like)
 - Track labelling Phase 9 UI (Swift, D-07): seekable replay and Swift-native labelling, delivered through the macOS annotation window and VRLOG seek (#656, #754); the profile comparison UI remains under restated D-07: [design doc](plans/lidar-track-labelling-auto-aware-tuning-plan.md)
