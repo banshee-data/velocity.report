@@ -26,7 +26,7 @@ tracker output (23 sites, about 4.4 minutes of tracks each), the standard `follo
 selector counts 2,111 pair-seconds of following under one track per vehicle: about 21 for every
 minute of capture, 8.3 per vehicle-track-minute. Counting only pairs in which both tracks are
 vehicle-sized, 1,249 pair-seconds, 4.9 per vehicle-track-minute, and a median site of 4.4. One
-site of 23 (pierce-haight) has none; three more have under 10 vehicle pair-seconds.
+site of 23 (pierce-haight) has none; two more have under 10 vehicle pair-seconds.
 
 **Most pairs are brief.** A track pair's following lasts a median 0.5 s (5 frames), and only 666
 of 2,264 pairs (29 %) last a second or more; the median closest gap is 18 m, with 140 pairs
