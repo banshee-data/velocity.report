@@ -43,6 +43,7 @@ package l8behaviour
 // with the estimate supplying velocity and covariance; see PersistedBox.
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -230,10 +231,29 @@ func SampleFromSolidBody(
 	// was judged against different bounds; Validate reports the mismatch
 	// rather than this function quietly downgrading the state.
 	if err := s.Validate(); err != nil {
-		return TrajectorySample{}, fmt.Errorf("solid body does not form a valid sample: %w", err)
+		return TrajectorySample{}, &InvalidSampleError{Subject: "solid body", Reason: err}
 	}
 	return s, nil
 }
+
+// InvalidSampleError is a solid body that was read, and whose beliefs
+// contradict the trajectory contract: Reason is what TrajectorySample.Validate
+// refused. It is told apart from a reading the adapter cannot interpret (an
+// unknown reference, a covariance that disagrees with its estimate), which
+// stays a plain error, because a reader may hold the first as a gap and must
+// never guess at the second.
+type InvalidSampleError struct {
+	// Subject names what was read: a solid body, or a solid-body reading
+	// once the faces its fix used are applied.
+	Subject string
+	Reason  error
+}
+
+func (e *InvalidSampleError) Error() string {
+	return e.Subject + " does not form a valid sample: " + e.Reason.Error()
+}
+
+func (e *InvalidSampleError) Unwrap() error { return e.Reason }
 
 // SampleFromSolidBodyReading builds a sample from a solid-body reading: live
 // from TrackedObject.SolidBody, or read back from lidar_track_solid_bodies.
@@ -275,7 +295,7 @@ func SampleFromSolidBodyReading(
 			RearObserved:  r.Measurement.Faces.Has(l5tracks.FaceRear),
 		}
 		if err := s.Validate(); err != nil {
-			return TrajectorySample{}, fmt.Errorf("solid-body reading does not form a valid sample: %w", err)
+			return TrajectorySample{}, &InvalidSampleError{Subject: "solid-body reading", Reason: err}
 		}
 	}
 	return s, nil
@@ -509,7 +529,12 @@ func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateS
 //     passage has one class, so a trajectory takes its latest row's belief,
 //     the decision made with the most evidence, at its effective class.
 //   - Gaps. A row is written only at an associated frame, so a missing frame
-//     is a gap between samples, as for point estimates.
+//     is a gap between samples, as for point estimates. A row whose reading
+//     contradicts the trajectory contract (an InvalidSampleError, such as an
+//     established state without converged extents, a resolved heading and a
+//     physical reference) is a gap too, as a frame with no published box is
+//     for PersistedBox: the writer's claim is not read, and no weaker one is
+//     guessed in its place. The reader counts such rows by reason.
 type PersistedSolidBody struct {
 	TrackID        string
 	SensorID       string
@@ -521,33 +546,66 @@ type PersistedSolidBody struct {
 	Reading        l5tracks.SolidBodyReading
 }
 
+// SolidBodyGaps counts the persisted solid bodies
+// TrajectoriesFromSolidBodiesWithGaps held as gaps rather than samples, by the contract condition each refused
+// (InvalidSampleError's Reason).
+type SolidBodyGaps struct {
+	Rows     int
+	ByReason map[string]int
+}
+
+func (g *SolidBodyGaps) add(reason string) {
+	if g.ByReason == nil {
+		g.ByReason = map[string]int{}
+	}
+	g.Rows++
+	g.ByReason[reason]++
+}
+
 // TrajectoriesFromSolidBodies builds one trajectory per track from one
 // version of persisted solid bodies, sorted by track id, each track's samples
 // in frame order. As for TrajectoriesFromEstimates, every row must carry the
 // same version, and a row that cannot be read as documented on
-// PersistedSolidBody is an error, never a guess.
+// PersistedSolidBody is an error, never a guess. So is a row whose reading
+// is not a valid sample; TrajectoriesFromSolidBodiesWithGaps holds those as
+// gaps instead.
 func TrajectoriesFromSolidBodies(rows []PersistedSolidBody, bounds l5tracks.ConvergenceBounds) ([]Trajectory, error) {
+	out, _, err := trajectoriesFromSolidBodies(rows, bounds, false)
+	return out, err
+}
+
+// TrajectoriesFromSolidBodiesWithGaps is TrajectoriesFromSolidBodies with a
+// row whose reading is not a valid sample (an InvalidSampleError) held as a
+// gap and counted by reason, as PersistedSolidBody describes. A track left
+// with no valid row has no trajectory, and a version with no valid row at
+// all is refused.
+func TrajectoriesFromSolidBodiesWithGaps(rows []PersistedSolidBody, bounds l5tracks.ConvergenceBounds) ([]Trajectory, SolidBodyGaps, error) {
+	return trajectoriesFromSolidBodies(rows, bounds, true)
+}
+
+func trajectoriesFromSolidBodies(rows []PersistedSolidBody, bounds l5tracks.ConvergenceBounds, holdInvalid bool) ([]Trajectory, SolidBodyGaps, error) {
+	var gaps SolidBodyGaps
 	if len(rows) == 0 {
-		return nil, nil
+		return nil, gaps, nil
 	}
 	first := rows[0]
 	identity := EstimateIdentity{EstimatorID: first.EstimatorID, ObsModelID: first.ObsModelID, ParamHash: first.ParamHash}
 	if err := identity.Validate(); err != nil {
-		return nil, err
+		return nil, gaps, err
 	}
 	if identity == FixtureEstimate() {
-		return nil, fmt.Errorf("a persisted solid body cannot carry the analytic fixture estimator's identity")
+		return nil, gaps, fmt.Errorf("a persisted solid body cannot carry the analytic fixture estimator's identity")
 	}
 	stage, err := ParseEstimateStage(first.Stage)
 	if err != nil {
-		return nil, err
+		return nil, gaps, err
 	}
 
 	byTrack := map[string][]PersistedSolidBody{}
 	for _, r := range rows {
 		if r.EstimatorID != first.EstimatorID || r.ObsModelID != first.ObsModelID || r.ParamHash != first.ParamHash ||
 			r.Stage != first.Stage {
-			return nil, fmt.Errorf("solid-body rows mix versions: %s/%s/%s/%s and %s/%s/%s/%s",
+			return nil, gaps, fmt.Errorf("solid-body rows mix versions: %s/%s/%s/%s and %s/%s/%s/%s",
 				first.EstimatorID, first.ObsModelID, first.ParamHash, first.Stage,
 				r.EstimatorID, r.ObsModelID, r.ParamHash, r.Stage)
 		}
@@ -570,11 +628,16 @@ func TrajectoriesFromSolidBodies(rows []PersistedSolidBody, bounds l5tracks.Conv
 		}
 		for _, r := range track {
 			if r.SensorID != t.Passage.SensorID {
-				return nil, fmt.Errorf("track %s is observed by sensors %q and %q", id, t.Passage.SensorID, r.SensorID)
+				return nil, gaps, fmt.Errorf("track %s is observed by sensors %q and %q", id, t.Passage.SensorID, r.SensorID)
 			}
 			s, err := SampleFromSolidBodyReading(r.Reading, r.FrameUnixNanos, bounds)
+			var invalid *InvalidSampleError
+			if holdInvalid && errors.As(err, &invalid) {
+				gaps.add(invalid.Reason.Error())
+				continue
+			}
 			if err != nil {
-				return nil, fmt.Errorf("track %s at %d: %w", id, r.FrameUnixNanos, err)
+				return nil, gaps, fmt.Errorf("track %s at %d: %w", id, r.FrameUnixNanos, err)
 			}
 			if s.Stage == StageFixedLag && stage == StageFinal {
 				// A smoothed reading cannot say which refined stage it is;
@@ -583,16 +646,45 @@ func TrajectoriesFromSolidBodies(rows []PersistedSolidBody, bounds l5tracks.Conv
 				s.Stage = StageFinal
 			}
 			if s.Stage != stage {
-				return nil, fmt.Errorf("track %s at %d: a %s reading is filed under stage %s", id, r.FrameUnixNanos, s.Stage, stage)
+				return nil, gaps, fmt.Errorf("track %s at %d: a %s reading is filed under stage %s", id, r.FrameUnixNanos, s.Stage, stage)
 			}
 			t.Samples = append(t.Samples, s)
 		}
+		if len(t.Samples) == 0 {
+			continue
+		}
 		if err := t.Validate(); err != nil {
-			return nil, err
+			return nil, gaps, err
 		}
 		out = append(out, t)
 	}
-	return out, nil
+	if len(out) == 0 {
+		return nil, gaps, fmt.Errorf("none of the version's %d solid bodies forms a valid sample (%s)", len(rows), gaps.describe())
+	}
+	return out, gaps, nil
+}
+
+// Reasons lists the gaps' reasons, most frequent first, ties by name.
+func (g SolidBodyGaps) Reasons() []string {
+	reasons := make([]string, 0, len(g.ByReason))
+	for r := range g.ByReason {
+		reasons = append(reasons, r)
+	}
+	sort.Slice(reasons, func(i, j int) bool {
+		if g.ByReason[reasons[i]] != g.ByReason[reasons[j]] {
+			return g.ByReason[reasons[i]] > g.ByReason[reasons[j]]
+		}
+		return reasons[i] < reasons[j]
+	})
+	return reasons
+}
+
+func (g SolidBodyGaps) describe() string {
+	parts := make([]string, 0, len(g.ByReason))
+	for _, r := range g.Reasons() {
+		parts = append(parts, fmt.Sprintf("%s: %d", r, g.ByReason[r]))
+	}
+	return strings.Join(parts, "; ")
 }
 
 // PublishedBoxSource names the tracker's published box as a trajectory
