@@ -337,7 +337,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_tracks`                   | `spatial_coverage`                  | REAL          | ✅  | -   | -   |
 | `lidar_tracks`                   | `noise_point_ratio`                 | REAL          | 📋  | -   | -   |
 | `lidar_track_observations`       | `track_id`                          | TEXT PK       | ✅  | ✅  | -   |
-| `lidar_track_observations`       | `ts_unix_nanos`                     | INTEGER PK    | ✅  | ✅  | -   |
+| `lidar_track_observations`       | `ts_unix_nanos`                     | INTEGER       | ✅  | ✅  | -   |
 | `lidar_track_observations`       | `frame_id`                          | TEXT          | ✅  | -   | -   |
 | `lidar_track_observations`       | `x`                                 | REAL          | ✅  | ✅  | -   |
 | `lidar_track_observations`       | `y`                                 | REAL          | ✅  | ✅  | -   |
@@ -788,7 +788,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_track_estimates`          | `state_model`                       | TEXT          | ✅  | ?   | ?   |
 | `lidar_track_estimates`          | `reference_point`                   | TEXT          | ✅  | ?   | ?   |
 | `lidar_track_estimates`          | `support_instant`                   | TEXT          | ✅  | ?   | ?   |
-| `lidar_track_observations`       | `frame_unix_nanos`                  | INTEGER       | ✅  | ?   | ?   |
+| `lidar_track_observations`       | `frame_unix_nanos`                  | INTEGER PK    | ✅  | ?   | ?   |
 | `lidar_track_observations`       | `measurement_source`                | TEXT          | ✅  | ?   | ?   |
 | `lidar_track_residuals`          | `estimate_id`                       | TEXT PK       | ✅  | ?   | ?   |
 | `lidar_track_residuals`          | `observation_id`                    | TEXT          | ✅  | ?   | ?   |

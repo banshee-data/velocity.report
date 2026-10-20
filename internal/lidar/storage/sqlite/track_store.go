@@ -152,7 +152,12 @@ func UpdateTrack(db DBClient, track *TrackedObject) error {
 	return nil
 }
 
-// InsertTrackObservation inserts a track observation into the database.
+// InsertTrackObservation inserts a track observation into the database. The
+// table is keyed by track and frame, so a later write for the same track and
+// frame replaces the row, and two frames whose clusters share an acquisition
+// time keep a row each. An observation with no frame time is filed at its
+// acquisition time, as migration 000063 filed the rows written before
+// frame_unix_nanos existed.
 func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 	query := `
 		INSERT OR REPLACE INTO lidar_track_observations (
@@ -165,10 +170,14 @@ func InsertTrackObservation(exec Executor, obs *TrackObservation) error {
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
+	frameUnixNanos := obs.FrameUnixNanos
+	if frameUnixNanos == 0 {
+		frameUnixNanos = obs.TSUnixNanos
+	}
 	args := []any{
 		obs.TrackID,
 		obs.TSUnixNanos,
-		obs.FrameUnixNanos,
+		frameUnixNanos,
 		obs.FrameID,
 		obs.MeasurementSource,
 		obs.X, obs.Y, obs.Z,
@@ -360,7 +369,9 @@ func GetTrackObservationsInRange(db DBClient, sensorID string, startNanos, endNa
 		args = append(args, trackID)
 	}
 
-	query += " ORDER BY o.ts_unix_nanos ASC LIMIT ?"
+	// Two frames' observations of a track can share an acquisition time;
+	// the frame orders them.
+	query += " ORDER BY o.ts_unix_nanos ASC, o.frame_unix_nanos ASC LIMIT ?"
 	args = append(args, limit)
 
 	rows, err := db.Query(query, args...)
@@ -571,7 +582,7 @@ func GetTrackObservations(db DBClient, trackID string, limit int) ([]*TrackObser
 			COALESCE(box_length, 0), COALESCE(box_width, 0)
 		FROM lidar_track_observations
 		WHERE track_id = ?
-		ORDER BY ts_unix_nanos DESC
+		ORDER BY frame_unix_nanos DESC
 		LIMIT ?
 	`
 

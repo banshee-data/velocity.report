@@ -780,14 +780,14 @@
         , bounding_box_height REAL
         , height_p95 REAL
         , intensity_mean REAL
-        , frame_unix_nanos INTEGER
+        , frame_unix_nanos INTEGER NOT NULL
         , measurement_source TEXT NOT NULL DEFAULT 'legacy_centroid_v0'
         , box_x REAL
         , box_y REAL
         , box_heading_rad REAL
         , box_length REAL
         , box_width REAL
-        , PRIMARY KEY (track_id, ts_unix_nanos)
+        , PRIMARY KEY (track_id, frame_unix_nanos)
         , FOREIGN KEY (track_id) REFERENCES lidar_tracks (track_id) ON DELETE CASCADE
           );
 
@@ -1014,10 +1014,6 @@ CREATE INDEX idx_bg_regions_sensor ON lidar_bg_regions (sensor_id);
 CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
 
 CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
-
-CREATE INDEX idx_lidar_track_observations_track ON lidar_track_observations (track_id);
-
-CREATE INDEX idx_lidar_track_observations_time ON lidar_track_observations (ts_unix_nanos);
 
 CREATE INDEX idx_lidar_replay_annotations_replay_case ON lidar_replay_annotations (replay_case_id);
 
@@ -1354,6 +1350,64 @@ CREATE TRIGGER lidar_capture_motion_periods_check_update BEFORE
 
    SELECT RAISE (ABORT, 'a motion period lasts end_ns - start_ns')
     WHERE NEW.duration_ns != NEW.end_ns - NEW.start_ns;
+
+END;
+
+CREATE INDEX idx_lidar_track_observations_track ON lidar_track_observations (track_id);
+
+CREATE INDEX idx_lidar_track_observations_time ON lidar_track_observations (ts_unix_nanos);
+
+CREATE TRIGGER lidar_track_observations_frame_from_acquisition BEFORE INSERT ON lidar_track_observations WHEN NEW.frame_unix_nanos IS NULL BEGIN
+   INSERT INTO lidar_track_observations (
+          track_id
+        , ts_unix_nanos
+        , frame_id
+        , x
+        , y
+        , z
+        , velocity_x
+        , velocity_y
+        , speed_mps
+        , heading_rad
+        , bounding_box_length
+        , bounding_box_width
+        , bounding_box_height
+        , height_p95
+        , intensity_mean
+        , frame_unix_nanos
+        , measurement_source
+        , box_x
+        , box_y
+        , box_heading_rad
+        , box_length
+        , box_width
+          )
+   VALUES (
+          NEW.track_id
+        , NEW.ts_unix_nanos
+        , NEW.frame_id
+        , NEW.x
+        , NEW.y
+        , NEW.z
+        , NEW.velocity_x
+        , NEW.velocity_y
+        , NEW.speed_mps
+        , NEW.heading_rad
+        , NEW.bounding_box_length
+        , NEW.bounding_box_width
+        , NEW.bounding_box_height
+        , NEW.height_p95
+        , NEW.intensity_mean
+        , NEW.ts_unix_nanos
+        , NEW.measurement_source
+        , NEW.box_x
+        , NEW.box_y
+        , NEW.box_heading_rad
+        , NEW.box_length
+        , NEW.box_width
+          );
+
+   SELECT RAISE (IGNORE);
 
 END;
 
