@@ -1,6 +1,6 @@
 # Time-Partitioned raw data tables
 
-- **Status:** Draft
+- **Status:** Draft; its security findings relabelled as internal requirements on October 20, 2026 after a security review, whose other points remain open (D-15)
 
 Design for partitioning the raw radar data tables by time period to keep individual SQLite databases small enough for reliable operation on Raspberry Pi storage.
 
@@ -25,25 +25,36 @@ This specification proposes a time-based partitioning strategy for raw sensor da
 - Need for partition-aware backup and monitoring strategies
 
 **Security Enhancements:**
-This design incorporates security fixes for critical vulnerabilities identified during security review:
+This design carries four security requirements identified during design review. They apply to
+code not yet written: none describes a weakness in shipped code. The identifiers are internal,
+from the [security checklist's register](../../../.github/knowledge/security-checklist.md#identifier-register);
+no CVE has been requested or assigned.
 
-- **Path Traversal Prevention (CVE-2025-VR-002):** All file paths validated, symlinks resolved, directory traversal rejected
-- **SQL Injection Prevention (CVE-2025-VR-003):** All SQL inputs sanitized, identifiers properly escaped, read-only mode enforced
-- **Race Condition Prevention (CVE-2025-VR-005):** Distributed locks for rotation, query completion waits, idempotent operations
-- **USB Security Hardening (CVE-2025-VR-006):** Filesystem whitelist, secure mount options (nosuid/nodev/noexec), USB device verification
+- **Path Traversal Prevention (VR-SEC-002):** All file paths validated, symlinks resolved, directory traversal rejected
+- **SQL Injection Prevention (VR-SEC-003):** All SQL inputs sanitized, identifiers properly escaped, read-only mode enforced
+- **Race Condition Prevention (VR-SEC-005):** Distributed locks for rotation, query completion waits, idempotent operations
+- **USB Security Hardening (VR-SEC-006):** Filesystem whitelist, secure mount options (nosuid/nodev/noexec), USB device verification
 
 ---
 
 ## Security considerations
 
-This design implements defence-in-depth measures against four identified vulnerabilities. Mitigations are described inline in the Rotation, ATTACH, and USB sections.
+The implementing pull request must meet four security requirements. Each is described inline in the Rotation, ATTACH and USB sections.
 
-| CVE             | Vulnerability                        | Severity | Key Mitigations                                                                                             |
-| --------------- | ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------- |
-| CVE-2025-VR-002 | Path traversal in attach/consolidate | 9.5      | Path validation, symlink resolution, directory traversal rejection, filename pattern matching               |
-| CVE-2025-VR-003 | SQL injection in ATTACH DATABASE     | 8.5      | Alias validation (alphanum only), SQL keyword filtering, proper escaping, read-only mode                    |
-| CVE-2025-VR-005 | Race condition in rotation           | 7.5      | SQLite-based rotation lock with 5-min expiry, query completion wait, idempotent operations                  |
-| CVE-2025-VR-006 | USB storage exploits                 | 7.8      | Filesystem whitelist (ext4/ext3), secure mount options (nosuid/nodev/noexec/ro), USB subsystem verification |
+| Identifier | Requirement                          | Status                  | Gate          | Key Mitigations                                                                                             |
+| ---------- | ------------------------------------ | ----------------------- | ------------- | ----------------------------------------------------------------------------------------------------------- |
+| VR-SEC-002 | Path traversal in attach/consolidate | design requirement      | CRITICAL      | Path validation, symlink resolution, directory traversal rejection, filename pattern matching               |
+| VR-SEC-003 | SQL injection in ATTACH DATABASE     | design requirement      | CRITICAL      | Alias validation (alphanum only), SQL keyword filtering, proper escaping, read-only mode                    |
+| VR-SEC-005 | Race condition in rotation           | reliability requirement | INFORMATIONAL | SQLite-based rotation lock with 5-min expiry, query completion wait, idempotent operations                  |
+| VR-SEC-006 | USB storage exploits                 | design requirement      | CRITICAL      | Filesystem whitelist (ext4/ext3), secure mount options (nosuid/nodev/noexec/ro), USB subsystem verification |
+
+Relabelled on October 20, 2026 after a security review: the four were labelled `CVE-2025-VR-002`, `003`,
+`005` and `006`, with bare scores and called fixes. VR-SEC-001 and 004 have no counterpart here
+and stay reserved. The review's other points remain open, so this design stays Draft: six
+contradictions between sections (the rotation lock, the attach limit, compression, quarterly
+partitions, NFS and a read-only USB mount that partitions move onto), API authentication as a
+precondition for the partition endpoints, what the debug surfaces see once partitions are
+attached, and a shorter default retention for raw tables than for aggregates.
 
 **Security testing requirements:** Before deployment, test path traversal rejection (`../../etc/shadow`, symlinks, out-of-directory paths), SQL injection prevention (SQL keywords in aliases, quoted aliases), concurrent rotation (only one succeeds), and USB mount hardening (reject NTFS/FAT32, reject system disks, verify SUID blocked).
 
@@ -334,7 +345,7 @@ SQLite’s query planner uses WHERE clauses to skip irrelevant partitions. For e
 
 **Rotation algorithm:**
 
-1. Acquire rotation lock (CVE-2025-VR-005: prevents concurrent rotation via a single-row `rotation_lock` table with 5-minute expiry and retry loop)
+1. Acquire rotation lock (VR-SEC-005: prevents concurrent rotation via a single-row `rotation_lock` table with 5-minute expiry and retry loop)
 2. Determine partition name from rotation time (e.g. `2025-01_data.db`)
 3. Skip if partition already exists (idempotency)
 4. Create partition database with matching schema
@@ -357,8 +368,8 @@ On failure at any step, the partial partition file is deleted and data remains i
 
 **Security checks (per partition):**
 
-- **Path traversal prevention (CVE-2025-VR-002):** Reject `..`, resolve symlinks, verify path is under the allowed directory, verify regular file, match filename against `YYYY-MM_data.db` or `YYYY-QN_data.db` pattern.
-- **SQL injection prevention (CVE-2025-VR-003):** Alias must match `^[a-zA-Z][a-zA-Z0-9_]{0,31}$`, must not contain SQL keywords. Identifiers and strings are quoted with proper escaping.
+- **Path traversal prevention (VR-SEC-002):** Reject `..`, resolve symlinks, verify path is under the allowed directory, verify regular file, match filename against `YYYY-MM_data.db` or `YYYY-QN_data.db` pattern.
+- **SQL injection prevention (VR-SEC-003):** Alias must match `^[a-zA-Z][a-zA-Z0-9_]{0,31}$`, must not contain SQL keywords. Identifiers and strings are quoted with proper escaping.
 
 **Limits:**
 
@@ -442,7 +453,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 | `/api/storage/growth`           | GET    | Growth projection and disk-full estimate | `lookback_days`                                     |
 | `/api/storage/alerts/configure` | POST   | Set threshold alerts                     | `sd_card_percent`, `usb_percent`, `days_until_full` |
 
-### USB mount security (CVE-2025-VR-006)
+### USB mount security (VR-SEC-006)
 
 **Mount algorithm:** Verify device is USB (reject system disks `/dev/sda`, `/dev/mmcblk0`; check sysfs `/usb` path). Detect filesystem (whitelist: ext4, ext3 only). Validate mount point (no path traversal). Mount with secure options: `nosuid,nodev,noexec,noatime,ro`.
 
@@ -857,7 +868,7 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ## Open questions
 
-No open questions remain. All design, implementation, and operational questions were resolved during review: see the Design Decisions table above.
+The security review of October 20, 2026 left open the points listed under Security considerations; until they are resolved this design stays Draft.
 
 ## References
 

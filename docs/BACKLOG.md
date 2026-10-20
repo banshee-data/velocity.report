@@ -16,6 +16,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.5.1 - Release hardening + image consolidation + Typst cutover (051)
 
 - [#290] (#11) Serial configuration, v0.5.1 release gate: validate a USB serial adapter and a deliberately changed-setting reload on the v0.5.1 release candidate; device and baud auto-detect is the v0.8.0 item: [implementation plan](plans/serial-configuration-implementation-plan.md) `S`
+- Debug SQL console on a read-only handle: the console at `/debug/tailsql/` queries through its own `mode=ro`, `query_only` handle on the database file, with a test that writes sent through it are refused; built on `claude/debug-sql-read-only`, and the v0.5.1 cut waits on it: [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s) `S`
 - Cut v0.5.1 from `main`: the `:80` image smoke test, the CHANGELOG section rewritten over `v0.5.0..main` with the breaking L3 change first, `VERSION` and the macOS version set, the gates and a Pi boot on the release candidate, then the owner's tag and the stable channel updated: [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s) `S`
 
 ### v0.5.2.0 - ECharts retirement (052.0)

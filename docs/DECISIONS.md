@@ -100,7 +100,7 @@ Kept by: the Make budget check, planned for v0.5.8 (counts public targets and re
 
 Implement in v0.9.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
 
-Kept by: none until built. Planned with the v0.9.0 row: a migration test that fails when a raw table takes a write outside its open period's partition. The design's promotion from Draft waits on a security review of its four findings.
+Kept by: none until built. Planned with the v0.9.0 row: a migration test that fails when a raw table takes a write outside its open period's partition, a path table test for VR-SEC-002, an attach test that a write to an attached schema fails on every pooled connection, crash-injection and concurrent-rotation tests, and `/security-review` on the implementing pull request. The design stays Draft until the open points of its October 20, 2026 security review are resolved.
 
 ### D-16 — Speed limit schedules
 
