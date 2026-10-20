@@ -12,6 +12,7 @@ request, including PRs that touch nothing near it.
 | Run                       | Runner image                  | Result                                |
 | ------------------------- | ----------------------------- | ------------------------------------- |
 | 39373875954 (main, 05:15) | ubuntu-24.04                  | passed                                |
+| 39427720792 (PR, 13:07)   | ubuntu-24.04                  | passed                                |
 | 39442305002, 39442217175  | ubuntu-26.04                  | failed                                |
 | 39487502624 (PR 809)      | ubuntu-26.04 (20261012.163.1) | failed after 36 min waiting for `ssh` |
 
@@ -119,7 +120,7 @@ no PR exercises it directly. It shares the script and the runner image with the 
 
 ## Provenance
 
-- Failing CI runs: 39442305002, 39442217175 (main), 39487502624 (PR 809). Last passing on 24.04: 39373875954.
+- Failing CI runs: 39442305002, 39442217175 (main), 39487502624 (PR 809). Last passing on 24.04: 39373875954 (last on `main`, 05:15 UTC) and 39427720792 (a pull request, 13:07 UTC).
 - Runner image: ubuntu-26.04 20261012.163.1, kernel 7.0.0-1017-azure.
 - Guest image: Debian 12 genericcloud arm64 build 20260806-2562, the SHA-512 pinned in the script.
 - Local harness: Docker `ubuntu:24.04` and `ubuntu:26.04` images (digest
