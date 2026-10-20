@@ -83,31 +83,39 @@ on `ubuntu-latest` and gives the script a named CPU in place of `max`. `neoverse
 choice: it is an Armv8.2 server core, close to the Raspberry Pi 5's Cortex-A76, and it boots under
 both firmware generations.
 
-[PR 814](https://github.com/banshee-data/velocity.report/pull/814) pins the static-build job to
-`ubuntu-24.04` as a stopgap. That stopgap remains valid, but it leaves two gaps:
+[PR 814](https://github.com/banshee-data/velocity.report/pull/814) pinned the static-build job to
+`ubuntu-24.04` as a stopgap. The pin did not cover `.github/workflows/build-image.yml`, which runs
+the same script on `ubuntu-latest` in its "Cross-compile Go binaries (Linux ARM64)" job. The next
+version tag would have hung there too.
 
-- `.github/workflows/build-image.yml` runs the same script on `ubuntu-latest` in its "Cross-compile
-  Go binaries (Linux ARM64)" job. PR 814 does not pin that job, so the next version tag will hang
-  the same way unless the script changes or that job is pinned too.
-- GitHub will retire the 24.04 image eventually, and the pin then has to come off anyway.
+## Applied fix
+
+PR 818 makes the change this evidence points to:
+
+- `scripts/test-static-arm64-vm.sh` boots the guest with `-cpu neoverse-n1` instead of `-cpu max`.
+- The static-build job goes back to `ubuntu-latest`, which lifts the PR 814 pin.
+- `build-image.yml` needs no edit: its ARM64 job calls the same script, so it picks up the CPU
+  change.
+
+The static-build job on PR 818 is the verification: it runs the whole gate under the named CPU on
+an ubuntu-26.04 runner. That covers systemd privileges, live libpcap capture, API and database
+persistence, upgrade and rollback. The release workflow runs only on tags and manual dispatch, so
+no PR exercises it directly. It shares the script and the runner image with the static-build job.
 
 ## Limitations
 
-- No case ran on a GitHub-hosted amd64 runner. The `-cpu neoverse-n1` change still needs one CI
-  run of the full gate on ubuntu-26.04 before anyone relies on it.
-- The cases show that the guest boots, not that the whole gate passes. Systemd, libpcap capture,
-  upgrade and rollback were not exercised under a named CPU.
+- The local cases ran on arm64 Linux under Docker Desktop, not on an amd64 GitHub runner. The CI
+  run on PR 818 is the check that the named CPU works there too.
 - The `max` feature that edk2 2025.11 trips over was not identified, so a later QEMU or edk2 update
   may change the result.
-- Each case ran once.
+- Each local case ran once.
 
 ## Recommendations
 
-1. Change `-cpu max` to `-cpu neoverse-n1` in `scripts/test-static-arm64-vm.sh`, and verify the
-   whole gate on an ubuntu-26.04 runner from a PR.
-2. Once that passes, take the PR 814 pin back off so the job follows `ubuntu-latest` again.
-3. Until step 1 lands, pin `build-image.yml`'s ARM64 job to `ubuntu-24.04` before tagging a
-   release.
+1. Leave `-cpu max` out of the gate. If a guest feature is needed later, add it to a named model
+   rather than going back to `max`.
+2. When the runner image next changes edk2 or QEMU, check the gate's first `main` run on that
+   image before assuming a failure belongs to the PR it runs on.
 
 ## Provenance
 
