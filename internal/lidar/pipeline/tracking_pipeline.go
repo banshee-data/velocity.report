@@ -1075,33 +1075,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				// real measurement — persisting those creates phantom straight
 				// segments and contaminates quality metrics.
 				if track.Misses == 0 {
-					// Insert observation — use per-frame OBB dimensions (not running
-					// averages) so each observation faithfully records the cluster
-					// shape at this instant. The averaged values are stored on the
-					// track record itself for classification/reporting.
-					obs := &sqlite.TrackObservation{
-						TrackID:           track.TrackID,
-						TSUnixNanos:       track.LastMeasurementUnixNanos,
-						FrameUnixNanos:    frame.StartTimestamp.UnixNano(),
-						FrameID:           frameID,
-						MeasurementSource: string(track.LastMeasurementSource),
-						X:                 track.X,
-						Y:                 track.Y,
-						Z:                 track.LatestZ,
-						VelocityX:         track.VX,
-						VelocityY:         track.VY,
-						SpeedMps:          track.AvgSpeedMps,
-						HeadingRad:        track.OBBHeadingRad,
-						BoundingBoxLength: track.OBBLength,
-						BoundingBoxWidth:  track.OBBWidth,
-						BoundingBoxHeight: track.OBBHeight,
-						HeightP95:         track.HeightP95Max,
-						IntensityMean:     track.IntensityMeanAvg,
-						// The published box, which the web app's live view
-						// draws in place of the OBB when it is present.
-						BoxX: track.BoxX, BoxY: track.BoxY, BoxHeadingRad: track.BoxHeadingRad,
-						BoxLength: track.BoxLength, BoxWidth: track.BoxWidth,
-					}
+					obs := trackObservation(track, frame.StartTimestamp.UnixNano(), frameID)
 					if err := sqlite.InsertTrackObservation(dbTx, obs); err != nil {
 						opsf("Failed to insert observation for track %s: %v", track.TrackID, err)
 						txFailed = true
@@ -1120,6 +1094,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 						recordFrameEvidenceFailure(cfg.FrameEvidenceSink, err)
 						frameEvidenceReady = false
 					} else {
+						// The track row and its observation go in beside the
+						// estimate, as the live server files them, so the
+						// evidence holds the published box and the label.
+						pair.Track = track
+						pair.Observation = trackObservation(track, frame.StartTimestamp.UnixNano(), "site/"+sensorID)
 						frameEstimates = append(frameEstimates, pair)
 					}
 				} else if err := persistOnlineStateEstimate(cfg, track, frame.StartTimestamp.UnixNano()); err != nil {
@@ -1194,5 +1173,38 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				}
 			}
 		}
+	}
+}
+
+// trackObservation is a confirmed track's lidar_track_observations row at an
+// associated frame. It records the per-frame OBB dimensions (not running
+// averages) so each observation faithfully records the cluster shape at this
+// instant; the averaged values are stored on the track record itself for
+// classification and reporting. It also records the published box, which the
+// web app's live view draws in place of the OBB when it is present.
+func trackObservation(track *l5tracks.TrackedObject, frameUnixNanos int64, frameID string) *sqlite.TrackObservation {
+	return &sqlite.TrackObservation{
+		TrackID:           track.TrackID,
+		TSUnixNanos:       track.LastMeasurementUnixNanos,
+		FrameUnixNanos:    frameUnixNanos,
+		FrameID:           frameID,
+		MeasurementSource: string(track.LastMeasurementSource),
+		X:                 track.X,
+		Y:                 track.Y,
+		Z:                 track.LatestZ,
+		VelocityX:         track.VX,
+		VelocityY:         track.VY,
+		SpeedMps:          track.AvgSpeedMps,
+		HeadingRad:        track.OBBHeadingRad,
+		BoundingBoxLength: track.OBBLength,
+		BoundingBoxWidth:  track.OBBWidth,
+		BoundingBoxHeight: track.OBBHeight,
+		HeightP95:         track.HeightP95Max,
+		IntensityMean:     track.IntensityMeanAvg,
+		BoxX:              track.BoxX,
+		BoxY:              track.BoxY,
+		BoxHeadingRad:     track.BoxHeadingRad,
+		BoxLength:         track.BoxLength,
+		BoxWidth:          track.BoxWidth,
 	}
 }

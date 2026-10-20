@@ -19,6 +19,10 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
+// runReplay is the replay itself; a test replaces it to see the
+// configuration the flags produce.
+var runReplay = replayeval.Run
+
 // ReplayEvalMain parses pcap-replay flags, replays the capture through the
 // perception pipeline, and optionally analyses or A/B-compares the result.
 // args is the argument slice after the command word. It returns the exit code.
@@ -41,6 +45,7 @@ func ReplayEvalMain(args []string) int {
 	compareOut := fs.String("compare-output", "", "Where to write the comparison JSON (default: <output>/comparison.json)")
 	observations := fs.String("observations", "", "Also write every frame's foreground-complete L4 evidence to a new VRLOG 1.x observation container at this path (must not exist); needs --replay-case-id")
 	replayCaseID := fs.String("replay-case-id", "", "Stable name of the replayed case, bound into the observation source identity (required with --observations)")
+	experimentFlag := fs.String("experiment", "", "Default-off replay experiments to switch on, comma separated, as lidar-state-estimation-baseline -experiment takes them ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and named in replay_manifest.json, the observation container's manifest and the summary")
 
 	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: velocity lidar pcap-replay --pcap FILE --output DIR [options]\n\n")
@@ -78,6 +83,22 @@ Examples:
       --observations ./runs/obs.vrlog --replay-case-id site-a-2026-09-01
   velocity lidar observations verify --require foreground-complete ./runs/obs.vrlog
 
+  # The same observations under a replay experiment, for a return-fate arm
+  velocity lidar pcap-replay --pcap capture.pcap --output ./runs/cell \
+      --observations ./runs/cell.vrlog --replay-case-id site-a-2026-09-01 \
+      --experiment region_overrides_cell_tercile
+
+--experiment takes the replay harness's names with the harness's validation:
+an unknown name, two settings of one option, or a qualifier without what it
+qualifies is refused before the capture is read. pcap-replay also refuses
+what it cannot supply: coast_support, class_coast_bounds and
+occlusion_continuity need a sensor coverage declaration, and solid_body
+without near_edge_track writes only to an evidence database. The names are
+folded into the params hash in header.json, listed under "experiments" in
+replay_manifest.json and in the observation container's provenance, and
+printed after the run. Without --experiment the replay is configured exactly
+as before the flag existed.
+
 The observation container records coordinates exactly as the replay computed
 them: in the sensor frame, since offline replay applies no site pose. Its
 manifest declares that identity transform rather than a surveyed one.
@@ -107,6 +128,12 @@ manifest declares that identity transform rather than a surveyed one.
 		return 2
 	}
 
+	experiments, err := replayExperiments(*experimentFlag, *configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: --experiment: %v\n", err)
+		return 2
+	}
+
 	port := resolveUDPPort(*udpPort, *pcapFile)
 	if port < 0 {
 		return 1
@@ -126,12 +153,17 @@ manifest declares that identity transform rather than a surveyed one.
 		IncludeDebug:    *includeDebug,
 		ProgressEvery:   *progress,
 	}
+	if len(experiments) > 0 {
+		// Set only when named, so a replay without the flag is given exactly
+		// the configuration it always was.
+		cfg.Experiments = experiments
+	}
 	if *observations != "" {
 		cfg.ObservationLogDir = *observations
 		cfg.ReplayCaseID = *replayCaseID
 		cfg.ObservationCalibration = replayCalibration(*sensor)
 	}
-	result, err := replayeval.Run(cfg)
+	result, err := runReplay(cfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "pcap-replay: %v\n", err)
 		return 1
@@ -140,6 +172,9 @@ manifest declares that identity transform rather than a surveyed one.
 	fmt.Printf("recorded %d frames (%d with no tracks) in %s\n",
 		result.FramesRecorded, result.FramesEmpty, result.Elapsed.Round(time.Millisecond))
 	fmt.Printf("vrlog: %s\n", result.VRLOGPath)
+	if len(experiments) > 0 {
+		fmt.Printf("experiments: %s\n", strings.Join(experiments, ", "))
+	}
 	if s := result.ObservationLog; s != nil {
 		fmt.Printf("observations: %s (%d frames, %d gaps, %d chunks, %d bytes, semantic %s)\n",
 			*observations, s.Frames, s.Gaps, s.Chunks, s.ChunkBytes, s.Semantic)
@@ -172,6 +207,26 @@ manifest declares that identity transform rather than a surveyed one.
 	}
 	fmt.Printf("comparison: %s\n", out)
 	return 0
+}
+
+// replayExperiments parses --experiment with the replay harness's own code:
+// its names (replayeval.ParseExperiments), then a refusal of what pcap-replay
+// cannot supply, then the harness's combination rules against the tuning
+// file the replay will load, so a selection Run would refuse is refused
+// before the capture is read. With no names it returns an empty list and
+// loads nothing.
+func replayExperiments(flagValue, tuningFile string) ([]string, error) {
+	experiments, err := replayeval.ParseExperiments(flagValue)
+	if err != nil || len(experiments) == 0 {
+		return experiments, err
+	}
+	if err := replayeval.RefuseExperimentsWithout("pcap-replay", experiments, replayeval.ReplayInputs{}); err != nil {
+		return nil, err
+	}
+	if err := replayeval.ValidateExperiments(experiments, tuningFile, "", nil); err != nil {
+		return nil, err
+	}
+	return experiments, nil
 }
 
 // replayCalibration is the transform offline replay actually applies: none.

@@ -70,8 +70,10 @@ genisoimage -quiet -output "$RUN_DIR/seed.iso" -volid cidata -joliet -rock \
 
 qemu-img create -q -f qcow2 -F qcow2 -b "$BASE_IMAGE" "$RUN_DIR/root.qcow2" 8G
 QEMU_LOG="$RUN_DIR/qemu.log"
+# A named CPU, not -cpu max: edk2 2025.11 (ubuntu-26.04) hangs after its banner
+# under QEMU 10.2's max model. See docs/platform/operations/arm64-vm-gate-ubuntu-2604.md.
 qemu-system-aarch64 \
-    -machine virt,accel=tcg -cpu max -smp 2 -m 1536 \
+    -machine virt,accel=tcg -cpu neoverse-n1 -smp 2 -m 1536 \
     -bios "$EFI_FIRMWARE" \
     -drive if=virtio,format=qcow2,file="$RUN_DIR/root.qcow2" \
     -drive if=virtio,format=raw,readonly=on,file="$RUN_DIR/seed.iso" \

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/l8behaviour"
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -49,10 +50,37 @@ type ArmSpec struct {
 	// written by one replay's frame transaction, so a solid-body arm against
 	// a point-estimate arm of that replay differs only in observation model.
 	SolidBodies bool
+	// Boxes reads the published box filed beside each online estimate of
+	// the version (lidar_track_observations, migration 000062) as the body,
+	// through l8behaviour.TrajectoriesFromBoxes; the version's fields select
+	// the estimates, and its stage must be online. It excludes SolidBodies.
+	// The arm's identity names the table and the box's observation model,
+	// published_box/<the estimates' model>.
+	Boxes bool
 }
 
-// solidBodyTable names the table a solid-body arm reads, for its identity.
-const solidBodyTable = "lidar_track_solid_bodies"
+// solidBodyTable and boxTable name the table a solid-body or box arm reads,
+// for its identity.
+const (
+	solidBodyTable = "lidar_track_solid_bodies"
+	boxTable       = "lidar_track_observations"
+)
+
+// checkBoxes refuses a box arm that also names solid bodies, or a stage the
+// box does not have.
+func (s ArmSpec) checkBoxes() error {
+	if !s.Boxes {
+		return nil
+	}
+	if s.SolidBodies {
+		return fmt.Errorf("arm %s: read the solid bodies or the published boxes, not both", s.Label)
+	}
+	if s.Stage != StageOnline {
+		return fmt.Errorf("arm %s: a published box is filed beside online estimates only, not stage %q; "+
+			"score it at stage online as a declared baseline", s.Label, s.Stage)
+	}
+	return nil
+}
 
 // Kind is the arm's source.
 func (s ArmSpec) Kind() ArmKind {
@@ -102,7 +130,7 @@ func LoadArm(spec ArmSpec) (Hypothesis, error) {
 		return Hypothesis{}, fmt.Errorf("arm %s: no database", spec.Label)
 	}
 	if spec.RunID != "" && (spec.SourceID != "" || spec.EstimatorID != "" || spec.ObservationModelID != "" ||
-		spec.ParamHash != "" || spec.Stage != "" || spec.SolidBodies) {
+		spec.ParamHash != "" || spec.Stage != "" || spec.SolidBodies || spec.Boxes) {
 		return Hypothesis{}, fmt.Errorf("arm %s: name an analysis run or an estimate version, not both", spec.Label)
 	}
 	if spec.Stage == "" && spec.RunID == "" {
@@ -117,6 +145,9 @@ func LoadArm(spec ArmSpec) (Hypothesis, error) {
 	if stage != StageFinal && !spec.DeclaredBaseline {
 		return Hypothesis{}, fmt.Errorf("arm %s: %s positions are stage %q, and acceptance scores stage %q; "+
 			"declare the arm a baseline to score it anyway", spec.Label, spec.Kind(), stage, StageFinal)
+	}
+	if err := spec.checkBoxes(); err != nil {
+		return Hypothesis{}, err
 	}
 
 	database, err := sqlite.OpenReadOnly(spec.DBPath)
@@ -135,9 +166,13 @@ func loadEstimateArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error)
 	store := sqlite.NewStateEstimateStore(database)
 	listVersions, listPositions := store.ListEstimateVersions, store.ListEstimatePositions
 	table := ""
-	if spec.SolidBodies {
+	switch {
+	case spec.SolidBodies:
 		listVersions, listPositions = store.ListSolidBodyVersions, store.ListSolidBodyPositions
 		table = solidBodyTable
+	case spec.Boxes:
+		listVersions, listPositions = store.ListBoxVersions, boxPositions(store)
+		table = boxTable
 	}
 	versions, err := listVersions()
 	if err != nil {
@@ -182,12 +217,48 @@ func loadEstimateArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error)
 		Identity: ArmIdentity{
 			Label: spec.Label, Kind: ArmEstimates, Database: filepath.Base(spec.DBPath),
 			SourceID: version.SourceID, EstimatorID: version.EstimatorID,
-			ObservationModelID: version.ObservationModelID, ParamHash: version.ParamHash,
+			ObservationModelID: armObservationModel(spec, version), ParamHash: version.ParamHash,
 			Table: table, Stage: version.Stage, DeclaredBaseline: spec.DeclaredBaseline,
 			TrackKey: "creation_sequence", Tracks: len(series), Points: len(positions),
 		},
 		Series: series,
 	}, nil
+}
+
+// boxPositions reads a box version's positions as ListEstimatePositions reads
+// an estimate version's, in creation_sequence and frame order: the centre of
+// the published box filed beside each online estimate, where one was drawn.
+func boxPositions(store *sqlite.StateEstimateStore) func(sqlite.EstimateVersion) ([]sqlite.EstimatePosition, error) {
+	return func(v sqlite.EstimateVersion) ([]sqlite.EstimatePosition, error) {
+		rows, err := store.ListVersionBoxes(sqlite.EstimateVersionKey{SourceID: v.SourceID, EstimatorID: v.EstimatorID,
+			ObservationModelID: v.ObservationModelID, ParamHash: v.ParamHash, Stage: v.Stage})
+		if err != nil {
+			return nil, err
+		}
+		out := make([]sqlite.EstimatePosition, 0, len(rows))
+		for _, r := range rows {
+			if r.HasBox {
+				out = append(out, sqlite.EstimatePosition{TrackID: r.TrackID, CreationSequence: r.CreationSequence,
+					FrameUnixNanos: r.FrameUnixNanos, X: r.BoxX, Y: r.BoxY})
+			}
+		}
+		sort.SliceStable(out, func(i, j int) bool {
+			if out[i].CreationSequence != out[j].CreationSequence {
+				return out[i].CreationSequence < out[j].CreationSequence
+			}
+			return out[i].FrameUnixNanos < out[j].FrameUnixNanos
+		})
+		return out, nil
+	}
+}
+
+// armObservationModel is the observation model an arm's identity names: a
+// box arm's is the box over the estimates' model.
+func armObservationModel(spec ArmSpec, v sqlite.EstimateVersion) string {
+	if spec.Boxes {
+		return l8behaviour.BoxObservationModelID(v.ObservationModelID)
+	}
+	return v.ObservationModelID
 }
 
 // selectVersion finds the one version the spec names. Any field left empty

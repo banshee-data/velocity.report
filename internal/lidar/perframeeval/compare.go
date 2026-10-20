@@ -160,6 +160,11 @@ func caveats(c Comparison) []string {
 				"but the medoid inside the initialisation window, after a lapse and while every face's extent was only "+
 				"the class prior. lidar_track_solid_bodies.reference_point says which, row by row.", arm.Label))
 		}
+		if arm.Table == boxTable {
+			out = append(out, fmt.Sprintf("Arm %s scores the published box read as the body: its centre, heading and "+
+				"extents as drawn, with the front named from the course. The box records no face and no spread, so every "+
+				"endpoint is temporally inferred and its sigma is the filter's position sigma alone, a lower bound.", arm.Label))
+		}
 	}
 	out = append(out, "False positives include hypotheses on returns nobody labelled. They are an upper bound "+
 		"unless every road user in the episodes' frames has a mask; the deltas are sounder than either arm's count.")

@@ -719,3 +719,117 @@ func TestRunRefuses(t *testing.T) {
 		t.Errorf("foreign stored events: error %v", err)
 	}
 }
+
+// seedBoxes files a scenario's bodies as the published boxes the frame
+// evidence store writes beside each online estimate of the version seed
+// wrote: a lidar_tracks row labelled a car and, at every frame, a
+// lidar_track_observations row whose box is the sample's body.
+func seedBoxes(t *testing.T, database sqlite.DBClient, trajectories []l8behaviour.Trajectory) {
+	t.Helper()
+	for _, tr := range trajectories {
+		track := &l5tracks.TrackedObject{TrackID: tr.Passage.TrackID}
+		track.SensorID, track.TrackState, track.StartUnixNanos = "sensor_test", l5tracks.TrackConfirmed, tr.Samples[0].CaptureUnixNanos
+		track.ObjectClass, track.ObjectConfidence = "car", 0.875
+		if err := sqlite.InsertTrack(database, track, "site/sensor_test"); err != nil {
+			t.Fatal(err)
+		}
+		for _, s := range tr.Samples {
+			if err := sqlite.InsertTrackObservation(database, &sqlite.TrackObservation{
+				TrackID: tr.Passage.TrackID, TSUnixNanos: s.CaptureUnixNanos, FrameUnixNanos: s.CaptureUnixNanos,
+				FrameID: "site/sensor_test", MeasurementSource: "obb_centre_v1",
+				BoxX: float32(s.X), BoxY: float32(s.Y), BoxHeadingRad: float32(s.Heading.Rad),
+				BoxLength: float32(s.Length.Metres), BoxWidth: float32(s.Width.Metres),
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// TestRunOnlineBoxes takes the steady approach's bodies, filed as published
+// boxes beside online point estimates, through the whole slice. The boxes
+// place the body the scenario does, so the pair is found on its path; the
+// first two instants wait for the boxes' extents to converge, and the rest
+// are valid following time. A point-estimate run over the same version
+// stores its own encounters: the box run's carry the box's observation model.
+func TestRunOnlineBoxes(t *testing.T) {
+	database := openDB(t)
+	seed(t, database, steadyApproach(), online)
+	seedBoxes(t, database, steadyApproach())
+
+	points := run(t, database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline})
+	if len(points.Interactions) != 0 {
+		t.Fatalf("point estimates found %d encounters", len(points.Interactions))
+	}
+	res := run(t, database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true})
+	if !res.Boxes || res.SolidBodies || res.Estimates.ObservationModelID != "obb_centre_v1" || res.Estimates.Estimates != 100 ||
+		len(res.Trajectories) != 2 {
+		t.Fatalf("read %+v, %d trajectories", res.Estimates, len(res.Trajectories))
+	}
+	wantVersion := l8behaviour.InteractionVersion{
+		EstimateStage: l8behaviour.StageOnline, EstimatorID: "cv_kf_v1", ObsModelID: "published_box/obb_centre_v1",
+		MethodID: l8behaviour.FollowingEncounterMethodID + "/" + Params().Hash(), ParamHash: "sha256:online",
+	}
+	if res.Version != wantVersion {
+		t.Errorf("version %+v", res.Version)
+	}
+	for _, tr := range res.Trajectories {
+		if tr.Passage.MotionClass != l8behaviour.MotionRigidVehicle || tr.Passage.ClassLabel != "car" ||
+			tr.Passage.SensorID != "sensor_test" {
+			t.Errorf("passage %+v", tr.Passage)
+		}
+	}
+	if c := res.Capture(); !strings.HasPrefix(c.Source, "lidar_track_observations/"+testSource+"/cv_kf_v1/published_box/obb_centre_v1/") ||
+		!strings.Contains(c.Description, "Persisted online published boxes: 2 tracks, 100 samples") {
+		t.Errorf("capture source %q, description %q", c.Source, c.Description)
+	}
+
+	s := res.Summary()
+	suppressed := s.Suppressed[l8behaviour.ReasonExtentNotConverged]
+	if s.Tracks != 2 || s.PathsFitted != 2 || s.Encounters != 1 || s.Written != 1 || s.ValidNanos != 47*l8behaviour.FixtureFramePeriodNanos ||
+		len(s.Suppressed) != 1 || suppressed.Instants != 2 || s.AccountedNanos != 49*l8behaviour.FixtureFramePeriodNanos {
+		t.Errorf("summary = %+v", s)
+	}
+	if lines := strings.Join(s.Lines(), "\n"); !strings.Contains(lines, "Follower paths fitted: 2 of 2") ||
+		!strings.Contains(lines, "Estimates without a published box: 0 (0 with no observation row at their frame)") ||
+		!strings.Contains(lines, "Valid following time: 4.7 s of 4.9 s accounted") ||
+		!strings.Contains(lines, "suppressed extent_not_converged: 2 instants, 0.2 s") {
+		t.Errorf("summary lines:\n%s", lines)
+	}
+	if again := run(t, database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true}); again.AlreadyStored != 1 {
+		t.Errorf("a second box run stored %d already, want its one encounter", again.AlreadyStored)
+	}
+}
+
+// TestRunBoxesRefuses: boxes with solid bodies, boxes at a refined stage,
+// and a source whose estimates have no boxes. Once a version has boxes, an
+// estimate with none filed is a gap, counted, not a refusal.
+func TestRunBoxesRefuses(t *testing.T) {
+	database := openDB(t)
+	seed(t, database, steadyApproach(), online)
+	for name, c := range map[string]struct {
+		spec Spec
+		want string
+	}{
+		"with solid bodies": {Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true, SolidBodies: true}, "not both"},
+		"final":             {Spec{SourceID: testSource, Stage: l8behaviour.StageFinal, Boxes: true}, "online estimates only"},
+		"no boxes":          {Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true}, "must be replayed again"},
+	} {
+		if _, err := Run(database, c.spec); err == nil || !strings.Contains(err.Error(), c.want) {
+			t.Errorf("%s: error %v, want %q", name, err, c.want)
+		}
+	}
+	// One track's boxes filed, the other's not: the other's 50 estimates are
+	// gaps, and it has no trajectory.
+	seedBoxes(t, database, steadyApproach()[:1])
+	res, err := Run(database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true})
+	if err != nil {
+		t.Fatalf("a version with boxes and estimates without: %v", err)
+	}
+	s := res.Summary()
+	if len(res.Trajectories) != 1 || res.BoxlessEstimates != 50 || res.UnfiledEstimates != 50 || s.BoxlessEstimates != 50 ||
+		!strings.Contains(strings.Join(s.Lines(), "\n"), "Estimates without a published box: 50 (50 with no observation row at their frame)") {
+		t.Errorf("%d trajectories, %d boxless, %d unfiled:\n%s", len(res.Trajectories), res.BoxlessEstimates,
+			res.UnfiledEstimates, strings.Join(s.Lines(), "\n"))
+	}
+}
