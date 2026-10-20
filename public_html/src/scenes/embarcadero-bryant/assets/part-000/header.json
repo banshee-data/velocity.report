@@ -4,9 +4,9 @@
   "site": "embarcadero-bryant",
   "title": "Embarcadero at Bryant",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 6614,
-  "start_ns": "1788471677526290330",
-  "duration_sec": 1322.54509497,
+  "frame_count": 6813,
+  "start_ns": "1788471637854069330",
+  "duration_sec": 1362.31724197,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "642088d60a73030161a8794e7fd7047a22f2fc205d132b43ff7651ee13a9f8a5",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "de8436e32d67a99eda3b2454cca44abaad78d1894f9b36e525507073698ec56b",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T14:20:38Z"
+  "generated_at": "2026-10-20T12:29:08Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

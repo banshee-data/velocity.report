@@ -1,91 +1,96 @@
 {
   "version": 1,
   "bucket_seconds": 5,
-  "duration_sec": 29.79972,
+  "duration_sec": 30.000747,
   "buckets": [
     {
       "t": 0,
-      "veh": 5.5,
-      "ped": 11.54,
-      "cyc": 0,
-      "oth": 37.06,
-      "spd": 10.19,
-      "n": 50
+      "veh": 5.76,
+      "ped": 15.55,
+      "cyc": 0.57,
+      "oth": 45.67,
+      "spd": 7.05,
+      "n": 51
     },
     {
       "t": 5,
-      "veh": 4.42,
-      "ped": 7.28,
-      "cyc": 0,
-      "oth": 34.08,
-      "spd": 10.19,
+      "veh": 8.72,
+      "ped": 21.44,
+      "cyc": 1.08,
+      "oth": 47.1,
+      "spd": 8.43,
       "n": 50
     },
     {
       "t": 10,
-      "veh": 5.14,
-      "ped": 7.27,
+      "veh": 5.35,
+      "ped": 13.63,
       "cyc": 0,
-      "oth": 29.31,
-      "spd": 10.85,
-      "n": 51
+      "oth": 30.2,
+      "spd": 7.01,
+      "n": 49
     },
     {
       "t": 15,
-      "veh": 4.08,
-      "ped": 4.6,
-      "cyc": 0.44,
-      "oth": 28.5,
-      "spd": 10.85,
-      "n": 50
+      "veh": 4.9,
+      "ped": 6.82,
+      "cyc": 0.29,
+      "oth": 24.16,
+      "spd": 8.18,
+      "n": 51
     },
     {
       "t": 20,
-      "veh": 2.86,
-      "ped": 4.69,
-      "cyc": 0.37,
-      "oth": 21.84,
-      "spd": 9.41,
+      "veh": 1.57,
+      "ped": 2,
+      "cyc": 0.63,
+      "oth": 10.2,
+      "spd": 7,
       "n": 49
     },
     {
       "t": 25,
-      "veh": 1.9,
-      "ped": 4.33,
+      "veh": 1,
+      "ped": 2.74,
       "cyc": 0,
-      "oth": 19.57,
-      "spd": 9.76,
-      "n": 49
+      "oth": 13.58,
+      "spd": 5.83,
+      "n": 50
+    },
+    {
+      "t": 30,
+      "veh": 1,
+      "ped": 3,
+      "cyc": 0,
+      "oth": 13,
+      "spd": 5.69,
+      "n": 1
     }
   ],
   "vehicle_speed": {
     "units": "mph",
     "bucket_size": 5,
     "minimum_speed": 5,
-    "track_count": 10,
-    "p50": 15.14,
-    "p85": 17.78,
-    "p98": 21.83,
-    "max": 21.83,
+    "track_count": 20,
+    "p50": 12.1,
+    "p85": 16.62,
+    "p98": 18.54,
+    "max": 18.54,
     "histogram": [
       {
         "start_mph": 5,
-        "count": 3
+        "count": 8
       },
       {
         "start_mph": 10,
-        "count": 1
+        "count": 8
       },
       {
         "start_mph": 15,
-        "count": 5
-      },
-      {
-        "start_mph": 20,
-        "count": 1
+        "count": 4
       }
     ]
   },
-  "max_total": 54.1,
-  "max_speed": 10.85
+  "max_total": 78.34,
+  "max_speed": 8.43
 }

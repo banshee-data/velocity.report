@@ -4,9 +4,9 @@
   "site": "howard-6th",
   "title": "Howard at 6th",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5810,
-  "start_ns": "1788475883250680330",
-  "duration_sec": 1162.815048,
+  "frame_count": 6008,
+  "start_ns": "1788475843642189330",
+  "duration_sec": 1202.423539,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "804fb06f030ad91fcf52e820f1bbfa6b6ef194ff2ec6909f9055c5d75d6ea410",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "972f1d2d5b68198d0439a0fef58c300593d374e95a627f5a1644b248d393b5ae",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T15:41:50Z"
+  "generated_at": "2026-10-20T13:04:41Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

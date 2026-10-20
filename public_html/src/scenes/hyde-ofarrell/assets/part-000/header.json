@@ -4,9 +4,9 @@
   "site": "hyde-ofarrell",
   "title": "Hyde at O'Farrell",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5806,
-  "start_ns": "1788458795048720330",
-  "duration_sec": 1160.999669,
+  "frame_count": 6005,
+  "start_ns": "1788458755344702330",
+  "duration_sec": 1200.80384,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "3f3380750e1188e8b633907af7f31393d7e6aaa48f5b9297b29f968e35007216",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "afe88bdf659a3e045b784970c1740ab85fc17d22999119fa23ffd7fe086c5e71",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T11:32:24Z"
+  "generated_at": "2026-10-20T11:18:44Z",
+  "trail_estimator": "cv_kf_v1/online"
 }
