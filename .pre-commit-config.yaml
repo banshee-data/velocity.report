@@ -5,7 +5,7 @@ repos:
     hooks:
       - id: check-added-large-files
         args: ["--maxkb=1024"]
-        # reference-graph.json (~1.5 MB) is the docs citation-graph page's data,
+        # reference-graph.json (~3.6 MB) is the docs citation-graph page's data,
         # checked in on purpose; citation-needed's export caps it at 5 MB.
         exclude: "^(public_html/src/video/|data/maths/reference-graph\\.json$)"
       - id: end-of-file-fixer
