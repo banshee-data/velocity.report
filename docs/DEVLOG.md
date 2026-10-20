@@ -8,10 +8,6 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 20, 2026 - What the following gate admits
-
-- {claude/overlap-end-determinism} Made the overlap end repeat: under l5id0004's one track per vehicle (`overlap_end_1`, `_body`, `_older`) 10 of 23 first segments failed the replay harness's repeat check because the tracker judged unmatched tracks in Go map order and, keeping the older track, the order decided which track survived; Step 4 now visits tracks in creation order, a test requires 64 runs to agree, fulton-divisadero and laguna-eddy repeat, and the defaults' baseline is byte-identical: [determinism report](lidar/operations/replay-determinism-2026-10.md#a-fourth-mechanism-the-overlap-ends-order-october-20).
-
 ## October 19, 2026 - Replays that start from nothing, and whether the defaults' L3 loses tracks
 
 - {fix/scene-export-rotation-cut} Made one capture export the same scene at every replay speed. Replayed on one fresh server at analysis, 1x and 0.5x, columbus-broadway recorded the same 20,330 rotations and 335,341 track rows, identical row for row, but the published exports started 100 ms apart and, at stride 2, shared no instant: `scene export --start-frame` counted VRLOG records, and the publisher's background snapshots, on a 30 s wall-clock timer, numbered 30, 69 and 136. `--start-frame` and `--frame-count` now count rotations, as `--stride` already did, and the three VRLOGs export identically (9,965 frames, 161,935 rows); the periodic background is every 300 rotations (`BackgroundEveryFrames`), and a snapshot counts as sent once recorded, so neither the speed nor how fast clients drain decides how many a recording holds. Analysis took 15 minutes against 0.5x's 68; perf0003 still decides the scene speed.
