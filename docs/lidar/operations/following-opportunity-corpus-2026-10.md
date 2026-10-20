@@ -91,6 +91,13 @@ embarcadero-bryant, franklin-mcallister, fulton-divisadero, hyde-ofarrell, lagun
 lombard-broderick) are screened from the first run's evidence, which the harness writes before it
 repeats; each is one draw of the survivor choice. Their `a0` cases repeated.
 
+**Replicated after the fix.** The whole `body-older` arm was replayed again with the fix
+(`d6b0cf2c6`, on `claude/overlap-end-determinism`): every one of the 23 cases passed the repeat
+check, 18 sites screen identically, and the pooled figures move by under 0.3 % (pair-seconds 2,111
+to 2,110, pairs 2,264 to 2,266, leader changes 1,104 to 1,102, pairs closer than 1 m 93 to 92,
+vehicle-track-minutes 254.4 to 254.8). The tables below are the first runs'; the survivor draw
+does not change any reading.
+
 ## Findings
 
 ### Pooled
@@ -175,7 +182,8 @@ quality: the slow residential sites (Haight, Pierce, Ashbury) have little follow
   ([class evidence](following-class-evidence-kirk-2026-10.md)); vehicle-sized is a size proxy, not
   a class.
 - **Anything about embarcadero-folsom** or the second segments, which were not read.
-- **Repeatability of ten `body-older` cases**, which are one draw of a choice now fixed.
+- **Repeatability of ten `body-older` cases** in the tables, which are one draw of a choice now
+  fixed; the repeat-verified replication changes the pooled figures by under 0.3 %.
 
 ## Provenance
 
@@ -200,5 +208,5 @@ quality: the slow residential sites (Haight, Pierce, Ashbury) have little follow
 3. **Read leader changes as an identity measure.** One track per vehicle cuts them by two fifths
    without changing following; a leader-change rate per follower-minute is a cheap label-free
    check on duplicates for any identity arm.
-4. **Rerun `body-older` here after the determinism fix** if any figure from it is to be quoted
-   per site; the pooled figures will not move much, since the arm barely changes the counts.
+4. **Quote the per-site `body-older` figures with the replication's caveat:** after the
+   determinism fix they move by at most a few tenths of a pair-second at five sites.
