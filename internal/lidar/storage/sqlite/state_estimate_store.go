@@ -60,10 +60,21 @@ type TrackResidual struct {
 // SolidBody is the same track's solid-body estimate at the same frame, when
 // the tracker populates one. It is written in the same transaction, to its
 // own table; nil writes nothing.
+//
+// Track and Observation are the same track's lidar_tracks row and its
+// lidar_track_observations row at the same frame: the record the live server
+// writes for a confirmed, associated track, whose observation carries the
+// published box (migration 000062) and whose track row carries the
+// classifier's label. FrameEvidenceStore writes them in the frame's
+// transaction, so an offline evidence database holds the box beside the
+// estimate filed with it. Both nil writes neither. Track is the caller's
+// snapshot of the track, read only during the write.
 type FrameStateEstimate struct {
-	Estimate  TrackEstimate
-	Residual  TrackResidual
-	SolidBody *TrackSolidBody
+	Estimate    TrackEstimate
+	Residual    TrackResidual
+	SolidBody   *TrackSolidBody
+	Track       *TrackedObject
+	Observation *TrackObservation
 }
 
 // StateEstimateStore owns derived, versioned records. It intentionally has no

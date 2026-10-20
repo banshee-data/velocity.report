@@ -20,7 +20,7 @@ import (
 // modes.
 //
 //	velocity report headway --oracle [--output DIR] [--paper letter|a4]
-//	velocity report headway --db EVIDENCE.db --source ID [--solid-bodies] [--stage final|fixed_lag|online]
+//	velocity report headway --db EVIDENCE.db --source ID [--solid-bodies | --boxes] [--stage final|fixed_lag|online]
 //	    [--estimator ID] [--obs-model ID] [--param-hash HASH] [--output DIR] [--paper letter|a4]
 //
 // --oracle renders the synthetic oracle from the analytic encounter
@@ -29,7 +29,10 @@ import (
 // derives there, write-once, and renders the report labelled provisional.
 // --solid-bodies reads the persisted solid bodies instead of the point
 // estimates: a point estimate refers to the medoid or the visible box, never
-// the body, so only solid bodies can place an endpoint.
+// the body, so only a body can place an endpoint. --boxes reads the published
+// box filed beside each online estimate as the body instead
+// (l8behaviour.TrajectoriesFromBoxes); its stage is online, the default with
+// --boxes, and every endpoint it places is temporally inferred.
 func runHeadway(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("velocity report headway", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -39,7 +42,10 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 		"(its derived encounters are stored in it)")
 	source := fs.String("source", "", "With --db: the estimates' source id (source/v1/...)")
 	solidBodies := fs.Bool("solid-bodies", false, "With --db: read lidar_track_solid_bodies instead of lidar_track_estimates")
-	stage := fs.String("stage", l8behaviour.StageFinal.String(), "With --db: estimate stage, final, fixed_lag or online")
+	boxes := fs.Bool("boxes", false, "With --db: read the published box filed beside each online estimate "+
+		"(lidar_track_observations) as the body; not with --solid-bodies")
+	stage := fs.String("stage", l8behaviour.StageFinal.String(), "With --db: estimate stage, final, fixed_lag or online "+
+		"(online, the only one, with --boxes)")
 	estimator := fs.String("estimator", "", "With --db: estimator id, when the source holds several versions at the stage")
 	obsModel := fs.String("obs-model", "", "With --db: observation model id, when the source holds several versions at the stage")
 	paramHash := fs.String("param-hash", "", "With --db: estimator parameter hash, when the source holds several versions at the stage")
@@ -62,8 +68,8 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 	if *oracle {
 		// Any --db-only flag given explicitly is refused, --stage included,
 		// though its default is not empty: the oracle would ignore it.
-		dbOnly := map[string]bool{"source": true, "solid-bodies": true, "stage": true, "estimator": true, "obs-model": true,
-			"param-hash": true}
+		dbOnly := map[string]bool{"source": true, "solid-bodies": true, "boxes": true, "stage": true, "estimator": true,
+			"obs-model": true, "param-hash": true}
 		var misplaced []string
 		fs.Visit(func(f *flag.Flag) {
 			if dbOnly[f.Name] {
@@ -73,6 +79,21 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 		if len(misplaced) > 0 {
 			sort.Strings(misplaced)
 			fmt.Fprintf(stderr, "error: --%s applies to --db, not --oracle\n", misplaced[0])
+			return 2
+		}
+	}
+	if *solidBodies && *boxes {
+		fmt.Fprintln(stderr, "error: give at most one of --solid-bodies or --boxes")
+		return 2
+	}
+	stageSet := false
+	fs.Visit(func(f *flag.Flag) { stageSet = stageSet || f.Name == "stage" })
+	if *boxes {
+		// The box is the online tracker's: online is its only stage.
+		if !stageSet {
+			*stage = l8behaviour.StageOnline.String()
+		} else if *stage != l8behaviour.StageOnline.String() {
+			fmt.Fprintf(stderr, "error: --boxes reads the boxes filed beside online estimates; --stage %s is not online\n", *stage)
 			return 2
 		}
 	}
@@ -94,8 +115,8 @@ func runHeadway(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 	} else {
-		spec := fieldrun.Spec{SourceID: *source, SolidBodies: *solidBodies, EstimatorID: *estimator, ObsModelID: *obsModel,
-			ParamHash: *paramHash}
+		spec := fieldrun.Spec{SourceID: *source, SolidBodies: *solidBodies, Boxes: *boxes, EstimatorID: *estimator,
+			ObsModelID: *obsModel, ParamHash: *paramHash}
 		if spec.Stage, err = l8behaviour.ParseEstimateStage(*stage); err != nil {
 			fmt.Fprintf(stderr, "error: --stage: %v; want final, fixed_lag or online\n", err)
 			return 2
@@ -139,9 +160,9 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 
 	if spec.SourceID == "" {
 		fmt.Fprintln(stderr, "error: --source is required with --db")
-		versions, err := fieldrun.ListVersions(sqlite.NewStateEstimateStore(database), spec.SolidBodies)
+		versions, err := fieldrun.ListVersions(sqlite.NewStateEstimateStore(database), spec)
 		if err != nil {
-			fmt.Fprintf(stderr, "error: list %s versions: %v\n", headwayRowsNoun(spec.SolidBodies), err)
+			fmt.Fprintf(stderr, "error: list %s versions: %v\n", spec.Noun(), err)
 			return headway.Report{}, 1
 		}
 		stages := map[string]map[string]bool{}
@@ -152,7 +173,7 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 			stages[v.SourceID][v.Stage] = true
 		}
 		if len(stages) == 0 {
-			fmt.Fprintf(stderr, "%s holds no persisted %s\n", path, headwayRowsNoun(spec.SolidBodies))
+			fmt.Fprintf(stderr, "%s holds no persisted %s\n", path, spec.Noun())
 		}
 		sources := make([]string, 0, len(stages))
 		for s := range stages {
@@ -184,19 +205,16 @@ func runFieldReport(path string, spec fieldrun.Spec, stdout, stderr io.Writer) (
 	fmt.Fprintf(stdout, "Status: %s\n", r.StatusLabel)
 	e := run.Estimates
 	label := "Estimates"
-	if run.SolidBodies {
+	switch {
+	case run.SolidBodies:
 		label = "Solid bodies"
+	case run.Boxes:
+		// The version is the estimates' the boxes were filed beside.
+		label = "Published boxes beside estimates"
 	}
 	fmt.Fprintf(stdout, "%s: %s %s, %s, %s (%d rows)\n", label, e.Stage, e.EstimatorID, e.ObservationModelID, e.ParamHash, e.Estimates)
 	for _, line := range run.Summary().Lines() {
 		fmt.Fprintln(stdout, line)
 	}
 	return r, 0
-}
-
-func headwayRowsNoun(solidBodies bool) string {
-	if solidBodies {
-		return "solid bodies"
-	}
-	return "estimates"
 }

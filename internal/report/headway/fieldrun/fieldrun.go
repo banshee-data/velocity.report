@@ -7,10 +7,11 @@
 //
 //  1. Select exactly one version of lidar_track_estimates, or of
 //     lidar_track_solid_bodies, for a source at a stage (online, fixed_lag or
-//     final), refusing to guess between several.
-//  2. Build trajectories from its rows (l8behaviour.TrajectoriesFromEstimates
-//     or TrajectoriesFromSolidBodies), which claim no reference, heading,
-//     extent or class that the rows do not carry.
+//     final), or one online version of the estimates with the published box
+//     filed beside them, refusing to guess between several.
+//  2. Build trajectories from its rows (l8behaviour.TrajectoriesFromEstimates,
+//     TrajectoriesFromSolidBodies or TrajectoriesFromBoxes), which claim no
+//     reference, heading, extent or class that the rows do not carry.
 //  3. Analyse them with l8behaviour.AnalyseFollowing under Params.
 //  4. Persist every encounter's event, instants and windows through
 //     sqlite.InteractionStore. Rows are write-once per version: a re-run of
@@ -61,6 +62,12 @@ type Spec struct {
 	// lidar_track_estimates: the near-edge body beside each point estimate,
 	// with the reference, heading, extents, class and support it carries.
 	SolidBodies bool
+	// Boxes reads the published box filed beside each online estimate
+	// (lidar_track_observations, migration 000062) as the body, with the
+	// track's label from lidar_tracks; see l8behaviour.PersistedBox. It
+	// excludes SolidBodies, and its stage is online: the box is the online
+	// tracker's.
+	Boxes bool
 	// Stage is online, fixed_lag or final.
 	Stage l8behaviour.EstimateStage
 	// EstimatorID, ObsModelID and ParamHash narrow the selection when the
@@ -73,8 +80,9 @@ type Spec struct {
 
 // Result is one run: what it read, what it derived and what it stored.
 type Result struct {
-	// SolidBodies records which table the run read; see Spec.
+	// SolidBodies and Boxes record which rows the run read; see Spec.
 	SolidBodies  bool
+	Boxes        bool
 	Estimates    sqlite.EstimateVersion
 	Trajectories []l8behaviour.Trajectory
 	Params       l8behaviour.FollowingAnalysisParams
@@ -95,6 +103,13 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 	if !spec.Stage.Valid() {
 		return Result{}, fmt.Errorf("a field run needs an estimate stage (online, fixed_lag or final), got %s", spec.Stage)
 	}
+	if spec.SolidBodies && spec.Boxes {
+		return Result{}, errors.New("a field run reads the solid bodies or the published boxes, not both")
+	}
+	if spec.Boxes && spec.Stage != l8behaviour.StageOnline {
+		return Result{}, fmt.Errorf("a published box is the online tracker's and is filed beside online estimates only, not %s ones",
+			spec.Stage)
+	}
 	estimates := sqlite.NewStateEstimateStore(db)
 	version, err := selectVersion(estimates, spec)
 	if err != nil {
@@ -105,13 +120,16 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 		ParamHash: version.ParamHash, Stage: version.Stage,
 	}
 	var trajectories []l8behaviour.Trajectory
-	if spec.SolidBodies {
+	switch {
+	case spec.SolidBodies:
 		trajectories, err = solidBodyTrajectories(estimates, key)
-	} else {
+	case spec.Boxes:
+		trajectories, err = boxTrajectories(estimates, key)
+	default:
 		trajectories, err = estimateTrajectories(estimates, key)
 	}
 	if err != nil {
-		return Result{}, fmt.Errorf("%s of %s: %w", tableNoun(spec.SolidBodies), version.SourceID, err)
+		return Result{}, fmt.Errorf("%s of %s: %w", spec.noun(), version.SourceID, err)
 	}
 	params := Params()
 	if err := checkFramePeriod(trajectories, params.Exposure.MaxIntervalNanos); err != nil {
@@ -122,10 +140,17 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 		return Result{}, err
 	}
 
+	obsModel := version.ObservationModelID
+	if spec.Boxes {
+		// A box trajectory names the box over the filter's model, so a box
+		// run's encounters are never stored under the point estimates'.
+		obsModel = l8behaviour.BoxObservationModelID(obsModel)
+	}
 	res := Result{
-		SolidBodies: spec.SolidBodies, Estimates: version, Trajectories: trajectories, Params: params, Analysis: analysis,
+		SolidBodies: spec.SolidBodies, Boxes: spec.Boxes, Estimates: version, Trajectories: trajectories, Params: params,
+		Analysis: analysis,
 		Version: l8behaviour.InteractionVersion{
-			EstimateStage: spec.Stage, EstimatorID: version.EstimatorID, ObsModelID: version.ObservationModelID,
+			EstimateStage: spec.Stage, EstimatorID: version.EstimatorID, ObsModelID: obsModel,
 			MethodID: l8behaviour.FollowingEncounterMethodID + "/" + analysis.ParamsHash, ParamHash: version.ParamHash,
 		},
 	}
@@ -176,36 +201,70 @@ func solidBodyTrajectories(store *sqlite.StateEstimateStore, key sqlite.Estimate
 	return l8behaviour.TrajectoriesFromSolidBodies(persisted, l5tracks.DefaultConvergenceBounds())
 }
 
-// table and tableNoun name what a run reads.
-func table(solidBodies bool) string {
-	if solidBodies {
+func boxTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateVersionKey) ([]l8behaviour.Trajectory, error) {
+	rows, err := store.ListVersionBoxes(key)
+	if err != nil {
+		return nil, err
+	}
+	persisted := make([]l8behaviour.PersistedBox, len(rows))
+	for i, r := range rows {
+		persisted[i] = l8behaviour.PersistedBox{
+			TrackID: r.TrackID, SensorID: r.SensorID, FrameUnixNanos: r.FrameUnixNanos,
+			EstimatorID: r.EstimatorID, ObsModelID: r.ObservationModelID, ParamHash: r.ParamHash, Stage: r.Stage,
+			Support: r.Support, MeasurementUnixNanos: r.MeasurementUnixNanos,
+			VX: r.VX, VY: r.VY, Covariance: r.Covariance,
+			HasBox: r.HasBox, BoxX: r.BoxX, BoxY: r.BoxY, BoxHeadingRad: r.BoxHeadingRad,
+			BoxLength: r.BoxLength, BoxWidth: r.BoxWidth,
+			ClassLabel: r.ClassLabel, ClassConfidence: r.ClassConfidence,
+		}
+	}
+	return l8behaviour.TrajectoriesFromBoxes(persisted, l5tracks.DefaultConvergenceBounds())
+}
+
+// table names what a run reads; a box run reads the observations' boxes
+// beside the estimates.
+func table(solidBodies, boxes bool) string {
+	switch {
+	case solidBodies:
 		return "lidar_track_solid_bodies"
+	case boxes:
+		return "lidar_track_observations"
 	}
 	return "lidar_track_estimates"
 }
 
-func tableNoun(solidBodies bool) string {
-	if solidBodies {
+// Noun names what a run over the spec reads, for messages.
+func (s Spec) Noun() string { return s.noun() }
+
+func (s Spec) noun() string {
+	switch {
+	case s.SolidBodies:
 		return "solid bodies"
+	case s.Boxes:
+		return "published boxes"
 	}
 	return "estimates"
 }
 
-// ListVersions lists the versions a run over the spec's table can select.
-func ListVersions(store *sqlite.StateEstimateStore, solidBodies bool) ([]sqlite.EstimateVersion, error) {
-	if solidBodies {
+// ListVersions lists the versions a run over the spec's rows can select: for
+// boxes, the online estimate versions with boxes filed beside them.
+func ListVersions(store *sqlite.StateEstimateStore, spec Spec) ([]sqlite.EstimateVersion, error) {
+	switch {
+	case spec.SolidBodies:
 		return store.ListSolidBodyVersions()
+	case spec.Boxes:
+		return store.ListBoxVersions()
 	}
 	return store.ListEstimateVersions()
 }
 
 // selectVersion finds the one estimate version the spec names.
 func selectVersion(store *sqlite.StateEstimateStore, spec Spec) (sqlite.EstimateVersion, error) {
-	versions, err := ListVersions(store, spec.SolidBodies)
+	versions, err := ListVersions(store, spec)
 	if err != nil {
 		return sqlite.EstimateVersion{}, err
 	}
-	noun := tableNoun(spec.SolidBodies)
+	noun := spec.noun()
 	var atSource, matched []sqlite.EstimateVersion
 	for _, v := range versions {
 		if v.SourceID != spec.SourceID {
@@ -314,7 +373,7 @@ func persist(db sqlite.DBClient, sourceID string, v l8behaviour.InteractionVersi
 // Capture is the run as the report's one capture.
 func (r Result) Capture() headway.CaptureInput {
 	e := r.Estimates
-	source := strings.Join([]string{table(r.SolidBodies), e.SourceID, e.EstimatorID, e.ObservationModelID,
+	source := strings.Join([]string{table(r.SolidBodies, r.Boxes), e.SourceID, e.EstimatorID, r.Version.ObsModelID,
 		e.ParamHash, e.Stage}, "/")
 	return headway.CaptureInput{
 		ID: "source_" + shortDigest(e.SourceID), Description: r.describe(), Source: source,
@@ -360,7 +419,7 @@ func (r Result) describe() string {
 	return fmt.Sprintf("Persisted %s %s: %d tracks, %d samples. Samples on a body-centre reference: %d; "+
 		"with a pose the estimator stands behind: %d; with a resolved heading: %d; with length and width beliefs: %d. "+
 		"Tracks classed as rigid vehicles: %d. The analysis parameters are the analytic scenarios' bounds, not calibrated.",
-		r.Estimates.Stage, tableNoun(r.SolidBodies), len(r.Trajectories), samples, bodyCentre, converging, heading, extents, vehicles)
+		r.Estimates.Stage, Spec{SolidBodies: r.SolidBodies, Boxes: r.Boxes}.noun(), len(r.Trajectories), samples, bodyCentre, converging, heading, extents, vehicles)
 }
 
 // Report builds the provisional report from the run. Field data is never a

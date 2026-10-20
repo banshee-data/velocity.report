@@ -141,8 +141,9 @@ func fieldReport(t *testing.T, database sqlite.DBClient, spec Spec) Result {
 // so no follower's path can be fitted and there is no encounter at all
 // (review R1). The solid bodies filed beside the point estimates carry a
 // body-centre reference after a near-edge fix, with heading, extents and
-// class, and are the input that can place an endpoint. Every outcome is a
-// result; the test pins what must hold of any result and logs the figures.
+// class, and are the input that can place an endpoint; so are the published
+// boxes filed beside them, read as the body. Every outcome is a result; the
+// test pins what must hold of any result and logs the figures.
 func TestKirk0ProvisionalHeadway(t *testing.T) {
 	t.Run("medoid_v0", func(t *testing.T) {
 		database, source := replayKirk0(t, l5tracks.MeasurementMedoidV0)
@@ -214,5 +215,25 @@ func TestKirk0ProvisionalHeadway(t *testing.T) {
 		if s.PathsFitted == 0 {
 			t.Error("no follower path was fitted from the body-centre solid bodies")
 		}
+
+		// The same replay filed the published box beside every online
+		// estimate. Read as the body, every box sample is on the body centre.
+		t.Run("boxes", func(t *testing.T) {
+			res := fieldReport(t, database, Spec{SourceID: source, Stage: l8behaviour.StageOnline, Boxes: true})
+			s := res.Summary()
+			if s.Tracks == 0 {
+				t.Fatal("no box trajectories")
+			}
+			for _, tr := range res.Trajectories {
+				for _, sample := range tr.Samples {
+					if sample.Reference != l8behaviour.ReferenceBodyCentre || sample.Faces != (l8behaviour.FaceVisibility{}) {
+						t.Fatalf("%s: a box sample at %s claiming faces %+v", tr.Passage.TrackID, sample.Reference, sample.Faces)
+					}
+				}
+			}
+			if s.PathsFitted == 0 {
+				t.Error("no follower path was fitted from the published boxes")
+			}
+		})
 	})
 }
