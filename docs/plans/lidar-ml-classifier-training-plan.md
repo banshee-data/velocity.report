@@ -1,6 +1,6 @@
 # LiDAR classification evaluation harness and optional model training
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** L6 Objects, L8 Analytics, sweep/evaluation platform
 - **Target:** v0.5.6-v2.0; scorecard and corpus contracts follow the headway critical path, and candidate models stay parked at v2.0 until the scorecard exists.
 - **Companion plans:** [lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md), [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-track-labelling-auto-aware-tuning-plan.md](lidar-track-labelling-auto-aware-tuning-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)

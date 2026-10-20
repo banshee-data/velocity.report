@@ -847,7 +847,7 @@ After the terminology exit, deliver these separately scoped feature work package
    relationships, then survey-backed publication and export/privacy checks. Surveys follow
    sites/deployments; publication follows surveys. The following report's and API's names
    (`headway_report_v2`, the `/headway` route) take names that carry the registered quantity
-   here, aliases first, retired under P2-G ([D-28][d28]).
+   here, as cutovers with no alias ([D-28][d28] as restated under D-31).
 7. **P2-G, compatibility retirement:** remove old aliases, projections and redundant fields
    only after their replacements have shipped for at least one release.
 

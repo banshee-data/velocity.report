@@ -4,8 +4,7 @@ This plan brings LiDAR observation capture, annotation packs, and evaluation evi
 VRLOG data model, with binary storage and JSON projections. It defines what geometry must survive,
 when readers may trust it, and how asynchronous estimates and reviewed labels remain distinct.
 
-- **Status:** Parked (D-32, October 20, 2026); its rows are in the Persistence and recovery queue, and it is revisited
-  when that queue is numbered. The Sprint 0.5.2.2 domain contract, builder and opt-in pre-L5 tap
+- **Status:** Parked (D-32, October 20, 2026); its rows are in v0.5.16 (persistence and recovery), and it is revisited when v0.5.16 is next. The Sprint 0.5.2.2 domain contract, builder and opt-in pre-L5 tap
   are delivered, as are delivery phase 1 (typed codec and offline reader, with desktop
   G-OBS-FID, G-OBS-REP input and G-OBS-COMPAT evidence) and phase 2 on the desktop (commit
   generations, durable frontier, recovery and failure accounting, with G-OBS-TIME, G-OBS-QUEUE

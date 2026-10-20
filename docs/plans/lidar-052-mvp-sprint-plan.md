@@ -10,7 +10,7 @@ The first exit is a working provisional MVP; field promotion requires separate e
 - **Acceptance platform:** macOS on Apple Silicon; stationary, single-sensor captures first
 - **Review:** [merged-batch audit and fresh evidence](../lidar/operations/0.5.2-sprint-review.md)
 - **Owners:** [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [VRLOG](lidar-vrlog-observation-format-plan.md), [visual design](../ui/DESIGN.md)
-- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---following-distance-mvp--vocabulary-renames-052)
+- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v0521---following-distance-mvp--vocabulary-renames-0521)
 - **Reference tooling:** [segment finder and Svelte segments page](https://github.com/banshee-data/velocity.report/pull/615)
 
 ## Sprint outcome and scope
@@ -46,7 +46,10 @@ near-edge decision, S3's empty-frame lifecycle and S6's distance layer joined it
 left, and scene source binding merged into the S7 report row. The owner then put the three D-31
 vocabulary renames in v0.5.2 as well. To make room, exit B's evidence moved to v0.5.3: the
 reference pilot, the physical scoring criteria and the following gate completeness. The ledger
-records any gate they have not reached by the cut as insufficient evidence.
+records any gate they have not reached by the cut as insufficient evidence. Later the same day the
+owner split the slot: v0.5.2.0 retires ECharts, and v0.5.2.1 holds this sprint's MVP and the
+renames. Those are backlog slot labels; the 0.5.2.0 to 0.5.2.4 sprint increments this plan and
+others name are a separate, older numbering.
 
 No CA/CTRV/IMM, lane map, global scene graph, shell catalogue, mobile ego-motion or new composite
 driver score is needed. Complete the offline Mac path before expanding live deployment. The

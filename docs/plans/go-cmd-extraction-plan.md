@@ -1,6 +1,6 @@
 # Go cmd/ business logic extraction plan (v0.5.8)
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** Cross-cutting (Go server, LiDAR pipeline, configuration)
 - **Target:** v0.5.8; extract before [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) grows past 1,500 LOC
 - **Companion plans:**

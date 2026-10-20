@@ -1,6 +1,6 @@
 # Compatibility register
 
-- **Status:** Living record under D-20; first entered October 20, 2026. The expiry test that reads it is planned for v0.5.8 and not yet built
+- **Status:** Living record under D-20; first entered October 20, 2026. The expiry test that reads it is planned for v0.5.2.1, as the clip rename's first PR, and not yet built
 
 Every old name, field, format or reader that survives a rename, one row each, with the reason it
 may survive and the release that removes it. D-20 forbids temporary dual formats; this register

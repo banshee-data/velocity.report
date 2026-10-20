@@ -7,7 +7,7 @@ how far through it the pack is, and where in the window to go next, using contro
 already has rather than a tutorial or an overlay. It measures active time from the saves the
 operator already makes, so the next review's person-hour estimates are measured, not guessed.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Proposed, 2026-10-18
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.14 (facets) or v0.5.15 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Proposed, 2026-10-18
 - **Layers:** L10 Clients (macOS annotation window), annotation storage, experiment queue
 - **Target:** v0.5.2, Sprint 0.5.2.0, before label0001's operator pass
 - **Companion plans:** [fit to reviewed points](lidar-physical-fit-to-points-plan.md),

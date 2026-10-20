@@ -1,6 +1,6 @@
 # Discord community onboarding plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next
 - **Canonical:** [Community](../../public_html/src/community/index.md)
 
 The homepage now invites two kinds of people into the community:

@@ -4,7 +4,7 @@ Saving one frame in the Annotation window freezes the app for seconds, and every
 whole copy of the document for good. This plan batches edits into fewer saves, moves the save off
 the main thread, and makes the copies that remain smaller.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Storage parts superseded. The [capture-bound annotation format](lidar-capture-bound-annotation-format-plan.md)
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.14 (facets) or v0.5.15 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Storage parts superseded. The [capture-bound annotation format](lidar-capture-bound-annotation-format-plan.md)
   replaced the whole-document store with label sets, whose history is a journal of deltas, and on
   2026-10-12 the version 1 store and `lidar-annotation-prune` were removed. Phase 0 and A (timings,
   a writer off the main thread, batching) still apply to label set saves; B to D do not

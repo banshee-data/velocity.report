@@ -1,6 +1,6 @@
 # Domain tag vocabulary
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (documentation, backlog, CI)
 - **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)
 
