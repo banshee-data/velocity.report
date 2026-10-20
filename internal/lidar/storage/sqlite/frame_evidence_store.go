@@ -250,8 +250,8 @@ func insertStateEstimateStatements(estimateStmt, residualStmt statementExecutor,
 // insertTrackRecord writes a pair's lidar_tracks row and then its
 // lidar_track_observations row (the observation references the track), with
 // the live server's own statements: the track row upserts, so a track filed
-// at every frame keeps its latest label, and the observation is keyed by
-// track and acquisition time. Both or neither must be present, and both must
+// at every frame keeps its latest label, and the observation is keyed as the
+// live table keys it. Both or neither must be present, and both must
 // be the estimate's track at the estimate's frame, or the box would be filed
 // beside an estimate it was not drawn with.
 func insertTrackRecord(exec Executor, pair FrameStateEstimate) error {

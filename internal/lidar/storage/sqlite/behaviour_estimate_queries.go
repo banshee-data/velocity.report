@@ -130,12 +130,13 @@ type BoxWithEstimate struct {
 	TrackEstimate
 	SensorID string
 	// Filed is false when no lidar_track_observations row is filed at the
-	// estimate's frame. The table keys a row by track and acquisition time,
-	// as the live server does, so when two consecutive frames' clusters of a
-	// track carry one acquisition time (a cluster takes its first point's
-	// time, and returns of one firing can fall on both sides of a frame
-	// seam), the later frame's row replaces the earlier one and the earlier
-	// estimate has none. HasBox is then false too.
+	// estimate's frame. While the table keyed a row by track and acquisition
+	// time (until a migration re-keyed it by frame), two consecutive frames'
+	// clusters of a track could carry one acquisition time (a cluster takes
+	// its first point's time, and returns of one firing can fall on both
+	// sides of a frame seam), so the later frame's row replaced the earlier
+	// one and evidence written then has estimates without a row. HasBox is
+	// then false too.
 	Filed bool
 	// HasBox is false when no published box is filed at this frame: no
 	// observation row (see Filed), or one recording no box (the box model
