@@ -13,3 +13,6 @@ are and what a held-out window scores. Specs are named `l8fol0001` onwards; see 
 [README](../README.md). The metric's design is the
 [behaviour analytics plan](../../../docs/plans/lidar-behaviour-analytics-plan.md); its field
 run is the [provisional headway report](../../../docs/lidar/operations/headway-report-oracle.md).
+
+Answered: [l8fol0001](l8fol0001.md), following opportunity on the corpus
+([report](../../../docs/lidar/operations/following-opportunity-corpus-2026-10.md)).
