@@ -298,6 +298,38 @@ identity or output.
 The macOS annotation window opens the JSON output in its Compare mode (see the
 [point annotation tool guide](point-annotation-tool.md#comparing-with-an-estimate)).
 
+## Class evidence for the following gate
+
+`-class` adds a `class` section: for every reviewed road user, the class the following gate would
+read from the tracks the per-frame matching put on it, at each reviewed frame and at the track's
+end, against the object's label ([l8fol0002](../../../data/experiments/l8fol/l8fol0002.md)).
+
+- **Where the class comes from.** The classifier's decision is persisted only on
+  `lidar_track_solid_bodies` rows (`motion_class`, `motion_posterior`), which a replay writes with
+  `-experiment solid_body`; that experiment does not change the tracks. A point-estimate row
+  carries no class. The measure reads the online solid-body version of each arm's source and
+  estimator (the arm's parameter hash when there are several) and joins it to the arm's tracks by
+  creation sequence and frame. An arm without one is refused, as is an analysis run.
+- **Rigid.** A row is rigid when the following gate admits it: its belief through
+  `l8behaviour.PassageFromL5`, then `l8behaviour.ClassApplicability` for the following metrics
+  against a rigid counterpart. Nothing restates which classes count.
+- **Which track counts.** Per frame, the track matched to the object at that frame, at its class
+  at that frame. Per object, the end track is the track matched at the object's last matched
+  reviewed frame, read at its own latest row, as the following adapter reads a trajectory. A
+  fragment that ended earlier, or a duplicate the matching did not choose, appears only in the
+  object's `tracks` and in `any_track_ends_rigid`.
+- **Labels.** car, truck, bus and van are expected to end `rigid_vehicle`; cyclist and motorcycle
+  `two_wheeler`; pedestrian `pedestrian`. The classifier's own label mapping decides the rest.
+
+Each arm reports `vehicles` (objects, `end_rigid` and its share over all reviewed vehicles,
+`any_track_ends_rigid`, reviewed and rigid frames, `track_age_at_first_rigid` over end tracks and
+`object_time_to_first_rigid`, each with median, p90 and a `never` count), `false_applicability`
+(reviewed pedestrians and two-wheelers whose end track ends rigid), `by_label` recall per object
+and per frame with every end and frame class counted, the same summaries per episode under
+`episodes`, and every object with its matched tracks under `objects`. The top-level summaries pool
+episodes as the MOT totals do, so an object scored in two overlapping episodes counts in each; read
+one episode's summary, or pass `-episodes`, for a per-object figure. `-markdown` adds a table.
+
 ## Output
 
 `-json` writes the comparison (schema `velocity.report/perframe-comparison` version 1): the

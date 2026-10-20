@@ -85,6 +85,9 @@ test is skipped and the packaging is still exercised through a stand-in `typst`.
 The second stage of Section 10.4: persisted estimator output through local path pairing,
 interaction persistence and the same renderer, with every page and chart labelled `PROVISIONAL`.
 It proves the integration and shows what evidence is missing; it claims no physical accuracy.
+On kirk0 the class gate is what suppresses it: under every arm measured, under a third of the
+reviewed vehicles end on a track classed rigid
+([class evidence](following-class-evidence-kirk-2026-10.md)).
 
 ### Input: an evidence database
 

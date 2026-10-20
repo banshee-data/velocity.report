@@ -206,6 +206,29 @@ func ComputeTrackMetricsGated(reference, hypothesis []TrackSeries, gate MatchGat
 	return tallyTrackMetrics(matchFrames(indexSeries(reference), indexSeries(hypothesis), gate))
 }
 
+// FrameCorrespondence is one frame's scored correspondences, as the MOT16
+// family counts them: each scored reference matched this frame and the
+// hypothesis it was matched to. An ignored reference point never appears,
+// and neither does the hypothesis it absorbed.
+type FrameCorrespondence struct {
+	TimestampNanos int64
+	// Matches maps a reference ID to its hypothesis ID.
+	Matches map[string]string
+}
+
+// MatchPerFrame returns the correspondences ComputeTrackMetricsGated tallies,
+// one per frame in ascending time, so a measure can ask which hypothesis the
+// scored matching put on a reference at a frame without solving its own
+// assignment.
+func MatchPerFrame(reference, hypothesis []TrackSeries, gate MatchGate) []FrameCorrespondence {
+	matchings := matchFrames(indexSeries(reference), indexSeries(hypothesis), gate)
+	out := make([]FrameCorrespondence, len(matchings))
+	for i, m := range matchings {
+		out[i] = FrameCorrespondence{TimestampNanos: m.timestampNanos, Matches: m.matches}
+	}
+	return out
+}
+
 // tallyTrackMetrics derives the MOT16 family from one matching pass.
 func tallyTrackMetrics(matchings []frameMatching) TrackMetrics {
 	res := TrackMetrics{NumFrames: len(matchings)}

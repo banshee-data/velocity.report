@@ -10,6 +10,10 @@ type Config struct {
 	// Physical, when set, also scores each arm against the pack's physical
 	// references (PhysicalResult), beside the mask-position comparison.
 	Physical *PhysicalOptions
+	// Class, when set, also reports each arm's class measure (class.go):
+	// the class the following gate reads from the tracks matched to each
+	// reviewed object. It needs each arm's solid-body rows.
+	Class bool
 }
 
 // Run loads the reference and both arms, scores each, and compares them. It is
@@ -67,6 +71,11 @@ func Run(cfg Config) (*Comparison, error) {
 	c, err := CompareArms(ra, rb)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.Class {
+		if c.Class, err = scoreClassArms(ref, cfg.Score, [2]ArmSpec{cfg.A, cfg.B}, [2]Hypothesis{a, b}); err != nil {
+			return nil, err
+		}
 	}
 	if physical != nil {
 		arms := &PhysicalArms{Reference: physical.Identity}

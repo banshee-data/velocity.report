@@ -218,6 +218,26 @@ func TestPerFrameSolidBodyFlagReadsTheSolidBodyTable(t *testing.T) {
 	}
 }
 
+// -class asks for the class measure, which reads the classifier's decision
+// from the arms' solid-body rows. The fixture writes none, so the run is
+// refused and says which replay writes them; scoring populated rows is
+// perframeeval's test. Without -class nothing changes.
+func TestPerFrameClassFlag(t *testing.T) {
+	f := perFrameFixture(t)
+	req, code := parsePerFrame(perFrameArgs(f, "-class"), &bytes.Buffer{})
+	if req == nil || !req.cfg.Class {
+		t.Fatalf("-class not parsed (exit %d)", code)
+	}
+	code, _, stderr := runPerFrameCapture(t, perFrameArgs(f, "-class"))
+	if code != 1 || !strings.Contains(stderr, "solid_body experiment") {
+		t.Fatalf("exit %d, stderr %q; want the class measure refused for want of solid bodies", code, stderr)
+	}
+	code, c, stderr := runPerFrameCapture(t, perFrameArgs(f))
+	if code != 0 || c.Class != nil || strings.Contains(stderr, " class: ") {
+		t.Fatalf("exit %d, class %v, stderr %q: the measure ran unasked", code, c.Class, stderr)
+	}
+}
+
 func TestPerFrameAnalysisRuns(t *testing.T) {
 	f := perFrameFixture(t)
 	args := []string{
