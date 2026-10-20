@@ -8,10 +8,6 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 20, 2026 - What the following gate admits
-
-- {claude/l8fol0001-following-opportunity} Measured B1, how often both parties of a following pair are observed (l8fol0001): on the first segment of 23 sites the tracker sees 2,111 pair-seconds of following in 100 minutes (1,249 with both tracks vehicle-sized, 4.9 per vehicle-track-minute), at every site but one; a track pair lasts a median 0.5 s and the closest gap is a median 18 m. One track per vehicle changes pair-seconds by under 1 % but halves pairs closer than 1 m and cuts leader changes from 18 to 11 a minute; the Embarcadero sites hold the most vehicle following: [report](lidar/operations/following-opportunity-corpus-2026-10.md).
-
 ## October 19, 2026 - Replays that start from nothing, and whether the defaults' L3 loses tracks
 
 - Confirmed the two L3 states that made a replay depend on the server's history (l3bg0020): each of four server histories landed on its predicted outcome by its settling log and its tracks at two sites, and one replay made while the host was swapping found a third, the frame builder's idle timer cutting a stalled reader's rotation: [report](lidar/operations/replay-determinism-2026-10.md) (#787).
