@@ -594,16 +594,57 @@ func TestModelInvalidIsTerminalHere(t *testing.T) {
 
 func TestAnEstablishedTrackThatSlowsKeepsWhatItEarned(t *testing.T) {
 	// The speed floor governs whether heading is newly observable, not whether
-	// a body that was already measured still exists.
+	// a body that was already measured still exists. A slow track whose
+	// beliefs still hold stays established.
 	bounds := DefaultConvergenceBounds()
-	e := projectable()
-	e.Orientation.AmbiguousModeWeight = 0.5 // no longer converged
+	slow := EstimationEvidence{SustainedAssociation: true, SpeedMps: 0}
+	if got := NextEstimationState(EstimationEstablished, projectable(), slow, bounds); got != EstimationEstablished {
+		t.Errorf("an established track that stopped with its geometry intact fell back to %v", got)
+	}
+}
 
-	got := NextEstimationState(EstimationEstablished, e, EstimationEvidence{
-		SustainedAssociation: true, SpeedMps: 0,
-	}, bounds)
-	if got != EstimationEstablished {
-		t.Errorf("an established track that stopped fell back to %v", got)
+func TestAnEstablishedTrackThatSlowsNeverClaimsEstablishedWithoutItsGeometry(t *testing.T) {
+	// The sequence the near-edge field replays wrote: established while
+	// moving, then the vehicle stops, its heading lapses to an axis, and the
+	// state went on saying established. Established is a claim about the
+	// beliefs held now, so a slow track that loses any of them keeps what it
+	// earned as temporarily_degraded, and recovers when they return.
+	bounds := DefaultConvergenceBounds()
+	moving := EstimationEvidence{SustainedAssociation: true, SpeedMps: 10}
+	slow := EstimationEvidence{SustainedAssociation: true, SpeedMps: bounds.MinSpeedForHeadingMps - 0.01}
+
+	for _, tc := range []struct {
+		name   string
+		mutate func(*SolidBodyEstimate)
+	}{
+		{"heading lapses to its axis", func(e *SolidBodyEstimate) { e.Orientation.AmbiguousModeWeight = 0.5 }},
+		{"heading variance widens", func(e *SolidBodyEstimate) { e.Orientation.VarianceRad2 = 1 }},
+		{"reference lapses to the medoid", func(e *SolidBodyEstimate) { e.Reference = ReferenceClusterMedoid }},
+		{"width sigma widens", func(e *SolidBodyEstimate) { e.Width.SigmaMetres = 5 }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			state := NextEstimationState(EstimationGeometryConverging, projectable(), moving, bounds)
+			if state != EstimationEstablished {
+				t.Fatalf("a converged, moving estimate reached %v, want established", state)
+			}
+			lapsed := projectable()
+			tc.mutate(&lapsed)
+			for frame := 0; frame < 3; frame++ {
+				state = NextEstimationState(state, lapsed, slow, bounds)
+				if state != EstimationTemporarilyDegraded {
+					t.Fatalf("slow frame %d: state %v, want temporarily_degraded", frame, state)
+				}
+			}
+			// Speed returns before the geometry does: converging, as for any
+			// moving track whose beliefs are not yet held.
+			if got := NextEstimationState(state, lapsed, moving, bounds); got != EstimationGeometryConverging {
+				t.Errorf("moving again without its geometry: %v, want geometry_converging", got)
+			}
+			// The geometry returns while still slow: established again.
+			if got := NextEstimationState(state, projectable(), slow, bounds); got != EstimationEstablished {
+				t.Errorf("slow with its geometry back: %v, want established", got)
+			}
+		})
 	}
 }
 

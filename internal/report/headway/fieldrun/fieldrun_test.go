@@ -246,7 +246,8 @@ func TestRunOnlineSolidBodies(t *testing.T) {
 		t.Errorf("instant reasons %v at %d evaluated instants; want only estimate_not_final, at all", s.InstantReasons, s.EvaluatedInstants)
 	}
 	if lines := strings.Join(s.Lines(), "\n"); !strings.Contains(lines, "Encounters: 1 (1 written, 0 already stored)") ||
-		!strings.Contains(lines, "estimate_not_final: 50 (100%)") {
+		!strings.Contains(lines, "estimate_not_final: 50 (100%)") ||
+		!strings.Contains(lines, "Solid bodies not read: 0 (not a valid sample, held as gaps)") {
 		t.Errorf("summary lines:\n%s", lines)
 	}
 
@@ -291,6 +292,41 @@ func TestRunOnlineSolidBodies(t *testing.T) {
 	}
 	if m := headway.VerdictPattern.FindAll(data, -1); len(m) > 0 {
 		t.Errorf("data.json prints %q", m)
+	}
+}
+
+// TestRunHoldsAnInvalidSolidBodyAsAGap: rows written as established on a
+// heading that has lapsed to its axis, as the near-edge field replays wrote
+// them, are counted gaps rather than a refusal of the run, and the summary
+// says how many and why; a version with no valid row is still refused.
+func TestRunHoldsAnInvalidSolidBodyAsAGap(t *testing.T) {
+	const reason = "an established estimate requires converged extents, a resolved heading and a physical reference"
+	lapse := `UPDATE lidar_track_solid_bodies SET estimation_state = 'established', heading_ambiguous_weight = 0.5`
+	database := openDB(t)
+	seedSolidBodies(t, database, steadyApproach(), onlineBodies)
+	if _, err := database.Exec(lapse + ` WHERE track_id = 'trk_s_steady_follower' AND frame_unix_nanos IN
+		(SELECT frame_unix_nanos FROM lidar_track_solid_bodies WHERE track_id = 'trk_s_steady_follower'
+		 ORDER BY frame_unix_nanos LIMIT 3 OFFSET 20)`); err != nil {
+		t.Fatal(err)
+	}
+	spec := Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, SolidBodies: true}
+	res := run(t, database, spec)
+	if res.SolidBodyGaps.Rows != 3 || res.SolidBodyGaps.ByReason[reason] != 3 || len(res.Trajectories) != 2 {
+		t.Fatalf("gaps %+v over %d trajectories; want 3 rows for %q", res.SolidBodyGaps, len(res.Trajectories), reason)
+	}
+	s := res.Summary()
+	if s.Samples != 97 {
+		t.Errorf("%d samples, want the 100 rows less the 3 gaps", s.Samples)
+	}
+	if lines := strings.Join(s.Lines(), "\n"); !strings.Contains(lines, "Solid bodies not read: 3 (not a valid sample, held as gaps)\n  "+reason+": 3") {
+		t.Errorf("summary lines:\n%s", lines)
+	}
+
+	if _, err := database.Exec(lapse); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Run(database, spec); err == nil || !strings.Contains(err.Error(), "none of the version's 100 solid bodies forms a valid sample") {
+		t.Errorf("a version with no valid row: error %v", err)
 	}
 }
 
@@ -793,7 +829,8 @@ func TestRunOnlineBoxes(t *testing.T) {
 	if lines := strings.Join(s.Lines(), "\n"); !strings.Contains(lines, "Follower paths fitted: 2 of 2") ||
 		!strings.Contains(lines, "Estimates without a published box: 0 (0 with no observation row at their frame)") ||
 		!strings.Contains(lines, "Valid following time: 4.7 s of 4.9 s accounted") ||
-		!strings.Contains(lines, "suppressed extent_not_converged: 2 instants, 0.2 s") {
+		!strings.Contains(lines, "suppressed extent_not_converged: 2 instants, 0.2 s") ||
+		strings.Contains(lines, "Solid bodies not read") {
 		t.Errorf("summary lines:\n%s", lines)
 	}
 	if again := run(t, database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true}); again.AlreadyStored != 1 {
