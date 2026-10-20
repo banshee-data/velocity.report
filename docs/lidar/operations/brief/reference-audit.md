@@ -121,26 +121,35 @@ of the same works; its duplicate mentions use the same keys.
 
 | Source mention                                                            | BibTeX key         | Source                                            |
 | ------------------------------------------------------------------------- | ------------------ | ------------------------------------------------- |
+| How the TGSIM trajectory datasets were collected                          | `Ammourah2025`     | [October 19 briefing][oct19], follow-up reading   |
 | Are the speed-crash models applicable for low speeds?                     | `Ambros2025`       | Low-speed speed-change model                      |
 | Heterogeneity of 30 km/h speed interventions                              | `Ambros2026`       | Low-speed speed-change model                      |
 | Speed-limit compliance in San Francisco and Phoenix                       | `Campolettano2025` | Campolettano section                              |
 | Dynamic benchmarks: spatial and temporal alignment                        | `Chen2025`         | Benchmark-alignment family                        |
+| Human followers behind automated leaders                                  | `Chu2026`          | [October 19 briefing][oct19], Chu section         |
 | Visual distraction and speeding                                           | `Chun2026`         | Not adopted list                                  |
 | Updated aggregate and individual speed-safety estimates                   | `Elvik2019`        | Low-speed speed-change model                      |
 | Residential speeding from connected-vehicle data                          | `Feng2026`         | Feng section                                      |
 | Young novice driver speed and headway at signalised intersections         | `Howell2026`       | Not adopted list                                  |
 | Medium and tall hood leading edges and pedestrian torso injuries          | `Hu2026`           | Sources checked, IIHS pedestrians row             |
 | Impact speed and pedestrian fatality: systematic review and meta-analysis | `Hussain2019`      | Monfort and Mueller section                       |
+| Alternative explanations for shorter headways behind automated vehicles   | `Jiao2024`         | [October 19 briefing][oct19], follow-up reading   |
+| Injury severity and mean travel speed at the crash site                   | `Kroyer2015`       | [October 19 briefing][oct19], follow-up reading   |
 | Waymo crash types at 56.7 million miles                                   | `Kusano2025`       | Benchmark-alignment family; sources checked       |
 | Time of day and day of week in Waymo and human crash rates                | `Kusano2026`       | Benchmark-alignment family; sources checked       |
 | Micro-level behavioural conflict framework                                | `Laureshyn2010`    | Older work; PRISA angle convention                |
 | Lower urban speed limits and pedestrian accident patients                 | `Lee2025`          | Not adopted list                                  |
+| Observed headway on urban streets                                         | `Michael2000`      | [October 19 briefing][oct19], follow-up reading   |
 | Modern US pedestrian injury curve with front-end height                   | `Monfort2025`      | Monfort and Mueller section; also weekly briefing |
+| Checking vehicle trajectory accuracy (NGSIM)                              | `Punzo2011`        | [October 19 briefing][oct19], follow-up reading   |
 | Pedestrian fatality risk as a function of car impact speed                | `Rosen2009`        | Monfort and Mueller section                       |
+| Review of pedestrian fatality-risk curves and their sampling bias         | `Rosen2011`        | [October 19 briefing][oct19], follow-up reading   |
 | From Stoplights to On-Ramps                                               | `Scanlon2026a`     | Benchmark-alignment family; sources checked       |
 | High-resolution urban fatal crash-rate benchmarks                         | `Scanlon2026b`     | Previously reviewed work; weekly sources checked  |
 | Impact speed and a pedestrian's risk of severe injury or death            | `Tefft2013`        | Monfort and Mueller section; also weekly briefing |
+| Probe (floating-car) speeds against fixed radar                           | `Torrisi2026`      | [October 19 briefing][oct19], follow-up reading   |
 | Review of city-wide 30 km/h speed-limit benefits                          | `Yannis2024`       | Sources checked; superseded synthesis             |
+| Percentile travel speeds in pedestrian injury curves, Palermo             | `Yasir2026`        | [October 19 briefing][oct19], Palermo section     |
 
 ### Reports and benchmark studies
 
@@ -208,4 +217,5 @@ References inside the external papers themselves are outside the audit's scope.
 [survey]: ../../../../data/experiments/try/survey-walk-geometry-gain.md
 [long-brief]: research-briefing-2025-01-to-2026-10.md
 [weekly]: research-briefing-2026-10-10.md
+[oct19]: research-briefing-2026-10-19.md
 [fixed]: fixed-sensor-research-briefing-2026-10-09.md
