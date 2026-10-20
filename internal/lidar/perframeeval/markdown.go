@@ -112,6 +112,59 @@ func writePhysical(b *strings.Builder, p PhysicalArms) {
 			fmt.Fprintf(b, "\n> %s\n", cv)
 		}
 	}
+	writeCentreExtent(b, p)
+}
+
+// writeCentreExtent is the centre-against-extent table: each arm's
+// along-axis centre error, the part half the length error explains and the
+// remainder, per vehicle, per reference label and pooled.
+func writeCentreExtent(b *strings.Builder, p PhysicalArms) {
+	if p.A.CentreExtent == nil && p.B.CentreExtent == nil {
+		return
+	}
+	b.WriteString("\n### Centre against extent\n\n")
+	b.WriteString("Along and across are prediction minus reference in the reference's axis frame, along positive forward. " +
+		"The length's part is −s·ΔL/2, for ΔL predicted minus reference length and s +1 when the seen end is the front, −1 the rear; " +
+		"the remainder is along minus that.\n\n")
+	b.WriteString("| Arm | Vehicle | Label | Poses (centre scored) | Seen front / rear | Along mean / median, m | Length's part mean / median, m | Remainder mean / median, m | Mean abs across, m | Share |\n")
+	b.WriteString("| --- | ------- | ----- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+	row := func(arm, vehicle string, s CentreExtentSummary) {
+		share := "-"
+		if s.ExplainedShare != nil {
+			share = fmt.Sprintf("%.2f", *s.ExplainedShare)
+		}
+		if s.Poses == 0 {
+			fmt.Fprintf(b, "| %s | %s | %s | 0 (%d) | - | - | - | - | - | - |\n", arm, vehicle, s.Label, s.CentreScored)
+			return
+		}
+		fmt.Fprintf(b, "| %s | %s | %s | %d (%d) | %d / %d | %+.2f / %+.2f | %+.2f / %+.2f | %+.2f / %+.2f | %.2f | %s |\n",
+			arm, vehicle, s.Label, s.Poses, s.CentreScored, s.SeenFront, s.SeenRear,
+			s.AlongMeanM, s.AlongMedianM, s.ExplainedMeanM, s.ExplainedMedianM, s.RemainderMeanM, s.RemainderMedianM,
+			s.AcrossMeanAbsM, share)
+	}
+	var rule, share string
+	var caveats []string
+	for _, arm := range []PhysicalResult{p.A, p.B} {
+		d := arm.CentreExtent
+		if d == nil {
+			continue
+		}
+		rule, share = d.SeenEndRule, d.ShareDefinition
+		for _, v := range d.Vehicles {
+			row(arm.Arm.Label, "`"+v.ObjectID+"`", v)
+		}
+		for _, l := range d.ByLabel {
+			row(arm.Arm.Label, "all "+l.Label, l)
+		}
+		row(arm.Arm.Label, "all", d.Pooled)
+		for _, cv := range d.Caveats {
+			caveats = append(caveats, fmt.Sprintf("Arm %s: %s", arm.Arm.Label, cv))
+		}
+	}
+	fmt.Fprintf(b, "\nSeen end: %s.\n\nShare: %s.\n", rule, share)
+	for _, cv := range caveats {
+		fmt.Fprintf(b, "\n> %s\n", cv)
+	}
 }
 
 func describeUnscored(a ComponentAccounting) string {

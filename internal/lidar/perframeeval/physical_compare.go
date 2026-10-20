@@ -241,7 +241,10 @@ type PhysicalResult struct {
 	Following       []PhysicalFollowingInstant `json:"following"`
 	Accounting      PhysicalAccounting         `json:"accounting"`
 	Summary         PhysicalSummary            `json:"summary"`
-	Caveats         []string                   `json:"caveats"`
+	// CentreExtent splits each scored pose's along-axis centre error into
+	// the part half the length error explains and the remainder (W9).
+	CentreExtent *CentreExtentDecomposition `json:"centre_extent,omitempty"`
+	Caveats      []string                   `json:"caveats"`
 }
 
 // Instant returns the record for one object at one sample of one episode.
@@ -293,6 +296,7 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 		res.Accounting.Following.add(f.Outcome)
 	}
 	res.Summary = summarisePhysical(res)
+	res.CentreExtent = decomposeCentreExtent(res.Instants, pr.labels, pr.ends, pr.Source.TransformVersion == "")
 	res.Caveats = physicalCaveats(res)
 	if n := len(s.pr.drifted); n > 0 {
 		keys := make([]string, 0, n)
