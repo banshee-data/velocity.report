@@ -188,7 +188,10 @@ cannot matter.
 **What it means for earlier results.** l5id0004 and l5id0005 measured the arm before this fix,
 so wherever two coasting tracks shared a live body their figures are one draw of the survivor
 choice; this note does not establish how those runs treated a case whose repeat differed.
-Rerunning the identity line's figures at this commit would say how much the draw mattered.
+Rerunning the identity line's figures at this commit would say how much the draw mattered. For
+l8fol0001's following screen it did not: replayed with the fix, all 23 first segments repeat, 18
+screen identically to the first runs, and the pooled following figures move by under 0.3 %
+([following opportunity](following-opportunity-corpus-2026-10.md)).
 
 ## What this does not establish
 
