@@ -158,6 +158,41 @@ did, for one replay, and named the frame builder's idle timer.
 The spec's live step is a decision about a deployed sensor's start-up, which settles by the same
 first check: with `first-check` kept, nothing changes for it.
 
+## A fourth mechanism: the overlap end's order (October 20)
+
+The default-off overlap end (`overlap_end_1` with `overlap_end_body` and `overlap_end_older`,
+l5id0004's one track per vehicle) did not repeat. On the first segments of the 23 corpus sites
+on October 20, `lidar-state-estimation-baseline` refused 10 of them under that arm because the
+repeat run's baseline differed, while the same captures under the defaults repeated exactly.
+
+The tracker judged its unmatched tracks in Go map order (`for trackID, track := range
+t.Tracks` in Step 4 of `Tracker.Update`), which differs from run to run. The overlap end runs
+inside that loop, and keeping the older track it can end the live track; once the live track is
+gone, later coasting tracks no longer lie on it. With two coasting tracks on one live body, one
+older and one younger than it, the older judged first ends the live track and the younger lives;
+the younger judged first is ended, then the older ends the live track. Which track survived
+therefore depended on map order. A smaller case of the same kind: in box mode the live list was
+built from the `matched` map, so a coasting track lying on two live boxes took whichever came
+first.
+
+Step 4 now visits tracks in creation order (`sortedActiveTrackIDs`, creation sequence then ID,
+the order association already uses), so the oldest coasting track is judged first, which is what
+"keeping the older track" means; the box-mode live list is built in the same order.
+`TestOverlapEndKeepOlderRepeats` builds the two-coasting-tracks case and requires 64 runs to agree
+(it failed on the second run before the fix). On fulton-divisadero with the arm the harness
+repeat failed before and passes after, as it does on laguna-eddy; under the defaults the
+repeat-checked `tracking_baseline.json` is byte-identical before and after, as it must be: with the
+overlap end off, each unmatched track's step changes only that track and counters, so order
+cannot matter.
+
+**What it means for earlier results.** l5id0004 and l5id0005 measured the arm before this fix,
+so wherever two coasting tracks shared a live body their figures are one draw of the survivor
+choice; this note does not establish how those runs treated a case whose repeat differed.
+Rerunning the identity line's figures at this commit would say how much the draw mattered. For
+l8fol0001's following screen it did not: replayed with the fix, all 23 first segments repeat, 18
+screen identically to the first runs, and the pooled following figures move by under 0.3 %
+(following opportunity (#805)).
+
 ## What this does not establish
 
 - **That nothing else carries over.** The sequence covers two captures, the defaults' tuning and

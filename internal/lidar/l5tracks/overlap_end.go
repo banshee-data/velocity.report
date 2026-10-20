@@ -38,12 +38,13 @@ func drawnBoxOf(track *TrackedObject) (drawnRect, bool) {
 }
 
 // liveConfirmedRects are the drawn boxes of the confirmed tracks matched
-// this frame.
-func (t *Tracker) liveConfirmedRects(matched map[string]bool) []drawnRect {
+// this frame, in the given order (creation order), so a coasting track on two
+// live boxes is judged against the same one on every run.
+func (t *Tracker) liveConfirmedRects(order []string, matched map[string]bool) []drawnRect {
 	var out []drawnRect
-	for id := range matched {
+	for _, id := range order {
 		track := t.Tracks[id]
-		if track == nil || track.TrackState != TrackConfirmed {
+		if !matched[id] || track == nil || track.TrackState != TrackConfirmed {
 			continue
 		}
 		if r, ok := drawnBoxOf(track); ok {
