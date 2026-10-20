@@ -1,6 +1,7 @@
 # Plan title (version scope)
 
-- **Status:** Draft | Active | Complete
+- **Status:** Draft | Proposed | Active | Parked | Complete | Superseded (D-32; a Parked plan gives a one-line reason and a revisit trigger)
+- **Decisions:** the D-NN entries this plan relies on or proposes to supersede (D-32); `/plan-review` refuses a plan that contradicts a decision it does not cite
 - **Layers:** e.g. Cross-cutting (Go server, API, database) | LiDAR pipeline | Web frontend
 - **Target:** e.g. v0.5.x; reason the work is tied to this release
 - **Companion plans:** [linked-plan-name](linked-plan-name.md) (if any) <!-- link-ignore -->

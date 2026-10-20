@@ -7,6 +7,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 **Governance:** Never delete agreed backlog items: split, consolidate, or complete them. Outstanding agreed work stays tracked here until delivered. When consolidating overlapping items, create distinct non-overlapping work units and move completed sub-tasks to the Complete section. Design documents may retire scope by marking phases complete or out-of-scope and linking to the PR where the scope change landed.
 
+**Limits (D-32):** A release slot holds at most twelve outstanding items; overflow moves to the next slot, never out of this file. An item's narrative (results, branch names, what landed where) belongs in its plan, linked from the item in the same change.
+
 **Formatting:** Backlog items describe outstanding work only, with one independently deliverable outcome per item. Prefer at most two short sentences; split mixed outcomes and keep rationale in the linked plan. When sub-tasks complete, move them to the Complete section and simplify the parent item to show only what remains. Do not use strikethrough to track done sub-tasks inline: the Complete section is the record of delivered work.
 
 ## 05x Sunny southeast 🌞

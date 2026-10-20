@@ -3,7 +3,7 @@
 Call radar readings, detections and tracks by the shared vocabulary while preserving the existing
 grouping algorithm and report results.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Parked (October 20, 2026, D-31): radar renames wait for a consumer that needs the new words. Revisit when a radar feature needs them
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 1; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 8 and 9)

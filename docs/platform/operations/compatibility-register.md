@@ -1,0 +1,73 @@
+# Compatibility register
+
+- **Status:** Living record under D-20; first entered October 20, 2026. The expiry test that reads it is planned for v0.5.8 and not yet built
+
+Every old name, field, format or reader that survives a rename, one row each, with the reason it
+may survive and the release that removes it. D-20 forbids temporary dual formats; this register
+is how that decision is kept. A survivor without a row is a defect; a row past its removal release
+fails the planned expiry test.
+
+## Who may still depend on an old name
+
+D-20 allows database upgrade detection and aliases that are architecturally necessary. An old name,
+field or format is necessary only while something the release does not replace depends on it
+([D-20](../../DECISIONS.md#d-20--v050-compat-shim-removal-policy), restated October 20, 2026, and
+[D-31](../../DECISIONS.md#d-31--renames-are-cutovers-tombstones-for-people-aliases-for-the-app)).
+
+A release replaces the binary, the web app, the embedded docs and the bundled dependencies, and
+with them every Make target, script, skill and doc in the repository at that commit. It does not
+replace the files on a flashed device that `velocity device upgrade` leaves alone (the systemd
+unit, sudoers, the profile aliases), the macOS app, which ships as its own DMG, data at rest
+(databases, recordings, packs, label sets, an operator's tuning files), or anything published
+outside the repository (site URLs, the Hugging Face layout, `release.json`).
+
+| Who depends on the old name                                                | Treatment                                                                                                  | Lifetime                                                  |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| The release unit: web, docs, Make, in-repo scripts and skills, Go packages | Rename every caller in the same PR; no alias                                                               | none                                                      |
+| A person typing a command, flag or Make target                             | A tombstone: the old name fails and prints the new one; it never does the work, so it is not a dual format | one minor release                                         |
+| The macOS app                                                              | A registered alias; the app moves to the new name in the same PR                                           | until the next DMG is the oldest supported                |
+| A file on a device that the upgrade does not rewrite                       | A registered alias, or teach the upgrade to rewrite the file                                               | until the upgrade rewrites it                             |
+| Data at rest                                                               | A migration: SQL for databases (the named exception), a converter with a verify step for files             | the old reader goes one minor release after the converter |
+| Published URLs and dataset layouts                                         | A permanent redirect, or a versioned layout                                                                | permanent, and not a shim                                 |
+
+## Register
+
+| Surviving name                                                          | Where                                                 | Who still depends on it                                                                             | Treatment                                                                                           | Remove in                          |
+| ----------------------------------------------------------------------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------- |
+| `velocity-report` program name runs `serve`                             | `internal/cmd/root/root.go`                           | The systemd unit on flashed devices, which the upgrade does not rewrite                             | Necessary. The dev build stops relying on it: it produces `velocity`, and docs say `velocity serve` | when the upgrade rewrites the unit |
+| `/api/lidar/pcap/stop` and `/api/lidar/vrlog/stop` alias `/replay/stop` | `internal/lidar/server/routes.go`                     | The macOS app (`RunTrackLabelAPIClient.swift`); the scene publisher and two scripts, which move now | Necessary for the app; the app moves to `/replay/stop` in the same change                           | the release after the next DMG     |
+| `config-migrate`, flat v1 tuning files to v2                            | `cmd/tools/config-migrate`                            | Operators' own tuning files                                                                         | A converter, allowed                                                                                | v0.6.0                             |
+| Database legacy detection                                               | `internal/db/migrate.go`, `migrate_cli.go`            | Databases created before migrations                                                                 | Allowed by D-20 by name                                                                             | kept                               |
+| Type aliases that break import cycles                                   | `types.go` in `l3grid`, `l6objects`, `storage/sqlite` | Import cycles                                                                                       | Retained by the v0.5.0 record; re-checked when the layer edges are fixed                            | kept                               |
+| `/api/lidar/tracks/history` aliases `/api/lidar/tracks`                 | `internal/lidar/server/routes.go`                     | One web file, one script                                                                            | Release unit: rename the callers, delete                                                            | v0.5.8                             |
+| `/api/lidar/monitor` aliases `/api/lidar/server`                        | `internal/lidar/server/routes.go`                     | One script                                                                                          | Delete                                                                                              | v0.5.8                             |
+| `-tuning` flag aliases `-config` on `settling-eval`                     | `internal/cmd/lidar/settling.go`                      | In-repo docs and scripts                                                                            | A tombstone for one release, then delete                                                            | v0.5.8                             |
+| Polling fallback in the tuning client                                   | `internal/lidar/server/client.go`                     | `velocity tune`, which ships in the same binary as the server it polls                              | Delete                                                                                              | v0.5.8                             |
+| `MakeLegacyParamSet` and `ParamSetTypeLegacy`                           | `internal/lidar/storage/configasset/configasset.go`   | No production caller                                                                                | Delete                                                                                              | v0.5.8                             |
+| Root `internal/lidar/aliases.go`; alias shims in l4 and l6              | as named                                              | Root-package tests only                                                                             | Delete with the layer-edge fixes                                                                    | v0.5.8                             |
+| Version 1 `legacy_pack` annotation packs                                | `internal/lidar/annotation/features.go`               | None: the label-set migration report records all five packs migrated                                | Delete the reader; `LegacySampleID` stays as lineage, not compatibility                             | v0.5.8                             |
+| `COALESCE(measurement_source, 'legacy_centroid_v0')`                    | `internal/lidar/storage/sqlite/track_store.go`        | Rows written before the column existed                                                              | A backfill migration, then delete the expression                                                    | v0.5.8                             |
+| Legacy JSON VRLOG frames                                                | `internal/lidar/l9endpoints/recorder/recorder.go`     | Three recordings on one development machine                                                         | Convert and verify, then delete the decoder                                                         | v0.5.8                             |
+| Seventeen Make target aliases                                           | `Makefile`                                            | Five skills, AGENTS.md and eight more docs                                                          | Release unit: rename the callers, delete; one tombstone rule for `build-radar-*`                    | v0.5.8                             |
+| `pcap_file` projection on clips                                         | `internal/lidar/storage/sqlite/replay_case_files.go`  | 11 web files and 12 scripts, all in the release unit                                                | Readers move to the clip's capture rows and the column drops in the same change (D-31)              | the clip rename                    |
+| `pcap` data-source wire value                                           | `internal/lidar/server/pipeline_state.go`             | The web app, two macOS files, three scripts                                                         | Renamed with the clip rename; then a registered alias for the app only                              | the clip rename, then the next DMG |
+| `split` and `merge` read as legacy tag labels                           | macOS `RunBrowserState.swift`                         | Stored `user_label` values                                                                          | A migration to quality flags, then delete the branch                                                | the labels rename                  |
+| Recorder `TuningHash`, marked "deprecated transition field"             | `internal/lidar/l9endpoints/recorder/recorder.go`     | Read by scene export and the analysis report                                                        | Not a shim yet: un-deprecate it, or move its readers to the run's tuning fingerprint                | decide in v0.5.8                   |
+
+Two items look like shims and are not. The legacy box path is an experiment arm
+(`config/experiments/box-model-off.json`), and the macOS point-buffer path was reclassified as
+renderer work in the [v0.5.0 migration record](v050-release-migration.md). The 36 operator-facing
+strings in `internal/db` that say `velocity-report migrate` are stale text, not a shim.
+
+## Keeping it kept
+
+| Piece                | How                                                                                                          | State   |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ | ------- |
+| The expiry test      | Reads this table and fails when the Makefile's `VERSION` reaches a row's removal release                     | planned |
+| Route aliases        | Declared in the LiDAR route table with the row they belong to; a test fails on an alias route without a row  | planned |
+| Flag tombstones      | One helper registers an old flag as a refusal that prints the new name; a test lists them against this table | planned |
+| Make tombstones      | One pattern rule for renamed targets; the Make check refuses an alias recipe                                 | planned |
+| Dual readers in code | `/review-pr` reads this table and refuses a new old-format reader or projection without a row                | review  |
+
+The register was first drawn up in the [architecture
+review](../../plans/platform-architecture-review-plan.md#d-20-in-practice-who-can-still-depend-on-an-old-name).

@@ -4,6 +4,19 @@ Import boundaries, file-size discipline, and structural hygiene for the Go codeb
 
 Active plan: [go-codebase-structural-hygiene-plan.md](../../plans/go-codebase-structural-hygiene-plan.md)
 
+## Roles in the one binary (decided design, D-30)
+
+This section records a decided design that is not yet enforced.
+[D-30](../../DECISIONS.md#d-30--one-binary-closed-roles-kinds-compiled-in) keeps one `velocity`
+binary and makes each role a composition root under `internal/cmd/` whose dependency closure CI
+asserts: edge (`serve` with sensors), hub (`serve` with sensors off: the API, reports and the job
+queue), worker, device and jobs. The LiDAR layer rule is enforced by the same check: a layer
+package imports only lower layers, and never `pipeline/`, `server` or `internal/db`. The check is a
+ratchet test over `go list -deps`, planned as Work unit G of the [single-binary image consolidation
+plan](../../plans/deploy-single-binary-image-consolidation-plan.md#work-unit-g-roles-as-asserted-closures-d-30-m),
+which holds the rules table and today's allowlisted violations. When it lands, this section states
+the rules as shipped.
+
 ## Import boundary: `database/sql`
 
 Non-test imports of `database/sql` are restricted to [internal/db/](../../../internal/db) and

@@ -3,7 +3,7 @@
 Remove compatibility surfaces only after their replacements are deployed and consumers have had a
 release to move. Cleanup follows adoption.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Superseded by the [compatibility register](../platform/operations/compatibility-register.md) and its expiry test (D-20 restated, D-31, October 20, 2026): an old name is retired by the release its register row names
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 2; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Item 18)

@@ -1,6 +1,7 @@
 # Platform vocabulary and data model: one word per concept across radar and LiDAR
 
-- **Status:** Draft, for review. Nine decision rounds and two plan reviews are recorded below; the plan proposes and changes no code and no schema
+- **Status:** Draft, for review. Nine decision rounds and two plan reviews are recorded below; the plan proposes and changes no code and no schema. Phase 1's method and scope were amended by D-31 on October 20, 2026: three renames, delivered as cutovers (see [Phase 1 under D-31](#phase-1-under-d-31-three-renames))
+- **Decisions:** D-20, D-27, D-31
 - **Layers:** Cross-cutting (SQLite schema, Go stores and APIs for radar and LiDAR, CLI, Svelte pages, macOS visualiser, public site, docs)
 - **Target:** Phase 1 delivers terminology and compatibility before Phase 2 delivers feature and data-model improvements. The item-level release targets below are the original allocation, to be re-baselined after the terminology phase is sized; they do not authorise overlapping the phases
 - **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) (superseded by this plan), [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md), [lidar-annotation-segment-finder-plan](lidar-annotation-segment-finder-plan.md), [lidar-vrlog-observation-format-plan](lidar-vrlog-observation-format-plan.md), [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md), [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md), [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md), [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [platform-typed-uuid-prefixes-plan](platform-typed-uuid-prefixes-plan.md), [lidar-cluster-observation-log-and-async-tracking-plan](lidar-cluster-observation-log-and-async-tracking-plan.md), [lidar-state-estimation-plan](lidar-state-estimation-plan.md), [platform-survey-capture-export-plan](platform-survey-capture-export-plan.md) (added by round nine), [lidar-ui-workflow-plan](lidar-ui-workflow-plan.md) (the screens these nouns appear on)
@@ -729,8 +730,10 @@ until the replacement has shipped for at least one release.
 
 ### Phase 1: terminology and compatibility
 
-Publish the vocabulary and D-28 first, then apply it to documentation, product copy, identifiers,
-existing schema names, routes, CLI spellings and flags. Keep old external spellings as aliases.
+Publish the vocabulary first, then apply it to documentation, product copy, identifiers,
+existing schema names, routes, CLI spellings and flags. Old names survive only as D-31 allows:
+see [Phase 1 under D-31](#phase-1-under-d-31-three-renames), which governs where this section
+and the work packages below disagree.
 A schema migration in this phase may rename an existing table or column, preserving its rows,
 values, keys and relationships. A name that needs a new relationship or changes a field's
 meaning waits for Phase 2.
@@ -760,6 +763,44 @@ vocabulary is aligned in the plans; changing the generated IDs is separate featu
 | 17           | Detection vocabulary covered by Item 8                                                                | Primary key, deduplication and timed radar rebuild                                          |
 | 18           | Record every compatibility alias and its future retirement                                            | Drop aliases and projections after their compatibility release                              |
 
+#### Phase 1 under D-31: three renames
+
+[D-31](../DECISIONS.md#d-31--renames-are-cutovers-tombstones-for-people-aliases-for-the-app)
+(October 20, 2026) replaces this phase's alias method and narrows its scope. Phase 1 is three
+renames, clip, labels and sites, terminology only. Each is one cutover: a series of reviewable
+PRs, merged in one release, that moves every consumer the release carries. An old name survives
+only while something the release does not replace depends on it, and then only as a row in the
+[compatibility register](../platform/operations/compatibility-register.md). The other numbered
+items stay outstanding in BACKLOG.md and wait for a consumer that needs their words, or for the
+Phase 1 exit.
+
+| Surface                                            | Treatment in a rename                                                                                                              |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Tables and columns                                 | A migration renames them; stored values, keys and row counts do not change                                                         |
+| Go types, packages, files, handlers, error strings | Renamed in the same series; no type aliases                                                                                        |
+| Web routes, API clients, copy                      | Renamed with the API; a moved web page redirects its old path for a release, since a person may have bookmarked it                 |
+| CLI commands and flags                             | Renamed; the old spelling is a tombstone that prints the new one and does no work                                                  |
+| Routes and JSON keys the macOS app reads           | Renamed, with the old ones kept as registered aliases until the next DMG is the oldest supported; the app moves in the same series |
+| Docs, skills, scripts, Make targets                | Renamed in the same series                                                                                                         |
+
+The macOS app, which ships as its own DMG, is the only consumer outside the release for these
+surfaces. It calls `/api/lidar/labels`, `/api/lidar/runs/*`, `/api/lidar/vrlog/*`,
+`/api/lidar/pcap/stop` and nine `/api/annotations/*` routes, and reads `replay_case_id` from run
+JSON.
+
+| Rename | Scope                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Size today                                                                                              | Acceptance                                                                                                                                                                                                       |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Clip   | Item 2 and the naming half of Items 3 and 6: `lidar_replay_cases` and its file, evaluation and run tables renamed (`lidar_clips`, `lidar_clip_captures`, `lidar_clip_evaluations`, `lidar_runs`), `replay_case_id` to `clip_id`, `ReplayCase` to `Clip`, `AnalysisRun` to `Run`, `/api/lidar/scenes` to `/api/lidar/clips`, the web route to `/lidar/clips`; the data source's `pcap` wire value to `capture`. The `pcap_file` projection drops with its readers in the same change, because they are all in the release unit | 1,102 `ReplayCase` or `replay_case` hits in 40 Go files, 305 in the web, 52 in Swift; 669 `AnalysisRun` | A copy of the development database migrates with identical row counts; outside migrations and history, no unregistered old name remains; the current and the previous macOS app both list runs and stop a replay |
+| Labels | The naming half of Item 7: `ObjectClass` and `QualityFlag` as the type names in Go, TypeScript and Swift; label and annotation words on every surface; the annotation-pack routes under the LiDAR namespace, with the old routes registered for the app. One label table and one write path are Phase 2 (P2-B)                                                                                                                                                                                                                | Three type names in three languages; nine annotation routes                                             | Every label reads back identically through every path                                                                                                                                                            |
+| Sites  | The naming half of Items 14 and 15: site, deployment and survey defined and used on existing surfaces where the meaning already matches. The merge of `site` and `lidar_sites` and the deployment rows are Phase 2 (P2-F)                                                                                                                                                                                                                                                                                                     | Copy and types on the Sites, Reports and Clip-locations surfaces                                        | No surface uses "scene" for a place; no new relationship is implied by a name                                                                                                                                    |
+
+Order: clip, then labels, then sites. Clip is the most-used noun and the run browser's Clip
+column waits on it; the frame-model move in the single-binary plan's role work should land first,
+so the renamed Go types move once. The work packages below are read under this section: P1-A is
+superseded (the vocabulary is published here and the decision is D-31, because D-28 went to the
+research briefing), P1-B carries all three renames, and P1-C and P1-D are parked until a
+consumer needs their words.
+
 Deliver Phase 1 as four work packages, each split into reviewable PRs by consumer boundary:
 
 1. **P1-A, terminology contract:** publish the vocabulary, D-28, companion-plan alignment and
@@ -777,7 +818,7 @@ conflict. No work package depends on a Phase 2 capability; a rename with such a 
 moved to Phase 2. Each PR identifies its consumers and proves its compatibility boundary.
 
 **Phase 1 exit:** the terminology inventory covers every existing surface; old external names
-still work through the recorded aliases; migration row-accounting preserves values and
+survive only as rows in the compatibility register; migration row-accounting preserves values and
 relationships; fixture outputs match after normalising only renamed keys and enum spellings;
 the surface tests and documentation checks pass. No Phase 2 capability is needed to demonstrate
 that a rename works. Unchanged legacy layouts stay usable until their replacements exist.

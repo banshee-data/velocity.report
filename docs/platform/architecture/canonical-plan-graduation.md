@@ -63,6 +63,29 @@ Use this test when deciding whether multiple plans should merge:
 If yes to all three, they collapse into one canonical hub doc and at most one
 active plan.
 
+## Statuses and limits (D-32)
+
+[D-32](../../DECISIONS.md#d-32--planning-limits-and-backlog-governance) (October 20, 2026) closes
+the status vocabulary and bounds the work in progress. The limits are decided; the lint that checks
+them is planned, and `make report-plan-hygiene` counts the active plans in the meantime.
+
+| Status       | Meaning                                                                                              |
+| ------------ | ---------------------------------------------------------------------------------------------------- |
+| `Draft`      | Being written; not yet put to review                                                                 |
+| `Proposed`   | Written and awaiting a decision to start                                                             |
+| `Active`     | Being worked; `In progress` is read as `Active`                                                      |
+| `Parked`     | Agreed in principle, not being worked; the status line gives a one-line reason and a revisit trigger |
+| `Complete`   | Delivered; graduates to a symlink under the two-PR rule                                              |
+| `Superseded` | Replaced by the plan or decision it names                                                            |
+
+| Limit                         | Value                                                |
+| ----------------------------- | ---------------------------------------------------- |
+| Active bodies of work         | twelve; a programme with its phase plans counts once |
+| Active plans per body of work | one                                                  |
+
+A plan is never deleted to meet a limit: it is parked. A hub doc that presents an unbuilt feature
+as present is removed under D-33, and its intent stays in its plan.
+
 ## Lifecycle
 
 Three phases: incubation, consolidation, graduation; described in the
