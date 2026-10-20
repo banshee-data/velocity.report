@@ -4,9 +4,9 @@
   "site": "columbus-broadway",
   "title": "Columbus at Broadway",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 9967,
-  "start_ns": "1788380476686565330",
-  "duration_sec": 1993.125319,
+  "frame_count": 10165,
+  "start_ns": "1788380436986210330",
+  "duration_sec": 2032.725514,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "5bbc2a8a5323d09285b8023d90e9726de974c5c953f2c22ff7e31bd1f23ed12f",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "bcedd3e55a9538c00db492fd354cb8477cfbf15939ef18649e1f065384a4db70",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T09:27:51Z"
+  "generated_at": "2026-10-20T10:39:30Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

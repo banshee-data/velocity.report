@@ -4,9 +4,9 @@
   "site": "van-ness-sacramento",
   "title": "van Ness at Sacramento",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 6145,
-  "start_ns": "1788384474295740300",
-  "duration_sec": 1228.79468403,
+  "frame_count": 6343,
+  "start_ns": "1788384434678856330",
+  "duration_sec": 1268.411568,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "6a55191256c19a482366cf156a53cf91b64f9119a4b90402e8eaa6326b232b20",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "accfb1a7f0bc0685532051819f1fdb737e27f71f675313d6f3f20629bd088ecc",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T10:10:54Z"
+  "generated_at": "2026-10-20T11:00:21Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

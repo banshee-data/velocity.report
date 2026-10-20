@@ -4,9 +4,9 @@
   "site": "haight-divisadero",
   "title": "Haight at Divisadero",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5577,
-  "start_ns": "1788292802351787330",
-  "duration_sec": 1115.162058,
+  "frame_count": 5775,
+  "start_ns": "1788292762752867330",
+  "duration_sec": 1154.760978,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "a812e3a856472423c7c829460a6a483979edd2135766de129e927eee0ae8db02",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "eae8780632c6e9e9245a6d1b6b8e117016696f9743186dbf8509edb982b76188",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T00:20:18Z"
+  "generated_at": "2026-10-20T06:28:26Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

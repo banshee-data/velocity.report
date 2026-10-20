@@ -4,9 +4,9 @@
   "site": "california-leon-baker",
   "title": "California between Leon and Baker",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 6063,
-  "start_ns": "1788298440814213330",
-  "duration_sec": 1212.418023,
+  "frame_count": 6261,
+  "start_ns": "1788298401213325330",
+  "duration_sec": 1252.018911,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "59d7f1eeb605bf33efd96b9ced52bf8390f8dcba26c8a14a8ccaea601a2172ea",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "3391401b05ad203f5c664939c82d5d5bbc2025b59b38f4bc9508a8be5f1903c5",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T02:27:23Z"
+  "generated_at": "2026-10-20T07:23:52Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

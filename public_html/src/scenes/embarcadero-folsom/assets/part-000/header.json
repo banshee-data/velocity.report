@@ -4,9 +4,9 @@
   "site": "embarcadero-folsom",
   "title": "Embarcadero at Folsom",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5866,
-  "start_ns": "1788466707741391300",
-  "duration_sec": 1172.951609,
+  "frame_count": 6064,
+  "start_ns": "1788466668154812330",
+  "duration_sec": 1212.53818797,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "42c341baf6baeb37bd258ceb574f546f14df2260e3a1149d295510b2598eca2b",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "a8bf6462c18e06294a1ad916b898b3546601486e8310ed14fb65d9e56dbb968a",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T12:53:54Z"
+  "generated_at": "2026-10-20T11:53:26Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

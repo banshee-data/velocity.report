@@ -4,9 +4,9 @@
   "site": "ashbury-downey",
   "title": "Ashbury at Downey",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5939,
-  "start_ns": "1788290772621687330",
-  "duration_sec": 1187.558515,
+  "frame_count": 6137,
+  "start_ns": "1788290733019394330",
+  "duration_sec": 1227.160808,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "c1043d1e20ffdd865eba7e3b851e2175f4b0fb2310425e36597340160813bb3b",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "ea845e3dccbe33544b952536e303fd8054f2812454a3cd2629bd3e126ca9c3ed",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-17T23:39:59Z"
+  "generated_at": "2026-10-20T06:07:04Z",
+  "trail_estimator": "cv_kf_v1/online"
 }
