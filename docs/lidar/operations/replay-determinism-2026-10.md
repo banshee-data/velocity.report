@@ -191,7 +191,7 @@ choice; this note does not establish how those runs treated a case whose repeat 
 Rerunning the identity line's figures at this commit would say how much the draw mattered. For
 l8fol0001's following screen it did not: replayed with the fix, all 23 first segments repeat, 18
 screen identically to the first runs, and the pooled following figures move by under 0.3 %
-([following opportunity](following-opportunity-corpus-2026-10.md)).
+(following opportunity (#805)).
 
 ## What this does not establish
 
