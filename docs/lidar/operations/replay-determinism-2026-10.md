@@ -186,10 +186,9 @@ overlap end off, each unmatched track's step changes only that track and counter
 cannot matter.
 
 **What it means for earlier results.** l5id0004 and l5id0005 measured the arm before this fix,
-so their per-site figures are one draw of the survivor choice where two coasting tracks shared a
-live body; the harness's repeat check refused such cases rather than reporting them, so those
-runs read the cases whose two runs agreed. Rerunning the identity line's figures at this commit
-would say how much the draw mattered.
+so wherever two coasting tracks shared a live body their figures are one draw of the survivor
+choice; this note does not establish how those runs treated a case whose repeat differed.
+Rerunning the identity line's figures at this commit would say how much the draw mattered.
 
 ## What this does not establish
 
