@@ -25,6 +25,9 @@ These checks establish that the existing release pipeline can execute ARM64 arte
 emulation. They do not exercise Tailscale authentication, Headscale policy, peer connectivity, or
 the capability boundaries of a disposable guest.
 
+The ARM64 kernel check stopped booting on ubuntu-26.04 runners. The cause and the fix are in
+[arm64-vm-gate-ubuntu-2604.md](arm64-vm-gate-ubuntu-2604.md).
+
 ## Intended operating model
 
 - Use the amd64 cloud-image VM for fast Linux/KVM development and integration checks.
