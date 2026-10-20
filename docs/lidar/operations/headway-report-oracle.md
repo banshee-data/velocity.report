@@ -201,11 +201,12 @@ no more than the box and the estimate filed with it say:
 | Class        | The track's label in `lidar_tracks`, mapped as the tracker maps it for the solid body; no label is `unknown`                                                                                                           |
 | Stage        | `online` only: no refined stage revises the box                                                                                                                                                                        |
 
-An estimate can have no observation row at all: `lidar_track_observations` keys a row by track and
-acquisition time, as the live server does, and a cluster takes its first point's time, so when one
-firing's returns fall on both sides of a frame seam, two consecutive frames of a track share an
-acquisition time and the later frame's row replaces the earlier one. The run counts such estimates
-in brackets on the same line. A version with no observation row at all was written before the
+An estimate can have no observation row at all. While `lidar_track_observations` was keyed by
+track and acquisition time (as of October 2026, in the live server too; a migration re-keys it by
+frame), a cluster took its first point's time, so when one firing's returns fell on both sides of a
+frame seam, two consecutive frames of a track shared an acquisition time and the later frame's row
+replaced the earlier one. Evidence written then keeps the gap. The run counts such estimates in
+brackets on the same line. A version with no observation row at all was written before the
 replay filed them, and is refused.
 
 ### kirk0

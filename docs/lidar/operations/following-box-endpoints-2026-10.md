@@ -16,9 +16,9 @@ gaps, and runs the field run with it on the first segment of 23 corpus sites. It
 - **Related:** [headway report oracle](headway-report-oracle.md#provisional-field-run),
   [physical reference pilot](physical-reference-pilot-kirk0-2026-10.md),
   [published box refinement](published-box-refinement-2026-10.md),
-  [centre against extent](geometry-centre-extent-decomposition-2026-10.md),
-  [class evidence](following-class-evidence-kirk-2026-10.md),
-  [following opportunity](following-opportunity-corpus-2026-10.md)
+  centre against extent (#807),
+  class evidence (#804),
+  following opportunity (#805)
 - **Parameter sets:** the [defaults](../../../config/tuning.defaults.json) (box, box-body-older)
   and [solid-body-a2](../../../config/experiments/solid-body-a2.json) (near-edge)
 
@@ -45,13 +45,13 @@ time on the corpus out of 1,593 s accounted, at 18 of the 23 sites, where kirk0 
 reader. It is still suppressed far more than it is valid: the class gate takes 767 s, nearly half
 of the accounted time. Of 2,399 vehicle-sized tracks under the box, 911 end classed car, truck or
 bus and 1,367 end `dynamic`. The class gate is the next constraint, as
-[l8fol0002](following-class-evidence-kirk-2026-10.md) found on kirk0; at faster sites it binds less.
+l8fol0002 (#804) found on kirk0; at faster sites it binds less.
 
 **The trucks.** The spec asked for truck gaps apart because the box draws trucks short. On kirk0
 every scored gap that involves a truck (five with truck 1 leading, five with truck 2 following) is
 within the bound: each gap spans an end of each vehicle that the sensor sees, and the box holds
 the seen end and draws the body short behind it
-([centre against extent](geometry-centre-extent-decomposition-2026-10.md)). A gap that needed a
+(centre against extent (#807)). A gap that needed a
 truck's unseen end would be long by the missing length; none of kirk0's reference gaps does.
 
 **The solid body cannot read half the corpus.** The near-edge arm's field run refused 11 of the 23
@@ -219,7 +219,7 @@ vehicles end classed `dynamic`.
    reach within the bound, fits more paths than the solid body and reads every site. Keep it
    provisional and the endpoints temporally inferred until l8fol0005 scores a held-out window.
 2. **Next, the class gate.** Half the accounted time on the corpus is suppressed for class; see
-   [class evidence](following-class-evidence-kirk-2026-10.md).
+   class evidence (#804).
 3. **Decide the observation table's key.** Keyed by track and acquisition time, a frame-seam
    cluster can replace the previous frame's row, in the live server as in evidence. Keying by
    frame, or by frame and acquisition time, is a migration and a live change, so it is a decision.

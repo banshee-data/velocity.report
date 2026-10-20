@@ -279,12 +279,12 @@ func TestListVersionBoxesRefusesWhatWasNotFiled(t *testing.T) {
 	}
 }
 
-// TestBoxesSharingAnAcquisitionTimeLeaveTheEarlierEstimateUnfiled: the
-// observation table keys a row by track and acquisition time, as the live
-// server does. When two consecutive frames' clusters of a track carry one
-// acquisition time, the later frame's row replaces the earlier one, and the
-// earlier estimate is read back unfiled, without a box, rather than refused.
-func TestBoxesSharingAnAcquisitionTimeLeaveTheEarlierEstimateUnfiled(t *testing.T) {
+// TestAnEstimateWithoutAnObservationRowIsReadUnfiled: an estimate whose
+// frame has no lidar_track_observations row (as when the table's key once let
+// a frame-seam cluster replace the previous frame's row) is read back unfiled,
+// without a box, rather than refused. The row is removed directly, so the test
+// does not depend on how the table is keyed.
+func TestAnEstimateWithoutAnObservationRowIsReadUnfiled(t *testing.T) {
 	database, cleanup := setupTrackingPipelineTestDB(t)
 	defer cleanup()
 	store := NewFrameEvidenceStore(database)
@@ -294,14 +294,12 @@ func TestBoxesSharingAnAcquisitionTimeLeaveTheEarlierEstimateUnfiled(t *testing.
 		pair := testFrameStateEstimate(observation.Snapshot().ObservationID, frame)
 		pair.Track = boxTrack(pair.Estimate.TrackID, "car", 0.75)
 		pair.Observation = boxObservation(pair.Estimate.TrackID, frame, 4.5)
-		if frame == 100 {
-			// The first frame's cluster was acquired at the seam, in the
-			// firing the second frame's cluster starts with.
-			pair.Observation.TSUnixNanos = 201
-		}
 		if err := store.InsertFrame([]l4bobserve.DetectionObservation{observation}, []FrameStateEstimate{pair}); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := database.Exec(`DELETE FROM lidar_track_observations WHERE frame_unix_nanos = 100`); err != nil {
+		t.Fatal(err)
 	}
 	rows, err := NewStateEstimateStore(database).ListVersionBoxes(EstimateVersionKey{SourceID: "source/v1/frame",
 		EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v0", ParamHash: "params/frame", Stage: "online"})
