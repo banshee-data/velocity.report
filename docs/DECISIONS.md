@@ -198,7 +198,7 @@ Kept by: `make report-plan-hygiene`, which counts the active plans (exists; advi
 
 ### D-33 — Hub docs state what ships; plans state intent
 
-A hub doc states shipped behaviour. Where it also carries a design, it says so and links the plan that owns the intent. A hub stub that presents an unbuilt feature as present is removed, and its intent stays in its plan. The graduation rules in the canonical plan graduation doc apply without change. Source: [architecture review, ADR-4](plans/platform-architecture-review-plan.md#architecture-decision-records-proposed), [canonical plan graduation](platform/architecture/canonical-plan-graduation.md).
+A hub doc states shipped behaviour. Where it also carries a design, it says so and links the plan that owns the intent. A hub stub for an unbuilt feature may stay when its header says it is a design and is not built, and links the plan that owns the intent; a stub that presents an unbuilt feature as present is corrected that way or removed. Amended October 20, 2026 by the owner, who kept the visualiser design stubs. The graduation rules in the canonical plan graduation doc apply without change. Source: [architecture review, ADR-4](plans/platform-architecture-review-plan.md#architecture-decision-records-proposed), [canonical plan graduation](platform/architecture/canonical-plan-graduation.md).
 
 Kept by: `/plan-graduation`, reviewing each hub doc against this entry (review only). `make check-plan-hygiene` checks canonical headers, not stubs; no stub lint exists yet.
 

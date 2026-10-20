@@ -158,9 +158,10 @@ describes a feature that does not exist, which inverts the graduation rule in
 
 **Do b.** Add `Parked` to the status vocabulary and an advisory in `report-plan-hygiene` that
 lists Active plans without a linked PR in the last 90 days. A hub doc records shipped behaviour;
-a plan records intent. Live backlog rows link six of the twelve stubs, so the six unlinked ones
-(physics checks, priority review queue, QC dashboard and audit, split and merge repair, track
-event timeline, track quality scoring) go first and the six linked ones go when their rows move.
+a plan records intent. The owner kept the stubs instead: the six no row links (physics checks,
+priority review queue, QC dashboard and audit, split and merge repair, track event timeline,
+track quality scoring) now say in their header that they are designs and not built, and D-33
+allows that. The six linked ones get the same check when their rows move.
 
 #### P4. Rename by alias programme
 
@@ -438,8 +439,9 @@ is built. `S`.
 None of this caught six layer violations, a nominal SQL boundary or a build that links a sensor
 driver into a job client.
 
-**Do this.** Replace the coverage target with boundary tests: closures, layer rules, store
-interfaces, and a serve smoke test. Delete the Jest tests for the legacy dashboards with the
+**Do this.** Add boundary tests: closures, layer rules, store interfaces, and a serve smoke test.
+The review proposed replacing the coverage target with them; the owner kept the target, so the
+tests are rows of their own beside it. Delete the Jest tests for the legacy dashboards with the
 dashboards. `M`, mostly deletion.
 
 ## Half-finished work: finish, cut down, or delete
@@ -470,7 +472,7 @@ plan shrinks to what the code shows is worth finishing.
 | 19   | Scene assets in git and in the Pi image                                                                                                                                                                                 | 66 MB, growing per site                                                                                | Finish: LFS or Hugging Face, image carries a pointer                                                    | `S`    | v0.6.6                  |
 | 20   | Svelte 5 runes migration                                                                                                                                                                                                | 1 of 25 files                                                                                          | Finish one file per touched route, or state the deferral                                                | `M`    | v0.7.0                  |
 | 21   | #503 Tailscale ACL roles                                                                                                                                                                                                | A PR conflicted since v0.5.1                                                                           | Moved to v0.6.0                                                                                         | `S`    | v0.6.0                  |
-| 22   | Ten February visualiser proposals and twelve hub stubs                                                                                                                                                                  | Nothing built; the annotation window superseded several                                                | Park the plans; remove the six unlinked stubs, the rest when their rows move                            | `S`    | Now                     |
+| 22   | Ten February visualiser proposals and twelve hub stubs                                                                                                                                                                  | Nothing built; the annotation window superseded several                                                | Park the plans; keep the stubs, headed as designs (D-33 amended)                                        | `S`    | Now                     |
 | 23   | Dynamic algorithm selection                                                                                                                                                                                             | "Branch-history design, not active on main"                                                            | Park; its two v0.5.6 rows and one v2.0 row keep their links                                             | `S`    | Now                     |
 | 24   | TicTacTail (D-23)                                                                                                                                                                                                       | No code, one consumer                                                                                  | Withdrawn (D-35)                                                                                        | `S`    | Now                     |
 | 25   | Typed UUID prefixes                                                                                                                                                                                                     | Proposed; depends on the nouns                                                                         | Park until the cutovers                                                                                 | none   | v0.6.x                  |
@@ -647,7 +649,7 @@ written. Each is resolved below, by a correction to this review or by a decision
 | B2. Rank 1 deleted the :8081 dashboards in v0.5.8, which removes the replay form and sweep start AGENTS.md names for running an arm                              | Rank 1 narrowed to #252 Phase 1; :8081 retires after the Svelte replay form and sweep start, with AGENTS.md in the same change                                                                     |
 | B3. Rank 3 called four tables dead: `radar_transit_links` has a writer, `lidar_clusters` three readers, and vocabulary Item 9 populates the radar command tables | One row: each table gets a consumer or goes with its readers and writer; the radar command tables stay for Item 9; `lidar_clusters` is decided by the v0.5.4 Phase 3 row first                     |
 | B4. The backlog would have shown only the next twelve, against its own governance rule                                                                           | D-32: overflow moves to the next slot or a named queued slot, and never out of the file                                                                                                            |
-| B5. The host specs ran from the defaults file, which is P6's own defect, on a Pi 5 when the deployed device is a Pi 4                                            | Each spec pins the defaults' fingerprint; the device is an open question below, and no Pi step runs until it is answered                                                                           |
+| B5. The host specs ran from the defaults file, which is P6's own defect, on a Pi 5 when the deployed device is a Pi 4                                            | Each spec pins the defaults' fingerprint; the owner named the Pi 4 for every Pi step                                                                                                               |
 | B6. A hub and workers read against tenet 4's "no clustering, no replication"                                                                                     | D-30: each data-owning host is the one authority for its own jobs and no two hosts share a database; a worker returns a result bundle the hub accepts, and the Pi runs edge and hub in one process |
 
 The other corrections, applied in place above: the help count (176 listed, 55 omitted); the
@@ -673,26 +675,33 @@ physical references, the experiment queue, and serial configuration until the ta
 eleven groups (the February visualiser proposals, the vocabulary sub-plans, labelling and
 annotation, geometry and tracking reference plans, deferred and future work, scene publishing,
 external projects, safety reporting, platform and documentation, and open investigations). It
-changes no outstanding work and waits for the owner. Also not applied: replacing the v0.9.0
-coverage target, which is a scope change its plan must record first; rows for VISION's phases B
-to E; and Flo's notes on the release-prep skill (fetch tags before `git describe`, and run the
-perf gate), which go to the next release-prep change.
+changes no outstanding work and waits for the owner. Flo's notes on the release-prep skill (fetch
+tags before `git describe`, and run the perf gate) go to the next release-prep change. The owner
+settled the coverage target, the stubs and VISION's phases; see the answers below.
+
+### The owner's answers, October 20, 2026
+
+| Question                                     | Answer                                                                                                                                                                                                                                         |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #503, Tailscale access control               | Merge `main` into it after the v0.5.1 cut and land it in v0.6.0; its acceptance on a real tailnet is that slot's gate. #290's remainder stays in v0.5.1 as the release-candidate gate                                                          |
+| Release cadence after v0.5.1                 | No time bound: the owner cuts when ready. The proposed eight weeks is declined                                                                                                                                                                 |
+| Which scene data may be public (D-34 step 2) | Decided at step 2; step 1, the asset move, does not wait on it                                                                                                                                                                                 |
+| The v0.9.0 coverage target                   | Kept as written; the boundary tests (closures and layer rules, the SQL boundary, a serve smoke test) are rows of their own                                                                                                                     |
+| The visualiser hub stubs                     | Kept, each headed as a design that is not built; D-33 amended to allow that                                                                                                                                                                    |
+| The device of record                         | The Pi 4 (4 GB), for the release gate and every host and perf experiment; the experiment registry's `pi5` worker class is renamed `pi4` and the five specs that named a Pi 5 now name the Pi 4, each noting the change was made before any run |
+| The External section                         | Kept until each project has its own repository; then its rows move there and one pointer row stays here                                                                                                                                        |
+| VISION's phases B to E                       | Four rows: phases B and C in v0.6.0, D and E in v0.6.1; the v1.0 data export row's transit half merged into phase D                                                                                                                            |
 
 ### Open questions for the owner
 
 1. Whether a declared breaking change in 0.x raises the minor version. It does not block the v0.5.1 cut.
-2. #503: rebase or close; it now sits in v0.6.0. #290's remainder stays in v0.5.1 as the release-candidate gate.
-3. Retire `grid-heatmap` (the default under restated D-17), or keep a Go-served grid view.
-4. D-16's v1.0 placement, after posted speed limits.
-5. Which scene data may be public, before the survey site leaves (D-34 step 2).
-6. The cadence bound: eight weeks of unreleased user-visible change is the proposed default.
-7. When the NAS hub is deployed.
-8. D-25's persona length: restate the bound or trim the personas; run the drift check in CI meanwhile.
-9. The seven unaudited decisions (D-06, D-10, D-12, D-13, D-15, D-28, D-29), at the first release audit.
-10. The device of record for the release gate and the host experiments: the Pi 4 the hardware module names, or a Pi 5. No host Pi step runs until this is answered.
-11. VISION's phases B to E (the query engine, the JSON API, the transit browser and export) have no backlog rows: add them, or restate VISION.
-12. The parking pass over about 125 unstarted plans, as Flo proposed it.
-13. Whether the vehicle encyclopedia and spatial priors rows stay in this backlog's External section or move with their repositories.
+2. Retire `grid-heatmap` (the default under restated D-17), or keep a Go-served grid view.
+3. D-16's v1.0 placement, after posted speed limits.
+4. Which scene data may be public, when D-34's step 2 is scheduled.
+5. When the NAS hub is deployed.
+6. D-25's persona length: restate the bound or trim the personas; run the drift check in CI meanwhile.
+7. The seven unaudited decisions (D-06, D-10, D-12, D-13, D-15, D-28, D-29), at the first release audit.
+8. The parking pass over about 125 unstarted plans, which Flo is re-evaluating at the owner's request for what should be parked and what should come sooner.
 
 ## Backlog changes applied
 
@@ -701,7 +710,7 @@ file's history. Flo found several wrong against the backlog as it stood, and Rut
 changed others, so this section records what the re-baseline of October 20, 2026 applied. The
 governance rule held: no outstanding row left the file, and every row moved, split, merged or
 completed is accounted for in that change (522 rows before, 527 after: four merges, three splits,
-six new rows).
+six new rows). The owner's answers added five more, for 532.
 
 ### By slot
 
@@ -714,11 +723,13 @@ six new rows).
 | v0.5.8               | The review's rows, narrowed: dead code with #252 Phase 1 only; unwritten and unread tables each given a consumer or removed with their readers and writer; the register test; the fingerprint row                      |
 | v0.5.10              | The labels and sites renames (D-31), beside the existing clip-site row                                                                                                                                                 |
 | Queued slots         | Thirteen named queues, numbered when each becomes next; the lifecycle, SQL boundary and logging rows join "Boundaries and identity"; one queue, typed UUIDs and the Phase 2 vocabulary items wait on the exit          |
+| v0.6.0               | #503 rewritten: rebase after the cut, land here, with its tailnet acceptance as the gate; VISION phases B and C as two rows                                                                                            |
+| v0.6.1               | VISION phases D and E as two rows; phase D takes the transit half of the v1.0 data export row                                                                                                                          |
 | v0.6.5 design system | Moved whole, text unchanged, to Parked outside the slot cap, with the February visualiser rows and the bumper sticker tool                                                                                             |
 | v0.7.0               | #252 Phases 2 to 7 stay; retiring :8081 waits for the Svelte replay form and sweep start, and moves AGENTS.md's arm-run path with it                                                                                   |
 | v0.8.0               | TicTacTail to v∞ (D-35)                                                                                                                                                                                                |
-| v0.9.0               | The coverage target is unchanged: replacing it is a scope change its plan must record first                                                                                                                            |
-| v1.0, v2.0           | Vehicle encyclopedia and spatial priors rows moved to an External section until the owner decides (Flo's D15)                                                                                                          |
+| v0.9.0               | The coverage target is kept by the owner; the boundary tests are rows of their own, and a serve smoke test joins "Boundaries and identity"                                                                             |
+| v1.0, v2.0           | Vehicle encyclopedia, vehicle identification and spatial priors rows moved to an External section, kept there until each project has its own repository (the owner's answer)                                           |
 
 ### New rows
 
@@ -726,6 +737,8 @@ six new rows).
 - Run-track snapshot quality (v0.5.4)
 - Unwritten and unread tables (v0.5.8)
 - Lifecycle supervisor, SQL boundary made real, structured logging (Boundaries and identity)
+- From the owner's answers: the serve smoke test (Boundaries and identity), and VISION's phases B
+  and C (v0.6.0) and D and E (v0.6.1)
 
 ### Merged and split
 
@@ -747,15 +760,14 @@ rules with their rule before any run. They put numbers on the questions this rev
 by reading: whether a role-scoped build is worth more than the gate, whether a worker reproduces a
 result across hosts, and whether the binary can drop cgo. Each pins the defaults' fingerprint
 (`15fe4df885c8`) in its body, as the experiment queue plan's Section 12 will require. Their Pi
-steps name the Pi 5 on the bench; the deployed device is a Pi 4, which is an open question
-below.
+steps run on the Pi 4, the device of record the owner named; the specs first named a Pi 5.
 
-| Spec     | Question                                                                                                                                     | Rule in one line                                                                                                               |
-| -------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| host0001 | What does each role cost on the Pi 5 and the Mac: the one binary against builds without Typst, without pcap, and worker-only                 | Keep one binary unless the edge build shrinks by a quarter and idle memory by a sixth; the closure gate is adopted regardless  |
-| host0002 | Does a kind compiled into the binary reproduce the tool the worker builds from a checkout, row for row, and how much sooner does it answer   | Adopt in-binary kinds when the rows are identical on the four corpus cases and time to first result at least halves            |
-| host0003 | Does one capture under one fingerprint give the same rows on the Mac, the blade and the Pi                                                   | Identical track rows across hosts, or the difference is attributed, with identity differences sent to the v0.5.4 identity item |
-| host0004 | Does a pure-Go capture reader (`pcapgo`) give libpcap's packets, frames and tracks, at no more than 5 % slower on the Mac and 10 % on the Pi | Drop libpcap when packets, frames and track rows are identical on all four cases and the speed bounds hold                     |
+| Spec     | Question                                                                                                                                       | Rule in one line                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| host0001 | What does each role cost on the Pi 4 and the Mac: the one binary against builds without Typst, without pcap, and worker-only                   | Keep one binary unless the edge build shrinks by a quarter and idle memory by a sixth; the closure gate is adopted regardless  |
+| host0002 | Does a kind compiled into the binary reproduce the tool the worker builds from a checkout, row for row, and how much sooner does it answer     | Adopt in-binary kinds when the rows are identical on the four corpus cases and time to first result at least halves            |
+| host0003 | Does one capture under one fingerprint give the same rows on the Mac, the blade and the Pi                                                     | Identical track rows across hosts, or the difference is attributed, with identity differences sent to the v0.5.4 identity item |
+| host0004 | Does a pure-Go capture reader (`pcapgo`) give libpcap's packets, frames and tracks, at no more than 5 % slower on the Mac and 10 % on the Pi 4 | Drop libpcap when packets, frames and track rows are identical on all four cases and the speed bounds hold                     |
 
 Updates to existing specs, for their owner rather than this PR: l3bg0009's arms describe the
 pre-consolidation L3 and should be restated against l3bg0025; perf0002's note and three reports
@@ -812,8 +824,7 @@ validator carries the field.
 - [ ] Appius: one queue, in-binary kinds, host0002 run (`M`)
 - [ ] Flo: the parking pass over the unstarted plans (`M`)
 - [ ] The v0.5.1 cut, under Work unit F (`S`)
-- [ ] host0001, host0003 and host0004 run, on the device the owner names (`M`)
-- [ ] Remove the six unlinked visualiser stubs and repoint their plans (`S`)
+- [ ] host0001, host0003 and host0004 run, with their Pi steps on the Pi 4 (`M`)
 
 ### Deferred
 

@@ -75,7 +75,7 @@ for; by default the one before it, `-` for none), `over` (`arms`, `cases` or bot
 
 **Estimates** are in hours and minutes, never days: a person's day and a machine's are not the
 same length. A job step gives `each` (per arm per case, with `over`) or `total`; a manual step
-gives `human`. `worker` names the class the estimate is for: `m1pro`, `swan`, `pi5` or `person`.
+gives `human`. `worker` names the class the estimate is for: `m1pro`, `swan`, `pi4` or `person`.
 An experiment's estimate is its machine time along its longest chain of steps, plus the person
 time of its manual steps.
 

@@ -230,12 +230,12 @@ follow is 0.5.1, and closing it is what makes the CHANGELOG's heading true.
 2. #503 moved to v0.6.0 in BACKLOG.md, not deleted: it is not on `main`, so it does not block the cut. #290's remainder stays in v0.5.1 as part of condition 5.
 3. Tags fetched (`git fetch --tags`; a fresh checkout carries none), then the `[0.5.1]` section rewritten to cover `v0.5.0..main`, with the breaking change first under a BREAKING marker, and dated on the day of the tag.
 4. `VERSION := 0.5.1` in the Makefile and the macOS project version in the same commit.
-5. On the cut commit: `make lint`, `make test` and the perf gate pass; a binary built through `make` reports 0.5.1 and HEAD's sha; the image boots on the device of record with the API answering on `:80`, the static Tailscale install validated on Pi OS bookworm and trixie (Work unit B's release gate), a USB serial adapter and a deliberately changed serial setting validated across a reload (#290), and a report generated. The device of record is the Pi 4 the hardware module names unless the owner names a Pi 5, an open question in the [architecture review](platform-architecture-review-plan.md#open-questions-for-the-owner).
+5. On the cut commit: `make lint`, `make test` and the perf gate pass; a binary built through `make` reports 0.5.1 and HEAD's sha; the image boots on the device of record with the API answering on `:80`, the static Tailscale install validated on Pi OS bookworm and trixie (Work unit B's release gate), a USB serial adapter and a deliberately changed serial setting validated across a reload (#290), and a report generated. The device of record is the Pi 4 the hardware module names, as the owner confirmed on October 20, 2026.
 6. The owner tags; `/release-prep` runs `update-release-json` and `check-release-hashes`, so the stable and prerelease entries both point at the release.
 
-**After the cut.** A version is tagged when the owner cuts it from `main` (D-32). The proposed
-bound, for the owner to confirm, is no more than eight weeks of unreleased user-visible change.
-The changelog section is written as each pull request lands, so a cut is editing rather than
+**After the cut.** A version is tagged when the owner cuts it from `main` (D-32). There is no
+time bound on unreleased change: the owner decided on October 20, 2026 to cut when ready, and
+declined the proposed eight weeks. The changelog section is written as each pull request lands, so a cut is editing rather than
 archaeology. Whether a declared breaking change in 0.x raises the minor version is an open
 question for the owner before the next breaking change; it does not block this cut.
 

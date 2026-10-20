@@ -102,7 +102,7 @@ func mark(set *experiments.Set, root string, ledger *experiments.Ledger, args []
 	host, _, _ = strings.Cut(host, ".")
 	fs := flag.NewFlagSet("mark", flag.ContinueOnError)
 	worker := fs.String("worker", host, "this worker's id")
-	class := fs.String("class", "", "this worker's class (m1pro, swan, pi5, person)")
+	class := fs.String("class", "", "this worker's class (m1pro, swan, pi4, person)")
 	reclaim := fs.Bool("reclaim", false, "this worker reclaims orphans")
 	force := fs.Bool("force", false, "an operator's override of the queue's refusals")
 	out := fs.String("out", "", "where the unit's output is")

@@ -1,5 +1,6 @@
 # QC dashboard and audit export
 
+- **Status:** Design, not built. This page describes a proposed feature; nothing on it ships yet, and the source plan owns the intent (D-33)
 - **Source plan:** [docs/plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md](../../plans/lidar-visualiser-qc-dashboard-and-audit-export-plan.md)
 
 Run-level and session-level QC dashboard with full audit trail and CSV export.
