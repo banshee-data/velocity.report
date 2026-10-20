@@ -241,6 +241,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 ### v0.6.0 - Deployment & packaging (060)
 
+- Recording-use guard: enforce one local, content-verified data-use policy across recording-backed tuning, replay, and acceptance tools, with reserved placement groups and retained use history. Reuse frozen reference splits and reject missing policy or forbidden inputs before analysis: [plan](plans/lidar-recording-use-guard-plan.md) `L`
 - Simplification and deprecation programme (Project B execution): remove deploy surfaces after v0.5.1 RPi image gate + migration window; doc/Make cleanup only (Project A complete, Phase 1 signalling done #344): [design doc](plans/platform-simplification-and-deprecation-plan.md) `M`
 - Alternate-domain isolation for untrusted web artefacts: serve experimental design prototypes and other opaque compiled JS from a separate origin or subdomain rather than `velocity.report`; document the publication rule so same-origin trust is reserved for reviewed app code and content. `S`
 - One-line install script: curl-based installer with automatic platform detection: [design doc](plans/deploy-distribution-packaging-plan.md) `S`

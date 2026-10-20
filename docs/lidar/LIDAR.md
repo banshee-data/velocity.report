@@ -16,25 +16,26 @@ file is just the index — start there for any layer detail.
 
 ## Quick links
 
-| Topic                   | Document                                                                                           |
-| ----------------------- | -------------------------------------------------------------------------------------------------- |
-| Ten-layer architecture  | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
-| Pipeline component map  | [architecture/lidar-pipeline-reference.md](architecture/lidar-pipeline-reference.md)               |
-| Tracking implementation | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
-| Packet format           | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
-| Auto-tuning             | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
-| Refinement criteria     | [operations/retrospective-refinement-criteria.md](operations/retrospective-refinement-criteria.md) |
-| Uncertainty criteria    | [operations/adaptive-uncertainty-criteria.md](operations/adaptive-uncertainty-criteria.md)         |
-| Analysis worker         | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
-| Track labelling         | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
-| Point annotation        | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
-| Label sets              | [operations/label-sets.md](operations/label-sets.md)                                               |
-| Label set migration     | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
-| Per-frame evaluation    | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
-| Headway report oracle   | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
-| Near-edge frame cost    | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
-| macOS visualiser        | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
-| Backlog                 | [../BACKLOG.md](../BACKLOG.md)                                                                     |
+| Topic                    | Document                                                                                           |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| Ten-layer architecture   | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
+| Pipeline component map   | [architecture/lidar-pipeline-reference.md](architecture/lidar-pipeline-reference.md)               |
+| Tracking implementation  | [architecture/foreground-tracking.md](architecture/foreground-tracking.md)                         |
+| Packet format            | [../../data/structures/HESAI_PACKET_FORMAT.md](../../data/structures/HESAI_PACKET_FORMAT.md)       |
+| Auto-tuning              | [operations/auto-tuning.md](operations/auto-tuning.md)                                             |
+| Refinement criteria      | [operations/retrospective-refinement-criteria.md](operations/retrospective-refinement-criteria.md) |
+| Uncertainty criteria     | [operations/adaptive-uncertainty-criteria.md](operations/adaptive-uncertainty-criteria.md)         |
+| Analysis worker          | [operations/analysis-worker.md](operations/analysis-worker.md)                                     |
+| Track labelling          | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
+| Point annotation         | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
+| Label sets               | [operations/label-sets.md](operations/label-sets.md)                                               |
+| Label set migration      | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
+| Per-frame evaluation     | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
+| Recording-use guard plan | [../plans/lidar-recording-use-guard-plan.md](../plans/lidar-recording-use-guard-plan.md)           |
+| Headway report oracle    | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
+| Near-edge frame cost     | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
+| macOS visualiser         | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
+| Backlog                  | [../BACKLOG.md](../BACKLOG.md)                                                                     |
 
 The [October near-edge campaign report](operations/near-edge-campaign-2026-10.md) preserves the
 completed experiment's per-case findings, methods, uncertainty limits, and follow-up decisions.
