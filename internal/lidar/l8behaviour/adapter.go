@@ -675,9 +675,10 @@ const boxCourseAgreementRad = math.Pi / 4
 //     mapped by l5tracks.MotionClassForLabel with its confidence as the
 //     posterior, as the tracker reads it for the solid body. No label is
 //     unknown, with no confidence.
-//   - Gaps. A frame whose observation records no box (the box model off, or
-//     not yet seeded) is not a sample; like a frame with no row, it is a gap
-//     the encounter method holds or counts as a record gap.
+//   - Gaps. A frame with no box filed (the box model off or not yet seeded,
+//     or no observation row: see sqlite.BoxWithEstimate.Filed) is not a
+//     sample; like a frame with no row, it is a gap the encounter method
+//     holds or counts as a record gap. The caller counts such frames.
 type PersistedBox struct {
 	TrackID        string
 	SensorID       string

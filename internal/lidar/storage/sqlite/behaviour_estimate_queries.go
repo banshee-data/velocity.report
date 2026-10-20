@@ -129,9 +129,17 @@ func (s *StateEstimateStore) ListVersionSolidBodies(key EstimateVersionKey) ([]S
 type BoxWithEstimate struct {
 	TrackEstimate
 	SensorID string
-	// HasBox is false when the observation records no published box: the
-	// box model off, or not yet seeded at this frame. The box fields are then
-	// zero.
+	// Filed is false when no lidar_track_observations row is filed at the
+	// estimate's frame. The table keys a row by track and acquisition time,
+	// as the live server does, so when two consecutive frames' clusters of a
+	// track carry one acquisition time (a cluster takes its first point's
+	// time, and returns of one firing can fall on both sides of a frame
+	// seam), the later frame's row replaces the earlier one and the earlier
+	// estimate has none. HasBox is then false too.
+	Filed bool
+	// HasBox is false when no published box is filed at this frame: no
+	// observation row (see Filed), or one recording no box (the box model
+	// off, or not yet seeded). The box fields are then zero.
 	HasBox                                         bool
 	BoxX, BoxY, BoxHeadingRad, BoxLength, BoxWidth float32
 	// ClassLabel is lidar_tracks.object_class, the classifier's label as last
@@ -179,11 +187,13 @@ func (s *StateEstimateStore) ListBoxVersions() ([]EstimateVersion, error) {
 }
 
 // ListVersionBoxes returns one online version's estimates in track and frame
-// order, each with the published box filed beside it. Every estimate must
-// have exactly one observation row at its frame: a database whose replay did
-// not file them (one written before FrameEvidenceStore did) is refused rather
-// than read as having no boxes, and so is an estimate whose observation is
-// not stored or whose box is only partly recorded.
+// order, each with the published box filed beside it. An estimate has at
+// most one observation row at its frame, and one without is returned with
+// Filed false (see BoxWithEstimate.Filed). A version with no observation row
+// at all is refused rather than read as having no boxes: its replay did not
+// file them (it was written before FrameEvidenceStore did). So is an
+// estimate whose observation is not stored or whose box is only partly
+// recorded.
 func (s *StateEstimateStore) ListVersionBoxes(key EstimateVersionKey) ([]BoxWithEstimate, error) {
 	if key.Stage != EstimateStageOnline {
 		return nil, fmt.Errorf("a published box is filed beside online estimates only, not %s ones", key.Stage)
@@ -229,10 +239,7 @@ func (s *StateEstimateStore) ListVersionBoxes(key EstimateVersionKey) ([]BoxWith
 		if !sensor.Valid || sensor.String == "" {
 			return nil, fmt.Errorf("estimate %s names observation %s, which is not stored", e.EstimateID, e.ObservationID)
 		}
-		if !recorded {
-			return nil, fmt.Errorf("estimate %s has no lidar_track_observations row at its frame, so no published box "+
-				"was filed with it; the database was written by a replay that did not record the box", e.EstimateID)
-		}
+		r.Filed = recorded
 		if n := len(out); n > 0 && out[n-1].EstimateID == e.EstimateID {
 			return nil, fmt.Errorf("estimate %s has more than one lidar_track_observations row at its frame", e.EstimateID)
 		}
@@ -269,6 +276,15 @@ func (s *StateEstimateStore) ListVersionBoxes(key EstimateVersionKey) ([]BoxWith
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate boxes: %w", err)
+	}
+	filed := false
+	for _, r := range out {
+		filed = filed || r.Filed
+	}
+	if len(out) > 0 && !filed {
+		return nil, fmt.Errorf("no estimate of %s/%s/%s/%s has a lidar_track_observations row at its frame, so no "+
+			"published box was filed with them; the database was written by a replay that did not record the box",
+			key.SourceID, key.EstimatorID, key.ObservationModelID, key.ParamHash)
 	}
 	return out, nil
 }

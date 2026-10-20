@@ -791,6 +791,7 @@ func TestRunOnlineBoxes(t *testing.T) {
 		t.Errorf("summary = %+v", s)
 	}
 	if lines := strings.Join(s.Lines(), "\n"); !strings.Contains(lines, "Follower paths fitted: 2 of 2") ||
+		!strings.Contains(lines, "Estimates without a published box: 0 (0 with no observation row at their frame)") ||
 		!strings.Contains(lines, "Valid following time: 4.7 s of 4.9 s accounted") ||
 		!strings.Contains(lines, "suppressed extent_not_converged: 2 instants, 0.2 s") {
 		t.Errorf("summary lines:\n%s", lines)
@@ -800,9 +801,9 @@ func TestRunOnlineBoxes(t *testing.T) {
 	}
 }
 
-// TestRunBoxesRefuses: boxes with solid bodies, boxes at a refined stage, a
-// source whose estimates have no boxes, and a database whose replay filed no
-// box beside an estimate.
+// TestRunBoxesRefuses: boxes with solid bodies, boxes at a refined stage,
+// and a source whose estimates have no boxes. Once a version has boxes, an
+// estimate with none filed is a gap, counted, not a refusal.
 func TestRunBoxesRefuses(t *testing.T) {
 	database := openDB(t)
 	seed(t, database, steadyApproach(), online)
@@ -818,10 +819,17 @@ func TestRunBoxesRefuses(t *testing.T) {
 			t.Errorf("%s: error %v, want %q", name, err, c.want)
 		}
 	}
-	// One track's boxes filed, the other's not: the replay did not file them.
+	// One track's boxes filed, the other's not: the other's 50 estimates are
+	// gaps, and it has no trajectory.
 	seedBoxes(t, database, steadyApproach()[:1])
-	if _, err := Run(database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true}); err == nil ||
-		!strings.Contains(err.Error(), "did not record the box") {
-		t.Errorf("an estimate with no box filed: error %v", err)
+	res, err := Run(database, Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true})
+	if err != nil {
+		t.Fatalf("a version with boxes and estimates without: %v", err)
+	}
+	s := res.Summary()
+	if len(res.Trajectories) != 1 || res.BoxlessEstimates != 50 || res.UnfiledEstimates != 50 || s.BoxlessEstimates != 50 ||
+		!strings.Contains(strings.Join(s.Lines(), "\n"), "Estimates without a published box: 50 (50 with no observation row at their frame)") {
+		t.Errorf("%d trajectories, %d boxless, %d unfiled:\n%s", len(res.Trajectories), res.BoxlessEstimates,
+			res.UnfiledEstimates, strings.Join(s.Lines(), "\n"))
 	}
 }

@@ -261,6 +261,7 @@ func TestRunHeadwayFieldWritesTheReport(t *testing.T) {
 	}
 	for _, want := range []string{
 		"Status: PROVISIONAL\n", "Published boxes beside estimates: online cv_kf_v1, obb_centre_v1, sha256:online (100 rows)",
+		"Estimates without a published box: 0 (0 with no observation row at their frame)",
 		"Follower paths fitted: 2 of 2", "Encounters: 1 (1 written, 0 already stored)",
 		"Valid following time: 4.7 s of 4.9 s accounted", "suppressed extent_not_converged: 2 instants, 0.2 s",
 	} {

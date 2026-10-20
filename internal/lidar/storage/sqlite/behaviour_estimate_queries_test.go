@@ -278,3 +278,40 @@ func TestListVersionBoxesRefusesWhatWasNotFiled(t *testing.T) {
 		t.Fatalf("a final key: error %v", err)
 	}
 }
+
+// TestBoxesSharingAnAcquisitionTimeLeaveTheEarlierEstimateUnfiled: the
+// observation table keys a row by track and acquisition time, as the live
+// server does. When two consecutive frames' clusters of a track carry one
+// acquisition time, the later frame's row replaces the earlier one, and the
+// earlier estimate is read back unfiled, without a box, rather than refused.
+func TestBoxesSharingAnAcquisitionTimeLeaveTheEarlierEstimateUnfiled(t *testing.T) {
+	database, cleanup := setupTrackingPipelineTestDB(t)
+	defer cleanup()
+	store := NewFrameEvidenceStore(database)
+	defer store.Close()
+	for _, frame := range []int64{100, 200, 300} {
+		observation := testObservation(t, fmt.Sprintf("observation/v1/seam/%d", frame), "source/v1/frame", frame, frame)
+		pair := testFrameStateEstimate(observation.Snapshot().ObservationID, frame)
+		pair.Track = boxTrack(pair.Estimate.TrackID, "car", 0.75)
+		pair.Observation = boxObservation(pair.Estimate.TrackID, frame, 4.5)
+		if frame == 100 {
+			// The first frame's cluster was acquired at the seam, in the
+			// firing the second frame's cluster starts with.
+			pair.Observation.TSUnixNanos = 201
+		}
+		if err := store.InsertFrame([]l4bobserve.DetectionObservation{observation}, []FrameStateEstimate{pair}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rows, err := NewStateEstimateStore(database).ListVersionBoxes(EstimateVersionKey{SourceID: "source/v1/frame",
+		EstimatorID: "cv_kf_v1", ObservationModelID: "medoid_v0", ParamHash: "params/frame", Stage: "online"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 || rows[0].Filed || rows[0].HasBox || !rows[1].Filed || !rows[1].HasBox || !rows[2].Filed {
+		t.Fatalf("rows %+v", rows)
+	}
+	if rows[0].ClassLabel != "car" || rows[0].SensorID == "" {
+		t.Errorf("the unfiled estimate lost its track's label or sensor: %+v", rows[0])
+	}
+}

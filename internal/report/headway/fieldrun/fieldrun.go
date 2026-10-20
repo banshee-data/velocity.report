@@ -81,12 +81,18 @@ type Spec struct {
 // Result is one run: what it read, what it derived and what it stored.
 type Result struct {
 	// SolidBodies and Boxes record which rows the run read; see Spec.
-	SolidBodies  bool
-	Boxes        bool
-	Estimates    sqlite.EstimateVersion
-	Trajectories []l8behaviour.Trajectory
-	Params       l8behaviour.FollowingAnalysisParams
-	Analysis     l8behaviour.FollowingAnalysis
+	SolidBodies bool
+	Boxes       bool
+	// BoxlessEstimates counts, on a box run, the online estimates with no
+	// published box filed beside them, which are gaps rather than samples;
+	// UnfiledEstimates counts those of them with no observation row at all
+	// (see sqlite.BoxWithEstimate.Filed).
+	BoxlessEstimates int
+	UnfiledEstimates int
+	Estimates        sqlite.EstimateVersion
+	Trajectories     []l8behaviour.Trajectory
+	Params           l8behaviour.FollowingAnalysisParams
+	Analysis         l8behaviour.FollowingAnalysis
 	// Version is the interaction version every encounter carries.
 	Version      l8behaviour.InteractionVersion
 	Interactions []l8behaviour.FollowingInteraction
@@ -120,11 +126,12 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 		ParamHash: version.ParamHash, Stage: version.Stage,
 	}
 	var trajectories []l8behaviour.Trajectory
+	var boxless, unfiled int
 	switch {
 	case spec.SolidBodies:
 		trajectories, err = solidBodyTrajectories(estimates, key)
 	case spec.Boxes:
-		trajectories, err = boxTrajectories(estimates, key)
+		trajectories, boxless, unfiled, err = boxTrajectories(estimates, key)
 	default:
 		trajectories, err = estimateTrajectories(estimates, key)
 	}
@@ -147,8 +154,8 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 		obsModel = l8behaviour.BoxObservationModelID(obsModel)
 	}
 	res := Result{
-		SolidBodies: spec.SolidBodies, Boxes: spec.Boxes, Estimates: version, Trajectories: trajectories, Params: params,
-		Analysis: analysis,
+		SolidBodies: spec.SolidBodies, Boxes: spec.Boxes, BoxlessEstimates: boxless, UnfiledEstimates: unfiled,
+		Estimates: version, Trajectories: trajectories, Params: params, Analysis: analysis,
 		Version: l8behaviour.InteractionVersion{
 			EstimateStage: spec.Stage, EstimatorID: version.EstimatorID, ObsModelID: obsModel,
 			MethodID: l8behaviour.FollowingEncounterMethodID + "/" + analysis.ParamsHash, ParamHash: version.ParamHash,
@@ -201,13 +208,22 @@ func solidBodyTrajectories(store *sqlite.StateEstimateStore, key sqlite.Estimate
 	return l8behaviour.TrajectoriesFromSolidBodies(persisted, l5tracks.DefaultConvergenceBounds())
 }
 
-func boxTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateVersionKey) ([]l8behaviour.Trajectory, error) {
+// boxTrajectories reads one version's boxes, and counts the estimates with no
+// box filed and, of them, those with no observation row.
+func boxTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateVersionKey) (
+	trajectories []l8behaviour.Trajectory, boxless, unfiled int, err error) {
 	rows, err := store.ListVersionBoxes(key)
 	if err != nil {
-		return nil, err
+		return nil, 0, 0, err
 	}
 	persisted := make([]l8behaviour.PersistedBox, len(rows))
 	for i, r := range rows {
+		if !r.HasBox {
+			boxless++
+		}
+		if !r.Filed {
+			unfiled++
+		}
 		persisted[i] = l8behaviour.PersistedBox{
 			TrackID: r.TrackID, SensorID: r.SensorID, FrameUnixNanos: r.FrameUnixNanos,
 			EstimatorID: r.EstimatorID, ObsModelID: r.ObservationModelID, ParamHash: r.ParamHash, Stage: r.Stage,
@@ -218,7 +234,8 @@ func boxTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateVersio
 			ClassLabel: r.ClassLabel, ClassConfidence: r.ClassConfidence,
 		}
 	}
-	return l8behaviour.TrajectoriesFromBoxes(persisted, l5tracks.DefaultConvergenceBounds())
+	trajectories, err = l8behaviour.TrajectoriesFromBoxes(persisted, l5tracks.DefaultConvergenceBounds())
+	return trajectories, boxless, unfiled, err
 }
 
 // table names what a run reads; a box run reads the observations' boxes
@@ -435,6 +452,10 @@ func Report(r Result) (headway.Report, error) {
 // Summary is the run in figures, for the command line and for review.
 type Summary struct {
 	Tracks, Samples int
+	// Boxes marks a box run, whose BoxlessEstimates and UnfiledEstimates
+	// are Result's.
+	Boxes                              bool
+	BoxlessEstimates, UnfiledEstimates int
 	// PathsFitted counts followers whose local path was fitted; PathRefusals
 	// counts the rest by their first condition.
 	PathsFitted  int
@@ -458,6 +479,7 @@ type Summary struct {
 func (r Result) Summary() Summary {
 	s := Summary{
 		Tracks: len(r.Trajectories), PathRefusals: map[l8behaviour.PathCondition]int{},
+		Boxes: r.Boxes, BoxlessEstimates: r.BoxlessEstimates, UnfiledEstimates: r.UnfiledEstimates,
 		Encounters: len(r.Analysis.Encounters), Suppressed: map[l8behaviour.SuppressionReason]l8behaviour.SuppressionCount{},
 		InstantReasons: map[l8behaviour.SuppressionReason]int{},
 		Written:        len(r.Interactions) - r.AlreadyStored, AlreadyStored: r.AlreadyStored,
@@ -500,8 +522,12 @@ func (s Summary) Lines() []string {
 	seconds := func(n int64) string { return fmt.Sprintf("%.1f s", float64(n)/1e9) }
 	out := []string{
 		fmt.Sprintf("Tracks: %d (%d samples)", s.Tracks, s.Samples),
-		fmt.Sprintf("Follower paths fitted: %d of %d", s.PathsFitted, s.Tracks),
 	}
+	if s.Boxes {
+		out = append(out, fmt.Sprintf("Estimates without a published box: %d (%d with no observation row at their frame)",
+			s.BoxlessEstimates, s.UnfiledEstimates))
+	}
+	out = append(out, fmt.Sprintf("Follower paths fitted: %d of %d", s.PathsFitted, s.Tracks))
 	for _, c := range l8behaviour.PathConditions() {
 		if n := s.PathRefusals[c]; n > 0 {
 			out = append(out, fmt.Sprintf("  refused %s: %d", c, n))
