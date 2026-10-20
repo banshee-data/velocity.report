@@ -352,7 +352,12 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `class_identity`, `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name) and `box_ground` (which needs the box model). An arm that uses one runs through the offline replay tools,
-and its report names the experiment beside the set. The whole-track arm of `fixed_lag_rts` is
+and its report names the experiment beside the set. `velocity lidar pcap-replay --experiment`
+takes the same names and combination rules as `lidar-state-estimation-baseline -experiment`,
+and is the tool that records such an arm's foreground-complete observation VRLOG
+(`--observations`). It refuses `coast_support`, `class_coast_bounds` and `occlusion_continuity`,
+which need a coverage declaration it does not take, and `solid_body` without `near_edge_track`,
+which writes only to an evidence database it does not write. The whole-track arm of `fixed_lag_rts` is
 also what `velocity scene export --smoothed-trail` draws, from the filter record every replay
 has recorded beside its VRLOG since October 2026 (`filter_record.ndjson.gz`); the export's
 header names the trail's estimator and stage.
