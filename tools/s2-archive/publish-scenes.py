@@ -17,7 +17,7 @@ Run directly only when you want something the target does not offer:
     python3 tools/s2-archive/publish-scenes.py            # everything outstanding
     python3 tools/s2-archive/publish-scenes.py laguna-eddy  # or named sites
 
-Three settings matter and none is the default:
+Four settings matter:
 
   REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5
       Half speed was chosen in September from one capture, where analysis mode
@@ -35,15 +35,19 @@ Three settings matter and none is the default:
       to the server's --lidar-config-dir; make dev-go-lidar sets that to
       config/.
 
-  REPLAY_SETTLE=0
-      settle_before_recording replays the same window twice, settling on the
-      first pass. That trains the background model on the very traffic the
-      recording exists to show, and it is then suppressed. The opening
-      transient it was added for is dropped at export instead, by --start-frame.
+  REPLAY_SETTLE=1
+      settle_before_recording replays the same window twice: the first pass
+      settles the background model and is not recorded, the second records
+      from the window's first rotation with that model already settled. A
+      published scene is for the web, so it keeps everything the capture
+      holds, and the export starts at the first rotation. Without the settling
+      pass (REPLAY_SETTLE=0) the recording opens on the model's transient, and
+      the export drops its first TRANSIENT_FRAMES rotations, 40 s of every
+      scene, to hide it. The cost is a second pass, which doubles the replay.
 
 The environment the batch expects, in full:
 
-    REPLAY_SETTLE=0 REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5 \
+    REPLAY_SETTLE=1 REPLAY_SPEED_MODE=scaled REPLAY_SPEED_RATIO=0.5 \
       REPLAY_TUNING_CONFIG=tuning.defaults.json \
       python3 tools/s2-archive/publish-scenes.py
 
@@ -141,6 +145,17 @@ SCENES = os.path.join(REPO, "public_html", "src", "scenes")
 
 STRIDE = "2"
 TRANSIENT_FRAMES = 400  # 40 s at 10 Hz, dropped at export not at record
+
+
+def start_frame():
+    """The first rotation a scene exports: the transient's end, unless settled.
+
+    A settled recording opens on a settled model, so it has no transient to
+    drop; an unsettled one opens on the model learning the street.
+    """
+    return 0 if SETTLE else TRANSIENT_FRAMES
+
+
 POLL_SECONDS = 20
 # The per-frame foreground cap and chunk span the published point-cloud clip was
 # made with (docs/plans/lidar-web-scene-export-plan.md, item 5): 10-second chunks
@@ -375,9 +390,12 @@ def carry_over(vrlog, live, assets, site, title):
     clip, whose manifest records which 30 seconds were selected and why.
     Dropping them leaves a page asking for a clip that is no longer there.
     The vantages are copied as they are. The clip is exported again from the
-    new recording over the same source frames, so it stays aligned with the
-    tracks it plays under and names the recording it came from; its manifest,
-    being the record of the selection, is kept as it was.
+    new recording, for as many frames as were selected, so it names the
+    recording it came from. It starts where the tracks start, start_frame():
+    the player overlays it from scene time 0 and hides it unless the two
+    exports share a start_ns (sceneSourcesAlign). Its manifest, the record of
+    the selection, is kept as it was, but for source_start_frame when the
+    scene's start has moved, as it does when the recording is settled.
     """
     vantages = os.path.join(live, "vantages.json")
     if os.path.exists(vantages):
@@ -389,10 +407,11 @@ def carry_over(vrlog, live, assets, site, title):
         try:
             manifest = json.load(fh)
             selection = manifest["selection"]
-            start_frame = selection["source_start_frame"]
+            selected_start = selection["source_start_frame"]
             frame_count = selection["source_frame_count"]
         except (json.JSONDecodeError, KeyError, TypeError) as error:
             raise RuntimeError(f"bad clip manifest {clip_manifest}: {error}") from error
+    start = start_frame()
     clip = os.path.join(assets, "clip")
     os.makedirs(clip, exist_ok=True)
     export(
@@ -403,7 +422,7 @@ def carry_over(vrlog, live, assets, site, title):
         kind="clip",
         extra=[
             "--start-frame",
-            str(start_frame),
+            str(start),
             "--frame-count",
             str(frame_count),
             "--max-points",
@@ -412,7 +431,13 @@ def carry_over(vrlog, live, assets, site, title):
             str(CLIP_CHUNK_SECONDS),
         ],
     )
-    shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
+    if start == selected_start:
+        shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
+        return
+    selection["source_start_frame"] = start
+    with open(os.path.join(clip, "manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
 
 
 def write_assets_manifest(assets, site, title):
@@ -463,7 +488,7 @@ def build_scene(scene):
     log(f"  vrlog in {(time.time() - started) / 60:.1f} min: {os.path.basename(vrlog)}")
 
     summary = export(
-        vrlog, part, site, title, extra=["--start-frame", str(TRANSIENT_FRAMES)]
+        vrlog, part, site, title, extra=["--start-frame", str(start_frame())]
     )
     for line in summary.splitlines()[1:]:
         log("    " + line.strip())
@@ -794,8 +819,10 @@ def report_status(scenes, problems):
     )
     if outstanding:
         # At half speed a replay takes twice the recording, and the export adds
-        # a little on top. Two and a bit is close enough to plan an evening by.
-        print(f"outstanding work is about {minutes * 2.2 / 60:.1f} h of replay")
+        # a little on top. Two and a bit is close enough to plan an evening by;
+        # the settling pass replays the window twice, so it doubles that.
+        factor = 2.2 * (2 if SETTLE else 1)
+        print(f"outstanding work is about {minutes * factor / 60:.1f} h of replay")
     return 1 if problems else 0
 
 
