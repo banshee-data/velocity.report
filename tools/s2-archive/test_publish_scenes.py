@@ -417,6 +417,9 @@ class CarryOverTests(unittest.TestCase):
             return fh.read()
 
     def test_a_clip_is_exported_again_over_its_recorded_frames(self):
+        patched = mock.patch.object(publish_scenes, "SETTLE", False)
+        patched.start()
+        self.addCleanup(patched.stop)
         manifest = self.write(
             "clip/manifest.json",
             json.dumps(
@@ -446,6 +449,28 @@ class CarryOverTests(unittest.TestCase):
         )
         # The manifest records the selection, so it is kept, not remade.
         self.assertEqual(self.read("clip/manifest.json"), manifest)
+
+    def test_a_settled_scene_starts_its_clip_where_its_tracks_start(self):
+        # The player overlays the clip from scene time 0 and hides it unless
+        # both exports share a start_ns, so the clip follows the tracks to 0.
+        patched = mock.patch.object(publish_scenes, "SETTLE", True)
+        patched.start()
+        self.addCleanup(patched.stop)
+        selection = {
+            "source_start_frame": 400,
+            "source_frame_count": 301,
+            "method": "Highest 30-second window",
+        }
+        self.write(
+            "clip/manifest.json",
+            json.dumps({"fade_out_seconds": 5, "selection": selection}),
+        )
+        self.carry_over()
+        extra = self.export.call_args.kwargs["extra"]
+        self.assertEqual(extra[:4], ["--start-frame", "0", "--frame-count", "301"])
+        written = json.loads(self.read("clip/manifest.json"))
+        self.assertEqual(written["fade_out_seconds"], 5)
+        self.assertEqual(written["selection"], {**selection, "source_start_frame": 0})
 
     def test_vantages_are_kept_as_they_are(self):
         vantages = self.write("vantages.json", '{"vantages": []}\n')

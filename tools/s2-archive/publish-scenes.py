@@ -389,9 +389,12 @@ def carry_over(vrlog, live, assets, site, title):
     clip, whose manifest records which 30 seconds were selected and why.
     Dropping them leaves a page asking for a clip that is no longer there.
     The vantages are copied as they are. The clip is exported again from the
-    new recording over the same source frames, so it stays aligned with the
-    tracks it plays under and names the recording it came from; its manifest,
-    being the record of the selection, is kept as it was.
+    new recording, for as many frames as were selected, so it names the
+    recording it came from. It starts where the tracks start, start_frame():
+    the player overlays it from scene time 0 and hides it unless the two
+    exports share a start_ns (sceneSourcesAlign). Its manifest, the record of
+    the selection, is kept as it was, but for source_start_frame when the
+    scene's start has moved, as it does when the recording is settled.
     """
     vantages = os.path.join(live, "vantages.json")
     if os.path.exists(vantages):
@@ -403,10 +406,11 @@ def carry_over(vrlog, live, assets, site, title):
         try:
             manifest = json.load(fh)
             selection = manifest["selection"]
-            start_frame = selection["source_start_frame"]
+            selected_start = selection["source_start_frame"]
             frame_count = selection["source_frame_count"]
         except (json.JSONDecodeError, KeyError, TypeError) as error:
             raise RuntimeError(f"bad clip manifest {clip_manifest}: {error}") from error
+    start = start_frame()
     clip = os.path.join(assets, "clip")
     os.makedirs(clip, exist_ok=True)
     export(
@@ -417,7 +421,7 @@ def carry_over(vrlog, live, assets, site, title):
         kind="clip",
         extra=[
             "--start-frame",
-            str(start_frame),
+            str(start),
             "--frame-count",
             str(frame_count),
             "--max-points",
@@ -426,7 +430,13 @@ def carry_over(vrlog, live, assets, site, title):
             str(CLIP_CHUNK_SECONDS),
         ],
     )
-    shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
+    if start == selected_start:
+        shutil.copy2(clip_manifest, os.path.join(clip, "manifest.json"))
+        return
+    selection["source_start_frame"] = start
+    with open(os.path.join(clip, "manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+        fh.write("\n")
 
 
 def write_assets_manifest(assets, site, title):
