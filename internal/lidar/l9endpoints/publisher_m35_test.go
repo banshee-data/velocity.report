@@ -31,7 +31,8 @@ func TestPublisher_ShouldSendBackground(t *testing.T) {
 		backgroundMgr      BackgroundManagerInterface
 		lastBackgroundSeq  uint64
 		lastBackgroundSent time.Time
-		backgroundInterval time.Duration
+		everyFrames        int
+		framesSince        int
 		currentSeq         uint64
 		expectSend         bool
 	}{
@@ -59,13 +60,14 @@ func TestPublisher_ShouldSendBackground(t *testing.T) {
 			expectSend:         true,
 		},
 		{
-			name: "Interval elapsed",
+			name: "Rotations elapsed",
 			backgroundMgr: &mockBackgroundManager{
 				sequenceNumber: 1,
 			},
 			lastBackgroundSeq:  1,
-			lastBackgroundSent: time.Now().Add(-31 * time.Second),
-			backgroundInterval: 30 * time.Second,
+			lastBackgroundSent: time.Now(),
+			everyFrames:        300,
+			framesSince:        300,
 			expectSend:         true,
 		},
 		{
@@ -74,24 +76,46 @@ func TestPublisher_ShouldSendBackground(t *testing.T) {
 				sequenceNumber: 1,
 			},
 			lastBackgroundSeq:  1,
-			lastBackgroundSent: time.Now().Add(-10 * time.Second),
-			backgroundInterval: 30 * time.Second,
+			lastBackgroundSent: time.Now(),
+			everyFrames:        300,
+			framesSince:        299,
 			expectSend:         false,
+		},
+		{
+			// Wall-clock time no longer schedules the refresh: an hour since
+			// the last snapshot with few rotations is not a reason to send.
+			name: "Wall clock elapsed but not the rotations",
+			backgroundMgr: &mockBackgroundManager{
+				sequenceNumber: 1,
+			},
+			lastBackgroundSeq:  1,
+			lastBackgroundSent: time.Now().Add(-time.Hour),
+			everyFrames:        300,
+			framesSince:        10,
+			expectSend:         false,
+		},
+		{
+			name: "Unset interval takes the default",
+			backgroundMgr: &mockBackgroundManager{
+				sequenceNumber: 1,
+			},
+			lastBackgroundSeq:  1,
+			lastBackgroundSent: time.Now(),
+			framesSince:        DefaultBackgroundEveryFrames,
+			expectSend:         true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := DefaultConfig()
-			cfg.BackgroundInterval = tt.backgroundInterval
-			if cfg.BackgroundInterval == 0 {
-				cfg.BackgroundInterval = 30 * time.Second
-			}
+			cfg.BackgroundEveryFrames = tt.everyFrames
 
 			p := NewPublisher(cfg)
 			p.backgroundMgr = tt.backgroundMgr
 			p.lastBackgroundSeq = tt.lastBackgroundSeq
 			p.lastBackgroundSent = tt.lastBackgroundSent
+			p.framesSinceBackground = tt.framesSince
 
 			got := p.shouldSendBackground()
 			if got != tt.expectSend {

@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strings"
 	"testing"
-	"time"
 )
 
 // The settle-before-recording flow settles the grid on a first pass, restores
@@ -72,7 +71,7 @@ func inputWithID(t *testing.T, page, idPrefix string) string {
 // captured in: one on disk carries its background at frame 2 and another at
 // frame 116, and the second is the one that looks broken.
 func TestRecordingOpensWithABackgroundSnapshot(t *testing.T) {
-	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Minute})
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 600})
 	pub.backgroundMgr = &settlingBackgroundManager{seq: 3, settled: true}
 	pub.running.Store(true)
 
@@ -104,7 +103,7 @@ func TestRecordingOpensWithABackgroundSnapshot(t *testing.T) {
 
 // A replay owns the stream, so a live snapshot must not be injected into one.
 func TestNoBackgroundSnapshotDuringReplay(t *testing.T) {
-	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Minute})
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 600})
 	pub.backgroundMgr = &settlingBackgroundManager{seq: 3, settled: true}
 	pub.running.Store(true)
 	rec := &capturingRecorder{}
@@ -135,7 +134,7 @@ func (r *capturingRecorder) Record(frame *FrameBundle) error {
 // from a cold pipeline therefore cannot open with a background, which is why the
 // settle-before-recording flow runs a settling pass first.
 func TestBackgroundSnapshotIsDeferredBeforeAnyForegroundFrame(t *testing.T) {
-	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Minute})
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 600})
 	pub.backgroundMgr = &settlingBackgroundManager{seq: 3, settled: true}
 	pub.running.Store(true)
 

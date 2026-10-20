@@ -450,7 +450,7 @@ func TestPublisher_SetBackgroundManager(t *testing.T) {
 func TestPublisher_Publish_WithBackgroundManager(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.ListenAddr = "localhost:0"
-	cfg.BackgroundInterval = 24 * time.Hour // Long interval to prevent auto-send
+	cfg.BackgroundEveryFrames = 1 << 30 // Long interval to prevent auto-send
 	pub := NewPublisher(cfg)
 
 	// Set up mock background manager

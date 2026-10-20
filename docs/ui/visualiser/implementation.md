@@ -219,7 +219,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 - `FrameType` enum added to protobuf: `FULL`, `FOREGROUND`, `BACKGROUND`, `DELTA`
 - `BackgroundSnapshot` and `GridMetadata` messages added to protobuf schema
 - `GenerateBackgroundSnapshot()` on `BackgroundManager` converts settled polar grid → Cartesian point cloud
-- Publisher schedules background every 30s (configurable via `BackgroundInterval`)
+- Publisher schedules background every 300 rotations, 30 s at 10 Hz (configurable via `BackgroundEveryFrames`). It counted wall-clock time until October 2026, which made a recording's snapshot count depend on the replay's speed
 - `CheckForSensorMovement()` detects >20% foreground ratio (configurable)
 - `CheckBackgroundDrift()` monitors cell drift >0.5m across >10% of cells (configurable)
 - Sequence number increments on grid reset for client cache coherence
@@ -233,7 +233,7 @@ See [velocity-visualiser-architecture.md §10](./architecture.md#10-performance-
 - [x] Add `BackgroundSnapshot` message to protobuf schema
 - [x] Implement `GenerateBackgroundSnapshot()` on BackgroundManager
 - [x] Add background snapshot scheduling to Publisher (30s default)
-- [~] Add `--vis-background-interval` CLI flag (configured via `BackgroundInterval` field)
+- [~] Add `--vis-background-interval` CLI flag (configured via `BackgroundEveryFrames` field)
 - [x] Implement foreground-only frame adaptation in FrameAdapter
 - [x] Add sensor movement detection (`CheckForSensorMovement`)
 - [x] Add background drift detection (`CheckBackgroundDrift`)
