@@ -90,6 +90,11 @@ type Reference struct {
 	// Summary is the policy's mapping over the whole sidecar, before episodes.
 	Summary  annotation.ReferenceSummary
 	Episodes []EpisodeReference
+	// ObjectClasses is each object's label in the bound annotation revision,
+	// for measures that read the label beside the position. It is not part
+	// of the digest: the reference series are, and a label change that moved
+	// no position changes no MOT number.
+	ObjectClasses map[string]string
 }
 
 // LoadReference opens the pack, the split manifest and the annotation
@@ -142,7 +147,10 @@ func loadBoundReference(opts ReferenceOptions) (*Reference, *boundReference, err
 		bySample[p.SampleID] = append(bySample[p.SampleID], p)
 	}
 
-	ref := &Reference{Summary: summary}
+	ref := &Reference{Summary: summary, ObjectClasses: map[string]string{}}
+	for _, p := range points {
+		ref.ObjectClasses[p.ObjectID] = p.Class
+	}
 	for _, ep := range episodes {
 		er, err := buildEpisode(pack, ep, bySample, opts.Policy)
 		if err != nil {

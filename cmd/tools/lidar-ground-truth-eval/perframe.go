@@ -129,6 +129,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	physicalRevision := fs.Int("physical-reference-revision", 0, "physical reference revision to score (default: the current one, or the revision a frozen split pins, which this must then equal); recorded either way")
 	physicalGate := fs.Float64("physical-gate-metres", perframeeval.DefaultPhysicalGateMetres, "how far a prediction's point may be from a reference body centre (or anchor) and still correspond to it")
 	bundleDir := fs.String("physical-bundle-dir", "", "write a verification bundle of the physical scoring to this new or empty directory: pinned inputs, options and outputs (needs -physical-reference; check it with verify-bundle)")
+	class := fs.Bool("class", false, "also report each arm's class measure (JSON key class): the class the following gate reads from the tracks matched to each reviewed object, per frame and at the track's end; needs the arms' solid-body rows (replay -experiment solid_body)")
 	jsonPath := fs.String("json", "", "comparison JSON path (default: stdout)")
 	markdownPath := fs.String("markdown", "", "comparison Markdown path (optional)")
 	armA := registerArm(fs, "a", "A")
@@ -198,6 +199,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 		Score: score,
 		A:     armA.spec(),
 		B:     armB.spec(),
+		Class: *class,
 	}
 	if *physical {
 		opts := perframeeval.DefaultPhysicalOptions()
@@ -246,9 +248,26 @@ func printPerFrameSummary(stderr io.Writer, c *perframeeval.Comparison) {
 				arm.Summary.Following.Scored, arm.Summary.Following.MeanAbsError)
 		}
 	}
+	if k := c.Class; k != nil {
+		for _, arm := range []perframeeval.ClassResult{k.A, k.B} {
+			v, f := arm.Vehicles, arm.FalseApplicability
+			fmt.Fprintf(stderr, "%s class: %d/%d reviewed vehicles end rigid (%.3f), %d/%d vehicle frames rigid (%.3f), track age at first rigid median %s p90 %s (%d never); %d/%d pedestrians and two-wheelers end rigid\n",
+				arm.Arm.Label, v.EndRigid, v.Objects, v.EndRigidShare, v.RigidFrames, v.Frames, v.RigidFrameShare,
+				seconds(v.TrackAgeAtFirstRigid.Median), seconds(v.TrackAgeAtFirstRigid.P90), v.TrackAgeAtFirstRigid.Never,
+				f.EndRigid, f.Objects)
+		}
+	}
 	for _, cv := range c.Caveats {
 		fmt.Fprintf(stderr, "caveat: %s\n", cv)
 	}
+}
+
+// seconds prints an optional duration, or "-" when there is none.
+func seconds(v *float64) string {
+	if v == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%.1f s", *v)
 }
 
 func usageError(fs *flag.FlagSet, stderr io.Writer, err error) int {

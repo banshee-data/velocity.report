@@ -29,6 +29,10 @@
 //
 //	lidar-ground-truth-eval perframe -pack DIR -split-manifest FILE -split NAME -a-db DB -b-db DB ...
 //
+// With -class, perframe also reports each arm's class measure: the class the
+// following gate reads from the tracks matched to each reviewed object, per
+// frame and at the track's end (perframeeval/class.go).
+//
 // With -physical-reference and -physical-bundle-dir DIR, perframe also writes
 // a verification bundle of the physical scoring (bundle.go), which
 // verify-bundle re-checks against the pinned inputs and re-runs:
