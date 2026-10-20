@@ -350,11 +350,17 @@ class ReportStatusTests(unittest.TestCase):
         self.assertNotIn("of replay", text)
 
     def test_an_unmarked_scene_is_outstanding_and_carries_an_estimate(self):
-        code, text = self.capture_report([self.scene("laguna-eddy", 20.0)], [])
+        with mock.patch.object(publish_scenes, "SETTLE", False):
+            code, text = self.capture_report([self.scene("laguna-eddy", 20.0)], [])
         self.assertEqual(code, 0)
         self.assertIn("OUTSTANDING", text)
         self.assertIn("0 published, 1 outstanding", text)
         self.assertIn("about 0.7 h of replay", text)
+
+    def test_the_settling_pass_doubles_the_estimate(self):
+        with mock.patch.object(publish_scenes, "SETTLE", True):
+            _, text = self.capture_report([self.scene("laguna-eddy", 20.0)], [])
+        self.assertIn("about 1.5 h of replay", text)
 
     def test_an_unresolved_site_makes_the_status_fail(self):
         self.mark("laguna-eddy")
@@ -364,6 +370,20 @@ class ReportStatusTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("UNRESOLVED", text)
         self.assertIn("1 unresolved", text)
+
+
+class StartFrameTests(unittest.TestCase):
+    """A settled recording keeps its opening; an unsettled one drops the transient."""
+
+    def test_a_settled_recording_exports_from_its_first_rotation(self):
+        with mock.patch.object(publish_scenes, "SETTLE", True):
+            self.assertEqual(publish_scenes.start_frame(), 0)
+
+    def test_an_unsettled_recording_drops_the_transient(self):
+        with mock.patch.object(publish_scenes, "SETTLE", False):
+            self.assertEqual(
+                publish_scenes.start_frame(), publish_scenes.TRANSIENT_FRAMES
+            )
 
 
 class CarryOverTests(unittest.TestCase):

@@ -8,9 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 20, 2026 - Decisions carried from prepared evidence through voice to integration
+## October 20, 2026 - Decisions carried through voice to integration, and published scenes that settle first
 
 - {codex/decision-review-skill} Added `/decision-review`, `/decision-review-voice`, and `/decision-review-integrate`: high-capability preparation of open project, schema, maths, and research questions, lightweight discussion that saves confirmed choices as ready for integration, and high-capability review that updates downstream dependencies or returns focused questions to voice. A versioned packet carries source provenance, options, superseding decisions, follow-ups, and PR checkpoints: [workflow](platform/operations/decision-review.md).
+- {scenes/settle-default} Made the settling pass the scene default (`SCENE_SETTLE=1`): a published scene is for the web, so it keeps everything the capture holds. The first pass settles the background model unrecorded and the recorded pass starts settled, so the export now starts at the first rotation; without settling it still drops the first 400 rotations (40 s of every scene) as the model's transient. `scene-assets-status` doubles its estimate when settling, which doubles the replay.
 
 ## October 19, 2026 - Replays that start from nothing, and whether the defaults' L3 loses tracks
 

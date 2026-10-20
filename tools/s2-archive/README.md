@@ -232,23 +232,26 @@ corpus is about 506 minutes of recording, which at half speed is a long
 evening — `scene-assets-status` prints the estimate before you commit to it.
 
 Two settings are not the pipeline defaults, and the targets supply both:
-replay runs at half speed, because analysis mode reads packets faster than the
-background model settles; and the settling pass is off, because it would train
-that model on the very traffic the recording exists to show. The reasoning is
-in `publish-scenes.py`. Override them with `SCENE_SPEED_RATIO`, `SCENE_SETTLE`
+replay runs at half speed, until perf0003 decides the speed; and the settling
+pass is on. It replays each window once unrecorded to settle the background
+model, so the recorded pass starts settled and the export keeps every rotation
+of the capture, where an unsettled recording loses its first 40 s to the
+model's transient. It doubles the replay. The reasoning is in
+`publish-scenes.py`. Override them with `SCENE_SPEED_RATIO`, `SCENE_SETTLE`
 and `SCENE_SPEED_MODE` if an experiment needs different ones.
 
 ### Replay speed
 
-Half speed costs a full rebuild about 18 hours, and the evidence for it is one
-capture. The pipeline has changed under that evidence: the L3 warm-up now runs
-on capture time, not wall clock, so the stated reason may no longer hold. Until
-October 2026 a scaled replay also substituted its own L3 settings for the tuning
-file's (closeness 2 against 3, safety margin 0.30 m against 0.15, neighbour
-confirmation 5 against 3), so the analysis-against-half-speed comparison it
-rests on compared two L3 configurations as well as two speeds. Every scene
-published before then ran those substituted settings, though its header records
-the tuning file's hash; since #782 every replay runs the file as written, and
+Half speed costs a full rebuild about 18 hours, twice that with the settling
+pass, and the evidence for it is one capture. The pipeline has changed under
+that evidence: the L3 warm-up now runs on capture time, not wall clock, so the
+stated reason may no longer hold. Until October 2026 a scaled replay also
+substituted its own L3 settings for the tuning file's (closeness 2 against 3,
+safety margin 0.30 m against 0.15, neighbour confirmation 5 against 3), so the
+analysis-against-half-speed comparison it rests on compared two L3
+configurations as well as two speeds. Every scene published before then ran
+those substituted settings, though its header records the tuning file's hash;
+since #782 every replay runs the file as written, and
 [l3bg0023](../../data/experiments/l3bg/l3bg0023.md) decides, before the scenes
 are republished, whether the defaults should carry any of the three keys so the
 scenes do not lose real tracks. Whether analysis mode records every frame and
