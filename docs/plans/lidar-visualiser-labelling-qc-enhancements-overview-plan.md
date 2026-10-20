@@ -3,7 +3,7 @@
 This roadmap makes track-level quality review explainable and auditable. Point membership
 annotation is a separate workflow, even where the two share playback and display controls.
 
-- **Status:** Proposed; the seven-feature suite is not delivered by this branch
+- **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed; the seven-feature suite is not delivered by this branch
 - **Layers:** L9 Endpoints, L10 Clients
 - **Canonical:** [qc-enhancements-overview.md](../ui/visualiser/qc-enhancements-overview.md)
 

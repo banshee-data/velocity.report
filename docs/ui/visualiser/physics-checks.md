@@ -1,5 +1,6 @@
 # Physics checks and confirmation gates
 
+- **Status:** Design, not built. This page describes a proposed feature; nothing on it ships yet, and the source plan owns the intent (D-33)
 - **Source plan:** [docs/plans/lidar-visualiser-physics-checks-and-confirmation-gates-plan.md](../../plans/lidar-visualiser-physics-checks-and-confirmation-gates-plan.md)
 
 Automatic physics violation detection and review-gate state model for track confirmation.

@@ -4,13 +4,13 @@ This sprint connects the merged estimation and headway components into one repla
 a physical trajectory, a following measurement, and a distance layer that explains every number.
 The first exit is a working provisional MVP; field promotion requires separate evidence.
 
-- **Status:** Planned; #614 advanced S0–S3, S5 and S7 in part (see [progress](#progress-after-614))
+- **Status:** Active; v0.5.2 closes at exit A plus the gate ledger (the owner, October 20, 2026; see [scope](#sprint-outcome-and-scope)). #614 advanced S0–S3, S5 and S7 in part (see [progress](#progress-after-614))
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
 - **Scope:** Remaining 0.5.2.0–0.5.2.4 work after #596–609, #611 and #614
 - **Acceptance platform:** macOS on Apple Silicon; stationary, single-sensor captures first
 - **Review:** [merged-batch audit and fresh evidence](../lidar/operations/0.5.2-sprint-review.md)
 - **Owners:** [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [VRLOG](lidar-vrlog-observation-format-plan.md), [visual design](../ui/DESIGN.md)
-- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---tailgating-metric--distribution-052)
+- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---following-distance-mvp--vocabulary-renames-052)
 - **Reference tooling:** [segment finder and Svelte segments page](https://github.com/banshee-data/velocity.report/pull/615)
 
 ## Sprint outcome and scope
@@ -35,6 +35,18 @@ gate. A partial observed span is a lower bound, not a measured full length.
 Aim to complete A and gather B's evidence this sprint. Do not promise B before the references and
 measurements exist, and do not relabel A as completed physical validation. A `final` estimate may
 still produce a provisional product; inference finality and validation status are separate axes.
+
+**Decided, October 20, 2026.** The owner set v0.5.2's close at exit A plus the gate ledger: the
+release ships when exit A is delivered and the [ledger](#evidence-and-promotion-ledger) records
+each gate's held-out result as pass, fail or insufficient evidence, with its evidence bundle.
+Field output stays provisional. Exit B and the promotion row move after the gates' inputs: W1a to
+W5 and the slope-aware ground surface in v0.5.4, G-GEO-1 acceptance in v0.5.5, G-UNC-1 and G-SMO-1
+acceptance in v0.5.6, and promotion in v0.5.7. To keep v0.5.2 at twelve rows, S2's remaining
+near-edge decision, S3's empty-frame lifecycle and S6's distance layer joined it, the promotion row
+left, and scene source binding merged into the S7 report row. The owner then put the three D-31
+vocabulary renames in v0.5.2 as well. To make room, exit B's evidence moved to v0.5.3: the
+reference pilot, the physical scoring criteria and the following gate completeness. The ledger
+records any gate they have not reached by the cut as insufficient evidence.
 
 No CA/CTRV/IMM, lane map, global scene graph, shell catalogue, mobile ego-motion or new composite
 driver score is needed. Complete the offline Mac path before expanding live deployment. The
@@ -328,6 +340,24 @@ and suppressed opportunity, and wrong-leader tolerance. Choose these against the
 resolution and independently measurable reference precision on tuning data. This review does not
 invent field-calibrated limits. A missing threshold or unobservable bumper makes the gate
 **insufficient evidence**, never pass.
+
+### Following gate completeness: state on October 20, 2026
+
+The backlog item for this gate names what remains; this section holds the narrative it used to
+carry. The gate needs split digests, independent pair and no-leader truth with wrong-leader
+checks, expected strata and reference uncertainty, and what the v2 statistical review found:
+per-stratum unmatched and unscorable shares, interval verdicts from a bootstrap over encounters,
+encounters counted by body rather than by track-id pair, and an unmatched share that is a true
+miss rate ([review R6](../lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate)).
+
+| Piece                       | State                                                                                                                                                                                                                                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Split vehicles as followers | A vehicle seen as two tracks (a truck's cab and body, l5id0001) reads as a follower at a gap of a metre or less. The gate must count such pairs; l5id0004's overlap end does not remove them while both tracks hold clusters ([report](../lidar/operations/l5-duplicate-tracks-2026-10.md)) |
+| Independent leader truth    | Exists: reviewed following records (#714) carry a leader, `no_leader` or `ambiguous`                                                                                                                                                                                                        |
+| Scorer reads the records    | Open: the physical scorer does not yet read the reviewed following records                                                                                                                                                                                                                  |
+| Bodies counted by object id | Open                                                                                                                                                                                                                                                                                        |
+| Bootstrap verdict           | Open: an interval over encounters, not a point estimate                                                                                                                                                                                                                                     |
+| Limits on tuning references | Open: [l8fol0004](../../data/experiments/l8fol/l8fol0004.md) pins them on kirk0's pairs                                                                                                                                                                                                     |
 
 ### Evidence runs to schedule
 

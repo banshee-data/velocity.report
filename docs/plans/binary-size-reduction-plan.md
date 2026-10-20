@@ -1,6 +1,6 @@
 # Binary size reduction plan (v0.5.x)
 
-- **Status:** Active — size budget is the load-bearing constraint on the v0.5.1 consolidation
+- **Status:** Parked (D-32, October 20, 2026): no backlog row of its own; the v0.5.1 image budget is held by the consolidation plan's gates. Revisit when [host0001](../../data/experiments/host/host0001.md) reports role build sizes, or when the image budget fails
 - **Layers:** Cross-cutting (Go build, web frontend, CI)
 - **Target:** v0.5.0 baseline; v0.5.1 budget must hold under embedded Typst + new `go:embed` payloads
 - **Companion plans:**

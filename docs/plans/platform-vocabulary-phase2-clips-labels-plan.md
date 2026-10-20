@@ -3,7 +3,7 @@
 Give clips one selection record and labels one authoritative write path. This consolidates storage
 and workflows beyond the Phase 1 names.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Parked (D-32, October 20, 2026): Phase 2 waits for the vocabulary Phase 1 exit; revisit when the labels and sites renames have landed. Was: Planned; Phase 2, after the Phase 1 exit. Label consolidation (one table, one write path) and selection folding stay here; the label and clip words are Phase 1's renames under D-31
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 2; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 6 and 7)

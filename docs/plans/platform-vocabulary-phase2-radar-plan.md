@@ -3,7 +3,7 @@
 Give radar data explicit sensor/port provenance and record its operational work, while keeping the
 existing tracking algorithm intact.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Superseded (October 20, 2026) by Items 8 and 9 of the [vocabulary programme plan](platform-vocabulary-and-data-model-plan.md), which carry the same scope. Was: Planned; outlined, not implemented by #631
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 2; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 5, 8, 9 and 17)

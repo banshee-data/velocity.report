@@ -1,6 +1,6 @@
 # Metrics registry and observability plan
 
-- **Status:** Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (all layers)
 - **Target:** v0.5.2 contract names and report registration for following metrics; the TDL vocabulary registry (unscheduled) will consume canonical names but does not require the repo-wide sweep to be complete first; broader cross-strata naming enforcement, observability and Prometheus export follow at v0.5.11
 - **Scope:** canonical metric naming, repo-wide consistency rules, cross-strata enforcement, and future observability/export design

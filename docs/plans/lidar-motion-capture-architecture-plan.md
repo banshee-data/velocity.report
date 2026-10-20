@@ -3,7 +3,7 @@
 This specification explores moving-sensor capture. Its three-dimensional state and storage sketches
 are future contracts, not descriptions of the fixed-site runtime.
 
-- **Status:** Future Work (Not in Current Release)
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Future Work (Not in Current Release)
 - **Layers:** L2 Frames, L3 Grid, L4 Perception, L5 Tracks
 - **Scope:** Moving LIDAR sensors (vehicle, bike, robot, drone mounted)
 - **Purpose:** Long-term architecture specification for motion capture scenarios

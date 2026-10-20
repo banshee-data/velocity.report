@@ -3,7 +3,7 @@
 Make shared interfaces use the same words without changing the operation behind a command or the
 meaning of a persisted field.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Parked (October 20, 2026, D-31): CLI, flag and file renames ride on the rename that needs them, as tombstones rather than aliases. Revisit when one of the three renames needs a CLI or file word
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 1; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 4, 5, 10, 12, 14, 15 and 16)

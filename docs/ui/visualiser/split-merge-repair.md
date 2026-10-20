@@ -1,5 +1,6 @@
 # Split/Merge repair workbench
 
+- **Status:** Design, not built. Marking a track as a split or merge candidate exists; the repair workbench this page describes does not, and the source plan owns the intent (D-33)
 - **Source plan:** [docs/plans/lidar-visualiser-split-merge-repair-workbench-plan.md](../../plans/lidar-visualiser-split-merge-repair-workbench-plan.md)
 
 Non-destructive repair layer for correcting track identity errors (splits and merges) without altering underlying observations.

@@ -3,7 +3,7 @@
 Make existing LiDAR operations use the agreed names across storage and clients. A clip remains the
 same evaluation window after its names change.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Planned. Under [D-31](../DECISIONS.md#d-31--renames-are-cutovers-tombstones-for-people-aliases-for-the-app) this package carries Phase 1's three renames (clip, labels, sites), as set out in the programme plan's [Phase 1 under D-31](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames); its alias wording below is replaced by that section's treatments
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 1; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 2, 3, 6 and 7)

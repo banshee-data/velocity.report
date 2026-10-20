@@ -1,6 +1,6 @@
 # AV standard LIDAR integration plan
 
-- **Status:** DEFERRED - AV Integration Only
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: DEFERRED - AV Integration Only
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects
 - **Version:** 1.1
 - **Canonical:** [av-range-image-format-alignment.md](../lidar/architecture/av-range-image-format-alignment.md)

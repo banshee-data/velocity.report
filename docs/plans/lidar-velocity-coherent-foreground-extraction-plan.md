@@ -3,7 +3,7 @@
 This plan explores temporal point motion as a second foreground signal. Its archived prototype is
 design evidence, not the foreground extractor running on this branch.
 
-- **Status:** Deferred integration; simplified prototype archived and unmerged
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Deferred integration; simplified prototype archived and unmerged
 - **Layers:** L3 Grid, L4 Perception
 - **Plan Version:** 2.0
 - **Canonical:** [velocity-foreground-extraction.md](../lidar/architecture/velocity-foreground-extraction.md)

@@ -1,6 +1,7 @@
 # Single-binary image consolidation
 
-- **Status:** Active; all named consolidation work units have landed; only the image `:80` smoke-test gate remains outstanding
+- **Status:** In progress; reopened October 20, 2026. Work units A to E have landed and the image `:80` smoke-test gate remains; Work unit F (cut v0.5.1) and Work unit G (roles as asserted closures) were added by Ruth's pass on the architecture review
+- **Decisions:** D-09, D-26, D-30, D-32
 - **Layers:** Cross-cutting (Go binary, image build, systemd, PDF pipeline, Tailscale, sudoers)
 - **Target:** v0.5.1 (single primary binary cutover, embedded Typst, read-only SQL path, static Linux image/release binary route, static Tailscale opt-in, and runtime apt manifest trimmed to `raspi-config`); deliberately ahead of v0.6.0 wide release so the public install path is "one primary binary, one image, one update command" before we hit a wider audience.
 - **Companion plans:** [deploy-versioned-binary-plan.md](deploy-versioned-binary-plan.md), [deploy-nginx-removal-plan.md](deploy-nginx-removal-plan.md), [deploy-distribution-packaging-plan.md](deploy-distribution-packaging-plan.md), [cli-restructuring-plan.md](cli-restructuring-plan.md), [deploy-rpi-imager-fork-plan.md](deploy-rpi-imager-fork-plan.md), [binary-size-reduction-plan.md](binary-size-reduction-plan.md), [platform-simplification-and-deprecation-plan.md](platform-simplification-and-deprecation-plan.md), [pdf-latex-precompiled-format-plan.md](pdf-latex-precompiled-format-plan.md)
@@ -205,6 +206,106 @@ Everything else either disappears with C/D or moves into the binary via B.
 
 **Milestone:** v0.5.1.
 
+### Work unit F: cut v0.5.1, and a cadence after it (D-32) `S`
+
+**Why now.** Every work unit above landed, and the release they were for never shipped. Checked
+against GitHub on October 20, 2026:
+
+| Fact                                             | Value                                                                         |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Latest full release                              | v0.5.0, March 25, 2026                                                        |
+| v0.5.1                                           | no tag and no release; CHANGELOG nonetheless dates a `[0.5.1]` section May 11 |
+| Latest prerelease                                | v0.5.1-pre31, September 1, 2026; `VERSION` is `0.5.1-pre45`                   |
+| `release.json` read by `velocity device upgrade` | stable 0.5.0; prerelease 0.5.1-pre25                                          |
+| CHANGELOG `Unreleased`                           | a breaking change for reproducing paced replays                               |
+
+A person who installs today, or upgrades on the stable channel, gets March's build: before the
+single binary, Typst and the image work this plan delivered. Ruth's pass decided to cut v0.5.1
+from `main` rather than tag v0.5.2, because the prerelease line users and the release machinery
+follow is 0.5.1, and closing it is what makes the CHANGELOG's heading true.
+
+**Conditions before the cut.**
+
+1. This plan's outstanding gate: the image stage smoke test that `:80` binds in a chroot before export.
+2. #503 moved to v0.6.0 in BACKLOG.md, not deleted: it is not on `main`, so it does not block the cut. #290's remainder stays in v0.5.1 as part of condition 5.
+3. Tags fetched (`git fetch --tags`; a fresh checkout carries none), then the `[0.5.1]` section rewritten to cover `v0.5.0..main`, with the breaking change first under a BREAKING marker, and dated on the day of the tag.
+4. `VERSION := 0.5.1` in the Makefile and the macOS project version in the same commit.
+5. On the cut commit: `make lint`, `make test` and the perf gate pass; a binary built through `make` reports 0.5.1 and HEAD's sha; the image boots on the device of record with the API answering on `:80`, the static Tailscale install validated on Pi OS bookworm and trixie (Work unit B's release gate), a USB serial adapter and a deliberately changed serial setting validated across a reload (#290), and a report generated. The device of record is the Pi 4 the hardware module names, as the owner confirmed on October 20, 2026.
+6. The owner tags; `/release-prep` runs `update-release-json` and `check-release-hashes`, so the stable and prerelease entries both point at the release.
+
+**After the cut.** A version is tagged when the owner cuts it from `main` (D-32). There is no
+time bound on unreleased change: the owner decided on October 20, 2026 to cut when ready, and
+declined the proposed eight weeks. The changelog section is written as each pull request lands, so a cut is editing rather than
+archaeology. A declared breaking change does not raise the minor version: below 1.0 a patch
+release may carry one, listed first under BREAKING with its migration steps (D-32, amended
+October 20, 2026). v0.5.1's L3 change is the first, and v0.5.2's three renames follow.
+
+**Not in scope.** Date-based versions; a cut per merged change; tags for pre32 to pre45; a
+prerelease channel policy, until an external tester asks for one.
+
+### Work unit G: roles as asserted closures (D-30) `M`
+
+**Why now.** D-30 keeps one binary and makes each role a composition root whose dependency
+closure CI asserts. Measured with `go list -deps -tags=pcap` on `acdb03e`, every role links
+nearly everything:
+
+| Entry package         | Internal packages reached | Heavy dependencies it should not need                                        |
+| --------------------- | ------------------------: | ---------------------------------------------------------------------------- |
+| `internal/cmd/jobs`   |                         0 | none of its own; it ships inside the full binary                             |
+| `internal/cmd/device` |                         9 | tailsql, Tailscale and migrations, through `internal/db` for one backup call |
+| `internal/cmd/worker` |                        28 | the web and docs embeds, tailsql                                             |
+| `internal/cmd/tune`   |                        53 | the whole server, because its HTTP client lives in `internal/lidar/server`   |
+| `cmd/velocity`        |                        69 | every applet, imported eagerly by `internal/cmd/root`                        |
+
+The LiDAR layer rule (lower layers never import higher ones, and no layer imports `pipeline/`)
+is written in AGENTS.md and enforced by nothing. Six edges break it: the root alias package
+`internal/lidar/aliases.go` (imported by `l1packets/network` and `l9endpoints` for four logging
+functions) pulls in `pipeline`, storage and l2 to l6; `l1packets/network` imports `l3grid` and an
+unused `*db.DB`; both L1 packages use `l2frames.PointPolar`; `l6objects` re-exports `l8analytics`;
+`l4bobserve` imports `l4perception`; and `internal/db` imports `l3grid`.
+
+**Design.** One Go test over `go list -deps -json` output, run by `make lint-go`, holds the rules
+as data:
+
+| Role or layer         | Composition root                  | Must not reach                                                                      |
+| --------------------- | --------------------------------- | ----------------------------------------------------------------------------------- |
+| edge                  | `internal/cmd/server`             | the evaluation packages (`replayeval`, `sweep`, annotation tooling)                 |
+| hub                   | `internal/api`, `internal/report` | `pipeline`, `l1packets/network`, `gopacket/pcap`, gRPC                              |
+| worker                | `internal/cmd/worker`             | `serialmux`, `tailscale`, the Typst engine, the web and docs embeds, `internal/api` |
+| device                | `internal/cmd/device`             | `internal/db`, `pipeline`, `gopacket/pcap`, gRPC, Typst                             |
+| jobs                  | `internal/cmd/jobs`               | any internal package but the job contract and `internal/version`                    |
+| each LiDAR layer `lN` | `internal/lidar/lN*`              | any higher layer, `pipeline`, `server`, `internal/db`                               |
+
+The test is a ratchet. Today's violations are allowlisted, each naming the step that removes it;
+the test fails on any violation not on the list and on any entry that no longer occurs, so the
+list only shrinks. It is gated from its first PR, because nothing new can break a rule and nothing
+has to be fixed first. Dev-host cgo binaries under `cmd/tools` stay outside it, as D-26 says.
+
+**Steps.**
+
+1. The test and its allowlist, gated in `make lint-go`.
+2. Delete `internal/lidar/aliases.go` and the unused alias shims in `l4perception` and `l6objects`; `l1packets/network` and `l9endpoints` call `internal/lidar/logutil` directly.
+3. Move `PointPolar` down to L1 or into a types package beneath both; move foreground extraction out of the real-time reader; delete the unused `*db.DB` field; delete the L6 re-exports of L8; give `l4bobserve` its shared types from a package beneath both; move the LiDAR types `internal/db` uses into `internal/lidar/storage`.
+
+**Measured, not assumed.** Every production use of libpcap opens a capture file
+(`pcap.OpenOffline`, five call sites) with a `udp and port N` filter, and the repository already
+reads pcap and pcapng in pure Go with `gopacket/pcapgo`. Experiment
+[host0004](../../data/experiments/host/host0004.md) asks whether the pure-Go reader returns the
+same packets at the same speed; if it does, the binary needs no cgo and D-26 is restated.
+Experiment [host0001](../../data/experiments/host/host0001.md) measures what role-scoped builds
+would save. Neither changes anything until it passes its rule.
+
+**Not in scope.** The frame model's move out of `l9endpoints` (after the gate lands); the tuning
+client's move and a lifecycle supervisor (the [cmd-server
+decomposition](cmd-server-decomposition-plan.md)); shipping a `nopcap` build (host0001 decides);
+separate binaries per role (D-30 rejects them unless host0001 shows benefit beyond the gate).
+
+| Component | How it fails                              | What happens                                                             |
+| --------- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| The gate  | A legitimate new edge is refused          | The PR adds a reviewed row to the rules; the change is visible in review |
+| The gate  | `go list` cannot load without `web/build` | The test uses the stubs `lint-go` already creates                        |
+| A move    | A cycle appears mid-move                  | One edge per PR; the allowlist shows what is left                        |
+
 ## What else in the rpi image can collapse into the binary
 
 Inventory of every artifact that is not the binary itself, with effort to fold or remove. Items already covered above are marked with their work unit.
@@ -324,6 +425,9 @@ End-state apt manifest (target for v0.5.1): **`raspi-config`** plus the base Pi 
 ### Outstanding
 
 - [ ] CI: image stage smoke test that the bind on `:80` works in a chroot before export (`S`)
+- [ ] Work unit F: cut v0.5.1 under its six conditions (`S`, and a day of operator validation)
+- [ ] Work unit G step 1: the closure and layer gate as a ratchet in `make lint-go` (`S`)
+- [ ] Work unit G steps 2 and 3: the alias package and the layer edges (`M`)
 
 ### Deferred
 

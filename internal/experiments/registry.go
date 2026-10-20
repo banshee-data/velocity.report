@@ -52,7 +52,7 @@ var ExportOptions = map[string]string{
 var WorkerClasses = map[string]string{
 	"m1pro":  "the development Mac (M1 Pro, 8 cores, 16 GB)",
 	"swan":   "the Unraid blade worker",
-	"pi5":    "the deployment Raspberry Pi 5",
+	"pi4":    "the deployment Raspberry Pi 4 (4 GB)",
 	"person": "a person's time, for manual steps",
 }
 

@@ -1,6 +1,6 @@
 # Label vocabulary consolidation plan
 
-- **Status:** Phase 1–3.2 completed · Phase 4–5 planned
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Phase 1–3.2 completed · Phase 4–5 planned
 - **Layers:** Cross-cutting (L6 Objects, API, Web, macOS Visualiser)
 - **Related:** [Classification Maths](../../data/maths/classification-maths.md), [proto/velocity_visualiser/v1/visualiser.proto](../../proto/velocity_visualiser/v1/visualiser.proto)
 - **Canonical:** [label-vocabulary.md](../lidar/architecture/label-vocabulary.md)

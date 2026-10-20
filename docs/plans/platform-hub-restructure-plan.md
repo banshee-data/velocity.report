@@ -1,6 +1,6 @@
 # Hub restructure plan
 
-- **Status:** Active
+- **Status:** Parked (D-32, October 20, 2026): no backlog row. Revisit when a row is agreed for it
 - **Canonical:** [canonical-plan-graduation.md](../platform/architecture/canonical-plan-graduation.md)
 - **Layers:** Cross-cutting (documentation)
 - **Parent:** [platform-canonical-project-files-plan.md](platform-canonical-project-files-plan.md)

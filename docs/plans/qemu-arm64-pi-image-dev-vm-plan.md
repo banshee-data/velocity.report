@@ -1,6 +1,6 @@
 # QEMU + Headscale + pi-gen image (arm64 emulation)
 
-- **Status:** design (variant of qemu-headscale-dev-vm-plan.md)
+- **Status:** Superseded (October 20, 2026) by [qemu-headscale-dev-vm-plan](qemu-headscale-dev-vm-plan.md), of which it is a variant. Was: design (variant of qemu-headscale-dev-vm-plan.md)
 - **Owner:** patrickod
 - **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
 - **Canonical:** [qemu-headscale-dev-vm.md](../platform/operations/qemu-headscale-dev-vm.md)

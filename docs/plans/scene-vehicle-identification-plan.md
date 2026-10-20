@@ -1,6 +1,6 @@
 # Scene vehicle identification and the web observation surface (v1.x)
 
-- **Status:** Draft, open for investigation. No source verified, no code, no commitment
+- **Status:** Parked (D-32, October 20, 2026): a separate project's plan; its rows sit in the backlog's External section; revisit when the project has its own repository. Was: Draft, open for investigation. No source verified, no code, no commitment
 - **Layers:** L4 perception, L9 endpoints, Svelte frontend, public scene site
 - **Target:** investigation spikes in v0.6.6; delivery from v1.0, matching work from v2.0
 - **Companion plans:** [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [web scene export](lidar-web-scene-export-plan.md)

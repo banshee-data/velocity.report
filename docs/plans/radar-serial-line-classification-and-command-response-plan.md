@@ -1,6 +1,6 @@
 # Radar serial line classification and command response plan
 
-- **Status:** Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** Go server (`internal/serialmux`, `internal/api`, radar ingest in `internal/cmd/server`)
 - **Target:** Unscheduled. Enables the command dashboard (the `GET /api/commands` dropdown shipped on PR 461) to display the result of a query command, not just fire it.
 - **Related:** [Security surface](../../.github/knowledge/security-surface.md), `internal/radar/commands.go` (advisory command catalogue)

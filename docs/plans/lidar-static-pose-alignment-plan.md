@@ -3,7 +3,7 @@
 This deferred specification explores three-dimensional tracking and AV-compatible box output. It
 does not define the motion state required for the current fixed-site correction.
 
-- **Status:** DEFERRED - See Simplification Notes Below
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: DEFERRED - See Simplification Notes Below
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects
 - **Scope:** Read Hesai PCAP/live streams and produce 7DOF tracks for visualisation
 - **Goal:** Generate industry-standard 7DOF bounding boxes from Hesai sensor data

@@ -10,7 +10,7 @@ Sources were checked on October 8, 2026 through search results only. Direct fetc
 DataSF and AAA Foundation pages failed from the review environment, so every rights claim and
 figure below is marked for confirmation against the primary document.
 
-- **Status:** Proposed; no dataset ingested and no code written
+- **Status:** Parked (D-32, October 20, 2026): its rows are in the queued safety reporting slot or in v0.6.8 and later; revisit when the safety reporting slot is numbered. Was: Proposed; no dataset ingested and no code written
 - **Layers:** Cross-cutting (PDF report, site configuration, importer tooling, L8 behaviour benchmarks)
 - **Target:** v0.5.10 for the cited harm curves, the benchmark-aligned temporal strata, and, if Item 1 clears the rights, the area-rate table (else v0.6.8); v0.6.8 for site crash context, the before-and-after model, the site-to-area resolution, and the area benchmark context block; v1.0 for road-segment attachment
 - **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [spatial priors reference data](spatial-priors-reference-data-plan.md), [public attitudes to speeding and aggressive driving](platform-speeding-attitudes-and-aggressive-driving-plan.md)

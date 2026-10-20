@@ -31,6 +31,12 @@ flowchart TB
     ground0004["<b>ground0004</b><br/>The published box on the ground: its base…<br/>proposed · 1h24m machine + 3h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
     ground0005["<b>ground0005</b><br/>What the published scene draws: the trail…<br/>proposed · 3h45m machine + 3h person<br/>manual: implement, write<br/>needs tooling: scene_variants"]:::proposed
   end
+  subgraph area_host ["host: Roles, hosts and reproducibility"]
+    host0001["<b>host0001</b><br/>What each role costs on the Pi 4 and the…<br/>proposed · 1h20m machine + 6h person<br/>manual: implement, write<br/>needs tooling: pi_timing"]:::proposed
+    host0002["<b>host0002</b><br/>A kind compiled into the binary against…<br/>proposed · 3h20m machine + 10h person<br/>manual: implement, write"]:::proposed
+    host0003["<b>host0003</b><br/>One capture under one fingerprint on the…<br/>proposed · 5h40m machine + 3h person<br/>manual: write<br/>needs tooling: pi_timing"]:::proposed
+    host0004["<b>host0004</b><br/>A pure-Go capture reader against libpcap…<br/>proposed · 2h machine + 9h person<br/>manual: implement, write<br/>needs tooling: pi_timing"]:::proposed
+  end
   subgraph area_l3bg ["l3bg: L3 background model"]
     l3bg0001["<b>l3bg0001</b><br/>Zero-code L3 arms on the labelled kirk…<br/>answered · 23m machine + 3h person<br/>manual: write"]:::answered
     l3bg0002["<b>l3bg0002</b><br/>E4 support filter with the overrides off<br/>answered · 18m machine + 5h person<br/>manual: implement, write"]:::answered
@@ -103,6 +109,8 @@ flowchart TB
   ground0002 --> ground0003
   ground0002 --> ground0004
   ground0004 --> ground0005
+  l3bg0021 --> host0003
+  perf0003 --> host0003
   l3bg0001 --> l3bg0002
   l3bg0002 --> l3bg0003
   l3bg0003 --> l3bg0004
@@ -165,6 +173,10 @@ flowchart TB
 - [ground0003](ground/ground0003.md) The planar state in the ground's frame: x and y of the fitted surface instead of the sensor's horizontal plane: waiting on a dependency; 56m machine + 6h person; after ground0001, ground0002; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [research-briefing-2025-01-to-2026-10 #schäfer-alrifaee-and-hashemi-ad…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#schäfer-alrifaee-and-hashemi-advanced-intelligent-systems-2026), [BACKLOG](../../docs/BACKLOG.md).
 - [ground0004](ground/ground0004.md) The published box on the ground: its base from the surface and its height from a held belief, not the frame's cluster: waiting on a dependency; 1h24m machine + 3h person; after ground0002; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [BACKLOG](../../docs/BACKLOG.md).
 - [ground0005](ground/ground0005.md) What the published scene draws: the trail and the box on the surface, not on each frame's lowest return: waiting on a dependency; 3h45m machine + 3h person; after ground0004; asks [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [BACKLOG](../../docs/BACKLOG.md).
+- [host0001](host/host0001.md) What each role costs on the Pi 4 and the Mac, the one binary against role-scoped builds: proposed, awaiting approval; 1h20m machine + 6h person; asks [platform-architecture-review-plan #package-and-role-structure-one-…](../../docs/plans/platform-architecture-review-plan.md#package-and-role-structure-one-binary-several-roles), [binary-size-reduction-plan](../../docs/plans/binary-size-reduction-plan.md), [D-09](../../docs/DECISIONS.md).
+- [host0002](host/host0002.md) A kind compiled into the binary against the tool the worker builds from a checkout: proposed, awaiting approval; 3h20m machine + 10h person; asks [platform-architecture-review-plan #package-and-role-structure-one-…](../../docs/plans/platform-architecture-review-plan.md#package-and-role-structure-one-binary-several-roles), [lidar-worker-pool-and-results-hub-plan #12-one-queue-kinds-in-the-binar…](../../docs/plans/lidar-worker-pool-and-results-hub-plan.md#12-one-queue-kinds-in-the-binary-d-30), [analysis-worker](../../docs/lidar/operations/analysis-worker.md).
+- [host0003](host/host0003.md) One capture under one fingerprint on the Mac, the blade and the Pi: waiting on a dependency; 5h40m machine + 3h person; after l3bg0021, perf0003; asks [platform-architecture-review-plan #failure-registry](../../docs/plans/platform-architecture-review-plan.md#failure-registry), [lidar-deterministic-track-identity-plan](../../docs/plans/lidar-deterministic-track-identity-plan.md), [lidar-clock-abstraction-and-time-domain-model-plan](../../docs/plans/lidar-clock-abstraction-and-time-domain-model-plan.md).
+- [host0004](host/host0004.md) A pure-Go capture reader against libpcap, for a binary that needs no cgo: proposed, awaiting approval; 2h machine + 9h person; asks [deploy-single-binary-image-consolidation-plan #work-unit-g-roles-as-asserted-c…](../../docs/plans/deploy-single-binary-image-consolidation-plan.md#work-unit-g-roles-as-asserted-closures-d-30-m), [D-26](../../docs/DECISIONS.md).
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0019](l3bg/l3bg0019.md) Where the Stage B arms lose a reviewed return, return by return, on kirk0: proposed, awaiting approval; 16m machine + 1h person; after geom0004, l3bg0018; asks [l4-dbscan-input-cap-2026-10 #recommendations](../../docs/lidar/operations/l4-dbscan-input-cap-2026-10.md#recommendations), [w3-return-fate-kirk0-2026-10 #recommendations](../../docs/lidar/operations/w3-return-fate-kirk0-2026-10.md#recommendations), [l3-candidates-corpus-dwell-2026-10 #recommendations](../../docs/lidar/operations/l3-candidates-corpus-dwell-2026-10.md#recommendations).
 - [l3bg0022](l3bg/l3bg0022.md) Does the background converge by its own criterion before the ceiling, on the corpus: proposed, awaiting approval; 58m machine + 2h person; after l3bg0021; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
@@ -226,5 +238,5 @@ flowchart TB
 
 ## Totals
 
-- 25 open experiments: 48h23m machine + 128h30m person estimated.
+- 29 open experiments: 60h43m machine + 156h30m person estimated.
 - Longest chain of open work, machine and person time together: geom0002, 27h2m.

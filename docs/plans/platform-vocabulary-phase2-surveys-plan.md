@@ -3,7 +3,7 @@
 Join the platform's different place identities and make reports and public publication refer to
 explicit surveys and deployments.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Superseded (October 20, 2026) by Items 14 to 16 of the [vocabulary programme plan](platform-vocabulary-and-data-model-plan.md), with the sites rename in its Phase 1 under D-31. Was: Planned; Phase 2, after the Phase 1 exit. Item 14 is split under D-31: the site, deployment and survey words are Phase 1's sites rename; the merge of `site` and `lidar_sites`, deployment rows, surveys and publication stay here
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 2; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 14, 15 and 16)

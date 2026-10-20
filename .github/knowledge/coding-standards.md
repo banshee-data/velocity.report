@@ -72,6 +72,8 @@ The server and CLI use lowercase-hyphenated names. The macOS app keeps PascalCas
 
 Versions follow strict SemVer: `MAJOR.MINOR.PATCH` (e.g. `0.5.1`). Pre-release tags use a hyphen suffix: `0.5.1-pre1`, `0.6.0-rc1`.
 
+Below 1.0, a patch release may carry a breaking change. The changelog lists it first under **BREAKING** with its migration steps, and the minor number keeps naming the themed series (D-32).
+
 **No leading zeros in version segments.** `0.5.04` is invalid SemVer and will be rejected by npm (`web/package.json`, `public_html/package.json`). Use `0.5.4` instead.
 
 ## Experiment Reports and Raw Output

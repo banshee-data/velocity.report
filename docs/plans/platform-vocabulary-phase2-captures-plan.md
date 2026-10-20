@@ -3,7 +3,7 @@
 Identify capture content independently of its filesystem location and make clock discontinuities
 explicit. These change the data model and probe behaviour.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Superseded (October 20, 2026) by Item 3 of the [vocabulary programme plan](platform-vocabulary-and-data-model-plan.md), which carries the same scope. Was: Planned; outlined, not implemented by #631
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 2; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 3 and D-27 probe backlog)

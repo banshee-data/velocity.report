@@ -1,5 +1,6 @@
 # Plan: Velocity Report v2 UI 🦋 Project Butterfly Net
 
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next
 - **Canonical:** [Velocity Report Butterfly Net](../ui/design/20260511-Velocity_Report_Butterfly_Net.md)
 - **Design sketch:** [`20260511-Velocity_Report_Butterfly_Net.html`](../ui/design/20260511-Velocity_Report_Butterfly_Net.html) (open in browser — standalone, no server needed)
 

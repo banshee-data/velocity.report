@@ -1,6 +1,6 @@
 # Design: timeline event bar (feature 2)
 
-- **Status:** Proposed (February 2026)
+- **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Layers:** L9 Endpoints
 - **Canonical:** [track-event-timeline.md](../ui/visualiser/track-event-timeline.md)
 

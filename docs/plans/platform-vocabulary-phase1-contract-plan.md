@@ -3,7 +3,7 @@
 Give every existing concept one agreed name before changing its consumers. The contract describes
 current concepts and marks proposed capabilities as future work.
 
-- **Status:** Planned; outlined, not implemented by #631
+- **Status:** Superseded by [D-31](../DECISIONS.md#d-31--renames-are-cutovers-tombstones-for-people-aliases-for-the-app) (October 20, 2026): the vocabulary is published in the programme plan and the decision this package would have recorded is D-31, because D-28 went to the research briefing; the alias inventory is the [compatibility register](../platform/operations/compatibility-register.md)
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 1; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Item 1)

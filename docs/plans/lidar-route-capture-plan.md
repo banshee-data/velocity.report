@@ -4,7 +4,7 @@ This plan transfers the static-sensor headway metric to backpack and cargo-bike 
 offline motion correction. It also adds road-segment speed measurements. Timing, pose, endpoint
 support, and measurement quality must pass explicit gates before either result is published.
 
-- **Status:** Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** LiDAR pipeline (L1 sidecars, L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L7 Scene, L8 Analytics), `pcapsplit`, capture index, report, platform hardware
 - **Target:** v0.6.1 portable evidence, timing, and Pi recording; v0.6.2 backpack headway; v0.6.3 bike headway and speed reference; v0.6.8 road-segment reports and survey hand-off. v0.6.7 is the full tracker Pi optimisation pass.
 - **Companion plans:** [static-sensor-nudge-tolerance-plan](static-sensor-nudge-tolerance-plan.md) is the tripod case the stop regime generalises; [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the motion classifier sweep; [spatial-priors-service-review](spatial-priors-service-review.md) owns route reconstruction and rig hardware findings; [lidar-motion-capture-architecture-plan](lidar-motion-capture-architecture-plan.md) is the 7DOF design this borrows ego-motion compensation from and leaves 3D orientation to; [lidar-l7-scene-plan](lidar-l7-scene-plan.md) owns road polygons and the scene graph; [speed-percentile-aggregation-alignment-plan](speed-percentile-aggregation-alignment-plan.md) owns the aggregate rules the segment outputs follow

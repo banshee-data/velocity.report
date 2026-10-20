@@ -1,6 +1,6 @@
 # Motion/static parameter tuning (v0.6.x)
 
-- **Status:** Draft — investigation designed, not run
+- **Status:** Parked (D-32, October 20, 2026): an open investigation, not agreed work; revisit when the owner agrees a backlog row for it. Was: Draft — investigation designed, not run
 - **Layers:** LiDAR pipeline (L3 background model), `pcapsplit`, capture index
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
 - **Companion:** [static-sensor-nudge-tolerance-plan](static-sensor-nudge-tolerance-plan.md) is one case this must not break; [continuous-classification-brief](continuous-classification-brief.md) is the open question about stream length

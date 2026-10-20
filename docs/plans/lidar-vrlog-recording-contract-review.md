@@ -4,7 +4,7 @@ This review settles the vocabulary and ownership needed before VRLOG can become 
 observation boundary. It is a companion to the [asynchronous tracking plan][async-plan], which owns
 estimator, queue, storage, and hardware sizing. No wire format or runtime behaviour changes here.
 
-- **Status:** Proposed contract review; names and wire fields are not implemented
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Proposed contract review; names and wire fields are not implemented
 - **Layers:** L1–L4 evidence, L5–L8 results, L9–L10 replay and exports
 - **Canonical:** [VRLOG wire format](../../data/structures/VRLOG_FORMAT.md) describes the
   implemented v0.5 format

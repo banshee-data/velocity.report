@@ -1,6 +1,6 @@
 # Serial configuration implementation plan (v0.5.1)
 
-- **Status:** Active
+- **Status:** Active until the v0.5.1 tag: only the release-candidate validation remains (#290), a condition of the consolidation plan's [Work unit F](deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s). Then Parked until v0.8.0, which holds device and baud auto-detect
 - **Layers:** Go server, API, database, web frontend, documentation
 - **Target:** v0.5.1; most of the operator-facing surface is now landed, so the remaining work is rollout and completion rather than invention
 - **Canonical:** [serial-config-quickref.md](../radar/serial-config-quickref.md) <!-- link-ignore -->

@@ -27,11 +27,11 @@ directory with a `README.md` whose YAML header gives `area`, `title`, `layers` a
 | `l4clus` | L4 clustering                                              |
 | `geom`   | Solid-body geometry                                        |
 | `l5id`   | L5 identity                                                |
-| `l5est`  | L5 state estimation: the filter, its noise and its trail   |
 | `perf`   | Performance on the deployment target                       |
 | `label`  | Labelled data: capture, label, freeze                      |
 | `l8fol`  | L8 following                                               |
 | `ground` | Ground model: the surface, the clip, the frame and the box |
+| `host`   | Roles, hosts and reproducibility                           |
 | `l5est`  | L5 state estimation: the filter, the smoother, the trail   |
 
 ## A spec
@@ -75,7 +75,7 @@ for; by default the one before it, `-` for none), `over` (`arms`, `cases` or bot
 
 **Estimates** are in hours and minutes, never days: a person's day and a machine's are not the
 same length. A job step gives `each` (per arm per case, with `over`) or `total`; a manual step
-gives `human`. `worker` names the class the estimate is for: `m1pro`, `swan`, `pi5` or `person`.
+gives `human`. `worker` names the class the estimate is for: `m1pro`, `swan`, `pi4` or `person`.
 An experiment's estimate is its machine time along its longest chain of steps, plus the person
 time of its manual steps.
 

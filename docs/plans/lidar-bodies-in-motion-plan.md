@@ -1,6 +1,6 @@
 # Bodies in motion: path prediction and sparse-cluster track linking
 
-- **Status:** 📋 Planned; v2.0+
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: 📋 Planned; v2.0+
 - **Layers:** L5 Tracks (kinematics), L7 Scene (scene constraints, interaction, scene graph)
 - **Canonical architecture:** [LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Parent plan:** [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md) § 4

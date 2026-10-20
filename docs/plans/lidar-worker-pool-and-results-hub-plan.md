@@ -1,6 +1,7 @@
 # LiDAR worker pool and results hub
 
-- **Status:** Proposed, September 21, 2026
+- **Status:** Proposed, September 21, 2026; the single active plan for the job queue from October 20, 2026, with section 12 adding D-30's one-queue design
+- **Decisions:** D-27, D-30
 - **Canonical:** [distributed-sweep.md](../lidar/architecture/distributed-sweep.md)
 - **Layers:** offline analysis, L3–L8 LiDAR, platform, macOS visualiser, annotation
 - **Supersedes:** the remote-topology portions of [Distributed sweep workers](lidar-distributed-sweep-workers-plan.md)
@@ -303,3 +304,64 @@ state-estimation plan, and the annotation plan. Then it should:
 4. keep every cross-host comparison behind source-manifest and run-identity checks;
 5. add annotation synchronisation only through the central hub, never directly
    from the Mac to an intermittent worker.
+
+## 12. One queue, kinds in the binary (D-30)
+
+Added October 20, 2026, after the [architecture
+review](platform-architecture-review-plan.md#c4-three-job-systems-and-a-worker-that-compiles-the-repository)
+and Ruth's pass on it. This plan is now the single active plan for the job queue: the [job queue
+implementation map](lidar-job-queue-implementation-plan.md) is retired into it, and [vocabulary
+P2-C](platform-vocabulary-phase2-jobs-plan.md) keeps the schema and the names under its Phase 2
+gate and links here for behaviour.
+
+### What the review found
+
+Three job systems with two identifier formats: `lidar_capture_jobs` (kinds by migration
+000058's triggers), `lidar_segment_clip_jobs` (a second table for one kind), and the worker's
+directory-tree queue in `internal/lidar/jobs/runner`. The worker builds each job's tool from a
+checkout at the job's commit, so it needs git, a Go toolchain and libpcap headers, and a result is
+only as reproducible as a checkout is.
+
+### The design, adopted; the implementation, deferred
+
+[D-30](../DECISIONS.md#d-30--one-binary-closed-roles-kinds-compiled-in) adopts the design. Every
+invariant in sections 1 to 6 stands: the hub is the sole acceptor, results are write-once,
+attempts hold leases, no request carries a command line, and no host shares a database with
+another.
+
+| Rule                         | What it means                                                                                                                                                              |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One implementation           | One queue package and one claim rule, used by the hub for analysis jobs and by an edge host for its own capture jobs                                                       |
+| One authority per data owner | The hub authorises analysis jobs and accepts their results; an edge host authorises its own capture jobs; the two never share a database                                   |
+| Kinds in the binary          | A worker runs the kinds compiled into the binary it was started as, and refuses a job whose recorded build is not its own; host0002 decides when the checkout path retires |
+| The job record               | Build version and git sha, tuning fingerprint, and, once vocabulary P2-A lands, the capture's whole-file digest                                                            |
+| No unstamped builds          | A binary whose version or sha is unset refuses analysis jobs, because its results could not be traced (the stamp rule in AGENTS.md)                                        |
+
+**Holding action now.** No new kind is added to the source-compiling worker; new kinds are
+written in the binary.
+
+**Preconditions before the claim API is built.** Malory's review of the claim API: token scope,
+what a result bundle may contain, and that no worker can write the hub's state.
+
+**Where the hub runs.** The NAS starts running `velocity serve` as the hub when the one-queue row
+lands, after the vocabulary Phase 1 exit in v0.5.2; until then the Mac runs jobs locally (the
+owner, October 20, 2026).
+
+**Timing.** Queue consolidation follows the vocabulary programme's Phase 1 exit, as D-27 records.
+Moving it earlier needs an amendment to D-27, not a backlog move.
+
+| Not in scope now                              | Rationale                                          | Revisit when                          |
+| --------------------------------------------- | -------------------------------------------------- | ------------------------------------- |
+| The NAS as hub host                           | A deployment decision; the design does not need it | The owner deploys the NAS hub         |
+| One queue before the Phase 1 exit             | D-27 and the vocabulary gate                       | Phase 1 exit, or an amendment to D-27 |
+| Capture digests in job records                | Depend on P2-A                                     | P2-A lands                            |
+| Workers writing hub state; shell-command jobs | Never permitted (sections 2 and 6)                 | Never                                 |
+| Adopting in-binary kinds wholesale            | host0002 decides                                   | host0002's result                     |
+
+### Failure registry
+
+| Component      | How it fails                           | What happens                                                           |
+| -------------- | -------------------------------------- | ---------------------------------------------------------------------- |
+| Job result     | The hub is down when a worker finishes | The worker keeps its local bundle and retries; the hub accepts it once |
+| Lease          | A worker crashes or loses power        | The lease expires to `lost`; a retry is a new attempt, visible as such |
+| Build identity | An unstamped or mismatched binary      | The job is refused with the identity mismatch                          |

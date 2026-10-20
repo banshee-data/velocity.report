@@ -1,5 +1,6 @@
 # Priority review queue
 
+- **Status:** Design, not built. This page describes a proposed feature; nothing on it ships yet, and the source plan owns the intent (D-33)
 - **Source plan:** [docs/plans/lidar-visualiser-priority-review-queue-plan.md](../../plans/lidar-visualiser-priority-review-queue-plan.md)
 
 Priority-ranked queue of tracks requiring human review, ordered by composite scoring.

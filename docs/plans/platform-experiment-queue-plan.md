@@ -8,10 +8,11 @@ on; and a weekly cadence in which new papers pose questions, questions become sp
 become decisions or further specs. It folds in what the job runner, the worker-pool plan, HINT,
 the review workflow and the old campaign supervisor already do, rather than building beside them.
 
-- **Status:** Proposed, 2026-10-13. Phase 0 is built (#746): the spec format, five areas, the
+- **Status:** Active (proposed 2026-10-13). Phase 0 is built (#746): the spec format, five areas, the
   validator, the dependency graph and fifteen specs. Phase 1's progress half is built: units, a
   state file per unit, `mark`, `units` and `status` (see [Progress](../../data/experiments/EXPERIMENTS.md#progress)).
-  Expanding a spec into campaign submissions, and the hub queue, are not built
+  Expanding a spec into campaign submissions, and the hub queue, are not built. Section 12
+  removes `approved` and pins each arm's tuning fingerprint at creation (review P6, decided October 20, 2026)
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, hub); every LiDAR layer as a subject
 - **Related:** [job queue implementation](lidar-job-queue-implementation-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [vocabulary phase 2: jobs](platform-vocabulary-phase2-jobs-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [review workflow](lidar-review-workflow-plan.md), [priority review queue](lidar-visualiser-priority-review-queue-plan.md), [analysis worker](../lidar/operations/analysis-worker.md), [research briefing skill](../../.claude/skills/research-briefing/SKILL.md)
@@ -86,7 +87,8 @@ The area is a directory whose `README.md` header registers it, so the registry i
 tree and a slug cannot name an area that does not exist. Numbers are never reused, so a slug in a
 report or a commit message always means the same experiment.
 
-**Status is authoring state.** A spec is `proposed`, `approved` (the owner agrees; the hub may
+**Status is authoring state.** Section 12 removes `approved` (October 20, 2026); this paragraph
+records the original design. A spec is `proposed`, `approved` (the owner agrees; the hub may
 schedule it once its dependencies are answered), `answered` (a report is merged and named) or
 `retired` (with a reason). Whether it is queued, running or waiting on a person is the hub's
 state. Writing that back to Git would make every heartbeat a commit and every branch a different
@@ -269,6 +271,7 @@ flowchart LR
 | 3     | The hub queue: experiment and step tables, worker pull with capabilities, renewed leases, the sweeper, orphan policy, the disk gate; overlaps the worker-pool plan's phase B                                                                                                      | L    | The hub    |
 | 4     | Manual steps on the hub with notifications and artefact checks; HINT re-expressed as a template; review queues feeding `manual:review`                                                                                                                                            | L    | 3          |
 | 5     | The cadence: the briefing skill writes specs; a weekly queue review; recommendations into specs; `try/` proposals moved into areas                                                                                                                                                | S    | 0          |
+| 1b    | Section 12: `approved` removed, arm fingerprints, the backfill, one execution vocabulary, the report check                                                                                                                                                                        | S    | 0          |
 
 Phase 5 needs only Phase 0 and is worth doing first: it puts every proposal in one place before any
 of the machinery exists.
@@ -301,3 +304,74 @@ of the machinery exists.
 - **Two queues during the transition.** The local runner and the hub must not both own a job: the
   vocabulary plan's acceptance test (two workers and the server cannot run one claimed job twice)
   holds the line.
+
+## 12. Keeping a spec true to what ran
+
+This section expands option b of P6 in the [architecture
+review](platform-architecture-review-plan.md#p6-experiment-arms-that-point-at-a-moving-target).
+Section 11's first risk has already happened, in a form the spec digest alone would not catch.
+Ruth's pass on the review decided its scope on October 20, 2026.
+
+### What went wrong
+
+| Finding                                     | Evidence on `acdb03e`                                                                                                                                              |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `approved` is never used                    | 0 of 63 specs were ever `approved`; all 38 answered specs went from `proposed` to `answered`, so `experiments mark` was forced or not used                         |
+| An arm names a file, not what the file held | 31 answered specs have an arm on `config/tuning.defaults.json`, which changed with geom0006 and again with l3bg0023 and l3bg0025; the spec no longer says what ran |
+| Reports seldom record the fingerprint       | 11 of 37 dated reports contain the word, although AGENTS.md asks for each set's path and fingerprint                                                               |
+| Arms that point at deleted sets             | perf0002's note and three reports cite `replay-l3-overrides.json`, deleted on adoption                                                                             |
+| Open specs that drifted under their arms    | l3bg0009's a0 now means the consolidated L3, and its CM and CMR sets carry the pre-consolidation values                                                            |
+| Reports outside the registry                | 14 reports name no spec and no spec names them                                                                                                                     |
+| Four status vocabularies                    | spec states in Git, the graph's wording, local unit states, and the hub's planned step states                                                                      |
+| The README-row test matches loosely         | it looks for the last segment of each changed key anywhere in the row, so `enabled` matches any row that says enabled                                              |
+
+### The design
+
+**`approved` is removed.** Ruth's pass decided this on October 20, 2026: the status has never
+been set on any of 63 specs, so it is a gate on paper. Authoring states become `proposed`,
+`answered` and `retired`. The predeclaration a report relies on is the commit that writes the
+rule before any replay, which Git already records. `experiments mark` stops checking the status,
+and `-force` remains only for re-running a unit that is done. A future approval gate is a new
+decision, not a revival of this one.
+
+**Creation pins the arms.** Each arm gains a `fingerprint` field: the tuning fingerprint
+(`TuningConfig.Fingerprint`) of its file when the spec is created. The validator then holds two
+rules:
+
+1. An open spec (`proposed`) must carry fingerprints, and each must equal its file's current fingerprint. When a file changes under an open spec, the validator refuses it until the spec is restated (a commit that restates the rule against the new values) or its arm moves to a parameter set that holds the old ones.
+2. An `answered` spec keeps the fingerprints it ran under, which may differ from the file's current fingerprint after an adoption; the validator requires its report to contain each arm's fingerprint.
+
+**Backfill.** For the 38 answered specs, each arm's fingerprint is computed from the tuning file
+at the commit the report's provenance names, by a one-off command in `cmd/tools/experiments`.
+Where a report names no commit, the arm records `unknown: ran before fingerprinting`. Nothing is
+invented (tenet 3).
+
+**One execution vocabulary.** Authoring states stay in Git. Execution states are the hub's from
+now on: local units use `blocked`, `ready`, `running`, `awaiting_human`, `done` and `failed`, so
+the state files map one to one onto the hub's step table when it exists, and `DEPENDENCIES.md`
+words its lists from these.
+
+**Parameter sets are checked by key.** The README-row test matches each changed key by its full
+dotted path; `config/tuning.optimised.json` and the three sweep files either move under
+`config/experiments/` with rows or are deleted; job campaigns stop taking dotted-key overrides
+and take parameter sets, as section 1 already requires.
+
+### Steps
+
+| Step                                                                                               | Effort | Milestone |
+| -------------------------------------------------------------------------------------------------- | ------ | --------- |
+| `fingerprint` on arms; the validator's two rules; the report check                                 | `S`    | v0.5.8    |
+| Backfill the 38 answered specs from their reports' commits                                         | `S`    | v0.5.8    |
+| `approved` removed from the format, the validator, `mark` and both skills; arms pinned at creation | `S`    | v0.5.8    |
+| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits         | `S`    | v0.5.8    |
+| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                              | `S`    | v0.5.8    |
+| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets      | `S`    | v0.5.9    |
+
+### Not in scope
+
+| Item                                              | Rationale                                                              | Revisit when                   |
+| ------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------ |
+| Pinning the code version per arm                  | The report's commit already names it, and a spec is not a build record | The hub records jobs (Phase 3) |
+| Specs or a list for the 14 reports without a spec | Owned by the `/experiment-review` skill's own pass                     | Its next run                   |
+| An approval gate                                  | Removed; a future gate needs a new decision                            | If the owner asks for one      |
+| Moving specs into a database                      | Git review of a rule before its run is the point of the format         | Never                          |

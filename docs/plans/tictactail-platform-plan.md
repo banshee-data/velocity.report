@@ -1,6 +1,6 @@
 # TicTacTail platform plan
 
-- **Status:** Proposed
+- **Status:** Parked (D-32, October 20, 2026): withdrawn by D-35; revisit when a second consumer exists. Was: Proposed
 - **Layers:** Cross-cutting (platform library)
 - **Decision:** D-23; [DECISIONS.md](../DECISIONS.md)
 - **Backlog:** v0.8; [BACKLOG.md](../BACKLOG.md)

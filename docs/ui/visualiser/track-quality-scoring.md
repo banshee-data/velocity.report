@@ -1,5 +1,6 @@
 # Track quality scoring
 
+- **Status:** Design, not built. This page describes a proposed feature; nothing on it ships yet, and the source plan owns the intent (D-33)
 - **Source plan:** [docs/plans/lidar-visualiser-track-quality-score-plan.md](../../plans/lidar-visualiser-track-quality-score-plan.md)
 
 Per-track quality score (0–100) with reason codes and grade classification.

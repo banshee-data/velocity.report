@@ -5,7 +5,7 @@ small, versioned descriptions of persistent places. First demonstrate that these
 help a stationary LiDAR recover its pose and learn a useful background; the public
 contribution platform follows that evidence.
 
-- **Status:** Draft for review
+- **Status:** Parked (D-32, October 20, 2026): a separate project's plan; its rows sit in the backlog's External section; revisit when the project has its own repository. Was: Draft for review
 - **Canonical:** [Geometry-prior service](../lidar/architecture/geometry-prior-service.md)
 - **Scope:** Separate service/repository, controlled experiment,
   and optional velocity.report integration
