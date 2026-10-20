@@ -209,7 +209,7 @@ older entries stay put, however tempting hindsight may be.
 - Planned [fitting physical references to reviewed points](plans/lidar-physical-fit-to-points-plan.md) after the first operator attempt on kirk0's truck 1 stalled twice on silent required fields among about thirty controls: the fit measures the body from the reviewed returns, states every bound's terms, and leaves the operator one judgement per end, real or cut off (#716).
 - Added `velocity lidar annotation-reference fit`, which writes an import file of independent proposals fitted to an object's reviewed returns: length and width as the 90th percentile of the spans of frames that see them end to end, since one frame's span is a lower bound, height as a lower bound, and a pose at each frame that measured them. On kirk0 the two slow trucks fit at 10.70 ± 0.24 m and 9.63 ± 0.35 m long, and the fit found frames where a truck's mask holds returns 9.5 m ahead of it (#716).
 
-## October 8, 2026 - Motion passes report progress, replays read each capture once, facet F0 on kirk0, and human crash baselines in the crash-data plan, the LiDAR workflow, and PDF angle correction
+## October 8, 2026 - Motion passes report progress, replays read each capture once, facet F0 on kirk0, human crash baselines, and the access gate answers #503's review
 
 - Analysed the Waymo sober-driving baseline preprint, its fatal-rate base paper and Valgo's Human Crash Baselines API against the crash-data integration plan: re-derived the exposure-reconstruction equations, showed by Poisson arithmetic that a single site cannot test an area rate, and set out benchmark-aligned day/night and weekday/weekend strata, an area-rate table for the safety-reference edition, and what a speed survey gives back to the benchmarks ([report](platform/operations/human-crash-baselines-analysis-2026-10.md)). (#715)
 - Folded the analysis's five edits into the crash-data integration plan: benchmark-aligned temporal strata, an area-rate table in the safety-reference edition, site-to-area resolution with an area benchmark context block, a hosted-baselines exploration, and a multi-site research note, with the new rights rows, four risks, and two open questions answered; the backlog mirrors them at v0.5.10 and v0.6.8 ([plan](plans/platform-crash-data-integration-plan.md)). (#715)
@@ -235,6 +235,16 @@ older entries stay put, however tempting hindsight may be.
 - Added a capture-volume planner and transactional capture-index re-key to move replay inputs under one `pcaps/` root while carrying file probes, sessions, motion periods and replay-case links; the development-volume move preserved all 44 motion periods and scanned 232 files without drift (#709).
 - Reviewed facet observability and sparse-tail error sources, separated the mid-pass and sparse-tail experiment decisions, and wrote the frozen F0 attribution protocol and compute profiles; remote placement and heavier estimators remain proposals rather than measured deployment results (#710).
 - Applied site-period angle correction to transit-sourced PDF statistics and comparison periods, and made the cosine rows and explanatory note follow the same predicate as the query; reports without a site now state that no sensor-angle correction was applied (#713).
+- {patrickod/tailscale-acls} Dropped connections from the host on every listener while tailscaled forwarded to its port through a Serve handler the manager had not installed: a TCP forward or TCP Funnel had read as the host or as a forged tailnet identity (#503).
+- {patrickod/tailscale-acls} Refused an unparseable forwarded address in `on` mode, let the view grant read the offline docs, and pinned the view inventory and the review's integration matrix through the installed wrappers (#503).
+- {patrickod/tailscale-acls} Chose the image's access profile with `VELOCITY_ACCESS_PROFILE`, so an operator's drop-in survives unit changes, and documented Serve forwards, 100.64 LANs and what `off` leaves open (#503).
+- {patrickod/tailscale-acls} Refused requests whose Host a DNS-rebinding page could send, in every profile: a page in a LAN browser could otherwise start Tailscale enrolment under `off` and read the login URL. `--allowed-hosts` adds names such as a reverse proxy's (#503).
+
+## October 7, 2026 - Access hardening keeps viewing separate from control
+
+- {patrickod/tailscale-acls} Added an opt-in hardened HTTP profile with anonymous LAN aggregate viewing and existing ordinary PDF downloads, transport-independent operation/resource checks, and explicit Tailscale configuration/report/export permissions. Kept off/on compatibility and reserved maintenance/access management for OS-authorised tools; native users/groups remain later work (#503).
+- {patrickod/tailscale-acls} Replaced the ten-minute stale-grant fallback with bounded, coalesced lookups and a five-second cache; removed the race in which an older admin answer could resurrect a revoked grant. Added a dedicated loopback Serve capability backend, origin checks, redacted disclosure and caller-permission UI (#503).
+- {patrickod/tailscale-acls} Constrained alternate LiDAR HTTP to loopback in hardened mode and full gRPC in every mode. The gRPC audit found shared playback state changes and return-to-live effects, but no implemented settings/file/recording RPC; corrected the advertised recording capability. Recorded the historical trust policy, reproduced cache failure and release split in the [access-control plan](plans/platform-access-control-hardening-plan.md); Pi/live-tailnet acceptance remains open (#503).
 
 ## October 6, 2026 - PCAP read in place, run statistics, scene clipping and held-out v2, runtime correctness closed, and a speed-limit design
 
@@ -257,7 +267,7 @@ older entries stay put, however tempting hindsight may be.
 - Moved to Go 1.27.1 for `tailscale.com` 1.105.0-pre, dropped the removed netmap bit from the IPN bus watch, and held SvelteKit 3 back (#693).
 - Fixed the public_html timeline strip tests, which failed outside a browser, and ran that suite in `make test` and CI (#695).
 - Widened the lidarbench heap-stability bound to 20 % for shared CI runners, and added the tests Codecov found missing in #686 and #688 (#687, #700).
-- {dd/api/tailscale-acls-503} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
+- {patrickod/tailscale-acls} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
 
 ## October 5, 2026 - Near-edge findings and follow-ups, span selection, raw outputs stay local, a scene-change recovery plan, and the devlog register
 

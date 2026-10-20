@@ -28,6 +28,14 @@
 	import { gitRepoDocsUrl } from '#lib/docsUrl.js';
 	import { discord } from '#lib/icons.js';
 	import {
+		access,
+		hasPermission,
+		pagePermission,
+		refreshAccess,
+		startAccessPolling,
+		stopAccessPolling
+	} from '#lib/stores/access.js';
+	import {
 		capabilities,
 		startCapabilitiesPolling,
 		stopCapabilitiesPolling
@@ -45,8 +53,14 @@
 	let navUrl = $derived(new URL(page.url.href));
 
 	// Start polling for capabilities on layout mount; stop on destroy.
-	onMount(() => startCapabilitiesPolling());
-	onDestroy(stopCapabilitiesPolling);
+	onMount(() => {
+		startAccessPolling();
+		startCapabilitiesPolling();
+	});
+	onDestroy(() => {
+		stopAccessPolling();
+		stopCapabilitiesPolling();
+	});
 
 	settings({
 		components: {
@@ -102,7 +116,7 @@
 		<NavItem text="Dashboard" icon={mdiHome} path="/app/" currentUrl={navUrl} />
 		<NavItem text="Sites" icon={mdiMapMarker} path="/app/site" currentUrl={navUrl} />
 		<NavItem text="Reports" icon={mdiFileDocument} path="/app/reports" currentUrl={navUrl} />
-		{#if Object.values($capabilities.lidar).some((s) => s.enabled)}
+		{#if hasPermission($access, 'configuration:write') && Object.values($capabilities.lidar).some((s) => s.enabled)}
 			<!-- In the order the work runs: captures are cut into clips (by hand, or
 			     from a ranked segment), clips are replayed as runs, runs are labelled
 			     as tracks, and sweeps tune the parameters the runs use. The clip
@@ -152,7 +166,9 @@
 				/>
 			</div>
 		{/if}
-		<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={navUrl} />
+		{#if hasPermission($access, 'configuration:read')}
+			<NavItem text="Settings" icon={mdiCog} path="/app/settings" currentUrl={navUrl} />
+		{/if}
 		<hr class="border-surface-300 my-2" aria-hidden="true" />
 		<NavItem text="Docs" icon={mdiBookOpenPageVariantOutline} path={docsUrl} currentUrl={navUrl} />
 	</nav>
@@ -185,5 +201,23 @@
 		</div>
 	</AppBar>
 
-	{@render children?.()}
+	{#if $access.status === 'loading'}
+		<main id="main-content" class="p-6" aria-busy="true">
+			<p role="status">Checking your access…</p>
+		</main>
+	{:else if $access.status === 'error'}
+		<main id="main-content" class="space-y-3 p-6">
+			<p role="alert">{$access.error}</p>
+			<Button on:click={() => refreshAccess()}>Retry access check</Button>
+		</main>
+	{:else if !hasPermission($access, pagePermission(page.url.pathname))}
+		<main id="main-content" class="space-y-3 p-6">
+			<h1 class="text-xl font-semibold">Access required</h1>
+			<p>Your current connection does not have permission to open this page.</p>
+			<p>Use an authorised Tailscale connection or ask the device operator for access.</p>
+			<Button on:click={() => refreshAccess()}>Check access again</Button>
+		</main>
+	{:else}
+		{@render children?.()}
+	{/if}
 </AppLayout>

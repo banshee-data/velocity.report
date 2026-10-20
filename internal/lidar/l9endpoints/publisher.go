@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/access"
 	"github.com/banshee-data/velocity.report/internal/lidar"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/pb"
 	"github.com/banshee-data/velocity.report/internal/netutil"
@@ -42,6 +43,10 @@ type Config struct {
 	// 136 at 0.5x for one capture whose rotations were identical — and anything
 	// that counted records saw three different recordings.
 	BackgroundEveryFrames int
+
+	// WrapListener, if set, wraps the listener once it is bound, such as
+	// with access.GuardListener.
+	WrapListener func(net.Listener) net.Listener
 }
 
 // DefaultBackgroundEveryFrames is 30 s of rotations at the sensor's 10 Hz.
@@ -412,6 +417,9 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 	}
 
 	diagf("[Visualiser] Attempting to bind to %s...", p.config.ListenAddr)
+	if err := access.ValidateLoopbackListen(p.config.ListenAddr); err != nil {
+		return fmt.Errorf("gRPC requires local access until authentication is implemented: %w", err)
+	}
 	var lis net.Listener
 	var err error
 	if p.config.ListenFallback {
@@ -428,6 +436,9 @@ func (p *Publisher) start(register func(*grpc.Server)) error {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
 	diagf("[Visualiser] Successfully bound to %s", lis.Addr())
+	if p.config.WrapListener != nil {
+		lis = p.config.WrapListener(lis)
+	}
 	p.listener = lis
 
 	// Configure max message size for large point clouds (64k+ points).

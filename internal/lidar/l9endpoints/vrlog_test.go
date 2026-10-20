@@ -777,8 +777,8 @@ func TestServer_GetCapabilities_VRLog(t *testing.T) {
 	if !resp.SupportsReplay {
 		t.Error("expected SupportsReplay=true")
 	}
-	if !resp.SupportsRecording {
-		t.Error("expected SupportsRecording=true")
+	if resp.SupportsRecording {
+		t.Error("unimplemented recording RPCs must not be advertised")
 	}
 	if !resp.SupportsPoints {
 		t.Error("expected SupportsPoints=true")
