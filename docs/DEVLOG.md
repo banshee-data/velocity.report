@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 20, 2026 - Whether any learned LiDAR model fits the Pi
+
+- {claude/fervent-mendel-3enlxv} Surveyed the transformer, foundation and physical-AI LiDAR models for fixed and moving sensors, the harnesses that run them, what Hugging Face holds, and the public leaderboards, against the Pi 4 at 10 and 20 Hz: no published learned scene-level detector has been timed on a Pi 4 or 5, the nearest ARM-CPU figures put a pillar detector at 0.86 to 6.4 s per frame on Snapdragon cores, measured 10 Hz begins at a Jetson Orin Nano and measured 20 Hz at an AGX Orin with TensorRT FP16, every roadside benchmark still reports PointPillars, learned odometry trails KISS-ICP on KITTI, no roadside leaderboard exists and Papers with Code closed in July 2025; the one learned stage with a measured Pi cost is a per-cluster classifier on the existing DBSCAN output, and the Pi 4 performance cells are the measurement to take before budgeting it: [briefing](lidar/operations/brief/lidar-model-landscape-briefing-2026-10-20.md)
+
 ## October 19, 2026 - Replays that start from nothing, and whether the defaults' L3 loses tracks
 
 - Confirmed the two L3 states that made a replay depend on the server's history (l3bg0020): each of four server histories landed on its predicted outcome by its settling log and its tracks at two sites, and one replay made while the host was swapping found a third, the frame builder's idle timer cutting a stalled reader's rotation: [report](lidar/operations/replay-determinism-2026-10.md) (#787).

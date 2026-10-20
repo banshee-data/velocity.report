@@ -5,7 +5,7 @@
 - **Target:** v0.5.6-v2.0; scorecard and corpus contracts follow the headway critical path, and candidate models stay parked at v2.0 until the scorecard exists.
 - **Companion plans:** [lidar-shape-descriptors-plan.md](lidar-shape-descriptors-plan.md), [lidar-maths-coherence-plan.md](lidar-maths-coherence-plan.md), [lidar-track-labelling-auto-aware-tuning-plan.md](lidar-track-labelling-auto-aware-tuning-plan.md), [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md), [unpopulated-data-structures-remediation-plan.md](unpopulated-data-structures-remediation-plan.md), [platform-data-science-metrics-first-plan.md](platform-data-science-metrics-first-plan.md)
 - **Canonical:** [data/maths/classification-maths.md](../../data/maths/classification-maths.md) (single source of truth)
-- **Related:** [ML solver expansion](../lidar/architecture/ml-solver-expansion.md) (the optimisation platform this work reuses; **not** canonical for classification)
+- **Related:** [ML solver expansion](../lidar/architecture/ml-solver-expansion.md) (the optimisation platform this work reuses; **not** canonical for classification), [model landscape briefing](../lidar/operations/brief/lidar-model-landscape-briefing-2026-10-20.md) (the October 2026 survey of learned LiDAR models and their measured cost on Pi-class and Jetson hardware; the per-cluster classifier is the one learned stage with a measured Pi cost)
 
 ## Motivation
 
