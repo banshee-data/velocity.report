@@ -155,6 +155,7 @@ def start_frame():
     """
     return 0 if SETTLE else TRANSIENT_FRAMES
 
+
 POLL_SECONDS = 20
 # The per-frame foreground cap and chunk span the published point-cloud clip was
 # made with (docs/plans/lidar-web-scene-export-plan.md, item 5): 10-second chunks
