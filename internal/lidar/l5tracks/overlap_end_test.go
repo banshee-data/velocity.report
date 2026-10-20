@@ -1,7 +1,10 @@
 package l5tracks
 
 import (
+	"fmt"
 	"math"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 )
@@ -110,7 +113,7 @@ func TestOverlapEndOnBodyNeedsThePredictionOnTheReturns(t *testing.T) {
 	coast := &TrackedObject{TrackID: "coast", X: 12, Y: 0, BoxX: 11, BoxY: 0, BoxLength: 4.5, BoxWidth: 1.8}
 	tracker.Tracks = map[string]*TrackedObject{"live": live, "coast": coast}
 	body := []drawnRect{{id: "live", x: 9, y: 0, psi: 0, length: 1 + 2*overlapEndBodyMargin, wd: 1.8 + 2*overlapEndBodyMargin}}
-	boxes := tracker.liveConfirmedRects(map[string]bool{"live": true})
+	boxes := tracker.liveConfirmedRects([]string{"live", "coast"}, map[string]bool{"live": true})
 	if _, hit := tracker.coastsOn(coast, boxes); !hit {
 		t.Fatal("the drawn boxes overlap by more than half; the box test should hit")
 	}
@@ -193,5 +196,77 @@ func TestOverlapEndKeepOlderEndsTheYoungerTrack(t *testing.T) {
 	}
 	if older.TrackState == TrackDeleted || older.LastClusterID != 2 || older.Misses != 0 {
 		t.Fatalf("the older track does not hold the cluster: state %v cluster %d misses %d", older.TrackState, older.LastClusterID, older.Misses)
+	}
+}
+
+// runThree drives tracks on clusters 1, 2 and 3, lateral apart across the
+// lane, keeps only the middle cluster 2 from frame drop on, and returns each track's state and
+// expiry reason after frame end, in creation order.
+func runThree(t *testing.T, cfg TrackerConfig, lateral float64, drop, end int) []string {
+	t.Helper()
+	tracker := NewTracker(cfg)
+	start := time.Unix(1_700_000_000, 0)
+	for i := 0; i <= end; i++ {
+		x := 10 + 0.5*float64(i)
+		clusters := []WorldCluster{pairCluster(2, x, 0)}
+		if i < drop {
+			clusters = []WorldCluster{pairCluster(1, x, -lateral), clusters[0], pairCluster(3, x, lateral)}
+		}
+		tracker.Update(clusters, start.Add(time.Duration(i)*100*time.Millisecond))
+		if i == drop-1 {
+			confirmed := 0
+			for _, tr := range tracker.Tracks {
+				if tr.TrackState == TrackConfirmed {
+					confirmed++
+				}
+			}
+			if confirmed != 3 {
+				t.Fatalf("setup: %d confirmed tracks, want 3", confirmed)
+			}
+		}
+	}
+	tracks := make([]*TrackedObject, 0, len(tracker.Tracks))
+	for _, tr := range tracker.Tracks {
+		tracks = append(tracks, tr)
+	}
+	sort.Slice(tracks, func(i, j int) bool { return tracks[i].CreationSequence < tracks[j].CreationSequence })
+	out := make([]string, len(tracks))
+	for i, tr := range tracks {
+		out[i] = fmt.Sprintf("seq %d cluster %d %v %v", tr.CreationSequence, tr.LastClusterID, tr.TrackState, tr.ExpiryReason)
+	}
+	return out
+}
+
+func TestOverlapEndKeepOlderRepeats(t *testing.T) {
+	// Two tracks coast on one live body in the same frame, one older than
+	// it and one younger. Keeping the older ends the live track for the
+	// first and the younger coasting track for the second; which happens
+	// first decides whether the younger survives the frame. Go randomises
+	// map order and track IDs per run, so the tracker must decide in
+	// creation order: the oldest coasting track first, and the result is
+	// the same on every run.
+	cfg := DefaultTrackerConfig()
+	cfg.OverlapEndFrames, cfg.OverlapEndOnBody, cfg.OverlapEndKeepOlder = 1, true, true
+	want := runThree(t, cfg, 0.3, 12, 12)
+	for run := 0; run < 64; run++ {
+		got := runThree(t, cfg, 0.3, 12, 12)
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Fatalf("run %d differs:\n got %v\nwant %v", run, got, want)
+		}
+	}
+	// In creation order the oldest coasting track ends the younger live
+	// one; the youngest then lies on no live body and keeps coasting.
+	if len(want) != 3 {
+		t.Fatalf("%d tracks, want 3: %v", len(want), want)
+	}
+	oldest, live, youngest := want[0], want[1], want[2]
+	if !strings.Contains(oldest, string(TrackConfirmed)) {
+		t.Errorf("the oldest track did not survive: %s", oldest)
+	}
+	if !strings.Contains(live, string(TrackDeleted)) || !strings.Contains(live, ExpiryOverlapped.String()) {
+		t.Errorf("the younger live track was not ended as overlapped: %s", live)
+	}
+	if strings.Contains(youngest, string(TrackDeleted)) {
+		t.Errorf("the youngest track was ended after the live track it lay on was: %s", youngest)
 	}
 }

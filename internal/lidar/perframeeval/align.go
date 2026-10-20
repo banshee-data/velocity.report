@@ -50,9 +50,19 @@ func (a AlignmentStats) UnalignedFraction() float64 {
 // alignToEpisode returns the hypothesis restricted to the episode, each point
 // re-stamped with its reference frame's timestamp.
 func alignToEpisode(hyp []l8analytics.TrackSeries, ep EpisodeReference, toleranceNanos int64) ([]l8analytics.TrackSeries, AlignmentStats) {
+	out, stats, _ := alignWithOrigins(hyp, ep, toleranceNanos)
+	return out, stats
+}
+
+// alignWithOrigins is alignToEpisode, also returning, per hypothesis ID and
+// reference frame, the original timestamp of the point kept there, so a
+// measure joining per-frame rows of the arm's database can find the row the
+// scored point came from.
+func alignWithOrigins(hyp []l8analytics.TrackSeries, ep EpisodeReference, toleranceNanos int64) ([]l8analytics.TrackSeries, AlignmentStats, map[string]map[int64]int64) {
 	var stats AlignmentStats
 	frames := ep.Frames
 	out := make([]l8analytics.TrackSeries, 0, len(hyp))
+	origins := map[string]map[int64]int64{}
 
 	for _, s := range hyp {
 		type kept struct {
@@ -86,8 +96,11 @@ func alignToEpisode(hyp []l8analytics.TrackSeries, ep EpisodeReference, toleranc
 			continue
 		}
 		aligned := l8analytics.TrackSeries{ID: s.ID, Points: make([]l8analytics.SeriesPoint, 0, len(byFrame))}
-		for _, k := range byFrame {
+		origin := make(map[int64]int64, len(byFrame))
+		origins[s.ID] = origin
+		for frame, k := range byFrame {
 			aligned.Points = append(aligned.Points, k.point)
+			origin[frame] = frame + k.offset
 			if o := abs64(k.offset); o > stats.MaxOffsetNanos {
 				stats.MaxOffsetNanos = o
 			}
@@ -100,7 +113,7 @@ func alignToEpisode(hyp []l8analytics.TrackSeries, ep EpisodeReference, toleranc
 	}
 	stats.Tracks = len(out)
 	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
-	return out, stats
+	return out, stats, origins
 }
 
 func insideSpans(spans []timeSpan, ts, tolerance int64) bool {

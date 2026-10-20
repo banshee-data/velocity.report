@@ -65,8 +65,8 @@ test("every published survey site resolves to a recording with a speed summary",
     columbus.latest.raw.download,
     "https://huggingface.co/datasets/banshee-data/sf-street-speeds/resolve/main/raw/lidar/20260902T1320_80858-0f4_columbus-broadway.pcapng?download=true",
   );
-  assert.equal(columbus.latest.speed.count, 334);
-  assert.equal(columbus.latest.speed.p85, 22.6);
+  assert.equal(columbus.latest.speed.count, 336);
+  assert.equal(columbus.latest.speed.p85, 22.7);
   assert.equal(columbus.latest.build, "0.5.1-pre45");
   assert.equal(columbus.latest.assetsUrl, "/surveys/columbus-broadway/assets");
   assert.equal(columbus.latest.hasPointCloud, true);

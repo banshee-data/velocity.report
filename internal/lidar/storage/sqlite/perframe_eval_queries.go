@@ -1,6 +1,10 @@
 package sqlite
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
+)
 
 // Read paths for the per-frame acceptance evaluator (internal/lidar/perframeeval).
 //
@@ -132,6 +136,52 @@ func (s *StateEstimateStore) listPositions(table string, v EstimateVersion) ([]E
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate estimate positions: %w", err)
+	}
+	return out, nil
+}
+
+// SolidBodyClass is the classifier's decision one solid-body row carries:
+// its motion-class belief at its frame.
+type SolidBodyClass struct {
+	TrackID          string
+	CreationSequence int64
+	FrameUnixNanos   int64
+	Motion           l5tracks.MotionClassBelief
+}
+
+// ListSolidBodyClasses reads one solid-body version's motion-class beliefs,
+// in the order ListSolidBodyPositions reads its positions. It selects only
+// the columns it needs, so an evidence database written before later
+// solid-body columns existed still reads; a motion class it does not know is
+// an error, as it is for scanSolidBody.
+func (s *StateEstimateStore) ListSolidBodyClasses(v EstimateVersion) ([]SolidBodyClass, error) {
+	rows, err := s.db.Query(`
+		SELECT track_id, creation_sequence, frame_unix_nanos, motion_class, motion_posterior
+		  FROM `+solidBodyTable+`
+		 WHERE source_id = ? AND estimator_id = ? AND observation_model_id = ?
+		   AND param_hash = ? AND stage = ?
+		 ORDER BY creation_sequence, frame_unix_nanos, estimate_id`,
+		v.SourceID, v.EstimatorID, v.ObservationModelID, v.ParamHash, v.Stage)
+	if err != nil {
+		return nil, fmt.Errorf("list solid-body classes for %s/%s: %w", v.SourceID, v.EstimatorID, err)
+	}
+	defer rows.Close()
+	out := []SolidBodyClass{}
+	for rows.Next() {
+		var c SolidBodyClass
+		var class string
+		var posterior float64
+		if err := rows.Scan(&c.TrackID, &c.CreationSequence, &c.FrameUnixNanos, &class, &posterior); err != nil {
+			return nil, fmt.Errorf("scan solid-body class: %w", err)
+		}
+		if c.Motion.Class, err = l5tracks.ParseMotionClass(class); err != nil {
+			return nil, fmt.Errorf("solid body of track %s at %d: motion class: %w", c.TrackID, c.FrameUnixNanos, err)
+		}
+		c.Motion.Posterior = float32(posterior)
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate solid-body classes: %w", err)
 	}
 	return out, nil
 }

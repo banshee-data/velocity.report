@@ -4,9 +4,9 @@
   "site": "columbus-north-point",
   "title": "Columbus at North Point",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5320,
-  "start_ns": "1788375254222357330",
-  "duration_sec": 1063.89871,
+  "frame_count": 5519,
+  "start_ns": "1788375214547768330",
+  "duration_sec": 1103.673212,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "e6b394a9e02bf8848380eba99a28d611c6838485fea340fe52bcfac70543c866",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "982c42e016a5bcb2e0f4eadbb0cdf70563c127efa15f43f69141e94c2e3ec85b",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T07:46:54Z"
+  "generated_at": "2026-10-20T09:38:54Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

@@ -4,9 +4,9 @@
   "site": "fulton-divisadero",
   "title": "Fulton at Divisadero",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5851,
-  "start_ns": "1788296413329676330",
-  "duration_sec": 1169.961263,
+  "frame_count": 6049,
+  "start_ns": "1788296373731163330",
+  "duration_sec": 1209.559776,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "c49ecd185bdf58250aef7b87cbe1142eac3b243f738c11764bbfaf2e7f92371e",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "b273bfd912be0a6fde229590dc5e42b497726bcecf5491550ceb7a73e4c11f4f",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T01:45:09Z"
+  "generated_at": "2026-10-20T07:05:38Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

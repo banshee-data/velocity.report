@@ -4,9 +4,9 @@
   "site": "3rd-folsom",
   "title": "3rd at Folsom",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5810,
-  "start_ns": "1788474080625840270",
-  "duration_sec": 1161.75107803,
+  "frame_count": 6008,
+  "start_ns": "1788474041034128330",
+  "duration_sec": 1201.34278997,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "65eeae17e734076dda5ef9efca9995537d709681f4bf1edad7cf1f24c5aa6c26",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "829268ec977ec7ff6bbd85cbd4d99692365c3a11f17585baca21bf786c3e8903",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T15:01:15Z"
+  "generated_at": "2026-10-20T12:46:24Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

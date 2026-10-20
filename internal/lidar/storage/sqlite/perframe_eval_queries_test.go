@@ -147,3 +147,45 @@ func TestPerFrameQueriesRefuseAnUnknownTable(t *testing.T) {
 		}
 	}
 }
+
+// The class reader returns exactly the beliefs the full reader does, for one
+// version only, in creation-sequence and frame order.
+func TestListSolidBodyClassesReadsTheBeliefsOfOneVersion(t *testing.T) {
+	database, cleanup := setupTestDB(t)
+	defer cleanup()
+	store := NewStateEstimateStore(database)
+
+	late := testSolidBody("observation/v1/late", 200)
+	early := testSolidBody("observation/v1/early", 100)
+	early.Reading.Estimate.Motion = l5tracks.MotionClassBelief{Class: l5tracks.MotionPedestrian, Posterior: 0.5}
+	other := testSolidBody("observation/v1/other", 150)
+	other.EstimateID, other.ParamHash = "solid_body/other", "params/other"
+	for _, sb := range []TrackSolidBody{late, other, early} {
+		if err := store.InsertSolidBody(sb); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := store.ListSolidBodyClasses(EstimateVersion{
+		SourceID: late.SourceID, EstimatorID: late.EstimatorID, ObservationModelID: late.ObservationModelID,
+		ParamHash: late.ParamHash, Stage: late.Stage,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []SolidBodyClass{
+		{TrackID: early.TrackID, CreationSequence: 7, FrameUnixNanos: 100, Motion: early.Reading.Estimate.Motion},
+		{TrackID: late.TrackID, CreationSequence: 7, FrameUnixNanos: 200, Motion: late.Reading.Estimate.Motion},
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("classes\n got %+v\nwant %+v", got, want)
+	}
+	if _, err := database.Exec(`UPDATE lidar_track_solid_bodies SET motion_class = 'hovercraft' WHERE estimate_id = ?`, late.EstimateID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.ListSolidBodyClasses(EstimateVersion{
+		SourceID: late.SourceID, EstimatorID: late.EstimatorID, ObservationModelID: late.ObservationModelID,
+		ParamHash: late.ParamHash, Stage: late.Stage,
+	}); err == nil {
+		t.Fatal("an unknown motion class was read")
+	}
+}

@@ -4,9 +4,9 @@
   "site": "broadway-gough",
   "title": "Broadway at Gough",
   "sensor_id": "hesai-pandar40p",
-  "frame_count": 5390,
-  "start_ns": "1788300671246765330",
-  "duration_sec": 1077.8164,
+  "frame_count": 5588,
+  "start_ns": "1788300631646959330",
+  "duration_sec": 1117.416206,
   "frame_stride": 2,
   "chunk_encoding": "gzip",
   "chunk_seconds": 60,
@@ -14,8 +14,9 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "410dc075f2396887e4472cc8adbf88e08364c32ea530d6320a7d46e575301cca",
-  "tuning_hash": "sha256:f5daae98d4b2cf408330945bf284cc79a3b5a674a27a3da5e3a4de63c446df0a",
+  "source_vrlog_sha256": "51142d48e683913b70ed3c525eb6a97aa4b848d3e609788cd9d9f5e5f3e48a3e",
+  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
   "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-18T03:04:56Z"
+  "generated_at": "2026-10-20T07:40:35Z",
+  "trail_estimator": "cv_kf_v1/online"
 }

@@ -616,15 +616,23 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 	// recorded as coasted, or classified when absence explanation is on;
 	// under ClassCoastBounds the capture-time class bound replaces the miss
 	// count as the expiry rule.
+	//
+	// The tracks are visited in creation order, not map order. The overlap
+	// end can end a live track, which then no longer ends the next coasting
+	// track on it, so the order the coasting tracks are judged in decides
+	// which survive; Go randomises map order and track IDs are random per
+	// run, so map order would let one replay differ from its repeat.
+	order := t.sortedActiveTrackIDs()
 	var live []drawnRect
 	if t.Config.OverlapEndFrames > 0 {
 		if t.Config.OverlapEndOnBody {
 			live = t.liveConfirmedBodies(clusters, associations)
 		} else {
-			live = t.liveConfirmedRects(matchedTracks)
+			live = t.liveConfirmedRects(order, matchedTracks)
 		}
 	}
-	for trackID, track := range t.Tracks {
+	for _, trackID := range order {
+		track := t.Tracks[trackID]
 		if !matchedTracks[trackID] && track.TrackState != TrackDeleted {
 			t.observeBaselineAssociation(track, false)
 			track.Misses++

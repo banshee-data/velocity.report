@@ -63,6 +63,9 @@ func RenderMarkdown(c Comparison) string {
 	if c.Physical != nil {
 		writePhysical(&b, *c.Physical)
 	}
+	if c.Class != nil {
+		writeClass(&b, *c.Class)
+	}
 
 	b.WriteString("\n## Caveats\n\n")
 	for _, cv := range c.Caveats {
@@ -161,4 +164,30 @@ func orDash(s string) string {
 		return "-"
 	}
 	return s
+}
+
+// writeClass is the class section: per arm and episode, the following
+// gate's reading of reviewed vehicles and of pedestrians and two-wheelers.
+func writeClass(b *strings.Builder, c ClassArms) {
+	fmt.Fprintf(b, "\n## Class evidence for the following gate\n\n")
+	fmt.Fprintf(b, "Rigid: %s. Attribution: %s.\n\n", c.Definition.Rigid, c.Definition.Attribution)
+	b.WriteString("| Arm | Episode | Vehicles | End rigid | Any track ends rigid | Rigid frames | Track age at first rigid, median / p90 (s) | Never rigid | Pedestrians and two-wheelers ending rigid |\n")
+	b.WriteString("| --- | ------- | -------: | --------: | -------------------: | -----------: | ------------------------------------------ | ----------: | ----------------------------------------: |\n")
+	for _, arm := range []ClassResult{c.A, c.B} {
+		rows := append([]ClassEpisode{{EpisodeID: "all (pooled)", ClassSummary: arm.ClassSummary}}, arm.Episodes...)
+		for _, ep := range rows {
+			v, f := ep.Vehicles, ep.FalseApplicability
+			fmt.Fprintf(b, "| %s | %s | %d | %d (%.3f) | %d (%.3f) | %d of %d (%.3f) | %s / %s | %d | %d of %d |\n",
+				arm.Arm.Label, ep.EpisodeID, v.Objects, v.EndRigid, v.EndRigidShare, v.AnyTrackEndsRigid, v.AnyTrackEndsRigidShare,
+				v.RigidFrames, v.Frames, v.RigidFrameShare, optSeconds(v.TrackAgeAtFirstRigid.Median), optSeconds(v.TrackAgeAtFirstRigid.P90),
+				v.TrackAgeAtFirstRigid.Never, f.EndRigid, f.Objects)
+		}
+	}
+}
+
+func optSeconds(v *float64) string {
+	if v == nil {
+		return "-"
+	}
+	return fmt.Sprintf("%.1f", *v)
 }

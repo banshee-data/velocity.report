@@ -77,6 +77,8 @@ type Comparison struct {
 	B       ArmResult `json:"arm_b"`
 	// Physical is present only when physical scoring was asked for.
 	Physical *PhysicalArms `json:"physical,omitempty"`
+	// Class is present only when the class measure was asked for.
+	Class *ClassArms `json:"class,omitempty"`
 }
 
 // PhysicalArms is both arms scored against one physical reference.

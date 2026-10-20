@@ -2402,14 +2402,15 @@ test-s2-hilbert: install-s2-hilbert
 # replay path against that directory and refuses anything outside it.
 S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
 
-# Replay settings. Not the pipeline defaults, and the reason each one is not is
-# in tools/s2-archive/publish-scenes.py — in short, analysis mode replays faster
-# than the background model settles, and the settling pass would train that
-# model on the very traffic the recording exists to show. They live here so a
-# rebuild does not depend on somebody remembering to export three variables.
+# Replay settings. The reason for each is in tools/s2-archive/publish-scenes.py
+# — in short, half speed stays until perf0003 decides the speed, and the
+# settling pass settles the background model before the recorded pass, so the
+# export keeps every rotation of the capture rather than cutting the opening
+# 40 s of transient. They live here so a rebuild does not depend on somebody
+# remembering to export three variables.
 SCENE_SPEED_MODE ?= scaled
 SCENE_SPEED_RATIO ?= 0.5
-SCENE_SETTLE ?= 0
+SCENE_SETTLE ?= 1
 SCENE_SOURCE ?= corpus
 # Which estimate the published trail draws: online (the tracker's posterior,
 # as every scene so far) or smoothed (the whole-track RTS smoother over the
