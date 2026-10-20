@@ -281,6 +281,10 @@ func selectVersion(store *sqlite.StateEstimateStore, spec Spec) (sqlite.Estimate
 	switch {
 	case len(matched) == 1:
 		return matched[0], nil
+	case len(atSource) == 0 && spec.Boxes:
+		return sqlite.EstimateVersion{}, fmt.Errorf("the database holds no %s for source %s; a replay files the box "+
+			"beside each online estimate, and an evidence database written before it did holds none and must be "+
+			"replayed again", noun, spec.SourceID)
 	case len(atSource) == 0:
 		return sqlite.EstimateVersion{}, fmt.Errorf("the database holds no %s for source %s", noun, spec.SourceID)
 	case len(matched) == 0:

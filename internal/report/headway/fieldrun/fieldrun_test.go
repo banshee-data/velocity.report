@@ -812,7 +812,7 @@ func TestRunBoxesRefuses(t *testing.T) {
 	}{
 		"with solid bodies": {Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true, SolidBodies: true}, "not both"},
 		"final":             {Spec{SourceID: testSource, Stage: l8behaviour.StageFinal, Boxes: true}, "online estimates only"},
-		"no boxes":          {Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true}, "no published boxes for source"},
+		"no boxes":          {Spec{SourceID: testSource, Stage: l8behaviour.StageOnline, Boxes: true}, "must be replayed again"},
 	} {
 		if _, err := Run(database, c.spec); err == nil || !strings.Contains(err.Error(), c.want) {
 			t.Errorf("%s: error %v, want %q", name, err, c.want)
