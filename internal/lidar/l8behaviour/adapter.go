@@ -479,10 +479,6 @@ func sampleFromPersisted(r PersistedEstimate, stateModel string, stage EstimateS
 		SustainedAssociation: true,
 		SpeedMps:             float32(math.Hypot(float64(r.VX), float64(r.VY))),
 	}, bounds)
-	if body.Estimation == l5tracks.EstimationEstablished && !body.Orientation.IsResolved() {
-		// Kept while slow, but the box has turned across its held front.
-		body.Estimation = l5tracks.EstimationTemporarilyDegraded
-	}
 	s, err := SampleFromSolidBody(body, DynamicState{VX: r.VX, VY: r.VY, Covariance: p}, r.FrameUnixNanos, bounds)
 	if err != nil {
 		return TrajectorySample{}, current, err
@@ -875,10 +871,6 @@ func sampleFromBox(r PersistedBox, stateModel string, n int, front *float32, cur
 		SustainedAssociation: true,
 		SpeedMps:             float32(math.Hypot(float64(r.VX), float64(r.VY))),
 	}, bounds)
-	if body.Estimation == l5tracks.EstimationEstablished && !body.Orientation.IsResolved() {
-		// Kept while slow, but the box has turned across its held front.
-		body.Estimation = l5tracks.EstimationTemporarilyDegraded
-	}
 	s, err := SampleFromSolidBody(body, DynamicState{VX: r.VX, VY: r.VY, Covariance: p}, r.FrameUnixNanos, bounds)
 	if err != nil {
 		return TrajectorySample{}, current, err

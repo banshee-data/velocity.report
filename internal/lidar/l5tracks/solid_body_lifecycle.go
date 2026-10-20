@@ -212,9 +212,12 @@ func NextEstimationState(
 	}
 
 	// A track that was established and is merely slow has not become
-	// un-estimated; it keeps what it earned.
+	// un-estimated: it keeps the belief it earned, as degraded rather than
+	// established, because established is a claim about the beliefs it holds
+	// now. A stopped vehicle's heading lapses to its axis, and an established
+	// state on an unresolved heading is one no consumer can read.
 	if current == EstimationEstablished || current == EstimationTemporarilyDegraded {
-		return current
+		return EstimationTemporarilyDegraded
 	}
 	return EstimationInitialising
 }
