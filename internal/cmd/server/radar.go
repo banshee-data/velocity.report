@@ -682,7 +682,7 @@ func Main(args []string) int {
 						&backgroundManagerBridge{mgr: backgroundManager},
 					)
 					frameAdapter.SplitStreaming = true
-					log.Printf("Visualiser background split streaming enabled (interval=%s)", vizConfig.BackgroundInterval)
+					log.Printf("Visualiser background split streaming enabled (every %d rotations)", vizConfig.BackgroundEveryFrames)
 				}
 
 				log.Printf("Visualiser gRPC server started on %s", visualiserPublisher.Addr())

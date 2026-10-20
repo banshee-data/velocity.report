@@ -32,18 +32,29 @@ type Config struct {
 	// MaxClients is the maximum number of concurrent streaming clients
 	MaxClients int
 
-	// BackgroundInterval is how often to send background snapshots (default: 30s)
-	BackgroundInterval time.Duration
+	// BackgroundEveryFrames is how many sensor rotations pass between periodic
+	// background snapshots (default 300: 30 s at 10 Hz). Zero or less takes
+	// the default.
+	//
+	// It counts rotations, not wall-clock time. A recording is written through
+	// the publisher, so a wall-clock interval made the number of snapshots in a
+	// VRLOG depend on the replay's speed — 30 at analysis speed, 69 at 1x and
+	// 136 at 0.5x for one capture whose rotations were identical — and anything
+	// that counted records saw three different recordings.
+	BackgroundEveryFrames int
 }
+
+// DefaultBackgroundEveryFrames is 30 s of rotations at the sensor's 10 Hz.
+const DefaultBackgroundEveryFrames = 300
 
 // DefaultConfig returns a default configuration.
 func DefaultConfig() Config {
 	return Config{
-		ListenAddr:         "localhost:50051",
-		SensorID:           "hesai-01",
-		EnableDebug:        false,
-		MaxClients:         5,
-		BackgroundInterval: 30 * time.Second,
+		ListenAddr:            "localhost:50051",
+		SensorID:              "hesai-01",
+		EnableDebug:           false,
+		MaxClients:            5,
+		BackgroundEveryFrames: DefaultBackgroundEveryFrames,
 	}
 }
 
@@ -63,7 +74,8 @@ type Publisher struct {
 	// backgroundMgr is wired once by SetBackgroundManager during startup,
 	// before Start() launches any goroutine, and is read-only thereafter.
 	//
-	// backgroundMu guards lastBackgroundSeq and lastBackgroundSent, which are
+	// backgroundMu guards lastBackgroundSeq, lastBackgroundSent and
+	// framesSinceBackground, which are
 	// touched both by the pipeline goroutine (Publish → shouldSendBackground)
 	// and by HTTP handlers (SendBackgroundSnapshot). It is held only across
 	// those field accesses, never across GenerateBackgroundSnapshot: that walks
@@ -73,6 +85,9 @@ type Publisher struct {
 	backgroundMu       sync.Mutex
 	lastBackgroundSeq  uint64
 	lastBackgroundSent time.Time
+	// framesSinceBackground counts the live pipeline's rotations since the
+	// last background snapshot; the periodic refresh fires on it.
+	framesSinceBackground int
 	// lastBackgroundFrame is the most recent background as broadcast, kept so a
 	// client that subscribes afterwards can be given the scene rather than
 	// rendering over nothing until the next refresh.
@@ -248,7 +263,7 @@ func (p *Publisher) shouldSendBackground() bool {
 
 	// Send if:
 	// 1. Never sent before, OR
-	// 2. Interval elapsed, OR
+	// 2. BackgroundEveryFrames rotations have passed, OR
 	// 3. Grid sequence changed (reset/sensor moved)
 
 	currentSeq := p.backgroundMgr.GetBackgroundSequenceNumber()
@@ -256,6 +271,7 @@ func (p *Publisher) shouldSendBackground() bool {
 	p.backgroundMu.Lock()
 	lastSeq := p.lastBackgroundSeq
 	lastSent := p.lastBackgroundSent
+	sinceLast := p.framesSinceBackground
 	p.backgroundMu.Unlock()
 
 	if lastSent.IsZero() {
@@ -292,9 +308,12 @@ func (p *Publisher) shouldSendBackground() bool {
 		return true // Grid was reset or a settled snapshot was restored
 	}
 
-	elapsed := time.Since(lastSent)
-	if elapsed >= p.config.BackgroundInterval {
-		lidar.Diagf("[Visualiser] Background interval elapsed (%.1fs), sending refresh", elapsed.Seconds())
+	every := p.config.BackgroundEveryFrames
+	if every <= 0 {
+		every = DefaultBackgroundEveryFrames
+	}
+	if sinceLast >= every {
+		lidar.Diagf("[Visualiser] %d rotations since the last background, sending refresh", sinceLast)
 		return true // Periodic refresh
 	}
 
@@ -350,13 +369,21 @@ func (p *Publisher) sendBackgroundSnapshot() error {
 		}
 	}
 
+	// The snapshot counts as sent once it exists, whether or not the
+	// broadcast below finds room. Counting it only on a successful broadcast
+	// retried it on the next rotation and recorded it again, so how fast
+	// clients drained the channel decided how many snapshots a recording held.
+	// A client that missed one gets the next refresh, or lastBackgroundFrame on
+	// subscribing.
+	p.backgroundMu.Lock()
+	p.lastBackgroundSeq = snapshot.SequenceNumber
+	p.lastBackgroundSent = time.Now()
+	p.framesSinceBackground = 0
+	p.backgroundMu.Unlock()
+
 	// Send to all clients
 	select {
 	case p.frameChan <- bundle:
-		p.backgroundMu.Lock()
-		p.lastBackgroundSeq = snapshot.SequenceNumber
-		p.lastBackgroundSent = time.Now()
-		p.backgroundMu.Unlock()
 		pointCount := len(snapshot.X)
 		lidar.Diagf("[Visualiser] Background snapshot sent: %d points, seq=%d", pointCount, snapshot.SequenceNumber)
 	default:
@@ -492,6 +519,14 @@ func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 	// interleave with the recorded ones and be written to any active recorder.
 	if !fromReplay && p.IsVRLogActive() {
 		return
+	}
+
+	// The periodic refresh counts the pipeline's own rotations, so it falls on
+	// the same rotation whatever the replay's speed.
+	if !fromReplay && frameBundle.FrameType != FrameTypeBackground {
+		p.backgroundMu.Lock()
+		p.framesSinceBackground++
+		p.backgroundMu.Unlock()
 	}
 
 	// M3.5: Check if we should send a background snapshot first

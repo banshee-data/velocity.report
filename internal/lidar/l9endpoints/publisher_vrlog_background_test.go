@@ -315,7 +315,7 @@ func TestLiveFrames_StillStampedWithLiveSeq(t *testing.T) {
 // time.Time, so an unsynchronised write is a torn read of a multi-word struct,
 // not merely a stale value.
 func TestConcurrentPublishAndSendBackgroundSnapshot(t *testing.T) {
-	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Nanosecond})
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 1})
 	pub.running.Store(true)
 	t.Cleanup(func() { pub.running.Store(false) })
 	pub.SetBackgroundManager(&liveBackgroundManager{})

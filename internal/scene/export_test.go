@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -592,5 +593,110 @@ func TestExportCarriesThePublishedBoxCentre(t *testing.T) {
 		default:
 			t.Errorf("track %+v: want the box model's centre rounded beside the tracked position, and none for the legacy box", tr)
 		}
+	}
+}
+
+// writeRotationsWithSnapshots records the same rotations every time, with a
+// background snapshot after each rotation whose index is in snapshotsAfter.
+// It stands for one capture replayed at two speeds: the rotations are the
+// replay's, the snapshots the publisher's, and their number varies with speed.
+func writeRotationsWithSnapshots(t *testing.T, rotations int, snapshotsAfter map[int]bool) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), "speed.vrlog")
+	rec, err := recorder.NewRecorder(dir, "hesai-pandar40p")
+	if err != nil {
+		t.Fatalf("NewRecorder: %v", err)
+	}
+	for i := 0; i < rotations; i++ {
+		ts := baseNs + int64(i)*100_000_000
+		if err := rec.Record(&l9endpoints.FrameBundle{
+			FrameID: uint64(i), TimestampNanos: ts, SensorID: "hesai-pandar40p",
+			FrameType: l9endpoints.FrameTypeForeground,
+			Tracks: &l9endpoints.TrackSet{Tracks: []l9endpoints.Track{{
+				TrackID: "t0", State: l9endpoints.TrackStateConfirmed, X: float32(i), Y: 2, Z: 0.8,
+			}}},
+		}); err != nil {
+			t.Fatalf("record rotation: %v", err)
+		}
+		if snapshotsAfter[i] {
+			if err := rec.Record(&l9endpoints.FrameBundle{
+				FrameID: uint64(10_000 + i), TimestampNanos: ts,
+				SensorID: "hesai-pandar40p", FrameType: l9endpoints.FrameTypeBackground,
+			}); err != nil {
+				t.Fatalf("record background: %v", err)
+			}
+		}
+	}
+	if err := rec.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	return dir
+}
+
+// The published scenes are cut with --start-frame to drop the opening
+// transient. Counted in records, the cut moved with the snapshots before it:
+// columbus-broadway, recorded identically at analysis, 1x and 0.5x, exported
+// from three rotations 100 ms apart, and at stride 2 an odd offset leaves two
+// exports with no instant in common. Counted in rotations, both cut alike.
+func TestExportStartFrameCountsRotationsNotRecords(t *testing.T) {
+	fast := writeRotationsWithSnapshots(t, 20, map[int]bool{0: true})
+	slow := writeRotationsWithSnapshots(t, 20, map[int]bool{0: true, 1: true, 2: true, 4: true, 8: true})
+
+	export := func(vrlog string) ([]Frame, *Result) {
+		out := filepath.Join(t.TempDir(), "out")
+		res, err := Export(Options{VRLOGPath: vrlog, OutDir: out, Stride: 2, StartFrame: 5})
+		if err != nil {
+			t.Fatalf("Export(%s): %v", vrlog, err)
+		}
+		return readFrames(t, out), res
+	}
+	fastFrames, fastRes := export(fast)
+	slowFrames, slowRes := export(slow)
+
+	if fastRes.Header.StartNs != slowRes.Header.StartNs {
+		t.Errorf("start %s against %s: the cut depends on the snapshots before it",
+			fastRes.Header.StartNs, slowRes.Header.StartNs)
+	}
+	if want := strconv.FormatInt(baseNs+5*100_000_000, 10); fastRes.Header.StartNs != want {
+		t.Errorf("start %s, want rotation 5 at %s", fastRes.Header.StartNs, want)
+	}
+	// Rotations 5 to 19 at stride 2: 5, 7, ... 19.
+	if len(fastFrames) != 8 || len(slowFrames) != 8 {
+		t.Fatalf("retained %d and %d frames, want 8 each", len(fastFrames), len(slowFrames))
+	}
+	for i := range fastFrames {
+		a, b := fastFrames[i], slowFrames[i]
+		if a.TimeUs != b.TimeUs || len(a.Tracks) != 1 || len(b.Tracks) != 1 || a.Tracks[0].X != b.Tracks[0].X {
+			t.Errorf("frame %d differs: %+v against %+v", i, a, b)
+		}
+	}
+}
+
+// FrameCount bounds the export in rotations too, so the snapshots inside the
+// window do not shorten it.
+func TestExportFrameCountCountsRotations(t *testing.T) {
+	vrlog := writeRotationsWithSnapshots(t, 20, map[int]bool{3: true, 4: true, 5: true, 6: true})
+	out := filepath.Join(t.TempDir(), "out")
+	res, err := Export(Options{VRLOGPath: vrlog, OutDir: out, StartFrame: 2, FrameCount: 6})
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	frames := readFrames(t, out)
+	if res.Header.FrameCount != 6 || len(frames) != 6 {
+		t.Fatalf("retained %d (%d read), want rotations 2 to 7", res.Header.FrameCount, len(frames))
+	}
+	if frames[0].Tracks[0].X != 2 || frames[5].Tracks[0].X != 7 {
+		t.Errorf("window ran from rotation %v to %v, want 2 to 7", frames[0].Tracks[0].X, frames[5].Tracks[0].X)
+	}
+}
+
+// A start past the last rotation is refused, measured in rotations: a
+// recording with more records than rotations must not accept a start that
+// lies among its snapshots.
+func TestExportStartFrameBeyondTheRotationsIsRefused(t *testing.T) {
+	vrlog := writeRotationsWithSnapshots(t, 4, map[int]bool{0: true, 1: true, 2: true, 3: true})
+	_, err := Export(Options{VRLOGPath: vrlog, OutDir: filepath.Join(t.TempDir(), "out"), StartFrame: 5})
+	if err == nil {
+		t.Fatal("Export accepted a start beyond the recording's 4 rotations (8 records)")
 	}
 }

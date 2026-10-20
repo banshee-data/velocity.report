@@ -27,7 +27,7 @@ func (m *settlingBackgroundManager) IsSettlingComplete() bool            { retur
 // background did not arrive until 24s later.
 func TestBackgroundIsSentWhenSettlingCompletes(t *testing.T) {
 	mgr := &settlingBackgroundManager{}
-	p := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Minute})
+	p := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 600})
 	p.backgroundMgr = mgr
 
 	// A snapshot has already gone out during warm-up, well inside the interval.
@@ -49,7 +49,7 @@ func TestBackgroundIsSentWhenSettlingCompletes(t *testing.T) {
 // The transition fires once, not on every frame after settling.
 func TestSettlingBackgroundFiresOnlyOnTheTransition(t *testing.T) {
 	mgr := &settlingBackgroundManager{settled: true}
-	p := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Minute})
+	p := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 600})
 	p.backgroundMgr = mgr
 
 	p.backgroundMu.Lock()
@@ -66,7 +66,7 @@ func TestSettlingBackgroundFiresOnlyOnTheTransition(t *testing.T) {
 
 // A manager that does not model settling is unaffected.
 func TestPublisherToleratesAManagerWithoutSettling(t *testing.T) {
-	p := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: time.Minute})
+	p := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: 600})
 	p.backgroundMgr = &seqBackgroundManager{seq: 7}
 
 	p.backgroundMu.Lock()

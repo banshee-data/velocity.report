@@ -260,10 +260,11 @@ def scene_frames(scene):
     """{capture time in ms: [track rows]} from an exported scene's NDJSON chunks.
 
     Frames are keyed by capture time, not by "f": f is the server's running
-    frame counter, and t is measured from the scene's first frame, which
-    --start-frame picks by VRLOG position. A VRLOG interleaves background
-    snapshots on the wall clock, so two replays of one capture can start their
-    scenes a frame or two apart.
+    frame counter, and t is measured from the scene's first frame. Until
+    --start-frame counted rotations it picked that frame by VRLOG position,
+    and a VRLOG interleaved background snapshots on the wall clock, so two
+    replays of one capture could start their scenes a frame or two apart;
+    keying by capture time still reads exports made before then.
     """
     with open(os.path.join(scene, "header.json")) as f:
         start_ns = int(json.load(f)["start_ns"])
