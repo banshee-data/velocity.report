@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 20, 2026 - Decisions carried from prepared evidence through voice to integration
 
+- {ci/arm64-vm-2604-findings} Found why the ARM64 VM release gate hangs at UEFI on ubuntu-26.04 runners: edk2 2025.11 stops under QEMU's `-cpu max`, while `cortex-a72` and `neoverse-n1` boot it into the Debian kernel; 24.04's edk2 boots under QEMU 10.2, and the firmware layout, `-smp` and the NIC made no difference ([report](platform/operations/arm64-vm-gate-ubuntu-2604.md))
+
 - {codex/decision-review-skill} Added `/decision-review`, `/decision-review-voice`, and `/decision-review-integrate`: high-capability preparation of open project, schema, maths, and research questions, lightweight discussion that saves confirmed choices as ready for integration, and high-capability review that updates downstream dependencies or returns focused questions to voice. A versioned packet carries source provenance, options, superseding decisions, follow-ups, and PR checkpoints: [workflow](platform/operations/decision-review.md).
 
 ## October 19, 2026 - Replays that start from nothing, and whether the defaults' L3 loses tracks
