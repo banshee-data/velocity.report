@@ -68,7 +68,7 @@ wrappers are still present, and the Makefile has grown around them.
 | Measure                                                                      | Value                                                                   |
 | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
 | Targets                                                                      | 231 (118 in February), in 2,857 lines                                   |
-| Listed by the hand-written `help` block                                      | 177; 54 unlisted; two sentence fragments echoed as if they were targets |
+| Listed by the hand-written `help` block                                      | 176; 55 unlisted; two sentence fragments echoed as if they were targets |
 | Targets with a `##` comment                                                  | 19                                                                      |
 | Targets called by CI                                                         | 36                                                                      |
 | Targets nothing calls (no CI step, skill, doc, script, code or other target) | 68                                                                      |
@@ -100,7 +100,7 @@ budget of 150.
 
 #### Keeping the count down
 
-1. **Generated help.** Each public target carries a `##` comment and `make help` prints them by section; a target without one is internal and hidden. The 226-line echo block goes, and with it the 54 targets it forgot.
+1. **Generated help.** Each public target carries a `##` comment and `make help` prints them by section; a target without one is internal and hidden. The 226-line echo block goes, and with it the 55 targets it forgot.
 2. **A Make check in lint.** It fails on an alias recipe (a single `$(MAKE)` call or a single prerequisite with nothing else), fails on a public target without a `##` comment, and reports the count against the budget. Advisory for one release, then gated.
 3. **CI calls Make.** The 27 direct steps move to targets, most of which already exist: `check-md-links` for the two link checkers, `lint-web`, `test-web` and `build-web` for the web steps, the static VM test for the image workflow, and a `check-lfs` target for the four LFS validations.
 4. **Includes after the trim.** Splitting the Makefile into one include per concern under `mk/` is worth doing once the file is smaller; doing it first would turn every deletion into a cross-file conflict.
