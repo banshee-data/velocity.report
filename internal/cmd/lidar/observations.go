@@ -198,6 +198,9 @@ func printManifest(m vrlog.Manifest) {
 	}
 	p := m.Provenance
 	fmt.Printf("written by   %s %s (%s), params %s\n", p.Writer, p.BuildVersion, p.BuildGitSHA, p.ParamsHash)
+	if len(p.Experiments) > 0 {
+		fmt.Printf("experiments  %s\n", strings.Join(p.Experiments, ", "))
+	}
 	for _, o := range m.Metadata {
 		fmt.Printf("metadata     %s (%s, %d bytes, sha256:%s)\n", o.Name, o.MediaType, len(o.Content), o.SHA256)
 	}
