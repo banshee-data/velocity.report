@@ -364,7 +364,13 @@ hash rather than the L3 they ran.
    re-asks the pacing question under whatever L3 that leaves.
 6. **Export published scenes by capture time, not VRLOG position.** `--start-frame 400` counts
    background snapshots taken on the wall clock, so two exports of one capture can start a frame
-   apart and, at stride 2, hold alternate frames.
+   apart and, at stride 2, hold alternate frames. _Done, after the fact (2026-10-19):_
+   `--start-frame` and `--frame-count` count rotations, as `--stride` already did, and the
+   publisher's periodic background is every 300 rotations rather than every 30 s of wall clock, so
+   a recording's snapshot count no longer depends on its speed either. columbus-broadway replayed
+   on one fresh server at analysis, 1x and 0.5x (`7c39789e`) recorded the same 20,330 rotations
+   and 335,341 track rows, identical row for row, with 30, 69 and 136 snapshots among them; the
+   published exports started 100 ms apart until the cut counted rotations.
 
 ## Provenance
 

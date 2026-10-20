@@ -119,7 +119,7 @@ func (m *seqBackgroundManager) IsSettlingComplete() bool { return false }
 // until the 30s interval elapsed.
 func TestSettledSnapshotRestoreRefreshesBackground(t *testing.T) {
 	mgr := &seqBackgroundManager{seq: 0}
-	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundInterval: 30 * time.Second})
+	pub := NewPublisher(Config{SensorID: "test-sensor", BackgroundEveryFrames: DefaultBackgroundEveryFrames})
 	pub.running.Store(true)
 	t.Cleanup(func() { pub.running.Store(false) })
 	pub.SetBackgroundManager(mgr)

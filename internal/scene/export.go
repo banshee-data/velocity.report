@@ -45,8 +45,14 @@ type Options struct {
 	// Stride retains every Nth source frame. 1 keeps every frame. This is a
 	// retention interval, not a frame rate.
 	Stride int
-	// StartFrame and FrameCount bound the source range. FrameCount <= 0 means
-	// "to the end of the recording".
+	// StartFrame and FrameCount bound the source range in sensor rotations,
+	// as Stride does: background snapshots are not counted. FrameCount <= 0
+	// means "to the end of the recording".
+	//
+	// Counting records instead made the cut depend on how many snapshots
+	// preceded it, and that number varies with the replay's speed; the same
+	// capture recorded identically at analysis, 1x and 0.5x then exported
+	// from three different rotations.
 	StartFrame int
 	FrameCount int
 	// ChunkSeconds is the target span of one chunk file. Chunks also rotate at
@@ -160,24 +166,23 @@ func Export(opts Options) (*Result, error) {
 		trailEstimator = trail.estimator
 	}
 
+	// The range is in rotations, so the recording is read from its first
+	// record and the snapshots before the start are passed over rather than
+	// sought past: a record index cannot name a rotation.
 	start := opts.StartFrame
 	if start < 0 {
 		start = 0
 	}
-	if start >= total {
-		return nil, fmt.Errorf("start frame %d is beyond the recording (%d frames)", start, total)
+	if src.RotationFrames > 0 && uint64(start) >= src.RotationFrames {
+		return nil, fmt.Errorf("start frame %d is beyond the recording (%d rotations)", start, src.RotationFrames)
 	}
-	end := total
-	if opts.FrameCount > 0 && start+opts.FrameCount < total {
+	end := -1 // no bound: to the end of the recording
+	if opts.FrameCount > 0 {
 		end = start + opts.FrameCount
 	}
 
 	if err := os.MkdirAll(filepath.Join(opts.OutDir, "frames"), 0o755); err != nil {
 		return nil, fmt.Errorf("create export dir: %w", err)
-	}
-
-	if err := rep.Seek(uint64(start)); err != nil {
-		return nil, fmt.Errorf("seek to frame %d: %w", start, err)
 	}
 
 	w := &chunkWriter{
@@ -228,7 +233,7 @@ func Export(opts Options) (*Result, error) {
 		return w.write(f)
 	}
 
-	for idx := start; idx < end; idx++ {
+	for idx := 0; ; idx++ {
 		fb, err := rep.ReadFrame()
 		if err != nil {
 			if err == io.EOF {
@@ -236,22 +241,32 @@ func Export(opts Options) (*Result, error) {
 			}
 			return nil, fmt.Errorf("read frame %d: %w", idx, err)
 		}
-		sourceFramesRead++
 
-		frame, ok := projectFrame(fb, opts, keys, trail)
-		if !ok {
-			skipped++
+		if !isRotation(fb) {
+			if rotationsSeen >= start {
+				sourceFramesRead++
+				skipped++
+			}
 			continue
 		}
 
-		// Stride counts rotations, not records. Applying it to the raw record
-		// index would let interleaved background snapshots shift which
-		// rotations survive, so "every second rotation" would not be true.
+		// The range and the stride count rotations, not records. Applying
+		// either to the raw record index would let interleaved background
+		// snapshots, whose number varies with the replay's speed, shift
+		// which rotations survive.
 		rotationIdx := rotationsSeen
 		rotationsSeen++
-		if rotationIdx%opts.Stride != 0 {
+		if rotationIdx < start {
 			continue
 		}
+		if end >= 0 && rotationIdx >= end {
+			break
+		}
+		sourceFramesRead++
+		if (rotationIdx-start)%opts.Stride != 0 {
+			continue
+		}
+		frame, _ := projectFrame(fb, opts, keys, trail)
 
 		// Hold each frame back by one so the opening frame can be judged
 		// against its successor rather than becoming the baseline on trust.
@@ -286,7 +301,7 @@ func Export(opts Options) (*Result, error) {
 	// Reconcile against the recording's own rotation count. A VRLOG written
 	// before that field existed reports zero, and a bounded export covers only
 	// part of the recording, so neither is treated as a disagreement.
-	wholeRecording := start == 0 && end == total
+	wholeRecording := start == 0 && end < 0
 	if src.RotationFrames > 0 && wholeRecording {
 		if uint64(rotationsSeen) != src.RotationFrames {
 			return nil, fmt.Errorf(
@@ -370,22 +385,26 @@ func Export(opts Options) (*Result, error) {
 	}, nil
 }
 
+// isRotation reports whether a record is a sensor rotation: what the range,
+// the stride and the header's rotation count all count.
+//
+// Background snapshots are pipeline state, not observations of the street,
+// and they are not sensor rotations. They also carry an inherited timestamp
+// that can sit outside the range of the rotations around them — a recording
+// opens with one so a replay has a scene from frame zero, and after a settling
+// pass that timestamp is the end of the capture. Skipping them keeps the
+// exported timeline monotonic and the frame count equal to the recording's
+// rotation count.
+func isRotation(fb *l9endpoints.FrameBundle) bool {
+	return fb != nil && fb.TimestampNanos != 0 && fb.FrameType != l9endpoints.FrameTypeBackground
+}
+
 // projectFrame narrows a FrameBundle to the viewer-facing record for the
 // requested export kind. It reports false when the frame carries nothing worth
 // publishing. trail, when set, supplies each track's smoothed state in place
 // of the recorded posterior.
 func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer, trail *smoothedTrail) (Frame, bool) {
-	if fb == nil || fb.TimestampNanos == 0 {
-		return Frame{}, false
-	}
-	// Background snapshots are pipeline state, not observations of the street,
-	// and they are not sensor rotations. They also carry an inherited
-	// timestamp that can sit outside the range of the rotations around them —
-	// a recording opens with one so a replay has a scene from frame zero, and
-	// after a settling pass that timestamp is the end of the capture. Skipping
-	// them keeps the exported timeline monotonic and the frame count equal to
-	// the recording's rotation count.
-	if fb.FrameType == l9endpoints.FrameTypeBackground {
+	if !isRotation(fb) {
 		return Frame{}, false
 	}
 	// Absolute nanoseconds at this point; Export rebases to relative

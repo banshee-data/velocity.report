@@ -198,12 +198,12 @@ New fields added to the `FrameBundle` protobuf message:
 
 The `Publisher` struct adds fields for background management:
 
-| Field                | Type                 | Purpose                   |
-| -------------------- | -------------------- | ------------------------- |
-| `backgroundMgr`      | `*BackgroundManager` | Background grid reference |
-| `lastBackgroundSeq`  | uint64               | Last sent grid sequence   |
-| `lastBackgroundSent` | `time.Time`          | Last background send time |
-| `backgroundInterval` | `time.Duration`      | Default: 30 s             |
+| Field                   | Type                 | Purpose                                |
+| ----------------------- | -------------------- | -------------------------------------- |
+| `backgroundMgr`         | `*BackgroundManager` | Background grid reference              |
+| `lastBackgroundSeq`     | uint64               | Last sent grid sequence                |
+| `lastBackgroundSent`    | `time.Time`          | Last background send time              |
+| `backgroundEveryFrames` | `int`                | Default: 300 rotations (30 s at 10 Hz) |
 
 The `shouldSendBackground()` method returns true if: (1) background has never been sent, (2) the configured interval has elapsed, or (3) the grid sequence number changed (indicating a reset or sensor movement).
 
