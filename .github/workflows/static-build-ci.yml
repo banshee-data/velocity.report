@@ -43,10 +43,7 @@ permissions:
 jobs:
   build-and-smoke-test:
     name: Static build + smoke test
-    # Pinned: on ubuntu-26.04 (ubuntu-latest from 20 October 2026) the ARM64 VM
-    # in scripts/test-static-arm64-vm.sh prints its UEFI firmware line and never
-    # answers on ssh. Move to 26.04 once that script boots there.
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
