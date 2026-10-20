@@ -179,7 +179,7 @@ quality: the slow residential sites (Haight, Pierce, Ashbury) have little follow
   labelled window (label0002) is where pairs and episodes meet.
 - **That the gate would admit these pairs.** The following gate requires both parties classed as
   rigid vehicles, which on kirk0 holds for under a third of reviewed vehicles
-  ([class evidence](following-class-evidence-kirk-2026-10.md)); vehicle-sized is a size proxy, not
+  (class evidence (#804)); vehicle-sized is a size proxy, not
   a class.
 - **Anything about embarcadero-folsom** or the second segments, which were not read.
 - **Repeatability of ten `body-older` cases** in the tables, which are one draw of a choice now
