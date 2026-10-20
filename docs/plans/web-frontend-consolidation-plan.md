@@ -1,6 +1,6 @@
 # Surface consolidation plan
 
-- **Status:** Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)

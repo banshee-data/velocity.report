@@ -1,6 +1,6 @@
 # Design: session-level QC dashboard and audit export (feature 10)
 
-- **Status:** Proposed (February 2026)
+- **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Layers:** L8 Analytics, L9 Endpoints
 - **Canonical:** [qc-dashboard-and-audit.md](../ui/visualiser/qc-dashboard-and-audit.md)
 

@@ -4,7 +4,7 @@ Develop the public catalogue and useful runtime priors together, using the same 
 separate release criteria. This review identifies changes needed in the draft and compares the
 decisions that determine the project's cost, usefulness, and technical risk.
 
-- **Status:** Review in progress; recommendations awaiting discussion
+- **Status:** Parked (D-32, October 20, 2026): a separate project's plan; its rows sit in the backlog's External section; revisit when the project has its own repository. Was: Review in progress; recommendations awaiting discussion
 - **Canonical:** [Geometry-prior service](../lidar/architecture/geometry-prior-service.md)
 - **Scope:** Design review, source checks, alternatives, and
   interactive decisions; no implementation

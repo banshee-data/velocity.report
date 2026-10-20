@@ -1,6 +1,6 @@
 # Brief: why continuous classification reports more motion
 
-- **Status:** Open investigation, ready to hand over
+- **Status:** Parked (D-32, October 20, 2026): an open investigation, not agreed work; revisit when the owner agrees a backlog row for it. Was: Open investigation, ready to hand over
 - **Layers:** LiDAR pipeline (L3 background model), `pcapsplit`
 - **Parent plan:** [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), Workstream 2
 - **Blocks:** retiring the per-file `segments.json` on the archive volume

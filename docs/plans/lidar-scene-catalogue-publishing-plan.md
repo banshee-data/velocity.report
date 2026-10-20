@@ -1,6 +1,6 @@
 # Scene catalogue publishing (v0.6.6)
 
-- **Status:** Draft
+- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.6.6 is next, or the owner settles the public scene data at D-34's step 2. Was: Draft
 - **Layers:** Cross-cutting (LiDAR pipeline, database, CLI, CI, web)
 - **Target:** v0.6.6; turn 122 GB of stranded daily-driver captures into a statically served map of San Francisco scenes
 - **Companion plans:** [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) owns the export format; [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md) owns S2 conventions

@@ -1,6 +1,6 @@
 # Survey capture export: parted captures for Hugging Face
 
-- **Status:** Draft. One decision round (2026-09-29) settled every open question but Q10, which waits on Item 1's measurements; the plan changes no code
+- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.6.6 is next, or the owner settles the public scene data at D-34's step 2. Was: Draft. One decision round (2026-09-29) settled every open question but Q10, which waits on Item 1's measurements; the plan changes no code
 - **Layers:** L1 captures and the capture index; publishing (surveys, the Hugging Face dataset)
 - **Target:** v0.6.6, with surveys (Item 15 of the vocabulary plan); Item 1 measures the corpus
   to confirm the rubric before the cutter is written

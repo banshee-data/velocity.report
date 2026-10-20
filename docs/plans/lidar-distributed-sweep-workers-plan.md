@@ -1,5 +1,7 @@
 # Distributed sweep workers
 
+- **Status:** Superseded (October 20, 2026) by [section 12 of the worker pool plan](lidar-worker-pool-and-results-hub-plan.md#12-one-queue-kinds-in-the-binary-d-30); kept as background for the original sweep job model
+
 > **Superseded as an implementation topology.** The active plan is now
 > [LiDAR worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md).
 > This document remains useful background for the original sweep job model, but

@@ -1,6 +1,6 @@
 # Web scene export (v0.6.6)
 
-- **Status:** Phase 0 and Columbus at Broadway point-cloud overlay delivered; homepage use deferred
+- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.6.6 is next, or the owner settles the public scene data at D-34's step 2. Was: Phase 0 and Columbus at Broadway point-cloud overlay delivered; homepage use deferred
 - **Layers:** LiDAR pipeline (L9 endpoints), Web frontend, CI
 - **Target:** v0.6.6; publish one real recorded scene on the existing velocity.report Pages site, then generalise
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns ingest, indexing and archive-scale publishing

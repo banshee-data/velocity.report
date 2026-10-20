@@ -8,7 +8,7 @@ on; and a weekly cadence in which new papers pose questions, questions become sp
 become decisions or further specs. It folds in what the job runner, the worker-pool plan, HINT,
 the review workflow and the old campaign supervisor already do, rather than building beside them.
 
-- **Status:** Proposed, 2026-10-13. Phase 0 is built (#746): the spec format, five areas, the
+- **Status:** Active (proposed 2026-10-13). Phase 0 is built (#746): the spec format, five areas, the
   validator, the dependency graph and fifteen specs. Phase 1's progress half is built: units, a
   state file per unit, `mark`, `units` and `status` (see [Progress](../../data/experiments/EXPERIMENTS.md#progress)).
   Expanding a spec into campaign submissions, and the hub queue, are not built. Section 12

@@ -3,7 +3,7 @@
 Make every job name its subject and give server and worker scheduling one ownership rule. Renaming
 the existing queue alone does not provide this behaviour.
 
-- **Status:** Planned; Phase 2, after the Phase 1 exit. Keeps the schema and the names; the queue's behaviour is designed in the [worker pool plan](lidar-worker-pool-and-results-hub-plan.md), the single active plan for the job queue under D-30
+- **Status:** Superseded (October 20, 2026) by Item 11 of the [vocabulary programme plan](platform-vocabulary-and-data-model-plan.md) for the names and [section 12 of the worker pool plan](lidar-worker-pool-and-results-hub-plan.md#12-one-queue-kinds-in-the-binary-d-30) for the behaviour. Was: Planned; Phase 2, after the Phase 1 exit. Keeps the schema and the names; the queue's behaviour is designed in the [worker pool plan](lidar-worker-pool-and-results-hub-plan.md), the single active plan for the job queue under D-30
 - **Layers:** Cross-cutting (schema, Go, APIs, CLI, web, macOS and documentation)
 - **Target:** Phase 2; release allocation follows programme sizing and compatibility gates
 - **Companion plans:** [programme and item ledgers](platform-vocabulary-and-data-model-plan.md) (Items 3 and 11)

@@ -4,7 +4,7 @@ This sprint connects the merged estimation and headway components into one repla
 a physical trajectory, a following measurement, and a distance layer that explains every number.
 The first exit is a working provisional MVP; field promotion requires separate evidence.
 
-- **Status:** Planned; #614 advanced S0–S3, S5 and S7 in part (see [progress](#progress-after-614))
+- **Status:** Active; v0.5.2 closes at exit A plus the gate ledger (the owner, October 20, 2026; see [scope](#sprint-outcome-and-scope)). #614 advanced S0–S3, S5 and S7 in part (see [progress](#progress-after-614))
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
 - **Scope:** Remaining 0.5.2.0–0.5.2.4 work after #596–609, #611 and #614
 - **Acceptance platform:** macOS on Apple Silicon; stationary, single-sensor captures first
@@ -35,6 +35,15 @@ gate. A partial observed span is a lower bound, not a measured full length.
 Aim to complete A and gather B's evidence this sprint. Do not promise B before the references and
 measurements exist, and do not relabel A as completed physical validation. A `final` estimate may
 still produce a provisional product; inference finality and validation status are separate axes.
+
+**Decided, October 20, 2026.** The owner set v0.5.2's close at exit A plus the gate ledger: the
+release ships when exit A is delivered and the [ledger](#evidence-and-promotion-ledger) records
+each gate's held-out result as pass, fail or insufficient evidence, with its evidence bundle.
+Field output stays provisional. Exit B and the promotion row move after the gates' inputs: W1a to
+W5 and the slope-aware ground surface in v0.5.4, G-GEO-1 acceptance in v0.5.5, G-UNC-1 and G-SMO-1
+acceptance in v0.5.6, and promotion in v0.5.7. To keep v0.5.2 at twelve rows, S2's remaining
+near-edge decision, S3's empty-frame lifecycle and S6's distance layer joined it, the promotion row
+left, and scene source binding merged into the S7 report row.
 
 No CA/CTRV/IMM, lane map, global scene graph, shell catalogue, mobile ego-motion or new composite
 driver score is needed. Complete the offline Mac path before expanding live deployment. The

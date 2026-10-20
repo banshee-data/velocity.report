@@ -1,6 +1,6 @@
 # Radiance-field scene-model review for the LiDAR pipeline
 
-- **Status:** Review note (decision); v1.0
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Review note (decision); v1.0
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks, L7 Scene
 - **Decision posture:** Evaluates radiance-field-style models against the
   already-designed L7 + vector-scene-map path.

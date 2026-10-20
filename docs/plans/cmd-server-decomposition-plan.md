@@ -1,6 +1,6 @@
 # Serve namespace decomposition (v0.5.2)
 
-- **Status:** Draft
+- **Status:** Superseded (October 20, 2026) by [go-cmd-extraction-plan](go-cmd-extraction-plan.md): one body of work, carried by its backlog row. Was: Draft
 - **Layers:** CLI composition (`internal/cmd/server`), busybox namespace surface
 - **Target:** v0.5.2; `internal/cmd/server/radar.go` sits at 18.24% coverage and is the single largest untested surface in the binary
 - **Companion plans:** [deploy-single-binary-image-consolidation-plan](deploy-single-binary-image-consolidation-plan.md), [binary-size-reduction-plan](binary-size-reduction-plan.md) <!-- link-ignore -->

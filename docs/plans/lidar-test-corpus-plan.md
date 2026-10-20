@@ -3,7 +3,7 @@
 This plan builds independently labelled captures across varied road geometry and traffic. More
 files help only when their provenance, usable windows, and coverage are recorded.
 
-- **Status:** Partial capture and fixture groundwork; five-site labelled corpus not complete
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Partial capture and fixture groundwork; five-site labelled corpus not complete
 - **Layers:** Cross-cutting
 - **Related:** [Pipeline Review Q11](../../data/maths/pipeline-review-open-questions.md), [Config Evidence Levels](../../config/CONFIG.md#config-to-maths-cross-reference)
 - **Canonical:** [test-corpus.md](../lidar/operations/test-corpus.md)

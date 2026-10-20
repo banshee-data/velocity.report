@@ -1,6 +1,6 @@
 # Simplification and deprecation plan
 
-- **Status:** Approved (Phase 1 complete; image-surface items absorbed into the v0.5.1 consolidation plan; Make targets re-baselined October 19, 2026 as Project F)
+- **Status:** Active (approved in February; Phase 1 complete; image-surface items absorbed into the v0.5.1 consolidation plan; Make targets re-baselined October 19, 2026 as Project F)
 - **Canonical:** [simplification-deprecation.md](../platform/operations/simplification-deprecation.md)
 - **Related:** [deploy-single-binary-image-consolidation-plan.md](./deploy-single-binary-image-consolidation-plan.md) — owns the image apt-surface and `cmd/` consolidation in v0.5.1
 

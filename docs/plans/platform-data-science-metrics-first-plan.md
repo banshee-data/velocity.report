@@ -1,10 +1,10 @@
 # Metrics-First data science plan
 
+- **Status:** Parked (D-32, October 20, 2026): its rows are in the queued safety reporting slot or in v0.6.8 and later; revisit when the safety reporting slot is numbered. Was: Proposed (March 2026)
 - **Canonical:** [data-science-methodology.md](../platform/operations/data-science-methodology.md)
 
 This document defines velocity.report's repo-wide data science stance: the critical path stays transparent, tunable, and replayable, while future classification work remains optional and subordinate to reproducible scorecards.
 
-**Status:** Proposed (March 2026)
 **Layers:** Cross-cutting (L5 Tracks, L6 Objects, L8 Analytics)
 **Related:** [Product Vision](../VISION.md), [Track Labelling, Ground Truth Evaluation & Label-Aware Auto-Tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Traffic Description Language and Description Interface](data-traffic-description-language-plan.md), [LiDAR Classification Benchmarking and Optional Model Training](lidar-ml-classifier-training-plan.md)
 

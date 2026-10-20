@@ -1,6 +1,6 @@
 # Lossless LiDAR observation persistence batching
 
-- **Status:** Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, SQLite offline replay storage
 - **Target:** Sprint 0.5.2.0

@@ -1,6 +1,6 @@
 # San Francisco priors: aerial baseline and alignment editor
 
-- **Status:** Proposed; source metadata reviewed, extraction and field validation pending
+- **Status:** Parked (D-32, October 20, 2026): a separate project's plan; its rows sit in the backlog's External section; revisit when the project has its own repository. Was: Proposed; source metadata reviewed, extraction and field validation pending
 - **Canonical:** [Geometry-prior service](../lidar/architecture/geometry-prior-service.md)
 - **Related:** [Decision review](spatial-priors-service-review.md),
   [reference data](spatial-priors-reference-data-plan.md)

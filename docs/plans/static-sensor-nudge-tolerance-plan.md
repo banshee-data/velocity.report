@@ -1,6 +1,6 @@
 # Static-sensor nudge tolerance (v0.6.x)
 
-- **Status:** Draft — test designed, not run
+- **Status:** Parked (D-32, October 20, 2026): an open investigation, not agreed work; revisit when the owner agrees a backlog row for it. Was: Draft — test designed, not run
 - **Layers:** LiDAR pipeline (L3 background model), `pcapsplit`
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md) for how a capture is classified
 - **Companion:** [motion-static-parameter-tuning-plan](motion-static-parameter-tuning-plan.md) owns the wider sweep

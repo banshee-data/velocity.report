@@ -1,6 +1,6 @@
 # Platform: typed UUID prefixes
 
-- **Status:** Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Target:** 0.6.0
 - **Scope:** All UUID generation across the project
 - **Layers:** Cross-cutting (platform)

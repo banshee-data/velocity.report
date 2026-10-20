@@ -1,6 +1,6 @@
 # Coverage improvement plan: 95.5% target
 
-- **Status:** Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (testing infrastructure)
 - **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file
   to ≥ 95.5% line coverage.

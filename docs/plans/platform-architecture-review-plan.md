@@ -473,7 +473,7 @@ plan shrinks to what the code shows is worth finishing.
 | 20   | Svelte 5 runes migration                                                                                                                                                                                                | 1 of 25 files                                                                                          | Finish one file per touched route, or state the deferral                                                | `M`    | v0.7.0                  |
 | 21   | #503 Tailscale ACL roles                                                                                                                                                                                                | A PR conflicted since v0.5.1                                                                           | Moved to v0.6.0                                                                                         | `S`    | v0.6.0                  |
 | 22   | Ten February visualiser proposals and twelve hub stubs                                                                                                                                                                  | Nothing built; the annotation window superseded several                                                | Park the plans; keep the stubs, headed as designs (D-33 amended)                                        | `S`    | Now                     |
-| 23   | Dynamic algorithm selection                                                                                                                                                                                             | "Branch-history design, not active on main"                                                            | Park; its two v0.5.6 rows and one v2.0 row keep their links                                             | `S`    | Now                     |
+| 23   | Dynamic algorithm selection                                                                                                                                                                                             | "Branch-history design, not active on main"                                                            | Keep Proposed: its two v0.5.6 rows and one v2.0 row link it                                             | `S`    | Now                     |
 | 24   | TicTacTail (D-23)                                                                                                                                                                                                       | No code, one consumer                                                                                  | Withdrawn (D-35)                                                                                        | `S`    | Now                     |
 | 25   | Typed UUID prefixes                                                                                                                                                                                                     | Proposed; depends on the nouns                                                                         | Park until the cutovers                                                                                 | none   | v0.6.x                  |
 | 26   | Two plans ready to graduate                                                                                                                                                                                             | go-runtime-pipeline-correctness marked Complete here; lidar-captures-multi-file-cases already Complete | Symlink in the next PR (two-PR rule)                                                                    | `S`    | Now                     |
@@ -666,31 +666,41 @@ capture, the hub restructure, the setup guide, unpopulated data structures, the 
 the clock abstraction, the VRLOG observation format, documentation standardisation and structural
 hygiene. Two are Complete and graduate in the next PR: runtime pipeline correctness and the RPi
 imager fork. Serial configuration stays Active only until the v0.5.1 tag, as Work unit F's
-release-candidate gate. Counting the plans being worked under other status words, eleven bodies
-of work are active: this review, simplification, the image consolidation and v0.5.1 cut, the 0.5.2
-sprint, behaviour analytics, geometry convergence, state estimation, the label-set workflow,
-physical references, the experiment queue, and serial configuration until the tag.
+release-candidate gate. After Flo's re-evaluation, unpopulated data structures came back as Active
+because its rows are numbered in v0.5.4, and the five plans being worked under other status words
+were restated as Active. Twelve bodies of work are active, the limit: this review, simplification,
+the image consolidation and v0.5.1 cut, the 0.5.2 sprint, behaviour analytics, geometry
+convergence, state estimation, the label-set workflow, physical references, the experiment queue,
+unpopulated data structures, and serial configuration until the tag.
 
-**Proposed, not applied.** Flo's broader parking pass would park about 125 further plans in
-eleven groups (the February visualiser proposals, the vocabulary sub-plans, labelling and
-annotation, geometry and tracking reference plans, deferred and future work, scene publishing,
-external projects, safety reporting, platform and documentation, and open investigations). It
-changes no outstanding work and waits for the owner. Flo's notes on the release-prep skill (fetch
+**The parking pass, re-evaluated.** Flo's broader pass proposed parking about 125 further plans.
+At the owner's request Flo re-read each against the current backlog: does parking lose anything,
+and should anything come sooner? Most parkings held: 80 plans are now Parked, each with a reason
+and a revisit trigger. Twenty stay Proposed because their rows sit in v0.5.1 to v0.5.6 or they
+are the design reference for one, and eight are Superseded by a named successor (the
+cmd-server decomposition, distributed sweep workers, the QEMU Pi image VM, and five vocabulary
+Phase 2 sub-plans whose items the programme plan carries). What should come sooner was the
+evidence chain the v0.5.2 to v0.5.4 rows depend on, which sat in queued slots; the owner's
+answers below move it. Flo's notes on the release-prep skill (fetch
 tags before `git describe`, and run the perf gate) go to the next release-prep change. The owner
 settled the coverage target, the stubs and VISION's phases; see the answers below.
 
 ### The owner's answers, October 20, 2026
 
-| Question                                     | Answer                                                                                                                                                                                                                                         |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| #503, Tailscale access control               | Merge `main` into it after the v0.5.1 cut and land it in v0.6.0; its acceptance on a real tailnet is that slot's gate. #290's remainder stays in v0.5.1 as the release-candidate gate                                                          |
-| Release cadence after v0.5.1                 | No time bound: the owner cuts when ready. The proposed eight weeks is declined                                                                                                                                                                 |
-| Which scene data may be public (D-34 step 2) | Decided at step 2; step 1, the asset move, does not wait on it                                                                                                                                                                                 |
-| The v0.9.0 coverage target                   | Kept as written; the boundary tests (closures and layer rules, the SQL boundary, a serve smoke test) are rows of their own                                                                                                                     |
-| The visualiser hub stubs                     | Kept, each headed as a design that is not built; D-33 amended to allow that                                                                                                                                                                    |
-| The device of record                         | The Pi 4 (4 GB), for the release gate and every host and perf experiment; the experiment registry's `pi5` worker class is renamed `pi4` and the five specs that named a Pi 5 now name the Pi 4, each noting the change was made before any run |
-| The External section                         | Kept until each project has its own repository; then its rows move there and one pointer row stays here                                                                                                                                        |
-| VISION's phases B to E                       | Four rows: phases B and C in v0.6.0, D and E in v0.6.1; the v1.0 data export row's transit half merged into phase D                                                                                                                            |
+| Question                                               | Answer                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #503, Tailscale access control                         | Merge `main` into it after the v0.5.1 cut and land it in v0.6.0; its acceptance on a real tailnet is that slot's gate. #290's remainder stays in v0.5.1 as the release-candidate gate                                                                                                                             |
+| Release cadence after v0.5.1                           | No time bound: the owner cuts when ready. The proposed eight weeks is declined                                                                                                                                                                                                                                    |
+| Which scene data may be public (D-34 step 2)           | Decided at step 2; step 1, the asset move, does not wait on it                                                                                                                                                                                                                                                    |
+| The v0.9.0 coverage target                             | Kept as written; the boundary tests (closures and layer rules, the SQL boundary, a serve smoke test) are rows of their own                                                                                                                                                                                        |
+| The visualiser hub stubs                               | Kept, each headed as a design that is not built; D-33 amended to allow that                                                                                                                                                                                                                                       |
+| The device of record                                   | The Pi 4 (4 GB), for the release gate and every host and perf experiment; the experiment registry's `pi5` worker class is renamed `pi4` and the five specs that named a Pi 5 now name the Pi 4, each noting the change was made before any run                                                                    |
+| The External section                                   | Kept until each project has its own repository; then its rows move there and one pointer row stays here                                                                                                                                                                                                           |
+| What closes v0.5.2                                     | Exit A, the integrated MVP, plus the gate ledger: each gate's held-out result recorded as pass, fail or insufficient evidence; field output stays provisional and promotion moves to v0.5.7                                                                                                                       |
+| Rows the evidence chain needs, sitting in queued slots | Pulled forward: the empty-frame lifecycle (S3), the near-edge decision (S2) and the distance layer (S6) into v0.5.2; fingerprint pinning, the second capture (W7) and physical fit F5 into v0.5.3; W1a to W5 and the slope-aware ground surface into v0.5.4; G-GEO-1 into v0.5.5; G-UNC-1 and G-SMO-1 into v0.5.6 |
+| Plan statuses from Flo's re-evaluation                 | All applied: 80 Parked, 20 kept Proposed, 8 Superseded, five restated as Active and unpopulated data structures un-parked, for twelve active                                                                                                                                                                      |
+| The queued slots' order                                | Evidence path first: tracking and identity, geometry, facets and ground, then label sets, persistence, foundations and boundaries; the rest unchanged, survey publishing last                                                                                                                                     |
+| VISION's phases B to E                                 | Four rows: phases B and C in v0.6.0, D and E in v0.6.1; the v1.0 data export row's transit half merged into phase D                                                                                                                                                                                               |
 
 ### Open questions for the owner
 
@@ -701,7 +711,6 @@ settled the coverage target, the stubs and VISION's phases; see the answers belo
 5. When the NAS hub is deployed.
 6. D-25's persona length: restate the bound or trim the personas; run the drift check in CI meanwhile.
 7. The seven unaudited decisions (D-06, D-10, D-12, D-13, D-15, D-28, D-29), at the first release audit.
-8. The parking pass over about 125 unstarted plans, which Flo is re-evaluating at the owner's request for what should be parked and what should come sooner.
 
 ## Backlog changes applied
 
@@ -710,26 +719,27 @@ file's history. Flo found several wrong against the backlog as it stood, and Rut
 changed others, so this section records what the re-baseline of October 20, 2026 applied. The
 governance rule held: no outstanding row left the file, and every row moved, split, merged or
 completed is accounted for in that change (522 rows before, 527 after: four merges, three splits,
-six new rows). The owner's answers added five more, for 532.
+six new rows). The owner's answers added five more, for 532, and the re-ranking that followed
+merged two pairs and split two rows, which leaves 532.
 
 ### By slot
 
-| Slot                 | Applied                                                                                                                                                                                                                |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v0.5.1               | #503 moved to v0.6.0; #290 restated as the release-candidate gate it is; a row for the cut itself ([Work unit F](deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s)) |
-| v0.5.2               | Retitled "Following-distance evidence" for its outcome, not for what shipped; sprint sub-buckets removed, their order kept in the 052 sprint plan; twelve rows, two moved to v0.5.3; W0 to Complete                    |
-| v0.5.3 to v0.5.11    | Kept, each at twelve rows or fewer; rows over the cap moved to the queued slots below, never out of the file                                                                                                           |
-| v0.5.4               | The run-track quality row (rank 16), which had none                                                                                                                                                                    |
-| v0.5.8               | The review's rows, narrowed: dead code with #252 Phase 1 only; unwritten and unread tables each given a consumer or removed with their readers and writer; the register test; the fingerprint row                      |
-| v0.5.10              | The labels and sites renames (D-31), beside the existing clip-site row                                                                                                                                                 |
-| Queued slots         | Thirteen named queues, numbered when each becomes next; the lifecycle, SQL boundary and logging rows join "Boundaries and identity"; one queue, typed UUIDs and the Phase 2 vocabulary items wait on the exit          |
-| v0.6.0               | #503 rewritten: rebase after the cut, land here, with its tailnet acceptance as the gate; VISION phases B and C as two rows                                                                                            |
-| v0.6.1               | VISION phases D and E as two rows; phase D takes the transit half of the v1.0 data export row                                                                                                                          |
-| v0.6.5 design system | Moved whole, text unchanged, to Parked outside the slot cap, with the February visualiser rows and the bumper sticker tool                                                                                             |
-| v0.7.0               | #252 Phases 2 to 7 stay; retiring :8081 waits for the Svelte replay form and sweep start, and moves AGENTS.md's arm-run path with it                                                                                   |
-| v0.8.0               | TicTacTail to v∞ (D-35)                                                                                                                                                                                                |
-| v0.9.0               | The coverage target is kept by the owner; the boundary tests are rows of their own, and a serve smoke test joins "Boundaries and identity"                                                                             |
-| v1.0, v2.0           | Vehicle encyclopedia, vehicle identification and spatial priors rows moved to an External section, kept there until each project has its own repository (the owner's answer)                                           |
+| Slot                 | Applied                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v0.5.1               | #503 moved to v0.6.0; #290 restated as the release-candidate gate it is; a row for the cut itself ([Work unit F](deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s))     |
+| v0.5.2               | Retitled "Following-distance evidence" for its outcome, not for what shipped; sprint sub-buckets removed, their order kept in the 052 sprint plan; twelve rows, two moved to v0.5.3; W0 to Complete                        |
+| v0.5.3 to v0.5.11    | Kept, each at twelve rows or fewer; rows over the cap moved to the queued slots below, never out of the file                                                                                                               |
+| v0.5.4               | The run-track quality row (rank 16), which had none; then, with the owner, W1a to W5 and the slope-aware ground tuning in, and capture probe extent, the settling-scale row and the SSE policy out to the queue and v0.5.5 |
+| v0.5.8               | The review's rows, narrowed: dead code with #252 Phase 1 only; unwritten and unread tables each given a consumer or removed with their readers and writer; the register test; the fingerprint row                          |
+| v0.5.10              | The labels and sites renames (D-31), beside the existing clip-site row                                                                                                                                                     |
+| Queued slots         | Thirteen named queues, numbered when each becomes next; the lifecycle, SQL boundary and logging rows join "Boundaries and identity"; one queue, typed UUIDs and the Phase 2 vocabulary items wait on the exit              |
+| v0.6.0               | #503 rewritten: rebase after the cut, land here, with its tailnet acceptance as the gate; VISION phases B and C as two rows                                                                                                |
+| v0.6.1               | VISION phases D and E as two rows; phase D takes the transit half of the v1.0 data export row                                                                                                                              |
+| v0.6.5 design system | Moved whole, text unchanged, to Parked outside the slot cap, with the February visualiser rows and the bumper sticker tool                                                                                                 |
+| v0.7.0               | #252 Phases 2 to 7 stay; retiring :8081 waits for the Svelte replay form and sweep start, and moves AGENTS.md's arm-run path with it                                                                                       |
+| v0.8.0               | TicTacTail to v∞ (D-35)                                                                                                                                                                                                    |
+| v0.9.0               | The coverage target is kept by the owner; the boundary tests are rows of their own, and a serve smoke test joins "Boundaries and identity"                                                                                 |
+| v1.0, v2.0           | Vehicle encyclopedia, vehicle identification and spatial priors rows moved to an External section, kept there until each project has its own repository (the owner's answer)                                               |
 
 ### New rows
 
@@ -779,7 +789,7 @@ validator carries the field.
 
 | Who    | What                                                                                                                                                             |
 | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Flo    | Done on October 20: the re-baseline and the WIP limit. Open: the parking pass over the unstarted plans, proposed in Flo's review                                 |
+| Flo    | Done on October 20: the re-baseline, the WIP limit, and the parking pass re-evaluated with the owner                                                             |
 | Appius | The moves table, in the order given; the merged cmd/server plan; the one-queue design against host0002; the closure test first, because it keeps the rest honest |
 | Ruth   | Done on October 20: D-30 to D-35, the audit's states, seven restatements and the Kept-by lines                                                                   |
 | Euler  | host0003's attribution method when rows differ (float order, clock, goroutine scheduling)                                                                        |
@@ -816,13 +826,13 @@ validator carries the field.
 - [x] Flo: the review corrected and the backlog re-baselined; the WIP limit applied to plan statuses
 - [x] Ruth: ADR-1 to ADR-5 decided as D-30 to D-34, and D-35
 - [x] Ruth: decision states and Kept-by lines from the P5 audit
+- [x] Flo: the parking pass re-evaluated; the owner's answers applied to the backlog and plan statuses
 
 ### Outstanding
 
 - [ ] Appius: the Make trim (Project F) and the compatibility register with its test (`M`)
 - [ ] Appius: the closure test and the first three moves (`M`)
 - [ ] Appius: one queue, in-binary kinds, host0002 run (`M`)
-- [ ] Flo: the parking pass over the unstarted plans (`M`)
 - [ ] The v0.5.1 cut, under Work unit F (`S`)
 - [ ] host0001, host0003 and host0004 run, with their Pi steps on the Pi 4 (`M`)
 

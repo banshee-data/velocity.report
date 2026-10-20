@@ -1,6 +1,6 @@
 # L7 scene and multi-sensor fusion plan
 
-- **Status:** 📋 Planned; v1.0
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: 📋 Planned; v1.0
 - **Layers:** L7 Scene
 - **Canonical architecture:** [LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Maths index:** [data/maths/MATHS.md](../../data/maths/MATHS.md)

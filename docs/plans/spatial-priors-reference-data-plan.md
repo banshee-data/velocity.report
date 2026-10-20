@@ -5,7 +5,7 @@ stewards and funded where useful by sponsors. Preserve local LiDAR geometry
 independently of GPS, and use measured control and suitable public GIS to establish
 geographic placement with explicit uncertainty.
 
-- **Status:** Research findings and proposed implementation plan
+- **Status:** Parked (D-32, October 20, 2026): a separate project's plan; its rows sit in the backlog's External section; revisit when the project has its own repository. Was: Research findings and proposed implementation plan
 - **Canonical:** [Geometry-prior service](../lidar/architecture/geometry-prior-service.md)
 - **Related:** [Service plan](spatial-priors-service-plan.md),
   [decision review](spatial-priors-service-review.md),

@@ -14,7 +14,7 @@ checked against that text; its state-level estimates were read for their method 
 The aggressive-driving report was read from a text extraction the owner supplied: its front matter,
 definitions and frameworks only. A figure no read source carries is marked **Confirm**.
 
-- **Status:** Proposed; no code written
+- **Status:** Parked (D-32, October 20, 2026): its rows are in the queued safety reporting slot or in v0.6.8 and later; revisit when the safety reporting slot is numbered. Was: Proposed; no code written
 - **Layers:** Cross-cutting (PDF report copy and `data.json`, wording guard, safety-reference edition, L8 behaviour benchmarks, documentation)
 - **Target:** v0.5.10 for the shared wording guard, the percentile copy, the pace-of-traffic line, the limit-relative shares against the operator-supplied limit, and the attitudes entries in the safety-reference edition; v1.0 for shares per limit segment and schedule; research notes deferred
 - **Companion plans:** [crash data and published risk models](platform-crash-data-integration-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [traffic description language](data-traffic-description-language-plan.md), [platform vocabulary](platform-vocabulary-and-data-model-plan.md)
