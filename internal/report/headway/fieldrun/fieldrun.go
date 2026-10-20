@@ -89,10 +89,14 @@ type Result struct {
 	// (see sqlite.BoxWithEstimate.Filed).
 	BoxlessEstimates int
 	UnfiledEstimates int
-	Estimates        sqlite.EstimateVersion
-	Trajectories     []l8behaviour.Trajectory
-	Params           l8behaviour.FollowingAnalysisParams
-	Analysis         l8behaviour.FollowingAnalysis
+	// SolidBodyGaps counts, on a solid-body run, the rows whose reading does
+	// not form a valid sample, which are gaps rather than samples (see
+	// l8behaviour.PersistedSolidBody).
+	SolidBodyGaps l8behaviour.SolidBodyGaps
+	Estimates     sqlite.EstimateVersion
+	Trajectories  []l8behaviour.Trajectory
+	Params        l8behaviour.FollowingAnalysisParams
+	Analysis      l8behaviour.FollowingAnalysis
 	// Version is the interaction version every encounter carries.
 	Version      l8behaviour.InteractionVersion
 	Interactions []l8behaviour.FollowingInteraction
@@ -127,9 +131,10 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 	}
 	var trajectories []l8behaviour.Trajectory
 	var boxless, unfiled int
+	var bodyGaps l8behaviour.SolidBodyGaps
 	switch {
 	case spec.SolidBodies:
-		trajectories, err = solidBodyTrajectories(estimates, key)
+		trajectories, bodyGaps, err = solidBodyTrajectories(estimates, key)
 	case spec.Boxes:
 		trajectories, boxless, unfiled, err = boxTrajectories(estimates, key)
 	default:
@@ -155,7 +160,7 @@ func Run(db sqlite.DBClient, spec Spec) (Result, error) {
 	}
 	res := Result{
 		SolidBodies: spec.SolidBodies, Boxes: spec.Boxes, BoxlessEstimates: boxless, UnfiledEstimates: unfiled,
-		Estimates: version, Trajectories: trajectories, Params: params, Analysis: analysis,
+		SolidBodyGaps: bodyGaps, Estimates: version, Trajectories: trajectories, Params: params, Analysis: analysis,
 		Version: l8behaviour.InteractionVersion{
 			EstimateStage: spec.Stage, EstimatorID: version.EstimatorID, ObsModelID: obsModel,
 			MethodID: l8behaviour.FollowingEncounterMethodID + "/" + analysis.ParamsHash, ParamHash: version.ParamHash,
@@ -192,10 +197,13 @@ func estimateTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateV
 	return l8behaviour.TrajectoriesFromEstimates(persisted, l5tracks.DefaultConvergenceBounds())
 }
 
-func solidBodyTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateVersionKey) ([]l8behaviour.Trajectory, error) {
+// solidBodyTrajectories reads one version's solid bodies, and counts the rows
+// held as gaps by reason.
+func solidBodyTrajectories(store *sqlite.StateEstimateStore, key sqlite.EstimateVersionKey) (
+	[]l8behaviour.Trajectory, l8behaviour.SolidBodyGaps, error) {
 	rows, err := store.ListVersionSolidBodies(key)
 	if err != nil {
-		return nil, err
+		return nil, l8behaviour.SolidBodyGaps{}, err
 	}
 	persisted := make([]l8behaviour.PersistedSolidBody, len(rows))
 	for i, r := range rows {
@@ -205,7 +213,7 @@ func solidBodyTrajectories(store *sqlite.StateEstimateStore, key sqlite.Estimate
 			Reading: r.Reading,
 		}
 	}
-	return l8behaviour.TrajectoriesFromSolidBodies(persisted, l5tracks.DefaultConvergenceBounds())
+	return l8behaviour.TrajectoriesFromSolidBodiesWithGaps(persisted, l5tracks.DefaultConvergenceBounds())
 }
 
 // boxTrajectories reads one version's boxes, and counts the estimates with no
@@ -456,6 +464,9 @@ type Summary struct {
 	// are Result's.
 	Boxes                              bool
 	BoxlessEstimates, UnfiledEstimates int
+	// SolidBodies marks a solid-body run, whose SolidBodyGaps is Result's.
+	SolidBodies   bool
+	SolidBodyGaps l8behaviour.SolidBodyGaps
 	// PathsFitted counts followers whose local path was fitted; PathRefusals
 	// counts the rest by their first condition.
 	PathsFitted  int
@@ -480,6 +491,7 @@ func (r Result) Summary() Summary {
 	s := Summary{
 		Tracks: len(r.Trajectories), PathRefusals: map[l8behaviour.PathCondition]int{},
 		Boxes: r.Boxes, BoxlessEstimates: r.BoxlessEstimates, UnfiledEstimates: r.UnfiledEstimates,
+		SolidBodies: r.SolidBodies, SolidBodyGaps: r.SolidBodyGaps,
 		Encounters: len(r.Analysis.Encounters), Suppressed: map[l8behaviour.SuppressionReason]l8behaviour.SuppressionCount{},
 		InstantReasons: map[l8behaviour.SuppressionReason]int{},
 		Written:        len(r.Interactions) - r.AlreadyStored, AlreadyStored: r.AlreadyStored,
@@ -526,6 +538,12 @@ func (s Summary) Lines() []string {
 	if s.Boxes {
 		out = append(out, fmt.Sprintf("Estimates without a published box: %d (%d with no observation row at their frame)",
 			s.BoxlessEstimates, s.UnfiledEstimates))
+	}
+	if s.SolidBodies {
+		out = append(out, fmt.Sprintf("Solid bodies not read: %d (not a valid sample, held as gaps)", s.SolidBodyGaps.Rows))
+		for _, reason := range s.SolidBodyGaps.Reasons() {
+			out = append(out, fmt.Sprintf("  %s: %d", reason, s.SolidBodyGaps.ByReason[reason]))
+		}
 	}
 	out = append(out, fmt.Sprintf("Follower paths fitted: %d of %d", s.PathsFitted, s.Tracks))
 	for _, c := range l8behaviour.PathConditions() {

@@ -2,6 +2,7 @@ package l8behaviour
 
 import (
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -157,9 +158,12 @@ func TestTrajectoriesFromSolidBodies(t *testing.T) {
 	rows := persistedPass(t)
 	// Out of order, as a query need not return them.
 	rows[0], rows[len(rows)-1] = rows[len(rows)-1], rows[0]
-	trajectories, err := TrajectoriesFromSolidBodies(rows, l5tracks.DefaultConvergenceBounds())
+	trajectories, gaps, err := TrajectoriesFromSolidBodiesWithGaps(rows, l5tracks.DefaultConvergenceBounds())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if gaps.Rows != 0 {
+		t.Fatalf("a clean pass held %d rows as gaps: %v", gaps.Rows, gaps.ByReason)
 	}
 	if len(trajectories) != 1 || len(trajectories[0].Samples) != len(rows) {
 		t.Fatalf("%d trajectories", len(trajectories))
@@ -230,10 +234,71 @@ func TestTrajectoriesFromSolidBodiesRefusesWhatARowCannotSay(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			rows := persistedPass(t)
 			mutate(rows)
-			if _, err := TrajectoriesFromSolidBodies(rows, l5tracks.DefaultConvergenceBounds()); err == nil {
-				t.Fatal("want an error")
+			for _, read := range []func() error{
+				func() error {
+					_, err := TrajectoriesFromSolidBodies(rows, l5tracks.DefaultConvergenceBounds())
+					return err
+				},
+				func() error {
+					_, _, err := TrajectoriesFromSolidBodiesWithGaps(rows, l5tracks.DefaultConvergenceBounds())
+					return err
+				},
+			} {
+				if read() == nil {
+					t.Fatal("want an error")
+				}
 			}
 		})
+	}
+}
+
+// TestTrajectoriesFromSolidBodiesHoldsAnInvalidRowAsAGap: a row whose
+// reading contradicts the trajectory contract, as the near-edge field
+// replays' established rows on a lapsed heading did, is a gap counted by
+// reason rather than a refusal of the whole version; a track left with no
+// valid row has no trajectory, and a version with none at all is refused.
+func TestTrajectoriesFromSolidBodiesHoldsAnInvalidRowAsAGap(t *testing.T) {
+	const reason = "an established estimate requires converged extents, a resolved heading and a physical reference"
+	lapse := func(r *PersistedSolidBody) {
+		r.Reading.Estimate.Estimation = l5tracks.EstimationEstablished
+		r.Reading.Estimate.Orientation.AmbiguousModeWeight = 0.5
+	}
+	bounds := l5tracks.DefaultConvergenceBounds()
+
+	rows := persistedPass(t)
+	lapse(&rows[1])
+	lapse(&rows[2])
+	// A second track whose every row is invalid.
+	other := persistedPass(t)[:3]
+	for i := range other {
+		other[i].TrackID = "trk_lapsed"
+		lapse(&other[i])
+	}
+	rows = append(rows, other...)
+
+	trajectories, gaps, err := TrajectoriesFromSolidBodiesWithGaps(rows, bounds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trajectories) != 1 || trajectories[0].Passage.TrackID != "trk_pass" {
+		t.Fatalf("%d trajectories; want only trk_pass", len(trajectories))
+	}
+	if got, want := len(trajectories[0].Samples), len(rows)-len(other)-2; got != want {
+		t.Errorf("%d samples, want %d", got, want)
+	}
+	if gaps.Rows != 5 || gaps.ByReason[reason] != 5 || len(gaps.ByReason) != 1 {
+		t.Errorf("gaps %+v, want 5 rows for %q", gaps, reason)
+	}
+	if r := gaps.Reasons(); len(r) != 1 || r[0] != reason {
+		t.Errorf("reasons %v", r)
+	}
+
+	// The strict reader refuses the same rows.
+	if _, err := TrajectoriesFromSolidBodies(rows, bounds); err == nil || !strings.Contains(err.Error(), reason) {
+		t.Errorf("the strict reader: %v; want a refusal naming %q", err, reason)
+	}
+	if _, _, err := TrajectoriesFromSolidBodiesWithGaps(other, bounds); err == nil || !strings.Contains(err.Error(), reason) {
+		t.Errorf("a version with no valid row: %v; want a refusal naming %q", err, reason)
 	}
 }
 
