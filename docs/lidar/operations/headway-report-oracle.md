@@ -95,7 +95,10 @@ The run reads `lidar_track_estimates` from an evidence database: the offline SQL
 writes when `replayeval.Config.ObservationDBPath` is set, with each estimate linked to its
 immutable observation in `lidar_observations`. The state-estimation baseline tool writes one with
 `-evidence-dir` (or `-observations-db`), and `-experiment fixed_lag_rts` adds the refined
-`fixed_lag` and `final` rows beside the online ones. `velocity lidar pcap-replay --observations`
+`fixed_lag` and `final` rows beside the online ones. Beside each online estimate the replay also
+files the track's `lidar_tracks` row and its `lidar_track_observations` row at that frame, as the
+live server does, so the evidence holds the published box (migration 000062) and the classifier's
+label; a database written before that holds no boxes. `velocity lidar pcap-replay --observations`
 writes an observation VRLOG, not an evidence database, and the server writes no estimates at all.
 
 ### Run it
@@ -108,6 +111,8 @@ velocity report headway --db evidence.db --source source/v1/<digest> \
     --stage fixed_lag --param-hash sha256:<hash>              # one fixed_lag horizon of several
 velocity report headway --db evidence.db --source source/v1/<digest> \
     --solid-bodies --stage online                             # the solid bodies beside the estimates
+velocity report headway --db evidence.db --source source/v1/<digest> \
+    --boxes                                                   # the published boxes beside the estimates
 ```
 
 `--stage` is `final` (the default, the stage a production reader asks for), `fixed_lag` or
@@ -115,8 +120,10 @@ velocity report headway --db evidence.db --source source/v1/<digest> \
 with one `fixed_lag` version per horizon, the run refuses to choose and lists them; name one with
 `--estimator`, `--obs-model` or `--param-hash`. `--solid-bodies` reads `lidar_track_solid_bodies`
 instead of `lidar_track_estimates`: the near-edge body a `solid_body` replay files beside each
-online estimate, which exists at the `online` stage only. The command prints the status and the
-run's figures before it renders, then writes `headway_provisional_report.pdf` and its source
+online estimate, which exists at the `online` stage only. `--boxes` reads the published box filed
+beside each online estimate as the body, with the estimate's velocity and covariance; its stage is
+`online`, the default with `--boxes`, and it excludes `--solid-bodies`. The command prints the
+status and the run's figures before it renders, then writes `headway_provisional_report.pdf` and its source
 archive.
 
 ### What one run does
@@ -178,6 +185,29 @@ A solid-body row carries the body itself, and its sample says what the reading s
 The shadow filter updates its covariance in float32 without re-symmetrising it, so each
 off-diagonal pair is averaged when it agrees within round-off, as for a point estimate, and the row
 is refused otherwise.
+
+A published box (`l8behaviour.TrajectoriesFromBoxes`) is read as the body, and its sample claims
+no more than the box and the estimate filed with it say:
+
+| Sample field | Read as                                                                                                                                                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reference    | `body_centre`, at the box's centre; the trajectory's observation model is `published_box/<the estimate's>`                                                                                                             |
+| Heading      | The box's, accumulated. The front is the course's at 0.5 m/s or more when the box axis is within 45° of it (turned half a turn against it), held from the last named front below that speed, and unnamed across either |
+| Extents      | The box's length and width, accumulated with zero sigma; each counts the track's boxes so far, so it converges at the third box. A length the box model floored to a vehicle's is read as evidence too                 |
+| Faces        | None: the box records no face, so every endpoint is `temporally_inferred`                                                                                                                                              |
+| Uncertainty  | The estimate's covariance, stated for the filter's reference point; the box records no spread, so an endpoint's sigma is a lower bound                                                                                 |
+| Lifecycle    | `l5tracks.NextEstimationState` on those beliefs: `established` from the third box with a named front; a slow box turned across its held front is `temporarily_degraded`                                                |
+| Support      | The estimate's `support_instant`, which must be `observed`; a frame with no box filed is a gap, counted on the line `Estimates without a published box`                                                                |
+| Class        | The track's label in `lidar_tracks`, mapped as the tracker maps it for the solid body; no label is `unknown`                                                                                                           |
+| Stage        | `online` only: no refined stage revises the box                                                                                                                                                                        |
+
+An estimate can have no observation row at all. While `lidar_track_observations` was keyed by
+track and acquisition time (as of October 2026, in the live server too; a migration re-keys it by
+frame), a cluster took its first point's time, so when one firing's returns fell on both sides of a
+frame seam, two consecutive frames of a track shared an acquisition time and the later frame's row
+replaced the earlier one. Evidence written then keeps the gap. The run counts such estimates in
+brackets on the same line. A version with no observation row at all was written before the
+replay filed them, and is refused.
 
 ### kirk0
 

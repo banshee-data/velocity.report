@@ -20,7 +20,8 @@ import (
 
 type armFlags struct {
 	label, db, source, estimator, model, params, stage, runID *string
-	declaredBaseline, solidBody                               *bool
+	declaredBaseline, solidBody, boxes                        *bool
+	name                                                      string
 }
 
 func registerArm(fs *flag.FlagSet, name, defaultLabel string) armFlags {
@@ -36,6 +37,9 @@ func registerArm(fs *flag.FlagSet, name, defaultLabel string) armFlags {
 		runID:            fs.String(name+"-run-id", "", "score an analysis run's track positions instead of estimates (needs "+p+"declared-baseline)"),
 		declaredBaseline: fs.Bool(name+"-declared-baseline", false, "score a non-final arm as a declared baseline; recorded in the output"),
 		solidBody:        fs.Bool(name+"-solid-body", false, "read the version from lidar_track_solid_bodies (replay -experiment solid_body) instead of lidar_track_estimates"),
+		boxes: fs.Bool(name+"-boxes", false, "read the published box filed beside each online estimate of the version "+
+			"(lidar_track_observations) as the body; needs "+p+"stage online, and not with "+p+"solid-body"),
+		name: name,
 	}
 }
 
@@ -43,8 +47,16 @@ func (a armFlags) spec() perframeeval.ArmSpec {
 	return perframeeval.ArmSpec{
 		Label: *a.label, DBPath: *a.db, SourceID: *a.source, EstimatorID: *a.estimator,
 		ObservationModelID: *a.model, ParamHash: *a.params, Stage: *a.stage, RunID: *a.runID,
-		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody,
+		DeclaredBaseline: *a.declaredBaseline, SolidBodies: *a.solidBody, Boxes: *a.boxes,
 	}
+}
+
+// check refuses flag combinations that name no single arm.
+func (a armFlags) check() error {
+	if *a.boxes && *a.solidBody {
+		return fmt.Errorf("-%s-boxes and -%s-solid-body name different rows; give one", a.name, a.name)
+	}
+	return nil
 }
 
 // perFrameRequest is one parsed perframe command line: the comparison to run
@@ -156,6 +168,12 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	} {
 		if required.value == "" {
 			return nil, usageError(fs, stderr, fmt.Errorf("%s is required", required.name))
+		}
+	}
+
+	for _, arm := range []armFlags{armA, armB} {
+		if err := arm.check(); err != nil {
+			return nil, usageError(fs, stderr, err)
 		}
 	}
 

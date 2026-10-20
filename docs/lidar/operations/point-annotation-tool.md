@@ -819,6 +819,16 @@ bin/lidar-ground-truth-eval perframe -pack "$PACK" -split-manifest "$SPLIT" -spl
 | `-physical-reference-revision N` | Score a retained revision; the default is the current one. Both are recorded   |
 | `-physical-gate-metres M`        | How far a prediction's point may be from the reference centre, or anchor (3 m) |
 
+An arm is read from `lidar_track_estimates` by default, from `lidar_track_solid_bodies` with
+`-a-solid-body`, or with `-a-boxes` from the published box a replay files beside each online
+estimate (`lidar_track_observations`), read as the body through `TrajectoriesFromBoxes`. A box arm
+needs `-a-stage online -a-declared-baseline`, cannot also be `-a-solid-body`, and is named by the
+estimates' version; its identity reports the table and the observation model
+`published_box/<the estimates' model>`. A box records no face, so every endpoint it places is
+temporally inferred and its sigma is a lower bound (see the
+[headway report](headway-report-oracle.md#what-a-persisted-row-supports)). The same flags with
+`-b-` select arm B.
+
 A prediction matches a reference by source (every row's sensor, and one calibration: the
 reference's, if it names one), by capture instant (the frame tolerance), in the pack's frame, and
 by object: at each sample, reviewed keyframes and predictions pair one to one, nearest first,

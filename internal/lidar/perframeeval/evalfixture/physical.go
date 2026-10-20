@@ -497,3 +497,69 @@ func writePhysicalDB(path string) error {
 	}
 	return errors.Join(errs...)
 }
+
+// ParamsBox is the published-box version WritePhysicalBoxes adds: online
+// point estimates at the visible box centre, BoxEstimateOffsetM behind each
+// truth, with each frame's published box filed beside them at the truth.
+const (
+	ParamsBox          = "params/box"
+	BoxEstimateOffsetM = 0.5
+	BoxObservationID   = "obb_centre_v1"
+)
+
+// WritePhysicalBoxes adds ParamsBox to the fixture's database, as a replay's
+// frame evidence store files it: an online estimate per track and sample
+// (the follower missing at the occluded sample, as for params/exact), and
+// beside each the track's lidar_tracks row, labelled a car, and its
+// lidar_track_observations row whose published box is the truth: centre,
+// heading 0, length and width. It is kept apart from WritePhysical so the
+// versions every other test selects are unchanged.
+func WritePhysicalBoxes(f *PhysicalFixture) error {
+	database, err := db.NewDB(f.DBPath)
+	if err != nil {
+		return err
+	}
+	defer database.Close()
+	store := sqlite.NewStateEstimateStore(database.DB)
+	var errs []error
+	cov := [16]float32{0.01, 0, 0, 0, 0, 0.01, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0.1}
+	for i := 0; i < PhysSamples; i++ {
+		for _, body := range []struct {
+			seq    int64
+			x      float64
+			length float32
+		}{{1, FollowerX(i), FollowerLength}, {2, LeaderX(i), LeaderLength}} {
+			if body.seq == 1 && i == OccludedFollowerSample {
+				continue
+			}
+			frame := SampleTime(i) + EstimateOffsetNs
+			trackID := fmt.Sprintf("uuid-box-%d", body.seq)
+			id := fmt.Sprintf("estimate/%s/%d/%d", ParamsBox, body.seq, i)
+			e := sqlite.TrackEstimate{
+				EstimateID: id, TrackID: trackID, ObservationID: "observation/" + id,
+				SourceID: PhysSource, CalibrationID: PhysCalibration, FrameUnixNanos: frame, MeasurementUnixNanos: frame,
+				EstimatorID: EstimatorID, ObservationModelID: BoxObservationID, ParamHash: ParamsBox,
+				Stage: "online", MeasurementSource: BoxObservationID, CreationSequence: body.seq,
+				Reference: l5tracks.ReferenceVisibleOBBCentre, Support: l5tracks.SupportObserved,
+				X: float32(body.x - BoxEstimateOffsetM), VX: 10, Covariance: cov,
+			}
+			_, err := database.Exec(`INSERT INTO lidar_observations
+				(observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos,
+				 cluster_unix_nanos, cluster_id, record_json, inserted_at_ns)
+				VALUES (?, 1, ?, ?, ?, 'fixture', ?, ?, 1, '{}', 1)`, e.ObservationID, PhysSource, PhysCalibration, PhysSensor, frame, frame)
+			errs = append(errs, err)
+			errs = append(errs, store.Insert(e, sqlite.TrackResidual{EstimateID: id, ObservationID: e.ObservationID,
+				Disposition: "accepted", Reason: "fixture"}))
+			track := &sqlite.TrackedObject{TrackID: trackID, CreationSequence: body.seq}
+			track.SensorID, track.TrackState, track.StartUnixNanos = PhysSensor, sqlite.TrackConfirmed, SampleTime(0)
+			track.ObjectClass, track.ObjectConfidence = "car", 0.9
+			errs = append(errs, sqlite.InsertTrack(database.DB, track, "site/"+PhysSensor))
+			errs = append(errs, sqlite.InsertTrackObservation(database.DB, &sqlite.TrackObservation{
+				TrackID: trackID, TSUnixNanos: frame, FrameUnixNanos: frame, FrameID: "site/" + PhysSensor,
+				MeasurementSource: BoxObservationID, X: e.X, VelocityX: 10,
+				BoxX: float32(body.x), BoxHeadingRad: 0, BoxLength: body.length, BoxWidth: CarWidth,
+			}))
+		}
+	}
+	return errors.Join(errs...)
+}

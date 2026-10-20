@@ -14,10 +14,11 @@ import (
 // The prediction layer of physical scoring.
 //
 // An arm's rows are read through the behaviour adapters
-// (l8behaviour.TrajectoriesFromEstimates and TrajectoriesFromSolidBodies),
-// which claim no reference point, heading or extent a row does not carry: a
-// point estimate names the medoid or the visible box centre and has no body,
-// and a solid body names the body centre only after a near-edge fix. The
+// (l8behaviour.TrajectoriesFromEstimates, TrajectoriesFromSolidBodies and
+// TrajectoriesFromBoxes), which claim no reference point, heading or extent a
+// row does not carry: a point estimate names the medoid or the visible box
+// centre and has no body, a solid body names the body centre only after a
+// near-edge fix, and a published box is read as the body with no face. The
 // scorer compares what each prediction says, and records what that was.
 
 // PredictedExtent is one body dimension as an estimate believed it.
@@ -91,6 +92,9 @@ func LoadPhysicalArm(spec ArmSpec) (PhysicalArm, error) {
 		return PhysicalArm{}, fmt.Errorf("arm %s: estimates are stage %q, and acceptance scores stage %q; "+
 			"declare the arm a baseline to score it anyway", spec.Label, spec.Stage, StageFinal)
 	}
+	if err := spec.checkBoxes(); err != nil {
+		return PhysicalArm{}, err
+	}
 	database, err := sqlite.OpenReadOnly(spec.DBPath)
 	if err != nil {
 		return PhysicalArm{}, fmt.Errorf("arm %s: open %s: %w", spec.Label, spec.DBPath, err)
@@ -101,8 +105,11 @@ func LoadPhysicalArm(spec ArmSpec) (PhysicalArm, error) {
 
 func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalArm, error) {
 	listVersions, table := store.ListEstimateVersions, ""
-	if spec.SolidBodies {
+	switch {
+	case spec.SolidBodies:
 		listVersions, table = store.ListSolidBodyVersions, solidBodyTable
+	case spec.Boxes:
+		listVersions, table = store.ListBoxVersions, boxTable
 	}
 	versions, err := listVersions()
 	if err != nil {
@@ -120,7 +127,31 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 	sensors, calibrations := map[string]bool{}, map[string]bool{}
 	var trajectories []l8behaviour.Trajectory
 	bounds := l5tracks.DefaultConvergenceBounds()
-	if spec.SolidBodies {
+	switch {
+	case spec.Boxes:
+		rows, err := store.ListVersionBoxes(key)
+		if err != nil {
+			return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
+		}
+		persisted := make([]l8behaviour.PersistedBox, len(rows))
+		for i, r := range rows {
+			persisted[i] = l8behaviour.PersistedBox{
+				TrackID: r.TrackID, SensorID: r.SensorID, FrameUnixNanos: r.FrameUnixNanos,
+				EstimatorID: r.EstimatorID, ObsModelID: r.ObservationModelID, ParamHash: r.ParamHash, Stage: r.Stage,
+				Support: r.Support, MeasurementUnixNanos: r.MeasurementUnixNanos,
+				VX: r.VX, VY: r.VY, Covariance: r.Covariance,
+				HasBox: r.HasBox, BoxX: r.BoxX, BoxY: r.BoxY, BoxHeadingRad: r.BoxHeadingRad,
+				BoxLength: r.BoxLength, BoxWidth: r.BoxWidth,
+				ClassLabel: r.ClassLabel, ClassConfidence: r.ClassConfidence,
+			}
+			sequence[r.TrackID] = r.CreationSequence
+			sensors[r.SensorID], calibrations[r.CalibrationID] = true, true
+		}
+		trajectories, err = l8behaviour.TrajectoriesFromBoxes(persisted, bounds)
+		if err != nil {
+			return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
+		}
+	case spec.SolidBodies:
 		rows, err := store.ListVersionSolidBodies(key)
 		if err != nil {
 			return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
@@ -145,7 +176,7 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 		if err != nil {
 			return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
 		}
-	} else {
+	default:
 		rows, err := store.ListVersionEstimates(key)
 		if err != nil {
 			return PhysicalArm{}, fmt.Errorf("arm %s: %w", spec.Label, err)
@@ -195,7 +226,7 @@ func loadPhysicalArm(store *sqlite.StateEstimateStore, spec ArmSpec) (PhysicalAr
 	arm.Identity = ArmIdentity{
 		Label: spec.Label, Kind: ArmEstimates, Database: filepath.Base(spec.DBPath),
 		SourceID: version.SourceID, EstimatorID: version.EstimatorID,
-		ObservationModelID: version.ObservationModelID, ParamHash: version.ParamHash,
+		ObservationModelID: armObservationModel(spec, version), ParamHash: version.ParamHash,
 		Table: table, Stage: version.Stage, DeclaredBaseline: spec.DeclaredBaseline,
 		TrackKey: "creation_sequence", Tracks: len(trajectories), Points: len(arm.Bodies),
 	}

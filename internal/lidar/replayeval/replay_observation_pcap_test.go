@@ -84,6 +84,31 @@ func TestObservationStoragePreservesReplayBaseline(t *testing.T) {
 			t.Fatalf("incomplete immutable observation: %+v", record)
 		}
 	}
+	// Every online estimate has its track's observation filed beside it at
+	// the same frame, carrying the published box the default box model drew.
+	store := observationsqlite.NewStateEstimateStore(database)
+	boxVersions, err := store.ListBoxVersions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(boxVersions) != 1 || boxVersions[0].SourceID != result.ObservationSourceID {
+		t.Fatalf("box versions: %+v", boxVersions)
+	}
+	v := boxVersions[0]
+	boxes, err := store.ListVersionBoxes(observationsqlite.EstimateVersionKey{SourceID: v.SourceID,
+		EstimatorID: v.EstimatorID, ObservationModelID: v.ObservationModelID, ParamHash: v.ParamHash, Stage: v.Stage})
+	if err != nil {
+		t.Fatalf("read the boxes filed beside the estimates: %v", err)
+	}
+	withBox := 0
+	for _, b := range boxes {
+		if b.HasBox {
+			withBox++
+		}
+	}
+	if withBox == 0 || withBox != v.Estimates {
+		t.Fatalf("%d of %d estimates carry a box; the version lists %d", withBox, len(boxes), v.Estimates)
+	}
 	// The L3 region map is in the same evidence: the map as identified and
 	// the map the replay ended with, each linked to its grid snapshot. Like
 	// the observations, it left the baseline above untouched.

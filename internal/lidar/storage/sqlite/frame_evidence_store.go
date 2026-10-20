@@ -132,8 +132,8 @@ func (s *FrameEvidenceStore) Stats() FrameEvidenceStats {
 }
 
 // InsertFrame writes a complete frame in one transaction. A failed insert or
-// commit leaves none of that frame's observation, estimate, or residual rows
-// behind. Duplicate immutable observation IDs retain the existing fail-closed
+// commit leaves none of that frame's observation, estimate, residual, solid
+// body or track rows behind. Duplicate immutable observation IDs retain the existing fail-closed
 // behaviour.
 func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObservation, estimates []FrameStateEstimate) error {
 	// Frames without retained evidence do not need a transaction. In a static
@@ -196,6 +196,9 @@ func (s *FrameEvidenceStore) InsertFrame(observations []l4bobserve.DetectionObse
 		if err := insertStateEstimateStatements(estimateStmt, residualStmt, pair.Estimate, pair.Residual, insertedAtNanos); err != nil {
 			return err
 		}
+		if err := insertTrackRecord(tx, pair); err != nil {
+			return err
+		}
 		if pair.SolidBody == nil {
 			continue
 		}
@@ -240,6 +243,36 @@ func insertStateEstimateStatements(estimateStmt, residualStmt statementExecutor,
 	}
 	if _, err := residualStmt.Exec(stateResidualInsertArgs(residual, insertedAtNanos)...); err != nil {
 		return fmt.Errorf("insert track residual %s: %w", residual.EstimateID, err)
+	}
+	return nil
+}
+
+// insertTrackRecord writes a pair's lidar_tracks row and then its
+// lidar_track_observations row (the observation references the track), with
+// the live server's own statements: the track row upserts, so a track filed
+// at every frame keeps its latest label, and the observation is keyed as the
+// live table keys it. Both or neither must be present, and both must
+// be the estimate's track at the estimate's frame, or the box would be filed
+// beside an estimate it was not drawn with.
+func insertTrackRecord(exec Executor, pair FrameStateEstimate) error {
+	if pair.Track == nil && pair.Observation == nil {
+		return nil
+	}
+	e := pair.Estimate
+	if pair.Track == nil || pair.Observation == nil {
+		return fmt.Errorf("estimate %s files a track row without its observation, or the reverse", e.EstimateID)
+	}
+	if pair.Track.TrackID != e.TrackID || pair.Observation.TrackID != e.TrackID ||
+		pair.Observation.FrameUnixNanos != e.FrameUnixNanos {
+		return fmt.Errorf("estimate %s (track %s at %d) files track %s and an observation of %s at %d",
+			e.EstimateID, e.TrackID, e.FrameUnixNanos, pair.Track.TrackID, pair.Observation.TrackID,
+			pair.Observation.FrameUnixNanos)
+	}
+	if err := InsertTrack(exec, pair.Track, pair.Observation.FrameID); err != nil {
+		return fmt.Errorf("estimate %s: %w", e.EstimateID, err)
+	}
+	if err := InsertTrackObservation(exec, pair.Observation); err != nil {
+		return fmt.Errorf("estimate %s: %w", e.EstimateID, err)
 	}
 	return nil
 }

@@ -40,6 +40,7 @@ func TestRunHeadwayRejectsBadArguments(t *testing.T) {
 		{"--oracle", "--source", "source/v1/x"},
 		{"--oracle", "--param-hash", "sha256:x"},
 		{"--oracle", "--solid-bodies"},
+		{"--oracle", "--boxes"},
 		{"--oracle", "--stage", "online"},
 		{"--oracle", "--stage", "final"},
 	} {
@@ -111,7 +112,9 @@ const headwayTestSource = "source/v1/cafe"
 // seedHeadwayEvidence writes the steady-approach scenario's poses as online
 // estimates in a new evidence database, each linked to an observation row,
 // and its bodies beside them as online solid bodies: centre-referenced,
-// with the fixture's observed heading, accumulated extents and class.
+// with the fixture's observed heading, accumulated extents and class. The
+// bodies are also filed as the published boxes the frame evidence store
+// writes beside each estimate, on tracks labelled cars.
 func seedHeadwayEvidence(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "evidence.db")
@@ -121,7 +124,21 @@ func seedHeadwayEvidence(t *testing.T) string {
 	}
 	defer database.Close()
 	for _, tr := range l8behaviour.ScenarioSteadyApproach().Trajectories {
+		track := &l5tracks.TrackedObject{TrackID: tr.Passage.TrackID}
+		track.SensorID, track.TrackState, track.StartUnixNanos = "sensor_test", l5tracks.TrackConfirmed, tr.Samples[0].CaptureUnixNanos
+		track.ObjectClass, track.ObjectConfidence = "car", 0.9
+		if err := sqlite.InsertTrack(database, track, "site/sensor_test"); err != nil {
+			t.Fatal(err)
+		}
 		for _, s := range tr.Samples {
+			if err := sqlite.InsertTrackObservation(database, &sqlite.TrackObservation{
+				TrackID: tr.Passage.TrackID, TSUnixNanos: s.CaptureUnixNanos, FrameUnixNanos: s.CaptureUnixNanos,
+				FrameID: "site/sensor_test", MeasurementSource: "obb_centre_v1",
+				BoxX: float32(s.X), BoxY: float32(s.Y), BoxHeadingRad: float32(s.Heading.Rad),
+				BoxLength: float32(s.Length.Metres), BoxWidth: float32(s.Width.Metres),
+			}); err != nil {
+				t.Fatal(err)
+			}
 			obs := fmt.Sprintf("observation/%s/%d", tr.Passage.TrackID, s.CaptureUnixNanos)
 			if _, err := database.Exec(`INSERT INTO lidar_observations
 				(observation_id, schema_version, source_id, calibration_id, sensor_id, frame_id, frame_unix_nanos,
@@ -233,6 +250,25 @@ func TestRunHeadwayFieldWritesTheReport(t *testing.T) {
 	if code := runHeadway(args, &stdout, &stderr); code != 0 || !strings.Contains(stdout.String(), "(0 written, 1 already stored)") {
 		t.Errorf("second run exit %d:\n%s", code, stdout.String())
 	}
+
+	// The published boxes, at the online stage without asking: the same
+	// pair, its own encounter, the first two instants waiting for the boxes'
+	// extents to converge.
+	stdout.Reset()
+	boxes := []string{"--db", evidence, "--source", headwayTestSource, "--boxes", "--output", t.TempDir()}
+	if code := runHeadway(boxes, &stdout, &stderr); code != 0 {
+		t.Fatalf("boxes: exit %d, stderr %q", code, stderr.String())
+	}
+	for _, want := range []string{
+		"Status: PROVISIONAL\n", "Published boxes beside estimates: online cv_kf_v1, obb_centre_v1, sha256:online (100 rows)",
+		"Estimates without a published box: 0 (0 with no observation row at their frame)",
+		"Follower paths fitted: 2 of 2", "Encounters: 1 (1 written, 0 already stored)",
+		"Valid following time: 4.7 s of 4.9 s accounted", "suppressed extent_not_converged: 2 instants, 0.2 s",
+	} {
+		if !strings.Contains(stdout.String(), want) {
+			t.Errorf("boxes stdout lacks %q:\n%s", want, stdout.String())
+		}
+	}
 }
 
 // TestRunHeadwayFieldRefuses: a missing database is not created, a missing
@@ -259,6 +295,9 @@ func TestRunHeadwayFieldRefuses(t *testing.T) {
 		{[]string{"--db", evidence, "--source", headwayTestSource}, 1, "holds no final estimates"},
 		{[]string{"--db", evidence, "--source", headwayTestSource, "--solid-bodies"}, 1, "holds no final solid bodies"},
 		{[]string{"--db", evidence, "--source", headwayTestSource, "--stage", "smoothed"}, 2, "want final, fixed_lag or online"},
+		{[]string{"--db", evidence, "--boxes"}, 2, headwayTestSource + " (stages: [online])"},
+		{[]string{"--db", evidence, "--source", headwayTestSource, "--boxes", "--stage", "final"}, 2, "--stage final is not online"},
+		{[]string{"--db", evidence, "--source", headwayTestSource, "--boxes", "--solid-bodies"}, 2, "at most one of --solid-bodies or --boxes"},
 	} {
 		stdout.Reset()
 		stderr.Reset()
