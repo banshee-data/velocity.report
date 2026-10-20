@@ -197,9 +197,16 @@ no more than the box and the estimate filed with it say:
 | Faces        | None: the box records no face, so every endpoint is `temporally_inferred`                                                                                                                                              |
 | Uncertainty  | The estimate's covariance, stated for the filter's reference point; the box records no spread, so an endpoint's sigma is a lower bound                                                                                 |
 | Lifecycle    | `l5tracks.NextEstimationState` on those beliefs: `established` from the third box with a named front; a slow box turned across its held front is `temporarily_degraded`                                                |
-| Support      | The estimate's `support_instant`, which must be `observed`; a frame whose observation has no box is a gap                                                                                                              |
+| Support      | The estimate's `support_instant`, which must be `observed`; a frame with no box filed is a gap, counted on the line `Estimates without a published box`                                                                |
 | Class        | The track's label in `lidar_tracks`, mapped as the tracker maps it for the solid body; no label is `unknown`                                                                                                           |
 | Stage        | `online` only: no refined stage revises the box                                                                                                                                                                        |
+
+An estimate can have no observation row at all: `lidar_track_observations` keys a row by track and
+acquisition time, as the live server does, and a cluster takes its first point's time, so when one
+firing's returns fall on both sides of a frame seam, two consecutive frames of a track share an
+acquisition time and the later frame's row replaces the earlier one. The run counts such estimates
+in brackets on the same line. A version with no observation row at all was written before the
+replay filed them, and is refused.
 
 ### kirk0
 
