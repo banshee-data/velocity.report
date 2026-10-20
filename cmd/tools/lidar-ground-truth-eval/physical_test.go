@@ -77,3 +77,38 @@ func TestPerFramePhysicalReferenceRefusals(t *testing.T) {
 		t.Fatalf("held-out physical scoring: exit %d: %s", code, stderr)
 	}
 }
+
+// TestPerFramePhysicalBoxArm: -a-boxes reads arm A through the published
+// boxes filed beside its online estimates, scored beside a solid-body arm;
+// naming both row kinds for one arm is a usage error.
+func TestPerFramePhysicalBoxArm(t *testing.T) {
+	f, err := evalfixture.WritePhysical(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := evalfixture.WritePhysicalBoxes(f); err != nil {
+		t.Fatal(err)
+	}
+	args := []string{
+		"-pack", f.PackDir, "-split-manifest", f.SplitManifestPath, "-split", evalfixture.PhysSplit, "-allow-tuning-split",
+		"-physical-reference",
+		"-a-label", "box", "-a-db", f.DBPath, "-a-param-hash", evalfixture.ParamsBox, "-a-stage", "online",
+		"-a-declared-baseline", "-a-boxes",
+		"-b-label", "exact", "-b-db", f.DBPath, "-b-param-hash", evalfixture.ParamsExact, "-b-stage", "online",
+		"-b-declared-baseline", "-b-solid-body",
+	}
+	code, c, stderr := runPerFrameCapture(t, args)
+	if code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr)
+	}
+	a := c.Physical.A
+	if c.A.Arm.Table != "lidar_track_observations" || a.Arm.ObservationModelID != "published_box/"+evalfixture.BoxObservationID ||
+		a.Summary.Components[perframeeval.ComponentCentre].Scored != 6 || a.Summary.Following.Scored != 2 ||
+		c.Physical.B.Arm.Table != "lidar_track_solid_bodies" {
+		t.Fatalf("box arm: %+v / %+v", c.A.Arm, a.Summary)
+	}
+	both := append(append([]string{}, args...), "-a-solid-body")
+	if code, _, stderr := runPerFrameCapture(t, both); code != 2 || !strings.Contains(stderr, "-a-boxes and -a-solid-body") {
+		t.Fatalf("boxes and solid bodies for one arm: exit %d: %s", code, stderr)
+	}
+}
