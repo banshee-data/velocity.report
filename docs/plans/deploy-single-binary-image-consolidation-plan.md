@@ -236,8 +236,9 @@ follow is 0.5.1, and closing it is what makes the CHANGELOG's heading true.
 **After the cut.** A version is tagged when the owner cuts it from `main` (D-32). There is no
 time bound on unreleased change: the owner decided on October 20, 2026 to cut when ready, and
 declined the proposed eight weeks. The changelog section is written as each pull request lands, so a cut is editing rather than
-archaeology. Whether a declared breaking change in 0.x raises the minor version is an open
-question for the owner before the next breaking change; it does not block this cut.
+archaeology. A declared breaking change does not raise the minor version: below 1.0 a patch
+release may carry one, listed first under BREAKING with its migration steps (D-32, amended
+October 20, 2026). v0.5.1's L3 change is the first, and v0.5.2's three renames follow.
 
 **Not in scope.** Date-based versions; a cut per merged change; tags for pre32 to pre45; a
 prerelease channel policy, until an external tester asks for one.

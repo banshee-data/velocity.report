@@ -4,7 +4,7 @@ How velocity.report will record posted speed limits and apply them to measured s
 vector scene map gives a site its road geometry. Nothing is stored until then, because a single
 limit per site, or per site configuration period, describes the wrong thing.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in the queued safety reporting slot or in v0.6.8 and later; revisit when the safety reporting slot is numbered. Was: Proposed; implementation waits for the vector scene map (v1.0)
+- **Status:** Parked (D-32, October 20, 2026): its rows, and the vector scene road layer they wait on, sit in the queued safety reporting slot, moved from v1.0 by the owner on October 20, 2026; revisit when that slot is numbered. Was: Proposed; implementation waits for the vector scene map (v1.0)
 - **Canonical:** [3D vector scene map](../lidar/architecture/vector-scene-map.md)
 - **Layers:** Vector scene roadway context, radar and LiDAR speed reports, site configuration
 - **Related:** [Behaviour analytics plan, Section 10.1](lidar-behaviour-analytics-plan.md#101-roadway-context-does-not-exist-yet-including-the-speed-limit), [Speed limit schedules](../radar/architecture/speed-limit-schedules.md), [Cosine correction spec](../radar/architecture/site-config-cosine-correction-spec.md), [Traffic description language plan](data-traffic-description-language-plan.md)

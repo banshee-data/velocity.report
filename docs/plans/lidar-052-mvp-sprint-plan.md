@@ -10,7 +10,7 @@ The first exit is a working provisional MVP; field promotion requires separate e
 - **Acceptance platform:** macOS on Apple Silicon; stationary, single-sensor captures first
 - **Review:** [merged-batch audit and fresh evidence](../lidar/operations/0.5.2-sprint-review.md)
 - **Owners:** [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [VRLOG](lidar-vrlog-observation-format-plan.md), [visual design](../ui/DESIGN.md)
-- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---following-distance-evidence-052)
+- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---following-distance-mvp--vocabulary-renames-052)
 - **Reference tooling:** [segment finder and Svelte segments page](https://github.com/banshee-data/velocity.report/pull/615)
 
 ## Sprint outcome and scope
@@ -43,7 +43,10 @@ Field output stays provisional. Exit B and the promotion row move after the gate
 W5 and the slope-aware ground surface in v0.5.4, G-GEO-1 acceptance in v0.5.5, G-UNC-1 and G-SMO-1
 acceptance in v0.5.6, and promotion in v0.5.7. To keep v0.5.2 at twelve rows, S2's remaining
 near-edge decision, S3's empty-frame lifecycle and S6's distance layer joined it, the promotion row
-left, and scene source binding merged into the S7 report row.
+left, and scene source binding merged into the S7 report row. The owner then put the three D-31
+vocabulary renames in v0.5.2 as well. To make room, exit B's evidence moved to v0.5.3: the
+reference pilot, the physical scoring criteria and the following gate completeness. The ledger
+records any gate they have not reached by the cut as insufficient evidence.
 
 No CA/CTRV/IMM, lane map, global scene graph, shell catalogue, mobile ego-motion or new composite
 driver score is needed. Complete the offline Mac path before expanding live deployment. The

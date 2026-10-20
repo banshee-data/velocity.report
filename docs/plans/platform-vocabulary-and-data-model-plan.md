@@ -795,8 +795,9 @@ JSON.
 | Sites  | The naming half of Items 14 and 15: site, deployment and survey defined and used on existing surfaces where the meaning already matches. The merge of `site` and `lidar_sites` and the deployment rows are Phase 2 (P2-F)                                                                                                                                                                                                                                                                                                     | Copy and types on the Sites, Reports and Clip-locations surfaces                                        | No surface uses "scene" for a place; no new relationship is implied by a name                                                                                                                                    |
 
 Order: clip, then labels, then sites. Clip is the most-used noun and the run browser's Clip
-column waits on it; the frame-model move in the single-binary plan's role work should land first,
-so the renamed Go types move once. The work packages below are read under this section: P1-A is
+column waits on it. The owner scheduled all three in v0.5.2 on October 20, 2026, ahead of the frame-model
+move in v0.5.8, so the few renamed Go types that move touches move twice, accepted for an earlier
+Phase 1 exit; the Phase 2 items D-27 holds back then follow v0.5.2. The work packages below are read under this section: P1-A is
 superseded (the vocabulary is published here and the decision is D-31, because D-28 went to the
 research briefing), P1-B carries all three renames, and P1-C and P1-D are parked until a
 consumer needs their words.

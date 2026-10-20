@@ -12,8 +12,8 @@ owner approves them.
 
 - **Status:** Review, 2026-10-18; no measurement was run and no default changed
 - **Goal:** the bumper-to-bumper gap and net time gap of
-  [Sprint 0.5.2.3](../../BACKLOG.md#v052---following-distance-evidence-052) and
-  [0.5.2.4](../../BACKLOG.md#v052---following-distance-evidence-052)
+  [Sprint 0.5.2.3](../../BACKLOG.md#v052---following-distance-mvp--vocabulary-renames-052) and
+  [0.5.2.4](../../BACKLOG.md#v052---following-distance-mvp--vocabulary-renames-052)
 - **Inputs:** the [dependency graph](../../../data/experiments/DEPENDENCIES.md), the
   Recommendations of every October report, the
   [0.5.2 review](0.5.2-sprint-review.md), the

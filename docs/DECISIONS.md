@@ -102,7 +102,7 @@ Kept by: review only (`/plan-review`), which checks any schedule plan against th
 
 ### D-17 — PDF generation migration to Go
 
-Go direct SVG charts (encoding/xml, no plotting helper) and Typst templates; the Atkinson Hyperlegible font is embedded in report sources; dimensions are in mm; Typst consumes the SVG directly; the Go chart package also serves SVG to the web frontend. The Python stack is eliminated. The `grid-heatmap` tool is retired with it: no Go subcommand was built, and a grid view returns only as Go-served SVG when a named consumer needs one. Source: [PDF reporting](platform/operations/pdf-reporting.md).
+Go direct SVG charts (encoding/xml, no plotting helper) and Typst templates; the Atkinson Hyperlegible font is embedded in report sources; dimensions are in mm; Typst consumes the SVG directly; the Go chart package also serves SVG to the web frontend. The Python stack is eliminated. The `grid-heatmap` tool retires once a Go-served SVG grid view replaces it on the web, which the owner asked for first on October 20, 2026; no Go subcommand was built, and the backlog carries the grid view row. Source: [PDF reporting](platform/operations/pdf-reporting.md).
 
 Kept by: review only until the tool and its test paths are deleted; then the release audit's search of the Makefile and `tools/` for `grid-heatmap`.
 
@@ -148,9 +148,9 @@ Kept by: `/review-pr` on each migration (review only).
 
 ### D-25 — Agent platform strategy: dual-native personas + shared skills
 
-Use dual-native agent definitions ([.github/agents/](../.github/agents) for Copilot, [.claude/agents/](../.claude/agents) for Claude Code) with persona methodology bounded to ~40–80 lines per agent and drift-checked weekly. Shared project knowledge (Layers 0–2) stays single-source in [.github/knowledge/](../.github/knowledge). Reusable workflows live in [.claude/skills/](../.claude/skills) as slash commands, not in agent bodies. Copilot prompt files are optional thin wrappers only — not canonical workflow definitions — [ops doc](platform/operations/agent-preparedness.md), [plan](plans/agent-claude-preparedness-review-plan.md)
+Use dual-native agent definitions ([.github/agents/](../.github/agents) for Copilot, [.claude/agents/](../.claude/agents) for Claude Code) with persona methodology kept to about 400 lines per agent and drift-checked in CI (restated October 20, 2026 by the owner, from ~40–80 lines, to what the personas hold). Shared project knowledge (Layers 0–2) stays single-source in [.github/knowledge/](../.github/knowledge). Reusable workflows live in [.claude/skills/](../.claude/skills) as slash commands, not in agent bodies. Copilot prompt files are optional thin wrappers only — not canonical workflow definitions — [ops doc](platform/operations/agent-preparedness.md), [plan](plans/agent-claude-preparedness-review-plan.md)
 
-Kept by: `make check-agent-drift` as a CI step (the target exists; it is not yet a workflow step).
+Kept by: `make check-agent-drift` as a failing CI step. The target exists but only reports, and all seven pairs drift today; the backlog's v0.5.10 row syncs them, adds a failing mode and the CI step.
 
 ### D-26 — Static linux binaries: zig + musl in Docker
 
@@ -192,7 +192,7 @@ Kept by: the compatibility register test, planned for v0.5.8 and not yet built, 
 
 ### D-32 — Planning limits and backlog governance
 
-A body of work has one canonical hub doc and at most one active plan. At most twelve bodies of work are active at once, counting `Active` and `In progress` alike. A plan that waits carries the status Parked, with a one-line reason and a revisit trigger, and is not deleted. A release slot holds at most twelve outstanding items. Items beyond that move to the next slot in BACKLOG.md, never out of it. An item is one outcome in at most two sentences. Programme phases may be recorded as sequence in their plan, but outstanding items stay in BACKLOG.md until delivered. A version is tagged when the owner cuts it from `main`; the changelog heading names what shipped, and a slot's theme names what is planned. Milestone placement stays in BACKLOG.md, as this register's own rule says. This refines principle 6 of Milestone Placement. Source: [architecture review, ADR-3](plans/platform-architecture-review-plan.md#architecture-decision-records-proposed), [canonical plan graduation](platform/architecture/canonical-plan-graduation.md), [backlog governance](BACKLOG.md).
+A body of work has one canonical hub doc and at most one active plan. At most twelve bodies of work are active at once, counting `Active` and `In progress` alike. A plan that waits carries the status Parked, with a one-line reason and a revisit trigger, and is not deleted. A release slot holds at most twelve outstanding items. Items beyond that move to the next slot in BACKLOG.md, never out of it. An item is one outcome in at most two sentences. Programme phases may be recorded as sequence in their plan, but outstanding items stay in BACKLOG.md until delivered. A version is tagged when the owner cuts it from `main`; the changelog heading names what shipped, and a slot's theme names what is planned. Below 1.0 a patch release may carry a breaking change, as SemVer allows: the changelog lists it first under BREAKING with its migration steps, and the minor number keeps naming the themed series (amended October 20, 2026 by the owner). Milestone placement stays in BACKLOG.md, as this register's own rule says. This refines principle 6 of Milestone Placement. Source: [architecture review, ADR-3](plans/platform-architecture-review-plan.md#architecture-decision-records-proposed), [canonical plan graduation](platform/architecture/canonical-plan-graduation.md), [backlog governance](BACKLOG.md).
 
 Kept by: `make report-plan-hygiene`, which counts the active plans (exists; advisory). The slot and item-length lint is planned as a backlog check and is not yet built.
 
