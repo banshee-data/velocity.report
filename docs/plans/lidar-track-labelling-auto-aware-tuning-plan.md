@@ -1,6 +1,6 @@
 # Design: track labelling, ground truth evaluation & label-aware auto-tuning
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Approved design (February 2026); **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Approved design (February 2026); **Phases 1-5 complete.** Phase 6 (transits) deferred; Phase 7 (missed regions) implemented; Phase 9 (profile comparison) partially implemented (data layer complete, UI pending). Remaining: 6.x (deferred), 7.x, 8.x, 9.5-9.7.
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints
 - **Canonical:** [tuning-guide.md](../lidar/operations/tuning-guide.md)
 

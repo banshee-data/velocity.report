@@ -11,7 +11,7 @@ is the immediate measurement-inspection slice, with basic stage, support and see
 ## Objective
 
 **Current priority:** 0.5.2 requires stage/support/anchor correctness for following-distance review;
-v0.5.4 retains the broader trail and prediction-overlay work. The
+v0.5.5 retains the broader trail and prediction-overlay work. The
 [state-estimation plan](lidar-state-estimation-plan.md) owns body anchors, prediction, uncertainty,
 expiry and reacquisition. The renderer must not repair a wrong track with independent smoothing.
 

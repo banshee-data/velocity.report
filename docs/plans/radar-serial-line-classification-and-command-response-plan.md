@@ -1,6 +1,6 @@
 # Radar serial line classification and command response plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** Go server (`internal/serialmux`, `internal/api`, radar ingest in `internal/cmd/server`)
 - **Target:** Unscheduled. Enables the command dashboard (the `GET /api/commands` dropdown shipped on PR 461) to display the result of a query command, not just fire it.
 - **Related:** [Security surface](../../.github/knowledge/security-surface.md), `internal/radar/commands.go` (advisory command catalogue)
@@ -338,7 +338,7 @@ cannot remove them.
 | `commandMu` held during window serialises commands                   | Medium     | Medium | Tight default timeout, hard cap, document the contract                                                                                                                                                                                                                                                      |
 | Heuristic returns an unrelated config line                           | Low        | Medium | Serialise with `commandMu`; document best-effort; cap N                                                                                                                                                                                                                                                     |
 | Duplicate response types / JSON detection vs `POST /api/serial/test` | Medium     | Medium | `serial.go` already returns `SerialCommandResult{Command, Response, IsJSON}` for the offline exclusive-open case; unify it onto `Line`/`LineClass` so JSON detection lives in one place. Its live path refuses to read (cannot second-open the port), which confirms the Monitor tap is the only live route |
-| Overlap with SSE backpressure work (#380, v0.5.4)                    | Medium     | Medium | The outstanding drop/notify policy touches the same fan-out; coordinate the non-lossy armed tap with that work so the two do not diverge                                                                                                                                                                    |
+| Overlap with SSE backpressure work (#380, v0.5.5)                    | Medium     | Medium | The outstanding drop/notify policy touches the same fan-out; coordinate the non-lossy armed tap with that work so the two do not diverge                                                                                                                                                                    |
 | Item 1 refactor balloons into a big-bang interface change            | Medium     | Medium | Decompose: introduce `Line` behind a `chan string` shim, migrate consumers, then drop the shim, rather than one wide cut                                                                                                                                                                                    |
 
 ## Checklist

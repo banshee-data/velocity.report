@@ -1,10 +1,10 @@
 # Lossless LiDAR observation persistence batching
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Offline frame-batch writer implemented on `dd/docs/state-est`; full corpus oracle and G-PER-1 acceptance remain open
 - **Canonical:** [Tracking maths](../../data/maths/tracking-maths.md)
 - **Layers:** L4 Perception, L5 Tracks, SQLite offline replay storage
 - **Target:** Sprint 0.5.2.0
-- **Backlog:** delivered rows are in [Complete](../BACKLOG.md#complete); the persistence work after it is the [Persistence and recovery queue](../BACKLOG.md#v0516---persistence-and-recovery-0516)
+- **Backlog:** delivered rows are in [Complete](../BACKLOG.md#complete); the persistence work after it is the [Persistence and recovery queue](../BACKLOG.md#v0517---persistence-and-recovery-0517)
 - **Related:** [State estimation](lidar-state-estimation-plan.md), [test corpus](lidar-test-corpus-plan.md), [performance measurement harness](lidar-performance-measurement-harness-plan.md), [shared VRLOG storage](lidar-vrlog-observation-format-plan.md)
 
 The sections below preserve the original SQLite performance and equivalence design. The branch now

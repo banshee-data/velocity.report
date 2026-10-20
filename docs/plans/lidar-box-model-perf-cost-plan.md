@@ -8,7 +8,7 @@ measurement is the devlog's: 1 to 3 % of wall time and 0.1 ms of mean frame time
 box model's own development runs. This plan measures it with the A/B gate from #779, on a host
 doing nothing else, and records the answer.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Planned (2026-10-18)
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Planned (2026-10-18)
 - **Layers:** L5 Tracks (the box model), perf harness
 - **Target:** one sitting on hydra, about 40 minutes of machine time
 - **Depends on:** #779 (`scripts/perf-ab.sh`, `make test-perf-ab`)

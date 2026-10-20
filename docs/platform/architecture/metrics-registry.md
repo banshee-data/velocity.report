@@ -68,7 +68,7 @@ denominator.
 
 ## Following metrics
 
-Reserved for the v0.5.2 headway report, per
+Reserved for the v0.5.3 headway report, per
 [behaviour plan Section 8.3](../../plans/lidar-behaviour-analytics-plan.md#83-following-behaviour).
 Every row is `provisional`. The code mirror is
 [internal/lidar/l8behaviour/metrics.go](../../../internal/lidar/l8behaviour/metrics.go), and its

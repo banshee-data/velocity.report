@@ -5,7 +5,7 @@ physical body estimate. Point masks establish which returns belong to a car; a s
 must establish what is known about the car's pose, dimensions, and physical endpoints.
 
 - **Status:** In progress; P0 storage and import (#635), P2 Go scoring (#637), and P1 macOS authoring with the Compare inspector (#656) delivered; the P3 operator pilot has a first frozen score on kirk0 ([pilot report](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md)), and more pairs and sites remain
-- **Target:** v0.5.2, Sprint 0.5.2.0; S0 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
+- **Target:** v0.5.3, Sprint 0.5.2.0; S0 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Layers:** L5 Tracks, L8 Analytics, L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [fitting to reviewed points](lidar-physical-fit-to-points-plan.md), [annotation datasets](lidar-point-annotation-and-object-dataset-plan.md), [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [visibility-aware geometry](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)

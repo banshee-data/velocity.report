@@ -1,6 +1,6 @@
 # QEMU + Headscale Tailscale Dev VM
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: design
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: design
 - **Owner:** patrickod
 - **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)
 - **Canonical:** [qemu-headscale-dev-vm.md](../platform/operations/qemu-headscale-dev-vm.md)

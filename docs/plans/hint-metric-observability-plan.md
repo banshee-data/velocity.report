@@ -1,6 +1,6 @@
 # HINT metric observability plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (L5 Tracking, L6 Objects, L8 Analytics, Sweep, Web)
 - **Related:**
   - [HINT sweep mode](../lidar/operations/hint-sweep-mode.md)

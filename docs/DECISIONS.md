@@ -32,7 +32,7 @@ Kept by: none until built; planned: a test that a duplicate transit insert is re
 
 ### D-04 — Geometry-coherent tracking (P1 maths)
 
-Geometry-coherent tracking (P1 maths) is the next L5 association candidate after the v0.5.2 corrected-body baseline. It is promoted only if held-out identity and geometry both improve, under the held-out geometry gate. Its placement is in BACKLOG.md (#391), not in this entry. Source: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [MATHS.md](../data/maths/MATHS.md).
+Geometry-coherent tracking (P1 maths) is the next L5 association candidate after the v0.5.3 corrected-body baseline. It is promoted only if held-out identity and geometry both improve, under the held-out geometry gate. Its placement is in BACKLOG.md (#391), not in this entry. Source: [proposal](../data/maths/proposals/20260222-geometry-coherent-tracking.md), [MATHS.md](../data/maths/MATHS.md).
 
 Kept by: the held-out geometry gate G-GEO-1, scored by `-physical-reference`; the scorer exists, and the heading and containment rows are still to be pinned, per BACKLOG.md.
 
@@ -64,7 +64,7 @@ Kept by: the `VELOCITY_BUILD_TAGS` default in the Makefile and `make build-veloc
 
 Single binary with subcommands and embedded report compiler assets — [distribution packaging plan](plans/deploy-distribution-packaging-plan.md)
 
-Kept by: the role closure test planned under D-30 (v0.5.8, not yet built). Until then, `make build-velocity` is the only product build target, and the D-26 exemption applies to dev-host cgo binaries.
+Kept by: the role closure test planned under D-30 (v0.5.9, not yet built). Until then, `make build-velocity` is the only product build target, and the D-26 exemption applies to dev-host cgo binaries.
 
 ### D-10 — RPi image tier strategy
 
@@ -74,13 +74,13 @@ Kept by: `internal/report/typst_generate_test.go` (exists), which fails when the
 
 ### D-11 — ECharts → LayerChart migration
 
-Report-view charts (time-series, histogram, comparison) are served as SVG by the Go chart package (`internal/report/chart`) and consumed directly by the Svelte frontend — not rewritten in LayerChart. Non-report charts (live dashboard, real-time stats, regions, sweep and HINT) move to Svelte LayerChart in v0.5.2.0, and ECharts leaves then: the `go-echarts` package and its debug-chart handlers first, then the :8081 dashboards' ECharts JavaScript once their Svelte replacements exist. Restated October 20, 2026 by the owner, from v0.7 — [DESIGN §4](ui/DESIGN.md), [frontend consolidation](plans/web-frontend-consolidation-plan.md), [PDF migration plan](plans/pdf-go-chart-migration-plan.md)
+Report-view charts (time-series, histogram, comparison) are served as SVG by the Go chart package (`internal/report/chart`) and consumed directly by the Svelte frontend — not rewritten in LayerChart. Non-report charts (live dashboard, real-time stats, regions, sweep and HINT) move to Svelte LayerChart in v0.5.2, and ECharts leaves then: the `go-echarts` package and its debug-chart handlers first, then the :8081 dashboards' ECharts JavaScript once their Svelte replacements exist. Restated October 20, 2026 by the owner, from v0.7 — [DESIGN §4](ui/DESIGN.md), [frontend consolidation](plans/web-frontend-consolidation-plan.md), [PDF migration plan](plans/pdf-go-chart-migration-plan.md)
 
-Kept by: the removal of `go-echarts` from `go.mod` and of `echarts.min.js` from the embedded assets in v0.5.2.0; review until then.
+Kept by: the removal of `go-echarts` from `go.mod` and of `echarts.min.js` from the embedded assets in v0.5.2; review until then.
 
 ### D-12 — Web palette (percentile colours)
 
-Svelte compliant now. ECharts is not fixed: it leaves in v0.5.2.0 (D-11), and its palette mismatch with it. Restated October 20, 2026 — [DESIGN §3.3](ui/DESIGN.md), [design review](ui/design-review-and-improvement.md)
+Svelte compliant now. ECharts is not fixed: it leaves in v0.5.2 (D-11), and its palette mismatch with it. Restated October 20, 2026 — [DESIGN §3.3](ui/DESIGN.md), [design review](ui/design-review-and-improvement.md)
 
 Kept by: `web/src/lib/palette.test.ts` (exists), which fails when the six values in `palette.ts` change. Nothing ties `inlineSvgChart.ts` or `internal/report/chart/palette.go` to them, so `/review-pr` reviews chart colour changes (review only) until the design-tokens row is built.
 
@@ -94,7 +94,7 @@ Kept by: `/review-pr` on width rules in `web/src/routes/app.css` (review only). 
 
 Plan confirmed; Phase 1 complete. The remaining work is scheduled in BACKLOG.md, not here: the Make target trim to a budget of 150 targets (Project F of the plan), and the CLI flag removals in its section 3. Flags that depend on the frontend consolidation (#252) move with it. Removal is the decision; the milestone is not. Source: [simplification plan](plans/platform-simplification-and-deprecation-plan.md).
 
-Kept by: the Make budget check, planned for v0.5.8 (counts public targets and refuses an undocumented one; not yet built). Until it exists, the count is taken by hand.
+Kept by: the Make budget check, planned for v0.5.9 (counts public targets and refuses an undocumented one; not yet built). Until it exists, the count is taken by hand.
 
 ### D-15 — Time-partitioned data tables
 
@@ -130,7 +130,7 @@ Kept by: `/review-pr` on the speed contract (review only).
 
 Ship one coordinated breaking-change sweep; keep no temporary dual-format shims after `v0.5.0` except DB upgrade detection and architecturally necessary aliases. An old name, field or format is architecturally necessary only while something the release does not replace depends on it: the macOS app, a file on a device that the upgrade does not rewrite, data at rest, or a published URL. Callers inside the release unit are renamed in the same change. A person typing a command gets a tombstone, which prints the new name and does no work; a tombstone is not a dual format. Each surviving name is a row in the [compatibility register](platform/operations/compatibility-register.md), with its removal release. Source: [shim removal plan](plans/v050-backward-compatibility-shim-removal-plan.md), [simplification plan](plans/platform-simplification-and-deprecation-plan.md), [architecture review, D-20 in practice](plans/platform-architecture-review-plan.md#d-20-in-practice-who-can-still-depend-on-an-old-name).
 
-Kept by: the compatibility register test, planned for v0.5.2.1 as the clip rename's first PR and not yet built, which fails when a surviving name reaches its removal release. Until then, `/review-pr` reads the register.
+Kept by: the compatibility register test, planned for v0.5.3 as the clip rename's first PR and not yet built, which fails when a surviving name reaches its removal release. Until then, `/review-pr` reads the register.
 
 ### D-21 — Visualiser debug overlay controls
 
@@ -158,7 +158,7 @@ Kept by: `/review-pr` on each migration (review only).
 
 Use dual-native agent definitions ([.github/agents/](../.github/agents) for Copilot, [.claude/agents/](../.claude/agents) for Claude Code) with persona methodology kept to about 400 lines per agent and drift-checked in CI (restated October 20, 2026 by the owner, from ~40–80 lines, to what the personas hold). Shared project knowledge (Layers 0–2) stays single-source in [.github/knowledge/](../.github/knowledge). Reusable workflows live in [.claude/skills/](../.claude/skills) as slash commands, not in agent bodies. Copilot prompt files are optional thin wrappers only — not canonical workflow definitions — [ops doc](platform/operations/agent-preparedness.md), [plan](plans/agent-claude-preparedness-review-plan.md)
 
-Kept by: `make check-agent-drift` as a failing CI step. The target exists but only reports, and all seven pairs drift today; the backlog's v0.5.10 row syncs them, adds a failing mode and the CI step.
+Kept by: `make check-agent-drift` as a failing CI step. The target exists but only reports, and all seven pairs drift today; the backlog's v0.5.11 row syncs them, adds a failing mode and the CI step.
 
 ### D-26 — Static linux binaries: zig + musl in Docker
 
@@ -182,7 +182,7 @@ Kept by: migration `000058`'s kind triggers, and the capture identity tests plan
 
 Thirteen questions left open by the three research briefings, decided October 10, 2026. Following metrics: the encounter-weighted view (B10) was deferred until B1 measured how often both parties of an interaction are observed; B1 was measured on October 20, 2026 ([report](lidar/operations/following-opportunity-corpus-2026-10.md)), so that deferral has lapsed and whether the view publishes goes through `/decision-review` with Euler's statistics review; the handheld instrument's measurement geometry stays open until NHTSA's DOT HS 809 811 is read; a class-dependent heavy-vehicle following band is deferred until a field run's L6 class recall meets the classifier plan's acceptance; the following report's and API's names are renamed as cutovers through the vocabulary plan's P2-F, with no alias, as D-31 requires. Perception: L3 is scored against Baumann et al.'s released point-wise static and dynamic labels as an `S` item once the data is published, no production change; the convergence plan gains the centre-versus-extent error decomposition on kirk0's references and a grid-map extent estimator as a shadow arm, the rectangle fit waiting on reading the Applied Sciences paper, which the owner kept on October 20, 2026 after W1a built the fit; a range-adaptive DBSCAN eps joins the sweep as one arm scored by the W3 gate, defaults unchanged. Safety reference: the edition pins both pedestrian harm curves, Tefft 2013 and Monfort and Mueller 2025, each with its fleet years, and the report's paragraph uses the all-vehicle curves only; the before-and-after section prints the exponential model's relative change and interval as a model trend with a low-speed caveat citing Ambros and Kieć 2025, never a count and never suppressed; the 2026 pooled 30 km/h effect is a reference now and an intervention-effect entry only after the paper is read, off every page until the `published_model` kind is decided; the annual Traffic Safety Culture Index is the series source for the speeding items in the attitudes entries, one entry per edition year, with the one-off attitudes study as the explanatory source; Campolettano, Kusano and Victor's observed limit-relative shares are cited in the operator guide only; the percentile paragraph gains one clause, that p85 is a statistic of operating speeds and not a rule for setting limits, with the ITE and MUTCD citations in the guide. CAN-bus speed stays parked and the Monfort and Mueller citation stands, as decided in the weekly briefing — [October 9 briefing](lidar/operations/brief/fixed-sensor-research-briefing-2026-10-09.md#decisions), [weekly briefing](lidar/operations/brief/research-briefing-2026-10-10.md#open-questions), [window briefing](lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#decisions), [behaviour plan](plans/lidar-behaviour-analytics-plan.md#13-open-research-questions), [crash-data plan](plans/platform-crash-data-integration-plan.md#open-questions), [attitudes plan](plans/platform-speeding-attitudes-and-aggressive-driving-plan.md#open-questions), [convergence plan](plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule), [vocabulary plan](plans/platform-vocabulary-and-data-model-plan.md#phase-2-feature-and-data-model-improvements). Restated October 20, 2026 after the audit.
 
-Kept by: `/plan-review` on the cited plans and briefings, and `/decision-review` for the B10 call (review only). The rename clause is kept by the compatibility register test (planned for v0.5.2.1, not built); the safety-edition clauses by the edition validator (planned, not built); the range-adaptive arm by its report and the W3 report, both of which exist.
+Kept by: `/plan-review` on the cited plans and briefings, and `/decision-review` for the B10 call (review only). The rename clause is kept by the compatibility register test (planned for v0.5.3, not built); the safety-edition clauses by the edition validator (planned, not built); the range-adaptive arm by its report and the W3 report, both of which exist.
 
 ### D-29 — Research briefing decisions, October 12, 2026
 
@@ -194,13 +194,13 @@ Kept by: `/plan-review` on the RTK proposal and on the test corpus plan's non-go
 
 One binary carries every role. A role is a composition root under `internal/cmd/` with a dependency closure that CI asserts, and each job kind is compiled into the binary that runs it. The job queue has one implementation and one claim rule, but each data-owning host runs one authority for its own jobs: the hub authorises analysis jobs and accepts their results, and an edge host authorises its own capture jobs. The two share code and never share a database. Dev-host cgo binaries stay outside this entry under D-26. This amends D-09 with the role model. Source: [architecture review, ADR-1](plans/platform-architecture-review-plan.md#architecture-decision-records-proposed), [worker pool plan §1](plans/lidar-worker-pool-and-results-hub-plan.md#1-decision).
 
-Kept by: the `go list` closure test in `make lint-go`, planned for v0.5.8 and not yet built. Until it exists, `/review-pr` checks each new `cmd/` package against this entry.
+Kept by: the `go list` closure test in `make lint-go`, planned for v0.5.9 and not yet built. Until it exists, `/review-pr` checks each new `cmd/` package against this entry.
 
 ### D-31 — Renames are cutovers; tombstones for people, aliases for the app
 
 A rename is one cutover per concept, delivered as reviewable pull requests that together change every consumer. Every in-repo caller changes in the same change, with no alias. An old name survives only while something the release does not replace depends on it: a registered alias while the macOS app calls it, an alias or a rewrite for a device file the upgrade leaves alone, a migration or converter for data at rest, or a permanent redirect for a published URL. A person who types an old command, flag or Make target gets a tombstone that prints the new name and does no work. The vocabulary programme is cut to three Phase 1 renames (clip, sites and labels, terminology only), and each Phase 2 merge waits for the Phase 1 exit. This supersedes the alias method in the vocabulary plan's Phase 1 and in D-28 for the following report's and API's names. Applies D-20. Source: [architecture review, ADR-2](plans/platform-architecture-review-plan.md#architecture-decision-records-proposed), [vocabulary plan, Scope](plans/platform-vocabulary-and-data-model-plan.md#scope).
 
-Kept by: the compatibility register test, planned for v0.5.2.1 as the clip rename's first PR and not yet built, which fails when a surviving name reaches its removal release. Until then, `/review-pr` reads the register.
+Kept by: the compatibility register test, planned for v0.5.3 as the clip rename's first PR and not yet built, which fails when a surviving name reaches its removal release. Until then, `/review-pr` reads the register.
 
 ### D-32 — Planning limits and backlog governance
 

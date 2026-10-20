@@ -1,6 +1,6 @@
 # LiDAR foundations fix-it plan
 
-- **Status:** Parked (D-32, October 20, 2026): Phase 1 partially complete; Phases 2–3 outstanding, with their rows in v0.5.17 (foundations and maths). Revisit when v0.5.17 is next
+- **Status:** Parked (D-32, October 20, 2026): Phase 1 partially complete; Phases 2–3 outstanding, with their rows in v0.5.18 (foundations and maths). Revisit when v0.5.18 is next
 - **Layers:** Cross-cutting (documentation and configuration)
 - **Canonical:** [foundations-fixit-progress.md](../lidar/operations/foundations-fixit-progress.md)
 

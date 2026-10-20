@@ -12,7 +12,7 @@ figure below is marked for confirmation against the primary document.
 
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.6.9 (safety reporting) and later; revisit when v0.6.9 is next. Was: Proposed; no dataset ingested and no code written
 - **Layers:** Cross-cutting (PDF report, site configuration, importer tooling, L8 behaviour benchmarks)
-- **Target:** v0.5.10 for the cited harm curves, the benchmark-aligned temporal strata, and, if Item 1 clears the rights, the area-rate table (else v0.6.8); v0.6.8 for site crash context, the before-and-after model, the site-to-area resolution, and the area benchmark context block; v1.0 for road-segment attachment
+- **Target:** v0.5.11 for the cited harm curves, the benchmark-aligned temporal strata, and, if Item 1 clears the rights, the area-rate table (else v0.6.8); v0.6.8 for site crash context, the before-and-after model, the site-to-area resolution, and the area benchmark context block; v1.0 for road-segment attachment
 - **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [spatial priors reference data](spatial-priors-reference-data-plan.md), [public attitudes to speeding and aggressive driving](platform-speeding-attitudes-and-aggressive-driving-plan.md)
 - **Related:** [sober driving and human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [research briefing, January 2025 to October 2026](../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
 - **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
@@ -332,7 +332,7 @@ paper, and record each source's rights.
 7. Add every source to `data/maths/references.bib` and a dated verified-sources table to this
    plan.
 
-**Milestone:** v0.5.10
+**Milestone:** v0.5.11
 
 ### Item 2: safety-reference edition and the cited harm paragraph
 
@@ -355,7 +355,7 @@ copy.
    definition, and citation, and the guard test over every citation string. If Item 1 refuses an
    embedded subset, the edition cites the paper instead and the table waits.
 
-**Milestone:** v0.5.10; the area-rate table (step 6) at v0.5.10 if Item 1 clears the rights, else
+**Milestone:** v0.5.11; the area-rate table (step 6) at v0.5.11 if Item 1 clears the rights, else
 v0.6.8
 
 ### Item 2a: benchmark-aligned temporal strata
@@ -373,7 +373,7 @@ no external data.
 4. Tests on the Friday 18:00 boundary ([Finding 5][hcb-f5]) and on both daylight-saving
    transitions, and a test that the headline numbers do not change.
 
-**Milestone:** v0.5.10; depends on nothing
+**Milestone:** v0.5.11; depends on nothing
 
 ### Item 3: before-and-after model section
 
@@ -581,7 +581,7 @@ document was not read.
 ### Outstanding
 
 - [ ] Item 1: primary-source reading and rights record, with the fourth family's rights rows and the fatal-rate supplement's contents (`S`)
-- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`); area-rate table from the fatal-rate paper's supplement (`M`, v0.5.10 if Item 1 clears the rights, else v0.6.8)
+- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`); area-rate table from the fatal-rate paper's supplement (`M`, v0.5.11 if Item 1 clears the rights, else v0.6.8)
 - [ ] Item 2a: benchmark-aligned temporal strata in `data.json` and the PDF (`S`)
 - [ ] Item 3: before-and-after model section (`M`)
 - [ ] Item 4: `site_crash_context` migration, DataSF importer, report block, second adapter (`L`); site-to-area resolution and area benchmark context block (`M`)

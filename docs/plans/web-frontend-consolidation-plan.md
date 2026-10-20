@@ -1,6 +1,6 @@
 # Surface consolidation plan
 
-- **Status:** Proposed: Phases 1 to 6 are v0.5.2.0's ECharts retirement and Phase 7 is a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+- **Status:** Proposed: Phases 1 to 6 are v0.5.2's ECharts retirement and Phase 7 is a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)

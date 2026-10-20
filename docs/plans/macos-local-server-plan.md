@@ -1,6 +1,6 @@
 # macOS local server: plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** L10 Clients (macOS visualiser), Platform (deployment)
 - **Canonical:** [architecture.md](../ui/visualiser/architecture.md)
 - **Feature:** Embed Go server binary in VelocityVisualiser.app with local server management and login-item boot hooks

@@ -1,6 +1,6 @@
 # Wireshark menu alignment plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next
 - **Layers:** L10 Clients (macOS visualiser)
 - **Canonical:** [menu-layout.md](../ui/visualiser/menu-layout.md)
 

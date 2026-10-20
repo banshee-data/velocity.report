@@ -81,11 +81,11 @@ The [backlog](../BACKLOG.md) schedules independently deliverable slices across t
 
 | Release | Scope                                                     |
 | ------- | --------------------------------------------------------- |
-| v0.5.4  | S4 evidence schema and measured/display geometry contract |
-| v0.5.5  | S0–S1 full-prefix reproduction and bounded diagnostics    |
-| v0.5.6  | S2 cause decision and diagnostic comparisons              |
-| v0.5.7  | S3 default-off recovery candidate                         |
-| v0.5.11 | S5 reserved-case scoring and evidence archive             |
+| v0.5.5  | S4 evidence schema and measured/display geometry contract |
+| v0.5.6  | S0–S1 full-prefix reproduction and bounded diagnostics    |
+| v0.5.7  | S2 cause decision and diagnostic comparisons              |
+| v0.5.8  | S3 default-off recovery candidate                         |
+| v0.5.12 | S5 reserved-case scoring and evidence archive             |
 | v0.6.6  | S4 playback integration and S6 staged survey refresh      |
 | v0.6.7  | S5 target-device gate and S6 promotion decision           |
 

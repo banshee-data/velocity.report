@@ -1,6 +1,6 @@
 # Design: clustering observability metrics and performance benchmark harness
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Proposed (February 2026)
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Proposed (February 2026)
 - **Layers:** L4 Perception, L8 Analytics
 - **Related:** [Clustering Maths](../../data/maths/clustering-maths.md), [Performance and Scene Health Metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 - **Canonical:** [clustering-diagnostics.md](../lidar/operations/clustering-diagnostics.md)

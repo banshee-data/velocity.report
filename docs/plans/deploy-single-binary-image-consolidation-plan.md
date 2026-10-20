@@ -239,7 +239,7 @@ time bound on unreleased change: the owner decided on October 20, 2026 to cut wh
 declined the proposed eight weeks. The changelog section is written as each pull request lands, so a cut is editing rather than
 archaeology. A declared breaking change does not raise the minor version: below 1.0 a patch
 release may carry one, listed first under BREAKING with its migration steps (D-32, amended
-October 20, 2026). v0.5.1's L3 change is the first, and v0.5.2's three renames follow.
+October 20, 2026). v0.5.1's L3 change is the first, and v0.5.3's three renames follow.
 
 **Not in scope.** Date-based versions; a cut per merged change; tags for pre32 to pre45; a
 prerelease channel policy, until an external tester asks for one.
