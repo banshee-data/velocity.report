@@ -227,6 +227,12 @@ type PhysicalReference struct {
 	// physical revision for the pack, so the revision scored was the head,
 	// and a later save would change the score. ScorePhysical says so.
 	FrozenWithoutPhysicalPin bool
+	// labels is each object's reference class, from the sidecar, and ends
+	// each keyframe's evidence for its bumpers, by object and sample: what
+	// the centre-against-extent section groups by and reports beside its
+	// seen end. Neither enters the identity: neither changes a score.
+	labels map[string]string
+	ends   map[string]map[int]referenceEnds
 }
 
 // LoadPhysicalReference opens the pack, its split manifest and annotation
@@ -310,9 +316,20 @@ func LoadPhysicalReference(ref ReferenceOptions, opts PhysicalOptions) (*Physica
 			}
 		}
 	}
+	pr.labels, pr.ends = map[string]string{}, map[string]map[int]referenceEnds{}
 	for _, o := range doc.Objects {
 		if o.Body != nil {
 			pr.bodies[o.ObjectID] = *o.Body
+		}
+		pr.ends[o.ObjectID] = map[int]referenceEnds{}
+		for _, k := range o.Keyframes {
+			pr.ends[o.ObjectID][k.SampleID] = referenceEnds{front: k.Front.Status, rear: k.Rear.Status}
+		}
+	}
+	for _, o := range sidecar.Objects {
+		pr.labels[o.ObjectID] = o.Class
+		if o.Subtype != "" {
+			pr.labels[o.ObjectID] = o.Class + "/" + o.Subtype
 		}
 	}
 	masked := map[string]map[int]bool{}
