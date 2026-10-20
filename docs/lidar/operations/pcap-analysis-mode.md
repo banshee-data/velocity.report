@@ -37,6 +37,21 @@ end and says how its capture ended. `compare A B` confirms two extractions of on
 same evidence. `recover DIR` makes an interrupted container consistent without rewriting what was
 committed.
 
+`--experiment NAME[,NAME...]` replays under the offline harness's default-off experiments, with
+the same names, validation and combination rules as `lidar-state-estimation-baseline -experiment`
+([names](../../../config/CONFIG.md#replay-experiment-names)). It is how a return-fate arm, such as
+`region_overrides_cell_tercile` or `dwell_policy`, gets its observation container. An unknown name,
+two settings of one option, or a qualifier without what it qualifies is refused before the capture
+is read. So are the experiments that need an input `pcap-replay` does not take: `coast_support`,
+`class_coast_bounds` and `occlusion_continuity` need a sensor coverage declaration, and `solid_body`
+without `near_edge_track` writes only to an evidence database and would otherwise record the
+default replay. The names are folded into the parameter hash in `header.json` and listed under
+`experiments` in `replay_manifest.json`, in the observation container's provenance (shown by
+`velocity lidar observations inspect`) and in the printed summary. The VRLOG `header.json` has no
+field for them: adding one would change its schema and every recording's header, so the hash
+there identifies the arm and the manifest beside it names it. Without `--experiment` the replay
+is configured exactly as before the flag existed.
+
 The server supports two modes for PCAP replay. Both park on their final
 frame when the selected window ends. While parked, the server listens for live
 packets; a new packet returns the pipeline to live, while a quiet sensor leaves
