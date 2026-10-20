@@ -232,6 +232,10 @@ Check out [docs/plans](docs/plans/) and [BACKLOG.md](docs/BACKLOG.md) for any wo
 See [CONTRIBUTING.md](CONTRIBUTING.md) for dev environment setup, coding standards,
 and pull request workflow. All make targets are documented in [COMMANDS.md](COMMANDS.md).
 
+Use the [decision-review workflow](docs/platform/operations/decision-review.md) to prepare open
+project, schema, maths, and research questions, discuss them by voice, and carry confirmed
+decisions through technical review and downstream updates in a PR.
+
 **Codebase breakdown, hatched area denotes code not covered by tests**
 
 <img alt="Lines of code by language, with test coverage shown as hatched uncovered regions" src="https://raw.githubusercontent.com/banshee-data/velocity.report/stats/loc-coverage.svg" width="440">
