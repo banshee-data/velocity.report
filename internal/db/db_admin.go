@@ -2,13 +2,16 @@ package db
 
 import (
 	"compress/gzip"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"math"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -110,21 +113,69 @@ func (db *DB) GetDatabaseStats() (*DatabaseStats, error) {
 	}, nil
 }
 
+// consoleHandle opens the handle the SQL console queries through: the same
+// database file, opened mode=ro with query_only set, so SQLite refuses a write
+// whatever the console's own statement filter lets through. It fails for a
+// database with no file behind it, such as an in-memory one.
+func (db *DB) consoleHandle() (*sql.DB, error) {
+	path, err := db.mainFile()
+	if err != nil {
+		return nil, err
+	}
+	if path == "" {
+		return nil, errors.New("database has no file to open read-only")
+	}
+	if strings.ContainsAny(path, "?#%") {
+		return nil, fmt.Errorf("database path %q: must not contain '?', '#' or '%%'", path)
+	}
+	dsn := "file:" + filepath.ToSlash(path) + "?mode=ro&_pragma=query_only(1)&_pragma=busy_timeout(5000)"
+	return openReadOnlySQL("sqlite", dsn)
+}
+
+// mainFile returns the file behind the main schema, or "" for a database
+// that has none.
+func (db *DB) mainFile() (string, error) {
+	rows, err := db.Query("PRAGMA database_list")
+	if err != nil {
+		return "", err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var seq int
+		var name string
+		var file sql.NullString
+		if err := rows.Scan(&seq, &name, &file); err != nil {
+			return "", err
+		}
+		if name == "main" {
+			return file.String, rows.Err()
+		}
+	}
+	return "", rows.Err()
+}
+
 func (db *DB) AttachAdminRoutes(mux *http.ServeMux) {
 	debug := tsweb.Debugger(mux)
-	// create a tailSQL instance and point it to our DB
-	tsql, err := tailsql.NewServer(tailsql.Options{
-		RoutePrefix: "/debug/tailsql/",
-	})
-	if err != nil {
-		log.Fatalf("could not create tailsql server: %v", err)
-	}
-	tsql.SetDB("sqlite://radar.db", db.DB, &tailsql.DBOptions{
-		Label: "Radar DB",
-	})
 
-	// mount the tailSQL server on the debug /tailsql path
-	debug.Handle("tailsql/", "SQL live debugging", tsql.NewMux())
+	// The SQL console queries through its own read-only handle. tailsql's
+	// statement filter assumes a read-only database and blocks only the verbs
+	// that reach beyond it, so the handle is what keeps the console from
+	// writing. The handle lives as long as the process, like the routes.
+	consoleDB, err := db.consoleHandle()
+	if err != nil {
+		log.Printf("tailsql console not mounted: %v", err)
+	} else {
+		tsql, err := tailsql.NewServer(tailsql.Options{
+			RoutePrefix: "/debug/tailsql/",
+		})
+		if err != nil {
+			log.Fatalf("could not create tailsql server: %v", err)
+		}
+		tsql.SetDB("sqlite://radar.db", consoleDB, &tailsql.DBOptions{
+			Label: "Radar DB",
+		})
+		debug.Handle("tailsql/", "SQL live debugging", tsql.NewMux())
+	}
 
 	debug.Handle("db-stats", "Database table sizes and disk usage (JSON)", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
