@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	"fmt"
 	"math"
 	"testing"
 
@@ -330,5 +331,111 @@ func TestTrackObservationKeepsThePublishedBox(t *testing.T) {
 	latest, err := GetTrackObservations(db, "box-t1", 10)
 	if err != nil || len(latest) != 2 || latest[0].HasBox() || !latest[1].HasBox() {
 		t.Fatalf("per-track read (newest first): %+v, %v", latest, err)
+	}
+}
+
+// Two consecutive frames' clusters of a track can both start with returns
+// from the laser firing at the frame seam, and so share an acquisition time.
+// Keyed by track and acquisition time, the later frame's row replaced the
+// earlier one; keyed by track and frame, each frame keeps its row.
+func TestTrackObservationsAtFramesSharingAnAcquisitionTimeBothSurvive(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	if err := InsertTrack(db, &TrackedObject{TrackID: "seam-t1", TrackMeasurement: TrackMeasurement{
+		SensorID: "seam-sensor", TrackState: TrackConfirmed, StartUnixNanos: 1000, EndUnixNanos: 3000,
+	}}, "world"); err != nil {
+		t.Fatal(err)
+	}
+	const seam = 1_099_000
+	for _, o := range []*TrackObservation{
+		{TrackID: "seam-t1", TSUnixNanos: 1_000_500, FrameUnixNanos: 1_000_000, FrameID: "world", X: 1},
+		{TrackID: "seam-t1", TSUnixNanos: seam, FrameUnixNanos: 1_050_000, FrameID: "world", X: 2},
+		{TrackID: "seam-t1", TSUnixNanos: seam, FrameUnixNanos: 1_100_000, FrameID: "world", X: 3},
+	} {
+		if err := InsertTrackObservation(db, o); err != nil {
+			t.Fatal(err)
+		}
+	}
+	latest, err := GetTrackObservations(db, "seam-t1", 10)
+	if err != nil || len(latest) != 3 {
+		t.Fatalf("per-track read: %d rows, %v; want all 3 frames", len(latest), err)
+	}
+	for i, want := range []float32{3, 2, 1} {
+		if latest[i].X != want {
+			t.Errorf("per-track read row %d: x %v, want %v (newest frame first)", i, latest[i].X, want)
+		}
+	}
+	ranged, err := GetTrackObservationsInRange(db, "seam-sensor", 0, 2_000_000, 10, "")
+	if err != nil || len(ranged) != 3 {
+		t.Fatalf("range read: %d rows, %v; want all 3 frames", len(ranged), err)
+	}
+	for i, want := range []float32{1, 2, 3} {
+		if ranged[i].X != want {
+			t.Errorf("range read row %d: x %v, want %v (oldest first, frame breaking the tie)", i, ranged[i].X, want)
+		}
+	}
+
+	// A second write for the same track and frame still replaces its row.
+	if err := InsertTrackObservation(db, &TrackObservation{
+		TrackID: "seam-t1", TSUnixNanos: seam, FrameUnixNanos: 1_100_000, FrameID: "world", X: 4,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var rows int
+	var x float64
+	if err := db.QueryRow(`SELECT COUNT(*), MAX(CASE WHEN frame_unix_nanos = 1100000 THEN x END)
+		FROM lidar_track_observations WHERE track_id = 'seam-t1'`).Scan(&rows, &x); err != nil || rows != 3 || x != 4 {
+		t.Fatalf("rewrite of one frame: %d rows, x %v (%v); want 3 rows, x 4", rows, x, err)
+	}
+}
+
+// An observation that names no frame is filed at its acquisition time,
+// whether it is written through the store or by a statement that leaves the
+// column out.
+func TestTrackObservationWithoutAFrameIsFiledAtItsAcquisitionTime(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+	if err := InsertTrack(db, &TrackedObject{TrackID: "nf-t1", TrackMeasurement: TrackMeasurement{
+		SensorID: "nf-sensor", TrackState: TrackConfirmed,
+	}}, "world"); err != nil {
+		t.Fatal(err)
+	}
+	if err := InsertTrackObservation(db, &TrackObservation{TrackID: "nf-t1", TSUnixNanos: 500, FrameID: "world", X: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO lidar_track_observations (track_id, ts_unix_nanos, frame_id, x, y)
+		VALUES ('nf-t1', 700, 'world', 2, 0)`); err != nil {
+		t.Fatalf("an insert naming no frame: %v", err)
+	}
+	// The trigger's insert takes the outer statement's conflict clause.
+	if _, err := db.Exec(`INSERT OR REPLACE INTO lidar_track_observations (track_id, ts_unix_nanos, frame_id, x, y)
+		VALUES ('nf-t1', 700, 'world', 3, 0)`); err != nil {
+		t.Fatalf("a replacing insert naming no frame: %v", err)
+	}
+	if _, err := db.Exec(`INSERT INTO lidar_track_observations (track_id, ts_unix_nanos, frame_id, x, y)
+		VALUES ('nf-t1', 700, 'world', 9, 0)`); err == nil {
+		t.Fatal("a second plain insert at a filed frame was accepted")
+	}
+	got := map[int64]string{}
+	rows, err := db.Query(`SELECT frame_unix_nanos, x, measurement_source FROM lidar_track_observations WHERE track_id = 'nf-t1'`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var frame int64
+		var x float64
+		var source string
+		if err := rows.Scan(&frame, &x, &source); err != nil {
+			t.Fatal(err)
+		}
+		got[frame] = fmt.Sprintf("%v/%s", x, source)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	want := map[int64]string{500: "1/", 700: "3/legacy_centroid_v0"}
+	if len(got) != len(want) || got[500] != want[500] || got[700] != want[700] {
+		t.Fatalf("rows by frame: %v, want %v", got, want)
 	}
 }
