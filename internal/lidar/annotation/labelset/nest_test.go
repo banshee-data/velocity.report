@@ -165,19 +165,20 @@ func TestFirstSaveInTheLayoutThenNest(t *testing.T) {
 	}
 }
 
-// A dataset publishes views only: a pack anywhere else in the tree is a
-// problem for check-tree, and a nested view that holds is not.
-func TestCheckTreeFindsAPackOutsideViews(t *testing.T) {
+// A dataset holds packs in a set's views/ and in a capture's packs/, linked
+// or not: check-tree holds a linked one in packs/ as it does a view, and
+// finds a pack anywhere else in the tree.
+func TestCheckTreeTakesPacksInPacksAndFindsOthers(t *testing.T) {
 	root := t.TempDir()
 	labelledPack(t, filepath.Join(root, "kirk0", annotation.PacksDir, "run-a"), filepath.Join(root, "kirk0", "kirk0-reference"), "run-a")
+	writeCapturePack(t, filepath.Join(root, "kirk0", annotation.PacksDir, "run-b"), "kirk0.pcapng", []uint64{10, 11, 12, 13}, nestFrames, "run-b")
 	r, err := CheckTree(root)
-	if err == nil || len(r.Problems) != 1 || !strings.Contains(r.Problems[0], "outside any label set's views/") {
-		t.Fatalf("%v %+v", err, r)
+	if err != nil || len(r.Packs) != 2 || len(r.Views) != 1 {
+		t.Fatalf("a linked and an unlinked pack in packs/: %v %+v", err, r)
 	}
-	if _, err := Nest(root, false); err != nil {
-		t.Fatal(err)
-	}
-	if r, err := CheckTree(root); err != nil || len(r.Views) != 1 {
-		t.Fatalf("after nest: %v %+v", err, r)
+	writeCapturePack(t, filepath.Join(root, "kirk0", "beside-its-set"), "kirk0.pcapng", []uint64{10, 11, 12, 13}, nestFrames, "run-c")
+	r, err = CheckTree(root)
+	if err == nil || len(r.Problems) != 1 || !strings.Contains(r.Problems[0], "outside the layout") {
+		t.Fatalf("a pack beside its set: %v %+v", err, r)
 	}
 }

@@ -175,6 +175,8 @@ class StageLabelSetsTest(unittest.TestCase):
             "labels/**/.annotations.lock",
             "labels/**/proposals/",
             "labels/**/physical-reference-revisions/",
+            "labels/.export-*/",
+            "labels/clip-*/vrlog/",
         ):
             self.assertIn(rule, ignore)
         self.assertEqual(self.calls(), ["bind", "publish", "publish-view"])
@@ -255,7 +257,9 @@ class StageLabelSetsTest(unittest.TestCase):
         views = self.stem() / "columbus-proposals" / "views"
         (views / "20261014-214939-e44ae459").rename(views / "renamed")
         argv = ["--dataset", str(self.dataset), "--refresh-paths"]
+        (self.dataset / ".gitignore").write_text(".DS_Store\n")
         self.assertEqual(stage_label_sets.main(argv), 0)
+        self.assertIn("labels/clip-*/vrlog/", (self.dataset / ".gitignore").read_text())
         rows = json.loads((self.dataset / "manifest.json").read_text())
         stem = "labels/20260902T1320_80858-0f4_columbus-broadway/"
         self.assertEqual(rows[0]["label_set_paths"], [stem + "columbus-proposals"])
@@ -264,6 +268,17 @@ class StageLabelSetsTest(unittest.TestCase):
             [stem + "columbus-proposals/views/renamed"],
         )
         self.assertNotIn("annotation_pack_paths", rows[1])
+
+        # A pack in no set yet, in the capture's packs/, is listed too.
+        loose = self.stem() / "packs" / "e44ae459-run"
+        loose.mkdir(parents=True)
+        (loose / "manifest.json").write_text("{}")
+        self.assertEqual(stage_label_sets.main(argv), 0)
+        rows = json.loads((self.dataset / "manifest.json").read_text())
+        self.assertEqual(
+            rows[0]["annotation_pack_paths"],
+            [stem + "packs/e44ae459-run", stem + "columbus-proposals/views/renamed"],
+        )
 
 
 if __name__ == "__main__":
