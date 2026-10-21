@@ -8,6 +8,11 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 21, 2026 - The Stage B arms and the mid-range fragments
+
+- Scored CMR's minimum cluster size of 8 against the default 5 on kirk0 (l4clus0003): at 5, fragmented instants at 20 to 35 m are 36 % against 35 %, unlabelled clusters a frame 1.43 against 0.52 and HOTA 0.515 against 0.533, so every clause of the rule fails and the minimum of 8 stays in Stage B; a smaller minimum finds more (object-frame recall 0.889 to 0.942) but as more pieces, not joined vehicles: [report](lidar/operations/l4-min-cluster-size-kirk-2026-10.md) (#823).
+- Read the fate of every reviewed kirk0 return under CMR and its two Stage B options (l3bg0019), recorded with `pcap-replay --experiment`: neither touches the 20 to 35 m gaps between fragments, which under CMR are 72 % DBSCAN noise and 13 % L3 background, so the W3 fix there is an L4 rule (l4clus0003), not a Stage B arm. The dwell policy absorbs kirk0's reviewed parked car (its missed instants 11 to 505); the cell tercile cuts fragmented instants by dropping returns (cars 0.956 to 0.906 kept): [report](lidar/operations/w3-return-fate-stage-b-kirk0-2026-10.md) (#821).
+
 ## October 20, 2026 - Decisions carried through voice to integration, published scenes that settle first, and the architecture review decided
 
 - {claude/reference-graph-page} Added a reference graph page to the offline docs (Maths): our 166 papers and the works they cite on a time axis, one lane per bibliography section, with each selected paper's references and citers drawn, links out to DOI, OpenAlex, Semantic Scholar and Google Scholar, and a read-next list scored by citing papers plus citing sections, leaving out camera-only, generic machine-learning and indoor works listed in a checked-in exclusion file. Added a citation rubric that keeps every named work in `references.bib` but gives each section a soft cap (235 places for 166 entries), with `make check-bibliography` reporting counts and the seven entries nothing cites by key or DOI
