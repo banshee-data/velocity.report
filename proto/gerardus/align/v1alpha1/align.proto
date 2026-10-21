@@ -1,6 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: aed6d9a533d1deee7c14e2ee4a8d4e951486f17e (branch dd/feat/align-service-1020, PR 2)
+// Commit: 16250eb1f399d7339821c58ed87809e9e8dd0129 on main (PR 2, merged).
+// It matches aed6d9a, the commit first vendored, apart from one comment.
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -516,7 +517,9 @@ message StreamReferenceRequest {
   // 0: server default (0.50 m).
   float voxel_size_m = 5;
   repeated uint32 aerial_classes = 6;  // ASPRS classes to send; empty: all but noise (7, 18)
-  uint32 max_points_per_message = 7;   // 0: server default (65536)
+  // 0: server default (65536). Larger requests are capped at 246720 so
+  // worst-case class/intensity encodings fit the default 4 MiB gRPC limit.
+  uint32 max_points_per_message = 7;
 }
 
 message StreamReferenceResponse {

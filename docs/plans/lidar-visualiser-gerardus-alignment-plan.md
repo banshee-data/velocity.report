@@ -68,7 +68,7 @@ The contract and its reasoning are Gerardus's: `align.proto` and `docs/INTERFACE
 
 ## Dependencies
 
-- Gerardus PR 2 (`dd/feat/align-service-1020`): the API this client calls. The vendored proto names its commit.
+- Gerardus PR 2, merged to its `main` as `16250eb`: the API this client calls. The vendored proto names that commit.
 - Gerardus MVP step 2 in velocity.report: the pose endpoint for item 4.
 
 ## Risks
