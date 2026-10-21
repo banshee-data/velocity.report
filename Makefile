@@ -248,8 +248,6 @@ help:
 	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
 	@echo "  plot-multisweep      Generate multi-parameter grid (FILE=data.csv)"
 	@echo "  plot-noise-buckets   Generate per-noise bar charts (FILE=data.csv)"
-	@echo "  stats-live           Capture live LiDAR snapshots"
-	@echo "  stats-pcap           Capture PCAP replay snapshots (PCAP=file.pcap)"
 	@echo "  profile-macos-lidar  Poll Go/Swift process metrics, then auto-start PCAP replay"
 	@echo "  run-pcap-stats       PCAP capture stats — frame rate, RPM (PCAP=path)"
 	@echo "  run-pcap-stats-10s   PCAP per-10s frame rate (PCAP=path)"
@@ -1055,8 +1053,6 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
-	tools/grid-heatmap/test_pcap_mode.py \
-	tools/grid-heatmap/test_plot_grid_heatmap.py \
 	tools/podcast-transcribe/test_podcast_transcribe.py
 install-python:
 	@echo "Setting up Python environment..."
@@ -1420,7 +1416,7 @@ test-python: ensure-python-tools
 
 test-python-cov: ensure-python-tools
 	@echo "Running Python script/tool tests with coverage..."
-	@$(VENV_PYTEST) --cov=scripts --cov=tools/grid-heatmap --cov-report=term-missing --cov-report=html:htmlcov-python $(PYTHON_TEST_PATHS)
+	@$(VENV_PYTEST) --cov=scripts --cov-report=term-missing --cov-report=html:htmlcov-python $(PYTHON_TEST_PATHS)
 	@echo "Coverage report: htmlcov-python/index.html"
 
 # Run Go unit tests with coverage
@@ -2697,7 +2693,7 @@ git-files:
 # DATA VISUALIZATION
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap profile-macos-lidar run-pcap-stats run-pcap-stats-10s
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets profile-macos-lidar run-pcap-stats run-pcap-stats-10s
 
 # Noise sweep line plot (neighbour=1, closeness=2.5 by default)
 plot-noise-sweep:
@@ -2719,23 +2715,6 @@ plot-noise-buckets:
 	@[ ! -f "$(FILE)" ] && echo "File not found: $(FILE)" && exit 1 || true
 	$(VENV_PYTHON) data/explore/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
 		--out-dir "$${OUT_DIR:-noise-plots}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
-
-# Live grid stats - periodic snapshots from running lidar system
-# Usage: make stats-live [INTERVAL=10] [DURATION=60]
-stats-live:
-	@echo "Starting live lidar server..."
-	@$(MAKE) dev-go-lidar
-	@sleep 2
-	@echo "Capturing live grid snapshots..."
-	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --interval $${INTERVAL:-30} $${DURATION:+--duration $$DURATION}
-
-# PCAP replay grid stats - periodic snapshots during PCAP replay
-# Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]
-stats-pcap:
-	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
-	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
-	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
-	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
 
 # macOS process profiling at fixed cadence:
 # 1) Poll idle metrics for IDLE seconds.

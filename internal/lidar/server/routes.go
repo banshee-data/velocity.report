@@ -100,6 +100,9 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/grid_reset", ws.handleGridReset},
 		{"GET /api/lidar/grid_heatmap", ws.handleGridHeatmap},
 		{"/api/lidar/background/grid", ws.handleBackgroundGrid},
+		// SVG beside the report charts on /api/charts/*; the web's LiDAR
+		// debug page embeds it.
+		{"GET /api/charts/grid", ws.handleGridChart},
 	}
 
 	// Data source and PCAP replay routes
