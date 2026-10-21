@@ -1,0 +1,636 @@
+// Vendored from banshee-data/gerardus, do not edit here.
+// Source: proto/gerardus/align/v1alpha1/align.proto
+// Commit: aed6d9a533d1deee7c14e2ee4a8d4e951486f17e (branch dd/feat/align-service-1020, PR 2)
+// To update: copy the file from a newer Gerardus commit, change this header,
+// and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
+// closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
+
+// Gerardus alignment API
+// Version: v1alpha1 (may break until MVP 0 closes)
+// Package: gerardus.align.v1alpha1
+//
+// The contract between the Gerardus service and its clients, first the macOS
+// VelocityVisualiser in velocity.report. The service prepares reference data
+// for a site (USGS 3DEP aerial LiDAR, OpenStreetMap, DataSF building
+// footprints), serves it as geometry in a site frame, and registers a sensor's
+// settled background scan against it. Design notes and the alternatives
+// considered: docs/INTERFACE-VISUALISER.md. Decision: docs/adr/0007.
+//
+// Frames. Every coordinate in this file is in one of three frames, and every
+// field says which.
+//
+//   sensor  The frame of the scan the client uploads: velocity.report's
+//           pipeline frame, in which its BackgroundSnapshot and
+//           PointCloudFrame points are expressed. Right-handed, metres,
+//           origin at the sensor, +Y along azimuth 0, +Z up when the sensor
+//           is level.
+//   site    Local Cartesian east-north-up at the site origin. The origin is
+//           the centre of the site's S2 level-16 cell at NAVD88 height 0, so
+//           z reads as orthometric (NAVD88) height to within millimetres
+//           across a site.
+//           +Y is true north at the origin. All site geometry is float32:
+//           coordinates stay under 1 km, which float32 resolves to 0.1 mm.
+//   world   Geodetic latitude and longitude in degrees, ellipsoidal height in
+//           metres, on the datum the message names.
+//
+// Poses map sensor-frame points into the site frame:
+//
+//   p_site = R(rotation) * p_sensor + translation_m
+//
+// A client draws reference geometry in its sensor frame by applying the
+// inverse of the current pose as a model matrix, so moving the pose never
+// re-sends geometry.
+//
+// Site key. A site is named by the token of its S2 level-16 cell, the same
+// key velocity.report uses for lidar_sites. Tokens are lower-case hex text.
+
+syntax = "proto3";
+
+package gerardus.align.v1alpha1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/banshee-data/gerardus/internal/alignpb;alignpb";
+
+// =============================================================================
+// Services
+// =============================================================================
+
+// SiteService prepares and serves reference data for sites.
+service SiteService {
+  // Server version and what it can do. Clients call it on connect.
+  rpc GetServerInfo(GetServerInfoRequest) returns (GetServerInfoResponse);
+
+  // Builds the reference bundle for a site, or returns the cached one at
+  // once. Streams progress; the last message carries the site. Idempotent:
+  // two concurrent calls for one site share one build, and a client that
+  // disconnects does not cancel it.
+  rpc PrepareSite(PrepareSiteRequest) returns (stream PrepareSiteResponse);
+
+  // A prepared site. NOT_FOUND until PrepareSite has completed for it.
+  rpc GetSite(GetSiteRequest) returns (GetSiteResponse);
+
+  // Every prepared site.
+  rpc ListSites(ListSitesRequest) returns (ListSitesResponse);
+
+  // Reference geometry for a prepared site, in the site frame, in chunks of
+  // at most a few megabytes. Layers arrive in the order requested; each
+  // layer's last chunk has layer_complete set.
+  rpc StreamReference(StreamReferenceRequest) returns (stream StreamReferenceResponse);
+}
+
+// RegistrationService registers a sensor scan against a site and records the
+// pose an operator accepts.
+service RegistrationService {
+  // Uploads a scan in the sensor frame: one header, then point blocks.
+  // Content-addressed: the same header and points give the same scan_id, and
+  // a repeat upload stores nothing new.
+  rpc UploadScan(stream UploadScanRequest) returns (UploadScanResponse);
+
+  // Converts an approximate position and heading (velocity.report's
+  // eye-read site position and north azimuth) into a pose in the site frame,
+  // with the height taken from the 3DEP ground model. The client uses it to
+  // draw the reference before any registration has run.
+  rpc PoseFromHint(PoseFromHintRequest) returns (PoseFromHintResponse);
+
+  // Runs registration stages 1 to 4 (candidate intersections, coarse pose,
+  // multi-seed ICP, acceptance gates) for a scan against its site. Streams
+  // progress and each distinct hypothesis as it converges; the last message
+  // carries the registration, in state CANDIDATE or FAILED. Cancelling the
+  // call stops the run. Until the automatic stages are built, every run is
+  // recorded as FAILED with no hypotheses and carries its initial pose, so
+  // an operator can place the sensor by hand and accept that pose with
+  // ReviewRegistration.
+  rpc Register(RegisterRequest) returns (stream RegisterResponse);
+
+  // Scores a pose against the reference: residual statistics, constraint
+  // rank and optionally a residual per scan point for colouring. With refine
+  // set, first runs local ICP from the pose. Fast enough to call when the
+  // operator releases a drag, not on every frame of it.
+  rpc EvaluatePose(EvaluatePoseRequest) returns (EvaluatePoseResponse);
+
+  // Solves a pose from operator-picked correspondences between scan and
+  // reference points. Three or more ties solve all six degrees of freedom;
+  // two suffice with level set.
+  rpc SolveTiePoints(SolveTiePointsRequest) returns (SolveTiePointsResponse);
+
+  // A registration and its hypotheses.
+  rpc GetRegistration(GetRegistrationRequest) returns (GetRegistrationResponse);
+
+  // Records the operator's decision on a registration: accept one of its
+  // hypotheses, accept an operator pose, or reject. Returns the immutable
+  // record; a later review of the same scan supersedes it.
+  rpc ReviewRegistration(ReviewRegistrationRequest) returns (ReviewRegistrationResponse);
+
+  // Records for a site, newest first, for velocity.report to reconcile
+  // against what it stored.
+  rpc ListRegistrationRecords(ListRegistrationRecordsRequest) returns (ListRegistrationRecordsResponse);
+}
+
+// =============================================================================
+// Geometry primitives
+// =============================================================================
+
+message Vector3 {
+  double x = 1;
+  double y = 2;
+  double z = 3;
+}
+
+// Unit quaternion, Hamilton convention. Rotates child-frame vectors into the
+// parent frame.
+message Quaternion {
+  double w = 1;
+  double x = 2;
+  double y = 3;
+  double z = 4;
+}
+
+message GeodeticPosition {
+  double latitude_deg = 1;
+  double longitude_deg = 2;
+  // Above the datum's ellipsoid. Unset while the server has no geoid model
+  // to convert with (SiteFrame.geoid_model empty).
+  optional double ellipsoidal_height_m = 3;
+  // NAVD88 height (EPSG:5703). Unset where it does not apply, as in a PoseHint.
+  optional double orthometric_height_m = 4;
+}
+
+// Points as parallel arrays, the layout of velocity.report's PointCloudFrame
+// and BackgroundSnapshot. x, y and z have equal length; every other array is
+// empty or the same length as x.
+message PointBlock {
+  repeated float x = 1 [packed = true];
+  repeated float y = 2 [packed = true];
+  repeated float z = 3 [packed = true];
+
+  // Reference points: ASPRS LAS 1.4 class (2 ground, 6 building, 17 bridge
+  // deck, ...). Scans: empty.
+  repeated uint32 classification = 4 [packed = true];
+
+  // Reference points: LAS intensity, 16-bit. Scans: sensor intensity, 0-255.
+  repeated uint32 intensity = 5 [packed = true];
+
+  // Scans: how often the background grid saw the point
+  // (BackgroundSnapshot.confidence, TimesSeenCount). The server weights by
+  // it. Reference points: empty.
+  repeated uint32 confidence = 6 [packed = true];
+}
+
+// =============================================================================
+// Frames and poses
+// =============================================================================
+
+// SiteFrame states where the site frame is and which datums it sits on.
+message SiteFrame {
+  string frame_id = 1;              // "site/<l16 token>"
+  string l16_token = 2;
+  // Centre of the L16 cell at NAVD88 height 0. Its ellipsoidal height is
+  // geoid_undulation_m, and is left unset while geoid_model is empty (no
+  // geoid grid wired in yet).
+  GeodeticPosition origin = 3;
+  string horizontal_datum = 4;      // "EPSG:6318", NAD83(2011): the datum of 3DEP
+  string vertical_datum = 5;        // "EPSG:5703", NAVD88 height
+  string geoid_model = 6;           // "GEOID18"; empty when not applied
+  double geoid_undulation_m = 7;    // N at the origin; ellipsoidal height = orthometric + N
+  string working_crs = 8;           // "EPSG:7131": the projected CRS the server computes in
+}
+
+enum PoseSource {
+  POSE_SOURCE_UNSPECIFIED = 0;
+  POSE_SOURCE_HINT = 1;             // from an approximate position and heading (eye-read)
+  POSE_SOURCE_MANUAL = 2;           // placed or nudged by an operator
+  POSE_SOURCE_TIE_POINTS = 3;       // solved from operator-picked correspondences
+  POSE_SOURCE_ICP = 4;              // registration output
+}
+
+// SensorPose places a sensor frame in a site frame.
+message SensorPose {
+  string site_frame_id = 1;         // "site/<l16 token>"
+  string sensor_frame_id = 2;       // "sensor/<sensor_id>"
+  Vector3 translation_m = 3;        // sensor origin in the site frame
+  Quaternion rotation = 4;          // sensor axes in the site frame
+
+  // 6x6, row-major, symmetric. Order: tx, ty, tz (metres, site axes), then
+  // rx, ry, rz (radians, small rotations about the site axes applied on the
+  // left: R' = exp([r]x) * R). Empty when unknown.
+  repeated double covariance = 5 [packed = true];
+
+  PoseSource source = 6;
+}
+
+// PoseSummary restates a pose in the terms an operator reads. Derived by the
+// server; clients display it and never send it back.
+message PoseSummary {
+  double heading_deg = 1;           // azimuth of sensor +Y, clockwise from true north, [0, 360)
+  double pitch_deg = 2;             // elevation of sensor +Y above the horizontal
+  double roll_deg = 3;              // depression of sensor +X below the horizontal
+  double height_above_ground_m = 4; // sensor origin above the 3DEP ground model
+  GeodeticPosition position = 5;    // sensor origin on the site's horizontal datum
+  double sigma_horizontal_m = 6;    // 1-sigma horizontal position from the covariance; 0 if unknown
+  double sigma_heading_deg = 7;     // 1-sigma heading from the covariance; 0 if unknown
+}
+
+// OGC GeoPose 1.0 Basic-Quaternion: the sensor origin and the rotation of
+// the sensor axes relative to the local east-north-up tangent plane there.
+message GeoPose {
+  GeodeticPosition position = 1;
+  Quaternion orientation = 2;
+  string crs = 3;                   // "EPSG:6319" NAD83(2011) or "EPSG:4979" WGS 84
+  double epoch = 4;                 // decimal year of the coordinates; 0 for NAD83(2011)
+}
+
+// =============================================================================
+// Sites and reference data
+// =============================================================================
+
+enum ReferenceLayer {
+  REFERENCE_LAYER_UNSPECIFIED = 0;
+  REFERENCE_LAYER_AERIAL_POINTS = 1;   // USGS 3DEP points
+  REFERENCE_LAYER_OSM = 2;             // OpenStreetMap ways, draped on the 3DEP ground
+  REFERENCE_LAYER_FOOTPRINTS = 3;      // DataSF building footprints, draped
+  REFERENCE_LAYER_INTERSECTIONS = 4;   // candidate intersections with approach bearings
+}
+
+// SourceInfo names one input and the terms it came under. A client that
+// shows a layer shows its attribution.
+message SourceInfo {
+  ReferenceLayer layer = 1;
+  string name = 2;                  // "USGS 3DEP CA_SanFrancisco_1_B23"
+  string uri = 3;
+  string version = 4;               // acquisition date, OSM snapshot time or dataset revision
+  string licence = 5;               // SPDX id where one exists: "ODbL-1.0", "PDDL-1.0"; "public-domain"
+  string attribution = 6;           // "© OpenStreetMap contributors"
+  google.protobuf.Timestamp retrieved_at = 7;
+  string sha256 = 8;                // of the retrieved data as stored
+}
+
+message LayerSummary {
+  ReferenceLayer layer = 1;
+  uint64 item_count = 2;            // points, features or intersections
+}
+
+// Site is a prepared reference bundle. bundle_id changes whenever any input
+// changes, so a registration names exactly the data it ran against.
+message Site {
+  string l16_token = 1;
+  string label = 2;                 // human name, e.g. "columbus-broadway"; provenance only
+  SiteFrame frame = 3;
+  repeated string covering_l16_tokens = 4;  // the cell and its 8 neighbours: the bundle's extent
+  repeated LayerSummary layers = 5;
+  repeated SourceInfo sources = 6;
+  string bundle_id = 7;             // "sha256:<hex>" of the bundle manifest
+  google.protobuf.Timestamp prepared_at = 8;
+}
+
+enum FeatureKind {
+  FEATURE_KIND_UNSPECIFIED = 0;
+  FEATURE_KIND_ROAD = 1;            // OSM highway=* for vehicles: a centreline
+  FEATURE_KIND_PATH = 2;            // OSM footway, cycleway, path
+  FEATURE_KIND_KERB = 3;            // OSM barrier=kerb or kerb lines
+  FEATURE_KIND_RAIL = 4;            // OSM railway=tram|rail|light_rail
+  FEATURE_KIND_BUILDING = 5;        // footprint outline, closed
+  FEATURE_KIND_OTHER = 15;
+}
+
+message LineFeature {
+  string feature_id = 1;            // "osm:way/23456789", "datasf:ynuv-fyni/<id>"
+  FeatureKind kind = 2;
+  repeated float xyz = 3 [packed = true];  // site-frame vertices, interleaved x, y, z
+  bool closed = 4;                  // last vertex joins the first
+  float height_m = 5;               // extrusion above the vertices for buildings; 0 if unknown
+  map<string, string> tags = 6;     // source tags worth showing: name, highway, lanes, oneway
+  string source_version = 7;        // "osm:way/23456789@v12"
+}
+
+message LineFeatureSet {
+  repeated LineFeature features = 1;
+}
+
+message Approach {
+  float bearing_deg = 1;            // direction a vehicle travels in on entering, clockwise from true north
+  string way_feature_id = 2;        // the OSM way the approach is on
+  string name = 3;                  // street name
+}
+
+message Intersection {
+  string intersection_id = 1;       // "osm:node/65432123"
+  Vector3 position = 2;             // site frame, draped
+  repeated Approach approaches = 3;
+  string name = 4;                  // "Columbus Ave & Broadway"
+}
+
+message IntersectionSet {
+  repeated Intersection intersections = 1;
+}
+
+// =============================================================================
+// Scans and registration
+// =============================================================================
+
+enum ScanKind {
+  SCAN_KIND_UNSPECIFIED = 0;
+  SCAN_KIND_BACKGROUND = 1;         // a settled background snapshot
+}
+
+message ScanHeader {
+  string l16_token = 1;
+  string sensor_id = 2;             // "hesai-01"; the sensor frame is "sensor/<sensor_id>"
+  string sensor_model = 3;          // "hesai-pandar40p"
+  ScanKind kind = 4;
+  string capture_ref = 5;           // velocity.report's name for the capture: replay case id or archive stem
+  google.protobuf.Timestamp captured_at = 6;
+  uint64 background_sequence = 7;   // BackgroundSnapshot.sequence_number
+}
+
+message Scan {
+  string scan_id = 1;               // "sha256:<hex>" over the header and points
+  ScanHeader header = 2;
+  uint64 point_count = 3;
+}
+
+// The approximate placement velocity.report holds before registration.
+message PoseHint {
+  GeodeticPosition position = 1;    // WGS 84; the height is ignored
+  optional double heading_deg = 2;  // azimuth of sensor +Y, clockwise from true north
+  optional double mount_height_m = 3;  // sensor above ground; server default when absent
+}
+
+message RegistrationOptions {
+  uint32 seed_count = 1;            // ICP starts; default 20
+  float seed_translation_m = 2;     // seeds are spread +/- this around each start; default 5
+  float seed_yaw_deg = 3;           // and +/- this in heading; default 30
+  float max_correspondence_m = 4;   // default 1.0
+  uint64 random_seed = 5;           // makes a run repeatable; default 1
+}
+
+// One converged pose, with the evidence for it.
+message Hypothesis {
+  string hypothesis_id = 1;
+  SensorPose pose = 2;
+  PoseSummary summary = 3;
+  FitQuality quality = 4;
+  uint32 seeds_converged = 5;       // seeds that ended within 0.10 m and 0.5 degrees of this pose
+  uint32 seeds_total = 6;
+}
+
+// FitQuality scores a pose. Residuals are point-to-plane distances from scan
+// points to the reference, on points held out of the fit.
+message FitQuality {
+  uint32 points_used = 1;
+  float inlier_fraction = 2;
+  float ground_p50_m = 3;
+  float ground_p95_m = 4;
+  float facade_p50_m = 5;
+  float facade_p95_m = 6;
+  float rmse_m = 7;
+
+  // Eigenvalues of the 6x6 point-to-plane information matrix, ascending,
+  // in the covariance order of SensorPose. A small one means the reference
+  // does not pin that direction down (a straight corridor leaves translation
+  // along the street free).
+  repeated double information_eigenvalues = 8 [packed = true];
+  uint32 constraint_rank = 9;       // eigenvalues above the server's threshold; 6 is full
+  repeated string weak_directions = 10;  // human-readable, e.g. "translation along 23 deg"
+}
+
+// One acceptance gate and how the pose did against it.
+message GateResult {
+  string name = 1;                  // "ground_p95_m", "facade_p95_m", "constraint_rank", "hypothesis_separation", "seed_agreement"
+  double value = 2;
+  double threshold = 3;
+  bool passed = 4;
+}
+
+enum RegistrationState {
+  REGISTRATION_STATE_UNSPECIFIED = 0;
+  REGISTRATION_STATE_RUNNING = 1;
+  REGISTRATION_STATE_CANDIDATE = 2;        // gates passed; awaiting review
+  REGISTRATION_STATE_FAILED = 3;           // no hypothesis passed the gates
+  REGISTRATION_STATE_REGISTERED = 4;       // a candidate hypothesis accepted by an operator
+  REGISTRATION_STATE_MANUALLY_PLACED = 5;  // an operator pose accepted, or a hypothesis that failed a gate
+  REGISTRATION_STATE_REJECTED = 6;
+}
+
+message Registration {
+  string registration_id = 1;       // "gms:<ulid>"
+  string l16_token = 2;
+  string scan_id = 3;
+  string bundle_id = 4;
+  RegistrationState state = 5;
+  repeated Hypothesis hypotheses = 6;  // ranked, best first
+  repeated GateResult gates = 7;       // evaluated on hypotheses[0]
+  string failure_reason = 8;
+  RegistrationOptions options = 9;     // as run, defaults filled in
+  SensorPose initial_pose = 10;
+  string server_version = 11;
+  google.protobuf.Timestamp created_at = 12;
+}
+
+message Progress {
+  string stage = 1;                 // "aerial", "osm", "footprints", "intersections", "coarse", "icp", "gates"
+  float fraction = 2;               // 0 to 1 within the stage; negative when unknown
+  string message = 3;
+}
+
+message TiePoint {
+  Vector3 sensor_point = 1;         // picked in the scan, sensor frame
+  Vector3 site_point = 2;           // picked in the reference, site frame
+  string label = 3;
+}
+
+// RegistrationRecord is what velocity.report stores against the capture: the
+// accepted pose, where it sits in the world, and the evidence for it. Its
+// JSON form (protojson) is the at-rest boundary artefact of ADR-0006.
+message RegistrationRecord {
+  string record_id = 1;             // "gms:<ulid>"
+  string registration_id = 2;
+  RegistrationState state = 3;      // REGISTERED, MANUALLY_PLACED or REJECTED
+  string l16_token = 4;
+  string scan_id = 5;
+  string capture_ref = 6;
+  string sensor_id = 7;
+  SiteFrame site_frame = 8;
+  SensorPose pose = 9;              // unset when rejected
+  PoseSummary summary = 10;
+  GeoPose geopose = 11;             // on the site's datum, NAD83(2011)
+  GeoPose geopose_wgs84 = 12;       // for OSM and web maps
+  FitQuality quality = 13;
+  repeated GateResult gates = 14;
+  string reviewer = 15;
+  string note = 16;
+  google.protobuf.Timestamp reviewed_at = 17;
+  string bundle_id = 18;
+  repeated SourceInfo sources = 19;
+  string server_version = 20;
+  string supersedes_record_id = 21; // the previous record for this scan, if any
+}
+
+// =============================================================================
+// Requests and responses
+// =============================================================================
+
+message GetServerInfoRequest {}
+
+message GetServerInfoResponse {
+  string server_version = 1;
+  string api_version = 2;           // "gerardus.align.v1alpha1"
+  repeated ReferenceLayer available_layers = 3;  // layers this server can build (aerial needs an indexed dataset)
+  RegistrationOptions default_options = 4;
+}
+
+message PrepareSiteRequest {
+  string l16_token = 1;
+  string label = 2;
+  bool refresh = 3;                 // fetch every source again even when cached
+}
+
+message PrepareSiteResponse {
+  oneof event {
+    Progress progress = 1;
+    Site site = 2;                  // last message
+  }
+}
+
+message GetSiteRequest {
+  string l16_token = 1;
+}
+
+message GetSiteResponse {
+  Site site = 1;
+}
+
+message ListSitesRequest {}
+
+message ListSitesResponse {
+  repeated Site sites = 1;
+}
+
+message StreamReferenceRequest {
+  string l16_token = 1;
+  repeated ReferenceLayer layers = 2;  // empty: every layer, in enum order
+  Vector3 centre = 3;               // site frame; unset: the origin
+  float radius_m = 4;               // horizontal; 0: the whole bundle
+  // Aerial thinning: the server sends every EPT level of detail whose
+  // nominal spacing is at least this, so never denser than asked.
+  // 0: server default (0.50 m).
+  float voxel_size_m = 5;
+  repeated uint32 aerial_classes = 6;  // ASPRS classes to send; empty: all but noise (7, 18)
+  uint32 max_points_per_message = 7;   // 0: server default (65536)
+}
+
+message StreamReferenceResponse {
+  ReferenceLayer layer = 1;
+  oneof payload {
+    PointBlock points = 2;
+    LineFeatureSet lines = 3;
+    IntersectionSet intersections = 4;
+  }
+  bool layer_complete = 5;          // last chunk of this layer
+}
+
+message UploadScanRequest {
+  oneof part {
+    ScanHeader header = 1;          // first message only
+    PointBlock points = 2;          // then any number, sensor frame
+  }
+}
+
+message UploadScanResponse {
+  Scan scan = 1;
+  bool already_stored = 2;
+}
+
+message PoseFromHintRequest {
+  string l16_token = 1;
+  string sensor_id = 2;
+  PoseHint hint = 3;
+}
+
+message PoseFromHintResponse {
+  SensorPose pose = 1;
+  PoseSummary summary = 2;
+}
+
+message RegisterRequest {
+  string scan_id = 1;               // the scan names its site
+  // Where to start. Unset: the server starts from hint and from the
+  // candidate intersections' bearings.
+  SensorPose initial_pose = 2;
+  PoseHint hint = 3;
+  RegistrationOptions options = 4;  // unset fields take the server defaults
+}
+
+message RegisterResponse {
+  oneof event {
+    Progress progress = 1;
+    Hypothesis hypothesis = 2;      // each distinct hypothesis as it converges
+    Registration registration = 3;  // last message
+  }
+}
+
+message EvaluatePoseRequest {
+  string scan_id = 1;
+  SensorPose pose = 2;
+  bool refine = 3;                  // run local ICP from pose first
+  bool include_point_residuals = 4;
+}
+
+message EvaluatePoseResponse {
+  SensorPose pose = 1;              // refined when refine was set, else the input
+  PoseSummary summary = 2;
+  FitQuality quality = 3;
+  // One per scan point, in upload order: signed point-to-plane distance to
+  // the reference in metres, NaN where no reference lies within
+  // max_correspondence_m. Empty unless requested.
+  repeated float point_residuals_m = 4 [packed = true];
+}
+
+message SolveTiePointsRequest {
+  string l16_token = 1;
+  string sensor_id = 2;
+  repeated TiePoint tie_points = 3;
+  // Hold pitch and roll level to the ground: the scan's ground plane is
+  // matched to the 3DEP ground and the ties solve x, y, z and heading.
+  // Needs scan_id.
+  bool level = 4;
+  string scan_id = 5;               // optional; when set, the pose is also scored
+}
+
+message SolveTiePointsResponse {
+  SensorPose pose = 1;
+  PoseSummary summary = 2;
+  repeated float tie_residuals_m = 3 [packed = true];  // per tie, in request order
+  FitQuality quality = 4;           // when scan_id was set
+}
+
+message GetRegistrationRequest {
+  string registration_id = 1;
+}
+
+message GetRegistrationResponse {
+  Registration registration = 1;
+}
+
+message ReviewRegistrationRequest {
+  string registration_id = 1;
+  oneof decision {
+    string accept_hypothesis_id = 2;  // REGISTERED if it passed the gates, else MANUALLY_PLACED
+    SensorPose accept_pose = 3;       // an operator pose: MANUALLY_PLACED
+    string reject_reason = 4;         // REJECTED
+  }
+  string reviewer = 5;
+  string note = 6;
+}
+
+message ReviewRegistrationResponse {
+  RegistrationRecord record = 1;
+}
+
+message ListRegistrationRecordsRequest {
+  string l16_token = 1;
+}
+
+message ListRegistrationRecordsResponse {
+  repeated RegistrationRecord records = 1;
+}
