@@ -1,6 +1,6 @@
 # Archive ingest in Go (v0.6.6)
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** LiDAR pipeline (L1, capture index), CLI, database
 - **Target:** v0.6.6; index the capture archive through the Go capture index, and delete the Python that currently stands between an operator and it
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns archive-scale publishing; this plan owns getting the archive into the index correctly in the first place

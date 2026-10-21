@@ -14,7 +14,7 @@
 > work units A and E. The two plans agree on direction: one binary, fewer apt packages, and no
 > shipped `internal/cmd/tune` sibling. The consolidation plan owns the v0.5.1 sequencing and image
 > stage edits; this plan continues to own the Makefile, CLI-flag and metrics/stats trim items that
-> survive into v0.5.10.
+> survive into v0.5.11.
 
 [single-binary-plan]: ./deploy-single-binary-image-consolidation-plan.md
 

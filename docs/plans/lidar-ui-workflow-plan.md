@@ -5,9 +5,9 @@ sweep. This plan keeps its screens and intent and maps each change onto the voca
 the repository already has, so the design can be built without reopening settled decisions.
 
 - **Status:** Proposed. The copy, links and lineage it shares with #707 have landed; the rest is
-  allocated to v0.5.8–v0.5.11 and v0.6.6 below
+  allocated to v0.5.9–v0.5.12 and v0.6.6 below
 - **Layers:** L9 Endpoints, L10 Clients (web and macOS)
-- **Target:** v0.5.9 to v0.5.11 for the screens; site and survey work with Item 14 in v0.6.6
+- **Target:** v0.5.10 to v0.5.12 for the screens; site and survey work with Item 14 in v0.6.6
 - **Companion plans:** [platform vocabulary](platform-vocabulary-and-data-model-plan.md),
   [P1-B LiDAR terminology](platform-vocabulary-phase1-lidar-plan.md),
   [P2-B clips and labels](platform-vocabulary-phase2-clips-labels-plan.md),
@@ -79,20 +79,20 @@ The design's words, against the nouns the vocabulary plan settled.
 
 Each change, what this plan does with it, and where it lands. "Landed" means #707.
 
-| #   | Design change                                                          | Disposition                                                                                                                                                      | Lands                          |
-| --- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| T1  | Rename Segments to Windows; nav Captures, Clips, Runs, Windows, Sweeps | Adapted. Nav order and LiDAR group landed. Segments folds into Clips as the candidates panel instead of being renamed                                            | Item 6, v0.5.9                 |
-| T2  | Clip everywhere; `/lidar/clips` with a redirect                        | Adopted. Web copy landed; the macOS column reads Source until runs record their clip                                                                             | Item 2, v0.5.8                 |
-| T3  | Keep "periods"; drop "segment" at the capture stage                    | Adopted. The copy already says periods; types follow P1-B                                                                                                        | Item 3, v0.5.8                 |
-| T4  | Every run carries a clip; parameter hash and diff; fold repeats        | Adapted. Clip match, digest and the recommended mark landed. Runs record their clip at write, group by clip, and fold a sweep's runs under the sweep             | v0.5.9                         |
-| T5  | Sweeps show clip, base run, best score; queue; resumable               | Adapted. Clip and objective landed. Best score on the card; "base run" only for HINT, which has a reference run; queueing through jobs; resumable is `suspended` | v0.5.11                        |
-| T6  | Tracks' clip picker defaults to the run's clip                         | Landed as specified. Target: the clip as a link, with a picker over that clip's runs                                                                             | v0.5.9                         |
-| T7  | Pick the site from Sites instead of free text                          | Adapted. Clips pick from `lidar_sites` now; a session's site comes from its deployment                                                                           | v0.5.10; v0.6.6                |
-| T8  | Packs get a visible state; counts on Clips                             | Adapted. The Segments page already derives the status; it moves to the candidates panel and Clips counts it. No writable state                                   | Item 6, v0.5.9; counts v0.5.10 |
-| T9  | Web Tracks becomes a preview with "Open in visualiser"                 | Adopted. Read-only playback landed; the deep link needs a macOS URL scheme                                                                                       | v0.5.10                        |
-| T10 | macOS run browser by clip, "Queued for me", clip in the window title   | Adapted. Group by clip and title by clip; "Awaiting review" from pack status instead of an assignee                                                              | v0.5.10                        |
-| T11 | "Make clip" from selected periods, description prefilled               | Adapted. One clip per selected static period, or per adjacent run with no motion inside                                                                          | v0.5.9                         |
-| T12 | Clip panel read-outs instead of a captures textarea and params JSON    | Adopted. Periods drawn on the session strip by time overlap; recommended parameters read-only, naming the sweep that set them                                    | v0.5.9                         |
+| #   | Design change                                                          | Disposition                                                                                                                                                      | Lands                           |
+| --- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| T1  | Rename Segments to Windows; nav Captures, Clips, Runs, Windows, Sweeps | Adapted. Nav order and LiDAR group landed. Segments folds into Clips as the candidates panel instead of being renamed                                            | Item 6, v0.5.10                 |
+| T2  | Clip everywhere; `/lidar/clips` with a redirect                        | Adopted. Web copy landed; the macOS column reads Source until runs record their clip                                                                             | Item 2, v0.5.9                  |
+| T3  | Keep "periods"; drop "segment" at the capture stage                    | Adopted. The copy already says periods; types follow P1-B                                                                                                        | Item 3, v0.5.9                  |
+| T4  | Every run carries a clip; parameter hash and diff; fold repeats        | Adapted. Clip match, digest and the recommended mark landed. Runs record their clip at write, group by clip, and fold a sweep's runs under the sweep             | v0.5.10                         |
+| T5  | Sweeps show clip, base run, best score; queue; resumable               | Adapted. Clip and objective landed. Best score on the card; "base run" only for HINT, which has a reference run; queueing through jobs; resumable is `suspended` | v0.5.12                         |
+| T6  | Tracks' clip picker defaults to the run's clip                         | Landed as specified. Target: the clip as a link, with a picker over that clip's runs                                                                             | v0.5.10                         |
+| T7  | Pick the site from Sites instead of free text                          | Adapted. Clips pick from `lidar_sites` now; a session's site comes from its deployment                                                                           | v0.5.11; v0.6.6                 |
+| T8  | Packs get a visible state; counts on Clips                             | Adapted. The Segments page already derives the status; it moves to the candidates panel and Clips counts it. No writable state                                   | Item 6, v0.5.10; counts v0.5.11 |
+| T9  | Web Tracks becomes a preview with "Open in visualiser"                 | Adopted. Read-only playback landed; the deep link needs a macOS URL scheme                                                                                       | v0.5.11                         |
+| T10 | macOS run browser by clip, "Queued for me", clip in the window title   | Adapted. Group by clip and title by clip; "Awaiting review" from pack status instead of an assignee                                                              | v0.5.11                         |
+| T11 | "Make clip" from selected periods, description prefilled               | Adapted. One clip per selected static period, or per adjacent run with no motion inside                                                                          | v0.5.10                         |
+| T12 | Clip panel read-outs instead of a captures textarea and params JSON    | Adopted. Periods drawn on the session strip by time overlap; recommended parameters read-only, naming the sweep that set them                                    | v0.5.10                         |
 
 ## Design notes
 
@@ -155,7 +155,7 @@ a pack form.
 | A sweep's clip and objective    | the stored request, `objective_name`                                     | None; landed on Sweeps                                                    |
 | A sweep's best score            | `results`, `recommendation`                                              | Read into the list summary                                                |
 | Queued sweeps                   | the job queue                                                            | Sweeps become a job kind with Item 11                                     |
-| Resuming after a restart        | `suspended` with checkpoint columns, for auto-tune                       | Restart recovery fails them instead (backlog, v0.5.11)                    |
+| Resuming after a restart        | `suspended` with checkpoint columns, for auto-tune                       | Restart recovery fails them instead (backlog, v0.5.12)                    |
 | A session's site                | none; a free-text label                                                  | Deployments, Item 14                                                      |
 | Opening macOS from the web      | none                                                                     | A URL scheme and its handler                                              |
 | "Queued for me"                 | none; an operator name in the macOS session                              | Not planned: there is one operator                                        |
@@ -182,20 +182,20 @@ Each line is one backlog item, linked to this plan unless it is a vocabulary ite
 
 | Release | Item                                                                                               | Changes |
 | ------- | -------------------------------------------------------------------------------------------------- | ------- |
-| v0.5.8  | Vocabulary Item 2: routes, `/lidar/clips`, the macOS column                                        | T2      |
-| v0.5.9  | Sweep runs record their clip                                                                       | T4      |
-| v0.5.9  | Runs grouped by clip, a sweep's runs folded under it, parameters compared with the recommended     | T4      |
-| v0.5.9  | Captures makes clips from selected periods                                                         | T3, T11 |
-| v0.5.9  | The Clips panel reads out periods and recommended parameters                                       | T12     |
-| v0.5.9  | Tracks names the run's clip and offers that clip's runs                                            | T6      |
-| v0.5.9  | Vocabulary Item 6: the candidates panel on Clips, with the derived status                          | T1, T8  |
-| v0.5.10 | Pack status counts on Clips and "in review"                                                        | T8      |
-| v0.5.10 | Clips pick their site from `lidar_sites`                                                           | T7      |
-| v0.5.10 | macOS run browser grouped by clip; clip and pack in the Annotation window title; "Awaiting review" | T10     |
-| v0.5.10 | "Open in visualiser": the macOS URL scheme and the web Tracks link                                 | T9      |
-| v0.5.11 | Sweep cards show the best score; HINT names its reference run                                      | T5      |
-| v0.5.11 | Checkpointed sweeps survive a restart                                                              | T5      |
-| v0.5.11 | A sweep requested while one runs is queued as a job                                                | T5      |
+| v0.5.9  | Vocabulary Item 2: routes, `/lidar/clips`, the macOS column                                        | T2      |
+| v0.5.10 | Sweep runs record their clip                                                                       | T4      |
+| v0.5.10 | Runs grouped by clip, a sweep's runs folded under it, parameters compared with the recommended     | T4      |
+| v0.5.10 | Captures makes clips from selected periods                                                         | T3, T11 |
+| v0.5.10 | The Clips panel reads out periods and recommended parameters                                       | T12     |
+| v0.5.10 | Tracks names the run's clip and offers that clip's runs                                            | T6      |
+| v0.5.10 | Vocabulary Item 6: the candidates panel on Clips, with the derived status                          | T1, T8  |
+| v0.5.11 | Pack status counts on Clips and "in review"                                                        | T8      |
+| v0.5.11 | Clips pick their site from `lidar_sites`                                                           | T7      |
+| v0.5.11 | macOS run browser grouped by clip; clip and pack in the Annotation window title; "Awaiting review" | T10     |
+| v0.5.11 | "Open in visualiser": the macOS URL scheme and the web Tracks link                                 | T9      |
+| v0.5.12 | Sweep cards show the best score; HINT names its reference run                                      | T5      |
+| v0.5.12 | Checkpointed sweeps survive a restart                                                              | T5      |
+| v0.5.12 | A sweep requested while one runs is queued as a job                                                | T5      |
 | v0.6.6  | Vocabulary Item 14: a session's site from its deployment                                           | T7      |
 
 ## Acceptance

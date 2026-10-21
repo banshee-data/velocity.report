@@ -2,7 +2,7 @@
 
 - **Status:** S2.0, S2.1, and S2.2 are built; experimental arms remain opt-in and are not promoted. The completed [October campaign](../lidar/operations/near-edge-campaign-2026-10.md) retains production B0: A2 breaches observed update cost at all 29 core/transfer cases and geometry at nine. Diagnostic variants remain mixed. Governed physical validation and an eligible untouched evaluation remain unresolved. Earlier F6/F6s/F7b findings below retain their original builds, metrics, and populations.
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
-- **Target:** v0.5.2, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
+- **Target:** v0.5.3, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)
 - **Companion plans:** [state estimation](lidar-state-estimation-plan.md) (Phase 2, Sections 5.3, 8.1, 9.1 and G-GEO-1), [VRLOG observation format](lidar-vrlog-observation-format-plan.md)
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
 

@@ -10,9 +10,9 @@ Sources were checked on October 8, 2026 through search results only. Direct fetc
 DataSF and AAA Foundation pages failed from the review environment, so every rights claim and
 figure below is marked for confirmation against the primary document.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in the queued safety reporting slot or in v0.6.8 and later; revisit when the safety reporting slot is numbered. Was: Proposed; no dataset ingested and no code written
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.6.9 (safety reporting) and later; revisit when v0.6.9 is next. Was: Proposed; no dataset ingested and no code written
 - **Layers:** Cross-cutting (PDF report, site configuration, importer tooling, L8 behaviour benchmarks)
-- **Target:** v0.5.10 for the cited harm curves, the benchmark-aligned temporal strata, and, if Item 1 clears the rights, the area-rate table (else v0.6.8); v0.6.8 for site crash context, the before-and-after model, the site-to-area resolution, and the area benchmark context block; v1.0 for road-segment attachment
+- **Target:** v0.6.9 for source and rights review, the safety-reference edition, temporal strata, site crash context, the before-and-after model, site-to-area resolution, and the area benchmark context block. The edition and strata land before their consumers; unresolved rights defer the area-rate table and its dependent area context together. Road-segment attachment follows the vector-scene work at v1.0
 - **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [vehicle encyclopedia](vehicle-encyclopedia-plan.md), [spatial priors reference data](spatial-priors-reference-data-plan.md), [public attitudes to speeding and aggressive driving](platform-speeding-attitudes-and-aggressive-driving-plan.md)
 - **Related:** [sober driving and human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [data science methodology](../platform/operations/data-science-methodology.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [S2 conventions](../lidar/architecture/geographic-indexing.md), [research briefing, January 2025 to October 2026](../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
 - **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
@@ -332,7 +332,7 @@ paper, and record each source's rights.
 7. Add every source to `data/maths/references.bib` and a dated verified-sources table to this
    plan.
 
-**Milestone:** v0.5.10
+**Milestone:** v0.6.9, before the edition and any source-dependent report block
 
 ### Item 2: safety-reference edition and the cited harm paragraph
 
@@ -355,8 +355,8 @@ copy.
    definition, and citation, and the guard test over every citation string. If Item 1 refuses an
    embedded subset, the edition cites the paper instead and the table waits.
 
-**Milestone:** v0.5.10; the area-rate table (step 6) at v0.5.10 if Item 1 clears the rights, else
-v0.6.8
+**Milestone:** v0.6.9, after Item 1. If reuse rights remain unresolved, defer the area-rate table
+and its dependent area context together; the edition's other cleared entries can ship without it.
 
 ### Item 2a: benchmark-aligned temporal strata
 
@@ -373,7 +373,7 @@ no external data.
 4. Tests on the Friday 18:00 boundary ([Finding 5][hcb-f5]) and on both daylight-saving
    transitions, and a test that the headline numbers do not change.
 
-**Milestone:** v0.5.10; depends on nothing
+**Milestone:** v0.6.9; independent of external sources, before the area context and attitudes shares that consume its strata
 
 ### Item 3: before-and-after model section
 
@@ -390,7 +390,7 @@ crashes by severity from the pinned model, with its interval.
    posted limit ([D-28][d28]).
 3. The report section and its guard test; a synthetic oracle in the style of the headway report.
 
-**Milestone:** v0.6.8
+**Milestone:** v0.6.9, after Item 2 pins the speed-change model and its interval
 
 ### Item 4: site crash-context importer and record
 
@@ -413,8 +413,9 @@ the site-to-area resolution with the area benchmark context block.
    unmasked stratum; the guard test over the block and its citation strings, and a test that the
    sentence is printed.
 
-**Milestone:** v0.6.8; steps 6 and 7 after the sites merge in the vocabulary plan and after the
-area-rate table
+**Milestone:** v0.6.9; source review precedes the importer, and steps 6 and 7 follow the sites
+merge, the edition's area-rate table, and Item 2a's strata. If the table cannot ship, the area
+context waits with it.
 
 ### Item 5: attach context to road segments
 
@@ -581,7 +582,7 @@ document was not read.
 ### Outstanding
 
 - [ ] Item 1: primary-source reading and rights record, with the fourth family's rights rows and the fatal-rate supplement's contents (`S`)
-- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`); area-rate table from the fatal-rate paper's supplement (`M`, v0.5.10 if Item 1 clears the rights, else v0.6.8)
+- [ ] Item 2: safety-reference edition, `published_model` decision, cited harm paragraph (`M`, v0.6.9); area-rate table from the fatal-rate paper's supplement (`M`, only after Item 1 clears reuse rights, with its dependent area context deferred alongside it if not)
 - [ ] Item 2a: benchmark-aligned temporal strata in `data.json` and the PDF (`S`)
 - [ ] Item 3: before-and-after model section (`M`)
 - [ ] Item 4: `site_crash_context` migration, DataSF importer, report block, second adapter (`L`); site-to-area resolution and area benchmark context block (`M`)

@@ -14,7 +14,7 @@ estimates. A final inference stage alone does not qualify a field metric for pro
 - **Status:** Active (specification); sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
-- **Target:** v0.5.2 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.3 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
+- **Target:** v0.5.3 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.4 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
 - **Depends on:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns Phases 0 to 5 and Phase 8; this plan owns Phases 6 and 7)
 - **Companion plans:** [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md)
@@ -695,7 +695,7 @@ Keep DRAC continuous.
 
 ### 8.6 Crossing conflicts and post-encroachment time
 
-**Delivery.** v0.5.3, alongside passing clearance and the Phase 6A kinematics remainder.
+**Delivery.** v0.5.4, alongside passing clearance and the Phase 6A kinematics remainder.
 
 PET is the elapsed time between one road user **vacating** a
 conflict region and another **entering** it:
@@ -783,7 +783,7 @@ duration and an understated displacement, and must be marked incomplete rather t
 
 ### 8.9 Cyclist and vulnerable-road-user overtaking
 
-**Delivery.** v0.5.3, alongside post-encroachment time.
+**Delivery.** v0.5.4, alongside post-encroachment time.
 
 This is the sensor's strongest case and should be treated as a headline capability
 rather than a subsection of lane changes. An overtaking driver's own sensors see the
@@ -1346,7 +1346,7 @@ implementation convenience masquerade as importance.
 | Decoupled evidence, corrected association, calibrated uncertainty and smoothing | Sprint 0.5.2.2: one versioned final trajectory with explicit observation support and revisable identity |
 | Local path pairing, persistence and provisional field output                    | Sprint 0.5.2.4: end-to-end report with accuracy claims explicitly withheld                              |
 | Held-out physical validation and supported exposure                             | Sprint 0.5.2.4: promote bumper-to-bumper gap and net time gap in field reports                          |
-| Additional interaction geometry and context                                     | v0.5.3: passing clearance and PET; later: yielding and intersection/stop behaviour                      |
+| Additional interaction geometry and context                                     | v0.5.4: passing clearance and PET; later: yielding and intersection/stop behaviour                      |
 
 Pull the Phase 6A support/speed contracts and Phase 6B following slice forward together.
 Acceleration, braking, jerk and all other Phase 6A features need not ship before following.
@@ -1369,8 +1369,8 @@ Development and emission are gated differently, per 2.1.
 **Goal.** Passage-level speed, acceleration, braking, curvature,
 and stop behaviour that needs no map.
 
-**Delivery.** The support/speed contracts subset lands at v0.5.2 alongside following. The
-remainder (passage speed, acceleration, braking) is scheduled at v0.5.3, feeding the behaviour
+**Delivery.** The support/speed contracts subset lands at v0.5.3 alongside following. The
+remainder (passage speed, acceleration, braking) is scheduled at v0.5.4, feeding the behaviour
 label pipeline's speed-profile analyser directly.
 
 **Inputs.** `final` estimates with covariance, or a fixture
@@ -1416,7 +1416,7 @@ trajectory-derived conflict points.
 **First delivery.** Sprint 0.5.2.3 pins the following equations and report output with an
 analytical oracle, then implements following classification, local path/ordering and persistence.
 Sprint 0.5.2.4 renders the distribution on the scenes dashboard and promotes physical endpoint gap,
-net time gap and exposure after held-out validation. PET and passing clearance are the v0.5.3
+net time gap and exposure after held-out validation. PET and passing clearance are the v0.5.4
 follow-on, reusing the same conflict-detector and shared-path machinery; TTC, DRAC, closest
 approach and cross-class interaction classification remain later slices, and their combined
 acceptance criteria below do not block either gate.
@@ -1489,7 +1489,7 @@ unconverged; closing speed below `3 σ_Δv`.
 **Goal.** Dominant-path extraction, deviation from it, oscillation, and the local distributions
 that make `local_distribution` benchmarks possible.
 
-The minimal directed path used for the v0.5.2 following slice is a Phase 6B dependency and does not wait for
+The minimal directed path used for the v0.5.3 following slice is a Phase 6B dependency and does not wait for
 this phase. Phase 6C owns durable population paths, deviation metrics and stratified distributions,
 not the bounded encounter-local projection needed to order a simple following pair. That projection
 is implemented as `internal/lidar/l8behaviour/localpath.go`, so this phase's own file keeps the

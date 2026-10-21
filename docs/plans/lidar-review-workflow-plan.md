@@ -1,6 +1,6 @@
 # One review workflow: proposals, grading and reference truth
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Draft
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Draft
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints, L10 Clients (macOS visualiser first), offline analysis
 - **Target:** v0.5.x, after the annotation toolset and the run-track finalisation fix
 - **Companion plans:** [Background region overlays](lidar-background-region-overlay-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Label-aware tuning](lidar-track-labelling-auto-aware-tuning-plan.md), [Track quality score](lidar-visualiser-track-quality-score-plan.md), [Priority review queue](lidar-visualiser-priority-review-queue-plan.md), [macOS local server](macos-local-server-plan.md), [Occupancy column grid](lidar-occupancy-column-grid-plan.md)

@@ -7,7 +7,7 @@ experiments, and measures them against the same frozen split, with guards that k
 vehicles on one capture from becoming the thing the tracker is fitted to.
 
 - **Status:** Parked (D-32, October 20, 2026): a run record with no open row; revisit when `claude/physical-align` merges, and then it closes. Was: Run 2026-10-09 on branch `claude/physical-align`: the [report](../lidar/operations/solid-body-physical-alignment-kirk0-2026-10.md) keeps the course heading, growth admission, end-face centring (open prior) and the vehicle floor as one opt-in candidate, which aligns the trucks' heading and truck 1's length and holds the corpus's lateral tail; it records the prior floor as harmful and face-plane spans as null, and finds the rest of the trucks' error upstream of the solid body. The [geometry convergence plan](lidar-tracker-geometry-convergence-plan.md) takes the two structural gaps the run exposed, no heading observation and no containment of the points, as its brief
-- **Target:** v0.5.2, Sprint 0.5.2.1, the backlog's "Solid-body extent accumulation" item
+- **Target:** v0.5.3, Sprint 0.5.2.1, the backlog's "Solid-body extent accumulation" item
 - **Layers:** L5 tracker (solid body), offline evaluation
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
 - **Related:** [kirk0 pilot](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md), [near-edge tracked state](lidar-near-edge-tracked-state-plan.md) (extent admission "is the lever"), [state estimation](lidar-state-estimation-plan.md) §9.2.1–9.2.2, [F0 report](../lidar/operations/facet-f0-attribution-kirk0-report.md) §4.1, [span selection timing](../lidar/operations/near-edge-span-selection-timing-2026-10.md)

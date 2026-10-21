@@ -1,6 +1,6 @@
 # Data source switching
 
-- **Status:** Proposed: the first batch is implemented (#555); the rows that link this plan, in v0.5.5 and the Tracking and identity queue, remain open
+- **Status:** Proposed: the first batch is implemented (#555); the rows that link this plan, in v0.5.8 and the Tracking and identity queue, remain open
 - **Canonical:** the pipeline state model in [`internal/lidar/server/pipeline_state.go`](../../../internal/lidar/server/pipeline_state.go)
 
 The LiDAR server switches between live sensor input, PCAP replay, and VRLOG

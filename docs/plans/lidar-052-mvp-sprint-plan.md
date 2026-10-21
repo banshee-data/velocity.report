@@ -4,13 +4,13 @@ This sprint connects the merged estimation and headway components into one repla
 a physical trajectory, a following measurement, and a distance layer that explains every number.
 The first exit is a working provisional MVP; field promotion requires separate evidence.
 
-- **Status:** Active; v0.5.2 closes at exit A plus the gate ledger (the owner, October 20, 2026; see [scope](#sprint-outcome-and-scope)). #614 advanced S0–S3, S5 and S7 in part (see [progress](#progress-after-614))
+- **Status:** Active; v0.5.3 closes at exit A plus the gate ledger (the owner, October 20, 2026; see [scope](#sprint-outcome-and-scope)). #614 advanced S0–S3, S5 and S7 in part (see [progress](#progress-after-614))
 - **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md)
 - **Scope:** Remaining 0.5.2.0–0.5.2.4 work after #596–609, #611 and #614
 - **Acceptance platform:** macOS on Apple Silicon; stationary, single-sensor captures first
 - **Review:** [merged-batch audit and fresh evidence](../lidar/operations/0.5.2-sprint-review.md)
 - **Owners:** [state estimation](lidar-state-estimation-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [VRLOG](lidar-vrlog-observation-format-plan.md), [visual design](../ui/DESIGN.md)
-- **Task ledger:** [0.5.2 backlog](../BACKLOG.md#v052---following-distance-mvp--vocabulary-renames-052)
+- **Task ledger:** [v0.5.3 backlog](../BACKLOG.md#v053---following-distance-mvp--vocabulary-renames-053)
 - **Reference tooling:** [segment finder and Svelte segments page](https://github.com/banshee-data/velocity.report/pull/615)
 
 ## Sprint outcome and scope
@@ -36,17 +36,20 @@ Aim to complete A and gather B's evidence this sprint. Do not promise B before t
 measurements exist, and do not relabel A as completed physical validation. A `final` estimate may
 still produce a provisional product; inference finality and validation status are separate axes.
 
-**Decided, October 20, 2026.** The owner set v0.5.2's close at exit A plus the gate ledger: the
+**Decided, October 20, 2026.** The owner set v0.5.3's close at exit A plus the gate ledger: the
 release ships when exit A is delivered and the [ledger](#evidence-and-promotion-ledger) records
 each gate's held-out result as pass, fail or insufficient evidence, with its evidence bundle.
 Field output stays provisional. Exit B and the promotion row move after the gates' inputs: W1a to
-W5 and the slope-aware ground surface in v0.5.4, G-GEO-1 acceptance in v0.5.5, G-UNC-1 and G-SMO-1
-acceptance in v0.5.6, and promotion in v0.5.7. To keep v0.5.2 at twelve rows, S2's remaining
+W5 and the slope-aware ground surface in v0.5.5, G-GEO-1 acceptance in v0.5.6, G-UNC-1 and G-SMO-1
+acceptance in v0.5.7, and promotion in v0.5.8. To keep v0.5.3 at twelve rows, S2's remaining
 near-edge decision, S3's empty-frame lifecycle and S6's distance layer joined it, the promotion row
 left, and scene source binding merged into the S7 report row. The owner then put the three D-31
-vocabulary renames in v0.5.2 as well. To make room, exit B's evidence moved to v0.5.3: the
+vocabulary renames in v0.5.3 as well. To make room, exit B's evidence moved to v0.5.4: the
 reference pilot, the physical scoring criteria and the following gate completeness. The ledger
-records any gate they have not reached by the cut as insufficient evidence.
+records any gate they have not reached by the cut as insufficient evidence. Later the same day the
+owner put ECharts retirement ahead of this sprint as v0.5.2 and moved every later 05x slot up one,
+so this sprint's MVP and the renames ship as v0.5.3. The sprint keeps its name: "0.5.2" and the
+0.5.2.0 to 0.5.2.4 increments this plan and others name label the sprint, not a release.
 
 No CA/CTRV/IMM, lane map, global scene graph, shell catalogue, mobile ego-motion or new composite
 driver score is needed. Complete the offline Mac path before expanding live deployment. The
@@ -57,7 +60,7 @@ The proposed [facet registration experiment](lidar-facet-registration-experiment
 alongside this sprint with separate capacity, sharing S0 references and the following scorer.
 It adds no dependency to exit A. Pull a facet measurement into exit B only if independent evidence
 shows it resolves a physical-gate failure of the simpler tracked model; otherwise its conditional
-integration belongs with v0.5.6 perception work.
+integration belongs with v0.5.7 perception work.
 
 ## Delivery order
 
@@ -242,7 +245,7 @@ from a corpus capture to an open, proposed pack at a chosen window without typin
 Add a **Following distance** toggle alongside **Velocity** in the macOS visualiser. It is a
 measurement layer for this sprint, with the scene page providing the same encounter/instant
 inspection and a route back to the selected tracks. General future ghosts and uncertainty cones
-remain v0.5.4 work. Follow
+remain v0.5.5 work. Follow
 [DESIGN](../ui/DESIGN.md#45-following-distance-inspection) for presentation.
 
 ### What the layer draws
@@ -393,8 +396,8 @@ tuning episode as supposedly unseen truth is not.
 | Bounded reassociation, revisable point ownership and shape hypotheses                        | Remaining 0.5.2.2 experiment; promote only if fixed-assignment identity/geometry results require and justify it.                                  |
 | Full live persistence week, rollover, upstream gaps, power-loss and Pi capture qualification | Remaining capture/deployment evidence; no live-default promotion on desktop process-kill tests alone.                                             |
 | Pi estimator throughput optimisation                                                         | v0.6.7; does not block offline Mac correctness.                                                                                                   |
-| Generic ghost trails, future cones and richer diagnostic comparison UI                       | v0.5.4; basic stage/support correctness and the Following distance layer are pulled into this sprint.                                             |
-| PET, passing clearance and other behaviour metrics                                           | v0.5.3 or their existing plans; the optional pair surface-distance diagnostic is not a promoted passing-clearance metric.                         |
+| Generic ghost trails, future cones and richer diagnostic comparison UI                       | v0.5.5; basic stage/support correctness and the Following distance layer are pulled into this sprint.                                             |
+| PET, passing clearance and other behaviour metrics                                           | v0.5.4 or their existing plans; the optional pair surface-distance diagnostic is not a promoted passing-clearance metric.                         |
 
 If time runs short, finish an honest provisional recorded-scene result with every failing gate
 named. Keep field promotion, live operation and remaining experiments open in the backlog. The

@@ -1,6 +1,6 @@
 # Line-Width standardisation plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: On hold (April 2026 review)
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: On hold (April 2026 review)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 
 Plan to adopt 100 columns as the single line-width standard across all code and documentation, with

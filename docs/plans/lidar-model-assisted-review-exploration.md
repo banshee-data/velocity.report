@@ -7,7 +7,7 @@ language model as "pass 2", and asks the four questions that plan leaves open: h
 time it buys and where, what the records look like, how the borderline cases reach a person, and
 what becomes of HINT.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Exploration. Nothing here is built; the review workflow's pass 1 and pass 2 are
   unbuilt too, and the only proposer that exists is the macOS `ObjectProposer`
 - **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 - **Layers:** L5 Tracks, L6 Objects, L8 Analytics, L10 Clients (macOS visualiser), sweep, offline analysis

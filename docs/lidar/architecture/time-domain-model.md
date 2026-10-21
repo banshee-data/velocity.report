@@ -439,5 +439,5 @@ is an open question for L7; see
 | Carry the support token into VRLOG and the visualiser trail; fix association-cost bias (S3) and identity (K4/S2) separately                                  | Visualiser trails plan; state-estimation plan         |
 | Answer Q3 on the corpus with `-experiment measurement_time`                                                                                                  | State-estimation plan, question Q3                    |
 | Measure `capture_gap_predict` on reacquisition across gaps                                                                                                   | State-estimation plan, Sprint 0.5.2.2                 |
-| Inject `timeutil.Clock` into the throttle, replay pacing and cleanup; stop the paced reader skipping the packet it forgives on                               | Clock plan, phases A and B (v0.5.4 remainder)         |
+| Inject `timeutil.Clock` into the throttle, replay pacing and cleanup; stop the paced reader skipping the packet it forgives on                               | Clock plan, phases A and B (v0.5.5 remainder)         |
 | Restore configured mode after replay; declare clock discontinuities and test host/sensor fallback offsets. Combined UTC and fallback release shipped in #611 | Clock plan, item C2                                   |

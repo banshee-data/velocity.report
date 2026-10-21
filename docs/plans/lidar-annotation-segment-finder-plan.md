@@ -6,13 +6,13 @@ chosen window, and the pack arrives with proposals already made.
 
 - **Status:** The v0.5.2 finder, clip, proposal-layer and Segments-page flow is implemented, and
   windows are chosen by selectors defined in a versioned config file; membership-seeded proposals
-  and the split manifest remain planned for v0.5.3
+  and the split manifest remain planned for v0.5.4
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients (web and macOS), storage
 - **Target:** v0.5.2 for the finders, the one-step clip, kept proposals and the Svelte segments
   page, as track T1 of the
   [0.5.2 sprint plan](https://github.com/banshee-data/velocity.report/pull/612), because every
   0.5.2 gate waits on reviewed held-out packs and operator hours are the constraint;
-  membership-seeded proposals and the split manifest follow in v0.5.3
+  membership-seeded proposals and the split manifest follow in v0.5.4
 - **Companion plans:** [Review workflow](lidar-review-workflow-plan.md), [Point annotation](lidar-point-annotation-and-object-dataset-plan.md), [Worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [VRLOG observation format](lidar-vrlog-observation-format-plan.md), [Behaviour analytics](lidar-behaviour-analytics-plan.md)
 - **Canonical:** [point-annotation-tool.md](../lidar/operations/point-annotation-tool.md)
 
@@ -92,7 +92,7 @@ kind (`include_points`, `settle_first`) with no executor. The
 | Clip and pack    | Two commands (CLI) or two endpoints (server) with no link between     | Medium   | v0.5.2       |
 | Proposals        | Recomputed per session; dismissals lost; L4 membership never used     | Medium   | v0.5.2       |
 | Selection bias   | Windows chosen for tracker failure would flatter any candidate        | High     | v0.5.2       |
-| Segment to split | Nothing records why a pack was cut or which split it belongs to       | Low      | v0.5.3       |
+| Segment to split | Nothing records why a pack was cut or which split it belongs to       | Low      | v0.5.4       |
 | Web surface      | Captures and replay cases exist; no finder, no cut action             | Medium   | v0.5.2       |
 
 ## Design / approach
@@ -216,7 +216,7 @@ member indices to the 0.5 `Cluster`, and each frame's clusters become exact cand
 no re-clustering. Chaining across frames stays footprint carry. Tracker chains are offered only
 as a separate, labelled hint layer (`tracker_chain`): where two tracker chains fall on one
 footprint chain, the pack says "split here?" rather than silently choosing. Recommended for
-v0.5.3.
+v0.5.4.
 
 **4. Open at the segment.** With `segment.json` the window opens on the peak sample, sorts
 proposals by overlap with the segment's tracks, and puts the split candidates first. Small, and
@@ -351,7 +351,7 @@ need one small table if they must be shared between operators.
 2. `l4_membership@1` and `tracker_chain@1` layers
 3. Measure review time per object against `cluster_chain@1` on the same pack
 
-**Milestone:** v0.5.3
+**Milestone:** v0.5.4
 
 ### Item 6: segments API and Svelte page
 
@@ -375,7 +375,7 @@ once that sprint step lands
 1. Pack role recorded at cut time
 2. `lidar-ground-truth-eval split --packs …` writes a manifest pinned to each sidecar revision
 
-**Milestone:** v0.5.3
+**Milestone:** v0.5.4
 
 ### Item 8: selectors as config
 
