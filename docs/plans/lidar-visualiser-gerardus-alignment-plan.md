@@ -1,6 +1,6 @@
 # Visualiser alignment client for Gerardus (MVP 0 step 4)
 
-- **Status:** Parked (D-32): the overlay and pose pane are built; what remains waits on Gerardus building `EvaluatePose` and `SolveTiePoints` and on velocity.report's pose endpoint, and twelve bodies of work are already active. Revisit when either lands.
+- **Status:** Parked (D-32): the overlay, pose pane, automatic registration and pose scoring are built; what remains waits on Gerardus building `SolveTiePoints` and on velocity.report's pose endpoint, and twelve bodies of work are already active. Revisit when either lands.
 - **Decisions:** D-32 (planning limits), D-33 (hub doc states what ships)
 - **Layers:** macOS visualiser; vendored proto
 - **Target:** unscheduled; Gerardus MVP 0 sets the order
@@ -52,7 +52,7 @@ The contract and its reasoning are Gerardus's: `align.proto` and `docs/INTERFACE
 2. Colour the background by `point_residuals_m` in upload order, through a second palette.
 3. Show `FitQuality` and the weak directions beside the pose.
 
-**Milestone:** when Gerardus builds `EvaluatePose`.
+**Milestone:** built, with Gerardus PR 8's registration: hypotheses and gates in the pane, Accept of a hypothesis, scoring on rest, Snap and residual colouring.
 
 ### Item 3: tie points
 
@@ -86,10 +86,11 @@ The contract and its reasoning are Gerardus's: `align.proto` and `docs/INTERFACE
 - [x] Vendor `align.proto` and generate its Swift stubs beside the visualiser's
 - [x] Client, overlay, hint placement, nudges, register, accept and reject, records
 - [x] Unit tests for scan packing, the inverse-pose model matrix, nudges, colours, site lookup and the session against a fake service
+- [x] Automatic registration (Gerardus PR 8): hypotheses as they converge, gates, Accept of a hypothesis, Cancel
+- [x] Pose scoring on rest with residual colouring, and Snap (`refine`)
 
 ### Outstanding
 
-- [ ] Pose scoring on release (`M`)
 - [ ] Tie points (`M`)
 - [ ] Write the accepted pose to velocity.report (`S`)
 
