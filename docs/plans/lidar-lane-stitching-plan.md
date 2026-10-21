@@ -222,7 +222,12 @@ the rule that binds it, written before its runs.
 - **Wrong links are worse than missed links.** A wrong link merges two vehicles; a missed link
   leaves today's state. Vehicle link precision must be at least 0.98, with recall reported.
 - **Identity scores must not fall.** HOTA and IDF1 on the same split no lower than without
-  links less 0.005; identity switches no more.
+  links less 0.005.
+- **Linking must pay for itself.** Link recall at least 0.50 of the true vehicle links, and
+  identity switches (each chain scored as one track) at most `a0`'s less half the accepted true
+  links, rounded up. The floor applies on kirk (l5id0008) and, not lowered, on the held-out
+  window (l5id0010). Fragmentations (MOT16 FM) are not a benefit measure: FM counts a reference
+  going from tracked to untracked and back whatever the identity, so a link leaves it unchanged.
 - **Counts are read, not tuned on.** The 50 m zone count error is reported for every arm and
   decides nothing on the split it was tuned on.
 - **Observed time does not grow.** Total observed vehicle seconds is identical with and without
@@ -231,9 +236,8 @@ the rule that binds it, written before its runs.
 Two facts bind these rules. Below 50 accepted links, a precision of 0.98 admits no wrong link.
 A zero-error record of 40 links gives a 95% lower bound of about 0.91; about 180 zero-error links
 are needed for a lower bound of 0.98. The rules above are the point test only, and any report
-states the count and an interval beside each ratio. None of the rules yet requires a linker to
-gain anything over `a0`; the Flo review (Findings 2 and 3) asks the owner to set that clause
-before l5id0008 runs.
+states the count and an interval beside each ratio. The benefit floor answers the Flo review's
+Finding 3; at 40 true links, a recall of 0.50 carries a 95% interval of about 0.34 to 0.66.
 
 ## Dependencies
 
@@ -287,7 +291,9 @@ Findings (H high, M medium, L low):
    rule; print the count and a Clopper–Pearson interval beside each ratio.
 3. **H. No pass clause requires benefit.** An arm linking one correct pair passes l5id0008
    rule 1 and l5id0010 rule 1. The owner sets a recall or fragmentation floor against `a0`
-   before l5id0008 runs.
+   before l5id0008 runs. _Resolved 2026-10-21:_ recall at least 0.50, and identity switches at
+   most `a0`'s less half the accepted true links, in both specs; fragmentation was set aside,
+   since MOT16 FM does not move when a link adds no observation.
 4. **H. The fallback drops the comparison, and l5id0009 cannot read it.** Under 40 links,
    `lane-assign` is carried on design alone; rules 2 and 3 are then unreadable, since
    l5id0009 runs no dong-like or occlusion arm. It is not circular (no output feeds back).
@@ -347,7 +353,7 @@ Resulting sequence:
    select and propose, moved into P0 (the longest human lead time, and no linker waits on it).
 2. Gate A: l5id0007 links and fate, under rules 1 and 2 as corrected (Finding 11).
 3. Gate B: lane0001 membership, with clause 4 decided (Finding 10).
-4. C9 parameter sets and the geometry-boundary D-NN, then the floor from Finding 3 is set.
+4. C9 parameter sets and the geometry-boundary D-NN, with the floor from Finding 3 already set.
 5. l5id0008 (C4 to C8, 20h): replay, links, score.
 6. Gate C: pass, or the l5id0009 fallback with the dong-like arm added (Finding 4).
 7. C10 spike, then the grading minimum; l5id0009 replays, grades and decides transitions.
