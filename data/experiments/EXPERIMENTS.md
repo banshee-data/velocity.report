@@ -34,6 +34,7 @@ directory with a `README.md` whose YAML header gives `area`, `title`, `layers` a
 | `host`   | Roles, hosts and reproducibility                                  |
 | `l5est`  | L5 state estimation: the filter, the smoother, the trail          |
 | `l6cls`  | L6 classification: the class tracks end with and what gates on it |
+| `lane`   | Lane segments: the drawn map, its membership and its merges       |
 
 ## A spec
 

@@ -7,7 +7,7 @@ but never persisted, exposed via API, or consumed by any presentation
 surface: plus per-track speed percentile cleanup per the
 [speed percentile alignment plan](speed-percentile-aggregation-alignment-plan.md).
 
-- **Status:** Active (October 20, 2026; parked earlier the same day, un-parked because its rows are numbered): Phases 1, 2 and 4 implemented; Phase 3's decision and the run-track snapshot quality row are v0.5.5 rows, and Phases 5, 6 and 8 a v0.8.0 row
+- **Status:** Parked (D-32, October 21, 2026): the owner gave its slot to the [lane stitching plan](lidar-lane-stitching-plan.md); its numbered rows stay in BACKLOG.md. Revisit when v0.5.4 becomes the next slot or another active plan completes. Phases 1, 2 and 4 implemented; Phase 3's decision and the run-track snapshot quality row are v0.5.4 rows, and Phases 5, 6 and 8 a v0.8.0 row
 - **Related:** [Backend → Surface Matrix](../../data/structures/MATRIX.md), [Clustering observability plan](lidar-clustering-observability-and-benchmark-plan.md), [Analysis run infrastructure](lidar-analysis-run-infrastructure-plan.md), [Speed Percentile Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [Schema Simplification Plan](schema-simplification-migration-030-plan.md)
 
 ---
