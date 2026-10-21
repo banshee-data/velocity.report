@@ -360,15 +360,15 @@ makes.
 
 ## 9. Implementation
 
-| PR  | Branch                              | State            |
-| --- | ----------------------------------- | ---------------- |
-| A   | `dd/lidar/label-sets-layout`        | Merged #748      |
-| B   | `dd/lidar/label-sets-merge`         | Merged #749      |
-| C   | `dd/lidar/label-sets-partial-clone` | Merged #750      |
-| D   | `dd/lidar/label-sets-checks`        | Merged #751      |
-| E   | not started                         | Planned          |
-| F   | not started                         | Planned          |
-| G   | `dd/lidar/labels-into-dataset`      | Built 2026-10-19 |
+| PR  | Branch                              | State       |
+| --- | ----------------------------------- | ----------- |
+| A   | `dd/lidar/label-sets-layout`        | Merged #748 |
+| B   | `dd/lidar/label-sets-merge`         | Merged #749 |
+| C   | `dd/lidar/label-sets-partial-clone` | Merged #750 |
+| D   | `dd/lidar/label-sets-checks`        | Merged #751 |
+| E   | not started                         | Planned     |
+| F   | not started                         | Planned     |
+| G   | `claude/label-sets-dataset-clone`   | PR #827     |
 
 Decided while building A:
 
