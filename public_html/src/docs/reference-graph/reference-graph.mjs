@@ -1,10 +1,12 @@
-// Reference graph explorer for the offline docs (data/maths/reference-graph.md).
+// Reference graph explorer for the public site's /docs/reference-graph/ page
+// (public_html/src/docs/reference-graph/index.md).
 //
 // Reads the checked-in citation graph (schema version 2, written by
 // citation-needed), the bibliography's section headings and the candidate
 // exclusion list, and draws papers on a time axis: older work to the left,
 // one lane per bibliography section. The pure functions are exported for the
-// tests in docs_html/test/reference-graph.test.js; mount() is the page.
+// tests in public_html/src/js/__tests__/reference-graph.test.mjs; mount() is
+// the page.
 
 export const SCHEMA_VERSION = 2;
 const EARLIEST_YEAR = 1600;
@@ -311,36 +313,44 @@ export function describe(node) {
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const STYLE = `
-.refgraph { --rg-gap: 0.75rem; display: grid; gap: var(--rg-gap); }
+.refgraph { --rg-gap: 0.75rem; display: grid; gap: var(--rg-gap);
+  /* Own palette, matching the public site's Tailwind greys and emerald, so the
+     graph does not depend on which page's stylesheet defines what. */
+  --rg-bg: #ffffff; --rg-panel: #f9fafb; --rg-line: #e5e7eb; --rg-text: #111827;
+  --rg-muted: #6b7280; --rg-accent: #059669; --rg-accent-soft: #d1fae5; }
+@media (prefers-color-scheme: dark) {
+  .refgraph { --rg-bg: #111827; --rg-panel: #1f2937; --rg-line: #374151; --rg-text: #f3f4f6;
+    --rg-muted: #9ca3af; --rg-accent: #34d399; --rg-accent-soft: #064e3b; }
+}
 .refgraph-controls { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center;
-  padding: 0.6rem 0.8rem; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  padding: 0.6rem 0.8rem; border: 1px solid var(--rg-line); border-radius: 8px; background: var(--rg-panel); }
 .refgraph-controls label { display: inline-flex; gap: 0.35rem; align-items: center; font-size: 0.9rem; }
 .refgraph-controls input[type="number"] { width: 4rem; }
-.refgraph-controls select, .refgraph-controls input { font: inherit; color: var(--text); background: var(--bg);
-  border: 1px solid var(--line); border-radius: 6px; padding: 0.15rem 0.35rem; }
-.refgraph-summary { color: var(--muted); font-size: 0.85rem; margin: 0; }
+.refgraph-controls select, .refgraph-controls input { font: inherit; color: var(--rg-text); background: var(--rg-bg);
+  border: 1px solid var(--rg-line); border-radius: 6px; padding: 0.15rem 0.35rem; }
+.refgraph-summary { color: var(--rg-muted); font-size: 0.85rem; margin: 0; }
 .refgraph-body { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: var(--rg-gap); align-items: start; }
 @media (max-width: 1100px) { .refgraph-body { grid-template-columns: minmax(0, 1fr); } }
-.refgraph-canvas { overflow: auto; max-height: 75vh; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.refgraph-canvas { overflow: auto; max-height: 75vh; border: 1px solid var(--rg-line); border-radius: 8px; background: var(--rg-panel); }
 .refgraph-canvas svg { display: block; }
-.refgraph-panel { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 0.8rem;
+.refgraph-panel { border: 1px solid var(--rg-line); border-radius: 8px; background: var(--rg-panel); padding: 0.8rem;
   font-size: 0.9rem; max-height: 75vh; overflow: auto; }
 .refgraph-panel h3 { margin: 0 0 0.4rem; font-size: 1rem; }
 .refgraph-panel ul { padding-left: 1.1rem; margin: 0.3rem 0 0.8rem; }
-.refgraph-panel button.rg-link { all: unset; cursor: pointer; color: var(--accent); }
-.refgraph-panel button.rg-link:focus-visible { outline: 2px solid var(--accent); }
+.refgraph-panel button.rg-link { all: unset; cursor: pointer; color: var(--rg-accent); }
+.refgraph-panel button.rg-link:focus-visible { outline: 2px solid var(--rg-accent); }
 .rg-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.3rem 0 0.6rem; }
-.rg-badge { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-.rg-badge.on { background: var(--accent-soft); color: var(--text); border-color: var(--accent); }
+.rg-badge { font-size: 0.75rem; padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid var(--rg-line); color: var(--rg-muted); }
+.rg-badge.on { background: var(--rg-accent-soft); color: var(--rg-text); border-color: var(--rg-accent); }
 .rg-node { cursor: pointer; }
 .rg-node:focus { outline: none; }
 .rg-node:focus-visible circle, .rg-node.selected circle { stroke-width: 3; }
-.rg-lane-label { font-size: 11px; fill: var(--muted); }
-.rg-tick { font-size: 11px; fill: var(--muted); }
+.rg-lane-label { font-size: 11px; fill: var(--rg-muted); }
+.rg-tick { font-size: 11px; fill: var(--rg-muted); }
 .refgraph-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-.refgraph-table th, .refgraph-table td { text-align: left; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.refgraph-table th, .refgraph-table td { text-align: left; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--rg-line); vertical-align: top; }
 .refgraph-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
-.refgraph-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 0.85rem; color: var(--muted); }
+.refgraph-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; font-size: 0.85rem; color: var(--rg-muted); }
 .refgraph-legend svg { vertical-align: middle; }
 `;
 
@@ -532,22 +542,22 @@ export async function mount(root) {
     if (kind === "member")
       c.setAttribute(
         "style",
-        "fill: var(--accent); stroke: var(--text); stroke-width: 1",
+        "fill: var(--rg-accent); stroke: var(--rg-text); stroke-width: 1",
       );
     else if (kind === "member-missing")
       c.setAttribute(
         "style",
-        "fill: var(--panel); stroke: var(--accent); stroke-width: 2",
+        "fill: var(--rg-panel); stroke: var(--rg-accent); stroke-width: 2",
       );
     else if (kind === "excluded")
       c.setAttribute(
         "style",
-        "fill: none; stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2",
+        "fill: none; stroke: var(--rg-muted); stroke-width: 1; stroke-dasharray: 2 2",
       );
     else
       c.setAttribute(
         "style",
-        "fill: var(--accent-soft); stroke: var(--text); stroke-width: 1; opacity: 0.85",
+        "fill: var(--rg-accent-soft); stroke: var(--rg-text); stroke-width: 1; opacity: 0.85",
       );
     return c;
   }
@@ -646,7 +656,7 @@ export async function mount(root) {
           y: lane.top,
           width,
           height: lane.height,
-          style: `fill: ${i % 2 ? "var(--bg)" : "var(--panel)"}`,
+          style: `fill: ${i % 2 ? "var(--rg-bg)" : "var(--rg-panel)"}`,
         }),
       );
       const label = svg("text", {
@@ -670,7 +680,7 @@ export async function mount(root) {
           x2: x,
           y1: 20,
           y2: height - 10,
-          style: "stroke: var(--line); stroke-width: 1",
+          style: "stroke: var(--rg-line); stroke-width: 1",
         }),
       );
       const label = svg("text", { x: x + 2, y: 14, class: "rg-tick" });
@@ -694,7 +704,7 @@ export async function mount(root) {
           y1: a.y,
           x2: b.x,
           y2: b.y,
-          style: `stroke: var(--accent); stroke-width: 1; opacity: 0.55${dashed ? "; stroke-dasharray: 4 3" : ""}`,
+          style: `stroke: var(--rg-accent); stroke-width: 1; opacity: 0.55${dashed ? "; stroke-dasharray: 4 3" : ""}`,
         }),
       );
     };

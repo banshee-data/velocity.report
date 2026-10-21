@@ -17,8 +17,9 @@ from pathlib import Path
 
 BIB = "data/maths/references.bib"
 BUDGET = "data/maths/bibliography-budget.json"
-# Files that hold the bibliography itself or are generated from it.
-SKIP = {BIB, "data/maths/reference-graph.json", BUDGET}
+# Files that hold the bibliography itself or its budget. The reference graph
+# generated from it lives under public_html/, outside SEARCH_ROOTS.
+SKIP = {BIB, BUDGET}
 SEARCH_ROOTS = ["docs", "data", "internal", "cmd", "tools", "config", "proto", "scripts"]
 TEXT_SUFFIXES = {
     ".md", ".go", ".py", ".js", ".mjs", ".ts", ".svelte", ".swift", ".json",

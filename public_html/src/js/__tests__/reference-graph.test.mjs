@@ -1,10 +1,18 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const test = require("node:test");
+// Tests for the reference graph page (/docs/reference-graph/). Pure
+// functions only: decoding, layout, ranking and links, no DOM.
 
-const repoRoot = path.resolve(__dirname, "../..");
-const load = () => import("../src/assets/reference-graph.mjs");
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import { test } from "node:test";
+import { fileURLToPath } from "node:url";
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../../..",
+);
+const pageDir = path.join(repoRoot, "public_html/src/docs/reference-graph");
+const load = () => import("../../docs/reference-graph/reference-graph.mjs");
 
 // A schema-2 graph in miniature: two of our papers (A cites B and C; B cites
 // C and D), C and D outside the bibliography, D with an impossible year.
@@ -293,10 +301,7 @@ test("the checked-in graph, bibliography and exclusions agree with the page", as
     rankCandidates,
   } = await load();
   const raw = JSON.parse(
-    fs.readFileSync(
-      path.join(repoRoot, "data/maths/reference-graph.json"),
-      "utf8",
-    ),
+    fs.readFileSync(path.join(pageDir, "graph.json"), "utf8"),
   );
   const g = decodeGraph(raw);
   const bib = fs.readFileSync(
@@ -305,10 +310,7 @@ test("the checked-in graph, bibliography and exclusions agree with the page", as
   );
   const { sections } = parseBibSections(bib);
   const curation = JSON.parse(
-    fs.readFileSync(
-      path.join(repoRoot, "data/maths/reference-graph-curation.json"),
-      "utf8",
-    ),
+    fs.readFileSync(path.join(pageDir, "curation.json"), "utf8"),
   );
   const { excluded, reasons } = parseCuration(curation);
   const ids = new Set(g.nodes.map((n) => n.id));

@@ -1,17 +1,17 @@
 # Citation rubric
 
 - **Scope:** What enters [references.bib](references.bib), how the bibliography is kept to a
-  budget, and how the [reference graph](reference-graph.md) ranks papers to read next.
+  budget, and how the [reference graph](../../public_html/src/docs/reference-graph/index.md) ranks papers to read next.
 - **Status:** Adopted October 20, 2026.
 - **Related:** [Reference audit](../../docs/lidar/operations/brief/reference-audit.md),
-  [budget](bibliography-budget.json), [candidate exclusions](reference-graph-curation.json),
+  [budget](bibliography-budget.json), [candidate exclusions](../../public_html/src/docs/reference-graph/curation.json),
   [research-briefing skill](../../.claude/skills/research-briefing/SKILL.md),
   [TENETS.md](../../TENETS.md)
 
 The bibliography records every work the repository names, so the reference audit can show where
 each name came from. That stays the rule. Without a limit, though, every briefing adds entries
 and nothing leaves: the bibliography grew from 94 to 166 entries in ten days. The
-[citation graph](reference-graph.json) makes the pressure worse, because each paper we hold
+[citation graph](../../public_html/src/docs/reference-graph/graph.json) makes the pressure worse, because each paper we hold
 points to dozens we do not. This rubric keeps the rule and adds a budget and a way out.
 
 ## What enters the bibliography
@@ -60,7 +60,8 @@ probably cited by author and year; none has been removed.
 
 ## Papers to read next
 
-The [reference graph page](reference-graph.md) lists works our papers cite that we do not hold.
+The [reference graph page](../../public_html/src/docs/reference-graph/index.md) (on the public site at `/docs/reference-graph/`, not
+yet linked from its navigation) lists works our papers cite that we do not hold.
 They are candidates, ranked for reading, never entries. A candidate becomes an entry only by
 being read, evaluated and named by a document, under the rules above.
 
@@ -69,7 +70,7 @@ bibliography sections those papers come from. A work cited by four papers in thr
 scores 7. The section count rewards work that connects parts of the project over work that one
 cluster cites heavily. The page shows both parts of each score and offers a minimum.
 
-**Exclusions.** [reference-graph-curation.json](reference-graph-curation.json) lists candidates
+**Exclusions.** [curation.json](../../public_html/src/docs/reference-graph/curation.json) lists candidates
 the page leaves out, each with one reason:
 
 | Reason        | Leaves out                                                                                   |
