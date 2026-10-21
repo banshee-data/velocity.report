@@ -115,14 +115,17 @@ import SwiftUI
                     "Eye-read \(site.latitude, specifier: "%.5f"), \(site.longitude, specifier: "%.5f") · sensor \(site.sensorID)"
                 ).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                 HStack {
-                    Text("Azimuth zero")
-                    TextField("bearing °", text: $session.headingText).frame(width: 70)
+                    Text("north_azimuth_deg")
+                    TextField("°", text: $session.northAzimuthText).frame(width: 70)
                         .multilineTextAlignment(.trailing)
-                    Text("° from north").foregroundStyle(.secondary)
+                    if let heading = session.hintHeadingDeg {
+                        Text("hint heading \(heading, specifier: "%.0f")°").foregroundStyle(
+                            .secondary)
+                    }
                 }.font(.callout)
-                Text("north_azimuth_deg in site-index.json. Leave empty if unknown.").font(
-                    .caption2
-                ).foregroundStyle(.secondary)
+                Text(
+                    "As in site-index.json; leave empty if unknown. The hint sends 180° − this: the bearing of the sensor's +Y."
+                ).font(.caption2).foregroundStyle(.secondary)
                 Button("Place from hint") { Task { await session.placeFromHint() } }.disabled(
                     session.busy != nil
                 ).help("Prepare the site, place the sensor from its hint, and draw the reference")

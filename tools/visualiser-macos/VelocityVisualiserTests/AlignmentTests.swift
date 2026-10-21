@@ -651,7 +651,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         session.sink = sink
         await session.probe()
         session.choose(site)
-        session.headingText = "35"
+        session.northAzimuthText = "35"
         await session.placeFromHint()
         return (session, service, sink)
     }
@@ -681,7 +681,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(hint?.l16Token == "808580f47")
         #expect(hint?.hint.position.latitudeDeg == 37.7978)
         #expect(hint?.hint.position.longitudeDeg == -122.4065)
-        #expect(hint?.hint.hasHeadingDeg == true && hint?.hint.headingDeg == 35)
+        // north_azimuth_deg 35 at columbus-broadway: the hint heading is 180 − 35.
+        #expect(hint?.hint.hasHeadingDeg == true && hint?.hint.headingDeg == 145)
         let reference = service.lastReference
         #expect(reference?.radiusM == 150)
         #expect(reference?.voxelSizeM == 0)
@@ -741,6 +742,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(service.uploadedBlocks.map(\.x.count) == [65_536, 4_464])
         #expect(service.lastRegister?.scanID == "sha256:scan")
         #expect(service.lastRegister?.initialPose.source == .manual)
+        #expect(service.lastRegister?.hint.headingDeg == 145)
         #expect(session.registration?.state == .failed)
 
         // The same background is not uploaded twice.
@@ -803,6 +805,58 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(!session.canRegister)
         // The reference stays drawn until a site is placed again.
         #expect(session.reference != nil)
+    }
+}
+
+// MARK: - Hint heading
+
+struct HintHeadingTests {
+    @Test func theThreeRegisteredSitesAreOneEightyMinusN() {
+        // Gerardus registration found +Y at 143.5°, 49.4° and 129.9° where
+        // site-index.json has 35, 131 and 51.
+        for (north, found) in [(35.0, 143.5), (131.0, 49.4), (51.0, 129.9)] {
+            let heading = AlignmentSession.hintHeading(northAzimuthDeg: north)
+            #expect(abs(SitePose.headingDelta(heading, found)) <= 1.5)
+        }
+    }
+
+    @Test func wrapsIntoACompassBearing() {
+        #expect(AlignmentSession.hintHeading(northAzimuthDeg: 0) == 180)
+        #expect(AlignmentSession.hintHeading(northAzimuthDeg: 180) == 0)
+        #expect(AlignmentSession.hintHeading(northAzimuthDeg: 200) == 340)
+        #expect(AlignmentSession.hintHeading(northAzimuthDeg: 350) == 190)
+    }
+
+    @MainActor @Test func theFieldIsNorthAzimuthAndTheHintIsDerived() {
+        let session = AlignmentSession(
+            makeClient: { FakeAlignmentService() }, lookup: nil, defaults: nil)
+        #expect(session.hintHeadingDeg == nil)
+        session.northAzimuthText = " 35 "
+        #expect(session.northAzimuthDeg == 35)
+        #expect(session.hintHeadingDeg == 145)
+        session.northAzimuthText = "north"
+        #expect(session.hintHeadingDeg == nil)
+    }
+
+    @MainActor @Test func aValueTypedUnderTheOldMeaningIsNotRead() async throws {
+        let suite = "alignment-tests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        // Typed when the field meant the heading itself.
+        defaults.set("145.0", forKey: "alignment.heading.808580f47")
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: defaults)
+        await session.probe()
+        session.choose(
+            AlignmentSite(
+                replayCaseID: "case", l16Token: "808580f47", l13Token: "808580f4",
+                description: "S2 archive: Columbus at Broadway", sensorID: "hesai-pandar40p",
+                latitude: 37.7978, longitude: -122.4065))
+        #expect(session.northAzimuthText == "")
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        #expect(defaults.string(forKey: "alignment.northAzimuth.808580f47") == "35.0")
+        #expect(service.lastHint?.hint.headingDeg == 145)
+        defaults.removePersistentDomain(forName: suite)
     }
 }
 

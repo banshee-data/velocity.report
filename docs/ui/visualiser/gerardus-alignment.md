@@ -21,13 +21,13 @@ The address is the UserDefaults key `alignment.serviceAddress` (default `127.0.0
 
 ## The operator's path
 
-| Step             | What the pane does                                                                                                              | Gerardus RPC                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Open the pane    | Lists velocity.report's located replay cases and picks the open capture's                                                       | `GetServerInfo` (on connect)                     |
-| Place from hint  | Prepares the site, places the sensor from the eye-read position and the typed heading, and streams 150 m of reference around it | `PrepareSite`, `PoseFromHint`, `StreamReference` |
-| Nudge            | Moves the reference along the sensor's axes, or turns it about the sensor                                                       | none                                             |
-| Register         | Uploads the settled background once per snapshot, then registers it from the pose drawn now                                     | `UploadScan`, `Register`                         |
-| Accept or reject | Records the pose drawn now as manually placed, or a rejection with its reason                                                   | `ReviewRegistration`, `ListRegistrationRecords`  |
+| Step             | What the pane does                                                                                                                          | Gerardus RPC                                     |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Open the pane    | Lists velocity.report's located replay cases and picks the open capture's                                                                   | `GetServerInfo` (on connect)                     |
+| Place from hint  | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it | `PrepareSite`, `PoseFromHint`, `StreamReference` |
+| Nudge            | Moves the reference along the sensor's axes, or turns it about the sensor                                                                   | none                                             |
+| Register         | Uploads the settled background once per snapshot, then registers it from the pose drawn now                                                 | `UploadScan`, `Register`                         |
+| Accept or reject | Records the pose drawn now as manually placed, or a rejection with its reason                                                               | `ReviewRegistration`, `ListRegistrationRecords`  |
 
 Register comes back `FAILED` while ICP is unbuilt; the registration carries the pose it was given, and Accept records the operator's pose against it. The accepted record is not yet written back to velocity.report: that needs `PUT /api/lidar/sites/{l16}/pose` (Gerardus MVP step 2), and the code marks the place with a TODO.
 
@@ -41,7 +41,9 @@ Gerardus keys everything by the site's S2 L16 token, and its hint needs the eye-
 
 When nothing matches, the operator picks the site from the list.
 
-The heading is typed in. No velocity.report API serves `north_azimuth_deg` from `tools/s2-archive/site-index.json`, and serving it needs a stored column, which belongs to the step-2 pose record. The pane remembers the typed value per site. `north_azimuth_deg` is the compass bearing of the sensor's azimuth zero, which is its +Y axis, so it is sent unchanged as `PoseHint.heading_deg`. An empty field sends no heading, and Gerardus then reports a heading uncertainty of 180°.
+The operator types `north_azimuth_deg` from `tools/s2-archive/site-index.json`. No velocity.report API serves it, and serving it needs a stored column, which belongs to the step-2 pose record. The pane remembers the typed value per site.
+
+`north_azimuth_deg` is not the bearing of the sensor's +Y. It is measured with the web scene viewer's "Align from above" tool, against that viewer's camera. The pane sends `(180 − north_azimuth_deg) mod 360` as `PoseHint.heading_deg`, the bearing of +Y, and shows that value beside the field. The rule is measured, not derived. Gerardus's automatic registration searched every heading and ignored the hint. At three sites whose `north_azimuth_deg` is 35, 131 and 51, it found +Y at 143.5°, 49.4° and 129.9°: 180 − N each time, within 1.5°. A mirrored copy of the scan fitted much worse, so the sensor frame itself is right-handed. An empty field sends no heading, and Gerardus then reports a heading uncertainty of 180°.
 
 ## Frames and drawing
 
@@ -70,4 +72,4 @@ When OSM ways are visible, "© OpenStreetMap contributors" (from `Site.sources`)
 
 - OSM building outlines sit about 0.8 m east of the 3DEP points at the measured sites, and named intersections sit 9 to 34 m from the eye-read positions. Both are in the data, not the drawing; align to the 3DEP points.
 - The sensor model in a scan header is always `hesai-pandar40p`.
-- `lidar-state-estimation-baseline`'s `siteCalibration` rotates the sensor's +X onto `north_azimuth_deg`, 90° from the convention above. It is not used here.
+- `lidar-state-estimation-baseline`'s `siteCalibration` rotates the sensor's +X onto `north_azimuth_deg`. By the measurement above, +Y lies at 180° − N, so +X lies at 270° − N: that transform is wrong too. It is not used here.

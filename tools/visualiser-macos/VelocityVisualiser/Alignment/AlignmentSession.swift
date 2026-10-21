@@ -55,7 +55,10 @@ struct ReferenceSummary: Equatable {
 
     /// Radius of reference requested around the hinted sensor position.
     static let referenceRadiusM: Float = 150
-    static let headingKeyPrefix = "alignment.heading."
+    /// Where the typed north_azimuth_deg is kept per site. The earlier
+    /// "alignment.heading." values were typed when the field meant the
+    /// heading itself, so they are not read.
+    static let northAzimuthKeyPrefix = "alignment.northAzimuth."
     static let reviewerKey = "alignment.reviewer"
 
     // MARK: - Published state
@@ -69,10 +72,11 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var sites: [AlignmentSite] = []
     @Published private(set) var site: AlignmentSite?
     @Published private(set) var siteMatch: AlignmentSiteMatch = .none
-    /// Heading of the sensor's azimuth zero, degrees clockwise from north, as
-    /// the operator typed it: site-index.json's north_azimuth_deg. Empty sends
-    /// a hint with no heading, which Gerardus treats as unknown.
-    @Published var headingText: String = ""
+    /// The site's north_azimuth_deg from site-index.json, as the operator
+    /// typed it. The hint sends the heading derived from it
+    /// (`hintHeadingDeg`); empty sends no heading, which Gerardus treats as
+    /// unknown.
+    @Published var northAzimuthText: String = ""
 
     @Published private(set) var preparedSite: Gerardus_Align_V1alpha1_Site?
     @Published private(set) var progress: Gerardus_Align_V1alpha1_Progress?
@@ -233,15 +237,30 @@ struct ReferenceSummary: Equatable {
 
     private func select(_ chosen: AlignmentSite) {
         site = chosen
-        headingText = defaults?.string(forKey: Self.headingKeyPrefix + chosen.l16Token) ?? ""
+        northAzimuthText =
+            defaults?.string(forKey: Self.northAzimuthKeyPrefix + chosen.l16Token) ?? ""
         clearPlacement()
     }
 
-    /// The typed heading, or nil when the field is empty or unreadable.
-    var headingDeg: Double? {
-        let text = headingText.trimmingCharacters(in: .whitespaces)
+    /// The typed north_azimuth_deg, or nil when the field is empty or
+    /// unreadable.
+    var northAzimuthDeg: Double? {
+        let text = northAzimuthText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty, let value = Double(text), value.isFinite else { return nil }
         return SitePose.wrap360(value)
+    }
+
+    /// The heading the hint sends: the bearing of the sensor's +Y.
+    var hintHeadingDeg: Double? { northAzimuthDeg.map(Self.hintHeading(northAzimuthDeg:)) }
+
+    /// north_azimuth_deg is measured with the web scene viewer's "Align from
+    /// above" tool, against that viewer's camera rather than the sensor's
+    /// axes, so it is not the bearing of +Y. Gerardus's registration, which
+    /// searched every heading and ignored the hint, found the sensor's +Y at
+    /// 143.5°, 49.4° and 129.9° at sites whose north_azimuth_deg is 35, 131
+    /// and 51: 180° − N each time, within 1.5°.
+    nonisolated static func hintHeading(northAzimuthDeg: Double) -> Double {
+        SitePose.wrap360(180 - northAzimuthDeg)
     }
 
     // MARK: - Placement
@@ -250,10 +269,10 @@ struct ReferenceSummary: Equatable {
     /// streams the reference around that position.
     func placeFromHint() async {
         guard let client, let site, busy == nil else { return }
-        let heading = headingDeg
-        if let heading {
-            defaults?.set(String(heading), forKey: Self.headingKeyPrefix + site.l16Token)
+        if let northAzimuth = northAzimuthDeg {
+            defaults?.set(String(northAzimuth), forKey: Self.northAzimuthKeyPrefix + site.l16Token)
         }
+        let heading = hintHeadingDeg
         errorMessage = nil
         defer {
             busy = nil
@@ -327,8 +346,8 @@ struct ReferenceSummary: Equatable {
             hint.position.latitudeDeg = site.latitude
             hint.position.longitudeDeg = site.longitude
         }
-        // north_azimuth_deg is the bearing of azimuth zero, which is the
-        // sensor's +Y: the hint's heading as it stands.
+        // The bearing of the sensor's +Y, already derived from
+        // north_azimuth_deg (hintHeading(northAzimuthDeg:)).
         if let heading { hint.headingDeg = heading }
         return hint
     }
@@ -414,7 +433,7 @@ struct ReferenceSummary: Equatable {
             var request = Gerardus_Align_V1alpha1_RegisterRequest()
             request.scanID = uploaded.scanID
             request.initialPose = posePayload(pose)
-            request.hint = hint(heading: headingDeg)
+            request.hint = hint(heading: hintHeadingDeg)
             registration = try await client.register(request) { [weak self] progress in
                 await self?.show(progress)
             }
