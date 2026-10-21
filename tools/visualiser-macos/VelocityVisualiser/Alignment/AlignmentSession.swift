@@ -61,6 +61,12 @@ struct ReferenceSummary: Equatable {
     // MARK: - Published state
 
     @Published private(set) var availability: Availability = .unknown
+    /// The Gerardus server this session asks; Settings changes it.
+    @Published private(set) var serviceAddress: GerardusAddress
+    /// Why the last probe found no server, while none has answered.
+    @Published private(set) var probeFailure: String?
+    /// True while a probe waits for its answer.
+    @Published private(set) var isChecking = false
     var isAvailable: Bool {
         if case .available = availability { return true }
         return false
@@ -117,8 +123,11 @@ struct ReferenceSummary: Equatable {
 
     // MARK: - Collaborators
 
-    private let makeClient: () -> AlignmentServiceClient
+    private let makeClient: (GerardusAddress) -> AlignmentServiceClient
     private var client: AlignmentServiceClient?
+    /// Bumped when the address changes, so a probe of the old server that
+    /// answers late cannot claim the session for it.
+    private var addressGeneration = 0
     private let lookup: AlignmentSiteLookupClient?
     private let defaults: UserDefaults?
     weak var sink: ReferenceOverlaySink?
@@ -129,15 +138,18 @@ struct ReferenceSummary: Equatable {
     private var hintFrameIDs: (site: String, sensor: String) = ("", "")
 
     /// `lookup` nil skips velocity.report entirely, as tests do; `defaults`
-    /// nil keeps typed headings out of the app's preferences.
+    /// nil keeps typed headings and the server address out of the app's
+    /// preferences.
     init(
-        makeClient: @escaping () -> AlignmentServiceClient = { GerardusClient() },
-        lookup: AlignmentSiteLookupClient? = AlignmentSiteLookupClient(),
+        makeClient: @escaping (GerardusAddress) -> AlignmentServiceClient = {
+            GerardusClient(address: $0)
+        }, lookup: AlignmentSiteLookupClient? = AlignmentSiteLookupClient(),
         defaults: UserDefaults? = .standard
     ) {
         self.makeClient = makeClient
         self.lookup = lookup
         self.defaults = defaults
+        self.serviceAddress = GerardusAddress.saved(in: defaults)
         self.reviewer =
             defaults?.string(forKey: Self.reviewerKey) ?? defaults?.string(
                 forKey: "annotation.operatorName") ?? NSFullUserName()
@@ -148,17 +160,52 @@ struct ReferenceSummary: Equatable {
     /// Asks the alignment service what it is. When nothing answers, the
     /// session stays unavailable and every alignment control stays hidden.
     func probe() async {
-        let candidate = client ?? makeClient()
-        do {
-            let info = try await candidate.connect()
+        let generation = addressGeneration
+        let candidate = client ?? makeClient(serviceAddress)
+        if !isChecking { isChecking = true }
+        var info: Gerardus_Align_V1alpha1_GetServerInfoResponse?
+        var failure: String?
+        do { info = try await candidate.connect() } catch {
+            failure = GerardusClientError.describe(error)
+        }
+        if generation != addressGeneration {
+            // The address changed while this was asked: the answer is stale.
+            if info != nil { candidate.disconnect() }
+        } else if let info {
             client = candidate
             availableLayers = info.availableLayers
             availability = .available(serverVersion: info.serverVersion)
-        } catch {
+            probeFailure = nil
+            isChecking = false
+        } else {
             client = nil
             // Set only on a change, so a repeated miss redraws nothing.
             if availability != .unavailable { availability = .unavailable }
+            if probeFailure != failure { probeFailure = failure }
+            isChecking = false
         }
+    }
+
+    /// Points the session at another Gerardus server, and keeps the address
+    /// as the app's preference. Whatever was placed against the old server
+    /// is dropped, the pane closes until the new one answers, and the new
+    /// one is asked at once. Called again with the same address, it simply
+    /// asks again.
+    func useServiceAddress(_ address: GerardusAddress) {
+        let connected = probing != nil
+        stopProbing()
+        addressGeneration += 1
+        client?.disconnect()
+        client = nil
+        serviceAddress = address
+        address.save(to: defaults)
+        clearPlacement()
+        availability = .unknown
+        probeFailure = nil
+        isChecking = false
+        // While connected the loop keeps asking every reprobeInterval;
+        // otherwise one answer is enough to show whether the address works.
+        if connected { startProbing() } else { Task { await probe() } }
     }
 
     /// How long to wait between probes while no server answers.

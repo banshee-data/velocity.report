@@ -13,11 +13,26 @@ What ships is the manual path of Gerardus MVP 0: the reference, a hint pose, loc
 
 ## Running it
 
-1. Start Gerardus: `gerardus serve` listens on `127.0.0.1:50061` and needs the site prepared under its data directory, or the NAS EPT copy and Overpass to prepare it.
+1. Start Gerardus with `gerardus serve`. It needs the site prepared under its data directory, or the NAS EPT copy and Overpass to prepare it. To be reached from another machine it must listen on more than loopback, for example `--listen 0.0.0.0:50061`.
 2. Start velocity.report on `localhost:8080` and open a capture in the visualiser.
 3. The toolbar shows **Align** once Gerardus answers `GetServerInfo`. While the visualiser is connected to velocity.report it asks at once, then every 30 seconds until a server answers, so Gerardus can start before or after the visualiser. It stops asking when the visualiser disconnects.
 
-The address is the UserDefaults key `alignment.serviceAddress` (default `127.0.0.1:50061`), beside `annotation.serviceURL`, which sets the velocity.report HTTP address both clients use.
+### Which Gerardus server
+
+Settings (⌘,) holds the server's address: a host name or IP address, with an optional port (50061 if left out). For example: `machine.tailnet.ts.net`, `100.64.0.1:50061`, or `[fd7a:115c:a1e0::1]:50061`.
+
+- **Saved:** the address is kept in the app's preferences as `alignment.serviceAddress`. An unset preference, and **Use this Mac**, mean `127.0.0.1:50061`.
+- **Changing it:** **Connect** reconnects at once, closes the pane until the new server answers, and drops whatever was placed against the old one.
+- **Status:** the line under the field names the address in use, and says whether Gerardus answered there and, if not, why.
+- **Bad addresses:** text that is not a host and port is refused before anything is sent. An address with no Gerardus behind it leaves the alignment controls hidden, and nothing else in the app changes.
+
+`annotation.serviceURL` sets the velocity.report HTTP address that the site lookup shares with the other clients. It has no Settings field.
+
+Reaching Gerardus on another machine needs nothing more over Tailscale:
+
+- The app is sandboxed with the outgoing-network entitlement (`com.apple.security.network.client`), which covers any host.
+- macOS 15's Local Network privacy covers only networks on broadcast-capable interfaces, Wi-Fi and Ethernet, not VPNs (Apple TN3179). A Tailscale address or MagicDNS name therefore needs no permission.
+- A server's LAN address does. The first connection makes macOS ask whether VelocityVisualiser may use the local network, giving the app's `NSLocalNetworkUsageDescription`. The system may refuse that first attempt before you answer; the 30-second re-probe then finds the server once access is allowed. If it is denied, re-allow it in System Settings → Privacy & Security → Local Network.
 
 ## The operator's path
 

@@ -43,6 +43,11 @@ private let appLogger = DevLogger(category: "App")
         // from the stream.
         Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
             .defaultSize(width: 1560, height: 940)
+
+        // Settings (⌘,): where the Gerardus alignment server is.
+        Settings {
+            if !AppState.isRunningUnderXCTest { AlignmentSettingsView(session: appState.alignment) }
+        }
     }
 
     init() {

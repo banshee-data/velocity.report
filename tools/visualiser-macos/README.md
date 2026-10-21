@@ -114,7 +114,7 @@ The full workflow is in
 
 ### Aligning a capture with Gerardus
 
-When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers on `127.0.0.1:50061`,
+When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers at the address in Settings (⌘,), `127.0.0.1:50061` unless you change it,
 the toolbar shows **Align**. While connected, the visualiser looks for one every 30 seconds until
 it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and OpenStreetMap ways over the
 capture, places the sensor from its eye-read position and the heading you type, lets you nudge it,
@@ -214,7 +214,7 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 - `pointSize`: Point rendering size
 - `trailDuration`: How long trails persist (seconds)
 - `defaultOverlays`: Which overlays are enabled by default
-- `alignment.serviceAddress`: Gerardus alignment service (127.0.0.1:50061)
+- `alignment.serviceAddress`: Gerardus alignment server, set in Settings (⌘,); unset means 127.0.0.1:50061
 - `annotation.serviceURL`: velocity.report HTTP API (http://localhost:8080)
 
 ## Development

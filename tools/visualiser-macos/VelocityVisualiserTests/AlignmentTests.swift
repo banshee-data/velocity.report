@@ -556,7 +556,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     /// A session whose waits between probes take no time, so each test
     /// awaits the probing loop itself rather than a clock.
     private func session(_ service: FakeAlignmentService) -> AlignmentSession {
-        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: nil)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
         session.reprobeSleep = { _ in await Task.yield() }
         return session
     }
@@ -632,7 +632,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
 
     @Test func theRealIntervalIsThirtySeconds() {
         let session = AlignmentSession(
-            makeClient: { FakeAlignmentService() }, lookup: nil, defaults: nil)
+            makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: nil)
         #expect(session.reprobeInterval == .seconds(30))
     }
 }
@@ -647,7 +647,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     private func placed() async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
         let service = FakeAlignmentService()
         let sink = FakeOverlaySink()
-        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: nil)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
         session.sink = sink
         await session.probe()
         session.choose(site)
@@ -659,7 +659,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     @Test func noServerMeansUnavailable() async {
         let service = FakeAlignmentService()
         service.reachable = false
-        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: nil)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
         await session.probe()
         #expect(session.availability == .unavailable)
         #expect(!session.isAvailable)
@@ -698,7 +698,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
 
     @Test func emptyHeadingSendsNoHeading() async {
         let service = FakeAlignmentService()
-        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: nil)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
         await session.probe()
         session.choose(site)
         await session.placeFromHint()
@@ -808,16 +808,258 @@ final class FakeOverlaySink: ReferenceOverlaySink {
 
 // MARK: - Address
 
-struct GerardusClientAddressTests {
-    @Test func defaultAddressIsTheServersOwn() {
-        #expect(GerardusClient.defaultAddress == "127.0.0.1:50061")
-        #expect(GerardusClient.addressKey == "alignment.serviceAddress")
+struct GerardusAddressTests {
+    @Test func readsHostsAddressesAndPorts() throws {
+        let cases: [(String, String, Int, String)] = [
+            ("127.0.0.1", "127.0.0.1", 50061, "127.0.0.1:50061"),
+            ("  127.0.0.1:50061\n", "127.0.0.1", 50061, "127.0.0.1:50061"),
+            (
+                "machine.tailnet.ts.net", "machine.tailnet.ts.net", 50061,
+                "machine.tailnet.ts.net:50061"
+            ),
+            (
+                "Machine.Tailnet.TS.net.", "machine.tailnet.ts.net", 50061,
+                "machine.tailnet.ts.net:50061"
+            ), ("100.64.0.1:50062", "100.64.0.1", 50062, "100.64.0.1:50062"),
+            ("[fd7a:115c:a1e0::1]:50061", "fd7a:115c:a1e0::1", 50061, "[fd7a:115c:a1e0::1]:50061"),
+            ("fd7a:115c:a1e0::1", "fd7a:115c:a1e0::1", 50061, "[fd7a:115c:a1e0::1]:50061"),
+            ("[::1]", "::1", 50061, "[::1]:50061"),
+            ("FD7A::1", "fd7a::1", 50061, "[fd7a::1]:50061"),
+            ("localhost:1", "localhost", 1, "localhost:1"),
+            ("gerardus:65535", "gerardus", 65535, "gerardus:65535"),
+        ]
+        for (text, host, port, written) in cases {
+            let address = try GerardusAddress.parse(text)
+            #expect(address.host == host, "\(text)")
+            #expect(address.port == port, "\(text)")
+            #expect(address.description == written, "\(text)")
+            // What is written reads back as the same address.
+            #expect(try GerardusAddress.parse(address.description) == address)
+        }
     }
 
-    @Test func parsesHostAndPort() throws {
-        let parsed = try GerardusClient.parse("127.0.0.1:50061")
-        #expect(parsed.host == "127.0.0.1" && parsed.port == 50061)
-        #expect(throws: GerardusClientError.self) { try GerardusClient.parse("localhost") }
-        #expect(throws: GerardusClientError.self) { try GerardusClient.parse(":50061") }
+    @Test func refusesWhatIsNotAHostAndPort() {
+        let refused: [(String, GerardusAddress.ParseError)] = [
+            ("", .empty), ("   ", .empty),
+            (
+                "http://machine.tailnet.ts.net:50061",
+                .notAnAddress("http://machine.tailnet.ts.net:50061")
+            ), ("machine.tailnet.ts.net/align", .notAnAddress("machine.tailnet.ts.net/align")),
+            ("machine tailnet", .notAnAddress("machine tailnet")),
+            ("user@machine", .notAnAddress("user@machine")), ("machine:0", .invalidPort("0")),
+            ("machine:65536", .invalidPort("65536")), ("machine:http", .invalidPort("http")),
+            ("machine:", .invalidPort("An empty port")), ("[fd7a::1", .notAnAddress("[fd7a::1")),
+            ("[fd7a::1]50061", .notAnAddress("[fd7a::1]50061")),
+            ("[machine]:50061", .invalidHost("machine")), ("fd7a::zz", .invalidHost("fd7a::zz")),
+            ("300.1.1.1", .invalidHost("300.1.1.1")),
+            ("-machine.example", .invalidHost("-machine.example")),
+            ("ma_chine.example", .invalidHost("ma_chine.example")),
+            ("machine..example", .invalidHost("machine..example")),
+        ]
+        for (text, expected) in refused {
+            #expect(throws: expected, "\(text)") { try GerardusAddress.parse(text) }
+        }
+    }
+
+    @Test func anIPv6LiteralIsDialledAndANameIsResolved() throws {
+        let v6 = GerardusClient.target(try GerardusAddress.parse("[fd7a::1]:50061"))
+        let name = GerardusClient.target(try GerardusAddress.parse("machine.tailnet.ts.net"))
+        let v4 = GerardusClient.target(try GerardusAddress.parse("100.64.0.1"))
+        #expect(String(describing: type(of: v6)).contains("IPv6"))
+        #expect(String(describing: type(of: name)).contains("DNS"))
+        #expect(String(describing: type(of: v4)).contains("DNS"))
+    }
+
+    @Test func theAddressIsKeptAsAPreference() throws {
+        let suite = "alignment-address-tests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        #expect(GerardusAddress.preferenceKey == "alignment.serviceAddress")
+        // Unset means the server on this Mac, exactly as before.
+        #expect(GerardusAddress.saved(in: defaults) == .local)
+        #expect(GerardusAddress.local.description == "127.0.0.1:50061")
+
+        let remote = try GerardusAddress.parse("machine.tailnet.ts.net")
+        remote.save(to: defaults)
+        #expect(
+            defaults.string(forKey: "alignment.serviceAddress") == "machine.tailnet.ts.net:50061")
+        #expect(GerardusAddress.saved(in: defaults) == remote)
+
+        // Going back to the default removes the preference.
+        GerardusAddress.local.save(to: defaults)
+        #expect(defaults.object(forKey: "alignment.serviceAddress") == nil)
+
+        // A value broken outside the app falls back to this Mac.
+        defaults.set("http://nowhere/", forKey: "alignment.serviceAddress")
+        #expect(GerardusAddress.saved(in: defaults) == .local)
+        #expect(GerardusAddress.saved(in: nil) == .local)
+        defaults.removePersistentDomain(forName: suite)
+    }
+}
+
+/// A server that answers only when the test lets it, to make a probe that
+/// is still waiting when the address changes.
+final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
+    private let inner = FakeAlignmentService()
+    private var held: CheckedContinuation<Void, Never>?
+    var isHeld: Bool { held != nil }
+    private(set) var disconnected = false
+
+    func release() {
+        held?.resume()
+        held = nil
+    }
+
+    func connect() async throws -> Gerardus_Align_V1alpha1_GetServerInfoResponse {
+        await withCheckedContinuation { held = $0 }
+        return try await inner.connect()
+    }
+    func disconnect() { disconnected = true }
+    func prepareSite(
+        l16Token: String, label: String,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_Site {
+        try await inner.prepareSite(l16Token: l16Token, label: label, onProgress: onProgress)
+    }
+    func streamReference(
+        _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
+    ) async throws -> ReferenceGeometry { try await inner.streamReference(request) }
+    func poseFromHint(
+        _ request: Gerardus_Align_V1alpha1_PoseFromHintRequest
+    ) async throws -> Gerardus_Align_V1alpha1_PoseFromHintResponse {
+        try await inner.poseFromHint(request)
+    }
+    func uploadScan(
+        header: Gerardus_Align_V1alpha1_ScanHeader, blocks: [Gerardus_Align_V1alpha1_PointBlock]
+    ) async throws -> Gerardus_Align_V1alpha1_UploadScanResponse {
+        try await inner.uploadScan(header: header, blocks: blocks)
+    }
+    func register(
+        _ request: Gerardus_Align_V1alpha1_RegisterRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_Registration {
+        try await inner.register(request, onProgress: onProgress)
+    }
+    func reviewRegistration(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest
+    ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
+        try await inner.reviewRegistration(request)
+    }
+    func listRegistrationRecords(
+        l16Token: String
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        try await inner.listRegistrationRecords(l16Token: l16Token)
+    }
+}
+
+@MainActor struct AlignmentAddressChangeTests {
+    private let remote = try! GerardusAddress.parse("machine.tailnet.ts.net")
+
+    /// Lets the session's own tasks run until `done` holds, with no clock.
+    private func settle(_ done: () -> Bool) async {
+        for _ in 0..<1_000 where !done() { await Task.yield() }
+    }
+
+    @Test func theSessionStartsFromTheSavedAddress() throws {
+        let suite = "alignment-address-tests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        remote.save(to: defaults)
+        var asked: [GerardusAddress] = []
+        let session = AlignmentSession(
+            makeClient: {
+                asked.append($0)
+                return FakeAlignmentService()
+            }, lookup: nil, defaults: defaults)
+        #expect(session.serviceAddress == remote)
+        #expect(asked.isEmpty)
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    @Test func changingTheAddressAsksTheNewServerAndKeepsIt() async throws {
+        let suite = "alignment-address-tests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let local = FakeAlignmentService()
+        let unreachable = FakeAlignmentService()
+        unreachable.reachable = false
+        var asked: [GerardusAddress] = []
+        let session = AlignmentSession(
+            makeClient: { address in
+                asked.append(address)
+                return address == .local ? local : unreachable
+            }, lookup: nil, defaults: defaults)
+        await session.probe()
+        #expect(session.isAvailable)
+
+        // Not connected to velocity.report: one probe of the new address.
+        session.useServiceAddress(remote)
+        #expect(session.availability == .unknown)
+        await settle { session.availability == .unavailable }
+        #expect(session.availability == .unavailable)
+        #expect(session.probeFailure != nil)
+        #expect(!session.isChecking)
+        #expect(asked == [.local, remote])
+        #expect(defaults.string(forKey: "alignment.serviceAddress") == remote.description)
+
+        // Back to this Mac: found again, and the preference is cleared.
+        session.useServiceAddress(.local)
+        await settle { session.isAvailable }
+        #expect(session.isAvailable)
+        #expect(session.probeFailure == nil)
+        #expect(defaults.object(forKey: "alignment.serviceAddress") == nil)
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    @Test func whileConnectedTheLoopFollowsTheNewAddress() async {
+        let found = FakeAlignmentService()
+        found.failuresBeforeAnswering = 1
+        var asked: [GerardusAddress] = []
+        let session = AlignmentSession(
+            makeClient: { address in
+                asked.append(address)
+                return found
+            }, lookup: nil, defaults: nil)
+        session.reprobeSleep = { _ in await Task.yield() }
+        session.startProbing()
+        await session.probing?.value
+        #expect(session.isAvailable)
+
+        session.useServiceAddress(remote)
+        #expect(session.probing != nil)
+        await session.probing?.value
+        #expect(session.isAvailable)
+        #expect(session.serviceAddress == remote)
+        // The first miss made a fresh client for the retry; the change made
+        // one for the new address.
+        #expect(asked == [.local, .local, remote])
+    }
+
+    @Test func aLateAnswerFromTheOldServerIsIgnored() async {
+        let held = HeldAlignmentService()
+        let unreachable = FakeAlignmentService()
+        unreachable.reachable = false
+        let session = AlignmentSession(
+            makeClient: { $0 == .local ? held as AlignmentServiceClient : unreachable },
+            lookup: nil, defaults: nil)
+        let first = Task { await session.probe() }
+        await settle { held.isHeld }
+        #expect(session.isChecking)
+
+        session.useServiceAddress(remote)
+        await settle { session.availability == .unavailable }
+        held.release()
+        await first.value
+        #expect(session.availability == .unavailable)
+        #expect(session.serviceAddress == remote)
+        #expect(held.disconnected)
+    }
+
+    @Test func changingTheAddressClosesThePane() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        let app = AppState(autoConnectOnStartup: false, alignment: session)
+        await session.probe()
+        app.toggleAlignmentPane()
+        #expect(app.showAlignmentPane)
+        session.useServiceAddress(remote)
+        #expect(!app.showAlignmentPane)
     }
 }
