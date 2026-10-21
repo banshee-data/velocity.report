@@ -5,6 +5,26 @@
 - **Related:** [Clustering Maths](../../data/maths/clustering-maths.md), [Performance and Scene Health Metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [Analysis Run Infrastructure](lidar-analysis-run-infrastructure-plan.md)
 - **Canonical:** [clustering-diagnostics.md](../lidar/operations/clustering-diagnostics.md)
 
+## Source-review follow-up
+
+The [SpatialRust segmentation review](../lidar/operations/spatialrust-segmentation-review.md)
+compares upstream code with the current pipeline. This plan's original problem statement and
+implementation sequence predate existing frame timers, `DBSCANWithTrace`, observation taps,
+deterministic input capping, and performance gates. Audit those implementations before scheduling
+the work below; this review leaves the plan's parked status unchanged.
+
+Proposed additions are core/border/noise diagnostics, exact membership comparisons against an
+independent XY oracle, and completed-frame cost by input density. Keep algorithm changes in
+separate experiment specs: prioritise l4clus0003's answered result, keeping 8 in Stage B and
+investigating fragment joining before cost-only work. Check sparse XY radius-graph paths first,
+then compare Euclidean XY connectivity, and only then change the vertical distance rule. A new
+backend must preserve source ordinals and rejection evidence. The production callback calls DBSCAN directly,
+so implementing `ClustererInterface` alone does not integrate an alternative algorithm.
+
+Use the review's proposed gates and case requirements when writing follow-up specs. Record raw
+benchmark and replay outputs locally and edited findings in `docs/`, following `AGENTS.md`;
+historical references below to checked-in logs do not override that rule.
+
 ## Problem
 
 Two classes of problem lack tooling:

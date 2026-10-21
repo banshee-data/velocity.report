@@ -16,6 +16,10 @@ file is just the index — start there for any layer detail.
 
 ## Quick links
 
+The [SpatialRust segmentation review](operations/spatialrust-segmentation-review.md) compares
+implemented upstream algorithms with our L3/L4 pipeline and proposes experiments, coding slices,
+and adoption gates.
+
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |
 | Ten-layer architecture   | [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md)                           |
