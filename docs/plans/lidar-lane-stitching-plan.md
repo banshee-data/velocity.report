@@ -1,10 +1,12 @@
 # LiDAR lane-constrained fragment stitching plan
 
-- **Status:** Proposed; five specs written as `proposed` (none approved), no code written
+- **Status:** Active (the owner, October 21, 2026), in the D-32 slot of the parked
+  [unpopulated data structures plan](unpopulated-data-structures-remediation-plan.md); five specs
+  written as `proposed` (none approved), no code written
 - **Decisions:** relies on D-32 in two ways. The L7 scene plan is parked under it, so nothing here
-  may need L7. Twelve plan files already carry Active or In progress, so this plan stays Proposed
-  until one of them parks or completes. Proposes no DECISIONS entry until the held-out experiment
-  answers, except the neutral geometry boundary (Scope, P1)
+  may need L7. Twelve plan files carried Active or In progress, so the owner parked one to make
+  room. Proposes no DECISIONS entry until the held-out experiment answers, except the neutral
+  geometry boundary (Scope, P1)
 - **Layers:** L5 Tracks (offline identity links), a neutral lane-geometry package, L8 consumers,
   macOS review tool
 - **Target:** none until [l5id0010](../../data/experiments/l5id/l5id0010.md) passes; offline and
@@ -204,11 +206,11 @@ should be assumed.
 
 | Phase | Work                                    | Experiment                                          | Gate to proceed                                                                                               |
 | ----- | --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| P0    | C0, C1; census of fragment gaps on kirk | [l5id0007](../../data/experiments/l5id/l5id0007.md) | at least 40 true vehicle links (spec rule 1), and at least half the gaps occlusion-shaped (rule 2)            |
+| P0    | C0, C1; census of fragment gaps on kirk | [l5id0007](../../data/experiments/l5id/l5id0007.md) | at least 40 true vehicle links (spec rule 1); at least half the gaps occlusion-shaped, or l5id0008 waits (2)  |
 | P1    | C2, C3; lane maps for kirk              | [lane0001](../../data/experiments/lane/lane0001.md) | membership and drawing time inside the spec's rule; a D-NN for the neutral geometry boundary before C2 merges |
 | P2    | C4–C9; offline baseline and lane linker | [l5id0008](../../data/experiments/l5id/l5id0008.md) | link precision and identity scores on kirk's tuning split                                                     |
 | P3    | C10, C11; merges, a second placement    | [l5id0009](../../data/experiments/l5id/l5id0009.md) | merge links graded at the same precision                                                                      |
-| P4    | frozen held-out score and consumers     | [l5id0010](../../data/experiments/l5id/l5id0010.md) | held-out precision; following and counts unchanged in kind                                                    |
+| P4    | frozen held-out score and consumers     | [l5id0010](../../data/experiments/l5id/l5id0010.md) | held-out precision and recall 0.90; count error below `a0`'s; following unchanged in kind                     |
 | P5    | C12, a decision on persistence          | none                                                | a `D-NN` entry                                                                                                |
 | P6    | C13, live fixed-lag                     | not queued                                          | a Pi timing experiment written then                                                                           |
 
@@ -223,21 +225,28 @@ the rule that binds it, written before its runs.
   leaves today's state. Vehicle link precision must be at least 0.98, with recall reported.
 - **Identity scores must not fall.** HOTA and IDF1 on the same split no lower than without
   links less 0.005.
-- **Linking must pay for itself.** Link recall at least 0.50 of the true vehicle links, and
-  identity switches (each chain scored as one track) at most `a0`'s less half the accepted true
-  links, rounded up. The floor applies on kirk (l5id0008) and, not lowered, on the held-out
-  window (l5id0010). Fragmentations (MOT16 FM) are not a benefit measure: FM counts a reference
+- **Linking must pay for itself, at Dong's level or above.** Link recall over every true vehicle
+  link in view at least 0.95 on kirk (l5id0008) and 0.90 on the held-out window (l5id0010),
+  against Dong et al.'s 0.916 over the missed stitches in one 50 m zone, measured on their tuning
+  data; and identity switches (each chain scored as one track) at most `a0`'s less half the
+  accepted true links, rounded up. Recall in a 50 m lane zone, their denominator, is reported for
+  comparison and rules nothing. Fragmentations (MOT16 FM) are not a benefit measure: FM counts a reference
   going from tracked to untracked and back whatever the identity, so a link leaves it unchanged.
 - **Counts are read, not tuned on.** The 50 m zone count error is reported for every arm and
-  decides nothing on the split it was tuned on.
+  decides nothing on kirk. On the held-out window it must be lower than `a0`'s; its value is
+  reported beside Dong et al.'s corrected 2.6% and does not rule, since missed detections also
+  set it.
 - **Observed time does not grow.** Total observed vehicle seconds is identical with and without
   links; a change means an interval was invented.
 
 Two facts bind these rules. Below 50 accepted links, a precision of 0.98 admits no wrong link.
 A zero-error record of 40 links gives a 95% lower bound of about 0.91; about 180 zero-error links
 are needed for a lower bound of 0.98. The rules above are the point test only, and any report
-states the count and an interval beside each ratio. The benefit floor answers the Flo review's
-Finding 3; at 40 true links, a recall of 0.50 carries a 95% interval of about 0.34 to 0.66.
+states the count and an interval beside each ratio. The recall floors answer the Flo review's
+Finding 3: at 40 true links, 0.95 allows two misses (38 of 40, 95% interval about 0.83 to 0.99);
+at 30 held-out links, 0.90 allows three. Over every link in view rather than one zone, these are
+a harder bar than the paper's: gaps that L3 and L4 losses cause count against them as well as
+occlusions, which is why l5id0007 holds l5id0008 back when most gaps are not occlusion.
 
 ## Dependencies
 
@@ -291,9 +300,10 @@ Findings (H high, M medium, L low):
    rule; print the count and a Clopper–Pearson interval beside each ratio.
 3. **H. No pass clause requires benefit.** An arm linking one correct pair passes l5id0008
    rule 1 and l5id0010 rule 1. The owner sets a recall or fragmentation floor against `a0`
-   before l5id0008 runs. _Resolved 2026-10-21:_ recall at least 0.50, and identity switches at
-   most `a0`'s less half the accepted true links, in both specs; fragmentation was set aside,
-   since MOT16 FM does not move when a link adds no observation.
+   before l5id0008 runs. _Resolved by the owner, 2026-10-21:_ recall over every true vehicle
+   link at least 0.95 on kirk and 0.90 held-out, aligned with Dong et al.'s 0.916, and identity
+   switches at most `a0`'s less half the accepted true links; fragmentation was set aside, since
+   MOT16 FM does not move when a link adds no observation.
 4. **H. The fallback drops the comparison, and l5id0009 cannot read it.** Under 40 links,
    `lane-assign` is carried on design alone; rules 2 and 3 are then unreadable, since
    l5id0009 runs no dong-like or occlusion arm. It is not circular (no output feeds back).
@@ -306,17 +316,18 @@ Findings (H high, M medium, L low):
    plus replay flags; `fragment_link_*` does not exist; `coast_support` has no config key.
    C9 builds one set per linker arm, with its row in `config/experiments/README.md`.
 7. **M. D-32 is at its cap.** Twelve plan files carry Active or In progress. This plan goes
-   Active only when one parks or completes. The owner decides which.
+   Active only when one parks or completes. The owner decides which. _Resolved 2026-10-21:_ the
+   owner parked the unpopulated data structures plan; its v0.5.4 rows stay in BACKLOG.md.
 8. **M. The estimates under-count.** The table held 54h for C1 to C11; the specs carry about
    86 person-hours on one operator. C0, C14 and C15 are added, and the gap is stated.
 9. **M. Estimate disagreement, fixed.** l5id0008 implement was 19h against C4 to C9 at 20h.
    Set to 20h; the graph is regenerated.
 10. **M. A draw estimate contradicts its own rule.** lane0001 `draw` is 1h; clause 4 needs under
     45 minutes. The owner keeps 45 minutes and accepts the expected failure, or moves clause 4
-    to 60 minutes before drawing. Not changed.
+    to 60 minutes before drawing. _Resolved 2026-10-21:_ 60 minutes.
 11. **M. The P0 gate disagreed with its spec.** It said "most gaps"; rule 2 says "fewer than
-    half" only triggers a report. The plan now says "at least half". Open: whether a share below
-    half halts l5id0008.
+    half" only triggers a report. The plan now says "at least half". _Resolved 2026-10-21:_ a
+    share below half halts l5id0008 until the upstream experiment has run.
 12. **M. The link pool is the tracker's own fragmentation count.** kirk0 has 48 at `a0`
     (l5-duplicate-tracks-2026-10.md) and 31 to 36 under the duplicate arms. The floor may fail
     once those ship. Measure the floor on the arm the linker runs on.
@@ -335,7 +346,8 @@ Findings (H high, M medium, L low):
     minimum: link list, wrong and missed toggles, two-fragment time-distance strip. The full
     segment panel waits. C13 stays unscheduled; C12 waits for l5id0010.
 19. **M. Counts are read but carry no value clause.** Before l5id0010 runs, state the
-    held-out direction, for example a count error no higher than `a0`'s.
+    held-out direction, for example a count error no higher than `a0`'s. _Resolved 2026-10-21:_
+    lower than `a0`'s; the value is reported against Dong et al.'s and does not rule.
 20. **L. Pre-registration needs a commit.** The "2026-10-21" stamps are dates, not proof. Record
     the approving commit SHA in each spec.
 21. **L. Companions and boundary.** Bodies in motion is linked. The behaviour plan (line 621)
@@ -353,7 +365,7 @@ Resulting sequence:
    select and propose, moved into P0 (the longest human lead time, and no linker waits on it).
 2. Gate A: l5id0007 links and fate, under rules 1 and 2 as corrected (Finding 11).
 3. Gate B: lane0001 membership, with clause 4 decided (Finding 10).
-4. C9 parameter sets and the geometry-boundary D-NN, with the floor from Finding 3 already set.
+4. C9 parameter sets and the geometry-boundary D-NN (the Finding 3 floors are set).
 5. l5id0008 (C4 to C8, 20h): replay, links, score.
 6. Gate C: pass, or the l5id0009 fallback with the dong-like arm added (Finding 4).
 7. C10 spike, then the grading minimum; l5id0009 replays, grades and decides transitions.
