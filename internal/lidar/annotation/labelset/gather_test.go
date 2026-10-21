@@ -187,3 +187,110 @@ func TestGatherRefusesBeforeMovingAnything(t *testing.T) {
 		}
 	}
 }
+
+func TestSetCaptureName(t *testing.T) {
+	root := t.TempDir()
+	old := filepath.Join(root, "labels", "kirk0-reference")
+	pack := func(set *nestSet, pcap string) *nestPack {
+		p := &nestPack{set: set}
+		p.manifest.Source.PCAPBasename = pcap
+		return p
+	}
+
+	nested := &nestSet{dir: filepath.Join(root, kirkStem, "labels", "kirk0-reference")}
+	if got := setCaptureName(root, nested, nil); got != "labels" {
+		t.Errorf("a set not in the root's labels/ keeps its parent folder: got %q", got)
+	}
+
+	s := &nestSet{dir: old}
+	other := &nestSet{dir: filepath.Join(root, "labels", "other")}
+	packs := []*nestPack{pack(s, kirkStem+".pcapng"), pack(other, embStem+".pcapng")}
+	if got := setCaptureName(root, s, packs); got != kirkStem {
+		t.Errorf("named by its own pack: got %q, want %q", got, kirkStem)
+	}
+
+	bound := &nestSet{dir: old, appliesTo: []Binding{{Name: embStem + ".pcapng"}}}
+	if got := setCaptureName(root, bound, nil); got != embStem {
+		t.Errorf("named by its binding when no pack names it: got %q, want %q", got, embStem)
+	}
+
+	two := []*nestPack{pack(s, kirkStem+".pcapng"), pack(s, embStem+".pcapng")}
+	if got := setCaptureName(root, s, two); got != "" {
+		t.Errorf("two captures name the set: got %q, want none", got)
+	}
+	if got := setCaptureName(root, &nestSet{dir: old}, nil); got != "" {
+		t.Errorf("nothing names the set: got %q, want none", got)
+	}
+}
+
+func TestSameHead(t *testing.T) {
+	dir := t.TempDir()
+	a := boundSet(t, filepath.Join(dir, "pa"), filepath.Join(dir, "a"), "a", 1)
+	// The dataset's copy of the same set, before any further local edit.
+	if err := os.CopyFS(filepath.Join(dir, "b"), os.DirFS(filepath.Join(dir, "a"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := sameHead(filepath.Join(dir, "a"), filepath.Join(dir, "b")); err != nil {
+		t.Fatalf("a set and its copy: %v", err)
+	}
+	a.State.Records.Objects = append(a.State.Records.Objects, annotation.Object{ObjectID: "obj_local", Class: "car", Status: annotation.StatusProposed, Confidence: 1})
+	if err := a.Save(Change{Author: "dd", Operation: "edit"}); err != nil {
+		t.Fatal(err)
+	}
+	err := sameHead(filepath.Join(dir, "a"), filepath.Join(dir, "b"))
+	if err == nil || !strings.Contains(err.Error(), "stage-label-sets.py --replace") {
+		t.Fatalf("copies at different heads: got %v", err)
+	}
+	if err := sameHead(filepath.Join(dir, "missing"), filepath.Join(dir, "b")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("a copy with no manifest: got %v", err)
+	}
+}
+
+func TestGatherSplits(t *testing.T) {
+	from, into := t.TempDir(), t.TempDir()
+	var problems []string
+	problem := func(format string, args ...any) { problems = append(problems, format) }
+
+	if moves, err := gatherSplits(from, into, problem); err != nil || moves != nil {
+		t.Fatalf("no splits folder: got %v, %v", moves, err)
+	}
+
+	write := func(path, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(from, "splits", "new.json"), `{"a":1}`)
+	write(filepath.Join(from, "splits", "same.json"), `{"b":2}`)
+	write(filepath.Join(into, "splits", "same.json"), `{"b":2}`)
+	write(filepath.Join(from, "splits", "differs.json"), `{"c":3}`)
+	write(filepath.Join(into, "splits", "differs.json"), `{"c":4}`)
+	write(filepath.Join(from, "splits", ".hidden"), "x")
+	if err := os.Mkdir(filepath.Join(from, "splits", "sub"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	moves, err := gatherSplits(from, into, problem)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []NestMove{
+		{"split", filepath.Join("splits", "new.json"), filepath.Join("splits", "new.json")},
+		{"split (already there)", filepath.Join("splits", "same.json"), filepath.Join("splits", "same.json")},
+	}
+	if len(moves) != len(want) {
+		t.Fatalf("moves: got %v, want %v", moves, want)
+	}
+	for i := range want {
+		if moves[i] != want[i] {
+			t.Errorf("move %d: got %v, want %v", i, moves[i], want[i])
+		}
+	}
+	if len(problems) != 1 || !strings.Contains(problems[0], "differs from the dataset's") {
+		t.Errorf("a split with other bytes is a problem: got %v", problems)
+	}
+}
