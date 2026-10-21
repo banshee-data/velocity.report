@@ -30,7 +30,7 @@ REQUIRED_FILES = (
 ROOT_URL = re.compile(r'(?:href|src)="/(?!public_html/|docs/|/)')
 ROOT_CSS_URL = re.compile(r'url\("/')
 # The reference graph page is for the public site at the origin only: the Pi
-# image has no use for its 3.6 MB graph, so the image build leaves it out.
+# image has no use for its 2 MB graph, so the image build leaves it out.
 PUBLIC_ONLY = ("docs/reference-graph",)
 
 

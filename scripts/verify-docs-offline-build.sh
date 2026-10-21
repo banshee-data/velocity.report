@@ -23,7 +23,7 @@ for required_page in \
 	fi
 done
 
-# The reference graph page and its 3.6 MB graph belong to the public site
+# The reference graph page and its 2 MB graph belong to the public site
 # (public_html/src/docs/reference-graph/). These docs are embedded in the
 # binary, so fail if any of it is copied in, for instance by a reference-graph
 # file landing back under data/ where the src/**/*.json passthrough finds it.

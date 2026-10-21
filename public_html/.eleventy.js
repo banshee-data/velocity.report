@@ -117,7 +117,7 @@ module.exports = async function (eleventyConfig) {
   }
 
   // The reference graph page (/docs/reference-graph/) belongs to the public
-  // site only: unlinked for now, and its 3.6 MB graph is nothing the Pi image
+  // site only: unlinked for now, and its 2 MB graph is nothing the Pi image
   // needs. Its data and module sit beside the page; the bibliography it reads
   // stays canonical in data/maths and is copied in.
   const referenceGraph = "src/docs/reference-graph";
