@@ -115,7 +115,8 @@ The full workflow is in
 ### Aligning a capture with Gerardus
 
 When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers on `127.0.0.1:50061`,
-the toolbar shows **Align**. The pane draws USGS 3DEP points and OpenStreetMap ways over the
+the toolbar shows **Align**. While connected, the visualiser looks for one every 30 seconds until
+it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and OpenStreetMap ways over the
 capture, places the sensor from its eye-read position and the heading you type, lets you nudge it,
 and records an accepted pose in Gerardus's alignment log. Without a Gerardus server the toolbar
 and the app are unchanged. See

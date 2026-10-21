@@ -9,6 +9,7 @@
 //  nudge sends nothing.
 //
 
+import Combine
 import Foundation
 import SwiftProtobuf
 import Testing
@@ -407,6 +408,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         return _calls
     }
     var reachable = true
+    /// Probes that fail before the server first answers.
+    var failuresBeforeAnswering = 0
     var lastHint: Gerardus_Align_V1alpha1_PoseFromHintRequest?
     var lastReference: Gerardus_Align_V1alpha1_StreamReferenceRequest?
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
@@ -424,6 +427,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     func connect() async throws -> Gerardus_Align_V1alpha1_GetServerInfoResponse {
         log("GetServerInfo")
         guard reachable else { throw GerardusClientError.notConnected }
+        if failuresBeforeAnswering > 0 {
+            failuresBeforeAnswering -= 1
+            throw GerardusClientError.notConnected
+        }
         var info = Gerardus_Align_V1alpha1_GetServerInfoResponse()
         info.serverVersion = "0.1.0"
         info.apiVersion = "gerardus.align.v1alpha1"
@@ -542,6 +549,91 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     func setReferenceModelMatrix(_ matrix: simd_float4x4) { matrices.append(matrix) }
     func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
         visibility = (aerial, osm, intersections)
+    }
+}
+
+@MainActor struct AlignmentProbingTests {
+    /// A session whose waits between probes take no time, so each test
+    /// awaits the probing loop itself rather than a clock.
+    private func session(_ service: FakeAlignmentService) -> AlignmentSession {
+        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: nil)
+        session.reprobeSleep = { _ in await Task.yield() }
+        return session
+    }
+
+    @Test func probingRetriesUntilAServerAnswers() async {
+        let service = FakeAlignmentService()
+        service.failuresBeforeAnswering = 2
+        let session = session(service)
+        session.startProbing()
+        // The loop ends by itself once a server has answered.
+        await session.probing?.value
+        #expect(session.isAvailable)
+        #expect(service.calls == ["GetServerInfo", "GetServerInfo", "GetServerInfo"])
+    }
+
+    @Test func probingStopsWhenToldTo() async {
+        let service = FakeAlignmentService()
+        service.reachable = false
+        let session = session(service)
+        var waits = 0
+        session.reprobeSleep = { _ in
+            waits += 1
+            if waits == 2 { session.stopProbing() }
+        }
+        session.startProbing()
+        let loop = session.probing
+        await loop?.value
+        #expect(service.calls.count == 2)
+        #expect(session.probing == nil)
+        #expect(session.availability == .unavailable)
+    }
+
+    @Test func theAppLooksForGerardusOnlyWhileConnected() async {
+        let service = FakeAlignmentService()
+        service.failuresBeforeAnswering = 2
+        let session = session(service)
+        let app = AppState(autoConnectOnStartup: false, alignment: session)
+        #expect(session.probing == nil)
+
+        // Connecting starts the loop and disconnecting stops it, before it
+        // has asked anything.
+        app.isConnected = true
+        #expect(session.probing != nil)
+        app.isConnected = false
+        #expect(session.probing == nil)
+        #expect(service.calls.isEmpty)
+
+        // No server has answered yet, so the pane cannot open.
+        app.toggleAlignmentPane()
+        #expect(!app.showAlignmentPane)
+
+        // Connected again: it keeps asking until the server answers.
+        app.isConnected = true
+        await session.probing?.value
+        #expect(service.calls.count == 3)
+        #expect(session.isAvailable)
+        app.toggleAlignmentPane()
+        #expect(app.showAlignmentPane)
+    }
+
+    @Test func aMissDoesNotRepublishUnavailable() async {
+        let service = FakeAlignmentService()
+        service.reachable = false
+        let session = session(service)
+        var published = 0
+        let watch = session.$availability.dropFirst().sink { _ in published += 1 }
+        await session.probe()
+        await session.probe()
+        await session.probe()
+        #expect(published == 1)
+        watch.cancel()
+    }
+
+    @Test func theRealIntervalIsThirtySeconds() {
+        let session = AlignmentSession(
+            makeClient: { FakeAlignmentService() }, lookup: nil, defaults: nil)
+        #expect(session.reprobeInterval == .seconds(30))
     }
 }
 

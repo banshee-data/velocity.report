@@ -156,8 +156,43 @@ struct ReferenceSummary: Equatable {
             availability = .available(serverVersion: info.serverVersion)
         } catch {
             client = nil
-            availability = .unavailable
+            // Set only on a change, so a repeated miss redraws nothing.
+            if availability != .unavailable { availability = .unavailable }
         }
+    }
+
+    /// How long to wait between probes while no server answers.
+    var reprobeInterval: Duration = .seconds(30)
+    /// How the loop waits out `reprobeInterval`. Tests replace it so they
+    /// can await the loop itself instead of a clock.
+    var reprobeSleep: @MainActor (Duration) async throws -> Void = { try await Task.sleep(for: $0) }
+    /// The loop `startProbing()` runs; it ends once a server answers.
+    private(set) var probing: Task<Void, Never>?
+
+    /// Probes now and, while nothing answers, again every `reprobeInterval`
+    /// until a server does or `stopProbing()` is called, so a Gerardus
+    /// started after the visualiser connected still brings up the pane.
+    func startProbing() {
+        probing?.cancel()
+        probing = Task { [weak self] in
+            while !Task.isCancelled {
+                guard await self?.probeOnce() == false, let interval = self?.reprobeInterval,
+                    let nap = self?.reprobeSleep
+                else { break }
+                try? await nap(interval)
+            }
+        }
+    }
+
+    func stopProbing() {
+        probing?.cancel()
+        probing = nil
+    }
+
+    /// One probe; true once a server has answered.
+    private func probeOnce() async -> Bool {
+        await probe()
+        return isAvailable
     }
 
     // MARK: - Site

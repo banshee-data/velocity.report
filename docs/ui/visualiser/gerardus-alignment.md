@@ -15,7 +15,7 @@ What ships is the manual path of Gerardus MVP 0: the reference, a hint pose, loc
 
 1. Start Gerardus: `gerardus serve` listens on `127.0.0.1:50061` and needs the site prepared under its data directory, or the NAS EPT copy and Overpass to prepare it.
 2. Start velocity.report on `localhost:8080` and open a capture in the visualiser.
-3. The toolbar shows **Align** once Gerardus answers `GetServerInfo`. The probe runs each time the visualiser connects to velocity.report.
+3. The toolbar shows **Align** once Gerardus answers `GetServerInfo`. While the visualiser is connected to velocity.report it asks at once, then every 30 seconds until a server answers, so Gerardus can start before or after the visualiser. It stops asking when the visualiser disconnects.
 
 The address is the UserDefaults key `alignment.serviceAddress` (default `127.0.0.1:50061`), beside `annotation.serviceURL`, which sets the velocity.report HTTP address both clients use.
 
