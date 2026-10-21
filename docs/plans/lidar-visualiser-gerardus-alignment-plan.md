@@ -30,7 +30,7 @@ The first slice is built. The visualiser connects to `gerardus serve` on `127.0.
 
 The contract and its reasoning are Gerardus's: `align.proto` and `docs/INTERFACE-VISUALISER.md` in banshee-data/gerardus. Three choices were made here.
 
-1. **Heading.** No velocity.report API serves `north_azimuth_deg`, so the operator types it and the pane remembers it per site. Serving it needs a stored column; that column belongs to the step-2 pose record rather than to a second place.
+1. **Heading.** No velocity.report API serves `north_azimuth_deg`, so the operator types it and the pane remembers it per site. Serving it needs a stored column; that column belongs to the step-2 pose record rather than to a second place. The hint sends `(180 − north_azimuth_deg) mod 360`, the bearing the Gerardus registration found for the sensor's +Y at three sites. The hub doc gives the evidence.
 2. **Nudges move the drawing.** A nudge moves the reference by one step along the sensor's axes, or turns it about the sensor, because those are the axes the operator sees. The pose becomes `P·N⁻¹`.
 3. **Colours ride in the point layout.** The point shader's table mode reads a palette from fragment buffer 0. The reference binds its own palette there and puts a one-byte code (ASPRS class ramp and intensity shade) in the intensity slot, so the shader is unchanged.
 
@@ -73,11 +73,11 @@ The contract and its reasoning are Gerardus's: `align.proto` and `docs/INTERFACE
 
 ## Risks
 
-| Risk                                                                  | Likelihood | Impact | Mitigation                                                                                       |
-| --------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------ |
-| The `v1alpha1` contract changes before MVP 0 closes                   | High       | Medium | One vendored file with its commit in the header; `make proto-gen-swift` regenerates              |
-| A typed heading is wrong by 90°, as `siteCalibration`'s convention is | Medium     | Medium | The pane shows the heading it sends, and a wrong heading is visible at once against the OSM ways |
-| A Gerardus server that is down mid-session                            | Low        | Low    | Calls fail with their gRPC status in the pane; nothing else depends on them                      |
+| Risk                                                                                                                  | Likelihood | Impact | Mitigation                                                                                                   |
+| --------------------------------------------------------------------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------------------------------------------------------ |
+| The `v1alpha1` contract changes before MVP 0 closes                                                                   | High       | Medium | One vendored file with its commit in the header; `make proto-gen-swift` regenerates                          |
+| `north_azimuth_deg` is taken for the heading itself, as the first version of this pane and `siteCalibration` both did | Medium     | Medium | The pane converts it and shows the heading it sends; a wrong heading is visible at once against the OSM ways |
+| A Gerardus server that is down mid-session                                                                            | Low        | Low    | Calls fail with their gRPC status in the pane; nothing else depends on them                                  |
 
 ## Checklist
 
