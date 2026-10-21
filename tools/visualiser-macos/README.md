@@ -112,6 +112,15 @@ palette has a separate measured-zero swatch, a 1–255 gradient and an unavailab
 The full workflow is in
 [point-annotation-tool.md](../../docs/lidar/operations/point-annotation-tool.md).
 
+### Aligning a capture with Gerardus
+
+When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers on `127.0.0.1:50061`,
+the toolbar shows **Align**. The pane draws USGS 3DEP points and OpenStreetMap ways over the
+capture, places the sensor from its eye-read position and the heading you type, lets you nudge it,
+and records an accepted pose in Gerardus's alignment log. Without a Gerardus server the toolbar
+and the app are unchanged. See
+[gerardus-alignment.md](../../docs/ui/visualiser/gerardus-alignment.md).
+
 ## Keyboard shortcuts
 
 | Action             | Shortcut |
@@ -204,6 +213,8 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 - `pointSize`: Point rendering size
 - `trailDuration`: How long trails persist (seconds)
 - `defaultOverlays`: Which overlays are enabled by default
+- `alignment.serviceAddress`: Gerardus alignment service (127.0.0.1:50061)
+- `annotation.serviceURL`: velocity.report HTTP API (http://localhost:8080)
 
 ## Development
 
@@ -219,13 +230,12 @@ make test-mac-cov
 
 ### Regenerating Protobuf stubs
 
-When the protobuf schema changes:
+When a protobuf schema changes, including the vendored Gerardus contract in
+`proto/gerardus/align/v1alpha1/align.proto`:
 
 ```bash
 # From repository root
-protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
-       --grpc-swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC/Generated \
-       proto/velocity_visualiser/v1/visualiser.proto
+make proto-gen-swift
 ```
 
 ## Related documentation
