@@ -838,178 +838,6 @@ func TestServer_HandleGridHeatmap_NoManager(t *testing.T) {
 	}
 }
 
-func TestServer_HandleBackgroundGridPolar_NoManager(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleLidarDebugDashboard(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar?sensor_id=test-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarDebugDashboard(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("expected Content-Type text/html, got %s", contentType)
-	}
-}
-
-func TestServer_HandleTrafficChart_NoStats(t *testing.T) {
-	config := Config{
-		Address:           ":0",
-		Stats:             nil,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficChart(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleTrafficChart_Success(t *testing.T) {
-	stats := NewPacketStats()
-	stats.AddPacket(1000)
-	stats.LogStats(true)
-
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficChart(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("expected Content-Type text/html, got %s", contentType)
-	}
-}
-
-func TestServer_HandleBackgroundGridHeatmapChart_NoManager(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "nonexistent-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/heatmap?sensor_id=nonexistent-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridHeatmapChart(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleClustersChart_NoTrackAPI(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                nil, // No DB, so no trackAPI
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/clusters", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleClustersChart(rr, req)
-
-	if rr.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected 503, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleTracksChart_NoTrackAPI(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                nil,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTracksChart(rr, req)
-
-	if rr.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected 503, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleForegroundFrameChart_NoSnapshot(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleForegroundFrameChart(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
 func TestServer_HandleExportSnapshotASC_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
@@ -2097,55 +1925,7 @@ func TestServer_HandleGridHeatmap_WithManager(t *testing.T) {
 	}
 }
 
-func TestServer_HandleBackgroundGridPolar_WithManager(t *testing.T) {
-	cleanup := setupTestBackgroundManager(t, "polar-sensor")
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "polar-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id=polar-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rr, req)
-
-	// Accept 200 or 404 (no cells) - the handler may fail if no cells are populated
-	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 200 or 404, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
 // ====== More handler tests ======
-
-func TestServer_HandleTrafficChart_WithManager(t *testing.T) {
-	cleanup := setupTestBackgroundManager(t, "traffic-chart-sensor")
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "traffic-chart-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic/chart?sensor_id=traffic-chart-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficChart(rr, req)
-
-	// May return 200 or 404 depending on data availability
-	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 200 or 404, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
 
 // Tests for handlers with registered managers follow
 
@@ -2739,31 +2519,6 @@ func TestServer_HandleExportSnapshotASC(t *testing.T) {
 	t.Logf("handleExportSnapshotASC returned status %d", rec.Code)
 }
 
-func TestServer_HandleBackgroundGridPolar(t *testing.T) {
-	sensorID := "test-polar-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/polar", nil)
-	rec := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rec, req)
-
-	// May succeed or return not found depending on grid state
-	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
-		t.Errorf("got status %d, want OK or NotFound", rec.Code)
-	}
-}
 func TestServer_ResetBackgroundGrid(t *testing.T) {
 	sensorID := "test-reset-bg-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
@@ -2882,30 +2637,6 @@ func TestServer_HandleChartClustersJSON_WithDB(t *testing.T) {
 	t.Logf("handleChartClustersJSON returned status %d", rec.Code)
 }
 
-func TestServer_HandleBackgroundGridPolar_AdditionalCoverage(t *testing.T) {
-	sensorID := "test-polar-extra-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	// Test with query params for additional coverage
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/polar?sensor_id="+sensorID+"&format=json", nil)
-	rec := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rec, req)
-
-	t.Logf("handleBackgroundGridPolar returned status %d", rec.Code)
-}
-
 func TestServer_HandleGridHeatmap_AdditionalCoverage(t *testing.T) {
 	sensorID := "test-heatmap-extra-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
@@ -2972,106 +2703,6 @@ func TestServer_HandleLidarSnapshot_DELETE(t *testing.T) {
 	server.handleLidarSnapshot(rec, req)
 
 	t.Logf("handleLidarSnapshot DELETE returned status %d", rec.Code)
-}
-
-func TestServer_HandleClustersChart_NoTrackDB(t *testing.T) {
-	sensorID := "test-clusters-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleClustersChart(rec, req)
-
-	// Should return 503 Service Unavailable for missing track DB
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("Expected status %d, got %d; body: %s", http.StatusServiceUnavailable, rec.Code, rec.Body.String())
-	}
-}
-
-func TestServer_HandleTracksChart_NoTrackDB(t *testing.T) {
-	sensorID := "test-tracks-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleTracksChart(rec, req)
-
-	// Should return 503 Service Unavailable for missing track DB
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("Expected status %d, got %d; body: %s", http.StatusServiceUnavailable, rec.Code, rec.Body.String())
-	}
-}
-
-func TestServer_HandleBackgroundGridHeatmapChart_WithManager(t *testing.T) {
-	sensorID := "test-heatmap-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/background/heatmap?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleBackgroundGridHeatmapChart(rec, req)
-
-	// Should succeed or return error for missing template
-	t.Logf("handleBackgroundGridHeatmapChart returned status %d", rec.Code)
-}
-
-func TestServer_HandleForegroundFrameChart_WithManager(t *testing.T) {
-	sensorID := "test-fg-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground/frame?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleForegroundFrameChart(rec, req)
-
-	// Should succeed or return error
-	t.Logf("handleForegroundFrameChart returned status %d", rec.Code)
 }
 
 func TestServer_HandleLidarSnapshots_ListSaved(t *testing.T) {
@@ -3584,53 +3215,6 @@ func TestServer_StartPCAPInternal_RealtimeMode(t *testing.T) {
 	server.StopPCAPInternal()
 }
 
-// TestServer_HandleBackgroundGridPolar_WithPCAPData tests polar chart with PCAP-populated data
-func TestServer_HandleBackgroundGridPolar_WithPCAPData(t *testing.T) {
-	sensorID := "test-polar-pcap-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	pcapDir := cwd + "/../perf/pcap"
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		PCAPSafeDir:       pcapDir,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	server.setBaseContext(ctx)
-
-	// Start brief PCAP to populate grid
-	replayConfig := ReplayConfig{
-		SpeedMode:       "analysis",
-		DurationSeconds: 0.2,
-	}
-	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
-	time.Sleep(100 * time.Millisecond)
-
-	// Request polar chart data
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rec, req)
-
-	t.Logf("handleBackgroundGridPolar returned status %d", rec.Code)
-
-	server.StopPCAPInternal()
-}
-
 // TestServer_HandleTuningParams_POST_Complete tests setting tuning params
 func TestServer_HandleTuningParams_POST_Complete(t *testing.T) {
 	sensorID := "test-params-post-" + time.Now().Format("150405")
@@ -3681,56 +3265,6 @@ func TestServer_HandleChartClustersJSON_WithManager(t *testing.T) {
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleChartClustersJSON returned status %d", rec.Code)
-}
-
-// TestServer_HandleClustersChart_WithManager tests HTML clusters chart
-func TestServer_HandleClustersChart_Complete(t *testing.T) {
-	sensorID := "test-clusters-html-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rec, req)
-
-	t.Logf("handleClustersChart returned status %d", rec.Code)
-}
-
-// TestServer_HandleForegroundFrameChart_WithManager tests foreground frame chart
-func TestServer_HandleForegroundFrameChart_Complete(t *testing.T) {
-	sensorID := "test-fg-frame-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground_frame?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rec, req)
-
-	t.Logf("handleForegroundFrameChart returned status %d", rec.Code)
 }
 
 // TestServer_HandleLidarSnapshot_GET_Complete tests getting a specific snapshot
@@ -4330,53 +3864,7 @@ func TestServer_SetTracker_WithDB(t *testing.T) {
 
 // ====== handleClustersChart additional tests ======
 
-func TestServer_HandleClustersChart_WithDB_AndParams(t *testing.T) {
-	wrappedDB, cleanup := setupTestDBWrapped(t)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                wrappedDB,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters.html?sensor_id=test-sensor&limit=50", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleClustersChart(rr, req)
-
-	// May return OK or error depending on template availability
-	t.Logf("handleClustersChart status: %d", rr.Code)
-}
-
 // ====== handleTracksChart additional tests ======
-
-func TestServer_HandleTracksChart_WithDB_AndParams(t *testing.T) {
-	wrappedDB, cleanup := setupTestDBWrapped(t)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                wrappedDB,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks.html?sensor_id=test-sensor&limit=50", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTracksChart(rr, req)
-
-	// May return OK or error depending on template and data availability
-	t.Logf("handleTracksChart status: %d", rr.Code)
-}
 
 // ====== handleLidarSnapshot additional tests ======
 
@@ -4428,27 +3916,6 @@ func TestServer_HandleLidarSnapshot_WithDB_MissingID(t *testing.T) {
 }
 
 // ====== handleForegroundFrameChart tests ======
-
-func TestServer_HandleForegroundFrameChart_NoManagerExtra(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "nonexistent-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground_frame.html?sensor_id=nonexistent-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleForegroundFrameChart(rr, req)
-
-	// Should return 404 when no manager exists
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
 
 // ====== handlePCAPStop additional tests ======
 
@@ -4515,30 +3982,6 @@ func TestServer_HandlePCAPStop_FormPost(t *testing.T) {
 }
 
 // ====== handleBackgroundGridPolar additional tests ======
-
-func TestServer_HandleBackgroundGridPolar_WithMaxPoints(t *testing.T) {
-	cleanup := setupTestBackgroundManager(t, "polar-maxpts-sensor")
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "polar-maxpts-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id=polar-maxpts-sensor&max_points=1000", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rr, req)
-
-	// May return 404 if no cells, or 200 if cells exist
-	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 200 or 404, got %d", rr.Code)
-	}
-}
 
 // ====== updateLatestFgCounts / getLatestFgCounts tests ======
 

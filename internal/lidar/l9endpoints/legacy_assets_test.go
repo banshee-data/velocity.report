@@ -41,12 +41,6 @@ func TestReadLegacyAsset(t *testing.T) {
 	}
 }
 
-func TestLegacyDashboardHTML(t *testing.T) {
-	if len(LegacyDashboardHTML) == 0 {
-		t.Error("LegacyDashboardHTML is empty")
-	}
-}
-
 func TestLegacyRegionsDashboardHTML(t *testing.T) {
 	if len(LegacyRegionsDashboardHTML) == 0 {
 		t.Error("LegacyRegionsDashboardHTML is empty")

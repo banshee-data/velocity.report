@@ -147,13 +147,6 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"/debug/lidar/sweep", ws.handleSweepDashboard},
 		{"/debug/lidar/background/regions", ws.handleBackgroundRegions},
 		{"/debug/lidar/background/regions/dashboard", ws.handleBackgroundRegionsDashboard},
-		{"/debug/lidar", ws.handleLidarDebugDashboard},
-		{"/debug/lidar/background/polar", ws.handleBackgroundGridPolar},
-		{"/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart},
-		{"/debug/lidar/foreground", ws.handleForegroundFrameChart},
-		{"/debug/lidar/traffic", ws.handleTrafficChart},
-		{"/debug/lidar/clusters", ws.handleClustersChart},
-		{"/debug/lidar/tracks", ws.handleTracksChart},
 	}
 
 	// Note: pprof endpoints (/debug/pprof/*) are registered by tsweb.Debugger()
@@ -181,9 +174,9 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		}
 	}
 
-	// ECharts assets (static file serving)
+	// Legacy dashboard assets (static file serving)
 	if assetsFS != nil {
-		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
+		mux.Handle(legacyAssetsPrefix, http.StripPrefix(legacyAssetsPrefix, http.FileServer(http.FS(assetsFS))))
 	}
 
 	// Track API routes (delegate to TrackAPI handlers)

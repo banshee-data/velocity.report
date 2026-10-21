@@ -34,12 +34,11 @@ type ParamDef struct {
 
 // Legacy embedded assets now live in l9endpoints/l10clients/.
 var (
-	dashboardHTML        = l9endpoints.LegacyDashboardHTML
 	regionsDashboardHTML = l9endpoints.LegacyRegionsDashboardHTML
 	sweepDashboardHTML   = l9endpoints.LegacySweepDashboardHTML
 )
 
-const echartsAssetsPrefix = "/assets/"
+const legacyAssetsPrefix = "/assets/"
 
 // DataSource, DataSourceLive, DataSourceCapture, DataSourceCaptureAnalysis
 // are now defined in datasource.go

@@ -14,9 +14,6 @@ var legacyAssetsRaw embed.FS
 //go:embed l10clients/html/status.html
 var legacyStatusRaw embed.FS
 
-//go:embed l10clients/html/dashboard.html
-var LegacyDashboardHTML string
-
 //go:embed l10clients/html/regions_dashboard.html
 var LegacyRegionsDashboardHTML string
 
@@ -43,7 +40,7 @@ func mustSubFS(fsys fs.FS, dir string) fs.FS {
 	return sub
 }
 
-// LegacyAssetsFS returns the embedded ECharts asset tree rooted at assets/.
+// LegacyAssetsFS returns the embedded dashboard asset tree rooted at assets/.
 // Callers use http.StripPrefix to serve at /assets/.
 func LegacyAssetsFS() fs.FS {
 	return legacyAssetsFS
