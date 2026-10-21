@@ -114,6 +114,24 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var headingArrowVertices: MTLBuffer?
     var headingArrowVertexCount: Int = 0
 
+    /// Reference geometry from the Gerardus alignment service, in the site
+    /// frame. `referenceModelMatrix` (the inverse of the sensor's pose) draws
+    /// it in the sensor frame, so moving the pose replaces one matrix and no
+    /// buffer. Not transient: clearing a replay's data leaves it in place.
+    private var referenceAerialBuffer: MTLBuffer?
+    private(set) var referenceAerialCount: Int = 0
+    private var referenceOSMBuffer: MTLBuffer?
+    private(set) var referenceOSMVertexCount: Int = 0
+    private var referenceIntersectionBuffer: MTLBuffer?
+    private(set) var referenceIntersectionVertexCount: Int = 0
+    private var referencePaletteBuffer: MTLBuffer?
+    private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
+    private(set) var showReferenceAerial: Bool = true
+    private(set) var showReferenceOSM: Bool = true
+    private(set) var showReferenceIntersections: Bool = true
+    /// Aerial points are dense; drawn at full size they bury the scan.
+    static let referencePointScale: Float = 0.5
+
     // M6: Debug overlay buffers
     var debugLineVertices: MTLBuffer?  // Association lines + residual vectors
     var debugLineVertexCount: Int = 0
@@ -393,6 +411,87 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 bytes: instances, length: instances.count * MemoryLayout<Float>.stride,
                 options: .storageModeShared)
         view?.needsDisplay = true
+    }
+
+    // MARK: - Reference Overlay
+
+    /// Replaces the reference geometry, or removes it with nil.
+    func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?) {
+        func buffer(_ floats: [Float]) -> MTLBuffer? {
+            floats.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: floats, length: floats.count * MemoryLayout<Float>.stride,
+                    options: .storageModeShared)
+        }
+        referenceAerialBuffer = buffer(vertices?.aerial ?? [])
+        referenceAerialCount = referenceAerialBuffer == nil ? 0 : vertices?.aerialCount ?? 0
+        referenceOSMBuffer = buffer(vertices?.osmLines ?? [])
+        referenceOSMVertexCount = referenceOSMBuffer == nil ? 0 : vertices?.osmVertexCount ?? 0
+        referenceIntersectionBuffer = buffer(vertices?.intersectionLines ?? [])
+        referenceIntersectionVertexCount =
+            referenceIntersectionBuffer == nil ? 0 : vertices?.intersectionVertexCount ?? 0
+        referencePaletteBuffer = vertices.flatMap { vertices in
+            vertices.palette.withUnsafeBytes { table in
+                device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
+            }
+        }
+        view?.needsDisplay = true
+    }
+
+    func setReferenceModelMatrix(_ matrix: simd_float4x4) {
+        guard matrix != referenceModelMatrix else { return }
+        referenceModelMatrix = matrix
+        view?.needsDisplay = true
+    }
+
+    func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
+        showReferenceAerial = aerial
+        showReferenceOSM = osm
+        showReferenceIntersections = intersections
+        view?.needsDisplay = true
+    }
+
+    /// The uniforms for geometry drawn through a model matrix: the camera's
+    /// own, with the model folded into both matrices the shaders read.
+    static func uniforms(_ base: Uniforms, model: simd_float4x4) -> Uniforms {
+        var out = base
+        out.modelViewProjection = base.modelViewProjection * model
+        out.modelView = base.modelView * model
+        return out
+    }
+
+    private func drawReferenceOverlay(encoder: MTLRenderCommandEncoder) {
+        var reference = Self.uniforms(uniforms, model: referenceModelMatrix)
+
+        if showReferenceAerial, referenceAerialCount > 0, let pipeline = pointCloudPipeline,
+            let points = referenceAerialBuffer, let palette = referencePaletteBuffer
+        {
+            reference.pointSize = pointSize * Self.referencePointScale
+            // The palette code rides in the intensity slot; the table mode
+            // looks it up in the reference's own palette.
+            reference.padding.x = IntensityColouring.table.rawValue
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(points, offset: 0, index: 0)
+            encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.setFragmentBuffer(palette, offset: 0, index: 0)
+            encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: referenceAerialCount)
+        }
+
+        guard let pipeline = linePipeline else { return }
+        for (visible, buffer, count) in [
+            (showReferenceOSM, referenceOSMBuffer, referenceOSMVertexCount),
+            (
+                showReferenceIntersections, referenceIntersectionBuffer,
+                referenceIntersectionVertexCount
+            ),
+        ] {
+            guard visible, let buffer, count > 0 else { continue }
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+            encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
+        }
     }
 
     // MARK: - Frame Update
@@ -980,6 +1079,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: pointCount)
             }
         }
+
+        drawReferenceOverlay(encoder: encoder)
 
         // M4: Draw cluster boxes first (behind tracks)
         if showClusters, let pipeline = boxPipeline, let boxVerts = boxVertices,
