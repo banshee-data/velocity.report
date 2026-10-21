@@ -10,7 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 21, 2026 - The Stage B arms and the mid-range fragments
 
-- {claude/l3bg0019-stage-b-fate} Read the fate of every reviewed kirk0 return under CMR and its two Stage B options (l3bg0019), recorded with `pcap-replay --experiment`: neither touches the 20 to 35 m gaps between fragments, which under CMR are 72 % DBSCAN noise and 13 % L3 background, so the W3 fix there is an L4 rule (l4clus0003), not a Stage B arm. The dwell policy absorbs kirk0's reviewed parked car (its missed instants 11 to 505); the cell tercile cuts fragmented instants by dropping returns (cars 0.956 to 0.906 kept): [report](lidar/operations/w3-return-fate-stage-b-kirk0-2026-10.md).
+- Read the fate of every reviewed kirk0 return under CMR and its two Stage B options (l3bg0019), recorded with `pcap-replay --experiment`: neither touches the 20 to 35 m gaps between fragments, which under CMR are 72 % DBSCAN noise and 13 % L3 background, so the W3 fix there is an L4 rule (l4clus0003), not a Stage B arm. The dwell policy absorbs kirk0's reviewed parked car (its missed instants 11 to 505); the cell tercile cuts fragmented instants by dropping returns (cars 0.956 to 0.906 kept): [report](lidar/operations/w3-return-fate-stage-b-kirk0-2026-10.md) (#821).
 
 ## October 20, 2026 - Decisions carried through voice to integration, published scenes that settle first, and the architecture review decided
 
