@@ -76,7 +76,8 @@ import SwiftUI
         HStack(alignment: .firstTextBaseline) {
             Text("Alignment").font(.headline)
             if case .available(let version) = session.availability {
-                Text("Gerardus \(version)").font(.caption).foregroundStyle(.secondary)
+                Text("Gerardus \(version) at \(session.serviceAddress.description)").font(.caption)
+                    .foregroundStyle(.secondary).help("Change the server in Settings (⌘,)")
             }
             Spacer()
             Button(action: { appState.showAlignmentPane = false }) { Image(systemName: "xmark") }

@@ -24,14 +24,12 @@ private let logger = Logger(subsystem: "report.velocity.visualiser", category: "
 /// Error types for the Gerardus client.
 enum GerardusClientError: Error, LocalizedError, Equatable {
     case notConnected
-    case invalidAddress(String)
     /// A streaming call ended without the message that closes it.
     case incompleteStream(String)
 
     var errorDescription: String? {
         switch self {
         case .notConnected: return "Not connected to the alignment service"
-        case .invalidAddress(let message): return "Invalid address: \(message)"
         case .incompleteStream(let rpc): return "\(rpc) ended without its result"
         }
     }
@@ -79,25 +77,14 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 /// with UNIMPLEMENTED until registration is built.
 @available(macOS 15.0, *) final class GerardusClient: AlignmentServiceClient, @unchecked Sendable {
 
-    /// Where `gerardus serve` listens unless told otherwise.
-    static let defaultAddress = "127.0.0.1:50061"
-    /// UserDefaults key that overrides the address, next to `annotation.serviceURL`.
-    static let addressKey = "alignment.serviceAddress"
-
-    static var configuredAddress: String {
-        let configured = UserDefaults.standard.string(forKey: addressKey)?.trimmingCharacters(
-            in: .whitespaces)
-        if let configured, !configured.isEmpty { return configured }
-        return defaultAddress
-    }
-
-    let address: String
+    let address: GerardusAddress
     private let _clientTask = LockedState<Task<Void, Error>?>(nil)
     private let _grpcClient = LockedState<GRPCClient<HTTP2ClientTransport.Posix>?>(nil)
 
     var isConnected: Bool { _grpcClient.value != nil }
 
-    init(address: String = GerardusClient.configuredAddress) { self.address = address }
+    /// Defaults to the address saved in the app's preferences (Settings).
+    init(address: GerardusAddress = .saved(in: .standard)) { self.address = address }
 
     deinit { disconnect() }
 
@@ -106,7 +93,6 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     /// Opens the channel and asks the server what it is. Throws when nothing
     /// answers within a few seconds, and leaves no channel open behind it.
     func connect() async throws -> Gerardus_Align_V1alpha1_GetServerInfoResponse {
-        let (host, port) = try Self.parse(address)
         if _grpcClient.value == nil {
             // Reference chunks are about 1 MB (65,536 points); the visualiser
             // channel's limits leave room for a server that sends larger ones.
@@ -117,7 +103,7 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
             config.http2.targetWindowSize = 16 * 1024 * 1024
             config.http2.maxFrameSize = 1 << 20
             let transport = try HTTP2ClientTransport.Posix(
-                target: .dns(host: host, port: port), transportSecurity: .plaintext, config: config,
+                target: Self.target(address), transportSecurity: .plaintext, config: config,
                 serviceConfig: ServiceConfig(methodConfig: [methodConfig]))
             let grpcClient = GRPCClient(transport: transport)
             _grpcClient.value = grpcClient
@@ -149,13 +135,15 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         _grpcClient.value = nil
     }
 
-    static func parse(_ address: String) throws -> (host: String, port: Int) {
-        let components = address.split(separator: ":")
-        guard components.count == 2, let port = Int(components[1]), !components[0].isEmpty else {
-            throw GerardusClientError.invalidAddress(
-                "Invalid format: \(address), expected host:port")
+    /// An IPv6 literal is dialled as it stands; anything else goes through
+    /// the resolver, which also takes IPv4 literals and MagicDNS names.
+    static func target(_ address: GerardusAddress) -> any ResolvableTarget {
+        if address.host.contains(":") {
+            return ResolvableTargets.IPv6(addresses: [
+                SocketAddress.IPv6(host: address.host, port: address.port)
+            ])
         }
-        return (String(components[0]), port)
+        return ResolvableTargets.DNS(host: address.host, port: address.port)
     }
 
     private func siteService() throws
