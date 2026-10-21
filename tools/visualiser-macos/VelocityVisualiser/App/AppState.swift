@@ -361,25 +361,34 @@ private let logger = DevLogger(category: "AppState")
     let alignment: AlignmentSession
     @Published var showAlignmentPane: Bool = false
     private var alignmentAvailability: AnyCancellable?
+    private var alignmentProbing: AnyCancellable?
 
     func toggleAlignmentPane() { showAlignmentPane = alignment.isAvailable && !showAlignmentPane }
 
-    /// Asks whether a Gerardus server is running. Never under XCTest, so a
-    /// developer's running server cannot change what a test sees.
-    private func probeAlignment() {
-        guard !Self.isRunningUnderXCTest else { return }
-        Task { await alignment.probe() }
-    }
-
     // MARK: - Initialisation
 
-    init(autoConnectOnStartup: Bool? = nil) {
+    /// `alignment` replaces the session talking to a real Gerardus, for tests.
+    init(autoConnectOnStartup: Bool? = nil, alignment injected: AlignmentSession? = nil) {
         // FPS is calculated per-frame using exponential moving average
 
-        alignment = AlignmentSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
+        alignment =
+            injected ?? AlignmentSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false
+        }
+        // Look for Gerardus while connected to velocity.report: at once, then
+        // every reprobeInterval until a server answers, so one started later
+        // still brings up the pane. Never against a real server under XCTest,
+        // so a developer's running Gerardus cannot change what a test sees.
+        if injected != nil || !Self.isRunningUnderXCTest {
+            alignmentProbing = $isConnected.removeDuplicates().sink { [weak self] connected in
+                if connected {
+                    self?.alignment.startProbing()
+                } else {
+                    self?.alignment.stopProbing()
+                }
+            }
         }
 
         let autoConnectOnStartup = autoConnectOnStartup ?? Self.shouldAutoConnectOnStartup
@@ -619,10 +628,7 @@ private let logger = DevLogger(category: "AppState")
                 try await grpcClient?.connect()
                 vlog("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
                 logger.info("grpcClient.connect() succeeded!")
-                await MainActor.run {
-                    self.isConnecting = false
-                    self.probeAlignment()
-                }
+                await MainActor.run { self.isConnecting = false }
             } catch {
                 vlog("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
                 logger.error("Connection error: \(error.localizedDescription)")
