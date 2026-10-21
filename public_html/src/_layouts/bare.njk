@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+{# A plain full-width page: no site header, footer or Tailwind. For tools
+   that want the whole viewport, such as the reference graph. #}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <title>{{ title or site.name }}</title>
+    {% if description %}<meta name="description" content="{{ description }}">{% endif %}
+    {% if noindex %}<meta name="robots" content="noindex">{% endif %}
+    <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+    <style>
+        :root { --bare-bg: #ffffff; --bare-text: #111827; --bare-muted: #6b7280; --bare-link: #059669; }
+        @media (prefers-color-scheme: dark) {
+            :root { --bare-bg: #111827; --bare-text: #f3f4f6; --bare-muted: #9ca3af; --bare-link: #34d399; }
+        }
+        body { margin: 0; background: var(--bare-bg); color: var(--bare-text);
+            font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+        main.bare { padding: 1rem 1.25rem 2rem; }
+        main.bare > :is(h1, h2, h3, p, ul, ol) { max-width: 80ch; }
+        main.bare h1 { font-size: 1.6rem; margin: 0 0 0.5rem; }
+        main.bare h2 { font-size: 1.15rem; margin: 1.5rem 0 0.4rem; }
+        main.bare a { color: var(--bare-link); }
+        main.bare .header-anchor { display: none; }
+    </style>
+</head>
+<body>
+    <main class="bare">
+        {{ content | safe }}
+    </main>
+</body>
+</html>

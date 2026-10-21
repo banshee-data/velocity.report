@@ -1,5 +1,5 @@
 ---
-layout: page.njk
+layout: bare.njk
 title: "Reference graph: velocity.report"
 description: "The papers velocity.report's research cites, the works they cite in turn, and which to read next, on a time axis."
 eleventyExcludeFromCollections: true
@@ -16,11 +16,14 @@ noindex: true
   [references.bib](https://github.com/banshee-data/velocity.report/blob/main/data/maths/references.bib); exclusions from [curation.json](curation.json).
 - **Rules:** [Citation rubric](https://github.com/banshee-data/velocity.report/blob/main/data/maths/citation-rubric.md)
 
-Each dot is a paper, placed by year (older on the left) in the lane of the bibliography section
-that cites it. Filled dots are our papers; open dots are works our papers cite that we do not
-hold, sized by their candidate score. Select a paper to draw its links: solid lines go to what
-it cites, dashed lines come from what cites it. The panel links out to the DOI, OpenAlex,
-Semantic Scholar and Google Scholar. Years before 1960 share the left edge of the axis.
+Each dot is a paper, placed by year in the lane of the bibliography section that cites it. Filled
+dots are our papers; open dots are works our papers cite that we do not hold, sized by their
+candidate score. The time axis is logarithmic: the last 20 years take three quarters of the width,
+the most recent years the most, and everything older shares the first fifth. Select any paper,
+old or new, to draw its links: solid lines go to what it cites, dashed lines come from what cites
+it, and the works on both ends are shown even when the filters hide them. The panel links out to
+the DOI, OpenAlex, Semantic Scholar and Google Scholar. The ▲ and ▼ beside a section move it; your
+order is kept in this browser.
 
 <div data-reference-graph data-graph="graph.json" data-bib="references.bib" data-curation="curation.json"></div>
 <script type="module" src="reference-graph.mjs"></script>

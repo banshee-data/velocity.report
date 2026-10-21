@@ -216,36 +216,70 @@ test("dominantSection picks the most-citing section, ties to the earlier", async
   assert.equal(dominantSection(new Map(), order), "Tracking");
 });
 
-test("yearScale squeezes years before the pivot and stays monotonic", async () => {
-  const { yearScale } = await load();
-  const { scale, ticks } = yearScale(1818, 2026, 0, 1000);
-  assert.equal(scale(1818), 0);
-  assert.ok(Math.abs(scale(1960) - 120) < 1e-9);
-  assert.equal(scale(2026), 1000);
-  for (let y = 1818; y < 2026; y++) assert.ok(scale(y) < scale(y + 1));
-  assert.equal(ticks[0], 1818);
-  assert.ok(ticks.includes(1960) && ticks.includes(2020));
-  const recent = yearScale(1990, 2026, 0, 1000);
-  assert.equal(
-    recent.scale(1960),
-    0,
-    "no squeeze when nothing predates the pivot",
-  );
+test("timeScale gives the last 20 years 75% and older years 20%", async () => {
+  const { timeScale } = await load();
+  const scale = timeScale({ minYear: 1936, nowYear: 2026, x0: 0, x1: 1000 });
+  const near = (a, b) => Math.abs(a - b) < 1e-6;
+  assert.ok(near(scale.x(1936), 0), "oldest work at the left edge");
+  assert.ok(near(scale.x(2006), 200), "pre-2006 in the first fifth");
+  assert.ok(near(scale.x(2027), 950), "the recent span ends at 95%");
+  assert.deepEqual(scale.undated, [950, 1000]);
+  for (let y = 1936; y < 2027; y++) {
+    assert.ok(scale.x(y) < scale.x(y + 1), `monotonic at ${y}`);
+  }
+  // Logarithmic: later years are wider, and the last five take a large share.
+  const widthOf = (y) => scale.x(y + 1) - scale.x(y);
+  assert.ok(widthOf(2026) > widthOf(2016) && widthOf(2016) > widthOf(2006));
+  const lastFive = scale.x(2027) - scale.x(2022);
+  assert.ok(lastFive > 0.4 * 750, `last five years ${lastFive}px of 750`);
 });
 
-test("layoutLanes stacks shared columns and skips empty lanes", async () => {
+test("timeScale keeps its shares when nothing is old", async () => {
+  const { timeScale } = await load();
+  const scale = timeScale({ minYear: 2015, nowYear: 2026, x0: 100, x1: 1100 });
+  assert.equal(scale.minYear, 2006);
+  assert.ok(Math.abs(scale.x(2006) - 300) < 1e-6);
+});
+
+test("yearBins merges years too narrow for a dot, keeps recent years apart", async () => {
+  const { timeScale, yearBins } = await load();
+  const scale = timeScale({ minYear: 1936, nowYear: 2026, x0: 0, x1: 1400 });
+  const { bins, byYear } = yearBins(scale, 12);
+  assert.equal(bins[0].from, 1936);
+  assert.equal(bins[bins.length - 1].to, 2026);
+  for (const bin of bins)
+    assert.ok(bin.x1 - bin.x0 >= 12, `bin ${bin.from}-${bin.to}`);
+  for (let i = 1; i < bins.length; i++)
+    assert.equal(bins[i].from, bins[i - 1].to + 1);
+  assert.ok(
+    byYear.get(1950).to - byYear.get(1950).from > 0,
+    "old years share a bin",
+  );
+  assert.equal(byYear.get(2025).from, 2025, "a recent year is its own bin");
+});
+
+test("pickTicks prefers decades and never crowds labels", async () => {
+  const { timeScale, pickTicks } = await load();
+  const scale = timeScale({ minYear: 1936, nowYear: 2026, x0: 0, x1: 1400 });
+  const ticks = pickTicks(scale, 34);
+  const years = ticks.map((t) => t.year);
+  assert.ok(years.includes(2020) && years.includes(2026));
+  for (let i = 1; i < ticks.length; i++) {
+    assert.ok(ticks[i].x - ticks[i - 1].x >= 34, `gap before ${ticks[i].year}`);
+  }
+});
+
+test("layoutLanes spreads a bin sideways before stacking, skips empty lanes", async () => {
   const { layoutLanes } = await load();
-  const items = [
-    { index: 0, lane: "Tracking", x: 100 },
-    { index: 1, lane: "Tracking", x: 101 },
-    { index: 2, lane: "Safety", x: 300 },
-  ];
+  const items = [];
+  for (let i = 0; i < 7; i++)
+    items.push({ index: i, lane: "Tracking", x0: 100, x1: 160 });
+  items.push({ index: 7, lane: "Safety", x0: 300, x1: 305 });
   const { positions, lanes, height } = layoutLanes(
     items,
     ["Tracking", "Empty", "Safety"],
     {
-      columnWidth: 12,
-      rowHeight: 12,
+      spacing: 12,
       pad: 10,
     },
   );
@@ -253,11 +287,42 @@ test("layoutLanes stacks shared columns and skips empty lanes", async () => {
     lanes.map((l) => l.lane),
     ["Tracking", "Safety"],
   );
-  assert.equal(positions.get(0).x, positions.get(1).x);
-  assert.equal(positions.get(1).y - positions.get(0).y, 12);
+  // 60px fits five 12px columns: a row of five, then a row of two.
+  const row0 = [0, 1, 2, 3, 4].map((i) => positions.get(i));
+  assert.ok(row0.every((p) => p.y === 10));
+  assert.equal(positions.get(5).y, 22);
+  for (const p of positions.values()) {
+    if (p.y < 40)
+      assert.ok(p.x >= 100 && p.x <= 160, `x ${p.x} inside its bin`);
+  }
   assert.equal(lanes[0].height, 32);
+  // A bin narrower than one column still holds its work, centred.
+  assert.equal(positions.get(7).x, 302.5);
   assert.equal(lanes[1].top, 32);
   assert.equal(height, 52);
+});
+
+test("moveLane swaps neighbours and ignores moves off either end", async () => {
+  const { moveLane } = await load();
+  const order = ["A", "B", "C"];
+  assert.deepEqual(moveLane(order, "B", -1), ["B", "A", "C"]);
+  assert.deepEqual(moveLane(order, "B", 1), ["A", "C", "B"]);
+  assert.deepEqual(moveLane(order, "A", -1), order);
+  assert.deepEqual(moveLane(order, "C", 1), order);
+  assert.deepEqual(order, ["A", "B", "C"], "input untouched");
+});
+
+test("restoreLaneOrder keeps a saved order for sections that still exist", async () => {
+  const { restoreLaneOrder } = await load();
+  const lanes = ["A", "B", "C", "D"];
+  assert.deepEqual(restoreLaneOrder(["C", "A", "Gone"], lanes), [
+    "C",
+    "A",
+    "B",
+    "D",
+  ]);
+  assert.deepEqual(restoreLaneOrder(null, lanes), lanes);
+  assert.deepEqual(restoreLaneOrder("junk", lanes), lanes);
 });
 
 test("externalLinks prefers identifiers and adds title searches", async () => {

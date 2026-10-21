@@ -188,36 +188,109 @@ export function dominantSection(sectionCounts, order) {
   return bestCount > 0 ? best : order[0];
 }
 
-// A broken time axis: years before the pivot share the first `squeeze` of
-// the width, so a few old works do not flatten the last sixty years.
-export function yearScale(
+// The time axis is logarithmic in age, so recent years get the room: the
+// `recentYears` before now take `recentShare` of the plot, everything older
+// is compressed into the first `oldShare`, and the rest holds undated works.
+// Age runs from the end of the current year: a year y spans ages
+// (nowYear - y, nowYear + 1 - y]. `offset` softens the log near zero so the
+// current year does not swallow the axis.
+export function timeScale({
   minYear,
-  maxYear,
+  nowYear,
   x0,
   x1,
-  { pivot = 1960, squeeze = 0.12 } = {},
-) {
-  const lo = Math.min(minYear, pivot);
-  const hi = Math.max(maxYear, pivot + 1);
-  const split = x0 + (x1 - x0) * (lo < pivot ? squeeze : 0);
-  const scale = (year) => {
-    if (year < pivot) {
-      return x0 + ((year - lo) / Math.max(1, pivot - lo)) * (split - x0);
+  recentYears = 20,
+  oldShare = 0.2,
+  recentShare = 0.75,
+  offset = 2,
+}) {
+  const width = x1 - x0;
+  const firstRecent = nowYear - recentYears;
+  const g = (age) => Math.log(age + offset);
+  const recentAge = nowYear + 1 - firstRecent;
+  const oldestAge = Math.max(nowYear + 1 - minYear, recentAge + 1);
+  const oldEnd = x0 + oldShare * width;
+  const recentEnd = oldEnd + recentShare * width;
+  // x for a continuous time t (year plus fraction).
+  const x = (t) => {
+    const age = Math.max(0, nowYear + 1 - t);
+    if (age <= recentAge) {
+      return (
+        recentEnd -
+        ((g(age) - g(0)) / (g(recentAge) - g(0))) * (recentEnd - oldEnd)
+      );
     }
-    return split + ((year - pivot) / (hi - pivot)) * (x1 - split);
+    const f =
+      (g(oldestAge) - g(Math.min(age, oldestAge))) /
+      (g(oldestAge) - g(recentAge));
+    return x0 + f * (oldEnd - x0);
   };
-  const ticks = [];
-  if (lo < pivot) ticks.push(lo);
-  for (let y = Math.ceil(pivot / 10) * 10; y <= hi; y += 10) ticks.push(y);
-  return { scale, ticks, lo, hi };
+  return {
+    x,
+    yearSpan: (year) => [x(year), x(year + 1)],
+    undated: [recentEnd, x1],
+    firstRecent,
+    minYear: Math.min(minYear, firstRecent),
+    nowYear,
+  };
 }
 
-// Stack items that share a lane and a year column so none overlap.
-// items: [{index, lane, x}] -> positions by index, lane tops and total height.
+// Group consecutive years into bins at least `minWidth` wide, oldest first,
+// so works from years too narrow to hold a dot share one bin instead of
+// overlapping. Recent years are wide enough to be bins of their own.
+export function yearBins(scale, minWidth) {
+  const bins = [];
+  let current = null;
+  for (let y = scale.minYear; y <= scale.nowYear; y++) {
+    const [a, b] = scale.yearSpan(y);
+    if (!current) current = { from: y, to: y, x0: a, x1: b };
+    else {
+      current.to = y;
+      current.x1 = b;
+    }
+    if (current.x1 - current.x0 >= minWidth) {
+      bins.push(current);
+      current = null;
+    }
+  }
+  if (current) {
+    // A narrow tail joins the previous bin rather than standing alone.
+    const last = bins[bins.length - 1];
+    if (last) {
+      last.to = current.to;
+      last.x1 = current.x1;
+    } else bins.push(current);
+  }
+  const byYear = new Map();
+  for (const bin of bins)
+    for (let y = bin.from; y <= bin.to; y++) byYear.set(y, bin);
+  return { bins, byYear };
+}
+
+// Tick years at year starts, decades first, then fives, then single years,
+// each only where it is at least `minGap` from every tick already placed.
+export function pickTicks(scale, minGap = 34) {
+  const years = [];
+  for (let y = scale.minYear; y <= scale.nowYear; y++) years.push(y);
+  const rank = (y) => (y % 10 === 0 ? 0 : y % 5 === 0 ? 1 : 2);
+  const ordered = [...years].sort((a, b) => rank(a) - rank(b) || b - a);
+  const placed = [];
+  for (const y of ordered) {
+    const px = scale.x(y);
+    if (placed.every((p) => Math.abs(p.x - px) >= minGap))
+      placed.push({ year: y, x: px });
+  }
+  return placed.sort((a, b) => a.year - b.year);
+}
+
+// Lay works out in their lane and time bin: a bin fills row by row across its
+// width before it grows downwards, so a busy year spreads sideways instead of
+// stacking. items: [{index, lane, x0, x1}] in drawing order; returns
+// positions by index, lane tops and heights, and the total height.
 export function layoutLanes(
   items,
   laneOrder,
-  { columnWidth = 12, rowHeight = 12, pad = 10, top = 0 } = {},
+  { spacing = 12, pad = 10, top = 0 } = {},
 ) {
   const byLane = new Map(laneOrder.map((l) => [l, []]));
   for (const item of items) {
@@ -229,24 +302,52 @@ export function layoutLanes(
   let y = top;
   for (const [lane, laneItems] of byLane) {
     if (laneItems.length === 0) continue;
-    laneItems.sort((a, b) => a.x - b.x || a.index - b.index);
-    const stacks = new Map();
-    let deepest = 0;
+    const groups = new Map();
     for (const item of laneItems) {
-      const column = Math.round(item.x / columnWidth);
-      const depth = stacks.get(column) || 0;
-      stacks.set(column, depth + 1);
-      deepest = Math.max(deepest, depth + 1);
-      positions.set(item.index, {
-        x: column * columnWidth,
-        y: y + pad + depth * rowHeight,
+      const key = `${item.x0}:${item.x1}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    }
+    let rows = 1;
+    for (const group of groups.values()) {
+      const { x0, x1 } = group[0];
+      const cols = Math.max(1, Math.floor((x1 - x0) / spacing));
+      const used = Math.min(group.length, cols);
+      const centre = (x0 + x1) / 2;
+      group.forEach((item, k) => {
+        const col = k % cols;
+        const row = Math.floor(k / cols);
+        rows = Math.max(rows, row + 1);
+        positions.set(item.index, {
+          x: centre + (col - (used - 1) / 2) * spacing,
+          y: y + pad + row * spacing,
+        });
       });
     }
-    const height = pad * 2 + Math.max(0, deepest - 1) * rowHeight;
+    const height = pad * 2 + (rows - 1) * spacing;
     lanes.push({ lane, top: y, height });
     y += height;
   }
   return { positions, lanes, height: y - top };
+}
+
+// Move `lane` one place up (-1) or down (+1) in `order`; returns a new array.
+export function moveLane(order, lane, step) {
+  const i = order.indexOf(lane);
+  const j = i + step;
+  if (i < 0 || j < 0 || j >= order.length) return [...order];
+  const next = [...order];
+  [next[i], next[j]] = [next[j], next[i]];
+  return next;
+}
+
+// A saved lane order, kept only where it still names the current sections:
+// dropped sections disappear, new ones join at the end in bibliography order.
+export function restoreLaneOrder(saved, lanes) {
+  const known = new Set(lanes);
+  const kept = Array.isArray(saved) ? saved.filter((l) => known.has(l)) : [];
+  const seen = new Set(kept);
+  return [...kept, ...lanes.filter((l) => !seen.has(l))];
 }
 
 export function externalLinks(node) {
@@ -329,14 +430,15 @@ const STYLE = `
 .refgraph-controls select, .refgraph-controls input { font: inherit; color: var(--rg-text); background: var(--rg-bg);
   border: 1px solid var(--rg-line); border-radius: 6px; padding: 0.15rem 0.35rem; }
 .refgraph-summary { color: var(--rg-muted); font-size: 0.85rem; margin: 0; }
-.refgraph-body { display: grid; grid-template-columns: minmax(0, 1fr) 22rem; gap: var(--rg-gap); align-items: start; }
+.refgraph-body { display: grid; grid-template-columns: minmax(0, 1fr) 24rem; gap: var(--rg-gap); align-items: start; }
 @media (max-width: 1100px) { .refgraph-body { grid-template-columns: minmax(0, 1fr); } }
-.refgraph-canvas { overflow: auto; max-height: 75vh; border: 1px solid var(--rg-line); border-radius: 8px; background: var(--rg-panel); }
+.refgraph-canvas { overflow-x: auto; overflow-y: hidden; border: 1px solid var(--rg-line); border-radius: 8px; background: var(--rg-panel); }
 .refgraph-canvas svg { display: block; }
 .refgraph-panel { border: 1px solid var(--rg-line); border-radius: 8px; background: var(--rg-panel); padding: 0.8rem;
-  font-size: 0.9rem; max-height: 75vh; overflow: auto; }
+  font-size: 0.9rem; position: sticky; top: 0.5rem; max-height: calc(100vh - 1rem); overflow: auto; }
 .refgraph-panel h3 { margin: 0 0 0.4rem; font-size: 1rem; }
 .refgraph-panel ul { padding-left: 1.1rem; margin: 0.3rem 0 0.8rem; }
+.refgraph-panel li { margin-bottom: 0.3rem; line-height: 1.35; }
 .refgraph-panel button.rg-link { all: unset; cursor: pointer; color: var(--rg-accent); }
 .refgraph-panel button.rg-link:focus-visible { outline: 2px solid var(--rg-accent); }
 .rg-badges { display: flex; flex-wrap: wrap; gap: 0.3rem; margin: 0.3rem 0 0.6rem; }
@@ -346,6 +448,9 @@ const STYLE = `
 .rg-node:focus { outline: none; }
 .rg-node:focus-visible circle, .rg-node.selected circle { stroke-width: 3; }
 .rg-lane-label { font-size: 11px; fill: var(--rg-muted); }
+.rg-lane-move { font-size: 11px; fill: var(--rg-muted); cursor: pointer; }
+.rg-lane-move:hover, .rg-lane-move:focus-visible { fill: var(--rg-accent); outline: none; }
+.rg-node.dim { opacity: 0.22; }
 .rg-tick { font-size: 11px; fill: var(--rg-muted); }
 .refgraph-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
 .refgraph-table th, .refgraph-table td { text-align: left; padding: 0.25rem 0.4rem; border-bottom: 1px solid var(--rg-line); vertical-align: top; }
@@ -414,7 +519,17 @@ export async function mount(root) {
   const lanes = [...order];
   if (members.some((n) => !sections.get(n.bibKey))) lanes.push("Unsectioned");
 
+  // A reader's own section order, kept in this browser only.
+  const LANE_ORDER_KEY = "refgraph-lane-order";
+  let savedOrder = null;
+  try {
+    savedOrder = JSON.parse(localStorage.getItem(LANE_ORDER_KEY));
+  } catch {
+    savedOrder = null;
+  }
+
   const state = {
+    laneOrder: restoreLaneOrder(savedOrder, lanes),
     showMembers: true,
     showCandidates: true,
     includeExcluded: false,
@@ -429,12 +544,40 @@ export async function mount(root) {
   root.classList.add("refgraph");
 
   // Controls.
-  const sectionSelect = el(
-    "select",
-    { "aria-label": "Bibliography section" },
-    el("option", { value: "all", text: "All sections" }),
-    ...lanes.map((s) => el("option", { value: s, text: s })),
-  );
+  const sectionSelect = el("select", { "aria-label": "Bibliography section" });
+  const fillSections = () => {
+    sectionSelect.textContent = "";
+    sectionSelect.append(
+      el("option", { value: "all", text: "All sections" }),
+      ...state.laneOrder.map((s) => el("option", { value: s, text: s })),
+    );
+    sectionSelect.value = state.section;
+  };
+  fillSections();
+  const moveSection = (lane, step) => {
+    state.laneOrder = moveLane(state.laneOrder, lane, step);
+    try {
+      localStorage.setItem(LANE_ORDER_KEY, JSON.stringify(state.laneOrder));
+    } catch {
+      // Private windows and blocked storage: the order lasts this visit.
+    }
+    fillSections();
+    render();
+  };
+  const resetOrder = el("button", {
+    type: "button",
+    text: "Reset section order",
+    onclick: () => {
+      state.laneOrder = [...lanes];
+      try {
+        localStorage.removeItem(LANE_ORDER_KEY);
+      } catch {
+        // Nothing saved to remove.
+      }
+      fillSections();
+      render();
+    },
+  });
   const minScore = el("input", {
     type: "number",
     min: 2,
@@ -485,6 +628,7 @@ export async function mount(root) {
     checkbox("Include excluded candidates", "includeExcluded"),
     checkbox("Links between our papers", "memberLinks"),
     sectionSelect,
+    resetOrder,
     search,
   );
   const summary = el("p", { class: "refgraph-summary" });
@@ -569,10 +713,21 @@ export async function mount(root) {
     return c && c.exclusion ? "excluded" : "candidate";
   }
 
-  function laneOf(node) {
+  function laneOf(node, fallback = state.laneOrder[0]) {
     if (node.inBibliography) return sections.get(node.bibKey) || "Unsectioned";
     const c = candidateByIndex.get(node.index);
-    return c ? dominantSection(c.sectionCounts, lanes) : lanes[0];
+    return c ? dominantSection(c.sectionCounts, state.laneOrder) : fallback;
+  }
+
+  // The selected work and everything it cites or is cited by, so its links
+  // can always be drawn, whatever the filters hide.
+  function neighbourhood() {
+    if (state.selected == null) return null;
+    return new Set([
+      state.selected,
+      ...adjacency.out[state.selected],
+      ...adjacency.in[state.selected],
+    ]);
   }
 
   function visibleNodes() {
@@ -592,9 +747,12 @@ export async function mount(root) {
         if (inSection(c.node)) out.push(c.node);
       }
     }
-    for (const i of state.pinned) {
-      const n = graph.nodes[i];
-      if (!out.includes(n)) out.push(n);
+    const shown = new Set(out.map((n) => n.index));
+    const extra = [...state.pinned, ...(neighbourhood() || [])];
+    for (const i of extra) {
+      if (shown.has(i)) continue;
+      shown.add(i);
+      out.push(graph.nodes[i]);
     }
     return out;
   }
@@ -614,33 +772,41 @@ export async function mount(root) {
     render();
     const target = canvas.querySelector(`[data-index="${index}"]`);
     if (target && target.scrollIntoView)
-      target.scrollIntoView({ block: "nearest", inline: "center" });
+      target.scrollIntoView({ block: "nearest" });
   }
 
   function render() {
     const nodes = visibleNodes();
-    const dated = nodes.filter((n) => n.year != null);
-    const years = dated.map((n) => n.year);
-    const nowYear = new Date().getFullYear();
+    const near = neighbourhood();
+    const selectedLane =
+      state.selected == null ? undefined : laneOf(graph.nodes[state.selected]);
+    const years = nodes.filter((n) => n.year != null).map((n) => n.year);
+    const nowYear = Math.max(new Date().getFullYear(), ...years);
     const minYear = years.length ? Math.min(...years) : nowYear - 50;
-    const maxYear = years.length ? Math.max(...years) : nowYear;
-    const labelWidth = 170;
-    const width = Math.max(900, canvas.clientWidth || 900);
-    const plotRight = width - 50;
-    const undatedX = width - 20;
-    const { scale, ticks } = yearScale(
+    const labelWidth = 210;
+    // Fit the canvas; below 640px the plot scrolls sideways instead.
+    const width = Math.max(640, canvas.clientWidth || 900);
+    const scale = timeScale({
       minYear,
-      maxYear,
-      labelWidth + 10,
-      plotRight,
-    );
-    const items = nodes.map((n) => ({
-      index: n.index,
-      lane: laneOf(n),
-      x: n.year == null ? undatedX : scale(n.year),
-    }));
-    const layout = layoutLanes(items, lanes, { top: 28 });
-    const height = layout.height + 40;
+      nowYear,
+      x0: labelWidth,
+      x1: width - 8,
+    });
+    const { byYear } = yearBins(scale, 12);
+    const ticks = pickTicks(scale);
+    const [ndStart, ndEnd] = scale.undated;
+    const items = nodes.map((n) => {
+      const bin = n.year == null ? null : byYear.get(n.year);
+      return {
+        index: n.index,
+        lane: laneOf(n, selectedLane),
+        x0: bin ? bin.x0 : ndStart,
+        x1: bin ? bin.x1 : ndEnd,
+      };
+    });
+    const axisHeight = 28;
+    const layout = layoutLanes(items, state.laneOrder, { top: axisHeight });
+    const height = axisHeight + layout.height + 8;
 
     const root2 = svg("svg", {
       width,
@@ -648,7 +814,7 @@ export async function mount(root) {
       role: "img",
       "aria-label": "Citation graph by year",
     });
-    // Lanes.
+    // Lanes, each with controls to move it up or down.
     layout.lanes.forEach((lane, i) => {
       root2.append(
         svg("rect", {
@@ -659,8 +825,34 @@ export async function mount(root) {
           style: `fill: ${i % 2 ? "var(--rg-bg)" : "var(--rg-panel)"}`,
         }),
       );
+      const position = state.laneOrder.indexOf(lane.lane);
+      const mover = (glyph, step, x, label) => {
+        const disabled =
+          (step < 0 && position === 0) ||
+          (step > 0 && position === state.laneOrder.length - 1);
+        if (disabled) return;
+        const t = svg("text", {
+          x,
+          y: lane.top + 14,
+          class: "rg-lane-move",
+          role: "button",
+          tabindex: 0,
+          "aria-label": `${label}: ${lane.lane}`,
+        });
+        t.textContent = glyph;
+        t.addEventListener("click", () => moveSection(lane.lane, step));
+        t.addEventListener("keydown", (ev) => {
+          if (ev.key === "Enter" || ev.key === " ") {
+            ev.preventDefault();
+            moveSection(lane.lane, step);
+          }
+        });
+        root2.append(t);
+      };
+      mover("▲", -1, 6, "Move section up");
+      mover("▼", 1, 18, "Move section down");
       const label = svg("text", {
-        x: 6,
+        x: 32,
         y: lane.top + 14,
         class: "rg-lane-label",
       });
@@ -671,23 +863,31 @@ export async function mount(root) {
       label.append(full);
       root2.append(label);
     });
-    // Year ticks.
+    // Year ticks at year starts, and the undated column.
     for (const t of ticks) {
-      const x = scale(t);
       root2.append(
         svg("line", {
-          x1: x,
-          x2: x,
+          x1: t.x,
+          x2: t.x,
           y1: 20,
-          y2: height - 10,
+          y2: height - 4,
           style: "stroke: var(--rg-line); stroke-width: 1",
         }),
       );
-      const label = svg("text", { x: x + 2, y: 14, class: "rg-tick" });
-      label.textContent = String(t);
+      const label = svg("text", { x: t.x + 2, y: 14, class: "rg-tick" });
+      label.textContent = String(t.year);
       root2.append(label);
     }
-    const nd = svg("text", { x: undatedX - 8, y: 14, class: "rg-tick" });
+    root2.append(
+      svg("line", {
+        x1: ndStart,
+        x2: ndStart,
+        y1: 20,
+        y2: height - 4,
+        style: "stroke: var(--rg-line); stroke-width: 1; stroke-dasharray: 2 3",
+      }),
+    );
+    const nd = svg("text", { x: ndStart + 4, y: 14, class: "rg-tick" });
     nd.textContent = "n.d.";
     root2.append(nd);
 
@@ -730,7 +930,7 @@ export async function mount(root) {
       const c = candidateByIndex.get(n.index);
       const r = n.inBibliography ? 5 : 3 + Math.min(c ? c.score : 2, 14) * 0.35;
       const g = svg("g", {
-        class: `rg-node${state.selected === n.index ? " selected" : ""}`,
+        class: `rg-node${state.selected === n.index ? " selected" : ""}${near && !near.has(n.index) ? " dim" : ""}`,
         tabindex: 0,
         role: "button",
         "data-index": n.index,
@@ -851,8 +1051,14 @@ export async function mount(root) {
         ul.append(el("li", { text: `…and ${sorted.length - 60} more` }));
       panel.append(ul);
     };
-    list("Cites", adjacency.out[n.index]);
-    list("Cited by", adjacency.in[n.index]);
+    // For an older work the interesting direction is what cites it.
+    if (n.inBibliography) {
+      list("Cites", adjacency.out[n.index]);
+      list("Cited by", adjacency.in[n.index]);
+    } else {
+      list("Cited by", adjacency.in[n.index]);
+      list("Cites", adjacency.out[n.index]);
+    }
   }
 
   function renderTable() {
@@ -885,6 +1091,27 @@ export async function mount(root) {
   }
 
   render();
+
+  // The axis is laid out for the canvas width, so redraw when it changes:
+  // on window resizes, and through a ResizeObserver for layout changes the
+  // window does not see. A timer debounces both (requestAnimationFrame is
+  // paused in background tabs).
+  let lastWidth = canvas.clientWidth;
+  let pending = false;
+  const redrawIfResized = () => {
+    if (pending) return;
+    pending = true;
+    setTimeout(() => {
+      pending = false;
+      if (canvas.clientWidth === lastWidth) return;
+      lastWidth = canvas.clientWidth;
+      render();
+    }, 120);
+  };
+  window.addEventListener("resize", redrawIfResized);
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(redrawIfResized).observe(canvas);
+  }
 }
 
 if (typeof document !== "undefined") {
