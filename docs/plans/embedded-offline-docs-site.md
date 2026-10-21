@@ -1,6 +1,6 @@
 # Embedded offline docs site (`/docs/`)
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Milestone 1 shipped in PR #480. Milestone 2 planned: finish the remaining operator polish, add shared public guide/tool surfaces, and ship offline search.
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Milestone 1 shipped in PR #480. Milestone 2 planned: finish the remaining operator polish, add shared public guide/tool surfaces, and ship offline search.
 - **Owner:** Architecture (Grace) → handed off to Appius / on-branch implementation in PR #480.
 - **Scope mode:** HOLD — minimum viable architecture; no new dependencies on cloud, no new languages.
 - **Canonical:** [offline-docs-site.md](../platform/operations/offline-docs-site.md)

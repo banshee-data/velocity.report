@@ -163,7 +163,7 @@ annotation backlog. No backlog item is added until then.
    nothing in the roadmap forecasts. Not a rename of any registered metric.
 6. **Rights.** arXiv licence not read (**Confirm**).
 7. **Give back.** Observed minimum PET over a conflict region is a research-note candidate once
-   v0.5.3 lands; a forecast is not testable from a point sensor.
+   v0.5.4 lands; a forecast is not testable from a point sensor.
 
 ## Rectangle edge matching for infrastructure LiDAR speed (Applied Sciences, 2026)
 

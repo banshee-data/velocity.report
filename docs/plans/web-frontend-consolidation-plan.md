@@ -1,6 +1,6 @@
 # Surface consolidation plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+- **Status:** Proposed: Phases 1 to 6 are v0.5.2's ECharts retirement and Phase 7 is a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
@@ -351,10 +351,9 @@ Preserve as JSON APIs even as the HTML goes: `pcapRoutes`
 (`GET /api/lidar/playback/status`), and the `lidar_run_records` write path.
 `publish-scenes.py` and the Makefile preflight hard-code port 8080.
 
-One planned item needs respecifying rather than porting: deterministic scene
-capture Milestone 4 (`lidar-deterministic-scene-capture-plan.md:207-223`)
-specifies a "Make web export" checkbox _on the 8081 replay form_. Point it at
-the Svelte form from Phase 3.
+Deterministic scene capture Milestone 4 adds its unchecked **Make web export** option to the
+Svelte form from Phase 3. It follows that replacement, not the retired 8081 replay form; its
+export still waits for recording finalisation and can be retried independently.
 
 ## Where the evaluator fits
 

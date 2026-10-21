@@ -1,8 +1,8 @@
-# LiDAR maths coherence plan (v0.5.2)
+# LiDAR maths coherence plan (v0.5.3)
 
 - **Status:** Draft
 - **Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L8 Analytics
-- **Target:** v0.5.2; the 052 run is maths-led, and the individual paper-gap fixes scheduled for it land on top of a substrate that does not yet exist.
+- **Target:** v0.5.3; the 052 run is maths-led, and the individual paper-gap fixes scheduled for it land on top of a substrate that does not yet exist.
 - **Companion plans:** [lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md), [go-runtime-pipeline-correctness-plan.md](go-runtime-pipeline-correctness-plan.md), [lidar-clock-abstraction-and-time-domain-model-plan.md](lidar-clock-abstraction-and-time-domain-model-plan.md), [lidar-architecture-foundations-fixit-plan.md](lidar-architecture-foundations-fixit-plan.md), [lidar-performance-measurement-harness-plan.md](lidar-performance-measurement-harness-plan.md)
 - **Canonical:** [data/maths/MATHS.md](../../data/maths/MATHS.md) (single source of truth)
 - **Related:** [LiDAR math foundations audit](../lidar/architecture/math-foundations-audit.md), [Paper-vs-implementation gap analysis](../../data/maths/paper-implementation-gap-analysis.md)
@@ -24,7 +24,7 @@ assembled from 29 scattered additive increments and has no governing equation in
 any document. It is the one numerical surface in the tree that no maths note
 covers, and it blocks the classification scorecard downstream.
 
-v0.5.2 schedules six paper-gap fixes (K1, K2, B1, M1, S2, S3). Landing them
+v0.5.3 schedules six paper-gap fixes (K1, K2, B1, M1, S2, S3). Landing them
 against the current substrate means six more numerical changes with no in-code
 provenance, and in M1's case a metric with no maths note to live in. This plan
 builds the substrate first so the 052 fixes land documented rather than merely
@@ -120,7 +120,7 @@ classification scorecard so the two metric layers agree.
 4. Add a link-check pass so a referenced maths section that disappears fails CI
    the way other relative links already do.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.3
 
 ### Item 2: state the L6 confidence model
 
@@ -136,7 +136,7 @@ classification scorecard so the two metric layers agree.
 5. Add a test pinning the confidence output per class so the extraction is
    provably behaviour-preserving.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.3
 
 ### Item 3: L8 analytics maths note
 
@@ -153,7 +153,7 @@ implement against.
    scorecard so all three agree.
 3. Add the note to the `MATHS.md` index.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.3
 
 ### Item 4: L1 and L2 maths note
 
@@ -168,7 +168,7 @@ performance work depends on.
    [clock abstraction plan](lidar-clock-abstraction-and-time-domain-model-plan.md)
    rather than restating it.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.3
 
 ### Item 5: hub and registry corrections
 
@@ -182,7 +182,7 @@ performance work depends on.
    noise defaults, and L6 confidence terms, or narrow its stated scope to match
    what it actually covers.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.3
 
 ### Item 6: unmask the config-parity gate
 
@@ -196,7 +196,7 @@ performance work depends on.
    remaining runtime config keys; until then, make the masking visible in the job
    summary rather than silent.
 
-**Milestone:** v0.5.2
+**Milestone:** v0.5.3
 
 ## Sequencing
 

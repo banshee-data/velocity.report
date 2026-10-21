@@ -360,12 +360,12 @@ and take parameter sets, as section 1 already requires.
 
 | Step                                                                                               | Effort | Milestone |
 | -------------------------------------------------------------------------------------------------- | ------ | --------- |
-| `fingerprint` on arms; the validator's two rules; the report check                                 | `S`    | v0.5.8    |
-| Backfill the 38 answered specs from their reports' commits                                         | `S`    | v0.5.8    |
-| `approved` removed from the format, the validator, `mark` and both skills; arms pinned at creation | `S`    | v0.5.8    |
-| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits         | `S`    | v0.5.8    |
-| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                              | `S`    | v0.5.8    |
-| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets      | `S`    | v0.5.9    |
+| `fingerprint` on arms; the validator's two rules; the report check                                 | `S`    | v0.5.9    |
+| Backfill the 38 answered specs from their reports' commits                                         | `S`    | v0.5.9    |
+| `approved` removed from the format, the validator, `mark` and both skills; arms pinned at creation | `S`    | v0.5.9    |
+| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits         | `S`    | v0.5.9    |
+| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                              | `S`    | v0.5.9    |
+| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets      | `S`    | v0.5.10   |
 
 ### Not in scope
 
