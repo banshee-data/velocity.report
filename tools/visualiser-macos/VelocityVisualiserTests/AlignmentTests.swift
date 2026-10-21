@@ -829,7 +829,7 @@ struct HintHeadingTests {
 
     @MainActor @Test func theFieldIsNorthAzimuthAndTheHintIsDerived() {
         let session = AlignmentSession(
-            makeClient: { FakeAlignmentService() }, lookup: nil, defaults: nil)
+            makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: nil)
         #expect(session.hintHeadingDeg == nil)
         session.northAzimuthText = " 35 "
         #expect(session.northAzimuthDeg == 35)
@@ -844,7 +844,7 @@ struct HintHeadingTests {
         // Typed when the field meant the heading itself.
         defaults.set("145.0", forKey: "alignment.heading.808580f47")
         let service = FakeAlignmentService()
-        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: defaults)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: defaults)
         await session.probe()
         session.choose(
             AlignmentSite(
