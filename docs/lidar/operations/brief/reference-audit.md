@@ -15,6 +15,11 @@ report pages or cover sheets. This establishes bibliographic identity. It does n
 paper's numerical claims, reproduce its experiments, or establish suitability for the deployed
 sensor. The briefings' reading and **Confirm** statuses remain the record of those limits.
 
+Each bibliography section has a soft cap, and a change that takes a section over it records
+here whether it pruned, merged or raised the cap. The rules are in the
+[citation rubric](../../../../data/maths/citation-rubric.md); `make check-bibliography` reports
+the counts.
+
 ## Corrected source context
 
 The October 11, 2026 follow-up traced all six sources corrected in PR #739 through the
