@@ -1,7 +1,6 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 16250eb1f399d7339821c58ed87809e9e8dd0129 on main (PR 2, merged).
-// It matches aed6d9a, the commit first vendored, apart from one comment.
+// Commit: 05559d93697cedc1044ddde3a12fec8c9d892c1c on main (PR 8, merged).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -94,14 +93,18 @@ service RegistrationService {
   // draw the reference before any registration has run.
   rpc PoseFromHint(PoseFromHintRequest) returns (PoseFromHintResponse);
 
-  // Runs registration stages 1 to 4 (candidate intersections, coarse pose,
-  // multi-seed ICP, acceptance gates) for a scan against its site. Streams
-  // progress and each distinct hypothesis as it converges; the last message
-  // carries the registration, in state CANDIDATE or FAILED. Cancelling the
-  // call stops the run. Until the automatic stages are built, every run is
-  // recorded as FAILED with no hypotheses and carries its initial pose, so
-  // an operator can place the sensor by hand and accept that pose with
-  // ReviewRegistration.
+  // Registers a scan against its site's 3DEP points: levels the scan by its
+  // ground plane, searches 30 m around the start position and every heading
+  // for where its facades and poles meet 3DEP's elevated structure, refines
+  // the best distinct poses with point-to-plane ICP, scores them on
+  // held-out points and gates the best (docs/INTERFACE-VISUALISER.md §7).
+  // Streams progress and each distinct hypothesis as it converges; the last
+  // message carries the registration, CANDIDATE when every gate passes,
+  // else FAILED with its hypotheses, which an operator can still accept.
+  // The start's heading is not used. A site without aerial data, or a scan
+  // without a ground plane, gives a FAILED run with no hypotheses that
+  // carries its initial pose, for placing the sensor by hand. The run is
+  // logged even if the client goes away.
   rpc Register(RegisterRequest) returns (stream RegisterResponse);
 
   // Scores a pose against the reference: residual statistics, constraint
@@ -353,13 +356,18 @@ message Scan {
 // The approximate placement velocity.report holds before registration.
 message PoseHint {
   GeodeticPosition position = 1;    // WGS 84; the height is ignored
-  optional double heading_deg = 2;  // azimuth of sensor +Y, clockwise from true north
+  // Azimuth of sensor +Y, clockwise from true north. From velocity.report's
+  // site-index north_azimuth_deg N this is 180 - N (docs/INTERFACE-VISUALISER.md §3).
+  optional double heading_deg = 2;
   optional double mount_height_m = 3;  // sensor above ground; server default when absent
 }
 
 message RegistrationOptions {
-  uint32 seed_count = 1;            // ICP starts; default 20
-  float seed_translation_m = 2;     // seeds are spread +/- this around each start; default 5
+  // Re-runs from seeds spread around the best pose: each a local search and
+  // ICP; the seed_agreement gate counts those ending within 0.10 m and 0.5
+  // degrees of it.
+  uint32 seed_count = 1;            // default 20
+  float seed_translation_m = 2;     // seeds are spread +/- this in x and y; default 5
   float seed_yaw_deg = 3;           // and +/- this in heading; default 30
   float max_correspondence_m = 4;   // default 1.0
   uint64 random_seed = 5;           // makes a run repeatable; default 1
@@ -383,6 +391,8 @@ message FitQuality {
   float ground_p50_m = 3;
   float ground_p95_m = 4;
   float facade_p50_m = 5;
+  // Reported, not gated: San Francisco facades put recesses, glass and bay
+  // windows in the tail whatever the pose (docs/INTERFACE-VISUALISER.md §7).
   float facade_p95_m = 6;
   float rmse_m = 7;
 
@@ -393,11 +403,17 @@ message FitQuality {
   repeated double information_eigenvalues = 8 [packed = true];
   uint32 constraint_rank = 9;       // eigenvalues above the server's threshold; 6 is full
   repeated string weak_directions = 10;  // human-readable, e.g. "translation along 23 deg"
+  float facade_p75_m = 11;
+  // How fast facade residuals grow with range: the Theil-Sen slope of
+  // |residual| against distance from the sensor, metres per metre. A heading
+  // error of a radians adds up to a metres per metre; facade geometry does
+  // not grow with range. NaN with fewer than 100 facade residuals.
+  float facade_range_slope = 12;
 }
 
 // One acceptance gate and how the pose did against it.
 message GateResult {
-  string name = 1;                  // "ground_p95_m", "facade_p95_m", "constraint_rank", "hypothesis_separation", "seed_agreement"
+  string name = 1;                  // "ground_p95_m", "facade_p75_m", "facade_range_slope", "constraint_rank", "hypothesis_separation", "seed_agreement"
   double value = 2;
   double threshold = 3;
   bool passed = 4;
