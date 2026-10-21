@@ -1,8 +1,8 @@
 # Go codebase structural hygiene plan (v0.5.x)
 
-- **Status:** Parked (D-32, October 20, 2026): substantially complete on `main`; `dd/fix-more-of-it` carries the final JSON tag and error-drop fixes, and the remainder is the v0.5.8 rows. Mark Complete when that branch lands
+- **Status:** Parked (D-32, October 20, 2026): substantially complete on `main`; `dd/fix-more-of-it` carries the final JSON tag and error-drop fixes, and the remainder is the v0.5.9 rows. Mark Complete when that branch lands
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
-- **Target:** v0.5.8; lock in the right structural defaults before v0.5.0 hardens them
+- **Target:** v0.5.9; lock in the right structural defaults before v0.5.0 hardens them
 - **Companion plans:**
   [go-structured-logging-plan.md](go-structured-logging-plan.md),
   [go-god-file-split-plan.md](go-god-file-split-plan.md),

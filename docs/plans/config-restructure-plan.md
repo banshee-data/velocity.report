@@ -1,6 +1,6 @@
 # Config restructure: flat → layer-scoped
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Phase 1 complete, Phase 2 adjusted, Phase 2B proposed, Phase 3 pending
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Phase 1 complete, Phase 2 adjusted, Phase 2B proposed, Phase 3 pending
 - **Canonical:** [CONFIG.md](../../config/CONFIG.md)
 - **Schema version:** `2`
 - **Motivation:** Support multi-engine algorithm selection (CV, IMM, HDBSCAN),

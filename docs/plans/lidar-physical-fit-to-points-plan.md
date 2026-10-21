@@ -7,7 +7,7 @@ of something hiding it. The fit does the arithmetic, states every bound it uses,
 proposals that go through the same validation and review as anything typed by hand.
 
 - **Status:** F1 and F2 built: the Go fit, its command, its endpoint, and the window's Fit section with the evidence pickers removed. F4 built: the whole box is drawn in the 3D view and the elevations, a fitted pose turns about its centre, and the window names every frame by its sample. F3 (errors at the field) and F5 open
-- **Target:** v0.5.2, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
+- **Target:** v0.5.3, Sprint 0.5.2.0; the P3 operator pilot of the [physical reference plan](lidar-physical-reference-review-plan.md)
 - **Layers:** L10 Clients, annotation and offline evaluation
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [physical reference review](lidar-physical-reference-review-plan.md), [authoring comprehension design](lidar-physical-authoring-comprehension-design.md) (its authoring flow is replaced by this one), [F0 report](../lidar/operations/facet-f0-attribution-kirk0-report.md), [kirk0 pilot](../lidar/operations/physical-reference-pilot-kirk0-2026-10.md), [mounting](../../.github/knowledge/hardware.md#mounting)

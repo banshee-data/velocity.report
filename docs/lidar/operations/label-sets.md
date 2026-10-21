@@ -30,8 +30,9 @@ One layout, locally and in the Hugging Face dataset, where `<root>` is `labels/`
 | `label-set-link.json` | In a pack: names the label set holding its membership, by id and path relative to the pack            |
 | `<view>`              | `<cut time>-<run>`, for example `20260929-184718-ad8b9438`; the run id and digest are in its manifest |
 
-Locally, `<root>` is the server's `--lidar-annotation-dir` (`LIDAR_ANNOTATION_DIR` in `local.mk`). An
-export lands in its capture's `packs/`. The first save from a pack creates its label set in the
+`<root>` is the server's `--lidar-annotation-dir` (`LIDAR_ANNOTATION_DIR` in `local.mk`), and it
+should be the dataset clone's `labels/`: then what is labelled is what is committed and pushed
+([working in the dataset](#working-in-the-dataset)). An export lands in its capture's `packs/`. The first save from a pack creates its label set in the
 capture folder and links the pack where it is; `labels nest` later moves linked packs into their
 set's `views/`. A clip job's folder stays where the job wrote it, since the job's row names it;
 once its pack is linked, `nest` moves the pack and the server finds it again by its segment.
@@ -41,30 +42,62 @@ extraction it was made on. A return outside that foreground was never shown to t
 unlabelled for scoring, never a negative. Label on a generous foreground: what it leaves out, a
 label set cannot measure.
 
+### Working in the dataset
+
+Make the annotation in the Hugging Face clone itself, not in a folder beside it that is copied in
+later. Set, in `local.mk`:
+
+```make
+LIDAR_ANNOTATION_DIR = /Volumes/lidar/lidar/pcaps/sf-street-speeds/labels
+```
+
+and replay captures from the clone's `raw/lidar/`, so each export lands in the dataset capture's
+own folder, `labels/<capture stem>/packs/`. A pack there is published as it is, labelled or not:
+it is work another labeller can pick up from a clone. Its first save makes the label set beside
+`packs/`, linked `../../<set>`; `labels nest` later moves it into the set's `views/`. Before
+committing, run `labels check-tree --root <clone>/labels` and
+`tools/s2-archive/stage-label-sets.py --dataset <clone> --refresh-paths`, which lists every set and
+pack in the manifest rows and writes the ignore rules for what the server writes that is not a
+record: exports in progress, a clip job's recording, facets, segment records.
+
+A tree kept elsewhere before this moves in with `nest --into`: it names each set's capture folder
+for the dataset capture its bound file is, by SHA-256, and a set or pack the dataset already holds
+takes the local copy's history and working state instead of being duplicated. The local copies go
+to `<root>/.gathered-<time>/`, never deleted.
+
+```bash
+velocity lidar labels nest --root <clone>/labels
+velocity lidar labels nest --root <old root> --into <clone>/labels --dataset <clone> --dry-run
+```
+
+Both trees must be on one file system: every move is a rename. Stop the server and close the
+window first. A set migrated from version 1 whose view's foreground is not one of its domains needs
+`labels attach --pack <view> --labels <set>` before `check-tree` passes, as kirk0-reference did.
+
 ## Commands
 
 All are `velocity lidar labels <command>`; built through `make`, so records name the build.
 
-| Command        | Use                                                                                                                                                                   |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `create`       | Start a label set from a pack and link the pack                                                                                                                       |
-| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                                   |
-| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                             |
-| `verify`       | Replay the journal and check every revision's state digest                                                                                                            |
-| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                                        |
-| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                                           |
-| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited                     |
-| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it             |
-| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                                    |
-| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                                         |
-| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                                          |
-| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--dry-run` prints the moves             |
-| `check`        | Warn about likely labelling mistakes in a pack's membership, as the window's Checks panel does ([checks](point-annotation-tool.md#checks)); `--strict` exits 1 on any |
-| `diff`         | What a change did to objects and masks, between two folders or two Git revisions (`--git REV[..REV] --labels SET`); `--format markdown` for a pull request            |
-| `check-tree`   | Check every set and view of a dataset's `labels/` at once: none mid-merge, every view holding, no pack outside a set's `views/`; `--base REV` adds each set's diff    |
-| `git-setup`    | In a dataset clone: install the merge drivers and the hooks that finish a merge of label sets                                                                         |
-| `finish-merge` | Make merged sets' head files their next revision, re-pin, and check the views; the hooks run it                                                                       |
-| `census`       | Count packet keys in capture files and report duplicates                                                                                                              |
+| Command        | Use                                                                                                                                                                                                                                   |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `create`       | Start a label set from a pack and link the pack                                                                                                                                                                                       |
+| `attach`       | Add another pack of the same capture as a second domain and link it                                                                                                                                                                   |
+| `bind`         | Check a capture file holds the label set's packets; record its SHA-256 in `applies_to`. Changes no labels                                                                                                                             |
+| `verify`       | Replay the journal and check every revision's state digest                                                                                                                                                                            |
+| `info`         | Counts, head revision and digest, bindings, and where a migrated set came from                                                                                                                                                        |
+| `project`      | Print a linked pack's membership in the pack's own samples and point indices, at the head or `--revision N`                                                                                                                           |
+| `publish`      | Copy the current state, without the journal, to an empty directory; `--replace` refreshes a published copy that is behind and has not been edited                                                                                     |
+| `publish-view` | Copy a linked pack beside a published label set as its view, with its data and physical references, after checking the view as a fresh copy would hold it                                                                             |
+| `check-view`   | Check a view and its label set as a fresh copy of their tracked files would hold them, with no history behind them                                                                                                                    |
+| `rehead`       | After a Git merge, make the head files on disk the next revision; keep your own `labels.json` in the conflict                                                                                                                         |
+| `relayout`     | Rewrite the head in the storage layout, from the single-file layout or with another `--window-chunk`; the state is unchanged                                                                                                          |
+| `nest`         | Move a tree into the layout: sets into their capture folder, linked packs into their set's `views/`, the rest into `packs/`; `--into DIR --dataset CLONE` moves a local tree into a dataset's `labels/`; `--dry-run` prints the moves |
+| `check`        | Warn about likely labelling mistakes in a pack's membership, as the window's Checks panel does ([checks](point-annotation-tool.md#checks)); `--strict` exits 1 on any                                                                 |
+| `diff`         | What a change did to objects and masks, between two folders or two Git revisions (`--git REV[..REV] --labels SET`); `--format markdown` for a pull request                                                                            |
+| `check-tree`   | Check every set and pack of a dataset's `labels/` at once: none mid-merge, every view and linked pack holding, every pack in a layout position; `--base REV` adds each set's diff                                                     |
+| `git-setup`    | In a dataset clone: install the merge drivers and the hooks that finish a merge of label sets                                                                                                                                         |
+| `finish-merge` | Make merged sets' head files their next revision, re-pin, and check the views; the hooks run it                                                                                                                                       |
+| `census`       | Count packet keys in capture files and report duplicates                                                                                                                                                                              |
 
 Everything that reads a pack's membership reads it through the label set: splits, physical
 references, features, the per-frame and near-face evaluators, and the server's pack listing. It is
@@ -214,9 +247,9 @@ commits either way.
 
 - **Splits land in `labels/splits/`.** A split frozen through the server is written there. Commit
   it only if it is meant to be published.
-- **Facets break for later copies.** A facet pins the label set revision it was authored on, so it
-  stops loading once membership moves past that revision. `check-view` reports it; there is no
-  facet re-pin yet.
+- **Facets stay local.** A facet pins the label set revision it was authored on, which a copy
+  without history cannot rebuild, so the dataset ignores `feature-proposals.pb` and `check-view`
+  does not check it. There is no facet re-pin yet.
 - **Every text file must stay under 10 MiB.** Hugging Face refuses a push in which any commit holds
   a larger plain-Git file. `check-view` and the staging script report one. Running `labels relayout`
   with a smaller `--window-chunk` splits the chunks finer.

@@ -8,6 +8,7 @@ import (
 func setupSiteReportTestDB(t *testing.T) *DB {
 	t.Helper()
 	fname := t.TempDir() + "/test_site_reports.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -414,6 +415,7 @@ func TestGetRecentReportsForSite_EmptyResult(t *testing.T) {
 // TestGetRecentReportsAllSites_EmptyResult tests empty result handling
 func TestGetRecentReportsAllSites_EmptyResult(t *testing.T) {
 	fname := t.TempDir() + "/empty_reports.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)

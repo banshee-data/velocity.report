@@ -14,6 +14,18 @@ import (
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
+// Patterns used to normalise schema SQL for comparison. Compiled once: schema
+// detection normalises every object at every migration version, and compiling
+// them per call made that loop spend most of its time in the regexp compiler.
+var (
+	// quotedTablePattern matches "table_name" or 'table_name', the quoting
+	// SQLite adds during ALTER TABLE operations.
+	quotedTablePattern = regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
+	// tableParenPattern matches "table_name(": SQLite's ALTER TABLE RENAME
+	// drops the space between a table name and its column list.
+	tableParenPattern = regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
+)
+
 // MigrateUp runs all pending migrations up to the latest version.
 // Returns nil if no migrations were needed (already at latest version).
 func (db *DB) MigrateUp(migrationsFS fs.FS) error {
@@ -304,13 +316,11 @@ func normalizeSQLForComparison(sql string) string {
 
 	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
 	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
-	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
 	sql = quotedTablePattern.ReplaceAllString(sql, "$1")
 
 	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
 	// Pattern matches: "table_name(" and replaces with: "table_name ("
 	// This normalizes "CREATE TABLE name(" to "CREATE TABLE name ("
-	tableParenPattern := regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
 	sql = tableParenPattern.ReplaceAllString(sql, "$1 (")
 
 	return sql
@@ -353,13 +363,11 @@ func normalizeSQL(s string) string {
 
 	// Remove quotes from table names that SQLite adds during ALTER TABLE operations
 	// Pattern matches: "table_name" or 'table_name' and replaces with: table_name
-	quotedTablePattern := regexp.MustCompile(`["']([a-z_][a-z0-9_]*)["']`)
 	s = quotedTablePattern.ReplaceAllString(s, "$1")
 
 	// SQLite's ALTER TABLE RENAME removes the space after table name in CREATE TABLE
 	// Pattern matches: "table_name(" and replaces with: "table_name ("
 	// This normalizes "CREATE TABLE name(" to "CREATE TABLE name ("
-	tableParenPattern := regexp.MustCompile(`\b([a-z_][a-z0-9_]*)\(`)
 	s = tableParenPattern.ReplaceAllString(s, "$1 (")
 
 	return s
@@ -430,6 +438,21 @@ func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, mat
 	defer tmpDB.Close()
 
 	tmpWrapper := &DB{tmpDB}
+
+	// One migrator for the whole walk. MigrateTo builds a new one per call,
+	// re-reading the migrations directory and re-checking the version table
+	// at every step of a loop that visits every version.
+	m, err := tmpWrapper.newMigrate(migrationsFS)
+	if err != nil {
+		return 0, 0, nil, err
+	}
+	migrateTo := func(version uint) error {
+		if err := m.Migrate(version); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			return fmt.Errorf("migration to version %d failed: %w", version, err)
+		}
+		return nil
+	}
+
 	bestVersion := uint(0)
 	bestScore := 0
 	var bestDifferences []string
@@ -439,7 +462,7 @@ func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, mat
 	// temporary database and apply one migration at a time.
 	for version := uint(1); version <= latestVersion; version++ {
 		// Apply next migration to the temporary database
-		if err := tmpWrapper.MigrateTo(migrationsFS, version); err != nil {
+		if err := migrateTo(version); err != nil {
 			log.Printf("Warning: could not apply migration to version %d: %v", version, err)
 			continue
 		}
@@ -473,7 +496,7 @@ func (db *DB) DetectSchemaVersion(migrationsFS fs.FS) (detectedVersion uint, mat
 		// (data-only migrations that don't change schema structure).
 		if score >= 98 && score < 100 && version > 1 {
 			for nextVersion := version + 1; nextVersion <= latestVersion; nextVersion++ {
-				if err := tmpWrapper.MigrateTo(migrationsFS, nextVersion); err != nil {
+				if err := migrateTo(nextVersion); err != nil {
 					continue
 				}
 				schemaAtNext, err := tmpWrapper.GetDatabaseSchema()

@@ -12,6 +12,7 @@ import (
 // TestListRecentBgSnapshots tests listing recent background snapshots
 func TestListRecentBgSnapshots(t *testing.T) {
 	fname := t.TempDir() + "/test_bg_snapshots.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -59,6 +60,7 @@ func TestListRecentBgSnapshots(t *testing.T) {
 // TestListRecentBgSnapshots_Limit tests the limit parameter
 func TestListRecentBgSnapshots_Limit(t *testing.T) {
 	fname := t.TempDir() + "/test_bg_snapshots_limit.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -95,6 +97,7 @@ func TestListRecentBgSnapshots_Limit(t *testing.T) {
 // TestListRecentBgSnapshots_EmptyResult tests with no matching snapshots
 func TestListRecentBgSnapshots_EmptyResult(t *testing.T) {
 	fname := t.TempDir() + "/test_bg_snapshots_empty.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -114,6 +117,7 @@ func TestListRecentBgSnapshots_EmptyResult(t *testing.T) {
 // TestGetLatestBgSnapshot tests getting the latest background snapshot
 func TestGetLatestBgSnapshot(t *testing.T) {
 	fname := t.TempDir() + "/test_latest_bg.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -159,6 +163,7 @@ func TestGetLatestBgSnapshot(t *testing.T) {
 // TestGetLatestBgSnapshot_NotFound tests getting snapshot when none exist
 func TestGetLatestBgSnapshot_NotFound(t *testing.T) {
 	fname := t.TempDir() + "/test_latest_notfound.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -178,6 +183,7 @@ func TestGetLatestBgSnapshot_NotFound(t *testing.T) {
 // TestCountUniqueBgSnapshotHashes tests counting unique blob hashes
 func TestCountUniqueBgSnapshotHashes(t *testing.T) {
 	fname := t.TempDir() + "/test_unique_hashes.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -223,6 +229,7 @@ func TestCountUniqueBgSnapshotHashes(t *testing.T) {
 // TestCountUniqueBgSnapshotHashes_EmptyResult tests with no snapshots
 func TestCountUniqueBgSnapshotHashes_EmptyResult(t *testing.T) {
 	fname := t.TempDir() + "/test_unique_hashes_empty.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -242,6 +249,7 @@ func TestCountUniqueBgSnapshotHashes_EmptyResult(t *testing.T) {
 // TestAttachAdminRoutes tests attaching admin routes
 func TestAttachAdminRoutes(t *testing.T) {
 	fname := t.TempDir() + "/test_admin_routes.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -265,6 +273,7 @@ func TestAttachAdminRoutes(t *testing.T) {
 // TestTransitWorker_StartStop tests the transit worker start and stop
 func TestTransitWorker_StartStop(t *testing.T) {
 	fname := t.TempDir() + "/test_transit_worker.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -291,6 +300,7 @@ func TestTransitWorker_StartStop(t *testing.T) {
 // TestTransitWorker_DoubleStart tests that double start is handled
 func TestTransitWorker_DoubleStart(t *testing.T) {
 	fname := t.TempDir() + "/test_transit_double_start.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -337,6 +347,7 @@ func TestRadarObjectsRollupRow_String(t *testing.T) {
 // TestGetBgSnapshotByID tests retrieving a snapshot by its ID
 func TestGetBgSnapshotByID(t *testing.T) {
 	fname := t.TempDir() + "/test_bg_by_id.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -404,6 +415,7 @@ func TestGetBgSnapshotByID(t *testing.T) {
 // TestGetBgSnapshotByID_NotFound tests retrieval of non-existent snapshot
 func TestGetBgSnapshotByID_NotFound(t *testing.T) {
 	fname := t.TempDir() + "/test_bg_by_id_notfound.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -424,6 +436,7 @@ func TestGetBgSnapshotByID_NotFound(t *testing.T) {
 // TestGetBgSnapshotByID_InvalidID tests retrieval with invalid (zero/negative) ID
 func TestGetBgSnapshotByID_InvalidID(t *testing.T) {
 	fname := t.TempDir() + "/test_bg_by_id_invalid.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -456,6 +469,7 @@ func TestGetBgSnapshotByID_InvalidID(t *testing.T) {
 // TestInsertRegionSnapshot tests inserting a region snapshot
 func TestInsertRegionSnapshot(t *testing.T) {
 	fname := t.TempDir() + "/test_insert_region.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -503,6 +517,7 @@ func TestInsertRegionSnapshot(t *testing.T) {
 // TestInsertRegionSnapshot_NilSnapshot tests handling of nil snapshot
 func TestInsertRegionSnapshot_NilSnapshot(t *testing.T) {
 	fname := t.TempDir() + "/test_insert_region_nil.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -521,6 +536,7 @@ func TestInsertRegionSnapshot_NilSnapshot(t *testing.T) {
 // TestGetRegionSnapshotByGridHash tests retrieval by scene hash
 func TestGetRegionSnapshotByGridHash(t *testing.T) {
 	fname := t.TempDir() + "/test_region_by_hash.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -584,6 +600,7 @@ func TestGetRegionSnapshotByGridHash(t *testing.T) {
 // TestGetRegionSnapshotByGridHash_NotFound tests retrieval with non-existent hash
 func TestGetRegionSnapshotByGridHash_NotFound(t *testing.T) {
 	fname := t.TempDir() + "/test_region_hash_notfound.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -603,6 +620,7 @@ func TestGetRegionSnapshotByGridHash_NotFound(t *testing.T) {
 // TestGetRegionSnapshotByGridHash_EmptyHash tests retrieval with empty hash
 func TestGetRegionSnapshotByGridHash_EmptyHash(t *testing.T) {
 	fname := t.TempDir() + "/test_region_hash_empty.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -623,6 +641,7 @@ func TestGetRegionSnapshotByGridHash_EmptyHash(t *testing.T) {
 // TestGetRegionSnapshotBySourcePath tests retrieval by source path
 func TestGetRegionSnapshotBySourcePath(t *testing.T) {
 	fname := t.TempDir() + "/test_region_by_path.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -686,6 +705,7 @@ func TestGetRegionSnapshotBySourcePath(t *testing.T) {
 // TestGetRegionSnapshotBySourcePath_NotFound tests retrieval with non-existent path
 func TestGetRegionSnapshotBySourcePath_NotFound(t *testing.T) {
 	fname := t.TempDir() + "/test_region_path_notfound.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -705,6 +725,7 @@ func TestGetRegionSnapshotBySourcePath_NotFound(t *testing.T) {
 // TestGetRegionSnapshotBySourcePath_EmptyPath tests retrieval with empty path
 func TestGetRegionSnapshotBySourcePath_EmptyPath(t *testing.T) {
 	fname := t.TempDir() + "/test_region_path_empty.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -725,6 +746,7 @@ func TestGetRegionSnapshotBySourcePath_EmptyPath(t *testing.T) {
 // TestGetLatestRegionSnapshot tests retrieval of most recent region snapshot
 func TestGetLatestRegionSnapshot(t *testing.T) {
 	fname := t.TempDir() + "/test_latest_region.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -785,6 +807,7 @@ func TestGetLatestRegionSnapshot(t *testing.T) {
 // TestGetLatestRegionSnapshot_NotFound tests retrieval when no snapshots exist
 func TestGetLatestRegionSnapshot_NotFound(t *testing.T) {
 	fname := t.TempDir() + "/test_latest_region_notfound.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -804,6 +827,7 @@ func TestGetLatestRegionSnapshot_NotFound(t *testing.T) {
 // TestGetRegionSnapshotByGridHash_MostRecent tests that the most recent matching hash is returned
 func TestGetRegionSnapshotByGridHash_MostRecent(t *testing.T) {
 	fname := t.TempDir() + "/test_region_hash_recent.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -862,6 +886,7 @@ func TestGetRegionSnapshotByGridHash_MostRecent(t *testing.T) {
 // TestRegionSnapshotAllFields tests that all fields are correctly stored and retrieved
 func TestRegionSnapshotAllFields(t *testing.T) {
 	fname := t.TempDir() + "/test_region_all_fields.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -946,6 +971,7 @@ func TestRegionSnapshotAllFields(t *testing.T) {
 // TestRegionSnapshotNullableFields tests correct handling of nullable fields
 func TestRegionSnapshotNullableFields(t *testing.T) {
 	fname := t.TempDir() + "/test_region_nullable.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)
@@ -1009,6 +1035,7 @@ func TestRegionSnapshotNullableFields(t *testing.T) {
 // TestGetRegionSnapshotBySourcePath_MostRecent tests that the most recent matching path is returned
 func TestGetRegionSnapshotBySourcePath_MostRecent(t *testing.T) {
 	fname := t.TempDir() + "/test_region_path_recent.db"
+	copyTemplateDB(t, fname)
 	db, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create test DB: %v", err)

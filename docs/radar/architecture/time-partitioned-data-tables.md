@@ -1,6 +1,6 @@
 # Time-Partitioned raw data tables
 
-- **Status:** Draft
+- **Status:** Proposed (D-15): the owner's storage choices are settled; crash recovery and the other [implementation blockers](#open-implementation-problems) remain open. Was: Draft
 
 Design for partitioning the raw radar data tables by time period to keep individual SQLite databases small enough for reliable operation on Raspberry Pi storage.
 
@@ -8,14 +8,14 @@ Design for partitioning the raw radar data tables by time period to keep individ
 
 ## Overview
 
-This specification proposes a time-based partitioning strategy for raw sensor data tables in velocity.report to enable sustainable long-term data growth. The system will automatically rotate raw data tables (`radar_data`, `radar_objects`, `lidar_bg_snapshot`) to monthly or quarterly read-only database files on the 2nd of each month at 00:00:00 UTC. Configuration tables remain in the main database, and union views provide transparent access to historical data across partition boundaries.
+This specification proposes a time-based partitioning strategy for raw sensor data tables in velocity.report to enable sustainable long-term data growth. On the 2nd of each month at 00:00:00 UTC the system checks which earlier months can close. A month stays writable in the main database until every session touching it has closed and its transit processing has finished; only then can its raw data and derived records move to a read-only archive. Configuration tables remain in the main database, and history queries read main once and each required archived month once.
 
 **Key Benefits:**
 
 - **Manageable Growth:** Prevents single-file database from growing unbounded
 - **Performance:** Smaller active database improves write performance and vacuum operations
-- **Archival:** Easy to backup, compress, or move old partitions to slower/cheaper storage
-- **Privacy:** Simple to delete old data per retention policies without complex WHERE clauses
+- **Archival:** Easy to back up or move old partitions to slower, cheaper local storage
+- **Privacy:** Simple for the operator to delete old months without complex WHERE clauses
 - **Recovery:** Corruption isolated to single partition instead of entire dataset
 
 **Trade-offs:**
@@ -25,29 +25,41 @@ This specification proposes a time-based partitioning strategy for raw sensor da
 - Need for partition-aware backup and monitoring strategies
 
 **Security Enhancements:**
-This design incorporates security fixes for critical vulnerabilities identified during security review:
+This design carries four security requirements identified during design review. They apply to
+code not yet written: none describes a weakness in shipped code. The identifiers are internal,
+from the [security checklist's register](../../../.github/knowledge/security-checklist.md#identifier-register);
+no CVE has been requested or assigned.
 
-- **Path Traversal Prevention (CVE-2025-VR-002):** All file paths validated, symlinks resolved, directory traversal rejected
-- **SQL Injection Prevention (CVE-2025-VR-003):** All SQL inputs sanitized, identifiers properly escaped, read-only mode enforced
-- **Race Condition Prevention (CVE-2025-VR-005):** Distributed locks for rotation, query completion waits, idempotent operations
-- **USB Security Hardening (CVE-2025-VR-006):** Filesystem whitelist, secure mount options (nosuid/nodev/noexec), USB device verification
+- **Path Traversal Prevention (VR-SEC-002):** All file paths validated, symlinks resolved, directory traversal rejected
+- **SQL Injection Prevention (VR-SEC-003):** All SQL inputs sanitized, identifiers properly escaped, read-only mode enforced
+- **Race Condition Prevention (VR-SEC-005):** A file lock (flock) plus an in-process mutex for rotation, query completion waits, idempotent operations
+- **USB Security Hardening (VR-SEC-006):** Filesystem whitelist, secure mount options (nosuid/nodev/noexec), partition files read-only and attached read-only, USB device verification
 
 ---
 
 ## Security considerations
 
-This design implements defence-in-depth measures against four identified vulnerabilities. Mitigations are described inline in the Rotation, ATTACH, and USB sections.
+The implementing pull request must meet four security requirements. Each is described inline in the Rotation, ATTACH and USB sections.
 
-| CVE             | Vulnerability                        | Severity | Key Mitigations                                                                                             |
-| --------------- | ------------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------- |
-| CVE-2025-VR-002 | Path traversal in attach/consolidate | 9.5      | Path validation, symlink resolution, directory traversal rejection, filename pattern matching               |
-| CVE-2025-VR-003 | SQL injection in ATTACH DATABASE     | 8.5      | Alias validation (alphanum only), SQL keyword filtering, proper escaping, read-only mode                    |
-| CVE-2025-VR-005 | Race condition in rotation           | 7.5      | SQLite-based rotation lock with 5-min expiry, query completion wait, idempotent operations                  |
-| CVE-2025-VR-006 | USB storage exploits                 | 7.8      | Filesystem whitelist (ext4/ext3), secure mount options (nosuid/nodev/noexec/ro), USB subsystem verification |
+| Identifier | Requirement                       | Status                  | Gate          | Key Mitigations                                                                                                                                |
+| ---------- | --------------------------------- | ----------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| VR-SEC-002 | Path traversal in attach and move | design requirement      | CRITICAL      | Path validation, symlink resolution, directory traversal rejection, filename pattern matching                                                  |
+| VR-SEC-003 | SQL injection in ATTACH DATABASE  | design requirement      | CRITICAL      | Alias validation (alphanum only), SQL keyword filtering, proper escaping, read-only mode                                                       |
+| VR-SEC-005 | Race condition in rotation        | reliability requirement | INFORMATIONAL | flock on a lock file (released by the kernel if the process dies) plus an in-process mutex, query completion wait, idempotent operations       |
+| VR-SEC-006 | USB storage exploits              | design requirement      | CRITICAL      | Filesystem whitelist (ext4/ext3), mount options nosuid/nodev/noexec, partition files `0444` and attached `mode=ro`, USB subsystem verification |
 
-**Security testing requirements:** Before deployment, test path traversal rejection (`../../etc/shadow`, symlinks, out-of-directory paths), SQL injection prevention (SQL keywords in aliases, quoted aliases), concurrent rotation (only one succeeds), and USB mount hardening (reject NTFS/FAT32, reject system disks, verify SUID blocked).
+Relabelled on October 20, 2026 after a security review: the four were labelled `CVE-2025-VR-002`, `003`,
+`005` and `006`, with bare scores and called fixes. VR-SEC-001 and 004 have no counterpart here
+and stay reserved. The review's other points were settled with the owner on October 21, 2026,
+and the sections below now say one thing each: six contradictions between sections (the rotation
+lock, the attach limit, compression, quarterly partitions, NFS and a read-only USB mount that
+partitions move onto), API authentication as a precondition for the storage actions, what the
+debug surfaces see once partitions exist, and retention. The answers are in
+[design decisions](#design-decisions-resolved).
 
-**Future enhancements:** API key authentication with bcrypt hashing, role-based access control, audit logging for all partition and USB operations, rate limiting.
+**Security testing requirements:** Before deployment, test path traversal rejection (`../../etc/shadow`, symlinks, out-of-directory paths), SQL injection prevention (SQL keywords in aliases, quoted aliases), concurrent rotation (only one succeeds), a write through an attached partition (refused), and USB mount hardening (reject NTFS/FAT32, reject system disks, verify SUID blocked).
+
+**Precondition:** API authentication lands before any storage action endpoint, as its own backlog row: an admin key, hashed with bcrypt, with every use written to `system_events`. Role-based access control and rate limiting remain future enhancements.
 
 ---
 
@@ -156,12 +168,13 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 
 ### Time-Based partitioning strategy
 
-**Partition Scheme:** Monthly or quarterly time-based partitions for raw data tables.
+**Partition Scheme:** Monthly time-based partitions for raw data tables; the period is not configurable, and months are never consolidated into larger files.
 
 **Rotation Schedule:**
 
-- **Trigger Date:** 2nd of each month at 00:00:00 UTC
-- **Reason for 2nd:** Allows first day of month to complete fully before rotation (timezone safety margin)
+- **First eligibility check:** 2nd of each month at 00:00:00 UTC
+- **Closure lag:** The date alone does not close a month. Open sessions and unfinished transit processing delay closure; the main file can hold several unclosed months.
+- **Retry:** Recheck a deferred month after session closure or worker progress, and on restart. Report its age and blocking work; never force-close a session to meet the calendar.
 
 **Partition Naming Convention:**
 
@@ -171,7 +184,6 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 ├── archives/
 │   ├── 2025-01_data.db              # Monthly partition (Jan 2025)
 │   ├── 2025-02_data.db              # Monthly partition (Feb 2025)
-│   ├── 2025-Q1_data.db              # Quarterly partition alternative
 │   └── ...
 ```
 
@@ -186,52 +198,38 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 │  │                                                           │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  Main Database (sensor_data.db)                     │  │  │
-│  │  │  • radar_data (current month)                       │  │  │
-│  │  │  • radar_objects (current month)                    │  │  │
-│  │  │  • lidar_bg_snapshot (current month)                │  │  │
-│  │  │  • radar_data_transits (current month)              │  │  │
-│  │  │  • radar_transit_links (current month)              │  │  │
+│  │  │  • radar_data (unclosed months)                     │  │  │
+│  │  │  • radar_objects (unclosed months)                  │  │  │
+│  │  │  • lidar_bg_snapshot (unclosed months)              │  │  │
+│  │  │  • radar_data_transits (unclosed months)            │  │  │
+│  │  │  • radar_transit_links (unclosed months)            │  │  │
 │  │  │  • site, site_reports (all config data)             │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  │                                                           │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
-│  │  │  ATTACH DATABASE 'archives/2025-01_data.db' AS m01  │  │  │
-│  │  │  • m01.radar_data (Jan 2025 data)                   │  │  │
-│  │  │  • m01.radar_objects                                │  │  │
-│  │  │  • m01.lidar_bg_snapshot                            │  │  │
-│  │  │  • m01.radar_data_transits                          │  │  │
-│  │  │  • m01.radar_transit_links                          │  │  │
-│  │  └─────────────────────────────────────────────────────┘  │  │
-│  │                                                           │  │
-│  │  ┌─────────────────────────────────────────────────────┐  │  │
-│  │  │  ATTACH DATABASE 'archives/2025-02_data.db' AS m02  │  │  │
-│  │  │  • m02.radar_data (Feb 2025 data)                   │  │  │
-│  │  │  • m02.radar_objects                                │  │  │
-│  │  │  • ... (same structure)                             │  │  │
-│  │  └─────────────────────────────────────────────────────┘  │  │
-│  │                                                           │  │
-│  │  ┌─────────────────────────────────────────────────────┐  │  │
-│  │  │  Union Views (Historical Queries)                   │  │  │
+│  │  │  History query (its own connection, per query)      │  │  │
 │  │  │                                                     │  │  │
-│  │  │  CREATE VIEW radar_data_all AS                      │  │  │
+│  │  │  ATTACH 'file:archives/2025-01_data.db?mode=ro'     │  │  │
+│  │  │    AS m01   (only the months the range covers,      │  │  │
+│  │  │             at most ten per connection)             │  │  │
+│  │  │  CREATE TEMP VIEW radar_data_all AS                 │  │  │
 │  │  │    SELECT * FROM main.radar_data                    │  │  │
 │  │  │    UNION ALL SELECT * FROM m01.radar_data           │  │  │
-│  │  │    UNION ALL SELECT * FROM m02.radar_data           │  │  │
-│  │  │    ... (dynamically maintained)                     │  │  │
+│  │  │  ... run the query ...                              │  │  │
+│  │  │  DROP VIEW; DETACH m01; return the connection       │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
-│  On 2025-03-02T00:00:00Z:                                       │
+│  From 2025-03-02T00:00:00Z, once February can close:             │
 │  1. Create archives/2025-02_data.db                             │
 │  2. Move Feb data from main → 2025-02_data.db                   │
 │  3. Make 2025-02_data.db read-only (chmod 444)                  │
-│  4. Update union views to include new partition                 │
-│  5. Continue writes to main.radar_data (now empty/March data)   │
+│  4. Keep current and other unclosed months writable in main    │
 └─────────────────────────────────────────────────────────────────┘
 
 Storage Layout:
 /var/lib/velocity-report/
-├── sensor_data.db          (current month + config, ~2-3GB)
+├── sensor_data.db          (unclosed months + config; grows while closure waits)
 └── archives/
     ├── 2025-01_data.db     (read-only, ~2.6GB, can move to slower storage)
     ├── 2025-02_data.db     (read-only, ~2.6GB)
@@ -248,17 +246,16 @@ Config tables (`site`, `site_reports`, etc.) remain in main database:
 - **Size:** Negligible (<1MB)
 - **Access:** Frequently joined with raw data queries
 
-**2. Monthly vs Quarterly Partitions**
+**2. Monthly Partitions Only**
 
-**Recommended: Monthly**
+Monthly, not configurable, and never consolidated (the owner, October 21, 2026):
 
-- **Pros:** Smaller partition size (~2.6GB), finer granularity for retention policies
-- **Cons:** More partitions to manage
+- **Pros:** Smaller partition size (~2.6GB), finer granularity for deletion, one filename pattern
+- **Cons:** More files; a history query longer than ten archived months reads in batches
 
-**Alternative: Quarterly**
-
-- **Pros:** Fewer partitions (~8GB each), simpler management
-- **Cons:** Larger files harder to backup/move, coarser retention granularity
+Quarterly partitions and monthly-to-yearly consolidation were considered and dropped: each added a
+second filename pattern and a second rotation or merge path to test, and attaching per query means
+the attach limit never forces a merge.
 
 **3. Immutable Partitions**
 
@@ -266,14 +263,15 @@ Once rotated, partitions become read-only:
 
 - **Implementation:** `chmod 444` on archived database files
 - **Benefit:** Prevents accidental writes, enables aggressive caching
-- **Exception:** Derived tables (`radar_data_transits`) may need updates for late-arriving sessionization
+- **Closure condition:** All sessions touching the month are closed, their derived writes are committed, and no queued ingest or transit work can still change its rows. Until then the month remains in main.
+- **After sealing:** Neither ingest nor the transit worker writes to the archive. Reprocessing or correcting a sealed month requires a separate, explicit policy; it is an [open implementation problem](#open-implementation-problems).
 
 **4. Derived Tables Included in Partitions**
 
 `radar_data_transits` and `radar_transit_links` included in partitions:
 
 - **Reason:** Transit data derived from raw data in same time period
-- **Trade-off:** Requires sessionization worker to run before rotation OR accept late updates
+- **Trade-off:** Closure waits for the sessionisation worker, including a session that spans midnight or the month boundary. A worker backlog or a session that never closes delays archival and raises a storage-health warning.
 
 ---
 
@@ -281,23 +279,26 @@ Once rotated, partitions become read-only:
 
 ### Partition lifecycle
 
-**Phase 1: Active Partition (Main Database)**
+**Phase 1: Unclosed Months (Main Database)**
 
-During Phase 1, the current month’s data is written directly to the main database via `INSERT INTO radar_data (raw_event)` and `INSERT INTO radar_objects (raw_event)`.
+The current month and any earlier month awaiting session closure or transit processing remain in the main database. Normal ingest and the worker can finish their writes there. The closed-month boundary, not the current date alone, decides whether a write is allowed.
 
-**Phase 2: Rotation Trigger (2nd of Month 00:00:00 UTC)**
+**Phase 2: Closure and Rotation (Eligible from the 2nd of the Next Month)**
 
-Automated rotation process:
+The eligibility check requires all sessions touching the month to be closed, the worker to have processed through the month's end and committed the derived records and links, and queued writes affecting it to be drained. If any condition is false, leave the whole month in main and expose the reason. The implementation must make this check and the exclusion of later writes one coordinated operation.
 
-1. Create new partition database file
-2. Copy previous month’s data to partition
-3. Delete copied data from main database
-4. Set partition to read-only
-5. Update union views
+Once eligible, the required rotation stages are:
+
+1. Copy the month into an unpublished staging file and verify it
+2. Durably record and publish the archive under the recovery protocol
+3. Delete only the verified source rows and record completion
+4. Seal the archive and keep later months writable in main
+
+These are requirements, not a completed crash-recovery protocol; see [open implementation problems](#open-implementation-problems).
 
 **Phase 3: Archived Partition (Read-Only)**
 
-Queries automatically use union views. A query such as `SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?` lets SQLite’s query planner handle partition selection based on timestamps.
+A history query runs through one helper that attaches the months its time range covers and defines `radar_data_all` on that connection (see [history queries](#history-queries)). A query such as `SELECT * FROM radar_data_all WHERE write_timestamp BETWEEN ? AND ?` then reads only those months.
 
 ### Schema consistency
 
@@ -316,113 +317,127 @@ Same schema as main database for raw data tables:
 
 **Main Database Retains:**
 
-The main database retains the current period’s raw data tables (`radar_data`) and all configuration tables (`site`, `site_reports`).
+The main database retains all unclosed months' raw and derived records and all configuration tables (`site`, `site_reports`). Delayed closure can leave more than one month's records there.
 
-### Union views for queries
+### History queries
 
-**Automatically Generated Views:**
+**Attached per query, on its own connection.** A history query takes a dedicated connection from
+the pool (`sql.Conn`), lists the archives directory, and attaches only the months its time range
+covers, each with `file:…?mode=ro`. On that connection it defines `radar_data_all` as a `TEMP`
+view: a `UNION ALL` across `main.radar_data` and each attached month's `radar_data`, with a
+`partition_source` column naming the origin. `radar_objects_all`, `lidar_bg_snapshot_all` and
+`radar_data_transits_all` follow the same pattern. Before the connection returns to the pool the
+views are dropped and every month detached, so no pooled connection holds an attached schema and
+no global view needs maintaining.
 
-A `radar_data_all` view is created as a `UNION ALL` across `main.radar_data` and each attached partition’s `radar_data` table, with a `partition_source` column identifying the origin. Each new partition extends the view dynamically. Similar views are created for `radar_objects_all`, `lidar_bg_snapshot_all`, and `radar_data_transits_all`.
+**At most ten archived months per connection.** The driver, `modernc.org/sqlite`, is compiled
+with `SQLITE_MAX_ATTACHED=10`. A longer range reads the archives in disjoint batches of at most
+ten. Include main in the first batch only, even when it holds several unclosed months or
+unpartitioned historical data. Every later batch's view contains only its archived months.
+Never repeat main when merging the batches.
+
+**One result over the whole range.** Apply the same time filter to every source. Merge counts
+by addition, means from sums and counts, and minima and maxima over every batch. Compute
+percentiles over the combined qualifying rows. Merge grouped results by their full group key:
+a local-calendar day or hour can cross a UTC partition boundary. Apply global ordering and
+pagination after the merge, with a stable tie-breaker. A month still in main must not also be
+published as an archive visible to the query; coordinating that transition remains an
+[implementation blocker](#open-implementation-problems).
+
+**Acceptance cases:** Compare with a single-file oracle for zero, ten, eleven, and twenty-one
+archived months, including main with two unclosed months. Check row identities and counts,
+unequal group sizes for means, percentiles, local-day groups across a UTC month boundary, and
+ordered pages. Every qualifying row must occur exactly once.
 
 **Query Optimisation:**
 
-SQLite’s query planner uses WHERE clauses to skip irrelevant partitions. For example, filtering by `write_timestamp BETWEEN 1704067200.0 AND 1706745600.0` only touches partitions containing January 2024 data.
+The helper attaches only the months the range covers, and within each month the
+`write_timestamp` index serves the range.
 
 ### Rotation process details
 
 > **Source:** `RotatePartitions()` and `AcquireRotationLock()`; implementation in `internal/db/partitions/` (when implemented)
 
-**Rotation algorithm:**
+**Required rotation stages (recovery protocol still open):**
 
-1. Acquire rotation lock (CVE-2025-VR-005: prevents concurrent rotation via a single-row `rotation_lock` table with 5-minute expiry and retry loop)
-2. Determine partition name from rotation time (e.g. `2025-01_data.db`)
-3. Skip if partition already exists (idempotency)
-4. Create partition database with matching schema
-5. Wait for active queries to complete (30 s timeout)
-6. Copy previous month's data (`radar_data`, `radar_objects`, `lidar_bg_snapshot`, `radar_data_transits`, `radar_transit_links`)
+1. Acquire rotation lock (VR-SEC-005: `flock` on `archives/.rotation.lock`, plus an in-process mutex for goroutines; a second rotation fails fast rather than waiting, and the kernel releases the lock if the process dies, so nothing goes stale)
+2. Select the oldest eligible unclosed month, whose sessions and transit processing have finished; leave it in main and report the blocker if they have not
+3. Consult durable completion state; an existing filename alone is not proof of successful rotation
+4. Create an unpublished staging database with matching schema
+5. Coordinate query admission and drain existing readers before the publication/source-deletion transition (30 s timeout; a timeout defers rotation)
+6. Copy that month's data (`radar_data`, `radar_objects`, `lidar_bg_snapshot`, `radar_data_transits`, `radar_transit_links`)
 7. Verify data integrity in partition
-8. Delete copied data from main database (single transaction: atomic)
-9. Set partition file to read-only (`0444`)
-10. Update union views to include new partition
+8. Durably publish the verified archive and delete only its copied source rows, under the recovery protocol that the implementing design must define
+9. Set partition file to read-only (`0444`) and record completion before admitting history readers again
+10. Release the lock
 
-On failure at any step, the partial partition file is deleted and data remains in the main database. Retry at next scheduled rotation; alert operator after repeated failures.
+Before source deletion, a failed unpublished copy can be removed while the source remains in main. After source deletion has committed, never remove the archive as generic failure cleanup. On restart, recover from the recorded stage rather than skipping an existing filename. The durable stages and recovery actions are still to be designed and tested.
 
-**Transaction safety:** Rotation is atomic; either all data is copied and deleted, or nothing changes. WAL mode allows reads during rotation. Writes are locked only during the DELETE phase.
+**Transaction safety:** WAL transactions are atomic within each database file, not across the main file and an attached archive. A file lock only excludes another storage operation. Neither establishes crash-safe copy-and-delete or prevents a newly admitted query from seeing both copies. The implementation cannot claim zero-loss, exactly-once rotation until its recovery and reader-admission protocol passes the fault tests below.
 
 ### ATTACH DATABASE management
 
 > **Source:** `AttachPartitions()`, `ValidatePartitionPath()`, `ValidateAlias()`; implementation in `internal/db/partitions/` (when implemented)
 
-**Attach algorithm:** Scan the archives directory for `*_data.db` files, validate each path, and assign aliases (`m01`, `m02`, …). Open each in read-only mode via `ATTACH DATABASE 'file:…?mode=ro'`.
+**Attach algorithm:** For one history query, on its own connection: list the archives directory, choose the `YYYY-MM_data.db` files the time range covers, validate each path, assign aliases (`m01`, `m02`, …) and attach each read-only via `ATTACH DATABASE 'file:…?mode=ro'`. Detach every alias before the connection returns to the pool.
 
 **Security checks (per partition):**
 
-- **Path traversal prevention (CVE-2025-VR-002):** Reject `..`, resolve symlinks, verify path is under the allowed directory, verify regular file, match filename against `YYYY-MM_data.db` or `YYYY-QN_data.db` pattern.
-- **SQL injection prevention (CVE-2025-VR-003):** Alias must match `^[a-zA-Z][a-zA-Z0-9_]{0,31}$`, must not contain SQL keywords. Identifiers and strings are quoted with proper escaping.
+- **Path traversal prevention (VR-SEC-002):** Reject `..`, resolve symlinks, verify path is under the allowed directory, verify regular file, match filename against the `YYYY-MM_data.db` pattern.
+- **SQL injection prevention (VR-SEC-003):** Alias must match `^[a-zA-Z][a-zA-Z0-9_]{0,31}$`, must not contain SQL keywords. Identifiers and strings are quoted with proper escaping.
 
-**Limits:**
-
-- SQLite allows up to **10 attached databases by default** (compile-time limit)
-- Can be increased to **125** with `SQLITE_MAX_ATTACHED` compile flag
-- Monthly partitions: 10 partitions = 10 months, 125 = 10.4 years
-- Quarterly partitions: 10 partitions = 2.5 years, 125 = 31 years
-
-**Recommendation:** Start with monthly, increase `SQLITE_MAX_ATTACHED` to 125 for long-term deployments.
+**Limits:** Ten attached databases per connection, the limit `modernc.org/sqlite` is compiled
+with. Longer ranges read in batches; see [history queries](#history-queries).
 
 ---
 
 ## API management for partition control
 
-HTTP endpoints for managing attached database partitions. All partition management requires admin role. The main database (write partition) can never be detached. Operations respect the SQLite `SQLITE_MAX_ATTACHED` limit.
+HTTP endpoints for partition status and the storage actions. Every action endpoint requires API authentication, which lands as its own backlog row before them: an admin key, hashed with bcrypt, with every use written to `system_events`. The read-only endpoints need no key. There are no attach or detach endpoints: history queries attach months themselves, so there is no standing set of attached partitions to manage.
 
 > **Source:** Implementation in `internal/api/partitions/` (when implemented)
 
 ### Partition endpoints
 
-| Endpoint                           | Method | Purpose                                     | Key Parameters                                 |
-| ---------------------------------- | ------ | ------------------------------------------- | ---------------------------------------------- |
-| `/api/partitions`                  | GET    | List attached, available, and limits        | -                                              |
-| `/api/partitions/attach`           | POST   | Attach a historical partition               | `path` (required), `alias`, `priority`         |
-| `/api/partitions/detach`           | POST   | Detach a partition to free slots            | `alias` (required), `force`                    |
-| `/api/partitions/consolidate`      | POST   | Combine monthly → yearly archive (async)    | `source_partitions`, `output_path`, `strategy` |
-| `/api/partitions/{alias}/metadata` | GET    | Size, time range, row counts, query metrics | -                                              |
-| `/api/partitions/buffers`          | GET    | Write buffer status and rotation safety     | -                                              |
+| Endpoint                           | Method | Purpose                                     | Key Parameters    |
+| ---------------------------------- | ------ | ------------------------------------------- | ----------------- |
+| `/api/partitions`                  | GET    | List months with tier, size and time range  | -                 |
+| `/api/partitions/{month}/metadata` | GET    | Size, time range, row counts, query metrics | -                 |
+| `/api/partitions/buffers`          | GET    | Write buffer status and rotation safety     | -                 |
+| `/api/partitions/rotate`           | POST   | Run the rotation now (admin key)            | -                 |
+| `/api/partitions/{month}/move`     | POST   | Move a month to another tier (admin key)    | `tier` (required) |
+| `/api/partitions/{month}`          | DELETE | Delete a month (admin key, operator only)   | -                 |
 
-**Status codes (all endpoints):** `200 OK`, `400 Bad Request`, `404 Not Found`, `409 Conflict` (limit reached or active queries), `422 Unprocessable Entity`, `500 Internal Server Error`. Consolidate also returns `202 Accepted`.
+**Status codes (all endpoints):** `200 OK`, `400 Bad Request`, `401 Unauthorized` (action without a valid key), `404 Not Found`, `409 Conflict` (rotation lock held or active queries), `422 Unprocessable Entity`, `500 Internal Server Error`.
 
-**Attach safety checks:** Path exists and resolves under allowed directory (no symlinks, no `..`); filename matches `YYYY-MM_data.db` or `YYYY-QN_data.db`; alias alphanumeric + underscore only, no SQL keywords; valid SQLite header; connection limit not exceeded; alias not already in use.
+**Attach safety checks (inside the history helper):** Path exists and resolves under allowed directory (no symlinks, no `..`); filename matches `YYYY-MM_data.db`; alias alphanumeric + underscore only, no SQL keywords; valid SQLite header; at most ten attached on the connection.
 
-**Detach safety:** Blocks if partition has active queries unless `force=true`. Main database can never be detached.
-
-**Consolidation:** Async operation returning a `job_id`. Poll `GET /api/partitions/consolidate/{job_id}` for progress. Atomic: copy → verify → delete/compress. Rollback on failure. Limited to 1 concurrent job per deployment.
+**Move and delete safety:** Both take the rotation lock, wait for history queries reading the month (blocking unless `force=true`), and never touch any unclosed month in the main database. A move copies, verifies, then removes the source. No deletion happens unless the operator asks for it.
 
 **Example response (`GET /api/partitions`):**
 
-| Field                     | Type   | Description                                                                                                                              |
-| ------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `main.alias`              | string | `"main"`                                                                                                                                 |
-| `main.writable`           | bool   | `true`                                                                                                                                   |
-| `main.size_bytes`         | int    | Active database size                                                                                                                     |
-| `main.status`             | string | `"active"`                                                                                                                               |
-| `attached[]`              | array  | List of attached read-only partitions, each with `alias`, `writable` (false), `size_bytes`, `status` (`"attached"`), `can_detach` (bool) |
-| `available[]`             | array  | Detached partition files, each with `path` and `status` (`"detached"`)                                                                   |
-| `limits.max_attached`     | int    | Compile-time SQLITE_MAX_ATTACHED limit                                                                                                   |
-| `limits.current_attached` | int    | Currently attached count                                                                                                                 |
-| `limits.available_slots`  | int    | Remaining attachment slots                                                                                                               |
+| Field                    | Type   | Description                                                                                                       |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------- |
+| `main.alias`             | string | `"main"`                                                                                                          |
+| `main.writable`          | bool   | `true`                                                                                                            |
+| `main.size_bytes`        | int    | Active database size                                                                                              |
+| `main.status`            | string | `"active"`                                                                                                        |
+| `partitions[]`           | array  | Archived months, each with `month`, `tier`, `path`, `size_bytes`, first and last `write_timestamp` and row counts |
+| `max_attached_per_query` | int    | Ten, the driver's compiled limit; longer ranges read in batches                                                   |
 
 ### Partition workflows
 
-**Query historical data beyond connection limit:** Detach a low-priority partition (`POST /api/partitions/detach`), attach the needed one (`POST /api/partitions/attach`), run the query, optionally detach when done.
+**Query more than ten months of history:** No operator step: the history helper reads in batches of ten.
 
-**Create yearly archive:** `POST /api/partitions/consolidate` with `strategy: "yearly"` and the 12 monthly source partitions. Poll for completion. Attach the yearly archive. Optionally detach the monthly sources.
+**Free space:** `GET /api/storage/growth` shows the projected fill date; the operator moves months to the USB tier (`POST /api/partitions/{month}/move`) or deletes the ones they no longer want (`DELETE /api/partitions/{month}`).
 
-**Pre-rotation safety check:** `GET /api/partitions/buffers` returns `safe_to_rotate`, `pending_writes`, and `active_transactions`. Rotation cron job checks this before proceeding.
+**Pre-rotation safety check:** `GET /api/partitions/buffers` returns `safe_to_rotate`, `pending_writes`, `active_transactions`, and each deferred month's open-session count, worker progress, and closure lag. The scheduler uses it for visibility; the rotation operation rechecks eligibility under its coordination mechanism. A stale preflight response never authorises sealing.
 
 ### Security notes
 
-- All partition management endpoints require admin authentication
-- All attach/detach/consolidate operations logged to `system_events` table
-- Consolidation limited to 1 concurrent job per deployment
+- Every action endpoint (rotate, move, delete, USB mount and unmount, alert configuration) requires the admin key; the key's row lands before this design's endpoints
+- Every action logged to the `system_events` table with its outcome
+- One rotation, move or delete at a time: all take the rotation lock
 
 ---
 
@@ -437,22 +452,22 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 | Endpoint                        | Method | Purpose                                  | Key Parameters                                      |
 | ------------------------------- | ------ | ---------------------------------------- | --------------------------------------------------- |
 | `/api/storage/usb/devices`      | GET    | Detect available USB storage             | -                                                   |
-| `/api/storage/usb/mount`        | POST   | Mount USB storage securely               | `device_path`, `mount_point`, `label`               |
-| `/api/storage/usb/unmount`      | POST   | Safely unmount USB storage               | `mount_point`, `force`, `detach_partitions`         |
+| `/api/storage/usb/mount`        | POST   | Mount USB storage securely (admin key)   | `device_path`, `mount_point`, `label`               |
+| `/api/storage/usb/unmount`      | POST   | Safely unmount USB storage (admin key)   | `mount_point`, `force`                              |
 | `/api/storage/growth`           | GET    | Growth projection and disk-full estimate | `lookback_days`                                     |
-| `/api/storage/alerts/configure` | POST   | Set threshold alerts                     | `sd_card_percent`, `usb_percent`, `days_until_full` |
+| `/api/storage/alerts/configure` | POST   | Set threshold alerts (admin key)         | `sd_card_percent`, `usb_percent`, `days_until_full` |
 
-### USB mount security (CVE-2025-VR-006)
+### USB mount security (VR-SEC-006)
 
-**Mount algorithm:** Verify device is USB (reject system disks `/dev/sda`, `/dev/mmcblk0`; check sysfs `/usb` path). Detect filesystem (whitelist: ext4, ext3 only). Validate mount point (no path traversal). Mount with secure options: `nosuid,nodev,noexec,noatime,ro`.
+**Mount algorithm:** Verify device is USB (reject system disks `/dev/sda`, `/dev/mmcblk0`; check sysfs `/usb` path). Detect filesystem (whitelist: ext4, ext3 only). Validate mount point (no path traversal). Mount with secure options: `nosuid,nodev,noexec,noatime`. The drive is writable so that a move and an operator's delete can write to it; each partition on it is `0444` and is only ever attached `mode=ro`.
 
-**Unmount algorithm:** Find all partitions on mount → check for active queries (block unless `force`) → detach partitions if requested → sync filesystem → unmount → optionally disable systemd unit.
+**Unmount algorithm:** Find all partitions on mount → wait for history queries reading them (block unless `force`) → sync filesystem → unmount → optionally disable systemd unit.
 
-**systemd integration:** Generate persistent mount units via `systemd-mount` for USB drives that should survive reboot. The unit file at `/etc/systemd/system/mnt-usb\x2darchives.mount` specifies `What=/dev/sdb1`, `Where=/mnt/usb-archives`, `Type=ext4`, and secure mount options: `nosuid,nodev,noexec,noatime,ro`.
+**systemd integration:** Generate persistent mount units via `systemd-mount` for USB drives that should survive reboot. The unit file at `/etc/systemd/system/mnt-usb\x2darchives.mount` specifies `What=/dev/sdb1`, `Where=/mnt/usb-archives`, `Type=ext4`, and secure mount options: `nosuid,nodev,noexec,noatime`.
 
 ### Growth projection
 
-**Algorithm:** Query daily data volume over the lookback period, run linear regression for trend, calculate daily/monthly/yearly growth rates with R² confidence. Project disk-full date per storage tier, accounting for tiered storage policy (SD card capped at 3 months of active data).
+**Algorithm:** Query daily data volume over the lookback period, run linear regression for trend, calculate daily/monthly/yearly growth rates with R² confidence. Project disk-full date per storage tier, accounting for the target of three recent closed months on SD card and all unclosed months still retained in main.
 
 **Storage tiers:** SD card (active + recent, alert at 80%), USB HDD (cold archives, alert at 90%). Configurable alert thresholds with notification support.
 
@@ -460,7 +475,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 
 **Setup USB cold storage:** Detect device (`GET /api/storage/usb/devices`) → mount (`POST /api/storage/usb/mount`) → verify and configure cold storage tier → move old partitions.
 
-**Safe USB removal:** Check storage status → safely unmount (detaches partitions, waits for queries) → verify safe to remove → physically unplug.
+**Safe USB removal:** Check storage status → safely unmount (waits for history queries reading its months) → verify safe to remove → physically unplug.
 
 **Monitor growth:** `GET /api/storage/growth` returns per-tier projections, days until full, and recommendations. Configure alerts via `POST /api/storage/alerts/configure`.
 
@@ -470,17 +485,17 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 
 ## Phased implementation plan
 
-| Phase | Scope                | Weeks | Key Deliverables                                                                                                   |
-| ----- | -------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| 1     | Core partitioning    | 1–3   | Rotation algorithm, schema creation, data copy/delete, read-only partitions, ATTACH management, union views, tests |
-| 2     | API management       | 4–6   | Partition list/attach/detach/metadata/buffer endpoints, auth, audit logging, OpenAPI spec                          |
-| 3     | USB storage & growth | 7–9   | USB detect/mount/unmount, growth projection (linear regression), capacity alerts, systemd units                    |
-| 4     | Consolidation & cold | 10–12 | Monthly→yearly consolidation (async jobs), gzip compression, tier migration, retention enforcement                 |
-| 5     | Migration & rollout  | 13–15 | `--enable-partitioning` flag, backfill tool, RPi integration testing, alpha/beta/stable releases                   |
+| Phase | Scope                | Weeks | Key Deliverables                                                                                                                           |
+| ----- | -------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1     | Core partitioning    | 1–3   | Rotation algorithm, schema creation, data copy/delete, read-only partitions, the per-query attach helper, tests                            |
+| 2     | API management       | 4–6   | Partition list/metadata/buffer endpoints, rotate/move/delete behind the admin key (whose own row lands first), audit logging, OpenAPI spec |
+| 3     | USB storage & growth | 7–9   | USB detect/mount/unmount, growth projection (linear regression), capacity alerts, systemd units                                            |
+| 4     | Cold tier            | 10–12 | Tier migration to a local USB disk, operator-run deletion, fill-date warnings                                                              |
+| 5     | Migration & rollout  | 13–15 | `--enable-partitioning` flag, backfill tool, RPi integration testing, alpha/beta/stable releases                                           |
 
 **Total timeline:** 15 weeks. Phases 3–4 can run in parallel with Phase 2.
 
-**Success criteria per phase:** Zero data loss during rotation, union views allow transparent queries, all API endpoints pass safety checks, USB mount/unmount handles active queries gracefully, existing deployments migrate with zero downtime, 99.9% rotation success over 30-day test.
+**Success criteria per phase:** Zero data loss during rotation, the history helper reads any time range, all API endpoints pass safety checks, USB mount/unmount handles active queries gracefully, existing deployments migrate with zero downtime, 99.9% rotation success over 30-day test.
 
 ---
 
@@ -497,13 +512,11 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 **✅ Simple Archival and Backup**
 
 - Individual partition files easy to backup
-- Old partitions can be compressed (gzip: ~80% reduction on JSON data)
 - Move to slower/cheaper storage (USB HDD) without affecting active queries
 
-**✅ Retention Policy Implementation**
+**✅ Operator-Run Deletion**
 
-- Delete partitions older than X months (single file deletion)
-- Privacy compliance: automatic data expiration
+- The operator deletes a month by deleting one file; nothing is deleted automatically
 - No complex WHERE clauses or DELETE operations
 
 **✅ Corruption Isolation**
@@ -521,7 +534,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 **✅ Storage Flexibility**
 
 - Active data on fast SSD/SD card
-- Archives on slower USB HDD or network storage
+- Archives on a slower local USB disk
 - Tiered storage strategy possible
 
 ### Disadvantages
@@ -529,20 +542,19 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 **❌ Increased Complexity**
 
 - More files to manage
-- Union views need dynamic maintenance
+- History queries go through an attach helper
 - Partition rotation logic required
 
 **❌ Query Performance (Cross-Partition)**
 
 - Queries spanning multiple months touch multiple files
 - More disk I/O than single-file approach
-- Union view overhead (though SQLite optimises this)
+- `UNION ALL` overhead across the attached months
 
 **❌ ATTACH DATABASE Limits**
 
-- Default 10 attached databases (can increase to 125)
-- Requires recompilation for limits >125
-- Long-running deployments may need partition consolidation
+- Ten attached databases per connection, the driver's compiled limit
+- A history query longer than ten archived months reads in batches and merges in Go
 
 **❌ Operational Overhead**
 
@@ -576,7 +588,7 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 
 | Approach                         | Complexity | Data Retention | Query Performance        | Storage Efficiency | Recommendation  |
 | -------------------------------- | ---------- | -------------- | ------------------------ | ------------------ | --------------- |
-| **Proposed (SQLite partitions)** | Medium     | Full archival  | Good (with time filters) | Good (compression) | **Recommended** |
+| **Proposed (SQLite partitions)** | Medium     | Full archival  | Good (with time filters) | Good               | **Recommended** |
 | Data deletion                    | Low        | No archival    | Good (small DB)          | No archival        | No              |
 | PostgreSQL                       | High       | Full archival  | Excellent                | Good               | Too complex     |
 | Time-series DB                   | High       | Full archival  | Excellent                | Excellent          | Overkill        |
@@ -597,22 +609,20 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
     │   ├── 2025-01_data.db
     │   ├── 2025-02_data.db
     │   └── 2025-03_data.db
-    └── cold/                     (>3 months, USB HDD or NFS)
+    └── cold/                     (>3 months, local USB disk)
         ├── 2024-01_data.db
         └── ...
 ```
 
-**Storage tiers:** Active (SD card, current month, fastest writes) → Recent (SD card, last 3 months, frequently queried) → Cold (USB HDD/NFS, >3 months, optional gzip compression at ~80% reduction).
+**Storage tiers:** Active (SD card, every unclosed month) → Recent (closed monthly archives on SD card) → Cold (closed archives on a local USB disk). Partitions live on local disks only: no NFS or other network filesystem, whose locking SQLite does not trust and whose hangs would stall every query that attaches a month. Copies on a NAS are backups, never attached.
 
 ### Disk space quotas
 
-| Policy                | Value     | Purpose                       |
-| --------------------- | --------- | ----------------------------- |
-| Max active partitions | 3         | Last 3 months on fast storage |
-| Max total partitions  | 36        | Keep 3 years total            |
-| Archive after         | 90 days   | Move to cold storage          |
-| Delete after          | 36 months | Enforced retention policy     |
-| Compress after        | 6 months  | gzip ~80% size reduction      |
+| Policy            | Value         | Purpose                                                       |
+| ----------------- | ------------- | ------------------------------------------------------------- |
+| Recent archives   | 3 months      | Target for closed months retained on fast storage             |
+| Move to cold tier | After 90 days | Only after the month has closed; closure lag takes precedence |
+| Delete            | Operator only | Nothing is deleted automatically (October 21, 2026)           |
 
 ### Storage growth (Raspberry Pi 4, 64GB SD)
 
@@ -623,11 +633,16 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 | 12    | 3 GB      | 9 GB        | 27 GB      | 22 GB (34%) |
 | 24    | 3 GB      | 9 GB        | 60 GB      | 22 GB (34%) |
 
-SD card usage stabilises at ~22 GB with tiered storage. System/OS uses ~10 GB, leaving ~32 GB free for logs and updates.
+These are planning estimates assuming prompt month closure, not measurements on a Pi. Under
+those assumptions SD card usage is about 22 GB, including about 10 GB for the system. An open
+session or stalled worker can retain earlier months in main and exceed this estimate; storage
+alerts must show that lag rather than force archival.
 
 ### Compression
 
-Partitions older than 6 months are gzip-compressed (~80% reduction). Compressed partitions (`*.db.gz`) must be decompressed to a temporary location before querying (lazy decompression: decompress on demand, clean up after query). Trade-off: slower access to old data, significant storage savings.
+None (October 21, 2026). Partitions stay plain SQLite files, readable in place. Decompressing a
+month before each query would need temporary space the size of the partition (about 2.6 GB) on the
+card the scheme exists to save.
 
 ### systemd mount units
 
@@ -653,17 +668,22 @@ User chooses: (A) backfill historical data into partitions (slow, enables full p
 
 ### Phase 4: new deployments (default enabled)
 
-`--enable-partitioning` becomes default. Initial schema creates empty archives directory. First rotation on 2nd of second month.
+`--enable-partitioning` becomes default. Initial schema creates empty archives directory. First closure check on the 2nd of the second month; rotation waits for session and worker completion.
 
 ### Rollback strategy
 
-Disable partitioning: `velocity-report --disable-partitioning`. Union views remain functional (read-only access to partitions). New writes go to main database only. Partitions preserved as archives.
+Disable partitioning: `velocity-report --disable-partitioning`. History queries still attach archived months read-only. New writes go to main database only. Partitions preserved as archives.
 
-**Consolidate partitions:** Emergency rollback merges all partition data back into the main database. Iterates over all partition files, copies each into main via `CopyPartitionToMain()`, then the partitions can be removed. Use if partitioning causes issues.
+**Merge back:** Emergency rollback merges all partition data back into the main database. Iterates over all partition files, copies each into main via `CopyPartitionToMain()`, then the partitions can be removed. Use if partitioning causes issues.
 
 ---
 
 ## Performance implications
+
+The figures in this section are inherited planning estimates without a recorded benchmark run.
+They establish no physical-device performance claim; measure them on the device of record before
+setting release acceptance from them. Closure lag can also increase the main file beyond these
+examples.
 
 ### Write performance
 
@@ -757,20 +777,20 @@ A query spanning the last year (e.g. `WHERE write_timestamp BETWEEN <1_year_ago>
 
 ### Monitoring and alerting
 
-| Metric               | Alert Threshold                                | Action                  |
-| -------------------- | ---------------------------------------------- | ----------------------- |
-| Partition count      | Approaching ATTACH limit (10 default, 125 max) | Consolidate or delete   |
-| Active database size | >5 GB                                          | Rotation may be failing |
-| SD card usage        | >80%                                           | Move partitions to USB  |
-| USB HDD usage        | >90%                                           | Delete old partitions   |
-| Rotation health      | 2+ consecutive failures                        | Investigate and alert   |
-| Query latency (p95)  | Significant increase                           | Review partition count  |
+| Metric               | Alert Threshold                        | Action                                                                    |
+| -------------------- | -------------------------------------- | ------------------------------------------------------------------------- |
+| Active database size | >5 GB                                  | Rotation may be failing                                                   |
+| SD card usage        | >80%                                   | Move partitions to USB                                                    |
+| USB HDD usage        | >90%                                   | Warn with the projected fill date; the operator decides                   |
+| Rotation health      | 2+ consecutive failures                | Investigate and alert                                                     |
+| Month closure lag    | Month deferred at an eligibility check | Show open sessions, worker backlog, and retained bytes; never force-close |
+| Query latency (p95)  | Significant increase                   | Review partition count                                                    |
 
 ```
 velocity.report Storage Health
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Active DB:        2.8GB / 5GB   [████████░░] 56%
-Partitions:       8 / 125       [█░░░░░░░░░]  6%
+Partitions:       8 months
 SD Card:         18GB / 64GB    [███░░░░░░░] 28%
 USB HDD:         24GB / 1TB     [░░░░░░░░░░]  2%
 
@@ -786,15 +806,28 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 **Recovery:** Copy `sensor_data.db` and `archives/*` from backup, restart service.
 
+### Debug surfaces
+
+- **SQL console (`/debug/tailsql/`):** stays on its own read-only handle to the main file. The
+  page says that it excludes archives and can include earlier unclosed months or retained
+  pre-partitioning history. It does not claim to show only the current month.
+- **Database stats (`/debug/db-stats`):** lists every partition with its month, tier and size
+  beside the main file.
+- **Backup route:** with partitioning on, includes the archives with the main file, or refuses and
+  names the reference backup script. It never returns a backup of the main file alone without
+  saying so.
+
 ### Deployment
 
-**systemd service** adds `After=` dependency on the archives mount, `ExecStartPre` ensures archive directories exist, and flags include `--enable-partitioning --partition-schedule=monthly --max-attached=125`.
+**systemd service** adds `After=` dependency on the archives mount, `ExecStartPre` ensures archive directories exist, and flags include `--enable-partitioning`.
 
 > **Source:** `PreflightChecks()`; implementation in `internal/db/partitions/` (when implemented). Checks SD card free space (minimum 10 GB) and archives mount availability.
 
 ---
 
 ## Success metrics
+
+These are acceptance targets for an implementation, not completed checks or measured results.
 
 ### Technical metrics
 
@@ -814,7 +847,6 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 - ✅ Active database size ≤5GB
 - ✅ SD card usage ≤35% for 12-month deployment
-- ✅ Compression ratio ≥70% for archived partitions
 
 ### Operational metrics
 
@@ -842,22 +874,42 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ## Design decisions (resolved)
 
-| Decision                  | Resolution                                                                        |
-| ------------------------- | --------------------------------------------------------------------------------- |
-| Monthly vs quarterly      | Monthly default, not configurable                                                 |
-| Derived tables (transits) | Partitioned: present in partition according to last time seen; span at boundaries |
-| SQLITE_MAX_ATTACHED       | Keep default 10: attach partitions on demand                                      |
-| Compression               | No automatic compression: not worth the complexity                                |
-| Rotation locking          | File-based flock (single-device)                                                  |
-| Timezone                  | UTC for rotation triggers                                                         |
-| Single-file mode          | Keep indefinitely as default: partitioning is opt-in                              |
-| Monitoring                | Built-in disk usage on /api/status                                                |
-| Backup                    | Provide reference scripts in `scripts/backup/`                                    |
-| Cloud storage             | Out of scope: local-first principle; backup to USB only                           |
+| Decision                  | Resolution                                                                                                                                                     |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Monthly vs quarterly      | Monthly only, not configurable; no consolidation into larger files (October 21, 2026)                                                                          |
+| Derived tables (transits) | The month waits for all touching sessions to close and transit processing to finish; cross-month record/link placement remains an implementation blocker       |
+| Month closure             | The 2nd is the first eligibility check, not forced closure; delayed months stay writable in main, with lag and blocking work reported                          |
+| SQLITE_MAX_ATTACHED       | Ten, the driver's compiled limit: each history query attaches the months it covers on its own connection, and longer ranges read in batches (October 21, 2026) |
+| Compression               | None (October 21, 2026)                                                                                                                                        |
+| Rotation locking          | `flock` on a lock file plus an in-process mutex (October 21, 2026)                                                                                             |
+| Timezone                  | UTC for rotation triggers                                                                                                                                      |
+| Single-file mode          | Keep indefinitely as default: partitioning is opt-in                                                                                                           |
+| Monitoring                | Built-in disk usage on /api/status                                                                                                                             |
+| Backup                    | Provide reference scripts in `scripts/backup/`                                                                                                                 |
+| Cloud storage             | Out of scope: local-first principle; backup to USB only                                                                                                        |
+| Network filesystems       | None: partitions on local disks only; NAS copies are backups, never attached (October 21, 2026)                                                                |
+| USB mount                 | Writable with `nosuid,nodev,noexec,noatime`; each partition `0444` and attached `mode=ro` (October 21, 2026)                                                   |
+| Storage actions           | Behind API authentication (an admin key), which lands first as its own backlog row (October 21, 2026)                                                          |
+| Debug surfaces            | Console on main only, including unclosed months; stats list every partition; the backup route includes the archives or refuses (October 21, 2026)              |
+| Retention                 | No automatic deletion: the operator deletes months; disk alerts warn with a projected fill date (October 21, 2026)                                             |
 
-## Open questions
+The owner settled the storage choices from the October 20 security review. Review then made
+month closure depend on finished sessions and transit processing, and made query batches
+disjoint. These choices do not close the implementation problems below.
 
-No open questions remain. All design, implementation, and operational questions were resolved during review: see the Design Decisions table above.
+## Open implementation problems
+
+The design remains Proposed. Resolve these in the implementing design and tests before enabling
+partitioning; the calendar, a file lock, and an archive filename do not resolve them.
+
+| Problem                              | Required resolution and evidence                                                                                                                                                                                                                                                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crash-safe rotation                  | Define durable staging, publication, source-deletion, and completion states, including filesystem sync ordering. Inject termination at every boundary and prove restart neither loses nor counts rows twice. Never skip a partial archive because its final filename exists.                                                    |
+| Closure lag and cross-month sessions | Define the worker progress record and how closure eligibility prevents later writes. Close a session crossing midnight and month-end, drain its work, and prove the month remains in main until then. Define transit and link placement across months without orphaning readings or duplicating transits.                       |
+| Queries during storage changes       | Define reader admission and archive discovery across recent and USB tiers. Test rotation, move, delete, and unmount against newly starting and batched queries, including cancellation and failed detach. Missing or unavailable archives must produce an explicit incomplete-history error, not an apparently complete result. |
+| Corrections after sealing            | Define how an operator reprocesses old readings or repairs derived transits. Normal ingest and the worker must refuse sealed-month writes; no read-write exception to the archive policy is implied.                                                                                                                            |
+
+The synthetic acceptance cases above are planned tests, not measurements of implemented code.
 
 ## References
 
@@ -882,19 +934,23 @@ No open questions remain. All design, implementation, and operational questions 
 ### Future reading
 
 - Multi-device support design (planned, doc not written yet)
-- Data retention policy document (planned, doc not written yet)
 
 ---
 
 ## Revision history
 
-| Version | Date       | Author  | Changes                      |
-| ------- | ---------- | ------- | ---------------------------- |
-| 1.0     | 2025-12-01 | Ictinus | Initial design specification |
+| Version | Date       | Author  | Changes                                                                                                                                                                                                                     |
+| ------- | ---------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1.0     | 2025-12-01 | Ictinus | Initial design specification                                                                                                                                                                                                |
+| 1.1     | 2026-10-21 | Owner   | Security review settled: monthly partitions attached per query, flock rotation, no compression, local disks only, writable hardened USB mount, authentication before storage actions, debug surfaces, no automatic deletion |
 
 ---
 
 ## Appendix a: example queries
+
+These run through the history helper, which defines `radar_data_all` on the query's own
+connection. For a batched range, main appears in its first view only; the helper merges all
+batches before applying final grouping, ordering, and pagination.
 
 ### Query current month data
 
@@ -925,7 +981,7 @@ ORDER BY write_timestamp;
 ### Aggregation across all time
 
 ```sql
--- Slower: Touches all partitions, but still reasonable
+-- The helper reads disjoint batches, includes main once, and merges by date.
 SELECT
     DATE(write_timestamp, 'unixepoch') AS date,
     COUNT(*) AS reading_count,

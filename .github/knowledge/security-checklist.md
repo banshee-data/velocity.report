@@ -78,6 +78,25 @@ Fuzz targets (priority order):
 
 **Long-term:** Threat modelling, regular pen testing, security deployment guides, incident response playbook.
 
+## Identifier register
+
+Findings carry internal identifiers, `VR-SEC-NNN`, in one sequence for the repository, recorded here
+and nowhere else. Each is an internal identifier: no CVE has been requested or assigned unless a
+GitHub security advisory says so. Each carries a status (design requirement, reliability
+requirement, open weakness, or fixed in a named release) and a gate from the table above. A live
+weakness is listed only once its fix has shipped.
+
+| Identifier | Status                                      | Gate          | Where                                                                                    |
+| ---------- | ------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| VR-SEC-001 | Reserved: no record defines it              |               |                                                                                          |
+| VR-SEC-002 | Design requirement: partition path handling | CRITICAL      | [Time-partitioned tables](../../docs/radar/architecture/time-partitioned-data-tables.md) |
+| VR-SEC-003 | Design requirement: ATTACH statements       | CRITICAL      | [Time-partitioned tables](../../docs/radar/architecture/time-partitioned-data-tables.md) |
+| VR-SEC-004 | Reserved: no record defines it              |               |                                                                                          |
+| VR-SEC-005 | Reliability requirement: rotation lock      | INFORMATIONAL | [Time-partitioned tables](../../docs/radar/architecture/time-partitioned-data-tables.md) |
+| VR-SEC-006 | Design requirement: USB storage             | CRITICAL      | [Time-partitioned tables](../../docs/radar/architecture/time-partitioned-data-tables.md) |
+
+Reports of new findings follow [SECURITY.md](../../SECURITY.md).
+
 ## Forbidden Actions
 
 - No exploiting production without authorisation

@@ -1,6 +1,6 @@
 # LiDAR pipeline performance measurement harness plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (L1–L6, CI infrastructure)
 - **Related:** [Clustering Observability and Benchmark Plan](lidar-clustering-observability-and-benchmark-plan.md), [Pipeline Review Q10](../../data/maths/pipeline-review-open-questions.md)
 - **Canonical:** [performance-regression-testing.md](../lidar/operations/performance-regression-testing.md)

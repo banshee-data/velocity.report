@@ -302,6 +302,7 @@ private let logger = DevLogger(category: "AppState")
     /// Register the renderer to receive frame updates directly
     func registerRenderer(_ renderer: MetalRenderer) {
         self.renderer = renderer
+        alignment.sink = renderer
         logger.info("Renderer registered")
     }
 
@@ -352,10 +353,43 @@ private let logger = DevLogger(category: "AppState")
     @Published var currentRunID: String?  // Current run being replayed
     @Published var showRunBrowser: Bool = false  // Show run browser sheet
 
+    // MARK: - Alignment (Gerardus)
+
+    /// The optional client for the Gerardus alignment service. Until a server
+    /// answers its probe it is unavailable, its pane and toolbar button are
+    /// hidden, and nothing else in the app changes.
+    let alignment: AlignmentSession
+    @Published var showAlignmentPane: Bool = false
+    private var alignmentAvailability: AnyCancellable?
+    private var alignmentProbing: AnyCancellable?
+
+    func toggleAlignmentPane() { showAlignmentPane = alignment.isAvailable && !showAlignmentPane }
+
     // MARK: - Initialisation
 
-    init(autoConnectOnStartup: Bool? = nil) {
+    /// `alignment` replaces the session talking to a real Gerardus, for tests.
+    init(autoConnectOnStartup: Bool? = nil, alignment injected: AlignmentSession? = nil) {
         // FPS is calculated per-frame using exponential moving average
+
+        alignment =
+            injected ?? AlignmentSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
+        alignmentAvailability = alignment.$availability.sink { [weak self] availability in
+            if case .available = availability { return }
+            self?.showAlignmentPane = false
+        }
+        // Look for Gerardus while connected to velocity.report: at once, then
+        // every reprobeInterval until a server answers, so one started later
+        // still brings up the pane. Never against a real server under XCTest,
+        // so a developer's running Gerardus cannot change what a test sees.
+        if injected != nil || !Self.isRunningUnderXCTest {
+            alignmentProbing = $isConnected.removeDuplicates().sink { [weak self] connected in
+                if connected {
+                    self?.alignment.startProbing()
+                } else {
+                    self?.alignment.stopProbing()
+                }
+            }
+        }
 
         let autoConnectOnStartup = autoConnectOnStartup ?? Self.shouldAutoConnectOnStartup
 
@@ -669,6 +703,7 @@ private let logger = DevLogger(category: "AppState")
                 sourceMode = .live
                 currentRunID = nil
                 runBrowserState.selectedRunID = nil
+                alignment.captureChanged()
 
                 // Restart the stream, for the same reason loading a replay
                 // does: the source changed underneath a stream that is still
@@ -723,6 +758,7 @@ private let logger = DevLogger(category: "AppState")
         inViewTrackIDs = []
         userLabels = [:]
         userQualityFlags = [:]
+        alignment.captureChanged()
     }
 
     /// Restart the gRPC frame stream.  Call after loading a new VRLOG on
@@ -1291,6 +1327,9 @@ private let logger = DevLogger(category: "AppState")
 
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
+        if alignment.isAvailable, let background = frame.background {
+            alignment.noteBackground(background)
+        }
 
         // Apply persistent track filters BEFORE rendering so filtered tracks
         // never appear even briefly.

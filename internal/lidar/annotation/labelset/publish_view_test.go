@@ -434,3 +434,20 @@ func TestPublishViewRefuses(t *testing.T) {
 		t.Fatalf("a view that would not hold was put in place: %v", err)
 	}
 }
+
+// Facets are working state the dataset ignores: a view's own facets, even
+// ones a fresh copy could not load, do not stop it holding.
+func TestCheckViewLeavesFacetsToTheEditor(t *testing.T) {
+	packDir, setDir := viewSource(t)
+	view, _, _ := publishViewBeside(t, packDir, setDir)
+	if err := os.WriteFile(filepath.Join(view, annotation.FeatureProposalsFile), []byte("not a facet document"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, err := CheckView(view)
+	if err != nil {
+		t.Fatalf("local facets failed the fresh-copy check: %v %+v", err, r)
+	}
+	if strings.Contains(strings.Join(r.Tracked, ","), annotation.FeatureProposalsFile) {
+		t.Fatalf("facets counted as tracked: %v", r.Tracked)
+	}
+}

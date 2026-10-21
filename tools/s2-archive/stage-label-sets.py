@@ -72,6 +72,13 @@ GITIGNORE = [
     "labels/**/feature-proposal-revisions/",
     "labels/**/proposals/",
     "labels/**/.publish-view-*/",
+    "# What the server writes into labels/ when it is the annotation directory:",
+    "# exports while they are made, a clip job's recording, facets and segment",
+    "# records, none of them published.",
+    "labels/.export-*/",
+    "labels/clip-*/vrlog/",
+    "labels/**/feature-proposals.pb",
+    "labels/**/segment.json",
 ]
 LINK_FILE = "label-set-link.json"
 
@@ -179,8 +186,9 @@ def run(cmd, dry_run: bool):
 
 def refresh_paths(args) -> int:
     """Rewrite each row's label_set_paths and annotation_pack_paths from what
-    is under labels/<capture stem>/: every folder holding labels.json, and
-    every pack in its views/. A row keeps no path that is not there."""
+    is under labels/<capture stem>/: every folder holding labels.json, every
+    pack in its views/, and every pack in packs/. A row keeps no path that is
+    not there."""
     dataset = pathlib.Path(args.dataset)
     manifest_path = dataset / "manifest.json"
     rows = load_json(manifest_path)
@@ -195,6 +203,8 @@ def refresh_paths(args) -> int:
         stem = dataset / "labels" / stem_of(row)
         sets, views = [], []
         if stem.is_dir():
+            for pack in sorted((stem / "packs").glob("*/manifest.json")):
+                views.append(str(pack.parent.relative_to(dataset).as_posix()))
             for child in sorted(stem.iterdir()):
                 if not (child / "labels.json").is_file():
                     continue
@@ -214,6 +224,22 @@ def refresh_paths(args) -> int:
                 changed = True
     if changed and not args.dry_run:
         manifest_path.write_text(dump_manifest(rows), encoding="utf-8")
+    return ensure_rules(dataset, args.dry_run)
+
+
+def ensure_rules(dataset: pathlib.Path, dry_run: bool) -> int:
+    """Give the dataset's .gitattributes and .gitignore the label set rules,
+    and drop the retired ones."""
+    if drop_lines(dataset / ".gitattributes", OBSOLETE_GITATTRIBUTES, dry_run):
+        print(
+            f"{'would remove' if dry_run else 'removed'} the retired LFS rule for label set text"
+        )
+    for path, lines in (
+        (dataset / ".gitattributes", GITATTRIBUTES),
+        (dataset / ".gitignore", GITIGNORE),
+    ):
+        if ensure_lines(path, lines, dry_run):
+            print(f"{'would add' if dry_run else 'added'} label set rules to {path}")
     return 0
 
 
@@ -366,19 +392,7 @@ def stage(args) -> int:
             print(f"staged view {pack} as {view_rel}")
     if changed and not args.dry_run:
         manifest_path.write_text(dump_manifest(rows), encoding="utf-8")
-    if drop_lines(dataset / ".gitattributes", OBSOLETE_GITATTRIBUTES, args.dry_run):
-        print(
-            f"{'would remove' if args.dry_run else 'removed'} the retired LFS rule for label set text"
-        )
-    for path, lines in (
-        (dataset / ".gitattributes", GITATTRIBUTES),
-        (dataset / ".gitignore", GITIGNORE),
-    ):
-        if ensure_lines(path, lines, args.dry_run):
-            print(
-                f"{'would add' if args.dry_run else 'added'} label set rules to {path}"
-            )
-    return 0
+    return ensure_rules(dataset, args.dry_run)
 
 
 def main(argv=None) -> int:
@@ -413,8 +427,10 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--refresh-paths",
         action="store_true",
-        help="rewrite every row's label set and view paths from labels/ "
-        "(after 'velocity lidar labels nest' moved them), and stage nothing",
+        help="rewrite every row's label set and pack paths from labels/, and "
+        "the label set rules in .gitattributes and .gitignore (after "
+        "'velocity lidar labels nest' moved things, or after working in "
+        "labels/ directly); stages nothing",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="print what would be done"

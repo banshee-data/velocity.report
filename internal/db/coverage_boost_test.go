@@ -27,6 +27,7 @@ func loopbackRequest(method, target string) *http.Request {
 func TestAdminRoutes_DBStats_HandlerBody(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -62,6 +63,7 @@ func TestAdminRoutes_DBStats_HandlerBody(t *testing.T) {
 func TestAdminRoutes_Backup_HandlerBody(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -124,6 +126,7 @@ func TestAdminRoutes_Backup_HandlerBody(t *testing.T) {
 func TestTransitController_Run_FullHistoryTrigger(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -166,6 +169,7 @@ func TestTransitController_Run_FullHistoryTrigger(t *testing.T) {
 func TestTransitController_Run_FullHistoryDisabled(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -210,6 +214,7 @@ func TestTransitController_Run_FullHistoryDisabled(t *testing.T) {
 func TestTransitController_finishRun_NilCurrentRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -237,6 +242,7 @@ func TestTransitController_finishRun_NilCurrentRun(t *testing.T) {
 func TestTransitController_GetStatus_StaleLastRun(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -263,6 +269,7 @@ func TestTransitController_GetStatus_StaleLastRun(t *testing.T) {
 func TestGetAllSites_WithMapSVGData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -305,6 +312,7 @@ func TestGetAllSites_WithMapSVGData(t *testing.T) {
 func TestGetActiveSiteConfigPeriod_WithEndUnix(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -353,6 +361,7 @@ func TestGetActiveSiteConfigPeriod_WithEndUnix(t *testing.T) {
 func TestUpdateSiteConfigPeriod_InvalidData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -385,6 +394,7 @@ func TestUpdateSiteConfigPeriod_InvalidData(t *testing.T) {
 func TestUpdateSiteConfigPeriod_NonExistentID(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -419,6 +429,7 @@ func TestUpdateSiteConfigPeriod_NonExistentID(t *testing.T) {
 func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -498,6 +509,7 @@ func TestCovBoost_SiteReport_CRUD(t *testing.T) {
 func TestCovBoost_AnalyseTransitOverlaps(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -544,6 +556,7 @@ func TestCovBoost_AnalyseTransitOverlaps(t *testing.T) {
 func TestDeleteAllTransits_WithData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -582,6 +595,7 @@ func TestDeleteAllTransits_WithData(t *testing.T) {
 func TestCovBoost_Events(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -615,6 +629,7 @@ func TestCovBoost_Events(t *testing.T) {
 func TestFindTransitGaps_WithRadarDataOnly(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -647,6 +662,7 @@ func TestFindTransitGaps_WithRadarDataOnly(t *testing.T) {
 func TestListSiteConfigPeriods_WithEndUnix(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -694,6 +710,7 @@ func TestListSiteConfigPeriods_WithEndUnix(t *testing.T) {
 func TestCovBoost_GetDatabaseStats(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -715,6 +732,7 @@ func TestCovBoost_GetDatabaseStats(t *testing.T) {
 func TestCountUniqueBgSnapshotHashes_EmptyDB(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -803,6 +821,7 @@ func openRawSQLite(path string) (*sql.DB, error) {
 func TestCovBoost_ClosedDB_SiteErrorPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -838,6 +857,7 @@ func TestCovBoost_ClosedDB_SiteErrorPaths(t *testing.T) {
 func TestCovBoost_ClosedDB_SiteReportErrorPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -873,6 +893,7 @@ func TestCovBoost_ClosedDB_SiteReportErrorPaths(t *testing.T) {
 func TestCovBoost_ClosedDB_ConfigPeriodErrorPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -898,6 +919,7 @@ func TestCovBoost_ClosedDB_ConfigPeriodErrorPaths(t *testing.T) {
 func TestCovBoost_ClosedDB_TransitErrorPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -935,6 +957,7 @@ func TestCovBoost_ClosedDB_TransitErrorPaths(t *testing.T) {
 func TestCovBoost_ClosedDB_TransitWorkerErrorPaths(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -980,6 +1003,7 @@ func TestCovBoost_ClosedDB_MigrateErrorPaths(t *testing.T) {
 func TestTransitController_finishRun_WithError(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -1005,6 +1029,7 @@ func TestTransitController_finishRun_WithError(t *testing.T) {
 func TestTransitController_Run_ErrorLogging(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -1052,6 +1077,7 @@ func TestTransitController_Run_ErrorLogging(t *testing.T) {
 func TestTransitWorker_Start_ErrorPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)
@@ -1076,6 +1102,7 @@ func TestTransitWorker_Start_ErrorPath(t *testing.T) {
 func TestUpdateSite_WithMapSVGData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("NewDB: %v", err)

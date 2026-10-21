@@ -931,6 +931,12 @@ PROTO_SWIFT_STUB = $(PROTO_SWIFT_OUT)/visualiser.pb.swift
 # and it has no gRPC service, so it needs protoc-gen-go alone.
 PROTO_RECORDING_DIR = proto/velocity_recording/v1
 PROTO_RECORDING_GO_OUT = internal/lidar/recordingpb
+# Gerardus alignment API, vendored from banshee-data/gerardus (see the file's
+# header). Swift only: the visualiser calls Gerardus directly and the Go server
+# is not in the path. Generated beside the visualiser stubs, so one protoc run
+# makes both and PROTO_SWIFT_STUB stands for the pair.
+PROTO_GERARDUS_DIR = proto/gerardus/align/v1alpha1
+PROTO_GERARDUS_SWIFT_STUB = $(PROTO_SWIFT_OUT)/align.pb.swift
 
 .PHONY: proto-gen proto-gen-go proto-gen-swift
 
@@ -990,14 +996,23 @@ proto-gen-swift:
 	       --plugin=protoc-gen-grpc-swift=`which protoc-gen-grpc-swift-2` \
 	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
 	       -I $(PROTO_DIR) $(PROTO_DIR)/visualiser.proto
+	@protoc --swift_out=$(PROTO_SWIFT_OUT) \
+	       --plugin=protoc-gen-grpc-swift=`which protoc-gen-grpc-swift-2` \
+	       --grpc-swift_out=$(PROTO_SWIFT_OUT) \
+	       -I $(PROTO_GERARDUS_DIR) $(PROTO_GERARDUS_DIR)/align.proto
 	@echo "✓ Swift stubs generated in $(PROTO_SWIFT_OUT)"
 	@protoc --swift_out=tools/visualiser-macos/VelocityVisualiser/gRPC -I $(PROTO_RECORDING_DIR) $(PROTO_RECORDING_DIR)/features.proto
 
-# Regenerate the Swift stubs only when the proto is newer than them (or they are missing).
+# Regenerate the Swift stubs only when a proto is newer than them (or they are missing).
 # The mac build targets request this file from inside their recipes, after their platform
-# guards, so `make test` on a host without protoc still skips them cleanly.
-$(PROTO_SWIFT_STUB): $(PROTO_DIR)/visualiser.proto
+# guards, so `make test` on a host without protoc still skips them cleanly. A checkout
+# whose visualiser stub predates the Gerardus one has no align stub yet: FORCE covers it.
+$(PROTO_SWIFT_STUB): $(PROTO_DIR)/visualiser.proto $(PROTO_GERARDUS_DIR)/align.proto \
+		$(if $(wildcard $(PROTO_GERARDUS_SWIFT_STUB)),,FORCE)
 	@$(MAKE) --no-print-directory proto-gen-swift
+
+.PHONY: FORCE
+FORCE:
 
 # =============================================================================
 # INSTALLATION
@@ -1017,6 +1032,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_go_coverage.py \
 	scripts/test_check_quarter_blocks.py \
 	scripts/test_check_no_results.py \
+	scripts/test_check_bibliography_budget.py \
 	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
@@ -2116,7 +2132,10 @@ check-no-results: ## Reject experiment result directories in the Git index
 test-no-results: ## Exercise the result-directory guard against real Git indexes
 	@python3 -m unittest discover -s scripts -p test_check_no_results.py
 
-.PHONY: check-no-results test-no-results
+check-bibliography: ## Advisory: references.bib sections against their soft caps, and entries nothing cites
+	@python3 scripts/check-bibliography-budget.py
+
+.PHONY: check-no-results test-no-results check-bibliography
 
 experiments-graph: ## Regenerate data/experiments/DEPENDENCIES.md from the experiment specs
 	@go run ./cmd/tools/experiments graph -write

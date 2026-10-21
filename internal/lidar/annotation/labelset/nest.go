@@ -40,8 +40,13 @@ type NestMove struct {
 
 // NestReport is what Nest did, or would do.
 type NestReport struct {
-	Root     string     `json:"root"`
+	Root string `json:"root"`
+	// From, Adopted and Archive are Gather's: the tree gathered, what the
+	// destination's copies took from it, and where the local copies went.
+	From     string     `json:"from,omitempty"`
 	Moves    []NestMove `json:"moves,omitempty"`
+	Adopted  []NestMove `json:"adopted,omitempty"`
+	Archive  string     `json:"archive,omitempty"`
 	Relinked []string   `json:"relinked,omitempty"`
 	Drafts   []string   `json:"drafts,omitempty"`
 	Problems []string   `json:"problems,omitempty"`

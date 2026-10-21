@@ -29,6 +29,9 @@ REQUIRED_FILES = (
 # URLs starting with // are protocol-relative and intentionally excluded.
 ROOT_URL = re.compile(r'(?:href|src)="/(?!public_html/|docs/|/)')
 ROOT_CSS_URL = re.compile(r'url\("/')
+# The reference graph page is for the public site at the origin only: the Pi
+# image has no use for its 2 MB graph, so the image build leaves it out.
+PUBLIC_ONLY = ("docs/reference-graph",)
 
 
 def find_matches(path: Path, pattern: re.Pattern[str]) -> list[int]:
@@ -50,6 +53,11 @@ def verify(site_dir: Path) -> list[str]:
         path = site_dir / relative_path
         if not path.is_file():
             errors.append(f"missing required build output: {path}")
+
+    for relative_path in PUBLIC_ONLY:
+        path = site_dir / relative_path
+        if path.exists():
+            errors.append(f"image build contains public-site-only output: {path}")
 
     marker = site_dir / ".velocity-public-html-path-prefix"
     if not marker.is_file():

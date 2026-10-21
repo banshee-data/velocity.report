@@ -86,6 +86,7 @@ func TestRadarObjectRollupRange_MinSpeed(t *testing.T) {
 // TestRadarObjectRollupRange_EmptyDB verifies behavior with no data
 func TestRadarObjectRollupRange_EmptyDB(t *testing.T) {
 	fname := t.TempDir() + "/empty_rollup.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -107,6 +108,7 @@ func TestRadarObjectRollupRange_EmptyDB(t *testing.T) {
 // TestRadarObjectRollupRange_WithHistogram verifies histogram generation
 func TestRadarObjectRollupRange_WithHistogram(t *testing.T) {
 	fname := t.TempDir() + "/hist_rollup.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -160,6 +162,7 @@ func TestRadarObjectRollupRange_WithHistogram(t *testing.T) {
 // TestRadarObjectRollupRange_TransitsSource tests the radar_data_transits source
 func TestRadarObjectRollupRange_TransitsSource(t *testing.T) {
 	fname := t.TempDir() + "/transits_rollup.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -202,6 +205,7 @@ func TestRadarObjectRollupRange_TransitsSource(t *testing.T) {
 // TestRadarObjectRollupRange_DifferentGroupSizes tests various grouping intervals
 func TestRadarObjectRollupRange_DifferentGroupSizes(t *testing.T) {
 	fname := t.TempDir() + "/group_rollup.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -251,6 +255,7 @@ func TestRadarObjectRollupRange_DifferentGroupSizes(t *testing.T) {
 // TestRadarObjectRollupRange_InvalidSource tests error handling for invalid source
 func TestRadarObjectRollupRange_InvalidSource(t *testing.T) {
 	fname := t.TempDir() + "/invalid_source.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -267,6 +272,7 @@ func TestRadarObjectRollupRange_InvalidSource(t *testing.T) {
 // TestRadarObjectRollupRange_ClassifierFilter tests that modelVersion parameter works for transits
 func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 	fname := t.TempDir() + "/classifier_rollup.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -323,6 +329,7 @@ func TestRadarObjectRollupRange_ClassifierFilter(t *testing.T) {
 // TestRadarObjectRollupRange_BoundaryThreshold tests the boundary hour filtering feature
 func TestRadarObjectRollupRange_BoundaryThreshold(t *testing.T) {
 	fname := t.TempDir() + "/boundary_rollup.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -428,6 +435,7 @@ func TestRadarObjectRollupRange_BoundaryThreshold(t *testing.T) {
 // does not apply to single-day data
 func TestRadarObjectRollupRange_BoundaryThreshold_SingleDay(t *testing.T) {
 	fname := t.TempDir() + "/boundary_single_day.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)
@@ -482,6 +490,7 @@ func TestRadarObjectRollupRange_BoundaryThreshold_SingleDay(t *testing.T) {
 // all speeds >= histMax are aggregated into a single bucket at histMax
 func TestRadarObjectRollupRange_HistogramWithMaxBucket(t *testing.T) {
 	fname := t.TempDir() + "/hist_max_bucket.db"
+	copyTemplateDB(t, fname)
 	dbinst, err := NewDB(fname)
 	if err != nil {
 		t.Fatalf("failed to create DB: %v", err)

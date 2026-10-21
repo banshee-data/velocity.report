@@ -4,7 +4,7 @@ This specification adds one to four selected vehicle features to the physical au
 Each feature has a persistent identity and a frame-specific subset of the object's returns;
 newly visible support may refine placement without repeatedly resetting the body reference.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Selection, active-facet pilot, compact/straight-edge horizontal registration and optional frozen pins built locally; runtime constraints, full contract and operator validation remain open
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Selection, active-facet pilot, compact/straight-edge horizontal registration and optional frozen pins built locally; runtime constraints, full contract and operator validation remain open
 - **Scope:** Sparse facet proposals, review, body registration and bounded reanchor events
 - **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [facet registration experiment](lidar-facet-registration-experiment-plan.md), [authoring design](lidar-physical-authoring-comprehension-design.md), [physical references](lidar-physical-reference-review-plan.md), [shape descriptors](lidar-shape-descriptors-plan.md)

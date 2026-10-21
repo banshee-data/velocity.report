@@ -62,15 +62,18 @@ func fileExists(path string) bool {
 
 // TreeReport is what CheckTree found.
 type TreeReport struct {
-	Root     string        `json:"root"`
-	Sets     []string      `json:"sets"`
-	Views    []*ViewReport `json:"views"`
-	Problems []string      `json:"problems,omitempty"`
+	Root  string        `json:"root"`
+	Sets  []string      `json:"sets"`
+	Views []*ViewReport `json:"views"`
+	// Packs are the packs in a capture's packs/, not in a set's views/.
+	Packs    []string `json:"packs,omitempty"`
+	Problems []string `json:"problems,omitempty"`
 }
 
 // CheckTree checks a tree as a dataset publishes it: every label set opens
-// (none is mid-merge), every view holds as a fresh copy (CheckView), and no
-// pack sits anywhere but in a set's views/.
+// (none is mid-merge), every view holds as a fresh copy (CheckView), every
+// pack in a capture's packs/ opens (and, linked to a set beside it, holds as
+// a view does), and no pack sits anywhere else in the layout.
 func CheckTree(root string) (*TreeReport, error) {
 	root, err := filepath.Abs(root)
 	if err != nil {
@@ -112,8 +115,37 @@ func CheckTree(root string) (*TreeReport, error) {
 		return nil, err
 	}
 	for _, p := range packs {
-		if !inViews[p.dir] {
-			report.Problems = append(report.Problems, fmt.Sprintf("%s is a pack outside any label set's views/: a dataset publishes views only (run 'velocity lidar labels nest')", rel(root, p.dir)))
+		if inViews[p.dir] {
+			continue
+		}
+		r := rel(root, p.dir)
+		if _, err := annotation.PackHandle(root, p.dir); err != nil {
+			report.Problems = append(report.Problems, fmt.Sprintf("%s is a pack outside the layout: a set's views/, a capture's packs/ (run 'velocity lidar labels nest')", r))
+			continue
+		}
+		report.Packs = append(report.Packs, r)
+		if p.link != nil {
+			v, err := CheckView(p.dir)
+			if v != nil {
+				report.Views = append(report.Views, v)
+			}
+			if err != nil {
+				report.Problems = append(report.Problems, fmt.Sprintf("%s: %v", r, err))
+				if v != nil {
+					for _, problem := range v.Problems {
+						report.Problems = append(report.Problems, fmt.Sprintf("%s: %s", r, problem))
+					}
+				}
+			}
+			continue
+		}
+		// Not in a set yet: it opens, which verifies its digests, and its
+		// text files fit in plain Git.
+		for _, name := range append(annotation.PackDataFiles(), annotation.PackRecordFiles()...) {
+			info, err := os.Stat(filepath.Join(p.dir, name))
+			if err == nil && info.Size() > MaxPlainGitBytes && !hasLFSSuffix(name) {
+				report.Problems = append(report.Problems, fmt.Sprintf("%s/%s is %d bytes, over Hugging Face's %d for plain Git", r, name, info.Size(), MaxPlainGitBytes))
+			}
 		}
 	}
 	if len(report.Problems) > 0 {

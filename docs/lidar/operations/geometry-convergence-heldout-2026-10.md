@@ -6,8 +6,9 @@ segment of each corpus site, the same segment its σ scale was compared on. This
 same four arms on each site's second five-minute segment, which no geometry screen has read, and
 asks which of that report's findings hold on data the choice was not made on.
 
-- **Status:** Measured, October 12, 2026. 14 of the 22 planned sites; the run was stopped when
-  the machine ran short of disk. Nothing shipped changes
+- **Status:** Measured, October 12, 2026, on all 22 sites: 14 in the unattended run and 8 the
+  next day from the same build and files, after the run was paused for disk. Nothing shipped
+  changes
 - **Layers:** L4 rectangle fit, L5 solid body
 - **Related:** [convergence plan](../../plans/lidar-tracker-geometry-convergence-plan.md),
   [criteria record](geometry-convergence-criteria.md),
@@ -17,27 +18,31 @@ asks which of that report's findings hold on data the choice was not made on.
 ## Summary
 
 - **The heading result holds.** On the held-out segments the candidate's share of rows more than
-  30° off the course is 0.032 at two to four seconds and 0.022 after four, against 0.024 and
-  0.026 on the first segments of the same 14 sites; seven sites meet G3's 0.05 at both ages
-  against five, and the worst site is 0.081 after four seconds where the alignment candidate's
-  is 0.183. A2's is 0.254 and 0.311. The median axis error falls from 5 to 6° under the
-  alignment candidate to 1.5 to 1.7° at every one of the 14 sites at both ages.
-- **The lateral margin over the alignment candidate shrinks to a third.** On the windows both
-  arms score, the candidate's p99 is 0.166 m against 0.170 (9,156 windows); on the first
-  segments of the same sites it was 0.173 against 0.185. The all-window p99 advantage the
-  rectangle heading report counted (better at 10 of 14 sites here on the first segment) does not
-  replicate: 7 worse, 7 better, median change +0.001 m.
-- **σ × 1.5 against σ × 1: better on the same windows, not on each arm's own.** The scale
-  improves the axis at 13 of 14 sites, and on the windows both score its p99 is lower on both
-  segments (0.179 against 0.189 m held out, 10,589 windows). Across each arm's own windows it is
-  worse than σ × 1 held out on the all-window p99 at 10 of 13 sites (+0.012 m) and the body-centre
-  p99 at 9 of 14, where on the first segments the two were level: the 508 windows only σ × 1.5
-  scores have a p99 of 0.343 m. The matched-window ordering, candidate below alignment below
-  σ × 1, holds on both segments.
-- **Containment and extents hold.** The share of body-centre rows holding their points rises
-  from 0.644 to 0.710 (11 of 14 sites better), and the share of rows whose reported length or
-  width falls short of the frame's span falls from 0.025 and 0.042 to 0.011 and 0.012, as on the
-  first segments.
+  30° off the course is 0.032 at two to four seconds and 0.022 after four, against 0.025 and 0.035
+  on the first segments; 12 of the 22 sites meet G3's 0.05 at both ages, against 9 on the first
+  segments and 10 for the alignment candidate held out, and the worst site after four seconds is
+  0.093 where the alignment candidate's is 0.183. A2's is 0.261 and 0.266. The median axis error
+  falls from 5.2 to 5.9° under the alignment candidate to 1.6 to 1.7° at 21 and 22 of 22 sites.
+- **Young tracks are the exception.** Between two and four seconds the candidate's G3 is above the
+  alignment candidate's at 14 of 22 held-out sites (+0.010 at the median), where on the first
+  segments it was below at 15; after four seconds it is below at 14. The young track's axis is
+  where W1b's unbuilt low-speed label and ambiguous row would act.
+- **The lateral margin over the alignment candidate holds at two thirds on the same windows, not
+  per site.** On the windows both arms score, the candidate's p99 is 0.164 m against 0.172
+  (14,620 windows); on the first segments it was 0.162 against 0.174. The per-site all-window p99
+  advantage the first segments showed (better at 14 of 22) does not replicate: 11 worse, 11
+  better, median change +0.001 m.
+- **σ × 1.5 against σ × 1: better on the same windows, not on each arm's own.** The scale improves
+  the axis at 18 to 22 sites, and on the windows both score its p99 is lower on both segments
+  (0.185 against 0.192 m held out, 16,360 windows). Across each arm's own windows it is worse than
+  σ × 1 held out on the all-window p99 at 13 of 21 sites (+0.011 m), because σ × 1 keeps 1,768
+  body-centre windows that σ × 1.5 does not, with a lighter tail (p99 0.302 against the 838
+  windows only σ × 1.5 keeps, at 0.331). σ × 1 is level with the alignment candidate on matched
+  windows on both segments.
+- **Containment and extents hold.** The share of body-centre rows holding their points rises from
+  0.662 to 0.715 (18 of 22 sites better), and the share of rows whose reported length or width
+  falls short of the frame's span falls from 0.023 and 0.040 to 0.011 and 0.009, as on the first
+  segments.
 
 ## Method
 
@@ -53,14 +58,11 @@ asks which of that report's findings hold on data the choice was not made on.
 - **Data.** For each site of the D2 first-segment corpus, its second five-minute capture from
   [tools/s2-archive/site-index.json](../../../tools/s2-archive/site-index.json), 200 s scored after
   a 70 s warm-up, as every corpus screen ran. `embarcadero-folsom` stays held out for a frozen
-  held-out score; `ashbury-downey` has one 20-minute capture and no second segment. The run
-  reached 14 of the remaining 22 sites, in corpus order: broadway-gough, california-leon-baker,
-  columbus-broadway, columbus-north-point, embarcadero-bay, fulton-divisadero, haight-divisadero,
-  laguna-eddy, lombard-broderick, lombard-laguna, marina-broderick, marina-webster-beach,
-  pierce-haight and van-ness-sacramento. Every comparison below reads the same 14 sites on both
-  segments; the first-segment figures are pass 8 and earlier's evidence at
-  `physical-align-corpus-20261009`, re-read, so they differ slightly from the 23-site figures in
-  the rectangle heading report.
+  held-out score; `ashbury-downey` has one 20-minute capture and no second segment, which leaves
+  22 sites. Every comparison below reads the same 22 sites on both segments; the first-segment
+  figures are pass 8 and earlier's evidence at `physical-align-corpus-20261009`, re-read without
+  `ashbury-downey`, so they differ slightly from the 23-site figures in the rectangle heading
+  report.
 - **Equivalence.** The candidate replayed from its parameter set on 3rd-folsom's first segment
   gives a scorecard identical to the same arm named as experiments, and both reproduce pass 8's
   row exactly (7,914 solid bodies, 100 lapses, body-centre p99 0.180 m over 556 windows), so the
@@ -74,106 +76,106 @@ asks which of that report's findings hold on data the choice was not made on.
 
 ## Findings
 
-**Heading (G3)**, the share of rows more than 30° off the course, median over the 14 sites:
+**Heading (G3)**, the share of rows more than 30° off the course, median over the 22 sites:
 
 | Arm                 | First segment, 2 to 4 s / after 4 s | Held out, 2 to 4 s / after 4 s | Sites at or under 0.05 at both, first / held out | Worst site after 4 s, held out |
 | ------------------- | ----------------------------------- | ------------------------------ | ------------------------------------------------ | -----------------------------: |
-| A2                  | 0.229 / 0.264 (`a2-cont`)           | 0.254 / 0.311                  | 0 / 0                                            |                          0.491 |
-| Alignment candidate | 0.055 / 0.051                       | 0.024 / 0.060                  | 4 / 5                                            |                          0.183 |
-| Candidate, σ × 1    | 0.035 / 0.050                       | 0.042 / 0.039                  | 4 / 4                                            |                          0.092 |
-| Candidate, σ × 1.5  | 0.024 / 0.026                       | 0.032 / 0.022                  | 5 / 7                                            |                          0.081 |
+| A2                  | 0.229 / 0.262 (`a2-cont`)           | 0.261 / 0.266                  | 0 / 0                                            |                          0.491 |
+| Alignment candidate | 0.046 / 0.051                       | 0.024 / 0.047                  | 8 / 10                                           |                          0.183 |
+| Candidate, σ × 1    | 0.041 / 0.045                       | 0.046 / 0.039                  | 9 / 9                                            |                          0.096 |
+| Candidate, σ × 1.5  | 0.025 / 0.035                       | 0.032 / 0.022                  | 9 / 12                                           |                          0.093 |
 
 Pass 1's A2 predates the axis table, so on the first segment A2's figure is `a2-cont`, which
 leaves the heading alone, as in the rectangle heading report.
 
 **Per-site changes**, median change and sites worse / better, first segment against held out:
 
-| Measure                          | σ × 1.5 vs alignment, first | held out        | σ × 1 vs alignment, first | held out        | σ × 1.5 vs σ × 1, first | held out        |
-| -------------------------------- | --------------------------- | --------------- | ------------------------- | --------------- | ----------------------- | --------------- |
-| G3, 2 to 4 s                     | −0.010 (3 / 11)             | +0.006 (8 / 6)  | −0.001 (6 / 8)            | +0.018 (9 / 5)  | −0.009 (4 / 10)         | −0.008 (1 / 13) |
-| G3, after 4 s                    | −0.005 (5 / 8)              | −0.038 (3 / 10) | +0.003 (7 / 6)            | −0.020 (4 / 9)  | −0.012 (3 / 10)         | −0.004 (4 / 9)  |
-| Median axis error, 2 to 4 s (°)  | −3.9 (0 / 14)               | −3.4 (0 / 14)   | −2.9 (1 / 13)             | −2.8 (1 / 13)   | −0.5 (0 / 14)           | −0.5 (0 / 14)   |
-| Median axis error, after 4 s (°) | −4.7 (0 / 14)               | −4.7 (0 / 14)   | −3.6 (0 / 14)             | −4.2 (0 / 14)   | −0.6 (0 / 14)           | −0.7 (0 / 14)   |
-| Body-centre p99 (m)              | −0.010 (3 / 11)             | −0.014 (6 / 8)  | −0.008 (6 / 8)            | −0.004 (6 / 8)  | −0.006 (6 / 8)          | +0.006 (9 / 5)  |
-| All-window p95 (m)               | −0.001 (7 / 7)              | +0.001 (8 / 6)  | +0.001 (7 / 7)            | −0.003 (7 / 7)  | +0.003 (9 / 5)          | +0.009 (9 / 5)  |
-| All-window p99 (m)               | −0.013 (4 / 10)             | +0.001 (7 / 7)  | −0.012 (6 / 8)            | −0.022 (5 / 9)  | −0.001 (6 / 8)          | +0.012 (10 / 3) |
-| Lapses                           | +8.5 (11 / 3)               | −1 (7 / 7)      | +6 (9 / 5)                | +1 (7 / 7)      | +3.5 (10 / 4)           | −1.5 (4 / 9)    |
-| Held share                       | +0.052 (2 / 12)             | +0.040 (3 / 11) | +0.051 (2 / 12)           | +0.030 (2 / 12) | −0.002 (10 / 4)         | +0.008 (3 / 11) |
+| Measure                          | σ × 1.5 vs alignment, first | held out         | σ × 1 vs alignment, first | held out         | σ × 1.5 vs σ × 1, first | held out         |
+| -------------------------------- | --------------------------- | ---------------- | ------------------------- | ---------------- | ----------------------- | ---------------- |
+| G3, 2 to 4 s                     | −0.009 (7 / 15)             | +0.010 (14 / 8)  | −0.001 (10 / 12)          | +0.021 (15 / 7)  | −0.008 (7 / 15)         | −0.007 (3 / 18)  |
+| G3, after 4 s                    | −0.002 (10 / 11)            | −0.016 (7 / 14)  | +0.003 (12 / 9)           | −0.010 (9 / 12)  | −0.009 (6 / 15)         | −0.004 (5 / 15)  |
+| Median axis error, 2 to 4 s (°)  | −3.1 (0 / 22)               | −3.3 (1 / 21)    | −2.6 (1 / 21)             | −2.8 (2 / 20)    | −0.5 (0 / 22)           | −0.5 (0 / 22)    |
+| Median axis error, after 4 s (°) | −4.4 (0 / 22)               | −4.2 (0 / 22)    | −3.4 (1 / 21)             | −3.7 (0 / 22)    | −0.5 (1 / 21)           | −0.6 (2 / 20)    |
+| Body-centre p99 (m)              | −0.003 (8 / 14)             | −0.002 (11 / 11) | +0.003 (11 / 11)          | −0.001 (11 / 11) | −0.003 (9 / 13)         | +0.003 (12 / 10) |
+| All-window p95 (m)               | −0.002 (9 / 13)             | +0.001 (13 / 9)  | −0.003 (10 / 12)          | −0.003 (10 / 12) | +0.001 (12 / 10)        | +0.007 (13 / 9)  |
+| All-window p99 (m)               | −0.013 (8 / 14)             | +0.001 (11 / 11) | −0.013 (8 / 14)           | −0.016 (9 / 13)  | −0.002 (9 / 13)         | +0.011 (13 / 8)  |
+| Lapses                           | +4.5 (16 / 5)               | +1 (12 / 10)     | +5 (16 / 6)               | +2.5 (13 / 8)    | +1 (12 / 9)             | −1 (8 / 12)      |
+| Held share                       | +0.041 (2 / 20)             | +0.043 (4 / 18)  | +0.039 (2 / 20)           | +0.034 (3 / 19)  | −0.003 (15 / 7)         | +0.006 (6 / 16)  |
 
 **On the same windows**, five-point body-centre windows matched across two arms by frame time and
-position, pooled over the 14 sites:
+position, pooled over the 22 sites:
 
-| Pair                 | First segment: matched, p95, p99        | Held out: matched, p95, p99             |
-| -------------------- | --------------------------------------- | --------------------------------------- |
-| σ × 1.5 vs alignment | 8,252: 0.077 → 0.067 m, 0.185 → 0.173 m | 9,156: 0.077 → 0.073 m, 0.170 → 0.166 m |
-| σ × 1 vs alignment   | 8,221: 0.075 → 0.070, 0.182 → 0.186     | 9,230: 0.076 → 0.075, 0.164 → 0.167     |
-| σ × 1.5 vs σ × 1     | 9,428: 0.072 → 0.070, 0.185 → 0.180     | 10,589: 0.078 → 0.074, 0.189 → 0.179    |
+| Pair                 | First segment: matched, p95, p99         | Held out: matched, p95, p99              | Windows only the arm scores, held out, p99    |
+| -------------------- | ---------------------------------------- | ---------------------------------------- | --------------------------------------------- |
+| σ × 1.5 vs alignment | 14,858: 0.074 → 0.069 m, 0.174 → 0.162 m | 14,620: 0.076 → 0.072 m, 0.172 → 0.164 m | 2,578 at 0.346 m (alignment's 2,172 at 0.286) |
+| σ × 1 vs alignment   | 14,788: 0.074 → 0.071, 0.169 → 0.167     | 14,709: 0.075 → 0.074, 0.168 → 0.167     | 3,419 at 0.332 (alignment's 2,083 at 0.321)   |
+| σ × 1.5 vs σ × 1     | 16,469: 0.075 → 0.072, 0.176 → 0.174     | 16,360: 0.079 → 0.076, 0.192 → 0.185     | 838 at 0.331 (σ × 1's 1,768 at 0.302)         |
 
-**Against A2**, held out: the candidate halves the lapses at all 14 sites (median 175 to 77),
-lifts the held share from 0.49 to 0.71 at all 14, and lowers the all-window p99 by 0.079 m at 13
-of 14; the alignment candidate's figures are 175 to 85, 0.49 to 0.64 and 0.087 m at 12.
+**Against A2**, held out: the candidate halves the lapses at all 22 sites (median 182.5 to 83),
+lifts the held share from 0.49 to 0.72 at all 22, and lowers the all-window p99 by 0.081 m at 21;
+the alignment candidate's figures are 182.5 to 87, 0.49 to 0.66 and 0.087 m at 19.
 
-**Containment and extents**, corpus median (range) over the 14 sites:
+**Containment and extents**, corpus median over the 22 sites:
 
 | Guard                                 | Alignment, first | Alignment, held out | σ × 1.5, first | σ × 1.5, held out | σ × 1, held out |
 | ------------------------------------- | ---------------- | ------------------- | -------------- | ----------------- | --------------- |
-| Body-centre rows holding their points | 0.629            | 0.644               | 0.688          | 0.710             | 0.701           |
-| All rows holding their points         | 0.691            | 0.694               | 0.714          | 0.719             | 0.711           |
-| Reported length short of the span     | 0.020            | 0.025               | 0.011          | 0.011             | 0.012           |
-| Reported width short of the span      | 0.042            | 0.042               | 0.011          | 0.012             | 0.009           |
+| Body-centre rows holding their points | 0.667            | 0.662               | 0.704          | 0.715             | 0.707           |
+| All rows holding their points         | 0.714            | 0.701               | 0.728          | 0.725             | 0.725           |
+| Reported length short of the span     | 0.019            | 0.023               | 0.012          | 0.011             | 0.012           |
+| Reported width short of the span      | 0.037            | 0.040               | 0.011          | 0.009             | 0.009           |
 
 ## Interpretation
 
-1. **The rectangle heading generalises.** Every heading figure the first segments showed comes
-   back on segments nobody tuned on, and the worst sites improve most: after four seconds the
-   candidate's worst site is 0.081 where the alignment candidate's is 0.183. Its 2 to 4 s median
-   is 0.008 above the alignment candidate's held out, worse at 8 sites, a reminder that a young
-   track's axis is still settling; G3 at both ages is met at more sites by the candidate than by
-   any other arm, on both segments.
-2. **The σ scale changes which windows are scored as much as how well.** On the windows both
-   arms score, σ × 1.5 is better than σ × 1 on both segments, by 5 mm at p99 on the first and 10
-   mm held out. On each arm's own windows the first segments showed the two level and the held-out
-   segments show σ × 1.5 behind at two thirds of the sites, because the windows it alone scores,
-   500 or so, carry a heavy tail (p99 0.343 m). The per-site population figures the σ choice was
-   partly read from are therefore segment-sensitive, and the matched-window figure is the one that
-   replicated. Neither scale is worse than the alignment candidate on matched windows by more than
-   4 mm.
-3. **The lateral case against the alignment candidate is level, not a win.** The candidate is
-   ahead on heading, held share and extents everywhere, and level on lateral; that is the
-   rectangle heading report's own reading at σ × 1, and held out it is also the reading at σ ×
-   1.5.
+1. **The rectangle heading generalises after four seconds, and the worst sites improve most.**
+   Every heading figure for tracks older than four seconds comes back on segments nobody tuned on,
+   and the worst site falls from the alignment candidate's 0.183 to 0.093. Between two and four
+   seconds the candidate is above the alignment candidate at 14 sites held out, where the course
+   heading the alignment candidate uses is already good on a straight pass; a young track's
+   fitted axis is still settling, which is what W1b's low-speed label and ambiguous row are for.
+2. **On the same windows the lateral ordering replicates; per site it does not.** The candidate
+   leads the alignment candidate on matched windows on both segments, by 12 mm at p99 on the
+   first and 8 mm held out, and σ × 1.5 leads σ × 1 by 2 and 7 mm. The per-site population tails
+   moved with the segment: the windows each arm alone scores carry heavy, arm-specific tails (p99
+   0.29 to 0.35 m), and which of them an arm keeps decides its own-window p99 more than the
+   estimate on the shared windows does. The σ choice was partly read from those per-site tails;
+   the matched-window figure is the one that replicated.
+3. **The lateral case against the alignment candidate is a small win on the same windows and
+   level per site**, with the candidate ahead on heading after four seconds, held share and
+   extents at nearly every site.
 
 ## What this does not establish
 
-- 14 of 22 sites, five minutes each, all from the same two days of the same city. The held-out
-  segments are the next five minutes at the same placement: held out from the choice, not from
-  the site, the weather or the traffic mix. `embarcadero-folsom`, the declared held-out site, was
-  not read.
+- 22 sites, five minutes each, from the same two days of the same city. The held-out segments are
+  the next five minutes at the same placement: held out from the choice, not from the site, the
+  weather or the traffic mix. `embarcadero-folsom`, the declared held-out site, was not read.
 - Label-free, as every corpus screen is: G3 compares the axis with the course, not with a
   reference, and the lateral figures are a residual about a line fitted to the estimate itself.
 - Identity (switches and IDF1 against the switch band) was not scored: there are no labels on
   these segments.
-- Per-site medians over 14 sites move by a few millimetres between segments; differences of that
-  order are inside the spread the two segments show for the same arm.
+- Per-site medians move by a few millimetres between segments; differences of that order are
+  inside the spread the two segments show for the same arm.
 - Since measured ([corpus pose sweep](l3-corpus-pose-sweep-2026-10.md)): three second-segment
   cases are scored across a knock to the sensor (haight-divisadero at 152 s, marina-webster-beach
   at 145 s, van-ness-sacramento from its start), which this report did not know.
 
 ## Recommendations
 
-- **Keep the candidate as the W1b heading source**: the heading result is the robust one.
-- **Keep σ × 1.5, and read lateral on matched windows.** It leads σ × 1 on heading everywhere
-  and on matched windows on both segments; the per-site population tails moved with the segment.
-  The windows only σ × 1.5 scores, with their 0.34 m p99, are worth a look: they are where its
-  body-centre claim survives and σ × 1's does not.
+- **Keep the candidate as the W1b heading source**, and keep σ × 1.5: it leads σ × 1 on heading at
+  nearly every site and on matched windows on both segments.
+- **Read lateral on matched windows** in future screens, with the per-site tails beside them as a
+  population check rather than the deciding figure.
+- **Look at the 2 to 4 s axis** when the low-speed label and ambiguous row are built: it is the
+  one heading figure that did not replicate, and the place they act.
 - **Run held-out segments as routine** for any corpus choice: the parameter sets make it a
-  one-file change to the runner, and this run cost about 10 minutes a site with the machine shared.
+  one-file change to the runner, and a site costs about 5 minutes on an otherwise idle Mac and 10
+  to 14 with the machine shared.
 
 ## Provenance
 
 - Tree `27543717a` (branch `claude/experiment-planning-execution-db66fa`) for the replays,
   `lidar-state-estimation-baseline` and `lidar-track-scorecard` built with the Makefile's version
-  stamp (`0.5.1-pre45`, git sha set) and `-tags=pcap`; summaries rebuilt at `190c23b03`, which
+  stamp (`0.5.1-pre45`, git sha set) and `-tags=pcap`; summaries rebuilt at `190c23b03` (the first 14
+  sites) and at `d519cc645` (the last 8), whose solid-body summary code is the same; `190c23b03`
   differs from `27543717a` only in the harness's summary condition and its test.
 - Parameter sets and fingerprints: `solid-body-a2.json` `1fb29f8bea7f`,
   `alignment-candidate.json` `f55b8ad99081`, `geometry-convergence-candidate.json`

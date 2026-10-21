@@ -344,7 +344,7 @@ written in the binary.
 what a result bundle may contain, and that no worker can write the hub's state.
 
 **Where the hub runs.** The NAS starts running `velocity serve` as the hub when the one-queue row
-lands, after the vocabulary Phase 1 exit in v0.5.2; until then the Mac runs jobs locally (the
+lands, after the vocabulary Phase 1 exit in v0.5.3; until then the Mac runs jobs locally (the
 owner, October 20, 2026).
 
 **Timing.** Queue consolidation follows the vocabulary programme's Phase 1 exit, as D-27 records.

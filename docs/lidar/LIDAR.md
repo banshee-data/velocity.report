@@ -66,7 +66,8 @@ plan's first observation model, the box held to its points, on kirk0 and the 23 
 [rectangle heading screen](operations/solid-body-rectangle-heading-2026-10.md) scores the
 second, the heading observed from each frame's rectangle fit. The
 [held-out replication](operations/geometry-convergence-heldout-2026-10.md) replays the
-candidate on each site's second segment: the heading holds, the lateral margin shrinks. The
+candidate on each site's second segment: the heading holds after four seconds, and the lateral
+margin holds on matched windows but not per site. The
 [published box report](operations/published-box-rotation-2026-10.md) puts the same two
 observations into the box the visualiser and the scene assets draw, which held its returns on
 only 3 % of vehicle frames: a box model that holds them all and turns no faster than a vehicle can, with the tracks

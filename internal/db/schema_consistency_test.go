@@ -2,7 +2,7 @@ package db
 
 import (
 	"database/sql"
-	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -44,9 +44,13 @@ func TestSchemaConsistency(t *testing.T) {
 // setupEmptyTestDB creates a test database without running schema.sql
 func setupEmptyTestDB(t *testing.T) *DB {
 	t.Helper()
-	fname := t.Name() + "_migrations.db"
-	_ = os.Remove(fname)
+	return setupEmptyTestDBAt(t, filepath.Join(t.TempDir(), "migrations.db"))
+}
 
+// setupEmptyTestDBAt is setupEmptyTestDB at a path the test names, for a test
+// that reopens the file.
+func setupEmptyTestDBAt(t *testing.T, fname string) *DB {
+	t.Helper()
 	// Open database directly without running schema.sql
 	sqlDB, err := sql.Open("sqlite", fname)
 	if err != nil {

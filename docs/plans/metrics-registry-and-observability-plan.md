@@ -1,8 +1,8 @@
 # Metrics registry and observability plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.8 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (all layers)
-- **Target:** v0.5.2 contract names and report registration for following metrics; the TDL vocabulary registry (unscheduled) will consume canonical names but does not require the repo-wide sweep to be complete first; broader cross-strata naming enforcement, observability and Prometheus export follow at v0.5.11
+- **Target:** v0.5.3 contract names and report registration for following metrics; the TDL vocabulary registry (unscheduled) will consume canonical names but does not require the repo-wide sweep to be complete first; broader cross-strata naming enforcement, observability and Prometheus export follow at v0.5.12
 - **Scope:** canonical metric naming, repo-wide consistency rules, cross-strata enforcement, and future observability/export design
 - **Related:** [Speed Percentile Aggregation Alignment Plan](speed-percentile-aggregation-alignment-plan.md), [v0.5.0 Backward Compatibility Shim Removal Plan](v050-backward-compatibility-shim-removal-plan.md), [Executive Decisions Register](../DECISIONS.md), [LiDAR Logging Stream Split](../lidar/architecture/lidar-logging-stream-split-and-rubric-design.md)
 - **Canonical:** [metrics-registry.md](../platform/architecture/metrics-registry.md)
@@ -12,7 +12,7 @@
 The immediate delivery is the headway report: reserve distinct canonical names for physical
 spatial gap, net time gap, valid following opportunity, named-band exposure and every suppression
 reason. Apply them consistently across persistence, API and report output. This naming slice is a
-v0.5.2 dependency; repo-wide Prometheus and unrelated metric migrations are not.
+v0.5.3 dependency; repo-wide Prometheus and unrelated metric migrations are not.
 
 The repo currently lets the same metric words drift across multiple meanings and
 multiple strata:
@@ -280,7 +280,7 @@ Recommended future override path: config key `observability.prometheus.prefix`, 
 - [ ] Use this plan as the naming reference for ongoing speed-metric work.
 - [x] Confirm the source-mode vocabulary (`live`, `pcap`, `pcap_analysis`, `vrlog`) as the canonical tag/filter set. Adopted by the LiDAR pipeline state model: the same four tokens are reported by `/api/lidar/data_source`, `/api/lidar/playback/status`, and the gRPC `SourceMode` enum.
 
-### Phase 0.5 - following metric names (v0.5.2)
+### Phase 0.5 - following metric names (v0.5.3)
 
 - [x] Reserve the following-metric ids in the [registry](../platform/architecture/metrics-registry.md#following-metrics) with the full canonical shape, adding the `interaction` level, `instantaneous` estimator, `s` unit, `review_only` visibility and `event_id` forbidden tag.
 - [x] Mirror them in `internal/lidar/l8behaviour/metrics.go`, where a measurement may only use a registered name and unit, and a test fails when the registry and the code disagree.

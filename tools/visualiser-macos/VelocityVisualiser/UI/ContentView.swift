@@ -54,6 +54,10 @@ struct ContentView: View {
                             TrackLabelOverlay(labels: appState.trackLabels).allowsHitTesting(false)
                         }
 
+                        // OSM's attribution, whenever its ways are drawn
+                        AlignmentAttributionView(session: appState.alignment).allowsHitTesting(
+                            false)
+
                         // Capture Metal view size for label projection
                         GeometryReader { geometry in
                             Color.clear.onAppear {
@@ -81,6 +85,11 @@ struct ContentView: View {
                 // defeated selectTrackQuietly, whose whole purpose is to
                 // select without popping the panel open.
                 if appState.showSidePanel { SidePanelView().frame(width: 520) }
+
+                // Alignment pane: only while a Gerardus server answers.
+                if appState.showAlignmentPane {
+                    AlignmentPane(session: appState.alignment).frame(width: 340)
+                }
 
             }
 
@@ -629,6 +638,8 @@ struct ToolbarView: View {
                     Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
                 }.help("Toggle track filter pane").foregroundColor(
                     appState.hasActiveFilters ? .orange : nil)
+
+                AlignmentToolbarButton(session: appState.alignment)
 
                 Divider().frame(height: 20)
                 LiveToggleView()

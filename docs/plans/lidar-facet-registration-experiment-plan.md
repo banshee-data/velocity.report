@@ -5,7 +5,7 @@ measurements enough to justify their cost. Start with a bounded offline comparis
 0.5.2. A useful negative result is an acceptable exit.
 
 - **Status:** Proposed experiment, revised after the mathematical review; no implementation or measured benefit
-- **Target:** Decision experiment alongside v0.5.2 when independently staffed; conditional integration in v0.5.6; catalogue and mesh follow-ons at v1.x+
+- **Target:** Decision experiment alongside v0.5.3 when independently staffed; conditional integration in v0.5.7; catalogue and mesh follow-ons at v1.x+
 - **Layers:** L3 visibility, L4 geometric evidence, L5 estimation, L6 identification, L8 following evaluation
 - **Canonical:** [Visibility-aware tracking maths](../../data/maths/proposals/20260905-visibility-aware-object-tracking-research.md)
 - **Related:** [Facet registration maths review][review], [0.5.2 MVP](lidar-052-mvp-sprint-plan.md), [near-edge tracked state](lidar-near-edge-tracked-state-plan.md), [October near-edge campaign](../lidar/operations/near-edge-campaign-2026-10.md), [state estimation](lidar-state-estimation-plan.md), [physical references](lidar-physical-reference-review-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [shape descriptors](lidar-shape-descriptors-plan.md), [single-site demo](lidar-single-site-shape-demo-sprint-plan.md), [vehicle identification](scene-vehicle-identification-plan.md)
@@ -322,8 +322,8 @@ full 6D tracking, articulation, a general factor graph, or Pi optimisation.
 | 0.5.2.1 / S1–S2: body anchors and near-edge tracked update                     | F1–F2 offline, against the completed F7/A1 baseline                           | Facets remain a challenger; no new MVP A dependency                            |
 | 0.5.2.2 / S3–S4: calibrated uncertainty, continuity, refined body stages       | F2 diagnostics and prototype output adapter; F3 as inputs become available    | Freeze estimation conventions; candidate changes require recalibration         |
 | 0.5.2.3–4 / S5–S7: following inspection, persistence, report and qualification | F3 uses the same analyser and references                                      | Provisional MVP A can finish independently; qualified exit B retains all gates |
-| v0.5.3: passing clearance and PET                                              | Reuse references/error attribution if useful                                  | Do not make these products depend on a constellation graph                     |
-| v0.5.6: perception/descriptor foundations                                      | F4–F5, only after a useful decision                                           | Natural default home for supported facet measurements and descriptors          |
+| v0.5.4: passing clearance and PET                                              | Reuse references/error attribution if useful                                  | Do not make these products depend on a constellation graph                     |
+| v0.5.7: perception/descriptor foundations                                      | F4–F5, only after a useful decision                                           | Natural default home for supported facet measurements and descriptors          |
 | v0.6.2–3 mobile transfer, v0.6.7 Pi pass                                       | Revalidate sampling, ego-motion, timing, and target-hardware budget           | Static M1 evidence does not transfer automatically                             |
 | v1.x+ vehicle identification and surface products                              | Separate H4/H5 pilots                                                         | No dependency on the first qualified headway report                            |
 
