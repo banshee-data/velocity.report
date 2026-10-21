@@ -1,6 +1,6 @@
 # LiDAR visualiser proto contract and debug overlay fixes plan
 
-- **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.2
+- **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.10
 - **Layers:** L9 Endpoints
 - **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`
 - **Canonical:** [proto-contract.md](../ui/visualiser/proto-contract.md)
@@ -10,7 +10,7 @@
   complete. Track field serialisation, `ObjectClass` enum, and the
   `peak_speed_mps` → `max_speed_mps` rename all landed (#328, #336, #352).
   Debug overlay serialisation, cluster field serialisation, and positive
-  end-to-end serialiser tests are moved to the v0.5.2 backlog item
+  end-to-end serialiser tests are moved to the v0.5.10 backlog item
   "Visualiser debug overlay + cluster proto follow-through".
 
 ## 1. Problem

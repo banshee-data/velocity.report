@@ -1,6 +1,6 @@
 # Deterministic scene capture and review harness
 
-- **Status:** Parked (D-32, October 20, 2026): Milestones 1–2 complete; Milestone 3 is a v0.5.9 row, Milestone 4 is in the survey publishing queue and Milestone 5 is parked with the design system. Revisit when v0.5.9 is the next release
+- **Status:** Parked (D-32, October 20, 2026): Milestones 1–2 complete; Milestone 3 is a v0.5.10 row, Milestone 4 is in the survey publishing queue and Milestone 5 is parked with the design system. Revisit when v0.5.10 is the next release
 - **Canonical:** [reference-capture.md](../lidar/operations/reference-capture.md)
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling
 - **Target:** v0.5.2–v0.6.6; staged delivery across milestones 1–5
@@ -33,7 +33,7 @@ this plan’s working copy contains the required prerequisites.
 | --------- | ------- | --------------------------------------------------------------------------------------------------------------- |
 | 1         | v0.5.2  | Script accepting several coordinate-based views and producing stable stills, with deterministic optional trails |
 | 2         | v0.5.2  | Bullet-time inspection around a frozen target                                                                   |
-| 3         | v0.5.9  | Recorded-frame sequences, contact sheets, and optional animations                                               |
+| 3         | v0.5.10 | Recorded-frame sequences, contact sheets, and optional animations                                               |
 | 4         | v0.6.6  | Automatic VRLOG export and the 8081 Make web export workflow                                                    |
 | 5         | v0.6.5  | CI artefact comparison and a visual-review integration decision                                                 |
 
@@ -212,8 +212,8 @@ stride 1 for diagnostic exports, requested foreground point data, and sufficient
 preceding trail history. Cache only when source hashes and export settings match.
 Keep generated exports and captures local; generation does not publish a scene.
 
-Add an unchecked **Make web export** checkbox to the 8081 PCAP replay/recording
-workflow. It generates a web scene from the resulting VRLOG after successful
+Add an unchecked **Make web export** checkbox to the Svelte PCAP replay and recording form
+delivered in v0.5.2. It generates a web scene from the resulting VRLOG after successful
 recording finalisation; it does not modify the source PCAP. Reuse the harness's
 export path and settings rather than adding another conversion implementation.
 

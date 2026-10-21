@@ -95,7 +95,7 @@ POST /api/lidar/scenes → POST /api/lidar/replay-cases
 Response: { scenes: [...] } → { replay_cases: [...] }
 ```
 
-All consumers (Svelte, testing, integration) must update. This is a deliberate breaking change for v0.5.8.
+All consumers (Svelte, testing, integration) must update. This is a deliberate breaking change for v0.5.9.
 
 ## Testing expectations
 
@@ -118,7 +118,7 @@ These files/uses of "scene" remain unchanged:
 
 ## Rollout strategy
 
-1. **Batch 1 (v0.5.8):** Store + API layer rename (API-breaking)
+1. **Batch 1 (v0.5.9):** Store + API layer rename (API-breaking)
 2. **Batch 2:** Sweep interfaces and wiring
 3. **Batch 3:** Web/Svelte local updates
 4. **Batch 4:** Documentation sweep (lower priority, can follow in a later release)

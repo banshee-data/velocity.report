@@ -2,7 +2,7 @@
 
 - **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.6.6 is next, or the owner settles the public scene data at D-34's step 2. Was: Draft
 - **Layers:** Cross-cutting (CI, branch protection, release workflow)
-- **Target:** after v0.5.2; unblocks single-PR release flow while tightening `main`
+- **Target:** after v0.5.3; unblocks single-PR release flow while tightening `main`
 - **Companion plans:** [Version-bump consolidation](version-bump-consolidation-plan.md); [Deploy: rpi-imager fork](deploy-rpi-imager-fork-plan.md); [Deploy: distribution packaging](deploy-distribution-packaging-plan.md)
 - **Canonical:** [distribution-packaging.md](../platform/operations/distribution-packaging.md)
 

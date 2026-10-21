@@ -4,7 +4,7 @@ This plan evaluates separating durable LiDAR observations from revisable track e
 out what that would buy in accuracy, what evidence must survive the split, and the consequences for
 storage, queues, battery operation, and processing elsewhere.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are queued or in v0.5.7 and later, or it has none, and nothing in v0.5.2 to v0.5.6 needs it; revisit when the slot holding its rows becomes next. Was: Proposal and sizing study with a cost evaluation (Section 10); no runtime changes implemented
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Proposal and sizing study with a cost evaluation (Section 10); no runtime changes implemented
 - **Layers:** L1–L4 capture and perception; L5–L8 estimation and analytics; L9–L10 delivery
 - **Canonical:** [LiDAR architecture](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Related:** [Bodies in motion](lidar-bodies-in-motion-plan.md),

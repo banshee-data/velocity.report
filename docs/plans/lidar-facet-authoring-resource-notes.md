@@ -4,7 +4,7 @@ The native annotation increment is useful for collecting repeatability evidence.
 yet establish a tracking benefit. Keep reflectivity as a small diagnostic until geometry,
 reference bounds and association make a credible comparison possible.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows sit in the queued label-set or facet slots, or it has none; revisit when that slot is numbered, or a held-out window needs it. Was: Local implementation and scalar timing; field and full-pipeline costs unmeasured
+- **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Local implementation and scalar timing; field and full-pipeline costs unmeasured
 - **Scope:** Native pose sketches, facet subsets, raw intensity inspection and compact/straight-edge registration proposals
 - **Canonical:** [Point annotation tool](../lidar/operations/point-annotation-tool.md)
 - **Related:** [Minimum facet specification](lidar-facet-annotation-minimum-spec.md), [authoring design](lidar-physical-authoring-comprehension-design.md), [registration experiment](lidar-facet-registration-experiment-plan.md)

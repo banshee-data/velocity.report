@@ -2,7 +2,7 @@
 
 - **Status:** Parked (D-32, October 20, 2026): phases E and F delivered (the estimator time-domain boundary
   and its replay-equivalence pin; F3 moves with A1). Phases A to C, the clock abstraction
-  remainder, are a row in the Boundaries and identity queue. Revisit when that queue is numbered
+  remainder, are a row in v0.5.19 (boundaries and identity). Revisit when v0.5.19 is next
 - **Layers:** Cross-cutting (L1 Packets, L2 Frames, Pipeline, L9 Endpoints)
 - **Canonical:** [time-domain-model.md](../lidar/architecture/time-domain-model.md)
 - **Related:** [`timeutil/clock.go`](../../internal/timeutil/clock.go),

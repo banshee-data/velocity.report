@@ -1,0 +1,19 @@
+{
+  "description": "Soft caps on entries per references.bib section. See data/maths/citation-rubric.md. A section over its cap needs a prune, a merge, or a raised cap with its reason in the reference audit.",
+  "caps": {
+    "Foundational algorithms": 15,
+    "Multi-object tracking": 10,
+    "LiDAR processing and detection": 10,
+    "Geometry and shape fitting": 30,
+    "Advanced motion models and smoothers (planned work — L5h)": 10,
+    "Multi-sensor fusion": 10,
+    "Trajectory prediction and scene-constrained motion (L7 planned)": 10,
+    "Scene understanding and mapping": 15,
+    "Calibration, semantic segmentation, and static-map construction": 10,
+    "Standards and datasets": 10,
+    "Additional highly-cited references": 25,
+    "Roadside perception, trajectory reconstruction, and datasets": 25,
+    "Speed, injury curves, conflict analysis, and crash-rate benchmarks": 35,
+    "Research reports and unpublished benchmark studies": 20
+  }
+}

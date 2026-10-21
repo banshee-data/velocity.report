@@ -1017,6 +1017,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_go_coverage.py \
 	scripts/test_check_quarter_blocks.py \
 	scripts/test_check_no_results.py \
+	scripts/test_check_bibliography_budget.py \
 	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
@@ -2116,7 +2117,10 @@ check-no-results: ## Reject experiment result directories in the Git index
 test-no-results: ## Exercise the result-directory guard against real Git indexes
 	@python3 -m unittest discover -s scripts -p test_check_no_results.py
 
-.PHONY: check-no-results test-no-results
+check-bibliography: ## Advisory: references.bib sections against their soft caps, and entries nothing cites
+	@python3 scripts/check-bibliography-budget.py
+
+.PHONY: check-no-results test-no-results check-bibliography
 
 experiments-graph: ## Regenerate data/experiments/DEPENDENCIES.md from the experiment specs
 	@go run ./cmd/tools/experiments graph -write

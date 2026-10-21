@@ -1,6 +1,6 @@
 # Documentation standardisation plan
 
-- **Status:** Parked (D-32, October 20, 2026): metadata and structure rules enforced, opening paragraphs complete; the remainder is a v0.5.10 row. Revisit when v0.5.10 is the next release
+- **Status:** Parked (D-32, October 20, 2026): metadata and structure rules enforced, opening paragraphs complete; the remainder is a v0.5.11 row. Revisit when v0.5.11 is the next release
 - **Layers:** Cross-cutting (documentation)
 - **Canonical:** [documentation-standards.md](../platform/operations/documentation-standards.md)
 

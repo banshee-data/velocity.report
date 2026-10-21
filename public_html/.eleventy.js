@@ -116,6 +116,20 @@ module.exports = async function (eleventyConfig) {
     );
   }
 
+  // The reference graph page (/docs/reference-graph/) belongs to the public
+  // site only: unlinked for now, and its 2 MB graph is nothing the Pi image
+  // needs. Its data and module sit beside the page; the bibliography it reads
+  // stays canonical in data/maths and is copied in.
+  const referenceGraph = "src/docs/reference-graph";
+  if (pathPrefix) {
+    eleventyConfig.ignores.add(`${referenceGraph}/**`);
+  } else {
+    eleventyConfig.addPassthroughCopy(`${referenceGraph}/*.{json,mjs}`);
+    eleventyConfig.addPassthroughCopy({
+      "../data/maths/references.bib": "docs/reference-graph/references.bib",
+    });
+  }
+
   // Copy static files directly to output
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
   eleventyConfig.addPassthroughCopy({ "src/geo": "img/maps" });
