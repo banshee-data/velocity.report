@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -598,10 +598,12 @@ func TestSite_MapFieldsNullable(t *testing.T) {
 
 // Helper functions
 
+// setupTestDB opens a copy of the test template database (see
+// testmain_test.go) in the test's temporary directory.
 func setupTestDB(t *testing.T) *DB {
 	t.Helper()
-	fname := t.Name() + ".db"
-	_ = os.Remove(fname)
+	fname := filepath.Join(t.TempDir(), "test.db")
+	copyTemplateDB(t, fname)
 
 	db, err := NewDB(fname)
 	if err != nil {
@@ -610,13 +612,11 @@ func setupTestDB(t *testing.T) *DB {
 	return db
 }
 
+// cleanupTestDB closes the database; the test's temporary directory removes
+// the file.
 func cleanupTestDB(t *testing.T, db *DB) {
 	t.Helper()
-	fname := t.Name() + ".db"
 	db.Close()
-	_ = os.Remove(fname)
-	_ = os.Remove(fname + "-shm")
-	_ = os.Remove(fname + "-wal")
 }
 
 func strPtr(s string) *string {

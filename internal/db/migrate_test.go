@@ -8,11 +8,11 @@ import (
 	"testing"
 )
 
-// setupMigrationTestDB creates a test database without running migrations
+// setupMigrationTestDB creates a test database without running migrations,
+// in the test's temporary directory, which removes it.
 func setupMigrationTestDB(t *testing.T) *DB {
 	t.Helper()
-	fname := t.Name() + ".db"
-	_ = os.Remove(fname)
+	fname := filepath.Join(t.TempDir(), "migration.db")
 
 	// Open database directly without running schema.sql
 	sqlDB, err := sql.Open("sqlite", fname)

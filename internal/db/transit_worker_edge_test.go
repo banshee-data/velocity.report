@@ -13,6 +13,7 @@ func TestTransitWorker_EmptyDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "empty.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -33,6 +34,7 @@ func TestTransitWorker_RunFullHistory_EmptyDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "empty.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -53,6 +55,7 @@ func TestTransitWorker_RunRange_InvalidRange(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "invalid_range.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -75,6 +78,7 @@ func TestTransitWorker_RunRange_ZeroRange(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "zero_range.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -98,6 +102,7 @@ func TestTransitWorker_RunRange_FarFutureRange(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "future_range.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -211,6 +216,7 @@ func TestTransitWorker_ContextCancellation(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "context_cancel.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -248,6 +254,7 @@ func TestTransitWorker_VaryingThresholds(t *testing.T) {
 			tmpDir := t.TempDir()
 			dbPath := filepath.Join(tmpDir, "test.db")
 
+			copyTemplateDB(t, dbPath)
 			db, err := NewDB(dbPath)
 			if err != nil {
 				t.Fatalf("Failed to create database: %v", err)
@@ -269,6 +276,7 @@ func TestAnalyseTransitOverlaps_EmptyDB_EdgeCase(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "empty_overlaps.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -298,6 +306,7 @@ func TestTransitWorker_RunRange_WithDeduplication(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "dedup.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -348,6 +357,7 @@ func TestTransitWorker_StartStop_EdgeCase(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "startstop.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -375,6 +385,7 @@ func TestTransitWorker_LargeThreshold(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "large_threshold.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -409,6 +420,7 @@ func TestTransitWorker_NegativeSpeeds(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "negative_speeds.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -442,6 +454,7 @@ func TestTransitWorker_ExtremeSpeedValues(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "extreme_speeds.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)

@@ -1,7 +1,7 @@
 package db
 
 import (
-	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -147,7 +147,8 @@ func TestDetectSchemaVersion(t *testing.T) {
 // TestNewDBWithMigrationCheck_LegacyDatabase verifies handling of legacy databases
 func TestNewDBWithMigrationCheck_LegacyDatabase(t *testing.T) {
 	// Create a database at version 1 without schema_migrations
-	tmpDB := setupEmptyTestDB(t)
+	dbPath := filepath.Join(t.TempDir(), "migrations.db")
+	tmpDB := setupEmptyTestDBAt(t, dbPath)
 	migrationsFS := setupTestMigrations(t)
 
 	// Apply migration 1
@@ -162,8 +163,6 @@ func TestNewDBWithMigrationCheck_LegacyDatabase(t *testing.T) {
 		t.Fatalf("Failed to drop schema_migrations: %v", err)
 	}
 
-	// Get the database path
-	dbPath := t.Name() + "_migrations.db"
 	tmpDB.Close()
 
 	// Try to open with migration check - should detect version and error
@@ -175,17 +174,13 @@ func TestNewDBWithMigrationCheck_LegacyDatabase(t *testing.T) {
 	} else {
 		t.Logf("Got expected error: %v", err)
 	}
-
-	// Cleanup
-	os.Remove(dbPath)
-	os.Remove(dbPath + "-shm")
-	os.Remove(dbPath + "-wal")
 }
 
 // TestNewDBWithMigrationCheck_LegacyDatabasePerfectMatch tests baselining when perfect match found
 func TestNewDBWithMigrationCheck_LegacyDatabasePerfectMatch(t *testing.T) {
 	// Create a database at the latest version without schema_migrations
-	tmpDB := setupEmptyTestDB(t)
+	dbPath := filepath.Join(t.TempDir(), "migrations.db")
+	tmpDB := setupEmptyTestDBAt(t, dbPath)
 
 	// Get production migrations
 	migrationsFS, err := getMigrationsFS()
@@ -205,7 +200,6 @@ func TestNewDBWithMigrationCheck_LegacyDatabasePerfectMatch(t *testing.T) {
 		t.Fatalf("Failed to drop schema_migrations: %v", err)
 	}
 
-	dbPath := t.Name() + "_migrations.db"
 	tmpDB.Close()
 
 	// Try to open with migration check - should detect latest version and baseline
@@ -219,9 +213,4 @@ func TestNewDBWithMigrationCheck_LegacyDatabasePerfectMatch(t *testing.T) {
 	if db != nil {
 		db.Close()
 	}
-
-	// Cleanup
-	os.Remove(dbPath)
-	os.Remove(dbPath + "-shm")
-	os.Remove(dbPath + "-wal")
 }
