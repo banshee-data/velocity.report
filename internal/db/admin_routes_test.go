@@ -30,6 +30,7 @@ func TestDeleteDuplicateBgSnapshots(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -132,6 +133,7 @@ func TestDeleteDuplicateBgSnapshots_NoData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -155,6 +157,7 @@ func TestRadarDataRange(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -205,6 +208,7 @@ func TestAttachAdminRoutes_DBStats(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -296,6 +300,7 @@ func TestGetDatabaseStats_EdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -327,6 +332,7 @@ func TestGetDatabaseStats_WithData(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -390,6 +396,7 @@ func TestBackupEndpoint_FileCleanup(t *testing.T) {
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)

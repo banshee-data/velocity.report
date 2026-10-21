@@ -82,6 +82,7 @@ func TestAttachAdminRoutes_DBStatsError(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -117,6 +118,7 @@ func TestAttachAdminRoutes_BackupSuccess(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -196,6 +198,7 @@ func TestAttachAdminRoutes_BackupVacuumError(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -252,6 +255,7 @@ func TestGetDatabaseStats_ErrorPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -271,6 +275,7 @@ func TestEvents_ErrorPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -287,6 +292,7 @@ func TestEvents_ErrorPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -325,6 +331,7 @@ func TestRadarDataRange_ErrorPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -343,6 +350,7 @@ func TestInsertBgSnapshot_ErrorPath(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -362,6 +370,7 @@ func TestInsertBgSnapshot_ErrorPath(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -390,6 +399,7 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -409,6 +419,7 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -433,6 +444,7 @@ func TestInsertRegionSnapshot_ErrorPaths(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -481,6 +493,7 @@ func TestRecordRawData_ErrorPath(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -506,6 +519,7 @@ func TestRecordRadarObject_ErrorPath(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
+		copyTemplateDB(t, dbPath)
 		db, err := NewDB(dbPath)
 		if err != nil {
 			t.Fatalf("Failed to create database: %v", err)
@@ -532,6 +546,7 @@ func TestRadarObjects_ErrorPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -549,6 +564,7 @@ func TestDeleteDuplicateBgSnapshots_ErrorPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -649,6 +665,7 @@ func TestOpenDB_Coverage(t *testing.T) {
 	dbPath := filepath.Join(tmpDir, "test.db")
 
 	// First create a database
+	copyTemplateDB(t, dbPath)
 	db1, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create initial database: %v", err)
@@ -935,6 +952,7 @@ func TestRadarDataRange_WithNullValues(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
@@ -991,6 +1009,7 @@ func TestBackupEndpoint_FileOperations(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
+	copyTemplateDB(t, dbPath)
 	db, err := NewDB(dbPath)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
