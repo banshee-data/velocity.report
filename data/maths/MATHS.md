@@ -16,7 +16,9 @@ This folder documents the mathematically significant parts of the pipeline.
 Academic citations live in [references.bib](references.bib). The
 [reference audit](../../docs/lidar/operations/brief/reference-audit.md) maps papers and research
 reports cited in `data/` and the LiDAR research briefings to their BibTeX keys, and records the
-mentions that still lack an identifiable source.
+mentions that still lack an identifiable source. The [citation rubric](citation-rubric.md) sets
+the bibliography's budget, and the [reference graph](reference-graph.md) shows what our papers
+cite and which works to read next.
 
 Scope:
 

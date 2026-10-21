@@ -1,0 +1,120 @@
+{
+  "description": "Works the reference-graph page leaves out of its read-next candidates. Rules in data/maths/citation-rubric.md. Each entry names the graph node id and one reason.",
+  "reasons": {
+    "camera-only": "An image or video method or dataset with no LiDAR or radar component; Tenet 1 excludes cameras",
+    "generic-ml": "General machine-learning infrastructure (an optimiser, a backbone, a framework, a sequence model) cited for tooling rather than for anything this sensor measures",
+    "indoor": "Indoor RGB-D scenes, which share neither the sensor nor the scene with a roadside LiDAR"
+  },
+  "exclude": [
+    {
+      "id": "doi:10.1109/cvpr.2016.90",
+      "reason": "generic-ml",
+      "note": "ResNet"
+    },
+    {
+      "id": "doi:10.1109/tpami.2016.2577031",
+      "reason": "camera-only",
+      "note": "Faster R-CNN"
+    },
+    {
+      "id": "doi:10.1007/978-3-319-10602-1_48",
+      "reason": "camera-only",
+      "note": "Microsoft COCO"
+    },
+    {
+      "id": "doi:10.1007/s11263-009-0275-4",
+      "reason": "camera-only",
+      "note": "Pascal VOC"
+    },
+    {
+      "id": "doi:10.1007/978-3-319-46448-0_2",
+      "reason": "camera-only",
+      "note": "SSD"
+    },
+    {
+      "id": "doi:10.1109/iccv.2017.324",
+      "reason": "camera-only",
+      "note": "Focal loss (RetinaNet)"
+    },
+    {
+      "id": "doi:10.48550/arxiv.1412.6980",
+      "reason": "generic-ml",
+      "note": "Adam"
+    },
+    {
+      "id": "doi:10.1109/cvpr.2014.81",
+      "reason": "camera-only",
+      "note": "R-CNN"
+    },
+    {
+      "id": "doi:10.1109/iccv.2015.169",
+      "reason": "camera-only",
+      "note": "Fast R-CNN"
+    },
+    {
+      "id": "doi:10.1109/cvpr.2017.261",
+      "reason": "indoor",
+      "note": "ScanNet"
+    },
+    {
+      "id": "doi:10.1109/iccv.2017.534",
+      "reason": "camera-only",
+      "note": "Mapillary Vistas"
+    },
+    {
+      "id": "doi:10.65215/2q58a426",
+      "reason": "generic-ml",
+      "note": "Attention Is All You Need"
+    },
+    {
+      "id": "doi:10.1109/iccv.2017.322",
+      "reason": "camera-only",
+      "note": "Mask R-CNN"
+    },
+    {
+      "id": "doi:10.1109/cvpr.2016.350",
+      "reason": "camera-only",
+      "note": "Cityscapes"
+    },
+    {
+      "id": "doi:10.1162/neco.1997.9.8.1735",
+      "reason": "generic-ml",
+      "note": "LSTM"
+    },
+    {
+      "id": "doi:10.1109/cvpr.2017.106",
+      "reason": "camera-only",
+      "note": "Feature pyramid networks"
+    },
+    {
+      "id": "doi:10.1109/cvpr42600.2020.00271",
+      "reason": "camera-only",
+      "note": "BDD100K"
+    },
+    {
+      "id": "doi:10.1109/cvpr.2016.236",
+      "reason": "camera-only",
+      "note": "Monocular 3D detection"
+    },
+    {
+      "id": "doi:10.48550/arxiv.1409.1556",
+      "reason": "generic-ml",
+      "note": "VGG"
+    },
+    {
+      "id": "doi:10.48550/arxiv.1804.02767",
+      "reason": "camera-only",
+      "note": "YOLOv3"
+    },
+    {
+      "id": "doi:10.1109/cvpr.2009.5206848",
+      "reason": "camera-only",
+      "note": "ImageNet"
+    },
+    {
+      "id": "openalex:W2899771611",
+      "reason": "generic-ml",
+      "note": "PyTorch autodiff"
+    }
+  ]
+}

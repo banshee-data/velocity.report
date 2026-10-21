@@ -23,6 +23,20 @@ for required_page in \
 	fi
 done
 
+# The reference graph page fetches these at run time, so a missing file only
+# shows in the browser. Check they ship.
+for required_file in \
+	"$build_root/data/maths/reference-graph/index.html" \
+	"$build_root/assets/reference-graph.mjs" \
+	"$build_root/data/maths/reference-graph.json" \
+	"$build_root/data/maths/reference-graph-curation.json" \
+	"$build_root/data/maths/references.bib"; do
+	if [[ ! -f "$required_file" ]]; then
+		echo "Embedded offline docs build is missing a reference graph file: $required_file" >&2
+		exit 1
+	fi
+done
+
 echo "✓ Offline docs build successful"
 echo "Build output size: $(du -sh "$build_root" | cut -f1)"
 echo "Files generated: $(find "$build_root" -type f | wc -l | awk '{print $1}')"
