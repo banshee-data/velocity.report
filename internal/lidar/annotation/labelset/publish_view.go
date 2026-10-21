@@ -197,9 +197,14 @@ func CheckView(packDir string) (*ViewReport, error) {
 		return nil, fmt.Errorf("%s is not linked to a label set", packDir)
 	}
 	setDir := link.LabelSetDir(packDir)
-	if link.Path != annotation.ViewLinkPath || filepath.Base(filepath.Dir(packDir)) != annotation.ViewsDir {
-		return nil, fmt.Errorf("a view sits in its label set's %s/ folder and links %q; %s links %q (run 'velocity lidar labels nest')",
-			annotation.ViewsDir, annotation.ViewLinkPath, packDir, link.Path)
+	// Two places a linked pack may be: in its set's views/, linked ../..,
+	// or in its capture's packs/ beside the set, linked ../../<set>.
+	inViews := link.Path == annotation.ViewLinkPath && filepath.Base(filepath.Dir(packDir)) == annotation.ViewsDir
+	dir, name := path.Split(link.Path)
+	inPacks := filepath.Base(filepath.Dir(packDir)) == annotation.PacksDir && dir == "../../" && name != "" && name != "." && name != ".."
+	if !inViews && !inPacks {
+		return nil, fmt.Errorf("a linked pack sits in its label set's %s/ (linking %q) or in its capture's %s/ beside the set (linking \"../../<set>\"); %s links %q (run 'velocity lidar labels nest')",
+			annotation.ViewsDir, annotation.ViewLinkPath, annotation.PacksDir, packDir, link.Path)
 	}
 
 	fresh, err := os.MkdirTemp("", "check-view-")
@@ -207,21 +212,30 @@ func CheckView(packDir string) (*ViewReport, error) {
 		return nil, err
 	}
 	defer os.RemoveAll(fresh)
+	// The fresh copy is the capture folder: the set, and the pack where it
+	// sits relative to it.
+	viewRel, err := filepath.Rel(filepath.Dir(setDir), packDir)
+	if err != nil {
+		return nil, err
+	}
 	setCopy := filepath.Join(fresh, filepath.Base(setDir))
-	viewCopy := filepath.Join(setCopy, annotation.ViewsDir, filepath.Base(packDir))
+	viewCopy := filepath.Join(fresh, viewRel)
 	report := &ViewReport{Pack: packDir, LabelSet: setDir, LabelSetID: link.LabelSetID}
 	problem := func(format string, args ...any) {
 		report.Problems = append(report.Problems, fmt.Sprintf(format, args...))
 	}
 
-	tracked := map[string]bool{annotation.LabelSetLinkFile: true}
-	for _, name := range append(annotation.PackDataFiles(), annotation.PackRecordFiles()...) {
+	// What the dataset tracks of a pack: its data, its physical references
+	// and its link. Facets are working state the dataset ignores: they pin
+	// label set revisions a copy without history cannot rebuild.
+	tracked := map[string]bool{annotation.LabelSetLinkFile: true, annotation.PhysicalReferencesFile: true}
+	for _, name := range annotation.PackDataFiles() {
 		tracked[name] = true
 	}
 	if err := copySetFiles(setDir, setCopy, report); err != nil {
 		return nil, err
 	}
-	viewPrefix := path.Join(filepath.Base(setDir), annotation.ViewsDir, filepath.Base(packDir))
+	viewPrefix := filepath.ToSlash(viewRel)
 	if err := copyTracked(packDir, viewCopy, viewPrefix, func(name string) bool { return tracked[name] }, report); err != nil {
 		return nil, err
 	}
@@ -266,11 +280,6 @@ func CheckView(packDir string) (*ViewReport, error) {
 		}
 		for _, d := range refs.ReviewDrift(pack, sidecar) {
 			problem("review drift: %s (run 'velocity lidar annotation-reference repin' where the edit was made)", d)
-		}
-	}
-	if _, err := os.Stat(filepath.Join(viewCopy, annotation.FeatureProposalsFile)); err == nil {
-		if _, err := annotation.LoadFeatures(pack); err != nil {
-			problem("facets do not load from a fresh copy: %v", err)
 		}
 	}
 	after, err := listTree(fresh)
