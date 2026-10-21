@@ -212,8 +212,8 @@ stride 1 for diagnostic exports, requested foreground point data, and sufficient
 preceding trail history. Cache only when source hashes and export settings match.
 Keep generated exports and captures local; generation does not publish a scene.
 
-Add an unchecked **Make web export** checkbox to the 8081 PCAP replay/recording
-workflow. It generates a web scene from the resulting VRLOG after successful
+Add an unchecked **Make web export** checkbox to the Svelte PCAP replay and recording form
+delivered in v0.5.2. It generates a web scene from the resulting VRLOG after successful
 recording finalisation; it does not modify the source PCAP. Reuse the harness's
 export path and settings rather than adding another conversion implementation.
 

@@ -715,6 +715,19 @@ settled the coverage target, the stubs and VISION's phases; see the answers belo
 | CAN-bus speed                                          | A v∞ row                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | VISION's phases B to E                                 | Four rows: phases B and C in v0.6.0, D and E in v0.6.1; the v1.0 data export row's transit half merged into phase D                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
+### Review follow-up: dependencies and implementation gates
+
+PR #820's review kept safety reporting in v0.6.9 and moved its site-context and model consumers
+there from v0.6.8, after the reference edition and strata. Unresolved rights hold the area-rate
+table and its area-context consumer together. The report plans and delivery recommendations
+follow that order.
+
+D-15 still has [open implementation problems](../radar/architecture/time-partitioned-data-tables.md#open-implementation-problems).
+Main is read once across disjoint query batches. A month waits in main until all touching
+sessions close and transit processing finishes; the second of the month does not force closure.
+Crash-safe publication, query admission, cross-month links, and sealed-month corrections need
+an implementing design and fault tests before partitioning can be enabled.
+
 ### Open questions for the owner
 
 1. Which scene data may be public, when D-34's step 2 is scheduled (deferred by the owner).

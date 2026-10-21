@@ -351,10 +351,9 @@ Preserve as JSON APIs even as the HTML goes: `pcapRoutes`
 (`GET /api/lidar/playback/status`), and the `lidar_run_records` write path.
 `publish-scenes.py` and the Makefile preflight hard-code port 8080.
 
-One planned item needs respecifying rather than porting: deterministic scene
-capture Milestone 4 (`lidar-deterministic-scene-capture-plan.md:207-223`)
-specifies a "Make web export" checkbox _on the 8081 replay form_. Point it at
-the Svelte form from Phase 3.
+Deterministic scene capture Milestone 4 adds its unchecked **Make web export** option to the
+Svelte form from Phase 3. It follows that replacement, not the retired 8081 replay form; its
+export still waits for recording finalisation and can be retried independently.
 
 ## Where the evaluator fits
 

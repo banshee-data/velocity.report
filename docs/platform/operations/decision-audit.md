@@ -66,6 +66,13 @@ Ruth's pass on October 20 decided the states below and restated seven entries.
 
 D-06, D-10, D-12, D-13, D-15, D-28 and D-29 were audited later on October 20, 2026, at the owner's request, by a second Ruth pass; their rows are above.
 
+D-15 review follow-up, October 21, 2026: the owner's storage choices are settled, but the design
+is still unbuilt. Main appears once across history batches, and a month stays writable until
+all touching sessions close and transit processing finishes. Crash recovery, reader admission,
+cross-month links, and corrections to sealed months remain
+[implementation blockers](../../radar/architecture/time-partitioned-data-tables.md#open-implementation-problems)
+under #324; Proposed does not mean those problems have been solved.
+
 ## How the audit runs
 
 At each release, `/release-prep` will re-read every entry against its `Kept by:` line, record the

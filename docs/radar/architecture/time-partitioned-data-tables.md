@@ -1,6 +1,6 @@
 # Time-Partitioned raw data tables
 
-- **Status:** Proposed (D-15): the October 20, 2026 security review's open points were settled with the owner on October 21, 2026; see [design decisions](#design-decisions-resolved). Was: Draft
+- **Status:** Proposed (D-15): the owner's storage choices are settled; crash recovery and the other [implementation blockers](#open-implementation-problems) remain open. Was: Draft
 
 Design for partitioning the raw radar data tables by time period to keep individual SQLite databases small enough for reliable operation on Raspberry Pi storage.
 
@@ -8,7 +8,7 @@ Design for partitioning the raw radar data tables by time period to keep individ
 
 ## Overview
 
-This specification proposes a time-based partitioning strategy for raw sensor data tables in velocity.report to enable sustainable long-term data growth. The system will automatically rotate raw data tables (`radar_data`, `radar_objects`, `lidar_bg_snapshot`) to monthly read-only database files on the 2nd of each month at 00:00:00 UTC. Configuration tables remain in the main database, and a history query attaches the months its time range covers and reads them through one union.
+This specification proposes a time-based partitioning strategy for raw sensor data tables in velocity.report to enable sustainable long-term data growth. On the 2nd of each month at 00:00:00 UTC the system checks which earlier months can close. A month stays writable in the main database until every session touching it has closed and its transit processing has finished; only then can its raw data and derived records move to a read-only archive. Configuration tables remain in the main database, and history queries read main once and each required archived month once.
 
 **Key Benefits:**
 
@@ -172,8 +172,9 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 
 **Rotation Schedule:**
 
-- **Trigger Date:** 2nd of each month at 00:00:00 UTC
-- **Reason for 2nd:** Allows first day of month to complete fully before rotation (timezone safety margin)
+- **First eligibility check:** 2nd of each month at 00:00:00 UTC
+- **Closure lag:** The date alone does not close a month. Open sessions and unfinished transit processing delay closure; the main file can hold several unclosed months.
+- **Retry:** Recheck a deferred month after session closure or worker progress, and on restart. Report its age and blocking work; never force-close a session to meet the calendar.
 
 **Partition Naming Convention:**
 
@@ -197,11 +198,11 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 │  │                                                           │  │
 │  │  ┌─────────────────────────────────────────────────────┐  │  │
 │  │  │  Main Database (sensor_data.db)                     │  │  │
-│  │  │  • radar_data (current month)                       │  │  │
-│  │  │  • radar_objects (current month)                    │  │  │
-│  │  │  • lidar_bg_snapshot (current month)                │  │  │
-│  │  │  • radar_data_transits (current month)              │  │  │
-│  │  │  • radar_transit_links (current month)              │  │  │
+│  │  │  • radar_data (unclosed months)                     │  │  │
+│  │  │  • radar_objects (unclosed months)                  │  │  │
+│  │  │  • lidar_bg_snapshot (unclosed months)              │  │  │
+│  │  │  • radar_data_transits (unclosed months)            │  │  │
+│  │  │  • radar_transit_links (unclosed months)            │  │  │
 │  │  │  • site, site_reports (all config data)             │  │  │
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  │                                                           │  │
@@ -219,16 +220,16 @@ velocity.report deployments on Raspberry Pi 4 devices continuously collect senso
 │  │  └─────────────────────────────────────────────────────┘  │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │                                                                 │
-│  On 2025-03-02T00:00:00Z:                                       │
+│  From 2025-03-02T00:00:00Z, once February can close:             │
 │  1. Create archives/2025-02_data.db                             │
 │  2. Move Feb data from main → 2025-02_data.db                   │
 │  3. Make 2025-02_data.db read-only (chmod 444)                  │
-│  4. Continue writes to main.radar_data (now empty/March data)   │
+│  4. Keep current and other unclosed months writable in main    │
 └─────────────────────────────────────────────────────────────────┘
 
 Storage Layout:
 /var/lib/velocity-report/
-├── sensor_data.db          (current month + config, ~2-3GB)
+├── sensor_data.db          (unclosed months + config; grows while closure waits)
 └── archives/
     ├── 2025-01_data.db     (read-only, ~2.6GB, can move to slower storage)
     ├── 2025-02_data.db     (read-only, ~2.6GB)
@@ -262,14 +263,15 @@ Once rotated, partitions become read-only:
 
 - **Implementation:** `chmod 444` on archived database files
 - **Benefit:** Prevents accidental writes, enables aggressive caching
-- **Exception:** Derived tables (`radar_data_transits`) may need updates for late-arriving sessionization
+- **Closure condition:** All sessions touching the month are closed, their derived writes are committed, and no queued ingest or transit work can still change its rows. Until then the month remains in main.
+- **After sealing:** Neither ingest nor the transit worker writes to the archive. Reprocessing or correcting a sealed month requires a separate, explicit policy; it is an [open implementation problem](#open-implementation-problems).
 
 **4. Derived Tables Included in Partitions**
 
 `radar_data_transits` and `radar_transit_links` included in partitions:
 
 - **Reason:** Transit data derived from raw data in same time period
-- **Trade-off:** Requires sessionization worker to run before rotation OR accept late updates
+- **Trade-off:** Closure waits for the sessionisation worker, including a session that spans midnight or the month boundary. A worker backlog or a session that never closes delays archival and raises a storage-health warning.
 
 ---
 
@@ -277,18 +279,22 @@ Once rotated, partitions become read-only:
 
 ### Partition lifecycle
 
-**Phase 1: Active Partition (Main Database)**
+**Phase 1: Unclosed Months (Main Database)**
 
-During Phase 1, the current month’s data is written directly to the main database via `INSERT INTO radar_data (raw_event)` and `INSERT INTO radar_objects (raw_event)`.
+The current month and any earlier month awaiting session closure or transit processing remain in the main database. Normal ingest and the worker can finish their writes there. The closed-month boundary, not the current date alone, decides whether a write is allowed.
 
-**Phase 2: Rotation Trigger (2nd of Month 00:00:00 UTC)**
+**Phase 2: Closure and Rotation (Eligible from the 2nd of the Next Month)**
 
-Automated rotation process:
+The eligibility check requires all sessions touching the month to be closed, the worker to have processed through the month's end and committed the derived records and links, and queued writes affecting it to be drained. If any condition is false, leave the whole month in main and expose the reason. The implementation must make this check and the exclusion of later writes one coordinated operation.
 
-1. Create new partition database file
-2. Copy previous month’s data to partition
-3. Delete copied data from main database
-4. Set partition to read-only
+Once eligible, the required rotation stages are:
+
+1. Copy the month into an unpublished staging file and verify it
+2. Durably record and publish the archive under the recovery protocol
+3. Delete only the verified source rows and record completion
+4. Seal the archive and keep later months writable in main
+
+These are requirements, not a completed crash-recovery protocol; see [open implementation problems](#open-implementation-problems).
 
 **Phase 3: Archived Partition (Read-Only)**
 
@@ -311,7 +317,7 @@ Same schema as main database for raw data tables:
 
 **Main Database Retains:**
 
-The main database retains the current period’s raw data tables (`radar_data`) and all configuration tables (`site`, `site_reports`).
+The main database retains all unclosed months' raw and derived records and all configuration tables (`site`, `site_reports`). Delayed closure can leave more than one month's records there.
 
 ### History queries
 
@@ -325,10 +331,23 @@ views are dropped and every month detached, so no pooled connection holds an att
 no global view needs maintaining.
 
 **At most ten archived months per connection.** The driver, `modernc.org/sqlite`, is compiled
-with `SQLITE_MAX_ATTACHED=10`, and the pure-Go library cannot be rebuilt with another value
-without forking it. A range longer than ten archived months reads in batches of at most ten and
-merges in Go. Groups that fall within one month (a day, an hour) never span a batch; aggregates
-that span months, such as percentiles, are computed in Go over the batches' rows.
+with `SQLITE_MAX_ATTACHED=10`. A longer range reads the archives in disjoint batches of at most
+ten. Include main in the first batch only, even when it holds several unclosed months or
+unpartitioned historical data. Every later batch's view contains only its archived months.
+Never repeat main when merging the batches.
+
+**One result over the whole range.** Apply the same time filter to every source. Merge counts
+by addition, means from sums and counts, and minima and maxima over every batch. Compute
+percentiles over the combined qualifying rows. Merge grouped results by their full group key:
+a local-calendar day or hour can cross a UTC partition boundary. Apply global ordering and
+pagination after the merge, with a stable tie-breaker. A month still in main must not also be
+published as an archive visible to the query; coordinating that transition remains an
+[implementation blocker](#open-implementation-problems).
+
+**Acceptance cases:** Compare with a single-file oracle for zero, ten, eleven, and twenty-one
+archived months, including main with two unclosed months. Check row identities and counts,
+unequal group sizes for means, percentiles, local-day groups across a UTC month boundary, and
+ordered pages. Every qualifying row must occur exactly once.
 
 **Query Optimisation:**
 
@@ -339,22 +358,22 @@ The helper attaches only the months the range covers, and within each month the
 
 > **Source:** `RotatePartitions()` and `AcquireRotationLock()`; implementation in `internal/db/partitions/` (when implemented)
 
-**Rotation algorithm:**
+**Required rotation stages (recovery protocol still open):**
 
 1. Acquire rotation lock (VR-SEC-005: `flock` on `archives/.rotation.lock`, plus an in-process mutex for goroutines; a second rotation fails fast rather than waiting, and the kernel releases the lock if the process dies, so nothing goes stale)
-2. Determine partition name from rotation time (e.g. `2025-01_data.db`)
-3. Skip if partition already exists (idempotency)
-4. Create partition database with matching schema
-5. Wait for active queries to complete (30 s timeout)
-6. Copy previous month's data (`radar_data`, `radar_objects`, `lidar_bg_snapshot`, `radar_data_transits`, `radar_transit_links`)
+2. Select the oldest eligible unclosed month, whose sessions and transit processing have finished; leave it in main and report the blocker if they have not
+3. Consult durable completion state; an existing filename alone is not proof of successful rotation
+4. Create an unpublished staging database with matching schema
+5. Coordinate query admission and drain existing readers before the publication/source-deletion transition (30 s timeout; a timeout defers rotation)
+6. Copy that month's data (`radar_data`, `radar_objects`, `lidar_bg_snapshot`, `radar_data_transits`, `radar_transit_links`)
 7. Verify data integrity in partition
-8. Delete copied data from main database (single transaction: atomic)
-9. Set partition file to read-only (`0444`)
+8. Durably publish the verified archive and delete only its copied source rows, under the recovery protocol that the implementing design must define
+9. Set partition file to read-only (`0444`) and record completion before admitting history readers again
 10. Release the lock
 
-On failure at any step, the partial partition file is deleted and data remains in the main database. Retry at next scheduled rotation; alert operator after repeated failures.
+Before source deletion, a failed unpublished copy can be removed while the source remains in main. After source deletion has committed, never remove the archive as generic failure cleanup. On restart, recover from the recorded stage rather than skipping an existing filename. The durable stages and recovery actions are still to be designed and tested.
 
-**Transaction safety:** Rotation is atomic; either all data is copied and deleted, or nothing changes. WAL mode allows reads during rotation. Writes are locked only during the DELETE phase.
+**Transaction safety:** WAL transactions are atomic within each database file, not across the main file and an attached archive. A file lock only excludes another storage operation. Neither establishes crash-safe copy-and-delete or prevents a newly admitted query from seeing both copies. The implementation cannot claim zero-loss, exactly-once rotation until its recovery and reader-admission protocol passes the fault tests below.
 
 ### ATTACH DATABASE management
 
@@ -393,7 +412,7 @@ HTTP endpoints for partition status and the storage actions. Every action endpoi
 
 **Attach safety checks (inside the history helper):** Path exists and resolves under allowed directory (no symlinks, no `..`); filename matches `YYYY-MM_data.db`; alias alphanumeric + underscore only, no SQL keywords; valid SQLite header; at most ten attached on the connection.
 
-**Move and delete safety:** Both take the rotation lock, wait for history queries reading the month (blocking unless `force=true`), and never touch the open period in the main database. A move copies, verifies, then removes the source. No deletion happens unless the operator asks for it.
+**Move and delete safety:** Both take the rotation lock, wait for history queries reading the month (blocking unless `force=true`), and never touch any unclosed month in the main database. A move copies, verifies, then removes the source. No deletion happens unless the operator asks for it.
 
 **Example response (`GET /api/partitions`):**
 
@@ -412,7 +431,7 @@ HTTP endpoints for partition status and the storage actions. Every action endpoi
 
 **Free space:** `GET /api/storage/growth` shows the projected fill date; the operator moves months to the USB tier (`POST /api/partitions/{month}/move`) or deletes the ones they no longer want (`DELETE /api/partitions/{month}`).
 
-**Pre-rotation safety check:** `GET /api/partitions/buffers` returns `safe_to_rotate`, `pending_writes`, and `active_transactions`. Rotation cron job checks this before proceeding.
+**Pre-rotation safety check:** `GET /api/partitions/buffers` returns `safe_to_rotate`, `pending_writes`, `active_transactions`, and each deferred month's open-session count, worker progress, and closure lag. The scheduler uses it for visibility; the rotation operation rechecks eligibility under its coordination mechanism. A stale preflight response never authorises sealing.
 
 ### Security notes
 
@@ -448,7 +467,7 @@ Tiered storage support: USB drives for cold archives, growth projection, and cap
 
 ### Growth projection
 
-**Algorithm:** Query daily data volume over the lookback period, run linear regression for trend, calculate daily/monthly/yearly growth rates with R² confidence. Project disk-full date per storage tier, accounting for tiered storage policy (SD card capped at 3 months of active data).
+**Algorithm:** Query daily data volume over the lookback period, run linear regression for trend, calculate daily/monthly/yearly growth rates with R² confidence. Project disk-full date per storage tier, accounting for the target of three recent closed months on SD card and all unclosed months still retained in main.
 
 **Storage tiers:** SD card (active + recent, alert at 80%), USB HDD (cold archives, alert at 90%). Configurable alert thresholds with notification support.
 
@@ -595,15 +614,15 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
         └── ...
 ```
 
-**Storage tiers:** Active (SD card, current month, fastest writes) → Recent (SD card, last 3 months, frequently queried) → Cold (local USB disk, >3 months). Partitions live on local disks only: no NFS or other network filesystem, whose locking SQLite does not trust and whose hangs would stall every query that attaches a month. Copies on a NAS are backups, never attached.
+**Storage tiers:** Active (SD card, every unclosed month) → Recent (closed monthly archives on SD card) → Cold (closed archives on a local USB disk). Partitions live on local disks only: no NFS or other network filesystem, whose locking SQLite does not trust and whose hangs would stall every query that attaches a month. Copies on a NAS are backups, never attached.
 
 ### Disk space quotas
 
-| Policy                | Value         | Purpose                                             |
-| --------------------- | ------------- | --------------------------------------------------- |
-| Max active partitions | 3             | Last 3 months on fast storage                       |
-| Archive after         | 90 days       | Move to cold storage                                |
-| Delete                | Operator only | Nothing is deleted automatically (October 21, 2026) |
+| Policy            | Value         | Purpose                                                       |
+| ----------------- | ------------- | ------------------------------------------------------------- |
+| Recent archives   | 3 months      | Target for closed months retained on fast storage             |
+| Move to cold tier | After 90 days | Only after the month has closed; closure lag takes precedence |
+| Delete            | Operator only | Nothing is deleted automatically (October 21, 2026)           |
 
 ### Storage growth (Raspberry Pi 4, 64GB SD)
 
@@ -614,7 +633,10 @@ Five alternatives were evaluated against the proposed SQLite partition approach:
 | 12    | 3 GB      | 9 GB        | 27 GB      | 22 GB (34%) |
 | 24    | 3 GB      | 9 GB        | 60 GB      | 22 GB (34%) |
 
-SD card usage stabilises at ~22 GB with tiered storage. System/OS uses ~10 GB, leaving ~32 GB free for logs and updates.
+These are planning estimates assuming prompt month closure, not measurements on a Pi. Under
+those assumptions SD card usage is about 22 GB, including about 10 GB for the system. An open
+session or stalled worker can retain earlier months in main and exceed this estimate; storage
+alerts must show that lag rather than force archival.
 
 ### Compression
 
@@ -646,7 +668,7 @@ User chooses: (A) backfill historical data into partitions (slow, enables full p
 
 ### Phase 4: new deployments (default enabled)
 
-`--enable-partitioning` becomes default. Initial schema creates empty archives directory. First rotation on 2nd of second month.
+`--enable-partitioning` becomes default. Initial schema creates empty archives directory. First closure check on the 2nd of the second month; rotation waits for session and worker completion.
 
 ### Rollback strategy
 
@@ -657,6 +679,11 @@ Disable partitioning: `velocity-report --disable-partitioning`. History queries 
 ---
 
 ## Performance implications
+
+The figures in this section are inherited planning estimates without a recorded benchmark run.
+They establish no physical-device performance claim; measure them on the device of record before
+setting release acceptance from them. Closure lag can also increase the main file beyond these
+examples.
 
 ### Write performance
 
@@ -750,13 +777,14 @@ A query spanning the last year (e.g. `WHERE write_timestamp BETWEEN <1_year_ago>
 
 ### Monitoring and alerting
 
-| Metric               | Alert Threshold         | Action                                                  |
-| -------------------- | ----------------------- | ------------------------------------------------------- |
-| Active database size | >5 GB                   | Rotation may be failing                                 |
-| SD card usage        | >80%                    | Move partitions to USB                                  |
-| USB HDD usage        | >90%                    | Warn with the projected fill date; the operator decides |
-| Rotation health      | 2+ consecutive failures | Investigate and alert                                   |
-| Query latency (p95)  | Significant increase    | Review partition count                                  |
+| Metric               | Alert Threshold                        | Action                                                                    |
+| -------------------- | -------------------------------------- | ------------------------------------------------------------------------- |
+| Active database size | >5 GB                                  | Rotation may be failing                                                   |
+| SD card usage        | >80%                                   | Move partitions to USB                                                    |
+| USB HDD usage        | >90%                                   | Warn with the projected fill date; the operator decides                   |
+| Rotation health      | 2+ consecutive failures                | Investigate and alert                                                     |
+| Month closure lag    | Month deferred at an eligibility check | Show open sessions, worker backlog, and retained bytes; never force-close |
+| Query latency (p95)  | Significant increase                   | Review partition count                                                    |
 
 ```
 velocity.report Storage Health
@@ -780,8 +808,9 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 
 ### Debug surfaces
 
-- **SQL console (`/debug/tailsql/`):** stays on its own read-only handle to the main file, so it
-  sees the open period only, and the page says so. It does not attach archived months.
+- **SQL console (`/debug/tailsql/`):** stays on its own read-only handle to the main file. The
+  page says that it excludes archives and can include earlier unclosed months or retained
+  pre-partitioning history. It does not claim to show only the current month.
 - **Database stats (`/debug/db-stats`):** lists every partition with its month, tier and size
   beside the main file.
 - **Backup route:** with partitioning on, includes the archives with the main file, or refuses and
@@ -797,6 +826,8 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 ---
 
 ## Success metrics
+
+These are acceptance targets for an implementation, not completed checks or measured results.
 
 ### Technical metrics
 
@@ -846,7 +877,8 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 | Decision                  | Resolution                                                                                                                                                     |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Monthly vs quarterly      | Monthly only, not configurable; no consolidation into larger files (October 21, 2026)                                                                          |
-| Derived tables (transits) | Partitioned: present in partition according to last time seen; span at boundaries                                                                              |
+| Derived tables (transits) | The month waits for all touching sessions to close and transit processing to finish; cross-month record/link placement remains an implementation blocker       |
+| Month closure             | The 2nd is the first eligibility check, not forced closure; delayed months stay writable in main, with lag and blocking work reported                          |
 | SQLITE_MAX_ATTACHED       | Ten, the driver's compiled limit: each history query attaches the months it covers on its own connection, and longer ranges read in batches (October 21, 2026) |
 | Compression               | None (October 21, 2026)                                                                                                                                        |
 | Rotation locking          | `flock` on a lock file plus an in-process mutex (October 21, 2026)                                                                                             |
@@ -858,16 +890,26 @@ Avg Query Time:   45ms (p95: 120ms)        ✅ Healthy
 | Network filesystems       | None: partitions on local disks only; NAS copies are backups, never attached (October 21, 2026)                                                                |
 | USB mount                 | Writable with `nosuid,nodev,noexec,noatime`; each partition `0444` and attached `mode=ro` (October 21, 2026)                                                   |
 | Storage actions           | Behind API authentication (an admin key), which lands first as its own backlog row (October 21, 2026)                                                          |
-| Debug surfaces            | Console on the open period only, said on the page; stats list every partition; the backup route includes the archives or refuses (October 21, 2026)            |
+| Debug surfaces            | Console on main only, including unclosed months; stats list every partition; the backup route includes the archives or refuses (October 21, 2026)              |
 | Retention                 | No automatic deletion: the operator deletes months; disk alerts warn with a projected fill date (October 21, 2026)                                             |
 
-The owner settled the rows dated October 21, 2026, closing the open points of the October 20
-security review. Where a section had said otherwise, it now says the same as this table.
+The owner settled the storage choices from the October 20 security review. Review then made
+month closure depend on finished sessions and transit processing, and made query batches
+disjoint. These choices do not close the implementation problems below.
 
-## Open questions
+## Open implementation problems
 
-None. The open points of the October 20, 2026 security review were settled on October 21, 2026;
-see [design decisions](#design-decisions-resolved).
+The design remains Proposed. Resolve these in the implementing design and tests before enabling
+partitioning; the calendar, a file lock, and an archive filename do not resolve them.
+
+| Problem                              | Required resolution and evidence                                                                                                                                                                                                                                                                                                |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Crash-safe rotation                  | Define durable staging, publication, source-deletion, and completion states, including filesystem sync ordering. Inject termination at every boundary and prove restart neither loses nor counts rows twice. Never skip a partial archive because its final filename exists.                                                    |
+| Closure lag and cross-month sessions | Define the worker progress record and how closure eligibility prevents later writes. Close a session crossing midnight and month-end, drain its work, and prove the month remains in main until then. Define transit and link placement across months without orphaning readings or duplicating transits.                       |
+| Queries during storage changes       | Define reader admission and archive discovery across recent and USB tiers. Test rotation, move, delete, and unmount against newly starting and batched queries, including cancellation and failed detach. Missing or unavailable archives must produce an explicit incomplete-history error, not an apparently complete result. |
+| Corrections after sealing            | Define how an operator reprocesses old readings or repairs derived transits. Normal ingest and the worker must refuse sealed-month writes; no read-write exception to the archive policy is implied.                                                                                                                            |
+
+The synthetic acceptance cases above are planned tests, not measurements of implemented code.
 
 ## References
 
@@ -906,8 +948,9 @@ see [design decisions](#design-decisions-resolved).
 
 ## Appendix a: example queries
 
-These run through the history helper, which attaches the months the range covers and defines
-`radar_data_all` on the query's own connection.
+These run through the history helper, which defines `radar_data_all` on the query's own
+connection. For a batched range, main appears in its first view only; the helper merges all
+batches before applying final grouping, ordering, and pagination.
 
 ### Query current month data
 
@@ -938,8 +981,7 @@ ORDER BY write_timestamp;
 ### Aggregation across all time
 
 ```sql
--- Slower: twelve months exceed ten attached, so the helper reads two batches; each day
--- falls within one month, so no group spans a batch
+-- The helper reads disjoint batches, includes main once, and merges by date.
 SELECT
     DATE(write_timestamp, 'unixepoch') AS date,
     COUNT(*) AS reading_count,
