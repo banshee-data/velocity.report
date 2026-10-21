@@ -400,9 +400,10 @@ Individual docs in `plans/` describe single projects, not priority lists.
 ### v0.9.0 - Production-Ready (090)
 
 - Test coverage ≥ 95.5%: raise every internal/, web, Python, and macOS package to ≥ 95.5% line coverage: [design doc](plans/platform-quality-coverage-improvement-plan.md) `L`
-- (#8) Data management (backup/archiving): define backup destinations, read historical archives and rollup SQLite files from remote HTTP location: [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
+- (#8) Data management (backup/archiving): define backup destinations and the reference backup script covering the main file and every partition; remote copies are backups, restored to a local disk before they are read, since partitions live on local disks only (D-15, October 21, 2026): [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - (#122) Database monitoring UI: daily table-size snapshots, available disk, growth-rate trends, projected fill-date dashboard: [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - (#148) Report management UI: view, filter, and download old reports and zip files; paginated table with site/date filters `M`
+- (#9) API authentication, first for the storage actions: an admin key, hashed with bcrypt and every use logged, that D-15's rotate, move, delete and USB endpoints require; it lands before #324's endpoints (the owner, October 21, 2026), and wider LAN authentication builds on it: [design doc §10.1](ui/design-review-and-improvement.md), [D-15 design](radar/architecture/time-partitioned-data-tables.md#api-management-for-partition-control) `M`
 - (#324) Time-partitioned raw data tables: major storage architecture change: [design doc](radar/architecture/time-partitioned-data-tables.md) `M`
 - Stable public API with versioned endpoints: formal API versioning and stability guarantees: design doc not yet written `M`
 - Visual regression testing: Playwright baseline screenshots: [design doc](ui/design-review-and-improvement.md) `M`
@@ -488,7 +489,6 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 - Static pose alignment: 7-DOF tracking: [design doc](plans/lidar-static-pose-alignment-plan.md) `L`
 - Online geometry-prior service: opt-in community-maintained geometry priors using canonical S2 L13 data partitions beneath S2 L10 filesystem groups (local-only remains default): [design doc](lidar/architecture/geometry-prior-service.md) `L`
 - Multi-location aggregate dashboard: cross-site analytics and comparative reporting `L`
-- (#9) LAN authentication: add auth layer if deployment moves beyond private LAN: [design doc §10.1](ui/design-review-and-improvement.md) `M`
 - (#7) Live SQL query view: browser-based SQL query tool; low priority while TailSQL suffices `S`
 - Coverage thresholds: raise codecov thresholds to meaningful levels after coverage improves: [design doc §7.5](ui/design-review-and-improvement.md) `S`
 - Parked-vehicle identification from settled background snapshots: a parked car leaves the foreground path once the background model settles, so identifying one means matching against the snapshot rather than a track. Unlimited integration time and dense returns make it easier than the moving case and much heavier on privacy, because a vehicle at an address overnight identifies a household in a way a vehicle passing at speed does not. The gate is a privacy decision, not engineering: [design doc](plans/scene-vehicle-identification-plan.md) `L`

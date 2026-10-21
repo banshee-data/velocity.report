@@ -100,7 +100,7 @@ Kept by: the Make budget check, planned for v0.5.9 (counts public targets and re
 
 Implement in v0.9.0 — [time-partitioned tables plan](radar/architecture/time-partitioned-data-tables.md)
 
-Kept by: none until built. Planned with the v0.9.0 row: a migration test that fails when a raw table takes a write outside its open period's partition, a path table test for VR-SEC-002, an attach test that a write to an attached schema fails on every pooled connection, crash-injection and concurrent-rotation tests, and `/security-review` on the implementing pull request. The design stays Draft until the open points of its October 20, 2026 security review are resolved.
+Kept by: none until built. Planned with the v0.9.0 row: a migration test that fails when a raw table takes a write outside its open period's partition, a path table test for VR-SEC-002, an attach test that a write through an attached month is refused and that no pooled connection keeps an attached schema once a history query returns, crash-injection and concurrent-rotation tests, a test that the backup route never returns the main file alone with partitioning on, and `/security-review` on the implementing pull request. The open points of the October 20, 2026 security review were settled on October 21, 2026, and the design is Proposed: monthly partitions attached per query, an `flock` rotation lock, no compression, local disks only, a writable hardened USB mount, API authentication before any storage action, and no automatic deletion.
 
 ### D-16 — Speed limit schedules
 
