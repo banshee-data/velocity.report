@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 21, 2026 - The Stage B arms and the mid-range fragments
+
+- Read the fate of every reviewed kirk0 return under CMR and its two Stage B options (l3bg0019), recorded with `pcap-replay --experiment`: neither touches the 20 to 35 m gaps between fragments, which under CMR are 72 % DBSCAN noise and 13 % L3 background, so the W3 fix there is an L4 rule (l4clus0003), not a Stage B arm. The dwell policy absorbs kirk0's reviewed parked car (its missed instants 11 to 505); the cell tercile cuts fragmented instants by dropping returns (cars 0.956 to 0.906 kept): [report](lidar/operations/w3-return-fate-stage-b-kirk0-2026-10.md) (#821).
+
 ## October 20, 2026 - Decisions carried through voice to integration, published scenes that settle first, and the architecture review decided
 
 - Found why the ARM64 VM release gate hangs at UEFI on ubuntu-26.04 runners: edk2 2025.11 stops under QEMU's `-cpu max`, while `cortex-a72` and `neoverse-n1` boot it into the Debian kernel; 24.04's edk2 boots under QEMU 10.2, and the firmware layout, `-smp` and the NIC made no difference; switched the gate to `-cpu neoverse-n1` and took the static-build job back to `ubuntu-latest`, which also covers the release workflow's ARM64 job: [report](platform/operations/arm64-vm-gate-ubuntu-2604.md) (#818).
