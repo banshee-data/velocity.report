@@ -939,8 +939,13 @@ func foldAxisAngleDeg(diffRad float64) float64 {
 	return d
 }
 
-// percentileSorted returns the p-th percentile of an already-sorted slice using
-// nearest-rank. The caller must not pass an empty slice.
+// percentileSorted returns the p-th percentile (p in [0, 100]) of an
+// already-sorted slice as the value at index floor(p/100 * (n-1)), truncating
+// rather than interpolating. That is not nearest rank: it reads the same order
+// statistic as nearest rank or one below it. It serves the course-alignment
+// diagnostics only. Published speed percentiles use internal/stats.NearestRank,
+// and the maths decision review (E-08) kept this diagnostic on its own rule.
+// The caller must not pass an empty slice.
 func percentileSorted(sorted []float64, p float64) float64 {
 	if len(sorted) == 1 {
 		return sorted[0]
