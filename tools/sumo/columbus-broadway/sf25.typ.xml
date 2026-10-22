@@ -1,0 +1,8 @@
+<types>
+  <!-- SF city streets default to 25 mph when OSM has no maxspeed -->
+  <type id="highway.primary"      priority="12" numLanes="2" speed="11.18" oneway="false"/>
+  <type id="highway.secondary"    priority="11" numLanes="1" speed="11.18" oneway="false"/>
+  <type id="highway.tertiary"     priority="10" numLanes="1" speed="11.18" oneway="false"/>
+  <type id="highway.residential"  priority="4"  numLanes="1" speed="11.18" oneway="false"/>
+  <type id="highway.unclassified" priority="5"  numLanes="1" speed="11.18" oneway="false"/>
+</types>

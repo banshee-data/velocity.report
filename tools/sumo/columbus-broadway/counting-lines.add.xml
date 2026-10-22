@@ -1,0 +1,9 @@
+<additional>
+  <!-- Columbus NW-bound counting lines, one record per vehicle. Lane 0 is the curb lane.
+       stop_*: at the stop line (end of the approach), matching the lidar line at u=-2 m.
+       down_*: 20 m past the junction exit. -->
+  <instantInductionLoop id="stop_0" lane="30030101#0_0" pos="-1" file="det.out.xml"/>
+  <instantInductionLoop id="stop_1" lane="30030101#0_1" pos="-1" file="det.out.xml"/>
+  <instantInductionLoop id="down_0" lane="87376669#0_0" pos="20" file="det.out.xml"/>
+  <instantInductionLoop id="down_1" lane="87376669#0_1" pos="20" file="det.out.xml"/>
+</additional>
