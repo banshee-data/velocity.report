@@ -57,7 +57,7 @@ the following-interaction tables of migration 000051, and `lidar_capture_motion_
   `--warmup-seconds` and `--include-points` writes a VRLOG 0.5 recording, and with
   `--observations` a VRLOG 1.x container as well. `velocity lidar annotation-export` then cuts the
   pack, taking `--start-ns` and `--end-ns` in capture nanoseconds rather than seconds.
-- Server: the **Captures** page makes a replay case (`lidar_replay_cases`: capture files,
+- Server: the **Captures** page makes a clip (`lidar_replay_cases`: capture files,
   `pcap_start_secs`, `pcap_duration_secs`, site). `POST /api/lidar/scenes/{id}/replay` replays it
   and records a VRLOG by default, and `POST /api/lidar/runs/{id}/annotation-export` cuts a pack
   from the run's recording. No web page calls the export.
@@ -93,7 +93,7 @@ kind (`include_points`, `settle_first`) with no executor. The
 | Proposals        | Recomputed per session; dismissals lost; L4 membership never used     | Medium   | v0.5.2       |
 | Selection bias   | Windows chosen for tracker failure would flatter any candidate        | High     | v0.5.2       |
 | Segment to split | Nothing records why a pack was cut or which split it belongs to       | Low      | v0.5.4       |
-| Web surface      | Captures and replay cases exist; no finder, no cut action             | Medium   | v0.5.2       |
+| Web surface      | Captures and clips exist; no finder, no cut action                    | Medium   | v0.5.2       |
 
 ## Design / approach
 
@@ -103,7 +103,7 @@ kind (`include_points`, `settle_first`) with no executor. The
 flowchart LR
   E[(Evidence DB or run)] --> F[Finders]
   F --> Q[Ranked segments]
-  Q -->|choose| C[Replay case]
+  Q -->|choose| C[Clip]
   C -->|clip job| V[VRLOG with points]
   V --> P[Annotation pack + segment.json]
   P -->|proposers| L[proposals/ layers]
@@ -112,7 +112,7 @@ flowchart LR
 ```
 
 A **segment** is a window of one source with a finder's reason and score. Choosing one makes a
-replay case, which already names capture files, start and duration: the plan adds no second way
+clip, which already names capture files, start and duration: the plan adds no second way
 to describe a window. A **clip job** replays the case with points and cuts the pack. Proposers
 write layers into the pack. Review stays in the macOS tool.
 
@@ -244,17 +244,17 @@ The web identifies datasets and queues work; it does not create, edit or grade t
 [review workflow](lidar-review-workflow-plan.md#macos-is-the-instrument). The same endpoints serve
 the macOS **Choose** step, so the web is never the only way in.
 
-| Method | Path                                  | Purpose                                                    |
-| ------ | ------------------------------------- | ---------------------------------------------------------- |
-| `GET`  | `/api/lidar/segments/finders`         | Finder names, versions and parameters                      |
-| `GET`  | `/api/lidar/segments?run_id=&finder=` | Ranked segments for a run or replay case, computed on read |
-| `POST` | `/api/lidar/segments/{id}/case`       | Make a replay case from a segment, with its role           |
-| `POST` | `/api/lidar/scenes/{id}/clip`         | Queue a clip job for a replay case                         |
-| `GET`  | `/api/annotations/packs`              | Packs with source, role, and objects and masks reviewed    |
+| Method | Path                                  | Purpose                                                 |
+| ------ | ------------------------------------- | ------------------------------------------------------- |
+| `GET`  | `/api/lidar/segments/finders`         | Finder names, versions and parameters                   |
+| `GET`  | `/api/lidar/segments?run_id=&finder=` | Ranked segments for a run or clip, computed on read     |
+| `POST` | `/api/lidar/segments/{id}/case`       | Make a clip from a segment, with its role               |
+| `POST` | `/api/lidar/scenes/{id}/clip`         | Queue a clip job for a clip                             |
+| `GET`  | `/api/annotations/packs`              | Packs with source, role, and objects and masks reviewed |
 
-A new route, `/app/lidar/segments`, beside Captures and Replay cases:
+A new route, `/app/lidar/segments`, beside Captures and Clips:
 
-- **Source and finder.** Pick a run or replay case and a finder; held-out sites offer only the
+- **Source and finder.** Pick a run or clip and a finder; held-out sites offer only the
   permitted finders and hide tracker overlays.
 - **Strip.** One row per capture, 10 s cells shaded by score, served as SVG by Go like the
   existing `/api/charts/*` endpoints.
@@ -273,7 +273,7 @@ A new route, `/app/lidar/segments`, beside Captures and Replay cases:
 
 Segments are computed on read and not stored until chosen. A segment's `{id}` is the digest of
 its finder, version, parameters, source and window, so it can be named without being stored, and
-a chosen segment becomes a replay case: no new table is needed for the first delivery. Dismissals
+a chosen segment becomes a clip: no new table is needed for the first delivery. Dismissals
 need one small table if they must be shared between operators.
 
 ### Open questions
@@ -312,7 +312,7 @@ need one small table if they must be shared between operators.
 1. Series readers for `lidar_track_estimates`, `lidar_track_observations` and a run's recording
 2. Port `following` and `leader_changes`; parity with the script's JSON on kirk0
 3. Port `lateral_jump`; parity with `lidar-jump-candidates.py`
-4. `split_flags` and `exposure`; place windows through the replay case's capture files
+4. `split_flags` and `exposure`; place windows through the clip's capture files
 
 **Milestone:** v0.5.2
 
@@ -359,7 +359,7 @@ need one small table if they must be shared between operators.
 
 **Steps:**
 
-1. Finder and segment endpoints; segment to replay case; clip job endpoint
+1. Finder and segment endpoints; segment to clip; clip job endpoint
 2. Pack inventory with review counts from the sidecar
 3. Svelte page with strip, table, preview, actions and held-out guard
 
@@ -406,7 +406,7 @@ once that sprint step lands
 | Failure-chosen held-out windows flatter candidates  | High       | High   | Role before window; exposure and random finders only for held-out      |
 | Tracker-seeded proposals copy fragmentation         | Medium     | High   | L4 membership only; tracker chains as a separate hint layer            |
 | Finder scores read as measurements                  | Medium     | Medium | Status `unreviewed_candidates_from_tracker_estimates` on every output  |
-| Window placed in the wrong capture across joins     | Low        | Medium | Place through the replay case's own file list; tests at joins          |
+| Window placed in the wrong capture across joins     | Low        | Medium | Place through the clip's own file list; tests at joins                 |
 | Proposal layers drift from the macOS implementation | Medium     | Low    | Algorithm and version in every layer; one implementation per algorithm |
 | The web grows into a second labelling tool          | Low        | Medium | Web writes cases and jobs only; truth is written by the macOS tool     |
 
@@ -440,3 +440,15 @@ once that sprint step lands
 
 - Finder scores come from tracker output and inherit its errors. They choose what a person looks
   at; they are never a measurement.
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.

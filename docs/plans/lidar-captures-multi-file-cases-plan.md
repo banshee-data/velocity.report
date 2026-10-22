@@ -1,12 +1,12 @@
-# LiDAR captures: multi-file replay cases
+# LiDAR captures: multi-file clips
 
 - **Status:** Complete: all six items delivered in #569; retiring the read-only `pcap_file` projection remains, and drops with its readers in the clip rename (D-31)
 - **Layers:** Cross-cutting (LiDAR L1 ingest, Go API, database, Svelte frontend)
 - **Target:** delivered in #569; the field workflow now produces many 5-minute PCAPs per site visit, and
-  a replay case that can only name one file cannot describe a static period that straddles a
+  a clip that can only name one file cannot describe a static period that straddles a
   file boundary.
-- **Companion plans:** [lidar-replay-case-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) <!-- link-ignore -->
-- **Canonical:** [replay-case-management-implementation](../lidar/operations/replay-case-management-implementation.md)
+- **Companion plans:** [lidar-clip-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) <!-- link-ignore -->
+- **Canonical:** [clip-management-implementation](../lidar/operations/replay-case-management-implementation.md)
 
 ## Motivation
 
@@ -25,27 +25,27 @@ Two facts collide:
    `network.ReadPCAPFile` opens exactly one file per replay.
 
 The consequence of inaction is that every interesting capture must first be manually
-concatenated into a unioned PCAP before it can become a replay case. That doubles the storage
+concatenated into a unioned PCAP before it can become a clip. That doubles the storage
 on a volume already holding 1.2 GB per five minutes, loses the provenance of which source file
 a frame came from, and puts a manual `mergecap` step between the operator and every evaluation
 run.
 
-This plan makes a replay case an ordered _set_ of capture files plus a session-relative window,
+This plan makes a clip an ordered _set_ of capture files plus a session-relative window,
 and makes the L1 replay path read that set sequentially — as one continuous packet stream, with
 no intermediate file on disk.
 
 ## Current state
 
-| Concern                      | Where it lives today                                                                          | Shape                                                                                            |
-| ---------------------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| PCAP discovery               | [pcap_files_api.go](../../internal/lidar/server/pcap_files_api.go)                            | One flat walk of `--lidar-pcap-dir`, capped at 500 files, no persistence                         |
-| Replay case record           | [scene_store.go](../../internal/lidar/storage/sqlite/scene_store.go) `ReplayCase`             | Single `PCAPFile string`, plus `PCAPStartSecs` / `PCAPDurationSecs`                              |
-| Replay case schema           | `lidar_replay_cases` (migration 031)                                                          | `pcap_file TEXT`, indexed by `idx_lidar_replay_cases_pcap`                                       |
-| Replay execution             | [pcap.go](../../internal/lidar/l1packets/network/pcap.go) `ReadPCAPFile`                      | One `pcap.OpenOffline` per call; start/duration thresholds derived from that file's first packet |
-| Packet extent probe          | [pcap_count.go](../../internal/lidar/l1packets/network/pcap_count.go) `CountPCAPPackets`      | Already returns `Count`, `FirstTimestampNs`, `LastTimestampNs`                                   |
-| Motion/static classification | [pcapsplit](../../internal/lidar/pcapsplit/)                                                  | Working; `BuildTimeline` is pure Go and libpcap-free, `Run` is behind the `pcap` tag             |
-| Motion/static invocation     | `velocity lidar pcap-split` ([split.go](../../internal/cmd/lidar/split.go))                   | CLI only; no API, no job record, no persisted timeline                                           |
-| Frontend                     | [replay-cases/+page.svelte](../../web/src/routes/lidar/replay-cases/+page.svelte) (745 lines) | CRUD list plus a one-shot scan panel; no timeline, no sessions, no health                        |
+| Concern                      | Where it lives today                                                                     | Shape                                                                                            |
+| ---------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| PCAP discovery               | [pcap_files_api.go](../../internal/lidar/server/pcap_files_api.go)                       | One flat walk of `--lidar-pcap-dir`, capped at 500 files, no persistence                         |
+| Clip record                  | [scene_store.go](../../internal/lidar/storage/sqlite/scene_store.go) `ReplayCase`        | Single `PCAPFile string`, plus `PCAPStartSecs` / `PCAPDurationSecs`                              |
+| Clip schema                  | `lidar_replay_cases` (migration 031)                                                     | `pcap_file TEXT`, indexed by `idx_lidar_replay_cases_pcap`                                       |
+| Replay execution             | [pcap.go](../../internal/lidar/l1packets/network/pcap.go) `ReadPCAPFile`                 | One `pcap.OpenOffline` per call; start/duration thresholds derived from that file's first packet |
+| Packet extent probe          | [pcap_count.go](../../internal/lidar/l1packets/network/pcap_count.go) `CountPCAPPackets` | Already returns `Count`, `FirstTimestampNs`, `LastTimestampNs`                                   |
+| Motion/static classification | [pcapsplit](../../internal/lidar/pcapsplit/)                                             | Working; `BuildTimeline` is pure Go and libpcap-free, `Run` is behind the `pcap` tag             |
+| Motion/static invocation     | `velocity lidar pcap-split` ([split.go](../../internal/cmd/lidar/split.go))              | CLI only; no API, no job record, no persisted timeline                                           |
+| Frontend                     | [clips/+page.svelte](../../web/src/routes/lidar/replay-cases/+page.svelte) (745 lines)   | CRUD list plus a one-shot scan panel; no timeline, no sessions, no health                        |
 
 Two pieces of existing work carry most of the weight and should not be rewritten:
 `pcapsplit.BuildTimeline` already produces exactly the motion/static period list the UI needs,
@@ -77,10 +77,10 @@ The mockup and the field workflow agree on three levels, and the plan adopts the
 - **Capture session** — a maximal run of capture files from one sensor whose packet-time
   extents abut within tolerance. Derived, not authored: the indexer computes sessions from
   extents. This is what the UI's collapsible group row shows.
-- **Replay case** — an _ordered subset_ of one session's files plus a session-relative window.
+- **Clip** — an _ordered subset_ of one session's files plus a session-relative window.
   Authored, by an operator or by the split engine. This is the unit an evaluation run consumes.
 
-A replay case therefore no longer names a file; it names a window over a session.
+A clip therefore no longer names a file; it names a window over a session.
 
 ### Continuity: the load-bearing invariant
 
@@ -256,9 +256,9 @@ external volume, so a second worker halves the throughput of the first and finis
 Requesting a pass for a session that already has one queued or running returns the existing job
 rather than a second.
 
-### Item 5: replay case ↔ file association
+### Item 5: clip ↔ file association
 
-**Summary:** Make a replay case reference an ordered set of files and a session window.
+**Summary:** Make a clip reference an ordered set of files and a session window.
 
 **Steps:**
 
@@ -273,11 +273,11 @@ rather than a second.
 
 ### Item 6: Captures page
 
-**Summary:** Replace the replay-cases CRUD page with the Captures view from the mockup.
+**Summary:** Replace the clips CRUD page with the Captures view from the mockup.
 
 **Steps:**
 
-1. Route `/lidar/replay-cases` → `/lidar/captures`; nav label "Captures"; redirect the old path.
+1. Route `/lidar/clips` → `/lidar/captures`; nav label "Captures"; redirect the old path.
 2. Session list with collapsible file rows, status glyph column, and per-row motion strip.
 3. Coverage timeline: which periods have files, and static/motion within them.
 4. Root selector, scan control, drift pill, unreachable and first-scan empty states.
@@ -286,7 +286,7 @@ rather than a second.
 
 **Milestone:** delivered in #569. Items 1-5 must land first; this is the last phase, not the first.
 
-**The old route is kept, not redirected.** Step 1 said to redirect `/lidar/replay-cases`. That
+**The old route is kept, not redirected.** Step 1 said to redirect `/lidar/clips`. That
 page still owns case editing — description, reference run, recommended parameters — which
 Captures does not cover, so redirecting it would have deleted working functionality to satisfy a
 line in a plan. The nav label moves to Captures and the two pages link to each other instead.
@@ -419,3 +419,15 @@ check. The scan now applies that same check, so the index lists exactly what rep
 - [ ] Sessions are derived only from packet-time adjacency, not from sensor identity. A second
       sensor writing to the same root with interleaved timestamps would merge into one session.
       Multi-sensor capture is not a current field configuration.
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.

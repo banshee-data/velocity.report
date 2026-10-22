@@ -591,3 +591,15 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 - [ ] The web export is not readable by `vrlog-analyse` or the replayer, and does
       not claim to be; the recorded VRLOG remains the only input to those tools
 - [x] The selected 30-second clip is 2.20 MiB after a deterministic 1,200-point frame cap
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.
