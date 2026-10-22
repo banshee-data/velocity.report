@@ -1060,6 +1060,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
+	tools/s2-archive/test_merge_clip_sites.py \
 	tools/grid-heatmap/test_pcap_mode.py \
 	tools/grid-heatmap/test_plot_grid_heatmap.py \
 	tools/podcast-transcribe/test_podcast_transcribe.py
@@ -2329,6 +2330,14 @@ cache-basemap: install-s2-hilbert
 site-index:
 	@echo "Rebuilding the archive site index from $(abspath $(LIDAR_PCAP_DIR))/s2..."
 	@python3 tools/s2-archive/build-site-index.py --archive "$(LIDAR_PCAP_DIR)"
+
+# Merge the surveys published from clips (Clips page: dataset id, location,
+# completed extract) into site-index.json, from the running server. PRUNE=1
+# drops clip entries the server no longer serves.
+.PHONY: site-index-clips
+site-index-clips:
+	@LIDAR_API_URL=$${LIDAR_API_URL:-http://localhost:8080/api/lidar} \
+		python3 tools/s2-archive/merge-clip-sites.py $(if $(PRUNE),--prune)
 
 # Regenerate everything the scenes pages are made of, in dependency order: the
 # site index from the archive, then the page data and the map, then the site

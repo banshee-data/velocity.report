@@ -24,6 +24,9 @@ type siteIndexEntry struct {
 	Captures []string `json:"captures"`
 	Lat      float64  `json:"lat"`
 	Lon      float64  `json:"lon"`
+	// Origin is "clip" for an entry the server wrote from a clip; that clip is
+	// already in the database, so the importer leaves it alone.
+	Origin string `json:"origin"`
 }
 
 func main() {
@@ -116,9 +119,16 @@ func readIndex(name string) ([]siteIndexEntry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read site index: %w", err)
 	}
-	var entries []siteIndexEntry
-	if err := json.Unmarshal(bytes, &entries); err != nil {
+	var all []siteIndexEntry
+	if err := json.Unmarshal(bytes, &all); err != nil {
 		return nil, fmt.Errorf("decode site index: %w", err)
+	}
+	entries := make([]siteIndexEntry, 0, len(all))
+	for _, entry := range all {
+		if entry.Origin == "clip" {
+			continue
+		}
+		entries = append(entries, entry)
 	}
 	return entries, nil
 }
