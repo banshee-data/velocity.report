@@ -224,7 +224,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
 	want := []string{ExperimentAdaptiveUncertainty, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
-		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContestedRejoin,
+		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
 		ExperimentFixedLagRTS, ExperimentFlipRule,
@@ -303,6 +303,30 @@ func TestTrackerExperimentsReachTheirOwnOption(t *testing.T) {
 		}
 		if got != want {
 			t.Errorf("%s:\n got %+v\nwant %+v", name, got, want)
+		}
+	}
+	// The containment claim reaches its own option on top of the contained
+	// box it reads, and is refused without that box.
+	{
+		want := shipped
+		want.SolidBody = l5tracks.SolidBodyOptions{Enabled: true, OriginSource: OriginTrackingTransformIdentity, Containment: true}
+		want.ContainmentClaim = true
+		got, err := trackerConfigFor(l5, "", []string{ExperimentSolidBody, ExperimentSolidBodyContainment, ExperimentSolidBodyFullMembers, ExperimentContainmentClaim}, nil)
+		if err != nil {
+			t.Fatalf("%s: %v", ExperimentContainmentClaim, err)
+		}
+		if got != want {
+			t.Errorf("%s:\n got %+v\nwant %+v", ExperimentContainmentClaim, got, want)
+		}
+		for _, without := range [][]string{
+			{ExperimentContainmentClaim},
+			{ExperimentSolidBody, ExperimentContainmentClaim},
+			{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentContainmentClaim},
+			{ExperimentSolidBody, ExperimentSolidBodyContainment, ExperimentContainmentClaim},
+		} {
+			if _, err := trackerConfigFor(l5, "", without, nil); err == nil || !strings.Contains(err.Error(), ExperimentContainmentClaim) {
+				t.Errorf("%q: want a refusal naming %s, got %v", without, ExperimentContainmentClaim, err)
+			}
 		}
 	}
 	// The face remedies qualify the solid body, each reaching its own option,

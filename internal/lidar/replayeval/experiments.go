@@ -143,6 +143,14 @@ const (
 	ExperimentContestedRejoin   = "contested_rejoin"
 	ExperimentTentativePriority = "tentative_priority"
 	ExperimentClassIdentity     = "class_identity"
+	// ExperimentContainmentClaim is TrackerConfig.ContainmentClaim: a
+	// confirmed track may not take a cluster its contained box cannot hold
+	// when another bidder's can (W5, experiment l5id0011). It reads the box
+	// solid_body_containment reports, judged on the cluster's full members
+	// so every replay sees the same returns, so it needs solid_body,
+	// solid_body_containment and solid_body_full_members and is refused
+	// without them.
+	ExperimentContainmentClaim = "containment_claim"
 	// ExperimentOverlapEnd1 and ExperimentOverlapEnd3 are
 	// TrackerConfig.OverlapEndFrames at one and three: a coasting track whose
 	// drawn box lies on a live confirmed track's ends on its first, or third,
@@ -315,6 +323,7 @@ var knownExperiments = map[string]bool{
 	ExperimentContestedRejoin:     true,
 	ExperimentTentativePriority:   true,
 	ExperimentClassIdentity:       true,
+	ExperimentContainmentClaim:    true,
 	ExperimentOverlapEnd1:         true,
 	ExperimentOverlapEnd3:         true,
 	ExperimentOverlapEndBody:      true,

@@ -1409,6 +1409,17 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
+	if hasExperiment(experiments, ExperimentContainmentClaim) {
+		// The claim changes which track takes a cluster, so the returns it
+		// judges must reach the tracker on every replay, the determinism
+		// repeat included, which keeps no evidence sample: the full members
+		// do, as near_edge_track requires for the same reason.
+		if !trackerConfig.SolidBody.Enabled || !trackerConfig.SolidBody.Containment || !hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the contained box on the cluster's full members, so it needs %s, %s and %s, and %q lacks one",
+				ExperimentContainmentClaim, ExperimentSolidBody, ExperimentSolidBodyContainment, ExperimentSolidBodyFullMembers, experiments)
+		}
+		trackerConfig.ContainmentClaim = true
+	}
 	return trackerConfig, nil
 }
 

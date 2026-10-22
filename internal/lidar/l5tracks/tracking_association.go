@@ -296,6 +296,11 @@ func (t *Tracker) assignClusters(clusters []WorldCluster, clusterIdx []int, trac
 	if t.Config.OcclusionContinuity.ReacquisitionGuard {
 		t.guardReacquisition(costMatrix, clusters, clusterIdx, trackIDs)
 	}
+	// A confirmed track gives up a cluster its box cannot hold when another
+	// bidder's can. Off by default.
+	if t.Config.ContainmentClaim {
+		t.applyContainmentClaim(costMatrix, clusters, clusterIdx, trackIDs)
+	}
 
 	// Solve optimal assignment.
 	assign := HungarianAssign(costMatrix)
