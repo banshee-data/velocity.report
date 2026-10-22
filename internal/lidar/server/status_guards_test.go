@@ -28,7 +28,7 @@ func TestGridStatusReportsErrorBeforeGridExists(t *testing.T) {
 	sensorID := "test-status-gridless"
 	registerGridlessManager(t, sensorID)
 
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats(), SensorID: sensorID})
+	ws := NewServer(Config{Stats: NewPacketStats(), SensorID: sensorID})
 
 	rec := httptest.NewRecorder()
 	ws.handleGridStatus(rec, httptest.NewRequest(http.MethodGet, "/api/lidar/grid?sensor_id=test-status-gridless", nil))
@@ -50,7 +50,7 @@ func TestDataSourceIncludesSettlingProgress(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, sensorID)
 	defer cleanup()
 
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats(), SensorID: sensorID})
+	ws := NewServer(Config{Stats: NewPacketStats(), SensorID: sensorID})
 	ws.setBaseContext(t.Context())
 
 	rec := httptest.NewRecorder()
@@ -93,27 +93,6 @@ func (w *failingResponseWriter) Header() http.Header {
 func (w *failingResponseWriter) Write([]byte) (int, error) { return 0, errors.New("connection reset") }
 func (w *failingResponseWriter) WriteHeader(code int)      { w.code = code }
 
-// TestStatusPageSurvivesRenderFailure covers the template execute error path.
-// Unlike the asset and parse failures removed alongside this test, a render
-// failure is genuinely reachable: the template writes straight to the client,
-// so any disconnect mid-response surfaces here.
-func TestStatusPageSurvivesRenderFailure(t *testing.T) {
-	sensorID := "test-status-render-failure"
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats(), SensorID: sensorID})
-	ws.setBaseContext(t.Context())
-
-	w := &failingResponseWriter{}
-	ws.handleStatus(w, httptest.NewRequest(http.MethodGet, "/api/lidar/server", nil))
-
-	// The handler must not panic, and must not leave the response unstarted.
-	if w.code == 0 {
-		t.Error("expected the handler to write a status code even when rendering fails")
-	}
-}
-
 // TestAcceptanceMetricsBeforeGridExists covers the nil-metrics substitution.
 // A manager is registered as soon as the sensor is known but has no grid until
 // the first frame, and the endpoint has to answer with zeroes rather than a
@@ -122,7 +101,7 @@ func TestAcceptanceMetricsBeforeGridExists(t *testing.T) {
 	sensorID := "test-acceptance-gridless"
 	registerGridlessManager(t, sensorID)
 
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats(), SensorID: sensorID})
+	ws := NewServer(Config{Stats: NewPacketStats(), SensorID: sensorID})
 
 	rec := httptest.NewRecorder()
 	ws.handleAcceptanceMetrics(rec,
@@ -160,7 +139,7 @@ func TestBackgroundGridSkipsNearZeroRangeCells(t *testing.T) {
 	mgr.Grid.Cells[1].AverageRangeMeters = 0.01
 	mgr.Grid.Cells[1].TimesSeenCount = 9
 
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats(), SensorID: sensorID})
+	ws := NewServer(Config{Stats: NewPacketStats(), SensorID: sensorID})
 
 	rec := httptest.NewRecorder()
 	ws.handleBackgroundGrid(rec,

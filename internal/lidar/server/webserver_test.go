@@ -98,7 +98,6 @@ func TestNewServer(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		ForwardingEnabled: true,
 		ForwardAddr:       "localhost",
@@ -128,106 +127,10 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
-func TestServer_StatusHandler(t *testing.T) {
-	stats := NewPacketStats()
-
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		ForwardingEnabled: false,
-		ParsingEnabled:    true,
-		UDPPort:           2369,
-		DB:                nil,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	// Add some stats data
-	stats.AddPacket(1262)
-	stats.AddPoints(400)
-	stats.LogStats(true)
-
-	// Create a request to the status endpoint
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a ResponseRecorder to record the response
-	rr := httptest.NewRecorder()
-
-	// Call the handler through the mux
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rr, req)
-
-	// Check the status code
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("Status handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
-	}
-
-	// Check that the response contains expected content
-	body := rr.Body.String()
-
-	if !strings.Contains(body, "LiDAR Monitor") {
-		t.Error("Response should contain 'LiDAR Monitor'")
-	}
-
-	if !strings.Contains(body, "2369") {
-		t.Error("Response should contain the UDP port")
-	}
-}
-
-// TestStatusHTML_ClipIDInJS verifies that the PCAP scene dropdown
-// JavaScript in status.html uses clip_id (not the old scene_id).
-// This catches the regression where the Go API returns clip_id but
-// the JS was still reading scene_id, breaking the dropdown population.
-func TestStatusHTML_ClipIDInJS(t *testing.T) {
-	stats := NewPacketStats()
-
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		ParsingEnabled:    true,
-		UDPPort:           2369,
-		DB:                nil,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Fatalf("status handler returned %d, want 200", rr.Code)
-	}
-
-	body := rr.Body.String()
-
-	// The JS must use clip_id for the option value and the find() match.
-	if !strings.Contains(body, "s.clip_id") {
-		t.Error("status.html JS should reference s.clip_id for PCAP scene dropdown")
-	}
-
-	// Ensure the old field name is not present anywhere in the rendered HTML.
-	if strings.Contains(body, "s.scene_id") {
-		t.Error("status.html JS must not reference s.scene_id (renamed to clip_id)")
-	}
-}
-
 func TestServer_HealthHandler(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:        ":0",
 		Stats:          stats,
 		ParsingEnabled: false,
 		UDPPort:        2369,
@@ -248,7 +151,7 @@ func TestServer_HealthHandler(t *testing.T) {
 	rr := httptest.NewRecorder()
 
 	// Call the handler through the mux
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rr, req)
 
 	// Check the status code
@@ -280,7 +183,7 @@ func TestServer_StartStop(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:        ":0", // Use port 0 to get an available port
+		// Use port 0 to get an available port
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
@@ -354,7 +257,6 @@ func TestServer_ForwardingConfig(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		ForwardingEnabled: true,
 		ForwardAddr:       "192.168.1.100",
@@ -379,63 +281,26 @@ func TestServer_ForwardingConfig(t *testing.T) {
 		t.Errorf("Server forwardPort not set correctly: got %d, want 2370", server.forwardPort)
 	}
 
-	// Create a request to the status endpoint
-	req, err := http.NewRequest("GET", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a ResponseRecorder to record the response
+	// The status JSON the LiDAR Status page reads reports the same settings.
 	rr := httptest.NewRecorder()
-
-	// Call the handler
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rr, req)
-
-	// Check that the response contains forwarding info
-	body := rr.Body.String()
-
-	if !strings.Contains(body, "3000") {
-		t.Error("Response should contain the correct UDP port")
+	server.testMux().ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/api/lidar/status", nil))
+	var status struct {
+		UDPPort     int    `json:"udp_port"`
+		Forwarding  bool   `json:"forwarding_enabled"`
+		ForwardAddr string `json:"forward_addr"`
+		ForwardPort int    `json:"forward_port"`
 	}
-}
-
-func TestServer_InvalidHTTPMethod(t *testing.T) {
-	stats := NewPacketStats()
-
-	config := Config{
-		Address:        ":0",
-		Stats:          stats,
-		ParsingEnabled: true,
-		UDPPort:        2369,
-		UDPListenerConfig: network.UDPListenerConfig{
-			Address: ":0",
-		},
+	if err := json.Unmarshal(rr.Body.Bytes(), &status); err != nil {
+		t.Fatalf("status JSON: %v (%s)", err, rr.Body.String())
 	}
-
-	server := NewServer(config)
-
-	// Test POST request to status endpoint (should still work as it just shows the page)
-	req, err := http.NewRequest("POST", "/", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	rr := httptest.NewRecorder()
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rr, req)
-
-	// Should still return OK (the handler doesn't restrict methods)
-	if status := rr.Code; status != http.StatusOK {
-		t.Errorf("POST to status handler returned wrong status code: got %v want %v",
-			status, http.StatusOK)
+	if status.UDPPort != 3000 || !status.Forwarding || status.ForwardAddr != "192.168.1.100" || status.ForwardPort != 2370 {
+		t.Errorf("status = %+v, want UDP port 3000 forwarding to 192.168.1.100:2370", status)
 	}
 }
 
 func TestServer_DataSourceStatus(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:        ":0",
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
@@ -468,7 +333,6 @@ func BenchmarkServer_StatusHandler(b *testing.B) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		ParsingEnabled:    true,
 		UDPPort:           2369,
@@ -488,7 +352,7 @@ func BenchmarkServer_StatusHandler(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -501,7 +365,6 @@ func BenchmarkServer_HealthHandler(b *testing.B) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		ParsingEnabled:    true,
 		UDPPort:           2369,
@@ -516,7 +379,7 @@ func BenchmarkServer_HealthHandler(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -531,7 +394,6 @@ func TestExportFrameSequenceASC_PathTraversal(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:        ":0",
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
@@ -542,7 +404,7 @@ func TestExportFrameSequenceASC_PathTraversal(t *testing.T) {
 	}
 
 	server := NewServer(config)
-	mux := server.setupRoutes()
+	mux := server.testMux()
 
 	// Test cases for path traversal attempts
 	// These should all be sanitized or blocked
@@ -639,7 +501,6 @@ func TestExportFrameSequenceASC_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:        ":0",
 		Stats:          stats,
 		ParsingEnabled: true,
 		UDPPort:        2369,
@@ -650,7 +511,7 @@ func TestExportFrameSequenceASC_MissingSensorID(t *testing.T) {
 	}
 
 	server := NewServer(config)
-	mux := server.setupRoutes()
+	mux := server.testMux()
 
 	// Request without sensor_id
 	req, err := http.NewRequest("GET", "/api/lidar/export_frame_sequence", nil)
@@ -674,7 +535,6 @@ func TestExportFrameSequenceASC_MissingSensorID(t *testing.T) {
 func TestServer_HandleGridStatus_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -693,7 +553,6 @@ func TestServer_HandleGridStatus_MissingSensorID(t *testing.T) {
 func TestServer_HandleGridStatus_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -711,7 +570,6 @@ func TestServer_HandleGridStatus_NoManager(t *testing.T) {
 
 func TestServer_HandleTrafficStats_NoStats(t *testing.T) {
 	config := Config{
-		Address:           ":0",
 		Stats:             nil, // No stats
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -734,7 +592,6 @@ func TestServer_HandleTrafficStats_Success(t *testing.T) {
 	stats.LogStats(true)
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -765,7 +622,6 @@ func TestServer_HandleTrafficStats_Success(t *testing.T) {
 func TestServer_HandleGridReset_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -784,7 +640,6 @@ func TestServer_HandleGridReset_MissingSensorID(t *testing.T) {
 func TestServer_HandleGridReset_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -803,7 +658,6 @@ func TestServer_HandleGridReset_NoManager(t *testing.T) {
 func TestServer_HandleGridHeatmap_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -822,7 +676,6 @@ func TestServer_HandleGridHeatmap_MissingSensorID(t *testing.T) {
 func TestServer_HandleGridHeatmap_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -838,182 +691,9 @@ func TestServer_HandleGridHeatmap_NoManager(t *testing.T) {
 	}
 }
 
-func TestServer_HandleBackgroundGridPolar_NoManager(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleLidarDebugDashboard(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar?sensor_id=test-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleLidarDebugDashboard(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("expected Content-Type text/html, got %s", contentType)
-	}
-}
-
-func TestServer_HandleTrafficChart_NoStats(t *testing.T) {
-	config := Config{
-		Address:           ":0",
-		Stats:             nil,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficChart(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleTrafficChart_Success(t *testing.T) {
-	stats := NewPacketStats()
-	stats.AddPacket(1000)
-	stats.LogStats(true)
-
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficChart(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("expected Content-Type text/html, got %s", contentType)
-	}
-}
-
-func TestServer_HandleBackgroundGridHeatmapChart_NoManager(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "nonexistent-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/heatmap?sensor_id=nonexistent-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridHeatmapChart(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleClustersChart_NoTrackAPI(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                nil, // No DB, so no trackAPI
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/clusters", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleClustersChart(rr, req)
-
-	if rr.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected 503, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleTracksChart_NoTrackAPI(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                nil,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTracksChart(rr, req)
-
-	if rr.Code != http.StatusServiceUnavailable {
-		t.Errorf("expected 503, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleForegroundFrameChart_NoSnapshot(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleForegroundFrameChart(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
 func TestServer_HandleExportSnapshotASC_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1032,7 +712,6 @@ func TestServer_HandleExportSnapshotASC_MissingSensorID(t *testing.T) {
 func TestServer_HandleExportSnapshotASC_SnapshotIDNotImplemented(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1051,7 +730,6 @@ func TestServer_HandleExportSnapshotASC_SnapshotIDNotImplemented(t *testing.T) {
 func TestServer_HandleExportSnapshotASC_NoDB(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		DB:                nil,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1071,7 +749,6 @@ func TestServer_HandleExportSnapshotASC_NoDB(t *testing.T) {
 func TestServer_HandleExportNextFrameASC_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1090,7 +767,6 @@ func TestServer_HandleExportNextFrameASC_MissingSensorID(t *testing.T) {
 func TestServer_HandleExportNextFrameASC_NoFrameBuilder(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1109,7 +785,6 @@ func TestServer_HandleExportNextFrameASC_NoFrameBuilder(t *testing.T) {
 func TestServer_HandleExportForegroundASC_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1128,7 +803,6 @@ func TestServer_HandleExportForegroundASC_MissingSensorID(t *testing.T) {
 func TestServer_HandleExportForegroundASC_NoSnapshot(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1147,7 +821,6 @@ func TestServer_HandleExportForegroundASC_NoSnapshot(t *testing.T) {
 func TestServer_HandleLidarSnapshots_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1166,7 +839,6 @@ func TestServer_HandleLidarSnapshots_MissingSensorID(t *testing.T) {
 func TestServer_HandleLidarSnapshots_NoDB(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		DB:                nil,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1186,7 +858,6 @@ func TestServer_HandleLidarSnapshots_NoDB(t *testing.T) {
 func TestServer_HandleLidarSnapshotsCleanup_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1205,7 +876,6 @@ func TestServer_HandleLidarSnapshotsCleanup_MissingSensorID(t *testing.T) {
 func TestServer_HandleLidarSnapshotsCleanup_NoDB(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		DB:                nil,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1225,7 +895,6 @@ func TestServer_HandleLidarSnapshotsCleanup_NoDB(t *testing.T) {
 func TestServer_HandleLidarStatus_Success(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPPort:           2369,
@@ -1262,7 +931,6 @@ func TestServer_HandleLidarStatus_Success(t *testing.T) {
 func TestServer_HandleLidarPersist_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1281,7 +949,6 @@ func TestServer_HandleLidarPersist_MissingSensorID(t *testing.T) {
 func TestServer_HandleLidarPersist_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1300,7 +967,6 @@ func TestServer_HandleLidarPersist_NoManager(t *testing.T) {
 func TestServer_HandleLidarSnapshot_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1319,7 +985,6 @@ func TestServer_HandleLidarSnapshot_MissingSensorID(t *testing.T) {
 func TestServer_HandleLidarSnapshot_NoDB(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		DB:                nil,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1339,7 +1004,6 @@ func TestServer_HandleLidarSnapshot_NoDB(t *testing.T) {
 func TestServer_HandleAcceptanceMetrics_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1358,7 +1022,6 @@ func TestServer_HandleAcceptanceMetrics_MissingSensorID(t *testing.T) {
 func TestServer_HandleAcceptanceMetrics_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1377,7 +1040,6 @@ func TestServer_HandleAcceptanceMetrics_NoManager(t *testing.T) {
 func TestServer_HandleAcceptanceReset_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1396,7 +1058,6 @@ func TestServer_HandleAcceptanceReset_MissingSensorID(t *testing.T) {
 func TestServer_HandleAcceptanceReset_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1415,7 +1076,6 @@ func TestServer_HandleAcceptanceReset_NoManager(t *testing.T) {
 func TestServer_HandlePCAPStart_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1435,7 +1095,6 @@ func TestServer_HandlePCAPStart_MissingSensorID(t *testing.T) {
 func TestServer_HandlePCAPStart_WrongSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1455,7 +1114,6 @@ func TestServer_HandlePCAPStart_WrongSensorID(t *testing.T) {
 func TestServer_HandlePCAPStart_MissingPCAPFile(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1476,7 +1134,6 @@ func TestServer_HandlePCAPStart_MissingPCAPFile(t *testing.T) {
 func TestServer_HandlePCAPStop_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1496,7 +1153,6 @@ func TestServer_HandlePCAPStop_MissingSensorID(t *testing.T) {
 func TestServer_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1516,7 +1172,6 @@ func TestServer_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 func TestServer_HandlePCAPResumeLive_NotInAnalysisMode(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1536,7 +1191,6 @@ func TestServer_HandlePCAPResumeLive_NotInAnalysisMode(t *testing.T) {
 func TestServer_Close(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1553,7 +1207,6 @@ func TestServer_Close(t *testing.T) {
 func TestServer_HandleBackgroundGrid_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1572,7 +1225,6 @@ func TestServer_HandleBackgroundGrid_MissingSensorID(t *testing.T) {
 func TestServer_HandleBackgroundGrid_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1591,14 +1243,13 @@ func TestServer_HandleBackgroundGrid_NoManager(t *testing.T) {
 func TestServer_HandleBackgroundRegions_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "nonexistent-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 	server := NewServer(config)
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id=nonexistent-sensor", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id=nonexistent-sensor", nil)
 	rr := httptest.NewRecorder()
 
 	server.handleBackgroundRegions(rr, req)
@@ -1608,35 +1259,9 @@ func TestServer_HandleBackgroundRegions_NoManager(t *testing.T) {
 	}
 }
 
-func TestServer_HandleBackgroundRegionsDashboard(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions/dashboard?sensor_id=test-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundRegionsDashboard(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("expected Content-Type text/html, got %s", contentType)
-	}
-}
-
 func TestServer_HandleTuningParams_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1655,7 +1280,6 @@ func TestServer_HandleTuningParams_MissingSensorID(t *testing.T) {
 func TestServer_HandleTuningParams_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1674,7 +1298,6 @@ func TestServer_HandleTuningParams_NoManager(t *testing.T) {
 func TestServer_WriteJSONError(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -1697,51 +1320,6 @@ func TestServer_WriteJSONError(t *testing.T) {
 	}
 }
 
-func TestServer_SetupRoutes(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	mux := server.setupRoutes()
-	if mux == nil {
-		t.Error("setupRoutes returned nil")
-	}
-
-	// Verify root handler works
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200 for root, got %d", rr.Code)
-	}
-}
-
-func TestServer_HandleStatus_NotFound(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/nonexistent/path", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleStatus(rr, req)
-
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404 for invalid path, got %d", rr.Code)
-	}
-}
-
 // ====== Tests with registered BackgroundManager ======
 
 func TestServer_HandleBackgroundGrid_WithManager(t *testing.T) {
@@ -1750,7 +1328,6 @@ func TestServer_HandleBackgroundGrid_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "grid-test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1783,14 +1360,13 @@ func TestServer_HandleBackgroundRegions_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "regions-test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
 	server := NewServer(config)
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id=regions-test-sensor", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id=regions-test-sensor", nil)
 	rr := httptest.NewRecorder()
 
 	server.handleBackgroundRegions(rr, req)
@@ -1800,39 +1376,12 @@ func TestServer_HandleBackgroundRegions_WithManager(t *testing.T) {
 	}
 }
 
-func TestServer_HandleBackgroundRegionsDashboard_WithSensorID(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "dashboard-test-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions/dashboard?sensor_id=test", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundRegionsDashboard(rr, req)
-
-	if rr.Code != http.StatusOK {
-		t.Errorf("expected 200, got %d", rr.Code)
-	}
-
-	// Should return HTML
-	contentType := rr.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "text/html") {
-		t.Errorf("expected Content-Type text/html, got %s", contentType)
-	}
-}
-
 func TestServer_HandleAcceptanceMetrics_WithManager(t *testing.T) {
 	cleanup := setupTestBackgroundManager(t, "acceptance-test-sensor")
 	defer cleanup()
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "acceptance-test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1855,7 +1404,6 @@ func TestServer_HandleAcceptanceMetrics_Debug(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "acceptance-debug-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1888,7 +1436,6 @@ func TestServer_HandleAcceptanceReset_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "reset-test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1911,7 +1458,6 @@ func TestServer_HandleTuningParams_GET_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-get-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1934,7 +1480,6 @@ func TestServer_HandleTuningParams_POST_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-post-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1960,7 +1505,6 @@ func TestServer_HandleGridReset_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "grid-reset-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1983,7 +1527,6 @@ func TestServer_HandleGridStatus_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "grid-status-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2004,7 +1547,6 @@ func TestServer_HandleGridStatus_WithManager(t *testing.T) {
 
 func TestServer_HandleSettlingEval_MissingSensorID(t *testing.T) {
 	server := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
@@ -2020,7 +1562,6 @@ func TestServer_HandleSettlingEval_MissingSensorID(t *testing.T) {
 
 func TestServer_HandleSettlingEval_NoManager(t *testing.T) {
 	server := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
@@ -2039,7 +1580,6 @@ func TestServer_HandleSettlingEval_WithManager(t *testing.T) {
 	defer cleanup()
 
 	server := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          "settling-eval-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2080,7 +1620,6 @@ func TestServer_HandleGridHeatmap_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "grid-heatmap-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2097,55 +1636,7 @@ func TestServer_HandleGridHeatmap_WithManager(t *testing.T) {
 	}
 }
 
-func TestServer_HandleBackgroundGridPolar_WithManager(t *testing.T) {
-	cleanup := setupTestBackgroundManager(t, "polar-sensor")
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "polar-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id=polar-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rr, req)
-
-	// Accept 200 or 404 (no cells) - the handler may fail if no cells are populated
-	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 200 or 404, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
-
 // ====== More handler tests ======
-
-func TestServer_HandleTrafficChart_WithManager(t *testing.T) {
-	cleanup := setupTestBackgroundManager(t, "traffic-chart-sensor")
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "traffic-chart-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic/chart?sensor_id=traffic-chart-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTrafficChart(rr, req)
-
-	// May return 200 or 404 depending on data availability
-	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 200 or 404, got %d: %s", rr.Code, rr.Body.String())
-	}
-}
 
 // Tests for handlers with registered managers follow
 
@@ -2155,7 +1646,6 @@ func TestServer_HandleLidarPersist_WithManager_Additional(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "persist-test-sensor-2",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2176,7 +1666,6 @@ func TestServer_HandleLidarPersist_WithManager_Additional(t *testing.T) {
 func TestServer_HandleLidarSnapshots_Additional(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "snapshot-sensor-2",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2197,7 +1686,6 @@ func TestServer_HandleLidarSnapshots_Additional(t *testing.T) {
 func TestServer_HandleLidarSnapshotsCleanup_Additional(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "cleanup-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2220,7 +1708,6 @@ func TestServer_HandleLidarSnapshotsCleanup_Additional(t *testing.T) {
 func TestServer_HandlePCAPResumeLive_MissingSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "pcap-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2240,7 +1727,6 @@ func TestServer_HandlePCAPResumeLive_MissingSensorID(t *testing.T) {
 func TestServer_HandleExportNextFrameASC(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "export-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2261,7 +1747,6 @@ func TestServer_HandleExportNextFrameASC(t *testing.T) {
 func TestServer_HandleExportForegroundASC(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "export-fg-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2298,7 +1783,6 @@ func TestServer_DataSourceManager_Integration(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		DataSourceManager: mockDSM,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2349,7 +1833,6 @@ func TestServer_DataSourceManager_ErrorInjection(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		DataSourceManager: mockDSM,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2369,7 +1852,6 @@ func TestServer_RealDataSourceManager(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 		// No DataSourceManager - will create RealDataSourceManager
@@ -2408,7 +1890,6 @@ func TestServer_InternalMethods(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -2439,7 +1920,6 @@ func TestServer_StartLiveListenerInternal(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -2464,7 +1944,6 @@ func TestServer_ResolvePCAPPath(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -2499,7 +1978,6 @@ func TestServer_LatestFgCounts(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2523,7 +2001,6 @@ func TestServer_HandleTuningParams_GET(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2548,7 +2025,6 @@ func TestServer_HandleTuningParams_POST(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2575,7 +2051,6 @@ func TestServer_HandleLidarPersist(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2601,7 +2076,6 @@ func TestServer_HandlePCAPStart_NoPCAPDir(t *testing.T) {
 	stats := NewPacketStats()
 	sensorID := "test-sensor"
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2630,7 +2104,6 @@ func TestServer_HandlePCAPStop_NotRunning(t *testing.T) {
 	mockDSM := NewMockDataSourceManager()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DataSourceManager: mockDSM,
@@ -2655,7 +2128,6 @@ func TestServer_HandlePCAPResumeLive(t *testing.T) {
 	mockDSM := NewMockDataSourceManager()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DataSourceManager: mockDSM,
@@ -2680,7 +2152,6 @@ func TestServer_HandleLidarSnapshots(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2701,7 +2172,6 @@ func TestServer_HandleLidarSnapshot_NoID(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2722,7 +2192,6 @@ func TestServer_HandleExportSnapshotASC(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2739,31 +2208,6 @@ func TestServer_HandleExportSnapshotASC(t *testing.T) {
 	t.Logf("handleExportSnapshotASC returned status %d", rec.Code)
 }
 
-func TestServer_HandleBackgroundGridPolar(t *testing.T) {
-	sensorID := "test-polar-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/polar", nil)
-	rec := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rec, req)
-
-	// May succeed or return not found depending on grid state
-	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound {
-		t.Errorf("got status %d, want OK or NotFound", rec.Code)
-	}
-}
 func TestServer_ResetBackgroundGrid(t *testing.T) {
 	sensorID := "test-reset-bg-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
@@ -2771,7 +2215,6 @@ func TestServer_ResetBackgroundGrid(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2789,7 +2232,6 @@ func TestServer_ResetBackgroundGrid(t *testing.T) {
 func TestServer_ResetBackgroundGrid_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "nonexistent-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2809,7 +2251,6 @@ func TestServer_ResetFrameBuilder(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2828,7 +2269,6 @@ func TestServer_ResetAllState(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2846,7 +2286,6 @@ func TestServer_ResetAllState(t *testing.T) {
 func TestServer_StopPCAPInternal(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-stop-pcap",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2865,7 +2304,6 @@ func TestServer_HandleChartClustersJSON_WithDB(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2882,30 +2320,6 @@ func TestServer_HandleChartClustersJSON_WithDB(t *testing.T) {
 	t.Logf("handleChartClustersJSON returned status %d", rec.Code)
 }
 
-func TestServer_HandleBackgroundGridPolar_AdditionalCoverage(t *testing.T) {
-	sensorID := "test-polar-extra-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	// Test with query params for additional coverage
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/polar?sensor_id="+sensorID+"&format=json", nil)
-	rec := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rec, req)
-
-	t.Logf("handleBackgroundGridPolar returned status %d", rec.Code)
-}
-
 func TestServer_HandleGridHeatmap_AdditionalCoverage(t *testing.T) {
 	sensorID := "test-heatmap-extra-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
@@ -2913,7 +2327,6 @@ func TestServer_HandleGridHeatmap_AdditionalCoverage(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2935,7 +2348,6 @@ func TestServer_HandleLidarSnapshot_GET(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2957,7 +2369,6 @@ func TestServer_HandleLidarSnapshot_DELETE(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -2974,106 +2385,6 @@ func TestServer_HandleLidarSnapshot_DELETE(t *testing.T) {
 	t.Logf("handleLidarSnapshot DELETE returned status %d", rec.Code)
 }
 
-func TestServer_HandleClustersChart_NoTrackDB(t *testing.T) {
-	sensorID := "test-clusters-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleClustersChart(rec, req)
-
-	// Should return 503 Service Unavailable for missing track DB
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("Expected status %d, got %d; body: %s", http.StatusServiceUnavailable, rec.Code, rec.Body.String())
-	}
-}
-
-func TestServer_HandleTracksChart_NoTrackDB(t *testing.T) {
-	sensorID := "test-tracks-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleTracksChart(rec, req)
-
-	// Should return 503 Service Unavailable for missing track DB
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Errorf("Expected status %d, got %d; body: %s", http.StatusServiceUnavailable, rec.Code, rec.Body.String())
-	}
-}
-
-func TestServer_HandleBackgroundGridHeatmapChart_WithManager(t *testing.T) {
-	sensorID := "test-heatmap-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/background/heatmap?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleBackgroundGridHeatmapChart(rec, req)
-
-	// Should succeed or return error for missing template
-	t.Logf("handleBackgroundGridHeatmapChart returned status %d", rec.Code)
-}
-
-func TestServer_HandleForegroundFrameChart_WithManager(t *testing.T) {
-	sensorID := "test-fg-chart-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground/frame?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleForegroundFrameChart(rec, req)
-
-	// Should succeed or return error
-	t.Logf("handleForegroundFrameChart returned status %d", rec.Code)
-}
-
 func TestServer_HandleLidarSnapshots_ListSaved(t *testing.T) {
 	sensorID := "test-snapshots-list-" + time.Now().Format("150405")
 	cleanup := setupTestBackgroundManager(t, sensorID)
@@ -3081,7 +2392,6 @@ func TestServer_HandleLidarSnapshots_ListSaved(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3104,7 +2414,6 @@ func TestServer_HandleExportFrameSequenceASC(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3127,7 +2436,6 @@ func TestServer_HandleLidarSnapshotsCleanup_WithSensorID(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3150,7 +2458,6 @@ func TestServer_HandleBackgroundGrid_WithSensorID(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3179,7 +2486,6 @@ func TestServer_ResolvePCAPPath_WithRealFile(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-pcap-resolve",
 		PCAPSafeDir:       pcapDir,
@@ -3209,7 +2515,6 @@ func TestServer_ResolvePCAPPath_EmptyFile(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-pcap-empty",
 		PCAPSafeDir:       pcapDir,
@@ -3234,7 +2539,6 @@ func TestServer_ResolvePCAPPath_TraversalAttempt(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-pcap-traversal",
 		PCAPSafeDir:       pcapDir,
@@ -3260,7 +2564,6 @@ func TestServer_ResolvePCAPPath_NonExistentFile(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-pcap-nonexistent",
 		PCAPSafeDir:       pcapDir,
@@ -3289,7 +2592,6 @@ func TestServer_HandlePCAPStart_WithRealFile(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3333,7 +2635,6 @@ func TestServer_StartPCAPInternal(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3379,7 +2680,6 @@ func TestServer_StartPCAPInternal_NoBaseContext(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3415,7 +2715,6 @@ func TestServer_StartPCAPInternal_AlreadyRunning(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3467,7 +2766,6 @@ func TestServer_HandlePCAPStop_Success(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3514,7 +2812,6 @@ func TestServer_HandlePCAPResumeLive_Success(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3555,7 +2852,6 @@ func TestServer_StartPCAPInternal_RealtimeMode(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3584,53 +2880,6 @@ func TestServer_StartPCAPInternal_RealtimeMode(t *testing.T) {
 	server.StopPCAPInternal()
 }
 
-// TestServer_HandleBackgroundGridPolar_WithPCAPData tests polar chart with PCAP-populated data
-func TestServer_HandleBackgroundGridPolar_WithPCAPData(t *testing.T) {
-	sensorID := "test-polar-pcap-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get current directory: %v", err)
-	}
-	pcapDir := cwd + "/../perf/pcap"
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		PCAPSafeDir:       pcapDir,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	server.setBaseContext(ctx)
-
-	// Start brief PCAP to populate grid
-	replayConfig := ReplayConfig{
-		SpeedMode:       "analysis",
-		DurationSeconds: 0.2,
-	}
-	_ = server.StartPCAPInternal("kirk0.pcapng", replayConfig)
-	time.Sleep(100 * time.Millisecond)
-
-	// Request polar chart data
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/polar?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rec, req)
-
-	t.Logf("handleBackgroundGridPolar returned status %d", rec.Code)
-
-	server.StopPCAPInternal()
-}
-
 // TestServer_HandleTuningParams_POST_Complete tests setting tuning params
 func TestServer_HandleTuningParams_POST_Complete(t *testing.T) {
 	sensorID := "test-params-post-" + time.Now().Format("150405")
@@ -3639,7 +2888,6 @@ func TestServer_HandleTuningParams_POST_Complete(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3666,7 +2914,6 @@ func TestServer_HandleChartClustersJSON_WithManager(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3677,60 +2924,10 @@ func TestServer_HandleChartClustersJSON_WithManager(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters/json?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleChartClustersJSON returned status %d", rec.Code)
-}
-
-// TestServer_HandleClustersChart_WithManager tests HTML clusters chart
-func TestServer_HandleClustersChart_Complete(t *testing.T) {
-	sensorID := "test-clusters-html-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rec, req)
-
-	t.Logf("handleClustersChart returned status %d", rec.Code)
-}
-
-// TestServer_HandleForegroundFrameChart_WithManager tests foreground frame chart
-func TestServer_HandleForegroundFrameChart_Complete(t *testing.T) {
-	sensorID := "test-fg-frame-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground_frame?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	mux := server.setupRoutes()
-	mux.ServeHTTP(rec, req)
-
-	t.Logf("handleForegroundFrameChart returned status %d", rec.Code)
 }
 
 // TestServer_HandleLidarSnapshot_GET_Complete tests getting a specific snapshot
@@ -3741,7 +2938,6 @@ func TestServer_HandleLidarSnapshot_GET_Complete(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3753,7 +2949,7 @@ func TestServer_HandleLidarSnapshot_GET_Complete(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots/123?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleLidarSnapshot GET returned status %d", rec.Code)
@@ -3767,7 +2963,6 @@ func TestServer_HandleLidarSnapshots_GET_List(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3778,7 +2973,7 @@ func TestServer_HandleLidarSnapshots_GET_List(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/snapshots?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleLidarSnapshots GET returned status %d", rec.Code)
@@ -3792,7 +2987,6 @@ func TestServer_HandleExportFrameSequenceASC_Complete(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3806,7 +3000,7 @@ func TestServer_HandleExportFrameSequenceASC_Complete(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, reqURL, nil)
 	rec := httptest.NewRecorder()
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleExportFrameSequenceASC returned status %d", rec.Code)
@@ -3820,7 +3014,6 @@ func TestServer_HandleLidarPersist_Complete(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3831,7 +3024,7 @@ func TestServer_HandleLidarPersist_Complete(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/persist?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleLidarPersist returned status %d: %s", rec.Code, rec.Body.String())
@@ -3851,7 +3044,6 @@ func TestServer_StartPCAPInternal_WithDebugRange(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3893,7 +3085,6 @@ func TestServer_HandleBackgroundGrid_Complete(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -3904,7 +3095,7 @@ func TestServer_HandleBackgroundGrid_Complete(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/grid?sensor_id="+sensorID, nil)
 	rec := httptest.NewRecorder()
 
-	mux := server.setupRoutes()
+	mux := server.testMux()
 	mux.ServeHTTP(rec, req)
 
 	t.Logf("handleBackgroundGrid returned status %d", rec.Code)
@@ -3932,7 +3123,6 @@ func TestServer_IsPCAPInProgress_Complete(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		PCAPSafeDir:       pcapDir,
@@ -3977,7 +3167,6 @@ func TestServer_IsPCAPInProgress_Complete(t *testing.T) {
 func TestServer_SetTracker(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4008,7 +3197,6 @@ func TestServer_HandleTuningParams_GET_Pretty(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-pretty-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4037,7 +3225,6 @@ func TestServer_HandleTuningParams_POST_WithTracker(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-tracker-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4069,7 +3256,6 @@ func TestServer_HandleTuningParams_POST_InvalidMaxTracks(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-invalid-max-tracks",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4104,7 +3290,6 @@ func TestServer_HandleTuningParams_POST_InvalidDeletedTrackGracePeriod(t *testin
 
 	stats := NewPacketStats()
 	server := NewServer(Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-invalid-grace",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4134,7 +3319,6 @@ func TestServer_HandleTuningParams_POST_UpdatesClassifierMinObservations(t *test
 
 	stats := NewPacketStats()
 	server := NewServer(Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "params-classifier-minobs",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4171,7 +3355,6 @@ func TestServer_HandleTuningParams_POST_UpdatesClassifierMinObservations(t *test
 func TestServer_HandleChartClustersJSON_NoTrackAPI(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                nil,
@@ -4199,7 +3382,6 @@ func TestServer_HandleChartClustersJSON_WithActualDB(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                wrappedDB,
@@ -4232,7 +3414,6 @@ func TestServer_HandleChartClustersJSON_WithTimeParams(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                wrappedDB,
@@ -4258,7 +3439,6 @@ func TestServer_HandleLidarSnapshots_WithDB(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                wrappedDB,
@@ -4282,7 +3462,6 @@ func TestServer_HandleLidarSnapshotsCleanup_WithDB(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                wrappedDB,
@@ -4306,7 +3485,6 @@ func TestServer_SetTracker_WithDB(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                wrappedDB,
@@ -4330,60 +3508,13 @@ func TestServer_SetTracker_WithDB(t *testing.T) {
 
 // ====== handleClustersChart additional tests ======
 
-func TestServer_HandleClustersChart_WithDB_AndParams(t *testing.T) {
-	wrappedDB, cleanup := setupTestDBWrapped(t)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                wrappedDB,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters.html?sensor_id=test-sensor&limit=50", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleClustersChart(rr, req)
-
-	// May return OK or error depending on template availability
-	t.Logf("handleClustersChart status: %d", rr.Code)
-}
-
 // ====== handleTracksChart additional tests ======
-
-func TestServer_HandleTracksChart_WithDB_AndParams(t *testing.T) {
-	wrappedDB, cleanup := setupTestDBWrapped(t)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "test-sensor",
-		DB:                wrappedDB,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks.html?sensor_id=test-sensor&limit=50", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleTracksChart(rr, req)
-
-	// May return OK or error depending on template and data availability
-	t.Logf("handleTracksChart status: %d", rr.Code)
-}
 
 // ====== handleLidarSnapshot additional tests ======
 
 func TestServer_HandleLidarSnapshot_NoDBExtra(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4407,7 +3538,6 @@ func TestServer_HandleLidarSnapshot_WithDB_MissingID(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		DB:                wrappedDB,
@@ -4429,33 +3559,11 @@ func TestServer_HandleLidarSnapshot_WithDB_MissingID(t *testing.T) {
 
 // ====== handleForegroundFrameChart tests ======
 
-func TestServer_HandleForegroundFrameChart_NoManagerExtra(t *testing.T) {
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "nonexistent-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/foreground_frame.html?sensor_id=nonexistent-sensor", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleForegroundFrameChart(rr, req)
-
-	// Should return 404 when no manager exists
-	if rr.Code != http.StatusNotFound {
-		t.Errorf("expected 404, got %d", rr.Code)
-	}
-}
-
 // ====== handlePCAPStop additional tests ======
 
 func TestServer_HandlePCAPStop_NoSensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -4474,7 +3582,6 @@ func TestServer_HandlePCAPStop_NoSensorID(t *testing.T) {
 func TestServer_HandlePCAPStop_WrongSensorIDExtra(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "correct-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4494,7 +3601,6 @@ func TestServer_HandlePCAPStop_WrongSensorIDExtra(t *testing.T) {
 func TestServer_HandlePCAPStop_FormPost(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4516,36 +3622,11 @@ func TestServer_HandlePCAPStop_FormPost(t *testing.T) {
 
 // ====== handleBackgroundGridPolar additional tests ======
 
-func TestServer_HandleBackgroundGridPolar_WithMaxPoints(t *testing.T) {
-	cleanup := setupTestBackgroundManager(t, "polar-maxpts-sensor")
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          "polar-maxpts-sensor",
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id=polar-maxpts-sensor&max_points=1000", nil)
-	rr := httptest.NewRecorder()
-
-	server.handleBackgroundGridPolar(rr, req)
-
-	// May return 404 if no cells, or 200 if cells exist
-	if rr.Code != http.StatusOK && rr.Code != http.StatusNotFound {
-		t.Errorf("expected 200 or 404, got %d", rr.Code)
-	}
-}
-
 // ====== updateLatestFgCounts / getLatestFgCounts tests ======
 
 func TestServer_UpdateLatestFgCounts_EmptySensorID(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4564,7 +3645,6 @@ func TestServer_UpdateLatestFgCounts_EmptySensorID(t *testing.T) {
 func TestServer_UpdateLatestFgCounts_NoSnapshot(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4583,7 +3663,6 @@ func TestServer_UpdateLatestFgCounts_NoSnapshot(t *testing.T) {
 func TestServer_GetLatestFgCounts_ReturnsCopy(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -4614,7 +3693,6 @@ func TestNewServer_UDPPortAddressFallback(t *testing.T) {
 	// When UDPListenerConfig.Address is empty, NewServer should derive it
 	// from UDPPort.
 	config := Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		UDPPort:           9999,
 		UDPListenerConfig: network.UDPListenerConfig{
@@ -4634,7 +3712,6 @@ func TestNewServer_UDPPortAddressFallback(t *testing.T) {
 func TestServer_Close_WithHTTPServer(t *testing.T) {
 	// NewServer creates ws.server; Close should return server.Close() result.
 	config := Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	}
@@ -4649,8 +3726,7 @@ func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
 	// Exercises the shutdown path in Start() where both a live listener
 	// and a PCAP replay are active when the context is cancelled.
 	config := Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	}
 	srv := NewServer(config)
 	// Skip automatic listener startup so Start() proceeds straight to
@@ -4695,28 +3771,13 @@ func TestStart_ShutdownCleansUpListenerAndPCAP(t *testing.T) {
 	}
 }
 
-// Start reports ready only once its HTTP listener is bound: a request made
-// as soon as the ready hook has run is served.
-func TestStart_OnReadyRunsOnceServing(t *testing.T) {
-	probe, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr := probe.Addr().String()
-	probe.Close()
-
-	srv := NewServer(Config{Address: addr, Stats: NewPacketStats()})
+// The ready hook runs once Start is running, and Start returns cleanly when
+// its context ends.
+func TestStart_OnReadyRunsOnceRunning(t *testing.T) {
+	srv := NewServer(Config{Stats: NewPacketStats()})
 	srv.setTestSourcePCAPReplaying()
 	ready := make(chan struct{})
-	srv.SetOnReady(func() {
-		conn, err := net.Dial("tcp", addr)
-		if err != nil {
-			t.Errorf("ready hook ran before %s accepted connections: %v", addr, err)
-		} else {
-			conn.Close()
-		}
-		close(ready)
-	})
+	srv.SetOnReady(func() { close(ready) })
 
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error, 1)
@@ -4734,42 +3795,6 @@ func TestStart_OnReadyRunsOnceServing(t *testing.T) {
 	}
 }
 
-// A port already in use is returned as a startup error, before the ready
-// hook runs, rather than a fatal exit from the serving goroutine.
-func TestStart_PortInUseIsAStartupError(t *testing.T) {
-	held, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer held.Close()
-
-	srv := NewServer(Config{Address: held.Addr().String(), Stats: NewPacketStats()})
-	srv.setTestSourcePCAPReplaying()
-	srv.SetOnReady(func() { t.Error("ready hook ran although the port is in use") })
-
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Start(context.Background()) }()
-	select {
-	case err := <-errCh:
-		if err == nil {
-			t.Fatal("Start returned nil on a port in use")
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Start did not return on a port in use")
-	}
-}
-
-// Start binds the configured address, or ListenAndServe's default when
-// none was given.
-func TestListenAddress(t *testing.T) {
-	if got := listenAddress(""); got != ":http" {
-		t.Errorf("no address: %q, want :http", got)
-	}
-	if got := listenAddress("127.0.0.1:18081"); got != "127.0.0.1:18081" {
-		t.Errorf("configured address: %q", got)
-	}
-}
-
 // failingUDPSockets refuses every UDP bind, as a port already in use would.
 type failingUDPSockets struct{}
 
@@ -4777,18 +3802,10 @@ func (failingUDPSockets) ListenUDP(string, *net.UDPAddr) (network.UDPSocket, err
 	return nil, errors.New("bind: address already in use")
 }
 
-// A live UDP listener that cannot bind fails Start after its HTTP listener
-// was bound, and Start releases that listener again: the port is free once
-// Start has returned, and the ready hook never ran.
-func TestStart_UDPBindFailureReleasesTheHTTPListener(t *testing.T) {
-	probe, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr := probe.Addr().String()
-	probe.Close()
-
-	srv := NewServer(Config{Address: addr, Stats: NewPacketStats(), UDPListenerConfig: network.UDPListenerConfig{
+// Without fallback, a live UDP listener that cannot bind is a startup error,
+// and the ready hook does not run.
+func TestStart_UDPBindFailureIsAStartupError(t *testing.T) {
+	srv := NewServer(Config{Stats: NewPacketStats(), UDPListenerConfig: network.UDPListenerConfig{
 		Address: "127.0.0.1:0", SocketFactory: failingUDPSockets{},
 	}})
 	srv.SetOnReady(func() { t.Error("ready hook ran although the UDP listener failed") })
@@ -4797,77 +3814,12 @@ func TestStart_UDPBindFailureReleasesTheHTTPListener(t *testing.T) {
 	if err := srv.Start(ctx); err == nil {
 		t.Fatal("Start returned nil although the UDP listener could not bind")
 	}
-	ln, err := net.Listen("tcp", addr)
-	if err != nil {
-		t.Fatalf("HTTP port %s still held after Start failed: %v", addr, err)
-	}
-	ln.Close()
-}
-
-func TestStart_ShutdownForceClose(t *testing.T) {
-	// Exercises the force-close branch in Start() where Shutdown() fails.
-	// We keep an active connection alive past the 1 s shutdown timeout,
-	// causing Shutdown to return context.DeadlineExceeded.
-
-	// Grab an ephemeral port so we know the real address after ListenAndServe.
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("failed to get ephemeral port: %v", err)
-	}
-	addr := ln.Addr().String()
-	ln.Close()
-
-	config := Config{
-		Address: addr,
-		Stats:   NewPacketStats(),
-	}
-	srv := NewServer(config)
-	srv.setTestSourcePCAPReplaying()
-
-	// Replace the handler with one that blocks until told to stop.
-	unblock := make(chan struct{})
-	srv.server.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		}
-		<-unblock
-	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	errCh := make(chan error, 1)
-	go func() { errCh <- srv.Start(ctx) }()
-
-	// Wait for the HTTP server to bind.
-	time.Sleep(200 * time.Millisecond)
-
-	// Open a long-lived HTTP connection to the blocking handler.
-	go http.Get("http://" + addr + "/block") //nolint:errcheck
-
-	// Ensure the request is in flight before we cancel.
-	time.Sleep(200 * time.Millisecond)
-
-	// Cancel triggers shutdown.  Shutdown(1 s) will fail because the
-	// connection is still held open by our handler.
-	cancel()
-
-	select {
-	case err := <-errCh:
-		// Start should still return nil — errors are logged, not returned.
-		if err != nil {
-			t.Errorf("Start returned error: %v", err)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("Start did not return within 5 s")
-	}
-	close(unblock)
 }
 
 func TestClose_WithRunningListener(t *testing.T) {
 	// Exercises the stopLiveListenerLocked path inside Close().
 	config := Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	}
 	srv := NewServer(config)
 

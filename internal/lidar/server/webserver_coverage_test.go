@@ -22,7 +22,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
-	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -48,111 +47,9 @@ func TestCov_SetSweepStore(t *testing.T) {
 
 // --- handleSweepDashboard ---
 
-func TestCov_HandleSweepDashboard(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor"}
-
-	req := httptest.NewRequest(http.MethodGet, "/sweep-dashboard", nil)
-	w := httptest.NewRecorder()
-	ws.handleSweepDashboard(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if ct := w.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
-		t.Errorf("Content-Type = %q, want text/html", ct)
-	}
-	if !containsString(w.Body.String(), "test-sensor") {
-		t.Error("response should contain sensor ID")
-	}
-}
-
-func TestCov_HandleSweepDashboard_WithQuerySensorID(t *testing.T) {
-	ws := &Server{sensorID: "default-sensor"}
-
-	req := httptest.NewRequest(http.MethodGet, "/sweep-dashboard?sensor_id=custom-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleSweepDashboard(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if !containsString(w.Body.String(), "custom-sensor") {
-		t.Error("response should contain custom sensor ID")
-	}
-}
-
-// TestCov_SweepDashboardJS_ClipID verifies that the sweep dashboard JS
-// uses clip_id (not the old scene_id) when populating the scene select
-// dropdown. This catches regressions from the lidar_scenes → lidar_clips
-// rename.
-func TestCov_SweepDashboardJS_ClipID(t *testing.T) {
-	content, err := l9endpoints.ReadLegacyAsset("sweep_dashboard.js")
-	if err != nil {
-		t.Fatalf("failed to read embedded sweep_dashboard.js: %v", err)
-	}
-
-	body := string(content)
-
-	if !containsString(body, "s.clip_id") {
-		t.Error("sweep_dashboard.js should reference s.clip_id for scene dropdown")
-	}
-
-	if containsString(body, "s.scene_id") {
-		t.Error("sweep_dashboard.js must not reference s.scene_id (renamed to clip_id)")
-	}
-}
-
 // --- handleBackgroundGridPolar ---
 
-func TestCov_HandleBackgroundGridPolar_NoManager(t *testing.T) {
-	ws := &Server{sensorID: "no-such-sensor-bg"}
-
-	req := httptest.NewRequest(http.MethodGet, "/background-grid-polar", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
-func TestCov_HandleBackgroundGridPolar_WithQuerySensorID(t *testing.T) {
-	ws := &Server{sensorID: "default-sensor-bg"}
-
-	req := httptest.NewRequest(http.MethodGet, "/background-grid-polar?sensor_id=nonexistent-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusNotFound, w.Body.String())
-	}
-}
-
 // --- handleForegroundFrameChart ---
-
-func TestCov_HandleForegroundFrameChart_NoSnapshot(t *testing.T) {
-	ws := &Server{sensorID: "no-such-sensor-fg"}
-
-	req := httptest.NewRequest(http.MethodGet, "/foreground-frame-chart", nil)
-	w := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
-func TestCov_HandleForegroundFrameChart_QuerySensor(t *testing.T) {
-	ws := &Server{sensorID: "default-sensor-fg"}
-
-	req := httptest.NewRequest(http.MethodGet, "/foreground-frame-chart?sensor_id=nonexistent", nil)
-	w := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
 
 // --- handleLidarSnapshot ---
 
@@ -834,61 +731,9 @@ func TestCov2_HandleGridHeatmap_NoManager(t *testing.T) {
 
 // --- handleBackgroundGridHeatmapChart ---
 
-func TestCov2_HandleBgHeatmapChart_NoManager(t *testing.T) {
-	ws := &Server{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/heatmap?sensor_id=nonexistent", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
 // --- handleClustersChart ---
 
-func TestCov2_HandleClustersChart_NilTrackAPI(t *testing.T) {
-	ws := &Server{trackAPI: nil}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id=s1", nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
-	}
-}
-
-func TestCov2_HandleClustersChart_WithDB(t *testing.T) {
-	ws := setupCov2Server(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id=test-sensor&start=1000000&end=2000000&limit=50", nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	// Schema may not match perfectly; exercises the handler's DB query path
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 200 or 500", w.Code)
-	}
-}
-
 // --- handleTracksChart ---
-
-func TestCov2_HandleTracksChart_NilTrackAPI(t *testing.T) {
-	ws := &Server{trackAPI: nil}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks?sensor_id=s1", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusServiceUnavailable {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
-	}
-}
-
-func TestCov2_HandleTracksChart_WithDB(t *testing.T) {
-	ws := setupCov2Server(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks?sensor_id=test-sensor&state=active", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	// Schema may not match perfectly; exercises the handler's DB query path
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d, want 200 or 500", w.Code)
-	}
-}
 
 // --- handleExportSnapshotASC ---
 
@@ -1376,17 +1221,6 @@ func TestCov2_HandleBackgroundRegions_NoManager(t *testing.T) {
 
 // --- handleBackgroundRegionsDashboard ---
 
-func TestCov2_HandleBgRegionsDashboard_NoManager(t *testing.T) {
-	ws := &Server{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid/regions/dashboard?sensor_id=nonexistent", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(w, req)
-	// Handler renders HTML template; check it completes without panic
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
 // --- handlePlaybackStatus ---
 
 func TestCov2_HandlePlaybackStatus_NoCallback(t *testing.T) {
@@ -1556,27 +1390,7 @@ func TestCov2_HandleVRLogStop_WithCallback(t *testing.T) {
 
 // --- handleTrafficChart ---
 
-func TestCov2_HandleTrafficChart_NoStats(t *testing.T) {
-	ws := &Server{stats: nil}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/traffic", nil)
-	w := httptest.NewRecorder()
-	ws.handleTrafficChart(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
 // --- handleLidarDebugDashboard ---
-
-func TestCov2_HandleLidarDebugDashboard(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor"}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/debug?sensor_id=test-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleLidarDebugDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
 
 // --- updateLatestFgCounts ---
 
@@ -1605,16 +1419,6 @@ func TestCov2_GetLatestFgCounts_Empty(t *testing.T) {
 }
 
 // --- handleStatus ---
-
-func TestCov2_HandleStatus_GET(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor", stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/lidar/server", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-}
 
 // --- resetBackgroundGrid ---
 
@@ -1982,239 +1786,13 @@ func TestCov3_HandleLidarSnapshotsCleanup_FormValueSensorID(t *testing.T) {
 
 // --- handleBackgroundGridPolar ---
 
-func TestCov3_HandleBackgroundGridPolar_NoManager(t *testing.T) {
-	ws := &Server{sensorID: "cov3-polar-noexist"}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
-func TestCov3_HandleBackgroundGridPolar_WithManager(t *testing.T) {
-	sensorID := "cov3-polar-mgr"
-	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sensorID, bm)
-
-	// Populate grid with some data
-	populateGridCell(bm, 0, 0, 5.0, 1)
-	populateGridCell(bm, 1, 10, 3.0, 2)
-	populateGridCell(bm, 2, 20, 7.0, 3)
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
-		t.Errorf("content-type = %s, want text/html", ct)
-	}
-}
-
-func TestCov3_HandleBackgroundGridPolar_MaxPointsParam(t *testing.T) {
-	sensorID := "cov3-polar-max"
-	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sensorID, bm)
-	populateGridCell(bm, 0, 0, 5.0, 1)
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id="+sensorID+"&max_points=200", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
-func TestCov3_HandleBackgroundGridPolar_EmptyCells(t *testing.T) {
-	sensorID := "cov3-polar-empty"
-	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sensorID, bm)
-	// Grid created but no cells populated
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(w, req)
-	// Expect NotFound because GetGridCells returns empty
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
 // --- handleBackgroundGridHeatmapChart ---
-
-func TestCov3_HandleBgHeatmapChart_WithManager(t *testing.T) {
-	sensorID := "cov3-heatmap-mgr"
-	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sensorID, bm)
-	// Populate enough cells to produce heatmap buckets
-	for ring := 0; ring < 10; ring++ {
-		for az := 0; az < 36; az++ {
-			populateGridCell(bm, ring, az, float32(ring+1)*0.5, uint32(ring+1))
-		}
-	}
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/heatmap?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(w, req)
-	// May succeed or fail depending on heatmap generation; either way we exercise the code
-	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want 200 or 404", w.Code)
-	}
-}
-
-func TestCov3_HandleBgHeatmapChart_AzBucketParam(t *testing.T) {
-	sensorID := "cov3-heatmap-az"
-	bm := l3grid.NewBackgroundManager(sensorID, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sensorID, bm)
-	for ring := 0; ring < 10; ring++ {
-		for az := 0; az < 36; az++ {
-			populateGridCell(bm, ring, az, float32(ring+1), uint32(ring+1)*2)
-		}
-	}
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/heatmap?sensor_id="+sensorID+"&azimuth_bucket_deg=10&settled_threshold=2", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(w, req)
-	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
-		t.Errorf("status = %d", w.Code)
-	}
-}
 
 // --- handleForegroundFrameChart ---
 
-func TestCov3_HandleForegroundFrameChart_NoSnapshot(t *testing.T) {
-	ws := &Server{sensorID: "cov3-fg-nosnap"}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id=cov3-fg-nosnap", nil)
-	w := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
-func TestCov3_HandleForegroundFrameChart_WithSnapshot(t *testing.T) {
-	sensorID := "cov3-fg-snap"
-	// Register a foreground snapshot using StoreForegroundSnapshot
-	fgPoints := []l2frames.PointPolar{
-		{Channel: 0, Azimuth: 10, Distance: 2.24, Elevation: 0},
-		{Channel: 1, Azimuth: 20, Distance: 3.16, Elevation: 0},
-		{Channel: 2, Azimuth: 30, Distance: 0.71, Elevation: 0},
-	}
-	bgPoints := []l2frames.PointPolar{
-		{Channel: 0, Azimuth: 50, Distance: 6.4, Elevation: 0},
-		{Channel: 1, Azimuth: 60, Distance: 3.6, Elevation: 0},
-	}
-	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 5, 3)
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
-		t.Errorf("content-type = %s, want text/html", ct)
-	}
-}
-
-func TestCov3_HandleForegroundFrameChart_DefaultSensorID(t *testing.T) {
-	sensorID := "cov3-fg-default"
-	fgPoints := []l2frames.PointPolar{
-		{Channel: 0, Azimuth: 10, Distance: 2.24, Elevation: 0},
-	}
-	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, nil, 1, 1)
-
-	ws := &Server{sensorID: sensorID}
-	// No sensor_id param — should use ws.sensorID
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground", nil)
-	w := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
 // --- handleClustersChart (deeper coverage) ---
 
-func TestCov3_HandleClustersChart_WithData(t *testing.T) {
-	ws := setupCov3Server(t)
-	// Insert cluster data
-	now := time.Now().UnixNano()
-	for i := 0; i < 5; i++ {
-		_, err := ws.trackAPI.db.Exec(
-			`INSERT INTO lidar_clusters (sensor_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z, points_count)
-			 VALUES (?, ?, ?, ?, 0, ?)`,
-			"cov3-sensor", now-int64(i*1e9), float64(i)*1.5, float64(i)*-0.5, (i+1)*10,
-		)
-		if err != nil {
-			t.Fatalf("insert cluster: %v", err)
-		}
-	}
-
-	ws.sensorID = "cov3-sensor"
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/clusters?sensor_id=cov3-sensor&limit=10", nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	// Might succeed or fail on DB schema differences; either way exercises code
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", w.Code)
-	}
-}
-
-func TestCov3_HandleClustersChart_WithTimeRange(t *testing.T) {
-	ws := setupCov3Server(t)
-	ws.sensorID = "cov3-sensor"
-	now := time.Now().Unix()
-	url := fmt.Sprintf("/debug/lidar/clusters?sensor_id=cov3-sensor&start=%d&end=%d", now-3600, now)
-	req := httptest.NewRequest(http.MethodGet, url, nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	// Accept any status since DB schema might not match perfectly
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", w.Code)
-	}
-}
-
 // --- handleTracksChart (deeper coverage) ---
-
-func TestCov3_HandleTracksChart_WithData(t *testing.T) {
-	ws := setupCov3Server(t)
-	_, err := ws.trackAPI.db.Exec(
-		`INSERT INTO lidar_tracked_objects (track_id, sensor_id, state, x, y, observation_count)
-		 VALUES ('t1', 'cov3-sensor', 'active', 1.0, 2.0, 5),
-		        ('t2', 'cov3-sensor', 'active', -1.0, 3.0, 10)`,
-	)
-	if err != nil {
-		t.Fatalf("insert tracks: %v", err)
-	}
-
-	ws.sensorID = "cov3-sensor"
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks?sensor_id=cov3-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", w.Code)
-	}
-}
-
-func TestCov3_HandleTracksChart_WithStateParam(t *testing.T) {
-	ws := setupCov3Server(t)
-	ws.sensorID = "cov3-sensor"
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks?sensor_id=cov3-sensor&state=active", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", w.Code)
-	}
-}
 
 // --- handleExportSnapshotASC (deeper paths) ---
 
@@ -2477,7 +2055,7 @@ func TestCov3_HandleBackgroundRegions_WithManager(t *testing.T) {
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id="+sensorID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sensorID, nil)
 	w := httptest.NewRecorder()
 	ws.handleBackgroundRegions(w, req)
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
@@ -2492,7 +2070,7 @@ func TestCov3_HandleBackgroundRegions_IncludeCells(t *testing.T) {
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id="+sensorID+"&include_cells=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sensorID+"&include_cells=true", nil)
 	w := httptest.NewRecorder()
 	ws.handleBackgroundRegions(w, req)
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
@@ -2539,19 +2117,6 @@ func TestCov3_HandleGridHeatmap_NilHeatmap(t *testing.T) {
 
 // --- handleTrafficChart (success path) ---
 
-func TestCov3_HandleTrafficChart_WithStats(t *testing.T) {
-	ws := &Server{stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/traffic", nil)
-	w := httptest.NewRecorder()
-	ws.handleTrafficChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
-		t.Errorf("content-type = %s, want text/html", ct)
-	}
-}
-
 // --- Close ---
 
 func TestCov3_Close_NilServer(t *testing.T) {
@@ -2574,15 +2139,6 @@ func TestCov3_Close_WithPCAPCancel(t *testing.T) {
 		pcapCancel: cancel,
 		pcapDone:   done,
 	}
-	err := ws.Close()
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-}
-
-func TestCov3_Close_WithServer(t *testing.T) {
-	srv := &http.Server{Addr: "127.0.0.1:0"}
-	ws := &Server{server: srv}
 	err := ws.Close()
 	if err != nil {
 		t.Errorf("expected nil error, got %v", err)
@@ -3071,16 +2627,6 @@ func TestCov3_HandleDataSource_GET(t *testing.T) {
 
 // --- handleSweepDashboard ---
 
-func TestCov3_HandleSweepDashboard(t *testing.T) {
-	ws := &Server{sensorID: "cov3-sweep"}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/sweep?sensor_id=cov3-sweep", nil)
-	w := httptest.NewRecorder()
-	ws.handleSweepDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
 // --- handleLidarStatus ---
 
 func TestCov3_HandleLidarStatus_GET(t *testing.T) {
@@ -3117,7 +2663,6 @@ func TestCov3_Start_ContextCancel(t *testing.T) {
 		sensorID: "cov3-start",
 		stats:    NewPacketStats(),
 		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1}, // Skip live listener start
-		server:   &http.Server{Addr: "127.0.0.1:0", Handler: mux},
 	}
 	ws.RegisterRoutes(mux)
 
@@ -3171,16 +2716,6 @@ func TestCov3_UpdateLatestFgCounts_WithSnapshot(t *testing.T) {
 }
 
 // --- handleBackgroundRegionsDashboard ---
-
-func TestCov3_HandleBackgroundRegionsDashboard(t *testing.T) {
-	ws := &Server{sensorID: "cov3-regdash"}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions/dashboard?sensor_id=cov3-regdash", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
 
 // --- handlePCAPStart via JSON (covers form data parsing) ---
 
@@ -3501,153 +3036,7 @@ func setupTrackDB(t *testing.T) *sql.DB {
 	return rawDB
 }
 
-func TestCov3_HandleClustersChart_WithDBData(t *testing.T) {
-	ws := setupCov3Server(t)
-	rawDB := setupTrackDB(t)
-	ws.trackAPI = &TrackAPI{db: rawDB}
-
-	sensorID := "cov3-cluster-data"
-	now := time.Now().UnixNano()
-	_, err := rawDB.Exec(`INSERT INTO lidar_clusters
-		(sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
-		 bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
-		VALUES (?, 'world', ?, 1.5, 2.5, 0.3, 0.8, 0.6, 0.4, 15, 0.9, 100.0)`,
-		sensorID, now)
-	if err != nil {
-		t.Fatalf("insert cluster: %v", err)
-	}
-	_, err = rawDB.Exec(`INSERT INTO lidar_clusters
-		(sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
-		 bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
-		VALUES (?, 'world', ?, -3.0, 4.0, 0.1, 1.2, 0.9, 0.5, 25, 1.1, 120.0)`,
-		sensorID, now-1000)
-	if err != nil {
-		t.Fatalf("insert cluster 2: %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/clusters_chart?sensor_id="+sensorID+"&limit=50", nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html content type, got %s", w.Header().Get("Content-Type"))
-	}
-}
-
-func TestCov3_HandleClustersChart_EmptyResult(t *testing.T) {
-	ws := setupCov3Server(t)
-	rawDB := setupTrackDB(t)
-	ws.trackAPI = &TrackAPI{db: rawDB}
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/clusters_chart?sensor_id=nonexistent", nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
-func TestCov3_HandleClustersChart_WithDBTimeRange(t *testing.T) {
-	ws := setupCov3Server(t)
-	rawDB := setupTrackDB(t)
-	ws.trackAPI = &TrackAPI{db: rawDB}
-	ws.sensorID = "cov3-cluster-time"
-
-	now := time.Now()
-	_, _ = rawDB.Exec(`INSERT INTO lidar_clusters
-		(sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z,
-		 bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
-		VALUES (?, 'world', ?, 0.0, 0.0, 0.0, 0.5, 0.5, 0.5, 5, 0.5, 50.0)`,
-		"cov3-cluster-time", now.UnixNano())
-
-	start := fmt.Sprintf("%d", now.Add(-1*time.Hour).Unix())
-	end := fmt.Sprintf("%d", now.Add(1*time.Hour).Unix())
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/clusters_chart?start="+start+"&end="+end, nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
 // --- handleTracksChart with DB data ---
-
-func TestCov3_HandleTracksChart_WithDBData(t *testing.T) {
-	ws := setupCov3Server(t)
-	rawDB := setupTrackDB(t)
-	ws.trackAPI = &TrackAPI{db: rawDB}
-
-	sensorID := "cov3-track-data"
-	now := time.Now().UnixNano()
-	_, err := rawDB.Exec(`INSERT INTO lidar_tracks
-		(track_id, sensor_id, track_state, start_unix_nanos, end_unix_nanos,
-		 observation_count, avg_speed_mps, max_speed_mps,
-		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-		 height_p95_max, intensity_mean_avg)
-		VALUES ('t1', ?, 'active', ?, ?, 10, 1.5, 3.0, 0.5, 0.3, 0.4, 0.8, 90.0)`,
-		sensorID, now-1000000, now)
-	if err != nil {
-		t.Fatalf("insert track: %v", err)
-	}
-	_, err = rawDB.Exec(`INSERT INTO lidar_tracks
-		(track_id, sensor_id, track_state, start_unix_nanos,
-		 observation_count, avg_speed_mps, max_speed_mps,
-		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-		 height_p95_max, intensity_mean_avg)
-		VALUES ('t2', ?, 'completed', ?, 5, 0.8, 1.2, 0.4, 0.2, 0.3, 0.6, 70.0)`,
-		sensorID, now-2000000)
-	if err != nil {
-		t.Fatalf("insert track 2: %v", err)
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks_chart?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html content type")
-	}
-}
-
-func TestCov3_HandleTracksChart_EmptyResult(t *testing.T) {
-	ws := setupCov3Server(t)
-	rawDB := setupTrackDB(t)
-	ws.trackAPI = &TrackAPI{db: rawDB}
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks_chart?sensor_id=nonexistent", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
-func TestCov3_HandleTracksChart_WithStateFilter(t *testing.T) {
-	ws := setupCov3Server(t)
-	rawDB := setupTrackDB(t)
-	ws.trackAPI = &TrackAPI{db: rawDB}
-
-	sensorID := "cov3-track-state"
-	now := time.Now().UnixNano()
-	_, _ = rawDB.Exec(`INSERT INTO lidar_tracks
-		(track_id, sensor_id, track_state, start_unix_nanos,
-		 observation_count, avg_speed_mps, max_speed_mps,
-		 bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg,
-		 height_p95_max, intensity_mean_avg)
-		VALUES ('t1', ?, 'active', ?, 8, 1.0, 2.0, 0.3, 0.3, 0.3, 0.7, 80.0)`,
-		sensorID, now)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/tracks_chart?sensor_id="+sensorID+"&state=active", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
 
 // --- handlePCAPStop deeper paths ---
 
@@ -3855,31 +3244,6 @@ func TestCov3_HandleLidarSnapshotsCleanup_NilDB(t *testing.T) {
 }
 
 // --- handleForegroundFrameChart deeper coverage ---
-
-func TestCov3_HandleForegroundFrameChart_WithBackgroundPoints(t *testing.T) {
-	sensorID := "cov3-fg-bg-pts"
-	fgPoints := []l2frames.PointPolar{
-		{Channel: 0, Azimuth: 45, Distance: 1.5, Elevation: 0},
-		{Channel: 1, Azimuth: 90, Distance: 2.0, Elevation: 5},
-	}
-	bgPoints := []l2frames.PointPolar{
-		{Channel: 0, Azimuth: 180, Distance: 5.0, Elevation: -5},
-		{Channel: 1, Azimuth: 270, Distance: 7.0, Elevation: 0},
-		{Channel: 2, Azimuth: 315, Distance: 3.0, Elevation: 10},
-	}
-	l3grid.StoreForegroundSnapshot(sensorID, time.Now(), fgPoints, bgPoints, 5, 2)
-
-	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground_frame_chart?sensor_id="+sensorID, nil)
-	w := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html content type")
-	}
-}
 
 // --- resolvePCAPPath deeper edge cases ---
 
@@ -4524,91 +3888,9 @@ func TestCov4_HandleTrafficStats_NilStats(t *testing.T) {
 
 // --- handleBackgroundGridHeatmapChart with registered BackgroundManager ---
 
-func TestCov4_HandleBackgroundGridHeatmapChart_NoBGManager(t *testing.T) {
-	ws := &Server{sensorID: "nonexistent-sensor-heatmap", stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/bg-heatmap", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
-func TestCov4_HandleBackgroundGridHeatmapChart_WithBGManager(t *testing.T) {
-	sensorID := fmt.Sprintf("cov4-heatmap-%d", time.Now().UnixNano())
-	params := l3grid.BackgroundParams{}
-	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	l3grid.RegisterBackgroundManager(sensorID, mgr)
-
-	// Populate some cells so heatmap has data
-	for i := 0; i < 5; i++ {
-		populateGridCell(mgr, i%10, i*3, float32(5+i), uint32(10+i))
-	}
-
-	ws := &Server{sensorID: sensorID, stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/bg-heatmap?sensor_id="+sensorID+"&azimuth_bucket_deg=10&settled_threshold=3", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(w, req)
-	// Expect either 200 with HTML content, or 404 if heatmap has no buckets
-	if w.Code != http.StatusOK && w.Code != http.StatusNotFound {
-		t.Errorf("status = %d; body: %s", w.Code, w.Body.String())
-	}
-}
-
 // --- handleClustersChart with DB data ---
 
-func TestCov4_HandleClustersChart_WithData(t *testing.T) {
-	ws := setupCov4Server(t)
-
-	// Insert some clusters into the DB
-	now := time.Now().UnixNano()
-	for i := 0; i < 5; i++ {
-		_, err := ws.db.DB.Exec(
-			`INSERT INTO lidar_clusters (sensor_id, frame_id, ts_unix_nanos, centroid_x, centroid_y, centroid_z, bounding_box_length, bounding_box_width, bounding_box_height, points_count, height_p95, intensity_mean)
-			 VALUES (?, 'world', ?, ?, ?, 0.0, 1.0, 0.5, 0.3, ?, 0.5, 100.0)`,
-			"cov4-sensor", now-int64(i)*1e8, float64(i)*1.5, float64(i)*2.0, 10+i,
-		)
-		if err != nil {
-			t.Fatalf("insert cluster: %v", err)
-		}
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/clusters?sensor_id=cov4-sensor&limit=10", nil)
-	w := httptest.NewRecorder()
-	ws.handleClustersChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html content type, got %s", w.Header().Get("Content-Type"))
-	}
-}
-
 // --- handleTracksChart with DB data ---
-
-func TestCov4_HandleTracksChart_WithData(t *testing.T) {
-	ws := setupCov4Server(t)
-
-	// Insert some tracks
-	now := time.Now().UnixNano()
-	for i := 0; i < 3; i++ {
-		_, err := ws.db.DB.Exec(
-			`INSERT INTO lidar_tracks (track_id, sensor_id, frame_id, track_state, start_unix_nanos, end_unix_nanos, observation_count, avg_speed_mps, max_speed_mps, bounding_box_length_avg, bounding_box_width_avg, bounding_box_height_avg, height_p95_max, intensity_mean_avg, object_class, object_confidence, classification_model)
-			 VALUES (?, 'cov4-sensor', 'world', 'active', ?, ?, 5, 2.0, 3.0, 1.5, 0.8, 0.5, 1.0, 100.0, 'vehicle', 0.9, 'default')`,
-			fmt.Sprintf("track-%d", i), now-int64(i)*1e9, now,
-		)
-		if err != nil {
-			t.Fatalf("insert track: %v", err)
-		}
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/chart/tracks?sensor_id=cov4-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleTracksChart(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-}
 
 // --- handleDataSource ---
 
@@ -4659,67 +3941,6 @@ func TestCov4_HandleLidarStatus_WithStats(t *testing.T) {
 
 // --- handleStatus (HTML status page) ---
 
-func TestCov4_HandleStatus_HTMLPage(t *testing.T) {
-	sensorID := fmt.Sprintf("cov4-status-html-%d", time.Now().UnixNano())
-	params := l3grid.BackgroundParams{}
-	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	l3grid.RegisterBackgroundManager(sensorID, mgr)
-
-	tracker := l5tracks.NewTracker(l5tracks.TrackerConfig{
-		GatingDistanceSquared: 25.0,
-		HitsToConfirm:         3,
-		MaxMisses:             5,
-		MaxMissesConfirmed:    10,
-		MaxTracks:             100,
-	})
-
-	ws := &Server{
-		sensorID:          sensorID,
-		stats:             NewPacketStats(),
-		tracker:           tracker,
-		latestFgCounts:    map[string]int{},
-		forwardingEnabled: true,
-		forwardAddr:       "10.0.0.1",
-		forwardPort:       2369,
-		parsingEnabled:    false,
-		pcapSafeDir:       "/data/pcap",
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/server", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html, got %s", w.Header().Get("Content-Type"))
-	}
-	body := w.Body.String()
-	// Status page now renders nested JSON (not flat dot-path keys)
-	if !strings.Contains(body, "background_update_fraction") {
-		t.Errorf("status page should render tuning config with background_update_fraction, body: %s", body)
-	}
-	if !strings.Contains(body, "neighbour_confirmation_count") {
-		t.Errorf("status page should render neighbour_confirmation_count, body: %s", body)
-	}
-	if strings.Contains(body, "neighbor_confirmation_count") {
-		t.Errorf("status page should not render legacy neighbour key, body: %s", body)
-	}
-	if strings.Contains(body, "safety_margin_meters") {
-		t.Errorf("status page should not render legacy metres spelling, body: %s", body)
-	}
-}
-
-func TestCov4_HandleStatus_WrongPath(t *testing.T) {
-	ws := &Server{stats: NewPacketStats(), latestFgCounts: map[string]int{}}
-	req := httptest.NewRequest(http.MethodGet, "/some/other/path", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
 // --- handleGridHeatmap with registered BackgroundManager ---
 
 func TestCov4_HandleGridHeatmap_WithBGManager(t *testing.T) {
@@ -4743,19 +3964,6 @@ func TestCov4_HandleGridHeatmap_WithBGManager(t *testing.T) {
 }
 
 // --- handleBackgroundRegionsDashboard ---
-
-func TestCov4_HandleBackgroundRegionsDashboard(t *testing.T) {
-	ws := &Server{sensorID: "cov4-dashboard", stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions/dashboard?sensor_id=my-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html, got %s", w.Header().Get("Content-Type"))
-	}
-}
 
 // setupCov5Server creates a minimal Server for targeted coverage tests.
 func setupCov5Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
@@ -4784,8 +3992,6 @@ func setupCov5Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
 		sensorID:       sensorID,
 		stats:          NewPacketStats(),
 		trackAPI:       trackAPI,
-		address:        "127.0.0.1:0",
-		server:         &http.Server{Addr: "127.0.0.1:0"},
 		latestFgCounts: make(map[string]int),
 	}
 	return ws, sqlDB
@@ -5095,42 +4301,6 @@ func TestCov5_HandleTuningParams_GetPretty(t *testing.T) {
 	}
 }
 
-// --- handleBackgroundGridPolar: with real bg manager ---
-func TestCov5_HandleBackgroundGridPolar_WithBgManager(t *testing.T) {
-	sid := fmt.Sprintf("cov5-bgpolar-%d", time.Now().UnixNano())
-	ws, _ := setupCov5Server(t, sid)
-
-	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sid, bm)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid/polar?sensor_id="+sid, nil)
-	rec := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(rec, req)
-
-	// May succeed with data, return 404 for empty cells, or 500 for rendering error
-	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound && rec.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", rec.Code)
-	}
-}
-
-// --- handleBackgroundGridPolar: with ring/azimuth params ---
-func TestCov5_HandleBackgroundGridPolar_WithRangeParams(t *testing.T) {
-	sid := fmt.Sprintf("cov5-bgpolar-range-%d", time.Now().UnixNano())
-	ws, _ := setupCov5Server(t, sid)
-
-	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sid, bm)
-
-	req := httptest.NewRequest(http.MethodGet,
-		"/api/lidar/grid/polar?sensor_id="+sid+"&ring_min=5&ring_max=50&az_min=10&az_max=350", nil)
-	rec := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(rec, req)
-
-	if rec.Code != http.StatusOK && rec.Code != http.StatusNotFound && rec.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", rec.Code)
-	}
-}
-
 // --- handleBackgroundGrid: with bg manager ---
 func TestCov5_HandleBackgroundGrid_WithBgManager(t *testing.T) {
 	sid := fmt.Sprintf("cov5-bggrid-%d", time.Now().UnixNano())
@@ -5148,24 +4318,6 @@ func TestCov5_HandleBackgroundGrid_WithBgManager(t *testing.T) {
 	}
 }
 
-// --- handleBackgroundRegionsDashboard: with bg manager ---
-func TestCov5_HandleBackgroundRegionsDashboard_WithBgManager(t *testing.T) {
-	sid := fmt.Sprintf("cov5-regionsdash-%d", time.Now().UnixNano())
-	ws, _ := setupCov5Server(t, sid)
-
-	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sid, bm)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions/dashboard?sensor_id="+sid, nil)
-	rec := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(rec, req)
-
-	// Renders HTML even with empty grid
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d", rec.Code)
-	}
-}
-
 // --- Start: basic lifecycle ---
 func TestCov5_Start_BasicLifecycle(t *testing.T) {
 	sid := fmt.Sprintf("cov5-start-%d", time.Now().UnixNano())
@@ -5174,7 +4326,6 @@ func TestCov5_Start_BasicLifecycle(t *testing.T) {
 	// Set up a real server on random port
 	mux := http.NewServeMux()
 	ws.RegisterRoutes(mux)
-	ws.server = &http.Server{Addr: "127.0.0.1:0", Handler: mux}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -5226,29 +4377,6 @@ func TestCov5_HandleLidarSnapshotsCleanup_WithData(t *testing.T) {
 
 	// The cleanup may fail if DB method doesn't exist, but handler execution covers branches
 	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", rec.Code)
-	}
-}
-
-// --- handleStatus: with full state ---
-func TestCov5_HandleStatus_FullState(t *testing.T) {
-	sid := fmt.Sprintf("cov5-status-%d", time.Now().UnixNano())
-	ws, _ := setupCov5Server(t, sid)
-
-	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sid, bm)
-
-	tc := l5tracks.DefaultTrackerConfig()
-	ws.tracker = l5tracks.NewTracker(tc)
-
-	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
-	l2frames.RegisterFrameBuilder(sid, fb)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/server?sensor_id="+sid, nil)
-	rec := httptest.NewRecorder()
-	ws.handleStatus(rec, req)
-
-	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d", rec.Code)
 	}
 }
@@ -5322,8 +4450,6 @@ func setupCov6Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
 		sensorID:       sensorID,
 		stats:          NewPacketStats(),
 		trackAPI:       trackAPI,
-		address:        "127.0.0.1:0",
-		server:         &http.Server{Addr: "127.0.0.1:0"},
 		latestFgCounts: make(map[string]int),
 	}
 	return ws, sqlDB
@@ -5466,36 +4592,7 @@ func TestCov6_HandleExportFrameSequenceASC_Success(t *testing.T) {
 
 // ---------- 6. handleBackgroundGridHeatmapChart no manager → 404 (lines 1764-1767, 2 stmts) ----------
 
-func TestCov6_HandleBackgroundGridHeatmapChart_NoManager(t *testing.T) {
-	sid := fmt.Sprintf("cov6-heatmap-nomgr-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	// Do NOT register a background manager — the handler should return 404.
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/heatmap?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(rr, req)
-
-	assert.Equal(t, http.StatusNotFound, rr.Code)
-	assert.Contains(t, rr.Body.String(), "no background data available")
-}
-
 // ---------- 6b. handleBackgroundGridHeatmapChart azimuth_bucket_deg + settled_threshold params ----------
-
-func TestCov6_HandleBackgroundGridHeatmapChart_WithParams(t *testing.T) {
-	sid := fmt.Sprintf("cov6-heatmap-params-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	require.NotNil(t, mgr)
-
-	req := httptest.NewRequest(http.MethodGet,
-		"/debug/lidar/background/heatmap?sensor_id="+sid+"&azimuth_bucket_deg=10&settled_threshold=2", nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(rr, req)
-
-	// Renders a chart even with empty cells (all FilledCells=0), exercising the param parsing.
-	assert.Equal(t, http.StatusOK, rr.Code)
-}
 
 // ---------- 7. handlePCAPStop analysis mode path (lines 3190-3193, 2 stmts) ----------
 // This covers the "analysisMode" branch: resetFrameBuilder + log.
@@ -5675,7 +4772,7 @@ func TestCov6_HandleBackgroundRegions_NilRegionInfo(t *testing.T) {
 	require.NotNil(t, mgr)
 	mgr.Grid.RegionMgr = nil // Force nil
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id="+sid, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
 	ws.handleBackgroundRegions(rr, req)
 
@@ -5873,151 +4970,22 @@ func TestCov6_HandleAcceptanceMetrics_DebugWithData(t *testing.T) {
 // Populates grid cells directly to exercise the data path in the polar chart handler,
 // covering the maxAbs/maxSeen branches and the stride computation.
 
-func TestCov6_HandleBackgroundGridPolar_PopulatedGrid(t *testing.T) {
-	sid := fmt.Sprintf("cov6-bgpolar-pop-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	require.NotNil(t, mgr)
-
-	// Populate several cells to make GetGridCells return non-empty data.
-	// We need cells with varying azimuth+range to exercise both x>maxAbs and y>maxAbs branches.
-	for ring := 0; ring < 5; ring++ {
-		for az := 0; az < 18; az++ { // half the azimuth bins
-			idx := ring*36 + az
-			mgr.Grid.Cells[idx].AverageRangeMeters = float32(ring+1) * 2.0
-			mgr.Grid.Cells[idx].TimesSeenCount = uint32(ring + 1)
-		}
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(rr, req)
-
-	// Should render an HTML chart with the populated data.
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "LiDAR Background")
-}
-
 // ---------- 25. handleBackgroundGridHeatmapChart with populated cells ----------
 // Exercises the heatmap rendering paths when FilledCells > 0 and MeanTimesSeen > 0.
 
-func TestCov6_HandleBackgroundGridHeatmapChart_PopulatedGrid(t *testing.T) {
-	sid := fmt.Sprintf("cov6-heatmap-pop-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	mgr := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	require.NotNil(t, mgr)
-
-	// Populate cells with data to produce non-empty heatmap buckets.
-	for ring := 0; ring < 10; ring++ {
-		for az := 0; az < 36; az++ {
-			idx := ring*36 + az
-			mgr.Grid.Cells[idx].AverageRangeMeters = float32(ring+1) * 1.5
-			mgr.Grid.Cells[idx].TimesSeenCount = uint32(az + 3)
-		}
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/heatmap?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundGridHeatmapChart(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "LiDAR Background Heatmap")
-}
-
 // ---------- 26. handleForegroundFrameChart with populated foreground data ----------
 // Exercises rendering when foreground + background points exist, covering pad=0 and totalPoints branches.
-
-func TestCov6_HandleForegroundFrameChart_WithData(t *testing.T) {
-	sid := fmt.Sprintf("cov6-fgchart-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	// Store foreground + background points so the chart has data to render.
-	fg := make([]l2frames.PointPolar, 5)
-	bg := make([]l2frames.PointPolar, 10)
-	for i := range fg {
-		fg[i] = l2frames.PointPolar{Channel: 0, Azimuth: float64(i) * 30.0, Distance: float64(i+1) * 2.0}
-	}
-	for i := range bg {
-		bg[i] = l2frames.PointPolar{Channel: 0, Azimuth: float64(i) * 36.0, Distance: float64(i+1) * 3.0}
-	}
-	l3grid.StoreForegroundSnapshot(sid, time.Now(), fg, bg, 15, 5)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Foreground")
-}
 
 // ---------- 28. handleBackgroundGridPolar — y > maxAbs branch + maxSeen == 0 ----------
 // A single cell at azimuth 90° has x≈0, y=Range, so the y-check fires (covers line 1619).
 // TimesSeenCount=0 (included via AverageRangeMeters>0) means maxSeen stays 0 (covers line 1637).
 
-func TestCov6_HandleBackgroundGridPolar_YGreaterThanMaxAbs(t *testing.T) {
-	sid := fmt.Sprintf("cov6-polar-ymax-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	mgr := l3grid.NewBackgroundManager(sid, 4, 36, l3grid.BackgroundParams{}, nil)
-	require.NotNil(t, mgr)
-
-	// Azimuth bin 9 → 90° (cos≈0, sin=1). Range>0, TimesSeen=0.
-	// GetGridCells returns this cell because AverageRangeMeters > 0.
-	idx := 0*36 + 9 // ring 0, azimuth bin 9
-	mgr.Grid.Cells[idx].AverageRangeMeters = 5.0
-	mgr.Grid.Cells[idx].TimesSeenCount = 0
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "LiDAR Background")
-}
-
 // ---------- 29. handleBackgroundGridPolar — pad == 0 branch ----------
 // A cell with AverageRangeMeters=0 but TimesSeenCount>0 is exported as Range=0.
 // All coordinates are zero → maxAbs stays 0 → pad=0 → pad=1.0 (covers line 1633).
 
-func TestCov6_HandleBackgroundGridPolar_PadZero(t *testing.T) {
-	sid := fmt.Sprintf("cov6-polar-pad0-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	mgr := l3grid.NewBackgroundManager(sid, 4, 36, l3grid.BackgroundParams{}, nil)
-	require.NotNil(t, mgr)
-
-	// Cell with Range=0 but TimesSeen>0 — included by GetGridCells, x=y=0.
-	mgr.Grid.Cells[0].AverageRangeMeters = 0
-	mgr.Grid.Cells[0].TimesSeenCount = 3
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/polar?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundGridPolar(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-}
-
 // ---------- 30. handleForegroundFrameChart — pad == 0 branch ----------
 // ForegroundSnapshot with Distance=0 points gives x=y=0 → pad=0 → pad=1.0 (covers line 2075).
-
-func TestCov6_HandleForegroundFrameChart_PadZero(t *testing.T) {
-	sid := fmt.Sprintf("cov6-fgchart-pad0-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	// Store a snapshot with zero-distance points.
-	fg := []l2frames.PointPolar{{Channel: 0, Azimuth: 0, Distance: 0}}
-	bg := []l2frames.PointPolar{{Channel: 0, Azimuth: 0, Distance: 0}}
-	l3grid.StoreForegroundSnapshot(sid, time.Now(), fg, bg, 2, 1)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/foreground?sensor_id="+sid, nil)
-	rr := httptest.NewRecorder()
-	ws.handleForegroundFrameChart(rr, req)
-
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Body.String(), "Foreground")
-}
 
 // ---------- 31. handleBackgroundRegions — default sensor_id fallback ----------
 // Calling without sensor_id exercises the sensorID = ws.sensorID fallback (covers line 3399).
@@ -6027,7 +4995,7 @@ func TestCov6_HandleBackgroundRegions_DefaultSensorID(t *testing.T) {
 	ws, _ := setupCov6Server(t, sid)
 
 	// No manager registered for ws.sensorID → 404, but the default assignment is exercised.
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions", nil)
 	rr := httptest.NewRecorder()
 	ws.handleBackgroundRegions(rr, req)
 
@@ -6036,19 +5004,6 @@ func TestCov6_HandleBackgroundRegions_DefaultSensorID(t *testing.T) {
 
 // ---------- 32. handleBackgroundRegionsDashboard — default sensor_id fallback ----------
 // Calling without sensor_id exercises the sensorID = ws.sensorID fallback (covers line 3425).
-
-func TestCov6_HandleBackgroundRegionsDashboard_DefaultSensorID(t *testing.T) {
-	sid := fmt.Sprintf("cov6-regdash-def-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions/dashboard", nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(rr, req)
-
-	// Dashboard returns HTML regardless of whether a manager exists.
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Header().Get("Content-Type"), "text/html")
-}
 
 // ---------- 33. HandleTuningParams POST with extended tracker fields ----------
 // Covers L963-L995 (11 extended tracker config assignments) + L1002 (valid
@@ -6174,32 +5129,6 @@ func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
 
 // --- setupRoutes pprof registration via tsweb.Debugger ---
 
-func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
-	ws := &Server{
-		sensorID:       "pprof-test-sensor",
-		latestFgCounts: make(map[string]int),
-	}
-
-	mux := ws.setupRoutes()
-
-	// Verify pprof endpoints are registered via tsweb.Debugger on the lidar-only mux.
-	// tsweb enforces AllowDebugAccess (loopback + Tailscale peers);
-	// httptest requests come from loopback so they are permitted.
-	paths := []string{
-		"/debug/pprof/",
-		"/debug/pprof/cmdline",
-		"/debug/pprof/symbol",
-	}
-	for _, path := range paths {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		if rec.Code == http.StatusNotFound {
-			t.Errorf("pprof endpoint %s returned 404; expected it to be registered via tsweb.Debugger", path)
-		}
-	}
-}
-
 // ---------------------------------------------------------------------------
 // routes.go and status.go coverage — withDB, handleDataSource, handleStatus
 // ---------------------------------------------------------------------------
@@ -6312,21 +5241,4 @@ func TestHandleDataSource_WaitForDone_ContextCancelled(t *testing.T) {
 
 	// Handler returns without writing a response body when context is done.
 	// Status defaults to 200 from httptest.NewRecorder.
-}
-
-// TestHandleStatus_WrongPath verifies that handleStatus returns 404 for
-// paths that don't match the known status endpoints.
-func TestHandleStatus_WrongPath(t *testing.T) {
-	ws := &Server{
-		stats:    NewPacketStats(),
-		sensorID: "status-test",
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/some/other/path", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
 }

@@ -124,7 +124,7 @@ func (s *Server) ServeMux() *http.ServeMux {
 	s.mux = http.NewServeMux()
 
 	// Note: pprof endpoints are provided by tailscale's tsweb via db.AttachAdminRoutes()
-	// Usage: go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
+	// Usage: go tool pprof http://localhost:8080/debug/pprof/profile?seconds=30
 
 	s.mux.HandleFunc("/admin/radar/command", s.sendCommandHandler) // mutating device control: admin namespace (per cli-restructuring plan), not /api
 	s.mux.HandleFunc("/api/commands", s.listCommandsHandler)       // OPS24x command catalogue (dashboard dropdown)

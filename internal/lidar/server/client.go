@@ -78,14 +78,17 @@ func (c *Client) StartPCAPReplay(pcapFile string, maxRetries int) error {
 			if retry == 0 {
 				diagf("PCAP replay in progress, waiting...")
 			}
-			time.Sleep(5 * time.Second)
+			if retry < maxRetries-1 {
+				time.Sleep(sweepSlotRetryDelay)
+			}
 			continue
 		}
 
 		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return fmt.Errorf("timeout waiting for PCAP replay slot")
+	return fmt.Errorf("%w: the server answered 409 to %d attempts; stop the running replay via POST /api/lidar/replay/stop",
+		sweep.ErrReplaySlotBusy, maxRetries)
 }
 
 // DefaultBuckets returns the default bucket configuration.
@@ -335,14 +338,17 @@ func (c *Client) StartPCAPReplayWithConfig(cfg PCAPReplayConfig) error {
 			if retry == 0 {
 				diagf("PCAP replay in progress, waiting...")
 			}
-			time.Sleep(5 * time.Second)
+			if retry < maxRetries-1 {
+				time.Sleep(sweepSlotRetryDelay)
+			}
 			continue
 		}
 
 		return fmt.Errorf("status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return fmt.Errorf("timeout waiting for PCAP replay slot")
+	return fmt.Errorf("%w: the server answered 409 to %d attempts; stop the running replay via POST /api/lidar/replay/stop",
+		sweep.ErrReplaySlotBusy, maxRetries)
 }
 
 // StopPCAPReplay stops any running PCAP replay for this sensor.

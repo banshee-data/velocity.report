@@ -3,6 +3,7 @@ package sweep
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -29,6 +30,12 @@ const (
 
 // ErrSweepAlreadyRunning is returned when a sweep is already in progress.
 var ErrSweepAlreadyRunning = fmt.Errorf("sweep already in progress")
+
+// ErrReplaySlotBusy is returned by a backend's StartPCAPReplayWithConfig when
+// another replay still holds the slot after every retry. The cause belongs to
+// the pipeline rather than to one combination, so the runner stops the sweep
+// on it instead of skipping the combination and waiting again for the next.
+var ErrReplaySlotBusy = errors.New("timeout waiting for PCAP replay slot")
 
 // SweepParam defines one parameter dimension to sweep.
 type SweepParam struct {
@@ -203,6 +210,17 @@ func (r *Runner) addWarning(msg string) {
 	r.mu.Lock()
 	r.state.Warnings = append(r.state.Warnings, msg)
 	r.mu.Unlock()
+}
+
+// failSweep ends the running sweep with an error and persists it as failed.
+func (r *Runner) failSweep(errMsg string) {
+	r.mu.Lock()
+	r.state.Status = SweepStatusError
+	r.state.Error = errMsg
+	now := time.Now()
+	r.state.CompletedAt = &now
+	r.mu.Unlock()
+	r.persistComplete("failed", errMsg, nil)
 }
 
 // GetSweepState returns a typed copy of the current sweep state.
@@ -426,14 +444,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		// Check for cancellation
 		select {
 		case <-ctx.Done():
-			r.mu.Lock()
-			r.state.Status = SweepStatusError
-			errMsg := fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum+1, totalCombos, ctx.Err())
-			r.state.Error = errMsg
-			now := time.Now()
-			r.state.CompletedAt = &now
-			r.mu.Unlock()
-			r.persistComplete("failed", errMsg, nil)
+			r.failSweep(fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum+1, totalCombos, ctx.Err()))
 			return
 		default:
 		}
@@ -503,6 +514,13 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 
 			if err := r.backend.StartPCAPReplayWithConfig(pcapCfg); err != nil {
 				r.logger.Printf("[sweep] ERROR: Failed to start PCAP for combo %d: %v", comboNum+1, err)
+				if errors.Is(err, ErrReplaySlotBusy) {
+					// Every later combination would wait as long and fail the
+					// same way. The replay holding the slot is not this sweep's,
+					// so it is left running: no StopPCAPReplay on this path.
+					r.failSweep(fmt.Sprintf("sweep stopped at combination %d/%d: %v", comboNum+1, totalCombos, err))
+					return
+				}
 				r.addWarning(fmt.Sprintf("combo %d: failed to start PCAP (skipped): %v", comboNum+1, err))
 				continue
 			}

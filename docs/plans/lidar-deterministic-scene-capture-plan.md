@@ -34,7 +34,7 @@ this plan’s working copy contains the required prerequisites.
 | 1         | v0.5.2  | Script accepting several coordinate-based views and producing stable stills, with deterministic optional trails |
 | 2         | v0.5.2  | Bullet-time inspection around a frozen target                                                                   |
 | 3         | v0.5.10 | Recorded-frame sequences, contact sheets, and optional animations                                               |
-| 4         | v0.6.6  | Automatic VRLOG export and the 8081 Make web export workflow                                                    |
+| 4         | v0.6.6  | Automatic VRLOG export and the Make web export option on the LiDAR Status page's replay form                    |
 | 5         | v0.6.5  | CI artefact comparison and a visual-review integration decision                                                 |
 
 Milestone 1 must be usable by a local or CI agent without waiting for hosted CI
@@ -213,7 +213,7 @@ preceding trail history. Cache only when source hashes and export settings match
 Keep generated exports and captures local; generation does not publish a scene.
 
 Add an unchecked **Make web export** checkbox to the Svelte PCAP replay and recording form
-delivered in v0.5.2. It generates a web scene from the resulting VRLOG after successful
+delivered in v0.5.2 (the LiDAR Status page, `/app/lidar/status`). It generates a web scene from the resulting VRLOG after successful
 recording finalisation; it does not modify the source PCAP. Reuse the harness's
 export path and settings rather than adding another conversion implementation.
 

@@ -82,21 +82,23 @@ For optimal region identification:
 
 The system needs enough frames to build a stable variance profile. Aim for 20–30 seconds of settling time.
 
-## Debug API
+## Regions API
 
 ### Get region information
 
+The route was `/debug/lidar/background/regions` before v0.5.2; it is now `GET /api/lidar/background/regions` on the main server.
+
 ```bash
 # Get region metadata (compact)
-curl http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01
+curl http://localhost:8080/api/lidar/background/regions?sensor_id=hesai-01
 
 # Get full region details including cell lists
-curl http://localhost:8081/debug/lidar/background/regions?sensor_id=hesai-01&include_cells=true
+curl http://localhost:8080/api/lidar/background/regions?sensor_id=hesai-01&include_cells=true
 ```
 
 **Response Structure:**
 
-The response includes top-level fields: `sensor_id`, `timestamp`, `identification_complete` (bool), `identification_time`, `frames_sampled`, and `region_count`.
+The response includes top-level fields: `sensor_id`, `timestamp`, `identification_complete` (bool), `identification_time`, `frames_sampled`, `region_count`, and the grid's `rings` and `azimuth_bins`.
 
 The `regions` array contains one entry per region with:
 
@@ -114,9 +116,9 @@ The response also includes `grid_mapping`: an array mapping each cell index to i
 
 ### Visualise regions
 
-Use the grid mapping to visualise which cells belong to which region:
+The Background Regions page in the web app (`/app/lidar/regions`) draws the region map from this route: one block per cell over the ring × azimuth grid, with a legend and per-cell hover.
 
-Fetch the region data from the debug API, extract the `grid_mapping` array, reshape it to the sensor geometry (40 rings × 1800 azimuth bins), and render as a heatmap using matplotlib’s `imshow` with a categorical colour map (e.g. `tab20`). The colour bar maps to region IDs. Axis labels: X = Azimuth Bin, Y = Ring.
+To plot it yourself, fetch the region data, extract the `grid_mapping` array, reshape it to the grid the response reports (`rings` × `azimuth_bins`; 40 × 1800 on a Pandar40P), and render it as a heatmap with a categorical colour map. Axis labels: X = Azimuth Bin, Y = Ring.
 
 ## Performance characteristics
 
@@ -177,4 +179,4 @@ This enables immediate foreground detection on subsequent runs from the same sen
 
 - Implementation: `internal/lidar/background.go`
 - Tests: `internal/lidar/regions_test.go`
-- API Endpoint: `internal/lidar/monitor/webserver.go:handleBackgroundRegions`
+- API Endpoint: `internal/lidar/server/status.go:handleBackgroundRegions`

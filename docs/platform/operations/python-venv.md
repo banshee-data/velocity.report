@@ -31,7 +31,6 @@ Everything else uses the single shared virtual environment at `.venv/` in the pr
 | Tool / directory                          | Purpose                                                                  |
 | ----------------------------------------- | ------------------------------------------------------------------------ |
 | `black`, `ruff`                           | Python formatting and linting (`make format-python`, `make lint-python`) |
-| `tools/grid-heatmap/`                     | LiDAR grid visualisation for field analysis                              |
 | `tools/rack-drawing/`                     | Hardware rack diagram generation                                         |
 | `tools/connector-pinouts/`                | Connector pinout documentation SVGs                                      |
 | `tools/_render/svg_to_png.py`             | SVG rasterisation helper                                                 |
@@ -54,7 +53,6 @@ make install-diagrams     # Adds build123d to .venv/ (optional, for CAD renderin
 velocity.report/
 ├── .venv/                    # Shared virtual environment (not committed)
 ├── requirements.txt          # Pinned deps (pip-compile output)
-├── tools/grid-heatmap/       # Uses root .venv
 ├── tools/rack-drawing/       # Uses root .venv
 ├── tools/connector-pinouts/  # Uses root .venv
 └── data/explore/             # Uses root .venv

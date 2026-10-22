@@ -19,18 +19,13 @@ breaking-change rationale.
 | `webserver.go` | `server/server.go`                                | Reflects actual role                       |
 | (split files)  | `state.go`, `routes.go`, `tuning.go`, `status.go` | Reduced 1 573-line file to focused units   |
 
-## l10clients exception
+## l10clients exception (retired)
 
-`l9endpoints/l10clients/` contains **only** embedded HTML/CSS/JS assets
-for the legacy LIDAR dashboards. It has:
-
-- No `.go` source files
-- No exported Go types or functions
-
-The `go:embed` directives in `l9endpoints/legacy_assets.go` reference
-these paths. This subtree is transitional: it will be removed once the
-Svelte frontend fully replaces the legacy dashboards. Until then it is
-the canonical source for those assets.
+`l9endpoints/l10clients/` held **only** embedded HTML/CSS/JS assets for
+the legacy LiDAR dashboards, embedded by `l9endpoints/legacy_assets.go`.
+It was transitional, and was deleted with `legacy_assets.go` in v0.5.2
+once the Svelte LiDAR Status, Debug, Regions and Sweep pages replaced the
+dashboards. No exception remains.
 
 ## Breaking changes
 

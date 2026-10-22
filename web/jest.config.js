@@ -16,7 +16,7 @@ export default {
 	testEnvironment: 'jsdom',
 	watchman: false,
 	extensionsToTreatAsEsm: ['.ts', '.svelte'],
-	roots: ['<rootDir>/web/src', '<rootDir>/internal/lidar/l9endpoints/l10clients/assets'],
+	roots: ['<rootDir>/web/src'],
 	coverageProvider: 'v8',
 	moduleNameMapper: {
 		// #lib is the package.json subpath import for src/lib. A TypeScript
@@ -30,8 +30,7 @@ export default {
 		'^\\$app(.*)$': '<rootDir>/web/src/mocks/$app$1',
 		'^svelte/store$': '<rootDir>/web/src/__mocks__/svelte/store.ts',
 		'^@testing-library/svelte$': '<rootDir>/web/src/__mocks__/@testing-library/svelte.ts',
-		'^(.+)\\.svelte$': '<rootDir>/web/src/__mocks__/svelte-component.ts',
-		'^@monitor/assets/(.*)$': '<rootDir>/internal/lidar/l9endpoints/l10clients/assets/$1'
+		'^(.+)\\.svelte$': '<rootDir>/web/src/__mocks__/svelte-component.ts'
 	},
 	transform: {
 		'^.+\\.ts$': [
@@ -65,18 +64,10 @@ export default {
 		'!web/src/lib/**/*.d.ts',
 		'!web/src/lib/index.ts',
 		'!web/src/lib/icons.ts',
-		'!web/src/lib/assets/**',
-		'internal/lidar/l9endpoints/l10clients/assets/*.js',
-		'!internal/lidar/l9endpoints/l10clients/assets/echarts.min.js'
+		'!web/src/lib/assets/**'
 	],
 	coverageThreshold: {
 		[resolve(repoRoot, 'web/src/lib/')]: {
-			branches: 90,
-			functions: 90,
-			lines: 90,
-			statements: 90
-		},
-		[resolve(repoRoot, 'internal/lidar/l9endpoints/l10clients/assets/')]: {
 			branches: 90,
 			functions: 90,
 			lines: 90,

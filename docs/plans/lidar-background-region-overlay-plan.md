@@ -56,7 +56,9 @@ lock or freeze state. The publisher sends it every 30 s or when `sequence_number
 that number only increments on a grid reset. `FRAME_TYPE_DELTA` is reserved in the proto and
 unused.
 
-**What exists outside recordings.** `/debug/lidar/background/regions` and its dashboard serve
+**What exists outside recordings.** `GET /api/lidar/background/regions` (at
+`/debug/lidar/background/regions` before v0.5.2) and the web app's Background Regions page
+(`/app/lidar/regions`, which replaced the regions dashboard) serve
 `RegionDebugInfo` (regions, parameters, the cell-to-region map) from a live server. None of it
 is recorded, so none of it can be replayed, compared between runs, or shown beside the frame it
 explains.

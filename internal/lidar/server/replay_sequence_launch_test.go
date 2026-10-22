@@ -43,7 +43,6 @@ func launchServer(t *testing.T, sensorID string, names ...string) *Server {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -199,7 +198,7 @@ func TestStartPCAPLockedRejectsABrokenSequenceBeforeStarting(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address: ":0", Stats: NewPacketStats(), SensorID: "broken-seq",
+		Stats: NewPacketStats(), SensorID: "broken-seq",
 		PCAPSafeDir: tmpDir, Parser: &mockTimestampParser{},
 	})
 	ws.setBaseContext(context.Background())

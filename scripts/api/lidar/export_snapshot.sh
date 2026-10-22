@@ -6,7 +6,7 @@ SENSOR_ID=${1:-${SENSOR_ID:-hesai-pandar40p}}
 SNAPSHOT_ID=${2:-}
 OUTPUT_PATH=${3:-}
 
-URL="http://127.0.0.1:8081/api/lidar/export_snapshot?sensor_id=$SENSOR_ID"
+URL="http://127.0.0.1:8080/api/lidar/export_snapshot?sensor_id=$SENSOR_ID"
 if [ -n "$SNAPSHOT_ID" ]; then
   URL="${URL}&snapshot_id=${SNAPSHOT_ID}"
 fi

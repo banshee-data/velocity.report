@@ -68,8 +68,6 @@ github.com/fxamacker/cbor/v2 v2.9.3 h1:oQBnFATpNdY8gJHTndDDv5Xl4QqNaz51G5LLEPhng
 github.com/fxamacker/cbor/v2 v2.9.3/go.mod h1:vM4b+DJCtHn+zz7h3FFp/hDAI9WNWCsZj23V5ytsSxQ=
 github.com/gaissmai/bart v0.29.0 h1:wO6HGE8g9YE0Wm0bCpYxwRzfQ4+fbJKOhL64e5ACGCI=
 github.com/gaissmai/bart v0.29.0/go.mod h1:GREWQfTLRWz/c5FTOsIw+KkscuFkIV5t8Rp7Nd1Td5c=
-github.com/go-echarts/go-echarts/v2 v2.7.3 h1:WEZEptOHVub2F11mzUlmTbk7i+yVSrL7rwpZi8F/1kY=
-github.com/go-echarts/go-echarts/v2 v2.7.3/go.mod h1:Z+spPygZRIEyqod69r0WMnkN5RV3MwhYDtw601w3G8w=
 github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3 h1:UADEEmDKgfXbtnGJZ97beY5XLo9ZechG1nlU4KnRrkE=
 github.com/go-json-experiment/json v0.0.0-20260820222146-c27c302e5fc3/go.mod h1:tphK2c80bpPhMOI4v6bIc2xWywPfbqi1Z06+RcrMkDg=
 github.com/go-ole/go-ole v1.3.0 h1:Dt6ye7+vXGIKZ7Xtk4s6/xVdGDQynvom7xCFEdWr6uE=

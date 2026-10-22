@@ -367,9 +367,11 @@ These are lower-priority improvements that would further improve readability and
 
 **Completed**: Extracted `compareParams` and `computeTemporalIoU` into `run_compare.go` (112 lines). `run.go` reduced to 1,216 lines. RunParams types remain in the storage package to avoid circular imports; full domain extraction deferred to a future PR.
 
-### Opportunity 7: retire Go-embedded HTML dashboards
+### Opportunity 7: retire Go-embedded HTML dashboards ✅
 
-**Status**: Deferred; requires corresponding Svelte dashboard implementation first (frontend consolidation Phases 1–5).
+**Completed in v0.5.2** (branch `claude/echarts-svelte-migration-83fbd5`, #836): the dashboards, their embedded assets and go-echarts are deleted, and the Svelte LiDAR Status, Debug, Regions and Sweep pages replace them ([surface consolidation](../../plans/web-frontend-consolidation-plan.md#v052-delivery)). The notes below are the original assessment.
+
+**Status (original)**: Deferred; requires corresponding Svelte dashboard implementation first (frontend consolidation Phases 1–5).
 
 **Current state**: monitor package contains 5 `go:embed` directives and ~600 lines of Go HTML templates plus 12+ ECharts JavaScript chart handlers. These are the legacy debug dashboards scheduled for replacement.
 

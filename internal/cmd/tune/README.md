@@ -79,7 +79,7 @@ Run sweeps using PCAP file replay instead of live data:
 
 ### Common options
 
-- `-monitor`: Server URL (default: `http://localhost:8081`)
+- `-monitor`: Server URL (default: `http://localhost:8080`)
 - `-sensor`: Sensor ID (default: `hesai-pandar40p`)
 - `-output`: Output CSV filename (default: `sweep-<mode>-<timestamp>.csv`)
 - `-iterations`: Number of samples per parameter combo (default: 30)

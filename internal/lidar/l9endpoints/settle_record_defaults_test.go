@@ -1,69 +1,8 @@
 package l9endpoints
 
 import (
-	"io/fs"
-	"regexp"
-	"strings"
 	"testing"
 )
-
-// The settle-before-recording flow settles the grid on a first pass, restores
-// the snapshot, then replays and records. It is the flow that produces a
-// recording worth replaying, so it is the default rather than something to
-// remember to tick.
-//
-// Analysis mode is ticked with it because the server requires the pair: the
-// page's own script forces analysis on when settle is chosen, and a default
-// that needed the script to run to become valid would be a trap.
-func TestSettleBeforeRecordingIsTickedByDefault(t *testing.T) {
-	page := readStatusPage(t)
-
-	for _, id := range []string{"chk_settle_before_recording", "chk_analysis"} {
-		t.Run(id, func(t *testing.T) {
-			input := inputWithID(t, page, id)
-			if !strings.Contains(input, "checked") {
-				t.Errorf("%s is not checked by default:\n%s", id, input)
-			}
-		})
-	}
-}
-
-// The dependency is enforced on the page as well as the server, so choosing
-// settle cannot produce a request the server will reject.
-func TestChoosingSettleForcesAnalysis(t *testing.T) {
-	page := readStatusPage(t)
-
-	if !strings.Contains(page, "if (settle.checked) analysis.checked = true;") {
-		t.Error("the page no longer forces analysis mode on when settle is chosen")
-	}
-}
-
-func readStatusPage(t *testing.T) string {
-	t.Helper()
-	fsys := LegacyStatusFS()
-	raw, err := fs.ReadFile(fsys, "status.html")
-	if err != nil {
-		t.Fatalf("read status.html: %v", err)
-	}
-	return string(raw)
-}
-
-// inputWithID returns the <input> element carrying the given id prefix, so an
-// assertion about one checkbox cannot be satisfied by another's markup.
-func inputWithID(t *testing.T, page, idPrefix string) string {
-	t.Helper()
-	re := regexp.MustCompile(`(?s)<input[^>]*id="` + regexp.QuoteMeta(idPrefix) + `[^"]*"[^>]*>`)
-	if m := re.FindString(page); m != "" {
-		return m
-	}
-	// The id may follow other attributes across a line break.
-	re = regexp.MustCompile(`(?s)<input[^>]*` + regexp.QuoteMeta(idPrefix) + `[^>]*>`)
-	m := re.FindString(page)
-	if m == "" {
-		t.Fatalf("no <input> found for id %q", idPrefix)
-	}
-	return m
-}
 
 // A recording should open with the background, so a replay of it has a scene
 // from its first frame rather than foreground over nothing until the refresh

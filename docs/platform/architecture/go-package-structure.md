@@ -71,11 +71,12 @@ Enforced by [scripts/check-single-sqlite-driver.sh](../../../scripts/check-singl
 
 ## Direct dependency inventory
 
-14 direct Go dependencies after removing the duplicate SQLite driver:
+Direct Go dependencies after removing the duplicate SQLite driver and, in v0.5.2, `go-echarts`.
+The table does not yet list `github.com/Dadido3/go-typst`, `github.com/golang/geo` or
+`go.yaml.in/yaml/v3`, which `go.mod` has gained since it was written:
 
 | Dependency                             | Scope            | Purpose                     |
 | -------------------------------------- | ---------------- | --------------------------- |
-| `github.com/go-echarts/go-echarts/v2`  | Production       | HTML chart rendering        |
 | `github.com/golang-migrate/migrate/v4` | Production       | Schema migrations           |
 | `github.com/google/go-cmp`             | Test-only        | Test comparison helper      |
 | `github.com/google/gopacket`           | Production       | PCAP parsing                |
@@ -106,6 +107,6 @@ Enforced by [scripts/check-single-sqlite-driver.sh](../../../scripts/check-singl
 - **`EventAPI` JSON tags:** [internal/db/db.go](../../../internal/db/db.go) still uses PascalCase JSON tags; should be
   `snake_case` before API freeze
 - **Silent error drops:** concentrated in [internal/db/db.go](../../../internal/db/db.go), `l3grid/export_bg_snapshot.go`,
-  `server/datasource_handlers.go`, `server/echarts_handlers.go`
+  `server/datasource_handlers.go` (`server/echarts_handlers.go` was deleted in v0.5.2)
 - **Test infrastructure:** 40 internal test files use `time.Sleep` (199 call sites); needs
   shared polling helper and phased reduction

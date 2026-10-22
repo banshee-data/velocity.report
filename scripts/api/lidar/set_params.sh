@@ -14,7 +14,7 @@ if [ -z "$SENSOR_ID" ] || [ -z "$JSON_PARAMS" ]; then
 fi
 
 echo "POST /api/lidar/params?sensor_id=$SENSOR_ID ->"
-curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=$SENSOR_ID" \
+curl -s -X POST "http://127.0.0.1:8080/api/lidar/params?sensor_id=$SENSOR_ID" \
   -H 'Content-Type: application/json' \
   -d "$JSON_PARAMS" | jq .
 echo
