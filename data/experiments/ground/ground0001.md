@@ -1,7 +1,7 @@
 ---
 id: ground0001
 title: "Where the ground is: each site's surface against the sensor's plane, and how far the tracks leave it"
-status: proposed
+status: approved
 owner: david
 created: 2026-10-18
 asks:
