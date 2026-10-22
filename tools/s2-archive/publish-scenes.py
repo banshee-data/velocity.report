@@ -259,8 +259,7 @@ def newest_run(basename, since_ns=None):
     the same clock, since it writes the database this reads.
     """
     query = (
-        "SELECT run_id, status, vrlog_path FROM lidar_runs"
-        " WHERE source_path LIKE ?"
+        "SELECT run_id, status, vrlog_path FROM lidar_runs" " WHERE source_path LIKE ?"
     )
     params = [f"%{basename}"]
     if since_ns is not None:

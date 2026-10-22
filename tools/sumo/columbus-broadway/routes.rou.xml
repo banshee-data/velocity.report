@@ -1,0 +1,11 @@
+<routes>
+  <!-- Same shared parameters for every model so runs differ only by carFollowModel.
+       sigma is Krauss-only driver imperfection; delta is the IDM/EIDM acceleration exponent. -->
+  <vType id="krauss" carFollowModel="Krauss" accel="2.6" decel="4.5" tau="1.0" minGap="2.5" length="4.6" speedFactor="normc(1,0.1,0.2,2)" sigma="0.5"/>
+  <vType id="idm"    carFollowModel="IDM"    accel="2.6" decel="4.5" tau="1.0" minGap="2.5" length="4.6" speedFactor="normc(1,0.1,0.2,2)" delta="4"/>
+  <vType id="eidm"   carFollowModel="EIDM"   accel="2.6" decel="4.5" tau="1.0" minGap="2.5" length="4.6" speedFactor="normc(1,0.1,0.2,2)" delta="4"/>
+  <route id="columbus_nw" edges="416878315#0 30030101#0 87376669#0 416877246 517260065#0 48211487#0 254756518 681183494 148874363#0 415591478#0"/>
+  <flow id="col"  type="CFTYPE" route="columbus_nw" begin="0" end="3600" vehsPerHour="280" departLane="best" departSpeed="max"/>
+  <flow id="bway_e" type="CFTYPE" from="8921173" to="87376675#0" begin="0" end="3600" vehsPerHour="400" departLane="best"/>
+  <flow id="bway_w" type="CFTYPE" from="-87376675#1" to="26938257#0" begin="0" end="3600" vehsPerHour="400" departLane="best"/>
+</routes>
