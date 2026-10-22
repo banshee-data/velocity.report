@@ -4,14 +4,14 @@
 
 These notes triage six items from the October 22 briefing and related discussion. Primary-source details from the briefing must be checked against full texts before use in public claims. They are not replacements for the canonical [behaviour analytics plan](../../plans/lidar-behaviour-analytics-plan.md), [decisions register](../../DECISIONS.md), or [backlog](../../BACKLOG.md).
 
-| Area | Assessment | Proposed disposition |
-|---|---|---|
-| DRAC / TTC / PET | [conflict metrics](drac-and-conflict-metrics.md) | Shadow computation and geometry validation |
-| Roadside thresholds | [Minnesota study](minnesota-roadside-thresholds.md) | Source-pinned reference profile only |
-| Korean driving events | [11-event taxonomy](korean-event-taxonomy.md) | Feasibility mapping, no threshold adoption |
-| Lane keeping | [naturalistic study](lane-keeping-naturalistic.md) | Separate departures, changes, variability |
-| AV interactions | [human–AV interactions](human-av-interactions.md) | Research design, not causal claims |
-| FutureRisk | [composite risk](futurerisk.md) | Research watchlist, not public score |
+| Area                  | Assessment                                          | Proposed disposition                       |
+| --------------------- | --------------------------------------------------- | ------------------------------------------ |
+| DRAC / TTC / PET      | [conflict metrics](drac-and-conflict-metrics.md)    | Shadow computation and geometry validation |
+| Roadside thresholds   | [Minnesota study](minnesota-roadside-thresholds.md) | Source-pinned reference profile only       |
+| Korean driving events | [11-event taxonomy](korean-event-taxonomy.md)       | Feasibility mapping, no threshold adoption |
+| Lane keeping          | [naturalistic study](lane-keeping-naturalistic.md)  | Separate departures, changes, variability  |
+| AV interactions       | [human–AV interactions](human-av-interactions.md)   | Research design, not causal claims         |
+| FutureRisk            | [composite risk](futurerisk.md)                     | Research watchlist, not public score       |
 
 ## Repository-specific evidence and blockers
 

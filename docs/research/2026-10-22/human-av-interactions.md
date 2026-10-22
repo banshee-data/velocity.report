@@ -1,6 +1,6 @@
 # Human following behind autonomous vehicles
 
-**Evidence:** Mironenko et al., *European Transport Research Review* (October 2026), described in the briefing as a synthesis of 37 studies and 49 evidence cases. Verify study coverage and coding against the full review. Related primary study: *Automated vehicles drive safer but induce riskier behavior in human drivers in car-following scenarios*, *Communications Engineering* (2026), https://doi.org/10.1038/s44172-026-00793-3.
+**Evidence:** Mironenko et al., _European Transport Research Review_ (October 2026), described in the briefing as a synthesis of 37 studies and 49 evidence cases. Verify study coverage and coding against the full review. Related primary study: _Automated vehicles drive safer but induce riskier behavior in human drivers in car-following scenarios_, _Communications Engineering_ (2026), https://doi.org/10.1038/s44172-026-00793-3.
 
 **Observable hypothesis:** under comparable conditions, do human followers exhibit different THW distributions when the leader is a confidently classified Waymo/Zoox fleet vehicle rather than a conventional vehicle? Distinguish **vehicle fleet/model identification** from **verified automated-driving engagement**. LiDAR alone cannot establish human motive, trust, or strategic exploitation.
 
