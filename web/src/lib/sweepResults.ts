@@ -293,3 +293,119 @@ export function autoTuneEtaSeconds(
 	const remaining = (elapsed / done) * (total - done);
 	return remaining > 0 && Number.isFinite(remaining) ? remaining : null;
 }
+
+/** Metric columns of the results CSV, after the parameter columns. */
+export const CSV_METRIC_COLUMNS = [
+	'overall_accept_mean',
+	'overall_accept_stddev',
+	'nonzero_cells_mean',
+	'nonzero_cells_stddev',
+	'active_tracks_mean',
+	'active_tracks_stddev',
+	'alignment_deg_mean',
+	'alignment_deg_stddev',
+	'misalignment_ratio_mean',
+	'misalignment_ratio_stddev',
+	'foreground_capture_mean',
+	'foreground_capture_stddev',
+	'unbounded_point_mean',
+	'unbounded_point_stddev',
+	'empty_box_ratio_mean',
+	'empty_box_ratio_stddev',
+	'fragmentation_ratio_mean',
+	'heading_jitter_deg_mean',
+	'heading_jitter_deg_stddev',
+	'speed_jitter_mps_mean',
+	'speed_jitter_mps_stddev'
+] as const;
+
+function csvCell(v: unknown): string {
+	if (v == null) return '';
+	const s = String(v);
+	return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * The results as CSV: the first result's parameters, then the metric
+ * columns, as the sweep dashboard exported them. A metric a result lacks is
+ * left empty rather than written as zero.
+ */
+export function resultsCsv(results: SweepResult[]): string {
+	const paramKeys = Object.keys(normaliseParamMap(results[0]?.param_values ?? {}));
+	const header = [...paramKeys, ...CSV_METRIC_COLUMNS];
+	const rows = results.map((r) => {
+		const params = normaliseParamMap(r.param_values ?? {});
+		return [...paramKeys.map((k) => params[k]), ...CSV_METRIC_COLUMNS.map((k) => r[k])]
+			.map(csvCell)
+			.join(',');
+	});
+	return [header.join(','), ...rows].join('\n');
+}
+
+/** The scores a recommendation carries, labelled for display. */
+export function recommendationMetrics(rec: Record<string, unknown> | null | undefined) {
+	if (!rec) return [];
+	const n = (k: string) => numberOrNull(rec[k]);
+	const rows: Array<{ label: string; value: string }> = [];
+	const add = (label: string, key: string, fmt: (v: number) => string) => {
+		const v = n(key);
+		if (v != null) rows.push({ label, value: fmt(v) });
+	};
+	const pctOf = (v: number) => `${(v * 100).toFixed(1)}%`;
+	add('Score', 'score', (v) => formatScore(v));
+	add('Acceptance', 'acceptance_rate', (v) => `${(v * 100).toFixed(2)}%`);
+	add('Misalignment', 'misalignment_ratio', pctOf);
+	add('Alignment', 'alignment_deg', (v) => `${v.toFixed(1)}°`);
+	add('Nonzero cells', 'nonzero_cells', (v) => v.toFixed(0));
+	add('Foreground capture', 'foreground_capture', pctOf);
+	add('Unbounded', 'unbounded_point_ratio', pctOf);
+	add('Empty boxes', 'empty_box_ratio', pctOf);
+	add('Fragmentation', 'fragmentation_ratio', pctOf);
+	add('Heading jitter', 'heading_jitter_deg', (v) => `${v.toFixed(1)}°`);
+	return rows;
+}
+
+/** One auto-tune round's summary and the bounds it searched. */
+export function roundSummary(round: Record<string, unknown>): { title: string; bounds: string } {
+	const bounds = (round.bounds ?? {}) as Record<string, unknown>;
+	const parts = Object.entries(bounds)
+		.filter((entry): entry is [string, [number, number]] => {
+			const b = entry[1];
+			return Array.isArray(b) && b.length === 2 && b.every((x) => typeof x === 'number');
+		})
+		.map(([k, [lo, hi]]) => `${paramLabel(k)}: [${lo.toFixed(4)}, ${hi.toFixed(4)}]`);
+	return {
+		title: `Round ${round.round ?? '?'}: ${round.num_combos ?? '?'} combinations, best score ${formatScore(round.best_score)}`,
+		bounds: parts.join(' · ')
+	};
+}
+
+/** Score components in display order, with their weights and change. */
+export const SCORE_COMPONENTS: Array<[string, string]> = [
+	['detection_rate', 'Detection rate'],
+	['fragmentation', 'Fragmentation'],
+	['false_positives', 'False positives'],
+	['velocity_coverage', 'Velocity coverage'],
+	['quality_premium', 'Quality premium'],
+	['truncation_rate', 'Truncation rate'],
+	['velocity_noise_rate', 'Velocity noise rate'],
+	['stopped_recovery', 'Stopped recovery']
+];
+
+/**
+ * Parse score components that may arrive as a JSON string or an object;
+ * null for anything else.
+ */
+export function parseScoreComponents(raw: unknown): Record<string, unknown> | null {
+	if (typeof raw === 'string') {
+		try {
+			const parsed = JSON.parse(raw);
+			return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+		} catch {
+			return null;
+		}
+	}
+	return raw && typeof raw === 'object' && !Array.isArray(raw)
+		? (raw as Record<string, unknown>)
+		: null;
+}

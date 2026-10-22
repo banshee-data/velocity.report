@@ -1,5 +1,10 @@
 import { VIRIDIS } from './components/charts/chartData';
 import {
+	CSV_METRIC_COLUMNS,
+	parseScoreComponents,
+	recommendationMetrics,
+	resultsCsv,
+	roundSummary,
 	autoTuneEtaSeconds,
 	comboBars,
 	comboLabel,
@@ -204,5 +209,78 @@ describe('autoTuneEtaSeconds', () => {
 				now
 			)
 		).toBeNull();
+	});
+});
+
+describe('resultsCsv', () => {
+	it('writes parameters then metrics, leaving missing values empty', () => {
+		const csv = resultsCsv([
+			{ param_values: { foreground_dbscan_eps: 0.3 }, overall_accept_mean: 0.9 },
+			{ param_values: { foreground_dbscan_eps: 'a,"b"' } }
+		]).split('\n');
+		expect(csv[0]).toBe([EPS, ...CSV_METRIC_COLUMNS].join(','));
+		expect(csv[1].startsWith('0.3,0.9,')).toBe(true);
+		expect(csv[2].startsWith('"a,""b""",,')).toBe(true);
+		expect(resultsCsv([])).toBe(CSV_METRIC_COLUMNS.join(','));
+	});
+});
+
+describe('recommendationMetrics', () => {
+	it('labels the metrics present and skips the rest', () => {
+		expect(
+			recommendationMetrics({
+				score: 0.5,
+				acceptance_rate: 0.9,
+				misalignment_ratio: 0.1,
+				alignment_deg: 3,
+				nonzero_cells: 1200,
+				foreground_capture: 0.8,
+				unbounded_point_ratio: 0.2,
+				empty_box_ratio: 0.3,
+				fragmentation_ratio: 0.4,
+				heading_jitter_deg: 5
+			}).map((m) => `${m.label}=${m.value}`)
+		).toEqual([
+			'Score=0.5000',
+			'Acceptance=90.00%',
+			'Misalignment=10.0%',
+			'Alignment=3.0°',
+			'Nonzero cells=1200',
+			'Foreground capture=80.0%',
+			'Unbounded=20.0%',
+			'Empty boxes=30.0%',
+			'Fragmentation=40.0%',
+			'Heading jitter=5.0°'
+		]);
+		expect(recommendationMetrics({ score: 'x' })).toEqual([]);
+		expect(recommendationMetrics(null)).toEqual([]);
+	});
+});
+
+describe('roundSummary', () => {
+	it('summarises a round and its bounds', () => {
+		expect(
+			roundSummary({
+				round: 2,
+				num_combos: 25,
+				best_score: 0.75,
+				bounds: { foreground_dbscan_eps: [0.1, 0.5], bad: [1] }
+			})
+		).toEqual({
+			title: 'Round 2: 25 combinations, best score 0.7500',
+			bounds: 'FG DBSCAN Eps: [0.1000, 0.5000]'
+		});
+		expect(roundSummary({}).title).toBe('Round ?: ? combinations, best score N/A');
+	});
+});
+
+describe('parseScoreComponents', () => {
+	it('accepts an object or JSON text', () => {
+		expect(parseScoreComponents({ a: 1 })).toEqual({ a: 1 });
+		expect(parseScoreComponents('{"a":1}')).toEqual({ a: 1 });
+		expect(parseScoreComponents('[1]')).toBeNull();
+		expect(parseScoreComponents('{bad')).toBeNull();
+		expect(parseScoreComponents([1])).toBeNull();
+		expect(parseScoreComponents(null)).toBeNull();
 	});
 });

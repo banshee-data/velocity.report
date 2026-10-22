@@ -6,6 +6,7 @@ import {
 	getAutoTuneStatus,
 	getBackgroundRegions,
 	getClustersChart,
+	getDefaultLidarParams,
 	getForegroundChart,
 	getGridStatus,
 	getHeatmapChart,
@@ -232,6 +233,12 @@ describe('maintenance and grid', () => {
 			expect(lastCall()[0]).toBe(`/api${MAINTENANCE_ACTIONS[which].path}?sensor_id=s`);
 			expect(lastCall()[1].method).toBe('POST');
 		}
+	});
+
+	it('reads the default parameters', async () => {
+		fetchMock.mockResolvedValue(respond(200, { version: 2 }));
+		await expect(getDefaultLidarParams('s')).resolves.toEqual({ version: 2 });
+		expect(lastCall()[0]).toBe('/api/lidar/params?sensor_id=s&source=default');
 	});
 
 	it('reads grid status and acceptance metrics', async () => {

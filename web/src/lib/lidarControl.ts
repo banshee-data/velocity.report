@@ -297,7 +297,10 @@ export const MAINTENANCE_ACTIONS = {
 	resetAcceptance: { path: '/lidar/acceptance/reset', action: 'reset acceptance metrics' },
 	persistBackground: { path: '/lidar/persist', action: 'save a background snapshot' },
 	cleanupSnapshots: { path: '/lidar/snapshots/cleanup', action: 'clean up snapshots' },
-	clearTracks: { path: '/lidar/tracks/clear', action: 'clear tracks' }
+	clearTracks: { path: '/lidar/tracks/clear', action: 'clear tracks' },
+	// Registered only when the server sets VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1;
+	// otherwise it answers 404.
+	clearRuns: { path: '/lidar/runs/clear', action: 'clear analysis runs' }
 } as const;
 
 export type MaintenanceAction = keyof typeof MAINTENANCE_ACTIONS;
@@ -305,6 +308,13 @@ export type MaintenanceAction = keyof typeof MAINTENANCE_ACTIONS;
 export function runMaintenance(sensorId: string, which: MaintenanceAction): Promise<unknown> {
 	const { path, action } = MAINTENANCE_ACTIONS[which];
 	return request(path, action, { method: 'POST', query: { sensor_id: sensorId } });
+}
+
+/** The built-in default tuning parameters, to compare the running ones with. */
+export function getDefaultLidarParams(sensorId: string): Promise<Record<string, unknown>> {
+	return request('/lidar/params', 'load the default parameters', {
+		query: { sensor_id: sensorId, source: 'default' }
+	});
 }
 
 export function getGridStatus(sensorId: string): Promise<Record<string, unknown>> {

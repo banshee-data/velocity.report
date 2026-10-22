@@ -1,5 +1,8 @@
 import {
 	applySweepSetup,
+	clipTuningParams,
+	editableTuningParams,
+	paramDiffLines,
 	buildAutoTuneRequest,
 	buildHintRequest,
 	buildManualRequest,
@@ -326,5 +329,45 @@ describe('replaySlotProblem', () => {
 		expect(replaySlotProblem(form({ dataSource: 'pcap' }), busy)).toMatch(/replay is running/);
 		expect(replaySlotProblem(form({ dataSource: 'replay_case' }), held)).toMatch(/pcap_analysis/);
 		expect(replaySlotProblem(form({ mode: 'hint' }), held)).toMatch(/finished replay/);
+	});
+});
+
+describe('tuning parameters to apply', () => {
+	it('keeps schema parameters only', () => {
+		expect(editableTuningParams({ foreground_dbscan_eps: 0.3, score: 0.9, mystery: 1 })).toEqual({
+			[EPS]: 0.3
+		});
+	});
+
+	it('prefers a clip recommended set, then its optimal parameters', () => {
+		expect(clipTuningParams({ recommended_params: { foreground_dbscan_eps: 0.4 } })).toEqual({
+			[EPS]: 0.4
+		});
+		expect(
+			clipTuningParams({
+				recommended_params: {},
+				optimal_params_json: '{"foreground_dbscan_eps":0.5}'
+			})
+		).toEqual({ [EPS]: 0.5 });
+		expect(clipTuningParams({ optimal_params_json: { foreground_min_cluster_points: 3 } })).toEqual(
+			{
+				[POINTS]: 3
+			}
+		);
+		expect(clipTuningParams({ optimal_params_json: '{not json' })).toEqual({});
+		expect(clipTuningParams({})).toEqual({});
+	});
+});
+
+describe('paramDiffLines', () => {
+	it('marks lines that differ from the defaults', () => {
+		const diff = paramDiffLines({ a: 1, b: 2 }, { a: 1, b: 3 });
+		expect(diff.changedCount).toBe(1);
+		expect(diff.lines.filter((l) => l.changed).map((l) => l.text.trim())).toEqual(['"b": 2']);
+	});
+
+	it('marks nothing without defaults, or past their end', () => {
+		expect(paramDiffLines({ a: 1 }, null).changedCount).toBe(0);
+		expect(paramDiffLines({ a: 1, b: 2, c: 3 }, {}).changedCount).toBe(1);
 	});
 });

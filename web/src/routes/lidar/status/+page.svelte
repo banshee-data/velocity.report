@@ -203,6 +203,11 @@
 			key: 'clearTracks',
 			label: 'Clear tracks and observations',
 			confirm: 'Delete every track and observation for this sensor? This cannot be undone.'
+		},
+		{
+			key: 'clearRuns',
+			label: 'Clear analysis runs',
+			confirm: 'Delete every analysis run and its tracks for this sensor? This cannot be undone.'
 		}
 	];
 
@@ -214,7 +219,12 @@
 			await runMaintenance(sensorId, key);
 			maintenanceMessage = `${label} ✓`;
 		} catch (e) {
-			maintenanceError = e instanceof Error ? e.message : String(e);
+			const message = e instanceof Error ? e.message : String(e);
+			// The server registers run clearing only behind a feature flag.
+			maintenanceError =
+				key === 'clearRuns' && /not found/i.test(message)
+					? 'Clearing runs is turned off on this server (VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1 turns it on).'
+					: message;
 		}
 	}
 
@@ -583,6 +593,24 @@
 					<ul class="text-primary space-y-0.5 text-xs">
 						<!-- eslint-disable svelte/no-navigation-without-resolve -->
 						{#each [['LiDAR status', '/api/lidar/status'], ['Data source', '/api/lidar/data_source'], ['Grid status', '/api/lidar/grid_status'], ['Grid heatmap', '/api/lidar/grid_heatmap'], ['Acceptance metrics', '/api/lidar/acceptance'], ['Latest snapshot', '/api/lidar/snapshot'], ['Snapshots', '/api/lidar/snapshots'], ['Active tracks', '/api/lidar/tracks/active'], ['Track summary', '/api/lidar/tracks/summary'], ['Clusters', '/api/lidar/clusters']] as [label, path] (path)}
+							<li>
+								<a
+									href={`${path}?sensor_id=${encodeURIComponent(sensorId)}`}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="underline">{label}</a
+								>
+							</li>
+						{/each}
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					</ul>
+
+					<h3 class="text-surface-content mt-4 mb-1 text-sm font-semibold">
+						ASC exports (written on the server)
+					</h3>
+					<ul class="text-primary space-y-0.5 text-xs">
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						{#each [['Latest background snapshot', '/api/lidar/export_snapshot'], ['Next full frame', '/api/lidar/export_next_frame'], ['Latest foreground', '/api/lidar/export_foreground']] as [label, path] (path)}
 							<li>
 								<a
 									href={`${path}?sensor_id=${encodeURIComponent(sensorId)}`}

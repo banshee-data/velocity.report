@@ -673,3 +673,61 @@ export function replaySlotProblem(
 		? 'A replay is running. Stop it on the Status page before starting a sweep that replays a capture.'
 		: `The pipeline is still holding a finished replay (${status.data_source}). Stop it or resume live data on the Status page first.`;
 }
+
+/**
+ * The tuning parameters in an object a sweep can apply: canonical schema
+ * keys only, with recommendation metrics and unknown keys left out.
+ */
+export function editableTuningParams(params: unknown): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const [k, v] of Object.entries(normaliseParamMap(params))) {
+		if (PARAM_SCHEMA[k]) out[k] = v;
+	}
+	return out;
+}
+
+/**
+ * A clip's stored best parameters: its recommended set, else its optimal
+ * parameters (which may arrive as a JSON string). Empty when it has none.
+ */
+export function clipTuningParams(clip: {
+	recommended_params?: Record<string, unknown>;
+	optimal_params_json?: Record<string, unknown> | string;
+}): Record<string, unknown> {
+	let source: unknown = clip.recommended_params;
+	if (!source || Object.keys(source as object).length === 0) {
+		source = clip.optimal_params_json;
+		if (typeof source === 'string') {
+			try {
+				source = JSON.parse(source);
+			} catch {
+				return {};
+			}
+		}
+	}
+	return editableTuningParams(source);
+}
+
+/** A line of the current parameters, marked where it differs from the default. */
+export interface ParamDiffLine {
+	text: string;
+	changed: boolean;
+}
+
+/**
+ * The current parameters as indented JSON, each line marked where it differs
+ * from the same line of the defaults, as the sweep dashboard highlighted
+ * them. Lines past the end of the defaults are not marked.
+ */
+export function paramDiffLines(
+	current: unknown,
+	defaults: unknown
+): {
+	lines: ParamDiffLine[];
+	changedCount: number;
+} {
+	const cur = JSON.stringify(current, null, 2).split('\n');
+	const def = defaults == null ? cur : JSON.stringify(defaults, null, 2).split('\n');
+	const lines = cur.map((text, i) => ({ text, changed: i < def.length && text !== def[i] }));
+	return { lines, changedCount: lines.filter((l) => l.changed).length };
+}

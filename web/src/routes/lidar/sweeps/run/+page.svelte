@@ -10,15 +10,22 @@
 		applyLidarParams,
 		continueHINT,
 		getHINTState,
+		getLidarParams,
 		getLidarReplayCase,
 		getLidarReplayCases,
+		getSweepExplanation,
+		listSweeps,
+		type SweepExplanation,
 		startHINTSweep,
 		stopHINT
 	} from '#lib/api.js';
+	import ParamsDiff from '#lib/components/lidar/ParamsDiff.svelte';
+	import ScoreExplanation from '#lib/components/lidar/ScoreExplanation.svelte';
 	import SweepResults from '#lib/components/lidar/SweepResults.svelte';
 	import {
 		DEFAULT_LIDAR_SENSOR_ID,
 		getAutoTuneStatus,
+		getDefaultLidarParams,
 		getLidarStatus,
 		getManualSweepStatus,
 		getSuspendedSweep,
@@ -39,7 +46,10 @@
 		formatParamValues,
 		formatScore,
 		hintGates,
-		RECOMMENDATION_METRIC_KEYS
+		RECOMMENDATION_METRIC_KEYS,
+		recommendationMetrics,
+		resultsCsv,
+		roundSummary
 	} from '#lib/sweepResults.js';
 	import {
 		applySweepSetup,
@@ -47,7 +57,9 @@
 		buildHintRequest,
 		buildManualRequest,
 		buildSweepSetup,
+		clipTuningParams,
 		defaultSweepForm,
+		editableTuningParams,
 		estimateSweep,
 		formatSeconds,
 		newParamRow,
@@ -93,6 +105,23 @@
 	// JSON setup editor
 	let setupOpen = $state(false);
 	let setupJSON = $state('');
+	let setupFileInput = $state<HTMLInputElement | null>(null);
+
+	// Running parameters against the defaults, and the latest sweep's scoring
+	let currentParams = $state<Record<string, unknown> | null>(null);
+	let defaultParams = $state<Record<string, unknown> | null>(null);
+	let explanation = $state<SweepExplanation | null>(null);
+	let clipMessage = $state<string | null>(null);
+
+	const selectedClip = $derived(clips.find((c) => c.replay_case_id === form.replayCaseId) ?? null);
+	const clipParams = $derived(selectedClip ? clipTuningParams(selectedClip) : {});
+	// Ground truth needs the clip's labelled reference run.
+	const groundTruthAvailable = $derived(
+		form.dataSource === 'replay_case' && !!selectedClip?.reference_run_id
+	);
+	$effect(() => {
+		if (form.objective === 'ground_truth' && !groundTruthAvailable) form.objective = 'acceptance';
+	});
 
 	const estimate = $derived(estimateSweep(form));
 	const running = $derived(
@@ -107,22 +136,46 @@
 			: runStatus?.recommendation
 	);
 	const eta = $derived(runStatus ? autoTuneEtaSeconds(runStatus, Date.now()) : null);
+	// The stored sweep's breakdown, else the last HINT round's best.
+	const scoreComponents = $derived(
+		explanation?.score_components ??
+			(form.mode === 'hint' ? hint?.round_history?.at(-1)?.best_score_components : undefined)
+	);
 
 	let pollTimer: ReturnType<typeof setTimeout> | null = null;
+	// While HINT sweeps, its own state wakes the long poll only on phase
+	// changes, so the auto-tuner it drives is polled for progress and results.
+	let hintSweepTimer: ReturnType<typeof setInterval> | null = null;
 	let hintAbort: AbortController | null = null;
 	let lastHintStatus = '';
+
+	function stopHintSweepPolling() {
+		if (hintSweepTimer) clearInterval(hintSweepTimer);
+		hintSweepTimer = null;
+	}
+
+	async function pollHintSweep() {
+		try {
+			runStatus = await getAutoTuneStatus();
+		} catch {
+			// Progress is a nicety here; the HINT state carries the phase.
+		}
+	}
 
 	function stopPolling() {
 		if (pollTimer) clearTimeout(pollTimer);
 		pollTimer = null;
+		stopHintSweepPolling();
 		hintAbort?.abort();
 		hintAbort = null;
 	}
 
 	async function pollRun() {
 		try {
+			const previous = runStatus?.status;
 			runStatus = form.mode === 'auto' ? await getAutoTuneStatus() : await getManualSweepStatus();
 			if (runStatus.status !== 'running') stopping = false;
+			if (previous === 'running' && runStatus.status === 'complete') void loadExplanation();
 			if (runStatus.status === 'running' || runStatus.status === 'suspended') {
 				pollTimer = setTimeout(pollRun, POLL_MS);
 			}
@@ -155,8 +208,18 @@
 				);
 			} else if (hint.status === 'completed') {
 				notify('HINT sweep complete', 'Parameter optimisation finished.');
+				void loadExplanation();
 			}
 			lastHintStatus = hint.status;
+		}
+		if (hint.status === 'running_sweep') {
+			if (!hintSweepTimer) {
+				void pollHintSweep();
+				hintSweepTimer = setInterval(pollHintSweep, POLL_MS);
+			}
+		} else if (hintSweepTimer) {
+			stopHintSweepPolling();
+			void pollHintSweep();
 		}
 		if (['idle', 'completed', 'failed'].includes(hint.status)) {
 			stopping = false;
@@ -285,14 +348,75 @@
 
 	async function applyRecommendation() {
 		if (!recommendation) return;
-		const params = Object.fromEntries(
-			Object.entries(recommendation).filter(([k]) => !RECOMMENDATION_METRIC_KEYS.has(k))
-		);
+		const params = editableTuningParams(recommendation);
+		if (Object.keys(params).length === 0) {
+			applyMessage = 'The recommendation names no tuning parameters to apply.';
+			return;
+		}
 		try {
 			await applyLidarParams(sensorId, params);
-			applyMessage = `Applied ${Object.keys(params).length} parameters ✓`;
+			applyMessage = `Applied ${Object.keys(params).length} parameter${Object.keys(params).length === 1 ? '' : 's'} ✓`;
+			await loadParams();
 		} catch (e) {
 			applyMessage = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function applyClipParams() {
+		clipMessage = null;
+		try {
+			await applyLidarParams(sensorId, clipParams);
+			clipMessage = `Applied the clip's stored parameters (${Object.keys(clipParams).length}) ✓`;
+			await loadParams();
+		} catch (e) {
+			clipMessage = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	async function loadParams() {
+		try {
+			[currentParams, defaultParams] = await Promise.all([
+				getLidarParams(sensorId),
+				defaultParams ? Promise.resolve(defaultParams) : getDefaultLidarParams(sensorId)
+			]);
+		} catch (e) {
+			error = e instanceof Error ? e.message : String(e);
+		}
+	}
+
+	/** The newest sweep's score explanation, once a sweep finishes. */
+	async function loadExplanation() {
+		const [latest] = await listSweeps(sensorId, 1).catch(() => []);
+		explanation = latest ? await getSweepExplanation(latest.sweep_id) : null;
+	}
+
+	/** Hand the browser a file to save. */
+	function download(name: string, type: string, text: string) {
+		const url = URL.createObjectURL(new Blob([text], { type }));
+		const a = document.createElement('a');
+		a.href = url;
+		a.download = name;
+		a.click();
+		URL.revokeObjectURL(url);
+	}
+
+	function saveSetup() {
+		download(
+			'sweep-setup.json',
+			'application/json',
+			JSON.stringify(buildSweepSetup(form), null, 2)
+		);
+	}
+
+	async function loadSetupFile(e: Event & { currentTarget: HTMLInputElement }) {
+		const file = e.currentTarget.files?.[0];
+		e.currentTarget.value = '';
+		if (!file) return;
+		try {
+			form = applySweepSetup(form, JSON.parse(await file.text()));
+			error = null;
+		} catch (err) {
+			error = `Not a sweep setup: ${err instanceof Error ? err.message : String(err)}`;
 		}
 	}
 
@@ -325,6 +449,7 @@
 		else if (auto && ['running', 'suspended'].includes(auto.status)) form.mode = 'auto';
 		else if (manual?.status === 'running') form.mode = 'manual';
 		startPolling();
+		void loadParams();
 	});
 
 	onDestroy(stopPolling);
@@ -391,6 +516,18 @@
 							<Button variant="outline" size="sm" on:click={toggleSetup}>
 								{setupOpen ? 'Close JSON' : 'Edit as JSON'}
 							</Button>
+							<Button variant="outline" size="sm" on:click={saveSetup}>Save setup</Button>
+							<Button variant="outline" size="sm" on:click={() => setupFileInput?.click()}
+								>Load setup</Button
+							>
+							<input
+								bind:this={setupFileInput}
+								type="file"
+								accept=".json,application/json"
+								class="hidden"
+								aria-label="Sweep setup file"
+								onchange={loadSetupFile}
+							/>
 							<Button variant="outline" size="sm" on:click={addRow} disabled={running}
 								>Add parameter</Button
 							>
@@ -533,6 +670,30 @@
 									{/each}
 								</select>
 							</label>
+							{#if selectedClip}
+								<p class="text-surface-content/60 text-xs break-all">
+									{selectedClip.pcap_file}{selectedClip.file_count > 1
+										? ` and ${selectedClip.file_count - 1} more`
+										: ''}{selectedClip.pcap_start_secs != null
+										? ` · from ${selectedClip.pcap_start_secs}s`
+										: ''}{selectedClip.pcap_duration_secs != null
+										? ` · ${selectedClip.pcap_duration_secs}s`
+										: ''}{selectedClip.reference_run_id
+										? ` · labelled reference run ${selectedClip.reference_run_id.substring(0, 8)}`
+										: ' · no labelled reference run'}
+								</p>
+								{#if Object.keys(clipParams).length > 0}
+									<div class="flex flex-wrap items-center gap-2">
+										<Button
+											variant="outline"
+											size="sm"
+											on:click={applyClipParams}
+											disabled={running}>Apply the clip's stored parameters</Button
+										>
+										{#if clipMessage}<span class="text-xs">{clipMessage}</span>{/if}
+									</div>
+								{/if}
+							{/if}
 						{/if}
 						{#if form.mode !== 'hint' && form.dataSource !== 'live'}
 							<label class="vr-field">
@@ -650,7 +811,7 @@
 									<select class="vr-input" bind:value={form.objective}>
 										<option value="acceptance">Acceptance rate</option>
 										<option value="weighted">Weighted</option>
-										{#if form.dataSource === 'replay_case' && form.replayCaseId}
+										{#if groundTruthAvailable}
 											<option value="ground_truth">Ground truth (clip labels)</option>
 										{/if}
 									</select>
@@ -861,10 +1022,11 @@
 									>
 								</div>
 								{#if continueMessage}<p class="text-xs">{continueMessage}</p>{/if}
-							{:else if hint.status === 'running_sweep' && hint.auto_tune_state}
-								{@const ats = hint.auto_tune_state as Record<string, number>}
+							{:else if hint.status === 'running_sweep'}
+								{@const ats = (runStatus ?? hint.auto_tune_state ?? {}) as Record<string, number>}
 								<p class="text-surface-content/60 text-xs">
-									Sweep: {ats.completed_combos}/{ats.total_combos} combinations (round {ats.round}/{ats.total_rounds})
+									Sweep: {ats.completed_combos ?? 0}/{ats.total_combos ?? '?'} combinations (round {ats.round ??
+										1}/{ats.total_rounds ?? '?'})
 								</p>
 							{:else if hint.status === 'running_reference'}
 								<p class="text-surface-content/60 text-xs">Creating the reference run…</p>
@@ -897,6 +1059,7 @@
 
 			{#if recommendation && Object.keys(recommendation).length > 0}
 				{@const params = normaliseParamMap(recommendation)}
+				{@const metrics = recommendationMetrics(recommendation)}
 				<section class="vr-chart-card">
 					<div class="mb-2 flex items-center justify-between">
 						<h2 class="text-surface-content text-lg font-semibold">Recommendation</h2>
@@ -907,9 +1070,19 @@
 							>
 						</div>
 					</div>
+					{#if metrics.length > 0}
+						<dl class="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-xs">
+							{#each metrics as m (m.label)}
+								<div>
+									<dt class="text-surface-content/60 inline">{m.label}</dt>
+									<dd class="ml-1 inline font-mono font-semibold">{m.value}</dd>
+								</div>
+							{/each}
+						</dl>
+					{/if}
 					<table class="text-xs">
 						<tbody>
-							{#each Object.entries(params) as [key, value] (key)}
+							{#each Object.entries(params).filter(([k]) => !RECOMMENDATION_METRIC_KEYS.has(k)) as [key, value] (key)}
 								<tr>
 									<td class="text-surface-content/70 py-0.5 pr-4">{paramLabel(key)}</td>
 									<td class="py-0.5 font-mono"
@@ -921,15 +1094,71 @@
 							{/each}
 						</tbody>
 					</table>
+					{#if form.mode === 'auto' && runStatus?.round_results?.length}
+						<details class="mt-3">
+							<summary class="text-surface-content cursor-pointer text-sm font-semibold">
+								Round history ({runStatus.round_results.length} rounds)
+							</summary>
+							<ul class="mt-2 space-y-1 text-xs">
+								{#each runStatus.round_results as round, i (i)}
+									{@const r = roundSummary(round)}
+									<li>
+										{r.title}
+										{#if r.bounds}<br /><span class="text-surface-content/60">{r.bounds}</span>{/if}
+									</li>
+								{/each}
+							</ul>
+						</details>
+					{/if}
 				</section>
 			{/if}
 
-			{#if form.mode !== 'hint'}
+			{#if scoreComponents}
+				<section class="vr-chart-card">
+					<h2 class="text-surface-content mb-2 text-lg font-semibold">Why this score</h2>
+					<ScoreExplanation
+						components={scoreComponents}
+						objectiveName={explanation?.objective_name}
+						objectiveVersion={explanation?.objective_version}
+						delta={(explanation?.recommendation_explanation?.delta_vs_previous as Record<
+							string,
+							unknown
+						>) ?? null}
+					/>
+				</section>
+			{/if}
+
+			{#if form.mode !== 'hint' || results.length > 0}
 				<section>
-					<h2 class="text-surface-content mb-3 text-lg font-semibold">Results</h2>
+					<div class="mb-3 flex items-center justify-between">
+						<h2 class="text-surface-content text-lg font-semibold">Results</h2>
+						{#if results.length > 0}
+							<Button
+								variant="outline"
+								size="sm"
+								on:click={() => download('sweep-results.csv', 'text/csv', resultsCsv(results))}
+								>Download CSV</Button
+							>
+						{/if}
+					</div>
 					<SweepResults {results} />
 				</section>
 			{/if}
+
+			<section class="vr-chart-card">
+				<div class="mb-2 flex items-center justify-between">
+					<h2 class="text-surface-content text-lg font-semibold">Running parameters</h2>
+					<div class="flex gap-3 text-sm">
+						<Button variant="outline" size="sm" on:click={loadParams}>Refresh</Button>
+						<!-- eslint-disable svelte/no-navigation-without-resolve -->
+						<a href={resolve('/lidar/status')} class="text-primary self-center underline"
+							>Edit on the Status page</a
+						>
+						<!-- eslint-enable svelte/no-navigation-without-resolve -->
+					</div>
+				</div>
+				<ParamsDiff current={currentParams} defaults={defaultParams} />
+			</section>
 		</div>
 	</div>
 </main>
