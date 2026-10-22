@@ -8,8 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 22, 2026 - Maths decision review prepared
+## October 22, 2026 - Maths decision review prepared and integrated
 
+- {claude/peaceful-davinci-w8iuw8} Integrated the owner's seven maths decisions: one nearest-rank helper (`internal/stats.NearestRank`) for the radar rollup and the scene timeline, whose published p50/p85/p98 did not change, with D-18 amended and the radar SQL notes corrected from floor(n·p) − 1; valid following defined by two floors, a 10 mph band edge and a 4 or 6 s net ceiling chosen in l8fol0004, which is approved with ground0001 and l3bg0024; B10 deferred again with a trigger; a frame-level near-edge cost screen with a Pi spec (perf0004); the S3 sequence; and a D6 spec (l4clus0004) with a no-cap bound. Whether diagnostic quantiles also follow nearest rank returned to the owner, because the replay evaluation's axis p90 is read against G-GEO-1's pinned level: [packet](platform/operations/decision-review-maths-2026-10.md).
 - {claude/peaceful-davinci-w8iuw8} Prepared the maths decision-review packet: seven questions the repository leaves to its owner (following validity limits, the encounter-weighted view B10 that D-28 routed here, one aggregate percentile rule across four helpers, the near-edge cost screen's scope, the next S3 association arm, the built D6 subsampling remedy, and this week's experiment approvals), with the pipeline review's March questions, the OBB and sign-anchor open sections and the beam-wise evidence questions dispositioned in its inventory: [packet](platform/operations/decision-review-maths-2026-10.md).
 
 ## October 21, 2026 - Mid-range fragments, release dependencies, and month closure
