@@ -50,6 +50,12 @@ Each topic has one packet under this operations directory, created from the
 - An append-only decision log, follow-up owners and acceptance conditions, and integration review.
 - A resume handoff with the branch, PR, packet revision, model role, and next question.
 
+Packets so far:
+
+- [Maths, October 2026](decision-review-maths-2026-10.md): following validity limits, the
+  encounter-weighted view (B10), one aggregate percentile rule, the near-edge cost screen, the
+  S3 association cost, subsampling density (D6), and this week's experiment approvals.
+
 Packet-local question IDs remain stable. A source question retains its file and heading as well
 as its original ID, since different briefings reuse identifiers such as `Q1`. Preparation checks
 for later resolutions in the same document, the decisions register, current code, and open PRs.
