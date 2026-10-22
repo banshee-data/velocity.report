@@ -4287,6 +4287,21 @@
           "explained_share": null
         }
       },
+      "axis": {
+        "rule": "per scored pose whose prediction is established and moving at min_speed_mps or more: |yaw error| folded modulo 90° to [0°, 45°], less the reference's yaw bound, floored at zero; median and p90 by nearest rank, the value at 1-based rank ceil(p·n)",
+        "min_speed_mps": 2,
+        "excluded": {
+          "prediction_not_established": 7
+        },
+        "poses": [],
+        "vehicles": [],
+        "pooled": {
+          "poses": 0,
+          "median_deg": 0,
+          "p90_deg": 0,
+          "max_deg": 0
+        }
+      },
       "caveats": [
         "Split \"tune-physical\" has role \"tuning\": physical scores are tuning evidence, not a held-out result.",
         "Arm exact scores online-stage estimates as a declared baseline.",
@@ -7389,6 +7404,21 @@
           "remainder_mean_abs_m": 0.10000011126200341,
           "across_mean_abs_m": 0,
           "explained_share": 4.7683685326206145e-7
+        }
+      },
+      "axis": {
+        "rule": "per scored pose whose prediction is established and moving at min_speed_mps or more: |yaw error| folded modulo 90° to [0°, 45°], less the reference's yaw bound, floored at zero; median and p90 by nearest rank, the value at 1-based rank ceil(p·n)",
+        "min_speed_mps": 2,
+        "excluded": {
+          "prediction_not_established": 7
+        },
+        "poses": [],
+        "vehicles": [],
+        "pooled": {
+          "poses": 0,
+          "median_deg": 0,
+          "p90_deg": 0,
+          "max_deg": 0
         }
       },
       "caveats": [

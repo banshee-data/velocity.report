@@ -244,7 +244,10 @@ type PhysicalResult struct {
 	// CentreExtent splits each scored pose's along-axis centre error into
 	// the part half the length error explains and the remainder (W9).
 	CentreExtent *CentreExtentDecomposition `json:"centre_extent,omitempty"`
-	Caveats      []string                   `json:"caveats"`
+	// Axis is criterion G1's reading: the axis error of established, moving
+	// poses, by nearest rank.
+	Axis    *AxisErrorSummary `json:"axis,omitempty"`
+	Caveats []string          `json:"caveats"`
 }
 
 // Instant returns the record for one object at one sample of one episode.
@@ -297,6 +300,7 @@ func ScorePhysical(pr *PhysicalReference, arm PhysicalArm) (PhysicalResult, erro
 	}
 	res.Summary = summarisePhysical(res)
 	res.CentreExtent = decomposeCentreExtent(res.Instants, pr.labels, pr.ends, pr.Source.TransformVersion == "")
+	res.Axis = summariseAxis(res.Instants)
 	res.Caveats = physicalCaveats(res)
 	if n := len(s.pr.drifted); n > 0 {
 		keys := make([]string, 0, n)
