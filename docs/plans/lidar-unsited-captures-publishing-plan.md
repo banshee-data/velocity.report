@@ -123,16 +123,21 @@ published `raw_sha256`, a replay of the extract through libpcap (830 frames, 114
    clone there, and the dev targets pass it as `--lidar-dataset-dir`. Migration 066 applies on
    start. Extracts are written to `/Volumes/lidar/lidar/pcaps/clips/`, on the same volume as the
    dataset clone, so staging is a hard link and costs no space.
-2. **Per position** on `/lidar/captures`: open the session, click the static period named in the
-   table, check the trim, enter the coordinates, the dataset id and the north azimuth if known,
-   leave "cut the standalone extract now" ticked, and create the clip. The extract runs on the
-   capture queue; it reads every source in full for its digest.
-3. **On `/lidar/clips`**, for each clip once its extract completes: set "Replay from" to the
-   extract if replays should use it, and press "Stage into dataset".
-4. **Index and scenes.** `make site-index-clips` writes the new entries into
+2. **Find what needs a place** on `/lidar/captures`: tick "Only sessions with a static period
+   that needs a location". Each session left shows how many static periods of 60 s or more have
+   no located clip.
+3. **Locate each period** with its "Locate on map" link. The Locate page draws the period's
+   settled background from above; search the address (after allowing OpenStreetMap requests),
+   drag the sensor and its heading handle until the walls sit on the buildings, press Snap to
+   refine against OSM outlines, and Save. Save makes the period's clip if it has none.
+4. **Publish settings** on `/lidar/clips`: set the dataset id, cut the extract, and set "Replay
+   from" to the extract if replays should use it. The extract runs on the capture queue; it
+   reads every source in full for its digest.
+5. **Stage** each clip on `/lidar/clips` once its extract completes: "Stage into dataset".
+6. **Index and scenes.** `make site-index-clips` writes the new entries into
    `tools/s2-archive/site-index.json`; review and commit it. Then `make scene-assets-status`, and
    `make scene-assets SITES="…"` under the preflight in `AGENTS.md`.
-5. **Publish.** Review the dataset clone's diff (`manifest.json` and the new `raw/lidar/` files)
+7. **Publish.** Review the dataset clone's diff (`manifest.json` and the new `raw/lidar/` files)
    and push it to the Hub by hand.
 
 ## Decisions

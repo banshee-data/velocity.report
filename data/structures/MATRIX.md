@@ -69,115 +69,117 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 **Source:** `internal/lidar/server/routes.go`, `track_api.go`, `run_track_api.go`, `scene_api.go`, [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go)\
 **Mac consumers:** `RunTrackLabelAPIClient.swift`, `LabelAPIClient.swift` (HTTP, not gRPC)
 
-| Layer          | File                   | Endpoint                                        | DB  | Web | Mac |
-| -------------- | ---------------------- | ----------------------------------------------- | --- | --- | --- |
-| Status         | `routes.go`            | `GET /health`                                   | -   | ✅  | -   |
-| Status         | `routes.go`            | `GET /api/lidar/status`                         | -   | ✅  | -   |
-| Status         | `routes.go`            | `POST /api/lidar/persist`                       | ✅  | ✅  | -   |
-| Snapshot       | `routes.go`            | `GET /api/lidar/snapshot`                       | ✅  | ✅  | -   |
-| Snapshot       | `routes.go`            | `GET /api/lidar/snapshots`                      | ✅  | ✅  | -   |
-| Snapshot       | `routes.go`            | `POST /api/lidar/snapshots/cleanup`             | ✅  | ✅  | -   |
-| Export         | `routes.go`            | `GET /api/lidar/export_snapshot`                | ✅  | ✅  | -   |
-| Export         | `routes.go`            | `GET /api/lidar/export_next_frame`              | -   | ✅  | -   |
-| Export         | `routes.go`            | `GET /api/lidar/export_frame_sequence`          | -   | ✅  | -   |
-| Export         | `routes.go`            | `GET /api/lidar/export_foreground`              | -   | ✅  | -   |
-| Traffic        | `routes.go`            | `GET /api/lidar/traffic`                        | -   | ✅  | -   |
-| Traffic        | `routes.go`            | `GET /api/lidar/acceptance`                     | -   | ✅  | -   |
-| Traffic        | `routes.go`            | `POST /api/lidar/acceptance/reset`              | -   | ✅  | -   |
-| Tuning         | `routes.go`            | `GET/POST /api/lidar/params`                    | ✅  | ✅  | -   |
-| Sweep          | `routes.go`            | `POST /api/lidar/sweep/start`                   | ✅  | ✅  | -   |
-| Sweep          | `routes.go`            | `GET /api/lidar/sweep/status`                   | ✅  | ✅  | -   |
-| Sweep          | `routes.go`            | `POST /api/lidar/sweep/stop`                    | ✅  | ✅  | -   |
-| Sweep          | `routes.go`            | `GET /api/lidar/sweep/explain/`                 | -   | ✅  | -   |
-| Auto-tune      | `routes.go`            | `GET/POST /api/lidar/sweep/auto`                | -   | ✅  | -   |
-| Auto-tune      | `routes.go`            | `POST /api/lidar/sweep/auto/stop`               | -   | ✅  | -   |
-| Auto-tune      | `routes.go`            | `POST /api/lidar/sweep/auto/suspend`            | -   | ✅  | -   |
-| Auto-tune      | `routes.go`            | `POST /api/lidar/sweep/auto/resume`             | -   | ✅  | -   |
-| Auto-tune      | `routes.go`            | `GET /api/lidar/sweep/auto/suspended`           | -   | ✅  | -   |
-| HINT           | `routes.go`            | `POST /api/lidar/sweep/hint/continue`           | ✅  | ✅  | -   |
-| HINT           | `routes.go`            | `POST /api/lidar/sweep/hint/stop`               | -   | ✅  | -   |
-| HINT           | `routes.go`            | `GET/POST /api/lidar/sweep/hint`                | ✅  | ✅  | -   |
-| Background     | `routes.go`            | `GET /api/lidar/grid_status`                    | -   | ✅  | -   |
-| Background     | `routes.go`            | `GET /api/lidar/settling_eval`                  | -   | ✅  | -   |
-| Background     | `routes.go`            | `POST /api/lidar/grid_reset`                    | ✅  | ✅  | -   |
-| Background     | `routes.go`            | `GET /api/lidar/grid_heatmap`                   | -   | ✅  | -   |
-| Background     | `routes.go`            | `GET /api/lidar/background/grid`                | ✅  | ✅  | -   |
-| Background     | `routes.go`            | `GET /api/lidar/background/regions`             | -   | ✅  | -   |
-| Background     | `grid_chart.go`        | `GET /api/charts/grid` (SVG)                    | -   | ✅  | -   |
-| PCAP           | `routes.go`            | `GET /api/lidar/data_source`                    | -   | ✅  | -   |
-| PCAP           | `routes.go`            | `POST /api/lidar/pcap/start`                    | -   | ✅  | -   |
-| PCAP           | `routes.go`            | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
-| PCAP           | `routes.go`            | `POST /api/lidar/pcap/resume_live`              | -   | ✅  | -   |
-| PCAP           | `routes.go`            | `GET /api/lidar/pcap/files`                     | -   | ✅  | -   |
-| Playback       | `routes.go`            | `GET /api/lidar/playback/status`                | -   | -   | 🔶  |
-| Playback       | `routes.go`            | `POST /api/lidar/playback/pause`                | -   | -   | -   |
-| Playback       | `routes.go`            | `POST /api/lidar/playback/play`                 | -   | -   | -   |
-| Playback       | `routes.go`            | `POST /api/lidar/playback/seek`                 | -   | -   | -   |
-| Playback       | `routes.go`            | `POST /api/lidar/playback/rate`                 | -   | -   | -   |
-| Playback       | `routes.go`            | `POST /api/lidar/vrlog/load`                    | -   | -   | ✅  |
-| Playback       | `routes.go`            | `POST /api/lidar/vrlog/stop`                    | -   | -   | ✅  |
-| Charts         | `routes.go`            | `GET /api/lidar/chart/polar`                    | -   | ✅  | -   |
-| Charts         | `routes.go`            | `GET /api/lidar/chart/heatmap`                  | -   | ✅  | -   |
-| Charts         | `routes.go`            | `GET /api/lidar/chart/foreground`               | -   | ✅  | -   |
-| Charts         | `routes.go`            | `GET /api/lidar/chart/clusters`                 | -   | ✅  | -   |
-| Charts         | `routes.go`            | `GET /api/lidar/chart/traffic`                  | -   | ✅  | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks`                         | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks/active`                  | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks/{id}`                    | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`         | `PUT /api/lidar/tracks/{id}`                    | ✅  | -   | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks/{id}/observations`       | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks/history`                 | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks/summary`                 | ✅  | ✅  | -   |
-| Tracks         | `track_api.go`         | `GET /api/lidar/tracks/metrics`                 | -   | ✅  | -   |
-| Clusters       | `track_api.go`         | `GET /api/lidar/clusters`                       | ✅  | ✅  | -   |
-| Observations   | `track_api.go`         | `GET /api/lidar/observations`                   | ✅  | ✅  | -   |
-| Runs           | `run_track_api.go`     | `GET /api/lidar/runs`                           | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}`                      | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `DELETE /api/lidar/runs/{id}`                   | ✅  | ✅  | -   |
-| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/tracks`               | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`     | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | -   | ✅  |
-| Runs           | `run_track_api.go`     | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | -   | -   |
-| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | ✅  |
-| Runs           | `run_track_api.go`     | `GET /api/lidar/runs/{id}/statistics`           | ✅  | 🔶  | -   |
-| Runs           | `run_track_api.go`     | `POST /api/lidar/runs/{id}/reprocess`           | ✅  | -   | -   |
-| Runs           | `run_track_api.go`     | `POST /api/lidar/runs/{id}/evaluate`            | ✅  | -   | -   |
-| Runs           | `run_scene_api.go`     | `GET /api/lidar/runs/{id}/scene/{file}`         | ✅  | ✅  | -   |
-| Labels         | `lidar_labels.go`      | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | ✅  |
-| Labels         | `lidar_labels.go`      | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | ✅  |
-| Labels         | `lidar_labels.go`      | `GET /api/lidar/labels/export`                  | ✅  | ✅  | ✅  |
-| Scenes         | `scene_api.go`         | `GET/POST /api/lidar/clips`                     | ✅  | ✅  | -   |
-| Scenes         | `scene_api.go`         | `GET/PUT/DEL /api/lidar/clips/{id}`             | ✅  | ✅  | -   |
-| Scenes         | `scene_api.go`         | `POST /api/lidar/clips/{id}/replay`             | ✅  | -   | -   |
-| Scenes         | `scene_api.go`         | `GET/POST /api/lidar/clips/{id}/evaluations`    | ✅  | -   | -   |
-| Clip extracts  | `clip_extract_api.go`  | `GET/POST /api/lidar/clips/{id}/extract`        | ✅  | ✅  | -   |
-| Clip extracts  | `clip_extract_api.go`  | `PUT /api/lidar/clips/{id}/publishing`          | ✅  | ✅  | -   |
-| Clip extracts  | `clip_extract_api.go`  | `POST /api/lidar/clips/{id}/stage`              | ✅  | ✅  | -   |
-| Clip extracts  | `clip_extract_api.go`  | `GET /api/lidar/dataset/site-index`             | ✅  | -   | -   |
-| Missed regions | `run_track_api.go`     | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
-| Missed regions | `run_track_api.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
-| Sweep history  | `routes.go`            | `GET /api/lidar/sweeps`                         | ✅  | ✅  | -   |
-| Sweep history  | `routes.go`            | `GET /api/lidar/sweeps/{id}`                    | ✅  | ✅  | -   |
-| Sweep history  | `routes.go`            | `PUT /api/lidar/sweeps/charts`                  | ✅  | ✅  | -   |
-| Destructive    | `track_api.go`         | `POST /api/lidar/tracks/clear`                  | ✅  | ✅  | -   |
-| Destructive    | `routes.go`            | `POST /api/lidar/runs/clear`                    | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `GET /api/lidar/capture/roots`                  | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `POST /api/lidar/capture/scan`                  | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `GET /api/lidar/capture/sessions`               | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `GET /api/lidar/capture/files`                  | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `POST /api/lidar/capture/session/label`         | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `POST /api/lidar/capture/motion-pass`           | ✅  | ✅  | -   |
-| Capture        | `capture_jobs.go`      | `POST /api/lidar/capture/motion-pass/missing`   | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
-| Capture        | `capture_api.go`       | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |
-| Clip locations | `clip_location_api.go` | `GET /api/lidar/clip-locations`                 | ✅  | ✅  | -   |
-| Segments       | `segments_api.go`      | `GET /api/lidar/segments/finders`               | -   | ✅  | -   |
-| Segments       | `segments_api.go`      | `GET /api/lidar/segments`                       | ✅  | ✅  | -   |
-| Segments       | `segments_api.go`      | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
-| Segments       | `segments_api.go`      | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
-| Segments       | `segment_clip_api.go`  | `POST /api/lidar/clips/{id}/clip`               | ✅  | ✅  | -   |
-| Annotations    | `segment_packs_api.go` | `GET /api/lidar/annotations/packs`              | -   | ✅  | -   |
+| Layer          | File                    | Endpoint                                        | DB  | Web | Mac |
+| -------------- | ----------------------- | ----------------------------------------------- | --- | --- | --- |
+| Status         | `routes.go`             | `GET /health`                                   | -   | ✅  | -   |
+| Status         | `routes.go`             | `GET /api/lidar/status`                         | -   | ✅  | -   |
+| Status         | `routes.go`             | `POST /api/lidar/persist`                       | ✅  | ✅  | -   |
+| Snapshot       | `routes.go`             | `GET /api/lidar/snapshot`                       | ✅  | ✅  | -   |
+| Snapshot       | `routes.go`             | `GET /api/lidar/snapshots`                      | ✅  | ✅  | -   |
+| Snapshot       | `routes.go`             | `POST /api/lidar/snapshots/cleanup`             | ✅  | ✅  | -   |
+| Export         | `routes.go`             | `GET /api/lidar/export_snapshot`                | ✅  | ✅  | -   |
+| Export         | `routes.go`             | `GET /api/lidar/export_next_frame`              | -   | ✅  | -   |
+| Export         | `routes.go`             | `GET /api/lidar/export_frame_sequence`          | -   | ✅  | -   |
+| Export         | `routes.go`             | `GET /api/lidar/export_foreground`              | -   | ✅  | -   |
+| Traffic        | `routes.go`             | `GET /api/lidar/traffic`                        | -   | ✅  | -   |
+| Traffic        | `routes.go`             | `GET /api/lidar/acceptance`                     | -   | ✅  | -   |
+| Traffic        | `routes.go`             | `POST /api/lidar/acceptance/reset`              | -   | ✅  | -   |
+| Tuning         | `routes.go`             | `GET/POST /api/lidar/params`                    | ✅  | ✅  | -   |
+| Sweep          | `routes.go`             | `POST /api/lidar/sweep/start`                   | ✅  | ✅  | -   |
+| Sweep          | `routes.go`             | `GET /api/lidar/sweep/status`                   | ✅  | ✅  | -   |
+| Sweep          | `routes.go`             | `POST /api/lidar/sweep/stop`                    | ✅  | ✅  | -   |
+| Sweep          | `routes.go`             | `GET /api/lidar/sweep/explain/`                 | -   | ✅  | -   |
+| Auto-tune      | `routes.go`             | `GET/POST /api/lidar/sweep/auto`                | -   | ✅  | -   |
+| Auto-tune      | `routes.go`             | `POST /api/lidar/sweep/auto/stop`               | -   | ✅  | -   |
+| Auto-tune      | `routes.go`             | `POST /api/lidar/sweep/auto/suspend`            | -   | ✅  | -   |
+| Auto-tune      | `routes.go`             | `POST /api/lidar/sweep/auto/resume`             | -   | ✅  | -   |
+| Auto-tune      | `routes.go`             | `GET /api/lidar/sweep/auto/suspended`           | -   | ✅  | -   |
+| HINT           | `routes.go`             | `POST /api/lidar/sweep/hint/continue`           | ✅  | ✅  | -   |
+| HINT           | `routes.go`             | `POST /api/lidar/sweep/hint/stop`               | -   | ✅  | -   |
+| HINT           | `routes.go`             | `GET/POST /api/lidar/sweep/hint`                | ✅  | ✅  | -   |
+| Background     | `routes.go`             | `GET /api/lidar/grid_status`                    | -   | ✅  | -   |
+| Background     | `routes.go`             | `GET /api/lidar/settling_eval`                  | -   | ✅  | -   |
+| Background     | `routes.go`             | `POST /api/lidar/grid_reset`                    | ✅  | ✅  | -   |
+| Background     | `routes.go`             | `GET /api/lidar/grid_heatmap`                   | -   | ✅  | -   |
+| Background     | `routes.go`             | `GET /api/lidar/background/grid`                | ✅  | ✅  | -   |
+| Background     | `routes.go`             | `GET /api/lidar/background/regions`             | -   | ✅  | -   |
+| Background     | `grid_chart.go`         | `GET /api/charts/grid` (SVG)                    | -   | ✅  | -   |
+| PCAP           | `routes.go`             | `GET /api/lidar/data_source`                    | -   | ✅  | -   |
+| PCAP           | `routes.go`             | `POST /api/lidar/pcap/start`                    | -   | ✅  | -   |
+| PCAP           | `routes.go`             | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
+| PCAP           | `routes.go`             | `POST /api/lidar/pcap/resume_live`              | -   | ✅  | -   |
+| PCAP           | `routes.go`             | `GET /api/lidar/pcap/files`                     | -   | ✅  | -   |
+| Playback       | `routes.go`             | `GET /api/lidar/playback/status`                | -   | -   | 🔶  |
+| Playback       | `routes.go`             | `POST /api/lidar/playback/pause`                | -   | -   | -   |
+| Playback       | `routes.go`             | `POST /api/lidar/playback/play`                 | -   | -   | -   |
+| Playback       | `routes.go`             | `POST /api/lidar/playback/seek`                 | -   | -   | -   |
+| Playback       | `routes.go`             | `POST /api/lidar/playback/rate`                 | -   | -   | -   |
+| Playback       | `routes.go`             | `POST /api/lidar/vrlog/load`                    | -   | -   | ✅  |
+| Playback       | `routes.go`             | `POST /api/lidar/vrlog/stop`                    | -   | -   | ✅  |
+| Charts         | `routes.go`             | `GET /api/lidar/chart/polar`                    | -   | ✅  | -   |
+| Charts         | `routes.go`             | `GET /api/lidar/chart/heatmap`                  | -   | ✅  | -   |
+| Charts         | `routes.go`             | `GET /api/lidar/chart/foreground`               | -   | ✅  | -   |
+| Charts         | `routes.go`             | `GET /api/lidar/chart/clusters`                 | -   | ✅  | -   |
+| Charts         | `routes.go`             | `GET /api/lidar/chart/traffic`                  | -   | ✅  | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks`                         | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/active`                  | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/{id}`                    | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`          | `PUT /api/lidar/tracks/{id}`                    | ✅  | -   | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/{id}/observations`       | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/history`                 | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/summary`                 | ✅  | ✅  | -   |
+| Tracks         | `track_api.go`          | `GET /api/lidar/tracks/metrics`                 | -   | ✅  | -   |
+| Clusters       | `track_api.go`          | `GET /api/lidar/clusters`                       | ✅  | ✅  | -   |
+| Observations   | `track_api.go`          | `GET /api/lidar/observations`                   | ✅  | ✅  | -   |
+| Runs           | `run_track_api.go`      | `GET /api/lidar/runs`                           | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}`                      | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`      | `DELETE /api/lidar/runs/{id}`                   | ✅  | ✅  | -   |
+| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/tracks`               | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`      | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`     | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | -   | ✅  |
+| Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | -   | -   |
+| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/labelling-progress`   | ✅  | ✅  | ✅  |
+| Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/statistics`           | ✅  | 🔶  | -   |
+| Runs           | `run_track_api.go`      | `POST /api/lidar/runs/{id}/reprocess`           | ✅  | -   | -   |
+| Runs           | `run_track_api.go`      | `POST /api/lidar/runs/{id}/evaluate`            | ✅  | -   | -   |
+| Runs           | `run_scene_api.go`      | `GET /api/lidar/runs/{id}/scene/{file}`         | ✅  | ✅  | -   |
+| Labels         | `lidar_labels.go`       | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | ✅  |
+| Labels         | `lidar_labels.go`       | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | ✅  |
+| Labels         | `lidar_labels.go`       | `GET /api/lidar/labels/export`                  | ✅  | ✅  | ✅  |
+| Scenes         | `scene_api.go`          | `GET/POST /api/lidar/clips`                     | ✅  | ✅  | -   |
+| Scenes         | `scene_api.go`          | `GET/PUT/DEL /api/lidar/clips/{id}`             | ✅  | ✅  | -   |
+| Scenes         | `scene_api.go`          | `POST /api/lidar/clips/{id}/replay`             | ✅  | -   | -   |
+| Scenes         | `scene_api.go`          | `GET/POST /api/lidar/clips/{id}/evaluations`    | ✅  | -   | -   |
+| Clip extracts  | `clip_extract_api.go`   | `GET/POST /api/lidar/clips/{id}/extract`        | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`   | `PUT /api/lidar/clips/{id}/publishing`          | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`   | `POST /api/lidar/clips/{id}/stage`              | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`   | `GET /api/lidar/dataset/site-index`             | ✅  | -   | -   |
+| Missed regions | `run_track_api.go`      | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
+| Missed regions | `run_track_api.go`      | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
+| Sweep history  | `routes.go`             | `GET /api/lidar/sweeps`                         | ✅  | ✅  | -   |
+| Sweep history  | `routes.go`             | `GET /api/lidar/sweeps/{id}`                    | ✅  | ✅  | -   |
+| Sweep history  | `routes.go`             | `PUT /api/lidar/sweeps/charts`                  | ✅  | ✅  | -   |
+| Destructive    | `track_api.go`          | `POST /api/lidar/tracks/clear`                  | ✅  | ✅  | -   |
+| Destructive    | `routes.go`             | `POST /api/lidar/runs/clear`                    | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `GET /api/lidar/capture/roots`                  | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `POST /api/lidar/capture/scan`                  | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `GET /api/lidar/capture/sessions`               | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `GET /api/lidar/capture/files`                  | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `POST /api/lidar/capture/session/label`         | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `POST /api/lidar/capture/motion-pass`           | ✅  | ✅  | -   |
+| Capture        | `capture_jobs.go`       | `POST /api/lidar/capture/motion-pass/missing`   | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
+| Capture        | `capture_period_api.go` | `GET /api/lidar/capture/periods/background`     | -   | ✅  | -   |
+| Capture        | `capture_period_api.go` | `POST /api/lidar/capture/periods/clip`          | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
+| Capture        | `capture_api.go`        | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |
+| Clip locations | `clip_location_api.go`  | `GET /api/lidar/clip-locations`                 | ✅  | ✅  | -   |
+| Segments       | `segments_api.go`       | `GET /api/lidar/segments/finders`               | -   | ✅  | -   |
+| Segments       | `segments_api.go`       | `GET /api/lidar/segments`                       | ✅  | ✅  | -   |
+| Segments       | `segments_api.go`       | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
+| Segments       | `segments_api.go`       | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
+| Segments       | `segment_clip_api.go`   | `POST /api/lidar/clips/{id}/clip`               | ✅  | ✅  | -   |
+| Annotations    | `segment_packs_api.go`  | `GET /api/lidar/annotations/packs`              | -   | ✅  | -   |
 
 **Playback row notes.** No web code calls any `/api/lidar/playback/*` or
 `/api/lidar/vrlog/*` endpoint; those rows previously carried Web ✅ marks that
@@ -1185,7 +1187,7 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 107   | 67  | 89  | 11  |
+| HTTP endpoints (LiDAR)  | 109   | 68  | 91  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 45    | -   | 35  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |

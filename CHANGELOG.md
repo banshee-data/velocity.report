@@ -65,6 +65,11 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Added
 
+- Static periods can be located on a map. The Captures page filters to sessions with a static
+  period that has no location, and links each period to a new Locate page that draws its settled
+  background from above. Find the place by address, drag and turn the sensor, and Snap it to
+  OpenStreetMap building outlines with ICP in the browser; Save records the position and heading
+  on the period's clip. OpenStreetMap requests wait for the operator's consent each session.
 - A clip can be cut to one standalone capture, its extract: whole rotations between the frame
   boundaries that bound the clip's window, every packet copied as captured, with full digests of
   the extract and its sources. It runs as a `capture_export` job from the Captures and Clips pages
