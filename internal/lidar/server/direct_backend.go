@@ -275,9 +275,9 @@ func (d *DirectBackend) WaitForPCAPComplete(timeout time.Duration) error {
 
 // --- Data source ---
 
-// GetLastAnalysisRunID returns the last analysis run ID.
-func (d *DirectBackend) GetLastAnalysisRunID() string {
-	return d.ws.LastAnalysisRunID()
+// GetLastRunID returns the last analysis run ID.
+func (d *DirectBackend) GetLastRunID() string {
+	return d.ws.LastRunID()
 }
 
 // --- internal helpers ---

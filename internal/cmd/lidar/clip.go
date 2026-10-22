@@ -110,7 +110,7 @@ func annotationClipMain(args []string, ops clipOperations) int {
 	}
 	if *observations {
 		cfg.ObservationLogDir = filepath.Join(*output, "observations.vrlog")
-		cfg.ReplayCaseID = "annotation-clip-" + filepath.Base(*output)
+		cfg.ClipID = "annotation-clip-" + filepath.Base(*output)
 		cfg.ObservationCalibration = replayCalibration(*sensor)
 	}
 	result, err := ops.run(cfg)

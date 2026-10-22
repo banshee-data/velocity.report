@@ -81,7 +81,7 @@ Results stored in `lidar_algorithm_runs` and
 ## What landed on main vs pending
 
 **Already on main:** `isNilInterface()`, thaw grace period,
-locked baseline fields, `AnalysisRunManager`, track quality metrics,
+locked baseline fields, `RunManager`, track quality metrics,
 grid plotter, version package, foreground freeze/thaw fixes.
 
 **Needs re-implementation:** `ForegroundExtractor` interface, background

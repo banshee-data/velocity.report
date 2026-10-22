@@ -31,30 +31,30 @@ func initRunState(tuner *HINTTuner, numRounds int) {
 	tuner.mu.Unlock()
 }
 
-// TestRun_SceneGetterNil tests run() when sceneGetter is nil.
-func TestRun_SceneGetterNil(t *testing.T) {
+// TestRun_ClipGetterNil tests run() when clipGetter is nil.
+func TestRun_ClipGetterNil(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
 	tuner.sweepID = "test-nil-getter"
 	initRunState(tuner, 1)
-	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "s1"})
+	tuner.run(context.Background(), HINTSweepRequest{ClipID: "s1"})
 	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Fatalf("expected failed, got %s", state.Status)
 	}
-	if state.Error != "replay case getter not configured" {
+	if state.Error != "clip getter not configured" {
 		t.Fatalf("unexpected error: %s", state.Error)
 	}
 }
 
-// TestRun_SceneNotFound tests run() when replay case lookup fails.
-func TestRun_SceneNotFound(t *testing.T) {
+// TestRun_ClipNotFound tests run() when clip lookup fails.
+func TestRun_ClipNotFound(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{err: errForTest("replay case not found")})
-	tuner.sweepID = "test-scene-notfound"
+	tuner.SetClipGetter(&mockClipGetter{err: errForTest("clip not found")})
+	tuner.sweepID = "test-clip-notfound"
 	initRunState(tuner, 1)
-	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "missing"})
+	tuner.run(context.Background(), HINTSweepRequest{ClipID: "missing"})
 	state := tuner.GetHINTState()
 	if state.Status != "failed" {
 		t.Fatalf("expected failed, got %s", state.Status)
@@ -65,13 +65,13 @@ func TestRun_SceneNotFound(t *testing.T) {
 func TestRun_RunCreatorNil(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.sweepID = "test-no-creator"
 	initRunState(tuner, 1)
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	state := tuner.GetHINTState()
@@ -84,14 +84,14 @@ func TestRun_RunCreatorNil(t *testing.T) {
 func TestRun_RunCreatorFails(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{err: errForTest("create failed")})
 	tuner.sweepID = "test-create-fails"
 	initRunState(tuner, 1)
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	state := tuner.GetHINTState()
@@ -104,8 +104,8 @@ func TestRun_RunCreatorFails(t *testing.T) {
 func TestRun_ContextCancelledDuringLabels(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-1"})
 	tuner.pollInterval = 10 * time.Millisecond
@@ -116,7 +116,7 @@ func TestRun_ContextCancelledDuringLabels(t *testing.T) {
 	cancel() // Cancel immediately before run
 
 	tuner.run(ctx, HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		RoundDurations: []int{1},
 	})
@@ -130,8 +130,8 @@ func TestRun_ContextCancelledDuringLabels(t *testing.T) {
 func TestRun_AutoTunerNil(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-1"})
 	tuner.SetLabelQuerier(&mockLabelQuerier{total: 10, labelled: 10, byClass: map[string]int{"car": 10}})
@@ -144,7 +144,7 @@ func TestRun_AutoTunerNil(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params:            []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 		MinLabelThreshold: 0.5,
 	})
@@ -158,9 +158,9 @@ func TestRun_AutoTunerNil(t *testing.T) {
 func TestRun_WithExistingOptimalParams(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{
-			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{
+			ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{err: errForTest("expected fail")})
@@ -168,7 +168,7 @@ func TestRun_WithExistingOptimalParams(t *testing.T) {
 	initRunState(tuner, 1)
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	state := tuner.GetHINTState()
@@ -359,21 +359,21 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	// Use a mock backend so the auto-tuner's runner can complete.
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
 	persister := &mockHINTPersister{}
-	sceneSaver := &mockSceneSaver{}
+	clipSaver := &mockClipSaver{}
 	tuner := newQuietHINTTuner(at)
 	tuner.SetPersister(persister)
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{
-			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{
+			ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-1"})
-	tuner.SetSceneStore(sceneSaver)
+	tuner.SetClipStore(clipSaver)
 	tuner.SetLabelQuerier(&mockLabelQuerier{
 		total: 10, labelled: 10, byClass: map[string]int{"car": 10},
 	})
@@ -386,7 +386,7 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
+		ClipID:         "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,
@@ -400,7 +400,7 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	if state.Status != string(SweepStatusComplete) {
 		t.Fatalf("expected completed, got %s (error: %s)", state.Status, state.Error)
 	}
-	if sceneSaver.calls == 0 {
+	if clipSaver.calls == 0 {
 		t.Fatal("expected SetOptimalParams to be called")
 	}
 	if persister.completeCalls == 0 {
@@ -412,19 +412,19 @@ func TestRun_FullSuccessPath(t *testing.T) {
 func TestRun_MultipleRounds(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
 	tuner := newQuietHINTTuner(at)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{
-			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{
+			ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-multi"})
-	tuner.SetSceneStore(&mockSceneSaver{})
+	tuner.SetClipStore(&mockClipSaver{})
 	tuner.SetLabelQuerier(&mockLabelQuerier{
 		total: 10, labelled: 10, byClass: map[string]int{"car": 10},
 		prevTracks: []HINTRunTrack{
@@ -444,7 +444,7 @@ func TestRun_MultipleRounds(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:    "s1",
+		ClipID:          "s1",
 		NumRounds:       2,
 		Params:          []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		CarryOverLabels: true,
@@ -506,14 +506,14 @@ func TestCarryOverLabels_NilQuerier(t *testing.T) {
 	}
 }
 
-// panicSceneGetter panics on GetScene to test panic recovery.
-type panicSceneGetter struct{}
+// panicClipGetter panics on GetClip to test panic recovery.
+type panicClipGetter struct{}
 
-func (p *panicSceneGetter) GetScene(sceneID string) (*HINTScene, error) {
+func (p *panicClipGetter) GetClip(clipID string) (*HINTClip, error) {
 	panic("intentional test panic")
 }
 
-func (p *panicSceneGetter) SetReferenceRun(sceneID, runID string) error {
+func (p *panicClipGetter) SetReferenceRun(clipID, runID string) error {
 	return nil
 }
 
@@ -521,12 +521,12 @@ func (p *panicSceneGetter) SetReferenceRun(sceneID, runID string) error {
 func TestRun_PanicRecovery(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&panicSceneGetter{})
+	tuner.SetClipGetter(&panicClipGetter{})
 	tuner.sweepID = "test-panic"
 	initRunState(tuner, 1)
 
 	// Should not crash - panic should be recovered
-	tuner.run(context.Background(), HINTSweepRequest{ReplayCaseID: "s1"})
+	tuner.run(context.Background(), HINTSweepRequest{ClipID: "s1"})
 
 	state := tuner.GetHINTState()
 	if state.Status != "failed" {
@@ -541,13 +541,13 @@ func TestRun_PanicRecovery(t *testing.T) {
 func TestStart_MapRequest(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 
 	req := map[string]interface{}{
-		"replay_case_id": "s1",
-		"num_rounds":     1,
+		"clip_id":    "s1",
+		"num_rounds": 1,
 		"params": []interface{}{
 			map[string]interface{}{"name": "eps", "type": "float64", "start": 0.1, "end": 1.0},
 		},
@@ -574,12 +574,12 @@ func TestStart_InvalidRequestType(t *testing.T) {
 func TestStart_PersisterStartError(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	tuner.SetPersister(&mockHINTPersister{startErr: errForTest("persist fail")})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap"},
 	})
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != nil {
@@ -636,7 +636,7 @@ func TestStart_BadMapRequest(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	// Map with non-serializable value causes marshal error
 	req := map[string]interface{}{
-		"replay_case_id": make(chan int), // channels can't be marshaled
+		"clip_id": make(chan int), // channels can't be marshaled
 	}
 	err := tuner.Start(context.Background(), req)
 	if err == nil {
@@ -652,7 +652,7 @@ func TestStart_AlreadyRunning(t *testing.T) {
 	tuner.mu.Unlock()
 
 	err := tuner.Start(context.Background(), HINTSweepRequest{
-		ReplayCaseID: "s1", NumRounds: 1,
+		ClipID: "s1", NumRounds: 1,
 		Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}},
 	})
 	if err != ErrSweepAlreadyRunning {
@@ -667,9 +667,9 @@ func TestStart_ValidationErrors(t *testing.T) {
 		name string
 		req  HINTSweepRequest
 	}{
-		{"empty replay_case_id", HINTSweepRequest{NumRounds: 1, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
-		{"zero rounds", HINTSweepRequest{ReplayCaseID: "s1", NumRounds: 0, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
-		{"too many rounds", HINTSweepRequest{ReplayCaseID: "s1", NumRounds: 11, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
+		{"empty clip_id", HINTSweepRequest{NumRounds: 1, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
+		{"zero rounds", HINTSweepRequest{ClipID: "s1", NumRounds: 0, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
+		{"too many rounds", HINTSweepRequest{ClipID: "s1", NumRounds: 11, Params: []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}}}},
 		// Note: "no params" is now valid — defaults are auto-populated
 	}
 	for _, tt := range tests {
@@ -687,7 +687,7 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 	tuner := newQuietHINTTuner(nil)
 	bounds := map[string][2]float64{"eps": {0.1, 1.0}, "minpts": {2, 10}}
 	req := HINTSweepRequest{
-		ReplayCaseID:   "s1",
+		ClipID:         "s1",
 		Params:         []SweepParam{{Name: "eps", Type: "float64", Start: 0.1, End: 1.0}, {Name: "minpts", Type: "float64", Start: 2, End: 10}},
 		ValuesPerParam: 5,
 		TopK:           3,
@@ -703,12 +703,12 @@ func TestBuildAutoTuneRequest_Coverage(t *testing.T) {
 		},
 		AcceptanceCriteria: &AcceptanceCriteria{},
 	}
-	scene := &HINTScene{
-		ReplayCaseID: "s1",
-		SensorID:     "sensor1",
-		PCAPFile:     "test.pcap",
+	clip := &HINTClip{
+		ClipID:   "s1",
+		SensorID: "sensor1",
+		PCAPFile: "test.pcap",
 	}
-	result := tuner.buildAutoTuneRequest(bounds, req, scene, 1)
+	result := tuner.buildAutoTuneRequest(bounds, req, clip, 1)
 	if len(result.Params) != 2 {
 		t.Fatalf("expected 2 params, got %d", len(result.Params))
 	}
@@ -969,19 +969,19 @@ func TestWaitForAutoTuneComplete_ContextCancelled(t *testing.T) {
 func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
 	tuner := newQuietHINTTuner(at)
 	tuner.SetPersister(&mockHINTPersister{startErr: errForTest("start persist fail")})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{
-			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{
+			ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-p"})
-	tuner.SetSceneStore(&mockSceneSaver{})
+	tuner.SetClipStore(&mockClipSaver{})
 	tuner.SetLabelQuerier(&mockLabelQuerier{
 		total: 10, labelled: 10, byClass: map[string]int{"car": 10},
 	})
@@ -994,7 +994,7 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
+		ClipID:         "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,
@@ -1010,23 +1010,23 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	}
 }
 
-// TestRun_SetOptimalParamsError tests run completion when scene store fails.
+// TestRun_SetOptimalParamsError tests run completion when clip store fails.
 func TestRun_SetOptimalParamsError(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.85, nil
 	})
 
 	tuner := newQuietHINTTuner(at)
 	tuner.SetPersister(&mockHINTPersister{})
-	tuner.SetSceneGetter(&mockSceneGetter{
-		scene: &HINTScene{
-			ReplayCaseID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
+	tuner.SetClipGetter(&mockClipGetter{
+		clip: &HINTClip{
+			ClipID: "s1", SensorID: "sensor1", PCAPFile: "test.pcap",
 		},
 	})
 	tuner.SetRunCreator(&mockRunCreator{runID: "run-opt"})
-	tuner.SetSceneStore(&mockSceneSaver{err: errForTest("save error")})
+	tuner.SetClipStore(&mockClipSaver{err: errForTest("save error")})
 	tuner.SetLabelQuerier(&mockLabelQuerier{
 		total: 10, labelled: 10, byClass: map[string]int{"car": 10},
 	})
@@ -1039,7 +1039,7 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 	tuner.continueCh <- continueSignal{}
 
 	tuner.run(context.Background(), HINTSweepRequest{
-		ReplayCaseID:   "s1",
+		ClipID:         "s1",
 		NumRounds:      1,
 		Params:         []SweepParam{{Name: "noise_relative", Type: "float64", Start: 0.01, End: 0.05}},
 		Iterations:     1,

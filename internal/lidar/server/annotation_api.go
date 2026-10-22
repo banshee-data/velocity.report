@@ -89,7 +89,7 @@ func (ws *Server) handleAnnotationExport(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	run, err := store.GetRun(runID)
 	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")

@@ -13,10 +13,10 @@ import (
 
 // --- CompareRuns coverage ---
 
-func setupCompareRunsDB(t *testing.T) (*AnalysisRunStore, func()) {
+func setupCompareRunsDB(t *testing.T) (*RunStore, func()) {
 	t.Helper()
 	db, cleanup := dbpkg.NewTestDB(t)
-	return NewAnalysisRunStore(db.DB), cleanup
+	return NewRunStore(db.DB), cleanup
 }
 
 type queryInterceptDB struct {
@@ -47,9 +47,9 @@ func (d *queryInterceptDB) Begin() (*sql.Tx, error) {
 	return d.db.Begin()
 }
 
-func insertTestRunWithTracks(t *testing.T, store *AnalysisRunStore, runID string, tracks []RunTrack) {
+func insertTestRunWithTracks(t *testing.T, store *RunStore, runID string, tracks []RunTrack) {
 	t.Helper()
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      runID,
 		SourceType: "pcap",
 		SourcePath: "/test/" + runID + ".pcap",
@@ -218,8 +218,8 @@ func TestCov_CompareRuns_WithConfigAssetParamDiff(t *testing.T) {
 		}},
 	})
 
-	store.db.Exec(`UPDATE lidar_run_records SET run_config_id = ? WHERE run_id = ?`, rcA.RunConfigID, "param-a")
-	store.db.Exec(`UPDATE lidar_run_records SET run_config_id = ? WHERE run_id = ?`, rcB.RunConfigID, "param-b")
+	store.db.Exec(`UPDATE lidar_runs SET run_config_id = ? WHERE run_id = ?`, rcA.RunConfigID, "param-a")
+	store.db.Exec(`UPDATE lidar_runs SET run_config_id = ? WHERE run_id = ?`, rcB.RunConfigID, "param-b")
 
 	cmp, err := CompareRuns(store, "param-a", "param-b")
 	if err != nil {

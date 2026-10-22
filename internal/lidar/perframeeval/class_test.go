@@ -440,7 +440,7 @@ func TestClassMeasureRefusesAReplayWithoutSolidBodies(t *testing.T) {
 	}
 }
 
-func TestClassMeasureRefusesAnalysisRuns(t *testing.T) {
+func TestClassMeasureRefusesRuns(t *testing.T) {
 	f := fixture(t)
 	cfg := baseConfig(f)
 	cfg.A = ArmSpec{Label: "A", DBPath: f.DBPath, RunID: evalfixture.RunA, DeclaredBaseline: true}

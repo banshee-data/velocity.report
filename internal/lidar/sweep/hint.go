@@ -28,15 +28,15 @@ type HINTRunTrack struct {
 	QualityLabel   string
 }
 
-// SceneGetter retrieves scene data and sets reference runs.
-type SceneGetter interface {
-	GetScene(sceneID string) (*HINTScene, error)
-	SetReferenceRun(sceneID, runID string) error
+// ClipGetter retrieves clip data and sets reference runs.
+type ClipGetter interface {
+	GetClip(clipID string) (*HINTClip, error)
+	SetReferenceRun(clipID, runID string) error
 }
 
-// HINTScene is a minimal scene representation.
-type HINTScene struct {
-	ReplayCaseID      string
+// HINTClip is a minimal clip representation.
+type HINTClip struct {
+	ClipID            string
 	SensorID          string
 	PCAPFile          string
 	PCAPStartSecs     *float64
@@ -52,7 +52,7 @@ type ReferenceRunCreator interface {
 
 // HINTSweepRequest defines the request for an HINT tuning sweep.
 type HINTSweepRequest struct {
-	ReplayCaseID          string              `json:"replay_case_id"`
+	ClipID                string              `json:"clip_id"`
 	NumRounds             int                 `json:"num_rounds"`
 	RoundDurations        []int               `json:"round_durations"`
 	Params                []SweepParam        `json:"params"`
@@ -157,11 +157,11 @@ type HINTTuner struct {
 	// Dependencies (injected)
 	autoTuner         *AutoTuner
 	labelQuerier      LabelProgressQuerier
-	sceneGetter       SceneGetter
-	sceneStore        SceneStoreSaver
+	clipGetter        ClipGetter
+	clipStore         ClipStoreSaver
 	runCreator        ReferenceRunCreator
 	persister         SweepPersister
-	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
+	groundTruthScorer func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error)
 
 	// Internal coordination
 	continueCh    chan continueSignal
@@ -214,18 +214,18 @@ func (rt *HINTTuner) SetLabelQuerier(q LabelProgressQuerier) {
 	rt.labelQuerier = q
 }
 
-// SetSceneGetter sets the scene getter dependency.
-func (rt *HINTTuner) SetSceneGetter(g SceneGetter) {
+// SetClipGetter sets the clip getter dependency.
+func (rt *HINTTuner) SetClipGetter(g ClipGetter) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	rt.sceneGetter = g
+	rt.clipGetter = g
 }
 
-// SetSceneStore sets the scene store dependency.
-func (rt *HINTTuner) SetSceneStore(s SceneStoreSaver) {
+// SetClipStore sets the clip store dependency.
+func (rt *HINTTuner) SetClipStore(s ClipStoreSaver) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	rt.sceneStore = s
+	rt.clipStore = s
 }
 
 // SetRunCreator sets the reference run creator dependency.
@@ -243,7 +243,7 @@ func (rt *HINTTuner) SetPersister(p SweepPersister) {
 }
 
 // SetGroundTruthScorer sets the ground truth scoring function.
-func (rt *HINTTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
+func (rt *HINTTuner) SetGroundTruthScorer(scorer func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
 	rt.groundTruthScorer = scorer
@@ -272,8 +272,8 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	}
 
 	// Validate request
-	if req.ReplayCaseID == "" {
-		return fmt.Errorf("replay_case_id is required")
+	if req.ClipID == "" {
+		return fmt.Errorf("clip_id is required")
 	}
 	if req.NumRounds < 1 || req.NumRounds > 10 {
 		return fmt.Errorf("num_rounds must be between 1 and 10, got %d", req.NumRounds)
@@ -303,22 +303,22 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 		req.SettleMode = "once"
 	}
 
-	// Pre-fetch scene to derive PCAP duration and compute iterations.
+	// Pre-fetch clip to derive PCAP duration and compute iterations.
 	sensorID := ""
-	var scenePCAPDuration float64
-	if rt.sceneGetter != nil {
-		if scene, err := rt.sceneGetter.GetScene(req.ReplayCaseID); err == nil && scene != nil {
-			sensorID = scene.SensorID
-			if scene.PCAPDurationSecs != nil && *scene.PCAPDurationSecs > 0 {
-				scenePCAPDuration = *scene.PCAPDurationSecs
+	var clipPCAPDuration float64
+	if rt.clipGetter != nil {
+		if clip, err := rt.clipGetter.GetClip(req.ClipID); err == nil && clip != nil {
+			sensorID = clip.SensorID
+			if clip.PCAPDurationSecs != nil && *clip.PCAPDurationSecs > 0 {
+				clipPCAPDuration = *clip.PCAPDurationSecs
 			}
 		}
 	}
 
-	// Fit iterations to the scene duration: scene duration takes precedence
-	// and we derive the number of intervals to cover the full scene window.
+	// Fit iterations to the clip duration: clip duration takes precedence
+	// and we derive the number of intervals to cover the full clip window.
 	if req.Iterations == 0 {
-		if scenePCAPDuration > 0 {
+		if clipPCAPDuration > 0 {
 			interval := 2.0 // default interval in seconds
 			if req.Interval != "" {
 				if d, err := time.ParseDuration(req.Interval); err == nil {
@@ -326,13 +326,13 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 				}
 			}
 			if interval > 0 {
-				req.Iterations = int(math.Floor(scenePCAPDuration / interval))
+				req.Iterations = int(math.Floor(clipPCAPDuration / interval))
 			}
 		}
 		if req.Iterations < 1 {
 			req.Iterations = 10
 		}
-		rt.logger.Printf("[hint] Fitted iterations=%d from scene duration=%.1fs", req.Iterations, scenePCAPDuration)
+		rt.logger.Printf("[hint] Fitted iterations=%d from clip duration=%.1fs", req.Iterations, clipPCAPDuration)
 	}
 
 	// Check not already running
@@ -380,7 +380,7 @@ func (rt *HINTTuner) Start(ctx context.Context, reqInterface interface{}) error 
 	rt.cancel = cancel
 	go rt.run(runCtx, req)
 
-	rt.logger.Printf("[hint] Started HINT tuning session %s for replay case %s (%d rounds)", rt.sweepID, req.ReplayCaseID, req.NumRounds)
+	rt.logger.Printf("[hint] Started HINT tuning session %s for clip %s (%d rounds)", rt.sweepID, req.ClipID, req.NumRounds)
 	return nil
 }
 
@@ -397,22 +397,22 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 		}
 	}()
 
-	// Get replay case
-	if rt.sceneGetter == nil {
-		rt.failWithError("replay case getter not configured")
+	// Get clip
+	if rt.clipGetter == nil {
+		rt.failWithError("clip getter not configured")
 		return
 	}
 
-	scene, err := rt.sceneGetter.GetScene(req.ReplayCaseID)
+	clip, err := rt.clipGetter.GetClip(req.ClipID)
 	if err != nil {
-		rt.failWithError(fmt.Sprintf("failed to get replay case: %v", err))
+		rt.failWithError(fmt.Sprintf("failed to get clip: %v", err))
 		return
 	}
 
 	// Load current parameters from immutable recommended params.
 	currentParams := make(map[string]float64)
-	if len(scene.RecommendedParams) > 0 {
-		if err := json.Unmarshal(scene.RecommendedParams, &currentParams); err != nil {
+	if len(clip.RecommendedParams) > 0 {
+		if err := json.Unmarshal(clip.RecommendedParams, &currentParams); err != nil {
 			rt.logger.Printf("[hint] Failed to parse recommended params, using defaults: %v", err)
 		}
 	}
@@ -450,7 +450,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 		rt.mu.Unlock()
 
 		// Run this round
-		bestParams, bestScore, err := rt.runRound(ctx, req, scene, currentRound, currentParams, bounds)
+		bestParams, bestScore, err := rt.runRound(ctx, req, clip, currentRound, currentParams, bounds)
 		if err != nil {
 			if ctx.Err() != nil {
 				rt.failWithError("context cancelled")
@@ -504,8 +504,8 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 			return
 		}
 
-		if rt.sceneStore != nil {
-			if err := rt.sceneStore.SetOptimalParams(req.ReplayCaseID, paramsJSON); err != nil {
+		if rt.clipStore != nil {
+			if err := rt.clipStore.SetOptimalParams(req.ClipID, paramsJSON); err != nil {
 				rt.logger.Printf("[hint] Failed to persist optimal params: %v", err)
 			} else {
 				rt.logger.Printf("[hint] Applied optimal params: %s", paramsJSON)
@@ -549,7 +549,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 }
 
 // runRound executes a single HINT round.
-func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *HINTScene, round int, currentParams map[string]float64, bounds map[string][2]float64) (map[string]float64, float64, error) {
+func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, clip *HINTClip, round int, currentParams map[string]float64, bounds map[string][2]float64) (map[string]float64, float64, error) {
 	// Step 1: Create reference run
 	rt.setStatus("running_reference")
 
@@ -564,15 +564,15 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *
 		return nil, 0, fmt.Errorf("run creator not configured")
 	}
 
-	runID, err := rt.runCreator.CreateSweepRun(scene.SensorID, scene.PCAPFile, paramsJSON, scenePCAPStart(scene), scenePCAPDuration(scene))
+	runID, err := rt.runCreator.CreateSweepRun(clip.SensorID, clip.PCAPFile, paramsJSON, clipPCAPStart(clip), clipPCAPDuration(clip))
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to create reference run: %w", err)
 	}
 
 	rt.logger.Printf("[hint] Created reference run: %s", runID)
 
-	// Set as scene's reference run
-	if err := rt.sceneGetter.SetReferenceRun(req.ReplayCaseID, runID); err != nil {
+	// Set as clip's reference run
+	if err := rt.clipGetter.SetReferenceRun(req.ClipID, runID); err != nil {
 		return nil, 0, fmt.Errorf("failed to set reference run: %w", err)
 	}
 
@@ -645,7 +645,7 @@ func (rt *HINTTuner) runRound(ctx context.Context, req HINTSweepRequest, scene *
 		return nil, 0, fmt.Errorf("auto-tuner not configured")
 	}
 
-	autoTuneReq := rt.buildAutoTuneRequest(bounds, req, scene, round)
+	autoTuneReq := rt.buildAutoTuneRequest(bounds, req, clip, round)
 
 	if err := rt.autoTuner.Start(ctx, autoTuneReq); err != nil {
 		return nil, 0, fmt.Errorf("failed to start auto-tune: %w", err)
@@ -746,7 +746,7 @@ func (rt *HINTTuner) carryOverLabels(prevRunID, newRunID string) (int, error) {
 }
 
 // buildAutoTuneRequest constructs an AutoTuneRequest for the current round.
-func (rt *HINTTuner) buildAutoTuneRequest(bounds map[string][2]float64, req HINTSweepRequest, scene *HINTScene, round int) AutoTuneRequest {
+func (rt *HINTTuner) buildAutoTuneRequest(bounds map[string][2]float64, req HINTSweepRequest, clip *HINTClip, round int) AutoTuneRequest {
 	// Build params with current bounds
 	params := make([]SweepParam, 0, len(req.Params))
 	for _, param := range req.Params {
@@ -762,10 +762,10 @@ func (rt *HINTTuner) buildAutoTuneRequest(bounds map[string][2]float64, req HINT
 		}
 	}
 
-	// Build base request — always use the scene's PCAP so the exploration
+	// Build base request — always use the clip's PCAP so the exploration
 	// sweep replays the same capture window as the reference run.
 	autoReq := AutoTuneRequest{
-		ReplayCaseID:       req.ReplayCaseID,
+		ClipID:             req.ClipID,
 		Objective:          "ground_truth",
 		Params:             params,
 		ValuesPerParam:     req.ValuesPerParam,
@@ -778,10 +778,10 @@ func (rt *HINTTuner) buildAutoTuneRequest(bounds map[string][2]float64, req HINT
 		SettleMode:         req.SettleMode,
 		GroundTruthWeights: req.GroundTruthWeights,
 		AcceptanceCriteria: req.AcceptanceCriteria,
-		DataSource:         "pcap",
-		PCAPFile:           scene.PCAPFile,
-		PCAPStartSecs:      scenePCAPStart(scene),
-		PCAPDurationSecs:   scenePCAPDuration(scene),
+		DataSource:         "capture",
+		PCAPFile:           clip.PCAPFile,
+		PCAPStartSecs:      clipPCAPStart(clip),
+		PCAPDurationSecs:   clipPCAPDuration(clip),
 	}
 
 	// Apply defaults

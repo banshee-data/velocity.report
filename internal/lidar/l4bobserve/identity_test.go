@@ -6,11 +6,11 @@ import (
 )
 
 func TestCaptureAndCalibrationIdentityBindEvidenceInputs(t *testing.T) {
-	columbus := CaptureSource{ReplayCaseID: "columbus-broadway", CapturePaths: []string{
+	columbus := CaptureSource{ClipID: "columbus-broadway", CapturePaths: []string{
 		"s2/s2_sf_3_20260902132037_00002.pcap",
 		"s2/s2_sf_3_20260902132537_00003.pcap",
 	}, CaptureSHA256s: []string{strings.Repeat("a", 64), strings.Repeat("b", 64)}, ExtractorID: "l4.dbscan_xy_v1:tuning/abc"}
-	marina := CaptureSource{ReplayCaseID: "marina-webster-beach", CapturePaths: []string{
+	marina := CaptureSource{ClipID: "marina-webster-beach", CapturePaths: []string{
 		"s2/s2_sf_2_20260902102827_00013.pcap",
 		"s2/s2_sf_2_20260902103327_00014.pcap",
 	}, CaptureSHA256s: []string{strings.Repeat("c", 64), strings.Repeat("d", 64)}, ExtractorID: "l4.dbscan_xy_v1:tuning/abc"}
@@ -50,7 +50,7 @@ func TestIdentityRejectsIncompleteEvidence(t *testing.T) {
 	if _, err := SourceID(CaptureSource{}); err == nil {
 		t.Fatal("accepted source without a case or captures")
 	}
-	if _, err := SourceID(CaptureSource{ReplayCaseID: "case", CapturePaths: []string{"a.pcap"}, CaptureSHA256s: []string{strings.Repeat("x", 64)}, ExtractorID: "l4"}); err == nil {
+	if _, err := SourceID(CaptureSource{ClipID: "case", CapturePaths: []string{"a.pcap"}, CaptureSHA256s: []string{strings.Repeat("x", 64)}, ExtractorID: "l4"}); err == nil {
 		t.Fatal("accepted an invalid capture digest")
 	}
 	if _, err := CalibrationID(Calibration{}); err == nil {

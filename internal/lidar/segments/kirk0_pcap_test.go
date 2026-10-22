@@ -29,7 +29,7 @@ func TestKirk0FollowingMatchesReferenceScript(t *testing.T) {
 	}
 	dir := t.TempDir()
 	evidence := filepath.Join(dir, "evidence.db")
-	cfg := replayeval.Config{PCAPFile: pcap, OutDir: filepath.Join(dir, "vrlog"), SensorID: "kirk0-segments", UDPPort: 2369, StartSeconds: 40, DurationSeconds: 20, WarmupSeconds: 35, RequireSettled: true, ObservationDBPath: evidence, ReplayCaseID: "kirk0-segment-parity", ObservationMaxSamplePoints: 64}
+	cfg := replayeval.Config{PCAPFile: pcap, OutDir: filepath.Join(dir, "vrlog"), SensorID: "kirk0-segments", UDPPort: 2369, StartSeconds: 40, DurationSeconds: 20, WarmupSeconds: 35, RequireSettled: true, ObservationDBPath: evidence, ClipID: "kirk0-segment-parity", ObservationMaxSamplePoints: 64}
 	cfg.ObservationCalibration = l4bobserve.Calibration{SensorID: cfg.SensorID, FromFrame: "sensor", ToFrame: "site", Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
 	result, err := replayeval.Run(cfg)
 	if err != nil {

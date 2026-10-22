@@ -71,19 +71,19 @@ There is no [internal/lidar/l8analytics/](../../internal/lidar/l8analytics) pack
 
 ### Current ownership mismatches
 
-| Current location                                                                                                     | Current responsibility                                                  | Correct owner                            |
-| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------- |
-| [internal/lidar/l6objects/comparison.go](../../internal/lidar/l6objects/comparison.go)                               | run comparison types and temporal IoU helpers                           | `L8 Analytics`                           |
-| [internal/lidar/l6objects/quality.go](../../internal/lidar/l6objects/quality.go)                                     | mixed per-object quality helpers and run-level aggregate statistics     | split `L6` and `L8`                      |
-| [internal/lidar/storage/sqlite/track_store.go](../../internal/lidar/storage/sqlite/track_store.go)                   | inline speed percentile calculation during persistence                  | `L8 Analytics` helper called by storage  |
-| [internal/lidar/storage/sqlite/analysis_run.go](../../internal/lidar/storage/sqlite/analysis_run.go)                 | run comparison orchestration and run summary logic                      | storage plus `L8` split                  |
-| [internal/lidar/storage/sqlite/analysis_run_compare.go](../../internal/lidar/storage/sqlite/analysis_run_compare.go) | parameter diffing and track matching logic                              | `L8 Analytics`                           |
-| `internal/lidar/monitor/track_api.go`                                                                                | summary aggregation and response shaping in one file                    | `L8` plus transport split                |
-| `internal/lidar/monitor/run_track_api.go`                                                                            | labelling progress and evaluation aggregation inside handlers           | `L8` plus transport split                |
-| `internal/lidar/monitor/scene_api.go`                                                                                | scene CRUD mixed with evaluation orchestration                          | infra plus `L8` split                    |
-| `internal/lidar/monitor/chart_data.go`, `chart_api.go`, `gridplotter.go`                                             | chart and debug payload shaping                                         | `L9 Endpoints`                           |
-| `internal/lidar/monitor/echarts_handlers.go`, `templates.go`                                                         | legacy dashboard serving glue, templates, and asset embedding hooks     | `L9 Endpoints`                           |
-| `internal/lidar/monitor/html/`, `assets/`                                                                            | embedded ECharts dashboard pages, sweep UI assets, and template bundles | transitional `L10 Clients` asset subtree |
+| Current location                                                                                   | Current responsibility                                                  | Correct owner                            |
+| -------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------- |
+| [internal/lidar/l6objects/comparison.go](../../internal/lidar/l6objects/comparison.go)             | run comparison types and temporal IoU helpers                           | `L8 Analytics`                           |
+| [internal/lidar/l6objects/quality.go](../../internal/lidar/l6objects/quality.go)                   | mixed per-object quality helpers and run-level aggregate statistics     | split `L6` and `L8`                      |
+| [internal/lidar/storage/sqlite/track_store.go](../../internal/lidar/storage/sqlite/track_store.go) | inline speed percentile calculation during persistence                  | `L8 Analytics` helper called by storage  |
+| [internal/lidar/storage/sqlite/run.go](../../internal/lidar/storage/sqlite/run.go)                 | run comparison orchestration and run summary logic                      | storage plus `L8` split                  |
+| [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go) | parameter diffing and track matching logic                              | `L8 Analytics`                           |
+| `internal/lidar/monitor/track_api.go`                                                              | summary aggregation and response shaping in one file                    | `L8` plus transport split                |
+| `internal/lidar/monitor/run_track_api.go`                                                          | labelling progress and evaluation aggregation inside handlers           | `L8` plus transport split                |
+| `internal/lidar/monitor/scene_api.go`                                                              | scene CRUD mixed with evaluation orchestration                          | infra plus `L8` split                    |
+| `internal/lidar/monitor/chart_data.go`, `chart_api.go`, `gridplotter.go`                           | chart and debug payload shaping                                         | `L9 Endpoints`                           |
+| `internal/lidar/monitor/echarts_handlers.go`, `templates.go`                                       | legacy dashboard serving glue, templates, and asset embedding hooks     | `L9 Endpoints`                           |
+| `internal/lidar/monitor/html/`, `assets/`                                                          | embedded ECharts dashboard pages, sweep UI assets, and template bundles | transitional `L10 Clients` asset subtree |
 
 ### L9 and L10 already exist in practice
 
@@ -183,8 +183,8 @@ Current call sites that will need updating during or immediately after this move
 
 - [internal/lidar/adapters/ground_truth.go](../../internal/lidar/adapters/ground_truth.go)
 - [internal/lidar/analysis/compare.go](../../internal/lidar/analysis/compare.go)
-- [internal/lidar/storage/sqlite/analysis_run.go](../../internal/lidar/storage/sqlite/analysis_run.go)
-- [internal/lidar/storage/sqlite/analysis_run_compare.go](../../internal/lidar/storage/sqlite/analysis_run_compare.go)
+- [internal/lidar/storage/sqlite/run.go](../../internal/lidar/storage/sqlite/run.go)
+- [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go)
 - `internal/lidar/monitor/track_api.go`
 
 #### 1C. Narrow `L6` back to object semantics
@@ -217,10 +217,10 @@ Backlog coverage: second half of the `v0.5.1` backlog item.
 Move or extract the following into `l8analytics/`:
 
 - percentile math from [internal/lidar/storage/sqlite/track_store.go](../../internal/lidar/storage/sqlite/track_store.go)
-- run summary helpers from [internal/lidar/storage/sqlite/analysis_run.go](../../internal/lidar/storage/sqlite/analysis_run.go)
-- parameter diffing from [internal/lidar/storage/sqlite/analysis_run_compare.go](../../internal/lidar/storage/sqlite/analysis_run_compare.go)
-- temporal matching and Hungarian-assignment comparison logic from [internal/lidar/storage/sqlite/analysis_run_compare.go](../../internal/lidar/storage/sqlite/analysis_run_compare.go)
-- run comparison orchestration from [internal/lidar/storage/sqlite/analysis_run.go](../../internal/lidar/storage/sqlite/analysis_run.go)
+- run summary helpers from [internal/lidar/storage/sqlite/run.go](../../internal/lidar/storage/sqlite/run.go)
+- parameter diffing from [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go)
+- temporal matching and Hungarian-assignment comparison logic from [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go)
+- run comparison orchestration from [internal/lidar/storage/sqlite/run.go](../../internal/lidar/storage/sqlite/run.go)
 
 Target end state for storage:
 
@@ -441,7 +441,7 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [ ] percentile helpers extracted from [internal/lidar/storage/sqlite/track_store.go](../../internal/lidar/storage/sqlite/track_store.go) and related storage-owned paths: _deferred: see above_
 - [x] run comparison orchestration moved out of `storage/sqlite`
 - [x] comparison logic delegates to `l8analytics/`
-- [x] [internal/lidar/storage/sqlite/analysis_run_compare.go](../../internal/lidar/storage/sqlite/analysis_run_compare.go) no longer owns canonical matching algorithms: `compareParams` is storage-level parameter comparison (appropriate); `computeTemporalIoU` delegates to `l8analytics`
+- [x] [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go) no longer owns canonical matching algorithms: `compareParams` is storage-level parameter comparison (appropriate); `computeTemporalIoU` delegates to `l8analytics`
 - [x] handler summary logic delegates to `l8analytics/`
 - [x] track summary logic delegates to `l8analytics/`
 - [x] labelling progress aggregation delegates to `l8analytics/`

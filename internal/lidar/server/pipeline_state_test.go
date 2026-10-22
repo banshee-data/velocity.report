@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"sync"
 	"testing"
 )
@@ -28,10 +29,10 @@ func TestPipelineStateDataSourceWire(t *testing.T) {
 	}{
 		{"live idle", SourceModeLive, false, false, "live"},
 		{"live with preserved grid after resume", SourceModeLive, false, true, "live"},
-		{"pcap replaying", SourceModePCAP, true, false, "pcap"},
-		{"pcap replaying in analysis mode", SourceModePCAP, true, true, "pcap"},
-		{"pcap finished without preservation", SourceModePCAP, false, false, "pcap"},
-		{"pcap finished with grid preserved", SourceModePCAP, false, true, "pcap_analysis"},
+		{"pcap replaying", SourceModeCapture, true, false, "capture"},
+		{"pcap replaying in analysis mode", SourceModeCapture, true, true, "capture"},
+		{"pcap finished without preservation", SourceModeCapture, false, false, "capture"},
+		{"pcap finished with grid preserved", SourceModeCapture, false, true, "capture_analysis"},
 		{"vrlog replaying", SourceModeVRLog, true, false, "vrlog"},
 		{"vrlog idle", SourceModeVRLog, false, false, "vrlog"},
 		{"vrlog never aliases to analysis", SourceModeVRLog, false, true, "vrlog"},
@@ -56,8 +57,8 @@ func TestPipelineStatePCAPInProgressStaysNarrow(t *testing.T) {
 		state PipelineState
 		want  bool
 	}{
-		{"pcap replaying", PipelineState{Source: SourceModePCAP, ReplayActive: true}, true},
-		{"pcap finished", PipelineState{Source: SourceModePCAP, ReplayActive: false}, false},
+		{"pcap replaying", PipelineState{Source: SourceModeCapture, ReplayActive: true}, true},
+		{"pcap finished", PipelineState{Source: SourceModeCapture, ReplayActive: false}, false},
 		{"vrlog replaying", PipelineState{Source: SourceModeVRLog, ReplayActive: true}, false},
 		{"live", PipelineState{Source: SourceModeLive}, false},
 	}
@@ -77,9 +78,9 @@ func TestPipelineStateAnalysisMode(t *testing.T) {
 		state PipelineState
 		want  bool
 	}{
-		{"pcap analysis replaying", PipelineState{Source: SourceModePCAP, ReplayActive: true, GridPreserved: true}, true},
-		{"pcap analysis finished", PipelineState{Source: SourceModePCAP, GridPreserved: true}, true},
-		{"pcap normal replay", PipelineState{Source: SourceModePCAP, ReplayActive: true}, false},
+		{"pcap analysis replaying", PipelineState{Source: SourceModeCapture, ReplayActive: true, GridPreserved: true}, true},
+		{"pcap analysis finished", PipelineState{Source: SourceModeCapture, GridPreserved: true}, true},
+		{"pcap normal replay", PipelineState{Source: SourceModeCapture, ReplayActive: true}, false},
 		{"live after resume with grid kept", PipelineState{Source: SourceModeLive, GridPreserved: true}, false},
 		{"vrlog", PipelineState{Source: SourceModeVRLog, GridPreserved: true}, false},
 	}
@@ -103,9 +104,9 @@ func TestPipelineStateStatusLabel(t *testing.T) {
 	}{
 		{"live", PipelineState{Source: SourceModeLive}, "Live UDP"},
 		{"live with preserved grid", PipelineState{Source: SourceModeLive, GridPreserved: true}, "Live UDP"},
-		{"pcap replaying", PipelineState{Source: SourceModePCAP, ReplayActive: true}, "PCAP Replay"},
-		{"pcap analysis finished", PipelineState{Source: SourceModePCAP, GridPreserved: true}, "PCAP Analysis"},
-		{"pcap finished without preservation", PipelineState{Source: SourceModePCAP}, "PCAP Analysis"},
+		{"pcap replaying", PipelineState{Source: SourceModeCapture, ReplayActive: true}, "PCAP Replay"},
+		{"pcap analysis finished", PipelineState{Source: SourceModeCapture, GridPreserved: true}, "PCAP Analysis"},
+		{"pcap finished without preservation", PipelineState{Source: SourceModeCapture}, "PCAP Analysis"},
 		{"vrlog replaying", PipelineState{Source: SourceModeVRLog, ReplayActive: true}, "VRLOG Replay"},
 		{"unknown source falls back to live", PipelineState{Source: SourceMode("nonsense")}, "Live UDP"},
 	}
@@ -122,7 +123,7 @@ func TestPipelineStateStatusLabel(t *testing.T) {
 func TestPipelineStateSnapshotIsCopy(t *testing.T) {
 	ws := &Server{state: newPipelineState()}
 	ws.mutateState("test", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.SourcePath = "/data/original.pcapng"
 	})
 
@@ -131,7 +132,7 @@ func TestPipelineStateSnapshotIsCopy(t *testing.T) {
 	snap.SourcePath = "/data/mutated"
 
 	after := ws.PipelineState()
-	if after.Source != SourceModePCAP {
+	if after.Source != SourceModeCapture {
 		t.Errorf("mutating the snapshot changed server state: Source = %q", after.Source)
 	}
 	if after.SourcePath != "/data/original.pcapng" {
@@ -201,7 +202,7 @@ func TestPipelineStateConcurrentProgressAndSnapshot(t *testing.T) {
 		defer wg.Done()
 		for i := 0; i < iterations; i++ {
 			ws.mutateState("test", func(s *PipelineState) {
-				s.Source = SourceModePCAP
+				s.Source = SourceModeCapture
 				s.ReplayActive = true
 			})
 		}
@@ -214,7 +215,7 @@ func TestPipelineStateConcurrentProgressAndSnapshot(t *testing.T) {
 			snap := ws.PipelineState()
 			// A snapshot must be internally consistent: whenever the source is
 			// PCAP with a replay running, the derived views must agree.
-			if snap.Source == SourceModePCAP && snap.ReplayActive && !snap.PCAPInProgress() {
+			if snap.Source == SourceModeCapture && snap.ReplayActive && !snap.PCAPInProgress() {
 				t.Errorf("incoherent snapshot: %+v", snap)
 				return
 			}
@@ -222,4 +223,27 @@ func TestPipelineStateConcurrentProgressAndSnapshot(t *testing.T) {
 	}()
 
 	wg.Wait()
+}
+
+func TestSourceModeDMGAlias(t *testing.T) {
+	for _, token := range []string{`"pcap"`, `"capture"`} {
+		var source SourceMode
+		if err := json.Unmarshal([]byte(token), &source); err != nil {
+			t.Fatal(err)
+		}
+		if source != SourceModeCapture {
+			t.Fatalf("%s decoded to %s", token, source)
+		}
+		encoded, err := json.Marshal(source)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(encoded) != `"capture"` {
+			t.Fatalf("old source emitted: %s", encoded)
+		}
+	}
+	var source SourceMode
+	if err := json.Unmarshal([]byte(`42`), &source); err == nil {
+		t.Fatal("invalid source accepted")
+	}
 }

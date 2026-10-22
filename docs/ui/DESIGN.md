@@ -186,11 +186,11 @@ legacy capability is an explicit unavailable state.
 
 Every web route shares the same outer shell — `vr-page` + `vr-toolbar` from [web/src/routes/app.css](../../web/src/routes/app.css). Routes differ only by **inner content width**, chosen per view intent:
 
-| Inner wrapper           | Width                       | Use for                                                                  | Examples                                                                         |
-| ----------------------- | --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| **`vr-content-narrow`** | 768px (`max-w-3xl`)         | Settings, CRUD, single-entity forms, list views of managed entities      | `/app/settings`, `/app/site`, `/app/site/[id]`, `/app/reports`                   |
-| **`vr-content-wide`**   | 1536px (`max-w-screen-2xl`) | Analytical dashboards with charts and multi-column KPI grids             | `/app/` (dashboard)                                                              |
-| _(no wrapper)_          | Full canvas inside vr-page  | Operational LiDAR workspaces — tables, point-cloud views, sweep matrices | `/app/lidar/tracks`, `/app/lidar/scenes`, `/app/lidar/runs`, `/app/lidar/sweeps` |
+| Inner wrapper           | Width                       | Use for                                                                  | Examples                                                                        |
+| ----------------------- | --------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------- |
+| **`vr-content-narrow`** | 768px (`max-w-3xl`)         | Settings, CRUD, single-entity forms, list views of managed entities      | `/app/settings`, `/app/site`, `/app/site/[id]`, `/app/reports`                  |
+| **`vr-content-wide`**   | 1536px (`max-w-screen-2xl`) | Analytical dashboards with charts and multi-column KPI grids             | `/app/` (dashboard)                                                             |
+| _(no wrapper)_          | Full canvas inside vr-page  | Operational LiDAR workspaces — tables, point-cloud views, sweep matrices | `/app/lidar/tracks`, `/app/lidar/clips`, `/app/lidar/runs`, `/app/lidar/sweeps` |
 
 Inside the narrow/wide column, group content as flat `<section class="space-y-4">` blocks with an `<h2>` header carrying a `border-b` divider — no `<Card>` wrappers around top-level sections. The settings page is the canonical example; new radar pages should mirror its structure.
 

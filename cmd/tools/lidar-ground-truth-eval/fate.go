@@ -26,7 +26,7 @@ import (
 // The evidence is a foreground-complete observation container, written by
 //
 //	velocity lidar pcap-replay --pcap FILE --output DIR --config TUNING \
-//	    --observations OBS --replay-case-id ID
+//	    --observations OBS --clip-id ID
 //
 // A container lacking that profile's capabilities is refused. Returns are
 // joined by packet identity: the pack's (packet key, block, channel) is
@@ -92,7 +92,7 @@ func parseFate(args []string, stderr io.Writer) (*perframeeval.FateOptions, stri
 		fmt.Fprintf(stderr, "For every return of a reviewed road-user mask, which pipeline stage lost it: L3 background, each L4\n")
 		fmt.Fprintf(stderr, "rejection the container records, or none (clustered, with its cluster), by class, range band and object,\n")
 		fmt.Fprintf(stderr, "and what the gaps between an object's fragments are made of. Prints a Markdown summary; -json writes\n")
-		fmt.Fprintf(stderr, "the full report. Replay with velocity lidar pcap-replay --observations DIR --replay-case-id ID.\n\nOptions:\n")
+		fmt.Fprintf(stderr, "the full report. Replay with velocity lidar pcap-replay --observations DIR --clip-id ID.\n\nOptions:\n")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(args); err != nil {

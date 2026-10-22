@@ -33,7 +33,7 @@ func (ws *Server) CurrentSource() DataSource {
 // CurrentPCAPFile returns the path of the active PCAP file (empty if none).
 func (ws *Server) CurrentPCAPFile() string {
 	state := ws.PipelineState()
-	if state.Source != SourceModePCAP {
+	if state.Source != SourceModeCapture {
 		return ""
 	}
 	return state.SourcePath

@@ -81,7 +81,7 @@ private func computeRunLabelRollup(from snapshots: [RunTrackLabelSnapshot]) -> R
 
     // MARK: - Published State
 
-    @Published var runs: [AnalysisRun] = []
+    @Published var runs: [Run] = []
     @Published var isLoading: Bool = false
     @Published var error: String?
     @Published var selectedRunID: String?

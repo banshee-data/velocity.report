@@ -16,7 +16,7 @@ func TestCurrentPCAPFileReportsPathOnlyForPCAPSource(t *testing.T) {
 	}
 
 	ws.mutateState("test", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.SourcePath = "/captures/kirk0.pcapng"
 	})
 	if got := ws.CurrentPCAPFile(); got != "/captures/kirk0.pcapng" {

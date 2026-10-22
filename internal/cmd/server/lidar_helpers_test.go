@@ -117,8 +117,8 @@ func TestApplyRecordingMetadata_UsesImmutableRunConfig(t *testing.T) {
 		t.Fatalf("EnsureRunConfig failed: %v", err)
 	}
 
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	if err := runStore.InsertRun(&sqlite.AnalysisRun{
+	runStore := sqlite.NewRunStore(testDB.DB)
+	if err := runStore.InsertRun(&sqlite.Run{
 		RunID:       "run-1",
 		SourceType:  "pcap",
 		SourcePath:  "/tmp/capture.pcap",
@@ -132,7 +132,7 @@ func TestApplyRecordingMetadata_UsesImmutableRunConfig(t *testing.T) {
 	var logs bytes.Buffer
 	rec := &recordingMetadataSinkStub{}
 	applyRecordingMetadata(rec, testDB.DB, recordingSourceInfoStub{
-		source:    server.DataSourcePCAP,
+		source:    server.DataSourceCapture,
 		pcapPath:  "/var/data/capture.pcap",
 		speedRate: 1.25,
 	}, "run-1", "fallback-hash", log.New(&logs, "", 0))
@@ -196,8 +196,8 @@ func TestApplyRecordingMetadata_LogsRunConfigLookupError(t *testing.T) {
 		t.Fatalf("EnsureRunConfig failed: %v", err)
 	}
 
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	if err := runStore.InsertRun(&sqlite.AnalysisRun{
+	runStore := sqlite.NewRunStore(testDB.DB)
+	if err := runStore.InsertRun(&sqlite.Run{
 		RunID:       "run-2",
 		SourceType:  "pcap",
 		SourcePath:  "/tmp/capture.pcap",
@@ -216,7 +216,7 @@ func TestApplyRecordingMetadata_LogsRunConfigLookupError(t *testing.T) {
 
 	var logs bytes.Buffer
 	rec := &recordingMetadataSinkStub{}
-	applyRecordingMetadata(rec, &runConfigQueryInterceptDB{db: testDB.DB, runConfigQueryDB: closedDB.DB}, recordingSourceInfoStub{source: server.DataSourcePCAPAnalysis, pcapPath: "/tmp/scene.pcap"}, "run-2", "fallback-hash", log.New(&logs, "", 0))
+	applyRecordingMetadata(rec, &runConfigQueryInterceptDB{db: testDB.DB, runConfigQueryDB: closedDB.DB}, recordingSourceInfoStub{source: server.DataSourceCaptureAnalysis, pcapPath: "/tmp/scene.pcap"}, "run-2", "fallback-hash", log.New(&logs, "", 0))
 
 	if rec.deterministicCalls != 0 {
 		t.Fatalf("deterministic config calls = %d, want 0", rec.deterministicCalls)
@@ -285,12 +285,12 @@ func TestRecoverOrphanedSweepsOnStart_LogsRecoveredCount(t *testing.T) {
 	}
 }
 
-func TestHintSceneAdapter_GetScene(t *testing.T) {
+func TestHintSceneAdapter_GetClip(t *testing.T) {
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	if err := runStore.InsertRun(&sqlite.AnalysisRun{
+	runStore := sqlite.NewRunStore(testDB.DB)
+	if err := runStore.InsertRun(&sqlite.Run{
 		RunID:      "run-1",
 		SourceType: "pcap",
 		SourcePath: "/tmp/capture.pcap",
@@ -300,30 +300,28 @@ func TestHintSceneAdapter_GetScene(t *testing.T) {
 		t.Fatalf("InsertRun failed: %v", err)
 	}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
+	store := sqlite.NewClipStore(testDB.DB)
 	startSecs := 1.5
 	durationSecs := 2.5
 	recommended := json.RawMessage(`{"alpha":1}`)
-	if err := store.InsertScene(&sqlite.ReplayCase{
-		ReplayCaseID:     "scene-1",
-		SensorID:         "sensor-1",
-		PCAPFile:         "capture.pcap",
-		PCAPStartSecs:    &startSecs,
+	if err := store.InsertClip(&sqlite.Clip{
+		ClipID:   "scene-1",
+		SensorID: "sensor-1", Files: []sqlite.ClipCapture{{PCAPFile: "capture.pcap"}}, PCAPStartSecs: &startSecs,
 		PCAPDurationSecs: &durationSecs,
 		ReferenceRunID:   "run-1",
 	}); err != nil {
-		t.Fatalf("InsertScene failed: %v", err)
+		t.Fatalf("InsertClip failed: %v", err)
 	}
 	if err := store.SetOptimalParams("scene-1", recommended); err != nil {
 		t.Fatalf("SetOptimalParams failed: %v", err)
 	}
 
-	adapter := &hintSceneAdapter{store: store}
-	scene, err := adapter.GetScene("scene-1")
+	adapter := &hintClipAdapter{store: store}
+	scene, err := adapter.GetClip("scene-1")
 	if err != nil {
-		t.Fatalf("GetScene failed: %v", err)
+		t.Fatalf("GetClip failed: %v", err)
 	}
-	if scene.ReplayCaseID != "scene-1" || scene.SensorID != "sensor-1" || scene.PCAPFile != "capture.pcap" {
+	if scene.ClipID != "scene-1" || scene.SensorID != "sensor-1" || scene.PCAPFile != "capture.pcap" {
 		t.Fatalf("unexpected scene payload: %+v", scene)
 	}
 	if string(scene.RecommendedParams) != string(recommended) {
@@ -354,11 +352,11 @@ func TestAttachFilterRecordOnlyForAReplay(t *testing.T) {
 	}
 	// Nor does a missing tracker or source, however the replay is sourced.
 	var noTracker *l5tracks.Tracker
-	if w := attachFilterRecord(noTracker, recordingSourceInfoStub{source: server.DataSourcePCAPAnalysis}, t.TempDir(), "sensor-a", logf); w != nil {
+	if w := attachFilterRecord(noTracker, recordingSourceInfoStub{source: server.DataSourceCaptureAnalysis}, t.TempDir(), "sensor-a", logf); w != nil {
 		t.Fatalf("a nil tracker attached a filter record: %v", w)
 	}
 
-	for _, src := range []server.DataSource{server.DataSourcePCAP, server.DataSourcePCAPAnalysis} {
+	for _, src := range []server.DataSource{server.DataSourceCapture, server.DataSourceCaptureAnalysis} {
 		host := &filterRecordHostStub{}
 		dir := filepath.Join(t.TempDir(), "run.vrlog")
 		w := attachFilterRecord(host, recordingSourceInfoStub{source: src}, dir, "sensor-a", logf)
@@ -391,7 +389,7 @@ func TestAttachFilterRecordOnlyForAReplay(t *testing.T) {
 	if err := os.WriteFile(blocked, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if w := attachFilterRecord(&filterRecordHostStub{}, recordingSourceInfoStub{source: server.DataSourcePCAP}, filepath.Join(blocked, "run.vrlog"), "sensor-a", logf); w != nil {
+	if w := attachFilterRecord(&filterRecordHostStub{}, recordingSourceInfoStub{source: server.DataSourceCapture}, filepath.Join(blocked, "run.vrlog"), "sensor-a", logf); w != nil {
 		t.Fatalf("an unopenable sidecar returned a writer: %v", w)
 	}
 	if len(logs) == 0 || !strings.Contains(logs[len(logs)-1], "filter record not started") {
@@ -400,7 +398,7 @@ func TestAttachFilterRecordOnlyForAReplay(t *testing.T) {
 	// A recording whose sidecar failed mid-way is logged at detach, not lost:
 	// a frame JSON cannot carry (NaN) is the write failure here.
 	host := &filterRecordHostStub{}
-	w := attachFilterRecord(host, recordingSourceInfoStub{source: server.DataSourcePCAP}, filepath.Join(t.TempDir(), "run.vrlog"), "sensor-a", logf)
+	w := attachFilterRecord(host, recordingSourceInfoStub{source: server.DataSourceCapture}, filepath.Join(t.TempDir(), "run.vrlog"), "sensor-a", logf)
 	if w == nil {
 		t.Fatal("no filter record attached")
 	}

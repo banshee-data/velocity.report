@@ -2179,24 +2179,24 @@ describe('api', () => {
 
 	// LiDAR labelling and transit API tests
 	describe('LiDAR labelling API', () => {
-		describe('getLidarReplayCases', () => {
-			it('should fetch scenes without filter', async () => {
+		describe('getLidarClips', () => {
+			it('should fetch clips without filter', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ scenes: [{ replay_case_id: 's1', sensor_id: 'sensor1' }] })
+					json: async () => ({ clips: [{ clip_id: 's1', sensor_id: 'sensor1' }] })
 				});
-				const { getLidarReplayCases } = await import('./api');
-				const result = await getLidarReplayCases();
-				expect(result).toEqual([{ replay_case_id: 's1', sensor_id: 'sensor1' }]);
+				const { getLidarClips } = await import('./api');
+				const result = await getLidarClips();
+				expect(result).toEqual([{ clip_id: 's1', sensor_id: 'sensor1' }]);
 			});
 
-			it('should fetch scenes with sensor_id filter', async () => {
+			it('should fetch clips with sensor_id filter', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
-					json: async () => ({ scenes: [] })
+					json: async () => ({ clips: [] })
 				});
-				const { getLidarReplayCases } = await import('./api');
-				const result = await getLidarReplayCases('hesai');
+				const { getLidarClips } = await import('./api');
+				const result = await getLidarClips('hesai');
 				expect(result).toEqual([]);
 				const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
 				expect(callUrl).toContain('sensor_id=hesai');
@@ -2204,19 +2204,19 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
-				const { getLidarReplayCases } = await import('./api');
-				await expect(getLidarReplayCases()).rejects.toThrow(
+				const { getLidarClips } = await import('./api');
+				await expect(getLidarClips()).rejects.toThrow(
 					'Could not load clips (HTTP 500 — server error, check the service is running)'
 				);
 			});
 
-			it('should default to an empty replay-case list when scenes are omitted', async () => {
+			it('should default to an empty clip list when clips are omitted', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
 					json: async () => ({})
 				});
-				const { getLidarReplayCases } = await import('./api');
-				await expect(getLidarReplayCases()).resolves.toEqual([]);
+				const { getLidarClips } = await import('./api');
+				await expect(getLidarClips()).resolves.toEqual([]);
 			});
 		});
 
@@ -2389,10 +2389,10 @@ describe('api', () => {
 	});
 
 	describe('LiDAR Replay Case Management', () => {
-		describe('getLidarReplayCase', () => {
+		describe('getLidarClip', () => {
 			it('should fetch a single scene by ID', async () => {
 				const mockScene = {
-					replay_case_id: 'scene-001',
+					clip_id: 'scene-001',
 					sensor_id: 'hesai-pandar40p',
 					pcap_file: 'test.pcap',
 					description: 'Test scene',
@@ -2402,42 +2402,42 @@ describe('api', () => {
 					ok: true,
 					json: async () => mockScene
 				});
-				const { getLidarReplayCase } = await import('./api');
-				const result = await getLidarReplayCase('scene-001');
+				const { getLidarClip } = await import('./api');
+				const result = await getLidarClip('scene-001');
 				expect(result).toEqual(mockScene);
-				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/scenes/scene-001');
+				expect(global.fetch).toHaveBeenCalledWith('/api/lidar/clips/scene-001');
 			});
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
-				const { getLidarReplayCase } = await import('./api');
-				await expect(getLidarReplayCase('bad-id')).rejects.toThrow(
+				const { getLidarClip } = await import('./api');
+				await expect(getLidarClip('bad-id')).rejects.toThrow(
 					'Could not load the clip (HTTP 404 — not found on server)'
 				);
 			});
 		});
 
-		describe('createLidarReplayCase', () => {
+		describe('createLidarClip', () => {
 			it('should create a new scene', async () => {
 				const newScene = {
 					sensor_id: 'hesai-pandar40p',
-					pcap_file: 'new.pcap',
+					pcap_files: ['new.pcap'],
 					description: 'New test scene'
 				};
 				const mockResponse = {
 					...newScene,
-					replay_case_id: 'scene-new',
+					clip_id: 'scene-new',
 					created_at_ns: 1000000000
 				};
 				(global.fetch as jest.Mock).mockResolvedValueOnce({
 					ok: true,
 					json: async () => mockResponse
 				});
-				const { createLidarReplayCase } = await import('./api');
-				const result = await createLidarReplayCase(newScene);
+				const { createLidarClip } = await import('./api');
+				const result = await createLidarClip(newScene);
 				expect(result).toEqual(mockResponse);
 				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/scenes',
+					'/api/lidar/clips',
 					expect.objectContaining({
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
@@ -2448,24 +2448,24 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 400 });
-				const { createLidarReplayCase } = await import('./api');
+				const { createLidarClip } = await import('./api');
 				await expect(
-					createLidarReplayCase({
+					createLidarClip({
 						sensor_id: 'hesai-pandar40p',
-						pcap_file: 'test.pcap'
+						pcap_files: ['test.pcap']
 					})
 				).rejects.toThrow('Could not create the clip (HTTP 400)');
 			});
 		});
 
-		describe('updateLidarReplayCase', () => {
+		describe('updateLidarClip', () => {
 			it('should update an existing scene', async () => {
 				const update = {
 					description: 'Updated description',
 					reference_run_id: 'run-001'
 				};
 				const mockResponse = {
-					replay_case_id: 'scene-001',
+					clip_id: 'scene-001',
 					sensor_id: 'hesai-pandar40p',
 					pcap_file: 'test.pcap',
 					...update,
@@ -2475,11 +2475,11 @@ describe('api', () => {
 					ok: true,
 					json: async () => mockResponse
 				});
-				const { updateLidarReplayCase } = await import('./api');
-				const result = await updateLidarReplayCase('scene-001', update);
+				const { updateLidarClip } = await import('./api');
+				const result = await updateLidarClip('scene-001', update);
 				expect(result).toEqual(mockResponse);
 				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/scenes/scene-001',
+					'/api/lidar/clips/scene-001',
 					expect.objectContaining({
 						method: 'PUT',
 						headers: { 'Content-Type': 'application/json' },
@@ -2490,20 +2490,20 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 500 });
-				const { updateLidarReplayCase } = await import('./api');
-				await expect(updateLidarReplayCase('scene-001', {})).rejects.toThrow(
+				const { updateLidarClip } = await import('./api');
+				await expect(updateLidarClip('scene-001', {})).rejects.toThrow(
 					'Could not update the clip (HTTP 500 — server error, check the service is running)'
 				);
 			});
 		});
 
-		describe('deleteLidarReplayCase', () => {
+		describe('deleteLidarClip', () => {
 			it('should delete a scene', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true });
-				const { deleteLidarReplayCase } = await import('./api');
-				await deleteLidarReplayCase('scene-001');
+				const { deleteLidarClip } = await import('./api');
+				await deleteLidarClip('scene-001');
 				expect(global.fetch).toHaveBeenCalledWith(
-					'/api/lidar/scenes/scene-001',
+					'/api/lidar/clips/scene-001',
 					expect.objectContaining({
 						method: 'DELETE'
 					})
@@ -2512,8 +2512,8 @@ describe('api', () => {
 
 			it('should handle errors', async () => {
 				(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: false, status: 404 });
-				const { deleteLidarReplayCase } = await import('./api');
-				await expect(deleteLidarReplayCase('scene-001')).rejects.toThrow(
+				const { deleteLidarClip } = await import('./api');
+				await expect(deleteLidarClip('scene-001')).rejects.toThrow(
 					'Could not delete the clip (HTTP 404 — not found on server)'
 				);
 			});

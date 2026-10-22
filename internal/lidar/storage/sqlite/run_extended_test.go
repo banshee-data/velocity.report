@@ -9,15 +9,15 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// setupAnalysisRunTestDB creates a test database via the canonical internal/db bootstrap path.
-func setupAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
+// setupRunTestDB creates a test database via the canonical internal/db bootstrap path.
+func setupRunTestDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
 	db, cleanup := dbpkg.NewTestDB(t)
 	return db.DB, cleanup
 }
 
-func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
+func setupLegacyRunTestDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
 	db, err := sql.Open("sqlite", ":memory:")
@@ -26,7 +26,7 @@ func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 	}
 	// Current schema WITHOUT completed_at — used to test the missing-completed_at path.
 	if _, err := db.Exec(`
-		CREATE TABLE lidar_run_records (
+		CREATE TABLE lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER NOT NULL,
 			source_type TEXT NOT NULL,
@@ -46,13 +46,13 @@ func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 			frame_start_ns INTEGER,
 			frame_end_ns INTEGER,
 			statistics_json TEXT,
-			replay_case_id TEXT,
+			clip_id TEXT,
 			run_config_id TEXT,
 			requested_param_set_id TEXT
 		)
 	`); err != nil {
 		_ = db.Close()
-		t.Fatalf("create legacy lidar_run_records table: %v", err)
+		t.Fatalf("create legacy lidar_runs table: %v", err)
 	}
 
 	cleanup := func() {
@@ -62,11 +62,11 @@ func setupLegacyAnalysisRunTestDB(t *testing.T) (*sql.DB, func()) {
 	return db, cleanup
 }
 
-// insertTestAnalysisRun inserts a parent analysis run for foreign key compliance.
-func insertTestAnalysisRun(t *testing.T, db *sql.DB, runID, sensorID string) {
+// insertTestRun inserts a parent analysis run for foreign key compliance.
+func insertTestRun(t *testing.T, db *sql.DB, runID, sensorID string) {
 	t.Helper()
 	_, err := db.Exec(`
-		INSERT INTO lidar_run_records (
+		INSERT INTO lidar_runs (
 			run_id, created_at, source_type, source_path, sensor_id, status
 		) VALUES (?, ?, 'pcap', '/test.pcap', ?, 'completed')
 	`, runID, time.Now().UnixNano(), sensorID)
@@ -77,13 +77,13 @@ func insertTestAnalysisRun(t *testing.T, db *sql.DB, runID, sensorID string) {
 
 // TestGetRun tests retrieving an analysis run by ID.
 func TestGetRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Create and insert a run
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:           "run-get-test",
 		CreatedAt:       time.Now(),
 		SourceType:      "pcap",
@@ -127,10 +127,10 @@ func TestGetRun(t *testing.T) {
 
 // TestGetRun_NotFound tests error handling for non-existent run.
 func TestGetRun_NotFound(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	_, err := store.GetRun("non-existent-run")
 	if err == nil {
@@ -140,15 +140,15 @@ func TestGetRun_NotFound(t *testing.T) {
 
 // TestListRuns tests listing analysis runs.
 func TestListRuns(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert multiple runs with different timestamps
 	for i := 0; i < 5; i++ {
 		runID := "run-list-" + string(rune('a'+i))
-		run := &AnalysisRun{
+		run := &Run{
 			RunID:      runID,
 			CreatedAt:  time.Now().Add(time.Duration(i) * time.Hour),
 			SourceType: "pcap",
@@ -205,12 +205,12 @@ func TestListRuns(t *testing.T) {
 }
 
 func TestListRuns_MissingRunTracksTableLeavesNilRollup(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-list-missing-rollup",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -238,10 +238,10 @@ func TestListRuns_MissingRunTracksTableLeavesNilRollup(t *testing.T) {
 
 // TestListRuns_Empty tests listing runs when none exist.
 func TestListRuns_Empty(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	runs, err := store.ListRuns(10)
 	if err != nil {
@@ -255,13 +255,13 @@ func TestListRuns_Empty(t *testing.T) {
 
 // TestInsertAndGetRunTracks tests inserting and retrieving run tracks.
 func TestInsertAndGetRunTracks(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-1", "sensor-1")
+	insertTestRun(t, db, "run-1", "sensor-1")
 
 	// Insert tracks
 	tracks := []*RunTrack{
@@ -317,10 +317,10 @@ func TestInsertAndGetRunTracks(t *testing.T) {
 
 // TestGetRunTracks_Empty tests retrieving tracks for a run with no tracks.
 func TestGetRunTracks_Empty(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	tracks, err := store.GetRunTracks("non-existent-run")
 	if err != nil {
@@ -334,13 +334,13 @@ func TestGetRunTracks_Empty(t *testing.T) {
 
 // TestUpdateTrackLabel tests updating a track's user label.
 func TestUpdateTrackLabel(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-label", "sensor-1")
+	insertTestRun(t, db, "run-label", "sensor-1")
 
 	// Insert a track
 	track := &RunTrack{
@@ -383,12 +383,12 @@ func TestUpdateTrackLabel(t *testing.T) {
 }
 
 func TestUpdateTrackLabel_NormalizesWriteValues(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	insertTestAnalysisRun(t, db, "run-label-normalized", "sensor-1")
+	insertTestRun(t, db, "run-label-normalized", "sensor-1")
 	track := &RunTrack{
 		RunID:   "run-label-normalized",
 		TrackID: "track-label-normalized", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
@@ -426,13 +426,13 @@ func TestUpdateTrackLabel_NormalizesWriteValues(t *testing.T) {
 
 // TestUpdateTrackQualityFlags tests updating split/merge flags.
 func TestUpdateTrackQualityFlags(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-flags", "sensor-1")
+	insertTestRun(t, db, "run-flags", "sensor-1")
 
 	// Insert a track
 	track := &RunTrack{
@@ -473,12 +473,12 @@ func TestUpdateTrackQualityFlags(t *testing.T) {
 }
 
 func TestUpdateTrackQualityFlags_NormalizesLinkedTrackIDs(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	insertTestAnalysisRun(t, db, "run-flags-normalized", "sensor-1")
+	insertTestRun(t, db, "run-flags-normalized", "sensor-1")
 	track := &RunTrack{
 		RunID:   "run-flags-normalized",
 		TrackID: "track-flags-normalized", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1",
@@ -510,13 +510,13 @@ func TestUpdateTrackQualityFlags_NormalizesLinkedTrackIDs(t *testing.T) {
 
 // TestGetLabelingProgress tests getting labeling statistics.
 func TestGetLabelingProgress(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-progress", "s1")
+	insertTestRun(t, db, "run-progress", "s1")
 
 	// Insert tracks with various label states
 	tracks := []*RunTrack{
@@ -557,11 +557,11 @@ func TestGetLabelingProgress(t *testing.T) {
 }
 
 func TestGetLabelingProgressWithRollup_TrimsLegacyWhitespaceValues(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
-	insertTestAnalysisRun(t, db, "run-progress-legacy-trim", "s1")
+	store := NewRunStore(db)
+	insertTestRun(t, db, "run-progress-legacy-trim", "s1")
 
 	tracks := []*RunTrack{
 		{RunID: "run-progress-legacy-trim", TrackID: "track-1", TrackMeasurement: TrackMeasurement{SensorID: "s1", TrackState: "confirmed", StartUnixNanos: 1000}},
@@ -622,13 +622,13 @@ func TestGetLabelingProgressWithRollup_TrimsLegacyWhitespaceValues(t *testing.T)
 
 // TestGetUnlabeledTracks tests getting tracks that need labeling.
 func TestGetUnlabeledTracks(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-unlabeled", "s1")
+	insertTestRun(t, db, "run-unlabeled", "s1")
 
 	// Insert tracks with various label states
 	tracks := []*RunTrack{
@@ -726,14 +726,14 @@ func TestParseRunParams_WithOptionalFields(t *testing.T) {
 	}
 }
 
-// TestAnalysisRunStore_UpdateRunStatus tests updating run status.
-func TestAnalysisRunStore_UpdateRunStatus(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+// TestRunStore_UpdateRunStatus tests updating run status.
+func TestRunStore_UpdateRunStatus(t *testing.T) {
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-status-test",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -767,13 +767,13 @@ func TestAnalysisRunStore_UpdateRunStatus(t *testing.T) {
 	}
 }
 
-func TestAnalysisRunStore_UpdateRunStatus_WithoutCompletedAtColumn(t *testing.T) {
-	db, cleanup := setupLegacyAnalysisRunTestDB(t)
+func TestRunStore_UpdateRunStatus_WithoutCompletedAtColumn(t *testing.T) {
+	db, cleanup := setupLegacyRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-status-legacy",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -805,14 +805,14 @@ func TestAnalysisRunStore_UpdateRunStatus_WithoutCompletedAtColumn(t *testing.T)
 	}
 }
 
-// TestAnalysisRunStore_CompleteRun tests completing a run with statistics.
-func TestAnalysisRunStore_CompleteRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+// TestRunStore_CompleteRun tests completing a run with statistics.
+func TestRunStore_CompleteRun(t *testing.T) {
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-complete-test",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -874,15 +874,15 @@ func TestRunTrackFromTrackedObject_EmptySpeedHistory(t *testing.T) {
 	}
 }
 
-// TestAnalysisRunStore_WithParentRun tests runs with parent run reference.
-func TestAnalysisRunStore_WithParentRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+// TestRunStore_WithParentRun tests runs with parent run reference.
+func TestRunStore_WithParentRun(t *testing.T) {
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run
-	parentRun := &AnalysisRun{
+	parentRun := &Run{
 		RunID:      "parent-run",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -894,7 +894,7 @@ func TestAnalysisRunStore_WithParentRun(t *testing.T) {
 	}
 
 	// Insert child run with parent reference
-	childRun := &AnalysisRun{
+	childRun := &Run{
 		RunID:       "child-run",
 		CreatedAt:   time.Now(),
 		SourceType:  "pcap",
@@ -919,13 +919,13 @@ func TestAnalysisRunStore_WithParentRun(t *testing.T) {
 
 // TestInsertRunTrack_EmptyLinkedIDs tests inserting a track with no linked IDs.
 func TestInsertRunTrack_EmptyLinkedIDs(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-empty-linked", "sensor-1")
+	insertTestRun(t, db, "run-empty-linked", "sensor-1")
 
 	track := &RunTrack{
 		RunID:   "run-empty-linked",
@@ -957,13 +957,13 @@ func TestInsertRunTrack_EmptyLinkedIDs(t *testing.T) {
 
 // TestGetRunTracks_WithNullableFields tests retrieving tracks with nullable fields.
 func TestGetRunTracks_WithNullableFields(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert parent run to satisfy foreign key constraint
-	insertTestAnalysisRun(t, db, "run-nullable", "sensor-1")
+	insertTestRun(t, db, "run-nullable", "sensor-1")
 
 	// Insert track with minimal fields (many will be null/default)
 	track := &RunTrack{
@@ -996,12 +996,12 @@ func TestGetRunTracks_WithNullableFields(t *testing.T) {
 
 // TestListRuns_WithAllFields tests that all fields are properly retrieved.
 func TestListRuns_WithAllFields(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:            "run-full",
 		CreatedAt:        time.Now(),
 		SourceType:       "live",
@@ -1042,67 +1042,67 @@ func TestListRuns_WithAllFields(t *testing.T) {
 	}
 }
 
-// --- PopulateReplayCaseName ---
+// --- PopulateSourceName ---
 
-func TestPopulateReplayCaseName_BasicPCAP(t *testing.T) {
-	r := &AnalysisRun{SourcePath: "/data/recordings/kirk1.pcap"}
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "kirk1" {
-		t.Errorf("expected replay case name 'kirk1', got %q", r.ReplayCaseName)
+func TestPopulateSourceName_BasicPCAP(t *testing.T) {
+	r := &Run{SourcePath: "/data/recordings/kirk1.pcap"}
+	r.PopulateSourceName()
+	if r.SourceName != "kirk1" {
+		t.Errorf("expected clip name 'kirk1', got %q", r.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_EmptyPath(t *testing.T) {
-	r := &AnalysisRun{SourcePath: ""}
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "" {
-		t.Errorf("expected empty replay case name for empty path, got %q", r.ReplayCaseName)
+func TestPopulateSourceName_EmptyPath(t *testing.T) {
+	r := &Run{SourcePath: ""}
+	r.PopulateSourceName()
+	if r.SourceName != "" {
+		t.Errorf("expected empty clip name for empty path, got %q", r.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_ClearsStaleValue(t *testing.T) {
-	r := &AnalysisRun{SourcePath: "/data/kirk1.pcap"}
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "kirk1" {
-		t.Fatalf("setup: expected 'kirk1', got %q", r.ReplayCaseName)
+func TestPopulateSourceName_ClearsStaleValue(t *testing.T) {
+	r := &Run{SourcePath: "/data/kirk1.pcap"}
+	r.PopulateSourceName()
+	if r.SourceName != "kirk1" {
+		t.Fatalf("setup: expected 'kirk1', got %q", r.SourceName)
 	}
 	r.SourcePath = ""
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "" {
-		t.Errorf("expected empty replay case name after clearing SourcePath, got %q", r.ReplayCaseName)
+	r.PopulateSourceName()
+	if r.SourceName != "" {
+		t.Errorf("expected empty clip name after clearing SourcePath, got %q", r.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_MultipleDots(t *testing.T) {
-	r := &AnalysisRun{SourcePath: "/data/test.capture.2024.pcap"}
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "test.capture.2024" {
-		t.Errorf("expected 'test.capture.2024', got %q", r.ReplayCaseName)
+func TestPopulateSourceName_MultipleDots(t *testing.T) {
+	r := &Run{SourcePath: "/data/test.capture.2024.pcap"}
+	r.PopulateSourceName()
+	if r.SourceName != "test.capture.2024" {
+		t.Errorf("expected 'test.capture.2024', got %q", r.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_NoExtension(t *testing.T) {
-	r := &AnalysisRun{SourcePath: "/data/recordings/kirk0"}
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "kirk0" {
-		t.Errorf("expected 'kirk0', got %q", r.ReplayCaseName)
+func TestPopulateSourceName_NoExtension(t *testing.T) {
+	r := &Run{SourcePath: "/data/recordings/kirk0"}
+	r.PopulateSourceName()
+	if r.SourceName != "kirk0" {
+		t.Errorf("expected 'kirk0', got %q", r.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_JustFilename(t *testing.T) {
-	r := &AnalysisRun{SourcePath: "scene.pcap"}
-	r.PopulateReplayCaseName()
-	if r.ReplayCaseName != "scene" {
-		t.Errorf("expected 'scene', got %q", r.ReplayCaseName)
+func TestPopulateSourceName_JustFilename(t *testing.T) {
+	r := &Run{SourcePath: "scene.pcap"}
+	r.PopulateSourceName()
+	if r.SourceName != "scene" {
+		t.Errorf("expected 'scene', got %q", r.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_PopulatedOnGetRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+func TestPopulateSourceName_PopulatedOnGetRun(t *testing.T) {
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	store := NewRunStore(db)
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	runID, err := manager.StartRun("/data/recordings/kirk1.pcap", params)
@@ -1117,18 +1117,18 @@ func TestPopulateReplayCaseName_PopulatedOnGetRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetRun failed: %v", err)
 	}
-	if run.ReplayCaseName != "kirk1" {
-		t.Errorf("expected ReplayCaseName 'kirk1' from GetRun, got %q", run.ReplayCaseName)
+	if run.SourceName != "kirk1" {
+		t.Errorf("expected SourceName 'kirk1' from GetRun, got %q", run.SourceName)
 	}
 }
 
-func TestPopulateReplayCaseName_PopulatedOnListRuns(t *testing.T) {
-	db, cleanup := setupAnalysisRunTestDB(t)
+func TestPopulateSourceName_PopulatedOnListRuns(t *testing.T) {
+	db, cleanup := setupRunTestDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	_, err := manager.StartRun("/data/recordings/kirk0.pcap", params)
 	if err != nil {
@@ -1145,7 +1145,7 @@ func TestPopulateReplayCaseName_PopulatedOnListRuns(t *testing.T) {
 	if len(runs) == 0 {
 		t.Fatal("expected at least one run")
 	}
-	if runs[0].ReplayCaseName != "kirk0" {
-		t.Errorf("expected ReplayCaseName 'kirk0' from ListRuns, got %q", runs[0].ReplayCaseName)
+	if runs[0].SourceName != "kirk0" {
+		t.Errorf("expected SourceName 'kirk0' from ListRuns, got %q", runs[0].SourceName)
 	}
 }

@@ -4,7 +4,7 @@
 // Field capture writes a rolling series of short PCAP files (typically five
 // minutes each). A useful static period is bounded by when the sensor stopped
 // and started moving, not by when the capture tool rolled its output, so a
-// replay case routinely spans several files. This package answers the two
+// clip routinely spans several files. This package answers the two
 // questions that makes possible:
 //
 //   - Do these files actually abut? Every join between adjacent files is graded

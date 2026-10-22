@@ -30,7 +30,7 @@ The source inspection for this proposal establishes these boundaries:
 | [L3 drift](../../../internal/lidar/l3grid/background_drift.go)                | Range shifts from locked baselines and foreground fraction                                                  | Detects change, but does not establish its semantic cause                                                         |
 | [L6 classifier](../../../internal/lidar/l6objects/classification.go)          | Priority rules over track dimensions, speed, and observation history; `rule-based-v1.2`                     | Returns one class and a heuristic confidence, not a calibrated distribution                                       |
 | [Visualiser protocol](../../../proto/velocity_visualiser/v1/visualiser.proto) | Track classes and human labels, including user-only noise                                                   | Scene parts and persistent region annotations need additional semantics                                           |
-| [Scene store](../../../internal/lidar/storage/sqlite/scene_store.go)          | Evaluation replay cases                                                                                     | A replay case is not a persistent semantic object                                                                 |
+| [Scene store](../../../internal/lidar/storage/sqlite/clip_store.go)           | Evaluation replay cases                                                                                     | A replay case is not a persistent semantic object                                                                 |
 
 In particular, L3's `VariancePerCell` averages a spread in metres. It is not a
 sample variance in square metres. Do not insert it directly into a covariance

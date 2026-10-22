@@ -57,3 +57,6 @@ Format and lint:
 ```sh
 pnpm run format
 ```
+
+LiDAR evaluation windows are [clips](../docs/lidar/operations/clip-management-implementation.md).
+The API uses `/api/lidar/clips` and `clip_id`; ordered capture rows supply each clip’s paths.

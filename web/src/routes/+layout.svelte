@@ -120,12 +120,7 @@
 					path="/app/lidar/captures"
 					currentUrl={navUrl}
 				/>
-				<NavItem
-					text="Clips"
-					icon={mdiFilmstrip}
-					path="/app/lidar/replay-cases"
-					currentUrl={navUrl}
-				/>
+				<NavItem text="Clips" icon={mdiFilmstrip} path="/app/lidar/clips" currentUrl={navUrl} />
 				<NavItem
 					text="Segments"
 					icon={mdiSelection}

@@ -80,7 +80,7 @@ type Window struct {
 	Capture       string   `json:"capture,omitempty"`
 	OffsetSeconds float64  `json:"offset_seconds,omitempty"`
 	Status        string   `json:"status"`
-	ReplayCaseID  string   `json:"replay_case_id,omitempty"`
+	ClipID        string   `json:"clip_id,omitempty"`
 	JobID         string   `json:"job_id,omitempty"`
 	PackDir       string   `json:"pack_dir,omitempty"`
 }

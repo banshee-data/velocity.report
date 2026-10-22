@@ -306,12 +306,12 @@ func EvaluateGroundTruth(reference, candidate []*sqlite.RunTrack, weights Ground
 
 // GroundTruthEvaluator provides ground truth evaluation services using stored analysis runs.
 type GroundTruthEvaluator struct {
-	store   *sqlite.AnalysisRunStore
+	store   *sqlite.RunStore
 	weights GroundTruthWeights
 }
 
 // NewGroundTruthEvaluator creates a new evaluator with the specified weights.
-func NewGroundTruthEvaluator(store *sqlite.AnalysisRunStore, weights GroundTruthWeights) *GroundTruthEvaluator {
+func NewGroundTruthEvaluator(store *sqlite.RunStore, weights GroundTruthWeights) *GroundTruthEvaluator {
 	return &GroundTruthEvaluator{
 		store:   store,
 		weights: weights,

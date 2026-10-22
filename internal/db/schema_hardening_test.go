@@ -12,7 +12,7 @@ func insertTestRunRecord(t *testing.T, db *DB, runID, sensorID, status string, p
 	t.Helper()
 
 	_, err := db.Exec(
-		`INSERT INTO lidar_run_records (
+		`INSERT INTO lidar_runs (
 			run_id, created_at, source_type, sensor_id, status, parent_run_id
 		) VALUES (?, ?, 'pcap', ?, ?, ?)`,
 		runID,
@@ -63,17 +63,17 @@ func TestCreateSiteReport_WithNoSiteStoresNullSiteID(t *testing.T) {
 	}
 }
 
-func TestReplayCaseDeleteCascadesReplayAnnotationsAndEvaluations(t *testing.T) {
+func TestClipDeleteCascadesReplayAnnotationsAndEvaluations(t *testing.T) {
 	db := setupTestDB(t)
 	defer cleanupTestDB(t, db)
 
 	insertTestRunRecord(t, db, "ref-run", "sensor-1", "completed", nil)
 	insertTestRunRecord(t, db, "cand-run", "sensor-1", "completed", nil)
 
-	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (
-		replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
-	) VALUES ('case-1', 'sensor-1', '/tmp/test.pcap', 'ref-run', ?)`, time.Now().UnixNano()); err != nil {
-		t.Fatalf("failed to insert replay case: %v", err)
+	if _, err := db.Exec(`INSERT INTO lidar_clips (
+		clip_id, sensor_id, reference_run_id, created_at_ns
+	) VALUES ('case-1', 'sensor-1', 'ref-run', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert clip: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO lidar_run_tracks (
 		run_id, track_id, sensor_id, track_state, start_unix_nanos
@@ -81,18 +81,18 @@ func TestReplayCaseDeleteCascadesReplayAnnotationsAndEvaluations(t *testing.T) {
 		t.Fatalf("failed to insert run track: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO lidar_replay_annotations (
-		annotation_id, replay_case_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
+		annotation_id, clip_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
 	) VALUES ('ann-1', 'case-1', 'ref-run', 'track-1', 'car', ?, ?)`, time.Now().UnixNano(), time.Now().UnixNano()); err != nil {
 		t.Fatalf("failed to insert replay annotation: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO lidar_replay_evaluations (
-		evaluation_id, replay_case_id, reference_run_id, candidate_run_id, created_at
+	if _, err := db.Exec(`INSERT INTO lidar_clip_evaluations (
+		evaluation_id, clip_id, reference_run_id, candidate_run_id, created_at
 	) VALUES ('eval-1', 'case-1', 'ref-run', 'cand-run', ?)`, time.Now().UnixNano()); err != nil {
 		t.Fatalf("failed to insert evaluation: %v", err)
 	}
 
-	if _, err := db.Exec(`DELETE FROM lidar_replay_cases WHERE replay_case_id = 'case-1'`); err != nil {
-		t.Fatalf("failed to delete replay case: %v", err)
+	if _, err := db.Exec(`DELETE FROM lidar_clips WHERE clip_id = 'case-1'`); err != nil {
+		t.Fatalf("failed to delete clip: %v", err)
 	}
 
 	var annotationCount int
@@ -104,7 +104,7 @@ func TestReplayCaseDeleteCascadesReplayAnnotationsAndEvaluations(t *testing.T) {
 	}
 
 	var evaluationCount int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_replay_evaluations WHERE evaluation_id = 'eval-1'`).Scan(&evaluationCount); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_clip_evaluations WHERE evaluation_id = 'eval-1'`).Scan(&evaluationCount); err != nil {
 		t.Fatalf("failed to query replay evaluations: %v", err)
 	}
 	if evaluationCount != 0 {
@@ -121,10 +121,10 @@ func TestRunDeleteNullsParentAndReferenceAndDropsRunScopedEvaluationLinks(t *tes
 	insertTestRunRecord(t, db, "child-run", "sensor-1", "completed", &parentID)
 	insertTestRunRecord(t, db, "cand-run", "sensor-1", "completed", nil)
 
-	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (
-		replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
-	) VALUES ('case-2', 'sensor-1', '/tmp/test.pcap', 'parent-run', ?)`, time.Now().UnixNano()); err != nil {
-		t.Fatalf("failed to insert replay case: %v", err)
+	if _, err := db.Exec(`INSERT INTO lidar_clips (
+		clip_id, sensor_id, reference_run_id, created_at_ns
+	) VALUES ('case-2', 'sensor-1', 'parent-run', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert clip: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO lidar_run_tracks (
 		run_id, track_id, sensor_id, track_state, start_unix_nanos
@@ -132,22 +132,22 @@ func TestRunDeleteNullsParentAndReferenceAndDropsRunScopedEvaluationLinks(t *tes
 		t.Fatalf("failed to insert run track: %v", err)
 	}
 	if _, err := db.Exec(`INSERT INTO lidar_replay_annotations (
-		annotation_id, replay_case_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
+		annotation_id, clip_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
 	) VALUES ('ann-2', 'case-2', 'parent-run', 'track-1', 'car', ?, ?)`, time.Now().UnixNano(), time.Now().UnixNano()); err != nil {
 		t.Fatalf("failed to insert replay annotation: %v", err)
 	}
-	if _, err := db.Exec(`INSERT INTO lidar_replay_evaluations (
-		evaluation_id, replay_case_id, reference_run_id, candidate_run_id, created_at
+	if _, err := db.Exec(`INSERT INTO lidar_clip_evaluations (
+		evaluation_id, clip_id, reference_run_id, candidate_run_id, created_at
 	) VALUES ('eval-2', 'case-2', 'parent-run', 'cand-run', ?)`, time.Now().UnixNano()); err != nil {
 		t.Fatalf("failed to insert evaluation: %v", err)
 	}
 
-	if _, err := db.Exec(`DELETE FROM lidar_run_records WHERE run_id = 'parent-run'`); err != nil {
+	if _, err := db.Exec(`DELETE FROM lidar_runs WHERE run_id = 'parent-run'`); err != nil {
 		t.Fatalf("failed to delete parent run: %v", err)
 	}
 
 	var childParent sql.NullString
-	if err := db.QueryRow(`SELECT parent_run_id FROM lidar_run_records WHERE run_id = 'child-run'`).Scan(&childParent); err != nil {
+	if err := db.QueryRow(`SELECT parent_run_id FROM lidar_runs WHERE run_id = 'child-run'`).Scan(&childParent); err != nil {
 		t.Fatalf("failed to query child run: %v", err)
 	}
 	if childParent.Valid {
@@ -155,11 +155,11 @@ func TestRunDeleteNullsParentAndReferenceAndDropsRunScopedEvaluationLinks(t *tes
 	}
 
 	var replayRef sql.NullString
-	if err := db.QueryRow(`SELECT reference_run_id FROM lidar_replay_cases WHERE replay_case_id = 'case-2'`).Scan(&replayRef); err != nil {
-		t.Fatalf("failed to query replay case: %v", err)
+	if err := db.QueryRow(`SELECT reference_run_id FROM lidar_clips WHERE clip_id = 'case-2'`).Scan(&replayRef); err != nil {
+		t.Fatalf("failed to query clip: %v", err)
 	}
 	if replayRef.Valid {
-		t.Fatalf("expected replay case reference_run_id to be NULL, got %q", replayRef.String)
+		t.Fatalf("expected clip reference_run_id to be NULL, got %q", replayRef.String)
 	}
 
 	var annotationRunID, annotationTrackID sql.NullString
@@ -171,7 +171,7 @@ func TestRunDeleteNullsParentAndReferenceAndDropsRunScopedEvaluationLinks(t *tes
 	}
 
 	var evaluationCount int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_replay_evaluations WHERE evaluation_id = 'eval-2'`).Scan(&evaluationCount); err != nil {
+	if err := db.QueryRow(`SELECT COUNT(*) FROM lidar_clip_evaluations WHERE evaluation_id = 'eval-2'`).Scan(&evaluationCount); err != nil {
 		t.Fatalf("failed to query replay evaluations: %v", err)
 	}
 	if evaluationCount != 0 {
@@ -185,14 +185,14 @@ func TestReplayAnnotationsRequireRunTrackPairWhenLinked(t *testing.T) {
 
 	insertTestRunRecord(t, db, "ref-run", "sensor-1", "completed", nil)
 
-	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (
-		replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
-	) VALUES ('case-3', 'sensor-1', '/tmp/test.pcap', 'ref-run', ?)`, time.Now().UnixNano()); err != nil {
-		t.Fatalf("failed to insert replay case: %v", err)
+	if _, err := db.Exec(`INSERT INTO lidar_clips (
+		clip_id, sensor_id, reference_run_id, created_at_ns
+	) VALUES ('case-3', 'sensor-1', 'ref-run', ?)`, time.Now().UnixNano()); err != nil {
+		t.Fatalf("failed to insert clip: %v", err)
 	}
 
 	_, err := db.Exec(`INSERT INTO lidar_replay_annotations (
-		annotation_id, replay_case_id, run_id, class_label, start_timestamp_ns, created_at_ns
+		annotation_id, clip_id, run_id, class_label, start_timestamp_ns, created_at_ns
 	) VALUES ('ann-invalid', 'case-3', 'ref-run', 'car', ?, ?)`, time.Now().UnixNano(), time.Now().UnixNano())
 	if err == nil {
 		t.Fatal("expected partial run/track link insert to fail")

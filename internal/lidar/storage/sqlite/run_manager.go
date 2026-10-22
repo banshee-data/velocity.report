@@ -14,12 +14,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// AnalysisRunManager coordinates analysis run lifecycle and track collection.
+// RunManager coordinates analysis run lifecycle and track collection.
 // It is safe for concurrent use and provides hooks for the tracking pipeline.
-type AnalysisRunManager struct {
+type RunManager struct {
 	mu         sync.RWMutex
-	store      *AnalysisRunStore
-	currentRun *AnalysisRun
+	store      *RunStore
+	currentRun *Run
 	sensorID   string
 	startTime  time.Time
 
@@ -52,10 +52,10 @@ type AnalysisRunManager struct {
 	lastFrameNs  int64 // timestamp of last frame (nanoseconds)
 }
 
-// analysisRunManagers stores per-sensor analysis run managers.
+// runManagers stores per-sensor analysis run managers.
 var (
 	armMu       sync.RWMutex
-	armRegistry = make(map[string]*AnalysisRunManager)
+	armRegistry = make(map[string]*RunManager)
 )
 
 // runTrackFlushInterval is how often pending track measurements are written
@@ -71,24 +71,24 @@ var (
 // through data time many times faster than real time.
 const runTrackFlushInterval = 10 * time.Second
 
-// AnalysisRunStartOptions captures immutable run-config provenance for an
+// RunStartOptions captures immutable run-config provenance for an
 // analysis replay.
-type AnalysisRunStartOptions struct {
+type RunStartOptions struct {
 	PreferredRunID      string
 	SourceType          string
 	SourcePath          string
 	SensorID            string
 	ParentRunID         string
-	ReplayCaseID        string
+	ClipID              string
 	RequestedParamSetID string
 	RequestedParamsJSON json.RawMessage
 	EffectiveConfig     *cfgpkg.TuningConfig
 }
 
-// NewAnalysisRunManager creates a new manager for tracking analysis runs.
-func NewAnalysisRunManager(db DBClient, sensorID string) *AnalysisRunManager {
-	return &AnalysisRunManager{
-		store:         NewAnalysisRunStore(db),
+// NewRunManager creates a new manager for tracking analysis runs.
+func NewRunManager(db DBClient, sensorID string) *RunManager {
+	return &RunManager{
+		store:         NewRunStore(db),
 		sensorID:      sensorID,
 		tracksSeen:    make(map[string]bool),
 		pendingTracks: make(map[string]TrackMeasurement),
@@ -96,12 +96,12 @@ func NewAnalysisRunManager(db DBClient, sensorID string) *AnalysisRunManager {
 	}
 }
 
-// NewAnalysisRunManagerDI creates a new manager without registering it in the
+// NewRunManagerDI creates a new manager without registering it in the
 // global registry. Prefer this constructor when wiring dependencies
 // explicitly via pipeline.SensorRuntime.
-func NewAnalysisRunManagerDI(db DBClient, sensorID string) *AnalysisRunManager {
-	return &AnalysisRunManager{
-		store:         NewAnalysisRunStore(db),
+func NewRunManagerDI(db DBClient, sensorID string) *RunManager {
+	return &RunManager{
+		store:         NewRunStore(db),
 		sensorID:      sensorID,
 		tracksSeen:    make(map[string]bool),
 		pendingTracks: make(map[string]TrackMeasurement),
@@ -109,15 +109,15 @@ func NewAnalysisRunManagerDI(db DBClient, sensorID string) *AnalysisRunManager {
 	}
 }
 
-// RegisterAnalysisRunManager registers a manager for a sensor ID.
-func RegisterAnalysisRunManager(sensorID string, manager *AnalysisRunManager) {
+// RegisterRunManager registers a manager for a sensor ID.
+func RegisterRunManager(sensorID string, manager *RunManager) {
 	armMu.Lock()
 	defer armMu.Unlock()
 	armRegistry[sensorID] = manager
 }
 
-// GetAnalysisRunManager retrieves the manager for a sensor ID.
-func GetAnalysisRunManager(sensorID string) *AnalysisRunManager {
+// GetRunManager retrieves the manager for a sensor ID.
+func GetRunManager(sensorID string) *RunManager {
 	armMu.RLock()
 	defer armMu.RUnlock()
 	return armRegistry[sensorID]
@@ -125,8 +125,8 @@ func GetAnalysisRunManager(sensorID string) *AnalysisRunManager {
 
 // StartRun begins a new analysis run for PCAP processing.
 // It returns the run ID that can be used for track association.
-func (m *AnalysisRunManager) StartRun(sourcePath string, _ RunParams) (string, error) {
-	run := &AnalysisRun{
+func (m *RunManager) StartRun(sourcePath string, _ RunParams) (string, error) {
+	run := &Run{
 		SourceType: "pcap",
 		SourcePath: sourcePath,
 		SensorID:   m.sensorID,
@@ -139,7 +139,7 @@ func (m *AnalysisRunManager) StartRun(sourcePath string, _ RunParams) (string, e
 // StartRunWithConfig begins a new analysis run backed by immutable run-config
 // provenance. It records the exact effective config and optional launch intent
 // before execution starts.
-func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (string, error) {
+func (m *RunManager) StartRunWithConfig(opts RunStartOptions) (string, error) {
 	if opts.EffectiveConfig == nil {
 		return "", fmt.Errorf("effective config is required")
 	}
@@ -153,13 +153,13 @@ func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (s
 		sourceType = "pcap"
 	}
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:               strings.TrimSpace(opts.PreferredRunID),
 		SourceType:          sourceType,
 		SourcePath:          opts.SourcePath,
 		SensorID:            sensorID,
 		ParentRunID:         strings.TrimSpace(opts.ParentRunID),
-		ReplayCaseID:        strings.TrimSpace(opts.ReplayCaseID),
+		ClipID:              strings.TrimSpace(opts.ClipID),
 		RequestedParamSetID: strings.TrimSpace(opts.RequestedParamSetID),
 		Status:              "running",
 	}
@@ -192,7 +192,7 @@ func (m *AnalysisRunManager) StartRunWithConfig(opts AnalysisRunStartOptions) (s
 	return m.startPreparedRun(run)
 }
 
-func (m *AnalysisRunManager) startPreparedRun(run *AnalysisRun) (string, error) {
+func (m *RunManager) startPreparedRun(run *Run) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -228,13 +228,13 @@ func (m *AnalysisRunManager) startPreparedRun(run *AnalysisRun) (string, error) 
 	m.firstFrameNs = 0
 	m.lastFrameNs = 0
 
-	diagf("[AnalysisRunManager] Started run %s for %s", run.RunID, run.SourcePath)
+	diagf("[RunManager] Started run %s for %s", run.RunID, run.SourcePath)
 	return run.RunID, nil
 }
 
 // RecordFrame increments the frame count and tracks the frame timestamp.
 // The timestampNs is the data timestamp (e.g. PCAP packet time), not wall-clock.
-func (m *AnalysisRunManager) RecordFrame(timestampNs int64) {
+func (m *RunManager) RecordFrame(timestampNs int64) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.totalFrames++
@@ -251,7 +251,7 @@ func (m *AnalysisRunManager) RecordFrame(timestampNs int64) {
 }
 
 // RecordClusters increments the cluster count for the current run.
-func (m *AnalysisRunManager) RecordClusters(count int) {
+func (m *RunManager) RecordClusters(count int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.totalClusters += count
@@ -262,7 +262,7 @@ func (m *AnalysisRunManager) RecordClusters(count int) {
 // RunTrack row and returns true; later calls return false and keep the track's
 // newest measurements for the next flush, so the row ends up describing the
 // finished track rather than its first sighting.
-func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
+func (m *RunManager) RecordTrack(track *TrackedObject) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -286,7 +286,7 @@ func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 
 	// Insert into database
 	if err := m.store.InsertRunTrack(runTrack); err != nil {
-		opsf("[AnalysisRunManager] Failed to insert run track %s: %v", track.TrackID, err)
+		opsf("[RunManager] Failed to insert run track %s: %v", track.TrackID, err)
 		return false
 	}
 
@@ -294,7 +294,7 @@ func (m *AnalysisRunManager) RecordTrack(track *TrackedObject) bool {
 }
 
 // CompleteRun finalizes the current analysis run with statistics.
-func (m *AnalysisRunManager) CompleteRun() error {
+func (m *RunManager) CompleteRun() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -343,7 +343,7 @@ func (m *AnalysisRunManager) CompleteRun() error {
 		return err
 	}
 
-	diagf("[AnalysisRunManager] Completed run %s: %d frames, %d clusters, %d tracks in %.2fs",
+	diagf("[RunManager] Completed run %s: %d frames, %d clusters, %d tracks in %.2fs",
 		m.currentRun.RunID, stats.TotalFrames, stats.TotalClusters, stats.TotalTracks, durationSecs)
 
 	runID := m.currentRun.RunID
@@ -355,7 +355,7 @@ func (m *AnalysisRunManager) CompleteRun() error {
 }
 
 // FailRun marks the current run as failed with an error message.
-func (m *AnalysisRunManager) FailRun(errMsg string) error {
+func (m *RunManager) FailRun(errMsg string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -366,7 +366,7 @@ func (m *AnalysisRunManager) FailRun(errMsg string) error {
 	// A run that fails late has still measured its tracks. Best effort: the
 	// failure being reported is the one that matters.
 	if err := m.flushPendingTracksLocked(); err != nil {
-		opsf("[AnalysisRunManager] Failed run %s: final track measurements not written: %v", m.currentRun.RunID, err)
+		opsf("[RunManager] Failed run %s: final track measurements not written: %v", m.currentRun.RunID, err)
 	}
 
 	runID := m.currentRun.RunID
@@ -376,18 +376,18 @@ func (m *AnalysisRunManager) FailRun(errMsg string) error {
 		return err
 	}
 
-	opsf("[AnalysisRunManager] Failed run %s: %s", runID, errMsg)
+	opsf("[RunManager] Failed run %s: %s", runID, errMsg)
 	return nil
 }
 
 // flushPendingTracksIfDueLocked writes pending measurements once the flush
 // interval has passed. The caller holds m.mu.
-func (m *AnalysisRunManager) flushPendingTracksIfDueLocked() {
+func (m *RunManager) flushPendingTracksIfDueLocked() {
 	if m.currentRun == nil || m.now().Sub(m.lastFlush) < runTrackFlushInterval {
 		return
 	}
 	if err := m.flushPendingTracksLocked(); err != nil {
-		opsf("[AnalysisRunManager] Run %s: track measurements not written, will retry: %v", m.currentRun.RunID, err)
+		opsf("[RunManager] Run %s: track measurements not written, will retry: %v", m.currentRun.RunID, err)
 	}
 }
 
@@ -396,7 +396,7 @@ func (m *AnalysisRunManager) flushPendingTracksIfDueLocked() {
 // flush retries them with whatever has been offered since; lastFlush advances
 // either way, so a database that keeps failing is retried once per interval
 // rather than on every frame.
-func (m *AnalysisRunManager) flushPendingTracksLocked() error {
+func (m *RunManager) flushPendingTracksLocked() error {
 	m.lastFlush = m.now()
 	if m.currentRun == nil || len(m.pendingTracks) == 0 {
 		return nil
@@ -409,14 +409,14 @@ func (m *AnalysisRunManager) flushPendingTracksLocked() error {
 }
 
 // IsRunActive returns true if there's an active analysis run.
-func (m *AnalysisRunManager) IsRunActive() bool {
+func (m *RunManager) IsRunActive() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.currentRun != nil
 }
 
 // CurrentRunID returns the current run ID, or empty string if no run is active.
-func (m *AnalysisRunManager) CurrentRunID() string {
+func (m *RunManager) CurrentRunID() string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if m.currentRun == nil {
@@ -441,7 +441,7 @@ func trackSummary(track *TrackedObject) l8analytics.TrackSummary {
 // track's latest summary, in track id order so the sums are reproducible.
 // It is nil for a run that recorded no track, which leaves statistics_json
 // empty. The caller holds m.mu.
-func (m *AnalysisRunManager) runStatisticsLocked() *l8analytics.RunStatistics {
+func (m *RunManager) runStatisticsLocked() *l8analytics.RunStatistics {
 	if len(m.summaries) == 0 {
 		return nil
 	}

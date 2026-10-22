@@ -87,9 +87,9 @@ func TestReplayEvalWithoutExperimentIsUnchanged(t *testing.T) {
 	before := replayeval.Config{
 		PCAPFile: src, OutDir: out, TuningFile: config.DefaultConfigPath, SensorID: "pcap-replay",
 		UDPPort: 2369, DurationSeconds: 3, ProgressEvery: 200,
-		ObservationLogDir: obs, ReplayCaseID: "kirk0", ObservationCalibration: replayCalibration("pcap-replay"),
+		ObservationLogDir: obs, ClipID: "kirk0", ObservationCalibration: replayCalibration("pcap-replay"),
 	}
-	common := []string{"--pcap", src, "--output", out, "--duration-seconds", "3", "--observations", obs, "--replay-case-id", "kirk0"}
+	common := []string{"--pcap", src, "--output", out, "--duration-seconds", "3", "--observations", obs, "--clip-id", "kirk0"}
 	for _, extra := range [][]string{nil, {"--experiment", ""}, {"--experiment", " , "}} {
 		got = replayeval.Config{}
 		if code := silence(t, func() int { return ReplayEvalMain(append(append([]string{}, common...), extra...)) }); code != 1 {
@@ -211,7 +211,7 @@ func TestReplayEvalExperimentOnKirk0(t *testing.T) {
 	obs := filepath.Join(root, "cell.vrlog")
 	code, stdout := captureStdout(t, func() int {
 		return ReplayEvalMain(append(append([]string{}, common...),
-			"--experiment", experiment, "--observations", obs, "--replay-case-id", "kirk0"))
+			"--experiment", experiment, "--observations", obs, "--clip-id", "kirk0"))
 	})
 	if code != 0 {
 		t.Fatalf("experiment replay exited %d:\n%s", code, stdout)

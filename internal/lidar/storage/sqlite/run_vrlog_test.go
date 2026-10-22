@@ -16,15 +16,15 @@ func setupTestAnalysisDB(t *testing.T) (*sql.DB, func()) {
 	return db.DB, cleanup
 }
 
-// TestAnalysisRunStore_VRLogPath tests CRUD operations with vrlog_path.
-func TestAnalysisRunStore_VRLogPath(t *testing.T) {
+// TestRunStore_VRLogPath tests CRUD operations with vrlog_path.
+func TestRunStore_VRLogPath(t *testing.T) {
 	db, cleanup := setupTestAnalysisDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Test 1: Insert run with vrlog_path
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "test-run-1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -49,7 +49,7 @@ func TestAnalysisRunStore_VRLogPath(t *testing.T) {
 	}
 
 	// Test 3: Insert run without vrlog_path
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:      "test-run-2",
 		CreatedAt:  time.Now(),
 		SourceType: "live",
@@ -100,15 +100,15 @@ func TestAnalysisRunStore_VRLogPath(t *testing.T) {
 	}
 }
 
-// TestAnalysisRunStore_ListRuns_VRLogPath tests that ListRuns includes vrlog_path.
-func TestAnalysisRunStore_ListRuns_VRLogPath(t *testing.T) {
+// TestRunStore_ListRuns_VRLogPath tests that ListRuns includes vrlog_path.
+func TestRunStore_ListRuns_VRLogPath(t *testing.T) {
 	db, cleanup := setupTestAnalysisDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert multiple runs
-	runs := []*AnalysisRun{
+	runs := []*Run{
 		{
 			RunID:      "run-with-vrlog",
 			CreatedAt:  time.Now().Add(-2 * time.Hour),
@@ -165,12 +165,12 @@ func TestAnalysisRunStore_ListRuns_VRLogPath(t *testing.T) {
 	}
 }
 
-// TestAnalysisRunStore_UpdateRunVRLogPath_NonExistent tests updating a non-existent run.
-func TestAnalysisRunStore_UpdateRunVRLogPath_NonExistent(t *testing.T) {
+// TestRunStore_UpdateRunVRLogPath_NonExistent tests updating a non-existent run.
+func TestRunStore_UpdateRunVRLogPath_NonExistent(t *testing.T) {
 	db, cleanup := setupTestAnalysisDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Update non-existent run (should not error, just no rows affected)
 	if err := store.UpdateRunVRLogPath("non-existent", "/some/path"); err != nil {

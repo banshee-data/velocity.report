@@ -13,27 +13,27 @@ import (
 )
 
 var (
-	startPCAPInternalForScene = func(ws *Server, pcapPath string, config ReplayConfig) error {
+	startPCAPInternalForClip = func(ws *Server, pcapPath string, config ReplayConfig) error {
 		return ws.StartPCAPInternal(pcapPath, config)
 	}
-	lastAnalysisRunIDForScene = func(ws *Server) string {
-		return ws.LastAnalysisRunID()
+	lastRunIDForClip = func(ws *Server) string {
+		return ws.LastRunID()
 	}
 )
 
-// REST API for replay case management
-// These handlers manage LiDAR replay cases (PCAP + sensor + params).
+// REST API for clip management
+// These handlers manage LiDAR clips (PCAP + sensor + params).
 //
 // Routes:
-// - GET /api/lidar/scenes — list replay cases (optional sensor_id filter)
-// - POST /api/lidar/scenes — create replay case
-// - GET /api/lidar/scenes/{replay_case_id} — get replay case details
-// - PUT /api/lidar/scenes/{replay_case_id} — update replay case
-// - DELETE /api/lidar/scenes/{replay_case_id} — delete replay case
-// - POST /api/lidar/scenes/{replay_case_id}/replay — replay case
+// - GET /api/lidar/clips — list clips (optional sensor_id filter)
+// - POST /api/lidar/clips — create clip
+// - GET /api/lidar/clips/{clip_id} — get clip details
+// - PUT /api/lidar/clips/{clip_id} — update clip
+// - DELETE /api/lidar/clips/{clip_id} — delete clip
+// - POST /api/lidar/clips/{clip_id}/replay — clip
 
-// handleScenes handles /api/lidar/scenes (list and create).
-func (ws *Server) handleScenes(w http.ResponseWriter, r *http.Request) {
+// handleClips handles /api/lidar/clips (list and create).
+func (ws *Server) handleClips(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
@@ -41,68 +41,68 @@ func (ws *Server) handleScenes(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		ws.handleListScenes(w, r)
+		ws.handleListClips(w, r)
 	case http.MethodPost:
-		ws.handleCreateScene(w, r)
+		ws.handleCreateClip(w, r)
 	default:
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
 }
 
-// handleSceneByID handles /api/lidar/scenes/{replay_case_id}/* routes.
-func (ws *Server) handleSceneByID(w http.ResponseWriter, r *http.Request) {
+// handleClipByID handles /api/lidar/clips/{clip_id}/* routes.
+func (ws *Server) handleClipByID(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "database not configured")
 		return
 	}
 
-	sceneID, action := parseScenePath(r.URL.Path)
-	if sceneID == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "missing replay_case_id in path")
+	clipID, action := parseClipPath(r.URL.Path)
+	if clipID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "missing clip_id in path")
 		return
 	}
 
 	switch action {
 	case "":
-		// /api/lidar/scenes/{scene_id}
+		// /api/lidar/clips/{clip_id}
 		switch r.Method {
 		case http.MethodGet:
-			ws.handleGetScene(w, r, sceneID)
+			ws.handleGetClip(w, r, clipID)
 		case http.MethodPut:
-			ws.handleUpdateScene(w, r, sceneID)
+			ws.handleUpdateClip(w, r, clipID)
 		case http.MethodDelete:
-			ws.handleDeleteScene(w, r, sceneID)
+			ws.handleDeleteClip(w, r, clipID)
 		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	case "replay":
-		// /api/lidar/scenes/{scene_id}/replay
+		// /api/lidar/clips/{clip_id}/replay
 		if r.Method == http.MethodPost {
-			ws.handleReplayScene(w, r, sceneID)
+			ws.handleReplayClip(w, r, clipID)
 		} else {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	case "clip":
 		if r.Method == http.MethodPost {
-			ws.handleSceneClip(w, r, sceneID)
+			ws.handleClipPack(w, r, clipID)
 		} else {
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	case "location":
-		// /api/lidar/scenes/{scene_id}/location
+		// /api/lidar/clips/{clip_id}/location
 		switch r.Method {
 		case http.MethodPost, http.MethodPut, http.MethodDelete:
-			ws.handleSetCaseLocation(w, r, sceneID)
+			ws.handleSetCaseLocation(w, r, clipID)
 		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
 	case "evaluations":
-		// /api/lidar/scenes/{scene_id}/evaluations
+		// /api/lidar/clips/{clip_id}/evaluations
 		switch r.Method {
 		case http.MethodGet:
-			ws.handleListSceneEvaluations(w, r, sceneID)
+			ws.handleListClipEvaluations(w, r, clipID)
 		case http.MethodPost:
-			ws.handleCreateSceneEvaluation(w, r, sceneID)
+			ws.handleCreateClipEvaluation(w, r, clipID)
 		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
@@ -111,51 +111,48 @@ func (ws *Server) handleSceneByID(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// parseScenePath extracts replay_case_id and action from /api/lidar/scenes/{replay_case_id}/{action}
-func parseScenePath(path string) (sceneID string, action string) {
-	trimmed := strings.TrimPrefix(path, "/api/lidar/scenes/")
+// parseClipPath extracts clip_id and action from /api/lidar/clips/{clip_id}/{action}
+func parseClipPath(path string) (clipID string, action string) {
+	trimmed := strings.TrimPrefix(path, "/api/lidar/clips/")
 	if trimmed == path {
 		// No prefix match
 		return "", ""
 	}
 	parts := strings.SplitN(trimmed, "/", 2)
-	sceneID = parts[0]
+	clipID = parts[0]
 	if len(parts) > 1 {
 		action = parts[1]
 	}
 	return
 }
 
-// handleListScenes lists all scenes, optionally filtered by sensor_id.
-func (ws *Server) handleListScenes(w http.ResponseWriter, r *http.Request) {
+// handleListClips lists all clips, optionally filtered by sensor_id.
+func (ws *Server) handleListClips(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 
-	store := sqlite.NewReplayCaseStore(ws.db)
-	scenes, err := store.ListScenes(sensorID)
+	store := sqlite.NewClipStore(ws.db)
+	clips, err := store.ListClips(sensorID)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list scenes: %v", err))
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list clips: %v", err))
 		return
 	}
 
-	// Ensure we return an empty array instead of null when no scenes
-	if scenes == nil {
-		scenes = []*sqlite.ReplayCase{}
+	// Ensure we return an empty array instead of null when no clips
+	if clips == nil {
+		clips = []*sqlite.Clip{}
 	}
 
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"scenes": scenes,
-		"count":  len(scenes),
+		"clips": clips,
+		"count": len(clips),
 	})
 }
 
-// CreateSceneRequest is the request body for creating a scene.
-type CreateSceneRequest struct {
+// CreateClipRequest is the request body for creating a clip.
+type CreateClipRequest struct {
 	SensorID string `json:"sensor_id"`
-	PCAPFile string `json:"pcap_file"`
-	// PCAPFiles is the ordered set of captures the case covers, for a window
-	// that spans a file boundary. When given it takes precedence over
-	// PCAPFile, and the offsets below are measured from the start of the whole
-	// sequence rather than of any one file.
+	// PCAPFiles is the ordered capture sequence. Offsets below are measured
+	// from the start of the whole sequence rather than any one file.
 	PCAPFiles        []string `json:"pcap_files,omitempty"`
 	PCAPStartSecs    *float64 `json:"pcap_start_secs,omitempty"`
 	PCAPDurationSecs *float64 `json:"pcap_duration_secs,omitempty"`
@@ -166,9 +163,9 @@ type CreateSceneRequest struct {
 	SourcePeriodID string `json:"source_period_id,omitempty"`
 }
 
-// handleCreateScene creates a new scene.
-func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
-	var req CreateSceneRequest
+// handleCreateClip creates a new clip.
+func (ws *Server) handleCreateClip(w http.ResponseWriter, r *http.Request) {
+	var req CreateClipRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid JSON: %v", err))
 		return
@@ -180,11 +177,8 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	files := req.PCAPFiles
-	if len(files) == 0 && req.PCAPFile != "" {
-		files = []string{req.PCAPFile}
-	}
 	if len(files) == 0 {
-		ws.writeJSONError(w, http.StatusBadRequest, "pcap_file or pcap_files is required")
+		ws.writeJSONError(w, http.StatusBadRequest, "pcap_files is required")
 		return
 	}
 
@@ -193,79 +187,77 @@ func (ws *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 	// Authoring time is the last point at which the operator can still do
 	// something about it, so the check happens here rather than at replay.
 	if len(files) > 1 {
-		if _, err := ws.validateCaseFiles(files); err != nil {
+		if _, err := ws.validateClipFiles(files); err != nil {
 			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 	}
 
-	scene := &sqlite.ReplayCase{
-		SensorID:         req.SensorID,
-		PCAPFile:         files[0],
-		PCAPStartSecs:    req.PCAPStartSecs,
+	clip := &sqlite.Clip{
+		SensorID: req.SensorID, Files: []sqlite.ClipCapture{{PCAPFile: files[0]}}, PCAPStartSecs: req.PCAPStartSecs,
 		PCAPDurationSecs: req.PCAPDurationSecs,
 		Description:      req.Description,
 	}
 
-	store := sqlite.NewReplayCaseStore(ws.db)
-	if err := store.InsertScene(scene); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create scene: %v", err))
+	store := sqlite.NewClipStore(ws.db)
+	if err := store.InsertClip(clip); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to create clip: %v", err))
 		return
 	}
 
-	caseFiles := make([]sqlite.ReplayCaseFile, 0, len(files))
+	caseFiles := make([]sqlite.ClipCapture, 0, len(files))
 	for i, f := range files {
-		caseFiles = append(caseFiles, sqlite.ReplayCaseFile{Ordinal: i, PCAPFile: f})
+		caseFiles = append(caseFiles, sqlite.ClipCapture{Ordinal: i, PCAPFile: f})
 	}
-	if err := store.SetCaseFiles(scene.ReplayCaseID, caseFiles); err != nil {
+	if err := store.SetClipFiles(clip.ClipID, caseFiles); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("failed to record the case's captures: %v", err))
 		return
 	}
 	if req.SessionID != "" || req.SourcePeriodID != "" {
-		if err := store.SetCaseSession(scene.ReplayCaseID, req.SessionID, req.SourcePeriodID); err != nil {
-			opsf("Warning: could not link replay case %s to its session: %v", scene.ReplayCaseID, err)
+		if err := store.SetClipSession(clip.ClipID, req.SessionID, req.SourcePeriodID); err != nil {
+			opsf("Warning: could not link clip %s to its session: %v", clip.ClipID, err)
 		}
 	}
 
-	scene.Files = caseFiles
-	scene.FileCount = len(caseFiles)
-	scene.SessionID = req.SessionID
-	scene.SourcePeriodID = req.SourcePeriodID
-	ws.writeJSON(w, http.StatusCreated, scene)
+	clip.Files = caseFiles
+	clip.FileCount = len(caseFiles)
+	clip.SessionID = req.SessionID
+	clip.SourcePeriodID = req.SourcePeriodID
+	ws.writeJSON(w, http.StatusCreated, clip)
 }
 
-// handleGetScene retrieves a scene by ID.
-func (ws *Server) handleGetScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewReplayCaseStore(ws.db)
-	scene, err := store.GetScene(sceneID)
+// handleGetClip retrieves a clip by ID.
+func (ws *Server) handleGetClip(w http.ResponseWriter, r *http.Request, clipID string) {
+	store := sqlite.NewClipStore(ws.db)
+	clip, err := store.GetClip(clipID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 		} else {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get scene: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clip: %v", err))
 		}
 		return
 	}
 
 	// A case is its file list; reading one without it would show only the
 	// first capture and quietly misrepresent a multi-file case as single-file.
-	if files, err := store.CaseFiles(sceneID); err != nil {
-		opsf("Warning: could not load captures for replay case %s: %v", sceneID, err)
+	if files, err := store.ClipFiles(clipID); err != nil {
+		opsf("Warning: could not load captures for clip %s: %v", clipID, err)
 	} else {
-		scene.Files = files
+		clip.Files = files
 	}
-	if loc, err := store.CaseLocationOf(sceneID); err != nil {
-		opsf("Warning: could not load the location of replay case %s: %v", sceneID, err)
+	if loc, err := store.CaseLocationOf(clipID); err != nil {
+		opsf("Warning: could not load the location of clip %s: %v", clipID, err)
 	} else {
-		scene.Location = loc
+		clip.Location = loc
 	}
 
-	ws.writeJSON(w, http.StatusOK, scene)
+	ws.writeJSON(w, http.StatusOK, clip)
 }
 
-// UpdateSceneRequest is the request body for updating a scene.
-type UpdateSceneRequest struct {
+// UpdateClipRequest is the request body for updating a clip.
+type UpdateClipRequest struct {
 	Description       *string          `json:"description,omitempty"`
 	ReferenceRunID    *string          `json:"reference_run_id,omitempty"`
 	OptimalParamsJSON *json.RawMessage `json:"optimal_params_json,omitempty"`
@@ -277,9 +269,9 @@ type UpdateSceneRequest struct {
 	PCAPFiles []string `json:"pcap_files,omitempty"`
 }
 
-// handleUpdateScene updates a scene's fields.
-func (ws *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	var req UpdateSceneRequest
+// handleUpdateClip updates a clip's fields.
+func (ws *Server) handleUpdateClip(w http.ResponseWriter, r *http.Request, clipID string) {
+	var req UpdateClipRequest
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("failed to read body: %v", err))
@@ -291,34 +283,34 @@ func (ws *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request, scen
 		return
 	}
 
-	store := sqlite.NewReplayCaseStore(ws.db)
+	store := sqlite.NewClipStore(ws.db)
 
-	// Get existing scene
-	scene, err := store.GetScene(sceneID)
+	// Get existing clip
+	clip, err := store.GetClip(clipID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 		} else {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get scene: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to get clip: %v", err))
 		}
 		return
 	}
 
 	// Update fields if provided
 	if req.Description != nil {
-		scene.Description = *req.Description
+		clip.Description = *req.Description
 	}
 	if req.ReferenceRunID != nil {
-		scene.ReferenceRunID = *req.ReferenceRunID
+		clip.ReferenceRunID = *req.ReferenceRunID
 	}
 	if req.OptimalParamsJSON != nil {
-		scene.OptimalParamsJSON = *req.OptimalParamsJSON
+		clip.OptimalParamsJSON = *req.OptimalParamsJSON
 	}
 	if req.PCAPStartSecs != nil {
-		scene.PCAPStartSecs = req.PCAPStartSecs
+		clip.PCAPStartSecs = req.PCAPStartSecs
 	}
 	if req.PCAPDurationSecs != nil {
-		scene.PCAPDurationSecs = req.PCAPDurationSecs
+		clip.PCAPDurationSecs = req.PCAPDurationSecs
 	}
 	if req.PCAPFiles != nil {
 		if len(req.PCAPFiles) == 0 {
@@ -326,62 +318,61 @@ func (ws *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request, scen
 			return
 		}
 		if len(req.PCAPFiles) > 1 {
-			if _, err := ws.validateCaseFiles(req.PCAPFiles); err != nil {
+			if _, err := ws.validateClipFiles(req.PCAPFiles); err != nil {
 				ws.writeJSONError(w, http.StatusBadRequest, err.Error())
 				return
 			}
 		}
-		scene.PCAPFile = req.PCAPFiles[0]
 	}
 
-	if err := store.UpdateScene(scene); err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update scene: %v", err))
+	if err := store.UpdateClip(clip); err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to update clip: %v", err))
 		return
 	}
 	if req.PCAPFiles != nil {
-		files := make([]sqlite.ReplayCaseFile, 0, len(req.PCAPFiles))
+		files := make([]sqlite.ClipCapture, 0, len(req.PCAPFiles))
 		for i, path := range req.PCAPFiles {
-			files = append(files, sqlite.ReplayCaseFile{Ordinal: i, PCAPFile: path})
+			files = append(files, sqlite.ClipCapture{Ordinal: i, PCAPFile: path})
 		}
-		if err := store.SetCaseFiles(sceneID, files); err != nil {
+		if err := store.SetClipFiles(clipID, files); err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError,
 				fmt.Sprintf("failed to update the case's captures: %v", err))
 			return
 		}
-		scene.Files = files
-		scene.FileCount = len(files)
+		clip.Files = files
+		clip.FileCount = len(files)
 	}
 
-	ws.writeJSON(w, http.StatusOK, scene)
+	ws.writeJSON(w, http.StatusOK, clip)
 }
 
-// handleDeleteScene deletes a scene by ID.
-func (ws *Server) handleDeleteScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewReplayCaseStore(ws.db)
-	if err := store.DeleteScene(sceneID); err != nil {
+// handleDeleteClip deletes a clip by ID.
+func (ws *Server) handleDeleteClip(w http.ResponseWriter, r *http.Request, clipID string) {
+	store := sqlite.NewClipStore(ws.db)
+	if err := store.DeleteClip(clipID); err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			ws.writeJSONError(w, http.StatusNotFound, err.Error())
 		} else {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete scene: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to delete clip: %v", err))
 		}
 		return
 	}
 
 	ws.writeJSON(w, http.StatusOK, map[string]string{
-		"message": "scene deleted",
+		"message": "clip deleted",
 	})
 }
 
-// handleReplayScene handles PCAP replay for a scene.
-// Replays the scene's PCAP file, creates an analysis run, and returns the run_id.
-func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, sceneID string) {
-	store := sqlite.NewReplayCaseStore(ws.db)
-	scene, err := store.GetScene(sceneID)
+// handleReplayClip handles PCAP replay for a clip.
+// Replays the clip's PCAP file, creates an analysis run, and returns the run_id.
+func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipID string) {
+	store := sqlite.NewClipStore(ws.db)
+	clip, err := store.GetClip(clipID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			ws.writeJSONError(w, http.StatusNotFound, "scene not found")
+			ws.writeJSONError(w, http.StatusNotFound, "clip not found")
 		} else {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load scene: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load clip: %v", err))
 		}
 		return
 	}
@@ -403,34 +394,34 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 	var paramsJSON json.RawMessage
 	if req.ParamsJSON != nil {
 		paramsJSON = req.ParamsJSON
-	} else if len(scene.RecommendedParams) > 0 {
-		paramsJSON = scene.RecommendedParams
-	} else if len(scene.OptimalParamsJSON) > 0 {
-		paramsJSON = scene.OptimalParamsJSON
+	} else if len(clip.RecommendedParams) > 0 {
+		paramsJSON = clip.RecommendedParams
+	} else if len(clip.OptimalParamsJSON) > 0 {
+		paramsJSON = clip.OptimalParamsJSON
 	}
-	preferredRunID := fmt.Sprintf("replay-%s-%s", sceneID, uuid.New().String()[:8])
+	preferredRunID := fmt.Sprintf("replay-%s-%s", clipID, uuid.New().String()[:8])
 
 	// Start PCAP replay
-	// Note: The actual run completion and track insertion will be handled by AnalysisRunManager
+	// Note: The actual run completion and track insertion will be handled by RunManager
 	// when the frame builder processes the PCAP. This is a trigger to start the replay.
 	var startSecs, durationSecs float64
-	if scene.PCAPStartSecs != nil {
-		startSecs = *scene.PCAPStartSecs
+	if clip.PCAPStartSecs != nil {
+		startSecs = *clip.PCAPStartSecs
 	}
-	if scene.PCAPDurationSecs != nil {
-		durationSecs = *scene.PCAPDurationSecs
+	if clip.PCAPDurationSecs != nil {
+		durationSecs = *clip.PCAPDurationSecs
 	}
 
 	// A case names an ordered set of captures, which for a single-file case is
 	// a list of one and behaves exactly as before.
-	casePaths, err := store.CasePaths(sceneID)
+	casePaths, err := store.ClipPaths(clipID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("failed to load the case's captures: %v", err))
 		return
 	}
 	if len(casePaths) == 0 {
-		ws.writeJSONError(w, http.StatusBadRequest, "the replay case names no captures")
+		ws.writeJSONError(w, http.StatusBadRequest, "the clip names no captures")
 		return
 	}
 
@@ -438,9 +429,9 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		StartSeconds:        startSecs,
 		DurationSeconds:     durationSecs,
 		AnalysisMode:        true, // Preserve state after completion
-		SensorID:            scene.SensorID,
+		SensorID:            clip.SensorID,
 		PreferredRunID:      preferredRunID,
-		ReplayCaseID:        sceneID,
+		ClipID:              clipID,
 		RequestedParamsJSON: paramsJSON,
 	}
 	if len(casePaths) > 1 {
@@ -460,28 +451,28 @@ func (ws *Server) handleReplayScene(w http.ResponseWriter, r *http.Request, scen
 		opsf("Warning: failed to reset background grid before replay: %v", err)
 	}
 
-	if err := startPCAPInternalForScene(ws, casePaths[0], config); err != nil {
+	if err := startPCAPInternalForClip(ws, casePaths[0], config); err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to start PCAP replay: %v", err))
 		return
 	}
-	runID := lastAnalysisRunIDForScene(ws)
+	runID := lastRunIDForClip(ws)
 	if runID == "" {
 		runID = preferredRunID
 	}
 
 	ws.writeJSON(w, http.StatusAccepted, map[string]interface{}{
-		"run_id":         runID,
-		"replay_case_id": sceneID,
-		"status":         "running",
-		"message":        "PCAP replay initiated; analysis run created",
+		"run_id":  runID,
+		"clip_id": clipID,
+		"status":  "running",
+		"message": "PCAP replay initiated; analysis run created",
 	})
 }
 
-// handleListSceneEvaluations lists all persisted ground truth evaluation scores for a scene.
-// GET /api/lidar/scenes/{scene_id}/evaluations
-func (ws *Server) handleListSceneEvaluations(w http.ResponseWriter, r *http.Request, sceneID string) {
+// handleListClipEvaluations lists all persisted ground truth evaluation scores for a clip.
+// GET /api/lidar/clips/{clip_id}/evaluations
+func (ws *Server) handleListClipEvaluations(w http.ResponseWriter, r *http.Request, clipID string) {
 	evalStore := sqlite.NewEvaluationStore(ws.db)
-	evals, err := evalStore.ListByScene(sceneID)
+	evals, err := evalStore.ListByClip(clipID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list evaluations: %v", err))
 		return
@@ -490,29 +481,29 @@ func (ws *Server) handleListSceneEvaluations(w http.ResponseWriter, r *http.Requ
 		evals = []*sqlite.Evaluation{}
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]interface{}{
-		"replay_case_id": sceneID,
-		"evaluations":    evals,
+		"clip_id":     clipID,
+		"evaluations": evals,
 	})
 }
 
-// handleCreateSceneEvaluation evaluates a candidate run against the scene's reference run
+// handleCreateClipEvaluation evaluates a candidate run against the clip's reference run
 // and persists the result.
-// POST /api/lidar/scenes/{scene_id}/evaluations
+// POST /api/lidar/clips/{clip_id}/evaluations
 // Request body: {"candidate_run_id": "..."}
-func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Request, sceneID string) {
-	sceneStore := sqlite.NewReplayCaseStore(ws.db)
-	scene, err := sceneStore.GetScene(sceneID)
+func (ws *Server) handleCreateClipEvaluation(w http.ResponseWriter, r *http.Request, clipID string) {
+	clipStore := sqlite.NewClipStore(ws.db)
+	clip, err := clipStore.GetClip(clipID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			ws.writeJSONError(w, http.StatusNotFound, "scene not found")
+			ws.writeJSONError(w, http.StatusNotFound, "clip not found")
 		} else {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load scene: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to load clip: %v", err))
 		}
 		return
 	}
 
-	if scene.ReferenceRunID == "" {
-		ws.writeJSONError(w, http.StatusBadRequest, "scene has no reference run; set reference_run_id first")
+	if clip.ReferenceRunID == "" {
+		ws.writeJSONError(w, http.StatusBadRequest, "clip has no reference run; set reference_run_id first")
 		return
 	}
 
@@ -529,17 +520,17 @@ func (ws *Server) handleCreateSceneEvaluation(w http.ResponseWriter, r *http.Req
 	}
 
 	// Run evaluation
-	runStore := sqlite.NewAnalysisRunStore(ws.db)
+	runStore := sqlite.NewRunStore(ws.db)
 	evaluator := adapters.NewGroundTruthEvaluator(runStore, adapters.DefaultGroundTruthWeights())
-	score, err := evaluator.Evaluate(scene.ReferenceRunID, req.CandidateRunID)
+	score, err := evaluator.Evaluate(clip.ReferenceRunID, req.CandidateRunID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("evaluation failed: %v", err))
 		return
 	}
 
 	eval := &sqlite.Evaluation{
-		ReplayCaseID:        sceneID,
-		ReferenceRunID:      scene.ReferenceRunID,
+		ClipID:              clipID,
+		ReferenceRunID:      clip.ReferenceRunID,
 		CandidateRunID:      req.CandidateRunID,
 		DetectionRate:       score.DetectionRate,
 		Fragmentation:       score.Fragmentation,

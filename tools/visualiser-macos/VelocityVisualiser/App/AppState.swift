@@ -1204,7 +1204,7 @@ private let logger = DevLogger(category: "AppState")
                         "Run-track label '\(label)' saved for track \(trackID) in run \(runID)")
                 } else {
                     logger.warning(
-                        "Skipping backend save for live label '\(label)' on track \(trackID); replay-owned free-form annotations now require replay_case_id"
+                        "Skipping backend save for live label '\(label)' on track \(trackID); replay-owned free-form annotations now require clip_id"
                     )
                 }
             } catch { logger.error("Failed to save label: \(error.localizedDescription)") }
@@ -1231,7 +1231,7 @@ private let logger = DevLogger(category: "AppState")
                     } else {
                         failed += 1
                         logger.warning(
-                            "Skipping backend save for live bulk label '\(label)' on track \(track.trackID); replay-owned free-form annotations now require replay_case_id"
+                            "Skipping backend save for live bulk label '\(label)' on track \(track.trackID); replay-owned free-form annotations now require clip_id"
                         )
                         continue
                     }

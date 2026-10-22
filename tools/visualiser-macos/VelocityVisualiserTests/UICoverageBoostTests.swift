@@ -373,22 +373,22 @@ struct StringTruncatedTests {
     }
 
     func testRunRowViewZeroDuration() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-zero", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 0, totalFrames: 0,
             totalClusters: 0, totalTracks: 0, confirmedTracks: 0, status: "running",
-            errorMessage: nil, vrlogPath: nil, notes: nil, replayCaseName: nil)
+            errorMessage: nil, vrlogPath: nil, notes: nil, sourceName: nil)
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
     }
 
     func testRunRowViewLongDuration() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-long", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 7200,
             totalFrames: 72000, totalClusters: 5000, totalTracks: 500, confirmedTracks: 400,
             status: "completed", errorMessage: nil, vrlogPath: "/data/long.vrlog", notes: "long",
-            replayCaseName: nil)
+            sourceName: nil)
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
@@ -1030,15 +1030,15 @@ struct SerialiseFlagsTests {
 
 @available(macOS 15.0, *) @MainActor final class RunBrowserViewStateCoverageTests: XCTestCase {
 
-    private func makeAnalysisRun(
+    private func makeRun(
         runId: String = "run-001", status: String = "completed", durationSecs: Double = 300,
         totalTracks: Int = 10, vrlogPath: String? = "/path/to/file.vrlog"
-    ) -> AnalysisRun {
-        AnalysisRun(
+    ) -> Run {
+        Run(
             runId: runId, createdAt: Date(), sourceType: "vrlog", sourcePath: "/data/test.vrlog",
             sensorId: "sensor-1", durationSecs: durationSecs, totalFrames: 100, totalClusters: 50,
             totalTracks: totalTracks, confirmedTracks: 5, status: status, errorMessage: nil,
-            vrlogPath: vrlogPath, notes: nil, replayCaseName: nil)
+            vrlogPath: vrlogPath, notes: nil, sourceName: nil)
     }
 
     private func host<V: View>(_ view: V, state: AppState) {
@@ -1066,8 +1066,8 @@ struct SerialiseFlagsTests {
     func testRunListState() throws {
         let browserState = RunBrowserState()
         browserState.runs = [
-            makeAnalysisRun(runId: "run-001"),
-            makeAnalysisRun(runId: "run-002", status: "running", durationSecs: 60),
+            makeRun(runId: "run-001"),
+            makeRun(runId: "run-002", status: "running", durationSecs: 60),
         ]
         let appState = AppState()
         host(RunBrowserView(state: browserState), state: appState)
@@ -1076,21 +1076,21 @@ struct SerialiseFlagsTests {
     func testFooterWithSelectedRun() throws {
         let browserState = RunBrowserState()
         browserState.selectedRunID = "run-abc"
-        browserState.runs = [makeAnalysisRun(runId: "run-abc")]
+        browserState.runs = [makeRun(runId: "run-abc")]
         let appState = AppState()
         host(RunBrowserView(state: browserState), state: appState)
     }
 
     func testRunListWithVRLog() throws {
         let browserState = RunBrowserState()
-        browserState.runs = [makeAnalysisRun(runId: "run-vrlog", vrlogPath: "/tmp/test.vrlog")]
+        browserState.runs = [makeRun(runId: "run-vrlog", vrlogPath: "/tmp/test.vrlog")]
         let appState = AppState()
         host(RunBrowserView(state: browserState), state: appState)
     }
 
     func testRunListWithNoVRLog() throws {
         let browserState = RunBrowserState()
-        browserState.runs = [makeAnalysisRun(runId: "run-no-vrlog", vrlogPath: nil)]
+        browserState.runs = [makeRun(runId: "run-no-vrlog", vrlogPath: nil)]
         let appState = AppState()
         host(RunBrowserView(state: browserState), state: appState)
     }
@@ -1098,8 +1098,8 @@ struct SerialiseFlagsTests {
     func testMultipleRunsSelected() throws {
         let browserState = RunBrowserState()
         browserState.runs = [
-            makeAnalysisRun(runId: "run-001"), makeAnalysisRun(runId: "run-002"),
-            makeAnalysisRun(runId: "run-003"),
+            makeRun(runId: "run-001"), makeRun(runId: "run-002"),
+            makeRun(runId: "run-003"),
         ]
         browserState.selectedRunID = "run-002"
         let appState = AppState()

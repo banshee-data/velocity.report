@@ -8,24 +8,24 @@ import (
 
 // TestAliasesCompile verifies that store type aliases resolve correctly.
 func TestAliasesCompile(t *testing.T) {
-	// ReplayCase alias.
-	var s sqlite.ReplayCase
+	// Clip alias.
+	var s sqlite.Clip
 	s.SensorID = "test-sensor"
 	if s.SensorID != "test-sensor" {
-		t.Fatalf("ReplayCase alias broken")
+		t.Fatalf("Clip alias broken")
 	}
 
-	// AnalysisRun alias.
-	var run sqlite.AnalysisRun
+	// Run alias.
+	var run sqlite.Run
 	run.RunID = "test-run"
 	if run.RunID != "test-run" {
-		t.Fatalf("AnalysisRun alias broken")
+		t.Fatalf("Run alias broken")
 	}
 
 	// Evaluation alias.
 	var eval sqlite.Evaluation
-	eval.ReplayCaseID = "test-scene"
-	if eval.ReplayCaseID != "test-scene" {
+	eval.ClipID = "test-scene"
+	if eval.ClipID != "test-scene" {
 		t.Fatalf("Evaluation alias broken")
 	}
 }

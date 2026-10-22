@@ -3,7 +3,7 @@ package server
 // Test helpers for placing a Server into a specific pipeline state.
 //
 // These exist because the old currentSource field conflated two axes: setting
-// it to DataSourcePCAPAnalysis meant "PCAP source, replay finished, grid kept",
+// it to DataSourceCaptureAnalysis meant "PCAP source, replay finished, grid kept",
 // which is now three fields. Naming the situations keeps the tests readable and
 // stops each one re-deriving the mapping.
 
@@ -16,7 +16,7 @@ func (ws *Server) setTestSourceLive() {
 // setTestSourcePCAPReplaying places the server mid-PCAP-replay.
 func (ws *Server) setTestSourcePCAPReplaying() {
 	ws.mutateState("test", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.ReplayActive = true
 		s.GridPreserved = false
 		s.LiveListenerRunning = false
@@ -27,7 +27,7 @@ func (ws *Server) setTestSourcePCAPReplaying() {
 // setTestSourcePCAPAnalysisReplaying places the server mid-replay in analysis mode.
 func (ws *Server) setTestSourcePCAPAnalysisReplaying() {
 	ws.mutateState("test", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.ReplayActive = true
 		s.GridPreserved = true
 		s.LiveListenerRunning = false
@@ -40,7 +40,7 @@ func (ws *Server) setTestSourcePCAPAnalysisReplaying() {
 // pcap_analysis wire token describes.
 func (ws *Server) setTestSourcePCAPAnalysis() {
 	ws.mutateState("test", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.ReplayActive = false
 		s.GridPreserved = true
 		s.LiveListenerRunning = false

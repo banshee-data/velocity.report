@@ -50,15 +50,15 @@ def test_reorder_schema_handles_current_schema() -> None:
     schema = (ROOT / "internal/db/schema.sql").read_text(encoding="utf-8")
     reordered = mod.reorder_schema(schema)
 
-    run_records_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_run_records"')
+    run_records_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_runs"')
     run_tracks_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_run_tracks"')
-    replay_cases_idx = reordered.index(
-        'CREATE TABLE IF NOT EXISTS "lidar_replay_cases"'
+    clips_idx = reordered.index(
+        'CREATE TABLE IF NOT EXISTS "lidar_clips"'
     )
     replay_annotations_idx = reordered.index("CREATE TABLE lidar_replay_annotations")
 
     assert run_records_idx < run_tracks_idx
-    assert replay_cases_idx < replay_annotations_idx
+    assert clips_idx < replay_annotations_idx
 
 
 if __name__ == "__main__":

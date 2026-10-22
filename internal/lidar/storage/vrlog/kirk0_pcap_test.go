@@ -39,7 +39,7 @@ func kirk0Replay(pcap, out string, start, duration float64) replayeval.Config {
 	return replayeval.Config{
 		PCAPFile: pcap, SensorID: "kirk0-codec", UDPPort: 2369, OutDir: out,
 		StartSeconds: start, WarmupSeconds: start, DurationSeconds: duration,
-		ReplayCaseID: "kirk0-codec",
+		ClipID: "kirk0-codec",
 		ObservationCalibration: l4bobserve.Calibration{SensorID: "kirk0-codec", FromFrame: "sensor", ToFrame: "site",
 			Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}},
 		// Group commit at the default batch age; the stall bound, which no
@@ -92,9 +92,9 @@ func TestKirk0ObservationContainer(t *testing.T) {
 	root := t.TempDir()
 
 	refused := kirk0Replay(pcap, filepath.Join(root, "refused"), 0, 1)
-	refused.ReplayCaseID = ""
+	refused.ClipID = ""
 	refused.ObservationLogDir = filepath.Join(root, "refused.vrlog")
-	if _, err := replayeval.Run(refused); err == nil || !strings.Contains(err.Error(), "ReplayCaseID") {
+	if _, err := replayeval.Run(refused); err == nil || !strings.Contains(err.Error(), "ClipID") {
 		t.Fatalf("an observation log without identities = %v", err)
 	}
 

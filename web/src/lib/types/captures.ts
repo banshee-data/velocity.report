@@ -250,7 +250,7 @@ export type SiteSource = (typeof SITE_SOURCES)[number];
 
 /** One replay case as a site lists it — its own sensor pose for that visit. */
 export interface SiteCase {
-	replay_case_id: string;
+	clip_id: string;
 	description?: string;
 	sensor_id?: string;
 	origin_lat: number;

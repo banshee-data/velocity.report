@@ -578,7 +578,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 	t.Run("not configured returns 503", func(t *testing.T) {
 		ws := &Server{}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
-			strings.NewReader(`{"replay_case_id":"s1"}`))
+			strings.NewReader(`{"clip_id":"s1"}`))
 		w := httptest.NewRecorder()
 
 		ws.handleHINT(w, req)
@@ -604,7 +604,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 		runner := &mockHINTRunner{startErr: errors.New("sweep already in progress")}
 		ws := &Server{hintRunner: runner}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
-			strings.NewReader(`{"replay_case_id":"s1"}`))
+			strings.NewReader(`{"clip_id":"s1"}`))
 		w := httptest.NewRecorder()
 
 		ws.handleHINT(w, req)
@@ -617,7 +617,7 @@ func TestHINTHandlers_Start(t *testing.T) {
 		runner := &mockHINTRunner{}
 		ws := &Server{hintRunner: runner}
 		req := httptest.NewRequest(http.MethodPost, "/api/lidar/sweep/hint",
-			strings.NewReader(`{"replay_case_id":"s1","num_rounds":2}`))
+			strings.NewReader(`{"clip_id":"s1","num_rounds":2}`))
 		w := httptest.NewRecorder()
 
 		ws.handleHINT(w, req)

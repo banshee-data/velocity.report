@@ -8,16 +8,16 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-// validateCaseFiles checks that a proposed case's captures form one continuous
+// validateClipFiles checks that a proposed case's captures form one continuous
 // stream, and returns the sequence so a caller can report its joins.
 //
 // The extents come from the capture index when the files are known to it, which
 // costs nothing, and from probing the file otherwise, which costs a full read.
 // Preferring the index is what makes authoring a case from the Captures page
 // immediate rather than a minute-long wait per file.
-func (ws *Server) validateCaseFiles(paths []string) (*capseq.Sequence, error) {
+func (ws *Server) validateClipFiles(paths []string) (*capseq.Sequence, error) {
 	index := ws.loadIndexedCaptures()
-	extents := make([]sqlite.CaseSequenceExtent, 0, len(paths))
+	extents := make([]sqlite.ClipSequenceExtent, 0, len(paths))
 	for _, path := range paths {
 		resolved, err := ws.resolvePCAPPath(path)
 		if err != nil {
@@ -29,16 +29,16 @@ func (ws *Server) validateCaseFiles(paths []string) (*capseq.Sequence, error) {
 		}
 		extents = append(extents, extent)
 	}
-	return sqlite.ValidateCaseSequence(extents)
+	return sqlite.ValidateClipSequence(extents)
 }
 
 // captureExtent obtains one capture's packet-time bounds, from the index if it
 // holds that exact file and by reading the file if it does not.
-func (ws *Server) captureExtent(index indexedCaptures, requested, resolved string) (sqlite.CaseSequenceExtent, error) {
+func (ws *Server) captureExtent(index indexedCaptures, requested, resolved string) (sqlite.ClipSequenceExtent, error) {
 	// Any probed port will do: authoring checks that the captures abut, and
 	// the probe found the port each one was recorded on.
 	if indexed, ok := index.extent(resolved, 0); ok {
-		return sqlite.CaseSequenceExtent{
+		return sqlite.ClipSequenceExtent{
 			PCAPFile:    requested,
 			FirstPacket: indexed.FirstPacket,
 			LastPacket:  indexed.LastPacket,
@@ -51,13 +51,13 @@ func (ws *Server) captureExtent(index indexedCaptures, requested, resolved strin
 	// packet extent must not each decide the port question differently.
 	extent, err := probeExtent(resolved, ws.udpPort)
 	if err != nil {
-		return sqlite.CaseSequenceExtent{}, fmt.Errorf("probing %s: %w", requested, err)
+		return sqlite.ClipSequenceExtent{}, fmt.Errorf("probing %s: %w", requested, err)
 	}
 	if extent.PacketCount == 0 {
-		return sqlite.CaseSequenceExtent{}, fmt.Errorf(
+		return sqlite.ClipSequenceExtent{}, fmt.Errorf(
 			"%s contains no LiDAR packets", requested)
 	}
-	return sqlite.CaseSequenceExtent{
+	return sqlite.ClipSequenceExtent{
 		PCAPFile:    requested,
 		FirstPacket: time.Unix(0, extent.FirstPacketNs),
 		LastPacket:  time.Unix(0, extent.LastPacketNs),

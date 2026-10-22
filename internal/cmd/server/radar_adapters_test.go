@@ -135,7 +135,7 @@ func (erroringSweepBackend) StartPCAPReplayWithConfig(sweep.PCAPReplayConfig) er
 }
 func (erroringSweepBackend) StopPCAPReplay() error                   { return nil }
 func (erroringSweepBackend) WaitForPCAPComplete(time.Duration) error { return nil }
-func (erroringSweepBackend) GetLastAnalysisRunID() string            { return "" }
+func (erroringSweepBackend) GetLastRunID() string                    { return "" }
 
 func TestHintRunCreatorRejectsMalformedParams(t *testing.T) {
 	creator := &hintRunCreator{runner: sweep.NewRunner(erroringSweepBackend{})}
@@ -185,14 +185,14 @@ func TestHintRunCreatorAcceptsNullParams(t *testing.T) {
 	}
 }
 
-func TestHintSceneAdapterGetSceneMissing(t *testing.T) {
+func TestHintSceneAdapterGetClipMissing(t *testing.T) {
 	database, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	adapter := &hintSceneAdapter{store: sqlite.NewReplayCaseStore(database)}
+	adapter := &hintClipAdapter{store: sqlite.NewClipStore(database)}
 
-	if _, err := adapter.GetScene("no-such-scene"); err == nil {
-		t.Fatal("GetScene for an unknown scene succeeded, want an error")
+	if _, err := adapter.GetClip("no-such-scene"); err == nil {
+		t.Fatal("GetClip for an unknown scene succeeded, want an error")
 	}
 }
 
@@ -200,7 +200,7 @@ func TestHintSceneAdapterSetReferenceRunMissing(t *testing.T) {
 	database, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	adapter := &hintSceneAdapter{store: sqlite.NewReplayCaseStore(database)}
+	adapter := &hintClipAdapter{store: sqlite.NewClipStore(database)}
 
 	// Delegates straight to the store; an unknown scene must not silently
 	// succeed, or HINT would believe it had pinned a reference run.
@@ -213,7 +213,7 @@ func TestHintLabelAdapterGetLabelingProgressOnEmptyRun(t *testing.T) {
 	database, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	adapter := &hintLabelAdapter{store: sqlite.NewAnalysisRunStore(database)}
+	adapter := &hintLabelAdapter{store: sqlite.NewRunStore(database)}
 
 	total, labelled, byClass, err := adapter.GetLabelingProgress("no-such-run")
 	if err != nil {
@@ -231,7 +231,7 @@ func TestHintLabelAdapterGetRunTracksOnEmptyRun(t *testing.T) {
 	database, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	adapter := &hintLabelAdapter{store: sqlite.NewAnalysisRunStore(database)}
+	adapter := &hintLabelAdapter{store: sqlite.NewRunStore(database)}
 
 	got, err := adapter.GetRunTracks("no-such-run")
 	if err != nil {
@@ -246,12 +246,12 @@ func TestHintLabelAdapterUpdateTrackLabelUnknownTrack(t *testing.T) {
 	database, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	adapter := &hintLabelAdapter{store: sqlite.NewAnalysisRunStore(database)}
+	adapter := &hintLabelAdapter{store: sqlite.NewRunStore(database)}
 
 	// Pure delegation; whatever the store decides about an unknown track is
 	// what the caller must see.
 	err := adapter.UpdateTrackLabel("no-such-run", "no-such-track", "vehicle", "good", 0.9, "tester", "manual")
-	wantErr := sqlite.NewAnalysisRunStore(database).UpdateTrackLabel(
+	wantErr := sqlite.NewRunStore(database).UpdateTrackLabel(
 		"no-such-run", "no-such-track", "vehicle", "good", 0.9, "tester", "manual")
 
 	if (err == nil) != (wantErr == nil) {

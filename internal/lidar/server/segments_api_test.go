@@ -53,7 +53,7 @@ func segmentServer(t *testing.T) (*Server, string) {
 	}{
 		{`INSERT INTO lidar_capture_roots(root_id,path,created_at_ns,updated_at_ns) VALUES('root',?,1,1)`, []any{dir}},
 		{`INSERT INTO lidar_capture_files(capture_file_id,root_id,rel_path,size_bytes,modified_at_ns,first_packet_ns,last_packet_ns,packet_count,udp_port,probe_state,first_seen_at_ns,last_seen_at_ns) VALUES('file','root','capture.pcap',?,?,?,?,1000,2369,'ok',1,1)`, append(captureSizeAndTime(t, capture), segmentTestTime-1_000_000_000, segmentTestTime+80_000_000_000)},
-		{`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms) VALUES('run',1,'pcap',?,'sensor','completed',0,0,0,0,0,0)`, []any{capture}},
+		{`INSERT INTO lidar_runs(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms) VALUES('run',1,'pcap',?,'sensor','completed',0,0,0,0,0,0)`, []any{capture}},
 	}
 	for _, q := range statements {
 		if _, err := database.Exec(q.sql, q.args...); err != nil {
@@ -176,23 +176,23 @@ func TestSegmentAPISelectionAndClipQueue(t *testing.T) {
 		t.Fatalf("case %d: %s", created.Code, created.Body.String())
 	}
 	var caseBody struct {
-		ReplayCaseID string `json:"replay_case_id"`
+		ClipID string `json:"clip_id"`
 	}
 	if err := json.Unmarshal(created.Body.Bytes(), &caseBody); err != nil {
 		t.Fatal(err)
 	}
-	if caseBody.ReplayCaseID == "" {
+	if caseBody.ClipID == "" {
 		t.Fatal("missing case ID")
 	}
 	again := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case", map[string]any{"run_id": "run", "finder": "following", "role": "tuning"}, ws.handleSegmentByID)
 	if again.Code != 200 {
 		t.Fatalf("duplicate case: %d", again.Code)
 	}
-	clip := callSegment(t, ws, "POST", "/api/lidar/scenes/"+caseBody.ReplayCaseID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, caseBody.ReplayCaseID) })
+	clip := callSegment(t, ws, "POST", "/api/lidar/clips/"+caseBody.ClipID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleClipPack(w, r, caseBody.ClipID) })
 	if clip.Code != 202 {
 		t.Fatalf("clip %d: %s", clip.Code, clip.Body.String())
 	}
-	clipAgain := callSegment(t, ws, "POST", "/api/lidar/scenes/"+caseBody.ReplayCaseID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, caseBody.ReplayCaseID) })
+	clipAgain := callSegment(t, ws, "POST", "/api/lidar/clips/"+caseBody.ClipID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleClipPack(w, r, caseBody.ClipID) })
 	if clipAgain.Code != 202 || clipAgain.Body.String() != clip.Body.String() {
 		t.Fatalf("clip dedup: %s vs %s", clip.Body.String(), clipAgain.Body.String())
 	}
@@ -316,18 +316,18 @@ func TestSegmentEndpointsRejectInvalidQueriesAndMethods(t *testing.T) {
 	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 501 {
 		t.Fatalf("unconfigured packs: %d", response.Code)
 	}
-	if response := callSegment(t, ws, "POST", "/api/lidar/scenes/missing/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, "missing") }); response.Code != 501 {
+	if response := callSegment(t, ws, "POST", "/api/lidar/clips/missing/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleClipPack(w, r, "missing") }); response.Code != 501 {
 		t.Fatalf("unconfigured clip: %d", response.Code)
 	}
 	ws.annotationPacksDir = t.TempDir()
-	clipHandler := func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, "missing") }
-	if response := callSegment(t, ws, "POST", "/api/lidar/scenes/missing/clip", nil, clipHandler); response.Code != 404 {
+	clipHandler := func(w http.ResponseWriter, r *http.Request) { ws.handleClipPack(w, r, "missing") }
+	if response := callSegment(t, ws, "POST", "/api/lidar/clips/missing/clip", nil, clipHandler); response.Code != 404 {
 		t.Fatalf("unknown case: %d", response.Code)
 	}
 	if err := ws.db.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if response := callSegment(t, ws, "POST", "/api/lidar/scenes/missing/clip", nil, clipHandler); response.Code != 500 {
+	if response := callSegment(t, ws, "POST", "/api/lidar/clips/missing/clip", nil, clipHandler); response.Code != 500 {
 		t.Fatalf("database failure was reported as missing case: %d", response.Code)
 	}
 }
@@ -347,16 +347,16 @@ func TestClipQueueReportsWriteFailureAndFailsUnlinkedJob(t *testing.T) {
 			t.Fatalf("case: %d %s", created.Code, created.Body.String())
 		}
 		var result struct {
-			ReplayCaseID string `json:"replay_case_id"`
+			ClipID string `json:"clip_id"`
 		}
 		if err := json.Unmarshal(created.Body.Bytes(), &result); err != nil {
 			t.Fatal(err)
 		}
-		return result.ReplayCaseID
+		return result.ClipID
 	}
 	queue := func(t *testing.T, ws *Server, id string) *httptest.ResponseRecorder {
 		t.Helper()
-		return callSegment(t, ws, "POST", "/api/lidar/scenes/"+id+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleSceneClip(w, r, id) })
+		return callSegment(t, ws, "POST", "/api/lidar/clips/"+id+"/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleClipPack(w, r, id) })
 	}
 	t.Run("job insertion", func(t *testing.T) {
 		ws, _ := segmentServer(t)
@@ -431,21 +431,21 @@ func TestSegmentRequestDefaultsAndEvidenceFailures(t *testing.T) {
 	}
 }
 
-func TestSegmentCaptureScopeUsesReplayCaseFiles(t *testing.T) {
+func TestSegmentCaptureScopeUsesClipCaptures(t *testing.T) {
 	ws, capture := segmentServer(t)
-	scene := &sqlite.ReplayCase{SensorID: "sensor", PCAPFile: filepath.Base(capture)}
-	store := sqlite.NewReplayCaseStore(ws.db)
-	if err := store.InsertScene(scene); err != nil {
+	scene := &sqlite.Clip{SensorID: "sensor", Files: []sqlite.ClipCapture{{PCAPFile: filepath.Base(capture)}}}
+	store := sqlite.NewClipStore(ws.db)
+	if err := store.InsertClip(scene); err != nil {
 		t.Fatal(err)
 	}
-	run := &sqlite.AnalysisRun{ReplayCaseID: scene.ReplayCaseID}
+	run := &sqlite.Run{ClipID: scene.ClipID}
 	captures, err := ws.capturesForRun(run, segmentTestTime, segmentTestTime+10_000_000_000)
 	if err != nil || len(captures) != 1 || captures[0].Path != capture {
 		t.Fatalf("case capture scope: %+v %v", captures, err)
 	}
-	run.ReplayCaseID = "missing"
+	run.ClipID = "missing"
 	if _, err := ws.capturesForRun(run, segmentTestTime, segmentTestTime+10_000_000_000); err == nil {
-		t.Fatal("missing replay case accepted")
+		t.Fatal("missing clip accepted")
 	}
 	if resolved, err := ws.resolveSegmentCapture(filepath.Base(capture)); err != nil || resolved != capture {
 		t.Fatalf("relative capture: %q %v", resolved, err)
@@ -591,8 +591,8 @@ func TestSegmentCaseReportsDatabaseWriteFailures(t *testing.T) {
 		name, sql, role string
 	}{
 		{"held-out guard query", `ALTER TABLE lidar_segment_selections RENAME COLUMN role TO broken_role`, "held_out"},
-		{"insert replay case", `CREATE TRIGGER fail_segment_case BEFORE INSERT ON lidar_replay_cases BEGIN SELECT RAISE(ABORT,'forced case failure'); END`, "tuning"},
-		{"link case files", `CREATE TRIGGER fail_segment_files BEFORE INSERT ON lidar_replay_case_files BEGIN SELECT RAISE(ABORT,'forced file failure'); END`, "tuning"},
+		{"insert clip", `CREATE TRIGGER fail_segment_case BEFORE INSERT ON lidar_clips BEGIN SELECT RAISE(ABORT,'forced case failure'); END`, "tuning"},
+		{"link case files", `CREATE TRIGGER fail_segment_files BEFORE INSERT ON lidar_clip_captures BEGIN SELECT RAISE(ABORT,'forced file failure'); END`, "tuning"},
 		{"save selection", `CREATE TRIGGER fail_segment_selection BEFORE INSERT ON lidar_segment_selections BEGIN SELECT RAISE(ABORT,'forced selection failure'); END`, "tuning"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -608,8 +608,8 @@ func TestSegmentCaseReportsDatabaseWriteFailures(t *testing.T) {
 			}
 			if tc.name == "link case files" || tc.name == "save selection" {
 				var count int
-				if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_replay_cases`).Scan(&count); err != nil || count != 0 {
-					t.Fatalf("orphaned replay case: %d %v", count, err)
+				if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_clips`).Scan(&count); err != nil || count != 0 {
+					t.Fatalf("orphaned clip: %d %v", count, err)
 				}
 			}
 		})
@@ -638,15 +638,15 @@ func TestSegmentCaseValidatesMultiCaptureSeams(t *testing.T) {
 				append(captureSizeAndTime(t, second), tc.secondFrom, segmentTestTime+80_000_000_000)...); err != nil {
 				t.Fatal(err)
 			}
-			store := sqlite.NewReplayCaseStore(ws.db)
-			scene := &sqlite.ReplayCase{SensorID: "sensor", PCAPFile: filepath.Base(first)}
-			if err := store.InsertScene(scene); err != nil {
+			store := sqlite.NewClipStore(ws.db)
+			scene := &sqlite.Clip{SensorID: "sensor", Files: []sqlite.ClipCapture{{PCAPFile: filepath.Base(first)}}}
+			if err := store.InsertClip(scene); err != nil {
 				t.Fatal(err)
 			}
-			if err := store.SetCaseFiles(scene.ReplayCaseID, []sqlite.ReplayCaseFile{{Ordinal: 0, PCAPFile: filepath.Base(first)}, {Ordinal: 1, PCAPFile: filepath.Base(second)}}); err != nil {
+			if err := store.SetClipFiles(scene.ClipID, []sqlite.ClipCapture{{Ordinal: 0, PCAPFile: filepath.Base(first)}, {Ordinal: 1, PCAPFile: filepath.Base(second)}}); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := ws.db.Exec(`UPDATE lidar_run_records SET replay_case_id=? WHERE run_id='run'`, scene.ReplayCaseID); err != nil {
+			if _, err := ws.db.Exec(`UPDATE lidar_runs SET clip_id=? WHERE run_id='run'`, scene.ClipID); err != nil {
 				t.Fatal(err)
 			}
 			chosen := firstFollowingSegment(t, ws, "tuning")
@@ -669,22 +669,22 @@ func TestSegmentCaseRejectsCaptureChangesBetweenListAndSelection(t *testing.T) {
 			ws.handleSegmentByIDWith(w, r, ops)
 		})
 	}
-	base := segmentCaseOperations{sqlite.NewAnalysisRunStore(ws.db).GetRun, ws.capturesForRun, ws.resolveSegmentCapture}
+	base := segmentCaseOperations{sqlite.NewRunStore(ws.db).GetRun, ws.capturesForRun, ws.resolveSegmentCapture}
 	for _, tc := range []struct {
 		name string
 		edit func(*segmentCaseOperations)
 		want int
 	}{
 		{"run removed", func(ops *segmentCaseOperations) {
-			ops.getRun = func(string) (*sqlite.AnalysisRun, error) { return nil, errors.New("run removed") }
+			ops.getRun = func(string) (*sqlite.Run, error) { return nil, errors.New("run removed") }
 		}, 404},
 		{"capture index failed", func(ops *segmentCaseOperations) {
-			ops.captures = func(*sqlite.AnalysisRun, int64, int64) ([]segments.Capture, error) {
+			ops.captures = func(*sqlite.Run, int64, int64) ([]segments.Capture, error) {
 				return nil, errors.New("index failed")
 			}
 		}, 400},
 		{"captures removed", func(ops *segmentCaseOperations) {
-			ops.captures = func(*sqlite.AnalysisRun, int64, int64) ([]segments.Capture, error) { return nil, nil }
+			ops.captures = func(*sqlite.Run, int64, int64) ([]segments.Capture, error) { return nil, nil }
 		}, 400},
 		{"capture changed", func(ops *segmentCaseOperations) {
 			ops.resolve = func(string) (string, error) { return "", errors.New("capture changed") }
@@ -721,16 +721,16 @@ func TestSceneClipRouteQueuesOnlyOnPost(t *testing.T) {
 	chosen := firstFollowingSegment(t, ws, "tuning")
 	created := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case", map[string]any{"run_id": "run"}, ws.handleSegmentByID)
 	var selected struct {
-		ReplayCaseID string `json:"replay_case_id"`
+		ClipID string `json:"clip_id"`
 	}
-	if err := json.Unmarshal(created.Body.Bytes(), &selected); err != nil || selected.ReplayCaseID == "" {
+	if err := json.Unmarshal(created.Body.Bytes(), &selected); err != nil || selected.ClipID == "" {
 		t.Fatalf("case: %d %s", created.Code, created.Body.String())
 	}
-	path := "/api/lidar/scenes/" + selected.ReplayCaseID + "/clip"
-	if response := callSegment(t, ws, "GET", path, nil, ws.handleSceneByID); response.Code != 405 {
+	path := "/api/lidar/clips/" + selected.ClipID + "/clip"
+	if response := callSegment(t, ws, "GET", path, nil, ws.handleClipByID); response.Code != 405 {
 		t.Fatalf("clip by GET: %d %s", response.Code, response.Body.String())
 	}
-	response := callSegment(t, ws, "POST", path, nil, ws.handleSceneByID)
+	response := callSegment(t, ws, "POST", path, nil, ws.handleClipByID)
 	if response.Code != 202 {
 		t.Fatalf("clip by POST: %d %s", response.Code, response.Body.String())
 	}
@@ -748,8 +748,8 @@ func TestSegmentCaptureOutsideTheSafeDirectoryIsRefused(t *testing.T) {
 	// A capture path that cannot be expressed under the safe directory must
 	// stop the case, even if the index and the resolver both accepted it.
 	ops := segmentCaseOperations{
-		getRun: sqlite.NewAnalysisRunStore(ws.db).GetRun,
-		captures: func(*sqlite.AnalysisRun, int64, int64) ([]segments.Capture, error) {
+		getRun: sqlite.NewRunStore(ws.db).GetRun,
+		captures: func(*sqlite.Run, int64, int64) ([]segments.Capture, error) {
 			return []segments.Capture{{Path: "relative.pcap", FirstNs: chosen.StartNs, LastNs: chosen.EndNs}}, nil
 		},
 		resolve: func(path string) (string, error) { return path, nil },
@@ -761,8 +761,8 @@ func TestSegmentCaptureOutsideTheSafeDirectoryIsRefused(t *testing.T) {
 		t.Fatalf("capture outside the safe directory: %d %s", response.Code, response.Body.String())
 	}
 	var cases int
-	if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_replay_cases`).Scan(&cases); err != nil || cases != 0 {
-		t.Fatalf("refused capture still made %d replay cases: %v", cases, err)
+	if err := ws.db.QueryRow(`SELECT COUNT(*) FROM lidar_clips`).Scan(&cases); err != nil || cases != 0 {
+		t.Fatalf("refused capture still made %d clips: %v", cases, err)
 	}
 	ws.pcapSafeDir = "relative-safe-directory"
 	if resolved, err := ws.resolveSegmentCapture("/absolute/capture.pcap"); err == nil {
@@ -798,7 +798,7 @@ func replayedRun(t *testing.T, ws *Server, runID string) string {
 		t.Fatal(err)
 	}
 	capture := filepath.Join(ws.pcapSafeDir, "capture.pcap")
-	if _, err := ws.db.Exec(`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms,vrlog_path) VALUES(?,2,'pcap',?,'sensor','completed',0,0,0,0,0,0,?)`, runID, capture, recording); err != nil {
+	if _, err := ws.db.Exec(`INSERT INTO lidar_runs(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms,vrlog_path) VALUES(?,2,'pcap',?,'sensor','completed',0,0,0,0,0,0,?)`, runID, capture, recording); err != nil {
 		t.Fatal(err)
 	}
 	for _, track := range []struct {
@@ -884,7 +884,7 @@ func TestSegmentsReportAReplayedRunThatCannotBeRead(t *testing.T) {
 }
 
 // A window whose selection state cannot be read is not offered as a fresh
-// candidate: an operator who chose it again would make a second replay case.
+// candidate: an operator who chose it again would make a second clip.
 func TestSegmentsAreNotRankedWhenTheirStateCannotBeRead(t *testing.T) {
 	ws, _ := segmentServer(t)
 	if _, err := ws.db.Exec(`ALTER TABLE lidar_segment_clip_jobs RENAME COLUMN pack_dir TO broken_pack_dir`); err != nil {

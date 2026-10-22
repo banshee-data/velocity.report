@@ -305,7 +305,7 @@ published by a durable writer and read through its frontier, with
 [recovery](#recovery) after an interruption.
 
 Nothing writes this layout unless asked. `velocity lidar pcap-replay --observations DIR
---replay-case-id ID` writes one from a replay, and the server's experimental
+--clip-id ID` writes one from a replay, and the server's experimental
 `--lidar-observation-dir DIR` writes one for its live session (off by default).
 `velocity lidar observations verify`, `inspect`, `compare` and `recover` read or repair it, and
 `vrlog-check` verifies it.

@@ -94,7 +94,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	}
 	if *evidenceDB != "" {
 		cfg.ObservationDBPath = *evidenceDB
-		cfg.ReplayCaseID = *caseID
+		cfg.ClipID = *caseID
 		cfg.ObservationCalibration = identityCalibration(*sensor)
 		cfg.ObservationMaxSamplePoints = *samplePoints
 	}

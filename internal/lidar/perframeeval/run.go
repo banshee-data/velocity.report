@@ -38,7 +38,7 @@ func Run(cfg Config) (*Comparison, error) {
 	// a held-out split, or of analysis runs, is not made at all.
 	var physical *PhysicalReference
 	if cfg.Physical != nil {
-		if cfg.A.Kind() == ArmAnalysisRun {
+		if cfg.A.Kind() == ArmRun {
 			return nil, fmt.Errorf("physical scoring needs estimate versions; arms %s and %s are analysis runs", cfg.A.Label, cfg.B.Label)
 		}
 		pr, err := LoadPhysicalReference(cfg.Reference, *cfg.Physical)

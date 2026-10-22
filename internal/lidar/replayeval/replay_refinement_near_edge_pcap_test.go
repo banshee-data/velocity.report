@@ -33,7 +33,7 @@ func TestFixedLagRTSWithNearEdgeTrackOnKirk0(t *testing.T) {
 	cfg.Experiments = []string{ExperimentSolidBody, ExperimentSolidBodyFullMembers, ExperimentSolidBodyFaceHysteresis,
 		ExperimentSolidBodyCourseFaces, ExperimentNearEdgeTrack, ExperimentFixedLagRTS}
 	cfg.ObservationDBPath = filepath.Join(dir, "evidence.db")
-	cfg.ReplayCaseID = "kirk0-near-edge-refinement-test"
+	cfg.ClipID = "kirk0-near-edge-refinement-test"
 	cfg.ObservationCalibration = identityReplayCalibration(cfg.SensorID)
 	cfg.ObservationMaxSamplePoints = 16
 	result, err := Run(cfg)

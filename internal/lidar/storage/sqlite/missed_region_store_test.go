@@ -9,10 +9,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func insertAnalysisRunForMissedRegions(t *testing.T, db *sql.DB, runID string) {
+func insertRunForMissedRegions(t *testing.T, db *sql.DB, runID string) {
 	t.Helper()
-	store := NewAnalysisRunStore(db)
-	err := store.InsertRun(&AnalysisRun{
+	store := NewRunStore(db)
+	err := store.InsertRun(&Run{
 		RunID:      runID,
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -30,7 +30,7 @@ func TestMissedRegionStore_InsertListDelete(t *testing.T) {
 	defer cleanup()
 
 	runID := "run-missed-region-1"
-	insertAnalysisRunForMissedRegions(t, sqlDB, runID)
+	insertRunForMissedRegions(t, sqlDB, runID)
 
 	store := NewMissedRegionStore(sqlDB)
 	if store == nil {

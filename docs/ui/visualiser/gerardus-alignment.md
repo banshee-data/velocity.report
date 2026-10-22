@@ -81,7 +81,7 @@ The accepted record is not yet written back to velocity.report: that needs `PUT 
 
 Gerardus keys everything by the site's S2 L16 token, and its hint needs the eye-read latitude and longitude. The pane reads both from velocity.report's replay cases (`GET /api/lidar/scene-map`), and finds the open capture's case by, in order:
 
-1. the run's `replay_case_id`, for the run loaded from the run browser or the one the server is replaying (a VRLOG replay names its run only by its directory);
+1. the run's `clip_id`, for the run loaded from the run browser or the one the server is replaying (a VRLOG replay names its run only by its directory);
 2. the run's source file, matched against each case's capture files;
 3. the published capture stem `<start>_<L13 display>_<site id>`, whose L13 cell names the site, with the site id's words choosing between cases in a shared cell.
 

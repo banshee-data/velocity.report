@@ -323,3 +323,6 @@ Join the Discord to discuss the project, get help, and help make streets safer.
 ## Licence
 
 Apache License 2.0. See [LICENSE](LICENSE).
+
+LiDAR evaluation windows are [clips](docs/lidar/operations/clip-management-implementation.md). The API uses
+`/api/lidar/clips` and `clip_id`; ordered capture rows supply each clip’s paths.

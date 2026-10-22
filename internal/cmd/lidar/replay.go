@@ -43,8 +43,8 @@ func ReplayEvalMain(args []string) int {
 	analyse := fs.Bool("analyse", true, "Generate analysis.json in the output directory")
 	compareTo := fs.String("compare-to", "", "Path to a baseline VRLOG; writes an A/B comparison against it")
 	compareOut := fs.String("compare-output", "", "Where to write the comparison JSON (default: <output>/comparison.json)")
-	observations := fs.String("observations", "", "Also write every frame's foreground-complete L4 evidence to a new VRLOG 1.x observation container at this path (must not exist); needs --replay-case-id")
-	replayCaseID := fs.String("replay-case-id", "", "Stable name of the replayed case, bound into the observation source identity (required with --observations)")
+	observations := fs.String("observations", "", "Also write every frame's foreground-complete L4 evidence to a new VRLOG 1.x observation container at this path (must not exist); needs --clip-id")
+	clipID := fs.String("clip-id", "", "Stable name of the replayed case, bound into the observation source identity (required with --observations)")
 	experimentFlag := fs.String("experiment", "", "Default-off replay experiments to switch on, comma separated, as lidar-state-estimation-baseline -experiment takes them ("+strings.Join(replayeval.KnownExperiments(), ", ")+"); folded into the parameter hash and named in replay_manifest.json, the observation container's manifest and the summary")
 
 	fs.Usage = func() {
@@ -80,12 +80,12 @@ Examples:
 
   # Also capture foreground-complete L4 observations, then verify them
   velocity lidar pcap-replay --pcap capture.pcap --output ./runs/obs \
-      --observations ./runs/obs.vrlog --replay-case-id site-a-2026-09-01
+      --observations ./runs/obs.vrlog --clip-id site-a-2026-09-01
   velocity lidar observations verify --require foreground-complete ./runs/obs.vrlog
 
   # The same observations under a replay experiment, for a return-fate arm
   velocity lidar pcap-replay --pcap capture.pcap --output ./runs/cell \
-      --observations ./runs/cell.vrlog --replay-case-id site-a-2026-09-01 \
+      --observations ./runs/cell.vrlog --clip-id site-a-2026-09-01 \
       --experiment region_overrides_cell_tercile
 
 --experiment takes the replay harness's names with the harness's validation:
@@ -123,8 +123,8 @@ manifest declares that identity transform rather than a surveyed one.
 		return 2
 	}
 
-	if *observations != "" && *replayCaseID == "" {
-		fmt.Fprintln(os.Stderr, "error: --observations needs --replay-case-id: a source identity is never guessed from a file name")
+	if *observations != "" && *clipID == "" {
+		fmt.Fprintln(os.Stderr, "error: --observations needs --clip-id: a source identity is never guessed from a file name")
 		return 2
 	}
 
@@ -160,7 +160,7 @@ manifest declares that identity transform rather than a surveyed one.
 	}
 	if *observations != "" {
 		cfg.ObservationLogDir = *observations
-		cfg.ReplayCaseID = *replayCaseID
+		cfg.ClipID = *clipID
 		cfg.ObservationCalibration = replayCalibration(*sensor)
 	}
 	result, err := runReplay(cfg)

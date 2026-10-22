@@ -13,20 +13,20 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 
-func setupAnalysisRunDB(t *testing.T) (*sql.DB, func()) {
+func setupRunDB(t *testing.T) (*sql.DB, func()) {
 	t.Helper()
 
 	db, cleanup := dbpkg.NewTestDB(t)
 	return db.DB, cleanup
 }
 
-func TestNewAnalysisRunManager(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+func TestNewRunManager(t *testing.T) {
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	if manager == nil {
-		t.Fatal("NewAnalysisRunManager returned nil")
+		t.Fatal("NewRunManager returned nil")
 	}
 
 	if manager.sensorID != "test-sensor" {
@@ -46,18 +46,18 @@ func TestNewAnalysisRunManager(t *testing.T) {
 	}
 }
 
-func TestNewAnalysisRunManagerDI(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+func TestNewRunManagerDI(t *testing.T) {
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
 	// Clear registry for test isolation
 	armMu.Lock()
-	armRegistry = make(map[string]*AnalysisRunManager)
+	armRegistry = make(map[string]*RunManager)
 	armMu.Unlock()
 
-	manager := NewAnalysisRunManagerDI(db, "sensor-di")
+	manager := NewRunManagerDI(db, "sensor-di")
 	if manager == nil {
-		t.Fatal("NewAnalysisRunManagerDI returned nil")
+		t.Fatal("NewRunManagerDI returned nil")
 	}
 
 	if manager.sensorID != "sensor-di" {
@@ -77,27 +77,27 @@ func TestNewAnalysisRunManagerDI(t *testing.T) {
 	}
 
 	// Verify DI constructor does NOT register in global registry
-	retrieved := GetAnalysisRunManager("sensor-di")
+	retrieved := GetRunManager("sensor-di")
 	if retrieved != nil {
 		t.Error("Expected DI constructor NOT to register in global registry")
 	}
 }
 
-func TestAnalysisRunManagerRegistry(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+func TestRunManagerRegistry(t *testing.T) {
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
 	// Clear registry for test isolation
 	armMu.Lock()
-	armRegistry = make(map[string]*AnalysisRunManager)
+	armRegistry = make(map[string]*RunManager)
 	armMu.Unlock()
 
-	manager := NewAnalysisRunManager(db, "sensor-1")
-	RegisterAnalysisRunManager("sensor-1", manager)
+	manager := NewRunManager(db, "sensor-1")
+	RegisterRunManager("sensor-1", manager)
 
-	retrieved := GetAnalysisRunManager("sensor-1")
+	retrieved := GetRunManager("sensor-1")
 	if retrieved == nil {
-		t.Fatal("GetAnalysisRunManager returned nil")
+		t.Fatal("GetRunManager returned nil")
 	}
 
 	if retrieved != manager {
@@ -105,17 +105,17 @@ func TestAnalysisRunManagerRegistry(t *testing.T) {
 	}
 
 	// Test non-existent sensor
-	notFound := GetAnalysisRunManager("non-existent")
+	notFound := GetRunManager("non-existent")
 	if notFound != nil {
 		t.Error("Expected nil for non-existent sensor")
 	}
 }
 
 func TestStartRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	runID, err := manager.StartRun("/path/to/test.pcap", params)
@@ -140,7 +140,7 @@ func TestStartRun(t *testing.T) {
 
 	// Verify run is in database
 	var count int
-	err = db.QueryRow("SELECT COUNT(*) FROM lidar_run_records WHERE run_id = ?", runID).Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_runs WHERE run_id = ?", runID).Scan(&count)
 	if err != nil {
 		t.Fatalf("Failed to query database: %v", err)
 	}
@@ -150,10 +150,10 @@ func TestStartRun(t *testing.T) {
 }
 
 func TestRecordFrame(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	_, err := manager.StartRun("/path/to/test.pcap", params)
@@ -177,10 +177,10 @@ func TestRecordFrame(t *testing.T) {
 }
 
 func TestRecordClusters(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	_, err := manager.StartRun("/path/to/test.pcap", params)
@@ -204,10 +204,10 @@ func TestRecordClusters(t *testing.T) {
 }
 
 func TestRecordTrack(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	runID, err := manager.StartRun("/path/to/test.pcap", params)
@@ -265,10 +265,10 @@ func TestRecordTrack(t *testing.T) {
 }
 
 func TestCompleteRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	runID, err := manager.StartRun("/path/to/test.pcap", params)
@@ -321,7 +321,7 @@ func TestCompleteRun(t *testing.T) {
 
 	err = db.QueryRow(`
 SELECT status, total_frames, total_clusters, total_tracks, duration_secs
-FROM lidar_run_records WHERE run_id = ?`, runID).Scan(
+FROM lidar_runs WHERE run_id = ?`, runID).Scan(
 		&status, &totalFrames, &totalClusters, &totalTracks, &durationSecs)
 	if err != nil {
 		t.Fatalf("Failed to query completed run: %v", err)
@@ -355,10 +355,10 @@ FROM lidar_run_records WHERE run_id = ?`, runID).Scan(
 }
 
 func TestFailRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	runID, err := manager.StartRun("/path/to/test.pcap", params)
@@ -380,7 +380,7 @@ func TestFailRun(t *testing.T) {
 
 	// Verify database status
 	var status, storedErrMsg string
-	err = db.QueryRow("SELECT status, error_message FROM lidar_run_records WHERE run_id = ?", runID).Scan(&status, &storedErrMsg)
+	err = db.QueryRow("SELECT status, error_message FROM lidar_runs WHERE run_id = ?", runID).Scan(&status, &storedErrMsg)
 	if err != nil {
 		t.Fatalf("Failed to query failed run: %v", err)
 	}
@@ -395,10 +395,10 @@ func TestFailRun(t *testing.T) {
 }
 
 func TestRecordTrack_NoActiveRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	// No StartRun → currentRun is nil
 	track := &TrackedObject{TrackID: "track-1"}
 	result := manager.RecordTrack(track)
@@ -408,10 +408,10 @@ func TestRecordTrack_NoActiveRun(t *testing.T) {
 }
 
 func TestCompleteRun_NoActiveRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	// No StartRun → currentRun is nil
 	err := manager.CompleteRun()
 	if err != nil {
@@ -420,10 +420,10 @@ func TestCompleteRun_NoActiveRun(t *testing.T) {
 }
 
 func TestFailRun_NoActiveRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	// No StartRun → currentRun is nil
 	err := manager.FailRun("some error")
 	if err != nil {
@@ -434,10 +434,10 @@ func TestFailRun_NoActiveRun(t *testing.T) {
 func TestCompleteRun_WallClockFallback(t *testing.T) {
 	// When RecordFrame is called with timestampNs=0, the wall-clock
 	// fallback path should be used for duration calculation.
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	runID, err := manager.StartRun("/path/to/test.pcap", params)
@@ -460,7 +460,7 @@ func TestCompleteRun_WallClockFallback(t *testing.T) {
 
 	// Verify duration uses wall-clock fallback (should be > 0 from time.Sleep)
 	var durationSecs float64
-	err = db.QueryRow("SELECT duration_secs FROM lidar_run_records WHERE run_id = ?", runID).Scan(&durationSecs)
+	err = db.QueryRow("SELECT duration_secs FROM lidar_runs WHERE run_id = ?", runID).Scan(&durationSecs)
 	if err != nil {
 		t.Fatalf("Failed to query duration: %v", err)
 	}
@@ -474,10 +474,10 @@ func TestCompleteRun_WallClockFallback(t *testing.T) {
 }
 
 func TestRecordFrame_ZeroTimestampIgnored(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	params := DefaultRunParams()
 
 	_, err := manager.StartRun("/path/to/test.pcap", params)
@@ -518,16 +518,16 @@ func TestRecordFrame_ZeroTimestampIgnored(t *testing.T) {
 }
 
 func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "immutable-sensor")
-	store := NewAnalysisRunStore(db)
+	manager := NewRunManager(db, "immutable-sensor")
+	store := NewRunStore(db)
 
 	cfg := cfgpkg.MustLoadDefaultConfig()
 	cfg.L1.Sensor = "immutable-sensor"
 
-	if err := store.InsertRun(&AnalysisRun{
+	if err := store.InsertRun(&Run{
 		RunID:      "parent-run",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -538,18 +538,18 @@ func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
 		t.Fatalf("InsertRun(parent) failed: %v", err)
 	}
 	if _, err := db.Exec(`
-		INSERT INTO lidar_replay_cases (
-			replay_case_id, sensor_id, pcap_file, created_at_ns
-		) VALUES (?, ?, ?, ?)
-	`, "scene-42", "immutable-sensor", "/tmp/replay.pcap", time.Now().UnixNano()); err != nil {
-		t.Fatalf("insert replay case: %v", err)
+		INSERT INTO lidar_clips (
+			clip_id, sensor_id, created_at_ns
+		) VALUES (?, ?, ?)
+	`, "scene-42", "immutable-sensor", time.Now().UnixNano()); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
-	runID, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+	runID, err := manager.StartRunWithConfig(RunStartOptions{
 		SourcePath:          "/tmp/replay.pcap",
 		SensorID:            "immutable-sensor",
 		ParentRunID:         "parent-run",
-		ReplayCaseID:        "scene-42",
+		ClipID:              "scene-42",
 		RequestedParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":64}}`),
 		EffectiveConfig:     cfg,
 	})
@@ -571,8 +571,8 @@ func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
 	if run.ParentRunID != "parent-run" {
 		t.Fatalf("ParentRunID = %q, want %q", run.ParentRunID, "parent-run")
 	}
-	if run.ReplayCaseID != "scene-42" {
-		t.Fatalf("ReplayCaseID = %q, want %q", run.ReplayCaseID, "scene-42")
+	if run.ClipID != "scene-42" {
+		t.Fatalf("ClipID = %q, want %q", run.ClipID, "scene-42")
 	}
 
 	var paramSetCount int
@@ -593,16 +593,16 @@ func TestStartRunWithConfig_PersistsImmutableProvenance(t *testing.T) {
 }
 
 func TestCompleteRun_PersistsFrameBoundsWithImmutableConfig(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "frame-sensor")
-	store := NewAnalysisRunStore(db)
+	manager := NewRunManager(db, "frame-sensor")
+	store := NewRunStore(db)
 
 	cfg := cfgpkg.MustLoadDefaultConfig()
 	cfg.L1.Sensor = "frame-sensor"
 
-	runID, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+	runID, err := manager.StartRunWithConfig(RunStartOptions{
 		SourcePath:      "/tmp/frames.pcap",
 		SensorID:        "frame-sensor",
 		EffectiveConfig: cfg,
@@ -642,9 +642,9 @@ func TestCompleteRun_PersistsFrameBoundsWithImmutableConfig(t *testing.T) {
 // last offered rather than as it was first seen: a track that travels further
 // after its first sighting counts at its final length.
 func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	runID, err := manager.StartRun("/path/to/test.pcap", DefaultRunParams())
 	if err != nil {
 		t.Fatalf("StartRun failed: %v", err)
@@ -678,7 +678,7 @@ func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
 	if err := manager.CompleteRun(); err != nil {
 		t.Fatalf("CompleteRun failed: %v", err)
 	}
-	run, err := NewAnalysisRunStore(db).GetRun(runID)
+	run, err := NewRunStore(db).GetRun(runID)
 	if err != nil {
 		t.Fatalf("GetRun failed: %v", err)
 	}
@@ -706,9 +706,9 @@ func TestCompleteRunStoresStatisticsFromFinalTracks(t *testing.T) {
 
 // A run that recorded no track completes with no statistics, as before.
 func TestCompleteRunWithoutTracksStoresNoStatistics(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	runID, err := manager.StartRun("/path/to/empty.pcap", DefaultRunParams())
 	if err != nil {
 		t.Fatal(err)
@@ -716,7 +716,7 @@ func TestCompleteRunWithoutTracksStoresNoStatistics(t *testing.T) {
 	if err := manager.CompleteRun(); err != nil {
 		t.Fatal(err)
 	}
-	run, err := NewAnalysisRunStore(db).GetRun(runID)
+	run, err := NewRunStore(db).GetRun(runID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -728,9 +728,9 @@ func TestCompleteRunWithoutTracksStoresNoStatistics(t *testing.T) {
 // RecordTrack reads the caller's track and leaves it as it was: the pipeline
 // writes the same copy to lidar_tracks next.
 func TestRecordTrackLeavesTheCallersTrackUnchanged(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	if _, err := manager.StartRun("/path/to/test.pcap", DefaultRunParams()); err != nil {
 		t.Fatal(err)
 	}
@@ -755,9 +755,9 @@ func TestRecordTrackLeavesTheCallersTrackUnchanged(t *testing.T) {
 
 // A second run starts without the first run's tracks.
 func TestRunStatisticsDoNotCarryIntoTheNextRun(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	manager := NewRunManager(db, "test-sensor")
 	const second = int64(1_000_000_000)
 	record := func(id string, length float32) {
 		tr := &TrackedObject{TrackID: id, TrackMeasurement: TrackMeasurement{
@@ -783,7 +783,7 @@ func TestRunStatisticsDoNotCarryIntoTheNextRun(t *testing.T) {
 	if err := manager.CompleteRun(); err != nil {
 		t.Fatal(err)
 	}
-	run, err := NewAnalysisRunStore(db).GetRun(secondID)
+	run, err := NewRunStore(db).GetRun(secondID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -799,10 +799,10 @@ func TestRunStatisticsDoNotCarryIntoTheNextRun(t *testing.T) {
 // Statistics that cannot be encoded (a NaN) do not strand the run as
 // running: it completes without them.
 func TestCompleteRunWithUnencodableStatisticsStillCompletes(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
-	store := NewAnalysisRunStore(db)
-	manager := NewAnalysisRunManager(db, "test-sensor")
+	store := NewRunStore(db)
+	manager := NewRunManager(db, "test-sensor")
 	runID, err := manager.StartRun("/path/to/nan.pcap", DefaultRunParams())
 	if err != nil {
 		t.Fatal(err)

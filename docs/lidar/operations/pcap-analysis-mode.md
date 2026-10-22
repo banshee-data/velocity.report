@@ -24,7 +24,7 @@ and frame counts. Output directories must be empty. Use identical windows and ex
 files in both arms. Point clouds are omitted unless `--include-points` is set. See the
 [heading experiment](../../plans/lidar-heading-d2-implementation-report.md) for evidence limits.
 
-`--observations DIR --replay-case-id ID` also writes every processed frame's L4 evidence,
+`--observations DIR --clip-id ID` also writes every processed frame's L4 evidence,
 warm-up included, to a VRLOG 1.x observation container: the complete L3 foreground in float64,
 cluster membership and explicit empty, unsettled and failed frames
 ([format](../../../data/structures/VRLOG_FORMAT.md#vrlog-1x-observation-container)). The case

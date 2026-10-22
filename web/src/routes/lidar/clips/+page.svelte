@@ -8,15 +8,15 @@
 	 */
 	import type { PcapFileInfo } from '#lib/api.js';
 	import {
-		createLidarReplayCase,
-		createReplayCaseFromCaptures,
-		deleteLidarReplayCase,
-		getLidarReplayCase,
-		getLidarReplayCases,
+		createLidarClip,
+		createClipFromCaptures,
+		deleteLidarClip,
+		getLidarClip,
+		getLidarClips,
 		scanPcapFiles,
-		updateLidarReplayCase
+		updateLidarClip
 	} from '#lib/api.js';
-	import type { LidarReplayCase } from '#lib/types/lidar.js';
+	import type { LidarClip } from '#lib/types/lidar.js';
 	import { linkedId, tracksQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
@@ -25,12 +25,12 @@
 	import { SvelteSet } from 'svelte/reactivity';
 
 	// Scene list
-	let scenes: LidarReplayCase[] = [];
+	let scenes: LidarClip[] = [];
 	let loading = true;
 	let error: string | null = null;
 
 	// Selected scene for editing
-	let selectedScene: LidarReplayCase | null = null;
+	let selectedScene: LidarClip | null = null;
 
 	// Create form state
 	let showCreateForm = false;
@@ -64,7 +64,7 @@
 		loading = true;
 		error = null;
 		try {
-			scenes = await getLidarReplayCases();
+			scenes = await getLidarClips();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load clips.';
 		} finally {
@@ -72,7 +72,7 @@
 		}
 	}
 
-	async function selectScene(scene: LidarReplayCase) {
+	async function selectScene(scene: LidarClip) {
 		// The list only carries file_count, not the file list itself — fetch
 		// the full case so a scene with several joined captures shows all of
 		// them rather than only the first (pcap_file, the legacy projection).
@@ -81,15 +81,13 @@
 		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
 		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
 		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
-		editCaptureFiles = (scene.files?.map((file) => file.pcap_file) ?? [scene.pcap_file]).join('\n');
+		editCaptureFiles = (scene.files?.map((file) => file.pcap_file) ?? []).join('\n');
 
 		try {
-			const full = await getLidarReplayCase(scene.replay_case_id);
-			if (selectedScene?.replay_case_id === full.replay_case_id) {
+			const full = await getLidarClip(scene.clip_id);
+			if (selectedScene?.clip_id === full.clip_id) {
 				selectedScene = full;
-				editCaptureFiles = (full.files?.map((file) => file.pcap_file) ?? [full.pcap_file]).join(
-					'\n'
-				);
+				editCaptureFiles = (full.files?.map((file) => file.pcap_file) ?? []).join('\n');
 			}
 		} catch {
 			// The row's own fields already cover the common case; the detail
@@ -112,9 +110,9 @@
 		creating = true;
 		createError = null;
 		try {
-			const scene = await createLidarReplayCase({
+			const scene = await createLidarClip({
 				sensor_id: newSensorId,
-				pcap_file: newPcapFile,
+				pcap_files: [newPcapFile],
 				description: newDescription || undefined,
 				pcap_start_secs: newPcapStartSecs ? parseFloat(newPcapStartSecs) : undefined,
 				pcap_duration_secs: newPcapDurationSecs ? parseFloat(newPcapDurationSecs) : undefined
@@ -139,7 +137,7 @@
 		saveError = null;
 		try {
 			const optimalParams = parseJSONObject(editOptimalParams);
-			const updated = await updateLidarReplayCase(selectedScene.replay_case_id, {
+			const updated = await updateLidarClip(selectedScene.clip_id, {
 				description: editDescription || undefined,
 				optimal_params_json: optimalParams ?? undefined,
 				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
@@ -150,7 +148,7 @@
 					.filter(Boolean)
 			});
 			// Update in list
-			scenes = scenes.map((s) => (s.replay_case_id === updated.replay_case_id ? updated : s));
+			scenes = scenes.map((s) => (s.clip_id === updated.clip_id ? updated : s));
 			selectScene(updated);
 		} catch (e) {
 			saveError = e instanceof Error ? e.message : 'Could not update the clip.';
@@ -162,9 +160,9 @@
 	async function handleDelete(sceneId: string) {
 		if (!confirm('Delete this clip? Cannot be undone.')) return;
 		try {
-			await deleteLidarReplayCase(sceneId);
-			scenes = scenes.filter((s) => s.replay_case_id !== sceneId);
-			if (selectedScene?.replay_case_id === sceneId) {
+			await deleteLidarClip(sceneId);
+			scenes = scenes.filter((s) => s.clip_id !== sceneId);
+			if (selectedScene?.clip_id === sceneId) {
 				deselectScene();
 			}
 		} catch (e) {
@@ -263,7 +261,7 @@
 		const paths = [...selectedFiles].sort();
 		const label = paths[0].replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
 		try {
-			const scene = await createReplayCaseFromCaptures({
+			const scene = await createClipFromCaptures({
 				sensor_id: newSensorId,
 				pcap_files: paths,
 				description: paths.length > 1 ? `${label} (${paths.length} joined)` : label
@@ -284,7 +282,7 @@
 		await loadScenes();
 		// Other pages link to one clip with ?id=; open it once the list is in.
 		const linked = linkedId(page.url);
-		const scene = linked ? scenes.find((s) => s.replay_case_id === linked) : undefined;
+		const scene = linked ? scenes.find((s) => s.clip_id === linked) : undefined;
 		if (scene) selectScene(scene);
 	});
 </script>
@@ -561,8 +559,8 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each scenes as scene (scene.replay_case_id)}
-								{@const isSelected = selectedScene?.replay_case_id === scene.replay_case_id}
+							{#each scenes as scene (scene.clip_id)}
+								{@const isSelected = selectedScene?.clip_id === scene.clip_id}
 								<tr
 									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
 										? 'bg-primary/5'
@@ -570,10 +568,10 @@
 									on:click={() => selectScene(scene)}
 								>
 									<td class="text-surface-content px-4 py-3 text-sm">
-										{scene.description || scene.replay_case_id.substring(0, 8)}
+										{scene.description || scene.clip_id.substring(0, 8)}
 									</td>
 									<td class="text-surface-content/70 max-w-[200px] truncate px-4 py-3 text-sm">
-										{scene.pcap_file}
+										{scene.files?.map((capture) => capture.pcap_file).join(', ')}
 									</td>
 									<td class="px-4 py-3 text-right text-sm">
 										{#if scene.file_count > 1}
@@ -593,7 +591,7 @@
 									<td class="px-4 py-3 text-right">
 										<button
 											class="text-sm text-red-500 hover:text-red-700"
-											on:click|stopPropagation={() => handleDelete(scene.replay_case_id)}
+											on:click|stopPropagation={() => handleDelete(scene.clip_id)}
 										>
 											Delete
 										</button>
@@ -622,7 +620,7 @@
 				</div>
 
 				<div class="text-surface-content/50 mb-2 font-mono text-xs">
-					{selectedScene.replay_case_id}
+					{selectedScene.clip_id}
 				</div>
 
 				<div class="mb-4 text-sm">
@@ -630,7 +628,7 @@
 					<a
 						href={`${resolve('/lidar/tracks')}?${tracksQuery({
 							sensorId: selectedScene.sensor_id,
-							clipId: selectedScene.replay_case_id
+							clipId: selectedScene.clip_id
 						})}`}
 						class="text-primary hover:underline">Open in Tracks →</a
 					>

@@ -25,34 +25,34 @@ def test_topo_levels_ignore_self_referential_foreign_keys():
     group_dot = load_group_dot_module()
 
     component_names = [
-        "lidar_run_records",
-        "lidar_replay_cases",
+        "lidar_runs",
+        "lidar_clips",
         "lidar_run_tracks",
         "lidar_replay_annotations",
     ]
     parents = defaultdict(set)
     children = defaultdict(set)
 
-    parents["lidar_run_records"].add("lidar_run_records")
-    children["lidar_run_records"].add("lidar_run_records")
+    parents["lidar_runs"].add("lidar_runs")
+    children["lidar_runs"].add("lidar_runs")
 
-    parents["lidar_replay_cases"].add("lidar_run_records")
-    children["lidar_run_records"].add("lidar_replay_cases")
+    parents["lidar_clips"].add("lidar_runs")
+    children["lidar_runs"].add("lidar_clips")
 
-    parents["lidar_run_tracks"].add("lidar_run_records")
-    children["lidar_run_records"].add("lidar_run_tracks")
+    parents["lidar_run_tracks"].add("lidar_runs")
+    children["lidar_runs"].add("lidar_run_tracks")
 
     parents["lidar_replay_annotations"].update(
-        {"lidar_replay_cases", "lidar_run_tracks"}
+        {"lidar_clips", "lidar_run_tracks"}
     )
-    children["lidar_replay_cases"].add("lidar_replay_annotations")
+    children["lidar_clips"].add("lidar_replay_annotations")
     children["lidar_run_tracks"].add("lidar_replay_annotations")
 
     levels = group_dot.topo_levels(component_names, parents, children)
 
     assert levels == [
-        ["lidar_run_records"],
-        ["lidar_replay_cases", "lidar_run_tracks"],
+        ["lidar_runs"],
+        ["lidar_clips", "lidar_run_tracks"],
         ["lidar_replay_annotations"],
     ]
 

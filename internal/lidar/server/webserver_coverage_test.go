@@ -81,11 +81,11 @@ func TestCov_HandleSweepDashboard_WithQuerySensorID(t *testing.T) {
 	}
 }
 
-// TestCov_SweepDashboardJS_ReplayCaseID verifies that the sweep dashboard JS
-// uses replay_case_id (not the old scene_id) when populating the scene select
-// dropdown. This catches regressions from the lidar_scenes → lidar_replay_cases
+// TestCov_SweepDashboardJS_ClipID verifies that the sweep dashboard JS
+// uses clip_id (not the old scene_id) when populating the scene select
+// dropdown. This catches regressions from the lidar_scenes → lidar_clips
 // rename.
-func TestCov_SweepDashboardJS_ReplayCaseID(t *testing.T) {
+func TestCov_SweepDashboardJS_ClipID(t *testing.T) {
 	content, err := l9endpoints.ReadLegacyAsset("sweep_dashboard.js")
 	if err != nil {
 		t.Fatalf("failed to read embedded sweep_dashboard.js: %v", err)
@@ -93,12 +93,12 @@ func TestCov_SweepDashboardJS_ReplayCaseID(t *testing.T) {
 
 	body := string(content)
 
-	if !containsString(body, "s.replay_case_id") {
-		t.Error("sweep_dashboard.js should reference s.replay_case_id for scene dropdown")
+	if !containsString(body, "s.clip_id") {
+		t.Error("sweep_dashboard.js should reference s.clip_id for scene dropdown")
 	}
 
 	if containsString(body, "s.scene_id") {
-		t.Error("sweep_dashboard.js must not reference s.scene_id (renamed to replay_case_id)")
+		t.Error("sweep_dashboard.js must not reference s.scene_id (renamed to clip_id)")
 	}
 }
 
@@ -238,7 +238,7 @@ func TestCov_HandlePCAPStop_NotInPCAPMode(t *testing.T) {
 func TestCov_HandlePCAPStop_NoPCAPInProgress(t *testing.T) {
 	ws := &Server{
 		sensorID: "sensor-1",
-		state:    PipelineState{Source: SourceModePCAP, ReplayActive: false, TotalPasses: 1},
+		state:    PipelineState{Source: SourceModeCapture, ReplayActive: false, TotalPasses: 1},
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/pcap/stop?sensor_id=sensor-1", nil)
@@ -327,7 +327,7 @@ func setupCov2Server(t *testing.T) *Server {
 
 	// Create minimal required tables
 	for _, ddl := range []string{
-		`CREATE TABLE IF NOT EXISTS lidar_run_records (
+		`CREATE TABLE IF NOT EXISTS lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			source_type TEXT NOT NULL DEFAULT 'unknown',
 			source_path TEXT NOT NULL DEFAULT '',
@@ -348,10 +348,9 @@ func setupCov2Server(t *testing.T) *Server {
 			params_json TEXT NOT NULL,
 			created_at INTEGER NOT NULL
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_replay_cases (
-			replay_case_id TEXT PRIMARY KEY,
+		`CREATE TABLE IF NOT EXISTS lidar_clips (
+			clip_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
-			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
 			pcap_duration_secs REAL,
 			description TEXT,
@@ -361,12 +360,12 @@ func setupCov2Server(t *testing.T) *Server {
 			recommended_param_set_id TEXT
 		);
 
-	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
-		replay_case_id TEXT NOT NULL,
+	CREATE TABLE IF NOT EXISTS lidar_clip_captures (
+		clip_id TEXT NOT NULL,
 		ordinal INTEGER NOT NULL,
 		capture_file_id TEXT,
 		pcap_file TEXT NOT NULL,
-		PRIMARY KEY (replay_case_id, ordinal)
+		PRIMARY KEY (clip_id, ordinal)
 	)`,
 		`CREATE TABLE IF NOT EXISTS lidar_bg_snapshots (
 			snapshot_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1256,7 +1255,7 @@ func TestCov2_HandlePCAPStart_FormDataWithFields(t *testing.T) {
 }
 
 func TestCov2_HandlePCAPStart_AlreadyActive(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor", state: PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1}}
+	ws := &Server{sensorID: "test-sensor", state: PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1}}
 	body, _ := json.Marshal(map[string]string{"pcap_file": "/tmp/test.pcap"})
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=test-sensor", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -1709,7 +1708,7 @@ func setupCov3Server(t *testing.T) *Server {
 			centroid_z REAL DEFAULT 0,
 			points_count INTEGER DEFAULT 0
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_run_records (
+		`CREATE TABLE IF NOT EXISTS lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER NOT NULL DEFAULT 0,
 			source_type TEXT NOT NULL DEFAULT 'unknown',
@@ -1735,10 +1734,9 @@ func setupCov3Server(t *testing.T) *Server {
 			params_json TEXT NOT NULL,
 			created_at INTEGER NOT NULL
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_replay_cases (
-			replay_case_id TEXT PRIMARY KEY,
+		`CREATE TABLE IF NOT EXISTS lidar_clips (
+			clip_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
-			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
 			pcap_duration_secs REAL,
 			description TEXT,
@@ -1748,12 +1746,12 @@ func setupCov3Server(t *testing.T) *Server {
 			recommended_param_set_id TEXT
 		);
 
-	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
-		replay_case_id TEXT NOT NULL,
+	CREATE TABLE IF NOT EXISTS lidar_clip_captures (
+		clip_id TEXT NOT NULL,
 		ordinal INTEGER NOT NULL,
 		capture_file_id TEXT,
 		pcap_file TEXT NOT NULL,
-		PRIMARY KEY (replay_case_id, ordinal)
+		PRIMARY KEY (clip_id, ordinal)
 	)`,
 	} {
 		if _, err := sqlDB.Exec(ddl); err != nil {
@@ -2733,7 +2731,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 
 	// Insert a run without vrlog_path
 	_, err := ws.db.Exec(
-		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status)
+		`INSERT INTO lidar_runs (run_id, created_at, source_type, sensor_id, status)
 		 VALUES ('run-novr', 1000, 'pcap', 'cov3-sensor', 'completed')`,
 	)
 	if err != nil {
@@ -2760,7 +2758,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 
 	// Insert a run with vrlog_path
 	_, err := ws.db.Exec(
-		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status, vrlog_path)
+		`INSERT INTO lidar_runs (run_id, created_at, source_type, sensor_id, status, vrlog_path)
 		 VALUES ('run-vr', 1000, 'pcap', 'cov3-sensor', 'completed', ?)`,
 		vrlogPath,
 	)
@@ -2899,7 +2897,7 @@ func TestCov3_HandleVRLogLoad_WithRunID_SymlinkEscape(t *testing.T) {
 
 	storedPath := filepath.Join(symlinkPath, "test.vrlog")
 	if _, err := ws.db.Exec(
-		`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status, vrlog_path)
+		`INSERT INTO lidar_runs (run_id, created_at, source_type, sensor_id, status, vrlog_path)
 		 VALUES ('run-escape', 1000, 'pcap', 'cov3-sensor', 'completed', ?)`,
 		storedPath,
 	); err != nil {
@@ -3018,8 +3016,8 @@ func TestCov3_HandlePlaybackStatus_WithProbe(t *testing.T) {
 	}
 	var body PlaybackStatusInfo
 	json.NewDecoder(w.Body).Decode(&body)
-	if body.Mode != "pcap" {
-		t.Errorf("mode = %s, want pcap", body.Mode)
+	if body.Mode != "capture" {
+		t.Errorf("mode = %s, want capture", body.Mode)
 	}
 	if !body.Paused || body.Rate != 2.5 || !body.Seekable {
 		t.Errorf("position not taken from probe: %+v", body)
@@ -3046,7 +3044,7 @@ func TestCov3_HandlePlaybackStatus_NoProbe(t *testing.T) {
 func TestCov3_HandleDataSource_GET(t *testing.T) {
 	ws := &Server{
 		sensorID: "cov3-ds",
-		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1},
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/lidar/data_source", nil)
 	w := httptest.NewRecorder()
@@ -3056,8 +3054,8 @@ func TestCov3_HandleDataSource_GET(t *testing.T) {
 	}
 	var body map[string]interface{}
 	json.NewDecoder(w.Body).Decode(&body)
-	if body["data_source"] != string(DataSourcePCAP) {
-		t.Errorf("data_source = %v, want %s", body["data_source"], DataSourcePCAP)
+	if body["data_source"] != string(DataSourceCapture) {
+		t.Errorf("data_source = %v, want %s", body["data_source"], DataSourceCapture)
 	}
 }
 
@@ -3108,7 +3106,7 @@ func TestCov3_Start_ContextCancel(t *testing.T) {
 	ws := &Server{
 		sensorID: "cov3-start",
 		stats:    NewPacketStats(),
-		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1}, // Skip live listener start
+		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1}, // Skip live listener start
 		server:   &http.Server{Addr: "127.0.0.1:0", Handler: mux},
 	}
 	ws.RegisterRoutes(mux)
@@ -3408,7 +3406,7 @@ func TestCov3_StartPCAPLocked_AlreadyInProgress(t *testing.T) {
 	ws := &Server{
 		sensorID:    "cov3-spcap-dup",
 		pcapSafeDir: dir,
-		state:       PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		state:       PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1},
 	}
 	ws.setBaseContext(ctx)
 
@@ -3662,7 +3660,7 @@ func TestCov3_HandlePCAPStop_InProgressV2(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
 	ws.pcapMu.Unlock()
@@ -3695,10 +3693,10 @@ func TestCov3_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	ws.dataSourceMu.Unlock()
 
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id=cov3-pcapstop-analysis", nil)
@@ -4132,7 +4130,7 @@ func setupCov4Server(t *testing.T) *Server {
 			spatial_coverage REAL,
 			noise_point_ratio REAL
 		)`,
-		`CREATE TABLE IF NOT EXISTS lidar_run_records (
+		`CREATE TABLE IF NOT EXISTS lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER NOT NULL DEFAULT 0,
 			source_type TEXT NOT NULL DEFAULT 'unknown',
@@ -4825,7 +4823,7 @@ func TestCov5_HandlePCAPStop_WithCancelAndDone(t *testing.T) {
 	pcapCancel := func() {} // no-op cancel
 
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapCancel = pcapCancel
 	ws.pcapDone = done
 	ws.pcapMu.Unlock()
@@ -4857,10 +4855,10 @@ func TestCov5_HandlePCAPStop_AnalysisMode(t *testing.T) {
 	close(done)
 
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapCancel = func() {}
 	ws.pcapDone = done
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -5515,10 +5513,10 @@ func TestCov6_HandlePCAPStop_AnalysisModePreservesGrid(t *testing.T) {
 	close(done)
 
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapCancel = func() {}
 	ws.pcapDone = done
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/stop?sensor_id="+sid, nil)
@@ -6269,7 +6267,7 @@ func TestHandleDataSource_WaitForDone_PCapFinishes(t *testing.T) {
 	done := make(chan struct{})
 	ws := &Server{
 		sensorID: "ds-test",
-		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1},
 		pcapDone: done,
 	}
 
@@ -6290,7 +6288,7 @@ func TestHandleDataSource_WaitForDone_PCapFinishes(t *testing.T) {
 func TestHandleDataSource_WaitForDone_ContextCancelled(t *testing.T) {
 	ws := &Server{
 		sensorID: "ds-test",
-		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1},
 		pcapDone: make(chan struct{}), // never closed
 	}
 

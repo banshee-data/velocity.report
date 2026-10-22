@@ -333,23 +333,23 @@ struct ReferenceStyleTests {
 
 struct AlignmentSiteResolverTests {
     private let columbus = AlignmentSite(
-        replayCaseID: "6451411d", l16Token: "808580f47", l13Token: "808580f4",
+        clipID: "6451411d", l16Token: "808580f47", l13Token: "808580f4",
         description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
     private let neighbour = AlignmentSite(
-        replayCaseID: "aaaa", l16Token: "808580f43", l13Token: "808580f4",
+        clipID: "aaaa", l16Token: "808580f43", l13Token: "808580f4",
         description: "S2 archive: Kearny at Pacific (20.0 min across 4 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.797, longitude: -122.405)
     private let elsewhere = AlignmentSite(
-        replayCaseID: "98fe9f80", l16Token: "808580f99", l13Token: "808580f9",
+        clipID: "98fe9f80", l16Token: "808580f99", l13Token: "808580f9",
         description: "S2 archive: Embarcadero at Bay (15.9 min across 4 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.8067, longitude: -122.4061)
 
-    @Test func replayCaseWins() {
+    @Test func clipWins() {
         let found = AlignmentSiteResolver.resolve(
-            OpenCaptureEvidence(replayCaseID: "98fe9f80", sourcePaths: []),
+            OpenCaptureEvidence(clipID: "98fe9f80", sourcePaths: []),
             sites: [columbus, elsewhere], filesByCase: [:])
-        #expect(found?.site == elsewhere && found?.match == .replayCase)
+        #expect(found?.site == elsewhere && found?.match == .clip)
     }
 
     @Test func captureFileMatchesByPath() {
@@ -696,7 +696,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
 
 @MainActor struct AlignmentSessionTests {
     private let site = AlignmentSite(
-        replayCaseID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
         l13Token: "808580f4",
         description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
@@ -894,7 +894,7 @@ private func gate(_ name: String, passed: Bool) -> Gerardus_Align_V1alpha1_GateR
 
 @MainActor struct AlignmentRegistrationTests {
     private let site = AlignmentSite(
-        replayCaseID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
         l13Token: "808580f4",
         description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
@@ -1128,7 +1128,7 @@ struct HintHeadingTests {
         await session.probe()
         session.choose(
             AlignmentSite(
-                replayCaseID: "case", l16Token: "808580f47", l13Token: "808580f4",
+                clipID: "case", l16Token: "808580f47", l13Token: "808580f4",
                 description: "S2 archive: Columbus at Broadway", sensorID: "hesai-pandar40p",
                 latitude: 37.7978, longitude: -122.4065))
         #expect(session.northAzimuthText == "")

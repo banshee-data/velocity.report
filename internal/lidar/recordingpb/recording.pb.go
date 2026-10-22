@@ -992,7 +992,7 @@ type ExtractionIdentity struct {
 	CalibrationId string                 `protobuf:"bytes,2,opt,name=calibration_id,json=calibrationId,proto3" json:"calibration_id,omitempty"`
 	// Frame of the retained XYZ, e.g. "site/<sensor>".
 	CoordinateFrame string `protobuf:"bytes,3,opt,name=coordinate_frame,json=coordinateFrame,proto3" json:"coordinate_frame,omitempty"`
-	ReplayCaseId    string `protobuf:"bytes,4,opt,name=replay_case_id,json=replayCaseId,proto3" json:"replay_case_id,omitempty"`
+	ClipId          string `protobuf:"bytes,4,opt,name=clip_id,json=clipId,proto3" json:"clip_id,omitempty"`
 	// Ordered capture files exactly as they entered source_id.
 	CaptureFiles []*CaptureFile `protobuf:"bytes,5,rep,name=capture_files,json=captureFiles,proto3" json:"capture_files,omitempty"`
 	ExtractorId  string         `protobuf:"bytes,6,opt,name=extractor_id,json=extractorId,proto3" json:"extractor_id,omitempty"`
@@ -1054,9 +1054,9 @@ func (x *ExtractionIdentity) GetCoordinateFrame() string {
 	return ""
 }
 
-func (x *ExtractionIdentity) GetReplayCaseId() string {
+func (x *ExtractionIdentity) GetClipId() string {
 	if x != nil {
-		return x.ReplayCaseId
+		return x.ClipId
 	}
 	return ""
 }
@@ -3575,12 +3575,12 @@ const file_recording_proto_rawDesc = "" +
 	"\vsource_type\x18\x03 \x01(\tR\n" +
 	"sourceType\x12.\n" +
 	"\x13parent_capture_uuid\x18\x04 \x01(\tR\x11parentCaptureUuid\x12,\n" +
-	"\x12created_unix_nanos\x18\x05 \x01(\x10R\x10createdUnixNanos\"\xd2\x02\n" +
+	"\x12created_unix_nanos\x18\x05 \x01(\x10R\x10createdUnixNanos\"\xc5\x02\n" +
 	"\x12ExtractionIdentity\x12\x1b\n" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12%\n" +
 	"\x0ecalibration_id\x18\x02 \x01(\tR\rcalibrationId\x12)\n" +
-	"\x10coordinate_frame\x18\x03 \x01(\tR\x0fcoordinateFrame\x12$\n" +
-	"\x0ereplay_case_id\x18\x04 \x01(\tR\freplayCaseId\x12G\n" +
+	"\x10coordinate_frame\x18\x03 \x01(\tR\x0fcoordinateFrame\x12\x17\n" +
+	"\aclip_id\x18\x04 \x01(\tR\x06clipId\x12G\n" +
 	"\rcapture_files\x18\x05 \x03(\v2\".velocity.recording.v1.CaptureFileR\fcaptureFiles\x12!\n" +
 	"\fextractor_id\x18\x06 \x01(\tR\vextractorId\x12;\n" +
 	"\x06window\x18\a \x01(\v2#.velocity.recording.v1.SourceWindowR\x06window\"9\n" +

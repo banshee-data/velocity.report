@@ -951,7 +951,7 @@ func TestRunnerCov2_RunPCAPMode(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		DataSource: "pcap",
+		DataSource: "capture",
 		PCAPFile:   "test.pcap",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
@@ -975,7 +975,7 @@ func TestRunnerCov2_RunPCAPSettleOnce(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		DataSource: "pcap",
+		DataSource: "capture",
 		PCAPFile:   "test.pcap",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},
@@ -1119,7 +1119,7 @@ func TestRunnerCov2_RunGenericPCAPMode(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		DataSource: "pcap",
+		DataSource: "capture",
 		PCAPFile:   "test.pcap",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01}},
@@ -1141,7 +1141,7 @@ func TestRunnerCov2_RunGenericPCAPSettleOnce(t *testing.T) {
 	r := newQuietRunner(runnerMockBackend())
 
 	req := SweepRequest{
-		DataSource: "pcap",
+		DataSource: "capture",
 		PCAPFile:   "test.pcap",
 		Params: []SweepParam{
 			{Name: "noise_relative", Type: "float64", Values: []interface{}{0.01, 0.02}},

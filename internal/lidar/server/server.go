@@ -41,7 +41,7 @@ var (
 
 const echartsAssetsPrefix = "/assets/"
 
-// DataSource, DataSourceLive, DataSourcePCAP, DataSourcePCAPAnalysis
+// DataSource, DataSourceLive, DataSourceCapture, DataSourceCaptureAnalysis
 // are now defined in datasource.go
 
 type switchError struct {
@@ -145,7 +145,7 @@ type Server struct {
 	classifier *l6objects.TrackClassifier
 
 	// Analysis run manager for PCAP analysis mode
-	analysisRunManager *sqlite.AnalysisRunManager
+	runManager *sqlite.RunManager
 
 	// Grid plotter for visualization during PCAP replay
 	gridPlotter  *l9endpoints.GridPlotter
@@ -466,9 +466,9 @@ func NewServer(config Config) *Server {
 	// Initialise TrackAPI if database is configured
 	if config.DB != nil {
 		ws.trackAPI = NewTrackAPI(config.DB.DB, config.SensorID)
-		// Initialize AnalysisRunManager for PCAP analysis runs
-		ws.analysisRunManager = sqlite.NewAnalysisRunManager(config.DB, config.SensorID)
-		sqlite.RegisterAnalysisRunManager(config.SensorID, ws.analysisRunManager)
+		// Initialize RunManager for PCAP analysis runs
+		ws.runManager = sqlite.NewRunManager(config.DB, config.SensorID)
+		sqlite.RegisterRunManager(config.SensorID, ws.runManager)
 	}
 
 	ws.server = &http.Server{

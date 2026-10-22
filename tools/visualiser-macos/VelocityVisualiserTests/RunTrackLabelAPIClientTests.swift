@@ -64,9 +64,9 @@ struct RunTrackLabelAPIClientErrorTests {
     }
 }
 
-// MARK: - AnalysisRun Model Tests
+// MARK: - Run Model Tests
 
-struct AnalysisRunModelTests {
+struct RunModelTests {
     @Test func hasVRLogWhenPathExists() throws {
         let run = makeRun(vrlogPath: "/path/to/file.vrlog")
         #expect(run.hasVRLog == true)
@@ -99,12 +99,12 @@ struct AnalysisRunModelTests {
         #expect(rollup.helpText.contains("Unlabelled 3"))
     }
 
-    private func makeRun(vrlogPath: String? = "/some/path.vrlog") -> AnalysisRun {
-        AnalysisRun(
+    private func makeRun(vrlogPath: String? = "/some/path.vrlog") -> Run {
+        Run(
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
-            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil, replayCaseName: nil
+            status: "completed", errorMessage: nil, vrlogPath: vrlogPath, notes: nil, sourceName: nil
         )
     }
 }
@@ -587,7 +587,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
 
         MockURLProtocol.requestHandler = { request in
             XCTAssertEqual(request.httpMethod, "POST")
-            XCTAssertTrue(request.url!.path.contains("api/lidar/vrlog/stop"))
+            XCTAssertTrue(request.url!.path.contains("api/lidar/replay/stop"))
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data())
@@ -668,7 +668,7 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
 // MARK: - Model Decoding Tests
 
 struct RunTrackLabelModelDecodingTests {
-    @Test func analysisRunDecodesFractionalSeconds() throws {
+    @Test func runDecodesFractionalSeconds() throws {
         let json = """
             {
                 "run_id": "run-frac",
@@ -702,12 +702,12 @@ struct RunTrackLabelModelDecodingTests {
                 in: container, debugDescription: "Cannot decode date: \(dateString)")
         }
 
-        let run = try decoder.decode(AnalysisRun.self, from: json.data(using: .utf8)!)
+        let run = try decoder.decode(Run.self, from: json.data(using: .utf8)!)
         #expect(run.runId == "run-frac")
         #expect(run.durationSecs == 30.5)
     }
 
-    @Test func analysisRunDecodesWithoutFractionalSeconds() throws {
+    @Test func runDecodesWithoutFractionalSeconds() throws {
         let json = """
             {
                 "run_id": "run-nofrac",
@@ -741,7 +741,7 @@ struct RunTrackLabelModelDecodingTests {
                 in: container, debugDescription: "Cannot decode date: \(dateString)")
         }
 
-        let run = try decoder.decode(AnalysisRun.self, from: json.data(using: .utf8)!)
+        let run = try decoder.decode(Run.self, from: json.data(using: .utf8)!)
         #expect(run.runId == "run-nofrac")
         #expect(run.hasVRLog == false)
     }

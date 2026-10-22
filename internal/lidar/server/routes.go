@@ -216,8 +216,8 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/runs/", ws.withDB(ws.handleRunTrackAPI))
 
 	// Scene API routes (scene management for track labelling and auto-tuning)
-	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
-	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
+	mux.HandleFunc("/api/lidar/clips", ws.withDB(ws.handleClips))
+	mux.HandleFunc("/api/lidar/clips/", ws.withDB(ws.handleClipByID))
 	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
 	mux.HandleFunc("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
 	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
@@ -248,7 +248,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 // matching the radar admin server's access control (tailscale-only).
 func (ws *Server) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", ws.handleStatus)
+	mux.HandleFunc("/{$}", ws.handleStatus)
 	ws.RegisterRoutes(mux)
 
 	// Register pprof and debug endpoints via tsweb.Debugger, which

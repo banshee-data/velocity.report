@@ -44,7 +44,7 @@ Commands:
 
 Write a container with:
   velocity lidar pcap-replay --pcap FILE --output DIR --observations OBS \
-      --replay-case-id ID`
+      --clip-id ID`
 
 // ObservationsMain routes `velocity lidar observations`. args follow the
 // command word. It returns the exit code.
@@ -189,8 +189,8 @@ func printManifest(m vrlog.Manifest) {
 	e := m.Extraction
 	fmt.Printf("source       %s\ncalibration  %s (%s -> %s)\nextractor    %s\nframe        %s\n",
 		e.SourceID, e.CalibrationID, m.Calibration.FromFrame, m.Calibration.ToFrame, e.ExtractorID, e.CoordinateFrame)
-	if e.ReplayCaseID != "" {
-		fmt.Printf("replay case  %s, window start %s, warm-up %s, duration %s\n", e.ReplayCaseID,
+	if e.ClipID != "" {
+		fmt.Printf("clip  %s, window start %s, warm-up %s, duration %s\n", e.ClipID,
 			time.Duration(e.Window.StartOffsetNanos), time.Duration(e.Window.WarmupNanos), time.Duration(e.Window.DurationNanos))
 	}
 	for _, f := range e.CaptureFiles {

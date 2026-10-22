@@ -193,4 +193,4 @@ Targeted benchmarks in `internal/lidar/l4perception/cluster_benchmark_test.go`:
 1. **VRLOG size growth**: Embedding `FrameStageTiming` per frame adds ~200 bytes/frame (~600 KB for a 5-minute, 10 Hz capture). Acceptable?
 2. **Structured logging format**: Migrate tracef/diagf to JSON for machine parsing, or keep human-readable and parse with grep?
 3. **Benchmark fixture management**: `kirk0.pcapng` is 191 MB in LFS. Needed smaller synthetic fixture for faster CI runs?
-4. **statistics_json column**: `RunStatistics` is computed but never written to `lidar_analysis_runs`. Wire up in Phase 2?
+4. **statistics_json column**: `RunStatistics` is computed but never written to `lidar_runs`. Wire up in Phase 2?

@@ -650,10 +650,10 @@ export async function disableTailscale(): Promise<TailscaleStatus> {
 // LiDAR Track API
 
 import type {
-	AnalysisRun,
+	Run,
 	BackgroundGrid,
 	LabellingProgress,
-	LidarReplayCase,
+	LidarClip,
 	MissedRegion,
 	ObservationListResponse,
 	RunStatistics,
@@ -787,30 +787,30 @@ export async function getBackgroundGrid(sensorId: string): Promise<BackgroundGri
 // LiDAR Replay Case and Run Labelling API
 // Uses API_BASE for consistency with other LiDAR endpoints.
 
-export async function getLidarReplayCases(sensorId?: string): Promise<LidarReplayCase[]> {
+export async function getLidarClips(sensorId?: string): Promise<LidarClip[]> {
 	const params = new URLSearchParams();
 	if (sensorId) params.set('sensor_id', sensorId);
-	const url = `${API_BASE}/lidar/scenes${params.toString() ? '?' + params : ''}`;
+	const url = `${API_BASE}/lidar/clips${params.toString() ? '?' + params : ''}`;
 	const res = await fetch(url);
 	if (!res.ok) throw apiError('Could not load clips', res.status);
 	const data = await res.json();
-	return data.scenes || [];
+	return data.clips || [];
 }
 
-export async function getLidarReplayCase(replayCaseId: string): Promise<LidarReplayCase> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`);
+export async function getLidarClip(clipId: string): Promise<LidarClip> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}`);
 	if (!res.ok) throw apiError('Could not load the clip', res.status);
 	return res.json();
 }
 
-export async function createLidarReplayCase(scene: {
+export async function createLidarClip(scene: {
 	sensor_id: string;
-	pcap_file: string;
+	pcap_files: string[];
 	pcap_start_secs?: number;
 	pcap_duration_secs?: number;
 	description?: string;
-}): Promise<LidarReplayCase> {
-	const res = await fetch(`${API_BASE}/lidar/scenes`, {
+}): Promise<LidarClip> {
+	const res = await fetch(`${API_BASE}/lidar/clips`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(scene)
@@ -819,8 +819,8 @@ export async function createLidarReplayCase(scene: {
 	return res.json();
 }
 
-export async function updateLidarReplayCase(
-	replayCaseId: string,
+export async function updateLidarClip(
+	clipId: string,
 	update: {
 		description?: string;
 		reference_run_id?: string;
@@ -829,13 +829,13 @@ export async function updateLidarReplayCase(
 		pcap_duration_secs?: number;
 		pcap_files?: string[];
 	}
-): Promise<LidarReplayCase> {
+): Promise<LidarClip> {
 	// Omit null optimal_params_json to avoid persisting the JSON literal "null";
 	// undefined keys are stripped by JSON.stringify, which the server treats as
 	// "no change".
 	const { optimal_params_json, ...rest } = update;
 	const body = optimal_params_json != null ? { ...rest, optimal_params_json } : rest;
-	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(body)
@@ -844,8 +844,8 @@ export async function updateLidarReplayCase(
 	return res.json();
 }
 
-export async function deleteLidarReplayCase(replayCaseId: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}`, {
+export async function deleteLidarClip(clipId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}`, {
 		method: 'DELETE'
 	});
 	if (!res.ok) throw apiError('Could not delete the clip', res.status);
@@ -876,7 +876,7 @@ export async function getLidarRuns(params?: {
 	sensor_id?: string;
 	status?: string;
 	limit?: number;
-}): Promise<AnalysisRun[]> {
+}): Promise<Run[]> {
 	const searchParams = new URLSearchParams();
 	if (params?.sensor_id) searchParams.set('sensor_id', params.sensor_id);
 	if (params?.status) searchParams.set('status', params.status);
@@ -891,7 +891,7 @@ export async function getLidarRuns(params?: {
 }
 
 /** getLidarRun fetches one run, for a link to a run the paged list does not hold. */
-export async function getLidarRun(runId: string): Promise<AnalysisRun> {
+export async function getLidarRun(runId: string): Promise<Run> {
 	const res = await fetch(`${API_BASE}/lidar/runs/${encodeURIComponent(runId)}`);
 	if (!res.ok) throw apiError('Could not load the run', res.status);
 	return res.json();
@@ -1748,7 +1748,7 @@ export async function setCaptureSessionLabel(
 }
 
 /**
- * createReplayCaseFromCaptures creates a case covering an ordered set of
+ * createClipFromCaptures creates a case covering an ordered set of
  * captures.
  *
  * The offsets are measured from the start of the whole sequence, not of any one
@@ -1756,7 +1756,7 @@ export async function setCaptureSessionLabel(
  * tool happened to roll its output is not part of that description. The server
  * refuses a set whose captures do not abut.
  */
-export async function createReplayCaseFromCaptures(request: {
+export async function createClipFromCaptures(request: {
 	sensor_id: string;
 	pcap_files: string[];
 	pcap_start_secs?: number;
@@ -1764,8 +1764,8 @@ export async function createReplayCaseFromCaptures(request: {
 	description?: string;
 	session_id?: string;
 	source_period_id?: string;
-}): Promise<LidarReplayCase> {
-	const res = await fetch(`${API_BASE}/lidar/scenes`, {
+}): Promise<LidarClip> {
+	const res = await fetch(`${API_BASE}/lidar/clips`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(request)
@@ -1787,17 +1787,17 @@ export async function createReplayCaseFromCaptures(request: {
 import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '#lib/types/captures.js';
 
 /**
- * setReplayCaseLocation records where a case was captured.
+ * setClipLocation records where a case was captured.
  *
  * Only the position is sent. The S2 tokens are derived server-side with
  * Parent — a family assembled by a client could disagree with itself, which is
  * a provenance error rather than something to reconcile.
  */
-export async function setReplayCaseLocation(
-	replayCaseId: string,
+export async function setClipLocation(
+	clipId: string,
 	location: { origin_lat: number; origin_lon: number; geographic_source?: string }
 ): Promise<CaseLocation> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}/location`, {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/location`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(location)
@@ -1815,8 +1815,8 @@ export async function setReplayCaseLocation(
 	return data.location;
 }
 
-export async function clearReplayCaseLocation(replayCaseId: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/lidar/scenes/${replayCaseId}/location`, {
+export async function clearClipLocation(clipId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/location`, {
 		method: 'DELETE'
 	});
 	if (!res.ok) throw apiError('Could not clear the capture location', res.status);

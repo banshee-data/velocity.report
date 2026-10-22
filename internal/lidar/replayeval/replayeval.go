@@ -137,11 +137,11 @@ type Config struct {
 	ProgressEvery int
 
 	// ObservationDBPath enables immutable L4 observation storage. It is an
-	// explicit offline output, never the server's live database. The replay case
+	// explicit offline output, never the server's live database. The clip
 	// and calibration are required because names and an identity transform must
 	// not be guessed from a sensor label.
 	ObservationDBPath          string
-	ReplayCaseID               string
+	ClipID                     string
 	ObservationCalibration     l4bobserve.Calibration
 	ObservationMaxSamplePoints int
 	// ObservationFrames opts into the foreground-complete evidence tap. It
@@ -149,14 +149,14 @@ type Config struct {
 	// processes, warm-up included, in sequence order and before L5 runs. Each
 	// record is checked against the stream contract first; an invalid record,
 	// a broken lineage or an error returned here fails the replay. It needs
-	// ReplayCaseID and ObservationCalibration, and is independent of
+	// ClipID and ObservationCalibration, and is independent of
 	// ObservationDBPath. Records are delivered in memory; ObservationLogDir
 	// writes the same records to disk.
 	ObservationFrames func(l4bobserve.FrameRecord) error
 	// ObservationLogDir writes the foreground-complete records to a new VRLOG
 	// 1.x observation container at this path, which must not exist: the same
 	// records ObservationFrames receives, warm-up included, and the two
-	// compose. It needs ReplayCaseID and ObservationCalibration. The manifest
+	// compose. It needs ClipID and ObservationCalibration. The manifest
 	// embeds the effective tuning, the capture files and the replay window.
 	// Frames are committed by the durable writer as the tap produces them,
 	// independently of L5. A replay that fails commits what was accepted and
@@ -825,7 +825,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	var observationSourceID, observationCalibrationID string
 	maxSamplePoints := tuningCfg.L4.ActiveCommon().MaxSamplePoints
 	// Both evidence outputs bind the same explicit identities; neither may
-	// guess a replay case or an identity transform from a sensor label.
+	// guess a clip or an identity transform from a sensor label.
 	wantFrames := cfg.ObservationFrames != nil || cfg.ObservationLogDir != ""
 	extractorID := "l4.dbscan_xy/v1/" + paramsHash
 	if cfg.ObservationDBPath != "" || wantFrames {
@@ -833,7 +833,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			return nil, err
 		}
 		observationSourceID, err = l4bobserve.SourceID(l4bobserve.CaptureSource{
-			ReplayCaseID: cfg.ReplayCaseID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
+			ClipID: cfg.ClipID, CapturePaths: pcapFiles, CaptureSHA256s: rawHashes,
 			ExtractorID: extractorID,
 		})
 		if err != nil {
@@ -923,7 +923,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 					SourceID: observationSourceID, CalibrationID: observationCalibrationID,
 					// The tap's own coordinate frame; see newObservationFrameTap.
 					CoordinateFrame: "site/" + cfg.SensorID,
-					ReplayCaseID:    cfg.ReplayCaseID, CaptureFiles: files, ExtractorID: extractorID,
+					ClipID:          cfg.ClipID, CaptureFiles: files, ExtractorID: extractorID,
 					Window: vrlog.SourceWindow{StartOffsetNanos: secondsToNanos(cfg.StartSeconds),
 						// run normalised "the rest of the capture" to -1; the
 						// manifest's spelling of it is zero.
@@ -1703,8 +1703,8 @@ func writeTrackingBaseline(outDir string, m l5tracks.TrackingMetrics) error {
 // outputs bind before either is derived. An unset calibration is reported as
 // unset, not as a mismatch between an empty sensor and the replay's.
 func validateObservationIdentity(cfg Config) error {
-	if strings.TrimSpace(cfg.ReplayCaseID) == "" {
-		return fmt.Errorf("ReplayCaseID is required when ObservationDBPath, ObservationFrames or ObservationLogDir is set")
+	if strings.TrimSpace(cfg.ClipID) == "" {
+		return fmt.Errorf("ClipID is required when ObservationDBPath, ObservationFrames or ObservationLogDir is set")
 	}
 	cal := cfg.ObservationCalibration
 	if strings.TrimSpace(cal.SensorID) == "" || strings.TrimSpace(cal.FromFrame) == "" || strings.TrimSpace(cal.ToFrame) == "" {

@@ -13,7 +13,7 @@ private enum RunBrowserLayout {
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 120
-    static let replayCaseWidth: CGFloat = 40
+    static let clipWidth: CGFloat = 40
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
@@ -162,7 +162,7 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
-            Text("Source").frame(width: RunBrowserLayout.replayCaseWidth, alignment: .leading)
+            Text("Clip").frame(width: RunBrowserLayout.clipWidth, alignment: .leading)
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
@@ -172,7 +172,7 @@ private struct RunBrowserHeaderRow: View {
 
 /// Row view for a single run — 6-column table layout.
 @available(macOS 15.0, *) struct RunRowView: View {
-    let run: AnalysisRun
+    let run: Run
     let isSelected: Bool
     let onSelect: () -> Void
     @State private var isHovered = false
@@ -202,11 +202,11 @@ private struct RunBrowserHeaderRow: View {
                 width: RunBrowserLayout.dateWidth, alignment: .leading
             ).lineLimit(1)
 
-            // Col 3: the source's file name. The server calls it replay_case_name,
+            // Col 3: the source's file name. The server calls it source_name,
             // but it is the capture or recording the run read, not a clip: runs
             // started from a capture record no clip to name.
-            Text(run.replayCaseName ?? "-").font(.caption).frame(
-                width: RunBrowserLayout.replayCaseWidth, alignment: .leading
+            Text(run.clipId ?? "-").font(.caption).frame(
+                width: RunBrowserLayout.clipWidth, alignment: .leading
             ).lineLimit(1)
 
             // Col 4: Duration mm:ss

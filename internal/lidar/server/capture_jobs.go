@@ -103,7 +103,7 @@ func (ws *Server) runCaptureJob(ctx context.Context, job capjobs.Job, report fun
 // The pass runs over the session's captures joined into one stream, not file by
 // file. The background model needs tens of seconds to settle, so a per-file
 // pass reports that settling as motion at every file head and cannot see a
-// static stretch that spans a boundary — which is the stretch a replay case
+// static stretch that spans a boundary — which is the stretch a clip
 // most often wants.
 func (ws *Server) runMotionPass(ctx context.Context, job capjobs.Job, report func(capjobs.Progress)) error {
 	store, err := ws.captureStore()

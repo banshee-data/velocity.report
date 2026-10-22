@@ -224,9 +224,9 @@ Mixes persistence, export, drift detection, and spatial region management with c
 
 **Effort:** 1–2 days
 
-### 6.3 analysis_run.go is ≈1,343 lines with domain comparison logic: medium
+### 6.3 run.go is ≈1,343 lines with domain comparison logic: medium
 
-**Location:** `internal/lidar/analysis_run.go`
+**Location:** `internal/lidar/run.go`
 
 `CompareRuns()` and related domain logic is co-located with run persistence in the parent lidar package. Comparison algorithms should be separated from CRUD operations.
 

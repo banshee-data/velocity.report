@@ -1152,7 +1152,7 @@
 		</div>
 
 		<!-- RIGHT: serial port editor as a real column (not an overlay).
-		     Same affordance as /app/lidar/replay-cases — main content stays
+		     Same affordance as /app/lidar/clips — main content stays
 		     scrollable and interactive while the editor is open. -->
 		{#if showEditPanel}
 			<!-- On mobile the editor is a full-viewport fixed overlay (covers the

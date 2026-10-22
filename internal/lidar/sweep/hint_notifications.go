@@ -11,18 +11,18 @@ func discardLogger() *log.Logger {
 	return log.New(io.Discard, "", 0)
 }
 
-// scenePCAPStart returns the scene's PCAP start offset, or 0 if not set.
-func scenePCAPStart(scene *HINTScene) float64 {
-	if scene != nil && scene.PCAPStartSecs != nil {
-		return *scene.PCAPStartSecs
+// clipPCAPStart returns the clip's PCAP start offset, or 0 if not set.
+func clipPCAPStart(clip *HINTClip) float64 {
+	if clip != nil && clip.PCAPStartSecs != nil {
+		return *clip.PCAPStartSecs
 	}
 	return 0
 }
 
-// scenePCAPDuration returns the scene's PCAP duration, or -1 (full file) if not set.
-func scenePCAPDuration(scene *HINTScene) float64 {
-	if scene != nil && scene.PCAPDurationSecs != nil {
-		return *scene.PCAPDurationSecs
+// clipPCAPDuration returns the clip's PCAP duration, or -1 (full file) if not set.
+func clipPCAPDuration(clip *HINTClip) float64 {
+	if clip != nil && clip.PCAPDurationSecs != nil {
+		return *clip.PCAPDurationSecs
 	}
 	return -1
 }

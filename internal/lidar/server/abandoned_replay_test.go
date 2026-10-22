@@ -22,7 +22,7 @@ func TestAbandonedStartRestoresTheDisplacedSource(t *testing.T) {
 			if !ok {
 				t.Fatal("the claim was refused from an idle pipeline")
 			}
-			if ws.PipelineState().Source != SourceModePCAP {
+			if ws.PipelineState().Source != SourceModeCapture {
 				t.Fatal("the claim did not name PCAP")
 			}
 
@@ -64,7 +64,7 @@ func TestSuccessfulClaimKeepsPCAP(t *testing.T) {
 	ws.tryBeginPCAPReplay(ReplayConfig{})
 	ws.markReplayRunning("/capture.pcap", "scaled", 0.1, "run-1")
 
-	if got := ws.PipelineState().Source; got != SourceModePCAP {
+	if got := ws.PipelineState().Source; got != SourceModeCapture {
 		t.Errorf("source is %q after a successful start, want pcap", got)
 	}
 }

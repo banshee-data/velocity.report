@@ -59,9 +59,9 @@ func readStoredRunTrack(t *testing.T, db *sql.DB, runID, trackID string) storedR
 	return got
 }
 
-func startTestRun(t *testing.T, db *sql.DB) (*AnalysisRunManager, string) {
+func startTestRun(t *testing.T, db *sql.DB) (*RunManager, string) {
 	t.Helper()
-	manager := NewAnalysisRunManagerDI(db, "test-sensor")
+	manager := NewRunManagerDI(db, "test-sensor")
 	runID, err := manager.StartRun("/path/to/test.pcap", DefaultRunParams())
 	if err != nil {
 		t.Fatalf("StartRun: %v", err)
@@ -70,7 +70,7 @@ func startTestRun(t *testing.T, db *sql.DB) (*AnalysisRunManager, string) {
 }
 
 func TestCompleteRunStoresTheFinishedTrackNotItsFirstSighting(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID := startTestRun(t, db)
 
@@ -103,7 +103,7 @@ func TestCompleteRunStoresTheFinishedTrackNotItsFirstSighting(t *testing.T) {
 // A track that dies mid-run stops being offered. What was last offered is the
 // best description of it there will ever be.
 func TestATrackThatDiesMidRunKeepsItsLastOfferedState(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID := startTestRun(t, db)
 
@@ -129,7 +129,7 @@ func TestATrackThatDiesMidRunKeepsItsLastOfferedState(t *testing.T) {
 // is still going. Bringing the measurements up to date must not take the
 // label with it: a label is a person's work, and a measurement is not.
 func TestUpdatingMeasurementsLeavesHumanLabelsAlone(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID := startTestRun(t, db)
 
@@ -181,7 +181,7 @@ func TestUpdatingMeasurementsLeavesHumanLabelsAlone(t *testing.T) {
 }
 
 func TestAFailedRunStillStoresWhatItsTracksBecame(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID := startTestRun(t, db)
 
@@ -204,10 +204,10 @@ type manualClock struct{ t time.Time }
 func (c *manualClock) now() time.Time          { return c.t }
 func (c *manualClock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
-func startTestRunWithClock(t *testing.T, db *sql.DB) (*AnalysisRunManager, string, *manualClock) {
+func startTestRunWithClock(t *testing.T, db *sql.DB) (*RunManager, string, *manualClock) {
 	t.Helper()
 	clock := &manualClock{t: time.Date(2026, 9, 19, 12, 0, 0, 0, time.UTC)}
-	manager := NewAnalysisRunManagerDI(db, "test-sensor")
+	manager := NewRunManagerDI(db, "test-sensor")
 	manager.now = clock.now
 	runID, err := manager.StartRun("/path/to/test.pcap", DefaultRunParams())
 	if err != nil {
@@ -220,7 +220,7 @@ func startTestRunWithClock(t *testing.T, db *sql.DB) (*AnalysisRunManager, strin
 // brought up to date when a run completes, every row of such a run would be
 // left describing a first sighting.
 func TestMeasurementsReachTheDatabaseWhileTheRunIsStillGoing(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID, clock := startTestRunWithClock(t, db)
 
@@ -241,7 +241,7 @@ func TestMeasurementsReachTheDatabaseWhileTheRunIsStillGoing(t *testing.T) {
 // every frame. At 10 Hz with dozens of tracks that would be hundreds of
 // writes a second for values that are about to be replaced.
 func TestMeasurementsAreNotWrittenOnEveryFrame(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID, clock := startTestRunWithClock(t, db)
 
@@ -257,7 +257,7 @@ func TestMeasurementsAreNotWrittenOnEveryFrame(t *testing.T) {
 // When the last tracks in view die, nothing offers a track again. Frames keep
 // arriving, and they have to be enough to get the final measurements written.
 func TestFramesAloneFlushTheLastTracksOfAQuietScene(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID, clock := startTestRunWithClock(t, db)
 
@@ -272,7 +272,7 @@ func TestFramesAloneFlushTheLastTracksOfAQuietScene(t *testing.T) {
 }
 
 func TestAFailedWriteIsRetriedWithNothingLost(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, runID, clock := startTestRunWithClock(t, db)
 
@@ -302,7 +302,7 @@ func TestAFailedWriteIsRetriedWithNothingLost(t *testing.T) {
 }
 
 func TestANewRunDoesNotInheritTheLastRunsPendingTracks(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	manager, firstRun, _ := startTestRunWithClock(t, db)
 
@@ -333,10 +333,10 @@ func TestANewRunDoesNotInheritTheLastRunsPendingTracks(t *testing.T) {
 }
 
 func TestUpdateRunTrackMeasurementsNeverInsertsARow(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 	_, runID := startTestRun(t, db)
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	if err := store.UpdateRunTrackMeasurements(runID, nil); err != nil {
 		t.Errorf("an empty update should be a no-op, got %v", err)

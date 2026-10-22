@@ -314,17 +314,17 @@ func TestCompareRuns_EmptyRuns(t *testing.T) {
 	db, cleanup := setupTestDBWithSchema(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Create two empty runs
-	run1 := &AnalysisRun{
+	run1 := &Run{
 		RunID:      "empty_run_1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor_1",
 		Status:     "completed",
 	}
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:      "empty_run_2",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -367,17 +367,17 @@ func TestCompareRuns_MatchedTracks(t *testing.T) {
 	db, cleanup := setupTestDBWithSchema(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Create two runs
-	run1 := &AnalysisRun{
+	run1 := &Run{
 		RunID:      "matched_run_1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor_1",
 		Status:     "completed",
 	}
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:      "matched_run_2",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -445,17 +445,17 @@ func TestCompareRuns_NoOverlap(t *testing.T) {
 	db, cleanup := setupTestDBWithSchema(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Create two runs
-	run1 := &AnalysisRun{
+	run1 := &Run{
 		RunID:      "no_overlap_run_1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor_1",
 		Status:     "completed",
 	}
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:      "no_overlap_run_2",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -520,17 +520,17 @@ func TestCompareRuns_SplitDetection(t *testing.T) {
 	db, cleanup := setupTestDBWithSchema(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Create two runs
-	run1 := &AnalysisRun{
+	run1 := &Run{
 		RunID:      "split_run_1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
 		SensorID:   "sensor_1",
 		Status:     "completed",
 	}
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:      "split_run_2",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -634,5 +634,27 @@ func TestCompareParams_BackgroundDifference(t *testing.T) {
 	}
 	if updateDiff["run2"] != params2.Background.BackgroundUpdateFraction {
 		t.Errorf("run2 value mismatch")
+	}
+}
+
+func TestRunClipIdentifierDMGAlias(t *testing.T) {
+	for _, id := range []string{"clip-1", ""} {
+		encoded, err := json.Marshal(Run{RunID: "run-1", ClipID: id, SourceName: "capture-source"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var fields map[string]any
+		if err := json.Unmarshal(encoded, &fields); err != nil {
+			t.Fatal(err)
+		}
+		if fields["source_name"] != "capture-source" || fields["replay_case_name"] != "capture-source" {
+			t.Fatalf("source alias: %s", encoded)
+		}
+		if id != "" && (fields["clip_id"] != id || fields["replay_case_id"] != id) {
+			t.Fatalf("DMG alias: %s", encoded)
+		}
+		if id == "" && (fields["clip_id"] != nil || fields["replay_case_id"] != nil) {
+			t.Fatalf("empty alias must be omitted: %s", encoded)
+		}
 	}
 }

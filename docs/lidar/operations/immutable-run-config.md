@@ -10,14 +10,14 @@ Deterministic asset model for LiDAR run configuration: separating reusable param
 
 ## Problem
 
-The previous schema spread parameter JSON across four places (`lidar_run_records.params_json`, `lidar_replay_cases.optimal_params_json`, `lidar_replay_evaluations.params_json`, `lidar_bg_snapshot.params_json`). This was not DRY and not reliable as a reproducibility model:
+The previous schema spread parameter JSON across four places (`lidar_runs.params_json`, `lidar_clips.optimal_params_json`, `lidar_clip_evaluations.params_json`, `lidar_bg_snapshot.params_json`). This was not DRY and not reliable as a reproducibility model:
 
 - Replay/reprocess paths created ad hoc run rows before execution, so stored params could diverge from the executed run
 - `RunParams` included a timestamp, breaking immutability and stable hashing
 - Run params were not a complete snapshot of the effective runtime tuning surface
 - Evaluations duplicated candidate-run params rather than referencing them
 
-All of these issues are now resolved. Legacy `params_json` columns have been dropped from `lidar_run_records`, `lidar_replay_cases` (`optimal_params_json`), and `lidar_replay_evaluations` (migration 000036). `lidar_bg_snapshot.params_json` is retained for background algorithm reproducibility.
+All of these issues are now resolved. Legacy `params_json` columns have been dropped from `lidar_runs`, `lidar_clips` (`optimal_params_json`), and `lidar_clip_evaluations` (migration 000036). `lidar_bg_snapshot.params_json` is retained for background algorithm reproducibility.
 
 ## Target model: three distinct layers
 
@@ -38,11 +38,11 @@ Pairs an effective parameter set with embedded build identity (`build_version`, 
 Same effective params + same build = same `config_hash`.
 Same effective params + different build = different `config_hash`.
 
-### 3. Execution records (`lidar_run_records`)
+### 3. Execution records (`lidar_runs`)
 
 Single mutable execution envelope: `run_config_id` for exact executed config, optional `requested_param_set_id` for launch intent, plus source/lineage fields, lifecycle fields, and hot summary counters.
 
-**Design opinion:** Keep `lidar_run_records` as one fat row per execution. Do not create separate stats/sources/header tables. If a field is used for filtering, sorting, joins, or list rendering, keep it as a typed column.
+**Design opinion:** Keep `lidar_runs` as one fat row per execution. Do not create separate stats/sources/header tables. If a field is used for filtering, sorting, joins, or list rendering, keep it as a typed column.
 
 ## Schema
 
@@ -70,7 +70,7 @@ Single mutable execution envelope: `run_config_id` for exact executed config, op
 
 Additional constraint: `UNIQUE (param_set_id, build_version, build_git_sha)`.
 
-`lidar_run_records` gains `run_config_id` (NOT NULL after P2), `requested_param_set_id` (optional), and `replay_case_id`.
+`lidar_runs` gains `run_config_id` (NOT NULL after P2), `requested_param_set_id` (optional), and `clip_id`.
 
 ## Hash rules
 
@@ -106,29 +106,29 @@ The `build` block is the structural distinguisher: if present, it is a composed 
 ## Data ownership after migration
 
 - **Deterministic assets:** `lidar_param_sets`, `lidar_run_configs`
-- **Execution records:** `lidar_run_records` (run_config_id, requested_param_set_id, all per-run mutable fields)
-- **Recommendation refs:** `lidar_replay_cases.recommended_param_set_id` → reusable requested params, not executed configs
+- **Execution records:** `lidar_runs` (run_config_id, requested_param_set_id, all per-run mutable fields)
+- **Recommendation refs:** `lidar_clips.recommended_param_set_id` → reusable requested params, not executed configs
 - **Derived only:** evaluation config from `candidate_run_id → run_config_id`; diff views from `run_config_id → param_set_id + build identity`; grouping by `params_hash` from effective param sets
 
 ## Delivered phases
 
 ### P0/P1: introduce and adopt (migration 000035)
 
-- Schema additions: `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and replay_cases
+- Schema additions: `lidar_param_sets`, `lidar_run_configs`, nullable FKs on run_records and clips
 - Config asset package ([internal/lidar/storage/configasset/](../../../internal/lidar/storage/configasset))
 - Effective runtime surface definition (background, clustering, tracker, classification tunables)
 - Timestamp removal from deterministic config identity
 - Single-source run creation (no duplicate run rows in replay/reprocess)
 - Requested vs effective vs execution metadata separation
 - Backfill tool ([cmd/tools/backfill_lidar_run_config](../../../cmd/tools/backfill_lidar_run_config))
-- API exposure of config identity on run and replay-case responses
+- API exposure of config identity on run and clip responses
 - UI diff of exact composed configs, grouping by `params_hash`
 - Recording provenance (`config_hash` and `params_hash` in VRLOG metadata)
 
 ### P2: remove legacy duplication (migration 000036)
 
-- Dropped `params_json` from `lidar_run_records` and `lidar_replay_evaluations`
-- Dropped `optimal_params_json` from `lidar_replay_cases`
+- Dropped `params_json` from `lidar_runs` and `lidar_clip_evaluations`
+- Dropped `optimal_params_json` from `lidar_clips`
 - Evaluation and diff derive all config from run FKs
 - UI uses only immutable config references (no legacy JSON rendering)
 

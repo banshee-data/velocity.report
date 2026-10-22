@@ -35,7 +35,7 @@ type replayPlan struct {
 // requested window.
 //
 // The window is relative to the start of the whole sequence, not to any one
-// file: a replay case describes a stretch of a site visit, and where the
+// file: a clip describes a stretch of a site visit, and where the
 // capture tool happened to roll its output is not part of that description.
 //
 // Planning happens before replay starts so a join too wide to cross is

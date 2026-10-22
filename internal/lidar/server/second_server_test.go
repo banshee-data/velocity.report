@@ -34,12 +34,12 @@ type replayOpts struct {
 // replayWithRecorder replays one stub capture in analysis mode with recording
 // requested, the way publish-scenes.py starts a scene, and reports how many
 // times the capture was read and the run record the replay left behind.
-func replayWithRecorder(t *testing.T, recordingPath string) (reads int, run *sqlite.AnalysisRun, ws *Server) {
+func replayWithRecorder(t *testing.T, recordingPath string) (reads int, run *sqlite.Run, ws *Server) {
 	t.Helper()
 	return replayWith(t, replayOpts{recordingPath: recordingPath})
 }
 
-func replayWith(t *testing.T, opts replayOpts) (reads int, run *sqlite.AnalysisRun, ws *Server) {
+func replayWith(t *testing.T, opts replayOpts) (reads int, run *sqlite.Run, ws *Server) {
 	t.Helper()
 	recordingPath := opts.recordingPath
 	restore := restoreDatasourceHandlerSeams()
@@ -87,11 +87,11 @@ func replayWith(t *testing.T, opts replayOpts) (reads int, run *sqlite.AnalysisR
 	}
 	waitForPCAPDone(t, ws)
 
-	runID := ws.LastAnalysisRunID()
+	runID := ws.LastRunID()
 	if runID == "" {
 		t.Fatal("no analysis run was started")
 	}
-	run, err := sqlite.NewAnalysisRunStore(dbWrapped).GetRun(runID)
+	run, err := sqlite.NewRunStore(dbWrapped).GetRun(runID)
 	if err != nil {
 		t.Fatalf("GetRun(%s): %v", runID, err)
 	}

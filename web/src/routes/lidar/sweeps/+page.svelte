@@ -9,13 +9,13 @@
 		applyLidarParams,
 		continueHINT,
 		getHINTState,
-		getLidarReplayCases,
+		getLidarClips,
 		getSweep,
 		listSweeps
 	} from '#lib/api.js';
 	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
 	import { objectiveText } from '#lib/lidarRecords.js';
-	import type { HINTState, LidarReplayCase, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
+	import type { HINTState, LidarClip, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -41,7 +41,7 @@
 
 	// Clips name the sweeps that replayed them. Without them a card still
 	// shows the clip's id, so a failed load costs only the description.
-	let clips: LidarReplayCase[] = [];
+	let clips: LidarClip[] = [];
 
 	// Detail panel state
 	let selectedSweep: SweepRecord | null = null;
@@ -95,7 +95,7 @@
 		try {
 			const [sweepList, clipList] = await Promise.all([
 				listSweeps(SENSOR_ID, 50),
-				getLidarReplayCases().catch(() => [] as LidarReplayCase[])
+				getLidarClips().catch(() => [] as LidarClip[])
 			]);
 			sweeps = sweepList;
 			clips = clipList;
@@ -108,12 +108,12 @@
 
 	/** The clip a sweep replayed, by its description where the clip is known. */
 	function clipName(clipId: string): string {
-		const clip = clips.find((c) => c.replay_case_id === clipId);
+		const clip = clips.find((c) => c.clip_id === clipId);
 		return clip?.description || clipId.substring(0, 8);
 	}
 
 	function clipHref(clipId: string): string {
-		return `${resolve('/lidar/replay-cases')}?${clipQuery(clipId)}`;
+		return `${resolve('/lidar/clips')}?${clipQuery(clipId)}`;
 	}
 
 	function basename(path: string): string {
@@ -370,16 +370,16 @@
 									{formatDuration(sweep.started_at, sweep.completed_at)}
 								</span>
 							</div>
-							{#if sweep.replay_case_id || sweep.pcap_file || sweep.objective_name}
+							{#if sweep.clip_id || sweep.pcap_file || sweep.objective_name}
 								<div class="text-surface-content/60 mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-									{#if sweep.replay_case_id}
+									{#if sweep.clip_id}
 										<span class="whitespace-nowrap"
 											>clip
 											<!-- eslint-disable svelte/no-navigation-without-resolve -->
 											<a
-												href={clipHref(sweep.replay_case_id)}
+												href={clipHref(sweep.clip_id)}
 												class="text-primary hover:underline"
-												on:click|stopPropagation>{clipName(sweep.replay_case_id)}</a
+												on:click|stopPropagation>{clipName(sweep.clip_id)}</a
 											>
 											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										</span>
@@ -467,13 +467,12 @@
 							<span class="text-surface-content/60">Mode</span>
 							<span>{modeLabel(selectedSweep.mode)}</span>
 						</div>
-						{#if selectedSummary?.replay_case_id}
+						{#if selectedSummary?.clip_id}
 							<div class="flex justify-between">
 								<span class="text-surface-content/60">Clip</span>
 								<!-- eslint-disable svelte/no-navigation-without-resolve -->
-								<a
-									href={clipHref(selectedSummary.replay_case_id)}
-									class="text-primary hover:underline">{clipName(selectedSummary.replay_case_id)}</a
+								<a href={clipHref(selectedSummary.clip_id)} class="text-primary hover:underline"
+									>{clipName(selectedSummary.clip_id)}</a
 								>
 								<!-- eslint-enable svelte/no-navigation-without-resolve -->
 							</div>

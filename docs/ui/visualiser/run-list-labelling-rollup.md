@@ -28,7 +28,7 @@ Explicitly excluded from green/accent: `carried_over`, `auto_suggested`.
 
 ### Store contract
 
-`AnalysisRun` includes a `label_rollup` field with:
+`Run` includes a `label_rollup` field with:
 
 | Field         | Type | Description             |
 | ------------- | ---- | ----------------------- |
@@ -39,7 +39,7 @@ Explicitly excluded from green/accent: `carried_over`, `auto_suggested`.
 
 Rollups are computed from `lidar_run_tracks` using one grouped query for
 run lists (no per-run follow-up queries). Store helpers live in
-[internal/lidar/storage/sqlite/analysis_run.go](../../../internal/lidar/storage/sqlite/analysis_run.go).
+[internal/lidar/storage/sqlite/run.go](../../../internal/lidar/storage/sqlite/run.go).
 
 ### API contract
 
@@ -60,7 +60,7 @@ absent, so partial-schema tests do not fail while reading run rows.
 ### Model
 
 `RunTrackLabelAPIClient.swift` models include `RunLabelRollup`,
-`AnalysisRun.labelRollup`, and additional `RunTrack` fields for local
+`Run.labelRollup`, and additional `RunTrack` fields for local
 recomputation: `label_source`, `linked_track_ids`, split/merge flags.
 
 ### UI
@@ -82,7 +82,7 @@ re-fetch of run summaries:
 ## Web contract
 
 The shared API contract is typed on the web side (optional `label_rollup`
-on `AnalysisRun` and `LabellingProgress`). No web rendering in this
+on `Run` and `LabellingProgress`). No web rendering in this
 phase.
 
 ## Deferred work

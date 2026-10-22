@@ -10,8 +10,8 @@
 	 */
 	import {
 		cancelCaptureJob,
-		createReplayCaseFromCaptures,
-		setReplayCaseLocation,
+		createClipFromCaptures,
+		setClipLocation,
 		getCaptureFiles,
 		getCaptureJobs,
 		getCapturePeriods,
@@ -506,7 +506,7 @@
 		createdClipId = null;
 		locationNote = null;
 		try {
-			const created = await createReplayCaseFromCaptures({
+			const created = await createClipFromCaptures({
 				sensor_id: caseSensorId,
 				pcap_files: verdict.files.map((f) => f.rel_path),
 				pcap_start_secs: parseOptionalSecs(caseStartSecs),
@@ -514,8 +514,8 @@
 				description: caseDescription || undefined,
 				session_id: expandedSessionId ?? undefined
 			});
-			createdMessage = `Created clip ${created.replay_case_id} over ${verdict.files.length} capture${verdict.files.length === 1 ? '' : 's'}.`;
-			createdClipId = created.replay_case_id;
+			createdMessage = `Created clip ${created.clip_id} over ${verdict.files.length} capture${verdict.files.length === 1 ? '' : 's'}.`;
+			createdClipId = created.clip_id;
 
 			// The position is recorded against the case once it exists, so a
 			// bad fix cannot stop the case being created — it can be corrected
@@ -524,7 +524,7 @@
 			const lon = Number(originLon);
 			if (originLat.trim() !== '' && originLon.trim() !== '') {
 				try {
-					const loc = await setReplayCaseLocation(created.replay_case_id, {
+					const loc = await setClipLocation(created.clip_id, {
 						origin_lat: lat,
 						origin_lon: lon,
 						geographic_source: geoSource
@@ -627,9 +627,7 @@
 				</p>
 			</div>
 			<div class="flex shrink-0 gap-4">
-				<a href={resolve('/lidar/replay-cases')} class="text-primary text-sm hover:underline">
-					Clips →
-				</a>
+				<a href={resolve('/lidar/clips')} class="text-primary text-sm hover:underline"> Clips → </a>
 			</div>
 		</header>
 	</div>
@@ -1230,7 +1228,7 @@
 													{#if createdClipId}
 														<!-- eslint-disable svelte/no-navigation-without-resolve -->
 														<a
-															href={`${resolve('/lidar/replay-cases')}?${clipQuery(createdClipId)}`}
+															href={`${resolve('/lidar/clips')}?${clipQuery(createdClipId)}`}
 															class="ml-1 underline">Open clip →</a
 														>
 														<!-- eslint-enable svelte/no-navigation-without-resolve -->

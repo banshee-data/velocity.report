@@ -243,7 +243,7 @@ func TestSegmentsCLIRandomRunUsesItsOwnIndexedCapture(t *testing.T) {
 	}{
 		{`INSERT INTO lidar_capture_roots(root_id,path,created_at_ns,updated_at_ns) VALUES('root',?,1,1)`, []any{dir}},
 		{`INSERT INTO lidar_capture_files(capture_file_id,root_id,rel_path,size_bytes,modified_at_ns,first_packet_ns,last_packet_ns,probe_state,first_seen_at_ns,last_seen_at_ns) VALUES('file','root','capture.pcap',7,1,?,?, 'ok',1,1)`, []any{base, base + 80_000_000_000}},
-		{`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms) VALUES('run',1,'pcap',?,'sensor','completed',0,0,0,0,0,0)`, []any{capture}},
+		{`INSERT INTO lidar_runs(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms) VALUES('run',1,'pcap',?,'sensor','completed',0,0,0,0,0,0)`, []any{capture}},
 	} {
 		if _, err := database.Exec(q.query, q.args...); err != nil {
 			t.Fatal(err)
@@ -328,7 +328,7 @@ func TestSegmentsCLIReadsAReplayedRunFromItsRecording(t *testing.T) {
 	defer database.Close()
 	insertRun := func(id, vrlog string) {
 		t.Helper()
-		if _, err := database.Exec(`INSERT INTO lidar_run_records(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms,vrlog_path) VALUES(?,1,'pcap','/captures/a.pcap','sensor','completed',0,0,0,0,0,0,?)`, id, vrlog); err != nil {
+		if _, err := database.Exec(`INSERT INTO lidar_runs(run_id,created_at,source_type,source_path,sensor_id,status,duration_secs,total_frames,total_clusters,total_tracks,confirmed_tracks,processing_time_ms,vrlog_path) VALUES(?,1,'pcap','/captures/a.pcap','sensor','completed',0,0,0,0,0,0,?)`, id, vrlog); err != nil {
 			t.Fatal(err)
 		}
 	}

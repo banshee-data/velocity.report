@@ -53,6 +53,16 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## [Unreleased]
 
+### BREAKING
+
+- LiDAR evaluation windows are clips: use `/api/lidar/clips` and `clip_id`.
+  `/api/lidar/scenes` is removed. Clip requests use `pcap_files`; responses expose
+  ordered `files` capture rows and no `pcap_file` projection. Migration 064 renames
+  the clip, capture-association, evaluation and run tables without changing their keys.
+  The previous macOS DMG retains its registered `replay_case_id` alias until the next
+  DMG is the oldest supported. The current app uses the new names. Browser bookmarks
+  for `/lidar/replay-cases` redirect to `/lidar/clips` for one release.
+
 ### Changed
 
 - A `scaled` or `realtime` PCAP replay now runs the tuning file's L3 as written, as analysis mode

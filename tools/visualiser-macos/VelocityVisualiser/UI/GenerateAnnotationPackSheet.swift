@@ -18,7 +18,7 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
 /// touches a pack on disk directly, so it has nothing in common with the
 /// controller beyond handing it a directory to open when the export succeeds.
 @MainActor final class GenerateAnnotationPackState: ObservableObject {
-    @Published private(set) var runs: [AnalysisRun] = []
+    @Published private(set) var runs: [Run] = []
     @Published private(set) var isLoadingRuns = false
     @Published private(set) var isExporting = false
     @Published var lastError: String?
@@ -50,7 +50,7 @@ private let generatePackLogger = DevLogger(category: "AnnotationExport")
     /// Runs with no VRLOG cannot be exported from, so they are filtered out
     /// here rather than merely disabled in the list: a picker full of mostly
     /// unusable rows is worse than a shorter, all-usable one.
-    var exportableRuns: [AnalysisRun] { runs.filter { $0.hasVRLog } }
+    var exportableRuns: [Run] { runs.filter { $0.hasVRLog } }
 
     func loadRuns() async {
         isLoadingRuns = true

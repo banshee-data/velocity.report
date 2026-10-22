@@ -153,7 +153,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 	if !segments.Allowed(sel.Finder, req.Role) {
 		return nil, sel, fmt.Errorf("finder %q cannot choose a %s window", sel.Finder, req.Role)
 	}
-	run, err := sqlite.NewAnalysisRunStore(ws.db).GetRun(req.RunID)
+	run, err := sqlite.NewRunStore(ws.db).GetRun(req.RunID)
 	if err != nil {
 		return nil, sel, fmt.Errorf("run not found: %w", err)
 	}
@@ -192,7 +192,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 			return nil, sel, fmt.Errorf("read segment status: %w", err)
 		}
 		windows[i].Status = "case"
-		windows[i].ReplayCaseID = status.ReplayCaseID
+		windows[i].ClipID = status.ClipID
 		windows[i].JobID = status.JobID
 		if status.JobState == sqlite.JobQueued || status.JobState == sqlite.JobRunning {
 			windows[i].Status = "clipping"
@@ -209,7 +209,7 @@ func (ws *Server) findRunSegments(req segmentRequest) ([]segments.Window, segmen
 // observations; an analysis replay does not write to that table and keeps its
 // tracks in the run's recording, so a run without observations is read from
 // there. A run with neither has nothing to rank, which is not an error.
-func (ws *Server) loadRunSeries(run *sqlite.AnalysisRun) ([]segments.Point, error) {
+func (ws *Server) loadRunSeries(run *sqlite.Run) ([]segments.Point, error) {
 	points, err := segments.LoadRun(ws.db.DB, run.RunID)
 	if err != nil || len(points) > 0 || run.VRLogPath == "" {
 		return points, err
@@ -235,14 +235,14 @@ func (ws *Server) loadRunSeries(run *sqlite.AnalysisRun) ([]segments.Point, erro
 
 // Restrict the time index to the run's own source files. Two sensors can
 // capture the same second; time overlap alone must never choose the other one.
-func (ws *Server) capturesForRun(run *sqlite.AnalysisRun, start, end int64) ([]segments.Capture, error) {
+func (ws *Server) capturesForRun(run *sqlite.Run, start, end int64) ([]segments.Capture, error) {
 	captures, err := segments.CapturesForRange(ws.db.DB, start, end)
 	if err != nil {
 		return nil, err
 	}
 	paths := []string{}
-	if run.ReplayCaseID != "" {
-		paths, err = sqlite.NewReplayCaseStore(ws.db).CasePaths(run.ReplayCaseID)
+	if run.ClipID != "" {
+		paths, err = sqlite.NewClipStore(ws.db).ClipPaths(run.ClipID)
 		if err != nil {
 			return nil, err
 		}
@@ -404,12 +404,12 @@ func xmlEscape(s string) string {
 }
 
 func (ws *Server) handleSegmentByID(w http.ResponseWriter, r *http.Request) {
-	ws.handleSegmentByIDWith(w, r, segmentCaseOperations{sqlite.NewAnalysisRunStore(ws.db).GetRun, ws.capturesForRun, ws.resolveSegmentCapture})
+	ws.handleSegmentByIDWith(w, r, segmentCaseOperations{sqlite.NewRunStore(ws.db).GetRun, ws.capturesForRun, ws.resolveSegmentCapture})
 }
 
 type segmentCaseOperations struct {
-	getRun   func(string) (*sqlite.AnalysisRun, error)
-	captures func(*sqlite.AnalysisRun, int64, int64) ([]segments.Capture, error)
+	getRun   func(string) (*sqlite.Run, error)
+	captures func(*sqlite.Run, int64, int64) ([]segments.Capture, error)
 	resolve  func(string) (string, error)
 }
 
@@ -472,7 +472,7 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 	if chosen.Status != "candidate" {
-		ws.writeJSON(w, 200, map[string]any{"replay_case_id": chosen.ReplayCaseID, "segment": chosen})
+		ws.writeJSON(w, 200, map[string]any{"clip_id": chosen.ClipID, "segment": chosen})
 		return
 	}
 	run, err := ops.getRun(req.RunID)
@@ -503,35 +503,35 @@ func (ws *Server) handleSegmentByIDWith(w http.ResponseWriter, r *http.Request, 
 		paths = append(paths, rel)
 	}
 	if len(paths) > 1 {
-		if _, err = ws.validateCaseFiles(paths); err != nil {
+		if _, err = ws.validateClipFiles(paths); err != nil {
 			ws.writeJSONError(w, 400, err.Error())
 			return
 		}
 	}
 	start := float64(chosen.StartNs-captures[0].FirstNs) / 1e9
 	duration := float64(chosen.EndNs-chosen.StartNs) / 1e9
-	scene := &sqlite.ReplayCase{SensorID: run.SensorID, PCAPFile: paths[0], PCAPStartSecs: &start, PCAPDurationSecs: &duration, Description: "Annotation segment " + chosen.ID}
-	store := sqlite.NewReplayCaseStore(ws.db)
-	if err = store.InsertScene(scene); err != nil {
+	scene := &sqlite.Clip{SensorID: run.SensorID, Files: []sqlite.ClipCapture{{PCAPFile: paths[0]}}, PCAPStartSecs: &start, PCAPDurationSecs: &duration, Description: "Annotation segment " + chosen.ID}
+	store := sqlite.NewClipStore(ws.db)
+	if err = store.InsertClip(scene); err != nil {
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
-	caseFiles := make([]sqlite.ReplayCaseFile, 0, len(paths))
+	caseFiles := make([]sqlite.ClipCapture, 0, len(paths))
 	for i, path := range paths {
-		caseFiles = append(caseFiles, sqlite.ReplayCaseFile{Ordinal: i, PCAPFile: path})
+		caseFiles = append(caseFiles, sqlite.ClipCapture{Ordinal: i, PCAPFile: path})
 	}
-	if err = store.SetCaseFiles(scene.ReplayCaseID, caseFiles); err != nil {
-		_ = store.DeleteScene(scene.ReplayCaseID)
+	if err = store.SetClipFiles(scene.ClipID, caseFiles); err != nil {
+		_ = store.DeleteClip(scene.ClipID)
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
 	paramsJSON, _ := json.Marshal(sel.Parameters)
 	windowJSON, _ := json.Marshal(chosen)
 	selectorJSON, _ := json.Marshal(sel.Provenance())
-	if err = selections.InsertSelection(chosen.ID, req.RunID, scene.ReplayCaseID, paramsJSON, windowJSON, selectorJSON); err != nil {
-		_ = store.DeleteScene(scene.ReplayCaseID)
+	if err = selections.InsertSelection(chosen.ID, req.RunID, scene.ClipID, paramsJSON, windowJSON, selectorJSON); err != nil {
+		_ = store.DeleteClip(scene.ClipID)
 		ws.writeJSONError(w, 500, err.Error())
 		return
 	}
-	ws.writeJSON(w, 201, map[string]any{"replay_case_id": scene.ReplayCaseID, "segment": chosen})
+	ws.writeJSON(w, 201, map[string]any{"clip_id": scene.ClipID, "segment": chosen})
 }

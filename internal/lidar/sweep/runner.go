@@ -103,7 +103,7 @@ type ComboResult struct {
 	SpeedJitterMpsStddev     float64  `json:"speed_jitter_mps_stddev"`
 	FragmentationRatioMean   float64  `json:"fragmentation_ratio_mean"`
 
-	// Scene-level foreground capture metrics
+	// Clip-level foreground capture metrics
 	ForegroundCaptureMean   float64 `json:"foreground_capture_mean"`
 	ForegroundCaptureStddev float64 `json:"foreground_capture_stddev"`
 	UnboundedPointMean      float64 `json:"unbounded_point_mean"`
@@ -120,9 +120,9 @@ type ComboResult struct {
 	TotalOcclusionsStddev    float64 `json:"total_occlusions_stddev"`
 }
 
-// AnalysisRunCreator creates analysis runs for sweep combinations.
+// RunCreator creates analysis runs for sweep combinations.
 // Defined as an interface to avoid circular imports with the lidar package.
-type AnalysisRunCreator interface {
+type RunCreator interface {
 	CreateSweepRun(sensorID, pcapFile string, paramsJSON json.RawMessage) (string, error)
 }
 
@@ -407,7 +407,7 @@ func (r *Runner) StopAndWait(timeout time.Duration) {
 
 // runGeneric executes the generic N-dimensional sweep.
 func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[string]interface{}, interval, settleTime time.Duration) {
-	isPCAP := req.DataSource == "pcap" && req.PCAPFile != ""
+	isPCAP := req.DataSource == "capture" && req.PCAPFile != ""
 	settleOnce := req.SettleMode == "once"
 	const regionRestoreWait = 2 * time.Second
 	// Maximum number of tuning parameters to prevent overflow in map allocation (CWE-770)
@@ -559,7 +559,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 
 		// Capture analysis run ID from the server (set during PCAP replay)
 		if isPCAP {
-			combo.RunID = r.backend.GetLastAnalysisRunID()
+			combo.RunID = r.backend.GetLastRunID()
 		}
 
 		// Update state
@@ -570,7 +570,7 @@ func (r *Runner) runGeneric(ctx context.Context, req SweepRequest, combos []map[
 		r.mu.Unlock()
 
 		// Release PCAP slot after each combo so the next combo can start
-		// a fresh replay. Without this, currentSource stays DataSourcePCAP
+		// a fresh replay. Without this, currentSource stays DataSourceCapture
 		// and subsequent StartPCAPForSweep calls spin on the conflict retry
 		// loop until they time out.
 		if isPCAP {
@@ -698,21 +698,21 @@ func (r *Runner) computeComboResult(results []SampleResult, buckets []string) Co
 	}
 	combo.FragmentationRatioMean, _ = MeanStddev(fragVals)
 
-	// Scene-level: foreground capture ratio
+	// Clip-level: foreground capture ratio
 	capVals := make([]float64, len(results))
 	for ri, r := range results {
 		capVals[ri] = r.ForegroundCaptureRatio
 	}
 	combo.ForegroundCaptureMean, combo.ForegroundCaptureStddev = MeanStddev(capVals)
 
-	// Scene-level: unbounded point ratio
+	// Clip-level: unbounded point ratio
 	unbVals := make([]float64, len(results))
 	for ri, r := range results {
 		unbVals[ri] = r.UnboundedPointRatio
 	}
 	combo.UnboundedPointMean, combo.UnboundedPointStddev = MeanStddev(unbVals)
 
-	// Scene-level: empty box ratio
+	// Clip-level: empty box ratio
 	ebVals := make([]float64, len(results))
 	for ri, r := range results {
 		ebVals[ri] = r.EmptyBoxRatio

@@ -118,7 +118,7 @@ func computeTemporalIoU(ref, cand *RunTrack) float64 {
 // CompareRuns compares two analysis runs by matching their tracks using temporal IoU
 // and spatial proximity. It populates RunComparison with matched tracks, split candidates,
 // merge candidates, and tracks unique to each run.
-func CompareRuns(store *AnalysisRunStore, run1ID, run2ID string) (*RunComparison, error) {
+func CompareRuns(store *RunStore, run1ID, run2ID string) (*RunComparison, error) {
 	// Load tracks for both runs
 	run1Tracks, err := store.GetRunTracks(run1ID)
 	if err != nil {

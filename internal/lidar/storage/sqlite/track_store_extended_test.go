@@ -540,11 +540,11 @@ func TestClearRuns(t *testing.T) {
 	sensorID1 := "sensor-clear-runs-1"
 	sensorID2 := "sensor-clear-runs-2"
 
-	// Create an AnalysisRunStore
-	store := NewAnalysisRunStore(db)
+	// Create an RunStore
+	store := NewRunStore(db)
 
 	// Insert runs for sensor 1
-	run1 := &AnalysisRun{
+	run1 := &Run{
 		RunID:           "run-001",
 		SensorID:        sensorID1,
 		SourceType:      "pcap",
@@ -560,7 +560,7 @@ func TestClearRuns(t *testing.T) {
 		t.Fatalf("failed to insert run1: %v", err)
 	}
 
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:           "run-002",
 		SensorID:        sensorID1,
 		SourceType:      "pcap",
@@ -577,7 +577,7 @@ func TestClearRuns(t *testing.T) {
 	}
 
 	// Insert run for sensor 2 (should not be deleted)
-	run3 := &AnalysisRun{
+	run3 := &Run{
 		RunID:           "run-003",
 		SensorID:        sensorID2,
 		SourceType:      "pcap",
@@ -639,7 +639,7 @@ func TestClearRuns(t *testing.T) {
 	// Verify runs and tracks exist before clear
 	var count int
 	var err error
-	err = db.QueryRow("SELECT COUNT(*) FROM lidar_run_records WHERE sensor_id = ?", sensorID1).Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_runs WHERE sensor_id = ?", sensorID1).Scan(&count)
 	if err != nil {
 		t.Fatalf("Count runs before clear failed: %v", err)
 	}
@@ -653,7 +653,7 @@ func TestClearRuns(t *testing.T) {
 	}
 
 	// Verify sensor 1 runs are deleted
-	err = db.QueryRow("SELECT COUNT(*) FROM lidar_run_records WHERE sensor_id = ?", sensorID1).Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_runs WHERE sensor_id = ?", sensorID1).Scan(&count)
 	if err != nil {
 		t.Fatalf("Count runs after clear failed: %v", err)
 	}
@@ -679,7 +679,7 @@ func TestClearRuns(t *testing.T) {
 	}
 
 	// Verify sensor 2 runs are NOT deleted
-	err = db.QueryRow("SELECT COUNT(*) FROM lidar_run_records WHERE sensor_id = ?", sensorID2).Scan(&count)
+	err = db.QueryRow("SELECT COUNT(*) FROM lidar_runs WHERE sensor_id = ?", sensorID2).Scan(&count)
 	if err != nil {
 		t.Fatalf("Count runs for sensor2 after clear failed: %v", err)
 	}
@@ -718,11 +718,11 @@ func TestDeleteRun(t *testing.T) {
 
 	sensorID := "sensor-delete-run"
 
-	// Create an AnalysisRunStore
-	store := NewAnalysisRunStore(db)
+	// Create an RunStore
+	store := NewRunStore(db)
 
 	// Insert two runs
-	run1 := &AnalysisRun{
+	run1 := &Run{
 		RunID:           "run-001",
 		SensorID:        sensorID,
 		SourceType:      "pcap",
@@ -738,7 +738,7 @@ func TestDeleteRun(t *testing.T) {
 		t.Fatalf("failed to insert run1: %v", err)
 	}
 
-	run2 := &AnalysisRun{
+	run2 := &Run{
 		RunID:           "run-002",
 		SensorID:        sensorID,
 		SourceType:      "pcap",

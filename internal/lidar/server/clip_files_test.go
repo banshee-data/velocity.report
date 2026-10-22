@@ -38,14 +38,14 @@ func caseServer(t *testing.T, gap time.Duration, names ...string) *Server {
 	return ws
 }
 
-func TestValidateCaseFilesAcceptsAnAbuttingPair(t *testing.T) {
+func TestValidateClipFilesAcceptsAnAbuttingPair(t *testing.T) {
 	// The shape the field produced: the last static stretch of
 	// broadway_columbus spans files 7 and 8.
 	ws := caseServer(t, 148*time.Millisecond, "file7.pcap", "file8.pcap")
 
-	seq, err := ws.validateCaseFiles([]string{"file7.pcap", "file8.pcap"})
+	seq, err := ws.validateClipFiles([]string{"file7.pcap", "file8.pcap"})
 	if err != nil {
-		t.Fatalf("validateCaseFiles: %v", err)
+		t.Fatalf("validateClipFiles: %v", err)
 	}
 	if len(seq.Segments) != 2 {
 		t.Errorf("sequence holds %d captures, want 2", len(seq.Segments))
@@ -55,10 +55,10 @@ func TestValidateCaseFilesAcceptsAnAbuttingPair(t *testing.T) {
 	}
 }
 
-func TestValidateCaseFilesRejectsAGap(t *testing.T) {
+func TestValidateClipFilesRejectsAGap(t *testing.T) {
 	ws := caseServer(t, 90*time.Second, "file7.pcap", "file8.pcap")
 
-	_, err := ws.validateCaseFiles([]string{"file7.pcap", "file8.pcap"})
+	_, err := ws.validateClipFiles([]string{"file7.pcap", "file8.pcap"})
 	if err == nil {
 		t.Fatal("a case with a ninety-second gap was accepted")
 	}
@@ -67,9 +67,9 @@ func TestValidateCaseFilesRejectsAGap(t *testing.T) {
 	}
 }
 
-func TestValidateCaseFilesRejectsAnUnknownCapture(t *testing.T) {
+func TestValidateClipFilesRejectsAnUnknownCapture(t *testing.T) {
 	ws := caseServer(t, 0, "file7.pcap")
-	if _, err := ws.validateCaseFiles([]string{"file7.pcap", "absent.pcap"}); err == nil {
+	if _, err := ws.validateClipFiles([]string{"file7.pcap", "absent.pcap"}); err == nil {
 		t.Fatal("a case naming an absent capture was accepted")
 	}
 }
@@ -82,7 +82,7 @@ func TestCreateCaseWithSeveralCaptures(t *testing.T) {
 	          "pcap_start_secs":82,"pcap_duration_secs":449.4,
 	          "description":"broadway_columbus last static stretch"}`
 	rec := httptest.NewRecorder()
-	ws.handleCreateScene(rec, httptest.NewRequest("POST", "/api/lidar/scenes", strings.NewReader(body)))
+	ws.handleCreateClip(rec, httptest.NewRequest("POST", "/api/lidar/clips", strings.NewReader(body)))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
 	}
@@ -92,10 +92,9 @@ func TestCreateCaseWithSeveralCaptures(t *testing.T) {
 	if !ok || len(files) != 2 {
 		t.Fatalf("response files = %v, want two captures", payload["files"])
 	}
-	// pcap_file stays the read-only projection of the first capture, so a
-	// client that predates the list still replays the right thing.
-	if payload["pcap_file"] != "file7.pcap" {
-		t.Errorf("pcap_file = %v, want file7.pcap", payload["pcap_file"])
+	// The clip response has only capture rows; it never recreates a path projection.
+	if _, present := payload["pcap_file"]; present {
+		t.Errorf("retired clip projection survived: %v", payload["pcap_file"])
 	}
 }
 
@@ -106,7 +105,7 @@ func TestCreateCaseRejectsCapturesThatDoNotAbut(t *testing.T) {
 
 	body := `{"sensor_id":"hesai-pandar40p","pcap_files":["file7.pcap","file8.pcap"]}`
 	rec := httptest.NewRecorder()
-	ws.handleCreateScene(rec, httptest.NewRequest("POST", "/api/lidar/scenes", strings.NewReader(body)))
+	ws.handleCreateClip(rec, httptest.NewRequest("POST", "/api/lidar/clips", strings.NewReader(body)))
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400: %s", rec.Code, rec.Body.String())
 	}
@@ -119,9 +118,9 @@ func TestCreateCaseStillAcceptsASingleCapture(t *testing.T) {
 	ws := caseServer(t, 0, "file7.pcap")
 	ws.db = mustCaseDB(t)
 
-	body := `{"sensor_id":"hesai-pandar40p","pcap_file":"file7.pcap"}`
+	body := `{"sensor_id":"hesai-pandar40p","pcap_files":["file7.pcap"]}`
 	rec := httptest.NewRecorder()
-	ws.handleCreateScene(rec, httptest.NewRequest("POST", "/api/lidar/scenes", strings.NewReader(body)))
+	ws.handleCreateClip(rec, httptest.NewRequest("POST", "/api/lidar/clips", strings.NewReader(body)))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201: %s", rec.Code, rec.Body.String())
 	}
@@ -140,14 +139,14 @@ func TestGetCaseReportsItsCaptures(t *testing.T) {
 
 	body := `{"sensor_id":"hesai-pandar40p","pcap_files":["file7.pcap","file8.pcap"]}`
 	rec := httptest.NewRecorder()
-	ws.handleCreateScene(rec, httptest.NewRequest("POST", "/api/lidar/scenes", strings.NewReader(body)))
+	ws.handleCreateClip(rec, httptest.NewRequest("POST", "/api/lidar/clips", strings.NewReader(body)))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d: %s", rec.Code, rec.Body.String())
 	}
-	caseID := decodeCaseBody(t, rec)["replay_case_id"].(string)
+	caseID := decodeCaseBody(t, rec)["clip_id"].(string)
 
 	getRec := httptest.NewRecorder()
-	ws.handleGetScene(getRec, httptest.NewRequest("GET", "/api/lidar/scenes/"+caseID, nil), caseID)
+	ws.handleGetClip(getRec, httptest.NewRequest("GET", "/api/lidar/clips/"+caseID, nil), caseID)
 	if getRec.Code != http.StatusOK {
 		t.Fatalf("get = %d: %s", getRec.Code, getRec.Body.String())
 	}
@@ -162,15 +161,15 @@ func TestUpdateCaseReplacesItsCaptureSequence(t *testing.T) {
 	ws.db = mustCaseDB(t)
 
 	create := httptest.NewRecorder()
-	ws.handleCreateScene(create, httptest.NewRequest(http.MethodPost, "/api/lidar/scenes",
-		strings.NewReader(`{"sensor_id":"hesai-pandar40p","pcap_file":"file7.pcap"}`)))
+	ws.handleCreateClip(create, httptest.NewRequest(http.MethodPost, "/api/lidar/clips",
+		strings.NewReader(`{"sensor_id":"hesai-pandar40p","pcap_files":["file7.pcap"]}`)))
 	if create.Code != http.StatusCreated {
 		t.Fatalf("create = %d: %s", create.Code, create.Body.String())
 	}
-	caseID := decodeCaseBody(t, create)["replay_case_id"].(string)
+	caseID := decodeCaseBody(t, create)["clip_id"].(string)
 
 	update := httptest.NewRecorder()
-	ws.handleUpdateScene(update, httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+caseID,
+	ws.handleUpdateClip(update, httptest.NewRequest(http.MethodPut, "/api/lidar/clips/"+caseID,
 		strings.NewReader(`{"pcap_files":["file7.pcap","file8.pcap"]}`)), caseID)
 	if update.Code != http.StatusOK {
 		t.Fatalf("update = %d: %s", update.Code, update.Body.String())
@@ -180,8 +179,8 @@ func TestUpdateCaseReplacesItsCaptureSequence(t *testing.T) {
 	if !ok || len(files) != 2 {
 		t.Fatalf("updated files = %v, want two captures", payload["files"])
 	}
-	if payload["pcap_file"] != "file7.pcap" {
-		t.Errorf("legacy first file = %v, want file7.pcap", payload["pcap_file"])
+	if _, present := payload["pcap_file"]; present {
+		t.Errorf("retired clip projection survived: %v, want file7.pcap", payload["pcap_file"])
 	}
 }
 
@@ -189,14 +188,14 @@ func TestCreateCaseWithNoCaptures(t *testing.T) {
 	ws := caseServer(t, 0, "file7.pcap")
 	ws.db = mustCaseDB(t)
 	rec := httptest.NewRecorder()
-	ws.handleCreateScene(rec,
-		httptest.NewRequest("POST", "/api/lidar/scenes", strings.NewReader(`{"sensor_id":"s"}`)))
+	ws.handleCreateClip(rec,
+		httptest.NewRequest("POST", "/api/lidar/clips", strings.NewReader(`{"sensor_id":"s"}`)))
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want 400", rec.Code)
 	}
 }
 
-// mustCaseDB returns a migrated database for the replay-case handlers.
+// mustCaseDB returns a migrated database for the clip handlers.
 func mustCaseDB(t *testing.T) *db.DB {
 	t.Helper()
 	testDB, cleanup := db.NewTestDB(t)

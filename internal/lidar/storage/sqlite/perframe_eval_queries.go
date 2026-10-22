@@ -196,7 +196,7 @@ type RunTrackPosition struct {
 // CountRunTracks returns how many tracks a run recorded. Zero means the run
 // does not exist or recorded nothing; the caller cannot tell which, and says
 // so.
-func (s *AnalysisRunStore) CountRunTracks(runID string) (int, error) {
+func (s *RunStore) CountRunTracks(runID string) (int, error) {
 	var n int
 	if err := s.db.QueryRow(`SELECT COUNT(*) FROM lidar_run_tracks WHERE run_id = ?`, runID).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count tracks of run %s: %w", runID, err)
@@ -208,7 +208,7 @@ func (s *AnalysisRunStore) CountRunTracks(runID string) (int, error) {
 // track, frame, measurement-time order. Observations without a position are
 // skipped. The frame time is the observation's frame_unix_nanos, falling back
 // to its measurement time for rows written before that column existed.
-func (s *AnalysisRunStore) ListRunTrackPositions(runID string) ([]RunTrackPosition, error) {
+func (s *RunStore) ListRunTrackPositions(runID string) ([]RunTrackPosition, error) {
 	rows, err := s.db.Query(`
 		SELECT o.track_id, COALESCE(o.frame_unix_nanos, o.ts_unix_nanos), o.x, o.y
 		  FROM lidar_track_observations o

@@ -35,7 +35,7 @@ func TestRun_Success(t *testing.T) {
 		},
 		func(_ sqlitepkg.DBClient, dryRun bool) (*sqlitepkg.ImmutableRunConfigBackfillResult, error) {
 			gotDryRun = dryRun
-			return &sqlitepkg.ImmutableRunConfigBackfillResult{RunsSeen: 1, RunsUpdated: 2, ReplayCasesSeen: 3, ReplayCasesUpdated: 4}, nil
+			return &sqlitepkg.ImmutableRunConfigBackfillResult{RunsSeen: 1, RunsUpdated: 2, ClipsSeen: 3, ClipsUpdated: 4}, nil
 		},
 		log.New(&logs, "", 0),
 	)

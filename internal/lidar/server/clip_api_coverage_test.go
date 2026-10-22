@@ -25,49 +25,49 @@ type errReadCloser struct{}
 func (errReadCloser) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
 func (errReadCloser) Close() error             { return nil }
 
-// --- handleUpdateScene additional coverage ---
+// --- handleUpdateClip additional coverage ---
 
-func TestCov_HandleUpdateScene_InvalidJSON(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleUpdateClip_InvalidJSON(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, strings.NewReader("not json"))
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/"+clip.ClipID, strings.NewReader("not json"))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }
 
-func TestCov_HandleUpdateScene_NotFound(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleUpdateClip_NotFound(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
 	desc := "updated"
-	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/nonexistent", bytes.NewReader(body))
+	body, _ := json.Marshal(UpdateClipRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/nonexistent", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
 
-func TestCov_HandleUpdateScene_AllFields(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleUpdateClip_AllFields(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestCov_HandleUpdateScene_AllFields(t *testing.T) {
 	durSecs := 10.0
 	optParams := json.RawMessage(`{"key":"value"}`)
 
-	body, _ := json.Marshal(UpdateSceneRequest{
+	body, _ := json.Marshal(UpdateClipRequest{
 		Description:       &desc,
 		ReferenceRunID:    &refRun,
 		PCAPStartSecs:     &startSecs,
@@ -85,18 +85,18 @@ func TestCov_HandleUpdateScene_AllFields(t *testing.T) {
 		OptimalParamsJSON: &optParams,
 	})
 
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/"+clip.ClipID, bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
 	}
 
 	// Verify all fields were updated
-	updated, err := store.GetScene(scene.ReplayCaseID)
+	updated, err := store.GetClip(clip.ClipID)
 	if err != nil {
-		t.Fatalf("get scene: %v", err)
+		t.Fatalf("get clip: %v", err)
 	}
 	if updated.Description != desc {
 		t.Errorf("description = %q, want %q", updated.Description, desc)
@@ -112,44 +112,42 @@ func TestCov_HandleUpdateScene_AllFields(t *testing.T) {
 	}
 }
 
-// --- handleDeleteScene additional coverage ---
+// --- handleDeleteClip additional coverage ---
 
-func TestCov_HandleDeleteScene_NotFound(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleDeleteClip_NotFound(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/scenes/nonexistent", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/clips/nonexistent", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
 
-// --- handleReplayScene with optimal params ---
+// --- handleReplayClip with optimal params ---
 
-func TestCov_HandleReplayScene_WithOptimalParams(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleReplayClip_WithOptimalParams(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
+	store := sqlite.NewClipStore(ws.db.DB)
 	startSecs := 0.5
 	durSecs := 5.0
-	scene := &sqlite.ReplayCase{
-		SensorID:          "sensor-001",
-		PCAPFile:          "test.pcap",
-		PCAPStartSecs:     &startSecs,
+	clip := &sqlite.Clip{
+		SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, PCAPStartSecs: &startSecs,
 		PCAPDurationSecs:  &durSecs,
 		OptimalParamsJSON: json.RawMessage(`{"threshold": 0.5}`),
 	}
-	if err := store.InsertScene(scene); err != nil {
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// May fail with PCAP error but should get past the params selection logic
 	if w.Code == http.StatusBadRequest || w.Code == http.StatusMethodNotAllowed {
@@ -157,25 +155,24 @@ func TestCov_HandleReplayScene_WithOptimalParams(t *testing.T) {
 	}
 }
 
-func TestCov_HandleReplayScene_WithRequestParams(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleReplayClip_WithRequestParams(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID: "sensor-001",
-		PCAPFile: "test.pcap",
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{
+		SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}},
 	}
-	if err := store.InsertScene(scene); err != nil {
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	body, _ := json.Marshal(map[string]interface{}{
 		"params_json": map[string]interface{}{"threshold": 0.8},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// Should get past validation; PCAP replay itself may fail
 	if w.Code == http.StatusBadRequest || w.Code == http.StatusMethodNotAllowed {
@@ -183,87 +180,87 @@ func TestCov_HandleReplayScene_WithRequestParams(t *testing.T) {
 	}
 }
 
-// --- handleSceneByID missing replay_case_id ---
+// --- handleClipByID missing clip_id ---
 
-func TestCov_HandleSceneByID_NilDB(t *testing.T) {
+func TestCov_HandleClipByID_NilDB(t *testing.T) {
 	ws := &Server{db: nil}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-1", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
 	}
 }
 
-func TestCov_HandleSceneByID_MissingSceneID(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleClipByID_MissingClipID(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }
 
-// --- handleScenes NilDB for POST ---
+// --- handleClips NilDB for POST ---
 
-func TestCov_HandleScenes_NilDB_POST(t *testing.T) {
+func TestCov_HandleClips_NilDB_POST(t *testing.T) {
 	ws := &Server{db: nil}
 
-	body, _ := json.Marshal(CreateSceneRequest{SensorID: "s1", PCAPFile: "p.pcap"})
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes", bytes.NewReader(body))
+	body, _ := json.Marshal(CreateClipRequest{SensorID: "s1", PCAPFiles: []string{"p.pcap"}})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleScenes(w, req)
+	ws.handleClips(w, req)
 
 	if w.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusServiceUnavailable)
 	}
 }
 
-// --- handleListSceneEvaluations wrong method ---
+// --- handleListClipEvaluations wrong method ---
 
-func TestCov_HandleListSceneEvaluations_WrongMethod(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleListClipEvaluations_WrongMethod(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
 	// PUT is not supported for evaluations (GET and POST are)
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/scene-1/evaluations", nil)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/clip-1/evaluations", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// --- handleReplayScene evaluations that dispatch via handleSceneByID method filtering ---
+// --- handleReplayClip evaluations that dispatch via handleClipByID method filtering ---
 
-func TestCov_HandleSceneByID_ReplayWrongMethod(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleClipByID_ReplayWrongMethod(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/replay", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-1/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// --- handleSceneByID POST on scene (not replay) ---
-func TestCov_HandleSceneByID_PostOnScene(t *testing.T) {
-	ws := setupTestSceneServer(t)
+// --- handleClipByID POST on clip (not replay) ---
+func TestCov_HandleClipByID_PostOnClip(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/scene-1", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/clip-1", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
@@ -304,152 +301,152 @@ func TestCov_WriteJSONError(t *testing.T) {
 
 // --- DB error paths (closed DB) ---
 
-func TestCov_HandleListScenes_DBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleListClips_DBError(t *testing.T) {
+	ws := setupTestClipServer(t)
 	ws.db.DB.Close() // force DB error
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips", nil)
 	w := httptest.NewRecorder()
-	ws.handleScenes(w, req)
+	ws.handleClips(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
-func TestCov_HandleGetScene_GenericDBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleGetClip_GenericDBError(t *testing.T) {
+	ws := setupTestClipServer(t)
 	ws.db.DB.Close() // force generic DB error (not "not found")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-1", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-func TestCov_HandleUpdateScene_GenericDBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
-	ws.db.DB.Close() // force generic DB error in GetScene
+func TestCov_HandleUpdateClip_GenericDBError(t *testing.T) {
+	ws := setupTestClipServer(t)
+	ws.db.DB.Close() // force generic DB error in GetClip
 
 	desc := "updated"
-	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/scene-1", bytes.NewReader(body))
+	body, _ := json.Marshal(UpdateClipRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/clip-1", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-func TestCov_HandleUpdateScene_StoreError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleUpdateClip_StoreError(t *testing.T) {
+	ws := setupTestClipServer(t)
 
-	// Insert a scene, then drop the table so UpdateScene fails
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	// Insert a clip, then drop the table so UpdateClip fails
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	// Rename/drop the table to break update but allow read
-	// Actually - just close after creating the scene won't work for GetScene.
-	// Let's corrupt: drop a column that UpdateScene needs
-	_, _ = ws.db.DB.Exec("DROP TABLE lidar_replay_cases")
-	_, _ = ws.db.DB.Exec(`CREATE TABLE lidar_replay_cases (replay_case_id TEXT PRIMARY KEY)`) // minimal table
+	// Actually - just close after creating the clip won't work for GetClip.
+	// Let's corrupt: drop a column that UpdateClip needs
+	_, _ = ws.db.DB.Exec("DROP TABLE lidar_clips")
+	_, _ = ws.db.DB.Exec(`CREATE TABLE lidar_clips (clip_id TEXT PRIMARY KEY)`) // minimal table
 
 	desc := "updated"
-	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, bytes.NewReader(body))
+	body, _ := json.Marshal(UpdateClipRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/"+clip.ClipID, bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
-	// GetScene will fail since columns are missing
+	// GetClip will fail since columns are missing
 	if w.Code != http.StatusInternalServerError && w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want error status; body: %s", w.Code, w.Body.String())
 	}
 }
 
-func TestCov_HandleDeleteScene_GenericDBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleDeleteClip_GenericDBError(t *testing.T) {
+	ws := setupTestClipServer(t)
 	ws.db.DB.Close() // force generic DB error (not "not found")
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/scenes/scene-1", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/lidar/clips/clip-1", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-func TestCov_HandleCreateScene_DBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
-	ws.db.DB.Close() // force DB error on InsertScene
+func TestCov_HandleCreateClip_DBError(t *testing.T) {
+	ws := setupTestClipServer(t)
+	ws.db.DB.Close() // force DB error on InsertClip
 
-	body, _ := json.Marshal(CreateSceneRequest{SensorID: "s1", PCAPFile: "p.pcap"})
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes", bytes.NewReader(body))
+	body, _ := json.Marshal(CreateClipRequest{SensorID: "s1", PCAPFiles: []string{"p.pcap"}})
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips", bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleScenes(w, req)
+	ws.handleClips(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-func TestCov_HandleReplayScene_InsertRunDBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleReplayClip_InsertRunDBError(t *testing.T) {
+	ws := setupTestClipServer(t)
 
-	// Insert scene first
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	// Insert clip first
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
-	// Drop analysis_runs table to force InsertRun failure
-	_, _ = ws.db.DB.Exec("DROP TABLE lidar_run_records")
+	// Drop runs table to force InsertRun failure
+	_, _ = ws.db.DB.Exec("DROP TABLE lidar_runs")
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-func TestCov_HandleReplayScene_GenericDBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleReplayClip_GenericDBError(t *testing.T) {
+	ws := setupTestClipServer(t)
 
-	// Insert scene, then close DB so GetScene fails with generic error
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	// Insert clip, then close DB so GetClip fails with generic error
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 	ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-func TestCov_HandleListScenes_EmptyReturnsArray(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleListClips_EmptyReturnsArray(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	// No scenes inserted — should return empty array, not null
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes", nil)
+	// No clips inserted — should return empty array, not null
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips", nil)
 	w := httptest.NewRecorder()
-	ws.handleScenes(w, req)
+	ws.handleClips(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
@@ -459,58 +456,58 @@ func TestCov_HandleListScenes_EmptyReturnsArray(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	scenes, ok := resp["scenes"].([]interface{})
+	clips, ok := resp["clips"].([]interface{})
 	if !ok {
-		t.Fatal("expected scenes to be an array")
+		t.Fatal("expected clips to be an array")
 	}
-	if len(scenes) != 0 {
-		t.Errorf("expected 0 scenes, got %d", len(scenes))
+	if len(clips) != 0 {
+		t.Errorf("expected 0 clips, got %d", len(clips))
 	}
 }
 
-func TestCov_HandleListSceneEvaluations_GET(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleListClipEvaluations_GET(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/evaluations", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-1/evaluations", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
 	}
-	if !strings.Contains(w.Body.String(), "scene-1") {
-		t.Errorf("expected replay_case_id in response, got: %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), "clip-1") {
+		t.Errorf("expected clip_id in response, got: %s", w.Body.String())
 	}
 }
 
-func TestCov_HandleSceneByID_EvaluationsPostDispatch(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleClipByID_EvaluationsPostDispatch(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/nonexistent/evaluations", strings.NewReader(`{"candidate_run_id":"cand-1"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/nonexistent/evaluations", strings.NewReader(`{"candidate_run_id":"cand-1"}`))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
 	}
 }
 
-func TestCov_HandleUpdateScene_ReadBodyError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleUpdateClip_ReadBodyError(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-read-err", PCAPFile: "read-error.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-read-err", Files: []sqlite.ClipCapture{{PCAPFile: "read-error.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, nil)
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/"+clip.ClipID, nil)
 	req.Body = errReadCloser{}
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
@@ -520,48 +517,48 @@ func TestCov_HandleUpdateScene_ReadBodyError(t *testing.T) {
 	}
 }
 
-func TestCov_HandleUpdateScene_UpdateError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleUpdateClip_UpdateError(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-update-err", PCAPFile: "update-error.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-update-err", Files: []sqlite.ClipCapture{{PCAPFile: "update-error.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	if _, err := ws.db.DB.Exec(`
-		CREATE TRIGGER fail_scene_update BEFORE UPDATE ON lidar_replay_cases
+		CREATE TRIGGER fail_clip_update BEFORE UPDATE ON lidar_clips
 		BEGIN
-			SELECT RAISE(FAIL, 'scene update blocked');
+			SELECT RAISE(FAIL, 'clip update blocked');
 		END
 	`); err != nil {
 		t.Fatalf("create trigger: %v", err)
 	}
 
 	desc := "should fail"
-	body, _ := json.Marshal(UpdateSceneRequest{Description: &desc})
-	req := httptest.NewRequest(http.MethodPut, "/api/lidar/scenes/"+scene.ReplayCaseID, bytes.NewReader(body))
+	body, _ := json.Marshal(UpdateClipRequest{Description: &desc})
+	req := httptest.NewRequest(http.MethodPut, "/api/lidar/clips/"+clip.ClipID, bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 }
 
-// setupTestSceneAPIDBFull creates a test DB with the full lidar_run_records
+// setupTestClipAPIDBFull creates a test DB with the full lidar_runs
 // schema so that InsertRun succeeds (the original helper only has 2 columns).
-func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
+func setupTestClipAPIDBFull(t *testing.T) *db.DB {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("failed to open test db: %v", err)
 	}
 
-	// Full lidar_run_records table (matching InsertRun query)
+	// Full lidar_runs table (matching InsertRun query)
 	_, err = sqlDB.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_run_records (
+		CREATE TABLE IF NOT EXISTS lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER,
 			source_type TEXT,
@@ -581,7 +578,7 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_run_records table: %v", err)
+		t.Fatalf("failed to create lidar_runs table: %v", err)
 	}
 
 	// lidar_param_sets table (needed by normalizeRecommendedParamSet)
@@ -599,12 +596,11 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 		t.Fatalf("failed to create lidar_param_sets table: %v", err)
 	}
 
-	// lidar_replay_cases table
+	// lidar_clips table
 	_, err = sqlDB.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_replay_cases (
-			replay_case_id TEXT PRIMARY KEY,
+		CREATE TABLE IF NOT EXISTS lidar_clips (
+			clip_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
-			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
 			pcap_duration_secs REAL,
 			description TEXT,
@@ -612,45 +608,45 @@ func setupTestSceneAPIDBFull(t *testing.T) *db.DB {
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT,
-			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id) ON DELETE SET NULL
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_runs(run_id) ON DELETE SET NULL
 		);
 
-	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
-		replay_case_id TEXT NOT NULL,
+	CREATE TABLE IF NOT EXISTS lidar_clip_captures (
+		clip_id TEXT NOT NULL,
 		ordinal INTEGER NOT NULL,
 		capture_file_id TEXT,
 		pcap_file TEXT NOT NULL,
-		PRIMARY KEY (replay_case_id, ordinal)
+		PRIMARY KEY (clip_id, ordinal)
 	)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
+		t.Fatalf("failed to create lidar_clips table: %v", err)
 	}
 
 	return &db.DB{DB: sqlDB}
 }
 
-// --- handleReplayScene: invalid JSON body ---
+// --- handleReplayClip: invalid JSON body ---
 
-func TestSceneCov2_ReplayInvalidJSON(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayInvalidJSON(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	ws := &Server{db: testDB}
 
-	// Insert a scene so GetScene succeeds
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	// Insert a clip so GetClip succeeds
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	// Send malformed JSON body — should trigger err != io.EOF branch
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay",
+		"/api/lidar/clips/"+clip.ClipID+"/replay",
 		strings.NewReader("{bad json"))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusBadRequest, w.Body.String())
@@ -660,10 +656,10 @@ func TestSceneCov2_ReplayInvalidJSON(t *testing.T) {
 	}
 }
 
-// --- handleReplayScene: pcap in progress, with tracker + background manager ---
+// --- handleReplayClip: pcap in progress, with tracker + background manager ---
 
-func TestSceneCov2_ReplayPCAPInProgress(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayPCAPInProgress(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	// Create temp dir with dummy .pcap file for resolvePCAPPath
@@ -689,27 +685,25 @@ func TestSceneCov2_ReplayPCAPInProgress(t *testing.T) {
 
 	// Mark PCAP as already in progress
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapMu.Unlock()
 
-	// Insert scene
-	store := sqlite.NewReplayCaseStore(testDB.DB)
+	// Insert clip
+	store := sqlite.NewClipStore(testDB.DB)
 	startSecs := 1.0
 	durSecs := 5.0
-	scene := &sqlite.ReplayCase{
-		SensorID:         sensorID,
-		PCAPFile:         pcapName,
-		PCAPStartSecs:    &startSecs,
+	clip := &sqlite.Clip{
+		SensorID: sensorID, Files: []sqlite.ClipCapture{{PCAPFile: pcapName}}, PCAPStartSecs: &startSecs,
 		PCAPDurationSecs: &durSecs,
 	}
-	if err := store.InsertScene(scene); err != nil {
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+		"/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// StartPCAPInternal fails because pcap already in progress
 	if w.Code != http.StatusInternalServerError {
@@ -720,10 +714,10 @@ func TestSceneCov2_ReplayPCAPInProgress(t *testing.T) {
 	}
 }
 
-// --- handleReplayScene: broken BackgroundManager (nil grid) logs warning ---
+// --- handleReplayClip: broken BackgroundManager (nil grid) logs warning ---
 
-func TestSceneCov2_ReplayBrokenBGManager(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayBrokenBGManager(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	sensorID := "sensor-cov2-brokenbgm"
@@ -736,17 +730,17 @@ func TestSceneCov2_ReplayBrokenBGManager(t *testing.T) {
 	// Register a BackgroundManager with nil Grid — ResetGrid returns error
 	l3grid.RegisterBackgroundManager(sensorID, &l3grid.BackgroundManager{})
 
-	// Insert scene
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: sensorID, PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	// Insert clip
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: sensorID, Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+		"/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// Should still get past resetBackgroundGrid (error is just logged)
 	// Then fail at StartPCAPInternal because pcapSafeDir is empty
@@ -755,29 +749,28 @@ func TestSceneCov2_ReplayBrokenBGManager(t *testing.T) {
 	}
 }
 
-// --- handleReplayScene: neither request params nor optimal params ---
+// --- handleReplayClip: neither request params nor optimal params ---
 
-func TestSceneCov2_ReplayNoParams(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayNoParams(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	ws := &Server{db: testDB, sensorID: "sensor-cov2-noparams"}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID: "sensor-cov2-noparams",
-		PCAPFile: "test.pcap",
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{
+		SensorID: "sensor-cov2-noparams", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}},
 		// No OptimalParamsJSON, no PCAPStartSecs, no PCAPDurationSecs
 	}
-	if err := store.InsertScene(scene); err != nil {
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	// Empty body — no params_json
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+		"/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// InsertRun should succeed (full table), then StartPCAPInternal fails
 	if w.Code != http.StatusInternalServerError {
@@ -785,33 +778,31 @@ func TestSceneCov2_ReplayNoParams(t *testing.T) {
 	}
 }
 
-// --- handleReplayScene: request params override scene optimal params ---
+// --- handleReplayClip: request params override clip optimal params ---
 
-func TestSceneCov2_ReplayRequestParamsOverride(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayRequestParamsOverride(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	ws := &Server{db: testDB, sensorID: "sensor-cov2-override"}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID:          "sensor-cov2-override",
-		PCAPFile:          "test.pcap",
-		OptimalParamsJSON: json.RawMessage(`{"threshold": 0.5}`),
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{
+		SensorID: "sensor-cov2-override", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, OptimalParamsJSON: json.RawMessage(`{"threshold": 0.5}`),
 	}
-	if err := store.InsertScene(scene); err != nil {
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
-	// Send request params that should override scene's optimal params
+	// Send request params that should override clip's optimal params
 	body, _ := json.Marshal(map[string]interface{}{
 		"params_json": map[string]interface{}{"threshold": 0.9},
 	})
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay",
+		"/api/lidar/clips/"+clip.ClipID+"/replay",
 		bytes.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// InsertRun succeeds, then StartPCAPInternal fails
 	if w.Code != http.StatusInternalServerError {
@@ -819,24 +810,24 @@ func TestSceneCov2_ReplayRequestParamsOverride(t *testing.T) {
 	}
 }
 
-// --- handleReplayScene: UpdateRunStatus also fails ---
+// --- handleReplayClip: UpdateRunStatus also fails ---
 
-func TestSceneCov2_ReplayUpdateStatusError(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayUpdateStatusError(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	ws := &Server{db: testDB, sensorID: "sensor-cov2-updateerr"}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-cov2-updateerr", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-cov2-updateerr", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
-	// Add trigger to block UPDATE on lidar_run_records, so UpdateRunStatus fails
+	// Add trigger to block UPDATE on lidar_runs, so UpdateRunStatus fails
 	// while InsertRun still succeeds.
 	_, err := testDB.DB.Exec(`
-		CREATE TRIGGER prevent_update_runs BEFORE UPDATE ON lidar_run_records
+		CREATE TRIGGER prevent_update_runs BEFORE UPDATE ON lidar_runs
 		BEGIN
 			SELECT RAISE(FAIL, 'update blocked by trigger');
 		END
@@ -846,9 +837,9 @@ func TestSceneCov2_ReplayUpdateStatusError(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+		"/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// InsertRun succeeds → StartPCAPInternal fails → UpdateRunStatus fails (trigger)
 	// → handler still returns 500 from the StartPCAPInternal error
@@ -857,32 +848,30 @@ func TestSceneCov2_ReplayUpdateStatusError(t *testing.T) {
 	}
 }
 
-// --- handleReplayScene: scene with OptimalParamsJSON, full DB ---
+// --- handleReplayClip: clip with OptimalParamsJSON, full DB ---
 
-func TestSceneCov2_ReplayWithOptimalParamsFullDB(t *testing.T) {
-	testDB := setupTestSceneAPIDBFull(t)
+func TestClipCov2_ReplayWithOptimalParamsFullDB(t *testing.T) {
+	testDB := setupTestClipAPIDBFull(t)
 	defer testDB.DB.Close()
 
 	ws := &Server{db: testDB, sensorID: "sensor-cov2-optparams"}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
+	store := sqlite.NewClipStore(testDB.DB)
 	startSecs := 0.5
 	durSecs := 10.0
-	scene := &sqlite.ReplayCase{
-		SensorID:          "sensor-cov2-optparams",
-		PCAPFile:          "test.pcap",
-		PCAPStartSecs:     &startSecs,
+	clip := &sqlite.Clip{
+		SensorID: "sensor-cov2-optparams", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, PCAPStartSecs: &startSecs,
 		PCAPDurationSecs:  &durSecs,
 		OptimalParamsJSON: json.RawMessage(`{"threshold": 0.5}`),
 	}
-	if err := store.InsertScene(scene); err != nil {
+	if err := store.InsertClip(clip); err != nil {
 		t.Fatalf("insert: %v", err)
 	}
 
 	req := httptest.NewRequest(http.MethodPost,
-		"/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+		"/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	// InsertRun succeeds with full DB, then StartPCAPInternal fails (no pcapSafeDir)
 	if w.Code != http.StatusInternalServerError {
@@ -893,44 +882,44 @@ func TestSceneCov2_ReplayWithOptimalParamsFullDB(t *testing.T) {
 	}
 }
 
-// --- parseScenePath edge cases ---
+// --- parseClipPath edge cases ---
 
-func TestSceneCov2_ParseScenePathNoPrefix(t *testing.T) {
-	sceneID, action := parseScenePath("/some/other/path")
-	if sceneID != "" || action != "" {
-		t.Errorf("expected empty results for non-matching path, got sceneID=%q action=%q", sceneID, action)
+func TestClipCov2_ParseClipPathNoPrefix(t *testing.T) {
+	clipID, action := parseClipPath("/some/other/path")
+	if clipID != "" || action != "" {
+		t.Errorf("expected empty results for non-matching path, got clipID=%q action=%q", clipID, action)
 	}
 }
 
-func TestSceneCov2_ParseScenePathWithAction(t *testing.T) {
-	sceneID, action := parseScenePath("/api/lidar/scenes/abc-123/replay")
-	if sceneID != "abc-123" {
-		t.Errorf("sceneID = %q, want %q", sceneID, "abc-123")
+func TestClipCov2_ParseClipPathWithAction(t *testing.T) {
+	clipID, action := parseClipPath("/api/lidar/clips/abc-123/replay")
+	if clipID != "abc-123" {
+		t.Errorf("clipID = %q, want %q", clipID, "abc-123")
 	}
 	if action != "replay" {
 		t.Errorf("action = %q, want %q", action, "replay")
 	}
 }
 
-func TestSceneCov2_ParseScenePathSceneOnly(t *testing.T) {
-	sceneID, action := parseScenePath("/api/lidar/scenes/abc-123")
-	if sceneID != "abc-123" {
-		t.Errorf("sceneID = %q, want %q", sceneID, "abc-123")
+func TestClipCov2_ParseClipPathClipOnly(t *testing.T) {
+	clipID, action := parseClipPath("/api/lidar/clips/abc-123")
+	if clipID != "abc-123" {
+		t.Errorf("clipID = %q, want %q", clipID, "abc-123")
 	}
 	if action != "" {
 		t.Errorf("action = %q, want empty", action)
 	}
 }
 
-// --- handleSceneByID: unknown action ---
+// --- handleClipByID: unknown action ---
 
-func TestSceneCov2_UnknownAction(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestClipCov2_UnknownAction(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/bogus", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-1/bogus", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
@@ -940,34 +929,34 @@ func TestSceneCov2_UnknownAction(t *testing.T) {
 	}
 }
 
-// --- handleScenes: unsupported method ---
+// --- handleClips: unsupported method ---
 
-func TestSceneCov2_HandleScenesMethodNotAllowed(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestClipCov2_HandleClipsMethodNotAllowed(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodPatch, "/api/lidar/scenes", nil)
+	req := httptest.NewRequest(http.MethodPatch, "/api/lidar/clips", nil)
 	w := httptest.NewRecorder()
-	ws.handleScenes(w, req)
+	ws.handleClips(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusMethodNotAllowed)
 	}
 }
 
-// --- handleCreateSceneEvaluation coverage ---
+// --- handleCreateClipEvaluation coverage ---
 
-// setupTestSceneAPIDBWithEvaluations creates a full test DB with all tables needed
-// for evaluation testing (scenes, analysis runs, run tracks, evaluations).
-func setupTestSceneAPIDBWithEvaluations(t *testing.T) *db.DB {
+// setupTestClipAPIDBWithEvaluations creates a full test DB with all tables needed
+// for evaluation testing (clips, analysis runs, run tracks, evaluations).
+func setupTestClipAPIDBWithEvaluations(t *testing.T) *db.DB {
 	t.Helper()
-	testDB := setupTestSceneAPIDBFull(t)
+	testDB := setupTestClipAPIDBFull(t)
 
-	// Add lidar_replay_evaluations table
+	// Add lidar_clip_evaluations table
 	_, err := testDB.DB.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_replay_evaluations (
+		CREATE TABLE IF NOT EXISTS lidar_clip_evaluations (
 			evaluation_id       TEXT PRIMARY KEY,
-			replay_case_id            TEXT NOT NULL,
+			clip_id            TEXT NOT NULL,
 			reference_run_id    TEXT NOT NULL,
 			candidate_run_id    TEXT NOT NULL,
 			detection_rate      REAL,
@@ -983,14 +972,14 @@ func setupTestSceneAPIDBWithEvaluations(t *testing.T) *db.DB {
 			reference_count     INTEGER,
 			candidate_count     INTEGER,
 			created_at          INTEGER NOT NULL,
-			FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases(replay_case_id) ON DELETE CASCADE,
-			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id),
-			FOREIGN KEY (candidate_run_id) REFERENCES lidar_run_records(run_id)
+			FOREIGN KEY (clip_id) REFERENCES lidar_clips(clip_id) ON DELETE CASCADE,
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_runs(run_id),
+			FOREIGN KEY (candidate_run_id) REFERENCES lidar_runs(run_id)
 		);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_replay_evaluations(reference_run_id, candidate_run_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_clip_evaluations(reference_run_id, candidate_run_id);
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_replay_evaluations table: %v", err)
+		t.Fatalf("failed to create lidar_clip_evaluations table: %v", err)
 	}
 
 	// Add lidar_run_tracks table (needed for GroundTruthEvaluator)
@@ -1023,7 +1012,7 @@ func setupTestSceneAPIDBWithEvaluations(t *testing.T) *db.DB {
 			is_merge_candidate INTEGER DEFAULT 0,
 			linked_track_ids TEXT,
 			PRIMARY KEY (run_id, track_id),
-			FOREIGN KEY (run_id) REFERENCES lidar_run_records(run_id) ON DELETE CASCADE
+			FOREIGN KEY (run_id) REFERENCES lidar_runs(run_id) ON DELETE CASCADE
 		)
 	`)
 	if err != nil {
@@ -1033,37 +1022,37 @@ func setupTestSceneAPIDBWithEvaluations(t *testing.T) *db.DB {
 	return testDB
 }
 
-func TestCov_HandleCreateSceneEvaluation_SceneNotFound(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_ClipNotFound(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
 	body := `{"candidate_run_id": "cand-1"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/nonexistent/evaluations", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/nonexistent/evaluations", strings.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, "nonexistent")
+	ws.handleCreateClipEvaluation(w, req, "nonexistent")
 
 	if w.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusNotFound, w.Body.String())
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_NoReferenceRun(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_NoReferenceRun(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
-	// Insert scene without reference_run_id
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap"}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	// Insert clip without reference_run_id
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
 	body := `{"candidate_run_id": "cand-1"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/evaluations", strings.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+	ws.handleCreateClipEvaluation(w, req, clip.ClipID)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d, body: %s", w.Code, http.StatusBadRequest, w.Body.String())
@@ -1073,53 +1062,53 @@ func TestCov_HandleCreateSceneEvaluation_NoReferenceRun(t *testing.T) {
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_InvalidJSON(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_InvalidJSON(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
-	// Insert run and scene with reference
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-eval", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	// Insert run and clip with reference
+	runStore := sqlite.NewRunStore(testDB.DB)
+	refRun := &sqlite.Run{RunID: "ref-run-eval", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: "ref-run-eval"}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, ReferenceRunID: "ref-run-eval"}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader("{invalid"))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/evaluations", strings.NewReader("{invalid"))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+	ws.handleCreateClipEvaluation(w, req, clip.ClipID)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_MissingCandidateID(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_MissingCandidateID(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
-	// Insert run and scene with reference
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-eval2", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	// Insert run and clip with reference
+	runStore := sqlite.NewRunStore(testDB.DB)
+	refRun := &sqlite.Run{RunID: "ref-run-eval2", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: "ref-run-eval2"}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, ReferenceRunID: "ref-run-eval2"}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
 	body := `{}`
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/evaluations", strings.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+	ws.handleCreateClipEvaluation(w, req, clip.ClipID)
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("status = %d, want %d", w.Code, http.StatusBadRequest)
@@ -1129,18 +1118,18 @@ func TestCov_HandleCreateSceneEvaluation_MissingCandidateID(t *testing.T) {
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_Success(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_Success(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
 	// Insert reference and candidate runs with tracks
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	runStore := sqlite.NewRunStore(testDB.DB)
+	refRun := &sqlite.Run{RunID: "ref-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	candRun := &sqlite.AnalysisRun{RunID: "cand-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	candRun := &sqlite.Run{RunID: "cand-run-success", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(candRun); err != nil {
 		t.Fatalf("insert cand run: %v", err)
 	}
@@ -1164,17 +1153,17 @@ func TestCov_HandleCreateSceneEvaluation_Success(t *testing.T) {
 		}
 	}
 
-	// Create scene with reference run
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: "ref-run-success"}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	// Create clip with reference run
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, ReferenceRunID: "ref-run-success"}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
 	body := `{"candidate_run_id": "cand-run-success"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/evaluations", strings.NewReader(body))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+	ws.handleCreateClipEvaluation(w, req, clip.ClipID)
 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want %d, body: %s", w.Code, http.StatusCreated, w.Body.String())
@@ -1197,37 +1186,37 @@ func TestCov_HandleCreateSceneEvaluation_Success(t *testing.T) {
 
 	// Verify listing works
 	evalStore := sqlite.NewEvaluationStore(testDB.DB)
-	evals, err := evalStore.ListByScene(scene.ReplayCaseID)
+	evals, err := evalStore.ListByClip(clip.ClipID)
 	if err != nil {
-		t.Fatalf("ListByScene: %v", err)
+		t.Fatalf("ListByClip: %v", err)
 	}
 	if len(evals) != 1 {
 		t.Fatalf("expected 1 evaluation, got %d", len(evals))
 	}
 }
 
-func TestCov_HandleListSceneEvaluations_WithData(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleListClipEvaluations_WithData(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
-	// Insert scene and a pre-existing evaluation
-	_, err := testDB.DB.Exec(`INSERT INTO lidar_replay_cases (replay_case_id, sensor_id, pcap_file, created_at_ns) VALUES ('scene-eval-list', 'sensor-1', 'test.pcap', 1000)`)
+	// Insert clip and a pre-existing evaluation
+	_, err := testDB.DB.Exec(`INSERT INTO lidar_clips (clip_id, sensor_id, created_at_ns) VALUES ('clip-eval-list', 'sensor-1', 1000)`)
 	if err != nil {
-		t.Fatalf("insert scene: %v", err)
+		t.Fatalf("insert clip: %v", err)
 	}
-	_, err = testDB.DB.Exec(`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status) VALUES ('ref-list', 0, 'pcap', 'sensor-1', 'completed')`)
+	_, err = testDB.DB.Exec(`INSERT INTO lidar_runs (run_id, created_at, source_type, sensor_id, status) VALUES ('ref-list', 0, 'pcap', 'sensor-1', 'completed')`)
 	if err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	_, err = testDB.DB.Exec(`INSERT INTO lidar_run_records (run_id, created_at, source_type, sensor_id, status) VALUES ('cand-list', 0, 'pcap', 'sensor-1', 'completed')`)
+	_, err = testDB.DB.Exec(`INSERT INTO lidar_runs (run_id, created_at, source_type, sensor_id, status) VALUES ('cand-list', 0, 'pcap', 'sensor-1', 'completed')`)
 	if err != nil {
 		t.Fatalf("insert cand run: %v", err)
 	}
 
 	evalStore := sqlite.NewEvaluationStore(testDB.DB)
 	eval := &sqlite.Evaluation{
-		ReplayCaseID:   "scene-eval-list",
+		ClipID:         "clip-eval-list",
 		ReferenceRunID: "ref-list",
 		CandidateRunID: "cand-list",
 		CompositeScore: 0.85,
@@ -1240,9 +1229,9 @@ func TestCov_HandleListSceneEvaluations_WithData(t *testing.T) {
 		t.Fatalf("insert evaluation: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-eval-list/evaluations", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-eval-list/evaluations", nil)
 	w := httptest.NewRecorder()
-	ws.handleListSceneEvaluations(w, req, "scene-eval-list")
+	ws.handleListClipEvaluations(w, req, "clip-eval-list")
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
@@ -1252,61 +1241,61 @@ func TestCov_HandleListSceneEvaluations_WithData(t *testing.T) {
 	}
 }
 
-func TestCov_HandleListSceneEvaluations_DBError(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleListClipEvaluations_DBError(t *testing.T) {
+	ws := setupTestClipServer(t)
 	ws.db.DB.Close()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/scenes/scene-1/evaluations", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/clips/clip-1/evaluations", nil)
 	w := httptest.NewRecorder()
-	ws.handleListSceneEvaluations(w, req, "scene-1")
+	ws.handleListClipEvaluations(w, req, "clip-1")
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_LoadSceneDBError(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_LoadClipDBError(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	ws := &Server{db: testDB}
 	testDB.DB.Close()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/scene-db-error/evaluations", strings.NewReader(`{"candidate_run_id":"cand-1"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/clip-db-error/evaluations", strings.NewReader(`{"candidate_run_id":"cand-1"}`))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, "scene-db-error")
+	ws.handleCreateClipEvaluation(w, req, "clip-db-error")
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusInternalServerError)
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_EvaluateError(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_EvaluateError(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-eval-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	runStore := sqlite.NewRunStore(testDB.DB)
+	refRun := &sqlite.Run{RunID: "ref-run-eval-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	candRun := &sqlite.AnalysisRun{RunID: "cand-run-eval-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	candRun := &sqlite.Run{RunID: "cand-run-eval-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(candRun); err != nil {
 		t.Fatalf("insert candidate run: %v", err)
 	}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: refRun.RunID}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, ReferenceRunID: refRun.RunID}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
 	if _, err := testDB.DB.Exec(`DROP TABLE lidar_run_tracks`); err != nil {
 		t.Fatalf("drop lidar_run_tracks: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-eval-error"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-eval-error"}`))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+	ws.handleCreateClipEvaluation(w, req, clip.ClipID)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
@@ -1316,17 +1305,17 @@ func TestCov_HandleCreateSceneEvaluation_EvaluateError(t *testing.T) {
 	}
 }
 
-func TestCov_HandleCreateSceneEvaluation_InsertError(t *testing.T) {
-	testDB := setupTestSceneAPIDBWithEvaluations(t)
+func TestCov_HandleCreateClipEvaluation_InsertError(t *testing.T) {
+	testDB := setupTestClipAPIDBWithEvaluations(t)
 	defer testDB.DB.Close()
 	ws := &Server{db: testDB}
 
-	runStore := sqlite.NewAnalysisRunStore(testDB.DB)
-	refRun := &sqlite.AnalysisRun{RunID: "ref-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	runStore := sqlite.NewRunStore(testDB.DB)
+	refRun := &sqlite.Run{RunID: "ref-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(refRun); err != nil {
 		t.Fatalf("insert ref run: %v", err)
 	}
-	candRun := &sqlite.AnalysisRun{RunID: "cand-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
+	candRun := &sqlite.Run{RunID: "cand-run-insert-error", SourceType: "pcap", SensorID: "sensor-001", Status: "completed"}
 	if err := runStore.InsertRun(candRun); err != nil {
 		t.Fatalf("insert candidate run: %v", err)
 	}
@@ -1352,15 +1341,15 @@ func TestCov_HandleCreateSceneEvaluation_InsertError(t *testing.T) {
 		}
 	}
 
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-001", PCAPFile: "test.pcap", ReferenceRunID: refRun.RunID}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	store := sqlite.NewClipStore(testDB.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-001", Files: []sqlite.ClipCapture{{PCAPFile: "test.pcap"}}, ReferenceRunID: refRun.RunID}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
 	evalStore := sqlite.NewEvaluationStore(testDB.DB)
 	eval := &sqlite.Evaluation{
-		ReplayCaseID:   scene.ReplayCaseID,
+		ClipID:         clip.ClipID,
 		ReferenceRunID: refRun.RunID,
 		CandidateRunID: candRun.RunID,
 	}
@@ -1368,9 +1357,9 @@ func TestCov_HandleCreateSceneEvaluation_InsertError(t *testing.T) {
 		t.Fatalf("seed evaluation: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-insert-error"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/evaluations", strings.NewReader(`{"candidate_run_id":"cand-run-insert-error"}`))
 	w := httptest.NewRecorder()
-	ws.handleCreateSceneEvaluation(w, req, scene.ReplayCaseID)
+	ws.handleCreateClipEvaluation(w, req, clip.ClipID)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusInternalServerError, w.Body.String())
@@ -1380,34 +1369,34 @@ func TestCov_HandleCreateSceneEvaluation_InsertError(t *testing.T) {
 	}
 }
 
-func TestCov_HandleReplayScene_FallsBackToPreferredRunID(t *testing.T) {
-	ws := setupTestSceneServer(t)
+func TestCov_HandleReplayClip_FallsBackToPreferredRunID(t *testing.T) {
+	ws := setupTestClipServer(t)
 	defer ws.db.DB.Close()
 
-	store := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{SensorID: "sensor-scene-fallback", PCAPFile: "fallback.pcap"}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("insert scene: %v", err)
+	store := sqlite.NewClipStore(ws.db.DB)
+	clip := &sqlite.Clip{SensorID: "sensor-clip-fallback", Files: []sqlite.ClipCapture{{PCAPFile: "fallback.pcap"}}}
+	if err := store.InsertClip(clip); err != nil {
+		t.Fatalf("insert clip: %v", err)
 	}
 
-	origStart := startPCAPInternalForScene
-	origLast := lastAnalysisRunIDForScene
-	startPCAPInternalForScene = func(_ *Server, _ string, _ ReplayConfig) error { return nil }
-	lastAnalysisRunIDForScene = func(_ *Server) string { return "" }
+	origStart := startPCAPInternalForClip
+	origLast := lastRunIDForClip
+	startPCAPInternalForClip = func(_ *Server, _ string, _ ReplayConfig) error { return nil }
+	lastRunIDForClip = func(_ *Server) string { return "" }
 	defer func() {
-		startPCAPInternalForScene = origStart
-		lastAnalysisRunIDForScene = origLast
+		startPCAPInternalForClip = origStart
+		lastRunIDForClip = origLast
 	}()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/lidar/scenes/"+scene.ReplayCaseID+"/replay", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/lidar/clips/"+clip.ClipID+"/replay", nil)
 	w := httptest.NewRecorder()
-	ws.handleSceneByID(w, req)
+	ws.handleClipByID(w, req)
 
 	if w.Code != http.StatusAccepted {
 		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusAccepted, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), `"replay_case_id":"`+scene.ReplayCaseID+`"`) {
-		t.Fatalf("expected replay case id in response, got %s", w.Body.String())
+	if !strings.Contains(w.Body.String(), `"clip_id":"`+clip.ClipID+`"`) {
+		t.Fatalf("expected clip id in response, got %s", w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), `"run_id":"replay-`) {
 		t.Fatalf("expected preferred run id fallback, got %s", w.Body.String())

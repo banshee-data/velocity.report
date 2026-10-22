@@ -365,7 +365,7 @@ struct PlaybackInfo {
 
 struct LabelEvent: Identifiable, Codable {
     var id: String = UUID().uuidString
-    var replayCaseID: String? = nil
+    var clipID: String? = nil
     var runID: String? = nil
     var trackID: String = ""
     var classLabel: String = ""
@@ -380,7 +380,7 @@ struct LabelEvent: Identifiable, Codable {
 
     enum CodingKeys: String, CodingKey {
         case id = "label_id"
-        case replayCaseID = "replay_case_id"
+        case clipID = "clip_id"
         case runID = "run_id"
         case trackID = "track_id"
         case classLabel = "class_label"

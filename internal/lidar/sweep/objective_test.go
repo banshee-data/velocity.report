@@ -22,7 +22,7 @@ func TestDefaultObjectiveWeights(t *testing.T) {
 	if weights.ActiveTracks != 0 {
 		t.Errorf("unbounded track reward must be opt-in, got %v", weights.ActiveTracks)
 	}
-	// New scene-level weights should default to 0 (opt-in)
+	// New clip-level weights should default to 0 (opt-in)
 	if weights.ForegroundCapture != 0 {
 		t.Errorf("expected ForegroundCapture=0, got %v", weights.ForegroundCapture)
 	}
@@ -159,7 +159,7 @@ func TestRankResultsTiedScores(t *testing.T) {
 	}
 }
 
-func TestScoreResultWithSceneLevelWeights(t *testing.T) {
+func TestScoreResultWithClipLevelWeights(t *testing.T) {
 	result := ComboResult{
 		OverallAcceptMean:      0.8,
 		ForegroundCaptureMean:  0.75,

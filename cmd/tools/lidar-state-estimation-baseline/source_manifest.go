@@ -125,7 +125,7 @@ func buildSourceManifest(corpusPath, indexPath, pcapRoot, tuningPath, sensorID s
 			})
 		}
 		sourceID, err := l4bobserve.SourceID(l4bobserve.CaptureSource{
-			ReplayCaseID: resolved.corpusCase.ID, CapturePaths: resolved.paths, CaptureSHA256s: rawHashes,
+			ClipID: resolved.corpusCase.ID, CapturePaths: resolved.paths, CaptureSHA256s: rawHashes,
 			ExtractorID: "l4.dbscan_xy/v1/" + paramsHash,
 		})
 		if err != nil {

@@ -193,3 +193,6 @@ sudo systemctl start velocity-report
 
 - **Check**: Firewall settings, UDP port configuration, network interface binding
 - **Debug**: Use `netstat -un` to verify UDP listener is active
+
+LiDAR evaluation windows are [clips](../../../docs/lidar/operations/clip-management-implementation.md). The API uses
+`/api/lidar/clips` and `clip_id`; ordered capture rows supply each clip’s paths.

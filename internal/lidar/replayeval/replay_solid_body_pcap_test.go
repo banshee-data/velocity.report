@@ -45,7 +45,7 @@ func runSolidBodyArm(t *testing.T, dir, name string, experiments []string) solid
 		PCAPFile: requireKirk0(t), OutDir: filepath.Join(dir, name), SensorID: "test-replay", UDPPort: 2369,
 		// The whole capture after the settled 20 s prefix.
 		StartSeconds: 20, WarmupSeconds: 20, RequireSettled: true,
-		ObservationDBPath: filepath.Join(dir, name+".db"), ReplayCaseID: "kirk0-solid-body",
+		ObservationDBPath: filepath.Join(dir, name+".db"), ClipID: "kirk0-solid-body",
 		// The corpus runner's retained-point cap, so these figures describe
 		// the evidence a G-GEO-1 corpus run will read.
 		ObservationMaxSamplePoints: 256,

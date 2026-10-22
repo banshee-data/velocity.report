@@ -17,40 +17,39 @@ func setupTestEvaluationDB(t *testing.T) *sql.DB {
 
 	// Create referenced tables (FK targets)
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_run_records (
+		CREATE TABLE IF NOT EXISTS lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_run_records table: %v", err)
+		t.Fatalf("failed to create lidar_runs table: %v", err)
 	}
 
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_replay_cases (
-			replay_case_id TEXT PRIMARY KEY,
+		CREATE TABLE IF NOT EXISTS lidar_clips (
+			clip_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
-			pcap_file TEXT NOT NULL,
 			created_at_ns INTEGER NOT NULL
 		);
 
-	CREATE TABLE IF NOT EXISTS lidar_replay_case_files (
-		replay_case_id TEXT NOT NULL,
+	CREATE TABLE IF NOT EXISTS lidar_clip_captures (
+		clip_id TEXT NOT NULL,
 		ordinal INTEGER NOT NULL,
 		capture_file_id TEXT,
 		pcap_file TEXT NOT NULL,
-		PRIMARY KEY (replay_case_id, ordinal)
+		PRIMARY KEY (clip_id, ordinal)
 	)
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_replay_cases table: %v", err)
+		t.Fatalf("failed to create lidar_clips table: %v", err)
 	}
 
-	// Create lidar_replay_evaluations table
+	// Create lidar_clip_evaluations table
 	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS lidar_replay_evaluations (
+		CREATE TABLE IF NOT EXISTS lidar_clip_evaluations (
 			evaluation_id       TEXT PRIMARY KEY,
-			replay_case_id            TEXT NOT NULL,
+			clip_id            TEXT NOT NULL,
 			reference_run_id    TEXT NOT NULL,
 			candidate_run_id    TEXT NOT NULL,
 			detection_rate      REAL,
@@ -67,14 +66,14 @@ func setupTestEvaluationDB(t *testing.T) *sql.DB {
 			candidate_count     INTEGER,
 			params_json         TEXT,
 			created_at          INTEGER NOT NULL,
-			FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases(replay_case_id) ON DELETE CASCADE,
-			FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records(run_id),
-			FOREIGN KEY (candidate_run_id) REFERENCES lidar_run_records(run_id)
+			FOREIGN KEY (clip_id) REFERENCES lidar_clips(clip_id) ON DELETE CASCADE,
+			FOREIGN KEY (reference_run_id) REFERENCES lidar_runs(run_id),
+			FOREIGN KEY (candidate_run_id) REFERENCES lidar_runs(run_id)
 		);
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_replay_evaluations(reference_run_id, candidate_run_id);
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_evaluations_pair ON lidar_clip_evaluations(reference_run_id, candidate_run_id);
 	`)
 	if err != nil {
-		t.Fatalf("failed to create lidar_replay_evaluations table: %v", err)
+		t.Fatalf("failed to create lidar_clip_evaluations table: %v", err)
 	}
 
 	return db
@@ -94,7 +93,7 @@ func (d *evaluationRowsAffectedErrorDB) Exec(query string, args ...any) (sql.Res
 	if execErr != nil {
 		return nil, execErr
 	}
-	if query == `DELETE FROM lidar_replay_evaluations WHERE evaluation_id = ?` {
+	if query == `DELETE FROM lidar_clip_evaluations WHERE evaluation_id = ?` {
 		return evaluationRowsAffectedErrorResult{err: d.err}, nil
 	}
 	return result, nil
@@ -123,12 +122,12 @@ func (r evaluationRowsAffectedErrorResult) RowsAffected() (int64, error) {
 func seedEvaluationTestData(t *testing.T, db *sql.DB) {
 	t.Helper()
 	// Insert referenced rows
-	_, err := db.Exec(`INSERT INTO lidar_replay_cases (replay_case_id, sensor_id, pcap_file, created_at_ns) VALUES ('scene-1', 'sensor-1', 'test.pcap', 1000)`)
+	_, err := db.Exec(`INSERT INTO lidar_clips (clip_id, sensor_id, created_at_ns) VALUES ('scene-1', 'sensor-1', 1000)`)
 	if err != nil {
 		t.Fatalf("failed to seed scene: %v", err)
 	}
 	for _, runID := range []string{"ref-run-1", "cand-run-1", "cand-run-2"} {
-		_, err := db.Exec(`INSERT INTO lidar_run_records (run_id) VALUES (?)`, runID)
+		_, err := db.Exec(`INSERT INTO lidar_runs (run_id) VALUES (?)`, runID)
 		if err != nil {
 			t.Fatalf("failed to seed run %s: %v", runID, err)
 		}
@@ -143,7 +142,7 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval := &Evaluation{
-		ReplayCaseID:        "scene-1",
+		ClipID:              "scene-1",
 		ReferenceRunID:      "ref-run-1",
 		CandidateRunID:      "cand-run-1",
 		DetectionRate:       0.92,
@@ -178,8 +177,8 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 		t.Fatalf("Get failed: %v", err)
 	}
 
-	if retrieved.ReplayCaseID != "scene-1" {
-		t.Errorf("replay_case_id mismatch: got %s, want scene-1", retrieved.ReplayCaseID)
+	if retrieved.ClipID != "scene-1" {
+		t.Errorf("clip_id mismatch: got %s, want scene-1", retrieved.ClipID)
 	}
 	if retrieved.DetectionRate != 0.92 {
 		t.Errorf("detection_rate mismatch: got %f, want 0.92", retrieved.DetectionRate)
@@ -192,7 +191,7 @@ func TestEvaluationStore_InsertAndGet(t *testing.T) {
 	}
 }
 
-func TestEvaluationStore_ListByScene(t *testing.T) {
+func TestEvaluationStore_ListByClip(t *testing.T) {
 	db := setupTestEvaluationDB(t)
 	defer db.Close()
 	seedEvaluationTestData(t, db)
@@ -201,7 +200,7 @@ func TestEvaluationStore_ListByScene(t *testing.T) {
 
 	// Insert two evaluations for the same scene
 	eval1 := &Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.874,
@@ -210,7 +209,7 @@ func TestEvaluationStore_ListByScene(t *testing.T) {
 		CandidateCount: 15,
 	}
 	eval2 := &Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-2",
 		CompositeScore: 0.841,
@@ -226,18 +225,18 @@ func TestEvaluationStore_ListByScene(t *testing.T) {
 		t.Fatalf("Insert eval2 failed: %v", err)
 	}
 
-	evals, err := store.ListByScene("scene-1")
+	evals, err := store.ListByClip("scene-1")
 	if err != nil {
-		t.Fatalf("ListByScene failed: %v", err)
+		t.Fatalf("ListByClip failed: %v", err)
 	}
 	if len(evals) != 2 {
 		t.Fatalf("expected 2 evaluations, got %d", len(evals))
 	}
 
 	// Empty scene should return nil
-	empty, err := store.ListByScene("nonexistent")
+	empty, err := store.ListByClip("nonexistent")
 	if err != nil {
-		t.Fatalf("ListByScene for nonexistent failed: %v", err)
+		t.Fatalf("ListByClip for nonexistent failed: %v", err)
 	}
 	if len(empty) != 0 {
 		t.Errorf("expected 0 evaluations for nonexistent scene, got %d", len(empty))
@@ -252,7 +251,7 @@ func TestEvaluationStore_Delete(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval := &Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.5,
@@ -303,7 +302,7 @@ func TestEvaluationStore_UniqueConstraint(t *testing.T) {
 	store := NewEvaluationStore(db)
 
 	eval1 := &Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.5,
@@ -314,7 +313,7 @@ func TestEvaluationStore_UniqueConstraint(t *testing.T) {
 
 	// Same (reference_run_id, candidate_run_id) pair should fail
 	eval2 := &Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 		CompositeScore: 0.6,
@@ -327,12 +326,12 @@ func TestEvaluationStore_UniqueConstraint(t *testing.T) {
 
 // --- Error branch coverage ---
 
-func TestEvaluationStore_ListByScene_DBError(t *testing.T) {
+func TestEvaluationStore_ListByClip_DBError(t *testing.T) {
 	db := setupTestEvaluationDB(t)
 	store := NewEvaluationStore(db)
 	db.Close()
 
-	_, err := store.ListByScene("scene-1")
+	_, err := store.ListByClip("scene-1")
 	if err == nil {
 		t.Fatal("expected error from closed DB")
 	}
@@ -356,7 +355,7 @@ func TestEvaluationStore_Delete_RowsAffectedError(t *testing.T) {
 
 	store := NewEvaluationStore(db)
 	eval := &Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 	}
@@ -377,7 +376,7 @@ func TestEvaluationStore_Insert_DBError(t *testing.T) {
 	db.Close()
 
 	err := store.Insert(&Evaluation{
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run-1",
 		CandidateRunID: "cand-run-1",
 	})
@@ -386,18 +385,18 @@ func TestEvaluationStore_Insert_DBError(t *testing.T) {
 	}
 }
 
-func TestEvaluationStore_ListByScene_ScanError(t *testing.T) {
+func TestEvaluationStore_ListByClip_ScanError(t *testing.T) {
 	db := setupTestEvaluationDB(t)
 	defer db.Close()
 
 	// Drop and recreate the table with wrong column types to provoke a scan error.
 	// We keep the same column names but change composite_score from REAL to TEXT
 	// and insert a non-scannable value.
-	db.Exec(`DROP TABLE lidar_replay_evaluations`)
+	db.Exec(`DROP TABLE lidar_clip_evaluations`)
 	db.Exec(`
-		CREATE TABLE lidar_replay_evaluations (
+		CREATE TABLE lidar_clip_evaluations (
 			evaluation_id       TEXT PRIMARY KEY,
-			replay_case_id            TEXT NOT NULL,
+			clip_id            TEXT NOT NULL,
 			reference_run_id    TEXT NOT NULL,
 			candidate_run_id    TEXT NOT NULL,
 			detection_rate      TEXT,
@@ -415,10 +414,10 @@ func TestEvaluationStore_ListByScene_ScanError(t *testing.T) {
 			created_at          INTEGER NOT NULL
 		)
 	`)
-	db.Exec(`INSERT INTO lidar_replay_evaluations VALUES ('e1','s1','r1','c1','not-a-float','x','x','x','x','x','x','x','x','x','x','x',1)`)
+	db.Exec(`INSERT INTO lidar_clip_evaluations VALUES ('e1','s1','r1','c1','not-a-float','x','x','x','x','x','x','x','x','x','x','x',1)`)
 
 	store := NewEvaluationStore(db)
-	_, err := store.ListByScene("s1")
+	_, err := store.ListByClip("s1")
 	if err == nil {
 		t.Fatal("expected scan error from malformed data")
 	}

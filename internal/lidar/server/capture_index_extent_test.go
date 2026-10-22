@@ -93,7 +93,7 @@ func TestBuildReplaySequenceCountsWhatTheIndexCannotVouchFor(t *testing.T) {
 	}
 }
 
-func TestValidateCaseFilesPrefersTheIndexOverProbing(t *testing.T) {
+func TestValidateClipFilesPrefersTheIndexOverProbing(t *testing.T) {
 	// Reading a 700 MB capture to learn what the index already knows would make
 	// authoring a case from the Captures page a minute-long wait per file.
 	ws, _ := indexedReplayServer(t, "a.pcap", "b.pcap")
@@ -105,9 +105,9 @@ func TestValidateCaseFilesPrefersTheIndexOverProbing(t *testing.T) {
 		return capindex.Extent{}, nil
 	}
 
-	seq, err := ws.validateCaseFiles([]string{"a.pcap", "b.pcap"})
+	seq, err := ws.validateClipFiles([]string{"a.pcap", "b.pcap"})
 	if err != nil {
-		t.Fatalf("validateCaseFiles: %v", err)
+		t.Fatalf("validateClipFiles: %v", err)
 	}
 	if len(seq.Segments) != 2 || seq.Segments[0].PacketCount != 540000 {
 		t.Errorf("sequence = %+v, want the index's two captures", seq.Segments)

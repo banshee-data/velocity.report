@@ -329,9 +329,9 @@ func TestSweepStore_ListSweepsNamesTheClipAndObjective(t *testing.T) {
 
 	base := time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC)
 	records := []SweepRecord{
-		{SweepID: "by-clip", Request: json.RawMessage(`{"replay_case_id":"clip-1","pcap_file":"/c/kirk0.pcapng"}`),
+		{SweepID: "by-clip", Request: json.RawMessage(`{"clip_id":"clip-1","pcap_file":"/c/kirk0.pcapng"}`),
 			ObjectiveName: "ground_truth"},
-		{SweepID: "by-scene-id", Request: json.RawMessage(`{"scene_id":"clip-2","replay_case_id":""}`)},
+		{SweepID: "by-scene-id", Request: json.RawMessage(`{"clip_id":"clip-2","clip_id":""}`)},
 		{SweepID: "by-capture", Request: json.RawMessage(`{"pcap_file":"/c/kirk1.pcapng","objective":"weighted"}`)},
 		{SweepID: "live", Request: json.RawMessage(`{"params":[]}`)},
 	}
@@ -365,7 +365,7 @@ func TestSweepStore_ListSweepsNamesTheClipAndObjective(t *testing.T) {
 	}
 	for _, s := range got {
 		w := want[s.SweepID]
-		if g := (named{s.ObjectiveName, s.ReplayCaseID, s.PCAPFile}); g != w {
+		if g := (named{s.ObjectiveName, s.ClipID, s.PCAPFile}); g != w {
 			t.Errorf("%s: got %+v, want %+v", s.SweepID, g, w)
 		}
 	}

@@ -56,7 +56,7 @@ class RunTrackLabelAPIClient {
     // MARK: - Run Operations
 
     /// List recent analysis runs.
-    func listRuns(limit: Int = 50) async throws -> [AnalysisRun] {
+    func listRuns(limit: Int = 50) async throws -> [Run] {
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/runs"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "limit", value: "\(limit)")]
@@ -72,7 +72,7 @@ class RunTrackLabelAPIClient {
     }
 
     /// Get a single analysis run by ID.
-    func getRun(_ runID: String) async throws -> AnalysisRun {
+    func getRun(_ runID: String) async throws -> Run {
         let url = baseURL.appendingPathComponent("api/lidar/runs/\(runID)")
 
         let (data, response) = try await session.data(from: url)
@@ -81,7 +81,7 @@ class RunTrackLabelAPIClient {
             (200...299).contains(httpResponse.statusCode)
         else { throw APIError.requestFailed(response) }
 
-        return try Self.goDecoder.decode(AnalysisRun.self, from: data)
+        return try Self.goDecoder.decode(Run.self, from: data)
     }
 
     // MARK: - Track Operations
@@ -196,7 +196,7 @@ class RunTrackLabelAPIClient {
 
     /// Stop VRLOG replay.
     func stopVRLog() async throws {
-        let url = baseURL.appendingPathComponent("api/lidar/vrlog/stop")
+        let url = baseURL.appendingPathComponent("api/lidar/replay/stop")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -215,7 +215,7 @@ class RunTrackLabelAPIClient {
     /// the grid it built, so going live is always a deliberate request. The
     /// server resets the grid and restarts the sensor listener.
     func returnToLive() async throws {
-        let url = baseURL.appendingPathComponent("api/lidar/pcap/stop")
+        let url = baseURL.appendingPathComponent("api/lidar/replay/stop")
 
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
@@ -265,7 +265,7 @@ class RunTrackLabelAPIClient {
 
 /// Wrapper for /api/lidar/runs response
 struct RunsResponse: Codable {
-    let runs: [AnalysisRun]
+    let runs: [Run]
     let count: Int
 }
 
@@ -323,7 +323,7 @@ struct RunLabelRollup: Codable, Equatable {
 // MARK: - Data Models
 
 /// Analysis run from the backend.
-struct AnalysisRun: Codable, Identifiable {
+struct Run: Codable, Identifiable {
     let runId: String
     let createdAt: Date  // Backend sends RFC3339 formatted time.Time
     let sourceType: String
@@ -338,7 +338,8 @@ struct AnalysisRun: Codable, Identifiable {
     let errorMessage: String?
     let vrlogPath: String?
     let notes: String?
-    let replayCaseName: String?
+    let sourceName: String?
+    var clipId: String? = nil
     var labelRollup: RunLabelRollup? = nil
 
     var id: String { runId }
@@ -372,7 +373,7 @@ struct AnalysisRun: Codable, Identifiable {
 }
 
 /// Track within an analysis run.
-/// Matches backend schema from lidar.AnalysisRunTrack
+/// Matches backend schema from lidar.RunTrack
 struct RunTrack: Codable, Identifiable {
     let runId: String
     let trackId: String
@@ -407,6 +408,7 @@ struct LabellingProgress: Codable {
     let total: Int
     let labelled: Int
     let byClass: [String: Int]?
+    var clipId: String? = nil
     var labelRollup: RunLabelRollup? = nil
     let progressPct: Double
 }

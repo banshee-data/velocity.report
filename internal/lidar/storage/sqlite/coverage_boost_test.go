@@ -15,10 +15,10 @@ func TestGetRunTrack_HappyPath(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert a run first.
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-grt-1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -100,7 +100,7 @@ func TestGetRunTrack_NotFound(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	_, err := store.GetRunTrack("no-run", "no-track")
 	if err == nil {
 		t.Error("expected error for non-existent track")
@@ -349,10 +349,10 @@ func TestGetUnlabeledTracks_WithOptionalFields(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert a run.
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-unlabel",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -426,10 +426,10 @@ func TestCompareRuns_OneEmpty(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Run 1 with one track.
-	run1 := &AnalysisRun{RunID: "cmp-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
+	run1 := &Run{RunID: "cmp-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun run1: %v", err)
 	}
@@ -439,7 +439,7 @@ func TestCompareRuns_OneEmpty(t *testing.T) {
 	}
 
 	// Run 2 with no tracks.
-	run2 := &AnalysisRun{RunID: "cmp-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
+	run2 := &Run{RunID: "cmp-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run2); err != nil {
 		t.Fatalf("InsertRun run2: %v", err)
 	}
@@ -461,10 +461,10 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Run 1 with a track.
-	run1 := &AnalysisRun{RunID: "cmp-pd-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
+	run1 := &Run{RunID: "cmp-pd-r1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run1); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -473,7 +473,7 @@ func TestCompareRuns_WithParamDiff(t *testing.T) {
 	}
 
 	// Run 2 with matching track (same time range for IoU match).
-	run2 := &AnalysisRun{RunID: "cmp-pd-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
+	run2 := &Run{RunID: "cmp-pd-r2", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run2); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -529,8 +529,8 @@ func TestClearRuns_HappyPath(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
-	run := &AnalysisRun{RunID: "cr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "cr-sensor", Status: "completed"}
+	store := NewRunStore(db)
+	run := &Run{RunID: "cr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "cr-sensor", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -540,7 +540,7 @@ func TestClearRuns_HappyPath(t *testing.T) {
 	}
 
 	var count int
-	db.QueryRow(`SELECT COUNT(*) FROM lidar_run_records WHERE sensor_id = 'cr-sensor'`).Scan(&count)
+	db.QueryRow(`SELECT COUNT(*) FROM lidar_runs WHERE sensor_id = 'cr-sensor'`).Scan(&count)
 	if count != 0 {
 		t.Errorf("remaining runs = %d, want 0", count)
 	}
@@ -550,8 +550,8 @@ func TestDeleteRun_HappyPath(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
-	run := &AnalysisRun{RunID: "dr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "dr-sensor", Status: "completed"}
+	store := NewRunStore(db)
+	run := &Run{RunID: "dr-run-1", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "dr-sensor", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -761,9 +761,9 @@ func TestGetLabelingProgress_WithLabels(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{RunID: "lp-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
+	run := &Run{RunID: "lp-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -816,9 +816,9 @@ func TestUpdateTrackLabel_HappyPath(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	run := &AnalysisRun{RunID: "utl-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
+	run := &Run{RunID: "utl-run", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}
 	if err := store.InsertRun(run); err != nil {
 		t.Fatalf("InsertRun: %v", err)
 	}
@@ -847,31 +847,31 @@ func TestUpdateTrackLabel_HappyPath(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// ListByScene with evaluations — covers scanEvaluation branch
+// ListByClip with evaluations — covers scanEvaluation branch
 // ---------------------------------------------------------------------------
 
-func TestListByScene_WithParams(t *testing.T) {
+func TestListByClip_WithParams(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	evalStore := NewEvaluationStore(db)
-	runStore := NewAnalysisRunStore(db)
+	runStore := NewRunStore(db)
 
 	// Insert prerequisite runs.
 	for _, rid := range []string{"ref-run", "cand-run"} {
-		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}); err != nil {
+		if err := runStore.InsertRun(&Run{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}); err != nil {
 			t.Fatalf("InsertRun %s: %v", rid, err)
 		}
 	}
 	// Insert prerequisite scene.
-	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (replay_case_id, sensor_id, pcap_file, created_at_ns) VALUES ('scene-1', 's1', '/test.pcap', ?)`, time.Now().UnixNano()); err != nil {
+	if _, err := db.Exec(`INSERT INTO lidar_clips (clip_id, sensor_id, created_at_ns) VALUES ('scene-1', 's1', ?)`, time.Now().UnixNano()); err != nil {
 		t.Fatalf("Insert scene: %v", err)
 	}
 
 	// Insert an evaluation.
 	eval := &Evaluation{
 		EvaluationID:   "eval-1",
-		ReplayCaseID:   "scene-1",
+		ClipID:         "scene-1",
 		ReferenceRunID: "ref-run",
 		CandidateRunID: "cand-run",
 		DetectionRate:  0.95,
@@ -884,9 +884,9 @@ func TestListByScene_WithParams(t *testing.T) {
 		t.Fatalf("Insert evaluation: %v", err)
 	}
 
-	evals, err := evalStore.ListByScene("scene-1")
+	evals, err := evalStore.ListByClip("scene-1")
 	if err != nil {
-		t.Fatalf("ListByScene: %v", err)
+		t.Fatalf("ListByClip: %v", err)
 	}
 	if len(evals) != 1 {
 		t.Fatalf("got %d evaluations, want 1", len(evals))
@@ -949,22 +949,22 @@ func TestEvaluationDelete_HappyPath(t *testing.T) {
 	defer cleanup()
 
 	evalStore := NewEvaluationStore(db)
-	runStore := NewAnalysisRunStore(db)
+	runStore := NewRunStore(db)
 
 	// Insert prerequisite runs.
 	for _, rid := range []string{"ref", "cand"} {
-		if err := runStore.InsertRun(&AnalysisRun{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}); err != nil {
+		if err := runStore.InsertRun(&Run{RunID: rid, CreatedAt: time.Now(), SourceType: "pcap", SensorID: "s1", Status: "completed"}); err != nil {
 			t.Fatalf("InsertRun %s: %v", rid, err)
 		}
 	}
 	// Insert prerequisite scene.
-	if _, err := db.Exec(`INSERT INTO lidar_replay_cases (replay_case_id, sensor_id, pcap_file, created_at_ns) VALUES ('scene-d', 's1', '/test.pcap', ?)`, time.Now().UnixNano()); err != nil {
+	if _, err := db.Exec(`INSERT INTO lidar_clips (clip_id, sensor_id, created_at_ns) VALUES ('scene-d', 's1', ?)`, time.Now().UnixNano()); err != nil {
 		t.Fatalf("Insert scene: %v", err)
 	}
 
 	eval := &Evaluation{
 		EvaluationID:   "eval-del-1",
-		ReplayCaseID:   "scene-d",
+		ClipID:         "scene-d",
 		ReferenceRunID: "ref",
 		CandidateRunID: "cand",
 		CompositeScore: 0.5,
@@ -1046,10 +1046,10 @@ func TestGetRunTracks_WithAllNullableFields(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
 	// Insert a parent run.
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:      "run-nullable-1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -1117,9 +1117,9 @@ func TestListRuns_WithNullableFields(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 
-	parent := &AnalysisRun{
+	parent := &Run{
 		RunID:      "run-parent-1",
 		CreatedAt:  time.Now().Add(-time.Minute),
 		SourceType: "pcap",
@@ -1131,7 +1131,7 @@ func TestListRuns_WithNullableFields(t *testing.T) {
 		t.Fatalf("InsertRun parent: %v", err)
 	}
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:        "run-listopt-1",
 		CreatedAt:    time.Now(),
 		SourceType:   "pcap",
@@ -1274,7 +1274,7 @@ func TestListSweeps_WithErrorMsg(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Coverage boost: AnalysisRunManager closed-DB error paths
+// Coverage boost: RunManager closed-DB error paths
 // ---------------------------------------------------------------------------
 
 func TestARM_StartRun_DBError(t *testing.T) {
@@ -1284,7 +1284,7 @@ func TestARM_StartRun_DBError(t *testing.T) {
 	// Close the DB so InsertRun fails.
 	db.Close()
 
-	m := NewAnalysisRunManagerDI(db, "sensor-1")
+	m := NewRunManagerDI(db, "sensor-1")
 	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
 	if err == nil {
 		t.Error("expected error from StartRun with closed DB")
@@ -1295,7 +1295,7 @@ func TestARM_RecordTrack_DBError(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	m := NewAnalysisRunManagerDI(db, "sensor-1")
+	m := NewRunManagerDI(db, "sensor-1")
 
 	// Start a run successfully first.
 	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
@@ -1317,7 +1317,7 @@ func TestARM_CompleteRun_DBError(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	m := NewAnalysisRunManagerDI(db, "sensor-1")
+	m := NewRunManagerDI(db, "sensor-1")
 
 	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
 	if err != nil {
@@ -1336,7 +1336,7 @@ func TestARM_FailRun_DBError(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	m := NewAnalysisRunManagerDI(db, "sensor-1")
+	m := NewRunManagerDI(db, "sensor-1")
 
 	_, err := m.StartRun("/data/test.pcap", DefaultRunParams())
 	if err != nil {
@@ -1508,16 +1508,16 @@ func TestClosedDB_DeleteRun(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Coverage boost: closed-DB error paths for analysis_run store
+// Coverage boost: closed-DB error paths for run store
 // ---------------------------------------------------------------------------
 
-func TestClosedDB_AnalysisRunStore_InsertRun(t *testing.T) {
+func TestClosedDB_RunStore_InsertRun(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
-	run := &AnalysisRun{
+	store := NewRunStore(db)
+	run := &Run{
 		RunID:      "run-err-1",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -1530,36 +1530,36 @@ func TestClosedDB_AnalysisRunStore_InsertRun(t *testing.T) {
 	}
 }
 
-func TestClosedDB_AnalysisRunStore_UpdateRunStatus(t *testing.T) {
+func TestClosedDB_RunStore_UpdateRunStatus(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	err := store.UpdateRunStatus("run-1", "failed", "test error")
 	if err == nil {
 		t.Error("expected error from UpdateRunStatus with closed DB")
 	}
 }
 
-func TestClosedDB_AnalysisRunStore_UpdateRunVRLogPath(t *testing.T) {
+func TestClosedDB_RunStore_UpdateRunVRLogPath(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	err := store.UpdateRunVRLogPath("run-1", "/path/to/file.vrlog")
 	if err == nil {
 		t.Error("expected error from UpdateRunVRLogPath with closed DB")
 	}
 }
 
-func TestClosedDB_AnalysisRunStore_CompleteRun(t *testing.T) {
+func TestClosedDB_RunStore_CompleteRun(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	stats := &AnalysisStats{TotalFrames: 100}
 	err := store.CompleteRun("run-1", stats)
 	if err == nil {
@@ -1567,36 +1567,36 @@ func TestClosedDB_AnalysisRunStore_CompleteRun(t *testing.T) {
 	}
 }
 
-func TestClosedDB_AnalysisRunStore_ListRuns(t *testing.T) {
+func TestClosedDB_RunStore_ListRuns(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	_, err := store.ListRuns(10)
 	if err == nil {
 		t.Error("expected error from ListRuns with closed DB")
 	}
 }
 
-func TestClosedDB_AnalysisRunStore_GetRunTracks(t *testing.T) {
+func TestClosedDB_RunStore_GetRunTracks(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	_, err := store.GetRunTracks("run-1")
 	if err == nil {
 		t.Error("expected error from GetRunTracks with closed DB")
 	}
 }
 
-func TestClosedDB_AnalysisRunStore_InsertRunTrack(t *testing.T) {
+func TestClosedDB_RunStore_InsertRunTrack(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	track := &RunTrack{
 		RunID:   "run-1",
 		TrackID: "t1", TrackMeasurement: TrackMeasurement{SensorID: "sensor-1"},
@@ -1658,15 +1658,15 @@ func TestClosedDB_SweepStore_ListSweeps(t *testing.T) {
 // Coverage boost: closed-DB error paths for evaluation/scene/missed stores
 // ---------------------------------------------------------------------------
 
-func TestClosedDB_EvaluationStore_ListByScene(t *testing.T) {
+func TestClosedDB_EvaluationStore_ListByClip(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 	db.Close()
 
 	store := NewEvaluationStore(db)
-	_, err := store.ListByScene("scene-1")
+	_, err := store.ListByClip("scene-1")
 	if err == nil {
-		t.Error("expected error from ListByScene with closed DB")
+		t.Error("expected error from ListByClip with closed DB")
 	}
 }
 
@@ -1682,17 +1682,17 @@ func TestClosedDB_EvaluationStore_Get(t *testing.T) {
 	}
 }
 
-func TestClosedDB_SceneStore_ListScenes(t *testing.T) {
+func TestClosedDB_ClipStore_ListClips(t *testing.T) {
 	db, cleanup := setupTestDB(t)
 	defer cleanup()
 
 	// Create scene store before closing — needs *sql.DB.
-	store := NewReplayCaseStore(db)
+	store := NewClipStore(db)
 	db.Close()
 
-	_, err := store.ListScenes("sensor-1")
+	_, err := store.ListClips("sensor-1")
 	if err == nil {
-		t.Error("expected error from ListScenes with closed DB")
+		t.Error("expected error from ListClips with closed DB")
 	}
 }
 

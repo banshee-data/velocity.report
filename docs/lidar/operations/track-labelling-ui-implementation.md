@@ -17,7 +17,7 @@ into one implementation plan with one recommendation.
 
 - [x] **Phase 0: Canonical Label Contract**; Run-track labels via `PUT /api/lidar/runs/{run_id}/tracks/{track_id}/label`
 - [x] **Phase 1.1: Publisher recording tap**; `FrameRecorder` interface in `publisher.go`
-- [x] **Phase 1.2: Persist vrlog_path**; Migration 000023, `AnalysisRun.VRLogPath` field
+- [x] **Phase 1.2: Persist vrlog_path**; Migration 000023, `Run.VRLogPath` field
 - [x] **Phase 1.3: Recording callbacks**; `OnRecordingStart`/`OnRecordingStop` in `WebServerConfig`
 - [x] **Phase 2.1: VRLOG replay in publisher**; `StartVRLogReplay`, `StopVRLogReplay`, `SeekVRLog`, etc.
 - [x] **Phase 2.2: gRPC control delegation**; `vrlogMode`, `Pause`/`Play`/`Seek`/`SetRate` delegation
@@ -157,9 +157,9 @@ New migration:
 - [internal/db/migrations/000023_add_vrlog_path.up.sql](../../../internal/db/migrations/000023_add_vrlog_path.up.sql)
 - [internal/db/migrations/000023_add_vrlog_path.down.sql](../../../internal/db/migrations/000023_add_vrlog_path.down.sql)
 
-`internal/lidar/analysis_run.go`:
+`internal/lidar/run.go`:
 
-- Add `VRLogPath string` with tag `json:"vrlog_path,omitempty"` to `AnalysisRun`.
+- Add `VRLogPath string` with tag `json:"vrlog_path,omitempty"` to `Run`.
 - Update `InsertRun`, `GetRun`, `ListRuns`.
 - Add `UpdateRunVRLogPath(runID, vrlogPath string) error`.
 
@@ -353,7 +353,7 @@ Phase 0 (label contract)
 ## Key gotchas
 
 1. `publisher.go` cannot import `recorder`; use `FrameRecorder` interface.
-2. `analysis_run` store code is in `internal/lidar/analysis_run.go`, not a separate store file.
+2. `run` store code is in `internal/lidar/run.go`, not a separate store file.
 3. `OnRecordingStop` must execute before run completion finalization.
 4. During VRLOG replay, suppress periodic background snapshots.
 5. Ensure path validation on VRLOG load endpoints.
@@ -368,7 +368,7 @@ Phase 0 (label contract)
 | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | Replay recording/replay | `internal/lidar/visualiser/publisher.go`                                                                                                                                                                                                                                                                       | FrameRecorder tap, VRLOG replay loop/state, seek/rate/pause controls |
 | gRPC controls           | `internal/lidar/visualiser/grpc_server.go`                                                                                                                                                                                                                                                                     | Implement seek delegation, VRLOG mode routing                        |
-| Run persistence         | `internal/lidar/analysis_run.go`                                                                                                                                                                                                                                                                               | `vrlog_path` field + store updates                                   |
+| Run persistence         | `internal/lidar/run.go`                                                                                                                                                                                                                                                                                        | `vrlog_path` field + store updates                                   |
 | DB migration            | `internal/db/migrations/000023_add_vrlog_path.*.sql`                                                                                                                                                                                                                                                           | Add/drop `vrlog_path`                                                |
 | Orchestration API       | `internal/lidar/monitor/webserver.go`                                                                                                                                                                                                                                                                          | recording/playback callbacks + routes + status model                 |
 | Wiring                  | [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go)                                                                                                                                                                                                                                          | recorder lifecycle + replay callback wiring                          |

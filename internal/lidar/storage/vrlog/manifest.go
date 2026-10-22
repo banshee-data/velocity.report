@@ -129,7 +129,7 @@ type ExtractionIdentity struct {
 	SourceID        string
 	CalibrationID   string
 	CoordinateFrame string
-	ReplayCaseID    string
+	ClipID          string
 	CaptureFiles    []CaptureFile
 	ExtractorID     string
 	Window          SourceWindow
@@ -227,8 +227,8 @@ func (m Manifest) validate() error {
 	}
 	// A replayed source's identity is content-addressed from its ordered
 	// files; recompute it rather than trust it. A live capture has no files.
-	if e.ReplayCaseID != "" || len(e.CaptureFiles) > 0 {
-		source := l4bobserve.CaptureSource{ReplayCaseID: e.ReplayCaseID, ExtractorID: e.ExtractorID}
+	if e.ClipID != "" || len(e.CaptureFiles) > 0 {
+		source := l4bobserve.CaptureSource{ClipID: e.ClipID, ExtractorID: e.ExtractorID}
 		for _, f := range e.CaptureFiles {
 			source.CapturePaths = append(source.CapturePaths, f.Path)
 			source.CaptureSHA256s = append(source.CaptureSHA256s, f.SHA256)
@@ -290,7 +290,7 @@ func (m Manifest) toProto() *pb.RecordingManifest {
 		},
 		Extraction: &pb.ExtractionIdentity{
 			SourceId: m.Extraction.SourceID, CalibrationId: m.Extraction.CalibrationID,
-			CoordinateFrame: m.Extraction.CoordinateFrame, ReplayCaseId: m.Extraction.ReplayCaseID,
+			CoordinateFrame: m.Extraction.CoordinateFrame, ClipId: m.Extraction.ClipID,
 			CaptureFiles: files, ExtractorId: m.Extraction.ExtractorID,
 			Window: &pb.SourceWindow{
 				StartOffsetNanos: m.Extraction.Window.StartOffsetNanos,
@@ -357,7 +357,7 @@ func manifestFromProto(p *pb.RecordingManifest) (Manifest, error) {
 		},
 		Extraction: ExtractionIdentity{
 			SourceID: p.GetExtraction().GetSourceId(), CalibrationID: p.GetExtraction().GetCalibrationId(),
-			CoordinateFrame: p.GetExtraction().GetCoordinateFrame(), ReplayCaseID: p.GetExtraction().GetReplayCaseId(),
+			CoordinateFrame: p.GetExtraction().GetCoordinateFrame(), ClipID: p.GetExtraction().GetClipId(),
 			ExtractorID: p.GetExtraction().GetExtractorId(),
 			Window: SourceWindow{
 				StartOffsetNanos: p.GetExtraction().GetWindow().GetStartOffsetNanos(),

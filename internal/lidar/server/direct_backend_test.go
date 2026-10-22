@@ -431,22 +431,22 @@ func TestDirectBackend_SetTuningParams_RuntimeApplyError(t *testing.T) {
 	}
 }
 
-func TestDirectBackend_GetLastAnalysisRunID(t *testing.T) {
+func TestDirectBackend_GetLastRunID(t *testing.T) {
 	ws := &Server{sensorID: "test-sensor"}
 	db := NewDirectBackend("test-sensor", ws)
 
-	runID := db.GetLastAnalysisRunID()
+	runID := db.GetLastRunID()
 	if runID != "" {
 		t.Errorf("expected empty run ID, got %q", runID)
 	}
 }
 
-func TestDirectBackend_GetLastAnalysisRunID_WithValue(t *testing.T) {
+func TestDirectBackend_GetLastRunID_WithValue(t *testing.T) {
 	ws := &Server{sensorID: "test-sensor"}
 	ws.mutateState("test", func(s *PipelineState) { s.LastRunID = "run-abc-123" })
 	db := NewDirectBackend("test-sensor", ws)
 
-	runID := db.GetLastAnalysisRunID()
+	runID := db.GetLastRunID()
 	if runID != "run-abc-123" {
 		t.Errorf("expected 'run-abc-123', got %q", runID)
 	}

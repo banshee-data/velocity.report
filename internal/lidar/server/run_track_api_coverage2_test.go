@@ -287,15 +287,15 @@ func TestCov2_HandleReprocessRun_InsertRunError(t *testing.T) {
 		t.Fatalf("write test pcap: %v", err)
 	}
 	ws.pcapSafeDir = tmpDir
-	if _, err := ws.db.DB.Exec(`UPDATE lidar_run_records SET source_path = ? WHERE run_id = ?`, pcapFile, runID); err != nil {
+	if _, err := ws.db.DB.Exec(`UPDATE lidar_runs SET source_path = ? WHERE run_id = ?`, pcapFile, runID); err != nil {
 		t.Fatalf("update source_path: %v", err)
 	}
 
 	// Pre-insert many rows to cause the generated ID to collide seems complex.
-	// Instead, drop the lidar_run_records table after the GetRun succeeds
+	// Instead, drop the lidar_runs table after the GetRun succeeds
 	// by using a custom approach: we close the DB _after_ reading the original run.
 	// Since we can't easily intercept, we instead make the table read-only via a trigger.
-	_, err := ws.db.DB.Exec(`CREATE TRIGGER block_insert BEFORE INSERT ON lidar_run_records BEGIN SELECT RAISE(ABORT, 'blocked by trigger'); END`)
+	_, err := ws.db.DB.Exec(`CREATE TRIGGER block_insert BEFORE INSERT ON lidar_runs BEGIN SELECT RAISE(ABORT, 'blocked by trigger'); END`)
 	if err != nil {
 		t.Fatalf("create trigger: %v", err)
 	}
@@ -341,9 +341,9 @@ func TestCov2_HandleEvaluateRun_EvaluationError(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 
-	refRun := &sqlite.AnalysisRun{
+	refRun := &sqlite.Run{
 		RunID:      "eval-err-ref",
 		SourceType: "pcap",
 		SourcePath: "/test/eval-err.pcap",
@@ -354,7 +354,7 @@ func TestCov2_HandleEvaluateRun_EvaluationError(t *testing.T) {
 		t.Fatalf("InsertRun ref: %v", err)
 	}
 
-	candRun := &sqlite.AnalysisRun{
+	candRun := &sqlite.Run{
 		RunID:      "eval-err-cand",
 		SourceType: "pcap",
 		SourcePath: "/test/eval-err.pcap",
@@ -388,10 +388,10 @@ func TestCov2_HandleEvaluateRun_AutoDetectWithParams(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 
 	// Insert reference run with a track
-	refRun := &sqlite.AnalysisRun{
+	refRun := &sqlite.Run{
 		RunID:      "params-ref",
 		SourceType: "pcap",
 		SourcePath: "/test/params.pcap",
@@ -404,7 +404,7 @@ func TestCov2_HandleEvaluateRun_AutoDetectWithParams(t *testing.T) {
 	covInsertTrackForRun(t, ws, "params-ref", "params-ref-t1", "sensor-params")
 
 	// Insert candidate run
-	candRun := &sqlite.AnalysisRun{
+	candRun := &sqlite.Run{
 		RunID:      "params-cand",
 		SourceType: "pcap",
 		SourcePath: "/test/params.pcap",
@@ -417,14 +417,12 @@ func TestCov2_HandleEvaluateRun_AutoDetectWithParams(t *testing.T) {
 	covInsertTrackForRun(t, ws, "params-cand", "params-cand-t1", "sensor-params")
 
 	// Create a scene matching the source path
-	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID:       "sensor-params",
-		PCAPFile:       "/test/params.pcap",
-		ReferenceRunID: "params-ref",
+	clipStore := sqlite.NewClipStore(ws.db.DB)
+	scene := &sqlite.Clip{
+		SensorID: "sensor-params", Files: []sqlite.ClipCapture{{PCAPFile: "/test/params.pcap"}}, ReferenceRunID: "params-ref",
 	}
-	if err := sceneStore.InsertScene(scene); err != nil {
-		t.Fatalf("InsertScene: %v", err)
+	if err := clipStore.InsertClip(scene); err != nil {
+		t.Fatalf("InsertClip: %v", err)
 	}
 
 	body := `{}`
@@ -449,9 +447,9 @@ func TestCov2_HandleEvaluateRun_InsertError(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 
-	refRun := &sqlite.AnalysisRun{
+	refRun := &sqlite.Run{
 		RunID:      "eval-ins-ref",
 		SourceType: "pcap",
 		SourcePath: "/test/eval-ins.pcap",
@@ -463,7 +461,7 @@ func TestCov2_HandleEvaluateRun_InsertError(t *testing.T) {
 	}
 	covInsertTrackForRun(t, ws, "eval-ins-ref", "eval-ins-ref-t1", "sensor-eval-ins")
 
-	candRun := &sqlite.AnalysisRun{
+	candRun := &sqlite.Run{
 		RunID:      "eval-ins-cand",
 		SourceType: "pcap",
 		SourcePath: "/test/eval-ins.pcap",
@@ -475,18 +473,16 @@ func TestCov2_HandleEvaluateRun_InsertError(t *testing.T) {
 	}
 	covInsertTrackForRun(t, ws, "eval-ins-cand", "eval-ins-cand-t1", "sensor-eval-ins")
 
-	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID:       "sensor-eval-ins",
-		PCAPFile:       "/test/eval-ins.pcap",
-		ReferenceRunID: "eval-ins-ref",
+	clipStore := sqlite.NewClipStore(ws.db.DB)
+	scene := &sqlite.Clip{
+		SensorID: "sensor-eval-ins", Files: []sqlite.ClipCapture{{PCAPFile: "/test/eval-ins.pcap"}}, ReferenceRunID: "eval-ins-ref",
 	}
-	if err := sceneStore.InsertScene(scene); err != nil {
-		t.Fatalf("InsertScene: %v", err)
+	if err := clipStore.InsertClip(scene); err != nil {
+		t.Fatalf("InsertClip: %v", err)
 	}
 
 	// Drop evaluations table to cause Insert to fail
-	if _, err := ws.db.DB.Exec(`DROP TABLE IF EXISTS lidar_replay_evaluations`); err != nil {
+	if _, err := ws.db.DB.Exec(`DROP TABLE IF EXISTS lidar_clip_evaluations`); err != nil {
 		t.Fatalf("drop evaluations table: %v", err)
 	}
 
@@ -510,7 +506,7 @@ func TestCov2_HandleEvaluateRun_InsertError(t *testing.T) {
 // covInsertTrackForRun inserts a run track with a specific sensor ID.
 func covInsertTrackForRun(t *testing.T, ws *Server, runID, trackID, sensorID string) {
 	t.Helper()
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 	track := &sqlite.RunTrack{
 		RunID:   runID,
 		TrackID: trackID,
@@ -564,9 +560,9 @@ func TestCov2_HandleReprocessRun_UpdateRunStatusError(t *testing.T) {
 
 	runID := covInsertRun(t, ws, "upd-status-err")
 
-	// Block UPDATEs on lidar_run_records so UpdateRunStatus fails
+	// Block UPDATEs on lidar_runs so UpdateRunStatus fails
 	// while INSERTs still work (for the new reprocess run creation).
-	_, err := ws.db.DB.Exec(`CREATE TRIGGER block_update BEFORE UPDATE ON lidar_run_records BEGIN SELECT RAISE(ABORT, 'update blocked'); END`)
+	_, err := ws.db.DB.Exec(`CREATE TRIGGER block_update BEFORE UPDATE ON lidar_runs BEGIN SELECT RAISE(ABORT, 'update blocked'); END`)
 	if err != nil {
 		t.Fatalf("create trigger: %v", err)
 	}
@@ -587,9 +583,9 @@ func TestCov2_HandleEvaluateRun_EncodeError(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 
-	refRun := &sqlite.AnalysisRun{
+	refRun := &sqlite.Run{
 		RunID:      "enc-err-ref",
 		SourceType: "pcap",
 		SourcePath: "/test/enc-err.pcap",
@@ -601,7 +597,7 @@ func TestCov2_HandleEvaluateRun_EncodeError(t *testing.T) {
 	}
 	covInsertTrackForRun(t, ws, "enc-err-ref", "enc-err-ref-t1", "sensor-enc")
 
-	candRun := &sqlite.AnalysisRun{
+	candRun := &sqlite.Run{
 		RunID:      "enc-err-cand",
 		SourceType: "pcap",
 		SourcePath: "/test/enc-err.pcap",

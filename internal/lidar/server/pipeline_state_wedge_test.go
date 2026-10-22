@@ -23,7 +23,7 @@ import (
 // created it: the replay teardown used to sit inside an `if Source == pcap`
 // branch, so a source switch while a replay was running skipped it entirely.
 func TestReleaseReplaySlotClearsWedgeRegardlessOfSource(t *testing.T) {
-	for _, source := range []SourceMode{SourceModeLive, SourceModeVRLog, SourceModePCAP} {
+	for _, source := range []SourceMode{SourceModeLive, SourceModeVRLog, SourceModeCapture} {
 		t.Run(string(source), func(t *testing.T) {
 			ws := &Server{state: newPipelineState()}
 			if ok, _ := ws.tryBeginPCAPReplay(ReplayConfig{}); !ok {
@@ -75,9 +75,9 @@ func TestTryBeginPCAPReplayNamesTheBlockingReplay(t *testing.T) {
 			s.ReplayActive = true
 		}, SourceModeVRLog},
 		{"pcap holds the slot", func(s *PipelineState) {
-			s.Source = SourceModePCAP
+			s.Source = SourceModeCapture
 			s.ReplayActive = true
-		}, SourceModePCAP},
+		}, SourceModeCapture},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -103,10 +103,10 @@ func TestPipelineStateValidateNamesImpossibleCombinations(t *testing.T) {
 		state PipelineState
 	}{
 		{"fresh", newPipelineState()},
-		{"pcap replaying", PipelineState{Source: SourceModePCAP, SourcePath: "a.pcapng", ReplayActive: true, TotalPasses: 1}},
+		{"pcap replaying", PipelineState{Source: SourceModeCapture, SourcePath: "a.pcapng", ReplayActive: true, TotalPasses: 1}},
 		{"vrlog loaded and played out", PipelineState{Source: SourceModeVRLog, SourcePath: "run/", ReplayActive: true, TotalPasses: 1}},
-		{"pcap analysis retained", PipelineState{Source: SourceModePCAP, SourcePath: "a.pcapng", GridPreserved: true, TotalPasses: 1}},
-		{"recording attributed", PipelineState{Source: SourceModePCAP, SourcePath: "a.pcapng", ReplayActive: true, TotalPasses: 1, Recording: true, RecordingRunID: "run-1"}},
+		{"pcap analysis retained", PipelineState{Source: SourceModeCapture, SourcePath: "a.pcapng", GridPreserved: true, TotalPasses: 1}},
+		{"recording attributed", PipelineState{Source: SourceModeCapture, SourcePath: "a.pcapng", ReplayActive: true, TotalPasses: 1, Recording: true, RecordingRunID: "run-1"}},
 	}
 	for _, tt := range valid {
 		t.Run("valid/"+tt.name, func(t *testing.T) {
@@ -121,9 +121,9 @@ func TestPipelineStateValidateNamesImpossibleCombinations(t *testing.T) {
 		state PipelineState
 	}{
 		{"the wedge: replay active on live", PipelineState{Source: SourceModeLive, ReplayActive: true, TotalPasses: 1}},
-		{"pass without a replay", PipelineState{Source: SourceModePCAP, Pass: ReplayPassSettling, TotalPasses: 1}},
+		{"pass without a replay", PipelineState{Source: SourceModeCapture, Pass: ReplayPassSettling, TotalPasses: 1}},
 		{"zero passes", PipelineState{Source: SourceModeLive}},
-		{"unattributed recording", PipelineState{Source: SourceModePCAP, SourcePath: "a.pcapng", ReplayActive: true, TotalPasses: 1, Recording: true}},
+		{"unattributed recording", PipelineState{Source: SourceModeCapture, SourcePath: "a.pcapng", ReplayActive: true, TotalPasses: 1, Recording: true}},
 		{"live with a leftover path", PipelineState{Source: SourceModeLive, SourcePath: "stale.pcapng", TotalPasses: 1}},
 	}
 	for _, tt := range invalid {
@@ -159,7 +159,7 @@ func TestEveryTransitionHelperLeavesAValidState(t *testing.T) {
 	}{
 		{"from live", func(s *PipelineState) {}},
 		{"from pcap replaying", func(s *PipelineState) {
-			s.Source = SourceModePCAP
+			s.Source = SourceModeCapture
 			s.SourcePath = "a.pcapng"
 			s.ReplayActive = true
 		}},
@@ -199,7 +199,7 @@ func TestStopIsOneTeardownForEveryReplayKind(t *testing.T) {
 			s.ReplayActive = true
 		}},
 		{"pcap replaying", func(s *PipelineState) {
-			s.Source = SourceModePCAP
+			s.Source = SourceModeCapture
 			s.SourcePath = "a.pcapng"
 			s.ReplayActive = true
 		}},
@@ -272,7 +272,7 @@ func TestStopIsIdempotent(t *testing.T) {
 func TestSelfTeardownDoesNotWaitOnItself(t *testing.T) {
 	ws := &Server{sensorID: "sensor-self-teardown", state: newPipelineState()}
 	ws.mutateState("test-setup", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.SourcePath = "a.pcapng"
 		s.ReplayActive = true
 	})
@@ -303,7 +303,7 @@ func TestSelfTeardownDoesNotWaitOnItself(t *testing.T) {
 func TestOperatorStopStillWaitsForTheReplay(t *testing.T) {
 	ws := &Server{sensorID: "sensor-operator-stop", state: newPipelineState()}
 	ws.mutateState("test-setup", func(s *PipelineState) {
-		s.Source = SourceModePCAP
+		s.Source = SourceModeCapture
 		s.SourcePath = "a.pcapng"
 		s.ReplayActive = true
 	})

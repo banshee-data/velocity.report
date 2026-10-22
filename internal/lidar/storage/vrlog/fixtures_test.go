@@ -32,14 +32,14 @@ func testManifest(t testing.TB) Manifest {
 		t.Fatal(err)
 	}
 	files := []CaptureFile{{Path: "/captures/test.pcapng", SHA256: strings.Repeat("ab", 32)}}
-	sourceID, err := l4bobserve.SourceID(l4bobserve.CaptureSource{ReplayCaseID: "synthetic-case",
+	sourceID, err := l4bobserve.SourceID(l4bobserve.CaptureSource{ClipID: "synthetic-case",
 		CapturePaths: []string{files[0].Path}, CaptureSHA256s: []string{files[0].SHA256}, ExtractorID: "l4.test/v1"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return Manifest{
 		Capture:     CaptureIdentity{SensorID: "hesai-test", SourceType: "synthetic"},
-		Extraction:  ExtractionIdentity{SourceID: sourceID, CalibrationID: calibrationID, CoordinateFrame: "site/hesai-test", ReplayCaseID: "synthetic-case", CaptureFiles: files, ExtractorID: "l4.test/v1"},
+		Extraction:  ExtractionIdentity{SourceID: sourceID, CalibrationID: calibrationID, CoordinateFrame: "site/hesai-test", ClipID: "synthetic-case", CaptureFiles: files, ExtractorID: "l4.test/v1"},
 		Calibration: calibration,
 		Provenance:  Provenance{Writer: "vrlog-test", ParamsHash: "sha256:test"},
 		Metadata:    []MetadataObject{NewMetadataObject("tuning", "application/json", []byte(`{"l4":{}}`))},

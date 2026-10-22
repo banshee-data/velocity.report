@@ -565,7 +565,7 @@ func TestPlanOnEmptySequence(t *testing.T) {
 
 // TestPlanRealisticSiteVisit exercises the shape the field workflow actually
 // produces: seven rolling five-minute files, a clean roll-over between each,
-// and a replay case covering a parked stretch that begins inside file 2 and
+// and a clip covering a parked stretch that begins inside file 2 and
 // ends inside file 5.
 func TestPlanRealisticSiteVisit(t *testing.T) {
 	var segs []Segment

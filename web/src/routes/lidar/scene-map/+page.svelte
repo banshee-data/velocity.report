@@ -135,7 +135,7 @@
 				</p>
 			</div>
 			<a
-				href={resolve('/lidar/replay-cases')}
+				href={resolve('/lidar/clips')}
 				class="text-primary shrink-0 text-sm whitespace-nowrap hover:underline">Clips →</a
 			>
 		</header>
@@ -312,13 +312,13 @@
 
 												<div class="border-surface-300 mt-2 overflow-hidden rounded border">
 													<!-- eslint-disable svelte/no-navigation-without-resolve -->
-													{#each site.cases as c (c.replay_case_id)}
+													{#each site.cases as c (c.clip_id)}
 														<a
-															href={`${resolve('/lidar/replay-cases')}?${clipQuery(c.replay_case_id)}`}
+															href={`${resolve('/lidar/clips')}?${clipQuery(c.clip_id)}`}
 															class="border-surface-300 hover:bg-surface-200 flex items-center gap-3 border-b px-2 py-1.5 text-xs last:border-b-0"
 														>
 															<span class="text-surface-content flex-1 truncate">
-																{c.description || c.replay_case_id}
+																{c.description || c.clip_id}
 															</span>
 															<span class="text-surface-content/50 w-40 font-mono">
 																sensor pose {c.origin_lat.toFixed(5)}, {c.origin_lon.toFixed(5)}

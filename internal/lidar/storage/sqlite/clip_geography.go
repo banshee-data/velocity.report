@@ -7,7 +7,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/geoindex"
 )
 
-// Geographic statuses a replay case can be in.
+// Geographic statuses a clip can be in.
 const (
 	// GeoLocated means the case carries an accepted WGS84 position and the S2
 	// family derived from it.
@@ -24,7 +24,7 @@ const (
 	GeoSourceFix      = "fix"
 )
 
-// CaseLocation is where a replay case was captured — its sensor pose: where
+// CaseLocation is where a clip was captured — its sensor pose: where
 // the car was that day, which is free to differ between visits to the same
 // site.
 //
@@ -70,7 +70,7 @@ func (l *CaseLocation) withDisplays() {
 // introduce a mismatch the guide would treat as a provenance error. The site
 // link and the case's own fields are written in one transaction: a case
 // cannot end up naming a site that was not also recorded.
-func (s *ReplayCaseStore) SetCaseLocation(replayCaseID string, lat, lon float64, source string) (CaseLocation, error) {
+func (s *ClipStore) SetCaseLocation(clipID string, lat, lon float64, source string) (CaseLocation, error) {
 	tokens, err := geoindex.FromLatLng(lat, lon)
 	if err != nil {
 		return CaseLocation{}, err
@@ -90,13 +90,13 @@ func (s *ReplayCaseStore) SetCaseLocation(replayCaseID string, lat, lon float64,
 	}
 
 	res, err := tx.Exec(`
-		UPDATE lidar_replay_cases
+		UPDATE lidar_clips
 		   SET origin_lat = ?, origin_lon = ?,
 		       s2_l10_token = ?, s2_l13_token = ?, s2_l16_token = ?, site_id = ?,
 		       geographic_source = ?, geographic_status = ?, updated_at_ns = ?
-		 WHERE replay_case_id = ?`,
+		 WHERE clip_id = ?`,
 		lat, lon, tokens.Coarse, tokens.Fine, tokens.Precise, tokens.Precise,
-		source, GeoLocated, time.Now().UnixNano(), replayCaseID)
+		source, GeoLocated, time.Now().UnixNano(), clipID)
 	if err != nil {
 		return CaseLocation{}, fmt.Errorf("set case location: %w", err)
 	}
@@ -121,14 +121,14 @@ func (s *ReplayCaseStore) SetCaseLocation(replayCaseID string, lat, lon float64,
 // ClearCaseLocation removes a case's position, returning it to the ordinary
 // unlocated state. The site itself is left in place — other cases, or a
 // canonical pose someone has already set, may still depend on it.
-func (s *ReplayCaseStore) ClearCaseLocation(replayCaseID string) error {
+func (s *ClipStore) ClearCaseLocation(clipID string) error {
 	res, err := s.db.Exec(`
-		UPDATE lidar_replay_cases
+		UPDATE lidar_clips
 		   SET origin_lat = NULL, origin_lon = NULL,
 		       s2_l10_token = NULL, s2_l13_token = NULL, s2_l16_token = NULL, site_id = NULL,
 		       geographic_source = NULL, geographic_status = ?, updated_at_ns = ?
-		 WHERE replay_case_id = ?`,
-		GeoUnavailable, time.Now().UnixNano(), replayCaseID)
+		 WHERE clip_id = ?`,
+		GeoUnavailable, time.Now().UnixNano(), clipID)
 	if err != nil {
 		return fmt.Errorf("clear case location: %w", err)
 	}
@@ -139,11 +139,11 @@ func (s *ReplayCaseStore) ClearCaseLocation(replayCaseID string) error {
 }
 
 // CaseLocationOf returns a case's location, or a nil location when it has none.
-func (s *ReplayCaseStore) CaseLocationOf(replayCaseID string) (*CaseLocation, error) {
+func (s *ClipStore) CaseLocationOf(clipID string) (*CaseLocation, error) {
 	row := s.db.QueryRow(`
 		SELECT origin_lat, origin_lon, s2_l10_token, s2_l13_token, s2_l16_token,
 		       site_id, geographic_source, geographic_status
-		  FROM lidar_replay_cases WHERE replay_case_id = ?`, replayCaseID)
+		  FROM lidar_clips WHERE clip_id = ?`, clipID)
 
 	var lat, lon *float64
 	var l10, l13, l16, siteID, source *string
@@ -198,7 +198,7 @@ type SceneArea struct {
 // This is the scene map: one entry per L10 cell, containing the L16 sites
 // visited inside it. A site with a canonical pose already set carries it
 // here; one without is the ordinary case, not a defect.
-func (s *ReplayCaseStore) SceneAreas() ([]SceneArea, error) {
+func (s *ClipStore) SceneAreas() ([]SceneArea, error) {
 	siteRows, err := s.db.Query(`SELECT ` + siteSelectColumns + ` FROM lidar_sites`)
 	if err != nil {
 		return nil, fmt.Errorf("list sites: %w", err)
@@ -220,10 +220,10 @@ func (s *ReplayCaseStore) SceneAreas() ([]SceneArea, error) {
 	siteRows.Close()
 
 	caseRows, err := s.db.Query(`
-		SELECT replay_case_id, COALESCE(description, ''), sensor_id,
+		SELECT clip_id, COALESCE(description, ''), sensor_id,
 		       s2_l10_token, s2_l13_token, s2_l16_token,
 		       origin_lat, origin_lon, created_at_ns
-		  FROM lidar_replay_cases
+		  FROM lidar_clips
 		 WHERE geographic_status = ?
 		   AND s2_l10_token IS NOT NULL
 		 ORDER BY s2_l10_token, s2_l16_token, created_at_ns DESC`, GeoLocated)
@@ -243,7 +243,7 @@ func (s *ReplayCaseStore) SceneAreas() ([]SceneArea, error) {
 	for caseRows.Next() {
 		var c SiteCase
 		var l10, l13, l16 string
-		if err := caseRows.Scan(&c.ReplayCaseID, &c.Description, &c.SensorID,
+		if err := caseRows.Scan(&c.ClipID, &c.Description, &c.SensorID,
 			&l10, &l13, &l16, &c.Lat, &c.Lon, &c.CreatedAtNs); err != nil {
 			return nil, fmt.Errorf("scan located case: %w", err)
 		}

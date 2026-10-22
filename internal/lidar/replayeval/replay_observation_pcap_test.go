@@ -45,7 +45,7 @@ func TestObservationStoragePreservesReplayBaseline(t *testing.T) {
 	with := base
 	with.OutDir = filepath.Join(dir, "with")
 	with.ObservationDBPath = filepath.Join(dir, "observations.db")
-	with.ReplayCaseID = "kirk0-test-case"
+	with.ClipID = "kirk0-test-case"
 	with.ObservationCalibration = identityReplayCalibration(with.SensorID)
 	with.ObservationMaxSamplePoints = 64
 	result, err := Run(with)

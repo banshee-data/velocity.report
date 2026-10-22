@@ -9,7 +9,7 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-// SetCaseLocationRequest labels a replay case with where it was captured.
+// SetCaseLocationRequest labels a clip with where it was captured.
 //
 // Only the position is accepted. The S2 tokens are derived from it server-side
 // with Parent, never taken from the caller: a family assembled by a client
@@ -23,28 +23,28 @@ type SetCaseLocationRequest struct {
 	Source string `json:"geographic_source,omitempty"`
 }
 
-// handleSetCaseLocation records a replay case's capture position.
+// handleSetCaseLocation records a clip's capture position.
 //
-// POST /api/lidar/scenes/{replay_case_id}/location
+// POST /api/lidar/clips/{clip_id}/location
 // DELETE the same path clears it.
-func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, replayCaseID string) {
+func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, clipID string) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "no database configured")
 		return
 	}
-	store := sqlite.NewReplayCaseStore(ws.db)
+	store := sqlite.NewClipStore(ws.db)
 
 	if r.Method == http.MethodDelete {
-		if err := store.ClearCaseLocation(replayCaseID); err != nil {
+		if err := store.ClearCaseLocation(clipID); err != nil {
 			if errors.Is(err, sqlite.ErrNotFound) {
-				ws.writeJSONError(w, http.StatusNotFound, "replay case not found")
+				ws.writeJSONError(w, http.StatusNotFound, "clip not found")
 				return
 			}
 			ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		ws.writeJSON(w, http.StatusOK, map[string]any{
-			"replay_case_id":    replayCaseID,
+			"clip_id":           clipID,
 			"geographic_status": sqlite.GeoUnavailable,
 		})
 		return
@@ -62,21 +62,21 @@ func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	loc, err := store.SetCaseLocation(replayCaseID, req.Lat, req.Lon, req.Source)
+	loc, err := store.SetCaseLocation(clipID, req.Lat, req.Lon, req.Source)
 	if err != nil {
 		switch {
 		case errors.Is(err, geoindex.ErrNoPosition):
 			ws.writeJSONError(w, http.StatusBadRequest, err.Error())
 		case errors.Is(err, sqlite.ErrNotFound):
-			ws.writeJSONError(w, http.StatusNotFound, "replay case not found")
+			ws.writeJSONError(w, http.StatusNotFound, "clip not found")
 		default:
 			ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		}
 		return
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]any{
-		"replay_case_id": replayCaseID,
-		"location":       loc,
+		"clip_id":  clipID,
+		"location": loc,
 	})
 }
 
@@ -94,7 +94,7 @@ func (ws *Server) handleSceneMap(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "no database configured")
 		return
 	}
-	areas, err := sqlite.NewReplayCaseStore(ws.db).SceneAreas()
+	areas, err := sqlite.NewClipStore(ws.db).SceneAreas()
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -94,6 +94,9 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 	}
 	if source != "" {
 		cfg.L1.DataSource = string(source)
+		if source == DataSourceCapture || source == DataSourceCaptureAnalysis {
+			cfg.L1.DataSource = "pcap"
+		}
 	}
 
 	if bm != nil && syncRuntimeState {

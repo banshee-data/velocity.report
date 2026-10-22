@@ -9,17 +9,12 @@
 		deleteRun,
 		deleteRunTrack,
 		getLabellingProgress,
-		getLidarReplayCases,
+		getLidarClips,
 		getLidarRun,
 		getLidarRuns,
 		getRunTracks
 	} from '#lib/api.js';
-	import type {
-		AnalysisRun,
-		LabellingProgress,
-		LidarReplayCase,
-		RunTrack
-	} from '#lib/types/lidar.js';
+	import type { Run, LabellingProgress, LidarClip, RunTrack } from '#lib/types/lidar.js';
 	import { clipQuery, linkedId, tracksQuery } from '#lib/lidarLinks.js';
 	import { clipForRun, labelShare, shortDigest } from '#lib/lidarRecords.js';
 	import { resolve } from '$app/paths';
@@ -27,13 +22,13 @@
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
-	let runs: AnalysisRun[] = [];
-	let scenes: LidarReplayCase[] = [];
+	let runs: Run[] = [];
+	let scenes: LidarClip[] = [];
 	let loading = true;
 	let error: string | null = null;
 
 	// Selected run for detail panel
-	let selectedRun: AnalysisRun | null = null;
+	let selectedRun: Run | null = null;
 	let runTracks: RunTrack[] = [];
 	let labellingProgress: LabellingProgress | null = null;
 	let tracksLoading = false;
@@ -42,7 +37,7 @@
 		loading = true;
 		error = null;
 		try {
-			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarReplayCases()]);
+			const [runsResult, scenesResult] = await Promise.all([getLidarRuns(), getLidarClips()]);
 			runs = runsResult;
 			scenes = scenesResult;
 		} catch (e) {
@@ -52,7 +47,7 @@
 		}
 	}
 
-	async function handleDeleteRun(run: AnalysisRun) {
+	async function handleDeleteRun(run: Run) {
 		if (
 			!confirm(
 				`Delete run ${run.run_id.substring(0, 8)}? This removes the run and all its tracks. Cannot be undone.`
@@ -102,7 +97,7 @@
 		}
 	}
 
-	async function selectRun(run: AnalysisRun) {
+	async function selectRun(run: Run) {
 		selectedRun = run;
 		tracksLoading = true;
 		runTracks = [];
@@ -170,17 +165,17 @@
 	}
 
 	/** Build href for the tracks page, passing the clip and run as query params. */
-	function tracksHref(run: AnalysisRun, scene: LidarReplayCase | null): string {
+	function tracksHref(run: Run, scene: LidarClip | null): string {
 		return `${resolve('/lidar/tracks')}?${tracksQuery({
 			sensorId: run.sensor_id,
-			clipId: scene?.replay_case_id,
+			clipId: scene?.clip_id,
 			runId: run.run_id
 		})}`;
 	}
 
 	/** Build href for one clip on the Clips page. */
-	function clipHref(scene: LidarReplayCase): string {
-		return `${resolve('/lidar/replay-cases')}?${clipQuery(scene.replay_case_id)}`;
+	function clipHref(scene: LidarClip): string {
+		return `${resolve('/lidar/clips')}?${clipQuery(scene.clip_id)}`;
 	}
 
 	/** Open a linked run, fetching it when it is older than the listed page. */
@@ -322,7 +317,7 @@
 												class="text-primary hover:underline"
 												on:click|stopPropagation
 											>
-												{scene.description || scene.replay_case_id.substring(0, 8)}
+												{scene.description || scene.clip_id.substring(0, 8)}
 											</a>
 											<!-- eslint-enable svelte/no-navigation-without-resolve -->
 										{:else}
@@ -537,7 +532,7 @@
 								<div class="flex justify-between py-1">
 									<dt class="text-surface-content/60">Capture</dt>
 									<dd class="text-surface-content font-mono text-xs break-all">
-										{scene.pcap_file}
+										{scene.files?.map((capture) => capture.pcap_file).join(', ')}
 									</dd>
 								</div>
 								{#if scene.pcap_start_secs != null}

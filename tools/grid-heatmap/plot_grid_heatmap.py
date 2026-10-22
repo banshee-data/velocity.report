@@ -869,7 +869,7 @@ def stop_pcap_replay(base_url, sensor_id):
         base_url: Monitor base URL
         sensor_id: Sensor ID
     """
-    url = f"{base_url}/api/lidar/pcap/stop"
+    url = f"{base_url}/api/lidar/replay/stop"
     params = {"sensor_id": sensor_id}
 
     try:

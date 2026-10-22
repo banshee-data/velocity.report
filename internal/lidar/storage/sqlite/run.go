@@ -12,9 +12,9 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 
-// AnalysisRun represents a complete analysis session with immutable run-config
+// Run represents a complete analysis session with immutable run-config
 // provenance.
-type AnalysisRun struct {
+type Run struct {
 	RunID               string          `json:"run_id"`
 	CreatedAt           time.Time       `json:"created_at"`
 	CompletedAt         *time.Time      `json:"completed_at,omitempty"`
@@ -30,7 +30,7 @@ type AnalysisRun struct {
 	ParamSetType        string          `json:"param_set_type,omitempty"`
 	BuildVersion        string          `json:"build_version,omitempty"`
 	BuildGitSHA         string          `json:"build_git_sha,omitempty"`
-	ReplayCaseID        string          `json:"replay_case_id,omitempty"`
+	ClipID              string          `json:"clip_id,omitempty"`
 	StatisticsJSON      json.RawMessage `json:"statistics_json,omitempty"`
 	ExecutionConfig     json.RawMessage `json:"execution_config,omitempty"`
 	FrameStartNs        *int64          `json:"frame_start_ns,omitempty"`
@@ -48,8 +48,8 @@ type AnalysisRun struct {
 	VRLogPath           string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
 
 	// Derived fields (not persisted in DB, computed on retrieval)
-	ReplayCaseName string          `json:"replay_case_name,omitempty"` // Derived from SourcePath filename
-	LabelRollup    *RunLabelRollup `json:"label_rollup,omitempty"`     // Derived from run-track labels
+	SourceName  string          `json:"source_name,omitempty"`  // Derived from SourcePath filename
+	LabelRollup *RunLabelRollup `json:"label_rollup,omitempty"` // Derived from run-track labels
 }
 
 // RunLabelRollup summarises the current human labelling state for a run.
@@ -69,14 +69,14 @@ func (r *RunLabelRollup) LabelledCount() int {
 	return r.Classified + r.TaggedOnly
 }
 
-// PopulateReplayCaseName sets ReplayCaseName from SourcePath by extracting the base
+// PopulateSourceName sets SourceName from SourcePath by extracting the base
 // filename without extension. E.g. "/data/kirk1.pcap" → "kirk1".
-func (r *AnalysisRun) PopulateReplayCaseName() {
+func (r *Run) PopulateSourceName() {
 	if r.SourcePath != "" {
 		base := filepath.Base(r.SourcePath)
-		r.ReplayCaseName = strings.TrimSuffix(base, filepath.Ext(base))
+		r.SourceName = strings.TrimSuffix(base, filepath.Ext(base))
 	} else {
-		r.ReplayCaseName = ""
+		r.SourceName = ""
 	}
 }
 
@@ -335,17 +335,17 @@ type TrackMerge = l8analytics.TrackMerge
 // TrackMatch represents a matched track between two runs.
 type TrackMatch = l8analytics.TrackMatch
 
-// AnalysisRunStore provides persistence for analysis runs.
-type AnalysisRunStore struct {
+// RunStore provides persistence for analysis runs.
+type RunStore struct {
 	db            DBClient
 	schemaOnce    sync.Once
-	recordCaps    analysisRunRecordCapabilities
+	recordCaps    runRecordCapabilities
 	recordCapsErr error
 }
 
-// NewAnalysisRunStore creates a new AnalysisRunStore.
-func NewAnalysisRunStore(db DBClient) *AnalysisRunStore {
-	return &AnalysisRunStore{db: db}
+// NewRunStore creates a new RunStore.
+func NewRunStore(db DBClient) *RunStore {
+	return &RunStore{db: db}
 }
 
 // isSQLiteBusy checks if an error is a SQLite SQLITE_BUSY error.
@@ -383,4 +383,14 @@ func retryOnBusy(operation func() error) error {
 	}
 
 	return fmt.Errorf("operation failed after %d retries: %w", maxRetries, err)
+}
+
+// MarshalJSON keeps the previous DMG's run key until the registered expiry.
+func (run Run) MarshalJSON() ([]byte, error) {
+	type payload Run
+	return json.Marshal(struct {
+		payload
+		LegacyClipID     string `json:"replay_case_id,omitempty"`
+		LegacySourceName string `json:"replay_case_name,omitempty"`
+	}{payload: payload(run), LegacyClipID: run.ClipID, LegacySourceName: run.SourceName})
 }

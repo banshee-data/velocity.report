@@ -47,8 +47,8 @@ func TestParkFinishedReplayKeepsAnAnalysisGrid(t *testing.T) {
 	if !got.GridPreserved {
 		t.Error("GridPreserved was cleared; the analysis grid is the reason for parking")
 	}
-	if wire := got.DataSourceWire(); wire != string(DataSourcePCAPAnalysis) {
-		t.Errorf("DataSourceWire() = %q, want %q", wire, DataSourcePCAPAnalysis)
+	if wire := got.DataSourceWire(); wire != string(DataSourceCaptureAnalysis) {
+		t.Errorf("DataSourceWire() = %q, want %q", wire, DataSourceCaptureAnalysis)
 	}
 }
 

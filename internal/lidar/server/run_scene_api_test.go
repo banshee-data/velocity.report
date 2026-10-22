@@ -55,8 +55,8 @@ func runSceneServer(t *testing.T, runID, vrlogPath, vrlogDir string) *Server {
 	t.Helper()
 	testDB, cleanup := setupTestDBWrapped(t)
 	t.Cleanup(cleanup)
-	store := sqlite.NewAnalysisRunStore(testDB)
-	if err := store.InsertRun(&sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(testDB)
+	if err := store.InsertRun(&sqlite.Run{
 		RunID: runID, SensorID: "hesai-pandar40p", SourceType: "pcap",
 		SourcePath: "/captures/kirk0.pcapng", Status: "completed", VRLogPath: vrlogPath,
 	}); err != nil {

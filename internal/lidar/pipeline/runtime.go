@@ -10,8 +10,8 @@ import (
 // accessed via global registries. Passing a SensorRuntime through
 // constructors makes wiring explicit and testing deterministic.
 type SensorRuntime struct {
-	SensorID           string
-	FrameBuilder       *l2frames.FrameBuilder
-	BackgroundManager  *l3grid.BackgroundManager
-	AnalysisRunManager *sqlite.AnalysisRunManager
+	SensorID          string
+	FrameBuilder      *l2frames.FrameBuilder
+	BackgroundManager *l3grid.BackgroundManager
+	RunManager        *sqlite.RunManager
 }

@@ -5,7 +5,7 @@
 // implemented and tested, but the only thing that calls it today is the
 // live, human-in-the-loop HINT sweep (POST /api/lidar/sweep/hint). This tool
 // exposes the same scoring standalone, against runs that already exist in an
-// AnalysisRunStore, so an L5 parameter sweep can be judged by real detection
+// RunStore, so an L5 parameter sweep can be judged by real detection
 // rate / false-positive rate / quality metrics against labelled tracks
 // instead of a metric the tracker can win by smoothing its own output (see
 // data/experiments/try/l5-tracking-noise-parameter-sweep.md's "preliminary
@@ -86,7 +86,7 @@ func run(args []string) int {
 	}
 	fs := flag.NewFlagSet("lidar-ground-truth-eval", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	dbPath := fs.String("db", "sensor_data.db", "default AnalysisRunStore SQLite database, used when -reference-db/-candidate-db are omitted")
+	dbPath := fs.String("db", "sensor_data.db", "default RunStore SQLite database, used when -reference-db/-candidate-db are omitted")
 	referenceDBPath := fs.String("reference-db", "", "database holding the reference run (default: -db)")
 	candidateDBPath := fs.String("candidate-db", "", "database holding the candidate run (default: -db) -- may be a different file, e.g. a throwaway isolated replay server's own database")
 	referenceRunID := fs.String("reference-run-id", "", "run ID with human-labelled reference tracks (required)")
@@ -197,7 +197,7 @@ func loadRunTracks(dbPath, runID string) ([]*sqlite.RunTrack, error) {
 		return nil, fmt.Errorf("open database %s: %w", dbPath, err)
 	}
 	defer db.Close()
-	store := sqlite.NewAnalysisRunStore(db)
+	store := sqlite.NewRunStore(db)
 	tracks, err := store.GetRunTracks(runID)
 	if err != nil {
 		return nil, fmt.Errorf("query run %s in %s: %w", runID, dbPath, err)

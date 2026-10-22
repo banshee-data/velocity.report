@@ -3,7 +3,7 @@
 //  VelocityVisualiserTests
 //
 //  Unit tests for RunBrowserView components: StatusDot, String.truncated,
-//  RunRowView layout, and AnalysisRun computed properties.
+//  RunRowView layout, and Run computed properties.
 //
 
 import AppKit
@@ -43,9 +43,9 @@ struct StatusDotTests {
     }
 }
 
-// MARK: - AnalysisRun Computed Properties Tests
+// MARK: - Run Computed Properties Tests
 
-struct AnalysisRunComputedPropertyTests {
+struct RunComputedPropertyTests {
     @Test func hasVRLogTrue() throws {
         let run = makeRun(vrlogPath: "/data/test.vrlog")
         #expect(run.hasVRLog == true)
@@ -78,15 +78,15 @@ struct AnalysisRunComputedPropertyTests {
     }
 
     @Test func shortIdPrefixWithUUID() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "4ea0f3ab-1234-5678-9abc-def012345678", createdAt: Date(), sourceType: "pcap",
             sourcePath: "/data/kirk1.pcap", sensorId: "hesai-01", durationSecs: 180.0,
             totalFrames: 1800, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
-            replayCaseName: "kirk1")
+            sourceName: "kirk1")
         // UUID: first 8 chars up to first dash
         #expect(run.shortIdPrefix == "4ea0f3ab")
-        #expect(run.replayCaseName == "kirk1")
+        #expect(run.sourceName == "kirk1")
     }
 
     @Test func statusCompleted() throws {
@@ -117,13 +117,13 @@ struct AnalysisRunComputedPropertyTests {
     private func makeRun(
         vrlogPath: String? = nil, status: String = "completed", errorMessage: String? = nil,
         notes: String? = nil
-    ) -> AnalysisRun {
-        AnalysisRun(
+    ) -> Run {
+        Run(
             runId: "run-test", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
-            replayCaseName: "test")
+            sourceName: "test")
     }
 }
 
@@ -324,45 +324,45 @@ struct PlaybackStatusModelTests {
 @available(macOS 15.0, *) final class RunRowViewTests: XCTestCase {
 
     func testRunRowViewWithVRLog() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-001", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
-            replayCaseName: "test")
+            sourceName: "test")
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
     }
 
     func testRunRowViewWithoutVRLog() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-002", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 60.0, totalFrames: 600, totalClusters: 200,
             totalTracks: 10, confirmedTracks: 8, status: "running", errorMessage: nil,
-            vrlogPath: nil, notes: nil, replayCaseName: nil)
+            vrlogPath: nil, notes: nil, sourceName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body
     }
 
     func testRunRowViewSelected() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-001", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 120.0, totalFrames: 1200, totalClusters: 500,
             totalTracks: 25, confirmedTracks: 20, status: "completed", errorMessage: nil,
-            vrlogPath: "/data/test.vrlog", notes: nil, replayCaseName: "kirk0")
+            vrlogPath: "/data/test.vrlog", notes: nil, sourceName: "kirk0")
 
         let view = RunRowView(run: run, isSelected: true, onSelect: {})
         let _ = view.body
     }
 
     func testRunRowViewFailedStatus() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-003", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 5.0, totalFrames: 50, totalClusters: 10,
             totalTracks: 0, confirmedTracks: 0, status: "failed",
-            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil, replayCaseName: nil)
+            errorMessage: "Sensor disconnected", vrlogPath: nil, notes: nil, sourceName: nil)
 
         let view = RunRowView(run: run, isSelected: false, onSelect: {})
         let _ = view.body

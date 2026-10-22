@@ -14,26 +14,26 @@ const (
 	broadwayLng = -122.4073
 )
 
-// locatedCaseServer creates a server holding one replay case.
+// locatedCaseServer creates a server holding one clip.
 func locatedCaseServer(t *testing.T) (*Server, string) {
 	t.Helper()
 	ws := caseServer(t, 0, "file7.pcap")
 	ws.db = mustCaseDB(t)
 
 	rec := httptest.NewRecorder()
-	ws.handleCreateScene(rec, httptest.NewRequest("POST", "/api/lidar/scenes",
-		strings.NewReader(`{"sensor_id":"hesai-pandar40p","pcap_file":"file7.pcap","description":"broadway_columbus static-4"}`)))
+	ws.handleCreateClip(rec, httptest.NewRequest("POST", "/api/lidar/clips",
+		strings.NewReader(`{"sensor_id":"hesai-pandar40p","pcap_files":["file7.pcap"],"description":"broadway_columbus static-4"}`)))
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d: %s", rec.Code, rec.Body.String())
 	}
-	return ws, decodeCaseBody(t, rec)["replay_case_id"].(string)
+	return ws, decodeCaseBody(t, rec)["clip_id"].(string)
 }
 
 func setLocation(t *testing.T, ws *Server, caseID, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
 	ws.handleSetCaseLocation(rec,
-		httptest.NewRequest("POST", "/api/lidar/scenes/"+caseID+"/location", strings.NewReader(body)),
+		httptest.NewRequest("POST", "/api/lidar/clips/"+caseID+"/location", strings.NewReader(body)),
 		caseID)
 	return rec
 }
@@ -136,7 +136,7 @@ func TestClearCaseLocationEndpoint(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	ws.handleSetCaseLocation(rec,
-		httptest.NewRequest("DELETE", "/api/lidar/scenes/"+caseID+"/location", nil), caseID)
+		httptest.NewRequest("DELETE", "/api/lidar/clips/"+caseID+"/location", nil), caseID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete = %d: %s", rec.Code, rec.Body.String())
 	}
@@ -152,7 +152,7 @@ func TestGetCaseReportsItsLocation(t *testing.T) {
 	}
 
 	rec := httptest.NewRecorder()
-	ws.handleGetScene(rec, httptest.NewRequest("GET", "/api/lidar/scenes/"+caseID, nil), caseID)
+	ws.handleGetClip(rec, httptest.NewRequest("GET", "/api/lidar/clips/"+caseID, nil), caseID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get = %d: %s", rec.Code, rec.Body.String())
 	}

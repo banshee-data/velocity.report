@@ -140,7 +140,7 @@ message ExtractionIdentity {
   string calibration_id = 2;
   // Frame of the retained XYZ, e.g. "site/<sensor>".
   string coordinate_frame = 3;
-  string replay_case_id = 4;
+  string clip_id = 4;
   // Ordered capture files exactly as they entered source_id.
   repeated CaptureFile capture_files = 5;
   string extractor_id = 6;

@@ -12,20 +12,20 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/storage/configasset"
 )
 
-type analysisRunRowScanner interface {
+type runRowScanner interface {
 	Scan(dest ...any) error
 }
 
-type analysisRunRows interface {
+type runRows interface {
 	Next() bool
 	Scan(dest ...any) error
 	Err() error
 }
 
-func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecordCapabilities, error) {
+func (s *RunStore) runRecordSelectColumns() ([]string, runRecordCapabilities, error) {
 	caps, err := s.runRecordCapabilities()
 	if err != nil {
-		return nil, analysisRunRecordCapabilities{}, err
+		return nil, runRecordCapabilities{}, err
 	}
 
 	columns := []string{
@@ -52,8 +52,8 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 	if caps.RequestedParamSetID {
 		columns = append(columns, "requested_param_set_id")
 	}
-	if caps.ReplayCaseID {
-		columns = append(columns, "replay_case_id")
+	if caps.ClipID {
+		columns = append(columns, "clip_id")
 	}
 	if caps.CompletedAt {
 		columns = append(columns, "completed_at")
@@ -71,9 +71,9 @@ func (s *AnalysisRunStore) runRecordSelectColumns() ([]string, analysisRunRecord
 	return columns, caps, nil
 }
 
-func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecordCapabilities) (*AnalysisRun, error) {
+func scanRunRecord(scanner runRowScanner, caps runRecordCapabilities) (*Run, error) {
 	var (
-		run            AnalysisRun
+		run            Run
 		createdAt      int64
 		sourcePath     sql.NullString
 		errorMessage   sql.NullString
@@ -105,7 +105,7 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	var (
 		runConfigID         sql.NullString
 		requestedParamSetID sql.NullString
-		replayCaseID        sql.NullString
+		clipID              sql.NullString
 		completedAt         sql.NullInt64
 		frameStartNs        sql.NullInt64
 		frameEndNs          sql.NullInt64
@@ -116,8 +116,8 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	if caps.RequestedParamSetID {
 		dests = append(dests, &requestedParamSetID)
 	}
-	if caps.ReplayCaseID {
-		dests = append(dests, &replayCaseID)
+	if caps.ClipID {
+		dests = append(dests, &clipID)
 	}
 	if caps.CompletedAt {
 		dests = append(dests, &completedAt)
@@ -158,8 +158,8 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 	if requestedParamSetID.Valid {
 		run.RequestedParamSetID = requestedParamSetID.String
 	}
-	if replayCaseID.Valid {
-		run.ReplayCaseID = replayCaseID.String
+	if clipID.Valid {
+		run.ClipID = clipID.String
 	}
 	if completedAt.Valid {
 		value := time.Unix(0, completedAt.Int64)
@@ -177,14 +177,14 @@ func scanAnalysisRunRecord(scanner analysisRunRowScanner, caps analysisRunRecord
 		run.StatisticsJSON = json.RawMessage(statisticsJSON.String)
 	}
 
-	run.PopulateReplayCaseName()
+	run.PopulateSourceName()
 	return &run, nil
 }
 
-func collectAnalysisRunRecords(rows analysisRunRows, caps analysisRunRecordCapabilities) ([]*AnalysisRun, error) {
-	var runs []*AnalysisRun
+func collectRunRecords(rows runRows, caps runRecordCapabilities) ([]*Run, error) {
+	var runs []*Run
 	for rows.Next() {
-		run, err := scanAnalysisRunRecord(rows, caps)
+		run, err := scanRunRecord(rows, caps)
 		if err != nil {
 			return nil, fmt.Errorf("scan run: %w", err)
 		}
@@ -196,7 +196,7 @@ func collectAnalysisRunRecords(rows analysisRunRows, caps analysisRunRecordCapab
 	return runs, nil
 }
 
-func finalizeAnalysisRunRecords(runs []*AnalysisRun, hydrate func(*AnalysisRun), populate func([]*AnalysisRun) error) ([]*AnalysisRun, error) {
+func finalizeRunRecords(runs []*Run, hydrate func(*Run), populate func([]*Run) error) ([]*Run, error) {
 	for _, run := range runs {
 		hydrate(run)
 	}
@@ -207,7 +207,7 @@ func finalizeAnalysisRunRecords(runs []*AnalysisRun, hydrate func(*AnalysisRun),
 }
 
 // GetRun retrieves an analysis run by ID.
-func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
+func (s *RunStore) GetRun(runID string) (*Run, error) {
 	columns, caps, err := s.runRecordSelectColumns()
 	if err != nil {
 		return nil, err
@@ -215,11 +215,11 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM lidar_run_records
+		FROM lidar_runs
 		WHERE run_id = ?
 	`, strings.Join(columns, ", "))
 
-	run, err := scanAnalysisRunRecord(s.db.QueryRow(query, runID), caps)
+	run, err := scanRunRecord(s.db.QueryRow(query, runID), caps)
 	if err != nil {
 		return nil, fmt.Errorf("get run: %w", err)
 	}
@@ -234,7 +234,7 @@ func (s *AnalysisRunStore) GetRun(runID string) (*AnalysisRun, error) {
 }
 
 // ListRuns retrieves recent analysis runs.
-func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
+func (s *RunStore) ListRuns(limit int) ([]*Run, error) {
 	columns, caps, err := s.runRecordSelectColumns()
 	if err != nil {
 		return nil, err
@@ -242,7 +242,7 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 
 	query := fmt.Sprintf(`
 		SELECT %s
-		FROM lidar_run_records
+		FROM lidar_runs
 		ORDER BY created_at DESC
 		LIMIT ?
 	`, strings.Join(columns, ", "))
@@ -253,15 +253,15 @@ func (s *AnalysisRunStore) ListRuns(limit int) ([]*AnalysisRun, error) {
 	}
 	defer rows.Close()
 
-	runs, err := collectAnalysisRunRecords(rows, caps)
+	runs, err := collectRunRecords(rows, caps)
 	if err != nil {
 		return nil, err
 	}
 
-	return finalizeAnalysisRunRecords(runs, s.hydrateRunConfigAssets, s.populateRunLabelRollups)
+	return finalizeRunRecords(runs, s.hydrateRunConfigAssets, s.populateRunLabelRollups)
 }
 
-func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
+func (s *RunStore) hydrateRunConfigAssets(run *Run) {
 	if run == nil || strings.TrimSpace(run.RunConfigID) == "" {
 		return
 	}
@@ -289,7 +289,7 @@ func (s *AnalysisRunStore) hydrateRunConfigAssets(run *AnalysisRun) {
 }
 
 // GetRunTracks retrieves all tracks for an analysis run.
-func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
+func (s *RunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	query := `
 		SELECT run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
@@ -309,7 +309,7 @@ func (s *AnalysisRunStore) GetRunTracks(runID string) ([]*RunTrack, error) {
 	return collectRunTracks(rows)
 }
 
-func collectRunTracks(rows analysisRunRows) ([]*RunTrack, error) {
+func collectRunTracks(rows runRows) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack
@@ -372,7 +372,7 @@ func collectRunTracks(rows analysisRunRows) ([]*RunTrack, error) {
 }
 
 // GetRunTrack retrieves a single track for an analysis run.
-func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error) {
+func (s *RunStore) GetRunTrack(runID, trackID string) (*RunTrack, error) {
 	query := `
 		SELECT run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
@@ -438,14 +438,14 @@ func (s *AnalysisRunStore) GetRunTrack(runID, trackID string) (*RunTrack, error)
 }
 
 // GetLabelingProgress returns labeling statistics for a run.
-func (s *AnalysisRunStore) GetLabelingProgress(runID string) (total, labeled int, byClass map[string]int, err error) {
+func (s *RunStore) GetLabelingProgress(runID string) (total, labeled int, byClass map[string]int, err error) {
 	total, labeled, byClass, _, err = s.GetLabelingProgressWithRollup(runID)
 	return total, labeled, byClass, err
 }
 
 // GetLabelingProgressWithRollup returns labeling statistics plus the current
 // mutually-exclusive rollup for a run.
-func (s *AnalysisRunStore) GetLabelingProgressWithRollup(runID string) (total, labeled int, byClass map[string]int, rollup *RunLabelRollup, err error) {
+func (s *RunStore) GetLabelingProgressWithRollup(runID string) (total, labeled int, byClass map[string]int, rollup *RunLabelRollup, err error) {
 	byClass = make(map[string]int)
 
 	rollup, err = s.GetRunLabelRollup(runID)
@@ -488,7 +488,7 @@ func (s *AnalysisRunStore) GetLabelingProgressWithRollup(runID string) (total, l
 }
 
 // GetRunLabelRollup returns the current human labelling state for one run.
-func (s *AnalysisRunStore) GetRunLabelRollup(runID string) (*RunLabelRollup, error) {
+func (s *RunStore) GetRunLabelRollup(runID string) (*RunLabelRollup, error) {
 	query := `
 		SELECT
 			COUNT(*) as total,
@@ -512,12 +512,12 @@ func (s *AnalysisRunStore) GetRunLabelRollup(runID string) (*RunLabelRollup, err
 	return &rollup, nil
 }
 
-func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
+func (s *RunStore) populateRunLabelRollups(runs []*Run) error {
 	if len(runs) == 0 {
 		return nil
 	}
 
-	byID := make(map[string]*AnalysisRun, len(runs))
+	byID := make(map[string]*Run, len(runs))
 	args := make([]interface{}, 0, len(runs))
 	placeholders := make([]string, 0, len(runs))
 	for _, run := range runs {
@@ -553,7 +553,7 @@ func (s *AnalysisRunStore) populateRunLabelRollups(runs []*AnalysisRun) error {
 	return assignRunLabelRollups(rows, byID)
 }
 
-func assignRunLabelRollups(rows analysisRunRows, byID map[string]*AnalysisRun) error {
+func assignRunLabelRollups(rows runRows, byID map[string]*Run) error {
 	for rows.Next() {
 		var runID string
 		var rollup RunLabelRollup
@@ -576,7 +576,7 @@ func assignRunLabelRollups(rows analysisRunRows, byID map[string]*AnalysisRun) e
 }
 
 // GetUnlabeledTracks returns tracks that need labeling.
-func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTrack, error) {
+func (s *RunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTrack, error) {
 	query := `
 		SELECT run_id, track_id, ` + trackMeasurementColumns + `,
 			user_label, label_confidence, labeler_id, labeled_at, quality_label,
@@ -597,7 +597,7 @@ func (s *AnalysisRunStore) GetUnlabeledTracks(runID string, limit int) ([]*RunTr
 	return collectUnlabeledTracks(rows)
 }
 
-func collectUnlabeledTracks(rows analysisRunRows) ([]*RunTrack, error) {
+func collectUnlabeledTracks(rows runRows) ([]*RunTrack, error) {
 	var tracks []*RunTrack
 	for rows.Next() {
 		var track RunTrack

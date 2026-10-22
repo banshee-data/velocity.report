@@ -90,7 +90,7 @@ func stopLiveListenerIfRunning(ws *Server) {
 	ws.stopLiveListenerLocked()
 }
 
-func TestFailReplayAnalysisRun_FailRunError(t *testing.T) {
+func TestFailReplayRun_FailRunError(t *testing.T) {
 	dbWrapped, cleanupDB := setupTestDBWrapped(t)
 	defer cleanupDB()
 
@@ -101,13 +101,13 @@ func TestFailReplayAnalysisRun_FailRunError(t *testing.T) {
 		DB:       dbWrapped,
 	})
 
-	runID, err := ws.startReplayAnalysisRun("/tmp/fail-run-error.pcap", ReplayConfig{
+	runID, err := ws.startReplayRun("/tmp/fail-run-error.pcap", ReplayConfig{
 		AnalysisMode:   true,
 		SensorID:       "fail-run-error",
 		PreferredRunID: "fail-run-error-id",
 	})
 	if err != nil {
-		t.Fatalf("startReplayAnalysisRun() error: %v", err)
+		t.Fatalf("startReplayRun() error: %v", err)
 	}
 	if runID == "" {
 		t.Fatal("expected run ID")
@@ -116,7 +116,7 @@ func TestFailReplayAnalysisRun_FailRunError(t *testing.T) {
 		t.Fatalf("close db: %v", err)
 	}
 
-	ws.failReplayAnalysisRun(runID, "boom")
+	ws.failReplayRun(runID, "boom")
 }
 
 func TestGetReplayFrameBuilder_DefaultRegistered(t *testing.T) {
@@ -549,8 +549,8 @@ func TestStartPCAPLocked_RealtimePlotsSuccessAndStopped(t *testing.T) {
 	}
 	if state := ws.PipelineState(); state.ReplayActive {
 		t.Error("the replay slot was not released, so no further replay could start")
-	} else if state.Source != SourceModePCAP {
-		t.Errorf("Source = %q, want %q: a finished replay stays the source", state.Source, SourceModePCAP)
+	} else if state.Source != SourceModeCapture {
+		t.Errorf("Source = %q, want %q: a finished replay stays the source", state.Source, SourceModeCapture)
 	}
 }
 
@@ -797,8 +797,8 @@ func TestStartPCAPLocked_NonAnalysis_ResetStateErrorAndStopped(t *testing.T) {
 	}
 	if state := ws.PipelineState(); state.ReplayActive {
 		t.Error("the replay slot was not released, so no further replay could start")
-	} else if state.Source != SourceModePCAP {
-		t.Errorf("Source = %q, want %q: a finished replay stays the source", state.Source, SourceModePCAP)
+	} else if state.Source != SourceModeCapture {
+		t.Errorf("Source = %q, want %q: a finished replay stays the source", state.Source, SourceModeCapture)
 	}
 }
 

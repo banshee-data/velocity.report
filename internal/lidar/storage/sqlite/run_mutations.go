@@ -8,7 +8,7 @@ import (
 )
 
 // InsertRun creates a new analysis run.
-func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
+func (s *RunStore) InsertRun(run *Run) error {
 	caps, err := s.runRecordCapabilities()
 	if err != nil {
 		return err
@@ -47,9 +47,9 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 		columns = append(columns, "requested_param_set_id")
 		args = append(args, nullString(run.RequestedParamSetID))
 	}
-	if caps.ReplayCaseID {
-		columns = append(columns, "replay_case_id")
-		args = append(args, nullString(run.ReplayCaseID))
+	if caps.ClipID {
+		columns = append(columns, "clip_id")
+		args = append(args, nullString(run.ClipID))
 	}
 	if caps.CompletedAt {
 		columns = append(columns, "completed_at")
@@ -70,7 +70,7 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 	}
 
 	query := fmt.Sprintf(`
-		INSERT INTO lidar_run_records (
+		INSERT INTO lidar_runs (
 			%s
 		) VALUES (%s)
 	`, strings.Join(columns, ", "), strings.Join(placeholders, ", "))
@@ -86,7 +86,7 @@ func (s *AnalysisRunStore) InsertRun(run *AnalysisRun) error {
 }
 
 // UpdateRunStatus updates the status of an analysis run.
-func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error {
+func (s *RunStore) UpdateRunStatus(runID, status, errorMsg string) error {
 	caps, err := s.runRecordCapabilities()
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error
 	args = append(args, runID)
 
 	query := fmt.Sprintf(
-		`UPDATE lidar_run_records SET %s WHERE run_id = ?`,
+		`UPDATE lidar_runs SET %s WHERE run_id = ?`,
 		strings.Join(setClauses, ", "),
 	)
 	return retryOnBusy(func() error {
@@ -114,8 +114,8 @@ func (s *AnalysisRunStore) UpdateRunStatus(runID, status, errorMsg string) error
 }
 
 // UpdateRunVRLogPath updates the vrlog_path of an analysis run.
-func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
-	query := `UPDATE lidar_run_records SET vrlog_path = ? WHERE run_id = ?`
+func (s *RunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
+	query := `UPDATE lidar_runs SET vrlog_path = ? WHERE run_id = ?`
 	return retryOnBusy(func() error {
 		_, err := s.db.Exec(query, nullString(vrlogPath), runID)
 		if err != nil {
@@ -126,7 +126,7 @@ func (s *AnalysisRunStore) UpdateRunVRLogPath(runID, vrlogPath string) error {
 }
 
 // CompleteRun marks a run as completed with final statistics.
-func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error {
+func (s *RunStore) CompleteRun(runID string, stats *AnalysisStats) error {
 	caps, err := s.runRecordCapabilities()
 	if err != nil {
 		return err
@@ -170,7 +170,7 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 		// Statistics summarise the run; one that cannot encode them (a NaN,
 		// say) still completes without them rather than staying "running".
 		if statisticsJSON, err := stats.Statistics.ToJSON(); err != nil {
-			opsf("[AnalysisRunStore] run %s completes without statistics: %v", runID, err)
+			opsf("[RunStore] run %s completes without statistics: %v", runID, err)
 		} else {
 			setClauses = append(setClauses, "statistics_json = ?")
 			args = append(args, statisticsJSON)
@@ -179,7 +179,7 @@ func (s *AnalysisRunStore) CompleteRun(runID string, stats *AnalysisStats) error
 	args = append(args, runID)
 
 	query := fmt.Sprintf(`
-		UPDATE lidar_run_records SET
+		UPDATE lidar_runs SET
 			%s
 		WHERE run_id = ?
 	`, strings.Join(setClauses, ",\n\t\t\t"))
@@ -222,7 +222,7 @@ func nullableTimeUnixNano(value *time.Time) interface{} {
 // label_source, linked_track_ids and the split/merge flags are a person's
 // work, and this is not. A track ID with no row is left alone rather than
 // inserted; inserting is InsertRunTrack's job, with the label defaults it owns.
-func (s *AnalysisRunStore) UpdateRunTrackMeasurements(runID string, measurements map[string]TrackMeasurement) error {
+func (s *RunStore) UpdateRunTrackMeasurements(runID string, measurements map[string]TrackMeasurement) error {
 	if len(measurements) == 0 {
 		return nil
 	}
@@ -258,7 +258,7 @@ func (s *AnalysisRunStore) UpdateRunTrackMeasurements(runID string, measurements
 
 // InsertRunTrack inserts a track for an analysis run.
 // Uses retry logic to handle SQLITE_BUSY errors from concurrent writes.
-func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
+func (s *RunStore) InsertRunTrack(track *RunTrack) error {
 	userLabel := normaliseRunTrackString(track.UserLabel)
 	qualityLabel := normaliseRunTrackQualityLabel(track.QualityLabel)
 	labelerID := normaliseRunTrackString(track.LabelerID)
@@ -315,7 +315,7 @@ func (s *AnalysisRunStore) InsertRunTrack(track *RunTrack) error {
 // This function does NOT validate enum values - it accepts any string and stores it as-is.
 // Validation of label enum values should be performed by the caller (e.g., API handlers)
 // using ValidateUserLabel() and ValidateQualityLabel() from the api package.
-func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
+func (s *RunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
 	userLabel = normaliseRunTrackString(userLabel)
 	qualityLabel = normaliseRunTrackQualityLabel(qualityLabel)
 	labelerID = normaliseRunTrackString(labelerID)
@@ -351,7 +351,7 @@ func (s *AnalysisRunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLa
 }
 
 // UpdateTrackQualityFlags updates the split/merge flags for a track.
-func (s *AnalysisRunStore) UpdateTrackQualityFlags(runID, trackID string, isSplit, isMerge bool, linkedIDs []string) error {
+func (s *RunStore) UpdateTrackQualityFlags(runID, trackID string, isSplit, isMerge bool, linkedIDs []string) error {
 	linkedIDs = normaliseRunTrackLinkedIDs(linkedIDs)
 	linkedJSON := "[]"
 	if len(linkedIDs) > 0 {

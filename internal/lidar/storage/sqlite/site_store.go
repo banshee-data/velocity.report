@@ -8,7 +8,7 @@ import (
 
 // Site is a place captures have been taken, at L16 — a junction and its
 // approaches, per docs/lidar/architecture/geographic-indexing.md. It is what
-// "a scene should be at a site" refers to: many replay cases can visit the
+// "a scene should be at a site" refers to: many clips can visit the
 // same site, each recording its own sensor pose (CaseLocation's lat/lon —
 // where the car was that day, which moves visit to visit), while the site
 // itself optionally carries a canonical pose: a fixed point such as the
@@ -36,23 +36,23 @@ type Site struct {
 	CreatedAtNs int64  `json:"created_at_ns"`
 	UpdatedAtNs *int64 `json:"updated_at_ns,omitempty"`
 
-	// Cases are the located replay cases visited at this site, newest first.
+	// Cases are the located clips visited at this site, newest first.
 	// Not a stored column — populated by SceneAreas when it assembles the
 	// scene map.
 	Cases []SiteCase `json:"cases,omitempty"`
 }
 
-// SiteCase is one replay case as a site lists it: its own sensor pose (where
+// SiteCase is one clip as a site lists it: its own sensor pose (where
 // the car was that visit) alongside the site's shared, possibly-canonical
 // one. It does not repeat the site's own S2 tokens — the parent Site already
 // carries those.
 type SiteCase struct {
-	ReplayCaseID string  `json:"replay_case_id"`
-	Description  string  `json:"description,omitempty"`
-	SensorID     string  `json:"sensor_id,omitempty"`
-	Lat          float64 `json:"origin_lat"`
-	Lon          float64 `json:"origin_lon"`
-	CreatedAtNs  int64   `json:"created_at_ns"`
+	ClipID      string  `json:"clip_id"`
+	Description string  `json:"description,omitempty"`
+	SensorID    string  `json:"sensor_id,omitempty"`
+	Lat         float64 `json:"origin_lat"`
+	Lon         float64 `json:"origin_lon"`
+	CreatedAtNs int64   `json:"created_at_ns"`
 }
 
 // How a site's canonical pose was established. Unlike a case's
@@ -75,7 +75,7 @@ type execer interface {
 // set deliberately, once, by SetSiteCanonicalPose, not implied by a case
 // merely being located here.
 //
-// Takes an execer rather than a *ReplayCaseStore so SetCaseLocation can run it
+// Takes an execer rather than a *ClipStore so SetCaseLocation can run it
 // inside its own transaction: a case and the site it names come into being
 // together or not at all.
 func upsertSite(x execer, l16, l13, l10 string) error {

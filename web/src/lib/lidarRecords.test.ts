@@ -1,18 +1,18 @@
 import { clipForRun, labelShare, objectiveText, shortDigest } from './lidarRecords';
-import type { AnalysisRun, LidarReplayCase } from './types/lidar';
+import type { Run, LidarClip } from './types/lidar';
 
-function clip(id: string, extra: Partial<LidarReplayCase> = {}): LidarReplayCase {
+function clip(id: string, extra: Partial<LidarClip> = {}): LidarClip {
 	return {
-		replay_case_id: id,
+		clip_id: id,
 		sensor_id: 'hesai-pandar40p',
-		pcap_file: `/c/${id}.pcapng`,
+		files: [{ ordinal: 0, pcap_file: `/c/${id}.pcapng` }],
 		created_at_ns: 0,
 		file_count: 1,
 		...extra
 	};
 }
 
-function run(extra: Partial<AnalysisRun> = {}): AnalysisRun {
+function run(extra: Partial<Run> = {}): Run {
 	return {
 		run_id: 'run-1',
 		created_at: '2026-10-07T12:00:00Z',
@@ -28,13 +28,13 @@ function run(extra: Partial<AnalysisRun> = {}): AnalysisRun {
 describe('clipForRun', () => {
 	const kirk0 = clip('kirk0');
 	const kirk1 = clip('kirk1', { reference_run_id: 'run-1' });
-	const recorded = clip('recorded', { pcap_file: '/c/kirk0.pcapng' });
+	const recorded = clip('recorded', { files: [{ ordinal: 0, pcap_file: '/c/kirk0.pcapng' }] });
 	const clips = [kirk0, kirk1, recorded];
 
 	it('takes the clip the run recorded first', () => {
-		expect(
-			clipForRun(run({ replay_case_id: 'recorded', source_path: '/c/kirk0.pcapng' }), clips)
-		).toBe(recorded);
+		expect(clipForRun(run({ clip_id: 'recorded', source_path: '/c/kirk0.pcapng' }), clips)).toBe(
+			recorded
+		);
 	});
 
 	it('falls back to the clip naming it as its reference run', () => {
@@ -48,7 +48,9 @@ describe('clipForRun', () => {
 	});
 
 	it('matches a clip that names its capture relative to the volume', () => {
-		const columbus = clip('columbus', { pcap_file: 's2/s2_sf_3_00002.pcap' });
+		const columbus = clip('columbus', {
+			files: [{ ordinal: 0, pcap_file: 's2/s2_sf_3_00002.pcap' }]
+		});
 		const replay = run({
 			run_id: 'run-5',
 			source_path: '/Volumes/lidar/lidar/s2/s2_sf_3_00002.pcap'
@@ -63,7 +65,7 @@ describe('clipForRun', () => {
 	it('looks past a recorded clip that is no longer listed', () => {
 		const gone = run({
 			run_id: 'run-3',
-			replay_case_id: 'deleted',
+			clip_id: 'deleted',
 			source_path: '/c/kirk0.pcapng'
 		});
 		expect(clipForRun(gone, clips)).toBe(kirk0);

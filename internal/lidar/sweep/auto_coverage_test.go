@@ -28,7 +28,7 @@ type mockBackend struct {
 	acceptanceMetrics  map[string]interface{}
 	gridStatus         map[string]interface{}
 	trackingMetrics    map[string]interface{}
-	lastAnalysisRunID  string
+	lastRunID          string
 	setTuningParamsErr error
 	startPCAPErr       error
 	stopPCAPErr        error
@@ -115,8 +115,8 @@ func (m *mockBackend) WaitForPCAPComplete(timeout time.Duration) error {
 	return m.waitPCAPErr
 }
 
-func (m *mockBackend) GetLastAnalysisRunID() string {
-	return m.lastAnalysisRunID
+func (m *mockBackend) GetLastRunID() string {
+	return m.lastRunID
 }
 
 // defaultMockBackend returns a mockBackend with empty-JSON-equivalent
@@ -174,7 +174,7 @@ func TestAutoTuner_GetSweepID_Empty(t *testing.T) {
 
 func TestAutoTuner_SetGroundTruthScorer(t *testing.T) {
 	at := newQuietAutoTuner(nil)
-	scorer := func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	scorer := func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 1.0, nil
 	}
 	at.SetGroundTruthScorer(scorer)
@@ -183,12 +183,12 @@ func TestAutoTuner_SetGroundTruthScorer(t *testing.T) {
 	}
 }
 
-func TestAutoTuner_SetSceneStore(t *testing.T) {
+func TestAutoTuner_SetClipStore(t *testing.T) {
 	at := newQuietAutoTuner(nil)
-	mock := &mockSceneStore{}
-	at.SetSceneStore(mock)
-	if at.sceneStore != mock {
-		t.Error("SetSceneStore did not set store")
+	mock := &mockClipStore{}
+	at.SetClipStore(mock)
+	if at.clipStore != mock {
+		t.Error("SetClipStore did not set store")
 	}
 }
 
@@ -369,7 +369,7 @@ func TestAutoTuner_Start_UnsupportedParamType(t *testing.T) {
 	}
 }
 
-func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
+func TestAutoTuner_Start_GroundTruth_NoClipID(t *testing.T) {
 	runner := newQuietRunner(nil)
 	at := newQuietAutoTuner(runner)
 	err := at.start(context.Background(), AutoTuneRequest{
@@ -378,7 +378,7 @@ func TestAutoTuner_Start_GroundTruth_NoSceneID(t *testing.T) {
 		Objective:      "ground_truth",
 	})
 	if err == nil {
-		t.Error("expected error for ground_truth without replay_case_id")
+		t.Error("expected error for ground_truth without clip_id")
 	}
 }
 
@@ -389,7 +389,7 @@ func TestAutoTuner_Start_GroundTruth_NoScorer(t *testing.T) {
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
 		Objective:      "ground_truth",
-		ReplayCaseID:   "scene-1",
+		ClipID:         "clip-1",
 	})
 	if err == nil {
 		t.Error("expected error for ground_truth without scorer")
@@ -738,14 +738,14 @@ func TestAutoTuner_Start_NilContext(t *testing.T) {
 func TestAutoTuner_Start_GroundTruth_DefaultWeights(t *testing.T) {
 	runner := newQuietRunner(defaultMockBackend())
 	at := newQuietAutoTuner(runner)
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.9, nil
 	})
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params:         []SweepParam{{Name: "p", Type: "float64", Start: 0, End: 1}},
 		ValuesPerParam: 3,
 		Objective:      "ground_truth",
-		ReplayCaseID:   "scene-1",
+		ClipID:         "clip-1",
 		// GroundTruthWeights not set -> should get defaults
 	})
 	if err != nil {
@@ -791,9 +791,9 @@ func (m *mockPersister) GetSuspendedSweep() (string, int, error) {
 	return "", 0, nil
 }
 
-type mockSceneStore struct{}
+type mockClipStore struct{}
 
-func (m *mockSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
+func (m *mockClipStore) SetOptimalParams(clipID string, paramsJSON json.RawMessage) error {
 	return nil
 }
 
@@ -1078,7 +1078,7 @@ func TestAutoCov2_RunGroundTruth(t *testing.T) {
 	at := newQuietAutoTuner(runner)
 
 	var scorerCalls int32
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		atomic.AddInt32(&scorerCalls, 1)
 		// Return a deterministic score based on the candidate
 		return 0.85, nil
@@ -1095,7 +1095,7 @@ func TestAutoCov2_RunGroundTruth(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		ReplayCaseID:   "test-scene-1",
+		ClipID:         "test-clip-1",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1113,17 +1113,17 @@ func TestAutoCov2_RunGroundTruth(t *testing.T) {
 	}
 }
 
-// TestAutoCov2_RunGroundTruthWithSceneStore tests scene store saving on completion.
-func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
+// TestAutoCov2_RunGroundTruthWithClipStore tests clip store saving on completion.
+func TestAutoCov2_RunGroundTruthWithClipStore(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
 
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.9, nil
 	})
 
-	store := &trackingSceneStore{}
-	at.SetSceneStore(store)
+	store := &trackingClipStore{}
+	at.SetClipStore(store)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1136,7 +1136,7 @@ func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		ReplayCaseID:   "scene-save-test",
+		ClipID:         "clip-save-test",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1149,14 +1149,14 @@ func TestAutoCov2_RunGroundTruthWithSceneStore(t *testing.T) {
 
 	store.mu.Lock()
 	called := store.called
-	sceneID := store.sceneID
+	clipID := store.clipID
 	store.mu.Unlock()
 
 	if !called {
-		t.Error("expected SetOptimalParams to be called on scene store")
+		t.Error("expected SetOptimalParams to be called on clip store")
 	}
-	if sceneID != "scene-save-test" {
-		t.Errorf("scene store called with sceneID=%q, want 'scene-save-test'", sceneID)
+	if clipID != "clip-save-test" {
+		t.Errorf("clip store called with clipID=%q, want 'clip-save-test'", clipID)
 	}
 }
 
@@ -1165,7 +1165,7 @@ func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
 
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0, fmt.Errorf("scoring failed")
 	})
 
@@ -1180,7 +1180,7 @@ func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		ReplayCaseID:   "scene-err",
+		ClipID:         "clip-err",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
@@ -1193,17 +1193,17 @@ func TestAutoCov2_RunGroundTruthScorerError(t *testing.T) {
 	}
 }
 
-// TestAutoCov2_RunGroundTruthSceneStoreError tests graceful handling of scene store errors.
-func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
+// TestAutoCov2_RunGroundTruthClipStoreError tests graceful handling of clip store errors.
+func TestAutoCov2_RunGroundTruthClipStoreError(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
 
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		return 0.8, nil
 	})
 
-	store := &failingSceneStore{}
-	at.SetSceneStore(store)
+	store := &failingClipStore{}
+	at.SetClipStore(store)
 
 	err := at.start(context.Background(), AutoTuneRequest{
 		Params: []SweepParam{
@@ -1216,16 +1216,16 @@ func TestAutoCov2_RunGroundTruthSceneStoreError(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		ReplayCaseID:   "scene-store-err",
+		ClipID:         "clip-store-err",
 	})
 	if err != nil {
 		t.Fatalf("unexpected start error: %v", err)
 	}
 
-	// Should still complete — scene store errors are logged, not fatal
+	// Should still complete — clip store errors are logged, not fatal
 	state := waitForAutoTuneStatus(t, at, 30*time.Second, SweepStatusComplete, SweepStatusError)
 	if state.Status != SweepStatusComplete {
-		t.Fatalf("expected complete despite scene store error, got %q error=%q", state.Status, state.Error)
+		t.Fatalf("expected complete despite clip store error, got %q error=%q", state.Status, state.Error)
 	}
 }
 
@@ -1623,7 +1623,7 @@ func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
 	runner := newQuietRunner(sweepMockBackend())
 	at := newQuietAutoTuner(runner)
 
-	at.SetGroundTruthScorer(func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
+	at.SetGroundTruthScorer(func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error) {
 		// Verify custom weights are passed through
 		if weights.DetectionRate != 2.0 {
 			return 0, fmt.Errorf("expected DetectionRate=2.0, got %v", weights.DetectionRate)
@@ -1642,7 +1642,7 @@ func TestAutoCov2_RunGroundTruthCustomWeights(t *testing.T) {
 		SettleTime:     "1ms",
 		Interval:       "1ms",
 		Objective:      "ground_truth",
-		ReplayCaseID:   "custom-weights-scene",
+		ClipID:         "custom-weights-clip",
 		GroundTruthWeights: &GroundTruthWeights{
 			DetectionRate:  2.0,
 			Fragmentation:  5.0,
@@ -1756,26 +1756,26 @@ func (fp *failingPersister) GetSuspendedSweep() (string, int, error) {
 	return "", 0, nil
 }
 
-// trackingSceneStore tracks calls to SetOptimalParams.
-type trackingSceneStore struct {
+// trackingClipStore tracks calls to SetOptimalParams.
+type trackingClipStore struct {
 	mu         sync.Mutex
 	called     bool
-	sceneID    string
+	clipID     string
 	paramsJSON json.RawMessage
 }
 
-func (s *trackingSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
+func (s *trackingClipStore) SetOptimalParams(clipID string, paramsJSON json.RawMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.called = true
-	s.sceneID = sceneID
+	s.clipID = clipID
 	s.paramsJSON = paramsJSON
 	return nil
 }
 
-// failingSceneStore always returns errors.
-type failingSceneStore struct{}
+// failingClipStore always returns errors.
+type failingClipStore struct{}
 
-func (s *failingSceneStore) SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error {
-	return fmt.Errorf("simulated scene store failure")
+func (s *failingClipStore) SetOptimalParams(clipID string, paramsJSON json.RawMessage) error {
+	return fmt.Errorf("simulated clip store failure")
 }

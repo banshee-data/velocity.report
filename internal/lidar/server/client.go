@@ -605,9 +605,9 @@ func (c *Client) SetTrackerConfig(params TrackingParams) error {
 	return nil
 }
 
-// GetLastAnalysisRunID retrieves the last analysis run ID from the data source endpoint.
+// GetLastRunID retrieves the last analysis run ID from the data source endpoint.
 // Returns an empty string if no analysis run has been recorded.
-func (c *Client) GetLastAnalysisRunID() string {
+func (c *Client) GetLastRunID() string {
 	resp, err := c.HTTPClient.Get(fmt.Sprintf("%s/api/lidar/data_source?sensor_id=%s", c.BaseURL, c.SensorID))
 	if err != nil {
 		return ""

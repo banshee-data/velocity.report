@@ -127,7 +127,7 @@ Expose `compareParams()` and `computeTemporalIoU()` via a new endpoint.
 **Files:**
 
 - `internal/lidar/monitor/run_track_api.go`: new handler
-- [internal/lidar/storage/sqlite/analysis_run_compare.go](../../internal/lidar/storage/sqlite/analysis_run_compare.go): already implemented
+- [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go): already implemented
 - `internal/lidar/monitor/assets/sweep_dashboard.js`: HINT round comparison
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results
@@ -145,7 +145,7 @@ breakdown TODOs) and persist.
 **Files:**
 
 - [internal/lidar/l6objects/quality.go](../../internal/lidar/l6objects/quality.go): finish implementation
-- [internal/lidar/storage/sqlite/analysis_run_manager.go](../../internal/lidar/storage/sqlite/analysis_run_manager.go): persistence
+- [internal/lidar/storage/sqlite/run_manager.go](../../internal/lidar/storage/sqlite/run_manager.go): persistence
 - `web/`: rendering
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, clustering

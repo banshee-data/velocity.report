@@ -114,7 +114,7 @@ func segmentsMainWithOpen(args []string, open func(string) (*sqlite.SQLDB, error
 	if sel.Finder == "random" || *capture != "" {
 		path := *capture
 		if path == "" && *run != "" {
-			record, recordErr := sqlite.NewAnalysisRunStore(db).GetRun(*run)
+			record, recordErr := sqlite.NewRunStore(db).GetRun(*run)
 			if recordErr != nil {
 				fmt.Fprintf(os.Stderr, "segments: run: %v\n", recordErr)
 				return 1
@@ -209,7 +209,7 @@ func loadRunSeries(db *sqlite.SQLDB, runID string) ([]segments.Point, error) {
 	if err != nil || len(pts) > 0 {
 		return pts, err
 	}
-	record, err := sqlite.NewAnalysisRunStore(db).GetRun(runID)
+	record, err := sqlite.NewRunStore(db).GetRun(runID)
 	if err != nil {
 		return nil, fmt.Errorf("run: %w", err)
 	}

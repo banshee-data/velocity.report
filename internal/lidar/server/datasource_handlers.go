@@ -139,7 +139,7 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 	for retry := 0; retry < maxRetries; retry++ {
 		ws.dataSourceMu.Lock()
 
-		if ws.PipelineState().Source == SourceModePCAP {
+		if ws.PipelineState().Source == SourceModeCapture {
 			ws.dataSourceMu.Unlock()
 			if retry == 0 {
 				diagf("PCAP replay in progress, waiting...")
@@ -186,7 +186,7 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 // StopPCAPForSweep cancels any running PCAP replay and restores live mode.
 func (ws *Server) StopPCAPForSweep() error {
 	ws.dataSourceMu.Lock()
-	if ws.PipelineState().Source != SourceModePCAP {
+	if ws.PipelineState().Source != SourceModeCapture {
 		ws.dataSourceMu.Unlock()
 		return nil // not in PCAP mode: nothing to do
 	}
@@ -247,9 +247,9 @@ func (ws *Server) PCAPDone() <-chan struct{} {
 	return ws.pcapDone
 }
 
-// LastAnalysisRunID returns the run ID set during the most recent PCAP
+// LastRunID returns the run ID set during the most recent PCAP
 // replay in analysis mode.
-func (ws *Server) LastAnalysisRunID() string {
+func (ws *Server) LastRunID() string {
 	ws.pcapMu.Lock()
 	defer ws.pcapMu.Unlock()
 	return ws.PipelineState().LastRunID
@@ -407,9 +407,9 @@ func (ws *Server) replayAnalysisSensorID(config ReplayConfig) string {
 	return ws.sensorID
 }
 
-func (ws *Server) ensureAnalysisRunManager(sensorID string) *sqlite.AnalysisRunManager {
-	if ws.analysisRunManager != nil {
-		return ws.analysisRunManager
+func (ws *Server) ensureRunManager(sensorID string) *sqlite.RunManager {
+	if ws.runManager != nil {
+		return ws.runManager
 	}
 	if ws.db == nil {
 		return nil
@@ -419,11 +419,11 @@ func (ws *Server) ensureAnalysisRunManager(sensorID string) *sqlite.AnalysisRunM
 	if effectiveSensorID == "" {
 		effectiveSensorID = ws.sensorID
 	}
-	ws.analysisRunManager = sqlite.NewAnalysisRunManager(ws.db, effectiveSensorID)
+	ws.runManager = sqlite.NewRunManager(ws.db, effectiveSensorID)
 	if effectiveSensorID != "" {
-		sqlite.RegisterAnalysisRunManager(effectiveSensorID, ws.analysisRunManager)
+		sqlite.RegisterRunManager(effectiveSensorID, ws.runManager)
 	}
-	return ws.analysisRunManager
+	return ws.runManager
 }
 
 func (ws *Server) snapshotReplayEffectiveConfig(config ReplayConfig) *cfgpkg.TuningConfig {
@@ -434,37 +434,37 @@ func (ws *Server) snapshotReplayEffectiveConfig(config ReplayConfig) *cfgpkg.Tun
 		bgManager = l3grid.GetBackgroundManager(sensorID)
 	}
 
-	cfg := ws.runtimeTuningConfigForSource(bgManager, DataSourcePCAP)
+	cfg := ws.runtimeTuningConfigForSource(bgManager, DataSourceCapture)
 	if sensorID != "" {
 		cfg.L1.Sensor = sensorID
 	}
 	return cfg
 }
 
-func (ws *Server) startReplayAnalysisRun(sourcePath string, config ReplayConfig) (string, error) {
-	manager := ws.ensureAnalysisRunManager(ws.replayAnalysisSensorID(config))
+func (ws *Server) startReplayRun(sourcePath string, config ReplayConfig) (string, error) {
+	manager := ws.ensureRunManager(ws.replayAnalysisSensorID(config))
 	if manager == nil {
 		return "", nil
 	}
 
-	return manager.StartRunWithConfig(sqlite.AnalysisRunStartOptions{
+	return manager.StartRunWithConfig(sqlite.RunStartOptions{
 		PreferredRunID:      strings.TrimSpace(config.PreferredRunID),
 		SourceType:          "pcap",
 		SourcePath:          sourcePath,
 		SensorID:            ws.replayAnalysisSensorID(config),
 		ParentRunID:         strings.TrimSpace(config.ParentRunID),
-		ReplayCaseID:        strings.TrimSpace(config.ReplayCaseID),
+		ClipID:              strings.TrimSpace(config.ClipID),
 		RequestedParamSetID: strings.TrimSpace(config.RequestedParamSetID),
 		RequestedParamsJSON: config.RequestedParamsJSON,
 		EffectiveConfig:     ws.snapshotReplayEffectiveConfig(config),
 	})
 }
 
-func (ws *Server) failReplayAnalysisRun(runID, errMsg string) {
-	if runID == "" || ws.analysisRunManager == nil {
+func (ws *Server) failReplayRun(runID, errMsg string) {
+	if runID == "" || ws.runManager == nil {
 		return
 	}
-	if err := ws.analysisRunManager.FailRun(errMsg); err != nil {
+	if err := ws.runManager.FailRun(errMsg); err != nil {
 		opsf("Warning: Failed to mark analysis run %s as failed: %v", runID, err)
 	}
 }
@@ -517,10 +517,10 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	resolvedPath, resolveErr := ws.resolvePCAPPath(pcapFile)
 	if resolveErr != nil {
 		if replayCfg.AnalysisMode {
-			if runID, err := ws.startReplayAnalysisRun(pcapFile, replayCfg); err != nil {
+			if runID, err := ws.startReplayRun(pcapFile, replayCfg); err != nil {
 				opsf("Warning: Failed to create analysis run for failed PCAP start: %v", err)
 			} else if runID != "" {
-				ws.failReplayAnalysisRun(runID, resolveErr.Error())
+				ws.failReplayRun(runID, resolveErr.Error())
 			}
 		}
 		ws.resetFailedPCAPStartState()
@@ -559,7 +559,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 	runID := ""
 	if replayCfg.AnalysisMode {
-		startRunID, err := ws.startReplayAnalysisRun(resolvedPath, replayCfg)
+		startRunID, err := ws.startReplayRun(resolvedPath, replayCfg)
 		if err != nil {
 			ws.resetFailedPCAPStartState()
 			return fmt.Errorf("start analysis run: %w", err)
@@ -570,7 +570,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 	baseCtx := ws.baseContext()
 	if baseCtx == nil {
 		if runID != "" {
-			ws.failReplayAnalysisRun(runID, "webserver base context not initialized")
+			ws.failReplayRun(runID, "webserver base context not initialized")
 		}
 		ws.resetFailedPCAPStartState()
 		return &switchError{status: http.StatusInternalServerError, err: errors.New("webserver base context not initialized")}
@@ -876,8 +876,8 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		if err != nil && !errors.Is(err, context.Canceled) {
 			opsf("PCAP replay error: %v", err)
 			// Mark analysis run as failed if active
-			if runID != "" && ws.analysisRunManager != nil {
-				if failErr := ws.analysisRunManager.FailRun(err.Error()); failErr != nil {
+			if runID != "" && ws.runManager != nil {
+				if failErr := ws.runManager.FailRun(err.Error()); failErr != nil {
 					opsf("Warning: Failed to mark analysis run as failed: %v", failErr)
 				}
 			}
@@ -891,8 +891,8 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 				}
 			}
 			// Complete analysis run if active
-			if runID != "" && ws.analysisRunManager != nil {
-				if completeErr := ws.analysisRunManager.CompleteRun(); completeErr != nil {
+			if runID != "" && ws.runManager != nil {
+				if completeErr := ws.runManager.CompleteRun(); completeErr != nil {
 					opsf("Warning: Failed to complete analysis run: %v", completeErr)
 				}
 			}
@@ -904,7 +904,7 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 		if recordingStarted && ws.onRecordingStop != nil {
 			vrlogPath := ws.onRecordingStop(runID)
 			if vrlogPath != "" && ws.db != nil {
-				store := sqlite.NewAnalysisRunStore(ws.db)
+				store := sqlite.NewRunStore(ws.db)
 				if updateErr := store.UpdateRunVRLogPath(runID, vrlogPath); updateErr != nil {
 					opsf("Warning: Failed to update vrlog_path for run %s: %v", runID, updateErr)
 				}
