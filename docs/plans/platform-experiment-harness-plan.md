@@ -8,8 +8,8 @@ reads the merged results, writes the report and decides what runs next. The harn
 mechanical half of the experiment queue: it reuses the specs, units and job kinds that already
 exist and replaces the shell lanes that every unattended run has rebuilt by hand.
 
-- **Status:** Proposed, October 22, 2026. Nothing is built; section 13 lists the decisions the
-  owner needs to make first
+- **Status:** Proposed, October 22, 2026. Nothing is built. The owner took all seven decisions in
+  section 13 on October 22, 2026, so H1 can start
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, CI); every LiDAR layer as a subject
 - **Related:** [experiment queue](platform-experiment-queue-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md) (D-30), [run-experiments skill](../../.claude/skills/run-experiments/SKILL.md), [experiment-review skill](../../.claude/skills/experiment-review/SKILL.md), [analysis worker](../lidar/operations/analysis-worker.md), [TrueNAS VM shared storage](../platform/operations/truenas-vm-shared-storage-runbook.md)
@@ -175,11 +175,11 @@ The harness reads only `main`. Anything that should change what it does has to b
 
 **The approval gate is `approved`.** Section 12 of the queue plan planned to remove `approved`
 because no spec had ever used it. Since then the October 18 and 22 decision reviews have
-approved six specs. An unattended runner is exactly the consumer the status lacked. This plan
-recommends keeping `approved` with one meaning: the owner allows this experiment to run with no
-one watching. That makes it a new decision, as section 12 itself requires (section 13, decision
-1). The rule that the rule is written before any replay still holds: approval comes after the
-rule commit, and a spec is approved only once its rule is written.
+approved six specs. An unattended runner is exactly the consumer the status lacked. `approved`
+stays, with one meaning: the owner allows this experiment to run with no one watching. Section 12
+required a new decision for any approval gate, and the owner took it on October 22, 2026
+(section 13, decision 1). The rule that the rule is written before any replay still holds:
+approval comes after the rule commit, and a spec is approved only once its rule is written.
 
 **Manual steps close in the spec.** Each step gains an optional `closed` field that holds the
 artefact the queue plan's table names: a merged PR (`"#845"`), a `D-NN`, a pack or split digest,
@@ -289,7 +289,8 @@ Its body holds:
 summary tables and numerical findings that explain an experiment to go in a report. A run note
 sits between the two. It holds a fixed, small set of named measures for each arm and case, never
 rows per frame or per track. Because it is generated and not edited, AGENTS.md has to say so
-explicitly (section 13, decision 3). Run notes are not reports and do not satisfy
+explicitly; the owner decided to amend it, and the amendment lands with H3 (section 13, decision
+3). Run notes are not reports and do not satisfy
 `manual:write`: the report still cites the note and its provenance. `experiments next` reads
 `runs/` to show "run merged, awaiting report", which is the queue the agent works from.
 
@@ -299,7 +300,7 @@ explicitly (section 13, decision 3). Run notes are not reports and do not satisf
   access only. Its private key lives on the VM (mode 0600, owned by the harness user) and never
   in the repository. PRs made with `GITHUB_TOKEN` do not trigger CI
   ([release automation plan](release-json-automation-plan.md)), which is why the harness needs
-  its own identity. A fine-grained PAT is the fallback (section 13, decision 5).
+  its own identity. The owner chose the App over a fine-grained PAT (section 13, decision 5).
 - **Branch and commit.** The branch is `harness/<slug>/<run-id>`. The commit subject is
   `[exe][docs] <slug> run <run-id>: <n> units, <m> failed`, with a `Harness-Run:` trailer and a
   `Signed-off-by:` trailer. The commit is machine-generated, not AI-authored, so it has no
@@ -413,27 +414,20 @@ writes a run note that passes the guard.
 with no agent session in between. A replay that is killed partway through resumes at the next
 tick without repeating its done units.
 
-## 13. Decisions needed
+## 13. Decisions
 
-1. **The approval gate.** Keep `approved` with the meaning "may run unattended" (recommended), or
-   remove it as section 12 of the queue plan planned and gate on something else, such as a
-   `harness: true` field.
-2. **Jobs on the NAS before the hub.** D-30 records that "the Mac runs jobs locally" until the
-   one-queue row lands. The harness is not the hub: it is one worker with its own state that
-   accepts no other worker's results. Agents already run experiments on arrow-worker. Allow it
-   (recommended), or wait for the one-queue row.
-3. **Run notes in Git.** Amend AGENTS.md to allow a bounded, generated, write-once run note under
-   `data/experiments/runs/` (recommended), or keep everything on the NAS and put the numbers in
-   the PR body only. The second option leaves the agent with nothing in Git to read.
-4. **Merge authority.** The harness merges its own run-note PRs once its guard and checks are
-   green and no thread is open (recommended, and what was asked for), or it leaves each PR for the
-   owner.
-5. **Identity.** A GitHub App (recommended: scoped, revocable, a distinct actor in the history),
-   or a fine-grained PAT under the owner's account.
-6. **Manual closures.** Record them in the spec as `closed` (recommended), or in a separate
-   closures file that the harness reads.
-7. **Data-only chains.** Add `needs_runs` (recommended), or keep `answered` as the only way one
-   experiment unblocks another, which means every chain waits for a report.
+The owner accepted the recommended answer to all seven on October 22, 2026, in the review of
+this plan's PR.
+
+| #   | Question                       | Decided                                                                                                                                                                                                         | Set aside                                                                  | Lands in |
+| --- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | -------- |
+| 1   | The approval gate              | `approved` stays and means "may run unattended". This replaces the removal of `approved` that section 12 of the queue plan planned; that section's fingerprint rules stand                                      | Removing `approved` and gating on a separate field such as `harness: true` | H3       |
+| 2   | Jobs on the NAS before the hub | Allowed. The harness is one worker with its own state that accepts no other worker's results, so it is not the hub D-30 defers. The Mac and the cloud keep running lanes for experiments the harness cannot run | Waiting for the one-queue row                                              | H5       |
+| 3   | Run notes in Git               | AGENTS.md is amended to allow a bounded, generated, write-once run note under `data/experiments/runs/`. Raw output stays out of Git                                                                             | Everything on the NAS, with the numbers only in the PR body                | H3       |
+| 4   | Merge authority                | The harness merges its own run-note PRs once its guard and every check is green and no review thread is open                                                                                                    | Leaving each PR for the owner                                              | H4       |
+| 5   | Identity                       | A GitHub App with contents and pull-request write access on this repository only                                                                                                                                | A fine-grained PAT under the owner's account                               | H4       |
+| 6   | Manual closures                | Recorded in the spec, in each step's `closed` field, and checked by the validator                                                                                                                               | A separate closures file                                                   | H3       |
+| 7   | Data-only chains               | `needs_runs` lets an experiment start once its predecessors' run notes are merged; adoption from a predecessor still waits for its report                                                                       | `answered` as the only way one experiment unblocks another                 | H3       |
 
 ## 14. Risks
 

@@ -12,7 +12,9 @@ the review workflow and the old campaign supervisor already do, rather than buil
   validator, the dependency graph and fifteen specs. Phase 1's progress half is built: units, a
   state file per unit, `mark`, `units` and `status` (see [Progress](../../data/experiments/EXPERIMENTS.md#progress)).
   Expanding a spec into campaign submissions, and the hub queue, are not built. Section 12
-  removes `approved` and pins each arm's tuning fingerprint at creation (review P6, decided October 20, 2026)
+  pins each arm's tuning fingerprint at creation (review P6, decided October 20, 2026); its removal
+  of `approved` is superseded: `approved` stays as the gate for unattended runs ([harness
+  decision 1](platform-experiment-harness-plan.md#13-decisions), October 22, 2026)
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, hub); every LiDAR layer as a subject
 - **Related:** [unattended harness](platform-experiment-harness-plan.md) (Phase 1 on the NAS, proposed 2026-10-22), [job queue implementation](lidar-job-queue-implementation-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [vocabulary phase 2: jobs](platform-vocabulary-phase2-jobs-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [review workflow](lidar-review-workflow-plan.md), [priority review queue](lidar-visualiser-priority-review-queue-plan.md), [analysis worker](../lidar/operations/analysis-worker.md), [research briefing skill](../../.claude/skills/research-briefing/SKILL.md)
@@ -87,8 +89,9 @@ The area is a directory whose `README.md` header registers it, so the registry i
 tree and a slug cannot name an area that does not exist. Numbers are never reused, so a slug in a
 report or a commit message always means the same experiment.
 
-**Status is authoring state.** Section 12 removes `approved` (October 20, 2026); this paragraph
-records the original design. A spec is `proposed`, `approved` (the owner agrees; the hub may
+**Status is authoring state.** Section 12 planned to remove `approved` (October 20, 2026); the
+[harness plan](platform-experiment-harness-plan.md#13-decisions) kept it on October 22, 2026, as the owner's permission to run unattended.
+This paragraph records the original design. A spec is `proposed`, `approved` (the owner agrees; the hub may
 schedule it once its dependencies are answered), `answered` (a report is merged and named) or
 `retired` (with a reason). Whether it is queued, running or waiting on a person is the hub's
 state. Writing that back to Git would make every heartbeat a commit and every branch a different
@@ -271,7 +274,7 @@ flowchart LR
 | 3     | The hub queue: experiment and step tables, worker pull with capabilities, renewed leases, the sweeper, orphan policy, the disk gate; overlaps the worker-pool plan's phase B                                                                                                      | L    | The hub    |
 | 4     | Manual steps on the hub with notifications and artefact checks; HINT re-expressed as a template; review queues feeding `manual:review`                                                                                                                                            | L    | 3          |
 | 5     | The cadence: the briefing skill writes specs; a weekly queue review; recommendations into specs; `try/` proposals moved into areas                                                                                                                                                | S    | 0          |
-| 1b    | Section 12: `approved` removed, arm fingerprints, the backfill, one execution vocabulary, the report check                                                                                                                                                                        | S    | 0          |
+| 1b    | Section 12: arm fingerprints, the backfill, one execution vocabulary, the report check                                                                                                                                                                                            | S    | 0          |
 
 Phase 5 needs only Phase 0 and is worth doing first: it puts every proposal in one place before any
 of the machinery exists.
@@ -334,6 +337,11 @@ rule before any replay, which Git already records. `experiments mark` stops chec
 and `-force` remains only for re-running a unit that is done. A future approval gate is a new
 decision, not a revival of this one.
 
+That new decision was taken on October 22, 2026: the [harness plan](platform-experiment-harness-plan.md#13-decisions) keeps `approved`, with
+the meaning that the owner allows the experiment to run with no one watching, because an
+unattended runner is the consumer the status lacked. The rest of this section stands. `mark`
+keeps checking the status, and the step below that removes `approved` is withdrawn.
+
 **Creation pins the arms.** Each arm gains a `fingerprint` field: the tuning fingerprint
 (`TuningConfig.Fingerprint`) of its file when the spec is created. The validator then holds two
 rules:
@@ -358,14 +366,14 @@ and take parameter sets, as section 1 already requires.
 
 ### Steps
 
-| Step                                                                                               | Effort | Milestone |
-| -------------------------------------------------------------------------------------------------- | ------ | --------- |
-| `fingerprint` on arms; the validator's two rules; the report check                                 | `S`    | v0.5.9    |
-| Backfill the 38 answered specs from their reports' commits                                         | `S`    | v0.5.9    |
-| `approved` removed from the format, the validator, `mark` and both skills; arms pinned at creation | `S`    | v0.5.9    |
-| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits         | `S`    | v0.5.9    |
-| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                              | `S`    | v0.5.9    |
-| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets      | `S`    | v0.5.10   |
+| Step                                                                                          | Effort | Milestone |
+| --------------------------------------------------------------------------------------------- | ------ | --------- |
+| `fingerprint` on arms; the validator's two rules; the report check                            | `S`    | v0.5.9    |
+| Backfill the 38 answered specs from their reports' commits                                    | `S`    | v0.5.9    |
+| Arms pinned at creation (removing `approved` withdrawn: harness decision 1)                   | `S`    | v0.5.9    |
+| Restate l3bg0009's arms against l3bg0025; replace the deleted set's citations with commits    | `S`    | v0.5.9    |
+| Unit states renamed to the hub's; `DEPENDENCIES.md` wording from them                         | `S`    | v0.5.9    |
+| Full-key README-row test; the optimised and sweep files moved or deleted; campaigns take sets | `S`    | v0.5.10   |
 
 ### Not in scope
 
