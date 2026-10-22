@@ -63,6 +63,20 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   DMG is the oldest supported. The current app uses the new names. Browser bookmarks
   for `/lidar/replay-cases` redirect to `/lidar/clips` for one release.
 
+### Added
+
+- A clip can be cut to one standalone capture, its extract: whole rotations between the frame
+  boundaries that bound the clip's window, every packet copied as captured, with full digests of
+  the extract and its sources. It runs as a `capture_export` job from the Captures and Clips pages
+  or `POST /api/lidar/clips/{id}/extract`, and a clip can be set to replay its extract instead of
+  its sources (migration 066).
+- A located clip with a dataset id can be staged into the Hugging Face dataset clone
+  (`--lidar-dataset-dir`, from `S2_CORPUS_DIR`): its extract is linked into `raw/lidar/` and its
+  manifest entry written. `make site-index-clips` merges those surveys into `site-index.json` for
+  the scene publisher. Uploading the dataset stays a manual step.
+- Creating a clip from a static period on the Captures page records the period, and can set the
+  dataset id and north azimuth and queue the extract in the same action.
+
 ### Changed
 
 - Place surfaces distinguish sites, radar deployments and surveys. Clip locations

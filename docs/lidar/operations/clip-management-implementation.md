@@ -46,3 +46,36 @@ The web page is `/lidar/clips`; old page bookmarks redirect for one release.
 and `clip_id`. The previous macOS DMG’s identifier key and label query parameter
 remain registered aliases until the next DMG is the oldest supported; the current
 app uses `clip_id`. See the [compatibility register](../../platform/operations/compatibility-register.md).
+
+## Extracts and publishing
+
+A clip names its source captures and offsets, and replays them in order. It
+can also be cut to one standalone capture, its **extract**, and published as a
+survey in the Hugging Face dataset. Migration 066 adds the state for both.
+
+| Step                 | Surface                                                           | What it does                                                                                                                                                                                                          |
+| -------------------- | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Locate a period      | `/lidar/captures`: click a static period, then Create clip        | Records `source_period_id` with the clip; the form also takes coordinates, a dataset id, a north azimuth and whether to cut the extract now                                                                           |
+| Cut the extract      | `POST /api/lidar/clips/{id}/extract`, or the Clips page           | Queues a `capture_export` job on the capture queue; `GET` lists the clip's extracts (`lidar_clip_extracts`) with progress                                                                                             |
+| Choose what replays  | `PUT /api/lidar/clips/{id}/publishing` with `storage`             | `sources` replays the captures and offsets; `extract` replays the latest completed extract whole                                                                                                                      |
+| Mark for the dataset | the same `PUT`, with `dataset_id` and `north_azimuth_deg`         | `dataset_id` is the survey's id in the dataset: the site-index `id` and the manifest `site_slug`, lowercase words joined by hyphens, unique across clips                                                              |
+| Stage                | `POST /api/lidar/clips/{id}/stage`, or the Clips page             | Hard-links the extract to `raw/lidar/<stem>.pcapng` in the dataset clone (`--lidar-dataset-dir`, from `S2_CORPUS_DIR`) and adds or replaces the clip's `manifest.json` entry; every other entry is kept byte for byte |
+| Index                | `GET /api/lidar/dataset/site-index`, then `make site-index-clips` | The server serves a site-index entry per staged-ready clip; `tools/s2-archive/merge-clip-sites.py` writes them into `site-index.json` with `"origin": "clip"`, which `build-site-index.py` keeps on rebuild           |
+| Scene                | `make scene-assets SITES=<dataset id>`                            | Unchanged: the scene publisher reads the site index and the dataset manifest                                                                                                                                          |
+
+The cut is `internal/lidar/capexport`, rubric 1 of the
+[survey capture export plan](../../plans/platform-survey-capture-export-plan.md) for a
+single part. It starts on the first LiDAR packet wholly past an azimuth wrap at or after the
+clip's start, and ends before the first such packet at or after its end, so the file holds
+whole rotations. Packets on every port are copied as captured, in file order. The section
+comment names the rubric and the clip, and carries no build or host stamp, so the same
+window cut twice gives the same bytes. Extracts are written under `clips/` in the replay
+directory, named with the dataset stem when the clip is located and has a dataset id, and
+`<YYYYMMDDTHHMM>_clip-<id>` otherwise. A sidecar JSON beside each follows
+`export-static-pcaps.py`'s schema 1 and adds the clip, the rubric, the rotation count and why
+the cut closed (`window` or `end`).
+
+Staging refuses a clip with no dataset id, no location or no completed extract, a dataset
+clone that is not there, and a dataset id another capture in the manifest already uses. It
+never uploads: publishing the dataset stays a person's step. A part grid above 4 GB is not
+cut yet; an extract is one file whatever its size.
