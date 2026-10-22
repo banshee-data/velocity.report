@@ -659,10 +659,10 @@ Listen on a Unix socket (`net.Listen("unix", "/tmp/visualiser.sock")`) instead o
 
 ```bash
 # Profile server CPU during replay
-go tool pprof http://localhost:8081/debug/pprof/profile?seconds=30
+go tool pprof http://localhost:8080/debug/pprof/profile?seconds=30
 
 # Check memory allocations
-go tool pprof http://localhost:8081/debug/pprof/heap
+go tool pprof http://localhost:8080/debug/pprof/heap
 
 # Watch frame stats
 tail -f logs/velocity-*.log | grep -E '\[gRPC\]|\[Visualiser\]'

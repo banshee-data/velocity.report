@@ -51,7 +51,6 @@ func TestReplayRegionStoreUse(t *testing.T) {
 			prepareSettledPCAPReplay = func(*Server, string, string) error { return nil }
 
 			ws := NewServer(Config{
-				Address:           ":0",
 				Stats:             NewPacketStats(),
 				SensorID:          sensorID,
 				PCAPSafeDir:       tmpDir,

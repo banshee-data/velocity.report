@@ -8,14 +8,14 @@ Covers tunable parameters, collected metrics, scoring objectives, operational wo
 
 **Implementation files:**
 
-| Component               | File                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------- |
-| AutoTuner               | [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)           |
-| Runner + Settle Mode    | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)       |
-| Multi-objective Scoring | [internal/lidar/sweep/objective.go](../../../internal/lidar/sweep/objective.go) |
-| Sampler                 | [internal/lidar/sweep/sampler.go](../../../internal/lidar/sweep/sampler.go)     |
-| Parameter Schema (JS)   | `internal/lidar/monitor/assets/sweep_dashboard.js`                              |
-| Sweep Dashboard         | `internal/lidar/monitor/html/sweep_dashboard.html`                              |
+| Component               | File                                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| AutoTuner               | [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)                                                           |
+| Runner + Settle Mode    | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)                                                       |
+| Multi-objective Scoring | [internal/lidar/sweep/objective.go](../../../internal/lidar/sweep/objective.go)                                                 |
+| Sampler                 | [internal/lidar/sweep/sampler.go](../../../internal/lidar/sweep/sampler.go)                                                     |
+| Parameter Schema (TS)   | [web/src/lib/sweepSetup.ts](../../../web/src/lib/sweepSetup.ts)                                                                 |
+| Run a Sweep page        | [web/src/routes/lidar/sweeps/run/+page.svelte](../../../web/src/routes/lidar/sweeps/run/+page.svelte) (`/app/lidar/sweeps/run`) |
 
 **Related documentation:**
 

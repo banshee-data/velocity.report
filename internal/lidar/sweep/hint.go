@@ -78,6 +78,11 @@ type HINTSweepRequest struct {
 	TuneBackground bool `json:"tune_background,omitempty"`
 }
 
+// HINTStatusCompleted is a finished HINT session's state. It is the word
+// the state's documented values, the stored sweep record and every client
+// use; the sweep runner's own "complete" is a different vocabulary.
+const HINTStatusCompleted = "completed"
+
 // HINTState represents the current state of an HINT tuning session.
 type HINTState struct {
 	Status                string                 `json:"status"` // "idle","running_reference","awaiting_labels","running_sweep","completed","failed"
@@ -522,7 +527,7 @@ func (rt *HINTTuner) run(ctx context.Context, req HINTSweepRequest) {
 
 	// Complete
 	rt.mu.Lock()
-	rt.state.Status = string(SweepStatusComplete)
+	rt.state.Status = HINTStatusCompleted
 	roundHistoryCopy := make([]HINTRound, len(rt.state.RoundHistory))
 	copy(roundHistoryCopy, rt.state.RoundHistory)
 	rt.mu.Unlock()

@@ -16,11 +16,11 @@
 #   scripts/record-clean-vrlogs.sh --dry-run  # print what would happen
 #
 # Override with environment variables:
-#   API=http://localhost:8081  SENSOR=hesai-pandar40p  SPEED=0.1
+#   API=http://localhost:8080  SENSOR=hesai-pandar40p  SPEED=0.1
 
 set -euo pipefail
 
-API="${API:-http://localhost:8081}"
+API="${API:-http://localhost:8080}"
 SENSOR="${SENSOR:-hesai-pandar40p}"
 SPEED="${SPEED:-0.1}"
 # Paths are relative to the server's own PCAP root, not this machine's

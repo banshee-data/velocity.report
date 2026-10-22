@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SENSOR_ID=${1:-hesai-pandar40p}
-BASE_URL=${2:-http://127.0.0.1:8081}
+BASE_URL=${2:-http://127.0.0.1:8080}
 
 echo "Stopping PCAP replay (sensor_id=$SENSOR_ID) via $BASE_URL"
 curl -s -X POST "$BASE_URL/api/lidar/replay/stop?sensor_id=$SENSOR_ID" | jq . || true

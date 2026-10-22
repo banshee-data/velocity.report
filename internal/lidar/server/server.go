@@ -4,14 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"time"
 
-	"github.com/banshee-data/velocity.report/internal/api"
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
@@ -21,25 +18,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"github.com/banshee-data/velocity.report/internal/lidar/segments"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	"github.com/banshee-data/velocity.report/internal/netutil"
 )
-
-// ParamDef defines a configuration parameter for display and editing
-type ParamDef struct {
-	Key    string      // JSON key
-	Label  string      // Display label
-	Value  interface{} // Current value
-	Format string      // Printf format string (optional)
-}
-
-// Legacy embedded assets now live in l9endpoints/l10clients/.
-var (
-	dashboardHTML        = l9endpoints.LegacyDashboardHTML
-	regionsDashboardHTML = l9endpoints.LegacyRegionsDashboardHTML
-	sweepDashboardHTML   = l9endpoints.LegacySweepDashboardHTML
-)
-
-const echartsAssetsPrefix = "/assets/"
 
 // DataSource, DataSourceLive, DataSourceCapture, DataSourceCaptureAnalysis
 // are now defined in datasource.go
@@ -53,15 +32,13 @@ func (e *switchError) Error() string { return e.err.Error() }
 
 func (e *switchError) Unwrap() error { return e.err }
 
-// Server handles the HTTP interface for monitoring LiDAR statistics
-// It provides endpoints for health checks and real-time status information
+// Server holds the LiDAR pipeline's data sources and serves its HTTP API.
+// It has no listener of its own: RegisterRoutes mounts the API on the main
+// server's mux, and Start runs the live UDP listener and capture jobs.
 type Server struct {
-	address           string
 	listenFallback    bool
-	boundAddr         atomic.Value // string; set by Start once its listener is bound
 	stats             *PacketStats
-	server            *http.Server
-	onReady           func() // run by Start once it is serving; see SetOnReady
+	onReady           func() // run by Start once it is running; see SetOnReady
 	forwardingEnabled bool
 	forwardAddr       string
 	forwardPort       int
@@ -271,10 +248,9 @@ type PlaybackStatusInfo struct {
 
 // Config contains configuration options for the web server
 type Config struct {
-	Address string
-	// ListenFallback binds a free port on the same host when another process
-	// already holds Address, instead of failing Start. Addr reports the port
-	// actually bound.
+	// ListenFallback lets Start carry on without the live UDP listener when
+	// another process on the host already receives the sensor, serving
+	// replays only, instead of failing.
 	ListenFallback    bool
 	Stats             *PacketStats
 	ForwardingEnabled bool
@@ -420,7 +396,6 @@ func NewServer(config Config) *Server {
 	}
 
 	ws := &Server{
-		address:            config.Address,
 		listenFallback:     config.ListenFallback,
 		stats:              config.Stats,
 		forwardingEnabled:  config.ForwardingEnabled,
@@ -480,11 +455,6 @@ func NewServer(config Config) *Server {
 		sqlite.RegisterRunManager(config.SensorID, ws.runManager)
 	}
 
-	ws.server = &http.Server{
-		Addr:    ws.address,
-		Handler: api.LoggingMiddleware(ws.setupRoutes()),
-	}
-
 	return ws
 }
 
@@ -510,52 +480,19 @@ func (ws *Server) writeJSONError(w http.ResponseWriter, status int, msg string) 
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }
 
-// listenAddress is the address Start binds: the configured one, or
-// ListenAndServe's default (port 80) when none was given.
-func listenAddress(configured string) string {
-	if configured == "" {
-		return ":http"
-	}
-	return configured
-}
-
-// Addr is the address Start bound, which differs from the configured one
-// after a fallback. Empty until Start has bound its listener.
-func (ws *Server) Addr() string {
-	addr, _ := ws.boundAddr.Load().(string)
-	return addr
-}
-
-// SetOnReady registers fn to run once Start is serving: its HTTP listener
-// is bound and, in live mode, its UDP listener too. Call it before Start.
+// SetOnReady registers fn to run once Start is running: in live mode, once
+// its UDP listener is bound. Call it before Start.
 func (ws *Server) SetOnReady(fn func()) {
 	ws.onReady = fn
 }
 
-// Start begins the HTTP server in a goroutine and handles graceful shutdown.
-// A listener it cannot bind is returned as an error before anything is
-// served, so the caller can report the LiDAR subsystem as failed.
+// Start runs the live UDP listener and the capture job queue until ctx is
+// cancelled, then stops any replay. A live listener it cannot bind is
+// returned as an error, so the caller can report the LiDAR subsystem as
+// failed, unless ListenFallback lets it serve replays only. The HTTP API is
+// served by the main server, on which RegisterRoutes mounts it.
 func (ws *Server) Start(ctx context.Context) error {
 	ws.setBaseContext(ctx)
-
-	// Bind before starting anything else, so a port already in use is a
-	// startup error rather than a fatal exit from the serving goroutine.
-	addr := listenAddress(ws.server.Addr)
-	var ln net.Listener
-	var err error
-	if ws.listenFallback {
-		var fellBack bool
-		ln, fellBack, err = netutil.ListenTCPWithFallback(addr)
-		if fellBack {
-			opsf("monitor: %s is held by another process; listening on %s instead", addr, ln.Addr())
-		}
-	} else {
-		ln, err = net.Listen("tcp", addr)
-	}
-	if err != nil {
-		return fmt.Errorf("listen on %s: %w", addr, err)
-	}
-	ws.boundAddr.Store(ln.Addr().String())
 
 	ws.dataSourceMu.Lock()
 	if ws.PipelineState().Source == SourceModeLive && ws.udpListener == nil {
@@ -565,7 +502,6 @@ func (ws *Server) Start(ctx context.Context) error {
 			// same way a parked replay does when the listener cannot restart.
 			if !ws.listenFallback {
 				ws.dataSourceMu.Unlock()
-				_ = ln.Close()
 				return err
 			}
 			opsf("monitor: no live listener (%v); serving replays only. Another server is likely receiving the sensor", err)
@@ -580,20 +516,12 @@ func (ws *Server) Start(ctx context.Context) error {
 		opsf("Warning: capture job runner did not start: %v", err)
 	}
 
-	// Serve in a goroutine so it doesn't block
-	go func() {
-		diagf("Starting HTTP server on %s", ln.Addr())
-		if err := ws.server.Serve(ln); err != nil && err != http.ErrServerClosed {
-			opsFatalf("failed to start server: %v", err)
-		}
-	}()
 	if ws.onReady != nil {
 		ws.onReady()
 	}
 
-	// Wait for context cancellation to shut down server
 	<-ctx.Done()
-	diagf("shutting down HTTP server...")
+	diagf("shutting down the LiDAR pipeline...")
 
 	ws.dataSourceMu.Lock()
 	if ws.udpListener != nil {
@@ -614,20 +542,11 @@ func (ws *Server) Start(ctx context.Context) error {
 		<-pcapDone
 	}
 
-	// Create a shutdown context with a shorter timeout
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-	defer cancel()
-
-	if err := ws.server.Shutdown(shutdownCtx); err != nil {
-		opsf("HTTP server shutdown error: %v, forcing close", err)
-		_ = ws.server.Close()
-	}
-
-	diagf("HTTP server routine stopped")
+	diagf("LiDAR pipeline stopped")
 	return nil
 }
 
-// Close shuts down the web server
+// Close stops the live listener and any replay.
 func (ws *Server) Close() error {
 	ws.dataSourceMu.Lock()
 	if ws.udpListener != nil {
@@ -645,9 +564,6 @@ func (ws *Server) Close() error {
 	}
 	if done != nil {
 		<-done
-	}
-	if ws.server != nil {
-		return ws.server.Close()
 	}
 	return nil
 }

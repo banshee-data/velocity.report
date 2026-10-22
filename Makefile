@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre45
+VERSION := 0.5.1-pre46
 
 # =============================================================================
 # LIDAR DATA DIRECTORIES
@@ -253,8 +253,6 @@ help:
 	@echo "  plot-noise-sweep     Generate noise sweep line plot (FILE=data.csv)"
 	@echo "  plot-multisweep      Generate multi-parameter grid (FILE=data.csv)"
 	@echo "  plot-noise-buckets   Generate per-noise bar charts (FILE=data.csv)"
-	@echo "  stats-live           Capture live LiDAR snapshots"
-	@echo "  stats-pcap           Capture PCAP replay snapshots (PCAP=file.pcap)"
 	@echo "  profile-macos-lidar  Poll Go/Swift process metrics, then auto-start PCAP replay"
 	@echo "  run-pcap-stats       PCAP capture stats — frame rate, RPM (PCAP=path)"
 	@echo "  run-pcap-stats-10s   PCAP per-10s frame rate (PCAP=path)"
@@ -1426,7 +1424,7 @@ test-python: ensure-python-tools
 
 test-python-cov: ensure-python-tools
 	@echo "Running Python script/tool tests with coverage..."
-	@$(VENV_PYTEST) --cov=scripts --cov=tools/grid-heatmap --cov-report=term-missing --cov-report=html:htmlcov-python $(PYTHON_TEST_PATHS)
+	@$(VENV_PYTEST) --cov=scripts --cov-report=term-missing --cov-report=html:htmlcov-python $(PYTHON_TEST_PATHS)
 	@echo "Coverage report: htmlcov-python/index.html"
 
 # Run Go unit tests with coverage
@@ -1999,19 +1997,6 @@ format-web:
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
-	@if [ -d "$(WEB_DIR)" ]; then \
-		cd $(WEB_DIR) && pnpm exec prettier --write \
-			../internal/lidar/monitor/assets/dashboard_common.js \
-			../internal/lidar/monitor/assets/regions_dashboard.js \
-			../internal/lidar/monitor/assets/sweep_dashboard.js \
-			../internal/lidar/monitor/assets/common.css \
-			../internal/lidar/monitor/assets/status_dashboard.css \
-			../internal/lidar/monitor/assets/dashboard.css \
-			../internal/lidar/monitor/assets/regions_dashboard.css \
-			../internal/lidar/monitor/assets/sweep_dashboard.css \
-			2>/dev/null \
-			|| echo "monitor assets prettier skipped"; \
-	fi
 	@if [ -d "$(WEB_DIR)" ] && [ -d "public_html/src" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm exec prettier --write \
@@ -2450,7 +2435,7 @@ SCENE_SOURCE ?= corpus
 SCENE_TRAIL ?= online
 # Named on every replay start, relative to the server's --lidar-config-dir
 # (config/ under dev-go-lidar), so a batch never inherits a file the server
-# last had applied from the :8081 form.
+# last had applied from the Status page's replay form.
 SCENE_TUNING_CONFIG ?= tuning.defaults.json
 
 SCENE_ASSETS_ENV := \
@@ -2709,7 +2694,7 @@ git-files:
 # DATA VISUALIZATION
 # =============================================================================
 
-.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets stats-live stats-pcap profile-macos-lidar run-pcap-stats run-pcap-stats-10s
+.PHONY: plot-noise-sweep plot-multisweep plot-noise-buckets profile-macos-lidar run-pcap-stats run-pcap-stats-10s
 
 # Noise sweep line plot (neighbour=1, closeness=2.5 by default)
 plot-noise-sweep:
@@ -2732,38 +2717,21 @@ plot-noise-buckets:
 	$(VENV_PYTHON) data/explore/multisweep-graph/plot_noise_buckets.py --file "$(FILE)" \
 		--out-dir "$${OUT_DIR:-noise-plots}" --neighbour $${NEIGHBOUR:-1} --closeness $${CLOSENESS:-2.5}
 
-# Live grid stats - periodic snapshots from running lidar system
-# Usage: make stats-live [INTERVAL=10] [DURATION=60]
-stats-live:
-	@echo "Starting live lidar server..."
-	@$(MAKE) dev-go-lidar
-	@sleep 2
-	@echo "Capturing live grid snapshots..."
-	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --interval $${INTERVAL:-30} $${DURATION:+--duration $$DURATION}
-
-# PCAP replay grid stats - periodic snapshots during PCAP replay
-# Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]
-stats-pcap:
-	@[ -z "$(PCAP)" ] && echo "Usage: make stats-pcap PCAP=file.pcap [INTERVAL=5]" && exit 1 || true
-	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
-	@echo "Capturing PCAP replay snapshots via runtime data source switching..."
-	$(VENV_PYTHON) tools/grid-heatmap/plot_grid_heatmap.py --pcap "$(PCAP)" --interval $${INTERVAL:-5}
-
 # macOS process profiling at fixed cadence:
 # 1) Poll idle metrics for IDLE seconds.
 # 2) Trigger PCAP replay via API.
 # 3) Continue polling until replay completes.
 # Usage:
-#   make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+#   make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]
 profile-macos-lidar:
-	@[ -z "$(PCAP)" ] && echo "Usage: make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ -z "$(PCAP)" ] && echo "Usage: make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@./scripts/perf/macos_profile_lidar.sh \
 		--pcap "$(PCAP)" \
 		--interval $${INTERVAL:-5} \
 		--idle-seconds $${IDLE:-120} \
 		--sensor $${SENSOR:-hesai-pandar40p} \
-		--base-url $${BASE_URL:-http://127.0.0.1:8081}
+		--base-url $${BASE_URL:-http://127.0.0.1:8080}
 
 # PCAP capture statistics — frame rate, RPM, duration, track counts
 # Accepts a single file or a directory (recursively finds .pcap/.pcapng)
@@ -2885,7 +2853,7 @@ api-status:
 
 # PCAP replay
 api-start-pcap:
-	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [BASE_URL=http://127.0.0.1:8080]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR) $(BASE_URL)
 
@@ -2893,7 +2861,7 @@ api-stop-pcap:
 	@./scripts/api/lidar/stop_pcap.sh $(SENSOR) $(BASE_URL)
 
 api-switch-data-source:
-	@[ -z "$(SOURCE)" ] && echo "Usage: make api-switch-data-source SOURCE={live|pcap} [PCAP=file.pcap] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ -z "$(SOURCE)" ] && echo "Usage: make api-switch-data-source SOURCE={live|pcap} [PCAP=file.pcap] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]" && exit 1 || true
 	@if [ "$(SOURCE)" = "pcap" ]; then \
 		[ -z "$(PCAP)" ] && echo "PCAP file required when SOURCE=pcap" && exit 1 || true; \
 		[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true; \

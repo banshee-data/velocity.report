@@ -109,17 +109,17 @@ Key files:
 
 #### Tuning + entry points + debug (§10, §15, §16, §18)
 
-**Sections:** §10 Tuning params, §15 ECharts, §16 cmd/ entry points, §18 Debug routes
+**Sections:** §10 Tuning params, §15 Debug chart endpoints, §16 cmd/ entry points, §18 Debug routes
 
 1. Tuning params: check `GET/POST /api/lidar/params`, `params_json` in DB
-2. ECharts: Web=✅ via embedded dashboards at `/debug/lidar/*`
+2. Debug chart endpoints: Web=✅ via the Svelte LiDAR Debug page (`/app/lidar/debug`), which reads `/api/lidar/chart/*`
 3. cmd/ binaries: check which ones write to production SQLite
 4. Debug routes: diagnostic only; mark DB only if they query SQLite
 
 Key files:
 
 - `internal/config/tuning.go`: tuning parameter definitions
-- `internal/lidar/server/chart_api.go`: ECharts endpoints
+- `internal/lidar/server/chart_api.go`: debug chart JSON endpoints
 - `cmd/`: all binary entry points
 - `internal/db/db.go`: debug/admin route attachments
 

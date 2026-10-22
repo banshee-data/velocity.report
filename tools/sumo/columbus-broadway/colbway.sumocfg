@@ -1,0 +1,10 @@
+<configuration>
+  <!-- Routes and counting lines come per model from compare.sh (out/routes.<model>.rou.xml,
+       out/counting-lines.<model>.add.xml); pass them with -r and -a. -->
+  <input>
+    <net-file value="colbway.net.xml"/>
+  </input>
+  <time><begin value="0"/><end value="3900"/><step-length value="0.1"/></time>
+  <random_number><seed value="42"/></random_number>
+  <report><no-step-log value="true"/><duration-log.statistics value="true"/></report>
+</configuration>

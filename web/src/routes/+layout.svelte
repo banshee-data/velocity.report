@@ -2,6 +2,7 @@
 	import {
 		mdiBookOpenPageVariantOutline,
 		mdiChartBoxOutline,
+		mdiChartScatterPlot,
 		mdiCog,
 		mdiFileDocument,
 		mdiFilmstrip,
@@ -10,8 +11,10 @@
 		mdiHome,
 		mdiMapMarker,
 		mdiMapMarkerPath,
+		mdiMonitorDashboard,
 		mdiPlayCircleOutline,
-		mdiSelection
+		mdiSelection,
+		mdiVectorSquare
 	} from '@mdi/js';
 	import {
 		AppBar,
@@ -105,8 +108,10 @@
 		{#if Object.values($capabilities.lidar).some((s) => s.enabled)}
 			<!-- In the order the work runs: captures are cut into clips (by hand, or
 			     from a ranked segment), clips are replayed as runs, runs are labelled
-			     as tracks, and sweeps tune the parameters the runs use. The clip
-			     locations page is reached from Clips rather than listed here. -->
+			     as tracks, and sweeps tune the parameters the runs use. Status, where a
+			     replay or recording is started by hand, comes first; the regions and
+			     debug views of the running grid come last. The clip locations page is
+			     reached from Clips rather than listed here. -->
 			<div role="group" aria-labelledby="nav-lidar">
 				<div
 					id="nav-lidar"
@@ -114,6 +119,12 @@
 				>
 					LiDAR
 				</div>
+				<NavItem
+					text="Status"
+					icon={mdiMonitorDashboard}
+					path="/app/lidar/status"
+					currentUrl={navUrl}
+				/>
 				<NavItem
 					text="Captures"
 					icon={mdiHarddisk}
@@ -143,6 +154,18 @@
 					text="Sweeps"
 					icon={mdiChartBoxOutline}
 					path="/app/lidar/sweeps"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Regions"
+					icon={mdiVectorSquare}
+					path="/app/lidar/regions"
+					currentUrl={navUrl}
+				/>
+				<NavItem
+					text="Debug"
+					icon={mdiChartScatterPlot}
+					path="/app/lidar/debug"
 					currentUrl={navUrl}
 				/>
 			</div>

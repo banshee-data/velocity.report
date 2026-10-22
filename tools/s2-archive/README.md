@@ -296,8 +296,9 @@ only scored. The plan is
 
 It is the scene-assets path with one field added. `export-scene-variants.py`
 loads `publish-scenes.py` and calls its own replay with the variant's
-`tuning_config` on the start request, the field the :8081 replay form's Tuning
-Config dropdown sends, then the same exporter at the same settings. Each
+`tuning_config` on the start request, the field the Tuning Config dropdown on
+the LiDAR Status page's replay form sends, then the same exporter at the same
+settings. Each
 variant is written in a published scene's `assets/` layout, so the scene player
 opens it unchanged.
 

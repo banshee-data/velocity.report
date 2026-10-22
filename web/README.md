@@ -30,6 +30,10 @@ pnpm run dev
 
 App runs at [http://localhost:5173](http://localhost:5173) (or next available port).
 
+The dev server proxies every `/api` route, radar and LiDAR alike, to the Go server on
+`http://localhost:8080`. To reach a server on another port, set `VELOCITY_API_URL`, for example
+`VELOCITY_API_URL=http://localhost:18080 pnpm run dev`.
+
 ### Production build
 
 Create an optimised build:

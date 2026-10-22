@@ -26,7 +26,7 @@ commit. Derive them on demand:
 
 Go: `serialmux`, `lidar` root, `l5tracks`, `httputil`, `deploy`.
 
-Web: `sweep_dashboard.js`, `api.ts`.
+Web: `api.ts` (`sweep_dashboard.js` was deleted in v0.5.2).
 
 ### Tier 2: moderate work (2–5% gap)
 

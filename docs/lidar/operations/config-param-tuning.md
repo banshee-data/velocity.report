@@ -29,7 +29,7 @@ each depth runs and costs.
 ## 3. Apply runtime changes
 
 ```bash
-curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" \
+curl -s -X POST "http://127.0.0.1:8080/api/lidar/params?sensor_id=hesai-pandar40p" \
   -H "Content-Type: application/json" \
   -d '{
     "noise_relative": 0.015,
@@ -45,7 +45,7 @@ curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40
 Read back:
 
 ```bash
-curl -s "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" | jq .
+curl -s "http://127.0.0.1:8080/api/lidar/params?sensor_id=hesai-pandar40p" | jq .
 ```
 
 To replay a capture on a whole parameter set rather than a patch, name a
@@ -53,12 +53,13 @@ file under the config directory when the replay starts. The server applies
 it before the replay and echoes its fingerprint:
 
 ```bash
-curl -s -X POST "http://127.0.0.1:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+curl -s -X POST "http://127.0.0.1:8080/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
   -H "Content-Type: application/json" \
   -d '{"pcap_file": "kirk0.pcapng", "tuning_config": "experiments/geometry-convergence-candidate.json"}' | jq .
 ```
 
-The :8081 replay form offers the same files in its Tuning Config dropdown.
+The replay form on the LiDAR Status page (`/app/lidar/status`) offers the same files in its Tuning
+Config dropdown.
 
 ## 4. Validate and compare
 
@@ -69,18 +70,17 @@ The :8081 replay form offers the same files in its Tuning Config dropdown.
    outcome. See
    [Experiment parameter sets](../../../config/CONFIG.md#experiment-parameter-sets).
 
-For structured sweeps:
-
-```bash
-make stats-pcap PCAP=/absolute/path/to/capture.pcap
-```
+For structured sweeps, use the Run a Sweep page (`/app/lidar/sweeps/run`) or
+`velocity tune sweep`; see the [sweep tool guide](sweep-tool.md). To inspect the
+background grid after a replay, open the LiDAR Debug page (`/app/lidar/debug`),
+which shows the grid SVG from `GET /api/charts/grid`.
 
 ## 5. Rollback
 
 If quality regresses, revert quickly:
 
 ```bash
-curl -s -X POST "http://127.0.0.1:8081/api/lidar/params?sensor_id=hesai-pandar40p" \
+curl -s -X POST "http://127.0.0.1:8080/api/lidar/params?sensor_id=hesai-pandar40p" \
   -H "Content-Type: application/json" \
   -d @config/tuning.defaults.json | jq .
 ```

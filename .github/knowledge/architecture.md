@@ -115,7 +115,6 @@ velocity.report/
 │   └── ...                   # See full tree in repo
 ├── web/                      # Svelte frontend
 ├── tools/                    # Developer tools
-│   ├── grid-heatmap/         # Grid heatmap plotting (Python)
 │   └── visualiser-macos/     # macOS 3D visualiser
 ├── config/                   # LiDAR tuning configs
 ├── docs/                     # Internal documentation

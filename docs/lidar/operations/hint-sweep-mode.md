@@ -4,6 +4,13 @@
 
 HINT (Human-Involved Numerical Tuning) integrates human track labelling into the automated parameter optimisation loop.
 
+> **Where HINT runs now.** "The dashboard" in this document is the `:8081` sweep dashboard
+> (`sweep_dashboard.*`) the implementation below was built on. It was deleted in v0.5.2. HINT now
+> starts and runs from the Run a Sweep page in the web app (`/app/lidar/sweeps/run`), which keeps
+> the label gates, the `wait_for_change` long poll, continue with a next-sweep duration and an
+> added round, and desktop notifications. The file paths and test names in the phase notes are
+> the historical record of that build.
+
 ## Summary
 
 A new sweep mode alongside Manual Sweep and Auto-Tune that integrates human

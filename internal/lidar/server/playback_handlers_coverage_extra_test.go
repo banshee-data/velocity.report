@@ -84,7 +84,6 @@ func TestPlayback_HandlePCAPStart_GenericStartError(t *testing.T) {
 	dbWrapped.DB.Close()
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    "sensor-generic-start-error",
 		PCAPSafeDir: tmpDir,
@@ -112,7 +111,6 @@ func TestPlayback_HandlePCAPStart_ReplayModeStartedCallback(t *testing.T) {
 
 	var started bool
 	ws := NewServer(Config{
-		Address:       ":0",
 		Stats:         NewPacketStats(),
 		SensorID:      "sensor-replay-started",
 		PCAPSafeDir:   tmpDir,
@@ -145,7 +143,6 @@ func TestPlayback_HandlePCAPStart_AnalysisModeResponse(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    "sensor-analysis-started",
 		PCAPSafeDir: tmpDir,
