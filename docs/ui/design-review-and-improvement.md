@@ -138,7 +138,7 @@ The legacy monitor dashboards (status, debug, sweep, regions) use ECharts with G
 
 **Action:** No palette migration now (these dashboards will be retired in frontend consolidation Phases 1–5). However, document in the frontend consolidation plan that chart palette alignment is a requirement during migration to LayerChart.
 
-**Resolved in v0.5.2** (branch `claude/echarts-svelte-migration-83fbd5`, pending PR): the dashboards, their templates and ECharts are deleted, so this mismatch is gone (D-12). The Svelte replacements draw with LayerChart; their magnitude charts use a neutral viridis ramp kept apart from the §3.3 percentile palette, in `web/src/lib/components/charts/chartData.ts`, matching the Go grid chart.
+**Resolved in v0.5.2** (branch `claude/echarts-svelte-migration-83fbd5`, #836): the dashboards, their templates and ECharts are deleted, so this mismatch is gone (D-12). The Svelte replacements draw with LayerChart; their magnitude charts use a neutral viridis ramp kept apart from the §3.3 percentile palette, in `web/src/lib/components/charts/chartData.ts`, matching the Go grid chart.
 
 **Effort:** 30 minutes (documentation only)
 

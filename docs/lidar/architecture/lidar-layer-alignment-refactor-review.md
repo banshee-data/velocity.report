@@ -369,7 +369,7 @@ These are lower-priority improvements that would further improve readability and
 
 ### Opportunity 7: retire Go-embedded HTML dashboards ✅
 
-**Completed in v0.5.2** (branch `claude/echarts-svelte-migration-83fbd5`, pending PR): the dashboards, their embedded assets and go-echarts are deleted, and the Svelte LiDAR Status, Debug, Regions and Sweep pages replace them ([surface consolidation](../../plans/web-frontend-consolidation-plan.md#v052-delivery)). The notes below are the original assessment.
+**Completed in v0.5.2** (branch `claude/echarts-svelte-migration-83fbd5`, #836): the dashboards, their embedded assets and go-echarts are deleted, and the Svelte LiDAR Status, Debug, Regions and Sweep pages replace them ([surface consolidation](../../plans/web-frontend-consolidation-plan.md#v052-delivery)). The notes below are the original assessment.
 
 **Status (original)**: Deferred; requires corresponding Svelte dashboard implementation first (frontend consolidation Phases 1–5).
 

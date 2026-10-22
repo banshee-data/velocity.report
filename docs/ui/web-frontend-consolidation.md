@@ -11,7 +11,7 @@ estimates and several of its factual claims were wrong; the plan records what
 changed and why.
 
 Phases 1 to 6, v0.5.2's ECharts retirement, are implemented on
-branch `claude/echarts-svelte-migration-83fbd5`, pending a PR. The Go-embedded
+branch `claude/echarts-svelte-migration-83fbd5` (#836). The Go-embedded
 dashboards, go-echarts and the 8081 listener are gone; the Svelte LiDAR Status,
 Debug, Regions and Run a Sweep pages under `/app/lidar/` replace them, and every
 LiDAR route is on 8080. Phase 7 is a v0.7.0 row. What landed, the one deviation

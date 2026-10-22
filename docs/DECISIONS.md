@@ -76,7 +76,7 @@ Kept by: `internal/report/typst_generate_test.go` (exists), which fails when the
 
 Report-view charts (time-series, histogram, comparison) are served as SVG by the Go chart package (`internal/report/chart`) and consumed directly by the Svelte frontend — not rewritten in LayerChart. Non-report charts (live dashboard, real-time stats, regions, sweep and HINT) move to Svelte LayerChart in v0.5.2, and ECharts leaves then: the `go-echarts` package and its debug-chart handlers first, then the :8081 dashboards' ECharts JavaScript once their Svelte replacements exist. Restated October 20, 2026 by the owner, from v0.7 — [DESIGN §4](ui/DESIGN.md), [frontend consolidation](plans/web-frontend-consolidation-plan.md), [PDF migration plan](plans/pdf-go-chart-migration-plan.md)
 
-Done in v0.5.2 on branch `claude/echarts-svelte-migration-83fbd5` (pending PR): `go-echarts` and its debug pages are deleted, `echarts.min.js` left with the rest of `l9endpoints/l10clients/`, and LayerChart 2.8.1 is back in `web/` with shared components in `web/src/lib/components/charts/`. The `/api/lidar/chart/*` JSON routes were kept rather than deleted, because the Svelte LiDAR Debug page reads them. The regions map is drawn on a canvas, not LayerChart, since it has some 72,000 cells.
+Done in v0.5.2 on branch `claude/echarts-svelte-migration-83fbd5` (#836): `go-echarts` and its debug pages are deleted, `echarts.min.js` left with the rest of `l9endpoints/l10clients/`, and LayerChart 2.8.1 is back in `web/` with shared components in `web/src/lib/components/charts/`. The `/api/lidar/chart/*` JSON routes were kept rather than deleted, because the Svelte LiDAR Debug page reads them. The regions map is drawn on a canvas, not LayerChart, since it has some 72,000 cells.
 
 Kept by: `go.mod`, which has no `go-echarts`, and the tree, which has no ECharts asset; no check fails if either returns, so `/review-pr` on `go.mod` and `web/package.json` keeps it (review only).
 
@@ -84,7 +84,7 @@ Kept by: `go.mod`, which has no `go-echarts`, and the tree, which has no ECharts
 
 Svelte compliant now. ECharts is not fixed: it leaves in v0.5.2 (D-11), and its palette mismatch with it. Restated October 20, 2026 — [DESIGN §3.3](ui/DESIGN.md), [design review](ui/design-review-and-improvement.md)
 
-ECharts left in v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, pending PR), so its palette mismatch is gone; the LiDAR operator charts are now Svelte and LayerChart.
+ECharts left in v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, #836), so its palette mismatch is gone; the LiDAR operator charts are now Svelte and LayerChart.
 
 Kept by: `web/src/lib/palette.test.ts` (exists), which fails when the six values in `palette.ts` change. Nothing ties `inlineSvgChart.ts` or `internal/report/chart/palette.go` to them, so `/review-pr` reviews chart colour changes (review only) until the design-tokens row is built.
 
@@ -114,7 +114,7 @@ Kept by: review only (`/plan-review`), which checks any schedule plan against th
 
 ### D-17 — PDF generation migration to Go
 
-Go direct SVG charts (encoding/xml, no plotting helper) and Typst templates; the Atkinson Hyperlegible font is embedded in report sources; dimensions are in mm; Typst consumes the SVG directly; the Go chart package also serves SVG to the web frontend. The Python stack is eliminated. The `grid-heatmap` tool retires once a Go-served SVG grid view replaces it on the web, which the owner asked for first on October 20, 2026; no Go subcommand was built. In v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, pending PR) `GET /api/charts/grid` serves that view, the LiDAR Debug page shows it, and `tools/grid-heatmap/` is deleted with its tests, its coverage path and the `stats-live` and `stats-pcap` targets. Source: [PDF reporting](platform/operations/pdf-reporting.md).
+Go direct SVG charts (encoding/xml, no plotting helper) and Typst templates; the Atkinson Hyperlegible font is embedded in report sources; dimensions are in mm; Typst consumes the SVG directly; the Go chart package also serves SVG to the web frontend. The Python stack is eliminated. The `grid-heatmap` tool retires once a Go-served SVG grid view replaces it on the web, which the owner asked for first on October 20, 2026; no Go subcommand was built. In v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, #836) `GET /api/charts/grid` serves that view, the LiDAR Debug page shows it, and `tools/grid-heatmap/` is deleted with its tests, its coverage path and the `stats-live` and `stats-pcap` targets. Source: [PDF reporting](platform/operations/pdf-reporting.md).
 
 Kept by: the release audit's search of the Makefile and `tools/` for `tools/grid-heatmap` and the `stats-live` and `stats-pcap` targets. The `api-grid-heatmap` target is a different thing (a curl wrapper for the `/api/lidar/grid_heatmap` JSON route) and stays.
 

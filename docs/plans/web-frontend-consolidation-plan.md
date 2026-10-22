@@ -1,6 +1,6 @@
 # Surface consolidation plan
 
-- **Status:** Phases 1 to 6 (v0.5.2's ECharts retirement) are implemented on branch `claude/echarts-svelte-migration-83fbd5`, pending a PR; see [v0.5.2 delivery](#v052-delivery). Phase 7 remains a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Proposed, then Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+- **Status:** Phases 1 to 6 (v0.5.2's ECharts retirement) are implemented on branch `claude/echarts-svelte-migration-83fbd5` (#836); see [v0.5.2 delivery](#v052-delivery). Phase 7 remains a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Proposed, then Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
@@ -358,7 +358,7 @@ reachable since Phase 5: the Run a Sweep page sends them.)
 ## v0.5.2 delivery
 
 Phases 1 to 6 are implemented on branch `claude/echarts-svelte-migration-83fbd5`,
-pending a PR. Every LiDAR route is served on the main listener (`--listen`,
+in #836. Every LiDAR route is served on the main listener (`--listen`,
 default `127.0.0.1:8080`); `--lidar-listen` is accepted and ignored with a
 warning until the v0.5.3 flag tombstone helper registers it.
 
@@ -373,6 +373,31 @@ warning until the v0.5.3 flag tombstone helper registers it.
 The Tuning Config dropdown sends `tuning_config` on `POST /api/lidar/pcap/start`
 exactly as the 8081 form did, so AGENTS.md's arm-run path moved to the Status
 page in the same change.
+
+**Parity with the old sweep dashboard.** Run a Sweep also carries what the
+dashboard offered beside its charts: a results CSV, setup files saved and
+loaded, applying a clip's stored parameters, the running parameters with the
+lines that differ from the defaults highlighted, the recommendation's metrics
+and auto-tune round bounds, and the score explanation from
+`GET /api/lidar/sweep/explain/{id}` (or the last HINT round's breakdown) when a
+sweep records one. The ground-truth objective is offered only for a clip with a
+labelled reference run. While HINT sweeps, the page polls the auto-tuner it
+drives, because the HINT state's long poll wakes on phase changes and label
+progress but not on combination progress. The LiDAR Status page adds the ASC
+exports and clearing analysis runs (registered only when the server sets
+`VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1`).
+
+**Tested live** on a scratch server with a 12 s kirk0 clip: a manual 2×2
+sweep, an acceptance auto-tune (2 values, 2 rounds) and its recommendation
+applied, a weighted auto-tune with acceptance criteria, and a HINT sweep from
+reference run through API-labelled tracks, the label gate and continue, to
+completion.
+
+**HINT's finished state was `complete`.** The HINT tuner set its state to the
+sweep runner's `complete`, while its documented values, the stored sweep record
+and every client (the old dashboard and the new page) use `completed`; a client
+never saw a HINT session end. The tuner now sets `HINTStatusCompleted`
+(`completed`).
 
 **Not ported, by the owner's choice.** The sweep dashboard's configurable chart
 editor. The Svelte pages draw a fixed default set: acceptance, nonzero cells,

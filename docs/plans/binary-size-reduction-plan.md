@@ -208,7 +208,7 @@ These are diminishing returns but worth considering:
 
 ### 4.1 Replace embedded `echarts.min.js` with lightweight alternative ✅
 
-Done in v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, pending PR). The 1.1 MB
+Done in v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, #836). The 1.1 MB
 `echarts.min.js` embedded for the LiDAR status and dashboard pages left the Go binary with
 those pages, which moved to the Svelte frontend
 ([web-frontend-consolidation-plan](web-frontend-consolidation-plan.md)); `go-echarts` left

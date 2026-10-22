@@ -337,7 +337,7 @@ sub-plan:
 
 ### Project c (P2): metrics/stats/frontend consolidation
 
-- [ ] Complete #252 status/regions/sweep migration: implemented on branch `claude/echarts-svelte-migration-83fbd5`, pending PR
+- [ ] Complete #252 status/regions/sweep migration: implemented on branch `claude/echarts-svelte-migration-83fbd5`, #836
 - [ ] Retire duplicated stats/plot targets: moved to Project F, which deletes them without waiting for parity
 - [ ] Collapse or demote `api-*` Make shortcuts to internal developer scripts: moved to Project F
 - [ ] Deprecate `--lidar-listen` when port split is removed: the split is removed on the same branch and the flag is ignored with a warning; the tombstone waits for the v0.5.3 helper
