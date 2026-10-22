@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 22, 2026 - Maths decision review prepared
+
+- {claude/peaceful-davinci-w8iuw8} Prepared the maths decision-review packet: seven questions the repository leaves to its owner (following validity limits, the encounter-weighted view B10 that D-28 routed here, one aggregate percentile rule across four helpers, the near-edge cost screen's scope, the next S3 association arm, the built D6 subsampling remedy, and this week's experiment approvals), with the pipeline review's March questions, the OBB and sign-anchor open sections and the beam-wise evidence questions dispositioned in its inventory: [packet](platform/operations/decision-review-maths-2026-10.md).
+
 ## October 21, 2026 - Mid-range fragments, release dependencies, and month closure
 
 - {codex/spatialrust-l4clus0003-priority} Reviewed SpatialRust's segmentation source at `6f563321` against current L3/L4 code, documented implemented CPU/GPU paths and source-level limitations, and prioritised l4clus0003's newly merged answer: keep 8 in Stage B and investigate fragment joining before cost-only, ground, or GPU work, with independent XY membership checks and merge gates: [review](lidar/operations/spatialrust-segmentation-review.md). No runtime behaviour changed or new replay was run.
