@@ -35,11 +35,16 @@ LIDAR_PCAP_DIR ?= $(LIDAR_DATA_DIR)
 LIDAR_VRLOG_DIR ?= $(LIDAR_DATA_DIR)/vrlog
 LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
 LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
+# The published dataset root: the directory holding manifest.json, raw/ and
+# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
+# replay path against that directory and refuses anything outside it. Clip
+# staging writes into it; the scene publisher replays from it.
+S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
 
 # Passed by every dev target that starts the LiDAR pipeline. The Makefile owns
 # the defaults and passes them as explicit CLI flags so the binary gets the
 # same resolved paths regardless of its working directory.
-LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR)) --lidar-config-dir=$(CURDIR)/config
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR)) --lidar-dataset-dir=$(abspath $(S2_CORPUS_DIR)) --lidar-config-dir=$(CURDIR)/config
 
 # =============================================================================
 # HELP TARGET (default)
@@ -2416,10 +2421,8 @@ test-s2-hilbert: install-s2-hilbert
 # `make scene-assets-clean` drops the markers when the settings change and the
 # scenes have to be made again.
 
-# The published dataset root: the directory holding manifest.json, raw/ and
-# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
-# replay path against that directory and refuses anything outside it.
-S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
+# S2_CORPUS_DIR, the published dataset root, is set with the LiDAR paths at
+# the top of this file: clip staging and the scene publisher name the same one.
 
 # Replay settings. The reason for each is in tools/s2-archive/publish-scenes.py
 # — in short, half speed stays until perf0003 decides the speed, and the

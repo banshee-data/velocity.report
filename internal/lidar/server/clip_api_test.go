@@ -60,6 +60,11 @@ func setupTestClipAPIDB(t *testing.T) *db.DB {
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
 			recommended_param_set_id TEXT,
+			dataset_id TEXT,
+			north_azimuth_deg REAL,
+			storage TEXT NOT NULL DEFAULT 'sources',
+			session_id TEXT,
+			source_period_id TEXT,
 			FOREIGN KEY (reference_run_id) REFERENCES lidar_runs(run_id) ON DELETE SET NULL
 		);
 

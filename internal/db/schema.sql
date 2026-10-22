@@ -297,6 +297,15 @@
         , geographic_source TEXT
         , geographic_status TEXT NOT NULL DEFAULT 'unavailable'
         , site_id TEXT REFERENCES lidar_sites (site_id) ON DELETE SET NULL
+        , dataset_id TEXT
+        , north_azimuth_deg REAL CHECK (
+          north_azimuth_deg IS NULL
+       OR (
+          north_azimuth_deg >= 0
+      AND north_azimuth_deg < 360
+          )
+          )
+        , storage TEXT NOT NULL DEFAULT 'sources' CHECK (storage IN ('sources', 'extract'))
         , CHECK (
           pcap_start_secs IS NULL
        OR pcap_start_secs >= 0
@@ -338,6 +347,55 @@
         , FOREIGN KEY (clip_id) REFERENCES "lidar_clips" (clip_id) ON DELETE CASCADE
         , FOREIGN KEY (reference_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE CASCADE
         , FOREIGN KEY (candidate_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE CASCADE
+          );
+
+   CREATE TABLE lidar_clip_extracts (
+          job_id TEXT PRIMARY KEY
+        , clip_id TEXT NOT NULL
+        , rel_path TEXT
+        , sha256 TEXT
+        , size_bytes INTEGER
+        , packet_count INTEGER
+        , lidar_packet_count INTEGER
+        , frame_count INTEGER
+        , first_packet_ns INTEGER
+        , last_packet_ns INTEGER
+        , closed_by TEXT
+        , rubric_version INTEGER NOT NULL
+        , sidecar_json TEXT
+        , created_at_ns INTEGER NOT NULL
+        , completed_at_ns INTEGER
+        , CHECK (
+          rel_path IS NULL
+       OR (
+          rel_path != ''
+      AND SUBSTR(rel_path, 1, 1) != '/'
+      AND INSTR(rel_path, '..') = 0
+      AND INSTR(rel_path, CHAR(92)) = 0
+          )
+          )
+        , CHECK (
+          sha256 IS NULL
+       OR (
+          LENGTH(sha256) = 71
+      AND SUBSTR(sha256, 1, 7) = 'sha256:'
+      AND SUBSTR(sha256, 8) NOT GLOB '*[^0-9a-f]*'
+          )
+          )
+        , CHECK ((rel_path IS NULL) = (sha256 IS NULL))
+        , CHECK (
+          closed_by IS NULL
+       OR closed_by IN ('window', 'end')
+          )
+        , CHECK (
+          sidecar_json IS NULL
+       OR (
+          JSON_VALID(sidecar_json)
+      AND JSON_TYPE(sidecar_json) = 'object'
+          )
+          )
+        , FOREIGN KEY (job_id) REFERENCES lidar_capture_jobs (job_id) ON DELETE CASCADE
+        , FOREIGN KEY (clip_id) REFERENCES lidar_clips (clip_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_run_missed_regions" (
@@ -1271,34 +1329,6 @@ CREATE TRIGGER lidar_track_estimates_state_reference_and_support BEFORE INSERT O
 
 END;
 
-CREATE TRIGGER lidar_capture_jobs_check_insert BEFORE INSERT ON lidar_capture_jobs BEGIN
-   SELECT RAISE (ABORT, 'a capture job is a motion_pass or a vrlog_record')
-    WHERE NEW.kind NOT IN ('motion_pass', 'vrlog_record');
-
-   SELECT RAISE (
-          ABORT
-        , 'a clip job names its segment in lidar_segment_clip_jobs, not in session_id'
-          )
-    WHERE NEW.kind = 'vrlog_record'
-      AND NEW.session_id IS NOT NULL;
-
-END;
-
-CREATE TRIGGER lidar_capture_jobs_check_update BEFORE
-   UPDATE OF kind
-        , session_id ON lidar_capture_jobs BEGIN
-   SELECT RAISE (ABORT, 'a capture job is a motion_pass or a vrlog_record')
-    WHERE NEW.kind NOT IN ('motion_pass', 'vrlog_record');
-
-   SELECT RAISE (
-          ABORT
-        , 'a clip job names its segment in lidar_segment_clip_jobs, not in session_id'
-          )
-    WHERE NEW.kind = 'vrlog_record'
-      AND NEW.session_id IS NOT NULL;
-
-END;
-
 CREATE TRIGGER lidar_capture_motion_periods_check_insert BEFORE INSERT ON lidar_capture_motion_periods BEGIN
    SELECT RAISE (ABORT, 'a motion period ends no earlier than it starts')
     WHERE NEW.end_ns < NEW.start_ns;
@@ -1407,6 +1437,59 @@ CREATE INDEX idx_lidar_clips_s2_l13 ON lidar_clips (s2_l13_token);
 CREATE INDEX idx_lidar_clips_s2_l16 ON lidar_clips (s2_l16_token);
 
 CREATE INDEX idx_lidar_clips_site_id ON lidar_clips (site_id);
+
+CREATE UNIQUE INDEX idx_lidar_clips_dataset_id ON lidar_clips (dataset_id)
+    WHERE dataset_id IS NOT NULL;
+
+CREATE INDEX idx_lidar_clip_extracts_clip ON lidar_clip_extracts (clip_id, created_at_ns);
+
+CREATE TRIGGER lidar_capture_jobs_check_insert BEFORE INSERT ON lidar_capture_jobs BEGIN
+   SELECT RAISE (
+          ABORT
+        , 'a capture job is a motion_pass, a vrlog_record or a capture_export'
+          )
+    WHERE NEW.kind NOT IN ('motion_pass', 'vrlog_record', 'capture_export');
+
+   SELECT RAISE (
+          ABORT
+        , 'a clip job names its segment in lidar_segment_clip_jobs, not in session_id'
+          )
+    WHERE NEW.kind = 'vrlog_record'
+      AND NEW.session_id IS NOT NULL;
+
+   SELECT RAISE (
+          ABORT
+        , 'an export job names its clip in lidar_clip_extracts, not in session_id'
+          )
+    WHERE NEW.kind = 'capture_export'
+      AND NEW.session_id IS NOT NULL;
+
+END;
+
+CREATE TRIGGER lidar_capture_jobs_check_update BEFORE
+   UPDATE OF kind
+        , session_id ON lidar_capture_jobs BEGIN
+   SELECT RAISE (
+          ABORT
+        , 'a capture job is a motion_pass, a vrlog_record or a capture_export'
+          )
+    WHERE NEW.kind NOT IN ('motion_pass', 'vrlog_record', 'capture_export');
+
+   SELECT RAISE (
+          ABORT
+        , 'a clip job names its segment in lidar_segment_clip_jobs, not in session_id'
+          )
+    WHERE NEW.kind = 'vrlog_record'
+      AND NEW.session_id IS NOT NULL;
+
+   SELECT RAISE (
+          ABORT
+        , 'an export job names its clip in lidar_clip_extracts, not in session_id'
+          )
+    WHERE NEW.kind = 'capture_export'
+      AND NEW.session_id IS NOT NULL;
+
+END;
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

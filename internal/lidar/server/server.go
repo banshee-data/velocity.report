@@ -72,6 +72,9 @@ type Server struct {
 	parser            network.Parser
 	frameBuilder      network.FrameBuilder
 	pcapSafeDir       string // Safe directory for PCAP file access
+	// datasetDir is the published survey dataset clone that staging writes
+	// into. Empty disables staging.
+	datasetDir string
 	// captureRoots are the capture volumes the operator configured. They come
 	// from process configuration and never from a request: the safe-directory
 	// boundary is only a boundary while the set of readable roots is fixed
@@ -307,6 +310,11 @@ type Config struct {
 	// SegmentSelectors is the catalogue the segments API ranks with, read
 	// once at startup. Nil reads the default one.
 	SegmentSelectors *segments.Catalogue
+	// DatasetDir is the published survey dataset clone (manifest.json,
+	// raw/lidar/) that POST /api/lidar/clips/{id}/stage writes into. It must
+	// sit under PCAPSafeDir, as the scene publisher replays from it. Empty
+	// disables staging.
+	DatasetDir string
 
 	// DataSourceManager allows injecting a custom data source manager.
 	// If nil, a RealDataSourceManager is created automatically.
@@ -426,6 +434,7 @@ func NewServer(config Config) *Server {
 		frameBuilder:       config.FrameBuilder,
 		classifier:         config.Classifier,
 		pcapSafeDir:        config.PCAPSafeDir,
+		datasetDir:         config.DatasetDir,
 		captureRoots:       normaliseCaptureRoots(config.PCAPSafeDir, config.CaptureRoots),
 		vrlogSafeDir:       vrlogSafeDir,
 		packetForwarder:    config.PacketForwarder,

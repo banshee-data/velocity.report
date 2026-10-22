@@ -357,7 +357,12 @@ func setupCov2Server(t *testing.T) *Server {
 			reference_run_id TEXT,
 			created_at_ns INTEGER NOT NULL DEFAULT 0,
 			updated_at_ns INTEGER,
-			recommended_param_set_id TEXT
+			recommended_param_set_id TEXT,
+			dataset_id TEXT,
+			north_azimuth_deg REAL,
+			storage TEXT NOT NULL DEFAULT 'sources',
+			session_id TEXT,
+			source_period_id TEXT
 		);
 
 	CREATE TABLE IF NOT EXISTS lidar_clip_captures (
@@ -1743,7 +1748,12 @@ func setupCov3Server(t *testing.T) *Server {
 			reference_run_id TEXT,
 			created_at_ns INTEGER NOT NULL DEFAULT 0,
 			updated_at_ns INTEGER,
-			recommended_param_set_id TEXT
+			recommended_param_set_id TEXT,
+			dataset_id TEXT,
+			north_azimuth_deg REAL,
+			storage TEXT NOT NULL DEFAULT 'sources',
+			session_id TEXT,
+			source_period_id TEXT
 		);
 
 	CREATE TABLE IF NOT EXISTS lidar_clip_captures (

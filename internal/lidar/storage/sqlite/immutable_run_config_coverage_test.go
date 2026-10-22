@@ -196,7 +196,12 @@ func setupClipRecommendedDB(t *testing.T) *sql.DB {
 			reference_run_id TEXT,
 			created_at_ns INTEGER NOT NULL,
 			updated_at_ns INTEGER,
-			recommended_param_set_id TEXT
+			recommended_param_set_id TEXT,
+			dataset_id TEXT,
+			north_azimuth_deg REAL,
+			storage TEXT NOT NULL DEFAULT 'sources',
+			session_id TEXT,
+			source_period_id TEXT
 		)
 	`); err != nil {
 		t.Fatalf("create lidar_clips: %v", err)

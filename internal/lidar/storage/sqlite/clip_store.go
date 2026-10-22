@@ -44,7 +44,23 @@ type Clip struct {
 	// accepted. Populated by the handlers that load it; the family displays it
 	// carries are derived on read and never stored.
 	Location *ClipLocation `json:"location,omitempty"`
+
+	// DatasetID is the published survey's id when the clip is marked for the
+	// dataset: the site-index id and the manifest's site_slug.
+	DatasetID string `json:"dataset_id,omitempty"`
+	// NorthAzimuthDeg is the scene viewer's measured north azimuth, as
+	// site-index.json records it; not the bearing of the sensor's +Y.
+	NorthAzimuthDeg *float64 `json:"north_azimuth_deg,omitempty"`
+	// Storage is what a replay of the clip opens: "sources", its capture
+	// list and offsets, or "extract", its latest completed extract.
+	Storage string `json:"storage"`
 }
+
+// What a clip replays.
+const (
+	ClipStorageSources = "sources"
+	ClipStorageExtract = "extract"
+)
 
 // ClipStore provides persistence for LiDAR evaluation clips.
 type ClipStore struct {
@@ -73,6 +89,11 @@ func (s *ClipStore) clipSelectColumns() []string {
 		"created_at_ns",
 		"updated_at_ns",
 		"recommended_param_set_id",
+		"dataset_id",
+		"north_azimuth_deg",
+		"storage",
+		"session_id",
+		"source_period_id",
 		// Paths and counts come only from the capture association.
 		`(SELECT COUNT(*) FROM lidar_clip_captures WHERE clip_id = lidar_clips.clip_id)`,
 	}
@@ -84,6 +105,9 @@ func scanClip(scanner interface{ Scan(dest ...any) error }) (*Clip, error) {
 	var description, referenceRunID sql.NullString
 	var updatedAtNs sql.NullInt64
 	var recommendedParamSetID sql.NullString
+	var datasetID sql.NullString
+	var northAzimuth sql.NullFloat64
+	var sessionID, sourcePeriodID sql.NullString
 
 	dests := []any{
 		&clip.ClipID,
@@ -95,6 +119,11 @@ func scanClip(scanner interface{ Scan(dest ...any) error }) (*Clip, error) {
 		&clip.CreatedAtNs,
 		&updatedAtNs,
 		&recommendedParamSetID,
+		&datasetID,
+		&northAzimuth,
+		&clip.Storage,
+		&sessionID,
+		&sourcePeriodID,
 		&clip.FileCount,
 	}
 
@@ -122,6 +151,15 @@ func scanClip(scanner interface{ Scan(dest ...any) error }) (*Clip, error) {
 	}
 	if recommendedParamSetID.Valid {
 		clip.RecommendedParamSetID = recommendedParamSetID.String
+	}
+	if datasetID.Valid {
+		clip.DatasetID = datasetID.String
+	}
+	clip.SessionID = sessionID.String
+	clip.SourcePeriodID = sourcePeriodID.String
+	if northAzimuth.Valid {
+		v := northAzimuth.Float64
+		clip.NorthAzimuthDeg = &v
 	}
 
 	return &clip, nil
@@ -234,6 +272,9 @@ func (s *ClipStore) InsertClip(clip *Clip) error {
 	}
 
 	clip.FileCount = len(clip.Files)
+	if clip.Storage == "" {
+		clip.Storage = ClipStorageSources
+	}
 
 	s.hydrateRecommendedParamSet(clip)
 	return nil
