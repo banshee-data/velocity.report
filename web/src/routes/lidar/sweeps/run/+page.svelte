@@ -664,7 +664,7 @@
 								<span>Source</span>
 								<select class="vr-input" bind:value={form.dataSource}>
 									<option value="live">Live</option>
-									<option value="pcap">Capture replay</option>
+									<option value="capture">Capture replay</option>
 									<option value="clip">Clip</option>
 								</select>
 							</label>

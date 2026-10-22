@@ -114,7 +114,7 @@ describe('manual sweep request', () => {
 		expect(req).toMatchObject({
 			mode: 'params',
 			seed: 'true',
-			data_source: 'pcap',
+			data_source: 'capture',
 			clip_id: 'clip-1',
 			pcap_file: 'kirk0.pcapng',
 			pcap_start_secs: 4,
@@ -141,7 +141,7 @@ describe('manual sweep request', () => {
 				{ ...newParamRow(EPS), start: 0.2, end: 0.4, step: 0.1 },
 				{ ...newParamRow(POINTS), values: '2, 4' }
 			],
-			dataSource: 'pcap',
+			dataSource: 'capture',
 			pcapFile: 'a.pcap',
 			seed: 'toggle',
 			settleMode: 'per_combo'
@@ -165,7 +165,7 @@ describe('auto-tune request', () => {
 			form({
 				mode: 'auto',
 				rows: [newParamRow(EPS), newParamRow(SEED)],
-				dataSource: 'pcap',
+				dataSource: 'capture',
 				pcapFile: 'a'
 			})
 		);
@@ -245,7 +245,7 @@ describe('validateSweepForm', () => {
 		expect(validateSweepForm(form({ mode: 'hint' }))).toMatch(/clip/);
 		expect(validateSweepForm(form({ mode: 'hint', clipId: 'c' }))).toBeNull();
 		expect(validateSweepForm(form())).toMatch(/at least one parameter/);
-		expect(validateSweepForm(form({ rows: [newParamRow(EPS)], dataSource: 'pcap' }))).toMatch(
+		expect(validateSweepForm(form({ rows: [newParamRow(EPS)], dataSource: 'capture' }))).toMatch(
 			/capture file/
 		);
 		expect(validateSweepForm(form({ mode: 'auto', rows: [newParamRow(SEED)] }))).toMatch(/numeric/);
@@ -325,14 +325,14 @@ describe('replaySlotProblem', () => {
 	});
 
 	it('refuses a replaying sweep while a replay is running', () => {
-		expect(replaySlotProblem(form({ dataSource: 'pcap' }), live)).toBeNull();
-		expect(replaySlotProblem(form({ dataSource: 'pcap' }), busy)).toMatch(/replay is running/);
+		expect(replaySlotProblem(form({ dataSource: 'capture' }), live)).toBeNull();
+		expect(replaySlotProblem(form({ dataSource: 'capture' }), busy)).toMatch(/replay is running/);
 		expect(replaySlotProblem(form({ dataSource: 'clip' }), vrlog)).toMatch(/replay is running/);
 		expect(replaySlotProblem(form({ mode: 'hint' }), busy)).toMatch(/replay is running/);
 	});
 
 	it('lets a replaying sweep take over a finished analysis replay', () => {
-		expect(replaySlotProblem(form({ dataSource: 'pcap' }), held)).toBeNull();
+		expect(replaySlotProblem(form({ dataSource: 'capture' }), held)).toBeNull();
 		expect(replaySlotProblem(form({ dataSource: 'clip' }), held)).toBeNull();
 		expect(replaySlotProblem(form({ mode: 'hint' }), held)).toBeNull();
 	});

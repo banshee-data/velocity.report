@@ -341,7 +341,7 @@ export function rowValueCount(row: ParamRow): number {
 }
 
 export type SweepMode = 'manual' | 'auto' | 'hint';
-export type DataSource = 'live' | 'pcap' | 'clip';
+export type DataSource = 'live' | 'capture' | 'clip';
 
 /** Every field of the sweep form. */
 export interface SweepForm {
@@ -438,9 +438,9 @@ export function defaultSweepForm(): SweepForm {
 /** The data-source fields every request shares. */
 function sourceFields(form: SweepForm): Record<string, unknown> {
 	const out: Record<string, unknown> = {
-		data_source: form.dataSource === 'clip' ? 'pcap' : form.dataSource
+		data_source: form.dataSource === 'clip' ? 'capture' : form.dataSource
 	};
-	if (form.dataSource === 'pcap' || form.dataSource === 'clip') {
+	if (form.dataSource === 'capture' || form.dataSource === 'clip') {
 		out.pcap_file = form.pcapFile;
 		out.pcap_start_secs = form.pcapStartSecs;
 		out.pcap_duration_secs = form.pcapDurationSecs;
@@ -505,7 +505,7 @@ export function applySweepSetup(form: SweepForm, setup: Record<string, unknown>)
 	if (typeof setup.clip_id === 'string' && setup.clip_id) {
 		next.dataSource = 'clip';
 		next.clipId = setup.clip_id;
-	} else if (setup.data_source === 'live' || setup.data_source === 'pcap') {
+	} else if (setup.data_source === 'live' || setup.data_source === 'capture') {
 		next.dataSource = setup.data_source;
 	}
 	if (typeof setup.pcap_file === 'string') next.pcapFile = setup.pcap_file;
@@ -607,7 +607,7 @@ export function validateSweepForm(form: SweepForm): string | null {
 		return form.clipId ? null : 'Choose a clip before starting a HINT sweep.';
 	}
 	if (namedRows(form).length === 0) return 'Add at least one parameter.';
-	if ((form.dataSource === 'pcap' || form.dataSource === 'clip') && !form.pcapFile.trim()) {
+	if ((form.dataSource === 'capture' || form.dataSource === 'clip') && !form.pcapFile.trim()) {
 		return 'Choose a capture file to replay.';
 	}
 	if (form.mode === 'auto' && !namedRows(form).some((r) => isNumeric(PARAM_SCHEMA[r.name].type))) {
