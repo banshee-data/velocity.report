@@ -226,17 +226,17 @@ Layer pipeline (L1–L9; L7 is unimplemented):
 
 For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented-concept-status-chart](ARCHITECTURE.md#segmented-concept-status-chart).
 
-| Layer | Package         | Purpose                                                                          |
-| ----- | --------------- | -------------------------------------------------------------------------------- |
-| L1    | `l1packets/`    | Hesai UDP decode, PCAP replay; sub-packages `network/` and `parse/`              |
-| L2    | `l2frames/`     | Frame assembly from raw points, polar↔Cartesian geometry, frame export           |
-| L3    | `l3grid/`       | Background model (EMA + Welford variance), foreground extraction, region mgmt    |
-| L4    | `l4perception/` | DBSCAN clustering, OBB estimation (PCA), ground removal, voxel downsampling      |
-| L5    | `l5tracks/`     | Kalman-filtered MOT, Hungarian assignment, OBB heading smoothing, track coasting |
-| L6    | `l6objects/`    | Track classification (vehicle, pedestrian, noise) and quality assessment         |
-| L8    | `l8analytics/`  | Run metrics, cross-run comparisons, scoring, percentile helpers                  |
-| L8    | `l8behaviour/`  | Behaviour: following gap and time gap, local path, leader choice, exposure       |
-| L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI    |
+| Layer | Package         | Purpose                                                                                         |
+| ----- | --------------- | ----------------------------------------------------------------------------------------------- |
+| L1    | `l1packets/`    | Hesai UDP decode, PCAP replay; sub-packages `network/` and `parse/`                             |
+| L2    | `l2frames/`     | Frame assembly from raw points, polar↔Cartesian geometry, frame export                          |
+| L3    | `l3grid/`       | Background model (EMA baseline + EMA of absolute deviation), foreground extraction, region mgmt |
+| L4    | `l4perception/` | DBSCAN clustering, OBB estimation (PCA), ground removal, voxel downsampling                     |
+| L5    | `l5tracks/`     | Kalman-filtered MOT, Hungarian assignment, OBB heading smoothing, track coasting                |
+| L6    | `l6objects/`    | Track classification (vehicle, pedestrian, noise) and quality assessment                        |
+| L8    | `l8analytics/`  | Run metrics, cross-run comparisons, scoring, percentile helpers                                 |
+| L8    | `l8behaviour/`  | Behaviour: following gap and time gap, local path, leader choice, exposure                      |
+| L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI                   |
 
 **`pipeline/`** is the composition root: it orchestrates L3–L6 and is the only package that imports from all layer packages; layer packages never import `pipeline/`.
 

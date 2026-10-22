@@ -7,7 +7,10 @@
 The October campaign's cost screen compares Tracker.Update p99 alone: A2 breaches it when its update
 p99 is over 1.5 times B0's. B0's update is about 0.5 % of a frame's CPU, so a ratio to it says little
 about what a live sensor pays per frame. The screen's scope (the update, or the frame) is an open
-decision. This record measures the frame.
+decision. This record measures the frame. The owner chose the frame on October 22, 2026, in the
+[maths decision review](../../platform/operations/decision-review-maths-2026-10.md#e-04-q-04) (E-04),
+with the update ratio kept as a signal and a Pi measurement ([perf0004](../../../data/experiments/perf/perf0004.md))
+before any promotion.
 
 ## Method
 

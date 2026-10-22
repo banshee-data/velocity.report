@@ -74,7 +74,8 @@ If desired, you can normalise counts to percentages by adding `CAST(100.0 * COUN
 
 4. Nearest-rank percentile queries (p50/p85/p98): run sequentially
 
-- Steps: 1) get `n` = count of filtered rows; 2) compute offset = floor(n \* p) - 1; 3) select ordered value LIMIT 1 OFFSET offset.
+- Steps: 1) get `n` = count of filtered rows; 2) compute offset = ceil(n \* p) - 1, the 0-based index of 1-based rank ceil(n \* p); 3) select ordered value LIMIT 1 OFFSET offset.
+- This is the rule `internal/stats.NearestRank` implements for every published aggregate (D-18). SQLite's `CAST(x AS INTEGER)` truncates, so the queries below compute ceil(x) - 1 as `CAST(x AS INTEGER) - (x = CAST(x AS INTEGER))`. An earlier revision used floor(n \* p) - 1, which reads one rank low whenever n \* p is not a whole number.
 
 Example for transits (using computed n):
 
@@ -87,13 +88,13 @@ WHERE model_version='rebuild-full'
   AND transit_start_unix BETWEEN <overlap_start> AND <overlap_end>
   AND transit_max_speed >= 2.2352
 ORDER BY transit_max_speed
-LIMIT 1 OFFSET (CAST((21466 * 0.50) AS INTEGER) - 1);
+LIMIT 1 OFFSET (CAST((21466 * 0.50) AS INTEGER) - ((21466 * 0.50) = CAST((21466 * 0.50) AS INTEGER)));
 
 -- p85
-LIMIT 1 OFFSET (CAST((21466 * 0.85) AS INTEGER) - 1);
+LIMIT 1 OFFSET (CAST((21466 * 0.85) AS INTEGER) - ((21466 * 0.85) = CAST((21466 * 0.85) AS INTEGER)));
 
 -- p98
-LIMIT 1 OFFSET (CAST((21466 * 0.98) AS INTEGER) - 1);
+LIMIT 1 OFFSET (CAST((21466 * 0.98) AS INTEGER) - ((21466 * 0.98) = CAST((21466 * 0.98) AS INTEGER)));
 
 -- max
 SELECT MAX(transit_max_speed)
@@ -113,7 +114,7 @@ FROM radar_objects
 WHERE write_timestamp BETWEEN <overlap_start> AND <overlap_end>
   AND CAST(COALESCE(json_extract(raw_event, '$.max_speed_mps'), json_extract(raw_event, '$.max_speed')) AS DOUBLE) >= 2.2352
 ORDER BY max_speed
-LIMIT 1 OFFSET (CAST((22693 * 0.50) AS INTEGER) - 1);
+LIMIT 1 OFFSET (CAST((22693 * 0.50) AS INTEGER) - ((22693 * 0.50) = CAST((22693 * 0.50) AS INTEGER)));
 
 -- p85 / p98 analogous
 

@@ -87,6 +87,23 @@ members, so the share is against what the tracker saw, not the persisted sample.
 | G11 | Identity, A2 only                       | `identity.json` ID switches on `whole-pack` against the A2 baseline's; HOTA and IDF1 reported                                                                                                      | Within the larger of 10 % of the baseline and the measured no-op floor |
 | G12 | Cost                                    | `tracker_timing.json` p99 against the arm's baseline, median of four balanced runs; the orientation fit's time stated per cluster on the Mac and on a Pi                                           | Within 10 %; the fit measured, not estimated                           |
 
+**The G1 estimator.** G1's median and p90 are nearest rank, the value at rank ceil(p·n) of the
+scored poses, computed with `internal/stats.NearestRank` (the owner's choice in the
+[maths decision review](../../platform/operations/decision-review-maths-2026-10.md#e-11-q-11), E-11).
+Nearest rank never reads lower than a truncated or interpolated p90, so it cannot loosen the gate.
+No code computes G1 yet: the scorer does not print the axis p90 (see the W0 row below), and the
+kirk0 figure of 1.3° was not traced to code, so it is recomputed with this estimator when the
+scorer prints it. On 21 poses the three common rules pick the same pose.
+
+**G12 stays update-level.** G12 screens `Tracker.Update` p99, unlike the near-edge plan's cost
+screen, which moved to the frame (E-04). The owner kept it there
+([E-12](../../platform/operations/decision-review-maths-2026-10.md#e-12-q-12)): it is a pinned
+level already read three times, and the work W1 and W2 add, the orientation fit included, runs
+inside the tracker update, where a 10 % band is a useful regression guard. The near-edge arm's
+update ratios of 9 to 21 times are what made a frame screen necessary there.
+The `axis_by_age` p90 that G3's rows carry truncates p·(n−1) and stays on that rule (E-08); nearest
+rank applies to published speed percentiles only.
+
 **The no-op floor of G11.** On the frozen split, A2's identity moves with any change to the
 solid body whether or not a scored pose changes. The one arm of the alignment run that changed
 no scored pose, `solid_body_vehicle_extent_floor` alone, moved the switches from 100 to 81, so

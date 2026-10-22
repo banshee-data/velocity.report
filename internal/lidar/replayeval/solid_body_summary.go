@@ -325,8 +325,12 @@ func (g *guardRows) axisByAge() []AxisAgeRow {
 	return rows
 }
 
-// percentile is the nearest-rank value at fraction p of the sorted values,
-// zero for none.
+// percentile is the value at index floor(p * (n-1)) of the sorted values,
+// truncating rather than interpolating, and zero for none. That is not nearest
+// rank: it reads the same order statistic as nearest rank or one below it. It
+// serves the axis-by-age diagnostics only; no pinned gate reads it. Published
+// speed percentiles use internal/stats.NearestRank, and the maths decision
+// review (E-08) kept this diagnostic on its own rule.
 func percentile(v []float64, p float64) float64 {
 	if len(v) == 0 {
 		return 0
