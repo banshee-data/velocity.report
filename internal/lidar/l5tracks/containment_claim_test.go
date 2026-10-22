@@ -130,3 +130,19 @@ func TestContainmentClaimNeedsAContainedBodyCentredBoxAndReturns(t *testing.T) {
 		t.Fatalf("%d refusals with too few returns", n)
 	}
 }
+
+// A track the gate has already refused is not a rival: with the fresh track
+// moved out of reach, the coasting track is the only admitted bidder and keeps
+// the cluster although its box cannot hold the returns.
+func TestContainmentClaimCountsOnlyAdmittedBidders(t *testing.T) {
+	tk, freshID, coastingID, contested := claimScene(t, claimConfig(), 1, 10, 0)
+	fresh := tk.Tracks[freshID]
+	fresh.X, fresh.Y = 100, 100
+	giveBody(tk, freshID)
+	if got := associateOne(tk, contested); got != coastingID {
+		t.Fatalf("with the fresh track gated out the cluster went to %q, not the only admitted bidder", got)
+	}
+	if n := tk.ContinuityStats().ContainmentClaimRefusals; n != 0 {
+		t.Fatalf("%d refusals counted against a gated-out rival", n)
+	}
+}
