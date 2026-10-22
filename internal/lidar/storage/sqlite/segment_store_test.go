@@ -59,18 +59,18 @@ func segmentSelector(window []byte, edit func(map[string]any)) []byte {
 	return b
 }
 
-// segmentFixture is a database with two runs and the replay cases named.
+// segmentFixture is a database with two runs and the clips named.
 func segmentFixture(t *testing.T, cases ...string) (*SegmentStore, DBClient) {
 	t.Helper()
 	db, cleanup := setupTestDB(t)
 	t.Cleanup(cleanup)
 	for _, run := range []string{"run-a", "run-b"} {
-		if _, err := db.Exec(`INSERT INTO lidar_run_records(run_id,created_at,source_type,sensor_id,status) VALUES(?,1,'pcap','sensor','completed')`, run); err != nil {
+		if _, err := db.Exec(`INSERT INTO lidar_runs(run_id,created_at,source_type,sensor_id,status) VALUES(?,1,'pcap','sensor','completed')`, run); err != nil {
 			t.Fatal(err)
 		}
 	}
 	for _, id := range cases {
-		if _, err := db.Exec(`INSERT INTO lidar_replay_cases(replay_case_id,sensor_id,pcap_file,created_at_ns) VALUES(?,'sensor','a.pcap',1)`, id); err != nil {
+		if _, err := db.Exec(`INSERT INTO lidar_clips (clip_id,sensor_id,created_at_ns) VALUES (?,'sensor',1)`, id); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -92,7 +92,7 @@ func TestSegmentSelectionIsReadFromItsDocument(t *testing.T) {
 			t.Fatalf("%s: %v", name, err)
 		}
 		want := SegmentSelection{
-			SegmentID: "seg-1", RunID: "run-a", Source: "run-a", ReplayCaseID: "case-1",
+			SegmentID: "seg-1", RunID: "run-a", Source: "run-a", ClipID: "case-1",
 			Role: "tuning", Finder: "following", FinderVersion: 1, Capture: "/captures/a.pcap",
 			WindowStartNs: 1_788_466_680_000_000_000, WindowEndNs: 1_788_466_690_000_000_000,
 			ParametersJSON: string(segmentParameters), WindowJSON: string(window), SelectorJSON: string(chosenBy(window)),
@@ -162,7 +162,7 @@ func TestSegmentSelectionRulesAreHeldByTheDatabase(t *testing.T) {
 			}
 		})
 	}
-	t.Run("replay case does not exist", func(t *testing.T) {
+	t.Run("clip does not exist", func(t *testing.T) {
 		store, _ := segmentFixture(t)
 		if err := store.InsertSelection("seg-1", "run-a", "case-none", segmentParameters, segmentWindow("seg-1", "following", "tuning", "run-a", nil), chosenBy(segmentWindow("seg-1", "following", "tuning", "run-a", nil))); err == nil {
 			t.Fatal("the database accepted a selection for no case")
@@ -244,7 +244,7 @@ func TestDeletingARunKeepsItsSelections(t *testing.T) {
 	if err := store.InsertSelection("seg-1", "run-a", "case-1", segmentParameters, segmentWindow("seg-1", "exposure", "held_out", "run-a", nil), chosenBy(segmentWindow("seg-1", "exposure", "held_out", "run-a", nil))); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.Exec(`DELETE FROM lidar_run_records WHERE run_id='run-a'`); err != nil {
+	if _, err := db.Exec(`DELETE FROM lidar_runs WHERE run_id='run-a'`); err != nil {
 		t.Fatalf("a selection must not stop its run from being deleted: %v", err)
 	}
 	got, err := store.Selection("seg-1")
@@ -252,15 +252,15 @@ func TestDeletingARunKeepsItsSelections(t *testing.T) {
 		t.Fatalf("selection did not outlive its run: %v", err)
 	}
 	// The run is gone; what it was called, and what was chosen from it, stay.
-	if got.RunID != "" || got.Source != "run-a" || got.Role != "held_out" || got.Finder != "exposure" || got.ReplayCaseID != "case-1" {
+	if got.RunID != "" || got.Source != "run-a" || got.Role != "held_out" || got.Finder != "exposure" || got.ClipID != "case-1" {
 		t.Fatalf("selection after its run was deleted: %+v", got)
 	}
-	// Deleting the replay case is a decision about the selection itself.
-	if _, err := db.Exec(`DELETE FROM lidar_replay_cases WHERE replay_case_id='case-1'`); err != nil {
+	// Deleting the clip is a decision about the selection itself.
+	if _, err := db.Exec(`DELETE FROM lidar_clips WHERE clip_id='case-1'`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.Selection("seg-1"); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("selection outlived its replay case: %v", err)
+		t.Fatalf("selection outlived its clip: %v", err)
 	}
 }
 
@@ -332,7 +332,7 @@ func TestClipIsQueuedWithItsSegment(t *testing.T) {
 	if _, err := store.Status("seg-none"); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("status of a window that was not chosen: %v", err)
 	}
-	if status, err := store.Status("seg-1"); err != nil || status != (SegmentStatus{ReplayCaseID: "case-1"}) {
+	if status, err := store.Status("seg-1"); err != nil || status != (SegmentStatus{ClipID: "case-1"}) {
 		t.Fatalf("status before a clip: %+v %v", status, err)
 	}
 	job, err := store.EnqueueClip("seg-1", "clip for case-1")
@@ -365,10 +365,10 @@ func TestClipIsQueuedWithItsSegment(t *testing.T) {
 		t.Fatalf("request while running: %+v %v", running, err)
 	}
 	clip, selection, err := store.ClipJob(job.JobID)
-	if err != nil || clip != (SegmentClipJob{JobID: job.JobID, SegmentID: "seg-1", State: JobRunning, QueuedAtNs: job.QueuedAtNs}) || selection.ReplayCaseID != "case-1" {
+	if err != nil || clip != (SegmentClipJob{JobID: job.JobID, SegmentID: "seg-1", State: JobRunning, QueuedAtNs: job.QueuedAtNs}) || selection.ClipID != "case-1" {
 		t.Fatalf("clip job: %+v %+v %v", clip, selection, err)
 	}
-	if status, err := store.Status("seg-1"); err != nil || status != (SegmentStatus{ReplayCaseID: "case-1", JobID: job.JobID, JobState: JobRunning}) {
+	if status, err := store.Status("seg-1"); err != nil || status != (SegmentStatus{ClipID: "case-1", JobID: job.JobID, JobState: JobRunning}) {
 		t.Fatalf("status while clipping: %+v %v", status, err)
 	}
 	if err := store.LinkPack(job.JobID, "clip-"+job.JobID+"-1/pack", segmentStoreDigest); err != nil {
@@ -502,7 +502,7 @@ func TestPackLinkRules(t *testing.T) {
 	if _, _, err := store.ClipJob(job.JobID); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("link outlived its job: %v", err)
 	}
-	if _, err := db.Exec(`DELETE FROM lidar_replay_cases WHERE replay_case_id='case-2'`); err != nil {
+	if _, err := db.Exec(`DELETE FROM lidar_clips WHERE clip_id='case-2'`); err != nil {
 		t.Fatal(err)
 	}
 	var links int

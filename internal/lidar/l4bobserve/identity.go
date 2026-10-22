@@ -12,7 +12,7 @@ import (
 // observations. A site name or an S2 cell is useful context, but it is not
 // enough: a second visit to the same place is a different source.
 type CaptureSource struct {
-	ReplayCaseID   string
+	ClipID         string
 	CapturePaths   []string
 	CaptureSHA256s []string
 	// ExtractorID identifies the configuration and L4 implementation that
@@ -35,8 +35,8 @@ type Calibration struct {
 // capture sequence. Reordering files deliberately changes the value: packet
 // order is evidence, not presentation.
 func SourceID(source CaptureSource) (string, error) {
-	if strings.TrimSpace(source.ReplayCaseID) == "" {
-		return "", fmt.Errorf("replay case identity is required")
+	if strings.TrimSpace(source.ClipID) == "" {
+		return "", fmt.Errorf("clip identity is required")
 	}
 	if len(source.CapturePaths) == 0 || len(source.CapturePaths) != len(source.CaptureSHA256s) {
 		return "", fmt.Errorf("at least one ordered capture path is required")
@@ -46,7 +46,7 @@ func SourceID(source CaptureSource) (string, error) {
 	}
 	h := sha256.New()
 	writeIdentityPart(h, "observation-source-v1")
-	writeIdentityPart(h, source.ReplayCaseID)
+	writeIdentityPart(h, source.ClipID)
 	for i, capture := range source.CapturePaths {
 		if strings.TrimSpace(capture) == "" {
 			return "", fmt.Errorf("capture path is required")

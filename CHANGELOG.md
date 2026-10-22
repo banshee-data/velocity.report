@@ -53,7 +53,27 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ## [Unreleased]
 
+### BREAKING
+
+- LiDAR evaluation windows are clips: use `/api/lidar/clips` and `clip_id`.
+  `/api/lidar/scenes` is removed. Clip requests use `pcap_files`; responses expose
+  ordered `files` capture rows and no `pcap_file` projection. Migration 064 renames
+  the clip, capture-association, evaluation and run tables without changing their keys.
+  The previous macOS DMG retains its registered `replay_case_id` alias until the next
+  DMG is the oldest supported. The current app uses the new names. Browser bookmarks
+  for `/lidar/replay-cases` redirect to `/lidar/clips` for one release.
+
 ### Changed
+
+- Place surfaces distinguish sites, radar deployments and surveys. Clip locations
+  use districts and site cells, with registered aliases for the previous DMG.
+  The catalogue editor uses `/survey`; old editor and map bookmarks redirect.
+  The radar and LiDAR site tables remain separate until Phase 2.
+
+- Label types are `ObjectClass` and `QualityFlag` across Go, web and macOS.
+  Annotation routes now live under `/api/lidar/annotations/`; registered aliases
+  support the previous DMG. Misplaced split/merge class verdicts migrate to quality
+  flags, retaining their provenance and existing flags.
 
 - A `scaled` or `realtime` PCAP replay now runs the tuning file's L3 as written, as analysis mode
   and live input always did. Until now it substituted five L3 values for the replay's duration

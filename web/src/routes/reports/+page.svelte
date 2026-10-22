@@ -424,7 +424,8 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Report Generator</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Generate PDF reports and compare survey periods
+					Generate PDF reports from measurement periods (surveys), with site and radar deployment
+					settings
 				</p>
 			</div>
 		</div>

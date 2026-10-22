@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	dbpkg "github.com/banshee-data/velocity.report/internal/db"
@@ -17,13 +19,13 @@ func setupLabelTestDB(t *testing.T) *dbpkg.DB {
 	t.Cleanup(cleanup)
 
 	_, err := db.Exec(`
-		INSERT INTO lidar_run_records (
+		INSERT INTO lidar_runs (
 			run_id, created_at, source_type, source_path, sensor_id, status
 		) VALUES
 			('run-001', 1000000000, 'pcap', '/tmp/test.pcap', 'test-sensor', 'completed');
-		INSERT INTO lidar_replay_cases (
-			replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
-		) VALUES ('case-001', 'test-sensor', '/tmp/test.pcap', 'run-001', 1000000000);
+		INSERT INTO lidar_clips (
+			clip_id, sensor_id, reference_run_id, created_at_ns
+		) VALUES ('case-001', 'test-sensor', 'run-001', 1000000000);
 		INSERT INTO lidar_run_tracks (
 			run_id, track_id, sensor_id, track_state, start_unix_nanos
 		) VALUES
@@ -37,15 +39,15 @@ func setupLabelTestDB(t *testing.T) *dbpkg.DB {
 	return db
 }
 
-func insertReplayAnnotation(t *testing.T, db *dbpkg.DB, labelID, replayCaseID, runID, trackID, classLabel string, startNs int64) {
+func insertReplayAnnotation(t *testing.T, db *dbpkg.DB, labelID, clipID, runID, trackID, classLabel string, startNs int64) {
 	t.Helper()
 
 	_, err := db.Exec(`
 		INSERT INTO lidar_replay_annotations (
-			annotation_id, replay_case_id, run_id, track_id, class_label,
+			annotation_id, clip_id, run_id, track_id, class_label,
 			start_timestamp_ns, created_at_ns
 		) VALUES (?, ?, ?, ?, ?, ?, ?)
-	`, labelID, replayCaseID, runID, trackID, classLabel, startNs, startNs)
+	`, labelID, clipID, runID, trackID, classLabel, startNs, startNs)
 	if err != nil {
 		t.Fatalf("failed to insert test label: %v", err)
 	}
@@ -59,10 +61,10 @@ func TestLidarLabelAPI_CreateLabel(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	runID := "run-001"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		RunID:            &runID,
 		TrackID:          "track-001",
 		ClassLabel:       "car",
@@ -87,8 +89,8 @@ func TestLidarLabelAPI_CreateLabel(t *testing.T) {
 	if created.LabelID == "" {
 		t.Error("expected label_id to be generated")
 	}
-	if created.ReplayCaseID == nil || *created.ReplayCaseID != replayCaseID {
-		t.Fatalf("expected replay_case_id %q, got %v", replayCaseID, created.ReplayCaseID)
+	if created.ClipID == nil || *created.ClipID != clipID {
+		t.Fatalf("expected clip_id %q, got %v", clipID, created.ClipID)
 	}
 	if created.RunID == nil || *created.RunID != runID {
 		t.Fatalf("expected run_id %q, got %v", runID, created.RunID)
@@ -98,7 +100,7 @@ func TestLidarLabelAPI_CreateLabel(t *testing.T) {
 	}
 }
 
-func TestLidarLabelAPI_CreateLabel_RequiresReplayCase(t *testing.T) {
+func TestLidarLabelAPI_CreateLabel_RequiresClip(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -130,9 +132,9 @@ func TestLidarLabelAPI_CreateLabel_RequiresRunTrackPair(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		TrackID:          "track-001",
 		ClassLabel:       "car",
 		StartTimestampNs: 1500000000,
@@ -329,33 +331,33 @@ func TestLidarLabelAPI_Export(t *testing.T) {
 	}
 }
 
-func TestLidarLabelAPI_Export_FiltersByReplayCase(t *testing.T) {
+func TestLidarLabelAPI_Export_FiltersByClip(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
 	insertReplayAnnotation(t, db, "label-001", "case-001", "run-001", "track-001", "car", 1000000000)
 	if _, err := db.Exec(`
-		INSERT INTO lidar_run_records (
+		INSERT INTO lidar_runs (
 			run_id, created_at, source_type, source_path, sensor_id, status
 		) VALUES ('run-002', 1000000001, 'pcap', '/tmp/test-2.pcap', 'test-sensor', 'completed');
-		INSERT INTO lidar_replay_cases (
-			replay_case_id, sensor_id, pcap_file, reference_run_id, created_at_ns
-		) VALUES ('case-002', 'test-sensor', '/tmp/test-2.pcap', 'run-002', 1000000001);
+		INSERT INTO lidar_clips (
+			clip_id, sensor_id, reference_run_id, created_at_ns
+		) VALUES ('case-002', 'test-sensor', 'run-002', 1000000001);
 		INSERT INTO lidar_run_tracks (
 			run_id, track_id, sensor_id, track_state, start_unix_nanos
 		) VALUES ('run-002', 'track-101', 'test-sensor', 'confirmed', 1000000001);
 		INSERT INTO lidar_replay_annotations (
-			annotation_id, replay_case_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
+			annotation_id, clip_id, run_id, track_id, class_label, start_timestamp_ns, created_at_ns
 		) VALUES ('label-002', 'case-002', 'run-002', 'track-101', 'bus', 2000000000, 2000000000);
 	`); err != nil {
-		t.Fatalf("failed to insert second replay case labels: %v", err)
+		t.Fatalf("failed to insert second clip labels: %v", err)
 	}
 
 	api := NewLidarLabelAPI(db)
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/export?replay_case_id=case-001", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels/export?clip_id=case-001", nil)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -371,8 +373,8 @@ func TestLidarLabelAPI_Export_FiltersByReplayCase(t *testing.T) {
 	if len(labels) != 1 {
 		t.Fatalf("expected 1 label, got %d", len(labels))
 	}
-	if labels[0].ReplayCaseID == nil || *labels[0].ReplayCaseID != "case-001" {
-		t.Fatalf("expected replay_case_id case-001, got %v", labels[0].ReplayCaseID)
+	if labels[0].ClipID == nil || *labels[0].ClipID != "case-001" {
+		t.Fatalf("expected clip_id case-001, got %v", labels[0].ClipID)
 	}
 }
 
@@ -467,7 +469,7 @@ func TestLidarLabelAPI_ListLabels_WithTimeFilters(t *testing.T) {
 
 	_, err := db.Exec(`
 		INSERT INTO lidar_replay_annotations (
-			annotation_id, replay_case_id, run_id, track_id, class_label,
+			annotation_id, clip_id, run_id, track_id, class_label,
 			start_timestamp_ns, end_timestamp_ns, created_at_ns
 		) VALUES
 			('label-001', 'case-001', 'run-001', 'track-001', 'car', 1000000000, 1500000000, 1000000000),
@@ -630,7 +632,7 @@ func TestLidarLabelAPI_WriteJSONError(t *testing.T) {
 	}
 }
 
-func TestValidateQualityLabel(t *testing.T) {
+func TestValidateQualityFlags(t *testing.T) {
 	tests := []struct {
 		input string
 		want  bool
@@ -654,8 +656,55 @@ func TestValidateQualityLabel(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		if got := ValidateQualityLabel(tc.input); got != tc.want {
-			t.Errorf("ValidateQualityLabel(%q) = %v, want %v", tc.input, got, tc.want)
+		if got := ValidateQualityFlags(tc.input); got != tc.want {
+			t.Errorf("ValidateQualityFlags(%q) = %v, want %v", tc.input, got, tc.want)
 		}
+	}
+}
+
+// The previous DMG still sends replay_case_id; the current client uses clip_id.
+func TestLabelClipIdentifierDMGAlias(t *testing.T) {
+	for _, body := range []string{
+		`{"clip_id":"case-001","class_label":"car","start_timestamp_ns":123}`,
+		`{"replay_case_id":"case-001","class_label":"car","start_timestamp_ns":123}`,
+	} {
+		db := setupLabelTestDB(t)
+		api := NewLidarLabelAPI(db)
+		response := httptest.NewRecorder()
+		api.handleCreateLabel(response, httptest.NewRequest(http.MethodPost, "/api/lidar/labels", strings.NewReader(body)))
+		if response.Code != http.StatusCreated {
+			t.Fatalf("%s: %d %s", body, response.Code, response.Body.String())
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
+			t.Fatal(err)
+		}
+		if decoded["clip_id"] != "case-001" || decoded["replay_case_id"] != decoded["clip_id"] {
+			t.Fatalf("alias response: %v", decoded)
+		}
+		for _, key := range []string{"clip_id", "replay_case_id"} {
+			list := httptest.NewRecorder()
+			api.handleListLabels(list, httptest.NewRequest(http.MethodGet, "/api/lidar/labels?"+key+"=case-001", nil))
+			if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"clip_id":"case-001"`) {
+				t.Fatalf("%s: %d %s", key, list.Code, list.Body.String())
+			}
+			exported := httptest.NewRecorder()
+			api.handleExport(exported, httptest.NewRequest(http.MethodGet, "/api/lidar/labels/export?"+key+"=case-001", nil))
+			if exported.Code != http.StatusOK {
+				t.Fatalf("export %s: %d %s", key, exported.Code, exported.Body.String())
+			}
+		}
+	}
+	var label LidarLabel
+	for _, body := range []string{`{"clip_id":"a","replay_case_id":"b"}`, `{"clip_id":42}`} {
+		if err := json.Unmarshal([]byte(body), &label); err == nil {
+			t.Fatalf("invalid aliases accepted: %s", body)
+		}
+	}
+	if err := json.Unmarshal([]byte(`{"clip_id":"a","replay_case_id":"a"}`), &label); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := clipQueryID(url.Values{"clip_id": {"a"}, "replay_case_id": {"b"}}); err == nil {
+		t.Fatal("conflicting query aliases accepted")
 	}
 }

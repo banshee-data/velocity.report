@@ -64,7 +64,7 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 	if err != nil {
 		return fmt.Errorf("clip job has no selection: %w", err)
 	}
-	caseID, segmentID := selection.ReplayCaseID, selection.SegmentID
+	caseID, segmentID := selection.ClipID, selection.SegmentID
 	role, finder := selection.Role, selection.Finder
 	if clip.PackDir != "" {
 		// A retry of a job whose pack is recorded, present and the one the
@@ -89,12 +89,12 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 			return err
 		}
 	}
-	store := sqlite.NewReplayCaseStore(ws.db)
-	scene, err := store.GetScene(caseID)
+	store := sqlite.NewClipStore(ws.db)
+	scene, err := store.GetClip(caseID)
 	if err != nil {
 		return err
 	}
-	paths, err := store.CasePaths(caseID)
+	paths, err := store.ClipPaths(caseID)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (ws *Server) runSegmentClipJobWith(ctx context.Context, job capjobs.Job, re
 		scene.PCAPStartSecs == nil || scene.PCAPDurationSecs == nil ||
 		math.Abs(*scene.PCAPStartSecs-chosen.OffsetSeconds) > 0.11 ||
 		math.Abs(*scene.PCAPDurationSecs-float64(chosen.EndNs-chosen.StartNs)/1e9) > 0.11 {
-		return fmt.Errorf("replay case has drifted from its selected segment")
+		return fmt.Errorf("clip has drifted from its selected segment")
 	}
 	if err := ctx.Err(); err != nil {
 		return err

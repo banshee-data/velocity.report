@@ -75,10 +75,10 @@ const {
 	uploadSetup,
 	fetchCurrentParams,
 	displayCurrentParams,
-	loadReplayCases,
-	onReplayCaseSelected,
+	loadClips,
+	onClipSelected,
 	applyRecommendation,
-	applyReplayCaseParams,
+	applyClipParams,
 	PARAM_SCHEMA,
 	escapeHTML,
 	parseDuration,
@@ -139,19 +139,19 @@ function setupDOM(): void {
 		'<div id="sweep-summary"></div>',
 		'<select id="data_source">',
 		'  <option value="live">Live</option>',
-		'  <option value="pcap">PCAP</option>',
-		'  <option value="replay_case">Replay Case</option>',
+		'  <option value="capture">PCAP</option>',
+		'  <option value="clip">Replay Case</option>',
 		'</select>',
 		'<div id="pcap-fields" style="display:none">',
 		'  <input id="pcap_file" type="text" value="" />',
 		'  <input id="pcap_start_secs" type="number" value="0" />',
 		'  <input id="pcap_duration_secs" type="number" value="-1" />',
 		'</div>',
-		'<div id="replay-case-fields" style="display:none">',
-		'  <select id="replay_case_select"><option value="">Loading</option></select>',
-		'  <div id="replay-case-info" style="display:none"></div>',
-		'  <div id="replay-case-actions" style="display:none">',
-		'    <button id="btn-apply-replay-case-params">Apply Replay Case Params</button>',
+		'<div id="clip-fields" style="display:none">',
+		'  <select id="clip_select"><option value="">Loading</option></select>',
+		'  <div id="clip-info" style="display:none"></div>',
+		'  <div id="clip-actions" style="display:none">',
+		'    <button id="btn-apply-clip-params">Apply Replay Case Params</button>',
 		'  </div>',
 		'</div>',
 		'<button id="btn-start">Start Sweep</button>',
@@ -344,7 +344,7 @@ function makeFetchRouter(overrides: Record<string, any> = {}) {
 		'/api/lidar/sweep/auto': { status: 'idle' },
 		'/api/lidar/sweep/status': { status: 'idle', results: [] },
 		'/api/lidar/params': { 'l3.ema_baseline_v1.noise_relative': 0.05 },
-		'/api/lidar/scenes': { scenes: [] },
+		'/api/lidar/clips': { clips: [] },
 		'/api/lidar/sweeps': [],
 		...overrides
 	};
@@ -551,24 +551,24 @@ describe('togglePCAP', () => {
 	beforeEach(setupDOM);
 
 	it('shows pcap fields when data_source is pcap', () => {
-		(document.getElementById('data_source') as HTMLSelectElement).value = 'pcap';
+		(document.getElementById('data_source') as HTMLSelectElement).value = 'capture';
 		togglePCAP();
 		expect(document.getElementById('pcap-fields')!.style.display).toBe('');
-		expect(document.getElementById('replay-case-fields')!.style.display).toBe('none');
+		expect(document.getElementById('clip-fields')!.style.display).toBe('none');
 	});
 
-	it('shows replay case fields when data_source is replay_case', () => {
-		(document.getElementById('data_source') as HTMLSelectElement).value = 'replay_case';
+	it('shows replay case fields when data_source is clip', () => {
+		(document.getElementById('data_source') as HTMLSelectElement).value = 'clip';
 		togglePCAP();
 		expect(document.getElementById('pcap-fields')!.style.display).toBe('none');
-		expect(document.getElementById('replay-case-fields')!.style.display).toBe('');
+		expect(document.getElementById('clip-fields')!.style.display).toBe('');
 	});
 
 	it('hides both when data_source is live', () => {
 		(document.getElementById('data_source') as HTMLSelectElement).value = 'live';
 		togglePCAP();
 		expect(document.getElementById('pcap-fields')!.style.display).toBe('none');
-		expect(document.getElementById('replay-case-fields')!.style.display).toBe('none');
+		expect(document.getElementById('clip-fields')!.style.display).toBe('none');
 	});
 });
 
@@ -893,25 +893,25 @@ describe('buildSweepSetupJSON', () => {
 	});
 
 	it('includes pcap fields when data_source is pcap', () => {
-		(document.getElementById('data_source') as HTMLSelectElement).value = 'pcap';
+		(document.getElementById('data_source') as HTMLSelectElement).value = 'capture';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSweepSetupJSON();
-		expect(scenario.data_source).toBe('pcap');
+		expect(scenario.data_source).toBe('capture');
 		expect(scenario.pcap_file).toBe('test.pcap');
 	});
 
-	it('handles replay_case data source', () => {
-		(document.getElementById('data_source') as HTMLSelectElement).value = 'replay_case';
-		(document.getElementById('replay_case_select') as HTMLSelectElement).innerHTML =
+	it('handles clip data source', () => {
+		(document.getElementById('data_source') as HTMLSelectElement).value = 'clip';
+		(document.getElementById('clip_select') as HTMLSelectElement).innerHTML =
 			'<option value="case-1">Case 1</option>';
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'case-1';
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 'case-1';
 		(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 		addParamRow('l3.ema_baseline_v1.noise_relative');
 		const scenario = buildSweepSetupJSON();
-		// replay_case translates to pcap for data_source
-		expect(scenario.data_source).toBe('pcap');
-		expect(scenario.replay_case_id).toBe('case-1');
+		// clip translates to pcap for data_source
+		expect(scenario.data_source).toBe('capture');
+		expect(scenario.clip_id).toBe('case-1');
 		expect(scenario.pcap_file).toBe('test.pcap');
 	});
 
@@ -984,14 +984,14 @@ describe('loadSetup', () => {
 		expect(valsEl.value).toBe('0.01, 0.05, 0.1');
 	});
 
-	it('handles replay_case_id by switching data source', () => {
-		loadSetup({ replay_case_id: 'my-case', params: [] });
-		expect(val('data_source')).toBe('replay_case');
+	it('handles clip_id by switching data source', () => {
+		loadSetup({ clip_id: 'my-case', params: [] });
+		expect(val('data_source')).toBe('clip');
 	});
 
 	it('handles pcap data_source', () => {
-		loadSetup({ data_source: 'pcap', pcap_file: 'test.pcap', params: [] });
-		expect(val('data_source')).toBe('pcap');
+		loadSetup({ data_source: 'capture', pcap_file: 'test.pcap', params: [] });
+		expect(val('data_source')).toBe('capture');
 		expect(val('pcap_file')).toBe('test.pcap');
 	});
 
@@ -1227,18 +1227,18 @@ describe('sweep control', () => {
 			expect(body.weights.acceptance).toBe(1.0);
 		});
 
-		it('includes replay_case_id when data_source is replay_case', () => {
+		it('includes clip_id when data_source is clip', () => {
 			setMode('auto');
-			(document.getElementById('data_source') as HTMLSelectElement).value = 'replay_case';
-			(document.getElementById('replay_case_select') as HTMLSelectElement).innerHTML =
+			(document.getElementById('data_source') as HTMLSelectElement).value = 'clip';
+			(document.getElementById('clip_select') as HTMLSelectElement).innerHTML =
 				'<option value="s1">Case 1</option>';
-			(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
+			(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
 			(document.getElementById('pcap_file') as HTMLInputElement).value = 'test.pcap';
 			global.fetch = jest.fn().mockResolvedValue({ ok: true });
 			handleStartAutoTune();
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-			expect(body.replay_case_id).toBe('s1');
-			expect(body.data_source).toBe('pcap');
+			expect(body.clip_id).toBe('s1');
+			expect(body.data_source).toBe('capture');
 		});
 
 		it('shows error on fetch failure', async () => {
@@ -1896,7 +1896,7 @@ describe('displayCurrentParams', () => {
 // Sweep setup management
 // ===========================================================================
 
-describe('loadReplayCases', () => {
+describe('loadClips', () => {
 	beforeEach(() => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -1915,15 +1915,19 @@ describe('loadReplayCases', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
-						{ replay_case_id: 's1', pcap_file: 'test1.pcap', description: 'Case 1' },
-						{ replay_case_id: 's2', pcap_file: 'test2.pcap' }
+					clips: [
+						{
+							clip_id: 's1',
+							files: [{ ordinal: 0, pcap_file: 'test1.pcap' }],
+							description: 'Case 1'
+						},
+						{ clip_id: 's2', files: [{ ordinal: 0, pcap_file: 'test2.pcap' }] }
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
-		const select = document.getElementById('replay_case_select') as HTMLSelectElement;
+		const select = document.getElementById('clip_select') as HTMLSelectElement;
 		// 1 default option + 2 cases
 		expect(select.options.length).toBe(3);
 		expect(select.options[1].textContent).toContain('Case 1');
@@ -1931,21 +1935,21 @@ describe('loadReplayCases', () => {
 
 	it('shows error on fetch failure', async () => {
 		global.fetch = jest.fn().mockRejectedValue(new Error('fail'));
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
-		const select = document.getElementById('replay_case_select') as HTMLSelectElement;
+		const select = document.getElementById('clip_select') as HTMLSelectElement;
 		expect(select.innerHTML).toContain('failed to load');
 	});
 
-	it('returns early when replay_case_select is missing', () => {
-		document.getElementById('replay_case_select')!.remove();
+	it('returns early when clip_select is missing', () => {
+		document.getElementById('clip_select')!.remove();
 		global.fetch = jest.fn();
-		loadReplayCases();
+		loadClips();
 		expect(global.fetch).not.toHaveBeenCalled();
 	});
 });
 
-describe('onReplayCaseSelected', () => {
+describe('onClipSelected', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -1957,23 +1961,23 @@ describe('onReplayCaseSelected', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
+					clips: [
 						{
-							replay_case_id: 's1',
-							pcap_file: 'test1.pcap',
+							clip_id: 's1',
+							files: [{ ordinal: 0, pcap_file: 'test1.pcap' }],
 							pcap_start_secs: 5,
 							pcap_duration_secs: 30
 						},
 						{
-							replay_case_id: 's2',
-							pcap_file: 'test2.pcap',
+							clip_id: 's2',
+							files: [{ ordinal: 0, pcap_file: 'test2.pcap' }],
 							reference_run_id: 'ref-1',
 							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -1984,16 +1988,16 @@ describe('onReplayCaseSelected', () => {
 	});
 
 	it('hides info when no case is selected', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = '';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
-		expect(document.getElementById('replay-case-actions')!.style.display).toBe('none');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = '';
+		onClipSelected();
+		expect(document.getElementById('clip-info')!.style.display).toBe('none');
+		expect(document.getElementById('clip-actions')!.style.display).toBe('none');
 	});
 
 	it('shows replay case info when case is selected', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
-		const info = document.getElementById('replay-case-info')!;
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
+		const info = document.getElementById('clip-info')!;
 		expect(info.style.display).toBe('');
 		expect(info.textContent).toContain('test1.pcap');
 		expect(info.textContent).toContain('Start: 5s');
@@ -2001,34 +2005,34 @@ describe('onReplayCaseSelected', () => {
 	});
 
 	it('shows reference info and ground truth option for case with reference', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's2';
-		onReplayCaseSelected();
-		const info = document.getElementById('replay-case-info')!;
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's2';
+		onClipSelected();
+		const info = document.getElementById('clip-info')!;
 		expect(info.textContent).toContain('Reference: ref-1');
 		expect(document.getElementById('ground_truth_option')!.style.display).toBe('');
 	});
 
 	it('hides ground truth option for case without reference', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
 		expect(document.getElementById('ground_truth_option')!.style.display).toBe('none');
 	});
 
 	it('shows action buttons for case with optimal params', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's2';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-actions')!.style.display).toBe('');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's2';
+		onClipSelected();
+		expect(document.getElementById('clip-actions')!.style.display).toBe('');
 	});
 
 	it('hides info for unknown case', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'unknown';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 'unknown';
+		onClipSelected();
+		expect(document.getElementById('clip-info')!.style.display).toBe('none');
 	});
 
 	it('populates pcap fields from replay case', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
 		expect(val('pcap_file')).toBe('test1.pcap');
 		expect(val('pcap_start_secs')).toBe('5');
 		expect(val('pcap_duration_secs')).toBe('30');
@@ -2133,7 +2137,7 @@ describe('applyRecommendation', () => {
 	});
 });
 
-describe('applyReplayCaseParams', () => {
+describe('applyClipParams', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -2145,16 +2149,16 @@ describe('applyReplayCaseParams', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
+					clips: [
 						{
-							replay_case_id: 's1',
+							clip_id: 's1',
 							pcap_file: 'test.pcap',
 							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -2165,23 +2169,21 @@ describe('applyReplayCaseParams', () => {
 	});
 
 	it('applies replay case optimal params', async () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
-		applyReplayCaseParams();
+		applyClipParams();
 		await flushPromises();
 		expect(global.fetch).toHaveBeenCalledWith(
 			expect.stringContaining('/api/lidar/params'),
 			expect.objectContaining({ method: 'POST' })
 		);
-		expect(document.getElementById('btn-apply-replay-case-params')!.textContent).toContain(
-			'Applied'
-		);
+		expect(document.getElementById('btn-apply-clip-params')!.textContent).toContain('Applied');
 	});
 
 	it('shows error when no replay case selected', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = '';
-		applyReplayCaseParams();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = '';
+		applyClipParams();
 		expect(document.getElementById('error-box')!.textContent).toContain('No replay case selected');
 	});
 
@@ -2191,25 +2193,25 @@ describe('applyReplayCaseParams', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [{ replay_case_id: 's3', pcap_file: 'test.pcap' }]
+					clips: [{ clip_id: 's3', files: [{ ordinal: 0, pcap_file: 'test.pcap' }] }]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's3';
-		onReplayCaseSelected();
-		applyReplayCaseParams();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's3';
+		onClipSelected();
+		applyClipParams();
 		expect(document.getElementById('error-box')!.textContent).toContain('no optimal parameters');
 	});
 
 	it('shows error on apply failure', async () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: false,
 			text: () => Promise.resolve('Apply error')
 		});
-		applyReplayCaseParams();
+		applyClipParams();
 		await flushPromises();
 		expect(document.getElementById('error-box')!.textContent).toContain('Apply failed');
 	});
@@ -2219,9 +2221,9 @@ describe('applyReplayCaseParams', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
+					clips: [
 						{
-							replay_case_id: 'legacy-case',
+							clip_id: 'legacy-case',
 							pcap_file: 'test.pcap',
 							optimal_params_json:
 								'{"background_update_fraction":0.02,"neighbour_confirmation_count":3}'
@@ -2229,13 +2231,13 @@ describe('applyReplayCaseParams', () => {
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'legacy-case';
-		onReplayCaseSelected();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 'legacy-case';
+		onClipSelected();
 
 		global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({}) });
-		applyReplayCaseParams();
+		applyClipParams();
 		await flushPromises();
 
 		const postCall = (global.fetch as jest.Mock).mock.calls.find(
@@ -2493,7 +2495,7 @@ describe('loadSetup additional branches', () => {
 
 	it('loads pcap_start_secs and pcap_duration_secs', () => {
 		loadSetup({
-			data_source: 'pcap',
+			data_source: 'capture',
 			pcap_file: 'test.pcap',
 			pcap_start_secs: 10,
 			pcap_duration_secs: 60,
@@ -2569,7 +2571,7 @@ describe('applyRecommendation error on params POST', () => {
 	});
 });
 
-describe('applyReplayCaseParams invalid JSON', () => {
+describe('applyClipParams invalid JSON', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -2581,16 +2583,16 @@ describe('applyReplayCaseParams invalid JSON', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
+					clips: [
 						{
-							replay_case_id: 's-bad',
+							clip_id: 's-bad',
 							pcap_file: 'test.pcap',
 							optimal_params_json: 'not valid json{'
 						}
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -2601,9 +2603,9 @@ describe('applyReplayCaseParams invalid JSON', () => {
 	});
 
 	it('shows error when optimal_params_json is invalid', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's-bad';
-		onReplayCaseSelected();
-		applyReplayCaseParams();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's-bad';
+		onClipSelected();
+		applyClipParams();
 		expect(document.getElementById('error-box')!.textContent).toContain('Failed to parse');
 	});
 });
@@ -3062,7 +3064,7 @@ describe('handleStop fetch rejection', () => {
 	});
 });
 
-describe('applyReplayCaseParams setTimeout callback', () => {
+describe('applyClipParams setTimeout callback', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -3073,16 +3075,16 @@ describe('applyReplayCaseParams setTimeout callback', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
+					clips: [
 						{
-							replay_case_id: 's1',
+							clip_id: 's1',
 							pcap_file: 'test.pcap',
 							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
 						}
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -3093,25 +3095,23 @@ describe('applyReplayCaseParams setTimeout callback', () => {
 	});
 
 	it('resets button text after timeout', async () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
 		global.fetch = jest.fn().mockResolvedValue({
 			ok: true,
 			json: () => Promise.resolve({})
 		});
-		applyReplayCaseParams();
+		applyClipParams();
 		await flushPromises();
-		expect(document.getElementById('btn-apply-replay-case-params')!.textContent).toContain(
-			'Applied'
-		);
+		expect(document.getElementById('btn-apply-clip-params')!.textContent).toContain('Applied');
 		jest.advanceTimersByTime(2000);
-		expect(document.getElementById('btn-apply-replay-case-params')!.textContent).toBe(
+		expect(document.getElementById('btn-apply-clip-params')!.textContent).toBe(
 			'Apply Replay Case Params'
 		);
 	});
 });
 
-describe('onReplayCaseSelected without gtOption element', () => {
+describe('onClipSelected without gtOption element', () => {
 	beforeEach(async () => {
 		jest.useFakeTimers();
 		setupDOM();
@@ -3123,10 +3123,10 @@ describe('onReplayCaseSelected without gtOption element', () => {
 			ok: true,
 			json: () =>
 				Promise.resolve({
-					scenes: [
-						{ replay_case_id: 's1', pcap_file: 'test.pcap' },
+					clips: [
+						{ clip_id: 's1', files: [{ ordinal: 0, pcap_file: 'test.pcap' }] },
 						{
-							replay_case_id: 's2',
+							clip_id: 's2',
 							pcap_file: 'test2.pcap',
 							reference_run_id: 'ref-1',
 							optimal_params_json: '{"l3.ema_baseline_v1.noise_relative": 0.05}'
@@ -3134,7 +3134,7 @@ describe('onReplayCaseSelected without gtOption element', () => {
 					]
 				})
 		});
-		loadReplayCases();
+		loadClips();
 		await flushPromises();
 		(global.fetch as jest.Mock).mockClear();
 	});
@@ -3145,28 +3145,28 @@ describe('onReplayCaseSelected without gtOption element', () => {
 	});
 
 	it('handles missing gtOption for empty selection', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = '';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = '';
+		onClipSelected();
+		expect(document.getElementById('clip-info')!.style.display).toBe('none');
 	});
 
 	it('handles missing gtOption for unknown case', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 'unknown';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-info')!.style.display).toBe('none');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 'unknown';
+		onClipSelected();
+		expect(document.getElementById('clip-info')!.style.display).toBe('none');
 	});
 
 	it('handles missing gtOption for case with reference', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's2';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-info')!.style.display).toBe('');
-		expect(document.getElementById('replay-case-info')!.textContent).toContain('Reference: ref-1');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's2';
+		onClipSelected();
+		expect(document.getElementById('clip-info')!.style.display).toBe('');
+		expect(document.getElementById('clip-info')!.textContent).toContain('Reference: ref-1');
 	});
 
 	it('handles missing gtOption for case without reference', () => {
-		(document.getElementById('replay_case_select') as HTMLSelectElement).value = 's1';
-		onReplayCaseSelected();
-		expect(document.getElementById('replay-case-info')!.style.display).toBe('');
+		(document.getElementById('clip_select') as HTMLSelectElement).value = 's1';
+		onClipSelected();
+		expect(document.getElementById('clip-info')!.style.display).toBe('');
 	});
 });
 
@@ -3907,7 +3907,7 @@ describe('HINT Functions', () => {
 		});
 
 		it('auto-populates default params when none added', () => {
-			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
+			const sel = document.getElementById('clip_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'case-1';
 			opt.textContent = 'Case 1';
@@ -3929,7 +3929,7 @@ describe('HINT Functions', () => {
 
 		it('sends POST request with correct payload', async () => {
 			// Add replay case selection
-			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
+			const sel = document.getElementById('clip_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'case-1';
 			sel.appendChild(opt);
@@ -3964,7 +3964,7 @@ describe('HINT Functions', () => {
 			);
 
 			const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
-			expect(body.replay_case_id).toBe('case-1');
+			expect(body.clip_id).toBe('case-1');
 			expect(body.params).toHaveLength(1);
 			expect(body.params[0].name).toBe('l3.ema_baseline_v1.noise_relative');
 			expect(body.num_rounds).toBe(3);
@@ -3973,7 +3973,7 @@ describe('HINT Functions', () => {
 		});
 
 		it('shows error on fetch failure', async () => {
-			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
+			const sel = document.getElementById('clip_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'case-1';
 			sel.appendChild(opt);
@@ -4013,7 +4013,7 @@ describe('HINT Functions', () => {
 				'<label class="param-field"><span>End</span><input id="pend-97" type="number" value="1" /></label></div>'
 			].join('');
 			paramRows.appendChild(paramRow);
-			const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
+			const sel = document.getElementById('clip_select') as HTMLSelectElement;
 			const opt = document.createElement('option');
 			opt.value = 'case-1';
 			opt.text = 'Test Case';
@@ -4923,10 +4923,10 @@ describe('init with complete auto-tune status', () => {
 					json: () => Promise.resolve({ 'l3.ema_baseline_v1.noise_relative': 0.05 })
 				});
 			}
-			if (url.includes('/api/lidar/scenes')) {
+			if (url.includes('/api/lidar/clips')) {
 				return Promise.resolve({
 					ok: true,
-					json: () => Promise.resolve({ scenes: [] })
+					json: () => Promise.resolve({ clips: [] })
 				});
 			}
 			if (url.includes('/api/lidar/sweeps')) {
@@ -4962,10 +4962,10 @@ describe('init with complete auto-tune status', () => {
 					json: () => Promise.resolve({ 'l3.ema_baseline_v1.noise_relative': 0.05 })
 				});
 			}
-			if (url.includes('/api/lidar/scenes')) {
+			if (url.includes('/api/lidar/clips')) {
 				return Promise.resolve({
 					ok: true,
-					json: () => Promise.resolve({ scenes: [] })
+					json: () => Promise.resolve({ clips: [] })
 				});
 			}
 			if (url.includes('/api/lidar/sweeps')) {
@@ -5001,7 +5001,7 @@ describe('handleStartHINT class coverage JSON parse', () => {
 
 	it('shows error for invalid class coverage JSON', () => {
 		// Set replay case selector so the case check passes
-		const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
+		const sel = document.getElementById('clip_select') as HTMLSelectElement;
 		const opt = document.createElement('option');
 		opt.value = 'case-1';
 		sel.appendChild(opt);
@@ -5014,7 +5014,7 @@ describe('handleStartHINT class coverage JSON parse', () => {
 	});
 
 	it('parses valid class coverage JSON', async () => {
-		const sel = document.getElementById('replay_case_select') as HTMLSelectElement;
+		const sel = document.getElementById('clip_select') as HTMLSelectElement;
 		const opt = document.createElement('option');
 		opt.value = 'case-1';
 		sel.appendChild(opt);

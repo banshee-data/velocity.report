@@ -112,8 +112,8 @@ func TestSensorRuntime_Fields(t *testing.T) {
 	if rt.BackgroundManager != nil {
 		t.Error("BackgroundManager should be nil by default")
 	}
-	if rt.AnalysisRunManager != nil {
-		t.Error("AnalysisRunManager should be nil by default")
+	if rt.RunManager != nil {
+		t.Error("RunManager should be nil by default")
 	}
 }
 
@@ -739,8 +739,8 @@ func TestTrackingPipelineConfig_VoxelDownsample(t *testing.T) {
 	cb(makeForegroundFrame("vox-1", now.Add(600*time.Millisecond), 20.0, 5.0))
 }
 
-// TestTrackingPipelineConfig_AnalysisRunManager tests the analysis run recording path.
-func TestTrackingPipelineConfig_AnalysisRunManager(t *testing.T) {
+// TestTrackingPipelineConfig_RunManager tests the analysis run recording path.
+func TestTrackingPipelineConfig_RunManager(t *testing.T) {
 	sensorID := "coverage-arm-" + t.Name()
 	bgMgr := makeTestBgManager(t, sensorID)
 
@@ -748,7 +748,7 @@ func TestTrackingPipelineConfig_AnalysisRunManager(t *testing.T) {
 	tracker := l5tracks.NewTracker(trackerCfg)
 
 	db := setupTestDB(t)
-	arm := sqlite.NewAnalysisRunManager(db, sensorID)
+	arm := sqlite.NewRunManager(db, sensorID)
 
 	// Start an analysis run so IsRunActive() returns true
 	if _, err := arm.StartRun("test-pcap.vrlog", sqlite.RunParams{}); err != nil {
@@ -756,12 +756,12 @@ func TestTrackingPipelineConfig_AnalysisRunManager(t *testing.T) {
 	}
 
 	cfg := &TrackingPipelineConfig{
-		SensorID:           sensorID,
-		BackgroundManager:  bgMgr,
-		Tracker:            tracker,
-		DB:                 db,
-		AnalysisRunManager: arm,
-		RemoveGround:       false,
+		SensorID:          sensorID,
+		BackgroundManager: bgMgr,
+		Tracker:           tracker,
+		DB:                db,
+		RunManager:        arm,
+		RemoveGround:      false,
 	}
 	cb := cfg.NewFrameCallback()
 
@@ -1538,15 +1538,15 @@ func TestDBInsertErrors(t *testing.T) {
 }
 
 // TestRegistryRunManager covers the getRunManager fallback path through the
-// global registry (cfg.AnalysisRunManager is nil, but a manager is
+// global registry (cfg.RunManager is nil, but a manager is
 // registered for the sensor).
 func TestRegistryRunManager(t *testing.T) {
 	db := setupTestDB(t)
 
 	sensorID := "cov-reg"
-	runMgr := sqlite.NewAnalysisRunManager(db, sensorID)
-	sqlite.RegisterAnalysisRunManager(sensorID, runMgr)
-	defer sqlite.RegisterAnalysisRunManager(sensorID, nil)
+	runMgr := sqlite.NewRunManager(db, sensorID)
+	sqlite.RegisterRunManager(sensorID, runMgr)
+	defer sqlite.RegisterRunManager(sensorID, nil)
 
 	rp := sqlite.DefaultRunParams()
 	if _, err := runMgr.StartRun("/cov-reg.pcap", rp); err != nil {
@@ -1565,7 +1565,7 @@ func TestRegistryRunManager(t *testing.T) {
 		BackgroundManager: bm,
 		Tracker:           tracker,
 		SensorID:          sensorID,
-		// AnalysisRunManager intentionally nil → falls through to registry
+		// RunManager intentionally nil → falls through to registry
 	}
 
 	cb := cfg.NewFrameCallback()
@@ -1573,13 +1573,13 @@ func TestRegistryRunManager(t *testing.T) {
 }
 
 // TestFeatureExportWithRunManager combines FeatureExportFunc and an active
-// AnalysisRunManager to hit both export and run recording for confirmed
+// RunManager to hit both export and run recording for confirmed
 // tracks in a single callback invocation.
 func TestFeatureExportWithRunManager(t *testing.T) {
 	db := setupTestDB(t)
 
 	bm := testBackgroundManagerPrePopulated(t)
-	runMgr := sqlite.NewAnalysisRunManager(db, "cov-fe")
+	runMgr := sqlite.NewRunManager(db, "cov-fe")
 	rp := sqlite.DefaultRunParams()
 	if _, err := runMgr.StartRun("/cov-fe.pcap", rp); err != nil {
 		t.Fatalf("StartRun: %v", err)
@@ -1599,10 +1599,10 @@ func TestFeatureExportWithRunManager(t *testing.T) {
 	}
 
 	cfg := &TrackingPipelineConfig{
-		BackgroundManager:  bm,
-		Tracker:            tracker,
-		AnalysisRunManager: runMgr,
-		SensorID:           "cov-fe",
+		BackgroundManager: bm,
+		Tracker:           tracker,
+		RunManager:        runMgr,
+		SensorID:          "cov-fe",
 		FeatureExportFunc: func(trackID string, features l6objects.TrackFeatures, class string, confidence float32) {
 			exported.Add(1)
 		},
@@ -1658,14 +1658,14 @@ func TestDBPersistenceAndObservation(t *testing.T) {
 	}
 }
 
-// TestAnalysisRunManagerRecordTrack ensures runManager.RecordTrack is invoked
+// TestRunManagerRecordTrack ensures runManager.RecordTrack is invoked
 // for confirmed tracks when an analysis run is active, combined with cluster
 // classification.
-func TestAnalysisRunManagerRecordTrack(t *testing.T) {
+func TestRunManagerRecordTrack(t *testing.T) {
 	db := setupTestDB(t)
 
 	bm := testBackgroundManagerPrePopulated(t)
-	runMgr := sqlite.NewAnalysisRunManager(db, "cov-rt")
+	runMgr := sqlite.NewRunManager(db, "cov-rt")
 	rp := sqlite.DefaultRunParams()
 	if _, err := runMgr.StartRun("/cov-rt.pcap", rp); err != nil {
 		t.Fatalf("StartRun: %v", err)
@@ -1685,11 +1685,11 @@ func TestAnalysisRunManagerRecordTrack(t *testing.T) {
 	}
 
 	cfg := &TrackingPipelineConfig{
-		BackgroundManager:  bm,
-		Tracker:            tracker,
-		Classifier:         classifier,
-		AnalysisRunManager: runMgr,
-		SensorID:           "cov-rt",
+		BackgroundManager: bm,
+		Tracker:           tracker,
+		Classifier:        classifier,
+		RunManager:        runMgr,
+		SensorID:          "cov-rt",
 	}
 
 	cb := cfg.NewFrameCallback()

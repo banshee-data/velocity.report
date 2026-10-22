@@ -21,7 +21,7 @@ func TestBackfillImmutableRunConfigReferences(t *testing.T) {
 	if result.RunsUpdated != 0 {
 		t.Fatalf("expected 0 run updates (columns dropped), got %+v", result)
 	}
-	if result.ReplayCasesUpdated != 0 {
-		t.Fatalf("expected 0 replay-case updates (columns dropped), got %+v", result)
+	if result.ClipsUpdated != 0 {
+		t.Fatalf("expected 0 clip updates (columns dropped), got %+v", result)
 	}
 }

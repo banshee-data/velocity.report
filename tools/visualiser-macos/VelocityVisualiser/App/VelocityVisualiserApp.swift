@@ -219,7 +219,7 @@ struct AppCommands: Commands {
 
         // Label commands — classification shortcuts at root level
         CommandMenu("Labels") {
-            ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
+            ForEach(Array(LabelPanelView.objectClasses.enumerated()), id: \.offset) {
                 index, entry in
                 Button(entry.name) { appState.assignLabel(entry.name) }.keyboardShortcut(
                     KeyEquivalent(Character(String(index + 1))), modifiers: [])

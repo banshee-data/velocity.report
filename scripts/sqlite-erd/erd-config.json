@@ -29,7 +29,7 @@
       "invisible_edges: alignment edges added between tables (not rendered).",
       "node_order_overrides: per-cluster, per-level table ordering.",
       "  Keys are cluster names; values map level number (string) to table list.",
-      "  For LIDAR subgroups, use dotted keys: 'lidar.tracks', 'lidar.analysis_runs', etc.",
+      "  For LIDAR subgroups, use dotted keys: 'lidar.tracks', 'lidar.runs', etc.",
       "  The plain 'lidar' key applies only to the crossing report, not the full layout.",
       "graph_attributes: Graphviz graph-level attributes (ranksep, nodesep, ratio, etc)."
     ],
@@ -39,13 +39,13 @@
     },
     "rank_hints": [],
     "edge_weight_overrides": {
-      "lidar_run_records -> lidar_run_configs": 100,
-      "lidar_run_records -> lidar_param_sets": 50,
-      "lidar_run_tracks -> lidar_run_records": 100,
+      "lidar_runs -> lidar_run_configs": 100,
+      "lidar_runs -> lidar_param_sets": 50,
+      "lidar_run_tracks -> lidar_runs": 100,
       "lidar_replay_annotations -> lidar_run_tracks": 100,
-      "lidar_replay_evaluations -> lidar_run_records": 80,
-      "lidar_run_missed_regions -> lidar_run_records": 80,
-      "lidar_replay_cases -> lidar_param_sets": 80
+      "lidar_clip_evaluations -> lidar_runs": 80,
+      "lidar_run_missed_regions -> lidar_runs": 80,
+      "lidar_clips -> lidar_param_sets": 80
     },
     "invisible_edges": [],
     "node_order_overrides": {
@@ -57,9 +57,9 @@
           "lidar_bg_regions",
           "lidar_track_observations"
         ],
-        "3": ["lidar_run_records", "lidar_replay_cases"],
+        "3": ["lidar_runs", "lidar_clips"],
         "4": ["lidar_run_missed_regions", "lidar_run_tracks"],
-        "5": ["lidar_replay_evaluations", "lidar_replay_annotations"]
+        "5": ["lidar_clip_evaluations", "lidar_replay_annotations"]
       },
       "radar": {
         "0": [

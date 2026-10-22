@@ -378,7 +378,7 @@ type FateEvidence struct {
 	State        string `json:"state"`
 	SourceID     string `json:"source_id"`
 	ExtractorID  string `json:"extractor_id"`
-	ReplayCaseID string `json:"replay_case_id"`
+	ClipID       string `json:"clip_id"`
 	BuildVersion string `json:"build_version"`
 	BuildGitSHA  string `json:"build_git_sha"`
 	ParamsHash   string `json:"params_hash"`
@@ -486,7 +486,7 @@ func MeasureFate(opts FateOptions) (*FateReport, error) {
 		Evidence: FateEvidence{
 			Container: filepath.Base(filepath.Clean(opts.ObservationsDir)), Profile: string(manifest.Profile.Name),
 			State: st.State.String(), SourceID: manifest.Extraction.SourceID, ExtractorID: manifest.Extraction.ExtractorID,
-			ReplayCaseID: manifest.Extraction.ReplayCaseID, BuildVersion: p.BuildVersion, BuildGitSHA: p.BuildGitSHA,
+			ClipID: manifest.Extraction.ClipID, BuildVersion: p.BuildVersion, BuildGitSHA: p.BuildGitSHA,
 			ParamsHash: p.ParamsHash, WindowStartNs: w.StartOffsetNanos, WarmupNs: w.WarmupNanos, DurationNs: w.DurationNanos,
 			ScoringStartNs: bridge.firstNs + w.StartOffsetNanos,
 			Capture:        filepath.Base(capturePath), CaptureSHA256: bridge.sha256, CapturePackets: bridge.packets,

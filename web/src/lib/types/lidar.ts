@@ -1,7 +1,7 @@
 // src/lib/types/lidar.ts
 // TypeScript type definitions for LiDAR tracking system
 
-import type { CaseLocation } from '#lib/types/captures.js';
+import type { ClipLocation } from '#lib/types/captures.js';
 
 /**
  * Track represents a tracked object in the LiDAR system.
@@ -261,14 +261,13 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 	return `#${((1 << 24) | (rr << 16) | (gg << 8) | bb).toString(16).slice(1)}`;
 }
 
-/** Classification labels for track identity (single-select: what is the object?)
+/** Object classes for track identity (single-select: what is the object?)
  * v0.5.0 ships 7 classes — truck and motorcyclist are reserved for future use.
  */
-export type DetectionLabel =
-	'car' | 'bus' | 'pedestrian' | 'cyclist' | 'bird' | 'dynamic' | 'noise';
+export type ObjectClass = 'car' | 'bus' | 'pedestrian' | 'cyclist' | 'bird' | 'dynamic' | 'noise';
 
 /** Quality flags for track attributes (multi-select: properties of the track) */
-export type QualityLabel =
+export type QualityFlag =
 	| 'good'
 	| 'noisy'
 	| 'jitter_velocity'
@@ -278,18 +277,17 @@ export type QualityLabel =
 	| 'truncated'
 	| 'disconnected';
 
-/** LidarReplayCase represents a PCAP-based evaluation environment */
+/** LidarClip represents a PCAP-based evaluation environment */
 /** One capture in a replay case's ordered file list. */
-export interface ReplayCaseFile {
+export interface ClipCapture {
 	ordinal: number;
 	capture_file_id?: string;
 	pcap_file: string;
 }
 
-export interface LidarReplayCase {
-	replay_case_id: string;
+export interface LidarClip {
+	clip_id: string;
 	sensor_id: string;
-	pcap_file: string;
 	pcap_start_secs?: number;
 	pcap_duration_secs?: number;
 	description?: string;
@@ -305,12 +303,12 @@ export interface LidarReplayCase {
 	/** How many captures the case covers — always at least 1. */
 	file_count: number;
 	/** The case's captures in order. Only populated by a single-case fetch. */
-	files?: ReplayCaseFile[];
+	files?: ClipCapture[];
 	/** Where the case was cut from, when it came from an indexed session. */
 	session_id?: string;
 	source_period_id?: string;
 	/** Where the capture was taken, when a position has been accepted. */
-	location?: CaseLocation;
+	location?: ClipLocation;
 }
 
 /**
@@ -337,7 +335,7 @@ export interface RunStatistics {
 }
 
 /** Analysis run with track snapshots */
-export interface AnalysisRun {
+export interface Run {
 	run_id: string;
 	created_at: string;
 	completed_at?: string;
@@ -353,7 +351,7 @@ export interface AnalysisRun {
 	param_set_type?: string;
 	build_version?: string;
 	build_git_sha?: string;
-	replay_case_id?: string;
+	clip_id?: string;
 	params_json?: Record<string, unknown>;
 	statistics_json?: RunStatistics;
 	execution_config?: Record<string, unknown>;
@@ -445,7 +443,7 @@ export interface SweepSummary {
 	/** What the sweep scored against; scores under different objectives do not compare. */
 	objective_name?: string;
 	/** The clip the sweep replayed, read from its request. */
-	replay_case_id?: string;
+	clip_id?: string;
 	/** The capture the sweep replayed, when its request named no clip. */
 	pcap_file?: string;
 }

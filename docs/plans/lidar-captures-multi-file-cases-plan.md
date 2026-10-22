@@ -6,7 +6,7 @@
   a clip that can only name one file cannot describe a static period that straddles a
   file boundary.
 - **Companion plans:** [lidar-clip-terminology-alignment-plan](lidar-replay-case-terminology-alignment-plan.md) <!-- link-ignore -->
-- **Canonical:** [clip-management-implementation](../lidar/operations/replay-case-management-implementation.md)
+- **Canonical:** [clip-management-implementation](../lidar/operations/clip-management-implementation.md)
 
 ## Motivation
 
@@ -39,13 +39,13 @@ no intermediate file on disk.
 | Concern                      | Where it lives today                                                                     | Shape                                                                                            |
 | ---------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | PCAP discovery               | [pcap_files_api.go](../../internal/lidar/server/pcap_files_api.go)                       | One flat walk of `--lidar-pcap-dir`, capped at 500 files, no persistence                         |
-| Clip record                  | [scene_store.go](../../internal/lidar/storage/sqlite/scene_store.go) `ReplayCase`        | Single `PCAPFile string`, plus `PCAPStartSecs` / `PCAPDurationSecs`                              |
+| Clip record                  | [scene_store.go](../../internal/lidar/storage/sqlite/clip_store.go) `ReplayCase`         | Single `PCAPFile string`, plus `PCAPStartSecs` / `PCAPDurationSecs`                              |
 | Clip schema                  | `lidar_replay_cases` (migration 031)                                                     | `pcap_file TEXT`, indexed by `idx_lidar_replay_cases_pcap`                                       |
 | Replay execution             | [pcap.go](../../internal/lidar/l1packets/network/pcap.go) `ReadPCAPFile`                 | One `pcap.OpenOffline` per call; start/duration thresholds derived from that file's first packet |
 | Packet extent probe          | [pcap_count.go](../../internal/lidar/l1packets/network/pcap_count.go) `CountPCAPPackets` | Already returns `Count`, `FirstTimestampNs`, `LastTimestampNs`                                   |
 | Motion/static classification | [pcapsplit](../../internal/lidar/pcapsplit/)                                             | Working; `BuildTimeline` is pure Go and libpcap-free, `Run` is behind the `pcap` tag             |
 | Motion/static invocation     | `velocity lidar pcap-split` ([split.go](../../internal/cmd/lidar/split.go))              | CLI only; no API, no job record, no persisted timeline                                           |
-| Frontend                     | [clips/+page.svelte](../../web/src/routes/lidar/replay-cases/+page.svelte) (745 lines)   | CRUD list plus a one-shot scan panel; no timeline, no sessions, no health                        |
+| Frontend                     | [clips/+page.svelte](../../web/src/routes/lidar/clips/+page.svelte) (745 lines)          | CRUD list plus a one-shot scan panel; no timeline, no sessions, no health                        |
 
 Two pieces of existing work carry most of the weight and should not be rewritten:
 `pcapsplit.BuildTimeline` already produces exactly the motion/static period list the UI needs,

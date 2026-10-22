@@ -20,7 +20,7 @@ identifiable by origin system.
 | Entity        | Package / File                                      | Current Format             | Proposed Prefix | Example                                     |
 | ------------- | --------------------------------------------------- | -------------------------- | --------------- | ------------------------------------------- |
 | Track         | `l5tracks/tracking.go`                              | `trk_<uuid>` (current)     | `trak_`         | `trak_550e8400-e29b-41d4-a716-446655440000` |
-| Analysis Run  | `storage/sqlite/analysis_run_manager.go`            | `<uuid>`                   | `runa_`         | `runa_550e8400-e29b-41d4-a716-446655440000` |
+| Analysis Run  | `storage/sqlite/run_manager.go`                     | `<uuid>`                   | `runa_`         | `runa_550e8400-e29b-41d4-a716-446655440000` |
 | Replay Run    | `monitor/scene_api.go`                              | `replay-{scene}-{uuid8}`   | `runy_`         | `runy_550e8400-e29b-41d4-a716-446655440000` |
 | Reprocess Run | `monitor/run_track_api.go`                          | `reprocess-{run8}-{uuid8}` | `runs_`         | `runs_550e8400-e29b-41d4-a716-446655440000` |
 | Scene         | `storage/sqlite/scene_store.go`                     | `<uuid>`                   | `scne_`         | `scne_550e8400-e29b-41d4-a716-446655440000` |
@@ -59,10 +59,10 @@ The `id` package (in `internal/id/`) provides two functions:
 ## Call sites (11 total)
 
 1. [internal/lidar/l5tracks/tracking.go](../../../internal/lidar/l5tracks/tracking.go): already `trk_`, switch to `id.New("trak")`
-2. [internal/lidar/storage/sqlite/analysis_run_manager.go](../../../internal/lidar/storage/sqlite/analysis_run_manager.go): `id.New("runa")`
+2. [internal/lidar/storage/sqlite/run_manager.go](../../../internal/lidar/storage/sqlite/run_manager.go): `id.New("runa")`
 3. `internal/lidar/monitor/scene_api.go`: replace `fmt.Sprintf("replay-...")` with `id.New("runy")`
 4. `internal/lidar/monitor/run_track_api.go`: replace `fmt.Sprintf("reprocess-...")` with `id.New("runs")`
-5. [internal/lidar/storage/sqlite/scene_store.go](../../../internal/lidar/storage/sqlite/scene_store.go): `id.New("scne")`
+5. [internal/lidar/storage/sqlite/clip_store.go](../../../internal/lidar/storage/sqlite/clip_store.go): `id.New("scne")`
 6. [internal/lidar/storage/sqlite/evaluation_store.go](../../../internal/lidar/storage/sqlite/evaluation_store.go): `id.New("eval")`
 7. [internal/lidar/storage/sqlite/missed_region_store.go](../../../internal/lidar/storage/sqlite/missed_region_store.go): `id.New("regn")`
 8. [internal/api/lidar_labels.go](../../../internal/api/lidar_labels.go): `id.New("labl")`

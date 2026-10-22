@@ -32,12 +32,12 @@ export type TracksLink = {
 /**
  * tracksQuery opens the Tracks page on a run, its clip and, optionally, an
  * instant. The parameter names are the ones the Tracks page has always read;
- * `replay_case_id` is the clip's identity until the API is renamed.
+ * `clip_id` is the clip's identity until the API is renamed.
  */
 export function tracksQuery(link: TracksLink): string {
 	const params = new URLSearchParams();
 	if (link.sensorId) params.set('sensor_id', link.sensorId);
-	if (link.clipId) params.set('replay_case_id', link.clipId);
+	if (link.clipId) params.set('clip_id', link.clipId);
 	if (link.runId) params.set('run_id', link.runId);
 	if (link.atNs != null && link.atNs !== '') params.set('at_ns', String(link.atNs));
 	return params.toString();

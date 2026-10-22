@@ -254,7 +254,7 @@ _MUX_HANDLE_RE = re.compile(
 
 # Comment annotations such as:
 #   // GET /api/lidar/runs/{run_id}
-#   // - GET/POST /api/lidar/scenes
+#   // - GET/POST /api/lidar/clips
 _COMMENT_ENDPOINT_RE = re.compile(
     r"^\s*//\s*(?:-\s*)?"
     r"((?:GET|POST|PUT|DELETE|PATCH)(?:/(?:GET|POST|PUT|DELETE|PATCH))*)"
@@ -846,7 +846,7 @@ _FUNC_RE = re.compile(r"func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\(")
 
 
 def extract_compare_functions(root: Path) -> list[GoFunction]:
-    src = root / "internal" / "lidar" / "storage" / "sqlite" / "analysis_run_compare.go"
+    src = root / "internal" / "lidar" / "storage" / "sqlite" / "run_compare.go"
     text = _read(src)
     if not text:
         return []
@@ -1320,7 +1320,7 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             f"{p.go_field} (json:{p.json_key})",
             "internal/config/tuning.go",
             "",
-            "DB: params_json in lidar_analysis_runs? Web: GET /api/lidar/params? Mac: —",
+            "DB: params_json in lidar_runs? Web: GET /api/lidar/params? Mac: —",
         )
 
     # §13 Classification

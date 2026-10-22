@@ -337,7 +337,7 @@ func TestCreationSequenceCollisionIsRefused(t *testing.T) {
 // with the same tracks it must give the same numbers. It also shows the run
 // adapter renames tracks by content: the fixture's run track IDs sort against
 // their order in time.
-func TestAnalysisRunArmsScoreLikeEstimateArms(t *testing.T) {
+func TestRunArmsScoreLikeEstimateArms(t *testing.T) {
 	f := fixture(t)
 	estimates, err := Run(baseConfig(f))
 	if err != nil {
@@ -357,7 +357,7 @@ func TestAnalysisRunArmsScoreLikeEstimateArms(t *testing.T) {
 	if runs.Total.A != estimates.Total.A || runs.Total.B != estimates.Total.B {
 		t.Fatalf("runs scored %+v / %+v, estimates %+v / %+v", runs.Total.A, runs.Total.B, estimates.Total.A, estimates.Total.B)
 	}
-	if runs.A.Arm.Kind != ArmAnalysisRun || runs.A.Arm.TrackKey != "run_track_order" || runs.A.Arm.Stage != StageOnline {
+	if runs.A.Arm.Kind != ArmRun || runs.A.Arm.TrackKey != "run_track_order" || runs.A.Arm.Stage != StageOnline {
 		t.Fatalf("run arm identity %+v", runs.A.Arm)
 	}
 
@@ -417,7 +417,7 @@ func TestCompareArmsRefusesMismatchedScoring(t *testing.T) {
 		{"episode set", func(r *ArmResult) { r.Reference.Episodes = []string{"other"} }, "different episodes"},
 		{"episode order", func(r *ArmResult) { r.Episodes[0].EpisodeID = "other" }, "different episodes"},
 		{"reference digest", func(r *ArmResult) { r.Reference.Digest = "sha256:other" }, "different references"},
-		{"hypothesis kind", func(r *ArmResult) { r.Arm.Kind = ArmAnalysisRun }, "different write paths"},
+		{"hypothesis kind", func(r *ArmResult) { r.Arm.Kind = ArmRun }, "different write paths"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

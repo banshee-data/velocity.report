@@ -239,7 +239,7 @@ def db_problem():
     """
     try:
         with sqlite3.connect(f"file:{DB}?mode=ro", uri=True) as connection:
-            connection.execute("SELECT 1 FROM lidar_run_records LIMIT 1")
+            connection.execute("SELECT 1 FROM lidar_runs LIMIT 1")
     except sqlite3.DatabaseError as error:
         return (
             f"cannot read run records from {DB}: {error}. This is the database "
@@ -259,7 +259,7 @@ def newest_run(basename, since_ns=None):
     the same clock, since it writes the database this reads.
     """
     query = (
-        "SELECT run_id, status, vrlog_path FROM lidar_run_records"
+        "SELECT run_id, status, vrlog_path FROM lidar_runs"
         " WHERE source_path LIKE ?"
     )
     params = [f"%{basename}"]

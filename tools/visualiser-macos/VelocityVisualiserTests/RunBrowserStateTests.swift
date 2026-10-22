@@ -231,7 +231,7 @@ import XCTest
         state.selectedRunID = "run-001"
 
         MockURLProtocol.requestHandler = { request in
-            XCTAssertTrue(request.url!.path.contains("api/lidar/vrlog/stop"))
+            XCTAssertTrue(request.url!.path.contains("api/lidar/replay/stop"))
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data())
@@ -299,12 +299,12 @@ import XCTest
         let client = makeMockRunTrackClient()
         let state = RunBrowserState(apiClient: client)
         state.runs = [
-            AnalysisRun(
+            Run(
                 runId: "run-001", createdAt: Date(), sourceType: "vrlog",
                 sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 30.0,
                 totalFrames: 300, totalClusters: 100, totalTracks: 3, confirmedTracks: 3,
                 status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
-                replayCaseName: "test")
+                sourceName: "test")
         ]
 
         let tracksJSON = """
@@ -353,12 +353,12 @@ import XCTest
         let client = makeMockRunTrackClient()
         let state = RunBrowserState(apiClient: client)
         state.runs = [
-            AnalysisRun(
+            Run(
                 runId: "run-001", createdAt: Date(), sourceType: "vrlog",
                 sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 30.0,
                 totalFrames: 300, totalClusters: 100, totalTracks: 3, confirmedTracks: 3,
                 status: "completed", errorMessage: nil, vrlogPath: "/data/test.vrlog", notes: nil,
-                replayCaseName: "test")
+                sourceName: "test")
         ]
 
         let tracksJSON = """

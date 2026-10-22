@@ -42,7 +42,7 @@ func replayKirk0(t *testing.T, mode l5tracks.MeasurementSource, experiments ...s
 	cfg := replayeval.Config{
 		PCAPFile: pcap, OutDir: filepath.Join(dir, "vrlog"), SensorID: "test-replay", UDPPort: 2369,
 		StartSeconds: 20, WarmupSeconds: 20, RequireSettled: true,
-		ObservationDBPath: filepath.Join(dir, "evidence.db"), ReplayCaseID: "kirk0-headway-test",
+		ObservationDBPath: filepath.Join(dir, "evidence.db"), ClipID: "kirk0-headway-test",
 		ObservationCalibration: l4bobserve.Calibration{SensorID: "test-replay", FromFrame: "sensor", ToFrame: "site",
 			Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}},
 		ObservationMaxSamplePoints: 16,

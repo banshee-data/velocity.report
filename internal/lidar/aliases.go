@@ -78,11 +78,11 @@ type VisualiserPublisher = pipeline.VisualiserPublisher
 
 // ── Storage ──────────────────────────────────────────────────────────
 
-type AnalysisRunManager = sqlite.AnalysisRunManager
+type RunManager = sqlite.RunManager
 
 var DefaultRunParams = sqlite.DefaultRunParams
 var GetActiveTracks = sqlite.GetActiveTracks
 var InsertTrack = sqlite.InsertTrack
 var InsertTrackObservation = sqlite.InsertTrackObservation
-var NewAnalysisRunManager = sqlite.NewAnalysisRunManager
-var RegisterAnalysisRunManager = sqlite.RegisterAnalysisRunManager
+var NewRunManager = sqlite.NewRunManager
+var RegisterRunManager = sqlite.RegisterRunManager

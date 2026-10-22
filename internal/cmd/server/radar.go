@@ -1028,19 +1028,19 @@ func Main(args []string) int {
 		sweepRunner.SetPersister(sweepStore)
 		autoTuner.SetPersister(sweepStore)
 
-		// Wire ground truth scorer and scene store for label-aware auto-tuning.
-		// The scene store enables persisting optimal params after ground truth sweeps.
-		// The scorer closure resolves the scene's reference_run_id at evaluation time.
-		sceneStore := sqlite.NewReplayCaseStore(lidarDB)
-		analysisRunStore := sqlite.NewAnalysisRunStore(lidarDB)
-		autoTuner.SetSceneStore(sceneStore)
-		groundTruthScorer := func(sceneID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
-			scene, err := sceneStore.GetScene(sceneID)
+		// Wire ground truth scorer and clip store for label-aware auto-tuning.
+		// The clip store enables persisting optimal params after ground truth sweeps.
+		// The scorer closure resolves the clip's reference_run_id at evaluation time.
+		clipStore := sqlite.NewClipStore(lidarDB)
+		runStore := sqlite.NewRunStore(lidarDB)
+		autoTuner.SetClipStore(clipStore)
+		groundTruthScorer := func(clipID, candidateRunID string, weights sweep.GroundTruthWeights) (float64, error) {
+			clip, err := clipStore.GetClip(clipID)
 			if err != nil {
-				return 0, fmt.Errorf("loading scene %s: %w", sceneID, err)
+				return 0, fmt.Errorf("loading clip %s: %w", clipID, err)
 			}
-			if scene.ReferenceRunID == "" {
-				return 0, fmt.Errorf("scene %s has no reference_run_id set", sceneID)
+			if clip.ReferenceRunID == "" {
+				return 0, fmt.Errorf("clip %s has no reference_run_id set", clipID)
 			}
 			// Convert sweep weights to lidar evaluator weights
 			lidarWeights := adapters.GroundTruthWeights{
@@ -1053,8 +1053,8 @@ func Main(args []string) int {
 				VelocityNoiseRate: weights.VelocityNoiseRate,
 				StoppedRecovery:   weights.StoppedRecovery,
 			}
-			evaluator := adapters.NewGroundTruthEvaluator(analysisRunStore, lidarWeights)
-			result, err := evaluator.Evaluate(scene.ReferenceRunID, candidateRunID)
+			evaluator := adapters.NewGroundTruthEvaluator(runStore, lidarWeights)
+			result, err := evaluator.Evaluate(clip.ReferenceRunID, candidateRunID)
 			if err != nil {
 				return 0, err
 			}
@@ -1066,9 +1066,9 @@ func Main(args []string) int {
 		hintTuner := sweep.NewHINTTuner(autoTuner)
 		hintTuner.SetPersister(sweepStore)
 		hintTuner.SetGroundTruthScorer(groundTruthScorer)
-		hintTuner.SetSceneStore(sceneStore)
-		hintTuner.SetSceneGetter(&hintSceneAdapter{store: sceneStore})
-		hintTuner.SetLabelQuerier(&hintLabelAdapter{store: analysisRunStore})
+		hintTuner.SetClipStore(clipStore)
+		hintTuner.SetClipGetter(&hintClipAdapter{store: clipStore})
+		hintTuner.SetLabelQuerier(&hintLabelAdapter{store: runStore})
 		hintTuner.SetRunCreator(&hintRunCreator{runner: sweepRunner})
 		lidarServer.SetHINTRunner(hintTuner)
 
@@ -1359,34 +1359,34 @@ func (b *backgroundManagerBridge) GetBackgroundSequenceNumber() uint64 {
 // These bridge the lidar package types to the sweep package interfaces
 // to avoid circular imports.
 
-// hintSceneAdapter bridges sqlite.ReplayCaseStore to sweep.SceneGetter.
-type hintSceneAdapter struct {
-	store *sqlite.ReplayCaseStore
+// hintClipAdapter bridges sqlite.ClipStore to sweep.ClipGetter.
+type hintClipAdapter struct {
+	store *sqlite.ClipStore
 }
 
-func (a *hintSceneAdapter) GetScene(sceneID string) (*sweep.HINTScene, error) {
-	scene, err := a.store.GetScene(sceneID)
+func (a *hintClipAdapter) GetClip(clipID string) (*sweep.HINTClip, error) {
+	clip, err := a.store.GetClip(clipID)
 	if err != nil {
 		return nil, err
 	}
-	return &sweep.HINTScene{
-		ReplayCaseID:      scene.ReplayCaseID,
-		SensorID:          scene.SensorID,
-		PCAPFile:          scene.PCAPFile,
-		PCAPStartSecs:     scene.PCAPStartSecs,
-		PCAPDurationSecs:  scene.PCAPDurationSecs,
-		ReferenceRunID:    scene.ReferenceRunID,
-		RecommendedParams: scene.RecommendedParams,
+	return &sweep.HINTClip{
+		ClipID:            clip.ClipID,
+		SensorID:          clip.SensorID,
+		PCAPFile:          firstClipCapturePath(clip),
+		PCAPStartSecs:     clip.PCAPStartSecs,
+		PCAPDurationSecs:  clip.PCAPDurationSecs,
+		ReferenceRunID:    clip.ReferenceRunID,
+		RecommendedParams: clip.RecommendedParams,
 	}, nil
 }
 
-func (a *hintSceneAdapter) SetReferenceRun(sceneID, runID string) error {
-	return a.store.SetReferenceRun(sceneID, runID)
+func (a *hintClipAdapter) SetReferenceRun(clipID, runID string) error {
+	return a.store.SetReferenceRun(clipID, runID)
 }
 
-// hintLabelAdapter bridges sqlite.AnalysisRunStore to sweep.LabelProgressQuerier.
+// hintLabelAdapter bridges sqlite.RunStore to sweep.LabelProgressQuerier.
 type hintLabelAdapter struct {
-	store *sqlite.AnalysisRunStore
+	store *sqlite.RunStore
 }
 
 func (a *hintLabelAdapter) GetLabelingProgress(runID string) (int, int, map[string]int, error) {
@@ -1486,4 +1486,11 @@ func (a *hintRunCreator) CreateSweepRun(sensorID, pcapFile string, paramsJSON js
 			}
 		}
 	}
+}
+
+func firstClipCapturePath(clip *sqlite.Clip) string {
+	if len(clip.Files) == 0 {
+		return ""
+	}
+	return clip.Files[0].PCAPFile
 }

@@ -1255,3 +1255,6 @@ and contribution guidelines.
 ## License
 
 Apache License 2.0 - See [LICENSE](LICENSE) for details.
+
+LiDAR evaluation windows are [clips](docs/lidar/operations/clip-management-implementation.md). The API uses
+`/api/lidar/clips` and `clip_id`; ordered capture rows supply each clip’s paths.

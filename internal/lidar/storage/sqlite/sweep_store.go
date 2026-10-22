@@ -203,10 +203,10 @@ type SweepSummary struct {
 	// ObjectiveName is what the sweep scored against. Scores under different
 	// objectives are not comparable, so a list that shows scores names it.
 	ObjectiveName string `json:"objective_name,omitempty"`
-	// ReplayCaseID is the clip the sweep replayed, and PCAPFile the capture
+	// ClipID is the clip the sweep replayed, and PCAPFile the capture
 	// when it named no clip. Both come from the stored request.
-	ReplayCaseID string `json:"replay_case_id,omitempty"`
-	PCAPFile     string `json:"pcap_file,omitempty"`
+	ClipID   string `json:"clip_id,omitempty"`
+	PCAPFile string `json:"pcap_file,omitempty"`
 }
 
 // ListSweeps returns recent sweeps for a sensor, ordered by most recent first.
@@ -221,7 +221,7 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 
 	// The clip and capture are read out of the request rather than returned
 	// with it: requests carry every parameter range and can be large. Older
-	// requests name the clip scene_id. An auto-tune recorded before
+	// requests were migrated to clip_id by migration 064. An auto-tune recorded before
 	// objective_name existed still says what it scored in its request.
 	// JSON_VALID guards each read, since one malformed request would
 	// otherwise fail the whole list.
@@ -230,8 +230,7 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 		       COALESCE(objective_name,
 		                CASE WHEN JSON_VALID(request) THEN JSON_EXTRACT(request, '$.objective') END),
 		       CASE WHEN JSON_VALID(request) THEN
-		            COALESCE(NULLIF(JSON_EXTRACT(request, '$.replay_case_id'), ''),
-		                     NULLIF(JSON_EXTRACT(request, '$.scene_id'), '')) END,
+		            NULLIF(JSON_EXTRACT(request, '$.clip_id'), '') END,
 		       CASE WHEN JSON_VALID(request) THEN JSON_EXTRACT(request, '$.pcap_file') END
 		FROM lidar_tuning_sweeps
 		WHERE sensor_id = ?
@@ -261,7 +260,7 @@ func (s *SweepStore) ListSweeps(sensorID string, limit int) ([]SweepSummary, err
 			rec.Error = errMsg.String
 		}
 		rec.ObjectiveName = objective.String
-		rec.ReplayCaseID = clipID.String
+		rec.ClipID = clipID.String
 		rec.PCAPFile = pcapFile.String
 		if startedAt.Valid {
 			t, err := time.Parse(time.RFC3339, startedAt.String)

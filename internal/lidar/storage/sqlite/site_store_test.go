@@ -16,11 +16,11 @@ func TestSetCanonicalPoseOnAnUnknownSite(t *testing.T) {
 
 func TestSetCanonicalPoseRejectsAnUnknownSource(t *testing.T) {
 	db := setupGeoDB(t)
-	store := NewReplayCaseStore(db)
+	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	sites := NewSiteStore(db)
@@ -35,11 +35,11 @@ func TestSetCanonicalPoseRoundTrip(t *testing.T) {
 	const midpointLat, midpointLon = 37.79875, -122.40735
 
 	db := setupGeoDB(t)
-	store := NewReplayCaseStore(db)
+	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	sites := NewSiteStore(db)
@@ -58,9 +58,9 @@ func TestSetCanonicalPoseRoundTrip(t *testing.T) {
 	}
 
 	// The case's own sensor pose is untouched by the site's canonical one.
-	again, err := store.CaseLocationOf("case-1")
+	again, err := store.ClipLocationOf("case-1")
 	if err != nil {
-		t.Fatalf("CaseLocationOf: %v", err)
+		t.Fatalf("ClipLocationOf: %v", err)
 	}
 	if again.Lat != broadwayLat || again.Lon != broadwayLng {
 		t.Errorf("case sensor pose changed to %v,%v, want the original fix", again.Lat, again.Lon)
@@ -69,11 +69,11 @@ func TestSetCanonicalPoseRoundTrip(t *testing.T) {
 
 func TestSetCanonicalPoseWithNoLabelLeavesTheExistingOne(t *testing.T) {
 	db := setupGeoDB(t)
-	store := NewReplayCaseStore(db)
+	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	sites := NewSiteStore(db)
@@ -90,17 +90,18 @@ func TestSetCanonicalPoseWithNoLabelLeavesTheExistingOne(t *testing.T) {
 }
 
 // TestMigration046BackfillsSitesForAlreadyLocatedCases guards the upgrade
-// path: a deployment that already has located replay cases from migration 45
+// path: a deployment that already has located clips from migration 45
 // must not lose that data when 46 introduces sites — every located case
 // should come out the other side naming a site.
 func TestMigration046BackfillsSitesForAlreadyLocatedCases(t *testing.T) {
-	db := setupCaseFilesDB(t)
+	db := setupHistoricalClipDB(t)
 	applyMigrationScript(t, db, "000045_replay_case_geography.up.sql")
 
 	// Simulate a pre-46 deployment: located via raw SQL, exactly the shape
-	// SetCaseLocation wrote before site_id existed.
-	store := NewReplayCaseStore(db)
-	insertCase(t, store, "case-1", "a.pcap")
+	// SetClipLocation wrote before site_id existed.
+	if _, err := db.Exec(`INSERT INTO lidar_replay_cases(replay_case_id,sensor_id,pcap_file,created_at_ns) VALUES('case-1','sensor','a.pcap',1)`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`
 		UPDATE lidar_replay_cases
 		   SET origin_lat = ?, origin_lon = ?,

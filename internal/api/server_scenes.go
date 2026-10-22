@@ -84,18 +84,18 @@ func (s *Server) handleScenes(w http.ResponseWriter, r *http.Request) {
 func (s *Server) listScenes(w http.ResponseWriter, r *http.Request) {
 	scenes, err := s.db.GetAllScenes(r.Context())
 	if err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve scenes: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve surveys: %v", err))
 		return
 	}
 	if err := json.NewEncoder(w).Encode(scenes); err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode scenes")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode surveys")
 	}
 }
 
 func (s *Server) getScene(w http.ResponseWriter, r *http.Request, id string) {
 	scene, err := s.db.GetScene(r.Context(), id)
 	if err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve scene: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to retrieve survey: %v", err))
 		return
 	}
 	if scene == nil {
@@ -103,7 +103,7 @@ func (s *Server) getScene(w http.ResponseWriter, r *http.Request, id string) {
 		return
 	}
 	if err := json.NewEncoder(w).Encode(scene); err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode scene")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode survey")
 	}
 }
 
@@ -122,16 +122,16 @@ func (s *Server) createScene(w http.ResponseWriter, r *http.Request) {
 
 	existing, err := s.db.GetScene(r.Context(), scene.SceneID)
 	if err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to check scene: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to check survey: %v", err))
 		return
 	}
 	if existing != nil {
-		s.writeJSONError(w, http.StatusConflict, fmt.Sprintf("A scene named %q already exists", scene.SceneID))
+		s.writeJSONError(w, http.StatusConflict, fmt.Sprintf("A survey named %q already exists", scene.SceneID))
 		return
 	}
 
 	if err := s.db.CreateScene(r.Context(), scene); err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create scene: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to create survey: %v", err))
 		return
 	}
 
@@ -142,7 +142,7 @@ func (s *Server) createScene(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 	if err := json.NewEncoder(w).Encode(created); err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode scene")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode survey")
 	}
 }
 
@@ -157,7 +157,7 @@ func (s *Server) updateScene(w http.ResponseWriter, r *http.Request, id string) 
 	// reporting rather than silently resolving one way or the other.
 	if req.SceneID != "" && req.SceneID != id {
 		s.writeJSONError(w, http.StatusBadRequest,
-			fmt.Sprintf("Body names scene %q but the URL names %q", req.SceneID, id))
+			fmt.Sprintf("Body names survey %q but the URL names %q", req.SceneID, id))
 		return
 	}
 
@@ -169,7 +169,7 @@ func (s *Server) updateScene(w http.ResponseWriter, r *http.Request, id string) 
 
 	found, err := s.db.UpdateScene(r.Context(), scene)
 	if err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update scene: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update survey: %v", err))
 		return
 	}
 	if !found {
@@ -183,14 +183,14 @@ func (s *Server) updateScene(w http.ResponseWriter, r *http.Request, id string) 
 		return
 	}
 	if err := json.NewEncoder(w).Encode(updated); err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode scene")
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to encode survey")
 	}
 }
 
 func (s *Server) deleteScene(w http.ResponseWriter, r *http.Request, id string) {
 	found, err := s.db.DeleteScene(r.Context(), id)
 	if err != nil {
-		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete scene: %v", err))
+		s.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to delete survey: %v", err))
 		return
 	}
 	if !found {

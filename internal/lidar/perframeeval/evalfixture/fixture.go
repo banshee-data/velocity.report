@@ -267,9 +267,9 @@ func WriteDB(path string, stages []string) error {
 		}
 	}
 
-	runs := sqlite.NewAnalysisRunStore(database.DB)
+	runs := sqlite.NewRunStore(database.DB)
 	for runID, arm := range map[string][]track{RunA: ArmA, RunB: ArmB} {
-		if err := runs.InsertRun(&sqlite.AnalysisRun{
+		if err := runs.InsertRun(&sqlite.Run{
 			RunID: runID, SourceType: "pcap", SourcePath: "fixture.pcap", SensorID: "fixture", Status: "completed",
 		}); err != nil {
 			return err

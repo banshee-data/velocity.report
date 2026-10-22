@@ -63,7 +63,7 @@ func TestHandleDataSourceGridPreservedAfterResumeLive(t *testing.T) {
 	ws.setTestSourcePCAPAnalysis()
 
 	resp := decodeDataSource(t, ws)
-	assertField(t, resp, "data_source", "pcap_analysis")
+	assertField(t, resp, "data_source", "capture_analysis")
 	assertField(t, resp, "grid_preserved", true)
 
 	// Resume live keeping the grid.
@@ -131,7 +131,7 @@ func TestHandleLidarStatusRendersPCAPAnalysisMode(t *testing.T) {
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode status: %v", err)
 	}
-	assertField(t, resp, "data_source", "pcap_analysis")
+	assertField(t, resp, "data_source", "capture_analysis")
 }
 
 // TestHandleVRLogLoadStopsLiveListener verifies that loading a VRLOG takes the

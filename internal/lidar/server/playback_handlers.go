@@ -326,7 +326,7 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
 
-	if ws.PipelineState().DataSourceWire() != string(DataSourcePCAPAnalysis) {
+	if ws.PipelineState().DataSourceWire() != string(DataSourceCaptureAnalysis) {
 		ws.writeJSONError(w, http.StatusConflict, "system is not in PCAP analysis mode: start a PCAP replay first")
 		return
 	}
@@ -528,7 +528,7 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 			ws.writeJSONError(w, http.StatusInternalServerError, "database is not configured: check server startup includes --db-path")
 			return
 		}
-		store := sqlite.NewAnalysisRunStore(ws.db)
+		store := sqlite.NewRunStore(ws.db)
 		run, err := store.GetRun(body.RunID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("run not found: %v", err))

@@ -1349,8 +1349,8 @@ func TestTrackAPI_HandleClearRuns_Success(t *testing.T) {
 	api := NewTrackAPI(db, sensorID)
 
 	// Create some test runs
-	store := sqlite.NewAnalysisRunStore(db)
-	run1 := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(db)
+	run1 := &sqlite.Run{
 		RunID:        "run-001",
 		SensorID:     sensorID,
 		SourceType:   "pcap",

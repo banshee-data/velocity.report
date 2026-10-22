@@ -234,3 +234,21 @@ func TestFlagTombstonesRegistered(t *testing.T) {
 		t.Fatal("no tombstone declarations found")
 	}
 }
+
+func TestClipDMGNamesHaveRegisterRows(t *testing.T) {
+	entries := register(t)
+	for _, name := range []string{"replay_case_id", "replay_case_name", "pcap", "/lidar/replay-cases"} {
+		if !Registered(entries, name) {
+			t.Errorf("unregistered clip compatibility name %s", name)
+		}
+	}
+}
+
+func TestLocationMapCompatibilityNamesHaveRows(t *testing.T) {
+	entries := register(t)
+	for _, name := range []string{"/api/lidar/scene-map", "areas", "area_count", "cases", "case_count", "/lidar/scene-map", "/scene", "/scene/{id}"} {
+		if !Registered(entries, name) {
+			t.Errorf("unregistered location compatibility name %s", name)
+		}
+	}
+}

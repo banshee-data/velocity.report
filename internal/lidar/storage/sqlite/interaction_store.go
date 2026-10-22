@@ -259,7 +259,7 @@ func decodeInteraction(eventID string, event []byte, instants, windows [][]byte)
 //
 // A scene records the capture window it shows (lidar_scenes.captured_start_ns
 // and captured_end_ns) but not the analysis source its encounters were
-// written under: the source id is a digest over the replay case, capture
+// written under: the source id is a digest over the clip, capture
 // paths, capture digests and extractor, none of which a scene stores. These
 // readers find a capture's analyses by time instead. They return every event
 // whose capture interval overlaps the window, including one crossing either

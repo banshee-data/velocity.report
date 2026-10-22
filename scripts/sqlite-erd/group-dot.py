@@ -57,9 +57,9 @@ CLUSTERS = ()
 _lidar = {}
 LIDAR_SUBGROUP_ROOTS = ()
 ROOTED_LIDAR_SUBGROUPS = set()
-LIDAR_SUBGROUP_DISPLAY_ORDER = ("tracks", "analysis_runs", "other")
+LIDAR_SUBGROUP_DISPLAY_ORDER = ("tracks", "runs", "other")
 LIDAR_SECOND_ROW_SUBGROUP = "other"
-LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "analysis_runs"
+LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = "runs"
 LIDAR_SUBGROUP_MIN_COLUMNS = 2
 LIDAR_SUBGROUP_MAX_COLUMNS = 4
 LIDAR_SUBGROUP_TARGET_WEIGHT = 36
@@ -101,11 +101,11 @@ def _init_config():
     LIDAR_SUBGROUP_ROOTS = tuple(_lidar.get("roots", {}).items())
     ROOTED_LIDAR_SUBGROUPS = {name for name, _ in LIDAR_SUBGROUP_ROOTS}
     LIDAR_SUBGROUP_DISPLAY_ORDER = tuple(
-        _lidar.get("display_order", ("tracks", "analysis_runs", "other"))
+        _lidar.get("display_order", ("tracks", "runs", "other"))
     )
     LIDAR_SECOND_ROW_SUBGROUP = _lidar.get("second_row_subgroup", "other")
     LIDAR_SECOND_ROW_ALIGNMENT_SUBGROUP = _lidar.get(
-        "second_row_alignment_subgroup", "analysis_runs"
+        "second_row_alignment_subgroup", "runs"
     )
     LIDAR_SUBGROUP_MIN_COLUMNS = _lidar.get("min_columns", 2)
     LIDAR_SUBGROUP_MAX_COLUMNS = _lidar.get("max_columns", 4)

@@ -54,7 +54,7 @@ func TestFacetPoseAPIIsBoundedReadOnlyAndUsesSourceEvidence(t *testing.T) {
 	ws, p, req := facetPoseAPIFixture(t)
 	call := func(method string, b []byte) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
-		ws.handleFacetPoseProposal(w, httptest.NewRequest(method, "/api/annotations/features/pose-proposal", bytes.NewReader(b)))
+		ws.handleFacetPoseProposal(w, httptest.NewRequest(method, "/api/lidar/annotations/features/pose-proposal", bytes.NewReader(b)))
 		return w
 	}
 	before := map[string][]byte{}

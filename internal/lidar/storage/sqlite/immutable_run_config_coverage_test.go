@@ -168,29 +168,28 @@ func assignScannedValue(dest any, value any) error {
 	return errors.New("incompatible scan assignment")
 }
 
-func setupReplayCaseRecommendedDB(t *testing.T) *sql.DB {
+func setupClipRecommendedDB(t *testing.T) *sql.DB {
 	t.Helper()
 
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
-		t.Fatalf("failed to open recommended replay-case db: %v", err)
+		t.Fatalf("failed to open recommended clip db: %v", err)
 	}
 
 	if _, err := db.Exec(`
-		CREATE TABLE lidar_run_records (
+		CREATE TABLE lidar_runs (
 			run_id TEXT PRIMARY KEY,
 			created_at INTEGER,
 			run_config_id TEXT
 		)
 	`); err != nil {
-		t.Fatalf("create lidar_run_records: %v", err)
+		t.Fatalf("create lidar_runs: %v", err)
 	}
 
 	if _, err := db.Exec(`
-		CREATE TABLE lidar_replay_cases (
-			replay_case_id TEXT PRIMARY KEY,
+		CREATE TABLE lidar_clips (
+			clip_id TEXT PRIMARY KEY,
 			sensor_id TEXT NOT NULL,
-			pcap_file TEXT NOT NULL,
 			pcap_start_secs REAL,
 			pcap_duration_secs REAL,
 			description TEXT,
@@ -200,7 +199,7 @@ func setupReplayCaseRecommendedDB(t *testing.T) *sql.DB {
 			recommended_param_set_id TEXT
 		)
 	`); err != nil {
-		t.Fatalf("create lidar_replay_cases: %v", err)
+		t.Fatalf("create lidar_clips: %v", err)
 	}
 
 	return db
@@ -224,12 +223,12 @@ func TestRunLabelRollupAndNormalisers(t *testing.T) {
 }
 
 func TestStartRunAndPreparedRun_ErrorAndDefaultPaths(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "manager-sensor")
+	manager := NewRunManager(db, "manager-sensor")
 
-	runID, err := manager.startPreparedRun(&AnalysisRun{})
+	runID, err := manager.startPreparedRun(&Run{})
 	if err != nil {
 		t.Fatalf("startPreparedRun failed: %v", err)
 	}
@@ -249,11 +248,11 @@ func TestStartRunAndPreparedRun_ErrorAndDefaultPaths(t *testing.T) {
 }
 
 func TestStartRunWithConfig_ErrorBranches(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	manager := NewAnalysisRunManager(db, "cfg-sensor")
-	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{}); err == nil || !strings.Contains(err.Error(), "effective config is required") {
+	manager := NewRunManager(db, "cfg-sensor")
+	if _, err := manager.StartRunWithConfig(RunStartOptions{}); err == nil || !strings.Contains(err.Error(), "effective config is required") {
 		t.Fatalf("expected missing effective config error, got %v", err)
 	}
 
@@ -262,7 +261,7 @@ func TestStartRunWithConfig_ErrorBranches(t *testing.T) {
 		L3Common:           makeEffectiveFailCfg.L3.EmaBaselineV1.L3Common,
 		PromotionThreshold: math.NaN(),
 	}
-	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+	if _, err := manager.StartRunWithConfig(RunStartOptions{
 		SourcePath:      "/tmp/effective-fail.pcap",
 		EffectiveConfig: makeEffectiveFailCfg,
 	}); err == nil {
@@ -283,8 +282,8 @@ func TestStartRunWithConfig_ConfigAssetErrors(t *testing.T) {
 			return strings.Contains(query, "INSERT OR IGNORE INTO lidar_run_configs")
 		},
 	}
-	manager := NewAnalysisRunManager(runConfigFailDB, "sensor-a")
-	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+	manager := NewRunManager(runConfigFailDB, "sensor-a")
+	if _, err := manager.StartRunWithConfig(RunStartOptions{
 		SourcePath:      "/tmp/run-config-fail.pcap",
 		EffectiveConfig: cfg,
 	}); err == nil || !strings.Contains(err.Error(), "insert lidar_run_configs") {
@@ -300,8 +299,8 @@ func TestStartRunWithConfig_ConfigAssetErrors(t *testing.T) {
 				args[2] == configasset.SchemaVersionRequestedV1
 		},
 	}
-	manager = NewAnalysisRunManager(requestedFailDB, "sensor-b")
-	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+	manager = NewRunManager(requestedFailDB, "sensor-b")
+	if _, err := manager.StartRunWithConfig(RunStartOptions{
 		SourcePath:          "/tmp/requested-fail.pcap",
 		RequestedParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":32}}`),
 		EffectiveConfig:     cfg,
@@ -309,8 +308,8 @@ func TestStartRunWithConfig_ConfigAssetErrors(t *testing.T) {
 		t.Fatalf("expected requested param set insert error, got %v", err)
 	}
 
-	manager = NewAnalysisRunManager(baseDB.DB, "sensor-c")
-	if _, err := manager.StartRunWithConfig(AnalysisRunStartOptions{
+	manager = NewRunManager(baseDB.DB, "sensor-c")
+	if _, err := manager.StartRunWithConfig(RunStartOptions{
 		SourcePath:          "/tmp/requested-invalid.pcap",
 		RequestedParamsJSON: json.RawMessage(`[]`),
 		EffectiveConfig:     cfg,
@@ -321,10 +320,10 @@ func TestStartRunWithConfig_ConfigAssetErrors(t *testing.T) {
 }
 
 func TestMutationHelpersAndClosedDBErrors(t *testing.T) {
-	db, cleanup := setupAnalysisRunDB(t)
+	db, cleanup := setupRunDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(db)
+	store := NewRunStore(db)
 	if _, err := store.runRecordCapabilities(); err != nil {
 		t.Fatalf("runRecordCapabilities failed: %v", err)
 	}
@@ -345,7 +344,7 @@ func TestMutationHelpersAndClosedDBErrors(t *testing.T) {
 		t.Fatalf("close db: %v", err)
 	}
 
-	if err := store.InsertRun(&AnalysisRun{RunID: "closed", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "sensor", Status: "running"}); err == nil {
+	if err := store.InsertRun(&Run{RunID: "closed", CreatedAt: time.Now(), SourceType: "pcap", SensorID: "sensor", Status: "running"}); err == nil {
 		t.Fatal("expected InsertRun error on closed db")
 	}
 	if err := store.UpdateTrackLabel("run", "track", "car", "good", 1, "labeler", "human_manual"); err == nil {
@@ -356,32 +355,32 @@ func TestMutationHelpersAndClosedDBErrors(t *testing.T) {
 	}
 }
 
-func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
+func TestRunRecordCapabilitiesAndScanRunRecord(t *testing.T) {
 	fullDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(fullDB.DB)
+	store := NewRunStore(fullDB.DB)
 	caps, err := store.runRecordCapabilities()
 	if err != nil {
 		t.Fatalf("runRecordCapabilities failed: %v", err)
 	}
-	if !caps.RunConfigID || !caps.RequestedParamSetID || !caps.ReplayCaseID || !caps.CompletedAt || !caps.FrameStartNs || !caps.FrameEndNs || !caps.StatisticsJSON {
+	if !caps.RunConfigID || !caps.RequestedParamSetID || !caps.ClipID || !caps.CompletedAt || !caps.FrameStartNs || !caps.FrameEndNs || !caps.StatisticsJSON {
 		t.Fatalf("unexpected capabilities: %+v", caps)
 	}
 
 	closedDB, closedCleanup := dbpkg.NewTestDB(t)
 	defer closedCleanup()
-	closedStore := NewAnalysisRunStore(closedDB.DB)
+	closedStore := NewRunStore(closedDB.DB)
 	if err := closedDB.DB.Close(); err != nil {
 		t.Fatalf("close db: %v", err)
 	}
-	if _, err := closedStore.runRecordCapabilities(); err == nil || !strings.Contains(err.Error(), "inspect lidar_run_records schema") {
+	if _, err := closedStore.runRecordCapabilities(); err == nil || !strings.Contains(err.Error(), "inspect lidar_runs schema") {
 		t.Fatalf("expected schema inspect error, got %v", err)
 	}
 
 	overrideDB, overrideCleanup := dbpkg.NewTestDB(t)
 	defer overrideCleanup()
-	overrideStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	overrideStore := NewRunStore(&interceptSQLiteDB{
 		db: overrideDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "PRAGMA table_info") {
@@ -390,7 +389,7 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 			return overrideDB.DB.Query(query, args...)
 		},
 	})
-	if _, err := overrideStore.runRecordCapabilities(); err == nil || !strings.Contains(err.Error(), "scan lidar_run_records schema") {
+	if _, err := overrideStore.runRecordCapabilities(); err == nil || !strings.Contains(err.Error(), "scan lidar_runs schema") {
 		t.Fatalf("expected schema scan error, got %v", err)
 	}
 
@@ -398,7 +397,7 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 	frameStart := sql.NullInt64{Int64: 11, Valid: true}
 	frameEnd := sql.NullInt64{Int64: 22, Valid: true}
 	statsJSON := sql.NullString{String: `{"score":0.9}`, Valid: true}
-	run, err := scanAnalysisRunRecord(scannerStub{
+	run, err := scanRunRecord(scannerStub{
 		values: []any{
 			"run-1",               // RunID
 			time.Now().UnixNano(), // createdAt
@@ -418,47 +417,47 @@ func TestRunRecordCapabilitiesAndScanAnalysisRunRecord(t *testing.T) {
 			sql.NullString{String: "/tmp/test.vrlog", Valid: true}, // vrlogPath
 			sql.NullString{String: "run-config-1", Valid: true},    // runConfigID
 			sql.NullString{String: "requested-set-1", Valid: true}, // requestedParamSetID
-			sql.NullString{String: "scene-1", Valid: true},         // replayCaseID
+			sql.NullString{String: "scene-1", Valid: true},         // clipID
 			completedAt, // completedAt
 			frameStart,  // frameStartNs
 			frameEnd,    // frameEndNs
 			statsJSON,   // statisticsJSON
 		},
-	}, analysisRunRecordCapabilities{
+	}, runRecordCapabilities{
 		RunConfigID:         true,
 		RequestedParamSetID: true,
-		ReplayCaseID:        true,
+		ClipID:              true,
 		CompletedAt:         true,
 		FrameStartNs:        true,
 		FrameEndNs:          true,
 		StatisticsJSON:      true,
 	})
 	if err != nil {
-		t.Fatalf("scanAnalysisRunRecord failed: %v", err)
+		t.Fatalf("scanRunRecord failed: %v", err)
 	}
-	if run.RunConfigID != "run-config-1" || run.RequestedParamSetID != "requested-set-1" || run.ReplayCaseID != "scene-1" {
+	if run.RunConfigID != "run-config-1" || run.RequestedParamSetID != "requested-set-1" || run.ClipID != "scene-1" {
 		t.Fatalf("unexpected run identities: %+v", run)
 	}
 	if run.CompletedAt == nil || run.FrameStartNs == nil || run.FrameEndNs == nil {
 		t.Fatalf("expected completed/frame bounds: %+v", run)
 	}
-	if run.ReplayCaseName != "case-1" {
-		t.Fatalf("ReplayCaseName = %q, want case-1", run.ReplayCaseName)
+	if run.SourceName != "case-1" {
+		t.Fatalf("SourceName = %q, want case-1", run.SourceName)
 	}
 	if string(run.StatisticsJSON) != `{"score":0.9}` {
 		t.Fatalf("StatisticsJSON = %s", run.StatisticsJSON)
 	}
 
-	if _, err := scanAnalysisRunRecord(scannerStub{err: errors.New("scan failed")}, analysisRunRecordCapabilities{}); err == nil || !strings.Contains(err.Error(), "scan failed") {
+	if _, err := scanRunRecord(scannerStub{err: errors.New("scan failed")}, runRecordCapabilities{}); err == nil || !strings.Contains(err.Error(), "scan failed") {
 		t.Fatalf("expected scan failure, got %v", err)
 	}
 }
 
-func TestAnalysisRunQueryErrorBranchesAndHydration(t *testing.T) {
+func TestRunQueryErrorBranchesAndHydration(t *testing.T) {
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(testDB.DB)
+	store := NewRunStore(testDB.DB)
 	cfg := cfgpkg.MustLoadDefaultConfig()
 	paramSet, err := configasset.MakeEffectiveParamSet(cfg)
 	if err != nil {
@@ -470,7 +469,7 @@ func TestAnalysisRunQueryErrorBranchesAndHydration(t *testing.T) {
 		t.Fatalf("EnsureRunConfig failed: %v", err)
 	}
 
-	run := &AnalysisRun{
+	run := &Run{
 		RunID:       "hydrated-run",
 		CreatedAt:   time.Now(),
 		SourceType:  "pcap",
@@ -491,11 +490,11 @@ func TestAnalysisRunQueryErrorBranchesAndHydration(t *testing.T) {
 		t.Fatalf("expected hydrated immutable config fields, got %+v", got)
 	}
 
-	store.hydrateRunConfigAssets(&AnalysisRun{RunConfigID: "missing"})
+	store.hydrateRunConfigAssets(&Run{RunConfigID: "missing"})
 
-	legacyDB, legacyCleanup := setupLegacyAnalysisRunTestDB(t)
+	legacyDB, legacyCleanup := setupLegacyRunTestDB(t)
 	defer legacyCleanup()
-	legacyStore := NewAnalysisRunStore(legacyDB)
+	legacyStore := NewRunStore(legacyDB)
 	total, labelled, byClass, rollup, err := legacyStore.GetLabelingProgressWithRollup("run-1")
 	if err != nil {
 		t.Fatalf("GetLabelingProgressWithRollup on legacy schema failed: %v", err)
@@ -529,22 +528,22 @@ func TestAnalysisRunQueryErrorBranchesAndHydration(t *testing.T) {
 	if _, err := store.GetRunLabelRollup("hydrated-run"); err == nil {
 		t.Fatal("expected GetRunLabelRollup error on closed db")
 	}
-	if err := store.populateRunLabelRollups([]*AnalysisRun{{RunID: "hydrated-run"}}); err == nil {
+	if err := store.populateRunLabelRollups([]*Run{{RunID: "hydrated-run"}}); err == nil {
 		t.Fatal("expected populateRunLabelRollups error on closed db")
 	}
 	if _, err := store.GetUnlabeledTracks("hydrated-run", 10); err == nil {
 		t.Fatal("expected GetUnlabeledTracks error on closed db")
 	}
 
-	store.hydrateRunConfigAssets(&AnalysisRun{RunConfigID: runConfig.RunConfigID})
+	store.hydrateRunConfigAssets(&Run{RunConfigID: runConfig.RunConfigID})
 }
 
-func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
+func TestRunQueries_SpecificErrorBranches(t *testing.T) {
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	store := NewAnalysisRunStore(testDB.DB)
-	if err := store.InsertRun(&AnalysisRun{
+	store := NewRunStore(testDB.DB)
+	if err := store.InsertRun(&Run{
 		RunID:      "run-errors",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -567,21 +566,21 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 	typedDB, typedCleanup := dbpkg.NewTestDB(t)
 	defer typedCleanup()
 	if _, err := typedDB.Exec(`
-		INSERT INTO lidar_run_records (
+		INSERT INTO lidar_runs (
 			run_id, created_at, source_type, sensor_id, status
 		) VALUES (?, ?, ?, ?, ?)
 	`, "run-typed", "not-a-timestamp", "pcap", "sensor-1", "completed"); err != nil {
 		t.Fatalf("insert typed run: %v", err)
 	}
-	typedStore := NewAnalysisRunStore(typedDB.DB)
+	typedStore := NewRunStore(typedDB.DB)
 	if _, err := typedStore.ListRuns(10); err == nil || !strings.Contains(err.Error(), "scan run") {
 		t.Fatalf("expected ListRuns scan error, got %v", err)
 	}
 
 	tracksDB, tracksCleanup := dbpkg.NewTestDB(t)
 	defer tracksCleanup()
-	trackStore := NewAnalysisRunStore(tracksDB.DB)
-	if err := trackStore.InsertRun(&AnalysisRun{
+	trackStore := NewRunStore(tracksDB.DB)
+	if err := trackStore.InsertRun(&Run{
 		RunID:      "run-tracks",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -606,8 +605,8 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 
 	unlabeledDB, unlabeledCleanup := dbpkg.NewTestDB(t)
 	defer unlabeledCleanup()
-	unlabeledStore := NewAnalysisRunStore(unlabeledDB.DB)
-	if err := unlabeledStore.InsertRun(&AnalysisRun{
+	unlabeledStore := NewRunStore(unlabeledDB.DB)
+	if err := unlabeledStore.InsertRun(&Run{
 		RunID:      "run-unlabeled-rich",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -641,8 +640,8 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 
 	queryBaseDB, queryBaseCleanup := dbpkg.NewTestDB(t)
 	defer queryBaseCleanup()
-	baseStore := NewAnalysisRunStore(queryBaseDB.DB)
-	if err := baseStore.InsertRun(&AnalysisRun{
+	baseStore := NewRunStore(queryBaseDB.DB)
+	if err := baseStore.InsertRun(&Run{
 		RunID:      "run-label-progress",
 		CreatedAt:  time.Now(),
 		SourceType: "pcap",
@@ -666,7 +665,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		t.Fatalf("InsertRunTrack failed: %v", err)
 	}
 
-	erroringLabelStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	erroringLabelStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "GROUP BY") {
@@ -679,7 +678,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		t.Fatalf("expected label-count query error, got %v", err)
 	}
 
-	scanFailLabelStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	scanFailLabelStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "GROUP BY") {
@@ -692,7 +691,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		t.Fatalf("expected label-count scan error, got %v", err)
 	}
 
-	missingTracksLabelStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	missingTracksLabelStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "GROUP BY") {
@@ -715,7 +714,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		t.Fatalf("unexpected missing-table labeling result: total=%d labelled=%d rollup=%#v byClass=%#v", total, labelled, rollup, byClass)
 	}
 
-	clampedRollupStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	clampedRollupStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryRowFn: func(query string, args []any) *sql.Row {
 			if strings.Contains(query, "COUNT(*) as total") {
@@ -732,7 +731,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		t.Fatalf("expected clamped unlabelled count, got %+v", rollup)
 	}
 
-	populateScanStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	populateScanStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "GROUP BY run_id") {
@@ -741,11 +740,11 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 			return queryBaseDB.DB.Query(query, args...)
 		},
 	})
-	if err := populateScanStore.populateRunLabelRollups([]*AnalysisRun{{RunID: "run-label-progress"}}); err == nil || !strings.Contains(err.Error(), "scan run label rollup") {
+	if err := populateScanStore.populateRunLabelRollups([]*Run{{RunID: "run-label-progress"}}); err == nil || !strings.Contains(err.Error(), "scan run label rollup") {
 		t.Fatalf("expected populateRunLabelRollups scan error, got %v", err)
 	}
 
-	populateClampStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	populateClampStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "GROUP BY run_id") {
@@ -754,7 +753,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 			return queryBaseDB.DB.Query(query, args...)
 		},
 	})
-	runs := []*AnalysisRun{{RunID: "run-label-progress"}}
+	runs := []*Run{{RunID: "run-label-progress"}}
 	if err := populateClampStore.populateRunLabelRollups(runs); err != nil {
 		t.Fatalf("populateRunLabelRollups failed: %v", err)
 	}
@@ -762,7 +761,7 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 		t.Fatalf("expected clamped populated rollup, got %#v", runs[0].LabelRollup)
 	}
 
-	scanFailUnlabeledStore := NewAnalysisRunStore(&interceptSQLiteDB{
+	scanFailUnlabeledStore := NewRunStore(&interceptSQLiteDB{
 		db: queryBaseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "ORDER BY observation_count DESC") {
@@ -776,19 +775,19 @@ func TestAnalysisRunQueries_SpecificErrorBranches(t *testing.T) {
 	}
 }
 
-func TestAnalysisRunQueryHelpers_IterAndPopulateErrors(t *testing.T) {
-	if _, err := readRunRecordCapabilitiesRows(&rowsStub{iterErr: errors.New("schema iter failed")}); err == nil || !strings.Contains(err.Error(), "iterate lidar_run_records schema") {
+func TestRunQueryHelpers_IterAndPopulateErrors(t *testing.T) {
+	if _, err := readRunRecordCapabilitiesRows(&rowsStub{iterErr: errors.New("schema iter failed")}); err == nil || !strings.Contains(err.Error(), "iterate lidar_runs schema") {
 		t.Fatalf("expected schema iteration error, got %v", err)
 	}
 
-	if _, err := collectAnalysisRunRecords(&rowsStub{iterErr: errors.New("run iter failed")}, analysisRunRecordCapabilities{}); err == nil || !strings.Contains(err.Error(), "iterate runs") {
+	if _, err := collectRunRecords(&rowsStub{iterErr: errors.New("run iter failed")}, runRecordCapabilities{}); err == nil || !strings.Contains(err.Error(), "iterate runs") {
 		t.Fatalf("expected run iteration error, got %v", err)
 	}
 
-	if _, err := finalizeAnalysisRunRecords(
-		[]*AnalysisRun{{RunID: "run-1"}},
-		func(*AnalysisRun) {},
-		func([]*AnalysisRun) error { return errors.New("populate failed") },
+	if _, err := finalizeRunRecords(
+		[]*Run{{RunID: "run-1"}},
+		func(*Run) {},
+		func([]*Run) error { return errors.New("populate failed") },
 	); err == nil || !strings.Contains(err.Error(), "populate failed") {
 		t.Fatalf("expected populate failure, got %v", err)
 	}
@@ -797,7 +796,7 @@ func TestAnalysisRunQueryHelpers_IterAndPopulateErrors(t *testing.T) {
 		t.Fatalf("expected track iteration error, got %v", err)
 	}
 
-	if err := assignRunLabelRollups(&rowsStub{iterErr: errors.New("rollup iter failed")}, map[string]*AnalysisRun{
+	if err := assignRunLabelRollups(&rowsStub{iterErr: errors.New("rollup iter failed")}, map[string]*Run{
 		"run-1": {RunID: "run-1"},
 	}); err == nil || !strings.Contains(err.Error(), "iterate run label rollups") {
 		t.Fatalf("expected rollup iteration error, got %v", err)
@@ -808,7 +807,7 @@ func TestAnalysisRunQueryHelpers_IterAndPopulateErrors(t *testing.T) {
 	}
 }
 
-func TestAnalysisRunStore_RunRecordSelectColumnsErrors(t *testing.T) {
+func TestRunStore_RunRecordSelectColumnsErrors(t *testing.T) {
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
@@ -816,13 +815,13 @@ func TestAnalysisRunStore_RunRecordSelectColumnsErrors(t *testing.T) {
 		t.Fatalf("close db: %v", err)
 	}
 
-	getStore := NewAnalysisRunStore(testDB.DB)
-	if _, err := getStore.GetRun("run-1"); err == nil || !strings.Contains(err.Error(), "inspect lidar_run_records schema") {
+	getStore := NewRunStore(testDB.DB)
+	if _, err := getStore.GetRun("run-1"); err == nil || !strings.Contains(err.Error(), "inspect lidar_runs schema") {
 		t.Fatalf("expected GetRun schema error, got %v", err)
 	}
 
-	listStore := NewAnalysisRunStore(testDB.DB)
-	if _, err := listStore.ListRuns(10); err == nil || !strings.Contains(err.Error(), "inspect lidar_run_records schema") {
+	listStore := NewRunStore(testDB.DB)
+	if _, err := listStore.ListRuns(10); err == nil || !strings.Contains(err.Error(), "inspect lidar_runs schema") {
 		t.Fatalf("expected ListRuns schema error, got %v", err)
 	}
 }
@@ -840,49 +839,43 @@ func TestBackfillImmutableRunConfigReferences_DryRunAndErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dry-run backfill failed: %v", err)
 	}
-	if result.RunsUpdated != 0 || result.ReplayCasesUpdated != 0 {
+	if result.RunsUpdated != 0 || result.ClipsUpdated != 0 {
 		t.Fatalf("expected no updates (columns dropped), got: %+v", result)
 	}
 }
 
-func TestReplayCaseStore_RecommendedParamSetPaths(t *testing.T) {
+func TestClipStore_RecommendedParamSetPaths(t *testing.T) {
 	fullDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	store := NewReplayCaseStore(fullDB.DB)
-	scene := &ReplayCase{
-		ReplayCaseID:      "scene-full",
-		SensorID:          "sensor-1",
-		PCAPFile:          "full.pcap",
-		OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":64}}`),
+	store := NewClipStore(fullDB.DB)
+	scene := &Clip{
+		ClipID:   "scene-full",
+		SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "full.pcap"}}, OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":64}}`),
 	}
-	if err := store.InsertScene(scene); err != nil {
-		t.Fatalf("InsertScene failed: %v", err)
+	if err := store.InsertClip(scene); err != nil {
+		t.Fatalf("InsertClip failed: %v", err)
 	}
 	if scene.RecommendedParamSetID == "" || scene.RecommendedParamsHash == "" || len(scene.RecommendedParams) == 0 {
 		t.Fatalf("expected recommended param set hydration, got %+v", scene)
 	}
 
-	emptyScene := &ReplayCase{
-		ReplayCaseID:      "scene-empty",
-		SensorID:          "sensor-1",
-		PCAPFile:          "empty.pcap",
-		OptimalParamsJSON: json.RawMessage(" "),
+	emptyScene := &Clip{
+		ClipID:   "scene-empty",
+		SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "empty.pcap"}}, OptimalParamsJSON: json.RawMessage(" "),
 	}
-	if err := store.InsertScene(emptyScene); err != nil {
-		t.Fatalf("InsertScene(empty) failed: %v", err)
+	if err := store.InsertClip(emptyScene); err != nil {
+		t.Fatalf("InsertClip(empty) failed: %v", err)
 	}
 	if emptyScene.RecommendedParamSetID != "" {
 		t.Fatalf("expected blank recommended param set id, got %q", emptyScene.RecommendedParamSetID)
 	}
 
-	badScene := &ReplayCase{
-		ReplayCaseID:      "scene-bad",
-		SensorID:          "sensor-1",
-		PCAPFile:          "bad.pcap",
-		OptimalParamsJSON: json.RawMessage(`[]`),
+	badScene := &Clip{
+		ClipID:   "scene-bad",
+		SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "bad.pcap"}}, OptimalParamsJSON: json.RawMessage(`[]`),
 	}
-	if err := store.InsertScene(badScene); err == nil || !strings.Contains(err.Error(), "canonicalize recommended params") {
+	if err := store.InsertClip(badScene); err == nil || !strings.Contains(err.Error(), "canonicalize recommended params") {
 		t.Fatalf("expected invalid optimal params error, got %v", err)
 	}
 
@@ -902,10 +895,10 @@ func TestReplayCaseStore_RecommendedParamSetPaths(t *testing.T) {
 	}
 }
 
-func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
+func TestClipStore_HelperAndRowsAffectedBranches(t *testing.T) {
 	t.Run("normalize nil scene", func(t *testing.T) {
-		store := NewReplayCaseStore(&interceptSQLiteDB{})
-		if err := store.normalizeRecommendedParamSet(nil); err == nil || !strings.Contains(err.Error(), "scene is required") {
+		store := NewClipStore(&interceptSQLiteDB{})
+		if err := store.normalizeRecommendedParamSet(nil); err == nil || !strings.Contains(err.Error(), "clip is required") {
 			t.Fatalf("expected nil-scene error, got %v", err)
 		}
 	})
@@ -914,7 +907,7 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		testDB, cleanup := dbpkg.NewTestDB(t)
 		defer cleanup()
 
-		store := NewReplayCaseStore(&interceptSQLiteDB{
+		store := NewClipStore(&interceptSQLiteDB{
 			db: testDB.DB,
 			execFn: func(query string, args []any) (sql.Result, error) {
 				if strings.Contains(query, "INSERT OR IGNORE INTO lidar_param_sets") {
@@ -923,11 +916,9 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 				return testDB.DB.Exec(query, args...)
 			},
 		})
-		scene := &ReplayCase{
-			ReplayCaseID:      "scene-store-error",
-			SensorID:          "sensor-1",
-			PCAPFile:          "scene.pcap",
-			OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":32}}`),
+		scene := &Clip{
+			ClipID:   "scene-store-error",
+			SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "scene.pcap"}}, OptimalParamsJSON: json.RawMessage(`{"tracking":{"max_tracks":32}}`),
 		}
 		if err := store.normalizeRecommendedParamSet(scene); err == nil || !strings.Contains(err.Error(), "store recommended params") {
 			t.Fatalf("expected normalize store error, got %v", err)
@@ -938,16 +929,16 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		testDB, cleanup := dbpkg.NewTestDB(t)
 		defer cleanup()
 
-		scene := &ReplayCase{RecommendedParamSetID: "missing-param-set"}
-		NewReplayCaseStore(testDB.DB).hydrateRecommendedParamSet(scene)
+		scene := &Clip{RecommendedParamSetID: "missing-param-set"}
+		NewClipStore(testDB.DB).hydrateRecommendedParamSet(scene)
 		if scene.RecommendedParamsHash != "" || len(scene.RecommendedParams) != 0 {
 			t.Fatalf("expected missing param set to leave scene untouched, got %+v", scene)
 		}
 
-		missingSchemaDB := setupReplayCaseRecommendedDB(t)
+		missingSchemaDB := setupClipRecommendedDB(t)
 		defer missingSchemaDB.Close()
-		scene = &ReplayCase{RecommendedParamSetID: "missing-schema"}
-		NewReplayCaseStore(missingSchemaDB).hydrateRecommendedParamSet(scene)
+		scene = &Clip{RecommendedParamSetID: "missing-schema"}
+		NewClipStore(missingSchemaDB).hydrateRecommendedParamSet(scene)
 		if scene.RecommendedParamsHash != "" || len(scene.RecommendedParams) != 0 {
 			t.Fatalf("expected missing schema to leave scene untouched, got %+v", scene)
 		}
@@ -957,8 +948,8 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		if err := closedDB.DB.Close(); err != nil {
 			t.Fatalf("close db: %v", err)
 		}
-		scene = &ReplayCase{RecommendedParamSetID: "closed-db"}
-		NewReplayCaseStore(closedDB.DB).hydrateRecommendedParamSet(scene)
+		scene = &Clip{RecommendedParamSetID: "closed-db"}
+		NewClipStore(closedDB.DB).hydrateRecommendedParamSet(scene)
 		if scene.RecommendedParamsHash != "" || len(scene.RecommendedParams) != 0 {
 			t.Fatalf("expected closed db to leave scene untouched, got %+v", scene)
 		}
@@ -968,42 +959,41 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		testDB, cleanup := dbpkg.NewTestDB(t)
 		defer cleanup()
 
-		baseStore := NewReplayCaseStore(testDB.DB)
-		if err := baseStore.InsertScene(&ReplayCase{
-			ReplayCaseID: "scene-rows-affected",
-			SensorID:     "sensor-1",
-			PCAPFile:     "rows.pcap",
+		baseStore := NewClipStore(testDB.DB)
+		if err := baseStore.InsertClip(&Clip{
+			ClipID:   "scene-rows-affected",
+			SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "rows.pcap"}},
 		}); err != nil {
-			t.Fatalf("InsertScene failed: %v", err)
+			t.Fatalf("InsertClip failed: %v", err)
 		}
 
-		updateStore := NewReplayCaseStore(&interceptSQLiteDB{
+		updateStore := NewClipStore(&interceptSQLiteDB{
 			db: testDB.DB,
 			execFn: func(query string, args []any) (sql.Result, error) {
-				if strings.Contains(query, "UPDATE lidar_replay_cases") {
+				if strings.Contains(query, "UPDATE lidar_clips") {
 					return rowsAffectedErrorResult{err: errors.New("rows failed")}, nil
 				}
 				return testDB.DB.Exec(query, args...)
 			},
 		})
-		if err := updateStore.UpdateScene(&ReplayCase{ReplayCaseID: "scene-rows-affected"}); err == nil || !strings.Contains(err.Error(), "check update result") {
-			t.Fatalf("expected UpdateScene RowsAffected error, got %v", err)
+		if err := updateStore.UpdateClip(&Clip{ClipID: "scene-rows-affected"}); err == nil || !strings.Contains(err.Error(), "check update result") {
+			t.Fatalf("expected UpdateClip RowsAffected error, got %v", err)
 		}
 
-		deleteStore := NewReplayCaseStore(&interceptSQLiteDB{
+		deleteStore := NewClipStore(&interceptSQLiteDB{
 			db: testDB.DB,
 			execFn: func(query string, args []any) (sql.Result, error) {
-				if strings.Contains(query, "DELETE FROM lidar_replay_cases") {
+				if strings.Contains(query, "DELETE FROM lidar_clips") {
 					return rowsAffectedErrorResult{err: errors.New("rows failed")}, nil
 				}
 				return testDB.DB.Exec(query, args...)
 			},
 		})
-		if err := deleteStore.DeleteScene("scene-rows-affected"); err == nil || !strings.Contains(err.Error(), "check delete result") {
-			t.Fatalf("expected DeleteScene RowsAffected error, got %v", err)
+		if err := deleteStore.DeleteClip("scene-rows-affected"); err == nil || !strings.Contains(err.Error(), "check delete result") {
+			t.Fatalf("expected DeleteClip RowsAffected error, got %v", err)
 		}
 
-		refStore := NewReplayCaseStore(&interceptSQLiteDB{
+		refStore := NewClipStore(&interceptSQLiteDB{
 			db: testDB.DB,
 			execFn: func(query string, args []any) (sql.Result, error) {
 				if strings.Contains(query, "SET reference_run_id") {
@@ -1021,74 +1011,72 @@ func TestReplayCaseStore_HelperAndRowsAffectedBranches(t *testing.T) {
 		testDB, cleanup := dbpkg.NewTestDB(t)
 		defer cleanup()
 
-		store := NewReplayCaseStore(testDB.DB)
-		err := store.UpdateScene(&ReplayCase{
-			ReplayCaseID:      "scene-update-normalize-error",
+		store := NewClipStore(testDB.DB)
+		err := store.UpdateClip(&Clip{
+			ClipID:            "scene-update-normalize-error",
 			OptimalParamsJSON: json.RawMessage(`[]`),
 		})
 		if err == nil || !strings.Contains(err.Error(), "canonicalize recommended params") {
-			t.Fatalf("expected UpdateScene normalize error, got %v", err)
+			t.Fatalf("expected UpdateClip normalize error, got %v", err)
 		}
 	})
 }
 
-func TestReplayCaseStore_ErrorBranches(t *testing.T) {
+func TestClipStore_ErrorBranches(t *testing.T) {
 	testDB, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 
-	closedStore := NewReplayCaseStore(testDB.DB)
-	if _, err := testDB.DB.Exec(`DROP TABLE lidar_replay_cases`); err != nil {
-		t.Fatalf("drop replay cases: %v", err)
+	closedStore := NewClipStore(testDB.DB)
+	if _, err := testDB.DB.Exec(`DROP TABLE lidar_clips`); err != nil {
+		t.Fatalf("drop clips: %v", err)
 	}
-	if _, err := testDB.DB.Exec(`CREATE TABLE lidar_replay_cases (replay_case_id TEXT PRIMARY KEY)`); err != nil {
-		t.Fatalf("create malformed replay cases: %v", err)
+	if _, err := testDB.DB.Exec(`CREATE TABLE lidar_clips (clip_id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatalf("create malformed clips: %v", err)
 	}
-	if _, err := closedStore.GetScene("scene-1"); err == nil || !strings.Contains(err.Error(), "get scene") {
-		t.Fatalf("expected GetScene query error, got %v", err)
+	if _, err := closedStore.GetClip("scene-1"); err == nil || !strings.Contains(err.Error(), "get clip") {
+		t.Fatalf("expected GetClip query error, got %v", err)
 	}
 
 	baseDB, baseCleanup := dbpkg.NewTestDB(t)
 	defer baseCleanup()
-	baseStore := NewReplayCaseStore(baseDB.DB)
-	if err := baseStore.InsertScene(&ReplayCase{
-		ReplayCaseID: "scene-update",
-		SensorID:     "sensor-1",
-		PCAPFile:     "update.pcap",
+	baseStore := NewClipStore(baseDB.DB)
+	if err := baseStore.InsertClip(&Clip{
+		ClipID:   "scene-update",
+		SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "update.pcap"}},
 	}); err != nil {
-		t.Fatalf("InsertScene failed: %v", err)
+		t.Fatalf("InsertClip failed: %v", err)
 	}
 
-	updateErrStore := NewReplayCaseStore(&interceptSQLiteDB{
+	updateErrStore := NewClipStore(&interceptSQLiteDB{
 		db: baseDB.DB,
 		execFn: func(query string, args []any) (sql.Result, error) {
-			if strings.Contains(query, "UPDATE lidar_replay_cases") {
+			if strings.Contains(query, "UPDATE lidar_clips") {
 				return nil, errors.New("update failed")
 			}
 			return baseDB.DB.Exec(query, args...)
 		},
 	})
-	if err := updateErrStore.UpdateScene(&ReplayCase{ReplayCaseID: "scene-update"}); err == nil || !strings.Contains(err.Error(), "update scene") {
-		t.Fatalf("expected UpdateScene exec error, got %v", err)
+	if err := updateErrStore.UpdateClip(&Clip{ClipID: "scene-update"}); err == nil || !strings.Contains(err.Error(), "update clip") {
+		t.Fatalf("expected UpdateClip exec error, got %v", err)
 	}
 
-	insertErrStore := NewReplayCaseStore(&interceptSQLiteDB{
+	insertErrStore := NewClipStore(&interceptSQLiteDB{
 		db: baseDB.DB,
 		execFn: func(query string, args []any) (sql.Result, error) {
-			if strings.Contains(query, "INSERT INTO lidar_replay_cases") {
+			if strings.Contains(query, "INSERT INTO lidar_clips") {
 				return nil, errors.New("insert failed")
 			}
 			return baseDB.DB.Exec(query, args...)
 		},
 	})
-	if err := insertErrStore.InsertScene(&ReplayCase{
-		ReplayCaseID: "scene-insert-err",
-		SensorID:     "sensor-1",
-		PCAPFile:     "insert.pcap",
-	}); err == nil || !strings.Contains(err.Error(), "insert scene") {
-		t.Fatalf("expected InsertScene exec error, got %v", err)
+	if err := insertErrStore.InsertClip(&Clip{
+		ClipID:   "scene-insert-err",
+		SensorID: "sensor-1", Files: []ClipCapture{{PCAPFile: "insert.pcap"}},
+	}); err == nil || !strings.Contains(err.Error(), "insert clip") {
+		t.Fatalf("expected InsertClip exec error, got %v", err)
 	}
 
-	queryErrStore := NewReplayCaseStore(&interceptSQLiteDB{
+	queryErrStore := NewClipStore(&interceptSQLiteDB{
 		db: baseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "ORDER BY created_at_ns DESC") {
@@ -1097,24 +1085,24 @@ func TestReplayCaseStore_ErrorBranches(t *testing.T) {
 			return baseDB.DB.Query(query, args...)
 		},
 	})
-	if _, err := queryErrStore.ListScenes(""); err == nil || !strings.Contains(err.Error(), "list scenes") {
-		t.Fatalf("expected ListScenes query error, got %v", err)
+	if _, err := queryErrStore.ListClips(""); err == nil || !strings.Contains(err.Error(), "list clips") {
+		t.Fatalf("expected ListClips query error, got %v", err)
 	}
 
-	scanErrStore := NewReplayCaseStore(&interceptSQLiteDB{
+	scanErrStore := NewClipStore(&interceptSQLiteDB{
 		db: baseDB.DB,
 		queryFn: func(query string, args []any) (*sql.Rows, error) {
 			if strings.Contains(query, "ORDER BY created_at_ns DESC") {
-				return baseDB.DB.Query(`SELECT 'scene', 'sensor', 'pcap', 'bad-start', NULL, NULL, NULL, NULL, 1, NULL, NULL`)
+				return baseDB.DB.Query(`SELECT 'clip', 'sensor', 'bad-start', NULL, NULL, NULL, NULL, 1, NULL, NULL`)
 			}
 			return baseDB.DB.Query(query, args...)
 		},
 	})
-	if _, err := scanErrStore.ListScenes(""); err == nil || !strings.Contains(err.Error(), "scan scene row") {
-		t.Fatalf("expected ListScenes scan error, got %v", err)
+	if _, err := scanErrStore.ListClips(""); err == nil || !strings.Contains(err.Error(), "scan clip row") {
+		t.Fatalf("expected ListClips scan error, got %v", err)
 	}
 
-	refErrStore := NewReplayCaseStore(&interceptSQLiteDB{
+	refErrStore := NewClipStore(&interceptSQLiteDB{
 		db: baseDB.DB,
 		execFn: func(query string, args []any) (sql.Result, error) {
 			if strings.Contains(query, "SET reference_run_id") {
@@ -1127,16 +1115,16 @@ func TestReplayCaseStore_ErrorBranches(t *testing.T) {
 		t.Fatalf("expected SetReferenceRun exec error, got %v", err)
 	}
 
-	deleteErrStore := NewReplayCaseStore(&interceptSQLiteDB{
+	deleteErrStore := NewClipStore(&interceptSQLiteDB{
 		db: baseDB.DB,
 		execFn: func(query string, args []any) (sql.Result, error) {
-			if strings.Contains(query, "DELETE FROM lidar_replay_cases") {
+			if strings.Contains(query, "DELETE FROM lidar_clips") {
 				return nil, errors.New("delete failed")
 			}
 			return baseDB.DB.Exec(query, args...)
 		},
 	})
-	if err := deleteErrStore.DeleteScene("scene-update"); err == nil || !strings.Contains(err.Error(), "delete scene") {
-		t.Fatalf("expected DeleteScene exec error, got %v", err)
+	if err := deleteErrStore.DeleteClip("scene-update"); err == nil || !strings.Contains(err.Error(), "delete clip") {
+		t.Fatalf("expected DeleteClip exec error, got %v", err)
 	}
 }

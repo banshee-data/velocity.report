@@ -332,14 +332,14 @@ func applyRecordingMetadata(rec recordingMetadataSink, lidarDB sqlite.DBClient, 
 	playbackRate := 0.0
 	if lidarServer != nil {
 		src := lidarServer.CurrentSource()
-		if src == server.DataSourcePCAP || src == server.DataSourcePCAPAnalysis {
+		if src == server.DataSourceCapture || src == server.DataSourceCaptureAnalysis {
 			sourceType = "pcap"
 			pcapPath = filepath.Base(lidarServer.CurrentPCAPFile())
 			playbackRate = lidarServer.PCAPSpeedRatio()
 		}
 	}
 
-	runStore := sqlite.NewAnalysisRunStore(lidarDB)
+	runStore := sqlite.NewRunStore(lidarDB)
 	run, err := runStore.GetRun(runID)
 	if err != nil {
 		logger.Printf("[Visualiser] Warning: failed to load run metadata for %s: %v", runID, err)
@@ -430,7 +430,7 @@ func attachFilterRecord(tracker filterRecordHost, source recordingSourceInfo, re
 	if isNilHelperTarget(tracker) || isNilHelperTarget(source) {
 		return nil
 	}
-	if src := source.CurrentSource(); src != server.DataSourcePCAP && src != server.DataSourcePCAPAnalysis {
+	if src := source.CurrentSource(); src != server.DataSourceCapture && src != server.DataSourceCaptureAnalysis {
 		return nil
 	}
 	w, err := recorder.NewFilterRecordWriter(recordPath, recorder.FilterRecordHeader{

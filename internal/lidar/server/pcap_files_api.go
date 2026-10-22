@@ -40,20 +40,22 @@ func (ws *Server) handleListPCAPFiles(w http.ResponseWriter, r *http.Request) {
 	// Normalise paths to cleaned relative form for consistent comparison.
 	usedFiles := make(map[string]bool)
 	if ws.db != nil {
-		store := sqlite.NewReplayCaseStore(ws.db)
-		scenes, err := store.ListScenes("")
+		store := sqlite.NewClipStore(ws.db)
+		scenes, err := store.ListClips("")
 		if err == nil {
 			for _, s := range scenes {
-				// Clean the path: strip leading ./ or /, then use filepath.Clean
-				cleaned := filepath.Clean(s.PCAPFile)
-				// If it's an absolute path under safeDir, convert to relative
-				if filepath.IsAbs(cleaned) {
-					rel, relErr := filepath.Rel(safeDirAbs, cleaned)
-					if relErr == nil {
-						cleaned = rel
+				for _, capture := range s.Files {
+					// Clean the path: strip leading ./ or /, then use filepath.Clean
+					cleaned := filepath.Clean(capture.PCAPFile)
+					// If it's an absolute path under safeDir, convert to relative
+					if filepath.IsAbs(cleaned) {
+						rel, relErr := filepath.Rel(safeDirAbs, cleaned)
+						if relErr == nil {
+							cleaned = rel
+						}
 					}
+					usedFiles[cleaned] = true
 				}
-				usedFiles[cleaned] = true
 			}
 		}
 	}

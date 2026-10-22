@@ -30,7 +30,7 @@ type SampleResult struct {
 	TracksCreated          int
 	TracksConfirmed        int
 
-	// Scene-level foreground capture metrics
+	// Clip-level foreground capture metrics
 	ForegroundCaptureRatio float64
 	UnboundedPointRatio    float64
 	EmptyBoxRatio          float64

@@ -179,11 +179,11 @@ func TestServer_StatusHandler(t *testing.T) {
 	}
 }
 
-// TestStatusHTML_ReplayCaseIDInJS verifies that the PCAP scene dropdown
-// JavaScript in status.html uses replay_case_id (not the old scene_id).
-// This catches the regression where the Go API returns replay_case_id but
+// TestStatusHTML_ClipIDInJS verifies that the PCAP scene dropdown
+// JavaScript in status.html uses clip_id (not the old scene_id).
+// This catches the regression where the Go API returns clip_id but
 // the JS was still reading scene_id, breaking the dropdown population.
-func TestStatusHTML_ReplayCaseIDInJS(t *testing.T) {
+func TestStatusHTML_ClipIDInJS(t *testing.T) {
 	stats := NewPacketStats()
 
 	config := Config{
@@ -212,14 +212,14 @@ func TestStatusHTML_ReplayCaseIDInJS(t *testing.T) {
 
 	body := rr.Body.String()
 
-	// The JS must use replay_case_id for the option value and the find() match.
-	if !strings.Contains(body, "s.replay_case_id") {
-		t.Error("status.html JS should reference s.replay_case_id for PCAP scene dropdown")
+	// The JS must use clip_id for the option value and the find() match.
+	if !strings.Contains(body, "s.clip_id") {
+		t.Error("status.html JS should reference s.clip_id for PCAP scene dropdown")
 	}
 
 	// Ensure the old field name is not present anywhere in the rendered HTML.
 	if strings.Contains(body, "s.scene_id") {
-		t.Error("status.html JS must not reference s.scene_id (renamed to replay_case_id)")
+		t.Error("status.html JS must not reference s.scene_id (renamed to clip_id)")
 	}
 }
 
@@ -2397,8 +2397,8 @@ func TestServer_RealDataSourceManager(t *testing.T) {
 	// The divergence this replaced: a replay used to leave the manager's copy
 	// reading "live" indefinitely.
 	server.setTestSourcePCAPReplaying()
-	if got := server.CurrentSource(); got != DataSourcePCAP {
-		t.Errorf("Expected DataSourcePCAP after starting a replay, got %s", got)
+	if got := server.CurrentSource(); got != DataSourceCapture {
+		t.Errorf("Expected DataSourceCapture after starting a replay, got %s", got)
 	}
 	if !server.PipelineState().PCAPInProgress() {
 		t.Error("Expected PCAP in progress after starting a replay")

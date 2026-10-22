@@ -63,18 +63,18 @@ func TestPCAPDone_WithChannel(t *testing.T) {
 	}
 }
 
-func TestLastAnalysisRunID_Empty(t *testing.T) {
+func TestLastRunID_Empty(t *testing.T) {
 	ws := NewServer(Config{
 		Address: ":0",
 		Stats:   NewPacketStats(),
 	})
-	id := ws.LastAnalysisRunID()
+	id := ws.LastRunID()
 	if id != "" {
 		t.Errorf("expected empty run ID, got %q", id)
 	}
 }
 
-func TestLastAnalysisRunID_Set(t *testing.T) {
+func TestLastRunID_Set(t *testing.T) {
 	ws := NewServer(Config{
 		Address: ":0",
 		Stats:   NewPacketStats(),
@@ -83,7 +83,7 @@ func TestLastAnalysisRunID_Set(t *testing.T) {
 	ws.mutateState("test", func(s *PipelineState) { s.LastRunID = "run-abc-123" })
 	ws.pcapMu.Unlock()
 
-	id := ws.LastAnalysisRunID()
+	id := ws.LastRunID()
 	if id != "run-abc-123" {
 		t.Errorf("expected 'run-abc-123', got %q", id)
 	}
@@ -321,7 +321,7 @@ func TestStopPCAPForSweep_AnalysisMode(t *testing.T) {
 	ws.pcapMu.Lock()
 	ws.pcapDone = done
 	ws.pcapCancel = func() {}
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	var stopped bool
@@ -587,16 +587,16 @@ func TestStartPCAPForSweep_AnalysisModeWithDB(t *testing.T) {
 	}
 
 	// Check the last analysis run ID was set
-	lastID := ws.LastAnalysisRunID()
+	lastID := ws.LastRunID()
 	if recordedRunID != "" && lastID != recordedRunID {
-		t.Errorf("LastAnalysisRunID() = %q, want %q", lastID, recordedRunID)
+		t.Errorf("LastRunID() = %q, want %q", lastID, recordedRunID)
 	}
 
 	// After analysis mode, source should be PCapAnalysis (grid preserved)
 	ws.dataSourceMu.RLock()
 	src := ws.CurrentSource()
 	ws.dataSourceMu.RUnlock()
-	if src != DataSourcePCAPAnalysis {
+	if src != DataSourceCaptureAnalysis {
 		t.Logf("source after analysis: %v (expected PCAP_ANALYSIS)", src)
 	}
 }
@@ -655,7 +655,7 @@ func TestStartPCAPLocked_AlreadyInProgress(t *testing.T) {
 
 	ws.pcapSafeDir = tmpDir
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.ReplayActive = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.ReplayActive = true })
 	ws.pcapMu.Unlock()
 
 	err := ws.startPCAPLocked("conflict.pcap", "analysis", 1.0, 0, 0, 0, 0, 0, 0, false, false)
@@ -785,12 +785,12 @@ func TestResolvePCAPPath_SymlinkLoop(t *testing.T) {
 	}
 }
 
-func TestEnsureAnalysisRunManager_UsesServerSensorID(t *testing.T) {
+func TestEnsureRunManager_UsesServerSensorID(t *testing.T) {
 	dbWrapped, cleanupDB := setupTestDBWrapped(t)
 	defer cleanupDB()
 
 	ws := &Server{db: dbWrapped, sensorID: "manager-sensor-default"}
-	manager := ws.ensureAnalysisRunManager("")
+	manager := ws.ensureRunManager("")
 	if manager == nil {
 		t.Fatal("expected analysis run manager")
 	}
@@ -803,15 +803,15 @@ func TestSnapshotReplayEffectiveConfig_UsesServerSensorIDFallback(t *testing.T) 
 	if cfg.L1.Sensor != "snapshot-fallback-sensor" {
 		t.Fatalf("L1.Sensor = %q, want snapshot-fallback-sensor", cfg.L1.Sensor)
 	}
-	if cfg.L1.DataSource != string(DataSourcePCAP) {
-		t.Fatalf("L1.DataSource = %q, want %q", cfg.L1.DataSource, DataSourcePCAP)
+	if cfg.L1.DataSource != "pcap" {
+		t.Fatalf("L1.DataSource = %q, want %q", cfg.L1.DataSource, DataSourceCapture)
 	}
 }
 
-func TestFailReplayAnalysisRun_NoManagerNoRunID(t *testing.T) {
+func TestFailReplayRun_NoManagerNoRunID(t *testing.T) {
 	ws := &Server{}
-	ws.failReplayAnalysisRun("", "ignored")
-	ws.failReplayAnalysisRun("run-id", "ignored")
+	ws.failReplayRun("", "ignored")
+	ws.failReplayRun("run-id", "ignored")
 }
 
 func TestStartPCAPLockedWithConfig_NoBaseContextMarksRunFailed(t *testing.T) {
@@ -844,7 +844,7 @@ func TestStartPCAPLockedWithConfig_NoBaseContextMarksRunFailed(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	runStore := sqlite.NewAnalysisRunStore(ws.db.DB)
+	runStore := sqlite.NewRunStore(ws.db.DB)
 	run, getErr := runStore.GetRun("run-no-basectx")
 	if getErr != nil {
 		t.Fatalf("GetRun(): %v", getErr)
@@ -1031,8 +1031,8 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 	ws.dataSourceMu.RLock()
 	src := ws.CurrentSource()
 	ws.dataSourceMu.RUnlock()
-	if src != DataSourcePCAPAnalysis {
-		t.Errorf("expected DataSourcePCAPAnalysis, got %v", src)
+	if src != DataSourceCaptureAnalysis {
+		t.Errorf("expected DataSourceCaptureAnalysis, got %v", src)
 	}
 }
 
@@ -1331,7 +1331,7 @@ func TestStartPCAPLocked_StartRunError(t *testing.T) {
 
 	// Pre-set analysis mode so the goroutine attempts StartRun
 	ws.pcapMu.Lock()
-	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModePCAP; s.GridPreserved = true })
+	ws.mutateState("test", func(s *PipelineState) { s.Source = SourceModeCapture; s.GridPreserved = true })
 	ws.pcapMu.Unlock()
 
 	err := ws.startPCAPLocked("runerr.pcap", "analysis", 1.0, 0, 0,

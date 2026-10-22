@@ -238,7 +238,7 @@ func TestPerFrameClassFlag(t *testing.T) {
 	}
 }
 
-func TestPerFrameAnalysisRuns(t *testing.T) {
+func TestPerFrameRuns(t *testing.T) {
 	f := perFrameFixture(t)
 	args := []string{
 		"-pack", f.PackDir, "-split-manifest", f.SplitManifestPath, "-split", evalfixture.SplitHeldOut,
@@ -249,7 +249,7 @@ func TestPerFrameAnalysisRuns(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit %d: %s", code, stderr)
 	}
-	if c.A.Arm.Kind != "analysis_run" || c.Total.B.IDSwitches != 1 || c.Total.B.Fragmentations != 1 {
+	if c.A.Arm.Kind != "run" || c.Total.B.IDSwitches != 1 || c.Total.B.Fragmentations != 1 {
 		t.Fatalf("run comparison %+v / %+v", c.A.Arm, c.Total.B)
 	}
 }

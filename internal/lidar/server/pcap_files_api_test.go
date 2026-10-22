@@ -73,18 +73,18 @@ func TestHandleListPCAPFiles_SuccessAndInUseFlags(t *testing.T) {
 		t.Fatalf("write fileIgnored: %v", err)
 	}
 
-	testDB := setupTestSceneAPIDB(t)
+	testDB := setupTestClipAPIDB(t)
 	defer testDB.DB.Close()
 
 	// Mark both PCAP files as in use: one via relative path, one via absolute path.
-	store := sqlite.NewReplayCaseStore(testDB.DB)
-	sceneRel := &sqlite.ReplayCase{SensorID: "sensor-1", PCAPFile: "a.pcap"}
-	if err := store.InsertScene(sceneRel); err != nil {
+	store := sqlite.NewClipStore(testDB.DB)
+	sceneRel := &sqlite.Clip{SensorID: "sensor-1", Files: []sqlite.ClipCapture{{PCAPFile: "a.pcap"}}}
+	if err := store.InsertClip(sceneRel); err != nil {
 		t.Fatalf("insert relative-path scene: %v", err)
 	}
 
-	sceneAbs := &sqlite.ReplayCase{SensorID: "sensor-1", PCAPFile: fileB}
-	if err := store.InsertScene(sceneAbs); err != nil {
+	sceneAbs := &sqlite.Clip{SensorID: "sensor-1", Files: []sqlite.ClipCapture{{PCAPFile: fileB}}}
+	if err := store.InsertClip(sceneAbs); err != nil {
 		t.Fatalf("insert absolute-path scene: %v", err)
 	}
 
@@ -167,8 +167,8 @@ func TestHandleListPCAPFiles_SceneListErrorStillServesFiles(t *testing.T) {
 		t.Fatalf("write only.pcap: %v", err)
 	}
 
-	testDB := setupTestSceneAPIDB(t)
-	// Close underlying DB to force ListScenes to fail.
+	testDB := setupTestClipAPIDB(t)
+	// Close underlying DB to force ListClips to fail.
 	testDB.DB.Close()
 
 	ws := &Server{

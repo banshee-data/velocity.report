@@ -303,7 +303,7 @@ func WriteFateContainer(dir, capturePath string, s FateScenario) error {
 		return err
 	}
 	const extractor = "l4.fixture/v1"
-	sourceID, err := l4bobserve.SourceID(l4bobserve.CaptureSource{ReplayCaseID: "fate-fixture",
+	sourceID, err := l4bobserve.SourceID(l4bobserve.CaptureSource{ClipID: "fate-fixture",
 		CapturePaths: []string{files[0].Path}, CaptureSHA256s: []string{files[0].SHA256}, ExtractorID: extractor})
 	if err != nil {
 		return err
@@ -311,7 +311,7 @@ func WriteFateContainer(dir, capturePath string, s FateScenario) error {
 	w, err := vrlog.Create(dir, vrlog.Manifest{
 		Capture: vrlog.CaptureIdentity{SensorID: "fixture", SourceType: "pcap"},
 		Extraction: vrlog.ExtractionIdentity{SourceID: sourceID, CalibrationID: calibrationID, CoordinateFrame: "site/fixture",
-			ReplayCaseID: "fate-fixture", CaptureFiles: files, ExtractorID: extractor,
+			ClipID: "fate-fixture", CaptureFiles: files, ExtractorID: extractor,
 			Window: vrlog.SourceWindow{StartOffsetNanos: FateWindowStartNs, WarmupNanos: FateWindowStartNs}},
 		Calibration: calibration,
 		Provenance:  vrlog.Provenance{Writer: "evalfixture", BuildVersion: "fixture", BuildGitSHA: "fixture", ParamsHash: "sha256:fixture"},

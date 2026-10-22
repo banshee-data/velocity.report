@@ -17,7 +17,7 @@ type ObjectiveWeights struct {
 	// A site/window-specific count band replaces an unbounded default reward.
 	ActiveTrackBand *TrackCountBand `json:"active_track_band,omitempty"`
 
-	// Scene-level weights (opt-in; zero by default)
+	// Clip-level weights (opt-in; zero by default)
 	ForegroundCapture float64 `json:"foreground_capture"` // Positive = maximise capture ratio
 	EmptyBoxes        float64 `json:"empty_boxes"`        // Negative = minimise empty box ratio
 	Fragmentation     float64 `json:"fragmentation"`      // Negative = minimise fragmentation ratio

@@ -134,7 +134,7 @@ func TestPackListingsAreReadAgainOnlyWhenTheirFilesChange(t *testing.T) {
 	labels := filepath.Join(save(annotation.StatusReviewed).Dir, labelset.ManifestFile)
 	listing := func() packListing {
 		t.Helper()
-		response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks)
+		response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks)
 		var body struct {
 			Packs []packListing `json:"packs"`
 		}
@@ -190,7 +190,7 @@ func TestPackListingsAreReadAgainOnlyWhenTheirFilesChange(t *testing.T) {
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
-	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); !strings.Contains(response.Body.String(), `"count":0`) || len(ws.packListings.entries) != 0 {
+	if response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks); !strings.Contains(response.Body.String(), `"count":0`) || len(ws.packListings.entries) != 0 {
 		t.Fatalf("removed pack: %s %d", response.Body.String(), len(ws.packListings.entries))
 	}
 }

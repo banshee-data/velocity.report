@@ -205,10 +205,10 @@ type TrackingPipelineConfig struct {
 	Classifier          *l6objects.TrackClassifier
 	DB                  *sqlite.SQLDB // Use sqlite.SQLDB to avoid importing database/sql directly
 	SensorID            string
-	AnalysisRunManager  *sqlite.AnalysisRunManager // Optional: for recording analysis runs
-	VisualiserPublisher VisualiserPublisher        // Optional: gRPC publisher
-	VisualiserAdapter   VisualiserAdapter          // Optional: adapter for gRPC
-	LidarViewAdapter    LidarViewAdapter           // Optional: adapter for UDP forwarding
+	RunManager          *sqlite.RunManager  // Optional: for recording analysis runs
+	VisualiserPublisher VisualiserPublisher // Optional: gRPC publisher
+	VisualiserAdapter   VisualiserAdapter   // Optional: adapter for gRPC
+	LidarViewAdapter    LidarViewAdapter    // Optional: adapter for UDP forwarding
 
 	// ObservationSink persists frozen L4 evidence before L5 tracking. It is
 	// disabled unless all three fields are supplied: source and calibration
@@ -463,13 +463,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		profile = config.ProfileFull
 	}
 
-	// Get AnalysisRunManager from registry if not explicitly set
+	// Get RunManager from registry if not explicitly set
 	// This allows analysis runs to be started/stopped dynamically via webserver
-	getRunManager := func() *sqlite.AnalysisRunManager {
-		if cfg.AnalysisRunManager != nil {
-			return cfg.AnalysisRunManager
+	getRunManager := func() *sqlite.RunManager {
+		if cfg.RunManager != nil {
+			return cfg.RunManager
 		}
-		return sqlite.GetAnalysisRunManager(sensorID)
+		return sqlite.GetRunManager(sensorID)
 	}
 
 	// Frame-rate throttle state. We always run ProcessFramePolarWithMask to

@@ -46,9 +46,9 @@ func run(args []string, stat func(string) (os.FileInfo, error), openDB func(stri
 		result.RunsSeen,
 		result.RunsUpdated,
 		result.RunsSkipped,
-		result.ReplayCasesSeen,
-		result.ReplayCasesUpdated,
-		result.ReplayCasesSkipped,
+		result.ClipsSeen,
+		result.ClipsUpdated,
+		result.ClipsSkipped,
 	)
 	return nil
 }

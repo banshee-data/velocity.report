@@ -25,8 +25,8 @@ const StageOnline = "online"
 type ArmKind string
 
 const (
-	ArmEstimates   ArmKind = "estimates"
-	ArmAnalysisRun ArmKind = "analysis_run"
+	ArmEstimates ArmKind = "estimates"
+	ArmRun       ArmKind = "run"
 )
 
 // ArmSpec names one arm. Set RunID for an analysis run; otherwise the
@@ -85,7 +85,7 @@ func (s ArmSpec) checkBoxes() error {
 // Kind is the arm's source.
 func (s ArmSpec) Kind() ArmKind {
 	if s.RunID != "" {
-		return ArmAnalysisRun
+		return ArmRun
 	}
 	return ArmEstimates
 }
@@ -305,7 +305,7 @@ func listVersions(versions []sqlite.EstimateVersion) string {
 }
 
 func loadRunArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error) {
-	runs := sqlite.NewAnalysisRunStore(database)
+	runs := sqlite.NewRunStore(database)
 	n, err := runs.CountRunTracks(spec.RunID)
 	if err != nil {
 		return Hypothesis{}, fmt.Errorf("arm %s: %w", spec.Label, err)
@@ -358,7 +358,7 @@ func loadRunArm(database sqlite.DBClient, spec ArmSpec) (Hypothesis, error) {
 
 	return Hypothesis{
 		Identity: ArmIdentity{
-			Label: spec.Label, Kind: ArmAnalysisRun, Database: filepath.Base(spec.DBPath),
+			Label: spec.Label, Kind: ArmRun, Database: filepath.Base(spec.DBPath),
 			RunID: spec.RunID, Stage: StageOnline, DeclaredBaseline: spec.DeclaredBaseline,
 			TrackKey: "run_track_order", Tracks: len(series), Points: len(positions),
 		},

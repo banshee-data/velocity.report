@@ -69,7 +69,7 @@ func TestPerFrameEstimateQueriesSeparateVersionsInAStableOrder(t *testing.T) {
 func TestPerFrameRunTrackPositions(t *testing.T) {
 	database, cleanup := setupTestDB(t)
 	defer cleanup()
-	runs := NewAnalysisRunStore(database)
+	runs := NewRunStore(database)
 	confirmed := func(id string) RunTrack {
 		return RunTrack{TrackID: id, TrackMeasurement: TrackMeasurement{SensorID: "sensor-cmp", TrackState: TrackConfirmed}}
 	}

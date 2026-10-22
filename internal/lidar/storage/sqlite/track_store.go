@@ -291,7 +291,7 @@ func ClearRuns(db DBClient, sensorID string) error {
 	}
 
 	// Delete runs for this sensor (CASCADE will delete lidar_run_tracks)
-	query := `DELETE FROM lidar_run_records WHERE sensor_id = ?`
+	query := `DELETE FROM lidar_runs WHERE sensor_id = ?`
 	if _, err := tx.Exec(query, sensorID); err != nil {
 		tx.Rollback()
 		return fmt.Errorf("clear runs failed: %w", err)
@@ -317,7 +317,7 @@ func DeleteRun(db DBClient, runID string) error {
 	}
 
 	// Delete the run (CASCADE will delete lidar_run_tracks)
-	query := `DELETE FROM lidar_run_records WHERE run_id = ?`
+	query := `DELETE FROM lidar_runs WHERE run_id = ?`
 	result, err := tx.Exec(query, runID)
 	if err != nil {
 		tx.Rollback()

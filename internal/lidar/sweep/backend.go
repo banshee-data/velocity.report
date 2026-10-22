@@ -62,8 +62,8 @@ type SweepBackend interface {
 
 	// --- Data source ---
 
-	// GetLastAnalysisRunID returns the last analysis run ID (empty if none).
-	GetLastAnalysisRunID() string
+	// GetLastRunID returns the last analysis run ID (empty if none).
+	GetLastRunID() string
 }
 
 // PCAPReplayConfig holds configuration for starting a PCAP replay.

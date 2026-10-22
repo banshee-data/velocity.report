@@ -1,0 +1,798 @@
+<script lang="ts">
+	/**
+	 * Clips — windows of captures kept for labelling, evaluation and tuning.
+	 *
+	 * The platform vocabulary names this window a clip; the API, the store and
+	 * the types still call it a replay case until that rename lands with its
+	 * aliases, so the code below keeps their names and only the page says clip.
+	 */
+	import type { PcapFileInfo } from '#lib/api.js';
+	import {
+		createLidarClip,
+		createClipFromCaptures,
+		deleteLidarClip,
+		getLidarClip,
+		getLidarClips,
+		scanPcapFiles,
+		updateLidarClip
+	} from '#lib/api.js';
+	import type { LidarClip } from '#lib/types/lidar.js';
+	import { linkedId, tracksQuery } from '#lib/lidarLinks.js';
+	import { resolve } from '$app/paths';
+	import { page } from '$app/state';
+	import { onMount } from 'svelte';
+	import { Button, SelectField } from 'svelte-ux';
+	import { SvelteSet } from 'svelte/reactivity';
+
+	// Survey list
+	let scenes: LidarClip[] = [];
+	let loading = true;
+	let error: string | null = null;
+
+	// Selected scene for editing
+	let selectedScene: LidarClip | null = null;
+
+	// Create form state
+	let showCreateForm = false;
+	let newSensorId = 'hesai-pandar40p';
+	let newPcapFile = '';
+	let newDescription = '';
+	let newPcapStartSecs = '';
+	let newPcapDurationSecs = '';
+	let creating = false;
+	let createError: string | null = null;
+
+	// Edit form state
+	let editDescription = '';
+	let editOptimalParams = '';
+	let editPcapStartSecs = '';
+	let editPcapDurationSecs = '';
+	let editCaptureFiles = '';
+	let saving = false;
+	let saveError: string | null = null;
+
+	// Scan PCAP folder state
+	let showScanPanel = false;
+	let scanning = false;
+	let scanError: string | null = null;
+	let pcapFiles: PcapFileInfo[] = [];
+	let pcapDir = '';
+	let selectedFiles: SvelteSet<string> = new SvelteSet();
+	let bulkCreating = false;
+
+	async function loadScenes() {
+		loading = true;
+		error = null;
+		try {
+			scenes = await getLidarClips();
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not load clips.';
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function selectScene(scene: LidarClip) {
+		// The list only carries file_count, not the file list itself — fetch
+		// the full case so a scene with several joined captures shows all of
+		// them rather than only the first (pcap_file, the legacy projection).
+		selectedScene = scene;
+		editDescription = scene.description ?? '';
+		editOptimalParams = formatJSONForEditor(scene.recommended_params ?? scene.optimal_params_json);
+		editPcapStartSecs = scene.pcap_start_secs != null ? String(scene.pcap_start_secs) : '';
+		editPcapDurationSecs = scene.pcap_duration_secs != null ? String(scene.pcap_duration_secs) : '';
+		editCaptureFiles = (scene.files?.map((file) => file.pcap_file) ?? []).join('\n');
+
+		try {
+			const full = await getLidarClip(scene.clip_id);
+			if (selectedScene?.clip_id === full.clip_id) {
+				selectedScene = full;
+				editCaptureFiles = (full.files?.map((file) => file.pcap_file) ?? []).join('\n');
+			}
+		} catch {
+			// The row's own fields already cover the common case; the detail
+			// fetch only adds the file list and location, so failing quietly
+			// leaves the panel usable rather than blocking on a second load.
+		}
+	}
+
+	function deselectScene() {
+		selectedScene = null;
+		editDescription = '';
+		editOptimalParams = '';
+		editPcapStartSecs = '';
+		editPcapDurationSecs = '';
+		editCaptureFiles = '';
+		saveError = null;
+	}
+
+	async function handleCreate() {
+		creating = true;
+		createError = null;
+		try {
+			const scene = await createLidarClip({
+				sensor_id: newSensorId,
+				pcap_files: [newPcapFile],
+				description: newDescription || undefined,
+				pcap_start_secs: newPcapStartSecs ? parseFloat(newPcapStartSecs) : undefined,
+				pcap_duration_secs: newPcapDurationSecs ? parseFloat(newPcapDurationSecs) : undefined
+			});
+			scenes = [...scenes, scene];
+			// Reset form
+			newPcapFile = '';
+			newDescription = '';
+			newPcapStartSecs = '';
+			newPcapDurationSecs = '';
+			showCreateForm = false;
+		} catch (e) {
+			createError = e instanceof Error ? e.message : 'Could not create the clip.';
+		} finally {
+			creating = false;
+		}
+	}
+
+	async function handleUpdate() {
+		if (!selectedScene) return;
+		saving = true;
+		saveError = null;
+		try {
+			const optimalParams = parseJSONObject(editOptimalParams);
+			const updated = await updateLidarClip(selectedScene.clip_id, {
+				description: editDescription || undefined,
+				optimal_params_json: optimalParams ?? undefined,
+				pcap_start_secs: editPcapStartSecs ? parseFloat(editPcapStartSecs) : undefined,
+				pcap_duration_secs: editPcapDurationSecs ? parseFloat(editPcapDurationSecs) : undefined,
+				pcap_files: editCaptureFiles
+					.split('\n')
+					.map((path) => path.trim())
+					.filter(Boolean)
+			});
+			// Update in list
+			scenes = scenes.map((s) => (s.clip_id === updated.clip_id ? updated : s));
+			selectScene(updated);
+		} catch (e) {
+			saveError = e instanceof Error ? e.message : 'Could not update the clip.';
+		} finally {
+			saving = false;
+		}
+	}
+
+	async function handleDelete(sceneId: string) {
+		if (!confirm('Delete this clip? Cannot be undone.')) return;
+		try {
+			await deleteLidarClip(sceneId);
+			scenes = scenes.filter((s) => s.clip_id !== sceneId);
+			if (selectedScene?.clip_id === sceneId) {
+				deselectScene();
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not delete the clip.';
+		}
+	}
+
+	function formatDate(ns: number): string {
+		if (!ns) return '-';
+		return new Date(ns / 1e6).toLocaleDateString();
+	}
+
+	function formatJSONForEditor(value: unknown): string {
+		if (value == null || value === '') return '';
+		if (typeof value === 'string') {
+			try {
+				return JSON.stringify(JSON.parse(value), null, 2);
+			} catch {
+				return value;
+			}
+		}
+		try {
+			return JSON.stringify(value, null, 2);
+		} catch {
+			return String(value);
+		}
+	}
+
+	function parseJSONObject(text: string): Record<string, unknown> | null {
+		const trimmed = text.trim();
+		if (trimmed === '') return null;
+
+		const parsed = JSON.parse(trimmed);
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+			throw new Error('Recommended parameters must be a JSON object');
+		}
+		return parsed as Record<string, unknown>;
+	}
+
+	function shortID(value?: string): string {
+		if (!value) return '-';
+		return value.length > 12 ? value.substring(0, 12) : value;
+	}
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+		return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+	}
+
+	async function handleScanPcap() {
+		scanning = true;
+		scanError = null;
+		pcapFiles = [];
+		selectedFiles = new SvelteSet();
+		try {
+			const result = await scanPcapFiles();
+			pcapFiles = Array.isArray(result.files) ? result.files : [];
+			pcapDir = result.pcap_dir;
+			showScanPanel = true;
+		} catch (e) {
+			scanError = e instanceof Error ? e.message : 'Could not scan for PCAP files.';
+		} finally {
+			scanning = false;
+		}
+	}
+
+	function toggleFileSelection(path: string) {
+		const next = new SvelteSet(selectedFiles);
+		if (next.has(path)) {
+			next.delete(path);
+		} else {
+			next.add(path);
+		}
+		selectedFiles = next;
+	}
+
+	function selectAllFiles() {
+		const available = pcapFiles.filter((f) => !f.in_use);
+		if (selectedFiles.size === available.length) {
+			selectedFiles = new SvelteSet();
+		} else {
+			selectedFiles = new SvelteSet(available.map((f) => f.path));
+		}
+	}
+
+	async function handleCreateFromSelection() {
+		if (selectedFiles.size === 0) return;
+		bulkCreating = true;
+		scanError = null;
+		// Filename order: sequential capture names (…_00001.pcap, …_00002.pcap)
+		// sort correctly this way, which is what a join needs — the server
+		// checks the packets themselves abut, but the order they are offered in
+		// is this array's.
+		const paths = [...selectedFiles].sort();
+		const label = paths[0].replace(/\.[^.]+$/, '').replace(/[/_-]/g, ' ');
+		try {
+			const scene = await createClipFromCaptures({
+				sensor_id: newSensorId,
+				pcap_files: paths,
+				description: paths.length > 1 ? `${label} (${paths.length} joined)` : label
+			});
+			scenes = [...scenes, scene];
+			showScanPanel = false;
+			selectedFiles = new SvelteSet();
+			// Refresh to pick up in_use flags.
+			await loadScenes();
+		} catch (e) {
+			scanError = e instanceof Error ? e.message : 'Could not create the clip.';
+		} finally {
+			bulkCreating = false;
+		}
+	}
+
+	onMount(async () => {
+		await loadScenes();
+		// Other pages link to one clip with ?id=; open it once the list is in.
+		const linked = linkedId(page.url);
+		const scene = linked ? scenes.find((s) => s.clip_id === linked) : undefined;
+		if (scene) selectScene(scene);
+	});
+</script>
+
+<svelte:head>
+	<title>Clips — velocity.report</title>
+</svelte:head>
+
+<main id="main-content" class="vr-page">
+	<!-- Header -->
+	<div class="vr-toolbar">
+		<div class="flex items-center justify-between">
+			<div>
+				<h1 class="text-surface-content text-2xl font-semibold">Clips</h1>
+				<p class="text-surface-content/60 mt-1 text-sm">
+					A clip is a window of captures kept for labelling tracks, scoring runs and tuning
+					parameters. Make one from a session on
+					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>
+					or from a ranked window on
+					<a href={resolve('/lidar/segments')} class="text-primary hover:underline">Segments</a>;
+					<a href={resolve('/lidar/clip-locations')} class="text-primary hover:underline"
+						>Locations</a
+					>
+					shows where the located ones were captured.
+				</p>
+			</div>
+			<div class="flex gap-2">
+				<Button variant="outline" on:click={handleScanPcap} disabled={scanning}>
+					{scanning ? 'Scanning...' : 'Scan PCAP Folder'}
+				</Button>
+				<Button variant="fill" color="primary" on:click={() => (showCreateForm = !showCreateForm)}>
+					{showCreateForm ? 'Cancel' : 'New Clip'}
+				</Button>
+			</div>
+		</div>
+	</div>
+
+	<div class="flex flex-1 overflow-hidden">
+		<!-- Left: Survey List -->
+		<div class="flex-1 overflow-y-auto p-6">
+			{#if error}
+				<div class="mb-4 rounded bg-red-50 px-4 py-3 text-sm text-red-600">
+					{error}
+					<button class="ml-2 underline" on:click={loadScenes}>Retry</button>
+				</div>
+			{/if}
+
+			<!-- Create Form -->
+			{#if showCreateForm}
+				<div class="bg-surface-100 border-surface-content/10 mb-6 rounded-lg border p-6">
+					<h2 class="text-surface-content mb-4 text-lg font-semibold">Create New Clip</h2>
+
+					{#if createError}
+						<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+							{createError}
+						</div>
+					{/if}
+
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<label for="new-sensor" class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Sensor</label
+							>
+							<SelectField
+								label=""
+								bind:value={newSensorId}
+								options={[{ label: 'Hesai Pandar40P', value: 'hesai-pandar40p' }]}
+								size="sm"
+							/>
+						</div>
+						<div>
+							<label for="new-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>PCAP File</label
+							>
+							<input
+								id="new-pcap"
+								type="text"
+								bind:value={newPcapFile}
+								placeholder="path/to/capture.pcap"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
+						</div>
+						<div class="col-span-2">
+							<label for="new-desc" class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Description</label
+							>
+							<textarea
+								id="new-desc"
+								bind:value={newDescription}
+								placeholder="Describe what the clip covers..."
+								rows="2"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							></textarea>
+						</div>
+						<div>
+							<label for="new-start" class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Start Offset (seconds)</label
+							>
+							<input
+								id="new-start"
+								type="text"
+								bind:value={newPcapStartSecs}
+								placeholder="0"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
+						</div>
+						<div>
+							<label
+								for="new-duration"
+								class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Duration (seconds)</label
+							>
+							<input
+								id="new-duration"
+								type="text"
+								bind:value={newPcapDurationSecs}
+								placeholder="Full PCAP"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
+						</div>
+					</div>
+
+					<div class="mt-4 flex justify-end gap-2">
+						<Button variant="outline" on:click={() => (showCreateForm = false)} disabled={creating}>
+							Cancel
+						</Button>
+						<Button
+							variant="fill"
+							color="primary"
+							on:click={handleCreate}
+							disabled={creating || !newPcapFile}
+						>
+							{creating ? 'Creating...' : 'Create Clip'}
+						</Button>
+					</div>
+				</div>
+			{/if}
+
+			<!-- Scan PCAP Panel -->
+			{#if showScanPanel}
+				<div class="bg-surface-100 border-surface-content/10 mb-6 rounded-lg border p-6">
+					<div class="mb-4 flex items-center justify-between">
+						<h2 class="text-surface-content text-lg font-semibold">
+							PCAP Files
+							{#if pcapDir}
+								<span class="text-surface-content/50 ml-2 text-sm font-normal">({pcapDir})</span>
+							{/if}
+						</h2>
+						<button
+							class="text-surface-content/50 hover:text-surface-content text-sm"
+							on:click={() => (showScanPanel = false)}
+						>
+							Close
+						</button>
+					</div>
+
+					{#if scanError}
+						<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">
+							{scanError}
+						</div>
+					{/if}
+
+					{#if pcapFiles.length === 0}
+						<div class="text-surface-content/50 py-4 text-center text-sm">
+							No PCAP files found in the configured directory.
+						</div>
+					{:else}
+						<div class="mb-3 flex items-center justify-between">
+							<button class="text-sm text-blue-600 hover:text-blue-800" on:click={selectAllFiles}>
+								{selectedFiles.size === pcapFiles.filter((f) => !f.in_use).length
+									? 'Deselect All'
+									: 'Select All Available'}
+							</button>
+							{#if selectedFiles.size > 0}
+								<Button
+									variant="fill"
+									color="primary"
+									size="sm"
+									on:click={handleCreateFromSelection}
+									disabled={bulkCreating}
+								>
+									{bulkCreating
+										? 'Creating...'
+										: selectedFiles.size > 1
+											? `Join ${selectedFiles.size} Selected into One Clip`
+											: 'Add Selected as a Clip'}
+								</Button>
+							{/if}
+						</div>
+
+						<div class="border-surface-content/10 max-h-[300px] overflow-y-auto rounded border">
+							<table class="w-full text-sm">
+								<thead class="bg-surface-200 sticky top-0">
+									<tr>
+										<th class="w-8 px-3 py-2"></th>
+										<th class="text-surface-content/70 px-3 py-2 text-left font-medium">File</th>
+										<th class="text-surface-content/70 px-3 py-2 text-right font-medium">Size</th>
+										<th class="text-surface-content/70 px-3 py-2 text-right font-medium">Status</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each pcapFiles as file (file.path)}
+										<tr
+											class="border-surface-content/5 border-t {file.in_use
+												? 'opacity-50'
+												: 'hover:bg-surface-200/50 cursor-pointer'}"
+											on:click={() => !file.in_use && toggleFileSelection(file.path)}
+										>
+											<td class="px-3 py-2 text-center">
+												{#if file.in_use}
+													<span class="text-surface-content/30">-</span>
+												{:else}
+													<input
+														type="checkbox"
+														checked={selectedFiles.has(file.path)}
+														on:click|stopPropagation={() => toggleFileSelection(file.path)}
+													/>
+												{/if}
+											</td>
+											<td class="text-surface-content px-3 py-2 font-mono">
+												{file.path}
+											</td>
+											<td class="text-surface-content/60 px-3 py-2 text-right">
+												{formatFileSize(file.size_bytes)}
+											</td>
+											<td class="px-3 py-2 text-right">
+												{#if file.in_use}
+													<span class="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700"
+														>In Use</span
+													>
+												{:else}
+													<span class="text-surface-content/40 text-xs">Available</span>
+												{/if}
+											</td>
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			<!-- Survey Table -->
+			{#if loading}
+				<div class="text-surface-content/50 py-12 text-center">Loading clips...</div>
+			{:else if scenes.length === 0}
+				<div class="text-surface-content/50 py-12 text-center">
+					<p>No clips yet.</p>
+					<p class="mt-1 text-sm">
+						Make one from a session on
+						<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>
+						to start labelling tracks.
+					</p>
+				</div>
+			{:else}
+				<div class="bg-surface-100 border-surface-content/10 overflow-hidden rounded-lg border">
+					<table class="w-full">
+						<thead>
+							<tr class="border-surface-content/10 border-b">
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									>Description</th
+								>
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									>PCAP File</th
+								>
+								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
+									>Files</th
+								>
+								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									>Created</th
+								>
+								<th class="text-surface-content/70 px-4 py-3 text-right text-sm font-medium"
+									>Actions</th
+								>
+							</tr>
+						</thead>
+						<tbody>
+							{#each scenes as scene (scene.clip_id)}
+								{@const isSelected = selectedScene?.clip_id === scene.clip_id}
+								<tr
+									class="border-surface-content/10 hover:bg-surface-200/50 cursor-pointer border-b transition-colors last:border-b-0 {isSelected
+										? 'bg-primary/5'
+										: ''}"
+									on:click={() => selectScene(scene)}
+								>
+									<td class="text-surface-content px-4 py-3 text-sm">
+										{scene.description || scene.clip_id.substring(0, 8)}
+									</td>
+									<td class="text-surface-content/70 max-w-[200px] truncate px-4 py-3 text-sm">
+										{scene.files?.map((capture) => capture.pcap_file).join(', ')}
+									</td>
+									<td class="px-4 py-3 text-right text-sm">
+										{#if scene.file_count > 1}
+											<span
+												class="rounded bg-sky-100 px-2 py-0.5 text-xs text-sky-700"
+												title="{scene.file_count} captures joined into one recording"
+											>
+												{scene.file_count} joined
+											</span>
+										{:else}
+											<span class="text-surface-content/40">1</span>
+										{/if}
+									</td>
+									<td class="text-surface-content/70 px-4 py-3 text-sm">
+										{formatDate(scene.created_at_ns)}
+									</td>
+									<td class="px-4 py-3 text-right">
+										<button
+											class="text-sm text-red-500 hover:text-red-700"
+											on:click|stopPropagation={() => handleDelete(scene.clip_id)}
+										>
+											Delete
+										</button>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{/if}
+		</div>
+
+		<!-- Right: Edit Panel -->
+		{#if selectedScene}
+			<div
+				class="border-surface-content/10 bg-surface-100 w-[400px] flex-none overflow-y-auto border-l p-6"
+			>
+				<div class="mb-4 flex items-center justify-between">
+					<h2 class="text-surface-content text-lg font-semibold">Edit Clip</h2>
+					<button
+						class="text-surface-content/50 hover:text-surface-content text-sm"
+						on:click={deselectScene}
+					>
+						Close
+					</button>
+				</div>
+
+				<div class="text-surface-content/50 mb-2 font-mono text-xs">
+					{selectedScene.clip_id}
+				</div>
+
+				<div class="mb-4 text-sm">
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						href={`${resolve('/lidar/tracks')}?${tracksQuery({
+							sensorId: selectedScene.sensor_id,
+							clipId: selectedScene.clip_id
+						})}`}
+						class="text-primary hover:underline">Open in Tracks →</a
+					>
+					<!-- eslint-enable svelte/no-navigation-without-resolve -->
+				</div>
+
+				{#if saveError}
+					<div class="mb-4 rounded bg-red-50 px-3 py-2 text-sm text-red-600">{saveError}</div>
+				{/if}
+
+				<div class="space-y-4">
+					<div>
+						<label for="edit-desc" class="text-surface-content/70 mb-1 block text-sm font-medium"
+							>Description</label
+						>
+						<textarea
+							id="edit-desc"
+							bind:value={editDescription}
+							rows="3"
+							class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+						></textarea>
+					</div>
+
+					<div>
+						<label for="edit-pcap" class="text-surface-content/70 mb-1 block text-sm font-medium"
+							>Captures, in replay order</label
+						>
+						<textarea
+							id="edit-pcap"
+							bind:value={editCaptureFiles}
+							rows="5"
+							class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 font-mono text-xs"
+							placeholder="one capture path per line"></textarea>
+						<p class="text-surface-content/40 mt-1 text-xs">
+							One capture per line. The server checks that adjacent captures form one continuous
+							recording.
+						</p>
+					</div>
+
+					{#if selectedScene.location}
+						<div>
+							<div class="text-surface-content/70 mb-1 flex justify-between text-sm font-medium">
+								<span>Captured at</span>
+								<a
+									href={resolve('/lidar/clip-locations')}
+									class="text-primary text-xs font-normal hover:underline">Locations →</a
+								>
+							</div>
+							<div
+								class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-xs"
+							>
+								{selectedScene.location.origin_lat.toFixed(5)}, {selectedScene.location.origin_lon.toFixed(
+									5
+								)}
+								<span class="text-surface-content/40 ml-2">
+									L16 {selectedScene.location.s2_l16_display}
+								</span>
+							</div>
+						</div>
+					{/if}
+
+					<div>
+						<label for="edit-sensor" class="text-surface-content/70 mb-1 block text-sm font-medium"
+							>Sensor</label
+						>
+						<div class="text-surface-content/60 bg-surface-200 rounded px-3 py-2 font-mono text-sm">
+							{selectedScene.sensor_id}
+						</div>
+					</div>
+
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<label for="edit-start" class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Start (seconds)</label
+							>
+							<input
+								id="edit-start"
+								type="text"
+								bind:value={editPcapStartSecs}
+								placeholder="0"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
+						</div>
+						<div>
+							<label
+								for="edit-duration"
+								class="text-surface-content/70 mb-1 block text-sm font-medium"
+								>Duration (seconds)</label
+							>
+							<input
+								id="edit-duration"
+								type="text"
+								bind:value={editPcapDurationSecs}
+								placeholder="Full PCAP"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 text-sm"
+							/>
+						</div>
+					</div>
+
+					<div>
+						<label for="edit-params" class="text-surface-content/70 mb-1 block text-sm font-medium"
+							>Recommended Parameters (JSON)</label
+						>
+						<textarea
+							id="edit-params"
+							bind:value={editOptimalParams}
+							rows="6"
+							placeholder={'{"background_threshold": 0.5, ...}'}
+							class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 font-mono text-xs"
+						></textarea>
+						<p class="text-surface-content/40 mt-1 text-xs">
+							Best-known parameters for this clip, saved by auto-tuning.
+						</p>
+					</div>
+
+					{#if selectedScene.recommended_param_set_id}
+						<div>
+							<div class="text-surface-content/70 mb-2 block text-sm font-medium">
+								Recommended Param Set
+							</div>
+							<dl class="text-sm">
+								<div class="flex justify-between py-1">
+									<dt class="text-surface-content/60">Param Set</dt>
+									<dd class="text-surface-content font-mono text-xs">
+										{shortID(selectedScene.recommended_param_set_id)}
+									</dd>
+								</div>
+								{#if selectedScene.recommended_params_hash}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Params Hash</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{shortID(selectedScene.recommended_params_hash)}
+										</dd>
+									</div>
+								{/if}
+								{#if selectedScene.recommended_schema_version}
+									<div class="flex justify-between py-1">
+										<dt class="text-surface-content/60">Schema</dt>
+										<dd class="text-surface-content font-mono text-xs">
+											{selectedScene.recommended_schema_version}
+										</dd>
+									</div>
+								{/if}
+							</dl>
+							{#if selectedScene.recommended_params}
+								<pre
+									class="bg-surface-200 text-surface-content mt-2 max-h-[240px] overflow-auto rounded p-3 font-mono text-xs">{JSON.stringify(
+										selectedScene.recommended_params,
+										null,
+										2
+									)}</pre>
+							{/if}
+						</div>
+					{/if}
+
+					<div class="flex justify-end pt-2">
+						<Button variant="fill" color="primary" on:click={handleUpdate} disabled={saving}>
+							{saving ? 'Saving...' : 'Save Changes'}
+						</Button>
+					</div>
+				</div>
+			</div>
+		{/if}
+	</div>
+</main>

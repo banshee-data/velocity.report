@@ -216,7 +216,7 @@ func TestStartPCAPLockedRejectsABrokenSequenceBeforeStarting(t *testing.T) {
 	if !strings.Contains(err.Error(), "continuous") {
 		t.Errorf("error %q does not explain the sequence is not continuous", err)
 	}
-	if state := ws.PipelineState(); state.Source == SourceModePCAP {
+	if state := ws.PipelineState(); state.Source == SourceModeCapture {
 		t.Error("a refused sequence left the PCAP slot claimed")
 	}
 }

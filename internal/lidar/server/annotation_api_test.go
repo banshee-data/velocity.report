@@ -54,9 +54,9 @@ func writeTestVRLOG(t *testing.T, frameCount int) string {
 
 // insertRunWithVRLog is setupTestRun plus a VRLogPath, since the export
 // endpoint's whole reason to run is a run that has one.
-func insertRunWithVRLog(t *testing.T, store *sqlite.AnalysisRunStore, runID, vrlogPath string) {
+func insertRunWithVRLog(t *testing.T, store *sqlite.RunStore, runID, vrlogPath string) {
 	t.Helper()
-	run := &sqlite.AnalysisRun{
+	run := &sqlite.Run{
 		RunID: runID, SensorID: "annotation-export-test", SourceType: "pcap",
 		SourcePath: "/test/data.pcap", Status: "completed", VRLogPath: vrlogPath,
 	}
@@ -173,7 +173,7 @@ func TestHandleAnnotationExportReportsRunLookupFailure(t *testing.T) {
 func TestHandleAnnotationExportRunWithoutVRLog(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	setupTestRun(t, store, "no-vrlog-run") // the shared fixture sets no VRLogPath
 
 	ws := &Server{db: testDB, annotationPacksDir: t.TempDir()}
@@ -189,7 +189,7 @@ func TestHandleAnnotationExportRefusesAVRLogOutsideTheSafeDirectory(t *testing.T
 	// rather than read whatever is there.
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 
 	elsewhere := writeTestVRLOG(t, 3)
 	insertRunWithVRLog(t, store, "escaping-run", elsewhere)
@@ -207,7 +207,7 @@ func TestHandleAnnotationExportRefusesAVRLogOutsideTheSafeDirectory(t *testing.T
 func TestHandleAnnotationExportWritesAnOpenablePack(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 
 	vrlogDir := writeTestVRLOG(t, 3)
 	insertRunWithVRLog(t, store, "good-run", vrlogDir)
@@ -273,7 +273,7 @@ func TestHandleAnnotationExportWritesAnOpenablePack(t *testing.T) {
 func TestHandleAnnotationExportCreatesAMissingPacksDirectory(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 
 	vrlogDir := writeTestVRLOG(t, 3)
 	insertRunWithVRLog(t, store, "first-export", vrlogDir)
@@ -296,7 +296,7 @@ func TestHandleAnnotationExportCreatesAMissingPacksDirectory(t *testing.T) {
 func TestHandleAnnotationExportRejectsUnusablePackPaths(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	vrlogDir := writeTestVRLOG(t, 3)
 
 	t.Run("packs root is a file", func(t *testing.T) {
@@ -326,7 +326,7 @@ func TestHandleAnnotationExportRejectsUnusablePackPaths(t *testing.T) {
 func TestHandleAnnotationExportMaxSamplesCapsTheExport(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 
 	vrlogDir := writeTestVRLOG(t, 5)
 	insertRunWithVRLog(t, store, "capped-run", vrlogDir)
@@ -369,7 +369,7 @@ func TestHandleAnnotationExportCleansUpAFailedExport(t *testing.T) {
 	// cause.
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 
 	vrlogDir := writeTestVRLOG(t, 3) // timestamps 1s..3s
 	insertRunWithVRLog(t, store, "empty-window-run", vrlogDir)
@@ -402,7 +402,7 @@ func TestHandleAnnotationExportReportsCorruptVRLOG(t *testing.T) {
 	// not suggest an operator can repair it by simply changing the window.
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	vrlogDir := filepath.Join(t.TempDir(), "corrupt-vrlog")
 	if err := os.Mkdir(vrlogDir, 0o755); err != nil {
 		t.Fatalf("create corrupt VRLOG directory: %v", err)
@@ -423,7 +423,7 @@ func TestHandleAnnotationExportRoutesThroughTheDispatcher(t *testing.T) {
 	// itself 404s.
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	vrlogDir := writeTestVRLOG(t, 2)
 	insertRunWithVRLog(t, store, "dispatch-run", vrlogDir)
 
@@ -482,7 +482,7 @@ func TestHeightBandFromRunConfig(t *testing.T) {
 func TestHandleAnnotationExportRefusesFullCoverageOfForegroundOnly(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	packsDir := t.TempDir()
 	ws := &Server{db: testDB, annotationPacksDir: packsDir, vrlogSafeDir: t.TempDir()}
 	dir := filepath.Join(ws.vrlogSafeDir, "fg-only")
@@ -527,7 +527,7 @@ func TestHandleAnnotationExportRefusesFullCoverageOfForegroundOnly(t *testing.T)
 func TestHandleAnnotationExportRefusesARecordingWithoutReturnIdentity(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	packsDir := t.TempDir()
 	ws := &Server{db: testDB, annotationPacksDir: packsDir, vrlogSafeDir: t.TempDir()}
 	dir := filepath.Join(ws.vrlogSafeDir, "old")
@@ -565,7 +565,7 @@ func TestHandleAnnotationExportRefusesARecordingWithoutReturnIdentity(t *testing
 func TestHandleAnnotationExportReportsAPackItCannotPlace(t *testing.T) {
 	testDB, cleanup := setupTestDBWrapped(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(testDB)
+	store := sqlite.NewRunStore(testDB)
 	vrlogDir := writeTestVRLOG(t, 3)
 	insertRunWithVRLog(t, store, "good-run", vrlogDir)
 	packsRoot := t.TempDir()

@@ -4,12 +4,12 @@ import "fmt"
 
 // ImmutableRunConfigBackfillResult holds backfill counters.
 type ImmutableRunConfigBackfillResult struct {
-	RunsSeen           int
-	RunsUpdated        int
-	RunsSkipped        int
-	ReplayCasesSeen    int
-	ReplayCasesUpdated int
-	ReplayCasesSkipped int
+	RunsSeen     int
+	RunsUpdated  int
+	RunsSkipped  int
+	ClipsSeen    int
+	ClipsUpdated int
+	ClipsSkipped int
 }
 
 // BackfillImmutableRunConfigReferences is a no-op after migration 000036

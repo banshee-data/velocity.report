@@ -58,7 +58,7 @@ func main() {
 		fatal(fmt.Errorf("open database: %w", err))
 	}
 	defer database.Close()
-	store := sqlite.NewReplayCaseStore(database)
+	store := sqlite.NewClipStore(database)
 
 	created, updated := 0, 0
 	for _, entry := range entries {
@@ -74,32 +74,32 @@ func main() {
 		description := fmt.Sprintf("S2 archive: %s (%.1f min across %d captures)", entry.Where, entry.Minutes, len(files))
 		wasCreated := caseID == ""
 		if wasCreated {
-			caseValue := &sqlite.ReplayCase{SensorID: *sensorID, PCAPFile: files[0], Description: description}
-			if err := store.InsertScene(caseValue); err != nil {
+			caseValue := &sqlite.Clip{SensorID: *sensorID, Files: []sqlite.ClipCapture{{PCAPFile: files[0]}}, Description: description}
+			if err := store.InsertClip(caseValue); err != nil {
 				fatal(fmt.Errorf("create %s: %w", entry.ID, err))
 			}
-			caseID = caseValue.ReplayCaseID
-			if err := store.SetCaseSession(caseID, "", sourcePeriodID); err != nil {
+			caseID = caseValue.ClipID
+			if err := store.SetClipSession(caseID, "", sourcePeriodID); err != nil {
 				fatal(fmt.Errorf("identify %s: %w", entry.ID, err))
 			}
 			created++
 		} else {
 			if _, err := database.Exec(`
-				UPDATE lidar_replay_cases SET pcap_file = ?, description = ?, updated_at_ns = ?
-				 WHERE replay_case_id = ?`, files[0], description, time.Now().UnixNano(), caseID); err != nil {
+				UPDATE lidar_clips SET pcap_file = ?, description = ?, updated_at_ns = ?
+				 WHERE clip_id = ?`, files[0], description, time.Now().UnixNano(), caseID); err != nil {
 				fatal(fmt.Errorf("update %s: %w", entry.ID, err))
 			}
 			updated++
 		}
 
-		caseFiles := make([]sqlite.ReplayCaseFile, len(files))
+		caseFiles := make([]sqlite.ClipCapture, len(files))
 		for i, file := range files {
-			caseFiles[i] = sqlite.ReplayCaseFile{Ordinal: i, PCAPFile: file}
+			caseFiles[i] = sqlite.ClipCapture{Ordinal: i, PCAPFile: file}
 		}
-		if err := store.SetCaseFiles(caseID, caseFiles); err != nil {
+		if err := store.SetClipFiles(caseID, caseFiles); err != nil {
 			fatal(fmt.Errorf("set captures for %s: %w", entry.ID, err))
 		}
-		if _, err := store.SetCaseLocation(caseID, entry.Lat, entry.Lon, sqlite.GeoSourceOperator); err != nil {
+		if _, err := store.SetClipLocation(caseID, entry.Lat, entry.Lon, sqlite.GeoSourceOperator); err != nil {
 			fatal(fmt.Errorf("set location for %s: %w", entry.ID, err))
 		}
 		verb := "updated"
@@ -169,7 +169,7 @@ func selectEntries(entries []siteIndexEntry, only string) ([]siteIndexEntry, err
 
 func findImportedCase(database *db.DB, sourcePeriodID string) (string, error) {
 	var caseID string
-	err := database.QueryRow(`SELECT replay_case_id FROM lidar_replay_cases WHERE source_period_id = ?`, sourcePeriodID).Scan(&caseID)
+	err := database.QueryRow(`SELECT clip_id FROM lidar_clips WHERE source_period_id = ?`, sourcePeriodID).Scan(&caseID)
 	if err == sqlite.ErrNotFound {
 		return "", nil
 	}

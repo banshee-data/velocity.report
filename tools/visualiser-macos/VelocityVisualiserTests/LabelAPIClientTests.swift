@@ -283,7 +283,7 @@ func makeMockLabelClient() -> (LabelAPIClient, URLSession) {
     config.protocolClasses = [MockURLProtocol.self]
     let session = URLSession(configuration: config)
     let client = LabelAPIClient(baseURL: URL(string: "http://localhost:8080")!, session: session)
-    client.replayCaseID = "replay-case-001"
+    client.clipID = "clip-001"
     client.runID = "run-001"
     return (client, session)
 }
@@ -343,7 +343,7 @@ final class LabelAPIClientHTTPTests: XCTestCase {
             if let body = request.httpBody,
                 let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
             {
-                XCTAssertEqual(json["replay_case_id"] as? String, "replay-case-001")
+                XCTAssertEqual(json["clip_id"] as? String, "clip-001")
                 XCTAssertEqual(json["end_timestamp_ns"] as? Int64, 2_000_000_000)
                 if let confidence = json["confidence"] as? Double {
                     XCTAssertEqual(confidence, 0.95, accuracy: 0.01)
@@ -383,7 +383,7 @@ final class LabelAPIClientHTTPTests: XCTestCase {
 
     func testGetLabelsForSession() async throws {
         let (client, _) = makeMockLabelClient()
-        client.replayCaseID = "replay-case-session"
+        client.clipID = "clip-session"
 
         let responseJSON = """
             [{
@@ -398,7 +398,7 @@ final class LabelAPIClientHTTPTests: XCTestCase {
             """
         MockURLProtocol.requestHandler = { request in
             XCTAssertTrue(
-                request.url!.absoluteString.contains("replay_case_id=replay-case-session"))
+                request.url!.absoluteString.contains("clip_id=clip-session"))
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, responseJSON.data(using: .utf8)!)
@@ -500,7 +500,7 @@ final class LabelAPIClientHTTPTests: XCTestCase {
 
     func testExportLabels() async throws {
         let (client, _) = makeMockLabelClient()
-        client.replayCaseID = "replay-case-export"
+        client.clipID = "clip-export"
 
         let exportData = """
             {"labels": [{"track_id": "t1", "class_label": "car"}]}
@@ -508,7 +508,7 @@ final class LabelAPIClientHTTPTests: XCTestCase {
 
         MockURLProtocol.requestHandler = { request in
             XCTAssertTrue(request.url!.path.contains("export"))
-            XCTAssertTrue(request.url!.absoluteString.contains("replay_case_id=replay-case-export"))
+            XCTAssertTrue(request.url!.absoluteString.contains("clip_id=clip-export"))
             let response = HTTPURLResponse(
                 url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, exportData)

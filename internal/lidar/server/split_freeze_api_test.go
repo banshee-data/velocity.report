@@ -47,7 +47,7 @@ func TestSplitFreezeAPIOptionalFacetPins(t *testing.T) {
 	c := physicalClient{t: t, base: srv.URL}
 	draft := splitDraftFor("kirk0/packs/run-a")
 	draft["packs"].([]any)[0].(map[string]any)["feature_revision"] = 0
-	status, preview := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": draft})
+	status, preview := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": draft})
 	if status != 200 || preview["would_freeze"] != true {
 		t.Fatal(status, preview)
 	}
@@ -55,7 +55,7 @@ func TestSplitFreezeAPIOptionalFacetPins(t *testing.T) {
 	if pin["revision"] != float64(1) || pin["candidates"] != float64(0) {
 		t.Fatal(pin)
 	}
-	status, out := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": draft, "author": "operator", "output": "facets.json"})
+	status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": draft, "author": "operator", "output": "facets.json"})
 	if status != 200 {
 		t.Fatal(status, out)
 	}
@@ -71,7 +71,7 @@ func TestSplitFreezeAPIOptionalFacetPins(t *testing.T) {
 		t.Fatal(err)
 	}
 	draft["packs"].([]any)[0].(map[string]any)["feature_revision"] = 99
-	if status, _ := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": draft}); status != http.StatusUnprocessableEntity {
+	if status, _ := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": draft}); status != http.StatusUnprocessableEntity {
 		t.Fatalf("missing facet revision response: %d", status)
 	}
 }
@@ -90,12 +90,12 @@ func TestSplitFreezeAPIPreviewsFreezesAndLists(t *testing.T) {
 	defer srv.Close()
 	c := physicalClient{t: t, base: srv.URL}
 	s := state(c)
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(s, []annotation.PhysicalObject{physicalTestObject()})); status != 200 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(s, []annotation.PhysicalObject{physicalTestObject()})); status != 200 {
 		t.Fatalf("save: %d %v", status, out)
 	}
 	s = state(c)
 	for _, r := range []struct{ kind, id string }{{"body", "body_a"}, {"keyframe", "kf_a"}} {
-		status, out := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+		status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{
 			"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "base_revision": s["revision"], "base_digest": s["digest"],
 			"membership_digest": s["membership_digest"], "kind": r.kind, "object_id": "car-1", "record_id": r.id, "reviewer": "rev"})
 		if status != 200 {
@@ -104,7 +104,7 @@ func TestSplitFreezeAPIPreviewsFreezesAndLists(t *testing.T) {
 		s = out
 	}
 
-	status, preview := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a")})
+	status, preview := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a")})
 	if status != 200 || preview["would_freeze"] != true {
 		t.Fatalf("preview: %d %v", status, preview)
 	}
@@ -119,12 +119,12 @@ func TestSplitFreezeAPIPreviewsFreezesAndLists(t *testing.T) {
 		t.Fatal("preview wrote a split")
 	}
 
-	status, frozen := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{
+	status, frozen := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{
 		"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "pilot.json", "note": "x"})
 	if status != 400 {
 		t.Fatalf("an unknown field (note) was accepted: %d %v", status, frozen)
 	}
-	status, frozen = c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{
+	status, frozen = c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{
 		"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "pilot.json"})
 	// The digest covers the freeze record, author and time included, so the
 	// preview's is the digest of a split that was never written; the frozen
@@ -136,17 +136,17 @@ func TestSplitFreezeAPIPreviewsFreezesAndLists(t *testing.T) {
 	if err != nil || loaded.SplitDigest != frozen["split_digest"] {
 		t.Fatalf("the written split does not read back: %v", err)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{
 		"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "pilot.json"}); status != 409 {
 		t.Fatalf("a second write under one name: %d %v", status, out)
 	}
-	status, again := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{
+	status, again := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{
 		"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "pilot-2.json", "supersedes": "pilot.json"})
 	if status != 200 || again["revision"] != float64(2) {
 		t.Fatalf("supersede: %d %v", status, again)
 	}
 
-	status, listing := c.do(http.MethodGet, "/api/annotations/splits", nil)
+	status, listing := c.do(http.MethodGet, "/api/lidar/annotations/splits", nil)
 	splits, _ := listing["splits"].([]any)
 	if status != 200 || len(splits) != 2 {
 		t.Fatalf("list: %d %v", status, listing)
@@ -154,7 +154,7 @@ func TestSplitFreezeAPIPreviewsFreezesAndLists(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, splitsDirName, "broken.json"), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, listing = c.do(http.MethodGet, "/api/annotations/splits", nil)
+	_, listing = c.do(http.MethodGet, "/api/lidar/annotations/splits", nil)
 	if splits, _ := listing["splits"].([]any); len(splits) != 3 || splits[0].(map[string]any)["error"] == nil {
 		t.Fatalf("a broken split is listed with its error: %v", listing)
 	}
@@ -189,10 +189,10 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 	unconfigured := httptest.NewServer(func() *http.ServeMux { m := http.NewServeMux(); (&Server{}).RegisterRoutes(m); return m }())
 	defer unconfigured.Close()
 	u := physicalClient{t: t, base: unconfigured.URL}
-	if status, out := u.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a")}); status != 501 {
+	if status, out := u.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a")}); status != 501 {
 		t.Fatalf("unconfigured preview: %d %v", status, out)
 	}
-	if status, out := u.do(http.MethodGet, "/api/annotations/splits", nil); status != 501 {
+	if status, out := u.do(http.MethodGet, "/api/lidar/annotations/splits", nil); status != 501 {
 		t.Fatalf("unconfigured list: %d %v", status, out)
 	}
 
@@ -202,21 +202,21 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 		status       int
 		match        string
 	}{
-		"preview GET":        {http.MethodGet, "/api/annotations/split/preview", nil, 405, ""},
-		"freeze GET":         {http.MethodGet, "/api/annotations/split/freeze", nil, 405, ""},
-		"list POST":          {http.MethodPost, "/api/annotations/splits", map[string]any{}, 405, ""},
-		"preview not json":   {http.MethodPost, "/api/annotations/split/preview", "{", 400, ""},
-		"freeze not json":    {http.MethodPost, "/api/annotations/split/freeze", "{", 400, ""},
-		"empty draft":        {http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": map[string]any{}}, 400, "no packs"},
-		"escaping handle":    {http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("../kirk0/packs/run-a")}, 400, "not a pack directory"},
-		"absolute handle":    {http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor(p.Dir)}, 400, "not a pack directory"},
-		"missing pack":       {http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-z")}, 422, ""},
-		"no author":          {http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "output": "a.json"}, 400, "author"},
-		"bad name":           {http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "../x.json"}, 400, "split name"},
-		"not json name":      {http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "x.txt"}, 400, "split name"},
-		"missing supersedes": {http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "x.json", "supersedes": "none.json"}, 400, "supersedes"},
-		"unreviewed freeze":  {http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-b"), "author": "op", "output": "b.json"}, 422, "review"},
-		"manifest escaping":  {http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": map[string]any{"schema": annotation.SplitDraftSchema, "schema_version": annotation.SplitDraftSchemaVersion, "packs": []any{map[string]any{"dir": "kirk0/packs/run-a", "split_manifest": "../m.json"}}}}, 400, "split_manifest"},
+		"preview GET":        {http.MethodGet, "/api/lidar/annotations/split/preview", nil, 405, ""},
+		"freeze GET":         {http.MethodGet, "/api/lidar/annotations/split/freeze", nil, 405, ""},
+		"list POST":          {http.MethodPost, "/api/lidar/annotations/splits", map[string]any{}, 405, ""},
+		"preview not json":   {http.MethodPost, "/api/lidar/annotations/split/preview", "{", 400, ""},
+		"freeze not json":    {http.MethodPost, "/api/lidar/annotations/split/freeze", "{", 400, ""},
+		"empty draft":        {http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": map[string]any{}}, 400, "no packs"},
+		"escaping handle":    {http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("../kirk0/packs/run-a")}, 400, "not a pack directory"},
+		"absolute handle":    {http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor(p.Dir)}, 400, "not a pack directory"},
+		"missing pack":       {http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-z")}, 422, ""},
+		"no author":          {http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "output": "a.json"}, 400, "author"},
+		"bad name":           {http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "../x.json"}, 400, "split name"},
+		"not json name":      {http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "x.txt"}, 400, "split name"},
+		"missing supersedes": {http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "x.json", "supersedes": "none.json"}, 400, "supersedes"},
+		"unreviewed freeze":  {http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-b"), "author": "op", "output": "b.json"}, 422, "review"},
+		"manifest escaping":  {http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": map[string]any{"schema": annotation.SplitDraftSchema, "schema_version": annotation.SplitDraftSchemaVersion, "packs": []any{map[string]any{"dir": "kirk0/packs/run-a", "split_manifest": "../m.json"}}}}, 400, "split_manifest"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			status, out := c.do(tc.method, tc.path, tc.body)
@@ -241,7 +241,7 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(root, "kirk0", annotation.PacksDir, "run-a", "split-v1.json"), manifestBytes, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	status, viaManifest := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{
+	status, viaManifest := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{
 		"guard_seconds": 30,
 		"draft": map[string]any{"schema": annotation.SplitDraftSchema, "schema_version": annotation.SplitDraftSchemaVersion,
 			"packs": []any{map[string]any{"dir": "kirk0/packs/run-a", "split_manifest": "kirk0/packs/run-a/split-v1.json"}}}})
@@ -252,21 +252,21 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 	if err := os.Symlink(t.TempDir(), filepath.Join(root, "escape")); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("escape/pack")}); status != 400 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("escape/pack")}); status != 400 {
 		t.Fatalf("symlinked handle: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("escape/pack"), "author": "op", "output": "x.json"}); status != 400 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("escape/pack"), "author": "op", "output": "x.json"}); status != 400 {
 		t.Fatalf("symlinked handle on freeze: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "supersedes": "../x.json"}); status != 400 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "supersedes": "../x.json"}); status != 400 {
 		t.Fatalf("preview with a bad supersedes name: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "supersedes": "none.json"}); status != 400 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "supersedes": "none.json"}); status != 400 {
 		t.Fatalf("preview with a missing supersedes: %d %v", status, out)
 	}
 
 	// The preview reports what stops a freeze rather than refusing.
-	status, preview := c.do(http.MethodPost, "/api/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-b")})
+	status, preview := c.do(http.MethodPost, "/api/lidar/annotations/split/preview", map[string]any{"draft": splitDraftFor("kirk0/packs/run-b")})
 	if status != 200 || preview["would_freeze"] != false {
 		t.Fatalf("preview of an unreviewed pack: %d %v", status, preview)
 	}
@@ -287,13 +287,13 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(splits, "notes.txt"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/splits", nil); status != 200 || out["count"] != float64(0) {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/splits", nil); status != 200 || out["count"] != float64(0) {
 		t.Fatalf("list with non-splits: %d %v", status, out)
 	}
 	if err := os.Chmod(splits, 0o500); err != nil {
 		t.Fatal(err)
 	}
-	status, out := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "unwritable.json"})
+	status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "unwritable.json"})
 	_ = os.Chmod(splits, 0o755)
 	if status != 500 || !strings.Contains(out["error"].(string), "write split") {
 		t.Fatalf("freeze into an unwritable directory: %d %v", status, out)
@@ -304,10 +304,10 @@ func TestSplitFreezeAPIRefusals(t *testing.T) {
 	if err := os.WriteFile(splits, []byte("not a directory"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/splits", nil); status != 500 {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/splits", nil); status != 500 {
 		t.Fatalf("list with splits as a file: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "x.json"}); status != 500 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/split/freeze", map[string]any{"draft": splitDraftFor("kirk0/packs/run-a"), "author": "op", "output": "x.json"}); status != 500 {
 		t.Fatalf("freeze with splits as a file: %d %v", status, out)
 	}
 }

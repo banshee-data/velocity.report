@@ -445,14 +445,14 @@ struct ProposalPopulationTests {
         let client = PhysicalReferenceAPIClient(baseURL: baseURL, session: urlSession)
         _ = try await client.load(handle: "run-a/pack", packDigest: "sha256:ab+cd", revision: 3)
         let url = try #require(fake.requests.last?.path)
-        #expect(url == "/api/annotations/physical")
+        #expect(url == "/api/lidar/annotations/physical")
         _ = try await client.history(handle: "run-a/pack", packDigest: "sha256:p")
-        #expect(fake.requests.last?.path == "/api/annotations/physical/history")
+        #expect(fake.requests.last?.path == "/api/lidar/annotations/physical/history")
         _ = try await client.restore(
             .init(
                 pack: "run-a/pack", packDigest: "sha256:p", baseRevision: 1, baseDigest: "",
                 membershipDigest: "", revision: 1, author: "op", session: "s"))
-        let sent = try #require(fake.last("/api/annotations/physical/restore"))
+        let sent = try #require(fake.last("/api/lidar/annotations/physical/restore"))
         #expect(
             sent["revision"] as? Int == 1 && sent["author"] as? String == "op"
                 && sent["pack_digest"] as? String == "sha256:p")

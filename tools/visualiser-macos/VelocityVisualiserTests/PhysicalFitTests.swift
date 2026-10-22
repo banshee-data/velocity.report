@@ -156,9 +156,9 @@ struct PhysicalFitTests {
             membershipDigest: { "sha256:members" }, author: { "op" })
         physical.validationDelay = .milliseconds(1)
         await physical.load()
-        fake.override["/api/annotations/physical/fit"] = (200, try fitFixture())
+        fake.override["/api/lidar/annotations/physical/fit"] = (200, try fitFixture())
         #expect(await physical.fit(objectID: "car", scope: .object))
-        let sent = try #require(fake.last("/api/annotations/physical/fit"))
+        let sent = try #require(fake.last("/api/lidar/annotations/physical/fit"))
         #expect(sent["object_id"] as? String == "car")
         #expect(sent["membership_digest"] as? String == "sha256:members")
         #expect(physical.object("car")?.body == (try fitResult().object?.body))
@@ -167,7 +167,7 @@ struct PhysicalFitTests {
         physical.undo()
         #expect(physical.object("car") == nil)
         // A refusal leaves the draft alone and says why.
-        fake.override["/api/annotations/physical/fit"] = (
+        fake.override["/api/lidar/annotations/physical/fit"] = (
             422,
             Data(
                 #"{"error":"3 of object \"car\"'s masks are still proposed","code":"invalid"}"#.utf8

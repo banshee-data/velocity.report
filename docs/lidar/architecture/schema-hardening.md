@@ -22,11 +22,11 @@ already assumes.
 
 ### Alternatives considered
 
-| Option         | Approach                                    | Verdict                                                                                                    |
-| -------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **1 (chosen)** | Replay-own annotations + turn FKs on        | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics        |
-| **2**          | Keep current table, add replay-case FK only | Low effort, **high risk**: preserves the lifecycle bug (annotations still depend on transient live tracks) |
-| **3**          | Do nothing; defer                           | No effort now, **high risk**: release behaviour depends on FK-off connections; orphaning remains possible  |
+| Option         | Approach                             | Verdict                                                                                                    |
+| -------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| **1 (chosen)** | Replay-own annotations + turn FKs on | Medium effort, moderate risk; yields one clear owner per lifecycle and predictable delete semantics        |
+| **2**          | Keep current table, add clip FK only | Low effort, **high risk**: preserves the lifecycle bug (annotations still depend on transient live tracks) |
+| **3**          | Do nothing; defer                    | No effort now, **high risk**: release behaviour depends on FK-off connections; orphaning remains possible  |
 
 ## System boundary diagram
 
@@ -36,7 +36,7 @@ already assumes.
                    |--------------------------------------|
                    | /api/lidar/labels                    |
                    | /api/lidar/runs/.../label            |
-                   | /api/lidar/scenes                    |
+                   | /api/lidar/clips                    |
                    +-------------------+------------------+
                                        |
                                        v
@@ -54,7 +54,7 @@ already assumes.
                  | Replay / run data |   | Live tracking data    |
                  |-------------------|   |-----------------------|
                  | lidar_replay_*    |   | lidar_tracks          |
-                 | lidar_run_records  |   | lidar_track_obs       |
+                 | lidar_runs  |   | lidar_track_obs       |
                  | lidar_run_tracks   |   | prune / clear paths   |
                  +-------------+------+   +-----------+-----------+
                                \                    /
@@ -83,14 +83,14 @@ Principles:
 - Replay case is the durable owner.
 - Canonical track labels stay on `lidar_run_tracks`.
 - Annotations must not depend on the lifetime of `lidar_tracks`.
-- New writes require `replay_case_id`.
+- New writes require `clip_id`.
 
 ### 2. Enable foreign keys and make delete semantics real
 
 - `PRAGMA foreign_keys = ON` in [internal/db/db.go](../../../internal/db/db.go).
 - `lidar_track_observations → lidar_tracks ON DELETE CASCADE`.
-- `parent_run_id → lidar_run_records ON DELETE SET NULL`.
-- Replay evaluations scoped by `(replay_case_id, reference_run_id, candidate_run_id)`.
+- `parent_run_id → lidar_runs ON DELETE SET NULL`.
+- Replay evaluations scoped by `(clip_id, reference_run_id, candidate_run_id)`.
 
 ### 3. Tighten contracts the code already assumes
 
@@ -135,7 +135,7 @@ to match existing Go-side validation:
 - Migrations `000033` and `000034` landed.
 - [internal/db/db.go](../../../internal/db/db.go) enables `PRAGMA foreign_keys = ON`.
 - Label API and storage target `lidar_replay_annotations`.
-- Regression coverage for replay-case delete, run delete, null-site
+- Regression coverage for clip delete, run delete, null-site
   reports, paired annotation links, and transit-link persistence under FK
   enforcement.
 - Schema ordering tool handles self-referential FKs.

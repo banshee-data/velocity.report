@@ -28,7 +28,7 @@ func kirk0Evidence(t testing.TB, pcapPath string) Config {
 	return Config{
 		PCAPFile: pcapPath, SensorID: "test-replay", UDPPort: 2369,
 		StartSeconds: 20, WarmupSeconds: 20, DurationSeconds: 4, RequireSettled: true,
-		ReplayCaseID: "kirk0-test-case", ObservationCalibration: identityReplayCalibration("test-replay"),
+		ClipID: "kirk0-test-case", ObservationCalibration: identityReplayCalibration("test-replay"),
 		ObservationMaxSamplePoints: 64,
 	}
 }
@@ -223,10 +223,10 @@ func TestObservationFramesRequireIdentityAndFailOnRefusal(t *testing.T) {
 	pcapPath := requireKirk0(t)
 	cfg := kirk0Evidence(t, pcapPath)
 	cfg.OutDir = filepath.Join(t.TempDir(), "no-identity")
-	cfg.ReplayCaseID = ""
+	cfg.ClipID = ""
 	cfg.ObservationFrames = func(l4bobserve.FrameRecord) error { return nil }
-	if _, err := Run(cfg); err == nil || !strings.Contains(err.Error(), "ReplayCaseID") {
-		t.Fatalf("tap without a replay case = %v", err)
+	if _, err := Run(cfg); err == nil || !strings.Contains(err.Error(), "ClipID") {
+		t.Fatalf("tap without a clip = %v", err)
 	}
 
 	cfg = kirk0Evidence(t, pcapPath)
@@ -332,7 +332,7 @@ func BenchmarkObservationFrameTapKirk0(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				cfg := Config{PCAPFiles: []string{p}, PCAPSHA256s: []string{digest}, CaptureSequence: sequence,
 					SensorID: "bench-replay", UDPPort: 2369, OutDir: filepath.Join(b.TempDir(), "run"),
-					ReplayCaseID: "kirk0-bench", ObservationCalibration: identityReplayCalibration("bench-replay")}
+					ClipID: "kirk0-bench", ObservationCalibration: identityReplayCalibration("bench-replay")}
 				if variant == "with-tap" {
 					cfg.ObservationFrames = func(record l4bobserve.FrameRecord) error {
 						frames.Add(1)

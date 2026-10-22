@@ -38,7 +38,7 @@ This review focuses on:
 
 - `FrameBuilder` registry: `internal/lidar/frame_builder.go:10`
 - `BackgroundManager` registry: `internal/lidar/background.go:1260`
-- `AnalysisRunManager` registry: `internal/lidar/analysis_run_manager.go:28`
+- `RunManager` registry: `internal/lidar/run_manager.go:28`
 
 ### Roadmap-phase comments have leaked into runtime code
 
@@ -114,7 +114,7 @@ Outcome:
 Problem:
 
 - Pipeline performs SQL writes directly (`internal/lidar/tracking_pipeline.go:345`).
-- Track and scene stores are mixed into the same package as tracking math (`internal/lidar/track_store.go:1`, `internal/lidar/scene_store.go:1`, `internal/lidar/analysis_run.go:1`).
+- Track and scene stores are mixed into the same package as tracking math (`internal/lidar/track_store.go:1`, `internal/lidar/scene_store.go:1`, `internal/lidar/run.go:1`).
 
 Opportunity:
 
@@ -147,7 +147,7 @@ Outcome:
 
 Problem:
 
-- Global registries hide source-of-truth wiring and make behaviour context-dependent (`internal/lidar/analysis_run_manager.go:28`).
+- Global registries hide source-of-truth wiring and make behaviour context-dependent (`internal/lidar/run_manager.go:28`).
 
 Opportunity:
 
@@ -222,7 +222,7 @@ Outcome:
    - **L4 Perception** → `l4perception/`: `clustering.go`, `dbscan_clusterer.go`, `obb.go`, `ground.go`, `voxel.go`, `types.go` (WorldPoint, PointPolar)
    - **L5 Tracks** → `l5tracks/`: `tracking.go` (1487 lines), `tracker_interface.go`, `hungarian.go`, `types.go` (TrackedObject, TrackState)
    - **L6 Objects** → `l6objects/`: `classification.go`, `features.go`, `quality.go`, `types.go`
-   - **Storage** → `storage/sqlite/`: `scene_store.go`, `track_store.go`, `evaluation_store.go`, `sweep_store.go`, `missed_region_store.go`, `analysis_run.go` (1342 lines), `analysis_run_manager.go`
+   - **Storage** → `storage/sqlite/`: `scene_store.go`, `track_store.go`, `evaluation_store.go`, `sweep_store.go`, `missed_region_store.go`, `run.go` (1342 lines), `run_manager.go`
    - Parent files replaced with backward-compatible type aliases
 
 ### Remaining
@@ -263,7 +263,7 @@ Outcome:
 
 12. **Registry reduction**: ✅
     - Added `SensorRuntime` DI container in `pipeline/runtime.go`
-    - Added `NewFrameBuilderDI`, `NewBackgroundManagerDI`, `NewAnalysisRunManagerDI` constructors
+    - Added `NewFrameBuilderDI`, `NewBackgroundManagerDI`, `NewRunManagerDI` constructors
     - Global registries retained for backward compatibility; new code uses explicit wiring
 
 ### Future work
@@ -290,7 +290,7 @@ Outcome:
 | **l5tracks**       | 1,738        | 1,849      | tracking.go (1,488)        | Cohesive; Kalman tracker, lifecycle, metrics                |
 | **l6objects**      | 1,141        | 1,014      | quality.go (388)           | Clean; classification, features, quality, comparison        |
 | **pipeline**       | 608          | 35         | tracking_pipeline.go (541) | Thin orchestrator: expected to be small                     |
-| **storage/sqlite** | 3,552        | 5,551      | analysis_run.go (1,325)    | ✅ Domain logic extracted to l6objects/comparison.go        |
+| **storage/sqlite** | 3,552        | 5,551      | run.go (1,325)             | ✅ Domain logic extracted to l6objects/comparison.go        |
 | **adapters**       | 776          | 772        | ground_truth.go (380)      | Clean; export/training/ground-truth I/O                     |
 | **sweep**          | 4,974        | 9,008      | hint.go (1,222)            | Well-decoupled; no layer imports, uses interfaces only      |
 | **monitor**        | 10,040       | 23,646     | webserver.go (2,746)       | ✅ Split done: datasource and playback handlers extracted   |
@@ -304,7 +304,7 @@ All three P0 outliers have been addressed:
 
 1. **l3grid**: `background.go` reduced from 2,610 to 1,628 lines. Persistence, export, and drift detection in separate files. Package total stable at ~3,900 lines.
 
-2. **storage/sqlite**: `CompareRuns`, `computeTemporalIoU`, and comparison types moved to `l6objects/comparison.go`. `analysis_run.go` reduced from 1,383 to 1,325 lines. `compareParams` remains (parameter diffing still coupled to store types).
+2. **storage/sqlite**: `CompareRuns`, `computeTemporalIoU`, and comparison types moved to `l6objects/comparison.go`. `run.go` reduced from 1,383 to 1,325 lines. `compareParams` remains (parameter diffing still coupled to store types).
 
 3. **monitor**: `webserver.go` reduced from 4,067 to 2,746 lines. Datasource switching and playback controls extracted. Package total still ~10,000 lines; the largest in the stack.
 
@@ -363,9 +363,9 @@ These are lower-priority improvements that would further improve readability and
 
 **Completed**: Extracted parameter generation and combination logic into `sweep_params.go` (242 lines). `runner.go` reduced to 953 lines.
 
-### Opportunity 6: reduce storage/sqlite/analysis_run.go (1,325 lines) ✅
+### Opportunity 6: reduce storage/sqlite/run.go (1,325 lines) ✅
 
-**Completed**: Extracted `compareParams` and `computeTemporalIoU` into `analysis_run_compare.go` (112 lines). `analysis_run.go` reduced to 1,216 lines. RunParams types remain in the storage package to avoid circular imports; full domain extraction deferred to a future PR.
+**Completed**: Extracted `compareParams` and `computeTemporalIoU` into `run_compare.go` (112 lines). `run.go` reduced to 1,216 lines. RunParams types remain in the storage package to avoid circular imports; full domain extraction deferred to a future PR.
 
 ### Opportunity 7: retire Go-embedded HTML dashboards
 

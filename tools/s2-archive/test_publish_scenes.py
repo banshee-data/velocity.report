@@ -301,17 +301,17 @@ class DbProblemTests(unittest.TestCase):
             connection.commit()
         problem = publish_scenes.db_problem()
         self.assertIn(f"cannot read run records from {self.db}", problem)
-        self.assertIn("no such table: lidar_run_records", problem)
+        self.assertIn("no such table: lidar_runs", problem)
 
     def test_a_readable_run_records_table_has_no_problem(self):
         with contextlib.closing(sqlite3.connect(self.db)) as connection:
-            connection.execute("CREATE TABLE lidar_run_records (run_id TEXT)")
+            connection.execute("CREATE TABLE lidar_runs (run_id TEXT)")
             connection.commit()
             for state in ("empty", "populated"):
                 with self.subTest(state=state):
                     if state == "populated":
                         connection.execute(
-                            "INSERT INTO lidar_run_records VALUES (?)", ("run-1",)
+                            "INSERT INTO lidar_runs VALUES (?)", ("run-1",)
                         )
                         connection.commit()
                     self.assertIsNone(publish_scenes.db_problem())
@@ -511,11 +511,11 @@ class NewestRunTests(unittest.TestCase):
         self.addCleanup(patched.stop)
         with contextlib.closing(sqlite3.connect(self.db)) as connection:
             connection.execute(
-                "CREATE TABLE lidar_run_records (run_id TEXT, created_at INTEGER,"
+                "CREATE TABLE lidar_runs (run_id TEXT, created_at INTEGER,"
                 " source_path TEXT, status TEXT, vrlog_path TEXT)"
             )
             connection.executemany(
-                "INSERT INTO lidar_run_records VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO lidar_runs VALUES (?, ?, ?, ?, ?)",
                 [
                     ("early", 1_000, "/vol/raw/site.pcapng", "completed", "/v/early"),
                     ("late", 2_000, "/real/raw/site.pcapng", "completed", "/v/late"),

@@ -13,9 +13,9 @@ the new root, what the server would have derived itself:
   - file rows carrying their probe results, so the first scan finds no drift
     and probes nothing;
   - sessions, derived exactly as internal/lidar/capindex.Sessions does;
-  - motion periods, motion-pass jobs, labels and replay-case links moved onto
+  - motion periods, motion-pass jobs, labels and clip links moved onto
     sessions whose membership the move did not change;
-  - replay-case capture paths, which are relative to --lidar-pcap-dir.
+  - clip capture paths, which are relative to --lidar-pcap-dir.
 
 The old root's rows are left as they are. The server marks it disabled once it
 is no longer configured, which keeps the provenance of what was indexed there.
@@ -548,29 +548,29 @@ def main():
         case_links = 0
         for old_sid, new_sid in session_map.items():
             case_links += cur.execute(
-                "UPDATE lidar_replay_cases SET session_id = ? WHERE session_id = ?",
+                "UPDATE lidar_clips SET session_id = ? WHERE session_id = ?",
                 (new_sid, old_sid),
             ).rowcount
         for old_pid, new_pid in period_map.items():
             case_links += cur.execute(
-                "UPDATE lidar_replay_cases SET source_period_id = ? "
+                "UPDATE lidar_clips SET source_period_id = ? "
                 "WHERE source_period_id = ?",
                 (new_pid, old_pid),
             ).rowcount
         for old_fid, new_fid in fid_map.items():
             case_links += cur.execute(
-                "UPDATE lidar_replay_case_files SET capture_file_id = ? "
+                "UPDATE lidar_clip_captures SET capture_file_id = ? "
                 "WHERE capture_file_id = ?",
                 (new_fid, old_fid),
             ).rowcount
         dangling = cur.execute(
-            """SELECT COUNT(*) FROM lidar_replay_cases WHERE source_period_id IS NOT NULL
+            """SELECT COUNT(*) FROM lidar_clips WHERE source_period_id IS NOT NULL
                                      AND source_period_id NOT IN (SELECT period_id FROM lidar_capture_motion_periods)
                                """
         ).fetchone()[0]
 
         repathed, unreachable, missing = 0, [], []
-        for table in ("lidar_replay_cases", "lidar_replay_case_files"):
+        for table in ("lidar_clip_captures",):
             for (p,) in cur.execute(
                 f"SELECT DISTINCT pcap_file FROM {table} WHERE pcap_file <> ''"
             ).fetchall():

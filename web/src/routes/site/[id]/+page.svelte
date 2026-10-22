@@ -5,10 +5,10 @@
 		createSite,
 		getSite,
 		getTimeline,
-		listSiteConfigPeriods,
+		listRadarDeployments,
 		updateSite,
-		upsertSiteConfigPeriod,
-		type SiteConfigPeriod
+		upsertRadarDeployment,
+		type RadarDeployment
 	} from '#lib/api.js';
 	import MapEditorInteractive from '#lib/components/MapEditorInteractive.svelte';
 	import { fromDatetimeLocalToUnixSeconds, toDatetimeLocalValue } from '#lib/datetimeLocal.js';
@@ -24,7 +24,7 @@
 	let saving = false;
 	let periodsError = '';
 	let savingPeriod = false;
-	let configPeriods: SiteConfigPeriod[] = [];
+	let configPeriods: RadarDeployment[] = [];
 	let unconfiguredPeriods: Array<{ start_unix: number; end_unix: number }> = [];
 	let saveErrorEl: HTMLDivElement;
 
@@ -114,11 +114,11 @@
 		periodsError = '';
 		try {
 			const siteNumericId = parseInt(siteId);
-			configPeriods = await listSiteConfigPeriods(siteNumericId);
+			configPeriods = await listRadarDeployments(siteNumericId);
 			const timeline = await getTimeline(siteNumericId);
 			unconfiguredPeriods = timeline.unconfigured_periods ?? [];
 		} catch (e) {
-			periodsError = e instanceof Error ? e.message : 'Could not load site configuration periods.';
+			periodsError = e instanceof Error ? e.message : 'Could not load radar deployments.';
 		}
 	}
 
@@ -136,7 +136,7 @@
 
 	const DEFAULT_COSINE_ERROR_ANGLE_DEG = 5;
 
-	function editPeriod(period: SiteConfigPeriod) {
+	function editPeriod(period: RadarDeployment) {
 		periodForm = {
 			id: period.id ?? null,
 			start: period.effective_start_unix ? toDatetimeLocalValue(period.effective_start_unix) : '',
@@ -196,7 +196,7 @@
 			const startUnix = toUnixSeconds(periodForm.start);
 			const endUnix = toUnixSeconds(periodForm.end);
 			const angleValue = Number(periodForm.angle);
-			await upsertSiteConfigPeriod({
+			await upsertRadarDeployment({
 				id: periodForm.id ?? undefined,
 				site_id: parseInt(siteId),
 				effective_start_unix: startUnix!,
@@ -208,7 +208,7 @@
 			resetPeriodForm();
 			await loadConfigPeriods();
 		} catch (e) {
-			periodsError = e instanceof Error ? e.message : 'Could not save the configuration period.';
+			periodsError = e instanceof Error ? e.message : 'Could not save the radar deployment.';
 		} finally {
 			savingPeriod = false;
 		}
@@ -433,11 +433,11 @@
 							<h2
 								class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
 							>
-								Configuration Periods
+								Radar deployments
 							</h2>
 							<p class="text-surface-600-300-token text-sm">
-								Define when cosine correction angles changed so reports apply the correct
-								adjustments.
+								Record this radar’s placement and angle settings over time so each survey uses the
+								right corrections.
 							</p>
 
 							{#if periodsError}
@@ -505,13 +505,13 @@
 
 							<div class="flex flex-wrap gap-3">
 								<Button on:click={savePeriod} disabled={savingPeriod} icon={mdiContentSave}>
-									{periodForm.id ? 'Update Period' : 'Add Period'}
+									{periodForm.id ? 'Update deployment' : 'Add deployment'}
 								</Button>
 								<Button on:click={resetPeriodForm} variant="outline">Reset</Button>
 							</div>
 
 							{#if configPeriods.length === 0}
-								<p class="text-surface-600-300-token text-sm">No configuration periods yet.</p>
+								<p class="text-surface-600-300-token text-sm">No radar deployments yet.</p>
 							{:else}
 								<!-- Card-wrapped table matching the lidar routes (sweeps, runs).
 								     overflow-x-auto (not -hidden) keeps the six columns scrollable

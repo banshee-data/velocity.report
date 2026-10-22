@@ -557,7 +557,7 @@ final class VisualiserClientPlaybackStatusDecodeTests: XCTestCase {
 // MARK: - Object Class Conversion Tests
 
 /// Tests for objectClassLabel conversion from proto enum to displayable string.
-/// This ensures the entire gRPC chain correctly propagates classification labels
+/// This ensures the entire gRPC chain correctly propagates object classes
 /// from Go Track.ObjectClass string → proto enum → Swift Track.classLabel string.
 struct ObjectClassConversionTests {
     /// Test that all valid ObjectClass proto enum values convert to correct strings.

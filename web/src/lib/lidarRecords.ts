@@ -2,7 +2,7 @@
 // clip a run was replayed from, a parameter digest short enough to compare by
 // eye, a run's labelling share, and the objective a sweep scored against.
 
-import type { AnalysisRun, LidarReplayCase } from '#lib/types/lidar.js';
+import type { Run, LidarClip } from '#lib/types/lidar.js';
 
 /**
  * clipForRun is the clip a run was replayed from. A run started from a clip
@@ -11,13 +11,10 @@ import type { AnalysisRun, LidarReplayCase } from '#lib/types/lidar.js';
  * then a clip over the same capture from the same sensor. That last match is
  * a guess when several clips share one capture; it picks the first listed.
  */
-export function clipForRun(
-	run: AnalysisRun | null | undefined,
-	clips: LidarReplayCase[]
-): LidarReplayCase | null {
+export function clipForRun(run: Run | null | undefined, clips: LidarClip[]): LidarClip | null {
 	if (!run) return null;
-	if (run.replay_case_id) {
-		const recorded = clips.find((c) => c.replay_case_id === run.replay_case_id);
+	if (run.clip_id) {
+		const recorded = clips.find((c) => c.clip_id === run.clip_id);
 		if (recorded) return recorded;
 	}
 	const byReference = clips.find((c) => c.reference_run_id === run.run_id);
@@ -25,7 +22,11 @@ export function clipForRun(
 	const source = run.source_path;
 	if (!source) return null;
 	return (
-		clips.find((c) => c.sensor_id === run.sensor_id && sameCapture(source, c.pcap_file)) ?? null
+		clips.find(
+			(c) =>
+				c.sensor_id === run.sensor_id &&
+				c.files?.some((capture) => sameCapture(source, capture.pcap_file))
+		) ?? null
 	);
 }
 

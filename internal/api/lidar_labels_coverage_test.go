@@ -50,11 +50,11 @@ func TestNullableFloat32Ptr_NonNil(t *testing.T) {
 	}
 }
 
-// --- validateAnnotationPayload coverage ---
+// --- validateLabelPayload coverage ---
 
 func TestValidateAnnotationPayload_MissingClassLabel(t *testing.T) {
 	label := LidarLabel{ClassLabel: ""}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil || err.Error() != "class_label is required" {
 		t.Errorf("expected class_label required, got: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestValidateAnnotationPayload_MissingClassLabel(t *testing.T) {
 
 func TestValidateAnnotationPayload_InvalidClassLabel(t *testing.T) {
 	label := LidarLabel{ClassLabel: "tank", StartTimestampNs: 1}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for invalid class_label")
 	}
@@ -70,7 +70,7 @@ func TestValidateAnnotationPayload_InvalidClassLabel(t *testing.T) {
 
 func TestValidateAnnotationPayload_MissingStartTimestamp(t *testing.T) {
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 0}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil || err.Error() != "start_timestamp_ns is required" {
 		t.Errorf("expected start_timestamp_ns required, got: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestValidateAnnotationPayload_MissingStartTimestamp(t *testing.T) {
 func TestValidateAnnotationPayload_EndBeforeStart(t *testing.T) {
 	endNs := int64(5)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, EndTimestampNs: &endNs}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for end < start")
 	}
@@ -88,7 +88,7 @@ func TestValidateAnnotationPayload_EndBeforeStart(t *testing.T) {
 func TestValidateAnnotationPayload_InvalidConfidence(t *testing.T) {
 	conf := float32(1.5)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, Confidence: &conf}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for confidence > 1")
 	}
@@ -97,7 +97,7 @@ func TestValidateAnnotationPayload_InvalidConfidence(t *testing.T) {
 func TestValidateAnnotationPayload_NegativeConfidence(t *testing.T) {
 	conf := float32(-0.1)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, Confidence: &conf}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for confidence < 0")
 	}
@@ -106,7 +106,7 @@ func TestValidateAnnotationPayload_NegativeConfidence(t *testing.T) {
 func TestValidateAnnotationPayload_RunIDWithoutTrackID(t *testing.T) {
 	runID := "run-001"
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, RunID: &runID, TrackID: ""}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for run_id without track_id")
 	}
@@ -115,7 +115,7 @@ func TestValidateAnnotationPayload_RunIDWithoutTrackID(t *testing.T) {
 func TestValidateAnnotationPayload_UsesCurrentStartNsAsFallback(t *testing.T) {
 	endNs := int64(5)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 0, EndTimestampNs: &endNs}
-	err := validateAnnotationPayload(&label, false, 10)
+	err := validateLabelPayload(&label, false, 10)
 	if err == nil {
 		t.Error("expected error for end < currentStartNs used as fallback")
 	}
@@ -124,7 +124,7 @@ func TestValidateAnnotationPayload_UsesCurrentStartNsAsFallback(t *testing.T) {
 func TestValidateAnnotationPayload_UsesCurrentStartNsFallbackOK(t *testing.T) {
 	endNs := int64(20)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 0, EndTimestampNs: &endNs}
-	err := validateAnnotationPayload(&label, false, 10)
+	err := validateLabelPayload(&label, false, 10)
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
 	}
@@ -155,9 +155,9 @@ func TestLabelByID_EmptyID(t *testing.T) {
 	}
 }
 
-// --- handleCreateLabel: replay case not found ---
+// --- handleCreateLabel: clip not found ---
 
-func TestCreateLabel_ReplayCaseNotFound(t *testing.T) {
+func TestCreateLabel_ClipNotFound(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -167,7 +167,7 @@ func TestCreateLabel_ReplayCaseNotFound(t *testing.T) {
 
 	nonexistent := "nonexistent-case"
 	label := LidarLabel{
-		ReplayCaseID:     &nonexistent,
+		ClipID:           &nonexistent,
 		ClassLabel:       "car",
 		StartTimestampNs: 1000,
 	}
@@ -191,10 +191,10 @@ func TestCreateLabel_RunTrackNotFound(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	runID := "run-001"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		RunID:            &runID,
 		TrackID:          "track-nonexistent",
 		ClassLabel:       "car",
@@ -220,9 +220,9 @@ func TestCreateLabel_WithoutRunID(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		ClassLabel:       "car",
 		StartTimestampNs: 1000,
 	}
@@ -246,7 +246,7 @@ func TestCreateLabel_AllOptionalFields(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	runID := "run-001"
 	endNs := int64(2000)
 	conf := float32(0.8)
@@ -254,7 +254,7 @@ func TestCreateLabel_AllOptionalFields(t *testing.T) {
 	notes := "a note"
 	sourceFile := "file.pcap"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		RunID:            &runID,
 		TrackID:          "track-001",
 		ClassLabel:       "car",
@@ -294,9 +294,9 @@ func TestListLabels_InvalidEndNs(t *testing.T) {
 	}
 }
 
-// --- handleListLabels: with replay_case_id filter ---
+// --- handleListLabels: with clip_id filter ---
 
-func TestListLabels_WithReplayCaseFilter(t *testing.T) {
+func TestListLabels_WithClipFilter(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -306,7 +306,7 @@ func TestListLabels_WithReplayCaseFilter(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?replay_case_id=case-001", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/labels?clip_id=case-001", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -315,7 +315,7 @@ func TestListLabels_WithReplayCaseFilter(t *testing.T) {
 	}
 }
 
-// --- handleUpdateLabel coverage: invalid JSON, invalid class_label, invalid end_ts, invalid confidence, replay_case changes ---
+// --- handleUpdateLabel coverage: invalid JSON, invalid class_label, invalid end_ts, invalid confidence, clip changes ---
 
 func TestUpdateLabel_InvalidJSON(t *testing.T) {
 	db := setupLabelTestDB(t)
@@ -398,7 +398,7 @@ func TestUpdateLabel_InvalidConfidence(t *testing.T) {
 	}
 }
 
-func TestUpdateLabel_EmptyReplayCaseID(t *testing.T) {
+func TestUpdateLabel_EmptyClipID(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -408,9 +408,9 @@ func TestUpdateLabel_EmptyReplayCaseID(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	// Empty replay_case_id normalises to nil, meaning "don't update this field".
+	// Empty clip_id normalises to nil, meaning "don't update this field".
 	empty := ""
-	body, _ := json.Marshal(LidarLabel{ReplayCaseID: &empty})
+	body, _ := json.Marshal(LidarLabel{ClipID: &empty})
 	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -420,7 +420,7 @@ func TestUpdateLabel_EmptyReplayCaseID(t *testing.T) {
 	}
 }
 
-func TestUpdateLabel_NotFoundReplayCaseID(t *testing.T) {
+func TestUpdateLabel_NotFoundClipID(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -431,7 +431,7 @@ func TestUpdateLabel_NotFoundReplayCaseID(t *testing.T) {
 	api.RegisterRoutes(mux)
 
 	nonexistent := "nonexistent"
-	body, _ := json.Marshal(LidarLabel{ReplayCaseID: &nonexistent})
+	body, _ := json.Marshal(LidarLabel{ClipID: &nonexistent})
 	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -462,7 +462,7 @@ func TestUpdateLabel_WithSourceFile(t *testing.T) {
 	}
 }
 
-func TestUpdateLabel_WithValidReplayCaseChange(t *testing.T) {
+func TestUpdateLabel_WithValidClipChange(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
@@ -473,7 +473,7 @@ func TestUpdateLabel_WithValidReplayCaseChange(t *testing.T) {
 	api.RegisterRoutes(mux)
 
 	caseID := "case-001"
-	body, _ := json.Marshal(LidarLabel{ReplayCaseID: &caseID})
+	body, _ := json.Marshal(LidarLabel{ClipID: &caseID})
 	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -624,11 +624,11 @@ func TestCreateLabel_InsertDBError(t *testing.T) {
 	api.RegisterRoutes(mux)
 
 	// Insert a label first to cause a duplicate key error
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	runID := "run-001"
 	label := LidarLabel{
 		LabelID:          "dup-label",
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		RunID:            &runID,
 		TrackID:          "track-001",
 		ClassLabel:       "car",
@@ -653,9 +653,9 @@ func TestCreateLabel_InsertDBError(t *testing.T) {
 	}
 }
 
-// --- handleCreateLabel: DB error on ensureReplayCaseExists ---
+// --- handleCreateLabel: DB error on ensureClipExists ---
 
-func TestCreateLabel_ReplayCaseLookupDBError(t *testing.T) {
+func TestCreateLabel_ClipLookupDBError(t *testing.T) {
 	db := setupLabelTestDB(t)
 	api := NewLidarLabelAPI(db)
 	mux := http.NewServeMux()
@@ -663,9 +663,9 @@ func TestCreateLabel_ReplayCaseLookupDBError(t *testing.T) {
 
 	db.Close()
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		ClassLabel:       "car",
 		StartTimestampNs: 1000,
 	}
@@ -682,7 +682,7 @@ func TestCreateLabel_ReplayCaseLookupDBError(t *testing.T) {
 // --- handleCreateLabel: DB error on ensureRunTrackExists ---
 
 func TestCreateLabel_RunTrackLookupDBError(t *testing.T) {
-	// We need a DB that succeeds the replay case check but fails the run track check.
+	// We need a DB that succeeds the clip check but fails the run track check.
 	// We'll use a DB where we drop lidar_run_tracks after seeding.
 	db := setupLabelTestDB(t)
 	api := NewLidarLabelAPI(db)
@@ -692,10 +692,10 @@ func TestCreateLabel_RunTrackLookupDBError(t *testing.T) {
 	// Drop the run_tracks table to force an error
 	_, _ = db.Exec("DROP TABLE lidar_run_tracks")
 
-	replayCaseID := "case-001"
+	clipID := "case-001"
 	runID := "run-001"
 	label := LidarLabel{
-		ReplayCaseID:     &replayCaseID,
+		ClipID:           &clipID,
 		RunID:            &runID,
 		TrackID:          "track-001",
 		ClassLabel:       "car",
@@ -711,9 +711,9 @@ func TestCreateLabel_RunTrackLookupDBError(t *testing.T) {
 	}
 }
 
-// --- handleUpdateLabel: DB error on replay case lookup ---
+// --- handleUpdateLabel: DB error on clip lookup ---
 
-func TestUpdateLabel_ReplayCaseLookupDBError(t *testing.T) {
+func TestUpdateLabel_ClipLookupDBError(t *testing.T) {
 	db := setupLabelTestDB(t)
 	insertReplayAnnotation(t, db, "label-001", "case-001", "run-001", "track-001", "car", 1000000000)
 
@@ -721,11 +721,11 @@ func TestUpdateLabel_ReplayCaseLookupDBError(t *testing.T) {
 	mux := http.NewServeMux()
 	api.RegisterRoutes(mux)
 
-	// Rename replay cases table to force a lookup error without cascade-deleting annotations
-	_, _ = db.Exec("ALTER TABLE lidar_replay_cases RENAME TO lidar_replay_cases_bak")
+	// Rename clips table to force a lookup error without cascade-deleting annotations
+	_, _ = db.Exec("ALTER TABLE lidar_clips RENAME TO lidar_clips_bak")
 
 	caseID := "case-001"
-	body, _ := json.Marshal(LidarLabel{ReplayCaseID: &caseID})
+	body, _ := json.Marshal(LidarLabel{ClipID: &caseID})
 	req := httptest.NewRequest(http.MethodPut, "/api/lidar/labels/label-001", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -773,18 +773,18 @@ func TestScanLidarLabel_ErrNotFound(t *testing.T) {
 	}
 }
 
-// --- ensureReplayCaseExists: real not-found ---
+// --- ensureClipExists: real not-found ---
 
-func TestEnsureReplayCaseExists_NotFound(t *testing.T) {
+func TestEnsureClipExists_NotFound(t *testing.T) {
 	db := setupLabelTestDB(t)
 	defer db.Close()
 
 	api := NewLidarLabelAPI(db)
-	err := api.ensureReplayCaseExists("nonexistent")
+	err := api.ensureClipExists("nonexistent")
 	expect := "sql: no rows in result set"
 	if err == nil || (err.Error() != expect && err.Error() != "not found") {
 		// Either ErrNotFound or sql.ErrNoRows depending on driver
-		t.Logf("ensureReplayCaseExists returned: %v (acceptable)", err)
+		t.Logf("ensureClipExists returned: %v (acceptable)", err)
 	}
 }
 
@@ -801,7 +801,7 @@ func TestEnsureRunTrackExists_NotFound(t *testing.T) {
 	}
 }
 
-// --- Coverage for combined run_id + replay_case_id filter in list ---
+// --- Coverage for combined run_id + clip_id filter in list ---
 
 func TestListLabels_WithRunIDFilter(t *testing.T) {
 	db := setupLabelTestDB(t)

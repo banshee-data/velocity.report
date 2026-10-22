@@ -7,6 +7,16 @@
 
 The codebase carried two overlapping enum-like vocabularies for track classification: one from the classifier, one from the labelling UI; with inconsistent string values that broke comparison logic. This plan unified them under a single proto3 `ObjectClass` enum and now tracks the remaining split: separating display-only labels (truck, motorcyclist) from user-selectable labels in the labelling UI.
 
+## D-31 naming contract
+
+The Phase 1 names are `ObjectClass` and `QualityFlag` in Go, TypeScript and Swift.
+Track verdicts are labels; reviewed point masks are annotations. Annotation routes
+are under `/api/lidar/annotations/`, with old macOS routes recorded in the
+[compatibility register](../platform/operations/compatibility-register.md).
+Future display and assignability distinctions are metadata on `ObjectClass`, not
+additional names for the same concept. The label storage and write-path merge
+remains Phase 2. Read the historical phase outline below under this contract.
+
 ## Problem (resolved)
 
 The codebase had **two independent enum-like vocabularies** for track
@@ -42,7 +52,7 @@ in the classifier, hidden in all UIs, and rejected by the label validation API.
 - [internal/lidar/l6objects/classification.go](../../internal/lidar/l6objects/classification.go): `ClassPedestrian = "pedestrian"`, `ClassDynamic = "dynamic"`, added truck/motorcyclist
 - [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go): Updated `validUserLabels` to exclude `"impossible"`, added new classes
 - [internal/lidar/adapters/ground_truth.go](../../internal/lidar/adapters/ground_truth.go): `isPositiveLabel()` updated for all 6 positive classes
-- [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts): `DetectionLabel` type and `TRACK_COLORS` aligned (9 classes)
+- [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts): `ObjectClass` type and `TRACK_COLORS` aligned (9 classes)
 - [web/src/lib/components/lidar/TrackList.svelte](../../web/src/lib/components/lidar/TrackList.svelte): 7-label dropdown, removed `"impossible"`
 - `web/src/lib/components/lidar/MapPane.svelte`: legend showed 9 object classes. Deleted in [#559]; the class vocabulary it drew from is [lidar.ts](../../web/src/lib/types/lidar.ts)'s `TRACK_COLORS`, which is where this consolidation applies
 - `tools/visualiser-macos/.../ContentView.swift`: `classificationLabels` array with 7 entries
@@ -118,7 +128,7 @@ label validation API for v0.5.0. Proto enum values 8 (TRUCK) and 9
 - Classifier: truck/motorcyclist cascade rules commented out (trucks→CAR, motorcycles→CYCLIST)
 - Label API: `validUserLabels` reduced to 7 entries; truck/motorcyclist rejected with 400
 - macOS: removed from `classificationLabels` array; help text updated
-- Web: removed from `DetectionLabel` type and dropdowns; colours retained for backward compat
+- Web: removed from `ObjectClass` type and dropdowns; colours retained for backward compat
 - Proto: enum values stable; reactivation path documented (uncomment rules + restore UI entries)
 
 ## Remaining phases
@@ -141,9 +151,9 @@ Files requiring changes:
 
 | Location                                   | Current                            | Required                                                           |
 | ------------------------------------------ | ---------------------------------- | ------------------------------------------------------------------ |
-| `lidar_labels.go` `AllDetectionLabels`     | 7 entries                          | No change (selectable)                                             |
+| `lidar_labels.go` `AllObjectClasss`        | 7 entries                          | No change (selectable)                                             |
 | `lidar_labels.go`                          | -                                  | Add `AllDisplayLabels` (9 entries)                                 |
-| `lidar.ts` `DetectionLabel`                | 7-value union                      | Split into `DetectionLabel` (7) + `DisplayLabel` (9)               |
+| `lidar.ts` `ObjectClass`                   | 7-value union                      | Split into `ObjectClass` (7) + `DisplayLabel` (9)                  |
 | `lidar.ts` `TRACK_COLORS`                  | 9 entries incl. truck/motorcyclist | No change (already display-capable)                                |
 | `ContentView.swift` `classificationLabels` | 7 entries                          | Keep as selectable; add separate `displayLabels` (9) for inspector |
 | `ContentView.swift` track inspector        | Shows class from stream            | Show truck/motorcyclist if present in data                         |
@@ -154,14 +164,14 @@ Add a `GET /api/v1/lidar/taxonomy` endpoint that returns the canonical label lis
 
 ### Phase 5: remove duplicates from frontends
 
-| Location                                                                        | Remove               | Replace with                                    |
-| ------------------------------------------------------------------------------- | -------------------- | ----------------------------------------------- |
-| `api/lidar_labels.go` `validUserLabels`                                         | Hardcoded map        | Import from centralised taxonomy                |
-| [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) `DetectionLabel` | Hardcoded union type | Runtime import from taxonomy API                |
-| `ContentView.swift` `classificationLabels`                                      | Hardcoded array      | Fetch from taxonomy API on launch               |
-| `TrackList.svelte` `DETECTION_LABELS`                                           | Hardcoded array      | Fetch from taxonomy API                         |
-| `MapPane.svelte` legend classes                                                 | Hardcoded array      | Derive from `TRACK_COLORS` keys or taxonomy API |
-| `adapters/ground_truth.go` `isPositiveLabel()`                                  | Inline function      | Centralised `IsPositive()` method               |
+| Location                                                                     | Remove               | Replace with                                    |
+| ---------------------------------------------------------------------------- | -------------------- | ----------------------------------------------- |
+| `api/lidar_labels.go` `validUserLabels`                                      | Hardcoded map        | Import from centralised taxonomy                |
+| [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts) `ObjectClass` | Hardcoded union type | Runtime import from taxonomy API                |
+| `ContentView.swift` `classificationLabels`                                   | Hardcoded array      | Fetch from taxonomy API on launch               |
+| `TrackList.svelte` `DETECTION_LABELS`                                        | Hardcoded array      | Fetch from taxonomy API                         |
+| `MapPane.svelte` legend classes                                              | Hardcoded array      | Derive from `TRACK_COLORS` keys or taxonomy API |
+| `adapters/ground_truth.go` `isPositiveLabel()`                               | Inline function      | Centralised `IsPositive()` method               |
 
 ### Phase 6: public API field alignment
 
@@ -201,7 +211,7 @@ they are **disabled** across the stack:
   assign `"truck"` or `"motorcyclist"` via the API returns 400.
 - **macOS app**: Removed from `classificationLabels` array; car help
   text updated to include trucks, cyclist updated to include motorcycles.
-- **Web app**: Removed from `DetectionLabel` type, `DETECTION_LABELS`
+- **Web app**: Removed from `ObjectClass` type, `DETECTION_LABELS`
   dropdown, and `object_class` union. `TRACK_COLORS` entries retained
   for backward-compatible rendering of existing labelled data.
 - **Keyboard shortcuts**: Renumbered 1–7 (car, bus, pedestrian,

@@ -29,7 +29,7 @@
 		stripImage,
 		type SegmentSelector
 	} from '#lib/segments.js';
-	import type { AnalysisRun } from '#lib/types/lidar.js';
+	import type { Run } from '#lib/types/lidar.js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -49,13 +49,13 @@
 		capture?: string;
 		offset_seconds?: number;
 		status: string;
-		replay_case_id?: string;
+		clip_id?: string;
 		job_id?: string;
 		pack_dir?: string;
 	};
 	type Pack = AnnotationPack;
 
-	let runs: AnalysisRun[] = [];
+	let runs: Run[] = [];
 	let runID = '';
 	let role = 'tuning';
 	let selectorID = 'following';
@@ -94,7 +94,7 @@
 	// file, tens of megabytes each. Only the status column uses the
 	// inventory, so the table does not wait for it.
 	async function loadPacks() {
-		const inventory = await api('/api/annotations/packs').catch(() => ({ packs: [] }));
+		const inventory = await api('/api/lidar/annotations/packs').catch(() => ({ packs: [] }));
 		packs = inventory.packs || [];
 	}
 
@@ -144,9 +144,9 @@
 					selector_digest: rankedDigest
 				})
 			});
-			updateSegment(segment.id, { replay_case_id: result.replay_case_id, status: 'case' });
-			message = `Clip ${result.replay_case_id} is ready.`;
-			madeClipID = result.replay_case_id;
+			updateSegment(segment.id, { clip_id: result.clip_id, status: 'case' });
+			message = `Clip ${result.clip_id} is ready.`;
+			madeClipID = result.clip_id;
 		} catch (cause) {
 			error = cause instanceof Error ? cause.message : 'Could not make the clip.';
 		} finally {
@@ -157,15 +157,14 @@
 	// Cuts the clip's annotation pack. The route and the job kind still say
 	// clip; V18 of the vocabulary plan renames them pack.
 	async function queuePack(segment: Segment) {
-		if (!segment.replay_case_id) return;
+		if (!segment.clip_id) return;
 		busy = true;
 		error = '';
 		madeClipID = '';
 		try {
-			const result = await api(
-				`/api/lidar/scenes/${encodeURIComponent(segment.replay_case_id)}/clip`,
-				{ method: 'POST' }
-			);
+			const result = await api(`/api/lidar/clips/${encodeURIComponent(segment.clip_id)}/clip`, {
+				method: 'POST'
+			});
 			updateSegment(segment.id, { job_id: result.job.job_id, status: 'clipping' });
 			message = `Pack job ${result.job.job_id} queued.`;
 		} catch (cause) {
@@ -179,7 +178,7 @@
 		const run = runs.find((item) => item.run_id === runID);
 		return tracksQuery({
 			sensorId: run?.sensor_id || 'hesai-pandar40p',
-			clipId: segment.replay_case_id,
+			clipId: segment.clip_id,
 			runId: runID,
 			atNs: segment.peak_timestamp_ns || segment.window_start_unix_nanos
 		});
@@ -225,7 +224,7 @@
 				<h1 class="text-surface-content text-2xl font-semibold">Segments</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
 					Windows of a run's captures, ranked by a selector. Make a
-					<a href={resolve('/lidar/replay-cases')} class="text-primary hover:underline">clip</a>
+					<a href={resolve('/lidar/clips')} class="text-primary hover:underline">clip</a>
 					from one worth labelling, then queue its pack for review in the macOS annotation tool.
 				</p>
 			</div>
@@ -303,7 +302,7 @@
 				{#if madeClipID}
 					<!-- eslint-disable svelte/no-navigation-without-resolve -->
 					<a
-						href={`${resolve('/lidar/replay-cases')}?${clipQuery(madeClipID)}`}
+						href={`${resolve('/lidar/clips')}?${clipQuery(madeClipID)}`}
 						class="text-primary ml-1 hover:underline">Open clip →</a
 					>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
@@ -359,7 +358,7 @@
 									>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 								{/if}
-								{#if !segment.replay_case_id}<button
+								{#if !segment.clip_id}<button
 										class="hover:underline disabled:opacity-40"
 										disabled={busy || !segment.capture}
 										on:click={() => makeCase(segment)}>Make clip</button
@@ -367,8 +366,7 @@
 									<!-- eslint-disable svelte/no-navigation-without-resolve -->
 									<a
 										class="hover:underline"
-										href={`${resolve('/lidar/replay-cases')}?${clipQuery(segment.replay_case_id)}`}
-										>Open clip</a
+										href={`${resolve('/lidar/clips')}?${clipQuery(segment.clip_id)}`}>Open clip</a
 									>
 									<!-- eslint-enable svelte/no-navigation-without-resolve -->
 									{#if !segment.job_id}<button
@@ -404,12 +402,12 @@
 					).toISOString()}
 				</p>
 				<p>Segment {selected.id} · {statusText(selected.status)}</p>
-				{#if selected.replay_case_id}<p>
+				{#if selected.clip_id}<p>
 						Clip
 						<!-- eslint-disable svelte/no-navigation-without-resolve -->
 						<a
-							href={`${resolve('/lidar/replay-cases')}?${clipQuery(selected.replay_case_id)}`}
-							class="text-primary font-mono hover:underline">{selected.replay_case_id}</a
+							href={`${resolve('/lidar/clips')}?${clipQuery(selected.clip_id)}`}
+							class="text-primary font-mono hover:underline">{selected.clip_id}</a
 						>
 						<!-- eslint-enable svelte/no-navigation-without-resolve -->
 					</p>{/if}

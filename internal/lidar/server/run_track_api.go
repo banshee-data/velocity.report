@@ -23,8 +23,8 @@ var (
 	startPCAPInternalForReprocess = func(ws *Server, pcapPath string, config ReplayConfig) error {
 		return ws.StartPCAPInternal(pcapPath, config)
 	}
-	lastAnalysisRunIDForReprocess = func(ws *Server) string {
-		return ws.LastAnalysisRunID()
+	lastRunIDForReprocess = func(ws *Server) string {
+		return ws.LastRunID()
 	}
 )
 
@@ -170,13 +170,13 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 	req.LabelSource = strings.TrimSpace(req.LabelSource)
 
 	// Validate user_label (allow empty to clear)
-	if req.UserLabel != "" && !api.ValidateUserLabel(req.UserLabel) {
+	if req.UserLabel != "" && !api.ValidateObjectClass(req.UserLabel) {
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised user label: see documentation for valid values", req.UserLabel))
 		return
 	}
 
 	// Validate quality_label (allow empty to clear)
-	if req.QualityLabel != "" && !api.ValidateQualityLabel(req.QualityLabel) {
+	if req.QualityLabel != "" && !api.ValidateQualityFlags(req.QualityLabel) {
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised quality label: see documentation for valid values", req.QualityLabel))
 		return
 	}
@@ -193,7 +193,7 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 	}
 
 	// Update the track label
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	err := store.UpdateTrackLabel(runID, trackID, req.UserLabel, req.QualityLabel, req.LabelConfidence, req.LabelerID, labelSource)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not update track label: %v", err))
@@ -252,7 +252,7 @@ func (ws *Server) handleUpdateTrackFlags(w http.ResponseWriter, r *http.Request,
 	isMerge := userLabel == "merge"
 
 	// Update the track quality flags
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	err := store.UpdateTrackQualityFlags(runID, trackID, isSplit, isMerge, req.LinkedTrackIDs)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not update track flags: %v", err))
@@ -278,7 +278,7 @@ func (ws *Server) handleGetRunTrack(w http.ResponseWriter, r *http.Request, runI
 		return
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	track, err := store.GetRunTrack(runID, trackID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
@@ -367,7 +367,7 @@ func (ws *Server) handleListRunTracks(w http.ResponseWriter, r *http.Request, ru
 		return
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	tracks, err := store.GetRunTracks(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve run tracks: %v", err))
@@ -390,7 +390,7 @@ func (ws *Server) handleLabellingProgress(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	total, labelled, byClass, labelRollup, err := store.GetLabelingProgressWithRollup(runID)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve labelling progress: %v", err))
@@ -433,7 +433,7 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch runs from database
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	runs, err := store.ListRuns(limit)
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list runs: %v", err))
@@ -441,7 +441,7 @@ func (ws *Server) handleListRuns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Apply filters (sensor_id, status)
-	var filteredRuns []*sqlite.AnalysisRun
+	var filteredRuns []*sqlite.Run
 	for _, run := range runs {
 		if sensorID != "" && run.SensorID != sensorID {
 			continue
@@ -467,7 +467,7 @@ func (ws *Server) handleGetRun(w http.ResponseWriter, r *http.Request, runID str
 		return
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	run, err := store.GetRun(runID)
 	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
@@ -496,7 +496,7 @@ func (ws *Server) handleRunStatistics(w http.ResponseWriter, r *http.Request, ru
 		return
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db)
+	store := sqlite.NewRunStore(ws.db)
 	run, err := store.GetRun(runID)
 	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
@@ -530,7 +530,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 	}
 
 	// Get the original run to find source PCAP and params
-	runStore := sqlite.NewAnalysisRunStore(ws.db)
+	runStore := sqlite.NewRunStore(ws.db)
 	originalRun, err := runStore.GetRun(runID)
 	if err != nil {
 		if errors.Is(err, sqlite.ErrNotFound) {
@@ -592,7 +592,7 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not start PCAP replay: %v", err))
 		return
 	}
-	newRunID := lastAnalysisRunIDForReprocess(ws)
+	newRunID := lastRunIDForReprocess(ws)
 	if newRunID == "" {
 		newRunID = preferredRunID
 	}
@@ -606,9 +606,9 @@ func (ws *Server) handleReprocessRun(w http.ResponseWriter, r *http.Request, run
 }
 
 // handleEvaluateRun compares a candidate run against a reference run, persists
-// the result to lidar_replay_evaluations, and returns ground truth scores.
+// the result to lidar_clip_evaluations, and returns ground truth scores.
 // POST /api/lidar/runs/{run_id}/evaluate
-// Request body: {"reference_run_id": "..."} or auto-detect from scene
+// Request body: {"reference_run_id": "..."} or auto-detect from clip
 func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, candidateRunID string) {
 	if r.Method != http.MethodPost {
 		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts POST requests")
@@ -625,56 +625,56 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 	}
 
 	referenceRunID := req.ReferenceRunID
-	var matchedSceneID string
+	var matchedClipID string
 
-	// If no reference run specified, try to auto-detect from scene
+	// If no reference run specified, try to auto-detect from clip
 	if referenceRunID == "" {
-		// Get the candidate run to find its source path / scene
-		store := sqlite.NewAnalysisRunStore(ws.db)
+		// Get the candidate run to find its source path / clip
+		store := sqlite.NewRunStore(ws.db)
 		candidateRun, err := store.GetRun(candidateRunID)
 		if err != nil {
 			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not retrieve candidate run: %v", err))
 			return
 		}
 
-		// Try to find a scene for this sensor that has a reference run
-		sceneStore := sqlite.NewReplayCaseStore(ws.db)
-		scenes, err := sceneStore.ListScenes(candidateRun.SensorID)
+		// Try to find a clip for this sensor that has a reference run
+		clipStore := sqlite.NewClipStore(ws.db)
+		clips, err := clipStore.ListClips(candidateRun.SensorID)
 		if err != nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list scenes: %v", err))
+			ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not list clips: %v", err))
 			return
 		}
 
 		// First pass: match sensor and source path
 		if candidateRun.SourcePath != "" {
-			for _, scene := range scenes {
-				if scene.ReferenceRunID != "" && scene.PCAPFile == candidateRun.SourcePath {
-					referenceRunID = scene.ReferenceRunID
-					matchedSceneID = scene.ReplayCaseID
+			for _, clip := range clips {
+				if clip.ReferenceRunID != "" && clipHasCapture(clip, candidateRun.SourcePath) {
+					referenceRunID = clip.ReferenceRunID
+					matchedClipID = clip.ClipID
 					break
 				}
 			}
 		}
 
-		// Second pass: fall back to first scene with reference for this sensor
+		// Second pass: fall back to first clip with reference for this sensor
 		if referenceRunID == "" {
-			for _, scene := range scenes {
-				if scene.ReferenceRunID != "" {
-					referenceRunID = scene.ReferenceRunID
-					matchedSceneID = scene.ReplayCaseID
+			for _, clip := range clips {
+				if clip.ReferenceRunID != "" {
+					referenceRunID = clip.ReferenceRunID
+					matchedClipID = clip.ClipID
 					break
 				}
 			}
 		}
 
 		if referenceRunID == "" {
-			ws.writeJSONError(w, http.StatusBadRequest, "no reference_run_id provided and no scene with reference run found")
+			ws.writeJSONError(w, http.StatusBadRequest, "no reference_run_id provided and no clip with reference run found")
 			return
 		}
 	}
 
 	// Perform ground truth evaluation
-	runStore := sqlite.NewAnalysisRunStore(ws.db)
+	runStore := sqlite.NewRunStore(ws.db)
 	evaluator := adapters.NewGroundTruthEvaluator(runStore, adapters.DefaultGroundTruthWeights())
 
 	score, err := evaluator.Evaluate(referenceRunID, candidateRunID)
@@ -683,11 +683,11 @@ func (ws *Server) handleEvaluateRun(w http.ResponseWriter, r *http.Request, cand
 		return
 	}
 
-	// Persist evaluation result if a scene was identified
+	// Persist evaluation result if a clip was identified
 	var evaluationID string
-	if matchedSceneID != "" {
+	if matchedClipID != "" {
 		eval := &sqlite.Evaluation{
-			ReplayCaseID:        matchedSceneID,
+			ClipID:              matchedClipID,
 			ReferenceRunID:      referenceRunID,
 			CandidateRunID:      candidateRunID,
 			DetectionRate:       score.DetectionRate,
@@ -805,4 +805,14 @@ func (ws *Server) handleDeleteMissedRegion(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted", "region_id": regionID})
+}
+
+// clipHasCapture tests the complete capture association, including later rolls.
+func clipHasCapture(clip *sqlite.Clip, path string) bool {
+	for _, capture := range clip.Files {
+		if capture.PCAPFile == path {
+			return true
+		}
+	}
+	return false
 }

@@ -24,9 +24,9 @@ import (
 // is the same computation without the write, so what the window shows is
 // what the freeze would do.
 //
-//	POST /api/annotations/split/preview   {draft}
-//	POST /api/annotations/split/freeze    {draft, author, output, supersedes?, note?, guard_seconds?}
-//	GET  /api/annotations/splits
+//	POST /api/lidar/annotations/split/preview   {draft}
+//	POST /api/lidar/annotations/split/freeze    {draft, author, output, supersedes?, note?, guard_seconds?}
+//	GET  /api/lidar/annotations/splits
 
 const splitsDirName = "splits"
 

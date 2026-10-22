@@ -126,7 +126,7 @@ the sweep if intermediate results look promising.
 
 Defined in [internal/lidar/sweep/hint.go](../../../internal/lidar/sweep/hint.go). Fields:
 
-- `ReplayCaseID`: replay case to use (provides PCAP, sensor ID)
+- `ClipID`: replay case to use (provides PCAP, sensor ID)
 - `NumRounds`: number of label-then-sweep cycles
 - `RoundDurations`: alternating label/sweep durations in minutes (see §Round Durations)
 - `Params`: parameter bounds to sweep (same format as `AutoTuneRequest`)
@@ -166,9 +166,9 @@ The `status` column gains new values: `"awaiting_labels"`,
 ### Replay case `reference_run_id`
 
 Each round updates the replay case's `reference_run_id` to point to the latest labelled
-run. This is already supported by `ReplayCaseStore.SetReferenceRun()`. On completion
+run. This is already supported by `ClipStore.SetReferenceRun()`. On completion
 the replay case's `optimal_params_json` is updated with the best parameters (already
-supported by `ReplayCaseStore.SetOptimalParams()`).
+supported by `ClipStore.SetOptimalParams()`).
 
 ## Prerequisite: macOS visualiser label UX changes
 
@@ -235,14 +235,14 @@ requirement.
 1. Define `HINTSweepRequest` and `HINTState` structs.
 2. Implement `HINTTuner` struct:
    - Embeds/wraps `AutoTuner` for the sweep-round part.
-   - Holds `analysisRunManager` for creating reference runs.
-   - Holds `analysisRunStore` for querying label progress.
-   - Holds `replayCaseStore` for updating reference run IDs.
+   - Holds `runManager` for creating reference runs.
+   - Holds `runStore` for querying label progress.
+   - Holds `clipStore` for updating reference run IDs.
    - Holds `groundTruthScorer` (reuse same injection pattern).
 3. Implement the core loop in `run(ctx, req)`: the method loads the replay case and initial parameter bounds, then iterates through `NumRounds` cycles. Each cycle transitions through four phases: (a) create a reference run with current best params and register it on the replay case, (b) carry over labels from the previous round via temporal IoU if round > 1, (c) enter `awaiting_labels` with a deadline computed from `RoundDurations` and block until the human continues or the deadline expires (failing if the label threshold is not met), (d) run a single auto-tune sweep round using the labelled reference as ground truth, then narrow bounds around the top-K results. After all rounds, the best parameters are applied and saved to the replay case.
 
 4. Implement `waitForLabelsOrDeadline`:
-   - Poll `analysisRunStore.GetLabelingProgress(runID)` every 10s.
+   - Poll `runStore.GetLabelingProgress(runID)` every 10s.
    - Also check for a manual "continue" signal (channel/atomic flag).
    - Enforce `MinLabelThreshold`: the continue signal is rejected if
      `progress.Pct < req.MinLabelThreshold` (default 0.9 = 90%). The HTTP
@@ -263,7 +263,7 @@ requirement.
 
 6. Implement `carryOverLabels(prevRunID, newRunID string)`:
    - Fetches labelled tracks from `prevRunID` via
-     `analysisRunStore.GetRunTracks(prevRunID)`.
+     `runStore.GetRunTracks(prevRunID)`.
    - Fetches unlabelled tracks from `newRunID`.
    - For each labelled track in the previous run, finds the best-matching
      track in the new run using temporal IoU (overlap of
@@ -271,7 +271,7 @@ requirement.
    - Only carries a label if IoU ≥ 0.5 (sufficient temporal overlap to
      consider them the same real-world event).
    - Writes carried-over labels via
-     `analysisRunStore.SetTrackLabel(newRunID, trackID, label)`.
+     `runStore.SetTrackLabel(newRunID, trackID, label)`.
    - Records count in `HINTState.LabelsCarriedOver` for UI display.
    - The human reviews and corrects any mismatches during the label window.
 
@@ -323,7 +323,7 @@ labelling UI.
 **Wiring** in `webserver.go`:
 
 - Add `hintTuner *HINTTuner` field to `WebServer`.
-- Wire dependencies (analysisRunManager, analysisRunStore, replayCaseStore,
+- Wire dependencies (runManager, runStore, clipStore,
   groundTruthScorer) in [internal/cmd/server/radar.go](../../../internal/cmd/server/radar.go).
 - Register routes with `mux.HandleFunc`.
 
@@ -399,7 +399,7 @@ Key elements:
   from the previous round.
 - **Countdown timer** to the deadline
 - **Link to Tracks page**: direct link to
-  `/app/lidar/tracks?replay_case_id=X&run_id=Y` to label
+  `/app/lidar/tracks?clip_id=X&run_id=Y` to label
 - **Editable next sweep duration**: number input pre-filled from
   `next_sweep_duration_mins` in the state response. Sent in the continue
   request body.

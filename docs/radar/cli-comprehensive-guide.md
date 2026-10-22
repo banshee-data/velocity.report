@@ -242,7 +242,7 @@ forwards `velocity data …` and `velocity report …` here):
 **Run & Scene API:**
 
 - `/api/lidar/runs/*` - Run management
-- `/api/lidar/scenes/*` - Scene management
+- `/api/lidar/clips/*` - Scene management
 
 **Debug Dashboard (`:8081/debug/`):**
 

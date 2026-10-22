@@ -794,6 +794,11 @@ JSON.
 | Labels | The naming half of Item 7: `ObjectClass` and `QualityFlag` as the type names in Go, TypeScript and Swift; label and annotation words on every surface; the annotation-pack routes under the LiDAR namespace, with the old routes registered for the app. One label table and one write path are Phase 2 (P2-B)                                                                                                                                                                                                                | Three type names in three languages; nine annotation routes                                             | Every label reads back identically through every path                                                                                                                                                            |
 | Sites  | The naming half of Items 14 and 15: site, deployment and survey defined and used on existing surfaces where the meaning already matches. The merge of `site` and `lidar_sites` and the deployment rows are Phase 2 (P2-F)                                                                                                                                                                                                                                                                                                     | Copy and types on the Sites, Reports and Clip-locations surfaces                                        | No surface uses "scene" for a place; no new relationship is implied by a name                                                                                                                                    |
 
+The Phase 1 implementation publishes the vocabulary in the hubs, enforces the compatibility
+register, and cuts over the three existing surfaces. The table above defines the accepted scope;
+the original package and release allocations below are historical, with other nouns parked until
+a consumer needs them. Storage consolidation remains Phase 2.
+
 Order: clip, then labels, then sites. Clip is the most-used noun and the run browser's Clip
 column waits on it. The owner scheduled all three in v0.5.3 on October 20, 2026, ahead of the frame-model
 move in v0.5.9, so the few renamed Go types that move touches move twice, accepted for an earlier
@@ -802,7 +807,7 @@ superseded (the vocabulary is published here and the decision is D-31, because D
 research briefing), P1-B carries all three renames, and P1-C and P1-D are parked until a
 consumer needs their words.
 
-Deliver Phase 1 as four work packages, each split into reviewable PRs by consumer boundary:
+The original four-package outline below is superseded by D-31’s three-renames scope:
 
 1. **P1-A, terminology contract:** publish the vocabulary, D-28, companion-plan alignment and
    the alias inventory. Identify words whose meanings differ today before renaming them.

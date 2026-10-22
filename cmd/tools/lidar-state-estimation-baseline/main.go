@@ -376,7 +376,7 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		}
 		if r.observationDBPath != "" {
 			first.ObservationDBPath = r.evidencePath(selectedCase.ID)
-			first.ReplayCaseID = selectedCase.ID
+			first.ClipID = selectedCase.ID
 			first.ObservationCalibration = siteCalibration(first.SensorID, r.index[selectedCase.ID].NorthAzimuthDeg)
 			first.ObservationMaxSamplePoints = r.samplePoints
 			first.ProfileEvidence = r.evidenceProfile
@@ -397,7 +397,7 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		// Replaying the same evidence into the same immutable database must be
 		// rejected. The repeat is intentionally read-only with respect to it.
 		repeat.ObservationDBPath = ""
-		repeat.ReplayCaseID = ""
+		repeat.ClipID = ""
 		repeat.ObservationCalibration = l4bobserve.Calibration{}
 		repeat.ObservationMaxSamplePoints = 0
 		fmt.Printf("%s: repeat run\n", selectedCase.ID)

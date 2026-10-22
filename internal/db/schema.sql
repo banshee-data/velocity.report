@@ -248,7 +248,7 @@
         , UNIQUE (param_set_id, build_version, build_git_sha)
           );
 
-   CREATE TABLE IF NOT EXISTS "lidar_run_records" (
+   CREATE TABLE IF NOT EXISTS "lidar_runs" (
           run_id TEXT PRIMARY KEY
         , created_at INTEGER NOT NULL
         , source_type TEXT NOT NULL
@@ -268,19 +268,18 @@
         , vrlog_path TEXT
         , run_config_id TEXT REFERENCES lidar_run_configs (run_config_id) ON DELETE SET NULL
         , requested_param_set_id TEXT REFERENCES lidar_param_sets (param_set_id) ON DELETE SET NULL
-        , replay_case_id TEXT REFERENCES lidar_replay_cases (replay_case_id) ON DELETE SET NULL
+        , clip_id TEXT REFERENCES "lidar_clips" (clip_id) ON DELETE SET NULL
         , completed_at INTEGER
         , frame_start_ns INTEGER
         , frame_end_ns INTEGER
         , CHECK (source_type IN ('live', 'pcap'))
         , CHECK (status IN ('running', 'completed', 'failed'))
-        , FOREIGN KEY (parent_run_id) REFERENCES "lidar_run_records" (run_id) ON DELETE SET NULL
+        , FOREIGN KEY (parent_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE SET NULL
           );
 
-   CREATE TABLE IF NOT EXISTS "lidar_replay_cases" (
-          replay_case_id TEXT PRIMARY KEY
+   CREATE TABLE IF NOT EXISTS "lidar_clips" (
+          clip_id TEXT PRIMARY KEY
         , sensor_id TEXT NOT NULL
-        , pcap_file TEXT NOT NULL
         , pcap_start_secs REAL
         , pcap_duration_secs REAL
         , description TEXT
@@ -306,21 +305,21 @@
           pcap_duration_secs IS NULL
        OR pcap_duration_secs >= 0
           )
-        , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE SET NULL
+        , FOREIGN KEY (reference_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE SET NULL
           );
 
-   CREATE TABLE lidar_replay_case_files (
-          replay_case_id TEXT NOT NULL
+   CREATE TABLE IF NOT EXISTS "lidar_clip_captures" (
+          clip_id TEXT NOT NULL
         , ordinal INTEGER NOT NULL
         , capture_file_id TEXT
         , pcap_file TEXT NOT NULL
-        , PRIMARY KEY (replay_case_id, ordinal)
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
+        , PRIMARY KEY (clip_id, ordinal)
+        , FOREIGN KEY (clip_id) REFERENCES "lidar_clips" (clip_id) ON DELETE CASCADE
           );
 
-   CREATE TABLE IF NOT EXISTS "lidar_replay_evaluations" (
+   CREATE TABLE IF NOT EXISTS "lidar_clip_evaluations" (
           evaluation_id TEXT PRIMARY KEY
-        , replay_case_id TEXT NOT NULL
+        , clip_id TEXT NOT NULL
         , reference_run_id TEXT NOT NULL
         , candidate_run_id TEXT NOT NULL
         , detection_rate REAL
@@ -336,9 +335,9 @@
         , reference_count INTEGER
         , candidate_count INTEGER
         , created_at INTEGER NOT NULL
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
-        , FOREIGN KEY (reference_run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
-        , FOREIGN KEY (candidate_run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
+        , FOREIGN KEY (clip_id) REFERENCES "lidar_clips" (clip_id) ON DELETE CASCADE
+        , FOREIGN KEY (reference_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE CASCADE
+        , FOREIGN KEY (candidate_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_run_missed_regions" (
@@ -358,7 +357,7 @@
         , CHECK (
           expected_label IN ('car', 'bus', 'pedestrian', 'cyclist', 'bird', 'noise', 'dynamic')
           )
-        , FOREIGN KEY (run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
+        , FOREIGN KEY (run_id) REFERENCES "lidar_runs" (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_run_tracks" (
@@ -410,12 +409,12 @@
           )
         , CHECK (is_split_candidate IN (0, 1))
         , CHECK (is_merge_candidate IN (0, 1))
-        , FOREIGN KEY (run_id) REFERENCES lidar_run_records (run_id) ON DELETE CASCADE
+        , FOREIGN KEY (run_id) REFERENCES "lidar_runs" (run_id) ON DELETE CASCADE
           );
 
    CREATE TABLE lidar_replay_annotations (
           annotation_id TEXT PRIMARY KEY
-        , replay_case_id TEXT NOT NULL
+        , clip_id TEXT NOT NULL
         , run_id TEXT
         , track_id TEXT
         , class_label TEXT NOT NULL
@@ -448,14 +447,14 @@
       AND confidence <= 1
           )
           )
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
+        , FOREIGN KEY (clip_id) REFERENCES "lidar_clips" (clip_id) ON DELETE CASCADE
         , FOREIGN KEY (run_id, track_id) REFERENCES lidar_run_tracks (run_id, track_id) ON DELETE SET NULL
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_segment_selections" (
           segment_id TEXT PRIMARY KEY
         , run_id TEXT
-        , replay_case_id TEXT NOT NULL UNIQUE
+        , clip_id TEXT NOT NULL UNIQUE
         , document_version INTEGER NOT NULL DEFAULT 1
         , parameters_json TEXT NOT NULL
         , window_json TEXT NOT NULL
@@ -524,8 +523,8 @@
           TYPEOF(capture) = 'text'
       AND capture != ''
           )
-        , FOREIGN KEY (run_id) REFERENCES lidar_run_records (run_id) ON DELETE SET NULL
-        , FOREIGN KEY (replay_case_id) REFERENCES lidar_replay_cases (replay_case_id) ON DELETE CASCADE
+        , FOREIGN KEY (run_id) REFERENCES "lidar_runs" (run_id) ON DELETE SET NULL
+        , FOREIGN KEY (clip_id) REFERENCES "lidar_clips" (clip_id) ON DELETE CASCADE
           );
 
    CREATE TABLE IF NOT EXISTS "lidar_segment_clip_jobs" (
@@ -1015,8 +1014,6 @@ CREATE INDEX idx_bg_regions_source_path ON lidar_bg_regions (source_path);
 
 CREATE INDEX idx_bg_regions_grid_hash ON lidar_bg_regions (grid_hash);
 
-CREATE INDEX idx_lidar_replay_annotations_replay_case ON lidar_replay_annotations (replay_case_id);
-
 CREATE INDEX idx_lidar_replay_annotations_run_track ON lidar_replay_annotations (run_id, track_id);
 
 CREATE INDEX idx_lidar_replay_annotations_track ON lidar_replay_annotations (track_id);
@@ -1025,15 +1022,13 @@ CREATE INDEX idx_lidar_replay_annotations_time ON lidar_replay_annotations (star
 
 CREATE INDEX idx_lidar_replay_annotations_class ON lidar_replay_annotations (class_label);
 
-CREATE UNIQUE INDEX idx_replay_evaluations_pair ON lidar_replay_evaluations (replay_case_id, reference_run_id, candidate_run_id);
+CREATE INDEX idx_lidar_runs_created ON "lidar_runs" (created_at);
 
-CREATE INDEX idx_lidar_runs_created ON lidar_run_records (created_at);
+CREATE INDEX idx_lidar_runs_source ON "lidar_runs" (source_path);
 
-CREATE INDEX idx_lidar_runs_source ON lidar_run_records (source_path);
+CREATE INDEX idx_lidar_runs_parent ON "lidar_runs" (parent_run_id);
 
-CREATE INDEX idx_lidar_runs_parent ON lidar_run_records (parent_run_id);
-
-CREATE INDEX idx_lidar_runs_status ON lidar_run_records (status);
+CREATE INDEX idx_lidar_runs_status ON "lidar_runs" (status);
 
 CREATE INDEX idx_lidar_run_tracks_run ON lidar_run_tracks (run_id);
 
@@ -1056,12 +1051,6 @@ CREATE INDEX idx_lidar_tracks_class ON lidar_tracks (object_class);
 CREATE INDEX idx_lidar_tracks_quality ON lidar_tracks (track_length_meters, occlusion_count);
 
 CREATE INDEX idx_lidar_run_missed_regions_run_id ON lidar_run_missed_regions (run_id);
-
-CREATE INDEX idx_lidar_replay_cases_sensor ON lidar_replay_cases (sensor_id);
-
-CREATE INDEX idx_lidar_replay_cases_pcap ON lidar_replay_cases (pcap_file);
-
-CREATE INDEX idx_lidar_replay_evaluations_replay_case_created_at ON lidar_replay_evaluations (replay_case_id, created_at DESC);
 
 CREATE INDEX idx_lidar_tuning_sweeps_sensor ON lidar_tuning_sweeps (sensor_id);
 
@@ -1165,14 +1154,6 @@ CREATE INDEX idx_lidar_param_sets_params_hash ON lidar_param_sets (params_hash);
 
 CREATE INDEX idx_lidar_run_configs_config_hash ON lidar_run_configs (config_hash);
 
-CREATE INDEX idx_lidar_run_records_run_config ON lidar_run_records (run_config_id);
-
-CREATE INDEX idx_lidar_run_records_requested_param_set ON lidar_run_records (requested_param_set_id);
-
-CREATE INDEX idx_lidar_run_records_replay_case ON lidar_run_records (replay_case_id);
-
-CREATE INDEX idx_lidar_replay_cases_recommended_param_set ON lidar_replay_cases (recommended_param_set_id);
-
 CREATE INDEX idx_radar_serial_config_enabled ON radar_serial_config (enabled);
 
 CREATE TRIGGER update_radar_serial_config_timestamp AFTER
@@ -1215,23 +1196,9 @@ CREATE INDEX idx_lidar_capture_jobs_state ON lidar_capture_jobs (state, queued_a
 
 CREATE INDEX idx_lidar_capture_jobs_session ON lidar_capture_jobs (session_id, queued_at_ns);
 
-CREATE INDEX idx_lidar_replay_case_files_case ON lidar_replay_case_files (replay_case_id, ordinal);
-
-CREATE INDEX idx_lidar_replay_case_files_capture ON lidar_replay_case_files (capture_file_id);
-
-CREATE INDEX idx_lidar_replay_cases_session ON lidar_replay_cases (session_id);
-
-CREATE INDEX idx_lidar_replay_cases_s2_l10 ON lidar_replay_cases (s2_l10_token);
-
-CREATE INDEX idx_lidar_replay_cases_s2_l13 ON lidar_replay_cases (s2_l13_token);
-
-CREATE INDEX idx_lidar_replay_cases_s2_l16 ON lidar_replay_cases (s2_l16_token);
-
 CREATE INDEX idx_lidar_sites_l13 ON lidar_sites (s2_l13_token);
 
 CREATE INDEX idx_lidar_sites_l10 ON lidar_sites (s2_l10_token);
-
-CREATE INDEX idx_lidar_replay_cases_site_id ON lidar_replay_cases (site_id);
 
 CREATE INDEX idx_lidar_observations_source_time ON lidar_observations (source_id, frame_unix_nanos, observation_id);
 
@@ -1410,6 +1377,36 @@ CREATE TRIGGER lidar_track_observations_frame_from_acquisition BEFORE INSERT ON 
    SELECT RAISE (IGNORE);
 
 END;
+
+CREATE INDEX idx_lidar_replay_annotations_clip ON lidar_replay_annotations (clip_id);
+
+CREATE UNIQUE INDEX idx_clip_evaluations_pair ON lidar_clip_evaluations (clip_id, reference_run_id, candidate_run_id);
+
+CREATE INDEX idx_lidar_clips_sensor ON lidar_clips (sensor_id);
+
+CREATE INDEX idx_lidar_clip_evaluations_clip_created_at ON lidar_clip_evaluations (clip_id, created_at DESC);
+
+CREATE INDEX idx_lidar_runs_run_config ON lidar_runs (run_config_id);
+
+CREATE INDEX idx_lidar_runs_requested_param_set ON lidar_runs (requested_param_set_id);
+
+CREATE INDEX idx_lidar_runs_clip ON lidar_runs (clip_id);
+
+CREATE INDEX idx_lidar_clips_recommended_param_set ON lidar_clips (recommended_param_set_id);
+
+CREATE INDEX idx_lidar_clip_captures_case ON lidar_clip_captures (clip_id, ordinal);
+
+CREATE INDEX idx_lidar_clip_captures_capture ON lidar_clip_captures (capture_file_id);
+
+CREATE INDEX idx_lidar_clips_session ON lidar_clips (session_id);
+
+CREATE INDEX idx_lidar_clips_s2_l10 ON lidar_clips (s2_l10_token);
+
+CREATE INDEX idx_lidar_clips_s2_l13 ON lidar_clips (s2_l13_token);
+
+CREATE INDEX idx_lidar_clips_s2_l16 ON lidar_clips (s2_l16_token);
+
+CREATE INDEX idx_lidar_clips_site_id ON lidar_clips (site_id);
 
 -- Fixture data derived from migrations (do not edit — regenerate with make schema-sync).
    INSERT OR IGNORE INTO "radar_serial_config" (

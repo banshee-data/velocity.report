@@ -418,29 +418,29 @@ function intVal(id) {
 function togglePCAP() {
   var ds = document.getElementById("data_source").value;
   document.getElementById("pcap-fields").style.display =
-    ds === "pcap" ? "" : "none";
-  document.getElementById("replay-case-fields").style.display =
-    ds === "replay_case" ? "" : "none";
+    ds === "capture" ? "" : "none";
+  document.getElementById("clip-fields").style.display =
+    ds === "clip" ? "" : "none";
 }
 
-var replayCasesData = [];
+var clipsData = [];
 var currentCaseHasReference = false;
 
-function loadReplayCases() {
-  var select = document.getElementById("replay_case_select");
+function loadClips() {
+  var select = document.getElementById("clip_select");
   if (!select) return;
-  fetch("/api/lidar/scenes?sensor_id=" + encodeURIComponent(sensorId))
+  fetch("/api/lidar/clips?sensor_id=" + encodeURIComponent(sensorId))
     .then(function (r) {
       return r.json();
     })
     .then(function (data) {
-      replayCasesData = data.replay_cases || data.scenes || [];
+      clipsData = data.clips || [];
       select.innerHTML = '<option value="">(select a replay case)</option>';
-      replayCasesData.forEach(function (s) {
+      clipsData.forEach(function (s) {
         var opt = document.createElement("option");
-        opt.value = s.replay_case_id;
-        var label = s.pcap_file;
-        if (s.description) label = s.description + " (" + s.pcap_file + ")";
+        opt.value = s.clip_id;
+        var label = (s.files || []).map(function (capture) { return capture.pcap_file; }).join(", ");
+        if (s.description) label = s.description + " (" + (s.files || []).map(function (capture) { return capture.pcap_file; }).join(", ") + ")";
         opt.textContent = label;
         select.appendChild(opt);
       });
@@ -451,10 +451,10 @@ function loadReplayCases() {
     });
 }
 
-function onReplayCaseSelected() {
-  var caseId = document.getElementById("replay_case_select").value;
-  var infoEl = document.getElementById("replay-case-info");
-  var actionsEl = document.getElementById("replay-case-actions");
+function onClipSelected() {
+  var caseId = document.getElementById("clip_select").value;
+  var infoEl = document.getElementById("clip-info");
+  var actionsEl = document.getElementById("clip-actions");
   var gtOption = document.getElementById("ground_truth_option");
 
   if (!caseId) {
@@ -465,8 +465,8 @@ function onReplayCaseSelected() {
     return;
   }
 
-  var rc = replayCasesData.find(function (s) {
-    return s.replay_case_id === caseId;
+  var rc = clipsData.find(function (s) {
+    return s.clip_id === caseId;
   });
   if (!rc) {
     infoEl.style.display = "none";
@@ -477,7 +477,7 @@ function onReplayCaseSelected() {
   }
 
   // Populate the PCAP fields so buildSweepSetupJSON / handleStartAutoTune can read them
-  document.getElementById("pcap_file").value = rc.pcap_file;
+  document.getElementById("pcap_file").value = (((rc.files || [])[0] || {}).pcap_file || "");
   if (rc.pcap_start_secs != null) {
     document.getElementById("pcap_start_secs").value = rc.pcap_start_secs;
   }
@@ -486,7 +486,7 @@ function onReplayCaseSelected() {
   }
 
   // Show info
-  var info = "File: " + rc.pcap_file;
+  var info = "File: " + (((rc.files || [])[0] || {}).pcap_file || "");
   if (rc.pcap_start_secs != null)
     info += " | Start: " + rc.pcap_start_secs + "s";
   if (rc.pcap_duration_secs != null)
@@ -528,14 +528,14 @@ function setMode(mode) {
   } else if (mode === "hint") {
     document.body.classList.add("hint-mode");
     requestNotificationPermission();
-    loadReplayCases();
+    loadClips();
   }
 
-  // In HINT mode, force data source to "replay_case" (HINT always uses replay cases)
+  // In HINT mode, force data source to "clip" (HINT always uses replay cases)
   if (mode === "hint") {
     var dsEl = document.getElementById("data_source");
     if (dsEl) {
-      dsEl.value = "replay_case";
+      dsEl.value = "clip";
       togglePCAP();
     }
   }
@@ -893,14 +893,14 @@ function buildSweepSetupJSON() {
     interval: val("interval"),
     settle_time: val("settle_time"),
     settle_mode: val("settle_mode"),
-    data_source: ds === "replay_case" ? "pcap" : ds,
+    data_source: ds === "clip" ? "capture" : ds,
   };
 
-  if (ds === "replay_case") {
-    req.replay_case_id = val("replay_case_select");
+  if (ds === "clip") {
+    req.clip_id = val("clip_select");
   }
 
-  if (ds === "pcap" || ds === "replay_case") {
+  if (ds === "capture" || ds === "clip") {
     req.pcap_file = val("pcap_file");
     req.pcap_start_secs = numVal("pcap_start_secs");
     req.pcap_duration_secs = numVal("pcap_duration_secs");
@@ -997,11 +997,11 @@ function loadSetup(obj) {
     document.getElementById("settle_time").value = obj.settle_time;
   if (obj.settle_mode)
     document.getElementById("settle_mode").value = obj.settle_mode;
-  if (obj.replay_case_id) {
-    document.getElementById("data_source").value = "replay_case";
+  if (obj.clip_id) {
+    document.getElementById("data_source").value = "clip";
     togglePCAP();
-    var caseSelect = document.getElementById("replay_case_select");
-    if (caseSelect) caseSelect.value = obj.replay_case_id;
+    var caseSelect = document.getElementById("clip_select");
+    if (caseSelect) caseSelect.value = obj.clip_id;
   } else if (obj.data_source) {
     document.getElementById("data_source").value = obj.data_source;
     togglePCAP();
@@ -1156,21 +1156,21 @@ function handleStartAutoTune() {
     interval: val("interval"),
     settle_time: val("settle_time"),
     seed: val("seed"),
-    data_source: ds === "replay_case" ? "pcap" : ds,
+    data_source: ds === "clip" ? "capture" : ds,
     settle_mode: val("settle_mode"),
   };
 
-  if (ds === "pcap" || ds === "replay_case") {
+  if (ds === "capture" || ds === "clip") {
     req.pcap_file = val("pcap_file");
     req.pcap_start_secs = numVal("pcap_start_secs");
     req.pcap_duration_secs = numVal("pcap_duration_secs");
   }
 
-  // Include replay_case_id for ground truth evaluation
-  if (ds === "replay_case") {
-    var caseId = val("replay_case_select");
+  // Include clip_id for ground truth evaluation
+  if (ds === "clip") {
+    var caseId = val("clip_select");
     if (caseId) {
-      req.replay_case_id = caseId;
+      req.clip_id = caseId;
     }
   }
 
@@ -1784,15 +1784,15 @@ function applyRecommendation() {
     });
 }
 
-function applyReplayCaseParams() {
-  var caseId = document.getElementById("replay_case_select").value;
+function applyClipParams() {
+  var caseId = document.getElementById("clip_select").value;
   if (!caseId) {
     showError("No replay case selected.");
     return;
   }
 
-  var rc = replayCasesData.find(function (s) {
-    return s.replay_case_id === caseId;
+  var rc = clipsData.find(function (s) {
+    return s.clip_id === caseId;
   });
   if (!rc || !rc.optimal_params_json) {
     showError("Selected replay case has no optimal parameters.");
@@ -1824,10 +1824,10 @@ function applyReplayCaseParams() {
         return r.text().then(function (t) {
           throw new Error(t);
         });
-      document.getElementById("btn-apply-replay-case-params").textContent =
+      document.getElementById("btn-apply-clip-params").textContent =
         "Applied ✓";
       setTimeout(function () {
-        document.getElementById("btn-apply-replay-case-params").textContent =
+        document.getElementById("btn-apply-clip-params").textContent =
           "Apply Replay Case Params";
       }, 2000);
       fetchCurrentParams();
@@ -3191,7 +3191,7 @@ if (typeof module !== "undefined" && module.exports) {
     pollAutoTuneStatus: pollAutoTuneStatus,
     renderRecommendation: renderRecommendation,
     applyRecommendation: applyRecommendation,
-    applyReplayCaseParams: applyReplayCaseParams,
+    applyClipParams: applyClipParams,
     applyPastedParams: applyPastedParams,
     loadCurrentIntoEditor: loadCurrentIntoEditor,
     downloadCSV: downloadCSV,
@@ -3218,8 +3218,8 @@ if (typeof module !== "undefined" && module.exports) {
     renderTable: renderTable,
     fetchCurrentParams: fetchCurrentParams,
     displayCurrentParams: displayCurrentParams,
-    loadReplayCases: loadReplayCases,
-    onReplayCaseSelected: onReplayCaseSelected,
+    loadClips: loadClips,
+    onClipSelected: onClipSelected,
     setMode: setMode,
     toggleWeights: toggleWeights,
     togglePCAP: togglePCAP,
@@ -3243,7 +3243,7 @@ function init() {
   // Reset module-level state (prevents leaking between test runs)
   latestResults = null;
   stopRequested = false;
-  replayCasesData = [];
+  clipsData = [];
   currentCaseHasReference = false;
   chartConfigs = [];
   chartInstances = {};
@@ -3352,7 +3352,7 @@ function init() {
   fetchCurrentParams();
 
   // Load replay cases for replay case selector
-  loadReplayCases();
+  loadClips();
 
   // Wire up live summary updates for top-level fields
   document
@@ -3399,7 +3399,7 @@ var lastHINTPhase = "";
 
 function handleStartHINT() {
   // HINT uses the replay case selector from the Data Source card
-  var caseSelect = document.getElementById("replay_case_select");
+  var caseSelect = document.getElementById("clip_select");
   var caseId = caseSelect ? caseSelect.value : "";
   if (!caseId) {
     showError("Select a replay case before starting HINT sweep.");
@@ -3452,7 +3452,7 @@ function handleStartHINT() {
   }
 
   var req = {
-    replay_case_id: caseId,
+    clip_id: caseId,
     num_rounds: parseInt(document.getElementById("hint_rounds").value, 10) || 3,
     params: params,
     values_per_param:

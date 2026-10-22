@@ -129,7 +129,8 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
 		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
 		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},
-		{"GET /api/lidar/scene-map", ws.handleSceneMap},
+		{"GET /api/lidar/clip-locations", ws.handleClipLocations},
+		{compatibility.AliasRoute("GET /api/lidar/scene-map", "GET /api/lidar/clip-locations"), ws.handleClipLocations},
 	}
 
 	// Chart API routes (structured JSON data for frontend charts)
@@ -215,27 +216,40 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Run track API routes (analysis run management and track labelling)
 	mux.HandleFunc("/api/lidar/runs/", ws.withDB(ws.handleRunTrackAPI))
 
-	// Scene API routes (scene management for track labelling and auto-tuning)
-	mux.HandleFunc("/api/lidar/scenes", ws.withDB(ws.handleScenes))
-	mux.HandleFunc("/api/lidar/scenes/", ws.withDB(ws.handleSceneByID))
+	// Clip API routes (evaluation windows for track labelling and auto-tuning)
+	mux.HandleFunc("/api/lidar/clips", ws.withDB(ws.handleClips))
+	mux.HandleFunc("/api/lidar/clips/", ws.withDB(ws.handleClipByID))
 	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
 	mux.HandleFunc("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
 	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))
 	mux.HandleFunc("/api/lidar/segments/", ws.withDB(ws.handleSegmentByID))
 	mux.HandleFunc("/api/lidar/segments", ws.withDB(ws.handleSegments))
-	mux.HandleFunc("/api/annotations/packs", ws.handleAnnotationPacks)
-	mux.HandleFunc("/api/annotations/physical", ws.handlePhysicalReferences)
-	mux.HandleFunc("/api/annotations/features", ws.handleFeatureAnnotations)
-	mux.HandleFunc("/api/annotations/features/pose-proposal", ws.handleFacetPoseProposal)
-	mux.HandleFunc("/api/annotations/physical/validate", ws.handlePhysicalEdit(false))
-	mux.HandleFunc("/api/annotations/physical/save", ws.handlePhysicalEdit(true))
-	mux.HandleFunc("/api/annotations/physical/fit", ws.handlePhysicalFit)
-	mux.HandleFunc("/api/annotations/physical/review", ws.handlePhysicalReview)
-	mux.HandleFunc("/api/annotations/physical/history", ws.handlePhysicalHistory)
-	mux.HandleFunc("/api/annotations/physical/restore", ws.handlePhysicalRestore)
-	mux.HandleFunc("/api/annotations/split/preview", ws.handleSplitPreview)
-	mux.HandleFunc("/api/annotations/split/freeze", ws.handleSplitFreeze)
-	mux.HandleFunc("/api/annotations/splits", ws.handleSplits)
+	mux.HandleFunc("/api/lidar/annotations/packs", ws.handleAnnotationPacks)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/packs", "/api/lidar/annotations/packs"), ws.handleAnnotationPacks)
+	mux.HandleFunc("/api/lidar/annotations/physical", ws.handlePhysicalReferences)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical", "/api/lidar/annotations/physical"), ws.handlePhysicalReferences)
+	mux.HandleFunc("/api/lidar/annotations/features", ws.handleFeatureAnnotations)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/features", "/api/lidar/annotations/features"), ws.handleFeatureAnnotations)
+	mux.HandleFunc("/api/lidar/annotations/features/pose-proposal", ws.handleFacetPoseProposal)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/features/pose-proposal", "/api/lidar/annotations/features/pose-proposal"), ws.handleFacetPoseProposal)
+	mux.HandleFunc("/api/lidar/annotations/physical/validate", ws.handlePhysicalEdit(false))
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical/validate", "/api/lidar/annotations/physical/validate"), ws.handlePhysicalEdit(false))
+	mux.HandleFunc("/api/lidar/annotations/physical/save", ws.handlePhysicalEdit(true))
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical/save", "/api/lidar/annotations/physical/save"), ws.handlePhysicalEdit(true))
+	mux.HandleFunc("/api/lidar/annotations/physical/fit", ws.handlePhysicalFit)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical/fit", "/api/lidar/annotations/physical/fit"), ws.handlePhysicalFit)
+	mux.HandleFunc("/api/lidar/annotations/physical/review", ws.handlePhysicalReview)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical/review", "/api/lidar/annotations/physical/review"), ws.handlePhysicalReview)
+	mux.HandleFunc("/api/lidar/annotations/physical/history", ws.handlePhysicalHistory)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical/history", "/api/lidar/annotations/physical/history"), ws.handlePhysicalHistory)
+	mux.HandleFunc("/api/lidar/annotations/physical/restore", ws.handlePhysicalRestore)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/physical/restore", "/api/lidar/annotations/physical/restore"), ws.handlePhysicalRestore)
+	mux.HandleFunc("/api/lidar/annotations/split/preview", ws.handleSplitPreview)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/split/preview", "/api/lidar/annotations/split/preview"), ws.handleSplitPreview)
+	mux.HandleFunc("/api/lidar/annotations/split/freeze", ws.handleSplitFreeze)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/split/freeze", "/api/lidar/annotations/split/freeze"), ws.handleSplitFreeze)
+	mux.HandleFunc("/api/lidar/annotations/splits", ws.handleSplits)
+	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/splits", "/api/lidar/annotations/splits"), ws.handleSplits)
 
 	// Site API routes (canonical pose for a located site, e.g. a surveyed
 	// intersection midpoint) — distinct from a case's own sensor pose.
@@ -248,7 +262,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 // matching the radar admin server's access control (tailscale-only).
 func (ws *Server) setupRoutes() *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", ws.handleStatus)
+	mux.HandleFunc("/{$}", ws.handleStatus)
 	ws.RegisterRoutes(mux)
 
 	// Register pprof and debug endpoints via tsweb.Debugger, which

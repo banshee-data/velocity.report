@@ -119,14 +119,14 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 
 	ws := &Server{
 		sensorID: "runtime-sensor",
-		state:    PipelineState{Source: SourceModePCAP, ReplayActive: true, TotalPasses: 1},
+		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1},
 		tracker:  tracker,
 	}
 	ws.storeTuningConfig(cfg)
 
 	runtimeCfg := ws.runtimeTuningConfig(bm)
 	if runtimeCfg.L1.Sensor != "runtime-sensor" ||
-		runtimeCfg.L1.DataSource != string(DataSourcePCAP) {
+		runtimeCfg.L1.DataSource != "pcap" {
 		t.Fatalf("unexpected L1 runtime sync: %+v", runtimeCfg.L1)
 	}
 	l1JSON, err := json.Marshal(runtimeCfg.L1)
@@ -151,9 +151,9 @@ func TestRuntimeTuningConfigSyncsRuntimeState(t *testing.T) {
 		t.Fatalf("unexpected L5 runtime sync: %+v", runtimeCfg.L5.CvKfV1)
 	}
 
-	wsNoStored := &Server{sensorID: "no-store-sensor", state: PipelineState{Source: SourceModePCAP, GridPreserved: true, TotalPasses: 1}}
+	wsNoStored := &Server{sensorID: "no-store-sensor", state: PipelineState{Source: SourceModeCapture, GridPreserved: true, TotalPasses: 1}}
 	fallback := wsNoStored.runtimeTuningConfig(bm)
-	if fallback.L1.Sensor != "no-store-sensor" || fallback.L1.DataSource != string(DataSourcePCAPAnalysis) {
+	if fallback.L1.Sensor != "no-store-sensor" || fallback.L1.DataSource != "pcap" {
 		t.Fatalf("unexpected fallback L1 sync: %+v", fallback.L1)
 	}
 	if fallback.L3.EmaBaselineV1.NoiseRelative == 0.12 {

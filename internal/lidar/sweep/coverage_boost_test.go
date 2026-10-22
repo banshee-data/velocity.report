@@ -10,46 +10,46 @@ import (
 	"time"
 )
 
-// --- scenePCAPStart / scenePCAPDuration (hint_notifications.go) ---
+// --- clipPCAPStart / clipPCAPDuration (hint_notifications.go) ---
 
-func TestScenePCAPStart_NilScene(t *testing.T) {
-	if got := scenePCAPStart(nil); got != 0 {
+func TestClipPCAPStart_NilClip(t *testing.T) {
+	if got := clipPCAPStart(nil); got != 0 {
 		t.Errorf("expected 0, got %f", got)
 	}
 }
 
-func TestScenePCAPStart_NilPtr(t *testing.T) {
-	scene := &HINTScene{}
-	if got := scenePCAPStart(scene); got != 0 {
+func TestClipPCAPStart_NilPtr(t *testing.T) {
+	clip := &HINTClip{}
+	if got := clipPCAPStart(clip); got != 0 {
 		t.Errorf("expected 0, got %f", got)
 	}
 }
 
-func TestScenePCAPStart_WithValue(t *testing.T) {
+func TestClipPCAPStart_WithValue(t *testing.T) {
 	v := 42.5
-	scene := &HINTScene{PCAPStartSecs: &v}
-	if got := scenePCAPStart(scene); got != 42.5 {
+	clip := &HINTClip{PCAPStartSecs: &v}
+	if got := clipPCAPStart(clip); got != 42.5 {
 		t.Errorf("expected 42.5, got %f", got)
 	}
 }
 
-func TestScenePCAPDuration_NilScene(t *testing.T) {
-	if got := scenePCAPDuration(nil); got != -1 {
+func TestClipPCAPDuration_NilClip(t *testing.T) {
+	if got := clipPCAPDuration(nil); got != -1 {
 		t.Errorf("expected -1, got %f", got)
 	}
 }
 
-func TestScenePCAPDuration_NilPtr(t *testing.T) {
-	scene := &HINTScene{}
-	if got := scenePCAPDuration(scene); got != -1 {
+func TestClipPCAPDuration_NilPtr(t *testing.T) {
+	clip := &HINTClip{}
+	if got := clipPCAPDuration(clip); got != -1 {
 		t.Errorf("expected -1, got %f", got)
 	}
 }
 
-func TestScenePCAPDuration_WithValue(t *testing.T) {
+func TestClipPCAPDuration_WithValue(t *testing.T) {
 	v := 120.0
-	scene := &HINTScene{PCAPDurationSecs: &v}
-	if got := scenePCAPDuration(scene); got != 120.0 {
+	clip := &HINTClip{PCAPDurationSecs: &v}
+	if got := clipPCAPDuration(clip); got != 120.0 {
 		t.Errorf("expected 120.0, got %f", got)
 	}
 }
@@ -96,7 +96,7 @@ func TestDefaultHINTParams_WithBackground(t *testing.T) {
 func TestSetGroundTruthScorerDetailed(t *testing.T) {
 	at := NewAutoTuner(nil)
 	called := false
-	scorer := func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error) {
+	scorer := func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error) {
 		called = true
 		return 0.95, nil, nil
 	}

@@ -8,9 +8,9 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-// handleSceneClip queues an offline replay and annotation export for a case
+// handleClipPack queues an offline replay and annotation export for a case
 // made from a selected segment. A freehand case has no selection provenance.
-func (ws *Server) handleSceneClip(w http.ResponseWriter, r *http.Request, caseID string) {
+func (ws *Server) handleClipPack(w http.ResponseWriter, r *http.Request, caseID string) {
 	if ws.annotationPacksDir == "" {
 		ws.writeJSONError(w, 501, "annotation packs directory is not configured")
 		return

@@ -13,7 +13,7 @@ func schemaFixture(t *testing.T) *dbpkg.DB {
 	t.Helper()
 	db, cleanup := dbpkg.NewTestDB(t)
 	t.Cleanup(cleanup)
-	if _, err := db.Exec(`INSERT INTO lidar_run_records(run_id,created_at,source_type,sensor_id,status) VALUES('run',1,'pcap','sensor','completed')`); err != nil {
+	if _, err := db.Exec(`INSERT INTO lidar_runs(run_id,created_at,source_type,sensor_id,status) VALUES('run',1,'pcap','sensor','completed')`); err != nil {
 		t.Fatal(err)
 	}
 	return db
@@ -24,8 +24,8 @@ func schemaFixture(t *testing.T) *dbpkg.DB {
 // the schema accepted it.
 func insertChoice(t *testing.T, db *dbpkg.DB, n int, finder, role string, chosenBy SelectorProvenance) error {
 	t.Helper()
-	replayCase := fmt.Sprintf("case-%d", n)
-	if _, err := db.Exec(`INSERT INTO lidar_replay_cases(replay_case_id,sensor_id,pcap_file,created_at_ns) VALUES(?,'sensor','a.pcap',1)`, replayCase); err != nil {
+	clip := fmt.Sprintf("case-%d", n)
+	if _, err := db.Exec(`INSERT INTO lidar_clips (clip_id,sensor_id,created_at_ns) VALUES (?,'sensor',1)`, clip); err != nil {
 		t.Fatal(err)
 	}
 	p := chosenBy.Parameters
@@ -48,8 +48,8 @@ func insertChoice(t *testing.T, db *dbpkg.DB, n int, finder, role string, chosen
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = db.Exec(`INSERT INTO lidar_segment_selections(segment_id,run_id,replay_case_id,parameters_json,window_json,selector_json,created_at_ns) VALUES(?,?,?,?,?,?,1)`,
-		window.ID, "run", replayCase, string(parameters), string(document), string(selector))
+	_, err = db.Exec(`INSERT INTO lidar_segment_selections(segment_id,run_id,clip_id,parameters_json,window_json,selector_json,created_at_ns) VALUES(?,?,?,?,?,?,1)`,
+		window.ID, "run", clip, string(parameters), string(document), string(selector))
 	return err
 }
 

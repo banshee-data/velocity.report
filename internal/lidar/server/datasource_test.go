@@ -246,11 +246,11 @@ func TestDataSourceConstants(t *testing.T) {
 	if DataSourceLive != "live" {
 		t.Errorf("Expected DataSourceLive 'live', got '%s'", DataSourceLive)
 	}
-	if DataSourcePCAP != "pcap" {
-		t.Errorf("Expected DataSourcePCAP 'pcap', got '%s'", DataSourcePCAP)
+	if DataSourceCapture != "capture" {
+		t.Errorf("Expected DataSourceCapture 'pcap', got '%s'", DataSourceCapture)
 	}
-	if DataSourcePCAPAnalysis != "pcap_analysis" {
-		t.Errorf("Expected DataSourcePCAPAnalysis 'pcap_analysis', got '%s'", DataSourcePCAPAnalysis)
+	if DataSourceCaptureAnalysis != "capture_analysis" {
+		t.Errorf("Expected DataSourceCaptureAnalysis 'pcap_analysis', got '%s'", DataSourceCaptureAnalysis)
 	}
 }
 

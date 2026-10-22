@@ -92,7 +92,7 @@ func TestPhysicalFitAPIFitsAndTheDraftSaves(t *testing.T) {
 	c := physicalClient{t: t, base: srv.URL}
 
 	state := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
-	status, out := c.do(http.MethodPost, "/api/annotations/physical/fit", fitBody(state, "car-1", 4))
+	status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/fit", fitBody(state, "car-1", 4))
 	if status != http.StatusOK {
 		t.Fatalf("fit: %d %v", status, out)
 	}
@@ -110,7 +110,7 @@ func TestPhysicalFitAPIFitsAndTheDraftSaves(t *testing.T) {
 	if after := c.load("kirk0/packs/run-a", p.Manifest.PackDigest); after["exists"] != false {
 		t.Fatal("the fit stored a document")
 	}
-	status, saved := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, res.Import.Objects))
+	status, saved := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, res.Import.Objects))
 	if status != http.StatusOK {
 		t.Fatalf("saving the fitted draft: %d %v", status, saved)
 	}
@@ -148,7 +148,7 @@ func TestPhysicalFitAPIRefusals(t *testing.T) {
 		{"unknown object", http.MethodPost, fitBody(state, "ghost"), http.StatusUnprocessableEntity, physicalCodeInvalid},
 		{"unknown field", http.MethodPost, `{"pack":"kirk0/packs/run-a","nope":1}`, http.StatusBadRequest, physicalCodeBadRequest},
 	} {
-		status, out := c.do(tc.method, "/api/annotations/physical/fit", tc.body)
+		status, out := c.do(tc.method, "/api/lidar/annotations/physical/fit", tc.body)
 		if status != tc.status || out["code"] != tc.code {
 			t.Errorf("%s: %d %v, want %d %s", tc.name, status, out, tc.status, tc.code)
 		}
@@ -158,7 +158,7 @@ func TestPhysicalFitAPIRefusals(t *testing.T) {
 	unconfigured.RegisterRoutes(umux)
 	usrv := httptest.NewServer(umux)
 	defer usrv.Close()
-	if status, _ := (physicalClient{t: t, base: usrv.URL}).do(http.MethodPost, "/api/annotations/physical/fit", fitBody(state, "car-1")); status != http.StatusNotImplemented {
+	if status, _ := (physicalClient{t: t, base: usrv.URL}).do(http.MethodPost, "/api/lidar/annotations/physical/fit", fitBody(state, "car-1")); status != http.StatusNotImplemented {
 		t.Errorf("no annotation directory: %d, want 501", status)
 	}
 }

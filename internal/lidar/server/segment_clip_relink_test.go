@@ -21,13 +21,13 @@ func queuedClip(t *testing.T, ws *Server) (jobID, segmentID string) {
 	chosen := firstFollowingSegment(t, ws, "tuning")
 	created := callSegment(t, ws, "POST", "/api/lidar/segments/"+chosen.ID+"/case", map[string]any{"run_id": "run"}, ws.handleSegmentByID)
 	var selected struct {
-		ReplayCaseID string `json:"replay_case_id"`
+		ClipID string `json:"clip_id"`
 	}
 	if err := json.Unmarshal(created.Body.Bytes(), &selected); err != nil || created.Code != 201 {
 		t.Fatalf("case: %d %s", created.Code, created.Body.String())
 	}
-	queued := callSegment(t, ws, "POST", "/api/lidar/scenes/"+selected.ReplayCaseID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) {
-		ws.handleSceneClip(w, r, selected.ReplayCaseID)
+	queued := callSegment(t, ws, "POST", "/api/lidar/clips/"+selected.ClipID+"/clip", nil, func(w http.ResponseWriter, r *http.Request) {
+		ws.handleClipPack(w, r, selected.ClipID)
 	})
 	var response struct {
 		Job struct {

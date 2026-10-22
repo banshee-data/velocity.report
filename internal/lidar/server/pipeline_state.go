@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync/atomic"
 )
@@ -33,9 +34,9 @@ type SourceMode string
 
 // Recognised pipeline source modes.
 const (
-	SourceModeLive  SourceMode = "live"
-	SourceModePCAP  SourceMode = "pcap"
-	SourceModeVRLog SourceMode = "vrlog"
+	SourceModeLive    SourceMode = "live"
+	SourceModeCapture SourceMode = "capture"
+	SourceModeVRLog   SourceMode = "vrlog"
 )
 
 // ReplayPass identifies which pass of a multi-pass replay is running.
@@ -104,8 +105,8 @@ func newPipelineState() PipelineState {
 // handlePCAPResumeLive had to report grid preservation in a separate ad-hoc
 // field that then vanished from every subsequent status read.
 func (s PipelineState) DataSourceWire() string {
-	if s.Source == SourceModePCAP && !s.ReplayActive && s.GridPreserved {
-		return string(DataSourcePCAPAnalysis)
+	if s.Source == SourceModeCapture && !s.ReplayActive && s.GridPreserved {
+		return string(DataSourceCaptureAnalysis)
 	}
 	return string(s.Source)
 }
@@ -117,20 +118,20 @@ func (s PipelineState) DataSourceWire() string {
 // sweep runner calls it once per parameter combination. Reporting true during a
 // VRLOG replay would make every sweep block until its timeout.
 func (s PipelineState) PCAPInProgress() bool {
-	return s.Source == SourceModePCAP && s.ReplayActive
+	return s.Source == SourceModeCapture && s.ReplayActive
 }
 
 // AnalysisMode reports whether the active or most recent PCAP replay was
 // started in analysis mode, which is what the grid-retention flag records.
 func (s PipelineState) AnalysisMode() bool {
-	return s.Source == SourceModePCAP && s.GridPreserved
+	return s.Source == SourceModeCapture && s.GridPreserved
 }
 
 // PCAPFile returns the active PCAP path, or empty when the source is not a
 // PCAP. Matches the legacy currentPCAPFile field, which was cleared whenever
 // the pipeline returned to live input.
 func (s PipelineState) PCAPFile() string {
-	if s.Source != SourceModePCAP {
+	if s.Source != SourceModeCapture {
 		return ""
 	}
 	return s.SourcePath
@@ -141,9 +142,9 @@ func (s PipelineState) StatusLabel() string {
 	switch {
 	case s.Source == SourceModeVRLog:
 		return "VRLOG Replay"
-	case s.Source == SourceModePCAP && s.ReplayActive:
+	case s.Source == SourceModeCapture && s.ReplayActive:
 		return "PCAP Replay"
-	case s.Source == SourceModePCAP:
+	case s.Source == SourceModeCapture:
 		return "PCAP Analysis"
 	default:
 		return "Live UDP"
@@ -321,7 +322,7 @@ func (ws *Server) tryBeginPCAPReplay(cfg ReplayConfig) (bool, SourceMode) {
 	// running strands every client on "REPLAY (PCAP)" while live packets flow,
 	// and nothing later corrects it because no replay ever ended.
 	ws.sourceBeforeReplayClaim = ws.state.Source
-	ws.state.Source = SourceModePCAP
+	ws.state.Source = SourceModeCapture
 	ws.state.ReplayActive = true
 	ws.state.GridPreserved = cfg.AnalysisMode
 	ws.state.TotalPasses = totalPasses
@@ -500,4 +501,18 @@ func (ws *Server) setSourceVRLog(path string) {
 		s.RecordingRunID = ""
 		s.RecordingFrames = 0
 	})
+}
+
+// UnmarshalJSON accepts the old source token for the registered macOS window.
+// New responses always emit capture; PCAP still names the packet format.
+func (source *SourceMode) UnmarshalJSON(data []byte) error {
+	var value string
+	if err := json.Unmarshal(data, &value); err != nil {
+		return err
+	}
+	if value == "pcap" {
+		value = string(SourceModeCapture)
+	}
+	*source = SourceMode(value)
+	return nil
 }

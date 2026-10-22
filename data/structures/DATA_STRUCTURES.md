@@ -58,7 +58,7 @@ Contributions welcome.
       `lidar_bg_regions` JSON blobs (variance data, region geometry).
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
 
-- [ ] **Label / evaluation format**: `lidar_labels`, `lidar_scenes`,
+- [ ] **Label / evaluation format**: `lidar_replay_annotations`, `lidar_clip_evaluations`,
       `lidar_evaluations` table semantics and JSON fields.
       Source: [`internal/db/schema.sql`](../../internal/db/schema.sql)
 

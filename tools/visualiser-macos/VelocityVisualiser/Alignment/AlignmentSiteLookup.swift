@@ -1,21 +1,21 @@
 // AlignmentSiteLookup.swift
 // Which S2 site the open capture was taken at, from velocity.report's own
 // records. Gerardus keys everything by the site's L16 token, and its hint
-// needs the eye-read position a replay case carries:
+// needs the eye-read position a clip carries:
 //
-//   GET /api/lidar/scene-map           every located case, grouped by site
-//   GET /api/lidar/runs/{run_id}       the run's replay case and source file
+//   GET /api/lidar/clip-locations           every located case, grouped by site
+//   GET /api/lidar/runs/{run_id}       the run's clip and source file
 //   GET /api/lidar/data_source         what the server is replaying now
-//   GET /api/lidar/scenes/{case_id}    a case's capture files
+//   GET /api/lidar/clips/{case_id}    a case's capture files
 //
 // The heading is not here: no velocity.report API serves site-index.json's
 // north_azimuth_deg, so the operator types it into the pane.
 
 import Foundation
 
-/// A located replay case: what PoseFromHint and UploadScan need.
+/// A located clip: what PoseFromHint and UploadScan need.
 struct AlignmentSite: Identifiable, Hashable, Sendable {
-    var replayCaseID: String
+    var clipID: String
     var l16Token: String
     var l13Token: String
     /// The case's description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)".
@@ -25,7 +25,7 @@ struct AlignmentSite: Identifiable, Hashable, Sendable {
     var latitude: Double
     var longitude: Double
 
-    var id: String { replayCaseID }
+    var id: String { clipID }
 
     /// "Columbus at Broadway": the description without the archive prefix and
     /// the duration, for the pane and for PrepareSite's provenance label.
@@ -45,7 +45,7 @@ struct AlignmentSite: Identifiable, Hashable, Sendable {
 
 /// What velocity.report says about the capture that is open.
 struct OpenCaptureEvidence: Equatable, Sendable {
-    var replayCaseID: String?
+    var clipID: String?
     /// The run's source file, then the file the server is replaying now.
     var sourcePaths: [String] = []
     var runID: String?
@@ -53,7 +53,7 @@ struct OpenCaptureEvidence: Equatable, Sendable {
 
 /// How the site was found, for the pane to say.
 enum AlignmentSiteMatch: Equatable, Sendable {
-    case replayCase
+    case clip
     case captureFile
     case captureName
     case chosen
@@ -61,7 +61,7 @@ enum AlignmentSiteMatch: Equatable, Sendable {
 
     var explanation: String {
         switch self {
-        case .replayCase: return "The run names this replay case."
+        case .clip: return "The run names this clip."
         case .captureFile: return "The capture is one of this case's files."
         case .captureName: return "The capture's name gives this site's cell."
         case .chosen: return "Chosen by hand."
@@ -77,16 +77,16 @@ enum AlignmentSiteResolver {
     static func resolve(
         _ evidence: OpenCaptureEvidence, sites: [AlignmentSite], filesByCase: [String: [String]]
     ) -> (site: AlignmentSite, match: AlignmentSiteMatch)? {
-        if let caseID = evidence.replayCaseID, !caseID.isEmpty,
-            let site = sites.first(where: { $0.replayCaseID == caseID })
+        if let caseID = evidence.clipID, !caseID.isEmpty,
+            let site = sites.first(where: { $0.clipID == caseID })
         {
-            return (site, .replayCase)
+            return (site, .clip)
         }
 
         for path in evidence.sourcePaths where !path.isEmpty {
             let name = (path as NSString).lastPathComponent
             if let site = sites.first(where: { site in
-                (filesByCase[site.replayCaseID] ?? []).contains { file in
+                (filesByCase[site.clipID] ?? []).contains { file in
                     path == file || path.hasSuffix("/" + file)
                         || (file as NSString).lastPathComponent == name
                 }
@@ -147,33 +147,33 @@ struct AlignmentSiteLookupClient {
         self.session = session
     }
 
-    private struct SceneMap: Decodable {
-        struct Area: Decodable { var sites: [Site]? }
+    private struct ClipLocations: Decodable {
+        struct District: Decodable { var sites: [Site]? }
         struct Site: Decodable {
             var s2L16Token: String
             var s2L13Token: String?
-            var cases: [Case]?
+            var clips: [Clip]?
         }
-        struct Case: Decodable {
-            var replayCaseId: String
+        struct Clip: Decodable {
+            var clipId: String
             var description: String?
             var sensorId: String?
             var originLat: Double
             var originLon: Double
         }
-        var areas: [Area]?
+        var districts: [District]?
     }
 
-    /// Every located replay case, ordered by description.
+    /// Every located clip, ordered by description.
     func locatedSites() async throws -> [AlignmentSite] {
-        let map: SceneMap = try await get("api/lidar/scene-map")
+        let map: ClipLocations = try await get("api/lidar/clip-locations")
         var sites = [AlignmentSite]()
-        for area in map.areas ?? [] {
+        for area in map.districts ?? [] {
             for site in area.sites ?? [] {
-                for c in site.cases ?? [] {
+                for c in site.clips ?? [] {
                     sites.append(
                         AlignmentSite(
-                            replayCaseID: c.replayCaseId, l16Token: site.s2L16Token,
+                            clipID: c.clipId, l16Token: site.s2L16Token,
                             l13Token: site.s2L13Token ?? "", description: c.description ?? "",
                             sensorID: c.sensorId ?? "", latitude: c.originLat,
                             longitude: c.originLon))
@@ -184,7 +184,7 @@ struct AlignmentSiteLookupClient {
     }
 
     private struct Run: Decodable {
-        var replayCaseId: String?
+        var clipId: String?
         var sourcePath: String?
     }
 
@@ -215,22 +215,21 @@ struct AlignmentSiteLookupClient {
             let run: Run = try? await get("api/lidar/runs/\(runToRead)")
         {
             evidence.runID = runToRead
-            evidence.replayCaseID = run.replayCaseId
+            evidence.clipID = run.clipId
             if let path = run.sourcePath { evidence.sourcePaths.insert(path, at: 0) }
         }
         return evidence
     }
 
-    private struct Case: Decodable {
+    private struct Clip: Decodable {
         struct File: Decodable { var pcapFile: String }
-        var pcapFile: String?
         var files: [File]?
     }
 
     /// A case's capture files, relative to the server's PCAP root.
-    func captureFiles(replayCaseID: String) async throws -> [String] {
-        let c: Case = try await get("api/lidar/scenes/\(replayCaseID)")
-        return ([c.pcapFile] + (c.files ?? []).map(\.pcapFile)).compactMap { $0 }.filter {
+    func captureFiles(clipID: String) async throws -> [String] {
+        let c: Clip = try await get("api/lidar/clips/\(clipID)")
+        return (c.files ?? []).map(\.pcapFile).filter {
             !$0.isEmpty
         }
     }

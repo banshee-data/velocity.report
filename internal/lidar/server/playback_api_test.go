@@ -265,7 +265,7 @@ func TestHandlePlaybackStatus(t *testing.T) {
 			name:  "finished analysis replay reports pcap_analysis with the grid kept",
 			setup: func(ws *Server) { ws.setTestSourcePCAPAnalysis() },
 			checkResponse: func(t *testing.T, resp map[string]interface{}) {
-				assertField(t, resp, "mode", "pcap_analysis")
+				assertField(t, resp, "mode", "capture_analysis")
 				assertField(t, resp, "replay_active", false)
 				assertField(t, resp, "grid_preserved", true)
 			},

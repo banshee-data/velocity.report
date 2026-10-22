@@ -41,3 +41,11 @@ deployment or survey relationship.
 The programme's original decisions and detailed ledger remain authoritative for this outline. Where
 an implementation needs a new decision, record it before writing the migration or changing a wire
 contract. Keep existing compatibility rules and the applicable surface tests.
+
+## Phase 1 boundary
+
+The existing screens now use site, deployment and survey where their meanings match.
+Radar deployments still use configuration-period records; Surveys still use the
+existing catalogue contract. Clip locations use districts and site cells. This plan
+owns the site-table merge, deployment rows, survey relationships and storage changes;
+none is implied by the Phase 1 nouns.

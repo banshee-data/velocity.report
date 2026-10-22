@@ -13,10 +13,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// SceneStoreSaver is the interface for saving optimal parameters to a scene.
+// ClipStoreSaver is the interface for saving optimal parameters to a clip.
 // This is defined here to avoid circular imports with the lidar package.
-type SceneStoreSaver interface {
-	SetOptimalParams(sceneID string, paramsJSON json.RawMessage) error
+type ClipStoreSaver interface {
+	SetOptimalParams(clipID string, paramsJSON json.RawMessage) error
 }
 
 // GroundTruthWeights holds the weights for computing composite ground truth scores.
@@ -69,7 +69,7 @@ type AutoTuneRequest struct {
 	AcceptanceCriteria *AcceptanceCriteria `json:"acceptance_criteria,omitempty"`
 
 	// Ground truth evaluation support
-	ReplayCaseID       string              `json:"replay_case_id,omitempty"`       // When set, enables ground truth evaluation
+	ClipID             string              `json:"clip_id,omitempty"`              // When set, enables ground truth evaluation
 	GroundTruthWeights *GroundTruthWeights `json:"ground_truth_weights,omitempty"` // Weights for ground truth scoring
 }
 
@@ -119,16 +119,16 @@ type AutoTuner struct {
 
 	// Ground truth scoring support
 	// When set, this function is called to score each combination's results using ground truth evaluation.
-	// The function receives the replay_case_id, candidate run_id, and ground truth weights,
+	// The function receives the clip_id, candidate run_id, and ground truth weights,
 	// and returns the composite ground truth score.
-	groundTruthScorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)
+	groundTruthScorer func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error)
 
 	// Detailed ground truth scorer that returns component breakdown.
 	// When set, called instead of groundTruthScorer to populate score decomposition.
-	groundTruthScorerDetailed func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)
+	groundTruthScorerDetailed func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)
 
-	// Scene store for saving optimal params when ground truth mode completes
-	sceneStore SceneStoreSaver
+	// Clip store for saving optimal params when ground truth mode completes
+	clipStore ClipStoreSaver
 
 	logger printfLogger
 }
@@ -171,9 +171,9 @@ func (at *AutoTuner) GetSweepID() string {
 
 // SetGroundTruthScorer sets the ground truth scoring function for label-aware auto-tuning.
 // This function will be called to evaluate each combination's results against reference ground truth
-// when objective is "ground_truth" and replay_case_id is set. The weights parameter allows per-request
+// when objective is "ground_truth" and clip_id is set. The weights parameter allows per-request
 // customisation of the scoring formula.
-func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
+func (at *AutoTuner) SetGroundTruthScorer(scorer func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, error)) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 	at.groundTruthScorer = scorer
@@ -181,17 +181,17 @@ func (at *AutoTuner) SetGroundTruthScorer(scorer func(sceneID, candidateRunID st
 
 // SetGroundTruthScorerDetailed sets the detailed ground truth scoring function
 // that returns both a composite score and component-level breakdown.
-func (at *AutoTuner) SetGroundTruthScorerDetailed(scorer func(sceneID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)) {
+func (at *AutoTuner) SetGroundTruthScorerDetailed(scorer func(clipID, candidateRunID string, weights GroundTruthWeights) (float64, *ScoreComponents, error)) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
 	at.groundTruthScorerDetailed = scorer
 }
 
-// SetSceneStore sets the scene store for saving optimal parameters after auto-tuning completes.
-func (at *AutoTuner) SetSceneStore(store SceneStoreSaver) {
+// SetClipStore sets the clip store for saving optimal parameters after auto-tuning completes.
+func (at *AutoTuner) SetClipStore(store ClipStoreSaver) {
 	at.mu.Lock()
 	defer at.mu.Unlock()
-	at.sceneStore = store
+	at.clipStore = store
 }
 
 // Start begins an auto-tuning run. Implements the AutoTuneRunner interface.
@@ -235,8 +235,8 @@ func (at *AutoTuner) start(ctx context.Context, req AutoTuneRequest) error {
 
 	// Validate ground truth configuration
 	if req.Objective == "ground_truth" {
-		if req.ReplayCaseID == "" {
-			return fmt.Errorf("ground_truth objective requires replay_case_id to be set")
+		if req.ClipID == "" {
+			return fmt.Errorf("ground_truth objective requires clip_id to be set")
 		}
 		if at.groundTruthScorer == nil {
 			return fmt.Errorf("ground_truth objective requires a ground truth scorer to be configured")
@@ -515,7 +515,7 @@ func (at *AutoTuner) runFromRound(
 				} else {
 					// Try detailed scorer first, fall back to simple scorer
 					if at.groundTruthScorerDetailed != nil {
-						score, components, err := at.groundTruthScorerDetailed(req.ReplayCaseID, result.RunID, *req.GroundTruthWeights)
+						score, components, err := at.groundTruthScorerDetailed(req.ClipID, result.RunID, *req.GroundTruthWeights)
 						if err != nil {
 							at.logger.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 							scored[i].Score = 0.0
@@ -525,7 +525,7 @@ func (at *AutoTuner) runFromRound(
 						}
 					} else {
 						// Call ground truth scorer with per-request weights
-						score, err := at.groundTruthScorer(req.ReplayCaseID, result.RunID, *req.GroundTruthWeights)
+						score, err := at.groundTruthScorer(req.ClipID, result.RunID, *req.GroundTruthWeights)
 						if err != nil {
 							at.logger.Printf("[sweep] ERROR: scoring combo %d (run %s) with ground truth: %v. Assigning score 0.", i, result.RunID, err)
 							scored[i].Score = 0.0
@@ -630,8 +630,8 @@ func (at *AutoTuner) runFromRound(
 
 	at.logger.Printf("[sweep] Auto-tune complete: recommendation=%v, score=%.4f", overallBest.ParamValues, overallBest.Score)
 
-	// Save optimal params to scene when ground truth mode is enabled
-	if req.ReplayCaseID != "" && req.Objective == "ground_truth" && overallBest != nil && at.sceneStore != nil {
+	// Save optimal params to clip when ground truth mode is enabled
+	if req.ClipID != "" && req.Objective == "ground_truth" && overallBest != nil && at.clipStore != nil {
 		// Extract just the parameter values (without score/metrics) for storage
 		optimalParams := make(map[string]interface{})
 		for k, v := range overallBest.ParamValues {
@@ -640,12 +640,12 @@ func (at *AutoTuner) runFromRound(
 
 		paramsJSON, err := json.Marshal(optimalParams)
 		if err != nil {
-			at.logger.Printf("[sweep] Error marshalling optimal params for replay case %s: %v", req.ReplayCaseID, err)
+			at.logger.Printf("[sweep] Error marshalling optimal params for clip %s: %v", req.ClipID, err)
 		} else {
-			if err := at.sceneStore.SetOptimalParams(req.ReplayCaseID, paramsJSON); err != nil {
-				at.logger.Printf("[sweep] Error saving optimal params for replay case %s: %v", req.ReplayCaseID, err)
+			if err := at.clipStore.SetOptimalParams(req.ClipID, paramsJSON); err != nil {
+				at.logger.Printf("[sweep] Error saving optimal params for clip %s: %v", req.ClipID, err)
 			} else {
-				at.logger.Printf("[sweep] Saved optimal params for replay case %s: %s", req.ReplayCaseID, string(paramsJSON))
+				at.logger.Printf("[sweep] Saved optimal params for clip %s: %s", req.ClipID, string(paramsJSON))
 			}
 		}
 	}

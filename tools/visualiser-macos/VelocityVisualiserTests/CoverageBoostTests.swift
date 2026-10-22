@@ -1135,34 +1135,34 @@ struct VisualiserClientDecodeTests {
     }
 
     func testRunRowViewBasic() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-abc123", createdAt: Date(), sourceType: "vrlog",
             sourcePath: "/path/to.vrlog", sensorId: "hesai-01", durationSecs: 1800.0,
             totalFrames: 5000, totalClusters: 3000, totalTracks: 150, confirmedTracks: 145,
             status: "completed", errorMessage: nil, vrlogPath: "/path/to.vrlog", notes: nil,
-            replayCaseName: nil)
+            sourceName: nil)
 
         let view = RunRowView(run: run, isSelected: false) {}
         let _ = view.body
     }
 
     func testRunRowViewSelected() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-xyz", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "running", errorMessage: nil, vrlogPath: nil, notes: nil,
-            replayCaseName: nil)
+            sourceName: nil)
 
         let view = RunRowView(run: run, isSelected: true) {}
         let _ = view.body
     }
 
     func testRunRowViewWithoutVRLog() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-novr", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 300.0, totalFrames: 1000, totalClusters: 500,
             totalTracks: 10, confirmedTracks: 8, status: "completed", errorMessage: nil,
-            vrlogPath: nil, notes: nil, replayCaseName: nil)
+            vrlogPath: nil, notes: nil, sourceName: nil)
 
         let view = RunRowView(run: run, isSelected: false) {}
         let _ = view.body
@@ -1189,36 +1189,36 @@ struct VisualiserClientDecodeTests {
     }
 }
 
-// MARK: - AnalysisRun Computed Properties Tests
+// MARK: - Run Computed Properties Tests
 
-struct AnalysisRunTests {
+struct RunTests {
     @Test func formattedDateValid() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-1", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
-            replayCaseName: nil)
+            sourceName: nil)
 
         let formatted = run.formattedDate
         #expect(!formatted.isEmpty)
     }
 
     @Test func hasVRLogReturnsTrueWhenPathExists() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-2", createdAt: Date(), sourceType: "vrlog", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "completed", errorMessage: nil, vrlogPath: "/path/to.vrlog",
-            notes: nil, replayCaseName: nil)
+            notes: nil, sourceName: nil)
 
         #expect(run.hasVRLog == true)
     }
 
     @Test func hasVRLogReturnsFalseWhenPathIsNil() throws {
-        let run = AnalysisRun(
+        let run = Run(
             runId: "run-3", createdAt: Date(), sourceType: "live", sourcePath: nil,
             sensorId: "hesai-01", durationSecs: 0, totalFrames: 0, totalClusters: 0, totalTracks: 0,
             confirmedTracks: 0, status: "completed", errorMessage: nil, vrlogPath: nil, notes: nil,
-            replayCaseName: nil)
+            sourceName: nil)
 
         #expect(run.hasVRLog == false)
     }

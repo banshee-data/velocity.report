@@ -82,7 +82,7 @@ func (ws *Server) handleRunScene(w http.ResponseWriter, r *http.Request, runID, 
 		return
 	}
 
-	run, err := sqlite.NewAnalysisRunStore(ws.db).GetRun(runID)
+	run, err := sqlite.NewRunStore(ws.db).GetRun(runID)
 	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
 		return
@@ -139,7 +139,7 @@ func (ws *Server) handleRunScene(w http.ResponseWriter, r *http.Request, runID, 
 }
 
 // runSceneTitle names a run's scene by the capture it replayed.
-func runSceneTitle(run *sqlite.AnalysisRun) string {
+func runSceneTitle(run *sqlite.Run) string {
 	if run.SourcePath != "" {
 		return filepath.Base(run.SourcePath)
 	}

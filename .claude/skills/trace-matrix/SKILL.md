@@ -55,7 +55,7 @@ Key files:
 - `internal/lidar/server/routes.go`: LiDAR route registration and core HTTP handlers
 - `internal/lidar/server/track_api.go`: track API handlers
 - `internal/lidar/server/run_track_api.go`: run/track API handlers
-- `internal/lidar/server/scene_api.go`: scene and evaluation handlers
+- `internal/lidar/server/clip_api.go`: scene and evaluation handlers
 - `internal/api/lidar_labels.go`: label API handlers
 - `web/src/lib/api/`: Svelte fetch calls
 - `tools/visualiser-macos/VelocityVisualiser/`: Mac HTTP calls
@@ -104,7 +104,7 @@ Key files:
 - `internal/lidar/l6objects/quality.go`: computed structs
 - `internal/lidar/l6objects/features.go`: feature structs
 - `internal/lidar/l6objects/classification.go`: classification pipeline
-- `internal/lidar/storage/sqlite/analysis_run_compare.go`: compare logic
+- `internal/lidar/storage/sqlite/run_compare.go`: compare logic
 - `internal/lidar/l5tracks/tracking.go`: live track fields
 
 #### Tuning + entry points + debug (§10, §15, §16, §18)

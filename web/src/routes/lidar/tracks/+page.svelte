@@ -14,7 +14,7 @@
 	import { page } from '$app/state';
 	import {
 		getLabellingProgress,
-		getLidarReplayCases,
+		getLidarClips,
 		getLidarRun,
 		getLidarRuns,
 		getRunScene,
@@ -31,9 +31,9 @@
 	import { clipForRun } from '#lib/lidarRecords.js';
 	import type { PageClock } from '#lib/scene/sceneClock.js';
 	import type {
-		AnalysisRun,
+		Run,
 		LabellingProgress,
-		LidarReplayCase,
+		LidarClip,
 		MissedRegion,
 		RunTrack,
 		Track,
@@ -59,10 +59,10 @@
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
 
-	// Scene and run selection
-	let scenes: LidarReplayCase[] = [];
+	// Survey and run selection
+	let scenes: LidarClip[] = [];
 	let selectedSceneId: string | null = null;
-	let runs: AnalysisRun[] = [];
+	let runs: Run[] = [];
 	let selectedRunId: string | null = null;
 	let runTracks: RunTrack[] = [];
 	let labellingProgress: LabellingProgress | null = null;
@@ -72,11 +72,11 @@
 	let selectionSyncInFlight = false;
 	let lastUrlSelectionKey: string | null = null;
 
-	$: querySceneId = $pageUrl.searchParams.get('replay_case_id');
+	$: querySceneId = $pageUrl.searchParams.get('clip_id');
 	$: queryRunId = $pageUrl.searchParams.get('run_id');
 
 	// Derived state
-	$: selectedScene = scenes.find((s) => s.replay_case_id === selectedSceneId) ?? null;
+	$: selectedScene = scenes.find((s) => s.clip_id === selectedSceneId) ?? null;
 	$: selectedRun = runs.find((r) => r.run_id === selectedRunId) ?? null;
 
 	$: if (browser && mounted) {
@@ -270,7 +270,7 @@
 	async function loadScenes() {
 		scenesLoading = true;
 		try {
-			scenes = await getLidarReplayCases(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
+			scenes = await getLidarClips(sensorId); // eslint-disable-line svelte/infinite-reactive-loop
 		} catch {
 			scenes = []; // eslint-disable-line svelte/infinite-reactive-loop
 		} finally {
@@ -279,7 +279,7 @@
 	}
 
 	// Load runs for selected scene's sensor
-	async function loadRuns(scene: LidarReplayCase) {
+	async function loadRuns(scene: LidarClip) {
 		runsLoading = true;
 		try {
 			runs = await getLidarRuns({ sensor_id: scene.sensor_id });
@@ -421,17 +421,17 @@
 			}
 
 			let resolvedScene = qsSceneId
-				? (scenes.find((scene) => scene.replay_case_id === qsSceneId) ?? null)
+				? (scenes.find((scene) => scene.clip_id === qsSceneId) ?? null)
 				: null;
-			let resolvedRuns: AnalysisRun[] = [];
+			let resolvedRuns: Run[] = [];
 			// The run list is paged; a linked run older than it is fetched
 			// directly, so a link from Runs or Clips still opens it.
-			let fetchedRun: AnalysisRun | null = null;
+			let fetchedRun: Run | null = null;
 			const fetchLinkedRun = async (runId: string) =>
 				(fetchedRun ??= await getLidarRun(runId).catch(() => null));
 
 			if (resolvedScene) {
-				selectedSceneId = resolvedScene.replay_case_id;
+				selectedSceneId = resolvedScene.clip_id;
 				resolvedRuns = await loadRuns(resolvedScene);
 			} else if (qsRunId) {
 				// A link that names only the run still opens on the run's clip,
@@ -441,7 +441,7 @@
 				const linkedRun =
 					resolvedRuns.find((run) => run.run_id === qsRunId) ?? (await fetchLinkedRun(qsRunId));
 				resolvedScene = clipForRun(linkedRun, scenes);
-				selectedSceneId = resolvedScene?.replay_case_id ?? null;
+				selectedSceneId = resolvedScene?.clip_id ?? null;
 				if (resolvedScene) {
 					resolvedRuns = await loadRuns(resolvedScene);
 				}
@@ -485,7 +485,7 @@
 		runTracks = [];
 		labellingProgress = null;
 		if (selectedSceneId !== null) {
-			const scene = scenes.find((s) => s.replay_case_id === selectedSceneId);
+			const scene = scenes.find((s) => s.clip_id === selectedSceneId);
 			if (scene) {
 				loadRuns(scene);
 			} else {
@@ -752,9 +752,9 @@
 					{#if selectedScene}
 						Clip:
 						<a
-							href={`${resolve('/lidar/replay-cases')}?${clipQuery(selectedScene.replay_case_id)}`}
+							href={`${resolve('/lidar/clips')}?${clipQuery(selectedScene.clip_id)}`}
 							class="text-primary hover:underline"
-							>{selectedScene.description || selectedScene.replay_case_id.substring(0, 8)}</a
+							>{selectedScene.description || selectedScene.clip_id.substring(0, 8)}</a
 						>
 						•
 					{/if}
@@ -780,8 +780,8 @@
 					options={[
 						{ label: 'None (Historical)', value: null },
 						...scenes.map((s) => ({
-							label: s.description || s.replay_case_id,
-							value: s.replay_case_id
+							label: s.description || s.clip_id,
+							value: s.clip_id
 						}))
 					]}
 					disabled={scenesLoading || scenes.length === 0}

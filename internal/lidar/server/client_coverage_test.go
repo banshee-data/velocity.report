@@ -42,50 +42,50 @@ func TestClientTransportErrors(t *testing.T) {
 	}
 }
 
-// --- GetLastAnalysisRunID ---
+// --- GetLastRunID ---
 
-func TestGetLastAnalysisRunID_Success(t *testing.T) {
+func TestGetLastRunID_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"last_run_id": "run-123"})
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.Client(), srv.URL, "sensor1")
-	runID := c.GetLastAnalysisRunID()
+	runID := c.GetLastRunID()
 	if runID != "run-123" {
 		t.Errorf("expected run-123, got %s", runID)
 	}
 }
 
-func TestGetLastAnalysisRunID_ServerError(t *testing.T) {
+func TestGetLastRunID_ServerError(t *testing.T) {
 	c := NewClient(nil, "http://127.0.0.1:1", "sensor1")
-	runID := c.GetLastAnalysisRunID()
+	runID := c.GetLastRunID()
 	if runID != "" {
 		t.Errorf("expected empty string on error, got %s", runID)
 	}
 }
 
-func TestGetLastAnalysisRunID_NoRunID(t *testing.T) {
+func TestGetLastRunID_NoRunID(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]interface{}{"other": "value"})
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.Client(), srv.URL, "sensor1")
-	runID := c.GetLastAnalysisRunID()
+	runID := c.GetLastRunID()
 	if runID != "" {
 		t.Errorf("expected empty string, got %s", runID)
 	}
 }
 
-func TestGetLastAnalysisRunID_InvalidJSON(t *testing.T) {
+func TestGetLastRunID_InvalidJSON(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("not json"))
 	}))
 	defer srv.Close()
 
 	c := NewClient(srv.Client(), srv.URL, "sensor1")
-	runID := c.GetLastAnalysisRunID()
+	runID := c.GetLastRunID()
 	if runID != "" {
 		t.Errorf("expected empty string for invalid JSON, got %s", runID)
 	}

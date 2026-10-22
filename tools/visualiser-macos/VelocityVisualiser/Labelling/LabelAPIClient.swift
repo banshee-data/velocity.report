@@ -26,8 +26,8 @@ class LabelAPIClient {
     /// Current session ID for grouping labels.
     var sessionID: String = UUID().uuidString
 
-    /// Replay-owned labels must carry a replay case owner after the v0.5.0 schema reset.
-    var replayCaseID: String = ""
+    /// Replay-owned labels must carry a clip owner after the v0.5.0 schema reset.
+    var clipID: String = ""
 
     /// Optional durable run-track linkage for replay annotations.
     var runID: String = ""
@@ -52,8 +52,8 @@ class LabelAPIClient {
         trackID: String, classLabel: String, startTimestampNs: Int64, endTimestampNs: Int64? = nil,
         confidence: Float? = nil, createdBy: String = "", notes: String = ""
     ) async throws -> LabelEvent {
-        guard !replayCaseID.isEmpty else {
-            throw APIError.invalidConfiguration("replayCaseID is required to create labels")
+        guard !clipID.isEmpty else {
+            throw APIError.invalidConfiguration("clipID is required to create labels")
         }
         let url = baseURL.appendingPathComponent("api/lidar/labels")
 
@@ -65,7 +65,7 @@ class LabelAPIClient {
             "track_id": trackID, "class_label": classLabel, "start_timestamp_ns": startTimestampNs,
             "created_by": createdBy, "notes": notes,
         ]
-        payload["replay_case_id"] = replayCaseID
+        payload["clip_id"] = clipID
         if !runID.isEmpty { payload["run_id"] = runID }
         if let endTimestampNs = endTimestampNs { payload["end_timestamp_ns"] = endTimestampNs }
         if let confidence = confidence { payload["confidence"] = confidence }
@@ -84,12 +84,12 @@ class LabelAPIClient {
 
     /// Get all labels for the current session.
     func getLabelsForSession() async throws -> [LabelEvent] {
-        guard !replayCaseID.isEmpty else {
-            throw APIError.invalidConfiguration("replayCaseID is required to list replay labels")
+        guard !clipID.isEmpty else {
+            throw APIError.invalidConfiguration("clipID is required to list replay labels")
         }
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/labels"), resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "replay_case_id", value: replayCaseID)]
+        components.queryItems = [URLQueryItem(name: "clip_id", value: clipID)]
 
         let (data, response) = try await session.data(from: components.url!)
 
@@ -112,8 +112,8 @@ class LabelAPIClient {
             URLQueryItem(name: "track_id", value: trackID),
             URLQueryItem(name: "run_id", value: runID),
         ]
-        if !replayCaseID.isEmpty {
-            queryItems.append(URLQueryItem(name: "replay_case_id", value: replayCaseID))
+        if !clipID.isEmpty {
+            queryItems.append(URLQueryItem(name: "clip_id", value: clipID))
         }
         components.queryItems = queryItems
 
@@ -160,13 +160,13 @@ class LabelAPIClient {
 
     /// Export labels as JSON (fetches from backend export endpoint).
     func exportLabels() async throws -> Data {
-        guard !replayCaseID.isEmpty else {
-            throw APIError.invalidConfiguration("replayCaseID is required to export replay labels")
+        guard !clipID.isEmpty else {
+            throw APIError.invalidConfiguration("clipID is required to export replay labels")
         }
         var components = URLComponents(
             url: baseURL.appendingPathComponent("api/lidar/labels/export"),
             resolvingAgainstBaseURL: false)!
-        components.queryItems = [URLQueryItem(name: "replay_case_id", value: replayCaseID)]
+        components.queryItems = [URLQueryItem(name: "clip_id", value: clipID)]
 
         let (data, response) = try await session.data(from: components.url!)
 

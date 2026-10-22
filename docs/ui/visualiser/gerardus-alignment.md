@@ -46,7 +46,7 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 
 | Step              | What the pane does                                                                                                                                                     | Gerardus RPC                                     |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Open the pane     | Lists velocity.report's located replay cases and picks the open capture's                                                                                              | `GetServerInfo` (on connect)                     |
+| Open the pane     | Lists velocity.report's located clips and picks the open capture's                                                                                                     | `GetServerInfo` (on connect)                     |
 | Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                            | `PrepareSite`, `PoseFromHint`, `StreamReference` |
 | Register          | Uploads the settled background once per snapshot, then registers it from the position drawn now. Hypotheses show as they converge; the best is drawn when the run ends | `UploadScan`, `Register`                         |
 | Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                          | none                                             |
@@ -79,9 +79,9 @@ The accepted record is not yet written back to velocity.report: that needs `PUT 
 
 ## Which site
 
-Gerardus keys everything by the site's S2 L16 token, and its hint needs the eye-read latitude and longitude. The pane reads both from velocity.report's replay cases (`GET /api/lidar/scene-map`), and finds the open capture's case by, in order:
+Gerardus keys everything by the site's S2 L16 token, and its hint needs the eye-read latitude and longitude. The pane reads both from velocity.report's clips (`GET /api/lidar/clip-locations`), and finds the open capture’s clip by, in order:
 
-1. the run's `replay_case_id`, for the run loaded from the run browser or the one the server is replaying (a VRLOG replay names its run only by its directory);
+1. the run's `clip_id`, for the run loaded from the run browser or the one the server is replaying (a VRLOG replay names its run only by its directory);
 2. the run's source file, matched against each case's capture files;
 3. the published capture stem `<start>_<L13 display>_<site id>`, whose L13 cell names the site, with the site id's words choosing between cases in a shared cell.
 

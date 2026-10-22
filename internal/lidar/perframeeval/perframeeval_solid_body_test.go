@@ -93,7 +93,7 @@ func TestSolidBodyArmScoresAgainstItsPointEstimates(t *testing.T) {
 	}
 }
 
-func TestSolidBodyArmRefusesAnAnalysisRun(t *testing.T) {
+func TestSolidBodyArmRefusesAnRun(t *testing.T) {
 	f := fixture(t)
 	_, err := LoadArm(ArmSpec{Label: "x", DBPath: f.DBPath, RunID: evalfixture.RunA, SolidBodies: true, DeclaredBaseline: true})
 	if err == nil || !strings.Contains(err.Error(), "not both") {

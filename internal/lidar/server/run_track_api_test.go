@@ -15,11 +15,11 @@ import (
 )
 
 // setupTestRun creates a test run with tracks using the existing setupTestDB
-func setupTestRun(t *testing.T, store *sqlite.AnalysisRunStore, runID string) {
+func setupTestRun(t *testing.T, store *sqlite.RunStore, runID string) {
 	t.Helper()
 
 	// Create a test run
-	run := &sqlite.AnalysisRun{
+	run := &sqlite.Run{
 		RunID:           runID,
 		SensorID:        "test-sensor",
 		SourceType:      "pcap",
@@ -83,7 +83,7 @@ func TestUpdateTrackLabelValid(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-001"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -159,7 +159,7 @@ func TestUpdateTrackLabelTrimsWhitespaceBeforeValidation(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-001-trimmed"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -225,7 +225,7 @@ func TestUpdateTrackLabelInvalid(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-002"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -280,7 +280,7 @@ func TestUpdateTrackLabelClear(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-003"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	// First, set a label
@@ -337,7 +337,7 @@ func TestListRuns(t *testing.T) {
 	sqlDB, cleanup := setupTestDB(t)
 	defer cleanup()
 
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 
 	// Create multiple test runs
 	runs := []string{"run-001", "run-002", "run-003"}
@@ -387,8 +387,8 @@ func TestListRuns(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected label_rollup object, got %T", firstRun["label_rollup"])
 	}
-	if firstRun["replay_case_name"] != "data" {
-		t.Errorf("expected replay_case_name data, got %v", firstRun["replay_case_name"])
+	if firstRun["source_name"] != "data" {
+		t.Errorf("expected source_name data, got %v", firstRun["source_name"])
 	}
 	if int(rollup["total"].(float64)) != 3 {
 		t.Errorf("expected label_rollup total 3, got %v", rollup["total"])
@@ -401,7 +401,7 @@ func TestLabellingProgress(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-004"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	// Label one track and add quality-only feedback to another.
@@ -484,7 +484,7 @@ func TestGetRun(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-005"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -503,7 +503,7 @@ func TestGetRun(t *testing.T) {
 		t.Fatalf("expected status 200, got %d: %s", resp.StatusCode, string(body))
 	}
 
-	var run sqlite.AnalysisRun
+	var run sqlite.Run
 	if err := json.NewDecoder(resp.Body).Decode(&run); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
@@ -547,7 +547,7 @@ func TestReprocessRun(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-006"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -615,7 +615,7 @@ func TestUpdateTrackFlags(t *testing.T) {
 	defer cleanup()
 
 	runID := "test-run-007"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	testDB := &db.DB{DB: sqlDB}
@@ -726,8 +726,8 @@ func TestServer_HandleDeleteRunTrack_Success(t *testing.T) {
 	ws := &Server{db: testDB}
 
 	// Create a test run and track
-	store := sqlite.NewAnalysisRunStore(sqlDB)
-	run := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(sqlDB)
+	run := &sqlite.Run{
 		RunID:      "run-001",
 		SensorID:   "test-sensor",
 		SourceType: "pcap",
@@ -816,8 +816,8 @@ func TestServer_HandleDeleteRun_Success(t *testing.T) {
 	ws := &Server{db: testDB}
 
 	// Create a test run
-	store := sqlite.NewAnalysisRunStore(sqlDB)
-	run := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(sqlDB)
+	run := &sqlite.Run{
 		RunID:      "run-001",
 		SensorID:   "test-sensor",
 		SourceType: "pcap",
@@ -950,7 +950,7 @@ func TestRunTrackAPI_MissedRegionsLifecycle(t *testing.T) {
 	defer cleanup()
 
 	runID := "run-missed-001"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	ws := &Server{db: &db.DB{DB: sqlDB}}
@@ -1019,7 +1019,7 @@ func TestRunTrackAPI_EvaluateRun(t *testing.T) {
 	defer cleanup()
 
 	runID := "eval-run"
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, runID)
 
 	ws := &Server{db: &db.DB{DB: sqlDB}}
@@ -1071,7 +1071,7 @@ func TestRunTrackAPI_EvaluateRun(t *testing.T) {
 func TestRunStatistics(t *testing.T) {
 	sqlDB, cleanup := setupTestDB(t)
 	defer cleanup()
-	store := sqlite.NewAnalysisRunStore(sqlDB)
+	store := sqlite.NewRunStore(sqlDB)
 	setupTestRun(t, store, "run-with-stats")
 	setupTestRun(t, store, "run-without-stats")
 	stats := &l8analytics.RunStatistics{

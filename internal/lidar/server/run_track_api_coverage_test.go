@@ -25,8 +25,8 @@ func covSetupWS(t *testing.T) (*Server, func()) {
 // covInsertRun inserts an analysis run and returns its ID.
 func covInsertRun(t *testing.T, ws *Server, suffix string) string {
 	t.Helper()
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
-	run := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(ws.db.DB)
+	run := &sqlite.Run{
 		RunID:      "cov-run-" + suffix,
 		SourceType: "pcap",
 		SourcePath: "/test/file.pcap",
@@ -42,7 +42,7 @@ func covInsertRun(t *testing.T, ws *Server, suffix string) string {
 // covInsertTrack inserts a run track.
 func covInsertTrack(t *testing.T, ws *Server, runID, trackID string) {
 	t.Helper()
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 	track := &sqlite.RunTrack{
 		RunID:   runID,
 		TrackID: trackID, TrackMeasurement: l5tracks.TrackMeasurement{SensorID: "test-sensor",
@@ -746,7 +746,7 @@ func TestCov_HandleEvaluateRun_NoReferenceAndNoScene(t *testing.T) {
 	w := httptest.NewRecorder()
 	ws.handleEvaluateRun(w, req, runID)
 
-	// Should fail: no reference_run_id and no scene with reference
+	// Should fail: no reference_run_id and no clip with reference
 	if w.Code == http.StatusOK {
 		t.Errorf("expected non-200 for missing reference, got %d", w.Code)
 	}
@@ -783,14 +783,12 @@ func TestCov_HandleEvaluateRun_AutoDetectFromScene(t *testing.T) {
 	candRunID := covInsertRun(t, ws, "eval-scene-cand")
 
 	// Insert a scene linking the sensor to the reference run
-	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID:       "test-sensor",
-		PCAPFile:       "/test/file.pcap",
-		ReferenceRunID: refRunID,
+	clipStore := sqlite.NewClipStore(ws.db.DB)
+	scene := &sqlite.Clip{
+		SensorID: "test-sensor", Files: []sqlite.ClipCapture{{PCAPFile: "/test/file.pcap"}}, ReferenceRunID: refRunID,
 	}
-	if err := sceneStore.InsertScene(scene); err != nil {
-		t.Fatalf("InsertScene: %v", err)
+	if err := clipStore.InsertClip(scene); err != nil {
+		t.Fatalf("InsertClip: %v", err)
 	}
 
 	// Insert tracks for evaluation
@@ -1188,14 +1186,14 @@ func TestCov_HandleEvaluateRun_NonExistentCandidate(t *testing.T) {
 	}
 }
 
-func TestCov_HandleEvaluateRun_ListScenesError(t *testing.T) {
+func TestCov_HandleEvaluateRun_ListClipsError(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
 	runID := covInsertRun(t, ws, "eval-scenes-err")
 
-	// Drop the scenes table so ListScenes fails while GetRun still succeeds.
-	if _, err := ws.db.DB.Exec("DROP TABLE IF EXISTS lidar_replay_cases"); err != nil {
+	// Drop the scenes table so ListClips fails while GetRun still succeeds.
+	if _, err := ws.db.DB.Exec("DROP TABLE IF EXISTS lidar_clips"); err != nil {
 		t.Fatalf("drop table: %v", err)
 	}
 
@@ -1224,14 +1222,12 @@ func TestCov_HandleEvaluateRun_SceneNoMatchingSourcePath(t *testing.T) {
 	// Candidate has SourcePath="/test/file.pcap"; scene has PCAPFile="/different/path.pcap".
 	// First pass (exact source path match) will NOT find it; second pass (fallback by
 	// sensor + ReferenceRunID) will.
-	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID:       "test-sensor",
-		PCAPFile:       "/different/path.pcap",
-		ReferenceRunID: refRunID,
+	clipStore := sqlite.NewClipStore(ws.db.DB)
+	scene := &sqlite.Clip{
+		SensorID: "test-sensor", Files: []sqlite.ClipCapture{{PCAPFile: "/different/path.pcap"}}, ReferenceRunID: refRunID,
 	}
-	if err := sceneStore.InsertScene(scene); err != nil {
-		t.Fatalf("InsertScene: %v", err)
+	if err := clipStore.InsertClip(scene); err != nil {
+		t.Fatalf("InsertClip: %v", err)
 	}
 
 	body, _ := json.Marshal(map[string]interface{}{})
@@ -1337,8 +1333,8 @@ func TestCov_HandleReprocessRun_NoPcapSource(t *testing.T) {
 	defer cleanup()
 
 	// Insert a run with source_type != "pcap"
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
-	run := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(ws.db.DB)
+	run := &sqlite.Run{
 		RunID:      "live-run-1",
 		SourceType: "live",
 		SensorID:   "test-sensor",
@@ -1399,8 +1395,8 @@ func TestCov_HandleReprocessRun_ShortRunID(t *testing.T) {
 	defer cleanup()
 
 	// Insert a run with very short ID
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
-	run := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(ws.db.DB)
+	run := &sqlite.Run{
 		RunID:      "ab",
 		SourceType: "pcap",
 		SourcePath: "/test/short.pcap",
@@ -1440,8 +1436,8 @@ func TestCov_HandleReprocessRun_UsesRequestedParamSetID(t *testing.T) {
 		t.Fatalf("insert param set: %v", err)
 	}
 
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
-	run := &sqlite.AnalysisRun{
+	store := sqlite.NewRunStore(ws.db.DB)
+	run := &sqlite.Run{
 		RunID:               "req-paramset",
 		SourceType:          "pcap",
 		SourcePath:          "/test/requested-paramset.pcap",
@@ -1469,12 +1465,12 @@ func TestCov_HandleReprocessRun_FallsBackToPreferredRunID(t *testing.T) {
 	runID := covInsertRun(t, ws, "reproc-fallback")
 
 	origStart := startPCAPInternalForReprocess
-	origLast := lastAnalysisRunIDForReprocess
+	origLast := lastRunIDForReprocess
 	startPCAPInternalForReprocess = func(_ *Server, _ string, _ ReplayConfig) error { return nil }
-	lastAnalysisRunIDForReprocess = func(_ *Server) string { return "" }
+	lastRunIDForReprocess = func(_ *Server) string { return "" }
 	defer func() {
 		startPCAPInternalForReprocess = origStart
-		lastAnalysisRunIDForReprocess = origLast
+		lastRunIDForReprocess = origLast
 	}()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/runs/"+runID+"/reprocess", nil)
@@ -1498,14 +1494,14 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 	ws, cleanup := covSetupWS(t)
 	defer cleanup()
 
-	store := sqlite.NewAnalysisRunStore(ws.db.DB)
+	store := sqlite.NewRunStore(ws.db.DB)
 
 	// Insert reference and candidate runs
-	refRun := &sqlite.AnalysisRun{RunID: "auto-ref-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
+	refRun := &sqlite.Run{RunID: "auto-ref-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
 	if err := store.InsertRun(refRun); err != nil {
 		t.Fatalf("InsertRun ref: %v", err)
 	}
-	candRun := &sqlite.AnalysisRun{RunID: "auto-cand-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
+	candRun := &sqlite.Run{RunID: "auto-cand-1", SourceType: "pcap", SourcePath: "/test/auto.pcap", SensorID: "sensor-auto", Status: "completed"}
 	if err := store.InsertRun(candRun); err != nil {
 		t.Fatalf("InsertRun cand: %v", err)
 	}
@@ -1529,14 +1525,12 @@ func TestCov_HandleEvaluateRun_AutoDetectScene(t *testing.T) {
 	}
 
 	// Create a scene matching the source path
-	sceneStore := sqlite.NewReplayCaseStore(ws.db.DB)
-	scene := &sqlite.ReplayCase{
-		SensorID:       "sensor-auto",
-		PCAPFile:       "/test/auto.pcap",
-		ReferenceRunID: "auto-ref-1",
+	clipStore := sqlite.NewClipStore(ws.db.DB)
+	scene := &sqlite.Clip{
+		SensorID: "sensor-auto", Files: []sqlite.ClipCapture{{PCAPFile: "/test/auto.pcap"}}, ReferenceRunID: "auto-ref-1",
 	}
-	if err := sceneStore.InsertScene(scene); err != nil {
-		t.Fatalf("InsertScene: %v", err)
+	if err := clipStore.InsertClip(scene); err != nil {
+		t.Fatalf("InsertClip: %v", err)
 	}
 
 	// Evaluate without providing reference_run_id — should auto-detect

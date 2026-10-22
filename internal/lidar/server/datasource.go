@@ -12,9 +12,9 @@ type DataSource string
 
 // Defined data sources for the monitor.
 const (
-	DataSourceLive         DataSource = "live"
-	DataSourcePCAP         DataSource = "pcap"
-	DataSourcePCAPAnalysis DataSource = "pcap_analysis"
+	DataSourceLive            DataSource = "live"
+	DataSourceCapture         DataSource = "capture"
+	DataSourceCaptureAnalysis DataSource = "capture_analysis"
 )
 
 // ReplayConfig contains configuration for PCAP replay.
@@ -41,7 +41,7 @@ type ReplayConfig struct {
 	SensorID              string          // Optional sensor override for analysis-run provenance
 	PreferredRunID        string          // Optional caller-supplied run identifier
 	ParentRunID           string          // Optional lineage for reprocess runs
-	ReplayCaseID          string          // Optional source replay case for scene replays
+	ClipID                string          // Optional source clip for scene replays
 	RequestedParamSetID   string          // Optional existing launch-intent lineage
 	RequestedParamsJSON   json.RawMessage // Optional launch-intent parameters for provenance
 

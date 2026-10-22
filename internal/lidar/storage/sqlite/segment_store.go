@@ -13,7 +13,7 @@ import (
 const JobKindSegmentClip = "vrlog_record"
 
 // SegmentSelection is a window an operator chose for annotation, with the
-// replay case made from it.
+// clip made from it.
 //
 // WindowJSON is the record of what the finder chose. Role, Finder, Capture and
 // the rest are generated from it by the database, so they are read here and
@@ -24,7 +24,7 @@ type SegmentSelection struct {
 	// the segment ID was computed from.
 	RunID          string
 	Source         string
-	ReplayCaseID   string
+	ClipID         string
 	Role           string
 	Finder         string
 	FinderVersion  int
@@ -54,10 +54,10 @@ type SegmentClipJob struct {
 
 // SegmentStatus is what the ranking shows beside a chosen window.
 type SegmentStatus struct {
-	ReplayCaseID string
-	JobID        string
-	JobState     string
-	PackDir      string
+	ClipID   string
+	JobID    string
+	JobState string
+	PackDir  string
 }
 
 // SegmentStore persists chosen annotation segments and their clip jobs.
@@ -71,32 +71,32 @@ func NewSegmentStore(db DBClient) *SegmentStore {
 	return &SegmentStore{db: db, commit: func(tx *sql.Tx) error { return tx.Commit() }}
 }
 
-const segmentSelectionColumns = `segment_id, COALESCE(run_id, ''), source, replay_case_id, role, finder,
+const segmentSelectionColumns = `segment_id, COALESCE(run_id, ''), source, clip_id, role, finder,
 	finder_version, capture, window_start_ns, window_end_ns, parameters_json, window_json,
 	COALESCE(selector_json, ''), created_at_ns`
 
 func scanSegmentSelection(row jobRow) (SegmentSelection, error) {
 	var s SegmentSelection
-	err := row.Scan(&s.SegmentID, &s.RunID, &s.Source, &s.ReplayCaseID, &s.Role, &s.Finder,
+	err := row.Scan(&s.SegmentID, &s.RunID, &s.Source, &s.ClipID, &s.Role, &s.Finder,
 		&s.FinderVersion, &s.Capture, &s.WindowStartNs, &s.WindowEndNs, &s.ParametersJSON,
 		&s.WindowJSON, &s.SelectorJSON, &s.CreatedAtNs)
 	return s, err
 }
 
-// InsertSelection records a chosen window against its replay case, with the
+// InsertSelection records a chosen window against its clip, with the
 // selector that chose it. The database refuses a document that is not valid
 // JSON, that names another segment or source, whose role and finder may not
 // go together, or whose selector ran another finder or could not choose a
 // held-out window.
-func (s *SegmentStore) InsertSelection(segmentID, runID, replayCaseID string, parametersJSON, windowJSON, selectorJSON []byte) error {
-	if segmentID == "" || runID == "" || replayCaseID == "" {
-		return fmt.Errorf("segment, run and replay case are required")
+func (s *SegmentStore) InsertSelection(segmentID, runID, clipID string, parametersJSON, windowJSON, selectorJSON []byte) error {
+	if segmentID == "" || runID == "" || clipID == "" {
+		return fmt.Errorf("segment, run and clip are required")
 	}
 	if _, err := s.db.Exec(`
 		INSERT INTO lidar_segment_selections
-			(segment_id, run_id, replay_case_id, parameters_json, window_json, selector_json, created_at_ns)
+			(segment_id, run_id, clip_id, parameters_json, window_json, selector_json, created_at_ns)
 		VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		segmentID, runID, replayCaseID, string(parametersJSON), string(windowJSON), string(selectorJSON),
+		segmentID, runID, clipID, string(parametersJSON), string(windowJSON), string(selectorJSON),
 		time.Now().UnixNano()); err != nil {
 		return fmt.Errorf("record segment selection: %w", err)
 	}
@@ -110,12 +110,12 @@ func (s *SegmentStore) Selection(segmentID string) (SegmentSelection, error) {
 		  FROM lidar_segment_selections WHERE segment_id = ?`, segmentID))
 }
 
-// SelectionForCase returns the segment a replay case was made from, or
+// SelectionForCase returns the segment a clip was made from, or
 // ErrNotFound for a case that was authored by hand.
-func (s *SegmentStore) SelectionForCase(replayCaseID string) (SegmentSelection, error) {
+func (s *SegmentStore) SelectionForCase(clipID string) (SegmentSelection, error) {
 	return scanSegmentSelection(s.db.QueryRow(`
 		SELECT `+segmentSelectionColumns+`
-		  FROM lidar_segment_selections WHERE replay_case_id = ?`, replayCaseID))
+		  FROM lidar_segment_selections WHERE clip_id = ?`, clipID))
 }
 
 // HasRandomHeldOut reports whether a capture already has a held-out window
@@ -139,14 +139,14 @@ func (s *SegmentStore) HasRandomHeldOut(capture string) (bool, error) {
 func (s *SegmentStore) Status(segmentID string) (SegmentStatus, error) {
 	var st SegmentStatus
 	err := s.db.QueryRow(`
-		SELECT s.replay_case_id, COALESCE(j.job_id, ''), COALESCE(j.state, ''),
+		SELECT s.clip_id, COALESCE(j.job_id, ''), COALESCE(j.state, ''),
 		       COALESCE(c.pack_dir, '')
 		  FROM lidar_segment_selections s
 		  LEFT JOIN lidar_segment_clip_jobs c ON c.segment_id = s.segment_id
 		  LEFT JOIN lidar_capture_jobs j ON j.job_id = c.job_id
 		 WHERE s.segment_id = ?
 		 ORDER BY j.queued_at_ns DESC LIMIT 1`, segmentID).Scan(
-		&st.ReplayCaseID, &st.JobID, &st.JobState, &st.PackDir)
+		&st.ClipID, &st.JobID, &st.JobState, &st.PackDir)
 	return st, err
 }
 
@@ -212,7 +212,7 @@ func (s *SegmentStore) EnqueueClip(segmentID, detail string) (CaptureJob, error)
 	return job, nil
 }
 
-// ClipJob returns a clip job with the selection it cuts. The replay case is
+// ClipJob returns a clip job with the selection it cuts. The clip is
 // reached through the selection, so a job cannot name one case and show
 // another segment's status.
 func (s *SegmentStore) ClipJob(jobID string) (SegmentClipJob, SegmentSelection, error) {

@@ -22,7 +22,7 @@ This creates dead schema weight, lost analytical value, incomplete UI surfaces, 
 
 ### Phase 1: wire `statistics_json` (run statistics)
 
-**Status:** Implemented. `AnalysisRunManager` keeps one summary per track, replaced each time the track is recorded, and `CompleteRun()` writes `l8analytics.RunStatistics` to `statistics_json` from those summaries. A run that recorded no track leaves the column NULL. `avg_noise_ratio` is always 0 until clustering counts noise points (Phase 3).
+**Status:** Implemented. `RunManager` keeps one summary per track, replaced each time the track is recorded, and `CompleteRun()` writes `l8analytics.RunStatistics` to `statistics_json` from those summaries. A run that recorded no track leaves the column NULL. `avg_noise_ratio` is always 0 until clustering counts noise points (Phase 3).
 
 Downstream: enables web run-detail quality summary card.
 

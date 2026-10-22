@@ -202,7 +202,7 @@ struct FeatureAPIClient {
             }
         }
         var url = URLComponents(
-            url: baseURL.appendingPathComponent("api/annotations/features"),
+            url: baseURL.appendingPathComponent("api/lidar/annotations/features"),
             resolvingAgainstBaseURL: false)!
         url.queryItems = [
             URLQueryItem(

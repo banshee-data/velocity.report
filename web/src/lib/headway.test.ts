@@ -1,4 +1,4 @@
-import type { HeadwayDistribution, HeadwayMeasurement, SceneHeadway } from './api';
+import type { HeadwayDistribution, HeadwayMeasurement, SurveyHeadway } from './api';
 import {
 	HEADWAY_METRICS,
 	formatMeasurement,
@@ -96,7 +96,7 @@ function distribution(): HeadwayDistribution {
 	};
 }
 
-function headway(overrides: Partial<SceneHeadway> = {}): SceneHeadway {
+function headway(overrides: Partial<SurveyHeadway> = {}): SurveyHeadway {
 	return {
 		scene_id: 'soma1',
 		status: 'provisional',
@@ -144,7 +144,7 @@ describe('headway presentation', () => {
 		).toContain('Choose one of the versions');
 		expect(
 			headwayAvailabilityMessage(headway({ availability: 'no_matching_version', versions: [] }))
-		).toBe('No final analysis exists for this scene.');
+		).toBe('No final analysis exists for this survey.');
 	});
 
 	it('formats time, shares and measurements without inventing zeros', () => {

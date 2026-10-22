@@ -475,13 +475,13 @@
 
                 var scenesData = [];
 
-                fetch('/api/lidar/scenes?sensor_id={{.SensorID}}')
+                fetch('/api/lidar/clips?sensor_id={{.SensorID}}')
                   .then(function (r) { return r.json(); })
                   .then(function (data) {
                     scenesData = data.scenes || [];
                     scenesData.forEach(function (s) {
                       var opt = document.createElement('option');
-                      opt.value = s.replay_case_id;
+                      opt.value = s.clip_id;
                       var label = s.pcap_file;
                       if (s.description) label = s.description + ' (' + s.pcap_file + ')';
                       opt.textContent = label;
@@ -493,7 +493,7 @@
                 sceneSelect.addEventListener('change', function () {
                   var sceneId = sceneSelect.value;
                   if (!sceneId) return;
-                  var scene = scenesData.find(function (s) { return s.replay_case_id === sceneId; });
+                  var scene = scenesData.find(function (s) { return s.clip_id === sceneId; });
                   if (!scene) return;
                   pcapFile.value = scene.pcap_file;
                   if (startSecs && scene.pcap_start_secs != null) {

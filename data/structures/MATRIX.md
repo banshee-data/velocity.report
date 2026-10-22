@@ -146,10 +146,10 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Labels         | `lidar_labels.go`      | `GET/POST /api/lidar/labels`                    | ✅  | ✅  | ✅  |
 | Labels         | `lidar_labels.go`      | `GET/PUT/DEL /api/lidar/labels/{id}`            | ✅  | ✅  | ✅  |
 | Labels         | `lidar_labels.go`      | `GET /api/lidar/labels/export`                  | ✅  | ✅  | ✅  |
-| Scenes         | `scene_api.go`         | `GET/POST /api/lidar/scenes`                    | ✅  | ✅  | -   |
-| Scenes         | `scene_api.go`         | `GET/PUT/DEL /api/lidar/scenes/{id}`            | ✅  | ✅  | -   |
-| Scenes         | `scene_api.go`         | `POST /api/lidar/scenes/{id}/replay`            | ✅  | -   | -   |
-| Scenes         | `scene_api.go`         | `GET/POST /api/lidar/scenes/{id}/evaluations`   | ✅  | -   | -   |
+| Scenes         | `scene_api.go`         | `GET/POST /api/lidar/clips`                     | ✅  | ✅  | -   |
+| Scenes         | `scene_api.go`         | `GET/PUT/DEL /api/lidar/clips/{id}`             | ✅  | ✅  | -   |
+| Scenes         | `scene_api.go`         | `POST /api/lidar/clips/{id}/replay`             | ✅  | -   | -   |
+| Scenes         | `scene_api.go`         | `GET/POST /api/lidar/clips/{id}/evaluations`    | ✅  | -   | -   |
 | Missed regions | `run_track_api.go`     | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
 | Missed regions | `run_track_api.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
 | Sweep history  | `routes.go`            | `GET /api/lidar/sweeps`                         | ✅  | ✅  | -   |
@@ -167,13 +167,13 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |
-| Scene map      | `scene_geo_api.go`     | `GET /api/lidar/scene-map`                      | ✅  | ✅  | -   |
+| Clip locations | `clip_location_api.go` | `GET /api/lidar/clip-locations`                 | ✅  | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments/finders`               | -   | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments`                       | ✅  | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
 | Segments       | `segments_api.go`      | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
-| Segments       | `segment_clip_api.go`  | `POST /api/lidar/scenes/{id}/clip`              | ✅  | ✅  | -   |
-| Annotations    | `segment_packs_api.go` | `GET /api/annotations/packs`                    | -   | ✅  | -   |
+| Segments       | `segment_clip_api.go`  | `POST /api/lidar/clips/{id}/clip`               | ✅  | ✅  | -   |
+| Annotations    | `segment_packs_api.go` | `GET /api/lidar/annotations/packs`              | -   | ✅  | -   |
 
 **Playback row notes.** No web code calls any `/api/lidar/playback/*` or
 `/api/lidar/vrlog/*` endpoint; those rows previously carried Web ✅ marks that
@@ -211,13 +211,13 @@ via `RunBrowserState`.
 | ------ | -------------------------------- | --- | --- | ------------------------------------------------------ |
 | LiDAR  | `lidar_param_sets`               | ✅  | -   | Immutable requested/effective/legacy parameter assets  |
 | LiDAR  | `lidar_run_configs`              | ✅  | -   | Immutable executed config assets shown in run metadata |
-| LiDAR  | `lidar_run_records`              | ✅  | ✅  | Run browser + label UI                                 |
+| LiDAR  | `lidar_runs`                     | ✅  | ✅  | Run browser + label UI                                 |
 | LiDAR  | `lidar_clusters`                 | ✅  | ✅  | Cluster display, gRPC                                  |
 | LiDAR  | `lidar_tracks`                   | ✅  | ✅  | Track display, gRPC                                    |
 | LiDAR  | `lidar_track_observations`       | ✅  | -   | Trajectory rendering                                   |
 | LiDAR  | `lidar_replay_annotations`       | ✅  | ✅  | Replay-case labels and Mac labelling                   |
-| LiDAR  | `lidar_replay_cases`             | ✅  | ✅  | Replay-case browser and Mac labelling                  |
-| LiDAR  | `lidar_replay_evaluations`       | ✅  | -   | Replay evaluation and compare UI                       |
+| LiDAR  | `lidar_clips`                    | ✅  | ✅  | Replay-case browser and Mac labelling                  |
+| LiDAR  | `lidar_clip_evaluations`         | ✅  | -   | Replay evaluation and compare UI                       |
 | LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                          |
 | LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)             |
 | LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                    |
@@ -233,11 +233,11 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_interaction_instants`     | ?   | ?   | Interaction time samples                               |
 | LiDAR  | `lidar_migration_rejects`        | -   | -   | Rows a migration set aside, kept whole with the reason |
 | LiDAR  | `lidar_observations`             | ?   | ?   | Typed observation evidence                             |
-| LiDAR  | `lidar_replay_case_files`        | ✅  | ?   | Ordered source files for replay cases                  |
+| LiDAR  | `lidar_clip_captures`            | ✅  | ?   | Ordered source files for replay cases                  |
 | LiDAR  | `lidar_scenes`                   | ✅  | ?   | Scene player; Mac trace pending                        |
 | LiDAR  | `lidar_segment_clip_jobs`        | ✅  | -   | Clip job, its segment, and the pack it made            |
 | LiDAR  | `lidar_segment_selections`       | ✅  | -   | Chosen window, its replay case and what chose it       |
-| LiDAR  | `lidar_sites`                    | ✅  | ?   | Scene map; Mac trace pending                           |
+| LiDAR  | `lidar_sites`                    | ✅  | ?   | Clip locations; Mac trace pending                      |
 | LiDAR  | `lidar_track_estimate_revisions` | ?   | ?   | Smoother revision evidence                             |
 | LiDAR  | `lidar_track_estimates`          | ?   | ?   | Track state estimates                                  |
 | LiDAR  | `lidar_track_residuals`          | ?   | ?   | Observation residual evidence                          |
@@ -274,29 +274,29 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_run_configs`              | `build_version`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_configs`              | `build_git_sha`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_configs`              | `created_at`                        | INTEGER       | ✅  | -   | -   |
-| `lidar_run_records`              | `run_id`                            | TEXT PK       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `source_type`                       | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `source_path`                       | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `duration_secs`                     | REAL          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `total_frames`                      | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `total_clusters`                    | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `total_tracks`                      | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `confirmed_tracks`                  | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `processing_time_ms`                | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `status`                            | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `error_message`                     | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `parent_run_id`                     | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `notes`                             | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `statistics_json`                   | TEXT          | ✅  | 🔶  | -   |
-| `lidar_run_records`              | `vrlog_path`                        | TEXT          | ✅  | ✅  | -   |
-| `lidar_run_records`              | `run_config_id`                     | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `requested_param_set_id`            | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `replay_case_id`                    | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `completed_at`                      | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `frame_start_ns`                    | INTEGER       | ✅  | ✅  | -   |
-| `lidar_run_records`              | `frame_end_ns`                      | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `run_id`                            | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `source_type`                       | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `source_path`                       | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `duration_secs`                     | REAL          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `total_frames`                      | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `total_clusters`                    | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `total_tracks`                      | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `confirmed_tracks`                  | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `processing_time_ms`                | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `status`                            | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `error_message`                     | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `parent_run_id`                     | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `notes`                             | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `statistics_json`                   | TEXT          | ✅  | 🔶  | -   |
+| `lidar_runs`                     | `vrlog_path`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `run_config_id`                     | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `requested_param_set_id`            | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `clip_id`                           | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `completed_at`                      | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `frame_start_ns`                    | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `frame_end_ns`                      | INTEGER       | ✅  | ✅  | -   |
 | `lidar_clusters`                 | `lidar_cluster_id`                  | INTEGER PK    | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `sensor_id`                         | TEXT          | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `frame_id`                          | TEXT          | ✅  | -   | -   |
@@ -383,7 +383,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_run_tracks`               | `quality_label`                     | TEXT          | ✅  | ✅  | -   |
 | `lidar_run_tracks`               | `label_source`                      | TEXT          | ✅  | ✅  | -   |
 | `lidar_replay_annotations`       | `annotation_id`                     | TEXT PK       | ✅  | ✅  | -   |
-| `lidar_replay_annotations`       | `replay_case_id`                    | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_replay_annotations`       | `clip_id`                           | TEXT FK       | ✅  | ✅  | -   |
 | `lidar_replay_annotations`       | `run_id`                            | TEXT FK       | ✅  | ✅  | -   |
 | `lidar_replay_annotations`       | `track_id`                          | TEXT FK       | ✅  | ✅  | -   |
 | `lidar_replay_annotations`       | `class_label`                       | TEXT          | ✅  | ✅  | -   |
@@ -395,33 +395,32 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_replay_annotations`       | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
 | `lidar_replay_annotations`       | `notes`                             | TEXT          | ✅  | ✅  | -   |
 | `lidar_replay_annotations`       | `source_file`                       | TEXT          | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `replay_case_id`                    | TEXT PK       | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `pcap_file`                         | TEXT          | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `pcap_start_secs`                   | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `pcap_duration_secs`                | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `description`                       | TEXT          | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `reference_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `created_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
-| `lidar_replay_cases`             | `recommended_param_set_id`          | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `evaluation_id`                     | TEXT PK       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `replay_case_id`                    | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `reference_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `candidate_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `detection_rate`                    | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `fragmentation`                     | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `false_positive_rate`               | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `velocity_coverage`                 | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `quality_premium`                   | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `truncation_rate`                   | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `velocity_noise_rate`               | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `stopped_recovery_rate`             | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `composite_score`                   | REAL          | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `matched_count`                     | INTEGER       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `reference_count`                   | INTEGER       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `candidate_count`                   | INTEGER       | ✅  | ✅  | -   |
-| `lidar_replay_evaluations`       | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clips`                    | `clip_id`                           | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_clips`                    | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
+| `lidar_clips`                    | `pcap_start_secs`                   | REAL          | ✅  | ✅  | -   |
+| `lidar_clips`                    | `pcap_duration_secs`                | REAL          | ✅  | ✅  | -   |
+| `lidar_clips`                    | `description`                       | TEXT          | ✅  | ✅  | -   |
+| `lidar_clips`                    | `reference_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clips`                    | `created_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clips`                    | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clips`                    | `recommended_param_set_id`          | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `evaluation_id`                     | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `clip_id`                           | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `reference_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `candidate_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `detection_rate`                    | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `fragmentation`                     | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `false_positive_rate`               | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `velocity_coverage`                 | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `quality_premium`                   | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `truncation_rate`                   | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `velocity_noise_rate`               | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `stopped_recovery_rate`             | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `composite_score`                   | REAL          | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `matched_count`                     | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `reference_count`                   | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `candidate_count`                   | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_evaluations`         | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `id`                                | INTEGER PK    | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `sweep_id`                          | TEXT UNIQUE   | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
@@ -685,20 +684,20 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_observations`             | `cluster_id`                        | INTEGER       | ✅  | ?   | ?   |
 | `lidar_observations`             | `record_json`                       | BLOB          | ✅  | ?   | ?   |
 | `lidar_observations`             | `inserted_at_ns`                    | INTEGER       | ✅  | ?   | ?   |
-| `lidar_replay_case_files`        | `replay_case_id`                    | TEXT PK       | ✅  | ?   | ?   |
-| `lidar_replay_case_files`        | `ordinal`                           | INTEGER PK    | ✅  | ?   | ?   |
-| `lidar_replay_case_files`        | `capture_file_id`                   | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_case_files`        | `pcap_file`                         | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `session_id`                        | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `source_period_id`                  | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `origin_lat`                        | REAL          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `origin_lon`                        | REAL          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `s2_l10_token`                      | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `s2_l13_token`                      | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `s2_l16_token`                      | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `geographic_source`                 | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `geographic_status`                 | TEXT          | ✅  | ?   | ?   |
-| `lidar_replay_cases`             | `site_id`                           | TEXT          | ✅  | ?   | ?   |
+| `lidar_clip_captures`            | `clip_id`                           | TEXT PK       | ✅  | ?   | ?   |
+| `lidar_clip_captures`            | `ordinal`                           | INTEGER PK    | ✅  | ?   | ?   |
+| `lidar_clip_captures`            | `capture_file_id`                   | TEXT          | ✅  | ?   | ?   |
+| `lidar_clip_captures`            | `pcap_file`                         | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `session_id`                        | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `source_period_id`                  | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `origin_lat`                        | REAL          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `origin_lon`                        | REAL          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `s2_l10_token`                      | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `s2_l13_token`                      | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `s2_l16_token`                      | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `geographic_source`                 | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `geographic_status`                 | TEXT          | ✅  | ?   | ?   |
+| `lidar_clips`                    | `site_id`                           | TEXT          | ✅  | ?   | ?   |
 | `lidar_scenes`                   | `scene_id`                          | TEXT PK       | ✅  | ?   | ?   |
 | `lidar_scenes`                   | `site_id`                           | INTEGER       | ✅  | ?   | ?   |
 | `lidar_scenes`                   | `title`                             | TEXT          | ✅  | ?   | ?   |
@@ -722,7 +721,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_segment_clip_jobs`        | `pack_digest`                       | TEXT          | ✅  | -   | -   |
 | `lidar_segment_selections`       | `segment_id`                        | TEXT PK       | ✅  | 🔶  | -   |
 | `lidar_segment_selections`       | `run_id`                            | TEXT          | ✅  | -   | -   |
-| `lidar_segment_selections`       | `replay_case_id`                    | TEXT          | ✅  | ✅  | -   |
+| `lidar_segment_selections`       | `clip_id`                           | TEXT          | ✅  | ✅  | -   |
 | `lidar_segment_selections`       | `document_version`                  | INTEGER       | ✅  | -   | -   |
 | `lidar_segment_selections`       | `parameters_json`                   | TEXT          | ✅  | -   | -   |
 | `lidar_segment_selections`       | `window_json`                       | TEXT          | ✅  | -   | -   |
@@ -934,12 +933,12 @@ endpoint, and no export path.
 
 ## 8. Go data structures: comparison logic (no triggering endpoint)
 
-| Folder                                                               | File                      | Function                  | DB  | Web | Mac | Notes                       |
-| -------------------------------------------------------------------- | ------------------------- | ------------------------- | --- | --- | --- | --------------------------- |
-| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `compareParams()`         | ✅  | 📋  | -   | Needs API endpoint          |
-| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `computeTemporalIoU()`    | ✅  | 📋  | -   | Needs API endpoint          |
-| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `is_split_candidate` flag | ✅  | ✅  | -   | Written but not triggerable |
-| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `analysis_run_compare.go` | `is_merge_candidate` flag | ✅  | ✅  | -   | Written but not triggerable |
+| Folder                                                               | File             | Function                  | DB  | Web | Mac | Notes                       |
+| -------------------------------------------------------------------- | ---------------- | ------------------------- | --- | --- | --- | --------------------------- |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `run_compare.go` | `compareParams()`         | ✅  | 📋  | -   | Needs API endpoint          |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `run_compare.go` | `computeTemporalIoU()`    | ✅  | 📋  | -   | Needs API endpoint          |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `run_compare.go` | `is_split_candidate` flag | ✅  | ✅  | -   | Written but not triggerable |
+| [internal/lidar/storage/sqlite](../../internal/lidar/storage/sqlite) | `run_compare.go` | `is_merge_candidate` flag | ✅  | ✅  | -   | Written but not triggerable |
 
 ---
 

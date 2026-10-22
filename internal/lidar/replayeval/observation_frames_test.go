@@ -100,7 +100,7 @@ func TestStrictObservationFrameSinkCallbackMayReenter(t *testing.T) {
 // is actually wrong: an unset calibration is not reported as a sensor
 // mismatch against an empty string.
 func TestValidateObservationIdentity(t *testing.T) {
-	good := Config{SensorID: "hesai-pandar40p", ReplayCaseID: "kirk0",
+	good := Config{SensorID: "hesai-pandar40p", ClipID: "kirk0",
 		ObservationCalibration: l4bobserve.Calibration{SensorID: "hesai-pandar40p", FromFrame: "sensor", ToFrame: "site"}}
 	if err := validateObservationIdentity(good); err != nil {
 		t.Fatalf("complete identities rejected: %v", err)
@@ -109,7 +109,7 @@ func TestValidateObservationIdentity(t *testing.T) {
 		mutate func(*Config)
 		want   string
 	}{
-		"no replay case":   {func(c *Config) { c.ReplayCaseID = " " }, "ReplayCaseID is required"},
+		"no clip":          {func(c *Config) { c.ClipID = " " }, "ClipID is required"},
 		"no calibration":   {func(c *Config) { c.ObservationCalibration = l4bobserve.Calibration{} }, "ObservationCalibration"},
 		"no site frame":    {func(c *Config) { c.ObservationCalibration.ToFrame = "" }, "ObservationCalibration"},
 		"other sensor cal": {func(c *Config) { c.ObservationCalibration.SensorID = "other" }, "does not match replay sensor"},

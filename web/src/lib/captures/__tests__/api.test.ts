@@ -3,17 +3,17 @@
  */
 import {
 	cancelCaptureJob,
-	clearReplayCaseLocation,
-	createReplayCaseFromCaptures,
+	clearClipLocation,
+	createClipFromCaptures,
 	getCaptureFiles,
 	getCaptureJobs,
 	getCapturePeriods,
 	getCaptureRoots,
 	getCaptureSessions,
-	getSceneMap,
+	getClipLocations,
 	queueMissingMotionPasses,
 	scanCaptureRoots,
-	setReplayCaseLocation,
+	setClipLocation,
 	setCaptureSessionLabel,
 	setSiteCanonicalPose,
 	startCaptureMotionPass
@@ -194,10 +194,10 @@ describe('setCaptureSessionLabel', () => {
 	});
 });
 
-describe('createReplayCaseFromCaptures', () => {
+describe('createClipFromCaptures', () => {
 	it('posts the ordered capture list', async () => {
-		fetchMock.mockReturnValue(ok({ replay_case_id: 'case-1' }));
-		await createReplayCaseFromCaptures({
+		fetchMock.mockReturnValue(ok({ clip_id: 'case-1' }));
+		await createClipFromCaptures({
 			sensor_id: 'hesai-pandar40p',
 			pcap_files: ['file7.pcap', 'file8.pcap'],
 			pcap_start_secs: 82,
@@ -219,26 +219,26 @@ describe('createReplayCaseFromCaptures', () => {
 			})
 		);
 		await expect(
-			createReplayCaseFromCaptures({ sensor_id: 's', pcap_files: ['file7.pcap', 'file9.pcap'] })
+			createClipFromCaptures({ sensor_id: 's', pcap_files: ['file7.pcap', 'file9.pcap'] })
 		).rejects.toThrow(/file7\.pcap/);
 	});
 
 	it('falls back to a generic message when the body is not JSON', async () => {
 		fetchMock.mockReturnValue(fail(500));
 		await expect(
-			createReplayCaseFromCaptures({ sensor_id: 's', pcap_files: ['a.pcap'] })
+			createClipFromCaptures({ sensor_id: 's', pcap_files: ['a.pcap'] })
 		).rejects.toThrow(/clip/i);
 	});
 });
 
-describe('setReplayCaseLocation', () => {
+describe('setClipLocation', () => {
 	it('sends only the position, never tokens', async () => {
 		// The S2 family is derived server-side with Parent. A family assembled
 		// by a client could disagree with itself.
 		fetchMock.mockReturnValue(
 			ok({ location: { s2_l10_token: '808581', s2_l10_display: '80858-1' } })
 		);
-		await setReplayCaseLocation('case-1', {
+		await setClipLocation('case-1', {
 			origin_lat: 37.7987,
 			origin_lon: -122.4073,
 			geographic_source: 'surveyed'
@@ -263,7 +263,7 @@ describe('setReplayCaseLocation', () => {
 				}
 			})
 		);
-		const loc = await setReplayCaseLocation('case-1', { origin_lat: 37.8, origin_lon: -122.4 });
+		const loc = await setClipLocation('case-1', { origin_lat: 37.8, origin_lon: -122.4 });
 		expect(loc.s2_l10_display).toBe('80858-1');
 		expect(loc.s2_l16_display).toBe('80858-0f3f');
 	});
@@ -272,52 +272,52 @@ describe('setReplayCaseLocation', () => {
 		fetchMock.mockReturnValue(
 			fail(400, { error: 'geoindex: no usable WGS84 position: 0,0 is an absent fix' })
 		);
-		await expect(setReplayCaseLocation('case-1', { origin_lat: 0, origin_lon: 0 })).rejects.toThrow(
+		await expect(setClipLocation('case-1', { origin_lat: 0, origin_lon: 0 })).rejects.toThrow(
 			/absent fix/
 		);
 	});
 });
 
-describe('clearReplayCaseLocation', () => {
+describe('clearClipLocation', () => {
 	it('deletes the location', async () => {
 		fetchMock.mockReturnValue(ok({}));
-		await clearReplayCaseLocation('case-1');
+		await clearClipLocation('case-1');
 		expect(fetchMock.mock.calls[0][1]).toMatchObject({ method: 'DELETE' });
 		expect(lastUrl()).toContain('/location');
 	});
 });
 
-describe('getSceneMap', () => {
+describe('getClipLocations', () => {
 	it('returns the areas, each holding its sites', async () => {
 		fetchMock.mockReturnValue(
 			ok({
-				areas: [
+				districts: [
 					{
 						s2_l10_token: '808581',
 						s2_l10_display: '80858-1',
-						case_count: 2,
+						clip_count: 2,
 						neighbourhood_count: 1,
 						sites: [
 							{
 								s2_l16_token: '8085800c',
 								s2_l13_token: '80858004',
 								s2_l10_token: '808581',
-								cases: []
+								clips: []
 							}
 						]
 					}
 				],
-				area_count: 1,
+				district_count: 1,
 				site_count: 1,
-				case_count: 2,
+				clip_count: 2,
 				coarse_level: 10,
 				fine_level: 13,
 				precise_level: 16
 			})
 		);
-		const map = await getSceneMap();
-		expect(map.area_count).toBe(1);
-		expect(map.areas[0].sites[0].s2_l16_token).toBe('8085800c');
+		const map = await getClipLocations();
+		expect(map.district_count).toBe(1);
+		expect(map.districts[0].sites[0].s2_l16_token).toBe('8085800c');
 		// The levels are reported so the page need not hard-code them.
 		expect(map.coarse_level).toBe(10);
 		expect(map.precise_level).toBe(16);
@@ -325,7 +325,7 @@ describe('getSceneMap', () => {
 
 	it('throws on a failure', async () => {
 		fetchMock.mockReturnValue(fail(503));
-		await expect(getSceneMap()).rejects.toThrow();
+		await expect(getClipLocations()).rejects.toThrow();
 	});
 });
 

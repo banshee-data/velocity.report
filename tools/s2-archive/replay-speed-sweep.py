@@ -347,7 +347,7 @@ def run_record(dbs, run_id):
     for db in dbs:
         with sqlite3.connect(f"file:{db}?mode=ro", uri=True) as connection:
             row = connection.execute(
-                "SELECT total_frames, total_clusters FROM lidar_run_records WHERE run_id = ?",
+                "SELECT total_frames, total_clusters FROM lidar_runs WHERE run_id = ?",
                 (run_id,),
             ).fetchone()
         if row:
