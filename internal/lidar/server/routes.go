@@ -125,6 +125,8 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/capture/motion-pass", ws.handleCaptureMotionPass},
 		{"POST /api/lidar/capture/motion-pass/missing", ws.handleCaptureMissingMotionPasses},
 		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
+		{"GET /api/lidar/capture/periods/background", ws.handleCapturePeriodBackground},
+		{"POST /api/lidar/capture/periods/clip", ws.handleCapturePeriodClip},
 		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
 		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},
 		{"GET /api/lidar/clip-locations", ws.handleClipLocations},

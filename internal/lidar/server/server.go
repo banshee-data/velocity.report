@@ -59,7 +59,9 @@ type Server struct {
 	captureRoots []string
 	// captureRunner drains the capture job queue. Nil until StartCaptureJobs
 	// runs, and left nil when the server has no database to queue work in.
-	captureRunner   *capjobs.Runner
+	captureRunner *capjobs.Runner
+	// backgrounds holds the settled backgrounds the map alignment asked for.
+	backgrounds     backgroundCache
 	vrlogSafeDir    string // Safe directory for VRLOG file access
 	packetForwarder *network.PacketForwarder
 	tuningConfigMu  sync.RWMutex
