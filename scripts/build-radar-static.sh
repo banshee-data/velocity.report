@@ -17,6 +17,12 @@
 #   IMAGE_TAG       Docker image tag; default: velocity-report-static-build
 #   ALLOW_DIRTY     1 to permit building from a dirty tree (binary will
 #                   stamp "<sha>-dirty"); default: refuse
+#   BUILD_CACHE_FROM  buildx --cache-from spec to import layers from
+#                     (e.g. "type=local,src=DIR"); default: none
+#   BUILD_CACHE_TO    buildx --cache-to spec; exports the toolchain and
+#                     libpcap stages only, not the per-commit source and
+#                     binary layers. Needs a docker-container builder.
+#                     default: none
 #   VERSION/GIT_SHA/BUILD_TIME/TYPST_VERSION  override version stamping
 #     (defaults: VERSION from Makefile, GIT_SHA from `git rev-parse HEAD`,
 #      BUILD_TIME from the HEAD commit's committer date in UTC ISO 8601 —
@@ -112,20 +118,41 @@ mkdir -p "$OUT_DIR"
 TMP_OUT="$(mktemp -d -t velocity-static.XXXXXX)"
 trap 'rm -rf "$TMP_OUT"' EXIT
 
+BUILD_ARGS=(
+    --file image/Dockerfile.static-build
+    --build-arg GO_VERSION="$GO_VERSION"
+    --build-arg VERSION="$VERSION"
+    --build-arg DEV_VERSION="$DEV_VERSION"
+    --build-arg GIT_SHA="$GIT_SHA"
+    --build-arg GIT_SHA_SHORT="$GIT_SHA_SHORT"
+    --build-arg BUILD_TIME="$BUILD_TIME"
+    --build-arg TYPST_VERSION="$TYPST_VERSION"
+    --build-arg ARCHES="$EXTRACT_ARCHES"
+)
+if [[ -n "${BUILD_CACHE_FROM:-}" ]]; then
+    BUILD_ARGS+=(--cache-from "$BUILD_CACHE_FROM")
+fi
+
 DOCKER_BUILDKIT=1 docker build \
-    --file image/Dockerfile.static-build \
+    "${BUILD_ARGS[@]}" \
     --target export \
     --output "type=local,dest=$TMP_OUT" \
-    --build-arg GO_VERSION="$GO_VERSION" \
-    --build-arg VERSION="$VERSION" \
-    --build-arg DEV_VERSION="$DEV_VERSION" \
-    --build-arg GIT_SHA="$GIT_SHA" \
-    --build-arg GIT_SHA_SHORT="$GIT_SHA_SHORT" \
-    --build-arg BUILD_TIME="$BUILD_TIME" \
-    --build-arg TYPST_VERSION="$TYPST_VERSION" \
-    --build-arg ARCHES="$EXTRACT_ARCHES" \
     --tag "$IMAGE_TAG" \
     .
+
+# Export the layer cache from the libpcap stage, which the build above
+# has already populated, so this adds only the export itself. Stopping
+# there keeps the source tree and binaries, which change every commit,
+# out of the cache.
+if [[ -n "${BUILD_CACHE_TO:-}" ]]; then
+    echo "==> Exporting toolchain and libpcap layer cache"
+    DOCKER_BUILDKIT=1 docker build \
+        "${BUILD_ARGS[@]}" \
+        --target libpcap \
+        --output type=cacheonly \
+        --cache-to "$BUILD_CACHE_TO" \
+        .
+fi
 
 # Move the requested arches into OUT_DIR; ignore the rest.
 for arch in $EXTRACT_ARCHES; do
