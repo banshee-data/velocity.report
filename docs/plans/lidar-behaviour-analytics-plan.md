@@ -613,7 +613,9 @@ Valid following has two speed floors: a measurement floor near 0.4 m/s, below wh
 reported, and an opportunity floor at 2 mph, below which a passage is not counted as following.
 The time gap is reported only above 10 mph; below it the spatial gap is the measure. The ceiling
 is a net-gap ceiling of 4 s or 6 s, chosen on kirk0's reviewed pairs in
-[l8fol0004](../../data/experiments/l8fol/l8fol0004.md), with hysteresis: a pair enters below the
+[l8fol0004](../../data/experiments/l8fol/l8fol0004.md) by a rule fixed before the pairs are read
+([E-09](../platform/operations/decision-review-maths-2026-10.md#e-09-q-09): 4 s unless it drops more than 10 % of the
+reviewed `leader` records 6 s keeps), with hysteresis (margin 0.5 s, dwell 1 s): a pair enters below the
 ceiling and leaves only after its gap stays above the ceiling plus a margin for a minimum dwell.
 The floors, ceiling, margin, dwell and the 10 mph band edge are recorded in the following record
 and its parameter hash, and every report shows the headline beside a 3, 4 and 6 s sensitivity. A
