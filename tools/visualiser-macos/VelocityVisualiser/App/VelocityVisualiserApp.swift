@@ -18,8 +18,16 @@ private let appLogger = DevLogger(category: "App")
     @StateObject private var appState = AppState()
     private static let watchdog = MainThreadWatchdog()
 
+    /// The main window's title, and so its item in the Window menu.
+    static let mainWindowTitle = "VelocityVisualiser"
+
     var body: some Scene {
-        WindowGroup {
+        // The main window. A Window rather than a WindowGroup: there is one
+        // AppState and one stream to draw, and a Window scene has an item in
+        // the Window menu that brings the window back once it is closed. A
+        // WindowGroup's only way back is File > New Window, which the
+        // commands below replace with Connect/Disconnect.
+        Window(Self.mainWindowTitle, id: "main") {
             if AppState.isRunningUnderXCTest {
                 EmptyView()
             } else {
@@ -31,9 +39,14 @@ private let appLogger = DevLogger(category: "App")
             AppCommands(appState: appState)
         }
 
+        // The windows below are not restored at launch. macOS reopens the
+        // windows that were open at quit, and SwiftUI opens the main window
+        // only when it restores none, so a restored About or Annotation
+        // window kept the main window closed from one launch to the next.
+        // Neither loses anything: the Annotation window opens empty.
         Window("About VelocityVisualiser.app", id: "about") { AboutView() }.windowResizability(
             .contentSize
-        ).defaultPosition(.center)
+        ).defaultPosition(.center).restorationBehavior(.disabled)
 
         // Annotation gets its own window rather than a pane in ContentView.
         // It edits an immutable pack of points read off disk, where the main
@@ -42,7 +55,7 @@ private let appLogger = DevLogger(category: "App")
         // the two windows can be kept on the same frame; it draws nothing
         // from the stream.
         Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
-            .defaultSize(width: 1560, height: 940)
+            .defaultSize(width: 1560, height: 940).restorationBehavior(.disabled)
 
         // Settings (⌘,): where the Gerardus alignment server is.
         Settings {

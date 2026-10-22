@@ -6,15 +6,20 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 
 ## Current VelocityVisualiser menu bar
 
-| Menu           | Items                                                     |
-| -------------- | --------------------------------------------------------- |
-| **App Info**   | About VelocityReport.app                                  |
-| **File**       | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)          |
-| **Playback**   | Play/Pause (Space), Step (./,), Rate (]/[), Time Display  |
-| **Overlays**   | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g) |
-| **Labels**     | Label Selected Track (l), Classify submenu (1–9)          |
-| **Annotation** | Open Annotation Window (⇧⌘A)                              |
-| **Edit**       | Undo (⌘Z), Redo (⇧⌘Z)                                     |
+| Menu           | Items                                                        |
+| -------------- | ------------------------------------------------------------ |
+| **App Info**   | About VelocityReport.app                                     |
+| **File**       | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)             |
+| **Playback**   | Play/Pause (Space), Step (./,), Rate (]/[), Time Display     |
+| **Overlays**   | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g)    |
+| **Labels**     | Label Selected Track (l), Classify submenu (1–9)             |
+| **Annotation** | Open Annotation Window (⇧⌘A)                                 |
+| **Edit**       | Undo (⌘Z), Redo (⇧⌘Z)                                        |
+| **Window**     | VelocityVisualiser, About VelocityVisualiser.app, Annotation |
+
+Window → VelocityVisualiser brings the main window to the front, and reopens it if it was
+closed. The main window opens at every launch; the About and Annotation windows open only when
+asked for, and are not restored from the last session.
 
 ## Single-Key shortcuts (immutable)
 
