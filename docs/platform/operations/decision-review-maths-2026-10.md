@@ -9,8 +9,8 @@ maths question depends on them. Seven questions are on the agenda; the inventory
 what was found and why the rest is not.
 
 - **Packet:** DR-MATHS-2026-10
-- **Revision:** 1
-- **Phase:** prepare
+- **Revision:** 2
+- **Phase:** voice (held in text, October 22, 2026; all seven questions confirmed)
 - **Branch:** `claude/peaceful-davinci-w8iuw8`
 - **Related:** [MATHS.md](../../../data/maths/MATHS.md),
   [pipeline review](../../../data/maths/pipeline-review-open-questions.md),
@@ -134,15 +134,15 @@ About 3 minutes. Prerequisite Q-01 for l8fol0004's framing. Card revision 1.
 
 ## Question index
 
-| ID   | Category | Source ID and link                                                                                                                                                                                                                                                                                              | State    | Depends on | Current decision entry |
-| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------- | ---------------------- |
-| Q-01 | maths    | [Briefing 2026-10-19, Q2](../../lidar/operations/brief/research-briefing-2026-10-19.md#open-questions); [l8fol0004](../../../data/experiments/l8fol/l8fol0004.md)                                                                                                                                               | prepared | none       | none                   |
-| Q-02 | maths    | [Behaviour plan B10](../../plans/lidar-behaviour-analytics-plan.md#13-open-research-questions); [D-28](../../DECISIONS.md#d-28--research-briefing-decisions-october-2026)                                                                                                                                       | prepared | Q-01       | none                   |
-| Q-03 | maths    | [Percentile plan §5, canonical aggregate percentile algorithm](../../plans/speed-percentile-aggregation-alignment-plan.md#5-decisions-that-still-need-explicit-implementation-choices); [pipeline review §5.2](../../../data/maths/pipeline-review-open-questions.md#52-speed-percentile-aggregation-alignment) | prepared | none       | none                   |
-| Q-04 | maths    | [Near-edge frame cost](../../lidar/operations/near-edge-frame-cost-2026-10.md#interpretation); [backlog, solid-body remaining work](../../BACKLOG.md)                                                                                                                                                           | prepared | none       | none                   |
-| Q-05 | maths    | [Gap analysis S3](../../../data/maths/paper-implementation-gap-analysis.md#computed-s3); [backlog, association cost](../../BACKLOG.md); [l5id0001](../../../data/experiments/l5id/l5id0001.md)                                                                                                                  | prepared | none       | none                   |
-| Q-06 | maths    | [Gap analysis D6](../../../data/maths/paper-implementation-gap-analysis.md#gaps); [remediation plan, P2 D6](../../../data/maths/paper-implementation-gap-analysis.md#phase-1-tests-for-known-gaps-no-paper-downloads-needed)                                                                                    | prepared | none       | none                   |
-| Q-07 | maths    | [Experiment queue](../../../data/experiments/DEPENDENCIES.md); specs l8fol0004, ground0001, ground0002, l3bg0022, l3bg0024, l5est0001, l5est0002, geom0002, geom0012                                                                                                                                            | prepared | Q-01       | none                   |
+| ID   | Category | Source ID and link                                                                                                                                                                                                                                                                                              | State                 | Depends on | Current decision entry |
+| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ---------- | ---------------------- |
+| Q-01 | maths    | [Briefing 2026-10-19, Q2](../../lidar/operations/brief/research-briefing-2026-10-19.md#open-questions); [l8fol0004](../../../data/experiments/l8fol/l8fol0004.md)                                                                                                                                               | ready for integration | none       | [E-01](#e-01-q-01)     |
+| Q-02 | maths    | [Behaviour plan B10](../../plans/lidar-behaviour-analytics-plan.md#13-open-research-questions); [D-28](../../DECISIONS.md#d-28--research-briefing-decisions-october-2026)                                                                                                                                       | ready for integration | Q-01       | [E-02](#e-02-q-02)     |
+| Q-03 | maths    | [Percentile plan §5, canonical aggregate percentile algorithm](../../plans/speed-percentile-aggregation-alignment-plan.md#5-decisions-that-still-need-explicit-implementation-choices); [pipeline review §5.2](../../../data/maths/pipeline-review-open-questions.md#52-speed-percentile-aggregation-alignment) | ready for integration | none       | [E-03](#e-03-q-03)     |
+| Q-04 | maths    | [Near-edge frame cost](../../lidar/operations/near-edge-frame-cost-2026-10.md#interpretation); [backlog, solid-body remaining work](../../BACKLOG.md)                                                                                                                                                           | ready for integration | none       | [E-04](#e-04-q-04)     |
+| Q-05 | maths    | [Gap analysis S3](../../../data/maths/paper-implementation-gap-analysis.md#computed-s3); [backlog, association cost](../../BACKLOG.md); [l5id0001](../../../data/experiments/l5id/l5id0001.md)                                                                                                                  | ready for integration | none       | [E-05](#e-05-q-05)     |
+| Q-06 | maths    | [Gap analysis D6](../../../data/maths/paper-implementation-gap-analysis.md#gaps); [remediation plan, P2 D6](../../../data/maths/paper-implementation-gap-analysis.md#phase-1-tests-for-known-gaps-no-paper-downloads-needed)                                                                                    | ready for integration | none       | [E-06](#e-06-q-06)     |
+| Q-07 | maths    | [Experiment queue](../../../data/experiments/DEPENDENCIES.md); specs l8fol0004, ground0001, ground0002, l3bg0022, l3bg0024, l5est0001, l5est0002, geom0002, geom0012                                                                                                                                            | ready for integration | Q-01       | [E-07](#e-07-q-07)     |
 
 ## Candidate inventory
 
@@ -476,7 +476,120 @@ About 3 minutes. Prerequisite Q-01 for l8fol0004's framing. Card revision 1.
 
 ## Decision log
 
-No decisions recorded in this revision.
+Seven entries, recorded October 22, 2026 from a text discussion of the revision 1 cards. Each is
+the owner's explicit choice; integration review has not yet run on any of them.
+
+### E-01: Q-01
+
+- State: ready for integration.
+- Disposition: adopt.
+- Choice and constraints: option C with option D's sensitivity. Valid following has two floors
+  (a measurement floor near 0.4 m/s and an opportunity floor at 2 mph), the time gap is used
+  only above 10 mph and a spatial gap below it, the ceiling is a net-gap ceiling of 4 or 6 s
+  chosen on kirk0's reviewed pairs inside l8fol0004, with hysteresis (leave after the ceiling
+  plus a margin for a minimum dwell); the report shows 3, 4 and 6 s as a sensitivity beside the
+  headline. The floor, ceiling, margin, dwell and band edge go in the following record and the
+  parameter hash. No rate publishes before the record is pinned.
+- Rationale: keeps queue behaviour as a spatial measure where the time gap is unstable, and lets
+  the ceiling be chosen on reviewed pairs rather than by convention alone.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-01 revision 1.
+- Supersedes: none.
+- Follow-ups: the 4 or 6 s value and the 10 mph band edge are l8fol0004's `decide` step (F-05).
+
+### E-02: Q-02
+
+- State: ready for integration.
+- Disposition: defer.
+- Choice and constraints: option C. The encounter-weighted view (B10) does not publish now. It
+  reopens when E-01's following record is pinned and l8fol0004 reports; the question then is
+  whether episodes under that record are long enough that an encounter view adds a reading the
+  histogram lacks. Until then the time-weighted histogram is the only published view.
+- Rationale: an encounter is undefined until the episode rule exists, and B1 shows a view on
+  track pairs would count one episode several times.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-02 revision 1.
+- Supersedes: none.
+- Follow-ups: reopening trigger as stated; D-28's forward reference to this forum is satisfied by this entry (F-06).
+
+### E-03: Q-03
+
+- State: ready for integration.
+- Disposition: adopt.
+- Choice and constraints: option B. Aggregate p50, p85 and p98 use nearest rank everywhere: on
+  sorted x of size n the value at index ceiling(p n) minus 1, clamped to the slice. One shared
+  helper replaces the radar, analysis-report and replay-evaluation helpers; the per-track
+  classifier percentiles are out of scope and go with D-18. The indexing rule is documented
+  beside the helper and in the maths notes. Percentiles are never merged across time bins.
+- Rationale: an aggregate percentile that is an observed vehicle speed matches the project's
+  definition; the public radar report does not change.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-03 revision 1.
+- Supersedes: none.
+- Follow-ups: F-03.
+
+### E-04: Q-04
+
+- State: ready for integration.
+- Disposition: adopt.
+- Choice and constraints: option B. The near-edge cost screen is a frame-level screen: a
+  candidate arm's frame p99 stays under the frame budget and within 1.5 times the baseline's at
+  each timing site. The Tracker.Update p99 ratio is still reported as a regression signal for the
+  tracker, not as a pass or fail. A Pi frame-time measurement of the arm is a condition of any
+  promotion.
+- Rationale: a live sensor pays per frame; the baseline update is about half a percent of one.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-04 revision 1.
+- Supersedes: none.
+- Follow-ups: F-04.
+
+### E-05: Q-05
+
+- State: ready for integration.
+- Disposition: adopt (sequence).
+- Choice and constraints: option B. Tentative priority is carried forward as the S2 remedy under
+  its existing spec (l5id0006). S3 is parked until W2's containment share is scored; the
+  likelihood-cost spec then runs on held-out identity with containment as an input.
+  `occlusion_cov_inflation` is retired only after that comparison, not before.
+- Rationale: the one measured likelihood run traded identity for duplicates, and the backlog
+  already makes containment the input that would explain which clusters it refused.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-05 revision 1.
+- Supersedes: none.
+- Follow-ups: F-07 (the likelihood spec, blocked on W2).
+
+### E-06: Q-06
+
+- State: ready for integration.
+- Disposition: adopt.
+- Choice and constraints: option A. One l4clus spec measures the built `ScaleMinPtsWhenSubsampled`
+  option against the shipped behaviour on the corpus frames over the 8,000-point cap, with the
+  labelled score on kirk. Voxel downsampling is not wired until that spec reports.
+- Rationale: the remedy exists, costs about an hour of machine time and no fingerprint change,
+  and says whether D6 is worth a new L4 stage.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-06 revision 1.
+- Supersedes: none.
+- Follow-ups: F-08 (the spec).
+
+### E-07: Q-07
+
+- State: ready for integration.
+- Disposition: adopt.
+- Choice and constraints: option A. Approve l8fol0004, ground0001 and l3bg0024 this week; the
+  other six proposed maths specs stay proposed. l8fol0004's `decide` step pins E-01's record.
+- Rationale: each unblocks a chain at about four hours of machine time and 22 of person time.
+- Confirmation: explicit selection of the option in a text decision session; the question was put with the options and the recommendation marked, and the owner chose the option named above. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality, 2026-10-22T01:08:56Z.
+- Reviewed card: DR-MATHS-2026-10 revision 1, evidence card Q-07 revision 1.
+- Supersedes: none.
+- Follow-ups: F-09 (status edits and graph regeneration).
 
 ## Follow-ups
 
@@ -486,6 +599,11 @@ No decisions recorded in this revision.
 | F-02 | inventory                  | AGENTS.md's L3 row says "EMA + Welford variance"; the spread is an EMA of absolute deviation (gap analysis B6, beam-wise review errata); correct the row                                                   | unassigned | none   | AGENTS.md row matches `background-grid-settling-maths.md` | pending; integration phase          |
 | F-03 | Q-03                       | After the rule is chosen, one shared percentile helper replaces the three aggregate helpers; the per-track one goes with D-18                                                                              | unassigned | none   | One helper, three call sites, tests pass                  | pending; integration phase          |
 | F-04 | Q-04                       | A Pi frame-time measurement of A2 before any promotion, whichever screen is chosen                                                                                                                         | unassigned | none   | A perf spec names it                                      | pending; perf area                  |
+| F-05 | E-01                       | Choose the 4 or 6 s net ceiling and the 10 mph band edge on kirk0's reviewed pairs; pin floor, ceiling, margin, dwell and band edge in the following record as a D-NN                                      | owner      | E-02   | l8fol0004 `decide` step closed with a D-NN                | pending; l8fol0004                  |
+| F-06 | E-02                       | Record B10's deferral and its trigger in the behaviour plan's B10 row, D-28 and the backlog row                                                                                                            | unassigned | none   | The three rows cite E-02 and the trigger                  | pending; integration phase          |
+| F-07 | E-05                       | Write the likelihood-cost spec (held-out identity, containment share as an input, inflation retirement as its consequence) once W2 is scored                                                               | unassigned | none   | Spec validates and depends on the W2 spec                 | pending; l5id area, blocked on W2   |
+| F-08 | E-06                       | Write the l4clus spec for `ScaleMinPtsWhenSubsampled` on capped frames, adding a replay experiment switch if none exists                                                                                   | unassigned | none   | Spec validates; the switch has a test                     | pending; integration phase          |
+| F-09 | E-07                       | Set l8fol0004, ground0001 and l3bg0024 to `approved`; regenerate DEPENDENCIES.md                                                                                                                           | unassigned | none   | `make check-experiments` passes                           | pending; integration phase          |
 
 ## Integration review
 
@@ -525,22 +643,32 @@ Not yet run.
 - Phase runs: prepare, revision 1, requested tier high; actual model `claude-opus-5-5` as the
   session reports it, session `session_01CCGg6RfzL9uoYZhqKsEqK9`, 2026-10-22T00:00:00Z (date
   known; time not recorded by the host).
-- Validation: question IDs and source links checked by hand; states are all `prepared`; no
-  confirmations exist; dependency rows cover each option; follow-ups have destinations;
+- Phase runs (continued): voice, revision 2, requested tier light, actual model as the session
+  reports it (`claude-fable-5-1`, text, no voice), session
+  `session_01CCGg6RfzL9uoYZhqKsEqK9`, 2026-10-22T01:08:56Z.
+- Validation: question IDs and source links checked by hand; states are all `ready for
+integration` after revision 2; each entry records its confirmation; dependency rows cover each option; follow-ups have destinations;
   `make format-docs` and `make lint-docs` run before commit (results in the commit message).
 
 ## Resume handoff
 
-- Next phase and requested tier: voice/light (text is acceptable; record the modality).
+- Next phase and requested tier: integrate/high.
 - Packet and revision: `docs/platform/operations/decision-review-maths-2026-10.md`,
-  DR-MATHS-2026-10, revision 1.
-- Branch and PR: `claude/peaceful-davinci-w8iuw8`; committed; PR not yet opened.
-- Read first: Voice brief, Question index, Decision log (empty), this section. Evidence cards
-  only when challenged.
-- Resume at: Q-01. Confirmed: none. Returned: none. Blockers: none. Overflow: none.
-- Invocation: `/decision-review-voice docs/platform/operations/decision-review-maths-2026-10.md`
-- Handoff prompt: Discuss Q-01 to Q-07 in order, one at a time, reading each spoken card and
-  asking for a choice. Record only explicit choices as `ready for integration` with the exact
-  option and any conditions. Leave tentative answers `prepared`. New options or evidence go to
-  Follow-ups for high-capability evaluation. Stop at 20 minutes or when the owner stops, then
-  update this section with the next question and commit.
+  DR-MATHS-2026-10, revision 2.
+- Branch and PR: `claude/peaceful-davinci-w8iuw8`; committed; the draft PR link is in the
+  Related line once opened.
+- Read first: Decision log E-01 to E-07, Follow-ups F-03 to F-09, the Impact tables of the
+  chosen options, then this section.
+- Resume at: integration of E-01 to E-07. Confirmed: Q-01 to Q-07. Returned: none. Blockers:
+  F-05 and F-07 are owner and W2 work, not integration blockers. Overflow: none.
+- Invocation: `/decision-review-integrate docs/platform/operations/decision-review-maths-2026-10.md`
+- Handoff prompt: Re-check the source blobs against the snapshot, then apply the chosen options'
+  impact rows in dependency order: E-01 and E-02 (plan, briefing, D-28, backlog rows, l8fol0004's
+  decide-step fields), E-03 (one nearest-rank helper replacing three, with tests and the
+  documented rule), E-04 (near-edge plan screen definition, backlog clause, frame-cost record
+  link, Pi perf step), E-05 (backlog S3 row and gap analysis), E-06 (l4clus spec and switch),
+  E-07 (three specs approved, graph regenerated), plus F-01 and F-02. Record each row as
+  changed, no change or deferred; run `make format-docs`, `make lint-docs`,
+  `make check-experiments`, `make check-no-results` and the Go tests of touched packages; set
+  `integrated` only where every row is accounted for; return a material conflict to voice with
+  one question.
