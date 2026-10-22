@@ -11,8 +11,8 @@
 	import {
 		applyLidarParams,
 		getLidarParams,
-		getLidarReplayCase,
-		getLidarReplayCases,
+		getLidarClip,
+		getLidarClips,
 		scanPcapFiles,
 		type PcapFileInfo
 	} from '#lib/api.js';
@@ -22,7 +22,7 @@
 		getLidarStatus,
 		getPlaybackStatus,
 		getTuningConfigs,
-		replayFieldsForCase,
+		replayFieldsForClip,
 		resumeLive,
 		runMaintenance,
 		startReplay,
@@ -36,7 +36,7 @@
 		type ReplayStartRequest,
 		type TuningConfigInfo
 	} from '#lib/lidarControl.js';
-	import type { LidarReplayCase } from '#lib/types/lidar.js';
+	import type { LidarClip } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -49,7 +49,7 @@
 	let sensorId = $derived(status?.sensor_id || DEFAULT_LIDAR_SENSOR_ID);
 
 	// Replay form
-	let clips = $state<LidarReplayCase[]>([]);
+	let clips = $state<LidarClip[]>([]);
 	let configs = $state<TuningConfigInfo[]>([]);
 	let configDir = $state('');
 	let configsError = $state<string | null>(null);
@@ -86,7 +86,7 @@
 
 	async function loadFormOptions() {
 		const [clipList, configList, captureList] = await Promise.allSettled([
-			getLidarReplayCases(sensorId),
+			getLidarClips(sensorId),
 			getTuningConfigs(),
 			scanPcapFiles()
 		]);
@@ -113,12 +113,14 @@
 	async function chooseClip() {
 		form.pcap_files = undefined;
 		if (!clipId) return;
-		const listed = clips.find((c) => c.replay_case_id === clipId);
+		const listed = clips.find((c) => c.clip_id === clipId);
 		if (!listed) return;
-		// A multi-file clip's captures come only with a single-case fetch.
-		const clip =
-			listed.file_count > 1 ? await getLidarReplayCase(clipId).catch(() => listed) : listed;
-		Object.assign(form, replayFieldsForCase(clip));
+		// A clip's captures come only with a single-clip fetch.
+		try {
+			Object.assign(form, replayFieldsForClip(await getLidarClip(clipId)));
+		} catch (e) {
+			replayError = `Could not load the clip: ${e instanceof Error ? e.message : String(e)}`;
+		}
 	}
 
 	function onSettleChange() {
@@ -370,9 +372,9 @@
 						<span>Clip</span>
 						<select class="vr-input" bind:value={clipId} onchange={chooseClip}>
 							<option value="">(enter a capture by hand)</option>
-							{#each clips as clip (clip.replay_case_id)}
-								<option value={clip.replay_case_id}>
-									{clip.description ? `${clip.description} (${clip.pcap_file})` : clip.pcap_file}
+							{#each clips as clip (clip.clip_id)}
+								<option value={clip.clip_id}>
+									{clip.description || clip.clip_id}
 								</option>
 							{/each}
 						</select>

@@ -144,7 +144,7 @@ Rationale: niche forwarding path; high cognitive load for low general usage.
 
 - `--lidar-listen` (port `:8081`)
 
-Rationale: candidate for deprecation when monitor/frontend consolidation retires the split-surface model. The split went in v0.5.2: the `:8081` listener is retired and the flag is accepted and ignored with a warning until the v0.5.3 flag tombstone helper registers it.
+Rationale: candidate for deprecation when monitor/frontend consolidation retires the split-surface model. The split went in v0.5.2: the `:8081` listener is retired and the flag is a refusing tombstone: naming it fails and prints `--listen` (registered; removed in v0.5.9).
 
 #### C. consolidation candidates (medium priority)
 
@@ -340,7 +340,7 @@ sub-plan:
 - [ ] Complete #252 status/regions/sweep migration: implemented on branch `claude/echarts-svelte-migration-83fbd5`, #836
 - [ ] Retire duplicated stats/plot targets: moved to Project F, which deletes them without waiting for parity
 - [ ] Collapse or demote `api-*` Make shortcuts to internal developer scripts: moved to Project F
-- [ ] Deprecate `--lidar-listen` when port split is removed: the split is removed on the same branch and the flag is ignored with a warning; the tombstone waits for the v0.5.3 helper
+- [ ] Deprecate `--lidar-listen` when port split is removed: the split is removed on the same branch and the flag is a refusing tombstone: naming it fails and prints `--listen` (registered; removed in v0.5.9)
 
 ### Project d (P2): CLI simplification pass
 

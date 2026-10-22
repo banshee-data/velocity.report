@@ -359,8 +359,9 @@ reachable since Phase 5: the Run a Sweep page sends them.)
 
 Phases 1 to 6 are implemented on branch `claude/echarts-svelte-migration-83fbd5`,
 in #836. Every LiDAR route is served on the main listener (`--listen`,
-default `127.0.0.1:8080`); `--lidar-listen` is accepted and ignored with a
-warning until the v0.5.3 flag tombstone helper registers it.
+default `127.0.0.1:8080`); `--lidar-listen` is a refusing
+tombstone: naming it fails and prints `--listen` (registered in the compatibility
+register; removed in v0.5.9).
 
 | Old surface (deleted)                                        | Replacement                                                                                                                 |
 | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |

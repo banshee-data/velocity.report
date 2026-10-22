@@ -82,7 +82,7 @@ velocity serve --enable-lidar
 **LiDAR Integration Flags:**
 
 - `--enable-lidar` - Enable in-process lidar components
-- `--lidar-listen` - Retired in v0.5.2: accepted but ignored with a warning; LiDAR routes are on `--listen`
+- `--lidar-listen` - Retired in v0.5.2: a tombstone that fails and names `--listen`, where the LiDAR routes are
 - `--lidar-no-parse` - Disable packet parsing (forwarding only)
 - `--lidar-forward` - Forward UDP packets to another port
 - `--lidar-forward-addr localhost` - Forwarding destination address

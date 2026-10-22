@@ -104,8 +104,8 @@ describe('manual sweep request', () => {
 				{ ...newParamRow(TIMEOUT), values: '500ms, 1s' },
 				newParamRow('')
 			],
-			dataSource: 'replay_case',
-			replayCaseId: 'clip-1',
+			dataSource: 'clip',
+			clipId: 'clip-1',
 			pcapFile: 'kirk0.pcapng',
 			pcapStartSecs: 4,
 			pcapDurationSecs: 30
@@ -115,7 +115,7 @@ describe('manual sweep request', () => {
 			mode: 'params',
 			seed: 'true',
 			data_source: 'pcap',
-			replay_case_id: 'clip-1',
+			clip_id: 'clip-1',
 			pcap_file: 'kirk0.pcapng',
 			pcap_start_secs: 4,
 			pcap_duration_secs: 30
@@ -132,7 +132,7 @@ describe('manual sweep request', () => {
 		const req = buildSweepSetup(form({ rows: [newParamRow(EPS)] }));
 		expect(req.data_source).toBe('live');
 		expect(req).not.toHaveProperty('pcap_file');
-		expect(req).not.toHaveProperty('replay_case_id');
+		expect(req).not.toHaveProperty('clip_id');
 	});
 
 	it('round-trips a setup through the JSON editor', () => {
@@ -148,9 +148,9 @@ describe('manual sweep request', () => {
 		});
 		const loaded = applySweepSetup(defaultSweepForm(), buildSweepSetup(original));
 		expect(buildSweepSetup(loaded)).toEqual(buildSweepSetup(original));
-		expect(applySweepSetup(defaultSweepForm(), { replay_case_id: 'c' })).toMatchObject({
-			dataSource: 'replay_case',
-			replayCaseId: 'c'
+		expect(applySweepSetup(defaultSweepForm(), { clip_id: 'c' })).toMatchObject({
+			dataSource: 'clip',
+			clipId: 'c'
 		});
 		expect(applySweepSetup(defaultSweepForm(), { params: [{ name: SEED }] }).rows[0].values).toBe(
 			'true, false'
@@ -197,14 +197,12 @@ describe('HINT request', () => {
 	it('falls back to the foreground defaults, adding background when asked', () => {
 		const names = (f: SweepForm) =>
 			(buildHintRequest(f).params as Array<{ name: string }>).map((p) => p.name);
-		expect(names(form({ mode: 'hint', replayCaseId: 'c' }))).toEqual(
-			DEFAULT_HINT_FOREGROUND_PARAMS
-		);
-		expect(names(form({ mode: 'hint', replayCaseId: 'c', hintTuneBackground: true }))).toEqual([
+		expect(names(form({ mode: 'hint', clipId: 'c' }))).toEqual(DEFAULT_HINT_FOREGROUND_PARAMS);
+		expect(names(form({ mode: 'hint', clipId: 'c', hintTuneBackground: true }))).toEqual([
 			...DEFAULT_HINT_FOREGROUND_PARAMS,
 			...DEFAULT_HINT_BACKGROUND_PARAMS
 		]);
-		expect(names(form({ mode: 'hint', replayCaseId: 'c', rows: [newParamRow(WARMUP)] }))).toEqual([
+		expect(names(form({ mode: 'hint', clipId: 'c', rows: [newParamRow(WARMUP)] }))).toEqual([
 			WARMUP
 		]);
 	});
@@ -213,14 +211,14 @@ describe('HINT request', () => {
 		const req = buildHintRequest(
 			form({
 				mode: 'hint',
-				replayCaseId: 'c',
+				clipId: 'c',
 				hintThresholdPct: 75,
 				hintClassCoverage: '{"vehicle":3}',
 				hintTemporalSpreadSecs: '20'
 			})
 		);
 		expect(req).toMatchObject({
-			replay_case_id: 'c',
+			clip_id: 'c',
 			num_rounds: 3,
 			min_label_threshold: 0.75,
 			carry_over_labels: true,
@@ -228,7 +226,7 @@ describe('HINT request', () => {
 			min_class_coverage: { vehicle: 3 },
 			min_temporal_spread_secs: 20
 		});
-		const bare = buildHintRequest(form({ replayCaseId: 'c', hintThresholdPct: 0, topK: 0 }));
+		const bare = buildHintRequest(form({ clipId: 'c', hintThresholdPct: 0, topK: 0 }));
 		expect(bare.min_label_threshold).toBe(0.9);
 		expect(bare.top_k).toBe(3);
 		expect(bare).not.toHaveProperty('min_class_coverage');
@@ -236,16 +234,16 @@ describe('HINT request', () => {
 	});
 
 	it('refuses an unparseable class coverage', () => {
-		expect(() =>
-			buildHintRequest(form({ replayCaseId: 'c', hintClassCoverage: '{vehicle' }))
-		).toThrow(/Class coverage is not valid JSON/);
+		expect(() => buildHintRequest(form({ clipId: 'c', hintClassCoverage: '{vehicle' }))).toThrow(
+			/Class coverage is not valid JSON/
+		);
 	});
 });
 
 describe('validateSweepForm', () => {
 	it('names the first problem', () => {
 		expect(validateSweepForm(form({ mode: 'hint' }))).toMatch(/clip/);
-		expect(validateSweepForm(form({ mode: 'hint', replayCaseId: 'c' }))).toBeNull();
+		expect(validateSweepForm(form({ mode: 'hint', clipId: 'c' }))).toBeNull();
 		expect(validateSweepForm(form())).toMatch(/at least one parameter/);
 		expect(validateSweepForm(form({ rows: [newParamRow(EPS)], dataSource: 'pcap' }))).toMatch(
 			/capture file/
@@ -327,7 +325,7 @@ describe('replaySlotProblem', () => {
 	it('refuses a replaying sweep while the slot is held', () => {
 		expect(replaySlotProblem(form({ dataSource: 'pcap' }), live)).toBeNull();
 		expect(replaySlotProblem(form({ dataSource: 'pcap' }), busy)).toMatch(/replay is running/);
-		expect(replaySlotProblem(form({ dataSource: 'replay_case' }), held)).toMatch(/pcap_analysis/);
+		expect(replaySlotProblem(form({ dataSource: 'clip' }), held)).toMatch(/pcap_analysis/);
 		expect(replaySlotProblem(form({ mode: 'hint' }), held)).toMatch(/finished replay/);
 	});
 });

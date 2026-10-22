@@ -17,7 +17,7 @@ The sensor subnet is a dedicated point-to-point link between the Raspberry Pi an
 
 The server's HTTP routes fall into three classes, each with a different trust level. Since
 v0.5.2 all three are on one HTTP listener (`--listen`); the separate LiDAR listener on `:8081`
-is retired, and `--lidar-listen` is accepted but ignored.
+is retired, and `--lidar-listen` is a tombstone that fails and names `--listen`.
 
 ### 1. Public HTTP listener (`:8080`)
 

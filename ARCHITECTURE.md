@@ -100,7 +100,7 @@ LiDAR (UDP/Ethernet)─┘         │                        │          └�
 
 The HTTP API carries the radar and LiDAR routes on one listener (`--listen`; `:80` on the Pi
 image, `127.0.0.1:8080` by default). The separate LiDAR listener on :8081 was retired in v0.5.2;
-`--lidar-listen` is still accepted but ignored with a warning.
+`--lidar-listen` is a refusing tombstone that names `--listen`.
 
 ### Physical deployment
 

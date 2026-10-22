@@ -1989,19 +1989,6 @@ format-web:
 	else \
 		echo "$(WEB_DIR) does not exist; skipping web formatting"; \
 	fi
-	@if [ -d "$(WEB_DIR)" ]; then \
-		cd $(WEB_DIR) && pnpm exec prettier --write \
-			../internal/lidar/monitor/assets/dashboard_common.js \
-			../internal/lidar/monitor/assets/regions_dashboard.js \
-			../internal/lidar/monitor/assets/sweep_dashboard.js \
-			../internal/lidar/monitor/assets/common.css \
-			../internal/lidar/monitor/assets/status_dashboard.css \
-			../internal/lidar/monitor/assets/dashboard.css \
-			../internal/lidar/monitor/assets/regions_dashboard.css \
-			../internal/lidar/monitor/assets/sweep_dashboard.css \
-			2>/dev/null \
-			|| echo "monitor assets prettier skipped"; \
-	fi
 	@if [ -d "$(WEB_DIR)" ] && [ -d "public_html/src" ]; then \
 		if command -v pnpm >/dev/null 2>&1; then \
 			cd $(WEB_DIR) && pnpm exec prettier --write \

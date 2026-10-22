@@ -341,14 +341,14 @@ export function rowValueCount(row: ParamRow): number {
 }
 
 export type SweepMode = 'manual' | 'auto' | 'hint';
-export type DataSource = 'live' | 'pcap' | 'replay_case';
+export type DataSource = 'live' | 'pcap' | 'clip';
 
 /** Every field of the sweep form. */
 export interface SweepForm {
 	mode: SweepMode;
 	rows: ParamRow[];
 	dataSource: DataSource;
-	replayCaseId: string;
+	clipId: string;
 	pcapFile: string;
 	pcapStartSecs: number;
 	pcapDurationSecs: number;
@@ -401,7 +401,7 @@ export function defaultSweepForm(): SweepForm {
 		mode: 'manual',
 		rows: [],
 		dataSource: 'live',
-		replayCaseId: '',
+		clipId: '',
 		pcapFile: '',
 		pcapStartSecs: 0,
 		pcapDurationSecs: -1,
@@ -438,15 +438,15 @@ export function defaultSweepForm(): SweepForm {
 /** The data-source fields every request shares. */
 function sourceFields(form: SweepForm): Record<string, unknown> {
 	const out: Record<string, unknown> = {
-		data_source: form.dataSource === 'replay_case' ? 'pcap' : form.dataSource
+		data_source: form.dataSource === 'clip' ? 'pcap' : form.dataSource
 	};
-	if (form.dataSource === 'pcap' || form.dataSource === 'replay_case') {
+	if (form.dataSource === 'pcap' || form.dataSource === 'clip') {
 		out.pcap_file = form.pcapFile;
 		out.pcap_start_secs = form.pcapStartSecs;
 		out.pcap_duration_secs = form.pcapDurationSecs;
 	}
-	if (form.dataSource === 'replay_case' && form.replayCaseId) {
-		out.replay_case_id = form.replayCaseId;
+	if (form.dataSource === 'clip' && form.clipId) {
+		out.clip_id = form.clipId;
 	}
 	return out;
 }
@@ -502,9 +502,9 @@ export function applySweepSetup(form: SweepForm, setup: Record<string, unknown>)
 	if (typeof setup.settle_time === 'string') next.settleTime = setup.settle_time;
 	if (typeof setup.settle_mode === 'string')
 		next.settleMode = setup.settle_mode as SweepForm['settleMode'];
-	if (typeof setup.replay_case_id === 'string' && setup.replay_case_id) {
-		next.dataSource = 'replay_case';
-		next.replayCaseId = setup.replay_case_id;
+	if (typeof setup.clip_id === 'string' && setup.clip_id) {
+		next.dataSource = 'clip';
+		next.clipId = setup.clip_id;
 	} else if (setup.data_source === 'live' || setup.data_source === 'pcap') {
 		next.dataSource = setup.data_source;
 	}
@@ -578,7 +578,7 @@ export function buildHintRequest(form: SweepForm): Record<string, unknown> {
 		params = defaults.map((name) => rangedParam(newParamRow(name)));
 	}
 	const req: Record<string, unknown> = {
-		replay_case_id: form.replayCaseId,
+		clip_id: form.clipId,
 		num_rounds: form.hintRounds || 3,
 		params,
 		values_per_param: form.valuesPerParam || 5,
@@ -604,10 +604,10 @@ export function buildHintRequest(form: SweepForm): Record<string, unknown> {
 /** The first reason the form cannot start, or null. */
 export function validateSweepForm(form: SweepForm): string | null {
 	if (form.mode === 'hint') {
-		return form.replayCaseId ? null : 'Choose a clip before starting a HINT sweep.';
+		return form.clipId ? null : 'Choose a clip before starting a HINT sweep.';
 	}
 	if (namedRows(form).length === 0) return 'Add at least one parameter.';
-	if ((form.dataSource === 'pcap' || form.dataSource === 'replay_case') && !form.pcapFile.trim()) {
+	if ((form.dataSource === 'pcap' || form.dataSource === 'clip') && !form.pcapFile.trim()) {
 		return 'Choose a capture file to replay.';
 	}
 	if (form.mode === 'auto' && !namedRows(form).some((r) => isNumeric(PARAM_SCHEMA[r.name].type))) {

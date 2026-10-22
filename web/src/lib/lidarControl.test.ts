@@ -20,7 +20,7 @@ import {
 	gridChartPath,
 	MAINTENANCE_ACTIONS,
 	resumeAutoTune,
-	replayFieldsForCase,
+	replayFieldsForClip,
 	resumeLive,
 	runMaintenance,
 	startAutoTune,
@@ -178,17 +178,20 @@ describe('replay', () => {
 	});
 
 	it('fills the form from a clip', () => {
-		const base = { replay_case_id: 'c', sensor_id: 's', created_at_ns: 0, file_count: 1 };
-		expect(replayFieldsForCase({ ...base, pcap_file: 'a.pcap' })).toEqual({
-			pcap_file: 'a.pcap',
+		const base = { clip_id: 'c', sensor_id: 's', created_at_ns: 0, file_count: 1 };
+		// A listing carries no captures, only the trim.
+		expect(replayFieldsForClip(base)).toEqual({
+			pcap_file: '',
 			pcap_files: undefined,
 			start_seconds: 0,
 			duration_seconds: -1
 		});
 		expect(
-			replayFieldsForCase({
+			replayFieldsForClip({ ...base, files: [{ ordinal: 0, pcap_file: 'a.pcap' }] }).pcap_file
+		).toBe('a.pcap');
+		expect(
+			replayFieldsForClip({
 				...base,
-				pcap_file: 'a.pcap',
 				pcap_start_secs: 12,
 				pcap_duration_secs: 30,
 				file_count: 2,
@@ -203,9 +206,7 @@ describe('replay', () => {
 			start_seconds: 12,
 			duration_seconds: 30
 		});
-		expect(
-			replayFieldsForCase({ ...base, pcap_file: 'a.pcap', pcap_duration_secs: 0 }).duration_seconds
-		).toBe(-1);
+		expect(replayFieldsForClip({ ...base, pcap_duration_secs: 0 }).duration_seconds).toBe(-1);
 	});
 
 	it('sends the ordered captures of a multi-file clip', async () => {

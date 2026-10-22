@@ -42,7 +42,7 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
 - `--enable-lidar` (bool): Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
-- `--lidar-listen` (string): Retired in v0.5.2 and ignored with a warning. The separate LiDAR monitor listener on `127.0.0.1:8081` is gone; every LiDAR API route is served by the main HTTP server on `--listen` (default: `127.0.0.1:8080`). The flag is still accepted so existing command lines keep starting.
+- `--lidar-listen`: Retired in v0.5.2: a tombstone that refuses to start and names `--listen`. The separate LiDAR monitor listener on `127.0.0.1:8081` is gone; every LiDAR API route is served by the main HTTP server on `--listen` (default: `127.0.0.1:8080`).
 - `--lidar-udp-port` (int): UDP port in PCAP captures, also used by the live listener by default (default: `2369`).
 - `--lidar-live-udp-port` (int): Override only the live listener port when an isolated replay server shares a host with another LiDAR server (default: `0`, meaning `--lidar-udp-port`).
 - `--lidar-no-parse` (bool): Disable LiDAR packet parsing (useful when only forwarding packets).

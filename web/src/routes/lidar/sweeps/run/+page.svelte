@@ -11,8 +11,8 @@
 		continueHINT,
 		getHINTState,
 		getLidarParams,
-		getLidarReplayCase,
-		getLidarReplayCases,
+		getLidarClip,
+		getLidarClips,
 		getSweepExplanation,
 		listSweeps,
 		type SweepExplanation,
@@ -29,6 +29,7 @@
 		getLidarStatus,
 		getManualSweepStatus,
 		getSuspendedSweep,
+		replayFieldsForClip,
 		resumeAutoTune,
 		startAutoTune,
 		startManualSweep,
@@ -72,7 +73,7 @@
 		WEIGHT_FIELDS,
 		type SweepMode
 	} from '#lib/sweepSetup.js';
-	import type { HINTState, LidarReplayCase } from '#lib/types/lidar.js';
+	import type { HINTState, LidarClip } from '#lib/types/lidar.js';
 	import { resolve } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -87,7 +88,9 @@
 	const sensorId = DEFAULT_LIDAR_SENSOR_ID;
 
 	let form = $state(defaultSweepForm());
-	let clips = $state<LidarReplayCase[]>([]);
+	let clips = $state<LidarClip[]>([]);
+	// The chosen clip as a single-clip fetch returns it, with its captures.
+	let chosenClip = $state<LidarClip | null>(null);
 	let error = $state<string | null>(null);
 	let starting = $state(false);
 	let stopping = $state(false);
@@ -113,11 +116,18 @@
 	let explanation = $state<SweepExplanation | null>(null);
 	let clipMessage = $state<string | null>(null);
 
-	const selectedClip = $derived(clips.find((c) => c.replay_case_id === form.replayCaseId) ?? null);
+	const selectedClip = $derived(
+		chosenClip?.clip_id === form.clipId
+			? chosenClip
+			: (clips.find((c) => c.clip_id === form.clipId) ?? null)
+	);
+	const firstCapture = $derived(
+		[...(selectedClip?.files ?? [])].sort((a, b) => a.ordinal - b.ordinal)[0]?.pcap_file ?? ''
+	);
 	const clipParams = $derived(selectedClip ? clipTuningParams(selectedClip) : {});
 	// Ground truth needs the clip's labelled reference run.
 	const groundTruthAvailable = $derived(
-		form.dataSource === 'replay_case' && !!selectedClip?.reference_run_id
+		form.dataSource === 'clip' && !!selectedClip?.reference_run_id
 	);
 	$effect(() => {
 		if (form.objective === 'ground_truth' && !groundTruthAvailable) form.objective = 'acceptance';
@@ -252,18 +262,18 @@
 	}
 
 	async function chooseClip() {
-		const listed = clips.find((c) => c.replay_case_id === form.replayCaseId);
-		if (!listed) return;
-		form.pcapFile = listed.pcap_file;
-		form.pcapStartSecs = listed.pcap_start_secs ?? 0;
-		form.pcapDurationSecs =
-			listed.pcap_duration_secs != null && listed.pcap_duration_secs > 0
-				? listed.pcap_duration_secs
-				: -1;
-		if (listed.file_count > 1) {
-			const full = await getLidarReplayCase(listed.replay_case_id).catch(() => listed);
-			const first = [...(full.files ?? [])].sort((a, b) => a.ordinal - b.ordinal)[0];
-			if (first) form.pcapFile = first.pcap_file;
+		chosenClip = null;
+		if (!form.clipId) return;
+		try {
+			// A clip's captures come only with a single-clip fetch.
+			const clip = await getLidarClip(form.clipId);
+			chosenClip = clip;
+			const fields = replayFieldsForClip(clip);
+			form.pcapFile = fields.pcap_file;
+			form.pcapStartSecs = fields.start_seconds;
+			form.pcapDurationSecs = fields.duration_seconds;
+		} catch (e) {
+			error = `Could not load the clip: ${e instanceof Error ? e.message : String(e)}`;
 		}
 	}
 
@@ -436,7 +446,7 @@
 	}
 
 	onMount(async () => {
-		clips = await getLidarReplayCases(sensorId).catch(() => [] as LidarReplayCase[]);
+		clips = await getLidarClips(sensorId).catch(() => [] as LidarClip[]);
 		suspended = await getSuspendedSweep().catch(() => null);
 		// Pick up a sweep already running, in whichever mode it runs.
 		const [manual, auto, hintState] = await Promise.all([
@@ -655,24 +665,23 @@
 								<select class="vr-input" bind:value={form.dataSource}>
 									<option value="live">Live</option>
 									<option value="pcap">Capture replay</option>
-									<option value="replay_case">Clip</option>
+									<option value="clip">Clip</option>
 								</select>
 							</label>
 						{/if}
-						{#if form.mode === 'hint' || form.dataSource === 'replay_case'}
+						{#if form.mode === 'hint' || form.dataSource === 'clip'}
 							<label class="vr-field">
 								<span>Clip</span>
-								<select class="vr-input" bind:value={form.replayCaseId} onchange={chooseClip}>
+								<select class="vr-input" bind:value={form.clipId} onchange={chooseClip}>
 									<option value="">Choose a clip</option>
-									{#each clips as clip (clip.replay_case_id)}
-										<option value={clip.replay_case_id}>{clip.description || clip.pcap_file}</option
-										>
+									{#each clips as clip (clip.clip_id)}
+										<option value={clip.clip_id}>{clip.description || clip.clip_id}</option>
 									{/each}
 								</select>
 							</label>
 							{#if selectedClip}
 								<p class="text-surface-content/60 text-xs break-all">
-									{selectedClip.pcap_file}{selectedClip.file_count > 1
+									{firstCapture || 'captures load when chosen'}{selectedClip.file_count > 1
 										? ` and ${selectedClip.file_count - 1} more`
 										: ''}{selectedClip.pcap_start_secs != null
 										? ` · from ${selectedClip.pcap_start_secs}s`

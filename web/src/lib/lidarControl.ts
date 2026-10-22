@@ -5,7 +5,7 @@
  * sweep, auto-tune and HINT control. Every route is on the main :8080 server.
  */
 
-import type { LidarReplayCase } from './types/lidar.js';
+import type { LidarClip } from './types/lidar.js';
 
 const API_BASE = '/api';
 
@@ -240,11 +240,10 @@ export function validateReplayRequest(req: ReplayStartRequest): string | null {
 
 /**
  * The form fields a clip fills: its first capture, its trim, and the ordered
- * captures when it spans more than one. A single-case fetch carries the file
- * list; a listing does not, so a multi-file clip read from a listing only
- * names its first file.
+ * captures when it spans more than one. Only a single-clip fetch carries the
+ * captures; a clip from a listing fills only its trim.
  */
-export function replayFieldsForCase(c: LidarReplayCase): {
+export function replayFieldsForClip(c: LidarClip): {
 	pcap_file: string;
 	pcap_files?: string[];
 	start_seconds: number;
@@ -252,7 +251,7 @@ export function replayFieldsForCase(c: LidarReplayCase): {
 } {
 	const files = [...(c.files ?? [])].sort((a, b) => a.ordinal - b.ordinal).map((f) => f.pcap_file);
 	return {
-		pcap_file: files[0] ?? c.pcap_file,
+		pcap_file: files[0] ?? '',
 		pcap_files: files.length > 1 ? files : undefined,
 		start_seconds: c.pcap_start_secs ?? 0,
 		duration_seconds:
