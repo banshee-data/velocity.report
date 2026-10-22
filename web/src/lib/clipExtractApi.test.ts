@@ -1,4 +1,11 @@
-import { getClipExtracts, setClipPublishing, stageClip, startClipExtract } from './api';
+import {
+	ensurePeriodClip,
+	getClipExtracts,
+	getPeriodBackground,
+	setClipPublishing,
+	stageClip,
+	startClipExtract
+} from './api';
 
 global.fetch = jest.fn();
 
@@ -104,5 +111,25 @@ describe('clip extract and publishing API', () => {
 	it('uses its own message when the refusal has no reason', async () => {
 		respond(false, 409, {});
 		await expect(stageClip('c1')).rejects.toThrow('Could not stage the clip');
+	});
+
+	it('fetches a period background by id', async () => {
+		respond(true, 200, { period_id: 'per 1', count: 1, xyz: [1, 2, 3] });
+		const bg = await getPeriodBackground('per 1');
+		expect(bg.xyz).toEqual([1, 2, 3]);
+		expect(lastCall()[0]).toContain('/lidar/capture/periods/background?period_id=per%201');
+		respond(false, 500, { error: 'settled background unavailable' });
+		await expect(getPeriodBackground('p')).rejects.toThrow('unavailable');
+	});
+
+	it('asks for the period clip with a POST', async () => {
+		respond(true, 201, { clip_id: 'c9' });
+		expect((await ensurePeriodClip('per-1')).clip_id).toBe('c9');
+		const [url, init] = lastCall();
+		expect(url).toContain('/lidar/capture/periods/clip');
+		expect(init?.method).toBe('POST');
+		expect(JSON.parse(init?.body as string)).toEqual({ period_id: 'per-1' });
+		respondNotJSON(500);
+		await expect(ensurePeriodClip('per-1')).rejects.toThrow('Could not make a clip');
 	});
 });
