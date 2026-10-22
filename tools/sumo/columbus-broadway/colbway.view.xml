@@ -1,0 +1,6 @@
+<viewsettings>
+  <!-- Columbus Ave / Broadway junction, zoomed to the approach and stop bar -->
+  <scheme name="real world"/>
+  <viewport zoom="350" x="470.52" y="317.89"/>
+  <delay value="100"/>
+</viewsettings>

@@ -37,6 +37,7 @@ and adoption gates.
 | Per-frame evaluation     | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
 | Recording-use guard plan | [../plans/lidar-recording-use-guard-plan.md](../plans/lidar-recording-use-guard-plan.md)           |
 | Headway report oracle    | [operations/headway-report-oracle.md](operations/headway-report-oracle.md)                         |
+| SUMO counting lines      | [SUMO headway comparison](operations/sumo-columbus-broadway-headways-2026-10.md)                   |
 | Near-edge frame cost     | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
 | macOS visualiser         | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
 | Backlog                  | [../BACKLOG.md](../BACKLOG.md)                                                                     |
