@@ -24,7 +24,7 @@ func isPositiveLabel(label string) bool {
 		label == "pedestrian" || label == "cyclist" || label == "motorcyclist"
 }
 
-// hasQualityFlag returns true if the comma-separated quality label string
+// hasQualityFlag returns true if the comma-separated quality flag string
 // contains the specified flag.
 func hasQualityFlag(qualityLabel, flag string) bool {
 	for _, f := range strings.Split(qualityLabel, ",") {
@@ -157,7 +157,7 @@ func matchTracks(reference, candidate []*sqlite.RunTrack) []TrackMatchResult {
 // EvaluateGroundTruth compares candidate tracks against reference ground truth tracks
 // and computes a comprehensive score with multiple quality metrics.
 //
-// Only reference tracks with positive classification labels are considered ground truth.
+// Only reference tracks with positive object classes are considered ground truth.
 // Tracks labelled "noise" are filtered out of the reference set.
 // All candidate tracks are evaluated to detect false positives.
 func EvaluateGroundTruth(reference, candidate []*sqlite.RunTrack, weights GroundTruthWeights) *GroundTruthScore {

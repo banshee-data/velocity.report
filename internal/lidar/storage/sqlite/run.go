@@ -86,8 +86,8 @@ const (
 	normalisedQualityExpr      = "TRIM(REPLACE(REPLACE(REPLACE(COALESCE(quality_label, ''), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' '))"
 	normalisedLinkedIDsExpr    = "TRIM(REPLACE(REPLACE(REPLACE(COALESCE(linked_track_ids, ''), CHAR(9), ' '), CHAR(10), ' '), CHAR(13), ' '))"
 	manualLabelSourcePredicate = "(" + normalisedLabelSourceExpr + " = '' OR " + normalisedLabelSourceExpr + " = 'human_manual')"
-	manualClassPredicate       = manualLabelSourcePredicate + " AND " + normalisedUserLabelExpr + " != '' AND " + normalisedUserLabelExpr + " NOT IN ('split', 'merge')"
-	manualTagPredicate         = manualLabelSourcePredicate + " AND ((" + normalisedQualityExpr + " != '') OR (" + normalisedUserLabelExpr + " IN ('split', 'merge')) OR is_split_candidate = 1 OR is_merge_candidate = 1 OR (" + normalisedLinkedIDsExpr + " != '' AND " + normalisedLinkedIDsExpr + " != '[]'))"
+	manualClassPredicate       = manualLabelSourcePredicate + " AND " + normalisedUserLabelExpr + " != ''"
+	manualTagPredicate         = manualLabelSourcePredicate + " AND ((" + normalisedQualityExpr + " != '') OR is_split_candidate = 1 OR is_merge_candidate = 1 OR (" + normalisedLinkedIDsExpr + " != '' AND " + normalisedLinkedIDsExpr + " != '[]'))"
 )
 
 func isMissingRunTracksTableErr(err error) bool {

@@ -170,13 +170,13 @@ func (ws *Server) handleUpdateTrackLabel(w http.ResponseWriter, r *http.Request,
 	req.LabelSource = strings.TrimSpace(req.LabelSource)
 
 	// Validate user_label (allow empty to clear)
-	if req.UserLabel != "" && !api.ValidateUserLabel(req.UserLabel) {
+	if req.UserLabel != "" && !api.ValidateObjectClass(req.UserLabel) {
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised user label: see documentation for valid values", req.UserLabel))
 		return
 	}
 
 	// Validate quality_label (allow empty to clear)
-	if req.QualityLabel != "" && !api.ValidateQualityLabel(req.QualityLabel) {
+	if req.QualityLabel != "" && !api.ValidateQualityFlags(req.QualityLabel) {
 		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("'%s' is not a recognised quality label: see documentation for valid values", req.QualityLabel))
 		return
 	}

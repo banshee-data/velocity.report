@@ -109,24 +109,24 @@ Core domain terms for the LiDAR tracking system. Tuning-pipeline terms (sweep,
 combo, round, auto-tune, HINT) live in
 [operations/tuning-guide.md §Glossary](operations/tuning-guide.md#glossary).
 
-| Term                   | Definition                                                                                                                                                   |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Point**              | A single 3D measurement from the LiDAR sensor (x, y, z, intensity, timestamp).                                                                               |
-| **Cluster**            | A group of spatially-proximate foreground points identified by DBSCAN, representing a potential object.                                                      |
-| **Track**              | A temporally-linked sequence of clusters representing a moving object across frames, maintained by the Kalman-filter tracker.                                |
-| **Observation**        | A single cluster-to-track association at one point in time (one frame's measurement of a track).                                                             |
-| **Scene**              | A named collection of reference ground-truth labels for a specific sensor environment (installation, angle, location). Used for evaluating tracking quality. |
-| **Run** (Analysis Run) | A single processing pass over a data source (live or PCAP) with fixed parameters, producing tracks that can be compared against a scene's ground truth.      |
+| Term            | Definition                                                                                                                    |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Point**       | A single 3D measurement from the LiDAR sensor (x, y, z, intensity, timestamp).                                                |
+| **Cluster**     | A group of spatially-proximate foreground points identified by DBSCAN, representing a potential object.                       |
+| **Track**       | A temporally-linked sequence of clusters representing a moving object across frames, maintained by the Kalman-filter tracker. |
+| **Observation** | A single cluster-to-track association at one point in time (one frame's measurement of a track).                              |
+| **Clip**        | A window chosen for evaluation or annotation, with ordered captures, a reference run and tuning provenance.                   |
+| **Run**         | One processing pass over a source with fixed parameters, producing tracks for comparison with the clip’s reference run.       |
 
 ## Label taxonomy
 
-Labels are applied by human reviewers to tracks within an analysis run. The same taxonomy is used across all platforms (Go backend, Svelte web frontend, macOS app).
+Labels are applied by human reviewers to tracks within a run. The same taxonomy is used across all platforms (Go backend, Svelte web frontend, macOS app).
 
-### Detection labels (`user_label`)
+### Object classes (`user_label`)
 
 Classify what object the track represents. Ships 7 active labels.
 
-<!-- Canonical source: internal/api/lidar_labels.go → AllDetectionLabels -->
+<!-- Canonical source: internal/api/lidar_labels.go → AllObjectClasses -->
 
 | Label        | Description                                              |
 | ------------ | -------------------------------------------------------- |
@@ -157,8 +157,8 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 
 ### Canonical sources
 
-- **Go backend:** [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go); `validUserLabels`, `validQualityLabels`
-- **Svelte frontend:** [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts); `DetectionLabel`, `QualityLabel`
+- **Go backend:** [internal/api/lidar_labels.go](../../internal/api/lidar_labels.go); `validObjectClasses`, `validQualityFlags`
+- **Svelte frontend:** [web/src/lib/types/lidar.ts](../../web/src/lib/types/lidar.ts); `ObjectClass`, `QualityLabel`
 - **macOS app:** [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift); `LabelPanelView`
 
 > **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. Ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).

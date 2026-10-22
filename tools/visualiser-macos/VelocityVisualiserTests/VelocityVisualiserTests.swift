@@ -564,3 +564,20 @@ struct FrameBundleIntegrationTests {
         #expect(bundle.playbackInfo?.sourceMode == .live)
     }
 }
+
+struct PlatformLabelVocabularyTests {
+    @Test func objectClassVocabulary() {
+        #expect(ObjectClass.allCases.count == 7)
+        #expect(ObjectClass(rawValue: "car") == .car)
+        #expect(ObjectClass(rawValue: "split") == nil)
+        #expect(ObjectClass(rawValue: "merge") == nil)
+        #expect(ObjectClass.allCases.allSatisfy { !$0.help.isEmpty })
+    }
+
+    @Test func qualityFlagVocabulary() {
+        #expect(QualityFlag.allCases.count == 8)
+        #expect(QualityFlag.split.rawValue == "split")
+        #expect(QualityFlag(rawValue: "merge") == .merge)
+        #expect(QualityFlag.allCases.allSatisfy { !$0.help.isEmpty })
+    }
+}

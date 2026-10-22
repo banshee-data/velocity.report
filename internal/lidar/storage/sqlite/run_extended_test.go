@@ -1149,3 +1149,19 @@ func TestPopulateSourceName_PopulatedOnListRuns(t *testing.T) {
 		t.Errorf("expected SourceName 'kirk0' from ListRuns, got %q", runs[0].SourceName)
 	}
 }
+
+func TestQualityFlagVerdictsRemainTaggedAfterTheLabelCutover(t *testing.T) {
+	db, cleanup := setupRunTestDB(t)
+	defer cleanup()
+	insertTestRun(t, db, "canonical-flags", "sensor")
+	store := NewRunStore(db)
+	for _, flag := range []string{"split", "merge"} {
+		if err := store.InsertRunTrack(&RunTrack{RunID: "canonical-flags", TrackID: flag, TrackMeasurement: TrackMeasurement{SensorID: "sensor", TrackState: "confirmed", StartUnixNanos: 1}, QualityLabel: flag, LabelSource: "human_manual"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	total, labelled, classes, rollup, err := store.GetLabelingProgressWithRollup("canonical-flags")
+	if err != nil || total != 2 || labelled != 2 || rollup.Classified != 0 || rollup.TaggedOnly != 2 || len(classes) != 0 {
+		t.Fatalf("quality verdicts became object classes: total=%d labelled=%d classes=%v rollup=%+v err=%v", total, labelled, classes, rollup, err)
+	}
+}

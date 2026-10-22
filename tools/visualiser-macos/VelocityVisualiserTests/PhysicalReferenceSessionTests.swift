@@ -74,13 +74,13 @@ final class FakePhysicalService: @unchecked Sendable {
         if let answer = override.removeValue(forKey: path) { return respond(answer.0, answer.1) }
         let encoder = JSONEncoder()
         switch path {
-        case "/api/annotations/physical": return respond(200, try encoder.encode(state()))
-        case "/api/annotations/physical/validate":
+        case "/api/lidar/annotations/physical": return respond(200, try encoder.encode(state()))
+        case "/api/lidar/annotations/physical/validate":
             return respond(
                 200,
                 try encoder.encode(
                     PhysicalEditResult(valid: true, linkProblems: [], resetReviews: [])))
-        case "/api/annotations/physical/save":
+        case "/api/lidar/annotations/physical/save":
             let sent = try JSONSerialization.data(withJSONObject: body["objects"] ?? [])
             objects = try JSONDecoder().decode([PhysicalObject].self, from: sent)
             for i in objects.indices {
@@ -96,7 +96,7 @@ final class FakePhysicalService: @unchecked Sendable {
                 try encoder.encode(
                     PhysicalEditResult(
                         valid: true, linkProblems: [], resetReviews: ["body/b"], state: state())))
-        case "/api/annotations/physical/history":
+        case "/api/lidar/annotations/physical/history":
             struct History: Encodable { var revisions: [PhysicalRevisionSummary] }
             let revisions = (1...max(revision, 1)).reversed().map {
                 PhysicalRevisionSummary(
@@ -106,12 +106,12 @@ final class FakePhysicalService: @unchecked Sendable {
                     keyframes: 0, reviewed: 0)
             }
             return respond(200, try encoder.encode(History(revisions: revisions)))
-        case "/api/annotations/physical/restore":
+        case "/api/lidar/annotations/physical/restore":
             revision += 1
             digest = "sha256:rev\(revision)"
             objects = []
             return respond(200, try encoder.encode(state()))
-        case "/api/annotations/physical/review":
+        case "/api/lidar/annotations/physical/review":
             let object = body["object_id"] as? String
             let record = body["record_id"] as? String
             for i in objects.indices where objects[i].objectID == object {
@@ -222,7 +222,7 @@ private func sample(_ id: Int) -> AnnotationSample {
         physical.expose(objectIDs: ["car"], source: "online run 9")
         #expect(!physical.isDirty)
         #expect(!(await physical.review(kind: .body, objectID: "car", recordID: "pending_body")))
-        #expect(fake.last("/api/annotations/physical/review") == nil)
+        #expect(fake.last("/api/lidar/annotations/physical/review") == nil)
         physical.continueAsAssisted(objectID: "car")
         #expect(physical.isDirty)
         #expect(physical.savedBody(objectID: "car") == original)
@@ -308,7 +308,7 @@ private func sample(_ id: Int) -> AnnotationSample {
         #expect(physical.state?.revision == 1)
         #expect(!physical.isDirty)
         let query = fake.requests.first?.path
-        #expect(query == "/api/annotations/physical")
+        #expect(query == "/api/lidar/annotations/physical")
 
         let (elsewhere, other) = makeSession(packDir: temporaryPackDir())
         other.packDir = dir.path
@@ -325,7 +325,7 @@ private func sample(_ id: Int) -> AnnotationSample {
     @Test func aRefusedLoadSaysWhyAndANewerSchemaOpensReadOnly() async {
         let dir = temporaryPackDir()
         let (physical, fake) = makeSession(packDir: dir)
-        fake.override["/api/annotations/physical"] = (
+        fake.override["/api/lidar/annotations/physical"] = (
             404, Data(#"{"error":"no readable pack","code":"pack_not_found"}"#.utf8)
         )
         await physical.load()
@@ -337,7 +337,7 @@ private func sample(_ id: Int) -> AnnotationSample {
 
         var future = fake.state()
         future.document.schemaVersion = 2
-        fake.override["/api/annotations/physical"] = (200, try! JSONEncoder().encode(future))
+        fake.override["/api/lidar/annotations/physical"] = (200, try! JSONEncoder().encode(future))
         await physical.load()
         guard case .readOnly = physical.availability else {
             Issue.record("expected read-only for a newer schema")
@@ -380,7 +380,7 @@ private func sample(_ id: Int) -> AnnotationSample {
             PhysicalDraft.addBody(objectID: "obj_1", author: "op", session: "s", to: &$0)
         }
         #expect(await physical.save())
-        let sent = try #require(fake.last("/api/annotations/physical/save"))
+        let sent = try #require(fake.last("/api/lidar/annotations/physical/save"))
         #expect(sent["base_revision"] as? Int == 1)
         #expect(sent["base_digest"] as? String == "")
         #expect(sent["membership_digest"] as? String == "sha256:m1")
@@ -396,7 +396,7 @@ private func sample(_ id: Int) -> AnnotationSample {
         // The next save is made from the saved revision's token.
         physical.edit { PhysicalDraft.removeBody(objectID: "obj_1", from: &$0) }
         #expect(await physical.save())
-        let next = try #require(fake.last("/api/annotations/physical/save"))
+        let next = try #require(fake.last("/api/lidar/annotations/physical/save"))
         #expect(next["base_digest"] as? String == "sha256:rev1")
     }
 
@@ -412,7 +412,7 @@ private func sample(_ id: Int) -> AnnotationSample {
         physical.edit { PhysicalDraft.addBody(objectID: "o", author: "", session: "s", to: &$0) }
         #expect(!(await physical.save()))
         #expect(physical.lastError?.contains("Labelled by") == true)
-        #expect(fake.last("/api/annotations/physical/save") == nil)
+        #expect(fake.last("/api/lidar/annotations/physical/save") == nil)
     }
 
     @Test func anInvalidSaveKeepsTheDraftAndShowsTheDiagnostics() async throws {
@@ -427,7 +427,7 @@ private func sample(_ id: Int) -> AnnotationSample {
             invalid:
                 "object \"obj_1\": a record that declares bounds must state its uncertainty assumptions",
             linkProblems: [], resetReviews: [])
-        fake.override["/api/annotations/physical/save"] = (422, try JSONEncoder().encode(refusal))
+        fake.override["/api/lidar/annotations/physical/save"] = (422, try JSONEncoder().encode(refusal))
         #expect(!(await physical.save()))
         #expect(physical.draft == draft && physical.isDirty)
         #expect(physical.validation?.invalid?.contains("uncertainty assumptions") == true)
@@ -439,11 +439,11 @@ private func sample(_ id: Int) -> AnnotationSample {
         let (physical, fake) = makeSession(packDir: temporaryPackDir())
         await physical.load()
         physical.edit { PhysicalDraft.addBody(objectID: "o", author: "op", session: "s", to: &$0) }
-        fake.drop.insert("/api/annotations/physical/save")
+        fake.drop.insert("/api/lidar/annotations/physical/save")
         #expect(!(await physical.save()))
         #expect(physical.needsReload && physical.isDirty)
         #expect(!(await physical.save()), "wrote again without reading after an unknown outcome")
-        #expect(fake.requests.filter { $0.path == "/api/annotations/physical/save" }.count == 1)
+        #expect(fake.requests.filter { $0.path == "/api/lidar/annotations/physical/save" }.count == 1)
 
         // Reload keeping the draft: the draft survives, re-based on the head.
         fake.revision = 4
@@ -451,7 +451,7 @@ private func sample(_ id: Int) -> AnnotationSample {
         await physical.load(keepDraft: true)
         #expect(!physical.needsReload && physical.isDirty && physical.state?.revision == 4)
 
-        fake.override["/api/annotations/physical/save"] = (
+        fake.override["/api/lidar/annotations/physical/save"] = (
             409, Data(#"{"error":"changed","code":"conflict"}"#.utf8)
         )
         #expect(!(await physical.save()))
@@ -467,11 +467,11 @@ private func sample(_ id: Int) -> AnnotationSample {
         let bodyID = try #require(physical.object("o")?.body?.bodyID)
         #expect(!(await physical.review(kind: .body, objectID: "o", recordID: bodyID)))
         #expect(physical.lastError?.contains("Save or discard") == true)
-        #expect(fake.last("/api/annotations/physical/review") == nil)
+        #expect(fake.last("/api/lidar/annotations/physical/review") == nil)
 
         #expect(await physical.save())
         #expect(await physical.review(kind: .body, objectID: "o", recordID: bodyID))
-        let sent = try #require(fake.last("/api/annotations/physical/review"))
+        let sent = try #require(fake.last("/api/lidar/annotations/physical/review"))
         #expect(sent["kind"] as? String == "body" && sent["record_id"] as? String == bodyID)
         #expect(sent["reviewer"] as? String == "op")
         #expect(sent["base_digest"] as? String == "sha256:rev1")
@@ -489,13 +489,13 @@ private func sample(_ id: Int) -> AnnotationSample {
         // A refusal arrives for the draft as it was; the draft has moved on.
         let stale = PhysicalEditResult(
             valid: false, invalid: "old", linkProblems: [], resetReviews: [])
-        fake.override["/api/annotations/physical/validate"] = (200, try JSONEncoder().encode(stale))
-        let asked = fake.requests.filter { $0.path == "/api/annotations/physical/validate" }.count
+        fake.override["/api/lidar/annotations/physical/validate"] = (200, try JSONEncoder().encode(stale))
+        let asked = fake.requests.filter { $0.path == "/api/lidar/annotations/physical/validate" }.count
         let pending = Task { await physical.validateNow() }
         // Wait until that request has reached the service, so the edit below
         // lands while its answer is in flight.
         for _ in 0..<500
-        where fake.requests.filter({ $0.path == "/api/annotations/physical/validate" }).count
+        where fake.requests.filter({ $0.path == "/api/lidar/annotations/physical/validate" }).count
             == asked
         { await Task.yield() }
         physical.edit {

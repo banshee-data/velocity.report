@@ -244,7 +244,7 @@ func TestPackInventoryReadsLabelSetReview(t *testing.T) {
 	if item.ReviewedObjects != 1 || item.ReviewedMasks != 1 || item.Status != "reviewed" {
 		t.Fatalf("inventory %+v", item)
 	}
-	response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks)
+	response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks)
 	if response.Code != 200 {
 		t.Fatalf("inventory status %d: %s", response.Code, response.Body.String())
 	}
@@ -313,7 +313,7 @@ func TestSegmentEndpointsRejectInvalidQueriesAndMethods(t *testing.T) {
 		})
 	}
 	ws.annotationPacksDir = ""
-	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 501 {
+	if response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 501 {
 		t.Fatalf("unconfigured packs: %d", response.Code)
 	}
 	if response := callSegment(t, ws, "POST", "/api/lidar/clips/missing/clip", nil, func(w http.ResponseWriter, r *http.Request) { ws.handleClipPack(w, r, "missing") }); response.Code != 501 {

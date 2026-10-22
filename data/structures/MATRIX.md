@@ -173,7 +173,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
 | Segments       | `segments_api.go`      | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
 | Segments       | `segment_clip_api.go`  | `POST /api/lidar/clips/{id}/clip`               | ✅  | ✅  | -   |
-| Annotations    | `segment_packs_api.go` | `GET /api/annotations/packs`                    | -   | ✅  | -   |
+| Annotations    | `segment_packs_api.go` | `GET /api/lidar/annotations/packs`              | -   | ✅  | -   |
 
 **Playback row notes.** No web code calls any `/api/lidar/playback/*` or
 `/api/lidar/vrlog/*` endpoint; those rows previously carried Web ✅ marks that

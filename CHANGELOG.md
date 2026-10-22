@@ -65,6 +65,11 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Changed
 
+- Label types are `ObjectClass` and `QualityFlag` across Go, web and macOS.
+  Annotation routes now live under `/api/lidar/annotations/`; registered aliases
+  support the previous DMG. Misplaced split/merge class verdicts migrate to quality
+  flags, retaining their provenance and existing flags.
+
 - A `scaled` or `realtime` PCAP replay now runs the tuning file's L3 as written, as analysis mode
   and live input always did. Until now it substituted five L3 values for the replay's duration
   (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5, seed from first observation,

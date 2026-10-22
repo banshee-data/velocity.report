@@ -261,14 +261,13 @@ export function trackColour(trackId: string, objectClass?: string, state?: strin
 	return `#${((1 << 24) | (rr << 16) | (gg << 8) | bb).toString(16).slice(1)}`;
 }
 
-/** Classification labels for track identity (single-select: what is the object?)
+/** Object classes for track identity (single-select: what is the object?)
  * v0.5.0 ships 7 classes — truck and motorcyclist are reserved for future use.
  */
-export type DetectionLabel =
-	'car' | 'bus' | 'pedestrian' | 'cyclist' | 'bird' | 'dynamic' | 'noise';
+export type ObjectClass = 'car' | 'bus' | 'pedestrian' | 'cyclist' | 'bird' | 'dynamic' | 'noise';
 
 /** Quality flags for track attributes (multi-select: properties of the track) */
-export type QualityLabel =
+export type QualityFlag =
 	| 'good'
 	| 'noisy'
 	| 'jitter_velocity'

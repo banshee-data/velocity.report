@@ -1,10 +1,10 @@
 // PhysicalReferenceAPIClient.swift
 // Client for the local Go service that owns physical references:
 //
-//   GET  /api/annotations/physical?pack=<handle>&pack_digest=<d>[&revision=<n>]
-//   POST /api/annotations/physical/validate
-//   POST /api/annotations/physical/save
-//   POST /api/annotations/physical/review
+//   GET  /api/lidar/annotations/physical?pack=<handle>&pack_digest=<d>[&revision=<n>]
+//   POST /api/lidar/annotations/physical/validate
+//   POST /api/lidar/annotations/physical/save
+//   POST /api/lidar/annotations/physical/review
 //
 // The service is the one writer. It validates evidence, keeps the origin
 // ledger, resets reviews an edit invalidates, and refuses a stale base or a
@@ -82,7 +82,7 @@ struct PhysicalReferenceAPIClient {
         handle: String, packDigest: String, revision: Int? = nil
     ) async throws -> PhysicalPackState {
         var components = URLComponents(
-            url: baseURL.appendingPathComponent("api/annotations/physical"),
+            url: baseURL.appendingPathComponent("api/lidar/annotations/physical"),
             resolvingAgainstBaseURL: false)!
         var items = [
             URLQueryItem(name: "pack", value: handle),
@@ -122,11 +122,11 @@ struct PhysicalReferenceAPIClient {
     }
 
     func validate(_ edit: EditRequest) async throws -> PhysicalEditResult {
-        try await post("api/annotations/physical/validate", edit, as: PhysicalEditResult.self)
+        try await post("api/lidar/annotations/physical/validate", edit, as: PhysicalEditResult.self)
     }
 
     func save(_ edit: EditRequest) async throws -> PhysicalEditResult {
-        try await post("api/annotations/physical/save", edit, as: PhysicalEditResult.self)
+        try await post("api/lidar/annotations/physical/save", edit, as: PhysicalEditResult.self)
     }
 
     /// Asks for an object's physical reference fitted to its reviewed returns.
@@ -152,7 +152,7 @@ struct PhysicalReferenceAPIClient {
     }
 
     func fit(_ fit: FitRequest) async throws -> PhysicalFitResult {
-        try await post("api/annotations/physical/fit", fit, as: PhysicalFitResult.self)
+        try await post("api/lidar/annotations/physical/fit", fit, as: PhysicalFitResult.self)
     }
 
     struct ReviewRequest: Encodable {
@@ -182,12 +182,12 @@ struct PhysicalReferenceAPIClient {
     }
 
     func review(_ review: ReviewRequest) async throws -> PhysicalPackState {
-        try await post("api/annotations/physical/review", review, as: PhysicalPackState.self)
+        try await post("api/lidar/annotations/physical/review", review, as: PhysicalPackState.self)
     }
 
     func history(handle: String, packDigest: String) async throws -> [PhysicalRevisionSummary] {
         var components = URLComponents(
-            url: baseURL.appendingPathComponent("api/annotations/physical/history"),
+            url: baseURL.appendingPathComponent("api/lidar/annotations/physical/history"),
             resolvingAgainstBaseURL: false)!
         components.queryItems = [
             URLQueryItem(name: "pack", value: handle),
@@ -222,7 +222,7 @@ struct PhysicalReferenceAPIClient {
     }
 
     func restore(_ restore: RestoreRequest) async throws -> PhysicalPackState {
-        try await post("api/annotations/physical/restore", restore, as: PhysicalPackState.self)
+        try await post("api/lidar/annotations/physical/restore", restore, as: PhysicalPackState.self)
     }
 
     // MARK: Transport

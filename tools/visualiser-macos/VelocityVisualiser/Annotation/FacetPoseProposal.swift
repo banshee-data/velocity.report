@@ -212,7 +212,7 @@ struct FacetPoseProposal: Decodable, Equatable {
 extension FeatureAPIClient {
     func poseProposal(_ request: FacetPoseRequest) async throws -> FacetPoseProposal {
         var urlRequest = URLRequest(
-            url: baseURL.appendingPathComponent("api/annotations/features/pose-proposal"))
+            url: baseURL.appendingPathComponent("api/lidar/annotations/features/pose-proposal"))
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.httpBody = try JSONEncoder().encode(request)

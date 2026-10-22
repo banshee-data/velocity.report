@@ -398,7 +398,7 @@ struct PhysicalRepairDraftTests {
         await physical.loadHistory()
         #expect(physical.history.map(\.revision) == [1])
         #expect(await physical.restore(revision: 1))
-        let sent = try #require(fake.last("/api/annotations/physical/restore"))
+        let sent = try #require(fake.last("/api/lidar/annotations/physical/restore"))
         #expect(sent["revision"] as? Int == 1 && sent["base_digest"] as? String == "sha256:rev1")
         #expect(physical.state?.revision == 2 && physical.history.first?.revision == 2)
     }

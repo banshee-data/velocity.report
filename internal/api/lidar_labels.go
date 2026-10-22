@@ -18,26 +18,26 @@ import (
 // Clients can use time-based filtering for pagination.
 const maxLabelsPerQuery = 1000
 
-// DetectionLabel is a human-assigned classification label (what is the object?).
-// Must stay in sync with l6objects.ObjectClass constants, Svelte DetectionLabel,
+// ObjectClass is a human-assigned classification label (what is the object?).
+// Must stay in sync with l6objects.ObjectClass constants, Svelte ObjectClass,
 // and Swift classificationLabels.
-type DetectionLabel string
+type ObjectClass string
 
-// v0.5.0 ships 7 active detection labels.
+// v0.5.0 ships 7 active object classes.
 // Truck and motorcyclist are reserved for future use (v0.6+).
 const (
-	LabelCar        DetectionLabel = "car"
-	LabelBus        DetectionLabel = "bus"
-	LabelPedestrian DetectionLabel = "pedestrian"
-	LabelCyclist    DetectionLabel = "cyclist"
-	LabelBird       DetectionLabel = "bird"
-	LabelNoise      DetectionLabel = "noise"
-	LabelDynamic    DetectionLabel = "dynamic"
+	LabelCar        ObjectClass = "car"
+	LabelBus        ObjectClass = "bus"
+	LabelPedestrian ObjectClass = "pedestrian"
+	LabelCyclist    ObjectClass = "cyclist"
+	LabelBird       ObjectClass = "bird"
+	LabelNoise      ObjectClass = "noise"
+	LabelDynamic    ObjectClass = "dynamic"
 )
 
-// AllDetectionLabels is the canonical list of valid detection labels.
+// AllObjectClasses is the canonical list of valid object classes.
 // Validation maps and doc-generation scripts should derive from this slice.
-var AllDetectionLabels = []DetectionLabel{
+var AllObjectClasses = []ObjectClass{
 	LabelCar, LabelBus, LabelPedestrian, LabelCyclist,
 	LabelBird, LabelNoise, LabelDynamic,
 }
@@ -63,17 +63,17 @@ var AllQualityFlags = []QualityFlag{
 	QualityMerge, QualitySplit, QualityTruncated, QualityDisconnected,
 }
 
-// validUserLabels is derived from AllDetectionLabels for O(1) lookup.
-var validUserLabels = func() map[string]bool {
-	m := make(map[string]bool, len(AllDetectionLabels))
-	for _, l := range AllDetectionLabels {
+// validObjectClasses is derived from AllObjectClasses for O(1) lookup.
+var validObjectClasses = func() map[string]bool {
+	m := make(map[string]bool, len(AllObjectClasses))
+	for _, l := range AllObjectClasses {
 		m[string(l)] = true
 	}
 	return m
 }()
 
-// validQualityLabels is derived from AllQualityFlags for O(1) lookup.
-var validQualityLabels = func() map[string]bool {
+// validQualityFlags is derived from AllQualityFlags for O(1) lookup.
+var validQualityFlags = func() map[string]bool {
 	m := make(map[string]bool, len(AllQualityFlags))
 	for _, f := range AllQualityFlags {
 		m[string(f)] = true
@@ -81,34 +81,34 @@ var validQualityLabels = func() map[string]bool {
 	return m
 }()
 
-// ValidateUserLabel checks if a user label is valid according to the enum.
+// ValidateObjectClass checks if a user label is valid according to the enum.
 // Returns false for empty strings (not in the valid map).
 // Note: Empty strings may still be acceptable as optional values in the database,
 // but they are not considered valid enum values.
-func ValidateUserLabel(label string) bool {
-	return validUserLabels[label]
+func ValidateObjectClass(label string) bool {
+	return validObjectClasses[label]
 }
 
-// ValidateQualityLabel checks if a quality label string is valid.
+// ValidateQualityFlags checks if a quality flag string is valid.
 // Supports both single labels and comma-separated multi-select flags.
 // Returns false for empty strings.
-func ValidateQualityLabel(label string) bool {
+func ValidateQualityFlags(label string) bool {
 	if label == "" {
 		return false
 	}
 	parts := strings.Split(label, ",")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		if part == "" || !validQualityLabels[part] {
+		if part == "" || !validQualityFlags[part] {
 			return false
 		}
 	}
 	return true
 }
 
-// LidarLabel is a replay-owned free-form annotation.
-// The public API keeps the legacy route and label_id naming, but persistence now
-// lives on lidar_replay_annotations.
+// LidarLabel is a clip-owned track verdict.
+// The label API and annotation-pack API are separate surfaces. Storage
+// consolidation remains Phase 2; labels currently live in lidar_replay_annotations.
 type LidarLabel struct {
 	LabelID          string   `json:"label_id"`
 	ClipID           *string  `json:"clip_id,omitempty"`
@@ -293,7 +293,7 @@ func (api *LidarLabelAPI) ensureRunTrackExists(runID, trackID string) error {
 	return err
 }
 
-func validateAnnotationPayload(label *LidarLabel, requireClip bool, currentStartNs int64) error {
+func validateLabelPayload(label *LidarLabel, requireClip bool, currentStartNs int64) error {
 	label.ClassLabel = strings.TrimSpace(label.ClassLabel)
 	label.TrackID = strings.TrimSpace(label.TrackID)
 	label.RunID = trimOptionalStringPtr(label.RunID)
@@ -311,7 +311,7 @@ func validateAnnotationPayload(label *LidarLabel, requireClip bool, currentStart
 	if label.ClassLabel == "" {
 		return fmt.Errorf("class_label is required")
 	}
-	if !ValidateUserLabel(label.ClassLabel) {
+	if !ValidateObjectClass(label.ClassLabel) {
 		return fmt.Errorf("invalid class_label: %s", label.ClassLabel)
 	}
 	if currentStartNs == 0 && label.StartTimestampNs == 0 {
@@ -449,7 +449,7 @@ func (api *LidarLabelAPI) handleCreateLabel(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if err := validateAnnotationPayload(&label, true, 0); err != nil {
+	if err := validateLabelPayload(&label, true, 0); err != nil {
 		api.writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -571,7 +571,7 @@ func (api *LidarLabelAPI) handleUpdateLabel(w http.ResponseWriter, r *http.Reque
 	updates.Notes = trimOptionalStringPtr(updates.Notes)
 	updates.SourceFile = trimOptionalStringPtr(updates.SourceFile)
 
-	if updates.ClassLabel != "" && !ValidateUserLabel(updates.ClassLabel) {
+	if updates.ClassLabel != "" && !ValidateObjectClass(updates.ClassLabel) {
 		api.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("invalid class_label: %s", updates.ClassLabel))
 		return
 	}

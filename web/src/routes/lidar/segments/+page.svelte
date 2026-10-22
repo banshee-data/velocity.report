@@ -94,7 +94,7 @@
 	// file, tens of megabytes each. Only the status column uses the
 	// inventory, so the table does not wait for it.
 	async function loadPacks() {
-		const inventory = await api('/api/annotations/packs').catch(() => ({ packs: [] }));
+		const inventory = await api('/api/lidar/annotations/packs').catch(() => ({ packs: [] }));
 		packs = inventory.packs || [];
 	}
 

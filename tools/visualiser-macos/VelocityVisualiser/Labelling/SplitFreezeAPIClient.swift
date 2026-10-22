@@ -1,9 +1,9 @@
 // SplitFreezeAPIClient.swift
 // Client for freezing a split through the local service:
 //
-//   POST /api/annotations/split/preview
-//   POST /api/annotations/split/freeze
-//   GET  /api/annotations/splits
+//   POST /api/lidar/annotations/split/preview
+//   POST /api/lidar/annotations/split/freeze
+//   GET  /api/lidar/annotations/splits
 //
 // A draft names packs by handle beneath the service's annotation packs
 // directory, and the frozen split is written there too, write-once. The
@@ -248,7 +248,7 @@ struct SplitFreezeAPIClient {
     func preview(draft: Draft, supersedes: String?) async throws -> FreezePreview {
         var body: [String: Any] = ["draft": draft]
         if let supersedes { body["supersedes"] = supersedes }
-        return try await post("api/annotations/split/preview", body, as: FreezePreview.self)
+        return try await post("api/lidar/annotations/split/preview", body, as: FreezePreview.self)
     }
 
     func freeze(
@@ -256,11 +256,11 @@ struct SplitFreezeAPIClient {
     ) async throws -> FreezeResult {
         var body: [String: Any] = ["draft": draft, "author": author, "output": output]
         if let supersedes { body["supersedes"] = supersedes }
-        return try await post("api/annotations/split/freeze", body, as: FreezeResult.self)
+        return try await post("api/lidar/annotations/split/freeze", body, as: FreezeResult.self)
     }
 
     func splits() async throws -> [FrozenSplitListing] {
-        var request = URLRequest(url: baseURL.appendingPathComponent("api/annotations/splits"))
+        var request = URLRequest(url: baseURL.appendingPathComponent("api/lidar/annotations/splits"))
         request.httpMethod = "GET"
         struct Listing: Decodable { var splits: [FrozenSplitListing] }
         return try await send(request, as: Listing.self).splits

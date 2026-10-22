@@ -1,11 +1,11 @@
-import type { QualityLabel } from './lidar';
+import type { QualityFlag } from './lidar';
 import { TRACK_COLORS, trackColour } from './lidar';
 
 describe('lidar types', () => {
-	describe('QualityLabel type', () => {
-		it('should accept all valid quality labels including jitter_heading', () => {
+	describe('QualityFlag type', () => {
+		it('should accept all valid quality flags including jitter_heading', () => {
 			// Type-level assertion: these assignments must compile without error.
-			const labels: QualityLabel[] = [
+			const labels: QualityFlag[] = [
 				'good',
 				'noisy',
 				'jitter_velocity',

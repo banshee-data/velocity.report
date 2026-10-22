@@ -236,9 +236,9 @@ and false-positive rates are needed before re-activation?
   Confusion matrix showing that re-enabled classes do not
   degrade car/pedestrian/cyclist accuracy.
 
-### Q14. how should quality labels be aggregated into tuning scores?
+### Q14. how should quality flags be aggregated into tuning scores?
 
-Track-level quality labels (`perfect`, `good`, `truncated`,
+Track-level quality flags (`perfect`, `good`, `truncated`,
 `noisy_velocity`, `stopped_recovered`) need a scoring function
 that auto-tuning can optimise against.
 

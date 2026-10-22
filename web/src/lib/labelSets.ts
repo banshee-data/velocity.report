@@ -18,7 +18,7 @@ export type LabelSetCapture = {
 	windows_missing: number;
 };
 
-/** One entry of `GET /api/annotations/packs`. */
+/** One entry of `GET /api/lidar/annotations/packs`. */
 export type AnnotationPack = {
 	pack_dir: string;
 	segment_id?: string;

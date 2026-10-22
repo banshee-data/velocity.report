@@ -237,7 +237,7 @@ enum KeyAction {
         uiLogger.debug("Key: \(index + 1) → label ignored (no track selected)")
         return .ignored
     }
-    let labels = LabelPanelView.classificationLabels
+    let labels = LabelPanelView.objectClasses
     guard labels.count > index else {
         uiLogger.debug("Key: \(index + 1) → label ignored (index out of range)")
         return .ignored
@@ -471,7 +471,7 @@ func sortRunTracksByMaxHits(
     }
 }
 
-/// Parse a comma-separated quality label string into a set of flag names.
+/// Parse a comma-separated quality flag string into a set of flag names.
 /// Extracted from LabelPanelView for testability.
 func parseQualityFlags(_ quality: String) -> Set<String> {
     let trimmedFlags = quality.split(separator: ",").map {
@@ -1789,29 +1789,16 @@ struct TrackListView: View {
 struct LabelPanelView: View {
     @EnvironmentObject var appState: AppState
 
-    // Canonical classification labels — order must match proto ObjectClass enum.
+    // Canonical object classes — order must match proto ObjectClass enum.
     // v0.5.0 ships 7 classes; truck and motorcyclist are reserved for future use.
-    static let classificationLabels: [(name: String, help: String)] = [
-        ("noise", "Spurious track caused by sensor noise, rain, dust, or vegetation"),
-        ("dynamic", "Ambiguous detection unsure between moving objects"),
-        ("pedestrian", "Person walking, running, or using a mobility aid"),
-        ("cyclist", "Person on a bicycle, e-scooter, or motorcycle"),
-        ("bird", "Bird or other airborne fauna"),
-        ("bus", "Bus, coach, or large passenger vehicle (length > 7 m)"),
-        ("car", "Passenger car, SUV, van, or truck"),
-    ]
+    static let objectClasses: [(name: String, help: String)] = ObjectClass.allCases.map {
+        ($0.rawValue, $0.help)
+    }
 
-    // Canonical quality flags — multi-select, must match Go validQualityLabels and Svelte QualityLabel
-    static let qualityFlags: [(name: String, help: String)] = [
-        ("good", "Clean, accurate track with correct speed and trajectory"),
-        ("noisy", "Track has noisy position or speed estimates"),
-        ("jitter_velocity", "Speed estimates jitter significantly"),
-        ("jitter_heading", "Heading estimates jitter significantly"),
-        ("merge", "Two or more distinct objects incorrectly merged into one track"),
-        ("split", "Single object incorrectly split into multiple tracks"),
-        ("truncated", "Track starts late or ends early compared to the real object"),
-        ("disconnected", "Track was lost and recovered — identity may have changed"),
-    ]
+    // Canonical quality flags — multi-select, must match Go validQualityFlags and Svelte QualityFlag
+    static let qualityFlags: [(name: String, help: String)] = QualityFlag.allCases.map {
+        ($0.rawValue, $0.help)
+    }
 
     @State private var activeFlags: Set<String> = []
     @State private var isCarriedOver: Bool = false
@@ -1835,13 +1822,13 @@ struct LabelPanelView: View {
 
                 Text("Labels").font(.subheadline).foregroundColor(.secondary)
 
-                // Classification labels + quality flags in two columns
+                // Object classes + quality flags in two columns
                 HStack(alignment: .top, spacing: 8) {
-                    // Left column: classification labels (single-select)
+                    // Left column: object classes (single-select)
                     VStack(alignment: .leading, spacing: 0) {
                         Text("Classification").font(.caption).foregroundColor(.secondary).padding(
                             .bottom, 4)
-                        ForEach(Array(Self.classificationLabels.enumerated()), id: \.offset) {
+                        ForEach(Array(Self.objectClasses.enumerated()), id: \.offset) {
                             index, entry in
                             LabelButton(
                                 label: entry.name, shortcut: "\(index + 1)",
@@ -1923,7 +1910,7 @@ struct BulkLabelView: View {
             let count = appState.filteredTracks.count
             Text("Label All Visible (\(count))").font(.caption).foregroundColor(.secondary)
 
-            ForEach(Array(LabelPanelView.classificationLabels.enumerated()), id: \.offset) {
+            ForEach(Array(LabelPanelView.objectClasses.enumerated()), id: \.offset) {
                 _, entry in
                 Button(action: {
                     appState.assignLabelToAllVisible(entry.name)

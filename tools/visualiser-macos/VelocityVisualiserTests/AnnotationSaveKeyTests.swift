@@ -118,18 +118,18 @@ struct AnnotationSaveKeyBindingTests {
         // Nothing unsaved: X is only a step, and asks the service nothing.
         #expect(await session.saveCurrent(advance: true))
         #expect(session.sampleIndex == 1)
-        #expect(fake.last("/api/annotations/physical/save") == nil)
+        #expect(fake.last("/api/lidar/annotations/physical/save") == nil)
 
         session.physical.edit {
             PhysicalDraft.addBody(objectID: object.objectID, author: "op", session: "s", to: &$0)
         }
         #expect(await session.saveCurrent(advance: true))
-        #expect(fake.last("/api/annotations/physical/save") != nil)
+        #expect(fake.last("/api/lidar/annotations/physical/save") != nil)
         #expect(!session.physical.isDirty && session.sampleIndex == 2)
 
         // A refused save keeps the frame and the draft.
         session.physical.edit { PhysicalDraft.removeBody(objectID: object.objectID, from: &$0) }
-        fake.override["/api/annotations/physical/save"] = (
+        fake.override["/api/lidar/annotations/physical/save"] = (
             409, Data(#"{"error":"changed","code":"conflict"}"#.utf8)
         )
         #expect(session.step(to: 0) != nil, "a dirty draft let the frame change")

@@ -150,7 +150,7 @@ func (c physicalClient) do(method, path string, body any) (int, map[string]any) 
 
 func (c physicalClient) load(pack, digest string) map[string]any {
 	c.t.Helper()
-	status, out := c.do(http.MethodGet, "/api/annotations/physical?pack="+url.QueryEscape(pack)+"&pack_digest="+url.QueryEscape(digest), nil)
+	status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical?pack="+url.QueryEscape(pack)+"&pack_digest="+url.QueryEscape(digest), nil)
 	if status != http.StatusOK {
 		c.t.Fatalf("load: %d %v", status, out)
 	}
@@ -191,7 +191,7 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 		t.Fatalf("pack_dir %v, want %s", state["pack_dir"], p.Dir)
 	}
 
-	status, out := c.do(http.MethodPost, "/api/annotations/physical/validate", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
+	status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/validate", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
 	if status != http.StatusOK || out["valid"] != true {
 		t.Fatalf("validate: %d %v", status, out)
 	}
@@ -199,7 +199,7 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 		t.Fatal("validate wrote the document")
 	}
 
-	status, out = c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
+	status, out = c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
 	if status != http.StatusOK {
 		t.Fatalf("save: %d %v", status, out)
 	}
@@ -212,13 +212,13 @@ func TestPhysicalReferenceAPIRoundTrip(t *testing.T) {
 	}
 
 	// A save from the old base is a conflict, not a last-writer-wins retry.
-	status, out = c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
+	status, out = c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
 	if status != http.StatusConflict || out["code"] != "conflict" {
 		t.Fatalf("stale save: %d %v", status, out)
 	}
 
 	review := func(s map[string]any, kind, record string) (int, map[string]any) {
-		return c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+		return c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{
 			"pack": s["pack"], "pack_digest": s["pack_digest"], "base_revision": s["revision"], "base_digest": s["digest"],
 			"membership_digest": s["membership_digest"], "kind": kind, "object_id": "car-1", "record_id": record,
 			"reviewer": "rev", "session": "s2",
@@ -286,7 +286,7 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 		"unretained version": {"pack=kirk0/packs/run-a&pack_digest=" + digest + "&revision=4", 500, "internal", ""},
 	} {
 		t.Run(name, func(t *testing.T) {
-			status, out := c.do(http.MethodGet, "/api/annotations/physical?"+tc.query, nil)
+			status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical?"+tc.query, nil)
 			if status != tc.status || out["code"] != tc.code || !strings.Contains(out["error"].(string), tc.errorMatch) {
 				t.Fatalf("%d %v, want %d %s", status, out, tc.status, tc.code)
 			}
@@ -321,7 +321,7 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 		"oversized":        {`{"pack":"` + strings.Repeat("x", maxPhysicalRequestBytes) + `"}`, 413, "bad_request"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			status, out := c.do(http.MethodPost, "/api/annotations/physical/save", tc.body)
+			status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", tc.body)
 			if status != tc.status || out["code"] != tc.code {
 				t.Fatalf("%d %v, want %d %s", status, out, tc.status, tc.code)
 			}
@@ -329,30 +329,30 @@ func TestPhysicalReferenceAPIRefusals(t *testing.T) {
 	}
 
 	// An invalid edit is refused with the same diagnostics a validation gives.
-	status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{uncited}))
+	status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, []annotation.PhysicalObject{uncited}))
 	if status != http.StatusUnprocessableEntity || out["valid"] != false || !strings.Contains(out["invalid"].(string), "own sample") {
 		t.Fatalf("invalid save: %d %v", status, out)
 	}
 	ghost := physicalTestObject()
 	ghost.ObjectID = "ghost"
-	status, out = c.do(http.MethodPost, "/api/annotations/physical/validate", editBody(state, []annotation.PhysicalObject{ghost}))
+	status, out = c.do(http.MethodPost, "/api/lidar/annotations/physical/validate", editBody(state, []annotation.PhysicalObject{ghost}))
 	if status != http.StatusOK || out["valid"] != false || len(out["link_problems"].([]any)) == 0 {
 		t.Fatalf("validate unlinked: %d %v", status, out)
 	}
 	if after := c.load("kirk0/packs/run-a", p.Manifest.PackDigest); after["exists"] != false {
 		t.Fatal("a refused request wrote the document")
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical/save", nil); status != http.StatusMethodNotAllowed {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical/save", nil); status != http.StatusMethodNotAllowed {
 		t.Fatalf("GET save: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{
 		"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "kind": "body", "object_id": "car-1", "record_id": "b"}); status != http.StatusBadRequest {
 		t.Fatalf("anonymous review: %d %v", status, out)
 	}
 
 	unconfigured := httptest.NewServer(func() *http.ServeMux { m := http.NewServeMux(); (&Server{}).RegisterRoutes(m); return m }())
 	defer unconfigured.Close()
-	if status, out := (physicalClient{t: t, base: unconfigured.URL}).do(http.MethodGet, "/api/annotations/physical?pack=a&pack_digest=b", nil); status != http.StatusNotImplemented || out["code"] != "not_configured" {
+	if status, out := (physicalClient{t: t, base: unconfigured.URL}).do(http.MethodGet, "/api/lidar/annotations/physical?pack=a&pack_digest=b", nil); status != http.StatusNotImplemented || out["code"] != "not_configured" {
 		t.Fatalf("unconfigured: %d %v", status, out)
 	}
 }
@@ -378,22 +378,22 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	defer srv.Close()
 	c := physicalClient{t: t, base: srv.URL}
 
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=escape/pack&pack_digest="+url.QueryEscape(outside.Manifest.PackDigest), nil); status != http.StatusBadRequest {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical?pack=escape/pack&pack_digest="+url.QueryEscape(outside.Manifest.PackDigest), nil); status != http.StatusBadRequest {
 		t.Fatalf("symlink escape: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical", map[string]any{}); status != http.StatusMethodNotAllowed {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical", map[string]any{}); status != http.StatusMethodNotAllowed {
 		t.Fatalf("POST load: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/validate", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "author": "op", "objects": []any{}}); status != http.StatusNotFound {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/validate", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "author": "op", "objects": []any{}}); status != http.StatusNotFound {
 		t.Fatalf("validate against a missing pack: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical/review", nil); status != http.StatusMethodNotAllowed {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical/review", nil); status != http.StatusMethodNotAllowed {
 		t.Fatalf("GET review: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", "{"); status != http.StatusBadRequest {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/review", "{"); status != http.StatusBadRequest {
 		t.Fatalf("malformed review: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "reviewer": "r"}); status != http.StatusNotFound {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "reviewer": "r"}); status != http.StatusNotFound {
 		t.Fatalf("review against a missing pack: %d %v", status, out)
 	}
 
@@ -407,12 +407,12 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if err := unix.Flock(int(lock.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		t.Fatal(err)
 	}
-	status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
+	status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
 	lock.Close()
 	if status != http.StatusLocked || out["code"] != "busy" {
 		t.Fatalf("save while locked: %d %v", status, out)
 	}
-	status, out = c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
+	status, out = c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()}))
 	if status != http.StatusOK {
 		t.Fatalf("save after the lock is released: %d %v", status, out)
 	}
@@ -433,7 +433,7 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if len(stale["stale"].([]any)) == 0 {
 		t.Fatalf("the load did not report stale records: %v", stale)
 	}
-	status, out = c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+	status, out = c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{
 		"pack": saved["pack"], "pack_digest": saved["pack_digest"], "base_revision": stale["revision"], "base_digest": stale["digest"],
 		"membership_digest": stale["membership_digest"], "kind": "body", "object_id": "car-1", "record_id": "body_a", "reviewer": "rev"})
 	if status != http.StatusUnprocessableEntity || out["code"] != "invalid" {
@@ -447,18 +447,18 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 		t.Fatal(err)
 	}
 	cur := c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(cur, []annotation.PhysicalObject{})); status != http.StatusOK {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(cur, []annotation.PhysicalObject{})); status != http.StatusOK {
 		t.Fatalf("second save: %d %v", status, out)
 	}
 	headPath := filepath.Join(p.Dir, "physical-references.json")
 	if err := os.WriteFile(headPath, []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	status, out = c.do(http.MethodGet, "/api/annotations/physical?pack=kirk0/packs/run-a&revision=1&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil)
+	status, out = c.do(http.MethodGet, "/api/lidar/annotations/physical?pack=kirk0/packs/run-a&revision=1&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil)
 	if status != http.StatusOK || out["head"] != false || out["revision"] != float64(1) {
 		t.Fatalf("retained revision behind a damaged head: %d %v", status, out)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=kirk0/packs/run-a&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical?pack=kirk0/packs/run-a&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
 		t.Fatalf("damaged head: %d %v", status, out)
 	}
 	if err := os.Remove(headPath); err != nil {
@@ -470,12 +470,12 @@ func TestPhysicalReferenceAPIStorageFailures(t *testing.T) {
 	if err := os.WriteFile(labelSetManifest(t, p.Dir), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical?pack=kirk0/packs/run-a&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical?pack=kirk0/packs/run-a&pack_digest="+url.QueryEscape(p.Manifest.PackDigest), nil); status != http.StatusInternalServerError {
 		t.Fatalf("damaged label set: %d %v", status, out)
 	}
 
 	rec := httptest.NewRecorder()
-	ws.handlePhysicalEdit(false)(rec, httptest.NewRequest(http.MethodPost, "/api/annotations/physical/validate", failingBody{}))
+	ws.handlePhysicalEdit(false)(rec, httptest.NewRequest(http.MethodPost, "/api/lidar/annotations/physical/validate", failingBody{}))
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "connection reset") {
 		t.Fatalf("failed body read: %d %s", rec.Code, rec.Body.String())
 	}
@@ -517,18 +517,18 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	if drift := state["review_drift"].([]any); len(drift) != 0 {
 		t.Fatalf("drift on an empty pack: %v", drift)
 	}
-	if status, out := c.do(http.MethodPost, "/api/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()})); status != 200 {
+	if status, out := c.do(http.MethodPost, "/api/lidar/annotations/physical/save", editBody(state, []annotation.PhysicalObject{physicalTestObject()})); status != 200 {
 		t.Fatalf("save: %d %v", status, out)
 	}
 	state = c.load("kirk0/packs/run-a", p.Manifest.PackDigest)
-	status, reviewed := c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+	status, reviewed := c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{
 		"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "base_revision": state["revision"], "base_digest": state["digest"],
 		"membership_digest": state["membership_digest"], "kind": "keyframe", "object_id": "car-1", "record_id": "kf_a", "reviewer": "rev"})
 	if status != 200 {
 		t.Fatalf("review: %d %v", status, reviewed)
 	}
 
-	status, history := c.do(http.MethodGet, "/api/annotations/physical/history?pack=kirk0/packs/run-a&pack_digest="+digest, nil)
+	status, history := c.do(http.MethodGet, "/api/lidar/annotations/physical/history?pack=kirk0/packs/run-a&pack_digest="+digest, nil)
 	revisions, _ := history["revisions"].([]any)
 	if status != 200 || len(revisions) != 2 || revisions[0].(map[string]any)["head"] != true {
 		t.Fatalf("history: %d %v", status, history)
@@ -540,7 +540,7 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 		for k, v := range body {
 			req[k] = v
 		}
-		return c.do(http.MethodPost, "/api/annotations/physical/restore", req)
+		return c.do(http.MethodPost, "/api/lidar/annotations/physical/restore", req)
 	}
 	if status, out := restore(reviewed, map[string]any{"author": ""}); status != 400 {
 		t.Fatalf("anonymous restore: %d %v", status, out)
@@ -557,7 +557,7 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	}
 
 	// Re-review, then change the keyframe's own sample in membership: drift.
-	status, reviewed = c.do(http.MethodPost, "/api/annotations/physical/review", map[string]any{
+	status, reviewed = c.do(http.MethodPost, "/api/lidar/annotations/physical/review", map[string]any{
 		"pack": "kirk0/packs/run-a", "pack_digest": p.Manifest.PackDigest, "base_revision": restored["revision"], "base_digest": restored["digest"],
 		"membership_digest": restored["membership_digest"], "kind": "keyframe", "object_id": "car-1", "record_id": "kf_a", "reviewer": "rev"})
 	if status != 200 {
@@ -582,11 +582,11 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 		body         any
 		status       int
 	}{
-		{http.MethodPost, "/api/annotations/physical/history", nil, 405},
-		{http.MethodGet, "/api/annotations/physical/history?pack=kirk0/packs/nope&pack_digest=d", nil, 404},
-		{http.MethodGet, "/api/annotations/physical/restore", nil, 405},
-		{http.MethodPost, "/api/annotations/physical/restore", "{", 400},
-		{http.MethodPost, "/api/annotations/physical/restore", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "revision": 1, "author": "a"}, 404},
+		{http.MethodPost, "/api/lidar/annotations/physical/history", nil, 405},
+		{http.MethodGet, "/api/lidar/annotations/physical/history?pack=kirk0/packs/nope&pack_digest=d", nil, 404},
+		{http.MethodGet, "/api/lidar/annotations/physical/restore", nil, 405},
+		{http.MethodPost, "/api/lidar/annotations/physical/restore", "{", 400},
+		{http.MethodPost, "/api/lidar/annotations/physical/restore", map[string]any{"pack": "kirk0/packs/nope", "pack_digest": "d", "revision": 1, "author": "a"}, 404},
 	} {
 		if status, out := c.do(tc.method, tc.path, tc.body); status != tc.status {
 			t.Fatalf("%s %s: %d %v, want %d", tc.method, tc.path, status, out, tc.status)
@@ -595,7 +595,27 @@ func TestPhysicalReferenceAPIHistoryRestoreAndDrift(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(p.Dir, "physical-references.json"), []byte("{"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if status, out := c.do(http.MethodGet, "/api/annotations/physical/history?pack=kirk0/packs/run-a&pack_digest="+digest, nil); status != 500 {
+	if status, out := c.do(http.MethodGet, "/api/lidar/annotations/physical/history?pack=kirk0/packs/run-a&pack_digest="+digest, nil); status != 500 {
 		t.Fatalf("history over a damaged head: %d %v", status, out)
+	}
+}
+
+// The previous DMG's aliases reach the same handlers, including refusal paths;
+// the main functional tests exercise each operation at its canonical URL.
+func TestAnnotationRouteDMGAliases(t *testing.T) {
+	ws := &Server{}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+	for _, suffix := range []string{"packs", "physical", "features", "features/pose-proposal", "physical/validate", "physical/save", "physical/fit", "physical/review", "physical/history", "physical/restore", "split/preview", "split/freeze", "splits"} {
+		t.Run(suffix, func(t *testing.T) {
+			old := httptest.NewRecorder()
+			current := httptest.NewRecorder()
+			// Invalid methods exercise route selection without touching pack data.
+			mux.ServeHTTP(old, httptest.NewRequest(http.MethodPatch, "/api/annotations/"+suffix, nil))
+			mux.ServeHTTP(current, httptest.NewRequest(http.MethodPatch, "/api/lidar/annotations/"+suffix, nil))
+			if old.Code != http.StatusMethodNotAllowed || old.Code != current.Code || old.Body.String() != current.Body.String() {
+				t.Fatalf("alias differs: old=%d %s current=%d %s", old.Code, old.Body.String(), current.Code, current.Body.String())
+			}
+		})
 	}
 }

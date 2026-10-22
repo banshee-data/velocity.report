@@ -51,7 +51,7 @@ final class FakeSplitService: @unchecked Sendable {
             return try respond(status, ["error": message, "code": code])
         }
         switch path {
-        case "/api/annotations/split/preview":
+        case "/api/lidar/annotations/split/preview":
             return try respond(
                 200,
                 [
@@ -93,7 +93,7 @@ final class FakeSplitService: @unchecked Sendable {
                     "physical_problems": [], "facet_problems": facetProblems,
                     "would_freeze": wouldFreeze, "split_digest": "sha256:split",
                 ])
-        case "/api/annotations/split/freeze":
+        case "/api/lidar/annotations/split/freeze":
             existing.append([
                 "name": body["output"] ?? "", "revision": 1, "split_digest": "sha256:split",
                 "frozen_utc": "t", "author": body["author"] ?? "", "packs": 1,
@@ -104,7 +104,7 @@ final class FakeSplitService: @unchecked Sendable {
                     "name": body["output"] ?? "", "path": "/x/splits/\(body["output"] ?? "")",
                     "split_digest": "sha256:split", "revision": 1,
                 ])
-        case "/api/annotations/splits":
+        case "/api/lidar/annotations/splits":
             return try respond(200, ["splits": existing, "count": existing.count])
         default: return try respond(404, ["error": "no route", "code": "not_found"])
         }
@@ -189,7 +189,7 @@ final class FakeSplitService: @unchecked Sendable {
             model.canFreeze && model.preview?.packs[0].features?.trackerSeededRegistrations == 1)
         #expect(await model.freeze(author: "op"))
         let sent = try #require(
-            fake.last("/api/annotations/split/freeze")?["draft"] as? [String: Any])
+            fake.last("/api/lidar/annotations/split/freeze")?["draft"] as? [String: Any])
         #expect((sent["packs"] as? [[String: Any]])?[0]["feature_revision"] as? Int == 0)
         model.setFacetPin(packIndex: 0, enabled: false)
         #expect(!model.canFreeze && model.draftPacks[0]["feature_revision"] == nil)
@@ -217,7 +217,7 @@ final class FakeSplitService: @unchecked Sendable {
         await model.runPreview()
         #expect(model.preview?.facetProblems == fake.facetProblems && !model.canFreeze)
         #expect(!(await model.freeze(author: "op")))
-        #expect(fake.last("/api/annotations/split/freeze") == nil)
+        #expect(fake.last("/api/lidar/annotations/split/freeze") == nil)
     }
 
     @Test func theDraftIsSentUntouchedAndThePreviewGatesTheFreeze() async throws {
@@ -236,7 +236,7 @@ final class FakeSplitService: @unchecked Sendable {
             preview.packs[0].physical?.coverage.front.unavailable == 1
                 && preview.packs[0].physical?.coverage.height.scorable == 0)
         #expect(preview.packs[0].objects[0].reviewedMasks == 3 && preview.packs[0].episodes == 1)
-        let sent = try #require(fake.last("/api/annotations/split/preview"))
+        let sent = try #require(fake.last("/api/lidar/annotations/split/preview"))
         let sentDraft = sent["draft"] as? [String: Any]
         #expect((sentDraft?["packs"] as? [[String: Any]])?.first?["dir"] as? String == "run-a/pack")
         #expect(model.canFreeze)
@@ -244,7 +244,7 @@ final class FakeSplitService: @unchecked Sendable {
         #expect(!(await model.freeze(author: "  ")))
         #expect(model.error?.contains("Labelled by") == true)
         #expect(await model.freeze(author: "op"))
-        let frozen = try #require(fake.last("/api/annotations/split/freeze"))
+        let frozen = try #require(fake.last("/api/lidar/annotations/split/freeze"))
         #expect(frozen["author"] as? String == "op" && frozen["output"] as? String == model.output)
         #expect(frozen["supersedes"] == nil)
         #expect(model.result?.revision == 1)
@@ -261,11 +261,11 @@ final class FakeSplitService: @unchecked Sendable {
                 && model.preview?.membershipProblems == ["object obj_b is proposed"])
         #expect(!model.canFreeze)
         #expect(!(await model.freeze(author: "op")))
-        #expect(fake.last("/api/annotations/split/freeze") == nil)
+        #expect(fake.last("/api/lidar/annotations/split/freeze") == nil)
 
         fake.wouldFreeze = true
         await model.runPreview()
-        fake.refuse["/api/annotations/split/freeze"] = (409, "conflict", "split exists")
+        fake.refuse["/api/lidar/annotations/split/freeze"] = (409, "conflict", "split exists")
         #expect(!(await model.freeze(author: "op")))
         #expect(model.error?.contains("split exists") == true)
     }
@@ -286,10 +286,10 @@ final class FakeSplitService: @unchecked Sendable {
         model.supersedes = "pilot.json"
         await model.runPreview()
         #expect(
-            fake.last("/api/annotations/split/preview")?["supersedes"] as? String == "pilot.json")
+            fake.last("/api/lidar/annotations/split/preview")?["supersedes"] as? String == "pilot.json")
         #expect(await model.freeze(author: "op"))
         #expect(
-            fake.last("/api/annotations/split/freeze")?["supersedes"] as? String == "pilot.json")
+            fake.last("/api/lidar/annotations/split/freeze")?["supersedes"] as? String == "pilot.json")
     }
 
     @Test func anUnreadableDraftIsRefusedAndListingsDecode() async throws {
@@ -315,7 +315,7 @@ final class FakeSplitService: @unchecked Sendable {
         #expect(
             model.existing.map(\.name) == ["a.json", "broken.json"]
                 && model.existing[1].error == "parse")
-        fake.refuse["/api/annotations/splits"] = (501, "not_configured", "no dir")
+        fake.refuse["/api/lidar/annotations/splits"] = (501, "not_configured", "no dir")
         await model.loadExisting()
         #expect(model.error?.contains("no dir") == true)
     }

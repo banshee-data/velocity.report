@@ -1270,12 +1270,12 @@ struct FormatFunctionsCoverageTests {
 // MARK: - LabelPanelView Classification Labels Static Data Tests
 
 struct LabelPanelStaticDataTests {
-    @Test func classificationLabelsCount() throws {
-        #expect(LabelPanelView.classificationLabels.count == 7)
+    @Test func objectClassesCount() throws {
+        #expect(LabelPanelView.objectClasses.count == 7)
     }
 
-    @Test func classificationLabelsNamesNotEmpty() throws {
-        for entry in LabelPanelView.classificationLabels {
+    @Test func objectClassesNamesNotEmpty() throws {
+        for entry in LabelPanelView.objectClasses {
             #expect(!entry.name.isEmpty)
             #expect(!entry.help.isEmpty)
         }

@@ -632,7 +632,7 @@ func TestLidarLabelAPI_WriteJSONError(t *testing.T) {
 	}
 }
 
-func TestValidateQualityLabel(t *testing.T) {
+func TestValidateQualityFlags(t *testing.T) {
 	tests := []struct {
 		input string
 		want  bool
@@ -656,8 +656,8 @@ func TestValidateQualityLabel(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-		if got := ValidateQualityLabel(tc.input); got != tc.want {
-			t.Errorf("ValidateQualityLabel(%q) = %v, want %v", tc.input, got, tc.want)
+		if got := ValidateQualityFlags(tc.input); got != tc.want {
+			t.Errorf("ValidateQualityFlags(%q) = %v, want %v", tc.input, got, tc.want)
 		}
 	}
 }

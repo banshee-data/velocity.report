@@ -2,9 +2,21 @@
 
 Active plan: [label-vocabulary-consolidation-plan.md](../../plans/label-vocabulary-consolidation-plan.md)
 
-**Status:** Phases 1–3.2 complete; phases 3.5–6 planned.
+- **Status:** D-31 naming complete; storage consolidation and taxonomy expansion remain future work
 
-Canonical vocabulary of track classification labels used across the proto wire format, Go runtime, Swift visualiser, and Svelte frontend.
+Canonical vocabulary of track object classes used across the proto wire format, Go runtime, Swift visualiser, and Svelte frontend.
+
+## Labels and annotations
+
+A **label** is a person’s verdict on a track: one `ObjectClass` and zero or more
+`QualityFlag` values. These are the type names in Go, TypeScript and Swift.
+An **annotation** is a reviewed point mask, with object identity and review state,
+over an immutable annotation pack. Annotation routes are under
+`/api/lidar/annotations/`; their old paths remain registered for the previous DMG.
+
+Migration 065 moves misplaced `split` and `merge` class verdicts into quality flags,
+preserving the other flags and label provenance. Current readers use the canonical
+fields. The label table and write-path consolidation remains Phase 2.
 
 ## Canonical vocabulary (proto3 enum authoritative)
 
@@ -81,7 +93,7 @@ with the taxonomy API.
 ## Future reactivation path
 
 When sufficient labelled data exists: uncomment truck/motorcyclist cascade
-rules in `classification.go`, add labels back to `validUserLabels`, restore
+rules in `classification.go`, add labels back to `validObjectClasses`, restore
 UI entries. No proto or database migration needed: enum values already
 allocated.
 

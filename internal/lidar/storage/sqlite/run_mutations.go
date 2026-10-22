@@ -314,7 +314,7 @@ func (s *RunStore) InsertRunTrack(track *RunTrack) error {
 // Values are trimmed and canonicalised before storage.
 // This function does NOT validate enum values - it accepts any string and stores it as-is.
 // Validation of label enum values should be performed by the caller (e.g., API handlers)
-// using ValidateUserLabel() and ValidateQualityLabel() from the api package.
+// using ValidateObjectClass() and ValidateQualityFlags() from the api package.
 func (s *RunStore) UpdateTrackLabel(runID, trackID, userLabel, qualityLabel string, confidence float32, labelerID, labelSource string) error {
 	userLabel = normaliseRunTrackString(userLabel)
 	qualityLabel = normaliseRunTrackQualityLabel(qualityLabel)

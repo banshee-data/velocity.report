@@ -292,7 +292,7 @@ func TestEvaluateGroundTruth(t *testing.T) {
 			minComposite:      -0.5,  // Penalty for false positives
 		},
 		{
-			name: "quality labels affect score",
+			name: "quality flags affect score",
 			reference: []*sqlite.RunTrack{
 				{TrackID: "ref-1", TrackMeasurement: l5tracks.TrackMeasurement{StartUnixNanos: 1000, EndUnixNanos: 2000}, UserLabel: "car"},
 			},

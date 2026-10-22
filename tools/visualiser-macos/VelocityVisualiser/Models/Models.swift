@@ -6,6 +6,54 @@
 
 import Foundation
 
+/// The seven assignable object classes.
+enum ObjectClass: String, CaseIterable, Codable, Sendable {
+    case noise
+    case dynamic
+    case pedestrian
+    case cyclist
+    case bird
+    case bus
+    case car
+
+    var help: String {
+        switch self {
+        case .noise: return "Spurious track caused by sensor noise, rain, dust, or vegetation"
+        case .dynamic: return "Ambiguous detection unsure between moving objects"
+        case .pedestrian: return "Person walking, running, or using a mobility aid"
+        case .cyclist: return "Person on a bicycle, e-scooter, or motorcycle"
+        case .bird: return "Bird or other airborne fauna"
+        case .bus: return "Bus, coach, or large passenger vehicle (length > 7 m)"
+        case .car: return "Passenger car, SUV, van, or truck"
+        }
+    }
+}
+
+/// Track quality verdicts; several flags may apply.
+enum QualityFlag: String, CaseIterable, Codable, Sendable {
+    case good
+    case noisy
+    case jitterVelocity = "jitter_velocity"
+    case jitterHeading = "jitter_heading"
+    case merge
+    case split
+    case truncated
+    case disconnected
+
+    var help: String {
+        switch self {
+        case .good: return "Clean, accurate track with correct speed and trajectory"
+        case .noisy: return "Track has noisy position or speed estimates"
+        case .jitterVelocity: return "Speed estimates jitter significantly"
+        case .jitterHeading: return "Heading estimates jitter significantly"
+        case .merge: return "Two or more distinct objects incorrectly merged into one track"
+        case .split: return "Single object incorrectly split into multiple tracks"
+        case .truncated: return "Track starts late or ends early compared to the real object"
+        case .disconnected: return "Track was lost and recovered — identity may have changed"
+        }
+    }
+}
+
 // MARK: - Frame Bundle
 
 /// Frame type enumeration for split streaming (M3.5).

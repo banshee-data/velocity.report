@@ -15,7 +15,7 @@ import (
 
 func TestPackInventoryKeepsCorruptReviewDataVisibleAsErrors(t *testing.T) {
 	ws, _ := segmentServer(t)
-	if response := callSegment(t, ws, "POST", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != http.StatusMethodNotAllowed {
+	if response := callSegment(t, ws, "POST", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("inventory method: %d", response.Code)
 	}
 	dir := t.TempDir()
@@ -98,7 +98,7 @@ func TestPackInventoryKeepsCorruptReviewDataVisibleAsErrors(t *testing.T) {
 func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	ws, _ := segmentServer(t)
 	ws.annotationPacksDir = filepath.Join(t.TempDir(), "missing")
-	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 200 {
+	if response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 200 {
 		t.Fatalf("missing pack directory: %d", response.Code)
 	}
 	root := t.TempDir()
@@ -116,7 +116,7 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(nested, "manifest.json"), []byte(`{"schema_version":2,"dataset_id":"dataset","pack_digest":"sha256:pack"}`), 0644); err != nil {
 		t.Fatal(err)
 	}
-	response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks)
+	response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks)
 	if response.Code != 200 || !strings.Contains(response.Body.String(), nested) {
 		t.Fatalf("nested inventory: %d %s", response.Code, response.Body.String())
 	}
@@ -125,7 +125,7 @@ func TestPackInventoryHandlesMissingAndNestedPackDirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 	ws.annotationPacksDir = file
-	if response := callSegment(t, ws, "GET", "/api/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 500 {
+	if response := callSegment(t, ws, "GET", "/api/lidar/annotations/packs", nil, ws.handleAnnotationPacks); response.Code != 500 {
 		t.Fatalf("unreadable pack root: %d", response.Code)
 	}
 }

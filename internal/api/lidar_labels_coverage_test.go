@@ -50,11 +50,11 @@ func TestNullableFloat32Ptr_NonNil(t *testing.T) {
 	}
 }
 
-// --- validateAnnotationPayload coverage ---
+// --- validateLabelPayload coverage ---
 
 func TestValidateAnnotationPayload_MissingClassLabel(t *testing.T) {
 	label := LidarLabel{ClassLabel: ""}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil || err.Error() != "class_label is required" {
 		t.Errorf("expected class_label required, got: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestValidateAnnotationPayload_MissingClassLabel(t *testing.T) {
 
 func TestValidateAnnotationPayload_InvalidClassLabel(t *testing.T) {
 	label := LidarLabel{ClassLabel: "tank", StartTimestampNs: 1}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for invalid class_label")
 	}
@@ -70,7 +70,7 @@ func TestValidateAnnotationPayload_InvalidClassLabel(t *testing.T) {
 
 func TestValidateAnnotationPayload_MissingStartTimestamp(t *testing.T) {
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 0}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil || err.Error() != "start_timestamp_ns is required" {
 		t.Errorf("expected start_timestamp_ns required, got: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestValidateAnnotationPayload_MissingStartTimestamp(t *testing.T) {
 func TestValidateAnnotationPayload_EndBeforeStart(t *testing.T) {
 	endNs := int64(5)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, EndTimestampNs: &endNs}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for end < start")
 	}
@@ -88,7 +88,7 @@ func TestValidateAnnotationPayload_EndBeforeStart(t *testing.T) {
 func TestValidateAnnotationPayload_InvalidConfidence(t *testing.T) {
 	conf := float32(1.5)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, Confidence: &conf}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for confidence > 1")
 	}
@@ -97,7 +97,7 @@ func TestValidateAnnotationPayload_InvalidConfidence(t *testing.T) {
 func TestValidateAnnotationPayload_NegativeConfidence(t *testing.T) {
 	conf := float32(-0.1)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, Confidence: &conf}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for confidence < 0")
 	}
@@ -106,7 +106,7 @@ func TestValidateAnnotationPayload_NegativeConfidence(t *testing.T) {
 func TestValidateAnnotationPayload_RunIDWithoutTrackID(t *testing.T) {
 	runID := "run-001"
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 10, RunID: &runID, TrackID: ""}
-	err := validateAnnotationPayload(&label, false, 0)
+	err := validateLabelPayload(&label, false, 0)
 	if err == nil {
 		t.Error("expected error for run_id without track_id")
 	}
@@ -115,7 +115,7 @@ func TestValidateAnnotationPayload_RunIDWithoutTrackID(t *testing.T) {
 func TestValidateAnnotationPayload_UsesCurrentStartNsAsFallback(t *testing.T) {
 	endNs := int64(5)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 0, EndTimestampNs: &endNs}
-	err := validateAnnotationPayload(&label, false, 10)
+	err := validateLabelPayload(&label, false, 10)
 	if err == nil {
 		t.Error("expected error for end < currentStartNs used as fallback")
 	}
@@ -124,7 +124,7 @@ func TestValidateAnnotationPayload_UsesCurrentStartNsAsFallback(t *testing.T) {
 func TestValidateAnnotationPayload_UsesCurrentStartNsFallbackOK(t *testing.T) {
 	endNs := int64(20)
 	label := LidarLabel{ClassLabel: "car", StartTimestampNs: 0, EndTimestampNs: &endNs}
-	err := validateAnnotationPayload(&label, false, 10)
+	err := validateLabelPayload(&label, false, 10)
 	if err != nil {
 		t.Errorf("expected no error, got: %v", err)
 	}

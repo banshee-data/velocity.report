@@ -25,12 +25,12 @@ import (
 // and the digest must match what is there, so a request cannot name an
 // arbitrary path and cannot write to a different pack that shares a name.
 //
-//	GET  /api/annotations/physical?pack=<handle>&pack_digest=<d>[&revision=<n>]
-//	POST /api/annotations/physical/validate
-//	POST /api/annotations/physical/save
-//	POST /api/annotations/physical/review
-//	GET  /api/annotations/physical/history?pack=<handle>&pack_digest=<d>
-//	POST /api/annotations/physical/restore
+//	GET  /api/lidar/annotations/physical?pack=<handle>&pack_digest=<d>[&revision=<n>]
+//	POST /api/lidar/annotations/physical/validate
+//	POST /api/lidar/annotations/physical/save
+//	POST /api/lidar/annotations/physical/review
+//	GET  /api/lidar/annotations/physical/history?pack=<handle>&pack_digest=<d>
+//	POST /api/lidar/annotations/physical/restore
 
 // maxPhysicalRequestBytes bounds a request body. A pilot pack's references
 // are kilobytes; the sidecar cap is a ceiling for the stored document, not a
