@@ -56,7 +56,7 @@ validated separately and should not be conflated.
 
 ## Endpoints
 
-All are served on both the LiDAR port (`:8081`) and the main API (`:8080`).
+All are served on the main API (`:8080`); the separate LiDAR port (`:8081`) was retired in v0.5.2.
 
 | Endpoint                           | Purpose                                                                |
 | ---------------------------------- | ---------------------------------------------------------------------- |

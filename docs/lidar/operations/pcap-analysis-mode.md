@@ -206,7 +206,7 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 1. **Start analysis mode replay:**
 
    ```bash
-   curl -X POST "http://localhost:8081/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
+   curl -X POST "http://localhost:8080/api/lidar/pcap/start?sensor_id=hesai-pandar40p" \
      -H "Content-Type: application/json" \
      -d '{"pcap_file":"break-80k.pcapng","analysis_mode":true,"settle_before_recording":true}'
    ```
@@ -219,12 +219,12 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 3. **Resume live data (preserving PCAP background):**
 
    ```bash
-   curl -X POST "http://localhost:8081/api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p"
+   curl -X POST "http://localhost:8080/api/lidar/pcap/resume_live?sensor_id=hesai-pandar40p"
    ```
 
 4. **When done, reset grid:**
    ```bash
-   curl "http://localhost:8081/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
+   curl "http://localhost:8080/api/lidar/grid_reset?sensor_id=hesai-pandar40p"
    ```
 
 ### Comparative analysis
@@ -243,21 +243,26 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 
 ## Web UI
 
-The LiDAR status page (`http://localhost:8081/`) includes:
+The LiDAR Status page in the web app (`http://localhost:8080/app/lidar/status`)
+replaced the old `:8081` status page in v0.5.2. It includes:
 
-- **PCAP Start Form** with "Analyse & record VRLOG" and optional "Settle grid,
-  reload & record from start" checkboxes. Selecting settling also selects analysis
-  mode because the warm first pass is specifically a VRLOG capture workflow.
+- **Replay a capture** form: a clip or a capture file, with "Analyse and record a
+  VRLOG" and optional "Settle the grid, reload, and record from the start"
+  checkboxes, plus speed mode and ratio, start and duration, and debug options.
+  Selecting settling also selects analysis mode because the warm first pass is
+  specifically a VRLOG capture workflow.
 - **Tuning Config dropdown** on the start form, filled on page load from
   `GET /api/lidar/configs`. Each option shows the file, its solid-body summary
   and fingerprint. A file that cannot be applied is disabled, with the reason.
   The default keeps the server's current parameters.
-- **Resume Live** link (appears when in analysis mode)
-- **Stop PCAP** link (resets grid)
-- **Grid Status** shows current mode and statistics
-- **Configuration table** shows the replay pass, whether a VRLOG is being
-  recorded and where, whether the grid is preserved, whether the live
-  listener is running, and the tuning config and fingerprint in use
+- **Resume live, keep grid** button
+- **Stop replay** button (resets grid)
+- **Pipeline, Packets, and Replay and recording** panels show the source, the
+  packet rates, the replay pass, whether a VRLOG is being recorded, and the
+  tuning config and fingerprint in use
+- **Tuning parameters** editor for the running parameters, and **Maintenance**
+  actions (reset grid, reset acceptance, save snapshot, clean up snapshots,
+  clear tracks)
 
 ## Logging
 

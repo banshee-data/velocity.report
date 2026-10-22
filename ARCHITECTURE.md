@@ -95,9 +95,12 @@ Radar (USB-serial) ──┐
                      ├──► Go server (SQLite) ──► HTTP API (:80) ──────► Web frontend (Svelte)
 LiDAR (UDP/Ethernet)─┘         │                        │          └──► Go PDF pipeline (internal/report)
                                │                        └─────────────► /docs/ (offline docs)
-                               ├───────────────► LiDAR HTTP (:8081)
                                └───────────────► gRPC (:50051) ───────► macOS visualiser (Swift/Metal)
 ```
+
+The HTTP API carries the radar and LiDAR routes on one listener (`--listen`; `:80` on the Pi
+image, `127.0.0.1:8080` by default). The separate LiDAR listener on :8081 was retired in v0.5.2;
+`--lidar-listen` is still accepted but ignored with a warning.
 
 ### Physical deployment
 
@@ -252,7 +255,6 @@ flowchart TB
     subgraph L10["L10 Clients"]
         direction LR
         L10c["VelocityVisualiser.app "]
-        L10d["HTML dashboard ⛔"]
         L10b["Svelte clients 🌐"]
         L10a["📄 PDF report"]
     end
@@ -310,7 +312,6 @@ flowchart TB
     %% ── L9→L10 clients ───────────────────────
     L9c --> L10c
     L9b --> L10c
-    L9b --> L10d
     L9b --> L10b
     L9a --> L10b
     L9a --> L10a
@@ -326,7 +327,6 @@ flowchart TB
     class L3f,L5h,L6e,L7a gap;
     class L10a implemented;
     class L10b,L10c client;
-    class L10d deprecated;
 ```
 
 **Reading notes**
@@ -369,16 +369,15 @@ flowchart TB
   L8sub contains LiDAR-side analytics (L8b LiDAR metrics → L8c Sweep
   tuning / HINT), while L8a (Radar metrics) sits alongside for the radar
   path. Both feed into L9 endpoints.
-- **L9 fan-out.** L9b (LiDAR REST APIs) serves three clients: L10b
-  (Svelte clients), L10c (VelocityVisualiser.app), and L10d (HTML
-  dashboard ⛔). L9c (gRPC streams) serves L10c exclusively for real-time
+- **L9 fan-out.** L9b (LiDAR REST APIs) serves two clients: L10b
+  (Svelte clients) and L10c (VelocityVisualiser.app). L9c (gRPC streams) serves L10c exclusively for real-time
   3D visualisation. L9a (Radar REST APIs) serves L10a (Go PDF pipeline) and
   L10b (Svelte clients).
-- **L10 clients.** All four L10 nodes are implemented applications:
+- **L10 clients.** All three L10 nodes are implemented applications:
   L10a is the Go PDF pipeline (`internal/report/` — native SVG charts, Typst templates, `typst` compilation),
-  L10b is a Svelte 5 web app,
-  L10c is a native macOS Metal visualiser with gRPC streaming, and L10d
-  is a legacy Go-embedded HTML dashboard marked deprecated (⛔).
+  L10b is a Svelte 5 web app (including the LiDAR Status, Debug, Regions and Sweep pages), and
+  L10c is a native macOS Metal visualiser with gRPC streaming. The legacy Go-embedded HTML
+  dashboard (L10d) was deleted in v0.5.2; its letter is not reused.
 
 **Legend**
 
@@ -1208,19 +1207,19 @@ Canonical layer reference:
 Development is tracked in the [backlog](docs/BACKLOG.md), organised by version.
 The versions most relevant to system architecture:
 
-| Version | Theme                     | Key Capabilities                                                                                                                                              |
-| ------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| v0.5.2  | ECharts Retirement        | go-echarts and the chart JSON API removed, Go grid view, Svelte replay form, regions dashboard and sweep controls, LayerChart rewrite, :8081 listener retired |
-| v0.5.3  | Following-Distance MVP    | Solid-body geometry, occlusion continuity, calibrated uncertainty, bumper-to-bumper gap, scenes distribution, clip, labels and sites renames                  |
-| v0.5.4  | PET & Behaviour Metrics   | Post-encroachment time, passing clearance, transit record and behaviour-label pipeline                                                                        |
-| v0.5.5  | Estimate Display          | Trail correctness, deterministic track identity, speed metric redesign, data structure remediation                                                            |
-| v0.5.6  | Stream Stability          | Frame-drop accounting, gRPC stream cleanup, VRLOG timestamp index, transport soak across hosts                                                                |
-| v0.6.0  | TDL Query Foundations     | Transit query table, radar transit union, vocabulary registry, parser, query builder, aggregation API                                                         |
-| v0.6.1  | TDL Description Interface | Transit browser, aggregate statistics dashboard, vector-scene replay, TDL-scoped PDF reports                                                                  |
-| v0.6.2  | Deployment & Packaging    | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking                                                  |
-| v0.7.0  | United Frontend           | One scene lineage, recording-period operator workflows, Svelte SVG chart consumption, track labelling UI in Swift                                             |
-| v1.0    | Scene Layer               | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                                                                     |
-| v2.0    | ML & Automation           | ML classifier benchmarking, automated hyperparameter search, velocity-coherent foreground extraction                                                          |
+| Version | Theme                     | Key Capabilities                                                                                                                                                                  |
+| ------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| v0.5.2  | ECharts Retirement        | go-echarts removed (chart JSON API kept for the Svelte debug page), Go grid view, Svelte replay form, regions page and sweep controls, LayerChart rewrite, :8081 listener retired |
+| v0.5.3  | Following-Distance MVP    | Solid-body geometry, occlusion continuity, calibrated uncertainty, bumper-to-bumper gap, scenes distribution, clip, labels and sites renames                                      |
+| v0.5.4  | PET & Behaviour Metrics   | Post-encroachment time, passing clearance, transit record and behaviour-label pipeline                                                                                            |
+| v0.5.5  | Estimate Display          | Trail correctness, deterministic track identity, speed metric redesign, data structure remediation                                                                                |
+| v0.5.6  | Stream Stability          | Frame-drop accounting, gRPC stream cleanup, VRLOG timestamp index, transport soak across hosts                                                                                    |
+| v0.6.0  | TDL Query Foundations     | Transit query table, radar transit union, vocabulary registry, parser, query builder, aggregation API                                                                             |
+| v0.6.1  | TDL Description Interface | Transit browser, aggregate statistics dashboard, vector-scene replay, TDL-scoped PDF reports                                                                                      |
+| v0.6.2  | Deployment & Packaging    | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking                                                                      |
+| v0.7.0  | United Frontend           | One scene lineage, recording-period operator workflows, Svelte SVG chart consumption, track labelling UI in Swift                                                                 |
+| v1.0    | Scene Layer               | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                                                                                         |
+| v2.0    | ML & Automation           | ML classifier benchmarking, automated hyperparameter search, velocity-coherent foreground extraction                                                                              |
 
 The project ships incrementally.
 Each version has a design document per work item; the backlog links to all of them.

@@ -49,10 +49,10 @@ These packages need only a handful of additional test cases.
 
 ### Web
 
-| File                 | Current | Gap  | What to Test                                    |
-| -------------------- | ------- | ---- | ----------------------------------------------- |
-| `sweep_dashboard.js` | 95.1%   | 0.4% | ~7 uncovered branches in chart-update paths     |
-| `api.ts`             | 94.8%   | 0.7% | ~5 uncovered error/retry branches in API client |
+| File                 | Current | Gap  | What to Test                                                         |
+| -------------------- | ------- | ---- | -------------------------------------------------------------------- |
+| `sweep_dashboard.js` | 95.1%   | 0.4% | Deleted in v0.5.2 with the `:8081` sweep dashboard; nothing to cover |
+| `api.ts`             | 94.8%   | 0.7% | ~5 uncovered error/retry branches in API client                      |
 
 ### Python
 
@@ -218,8 +218,8 @@ coverage requires a macOS runner with Metal support).
 2. **Tier 1 packages**: Pick off every package within 2% of the target.
    These are small, self-contained PRs with clear scope.
 
-3. **Web files**: `sweep_dashboard.js` and `api.ts` each need fewer than
-   10 additional test assertions.
+3. **Web files**: `api.ts` needs fewer than 10 additional test assertions
+   (`sweep_dashboard.js` was deleted in v0.5.2).
 
 ### Phase 2: strengthen the core (weeks 2–4)
 

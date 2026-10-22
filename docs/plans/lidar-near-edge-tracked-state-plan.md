@@ -298,7 +298,7 @@ What this buys: a run of a real capture through the real server with the body on
 tool can review it against a reviewed pack, the visualiser can draw it, and
 `lidar_track_solid_bodies` fills from a run rather than a test. With `near_edge_track` set the
 body is the tracked state, so once the live path has full members and an origin, the sweep,
-auto-tune and HINT, which score `lidar_run_tracks`, score the tracked arm on :8081 without change. The shadow arms still score offline only: the corpus
+auto-tune and HINT, which score `lidar_run_tracks`, score the tracked arm on the server without change. The shadow arms still score offline only: the corpus
 tool's per-case summary, the per-frame evaluator's paired arms, and the headway field run with
 `--solid-bodies`. It does not promote anything: no arm leaves its default-off state without the
 held-out evidence the October campaign says is still missing.

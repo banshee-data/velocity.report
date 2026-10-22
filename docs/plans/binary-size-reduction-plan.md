@@ -206,12 +206,13 @@ Wire into `make lint`:
 
 These are diminishing returns but worth considering:
 
-### 4.1 Replace embedded `echarts.min.js` with lightweight alternative
+### 4.1 Replace embedded `echarts.min.js` with lightweight alternative ✅
 
-[internal/lidar/l9endpoints/l10clients/assets/echarts.min.js](../../internal/lidar/l9endpoints/l10clients/assets/echarts.min.js) is 1.1 MB embedded for
-the LiDAR status/dashboard pages. If these pages migrate to the Svelte frontend (tracked
-by [web-frontend-consolidation-plan](web-frontend-consolidation-plan.md)), echarts can
-be removed from the Go binary. Saving: ~1 MB.
+Done in v0.5.2 (branch `claude/echarts-svelte-migration-83fbd5`, pending PR). The 1.1 MB
+`echarts.min.js` embedded for the LiDAR status and dashboard pages left the Go binary with
+those pages, which moved to the Svelte frontend
+([web-frontend-consolidation-plan](web-frontend-consolidation-plan.md)); `go-echarts` left
+`go.mod` in the same release. Expected saving: ~1 MB, not yet measured.
 
 ### 4.2 UPX compression
 
@@ -275,6 +276,6 @@ excessive was the build hygiene.
 
 ### Deferred
 
-- [ ] Remove embedded `echarts.min.js`: gated on LiDAR status page migration to Svelte
+- [x] Remove embedded `echarts.min.js`: done in v0.5.2 with the LiDAR status page migration to Svelte
 - [ ] Evaluate UPX for deployments where binary size is critical: not recommended for RPi
 - [ ] Lazy-load Leaflet via dynamic import: tracked as general frontend optimisation

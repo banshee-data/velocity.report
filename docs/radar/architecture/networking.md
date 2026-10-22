@@ -15,7 +15,9 @@ The sensor subnet is a dedicated point-to-point link between the Raspberry Pi an
 
 ## Listener architecture
 
-The server binds three distinct listener classes, each with a different trust level:
+The server's HTTP routes fall into three classes, each with a different trust level. Since
+v0.5.2 all three are on one HTTP listener (`--listen`); the separate LiDAR listener on `:8081`
+is retired, and `--lidar-listen` is accepted but ignored.
 
 ### 1. Public HTTP listener (`:8080`)
 
@@ -25,9 +27,9 @@ The radar API server. Serves the Svelte frontend and read-only data APIs.
 
 **Trust level**: LAN-accessible. Read-only data endpoints and the web UI. No destructive operations.
 
-### 2. LiDAR monitor listener (`:8081`)
+### 2. LiDAR routes (on the `:8080` listener)
 
-The LiDAR monitor HTTP server. Provides real-time LiDAR status, tuning, and data source control.
+The LiDAR HTTP API, registered on the same mux as the radar API when LiDAR is enabled. Provides real-time LiDAR status, tuning, and data source control; the Svelte LiDAR pages under `/app/lidar/` call it.
 
 **Route categories and access intent**:
 
@@ -37,7 +39,6 @@ The LiDAR monitor HTTP server. Provides real-time LiDAR status, tuning, and data
 | Tuning                | `POST /api/lidar/params`, `POST /api/lidar/sweep/*`         | LAN                                                              |
 | Data source switching | `POST /api/lidar/pcap/start`, `POST /api/lidar/replay/stop` | LAN                                                              |
 | Destructive           | `POST /api/lidar/runs/clear`                                | Feature-gated (`VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1`) |
-| Debug dashboards      | `/debug/lidar/*`                                            | LAN                                                              |
 
 **Trust level**: LAN-accessible. Tuning and data source endpoints modify runtime behaviour but do not destroy persisted data. The `/api/lidar/runs/clear` endpoint is behind `featureGate` and disabled by default.
 
@@ -55,19 +56,16 @@ Sensitive diagnostic endpoints attached to the radar mux via `tsweb.Debugger`. P
 ┌──────────────────────────────────────────────────────┐
 │                   Raspberry Pi                       │
 │                                                      │
-│  ┌──────────────┐    ┌───────────────┐               │
-│  │ Radar API    │    │ LiDAR Monitor │               │
-│  │ :8080        │    │ :8081         │               │
-│  │              │    │               │               │
-│  │ /api/events  │    │ /api/lidar/*  │               │
-│  │ /api/radar_* │    │ /debug/lidar/*│               │
-│  │ /api/sites   │    │               │               │
-│  │ /static/*    │    │ featureGate:  │               │
-│  │              │    │  runs/clear   │               │
-│  │ tsweb:       │    │               │               │
-│  │  /debug/*    │    └───────────────┘               │
-│  │  (Tailscale) │                                    │
-│  └──────────────┘                                    │
+│  ┌──────────────────────────────┐                    │
+│  │ HTTP API :8080 (--listen)    │                    │
+│  │                              │                    │
+│  │ /api/events  /api/lidar/*    │                    │
+│  │ /api/radar_* /api/charts/*   │                    │
+│  │ /api/sites   /app/*          │                    │
+│  │                              │                    │
+│  │ featureGate: runs/clear      │                    │
+│  │ tsweb: /debug/* (Tailscale)  │                    │
+│  └──────────────────────────────┘                    │
 │                                                      │
 │  ┌──────────────┐    ┌───────────────┐               │
 │  │ UDP listener │    │ Tailscale     │               │
@@ -95,16 +93,16 @@ The primary access control mechanism is **network-level segmentation** using [Ta
 
 ### Current limitations
 
-- The HTTP listeners default to loopback (`127.0.0.1:8080`, `127.0.0.1:8081`), but real deployments bind them LAN-wide: the Pi image serves the radar API on `:80` (all interfaces, via the systemd unit) and `make dev-go` uses `:8080`. Whenever a listener is bound to all interfaces, any host on a shared LAN can reach it — including the LiDAR tuning APIs when LiDAR is enabled.
-- There is no per-request authentication on the public or LiDAR listeners. The threat model assumes a private deployment LAN with no untrusted hosts.
+- The HTTP listener defaults to loopback (`127.0.0.1:8080`), but real deployments bind it LAN-wide: the Pi image serves the radar API on `:80` (all interfaces, via the systemd unit) and `make dev-go` uses `:8080`. Whenever a listener is bound to all interfaces, any host on a shared LAN can reach it — including the LiDAR tuning APIs when LiDAR is enabled.
+- There is no per-request authentication on the radar or LiDAR routes. The threat model assumes a private deployment LAN with no untrusted hosts.
 - The Svelte frontend makes unauthenticated API calls to the local server.
 
 ### Mitigations
 
 For field deployments on shared or semi-trusted networks:
 
-1. **Bind to specific interfaces**: loopback is already the binary default — pass `--listen 127.0.0.1:8080` and `--lidar-listen 127.0.0.1:8081` explicitly (overriding the image's LAN-wide `:80`) to restrict access to localhost, then expose via Tailscale only.
-2. **Firewall rules**: Use `iptables`/`nftables` to restrict access to ports 8080/8081 to specific source IPs or the Tailscale interface (`tailscale0`).
+1. **Bind to specific interfaces**: loopback is already the binary default — pass `--listen 127.0.0.1:8080` explicitly (overriding the image's LAN-wide `:80`) to restrict access to localhost, then expose via Tailscale only. The LiDAR routes follow `--listen`.
+2. **Firewall rules**: Use `iptables`/`nftables` to restrict access to the HTTP port (8080, or 80 on the image) to specific source IPs or the Tailscale interface (`tailscale0`).
 3. **Tailscale ACLs**: Use Tailscale ACL policies to control which peers can reach the device.
 
 ## Future work: user API authentication

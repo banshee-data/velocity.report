@@ -8,6 +8,7 @@ The sweep tool ([internal/cmd/tune](../../../internal/cmd/tune)) automates param
    ```bash
    make dev-go   # Local development server (radar disabled)
    ```
+   The LiDAR API is on the main listener (`:8080`); the separate `:8081` listener was retired in v0.5.2. To run a sweep from the browser instead of the command line, use the Run a Sweep page (`/app/lidar/sweeps/run`).
 2. A golden PCAP file captured at the deployment site. This file should contain representative traffic (vehicles, pedestrians, cyclists) to test detection quality.
 3. The unified `velocity` binary:
    ```bash
@@ -44,7 +45,7 @@ Sweeps all combinations of background detection parameters:
 
 ```bash
 ./velocity tune sweep \
-  -monitor http://localhost:8081 \
+  -monitor http://localhost:8080 \
   -pcap /path/to/golden.pcap \
   -mode multi \
   -noise 0.005,0.01,0.015,0.02,0.025,0.03 \
@@ -101,7 +102,7 @@ The output CSV contains per-combination metrics:
 
 | Flag           | Default                 | Description                                  |
 | -------------- | ----------------------- | -------------------------------------------- |
-| `-monitor`     | `http://localhost:8081` | Base URL for the LiDAR monitor HTTP API      |
+| `-monitor`     | `http://localhost:8080` | Base URL of the server's LiDAR HTTP API      |
 | `-sensor`      | `hesai-pandar40p`       | Sensor ID                                    |
 | `-pcap`        | _(none)_                | PCAP file to replay for each combination     |
 | `-pcap-settle` | `20s`                   | Wait time after PCAP replay before sampling  |
@@ -145,10 +146,10 @@ Background parameters are set via the HTTP API. They are **not** currently expos
 
 ```bash
 # Read current parameters
-curl -s http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p | jq .
+curl -s http://localhost:8080/api/lidar/params?sensor_id=hesai-pandar40p | jq .
 
 # Apply optimised parameters
-curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p \
+curl -s -X POST http://localhost:8080/api/lidar/params?sensor_id=hesai-pandar40p \
   -H 'Content-Type: application/json' \
   -d '{
     "noise_relative": 0.015,
@@ -170,10 +171,10 @@ Tracker configuration is now part of the unified `/api/lidar/params` endpoint al
 
 ```bash
 # Read all config including tracker params
-curl -s http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p | jq .
+curl -s http://localhost:8080/api/lidar/params?sensor_id=hesai-pandar40p | jq .
 
 # Apply optimised tracker parameters (partial update — only send fields you want to change)
-curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p \
+curl -s -X POST http://localhost:8080/api/lidar/params?sensor_id=hesai-pandar40p \
   -H 'Content-Type: application/json' \
   -d '{
     "gating_distance_squared": 36.0,
@@ -196,7 +197,7 @@ Parameters set via the API are applied at runtime but **not persisted across res
 After changing background parameters, you should reset the background grid to let it rebuild with the new settings:
 
 ```bash
-curl -s -X POST http://localhost:8081/api/lidar/grid_reset?sensor_id=hesai-pandar40p
+curl -s -X POST http://localhost:8080/api/lidar/grid_reset?sensor_id=hesai-pandar40p
 ```
 
 The sweep tool does this automatically between combinations.
@@ -236,7 +237,7 @@ make dev-go
   -mnoise-start 0.1 -mnoise-end 0.3 -mnoise-step 0.05
 
 # 6. Apply the best combination and visually verify
-curl -s -X POST http://localhost:8081/api/lidar/params?sensor_id=hesai-pandar40p \
+curl -s -X POST http://localhost:8080/api/lidar/params?sensor_id=hesai-pandar40p \
   -H 'Content-Type: application/json' \
   -d '{
     "noise_relative": 0.015,

@@ -521,7 +521,7 @@ Notes that matter for using it:
 
 ### 5.1 Why not the 8081 UI
 
-The legacy LiDAR web UI in `internal/lidar/server` is not the place for this. The run detail work
+The legacy LiDAR web UI in `internal/lidar/server` (deleted in v0.5.2) was not the place for this. The run detail work
 belongs in the Svelte app, which already calls `/api/lidar/runs` through the Vite proxy and already
 renders run tracks. D2.4 extends a page that exists rather than adding a second place to look.
 

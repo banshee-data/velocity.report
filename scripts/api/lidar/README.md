@@ -1,6 +1,6 @@
 # Local API helper scripts
 
-Small shell helpers for exercising the local monitor API used during PCAP replay debugging.
+Small shell helpers for exercising the local LiDAR API (served by the main server on `:8080`) during PCAP replay debugging.
 
 ## Direct script usage
 
@@ -90,7 +90,7 @@ All scripts connect to `http://127.0.0.1:8080` and require `jq` for pretty JSON 
 | `/api/lidar/persist`           | `trigger_persist.sh`    | `api-persist`            | Trigger manual snapshot                   |
 | `/api/lidar/export_snapshot`   | `export_snapshot.sh`    | `api-export-snapshot`    | Export snapshot to ASC                    |
 | `/api/lidar/export_next_frame` | `export_next_frame.sh`  | `api-export-next-frame`  | Export next frame to ASC                  |
-| `/api/lidar/status`            | `get_status.sh`         | `api-status`             | Get current data source + monitor stats   |
+| `/api/lidar/status`            | `get_status.sh`         | `api-status`             | Get current data source and LiDAR stats   |
 | `/api/lidar/pcap/start`        | `start_pcap.sh`         | `api-start-pcap`         | Start PCAP replay (switch to PCAP source) |
 | `/api/lidar/pcap/stop`         | `stop_pcap.sh`          | `api-stop-pcap`          | Stop PCAP replay (return to live source)  |
 | `/api/lidar/data_source`       | `switch_data_source.sh` | `api-switch-data-source` | Convenience wrapper for start/stop        |

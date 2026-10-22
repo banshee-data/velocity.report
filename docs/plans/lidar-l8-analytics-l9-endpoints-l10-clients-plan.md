@@ -4,6 +4,7 @@
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients
 - **Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema standardisation 000030–000031](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)
 - **Canonical:** [l8-l9-l10-migration-notes.md](../lidar/architecture/l8-l9-l10-migration-notes.md)
+- **Note:** the transitional `l9endpoints/l10clients/` asset subtree this plan created was deleted in v0.5.2 with the legacy dashboards, `legacy_assets.go`, `echarts_handlers.go` and go-echarts, once the Svelte LiDAR pages replaced them ([surface consolidation](web-frontend-consolidation-plan.md#v052-delivery)). Its mentions below are the record of the transition.
 
 ## Executive summary
 
@@ -37,13 +38,13 @@ This plan now directly absorbs the two backlog items currently attached to it:
 
 Adjacent backlog items that influence sequencing but remain separate deliverables:
 
-| Item                                                                                                                    | Why it matters here                                                                      | Rule for this plan                                                                                                                                                  |
-| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Track speed metric redesign + aggregate-only percentiles`                                                              | defines canonical percentile semantics                                                   | use its decisions when shaping `l8analytics/percentiles.go`; do not re-litigate metric naming here                                                                  |
-| `Schema simplification (migration 000030)`                                                                              | removes dead per-track percentile columns and renames `peak_speed_mps` → `max_speed_mps` | treat as follow-on storage cleanup once the `L8` API is stable                                                                                                      |
-| `LiDAR tracks table consolidation`                                                                                      | depends on shared track analytics and storage helpers                                    | sequence after Phase 2, not before                                                                                                                                  |
-| `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                                    | rebase those implementations onto `l9endpoints/` during or after Phase 3                                                                                            |
-| `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface                 | treat [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) as transitional only; delete it once consolidated frontend parity lands |
+| Item                                                                                                                    | Why it matters here                                                                      | Rule for this plan                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `Track speed metric redesign + aggregate-only percentiles`                                                              | defines canonical percentile semantics                                                   | use its decisions when shaping `l8analytics/percentiles.go`; do not re-litigate metric naming here                     |
+| `Schema simplification (migration 000030)`                                                                              | removes dead per-track percentile columns and renames `peak_speed_mps` → `max_speed_mps` | treat as follow-on storage cleanup once the `L8` API is stable                                                         |
+| `LiDAR tracks table consolidation`                                                                                      | depends on shared track analytics and storage helpers                                    | sequence after Phase 2, not before                                                                                     |
+| `Visualiser track proto parity`, `debug overlay + cluster proto follow-through`, `performance and scene health metrics` | all depend on a stable `L9` contract and package path                                    | rebase those implementations onto `l9endpoints/` during or after Phase 3                                               |
+| `Frontend consolidation (Phases 0-5)` and `Retire Go-embedded dashboards`                                               | define the deletion point for the legacy ECharts and HTML client surface                 | treat `internal/lidar/l9endpoints/l10clients/` as transitional only; delete it once consolidated frontend parity lands |
 
 ## Repository baseline
 
@@ -98,7 +99,7 @@ There is no [internal/lidar/l8analytics/](../../internal/lidar/l8analytics) pack
 - [web/src/routes/lidar/](../../web/src/routes/lidar)
 - [tools/visualiser-macos/](../../tools/visualiser-macos)
 - `tools/pdf-generator/`
-- `internal/lidar/monitor/html/` and `internal/lidar/monitor/assets/` plus the embedded ECharts sweep/dashboard pages that should move to [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
+- `internal/lidar/monitor/html/` and `internal/lidar/monitor/assets/` plus the embedded ECharts sweep/dashboard pages that should move to `internal/lidar/l9endpoints/l10clients/`
 
 ### Existing docs still lag the code
 
@@ -113,18 +114,18 @@ The six-layer model is still described in multiple places, including:
 
 ## Target ten-layer model
 
-| Layer | Label      | Responsibility                                                                                                                                                                                                                                                           |
-| ----- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| L1    | Packets    | wire transport, UDP capture, PCAP replay, packet parsing                                                                                                                                                                                                                 |
-| L2    | Frames     | frame assembly, timestamps, geometry conversion, exports                                                                                                                                                                                                                 |
-| L3    | Grid       | background model, foreground masking, persistence, drift, regions                                                                                                                                                                                                        |
-| L4    | Perception | per-frame scene interpretation, clustering, OBBs, ground removal                                                                                                                                                                                                         |
-| L5    | Tracks     | temporal association, identity, lifecycle, motion estimation                                                                                                                                                                                                             |
-| L6    | Objects    | semantic actor interpretation and per-object quality/classification                                                                                                                                                                                                      |
-| L7    | Scene      | persistent evidence-accumulated world model and multi-sensor fusion; see [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md)                                                                                                                                                |
-| L8    | Analytics  | canonical metrics, summaries, comparisons, scoring, evaluation logic                                                                                                                                                                                                     |
-| L9    | Endpoints  | server-side payload shaping, gRPC stream contract, dashboard APIs, debug views, review payloads                                                                                                                                                                          |
-| L10   | Clients    | browser, native, and report-generation consumers of `L9` contracts; during the transition, deprecated embedded dashboards may live under [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) until frontend consolidation removes them |
+| Layer | Label      | Responsibility                                                                                                                                                                                                              |
+| ----- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| L1    | Packets    | wire transport, UDP capture, PCAP replay, packet parsing                                                                                                                                                                    |
+| L2    | Frames     | frame assembly, timestamps, geometry conversion, exports                                                                                                                                                                    |
+| L3    | Grid       | background model, foreground masking, persistence, drift, regions                                                                                                                                                           |
+| L4    | Perception | per-frame scene interpretation, clustering, OBBs, ground removal                                                                                                                                                            |
+| L5    | Tracks     | temporal association, identity, lifecycle, motion estimation                                                                                                                                                                |
+| L6    | Objects    | semantic actor interpretation and per-object quality/classification                                                                                                                                                         |
+| L7    | Scene      | persistent evidence-accumulated world model and multi-sensor fusion; see [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md)                                                                                                   |
+| L8    | Analytics  | canonical metrics, summaries, comparisons, scoring, evaluation logic                                                                                                                                                        |
+| L9    | Endpoints  | server-side payload shaping, gRPC stream contract, dashboard APIs, debug views, review payloads                                                                                                                             |
+| L10   | Clients    | browser, native, and report-generation consumers of `L9` contracts; during the transition, deprecated embedded dashboards may live under `internal/lidar/l9endpoints/l10clients/` until frontend consolidation removes them |
 
 ## Design rules
 
@@ -132,7 +133,7 @@ The six-layer model is still described in multiple places, including:
 - `L8 Analytics` may depend on `L1-L7`, but never on HTML, Svelte, Swift, chart libraries, or transport-layer response types.
 - `L9 Endpoints` may depend on `L8` outputs and selected lower-layer artifacts needed for debug rendering, but it does not define canonical metrics or comparisons.
 - `L10 Clients` render and interact; they do not recompute canonical analytics locally.
-- [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) is allowed only as a transitional asset subtree for deprecated embedded HTML, JS, and CSS. It must contain no Go files. `go:embed` directives and serving code stay in `l9endpoints/`. The subtree is not a permanent canonical layer and should disappear after frontend consolidation.
+- `internal/lidar/l9endpoints/l10clients/` is allowed only as a transitional asset subtree for deprecated embedded HTML, JS, and CSS. It must contain no Go files. `go:embed` directives and serving code stay in `l9endpoints/`. The subtree is not a permanent canonical layer and should disappear after frontend consolidation.
 - `storage/sqlite` is persistence, not a permanent analytics owner.
 - `monitor/` is transitional application code in the current tree, not a canonical domain layer.
 - If a value is needed by web, Swift, or PDF consumers, the default answer is: compute it in `L8`, expose it in `L9`, render it in `L10`.
@@ -147,7 +148,7 @@ Backlog coverage: first half of the `v0.5.1` backlog item.
 
 - Update the canonical LiDAR docs from six layers to ten layers.
 - Document `L9 Endpoints` as the explicit successor name for the current `visualiser/` package.
-- Document `L10 Clients` as a documentation-only steady state, while explicitly allowing a temporary asset-only [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) subtree for deprecated embedded dashboards pending frontend consolidation.
+- Document `L10 Clients` as a documentation-only steady state, while explicitly allowing a temporary asset-only `internal/lidar/l9endpoints/l10clients/` subtree for deprecated embedded dashboards pending frontend consolidation.
 - Update package docs under [internal/lidar/l1packets/](../../internal/lidar/l1packets) through [internal/lidar/l6objects/](../../internal/lidar/l6objects).
 - Add a short migration note explaining that the codebase will move from `visualiser/` plus `monitor/` into `l9endpoints/` plus `server/`.
 
@@ -311,8 +312,8 @@ Move the endpoint-layer code out of `monitor/`:
 
 Split the legacy embedded client surface out separately:
 
-- split `echarts_handlers.go` into server-side route and response glue that stays with `L9`, and page-specific ECharts/dashboard client code that moves to [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
-- move `html/`, `assets/`, the sweep ECharts page, and the remaining embedded HTML, JS, and CSS dashboard assets into [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
+- split `echarts_handlers.go` into server-side route and response glue that stays with `L9`, and page-specific ECharts/dashboard client code that moves to `internal/lidar/l9endpoints/l10clients/`
+- move `html/`, `assets/`, the sweep ECharts page, and the remaining embedded HTML, JS, and CSS dashboard assets into `internal/lidar/l9endpoints/l10clients/`
 - keep all Go embedding and asset-serving code in [internal/lidar/l9endpoints/](../../internal/lidar/l9endpoints), with `templates.go` or a dedicated `legacy_assets.go` owning the `go:embed` directives
 - ensure the embedded asset subtree is compiled into the Go binary with no runtime dependency on external asset files
 
@@ -328,12 +329,12 @@ Recommended shape:
 
 Split the remaining mixed package into named roles:
 
-| Target package                                                                        | Takes ownership of                                                                                                                                                                                                                      |
-| ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [internal/lidar/server/](../../internal/lidar/server)                                 | `webserver.go`, `datasource.go`, `datasource_handlers.go`, `playback_handlers.go`, `stats.go`, `mock_background.go`, `track_api.go`, `run_track_api.go`, `scene_api.go`, `sweep_handlers.go`, `export_handlers.go`, `pcap_files_api.go` |
-| [internal/lidar/l9endpoints/](../../internal/lidar/l9endpoints)                       | existing streaming and visualiser code plus chart and debug endpoint code moved in 3B, plus template and `go:embed` glue for the legacy asset subtree                                                                                   |
-| [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) | deprecated embedded ECharts sweep/dashboard HTML, JS, CSS, and related asset bundles kept only until consolidated frontend replaces them; asset-only subtree, no Go files                                                               |
-| `internal/lidar/client/` or [internal/lidar/sweep/](../../internal/lidar/sweep)       | `client.go` and `direct_backend.go`, depending on which interface boundary produces the cleaner dependency graph                                                                                                                        |
+| Target package                                                                  | Takes ownership of                                                                                                                                                                                                                      |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [internal/lidar/server/](../../internal/lidar/server)                           | `webserver.go`, `datasource.go`, `datasource_handlers.go`, `playback_handlers.go`, `stats.go`, `mock_background.go`, `track_api.go`, `run_track_api.go`, `scene_api.go`, `sweep_handlers.go`, `export_handlers.go`, `pcap_files_api.go` |
+| [internal/lidar/l9endpoints/](../../internal/lidar/l9endpoints)                 | existing streaming and visualiser code plus chart and debug endpoint code moved in 3B, plus template and `go:embed` glue for the legacy asset subtree                                                                                   |
+| `internal/lidar/l9endpoints/l10clients/`                                        | deprecated embedded ECharts sweep/dashboard HTML, JS, CSS, and related asset bundles kept only until consolidated frontend replaces them; asset-only subtree, no Go files                                                               |
+| `internal/lidar/client/` or [internal/lidar/sweep/](../../internal/lidar/sweep) | `client.go` and `direct_backend.go`, depending on which interface boundary produces the cleaner dependency graph                                                                                                                        |
 
 Specific rules for this subphase:
 
@@ -361,7 +362,7 @@ Complete the structural refactor with the artifacts that keep it maintainable:
 - [internal/lidar/l9endpoints/](../../internal/lidar/l9endpoints) is the canonical Go home for `L9 Endpoints`
 - `monitor/` no longer contains chart, view-model, client-asset, or analytics logic
 - the remaining HTTP application layer has an explicit home under `server/`
-- legacy embedded dashboards live under [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients), contain no Go code, and are embedded into the Go binary by `l9endpoints/`
+- legacy embedded dashboards live under `internal/lidar/l9endpoints/l10clients/`, contain no Go code, and are embedded into the Go binary by `l9endpoints/`
 - `L10` clients consume stable `L9` contracts rather than hidden `monitor/` internals
 - the backlog item currently named `L8/L9/L10 layer refactor Phases 4-5` is complete in substance
 
@@ -386,7 +387,7 @@ internal/lidar/
 └── ...
 ```
 
-Long term, `L10 Clients` remains a documentation label spanning `web/`, [tools/visualiser-macos/](../../tools/visualiser-macos), and `tools/pdf-generator/`. During the transition, [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) is allowed as a temporary asset-only subtree for deprecated embedded dashboards. It contains no Go code, is embedded into the Go binary by `l9endpoints/`, and should be removed once the consolidated frontend replaces those clients.
+Long term, `L10 Clients` remains a documentation label spanning `web/`, [tools/visualiser-macos/](../../tools/visualiser-macos), and `tools/pdf-generator/`. During the transition, `internal/lidar/l9endpoints/l10clients/` is allowed as a temporary asset-only subtree for deprecated embedded dashboards. It contains no Go code, is embedded into the Go binary by `l9endpoints/`, and should be removed once the consolidated frontend replaces those clients.
 
 ## Risks and guardrails
 
@@ -421,7 +422,7 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `docs/lidar/terminology.md` updated to the ten-layer terminology
 - [x] relevant package doc comments under [internal/lidar/l1packets/](../../internal/lidar/l1packets) through [internal/lidar/l6objects/](../../internal/lidar/l6objects) updated
 - [x] `L9 Endpoints` and `L10 Clients` naming documented
-- [x] transitional [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients) exception documented as temporary, asset-only, and not canonical
+- [x] transitional `internal/lidar/l9endpoints/l10clients/` exception documented as temporary, asset-only, and not canonical
 - [x] breaking-change rationale documented
 - [x] migration note scaffolded early enough to guide the later package moves
 
@@ -480,9 +481,9 @@ This checklist is intentionally verbose. It preserves the file-level and migrati
 - [x] `gridplotter.go` moved to `l9endpoints/`
 - [x] `chart_api.go` thinned to handler shell in `server/chart_api.go`; data prep delegates to `l9endpoints`
 - [x] `echarts_handlers.go` confirmed: all 9 handlers are route/response glue (parseRequest → getData → renderHTML); no page-specific analytics to extract
-- [x] legacy HTML assets moved into [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
-- [x] legacy JS assets moved into [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
-- [x] legacy CSS assets moved into [internal/lidar/l9endpoints/l10clients/](../../internal/lidar/l9endpoints/l10clients)
+- [x] legacy HTML assets moved into `internal/lidar/l9endpoints/l10clients/`
+- [x] legacy JS assets moved into `internal/lidar/l9endpoints/l10clients/`
+- [x] legacy CSS assets moved into `internal/lidar/l9endpoints/l10clients/`
 - [x] legacy `html/` and `assets/` directories moved out of `monitor/` and re-homed under the transitional `l10clients/` asset subtree
 - [x] `l10clients/` contains no Go files
 - [x] `go:embed` directives in `l9endpoints/` include the legacy client subtree (`legacy_assets.go`)

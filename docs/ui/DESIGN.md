@@ -45,16 +45,14 @@ PDF is a surface, not a rendering engine. The mechanism that produces the charts
 
 Chart rendering is converging on a single SVG-first pipeline:
 
-- **Web:** LayerChart/d3-scale components producing inline SVG in Svelte; report-view charts and the scene route's headway distribution are Go-served SVG from `/api/charts/*`, embedded through `InlineSvgChart` (D-11, D-17)
+- **Web:** LayerChart/d3-scale components producing inline SVG in Svelte; report-view charts, the scene route's headway distribution and the LiDAR background grid (`/api/charts/grid`) are Go-served SVG from `/api/charts/*`, embedded through `InlineSvgChart` (D-11, D-17). Since v0.5.2 the LiDAR operator charts (Debug, Sweep and the sweeps list) use LayerChart through the shared components in [web/src/lib/components/charts](../../web/src/lib/components/charts); the Background Regions map is a canvas raster (§5.4)
 - **Public scenes:** dependency-free SVG charts fed by static scene summaries
 - **PDF (current):** Go native SVG generation (`internal/report/chart/`) → Typst templates (`internal/report/typst/`) → PDF via `typst`
 - **PDF (removed):** Python matplotlib report pipeline, superseded by Go + Typst pipeline; directory deleted from repository
 
 The Python matplotlib stack has been replaced by the Go pipeline (v0.5). New chart work should not add matplotlib dependencies.
 
-Out of scope for new design work:
-
-- legacy Go-embedded LiDAR dashboards under `internal/lidar/monitor/` (migration target, not style baseline)
+The legacy Go-embedded LiDAR dashboards, once out of scope here as a migration target, were deleted in v0.5.2; their Svelte replacements follow this spec.
 
 ## 3. Shared design language (cross-platform contract)
 
@@ -227,6 +225,7 @@ Rules:
 
 - Avoid page-local, hand-built chart SVGs in route files when a reusable chart component can be used.
 - If native SVG/Canvas is used, wrap it in a reusable component and document the reason.
+- The Background Regions map (`/app/lidar/regions`) is an accepted canvas exception: it draws one block per grid cell (40 × 1800, some 72,000 cells, on a Pandar40P), too many marks for SVG. The reason is documented in the page.
 - Keep chart semantics (legend order, metric colours, ticks, labels) aligned with this spec regardless of renderer.
 
 ### 5.5 CSS standards and DRY rules
@@ -280,7 +279,7 @@ The macOS visualiser follows native platform conventions:
 | ------- | ----------------------------------------- | ------------------------------------------- | -------- |
 | Web     | LayerChart/d3-scale (inline SVG)          | LayerChart/d3-scale (inline SVG)            | Stable   |
 | PDF     | Python matplotlib (removed in v0.5)       | Go native SVG → Typst → PDF                 | Complete |
-| macOS   | Swift/Metal (3D), ECharts (2D sparklines) | Swift/Metal (3D), percentile palette for 2D | Stable   |
+| macOS   | Swift/Metal (3D), SwiftUI (2D sparklines) | Swift/Metal (3D), percentile palette for 2D | Stable   |
 
 The current Go PDF pipeline ([internal/report/](../../internal/report/)) renders charts as SVG and embeds them directly into Typst output. The current migration/design record is [pdf-typst-migration-plan.md](../plans/pdf-typst-migration-plan.md).
 

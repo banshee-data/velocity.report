@@ -1,6 +1,6 @@
 # Local API helper scripts
 
-Small shell helpers for exercising the local monitor API used during PCAP replay debugging.
+Small shell helpers for exercising the local LiDAR API (served by the main server on `:8080`) during PCAP replay debugging.
 
 ## Direct script usage
 

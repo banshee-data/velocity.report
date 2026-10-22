@@ -72,8 +72,6 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Layer          | File                   | Endpoint                                        | DB  | Web | Mac |
 | -------------- | ---------------------- | ----------------------------------------------- | --- | --- | --- |
 | Status         | `routes.go`            | `GET /health`                                   | -   | ✅  | -   |
-| Status         | `routes.go`            | `GET /api/lidar/server`                         | -   | -   | -   |
-| Status         | `routes.go`            | `GET /api/lidar/monitor`                        | -   | ✅  | -   |
 | Status         | `routes.go`            | `GET /api/lidar/status`                         | -   | ✅  | -   |
 | Status         | `routes.go`            | `POST /api/lidar/persist`                       | ✅  | ✅  | -   |
 | Snapshot       | `routes.go`            | `GET /api/lidar/snapshot`                       | ✅  | ✅  | -   |
@@ -104,6 +102,8 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Background     | `routes.go`            | `POST /api/lidar/grid_reset`                    | ✅  | ✅  | -   |
 | Background     | `routes.go`            | `GET /api/lidar/grid_heatmap`                   | -   | ✅  | -   |
 | Background     | `routes.go`            | `GET /api/lidar/background/grid`                | ✅  | ✅  | -   |
+| Background     | `routes.go`            | `GET /api/lidar/background/regions`             | -   | ✅  | -   |
+| Background     | `grid_chart.go`        | `GET /api/charts/grid` (SVG)                    | -   | ✅  | -   |
 | PCAP           | `routes.go`            | `GET /api/lidar/data_source`                    | -   | ✅  | -   |
 | PCAP           | `routes.go`            | `POST /api/lidar/pcap/start`                    | -   | ✅  | -   |
 | PCAP           | `routes.go`            | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
@@ -1065,10 +1065,10 @@ visualisation and debugging, not analysis or reporting. No wiring gap.
 
 ---
 
-## 15. ECharts dashboard endpoints
+## 15. Debug chart endpoints
 
 **Go source:** `internal/lidar/server/chart_api.go` + `routes.go`
-**Consumer:** Embedded ECharts dashboards (served from `/assets/*` via `go:embed`)
+**Consumer:** the Svelte LiDAR Debug page (`web/src/routes/lidar/debug/`)
 
 | Endpoint                      | Method | Data Source       | DB  | Web | Mac |
 | ----------------------------- | ------ | ----------------- | --- | --- | --- |
@@ -1078,10 +1078,11 @@ visualisation and debugging, not analysis or reporting. No wiring gap.
 | `/api/lidar/chart/clusters`   | GET    | Cluster positions | -   | ✅  | -   |
 | `/api/lidar/chart/traffic`    | GET    | Track activity    | -   | ✅  | -   |
 
-**Notes:** These endpoints return ECharts-compatible JSON for the debug
-dashboards at `/debug/lidar/*`. They are consumed by embedded HTML pages
-(not the Svelte SPA). The Svelte frontend uses LayerChart for its own
-charts (e.g. `RadarOverviewChart.svelte` consuming `/api/radar_stats`).
+**Notes:** These endpoints return structured JSON that the Svelte LiDAR
+Debug page (`/app/lidar/debug`) draws with LayerChart. The go-echarts
+pages and embedded dashboards that read them before v0.5.2 are deleted.
+The same page embeds the background grid SVG from `GET /api/charts/grid`
+(§2).
 
 ---
 
@@ -1123,8 +1124,8 @@ design debt is now retired in the live database schema.
 
 ## 18. Debug / admin routes
 
-Embedded HTML dashboards and diagnostic endpoints. Not part of the
-application API but served by the same HTTP servers.
+Diagnostic endpoints. Not part of the application API but served by the
+same HTTP server.
 
 ### Radar server ([internal/api/server.go](../../internal/api/server.go))
 
@@ -1144,21 +1145,12 @@ application API but served by the same HTTP servers.
 
 ### LiDAR server (`internal/lidar/server/routes.go`)
 
-| Route                                       | Purpose                 |
-| ------------------------------------------- | ----------------------- |
-| `/debug/lidar`                              | Main debug dashboard    |
-| `/debug/lidar/sweep`                        | Sweep debug page        |
-| `/debug/lidar/background/polar`             | Polar chart (ECharts)   |
-| `/debug/lidar/background/heatmap`           | Heatmap chart (ECharts) |
-| `/debug/lidar/background/regions`           | Regions display         |
-| `/debug/lidar/background/regions/dashboard` | Regions dashboard       |
-| `/debug/lidar/foreground`                   | Foreground debug        |
-| `/debug/lidar/traffic`                      | Traffic debug           |
-| `/debug/lidar/clusters`                     | Clusters debug          |
-| `/debug/lidar/tracks`                       | Tracks debug            |
+None. The `/debug/lidar/*` dashboards were deleted in v0.5.2; the Svelte
+LiDAR Status, Debug, Regions and Sweep pages under `/app/lidar/` replace
+them, and the regions JSON moved to `GET /api/lidar/background/regions`
+(§2).
 
-**Notes:** The LiDAR debug dashboards consume the chart API endpoints
-documented in §15. The radar server debug routes are attached via
+**Notes:** The radar server debug routes, including pprof, are attached via
 `db.AttachAdminRoutes()` → `tsweb.Debugger()`.
 
 ---
@@ -1170,13 +1162,13 @@ documented in §15. The radar server debug routes are attached via
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 103   | 63  | 85  | 11  |
+| HTTP endpoints (LiDAR)  | 103   | 63  | 86  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 44    | -   | 34  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |
-| Debug/admin routes      | 21    | -   | -   | -   |
+| Debug/admin routes      | 11    | -   | -   | -   |
 
 ### Gap summary
 

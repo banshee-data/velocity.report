@@ -33,16 +33,16 @@ or third-party code.
 
 These defaults are configurable unless noted otherwise.
 
-| Port  | Surface                                                      | Default source                                                                               | Runtime status                 |
-| ----- | ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- | ------------------------------ |
-| 2368  | LiDAR raw forward (`--lidar-forward-port`)                   | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L72)                             | Active default                 |
-| 2369  | LiDAR UDP ingest (`--lidar-udp-port`)                        | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L68)                             | Active default                 |
-| 2370  | LiDAR foreground forward (`--lidar-foreground-forward-port`) | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L75)                             | Active default                 |
-| 8080  | Main HTTP API/UI listen address (`--listen`)                 | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L50)                             | Active default                 |
-| 8081  | LiDAR monitor HTTP listen (`--lidar-listen`)                 | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L67)                             | Active default                 |
-| 8082  | Worker HTTP surface (`--worker-listen`)                      | [docs/lidar/architecture/distributed-sweep.md](docs/lidar/architecture/distributed-sweep.md) | Planned/distributed sweep docs |
-| 8090  | Docs site Eleventy dev server (`--port`)                     | [public_html/package.json](public_html/package.json#L9)                                      | Dev only                       |
-| 50051 | gRPC visualiser stream (`--lidar-grpc-listen`)               | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L80)                             | Active default                 |
+| Port  | Surface                                                                                                          | Default source                                                                               | Runtime status                 |
+| ----- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------ |
+| 2368  | LiDAR raw forward (`--lidar-forward-port`)                                                                       | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L72)                             | Active default                 |
+| 2369  | LiDAR UDP ingest (`--lidar-udp-port`)                                                                            | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L68)                             | Active default                 |
+| 2370  | LiDAR foreground forward (`--lidar-foreground-forward-port`)                                                     | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L75)                             | Active default                 |
+| 8080  | Main HTTP API/UI listen address (`--listen`)                                                                     | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L50)                             | Active default                 |
+| 8081  | Retired LiDAR monitor HTTP listen (`--lidar-listen`, now ignored with a warning; LiDAR routes are on `--listen`) | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L157)                            | Retired in v0.5.2              |
+| 8082  | Worker HTTP surface (`--worker-listen`)                                                                          | [docs/lidar/architecture/distributed-sweep.md](docs/lidar/architecture/distributed-sweep.md) | Planned/distributed sweep docs |
+| 8090  | Docs site Eleventy dev server (`--port`)                                                                         | [public_html/package.json](public_html/package.json#L9)                                      | Dev only                       |
+| 50051 | gRPC visualiser stream (`--lidar-grpc-listen`)                                                                   | [internal/cmd/server/radar.go](internal/cmd/server/radar.go#L80)                             | Active default                 |
 
 ## Sensor and geometry invariants
 

@@ -42,7 +42,7 @@ The server applet exposes several CLI flags (see `internal/cmd/server/radar.go` 
 LiDAR integration flags (only relevant when `--enable-lidar` is supplied):
 
 - `--enable-lidar` (bool): Enable in-process LiDAR components inside the radar binary (UDP listener, parser, monitor).
-- `--lidar-listen` (string): HTTP listen address for the legacy LiDAR monitor webserver (default: `127.0.0.1:8081`). LiDAR API routes are also registered on the main HTTP server; new clients should use `--listen` (default: `127.0.0.1:8080`).
+- `--lidar-listen` (string): Retired in v0.5.2 and ignored with a warning. The separate LiDAR monitor listener on `127.0.0.1:8081` is gone; every LiDAR API route is served by the main HTTP server on `--listen` (default: `127.0.0.1:8080`). The flag is still accepted so existing command lines keep starting.
 - `--lidar-udp-port` (int): UDP port in PCAP captures, also used by the live listener by default (default: `2369`).
 - `--lidar-live-udp-port` (int): Override only the live listener port when an isolated replay server shares a host with another LiDAR server (default: `0`, meaning `--lidar-udp-port`).
 - `--lidar-no-parse` (bool): Disable LiDAR packet parsing (useful when only forwarding packets).
@@ -113,13 +113,13 @@ The application is organised into separate components under `internal/` for main
 - `internal/serialmux`: Serial port abstraction and event handlers (real, mock, disabled implementations).
 - `internal/api`: Central HTTP server, static assets, and admin endpoints.
 - `internal/db`: SQLite helpers and schema management (single DB file `sensor_data.db` by default). Use `--db-path` to point the binary at a different file (for example: `--db-path /var/lib/velocity-report/sensor_data.db`).
-- `internal/lidar`: LiDAR parsers, frame builders, background model, monitor webserver, and DB persistence.
+- `internal/lidar`: LiDAR parsers, frame builders, background model, HTTP API handlers, and DB persistence.
 
 ### LiDAR core components
 
 - `forwarder.go`: Asynchronous packet forwarding with drop counting.
 - `listener.go`: UDP packet reception and listener orchestration.
-- `webserver.go` / monitor: HTTP UI for LiDAR stats and manual snapshot triggers.
+- `server/`: LiDAR HTTP API (status, replay, tuning, sweeps, grid and snapshots), registered on the main HTTP mux. The operator UI is the Svelte LiDAR pages under `/app/lidar/`.
 - `parser.go`: Pandar40P LiDAR packet parsing.
 - `stats.go`: Thread-safe packet/statistics tracking.
 
