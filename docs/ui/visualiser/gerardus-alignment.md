@@ -1,6 +1,6 @@
 # Gerardus alignment pane
 
-The visualiser's client for the Gerardus alignment service: it draws USGS 3DEP aerial points and OpenStreetMap ways over a capture's settled background, places the sensor from its eye-read position, lets the operator nudge it, and records the operator's decision in Gerardus's alignment log.
+The visualiser's client for the Gerardus alignment service: it draws USGS 3DEP aerial points and OpenStreetMap ways over a capture's settled background, places the sensor from its eye-read position, registers the scan automatically, lets the operator judge and correct the result, and records the operator's decision in Gerardus's alignment log.
 
 - **Plan:** [lidar-visualiser-gerardus-alignment-plan.md](../../plans/lidar-visualiser-gerardus-alignment-plan.md) (the work still to come)
 - **Contract:** [proto/gerardus/align/v1alpha1/align.proto](../../../proto/gerardus/align/v1alpha1/align.proto), vendored from banshee-data/gerardus
@@ -9,7 +9,15 @@ The visualiser's client for the Gerardus alignment service: it draws USGS 3DEP a
 
 Gerardus is a separate service in its own repository. It prepares reference data for a survey site and registers sensor scans against it. The visualiser talks to it directly on a second gRPC channel, beside its channel to velocity.report; velocity.report's Go server is not in the path. The dependency is optional: when no Gerardus server answers, the app shows no alignment control and behaves as it did before.
 
-What ships is the manual path of Gerardus MVP 0: the reference, a hint pose, local nudges, and an accepted pose recorded as manually placed. Automatic registration (ICP), pose scoring and tie points are not built in Gerardus yet, so the pane does not call `EvaluatePose` or `SolveTiePoints`.
+What ships is Gerardus MVP 0's operator loop, without tie points:
+
+- the reference and a pose placed from the hint;
+- automatic registration, with its hypotheses and gates;
+- scoring of the pose drawn now, with the scan coloured by residual, and Snap;
+- local nudges;
+- accepting a hypothesis or the operator's own pose.
+
+Gerardus does not build tie points yet, so the pane does not call `SolveTiePoints`.
 
 ## Running it
 
@@ -36,15 +44,38 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 
 ## The operator's path
 
-| Step             | What the pane does                                                                                                                          | Gerardus RPC                                     |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Open the pane    | Lists velocity.report's located replay cases and picks the open capture's                                                                   | `GetServerInfo` (on connect)                     |
-| Place from hint  | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it | `PrepareSite`, `PoseFromHint`, `StreamReference` |
-| Nudge            | Moves the reference along the sensor's axes, or turns it about the sensor                                                                   | none                                             |
-| Register         | Uploads the settled background once per snapshot, then registers it from the pose drawn now                                                 | `UploadScan`, `Register`                         |
-| Accept or reject | Records the pose drawn now as manually placed, or a rejection with its reason                                                               | `ReviewRegistration`, `ListRegistrationRecords`  |
+| Step              | What the pane does                                                                                                                                                     | Gerardus RPC                                     |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| Open the pane     | Lists velocity.report's located replay cases and picks the open capture's                                                                                              | `GetServerInfo` (on connect)                     |
+| Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                            | `PrepareSite`, `PoseFromHint`, `StreamReference` |
+| Register          | Uploads the settled background once per snapshot, then registers it from the position drawn now. Hypotheses show as they converge; the best is drawn when the run ends | `UploadScan`, `Register`                         |
+| Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                          | none                                             |
+| Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual           | `EvaluatePose` (after the rest)                  |
+| Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                         | `EvaluatePose(refine)`                           |
+| Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason                                                                                 | `ReviewRegistration`, `ListRegistrationRecords`  |
 
-Register comes back `FAILED` while ICP is unbuilt; the registration carries the pose it was given, and Accept records the operator's pose against it. The accepted record is not yet written back to velocity.report: that needs `PUT /api/lidar/sites/{l16}/pose` (Gerardus MVP step 2), and the code marks the place with a TODO.
+### Registration
+
+**Register** searches 30 m around the position drawn now, at every heading (the start's heading is not used). It refines the best distinct poses with point-to-plane ICP and gates the best. That takes 10 to 25 s on a real scan, and **Cancel** stops it.
+
+- **Hypotheses:** each one appears as it converges. When the run ends the list is ranked, best first, and the best is drawn. Each row gives:
+  - its heading and how far it moved from the eye-read position;
+  - ground p95, facade p75, the facade range slope and the inlier share;
+  - how many of the 20 seeds converged on it, and any weak directions.
+- **Gates:** the result is `CANDIDATE` when all six gates pass on the best hypothesis, else `FAILED`, and the pane lists each gate with its value and threshold. A `FAILED` run with no hypotheses (no aerial data, or no ground plane in the scan) leaves the operator's pose to place by hand.
+- **Accept** says what it will record:
+  - **Accept hypothesis N (registered)** for a hypothesis of a run that passed every gate;
+  - **(manually placed)** for one that did not;
+  - **Accept this pose (manually placed)** once the pose has been nudged or snapped off the hypothesis. A snapped pose is recorded with source `ICP`.
+
+### Scoring and residuals
+
+- **Scoring:** moving the pose sends nothing while it moves. Once it has rested for 0.4 s, `EvaluatePose` scores it against the reference and returns a residual for every uploaded scan point. That takes about 35 ms with the area cached, and a second or two the first time.
+- **Fit line:** the pane shows the fit of the pose drawn now: ground p95, facade p75, the range slope, the constraint rank and any weak direction.
+- **Residual colours:** the scan is drawn over its own background, green on the 3DEP surface, through yellow to red at 0.5 m off, and grey where no reference lies within 1 m. A pose that is a few centimetres out shows as a band of colour. A heading error shows as colour that grows with range.
+- **Stale scores:** a score that arrives after the pose has moved again is dropped.
+
+The accepted record is not yet written back to velocity.report: that needs `PUT /api/lidar/sites/{l16}/pose` (Gerardus MVP step 2), and the code marks the place with a TODO.
 
 ## Which site
 
@@ -66,11 +97,12 @@ The visualiser draws in the sensor frame, velocity.report's pipeline frame: +Y i
 
 The renderer draws the reference with the inverse of the pose as its model matrix, folded into `Uniforms.modelViewProjection` and `Uniforms.modelView` for those draws only. A nudge replaces that matrix and sends nothing. Each nudge moves the drawing by one step in the sensor frame, and the pose becomes `P·N⁻¹`, so the reference lands where the operator put it.
 
-| Layer         | Pipeline                                                              | Colour                                                                                                                         |
-| ------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 3DEP points   | Point pipeline, `[x, y, z, code / 255, 0]` per point, table colouring | The ASPRS class picks a ramp (ground amber, unclassified violet, building red, and so on); intensity picks the shade within it |
-| OSM ways      | Debug-line pipeline, `[x, y, z, r, g, b, a]` per vertex               | By `FeatureKind`: roads yellow, paths light blue, kerbs orange, rails magenta, buildings red                                   |
-| Intersections | Debug-line pipeline                                                   | A white cross at each node, and a cyan tick down each approach                                                                 |
+| Layer          | Pipeline                                                                                      | Colour                                                                                                                         |
+| -------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 3DEP points    | Point pipeline, `[x, y, z, code / 255, 0]` per point, table colouring                         | The ASPRS class picks a ramp (ground amber, unclassified violet, building red, and so on); intensity picks the shade within it |
+| Scan residuals | Point pipeline in the sensor frame, drawn over the background with a less-or-equal depth test | By the size of each point's `EvaluatePose` residual: green, yellow, red at 0.5 m; grey with no reference in reach              |
+| OSM ways       | Debug-line pipeline, `[x, y, z, r, g, b, a]` per vertex                                       | By `FeatureKind`: roads yellow, paths light blue, kerbs orange, rails magenta, buildings red                                   |
+| Intersections  | Debug-line pipeline                                                                           | A white cross at each node, and a cyan tick down each approach                                                                 |
 
 The point shader's table mode reads a palette from fragment buffer 0. The reference binds its own 256-entry palette there, so one byte carries both class and brightness and the shader needs no new mode. Draped lines sit 0.10 m above the 3DEP ground so they do not fight its points for depth; this offset is display only. Aerial points draw at half the scene's point size.
 
@@ -80,7 +112,8 @@ When OSM ways are visible, "© OpenStreetMap contributors" (from `Site.sources`)
 
 - The server's `PoseSummary` for the hint pose: heading with its 1σ, pitch and roll, height above the 3DEP ground, position on NAD83(2011), and NAVD88 height. Ellipsoidal height reads "not given" until Gerardus wires in GEOID18.
 - The nudge as east, north and up offsets and a heading change, computed in the client. The server never sees a summary of a nudged pose until it is registered or accepted.
-- The background snapshot that Register would upload, and whether the grid has settled. An unsettled snapshot is not uploaded.
+- The background snapshot that Register would upload, and whether the grid has settled. An unsettled snapshot is not uploaded, scored or registered.
+- The registration's state, gates and hypotheses, and the fit of the pose drawn now.
 - The site's records, newest first.
 
 ## Known limits

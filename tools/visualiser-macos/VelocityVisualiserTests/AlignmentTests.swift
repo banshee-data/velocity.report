@@ -500,18 +500,71 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         return response
     }
 
+    /// What Register streams and returns. Empty: a FAILED run with no
+    /// hypotheses, as for a site without aerial data.
+    var streamed: [Gerardus_Align_V1alpha1_Hypothesis] = []
+    var ranked: [Gerardus_Align_V1alpha1_Hypothesis]?
+    var runState: Gerardus_Align_V1alpha1_RegistrationState = .failed
+    var gates: [Gerardus_Align_V1alpha1_GateResult] = []
+    /// Called after each streamed hypothesis, to look at the session then.
+    var afterHypothesis: (@MainActor () -> Void)?
+    /// Holds Register until the calling task is cancelled.
+    var registerUntilCancelled = false
+
     func register(
         _ request: Gerardus_Align_V1alpha1_RegisterRequest,
-        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void,
+        onHypothesis: @escaping @Sendable (Gerardus_Align_V1alpha1_Hypothesis) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Registration {
         log("Register")
         lastRegister = request
+        if registerUntilCancelled {
+            while !Task.isCancelled { await Task.yield() }
+            throw CancellationError()
+        }
+        for hypothesis in streamed {
+            await onHypothesis(hypothesis)
+            await afterHypothesis?()
+        }
         var registration = Gerardus_Align_V1alpha1_Registration()
         registration.registrationID = "gms:reg"
-        registration.state = .failed
-        registration.failureReason = "automatic registration is not built yet"
+        registration.state = runState
+        registration.hypotheses = ranked ?? streamed
+        registration.gates = gates
+        if streamed.isEmpty { registration.failureReason = "the site has no aerial points" }
         registration.initialPose = request.initialPose
         return registration
+    }
+
+    private(set) var evaluations: [Gerardus_Align_V1alpha1_EvaluatePoseRequest] = []
+    /// Called inside EvaluatePose before it answers.
+    var duringEvaluation: (@MainActor (Int) -> Void)?
+    /// Where refine moves a pose: this far east, in metres.
+    var refineShiftEastM = 1.0
+
+    func evaluatePose(
+        _ request: Gerardus_Align_V1alpha1_EvaluatePoseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EvaluatePoseResponse {
+        log("EvaluatePose")
+        evaluations.append(request)
+        await duringEvaluation?(evaluations.count)
+        var response = Gerardus_Align_V1alpha1_EvaluatePoseResponse()
+        response.pose = request.pose
+        if request.refine {
+            response.pose.translationM.x += refineShiftEastM
+            response.pose.source = .icp
+        }
+        // Marks which call answered.
+        response.summary.headingDeg = Double(evaluations.count)
+        response.quality.groundP95M = 0.12
+        response.quality.facadeP75M = 0.15
+        response.quality.constraintRank = 6
+        if request.includePointResiduals {
+            response.pointResidualsM = (0..<Int(uploadedBlocks.reduce(0) { $0 + $1.x.count })).map {
+                $0 % 3 == 0 ? .nan : Float($0 % 7) * 0.05
+            }
+        }
+        return response
     }
 
     func reviewRegistration(
@@ -549,6 +602,10 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     func setReferenceModelMatrix(_ matrix: simd_float4x4) { matrices.append(matrix) }
     func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
         visibility = (aerial, osm, intersections)
+    }
+    var residuals: [[Float]?] = []
+    func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>]) {
+        residuals.append(vertices)
     }
 }
 
@@ -808,6 +865,228 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     }
 }
 
+// MARK: - Automatic registration
+
+private func hypothesis(
+    _ id: String, eastM: Double, headingDeg: Double
+) -> Gerardus_Align_V1alpha1_Hypothesis {
+    var h = Gerardus_Align_V1alpha1_Hypothesis()
+    h.hypothesisID = id
+    h.pose = levelPose(headingDeg: headingDeg, at: SIMD3(-9.4 + eastM, -38.5, 23)).proto(
+        siteFrameID: "site/808580f47", sensorFrameID: "sensor/hesai-pandar40p", source: .icp)
+    h.summary.headingDeg = headingDeg
+    h.quality.groundP95M = 0.18
+    h.quality.facadeP75M = 0.16
+    h.quality.constraintRank = 6
+    h.seedsConverged = 20
+    h.seedsTotal = 20
+    return h
+}
+
+private func gate(_ name: String, passed: Bool) -> Gerardus_Align_V1alpha1_GateResult {
+    var g = Gerardus_Align_V1alpha1_GateResult()
+    g.name = name
+    g.value = 0.18
+    g.threshold = 0.20
+    g.passed = passed
+    return g
+}
+
+@MainActor struct AlignmentRegistrationTests {
+    private let site = AlignmentSite(
+        replayCaseID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
+        l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed from the hint, with a settled 300-point background, waits
+    /// between nudge and evaluation that take no time, and a fake server
+    /// that finds two hypotheses (ranked the other way round) and passes.
+    private func placed() async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let service = FakeAlignmentService()
+        service.streamed = [
+            hypothesis("h-west", eastM: -3, headingDeg: 140),
+            hypothesis("h-east", eastM: 5, headingDeg: 143.5),
+        ]
+        service.ranked = [service.streamed[1], service.streamed[0]]
+        service.runState = .candidate
+        service.gates = [gate("ground_p95_m", passed: true), gate("seed_agreement", passed: true)]
+        let sink = FakeOverlaySink()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = sink
+        session.evaluateSleep = { _ in await Task.yield() }
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        session.noteBackground(snapshot(count: 300))
+        return (session, service, sink)
+    }
+
+    @Test func registerShowsHypothesesAsTheyComeThenDrawsTheBest() async {
+        let (session, service, sink) = await placed()
+        var seen: [Int] = []
+        service.afterHypothesis = { seen.append(session.hypotheses.count) }
+        await session.register()
+        // Each hypothesis showed as it converged, before the run ended.
+        #expect(seen == [1, 2])
+        #expect(session.registration?.state == .candidate)
+        #expect(session.hypotheses.map(\.hypothesisID) == ["h-east", "h-west"])
+        #expect(session.selectedHypothesisID == "h-east")
+        let best = SitePose(service.ranked![0].pose)
+        #expect(close(session.pose!.matrix, best.matrix, 1e-12))
+        #expect(sink.matrices.last == best.referenceModelMatrix)
+        #expect(session.acceptance == .hypothesis(index: 0, registered: true))
+        #expect(!session.isRegistering)
+        // The run starts from the pose drawn then, with the derived heading.
+        #expect(service.lastRegister?.hint.headingDeg == 145)
+    }
+
+    @Test func acceptingTheDrawnHypothesisSendsItsID() async {
+        let (session, service, _) = await placed()
+        await session.register()
+        session.showHypothesis(session.hypotheses[1])
+        #expect(session.acceptance == .hypothesis(index: 1, registered: true))
+        session.reviewer = "operator"
+        await session.accept()
+        guard case .acceptHypothesisID(let id) = service.lastReview?.decision else {
+            Issue.record("accept sent no hypothesis")
+            return
+        }
+        #expect(id == "h-west")
+    }
+
+    @Test func movingOffAHypothesisAcceptsThePose() async {
+        let (session, service, _) = await placed()
+        await session.register()
+        session.nudge(x: 1)
+        #expect(session.selectedHypothesisID == nil)
+        #expect(session.acceptance == .pose)
+        session.reviewer = "operator"
+        await session.accept()
+        guard case .acceptPose(let accepted) = service.lastReview?.decision else {
+            Issue.record("accept sent no pose")
+            return
+        }
+        #expect(accepted.source == .manual)
+        #expect(close(SitePose(accepted).matrix, session.pose!.matrix, 1e-12))
+    }
+
+    @Test func aFailedRunsHypothesisIsManuallyPlaced() async {
+        let (session, service, _) = await placed()
+        service.runState = .failed
+        service.gates = [gate("ground_p95_m", passed: true), gate("seed_agreement", passed: false)]
+        await session.register()
+        #expect(!session.registrationPassed)
+        #expect(session.acceptance == .hypothesis(index: 0, registered: false))
+    }
+
+    @Test func aRunWithNoHypothesesLeavesTheOperatorsPose() async {
+        let (session, service, _) = await placed()
+        service.streamed = []
+        service.ranked = nil
+        service.runState = .failed
+        let before = session.pose
+        await session.register()
+        #expect(session.hypotheses.isEmpty)
+        #expect(session.pose == before)
+        #expect(session.acceptance == .pose)
+    }
+
+    @Test func thePoseIsScoredOnceItRestsAndColoursTheScan() async {
+        let (session, service, sink) = await placed()
+        session.nudge(x: 1)
+        session.nudge(x: 1)
+        session.nudge(yawSteps: 1)
+        // Moving sent nothing: only the last rest is scored.
+        #expect(!service.calls.contains("EvaluatePose"))
+        await session.pendingEvaluation?.value
+        #expect(service.calls.filter { $0 == "EvaluatePose" }.count == 1)
+        let request = service.evaluations.last
+        #expect(request?.refine == false)
+        #expect(request?.includePointResiduals == true)
+        #expect(request?.scanID == "sha256:scan")
+        #expect(close(SitePose(request!.pose).matrix, session.pose!.matrix, 1e-12))
+        #expect(session.evaluation?.quality.constraintRank == 6)
+        // The uploaded scan, coloured: five floats a point, in upload order.
+        #expect(sink.residuals.last??.count == 300 * 5)
+        session.showResiduals = false
+        #expect(sink.residuals.last! == nil)
+    }
+
+    @Test func aLateScoreOfAnEarlierPoseIsDropped() async {
+        let (session, service, _) = await placed()
+        service.duringEvaluation = { call in if call == 1 { session.nudge(x: 1) } }
+        session.nudge(x: 1)
+        await session.pendingEvaluation?.value
+        // The first answer came after the pose moved; the second is kept.
+        await session.pendingEvaluation?.value
+        #expect(service.evaluations.count == 2)
+        #expect(session.evaluation?.summary.headingDeg == 2)
+    }
+
+    @Test func snapDrawsTheRefinedPose() async {
+        let (session, service, sink) = await placed()
+        let before = session.pose!
+        await session.snap()
+        #expect(service.evaluations.last?.refine == true)
+        #expect(abs(session.pose!.translation.x - before.translation.x - 1) < 1e-9)
+        #expect(sink.matrices.last == session.pose!.referenceModelMatrix)
+        #expect(session.evaluation?.refined == true)
+        // Snapping sends one request, and the snapped pose is not re-scored.
+        await session.pendingEvaluation?.value
+        #expect(service.evaluations.count == 1)
+        await session.register()
+        session.nudge(x: 0)
+        await session.snap()
+        session.reviewer = "operator"
+        await session.accept()
+        guard case .acceptPose(let accepted) = service.lastReview?.decision else {
+            Issue.record("accept sent no pose")
+            return
+        }
+        #expect(accepted.source == .icp)
+    }
+
+    @Test func aRunCanBeCancelled() async {
+        let (session, service, _) = await placed()
+        service.registerUntilCancelled = true
+        session.startRegistration()
+        for _ in 0..<1_000 where !session.isRegistering { await Task.yield() }
+        #expect(session.isRegistering)
+        session.cancelRegistration()
+        await session.pendingRegistration?.value
+        #expect(!session.isRegistering)
+        #expect(session.errorMessage == "Registration cancelled.")
+        #expect(session.registration == nil)
+    }
+}
+
+struct ResidualStyleTests {
+    @Test func codesRunFromNoReferenceThroughTheRamp() {
+        #expect(ResidualStyle.palette.count == 256)
+        #expect(ResidualStyle.code(residualM: .nan) == 0)
+        #expect(ResidualStyle.code(residualM: 0) == 1)
+        #expect(ResidualStyle.code(residualM: 0.25) == ResidualStyle.code(residualM: -0.25))
+        #expect(ResidualStyle.code(residualM: 0.5) == 255)
+        #expect(ResidualStyle.code(residualM: 3) == 255)
+        // On the surface is green, far off is red.
+        let near = ResidualStyle.palette[1]
+        let far = ResidualStyle.palette[255]
+        #expect(near.y > near.x && far.x > far.y)
+    }
+
+    @Test func verticesNeedOneResidualPerPoint() {
+        let s = snapshot(count: 4)
+        #expect(ResidualStyle.vertices(snapshot: s, residuals: [0, 0.1]) == nil)
+        let vertices = ResidualStyle.vertices(snapshot: s, residuals: [0, .nan, 0.5, 0.1])
+        #expect(vertices?.count == 20)
+        #expect(Array(vertices![5..<8]) == [s.x[1], s.y[1], s.z[1]])
+        #expect(Int(vertices![8] * 255 + 0.5) == 0)
+        #expect(Int(vertices![13] * 255 + 0.5) == 255)
+    }
+}
+
 // MARK: - Hint heading
 
 struct HintHeadingTests {
@@ -829,7 +1108,7 @@ struct HintHeadingTests {
 
     @MainActor @Test func theFieldIsNorthAzimuthAndTheHintIsDerived() {
         let session = AlignmentSession(
-            makeClient: { FakeAlignmentService() }, lookup: nil, defaults: nil)
+            makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: nil)
         #expect(session.hintHeadingDeg == nil)
         session.northAzimuthText = " 35 "
         #expect(session.northAzimuthDeg == 35)
@@ -844,7 +1123,8 @@ struct HintHeadingTests {
         // Typed when the field meant the heading itself.
         defaults.set("145.0", forKey: "alignment.heading.808580f47")
         let service = FakeAlignmentService()
-        let session = AlignmentSession(makeClient: { service }, lookup: nil, defaults: defaults)
+        let session = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: defaults)
         await session.probe()
         session.choose(
             AlignmentSite(
@@ -989,9 +1269,15 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     }
     func register(
         _ request: Gerardus_Align_V1alpha1_RegisterRequest,
-        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void,
+        onHypothesis: @escaping @Sendable (Gerardus_Align_V1alpha1_Hypothesis) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Registration {
-        try await inner.register(request, onProgress: onProgress)
+        try await inner.register(request, onProgress: onProgress, onHypothesis: onHypothesis)
+    }
+    func evaluatePose(
+        _ request: Gerardus_Align_V1alpha1_EvaluatePoseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EvaluatePoseResponse {
+        try await inner.evaluatePose(request)
     }
     func reviewRegistration(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest

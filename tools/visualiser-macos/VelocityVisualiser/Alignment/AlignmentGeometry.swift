@@ -452,3 +452,56 @@ enum ReferenceStyle {
         out.append(contentsOf: [b.x, b.y, b.z, colour.x, colour.y, colour.z, colour.w])
     }
 }
+
+// MARK: - Residual colouring
+
+/// Colours the uploaded scan by how far each point lies from the reference,
+/// from EvaluatePose's per-point residuals: green on it, through yellow, to
+/// red at half a metre or more, and grey where no reference lies within the
+/// server's correspondence distance. The magnitude is what an operator
+/// reads; the sign depends on which way the reference surface faces.
+enum ResidualStyle {
+    /// Residuals at or beyond this many metres take the last colour.
+    static let fullScaleM: Float = 0.5
+
+    /// Code 0 is "no reference"; codes 1 to 255 ramp from 0 to full scale.
+    static let palette: [SIMD4<Float>] = {
+        var table = [SIMD4<Float>](repeating: SIMD4(0.45, 0.45, 0.50, 1), count: 256)
+        let green = SIMD3<Float>(0.20, 0.90, 0.35)
+        let yellow = SIMD3<Float>(1.00, 0.85, 0.15)
+        let red = SIMD3<Float>(1.00, 0.20, 0.15)
+        for code in 1...255 {
+            let t = Float(code - 1) / 254
+            let colour =
+                t < 0.3 ? blend(green, yellow, t / 0.3) : blend(yellow, red, (t - 0.3) / 0.7)
+            table[code] = SIMD4(colour, 1)
+        }
+        return table
+    }()
+
+    static func code(residualM: Float) -> Int {
+        guard residualM.isFinite else { return 0 }
+        let t = min(abs(residualM) / fullScaleM, 1)
+        return 1 + Int((t * 254).rounded())
+    }
+
+    /// Point-pipeline vertices for the uploaded snapshot's points in upload
+    /// order, each coloured by its residual. Nil when the residuals do not
+    /// match the points one for one, which means they are for another scan.
+    static func vertices(snapshot: BackgroundSnapshot, residuals: [Float]) -> [Float]? {
+        let count = min(snapshot.x.count, snapshot.y.count, snapshot.z.count)
+        guard count > 0, residuals.count == count else { return nil }
+        var out = [Float](repeating: 0, count: count * 5)
+        for i in 0..<count {
+            out[i * 5] = snapshot.x[i]
+            out[i * 5 + 1] = snapshot.y[i]
+            out[i * 5 + 2] = snapshot.z[i]
+            out[i * 5 + 3] = Float(code(residualM: residuals[i])) / 255
+        }
+        return out
+    }
+
+    private static func blend(_ a: SIMD3<Float>, _ b: SIMD3<Float>, _ t: Float) -> SIMD3<Float> {
+        a + (b - a) * t
+    }
+}

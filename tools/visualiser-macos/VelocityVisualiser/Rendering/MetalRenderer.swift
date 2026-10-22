@@ -131,6 +131,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var showReferenceIntersections: Bool = true
     /// Aerial points are dense; drawn at full size they bury the scan.
     static let referencePointScale: Float = 0.5
+    /// The uploaded scan coloured by EvaluatePose's residuals, in the sensor
+    /// frame. Drawn over the background points it repeats, so its depth
+    /// test lets equal depths through.
+    private var residualBuffer: MTLBuffer?
+    private(set) var residualPointCount: Int = 0
+    private var residualPaletteBuffer: MTLBuffer?
+    private var residualDepthState: MTLDepthStencilState?
 
     // M6: Debug overlay buffers
     var debugLineVertices: MTLBuffer?  // Association lines + residual vectors
@@ -354,6 +361,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         descriptor.depthCompareFunction = .less
         descriptor.isDepthWriteEnabled = true
         depthStencilState = device.makeDepthStencilState(descriptor: descriptor)
+        descriptor.depthCompareFunction = .lessEqual
+        residualDepthState = device.makeDepthStencilState(descriptor: descriptor)
     }
 
     private func buildBoxGeometry() {
@@ -445,6 +454,25 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         view?.needsDisplay = true
     }
 
+    /// Replaces the residual-coloured scan, or removes it with nil.
+    /// `vertices` use the point layout, with a palette code in the
+    /// intensity slot.
+    func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>]) {
+        if let vertices, !vertices.isEmpty {
+            residualBuffer = device.makeBuffer(
+                bytes: vertices, length: vertices.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared)
+            residualPointCount = residualBuffer == nil ? 0 : vertices.count / 5
+            residualPaletteBuffer = palette.withUnsafeBytes { table in
+                device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
+            }
+        } else {
+            residualBuffer = nil
+            residualPointCount = 0
+        }
+        view?.needsDisplay = true
+    }
+
     func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
         showReferenceAerial = aerial
         showReferenceOSM = osm
@@ -462,6 +490,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     private func drawReferenceOverlay(encoder: MTLRenderCommandEncoder) {
+        if residualPointCount > 0, let pipeline = pointCloudPipeline, let points = residualBuffer,
+            let palette = residualPaletteBuffer
+        {
+            var scan = uniforms
+            scan.padding.x = IntensityColouring.table.rawValue
+            encoder.setDepthStencilState(residualDepthState)
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(points, offset: 0, index: 0)
+            encoder.setVertexBytes(&scan, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.setFragmentBuffer(palette, offset: 0, index: 0)
+            encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: residualPointCount)
+            encoder.setDepthStencilState(depthStencilState)
+        }
+
         var reference = Self.uniforms(uniforms, model: referenceModelMatrix)
 
         if showReferenceAerial, referenceAerialCount > 0, let pipeline = pointCloudPipeline,

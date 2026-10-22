@@ -283,18 +283,134 @@ import SwiftUI
                     .caption
                 ).foregroundStyle(.secondary)
             }
-            Button("Register") { Task { await session.register() } }.disabled(!session.canRegister)
-                .help("Upload the settled background and register it from the pose drawn now")
+            HStack {
+                Button("Register") { session.startRegistration() }.disabled(!session.canRegister)
+                    .help(
+                        "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the 3DEP points (10 to 25 s)"
+                    )
+                if session.isRegistering {
+                    Button("Cancel") { session.cancelRegistration() }.help(
+                        "Stop the run; the server logs it as far as it got")
+                }
+            }
             if let registration = session.registration {
                 AlignmentRow("Result", AlignmentFormat.state(registration.state))
                 if !registration.failureReason.isEmpty {
                     Text(registration.failureReason).font(.caption).foregroundStyle(.secondary)
                         .textSelection(.enabled)
                 }
+                if !registration.gates.isEmpty { gatesView(registration.gates) }
                 Text(registration.registrationID).font(.caption2.monospaced()).foregroundStyle(
                     .secondary
                 ).textSelection(.enabled)
             }
+            if !session.hypotheses.isEmpty { hypothesesView }
+            fitView
+        }
+    }
+
+    private func gatesView(_ gates: [Gerardus_Align_V1alpha1_GateResult]) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("Gates, on the best hypothesis").font(.caption.weight(.semibold))
+            ForEach(Array(gates.enumerated()), id: \.offset) { _, gate in
+                HStack {
+                    Image(systemName: gate.passed ? "checkmark.circle" : "xmark.circle")
+                        .foregroundStyle(gate.passed ? .green : .orange)
+                    Text(gate.name).font(.caption.monospaced())
+                    Spacer()
+                    Text(
+                        "\(AlignmentFormat.gateValue(gate.value)) \(gate.passed ? "within" : "against") \(AlignmentFormat.gateValue(gate.threshold))"
+                    ).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var hypothesesView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(session.registration == nil ? "Hypotheses so far" : "Hypotheses, best first").font(
+                .caption.weight(.semibold))
+            ForEach(Array(session.hypotheses.enumerated()), id: \.element.hypothesisID) {
+                index, hypothesis in
+                let selected = session.selectedHypothesisID == hypothesis.hypothesisID
+                Button {
+                    session.showHypothesis(hypothesis)
+                } label: {
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack {
+                            Text("\(index + 1)").font(.caption.weight(.semibold))
+                            Text(
+                                String(
+                                    format: "%.1f° · moved %.1f m", hypothesis.summary.headingDeg,
+                                    movedFromHint(hypothesis))
+                            ).font(.caption.monospacedDigit())
+                            Spacer()
+                            if selected { Image(systemName: "eye").font(.caption) }
+                        }
+                        Text(AlignmentFormat.quality(hypothesis.quality)).font(
+                            .caption2.monospacedDigit()
+                        ).foregroundStyle(.secondary)
+                        Text(
+                            "seeds \(hypothesis.seedsConverged)/\(hypothesis.seedsTotal)"
+                                + AlignmentFormat.weak(hypothesis.quality)
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }.padding(4).frame(maxWidth: .infinity, alignment: .leading).background(
+                        selected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.06)
+                    ).clipShape(RoundedRectangle(cornerRadius: 4))
+                }.buttonStyle(.plain).disabled(session.registration == nil).help(
+                    "Draw this hypothesis; Accept then records it")
+            }
+        }
+    }
+
+    private func movedFromHint(_ hypothesis: Gerardus_Align_V1alpha1_Hypothesis) -> Double {
+        guard let hint = session.hintPose else { return 0 }
+        let delta = PoseDelta(from: hint, to: SitePose(hypothesis.pose))
+        return (delta.east * delta.east + delta.north * delta.north).squareRoot()
+    }
+
+    @ViewBuilder private var fitView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text("Fit of the pose drawn now").font(.caption.weight(.semibold))
+                if session.isEvaluating { ProgressView().controlSize(.mini) }
+                Spacer()
+                Button("Snap") { Task { await session.snap() } }.disabled(
+                    !session.canRegister || session.isEvaluating
+                ).help("Refine the pose drawn now with local ICP from it")
+            }
+            if let evaluation = session.evaluation {
+                Text(
+                    (evaluation.refined ? "Snapped. " : "")
+                        + AlignmentFormat.quality(evaluation.quality)
+                ).font(.caption2.monospacedDigit())
+                Text(
+                    String(
+                        format: "%.1f° · rank %d", evaluation.summary.headingDeg,
+                        evaluation.quality.constraintRank)
+                        + AlignmentFormat.weak(evaluation.quality)
+                ).font(.caption2).foregroundStyle(.secondary)
+                Toggle("Colour the scan by residual", isOn: $session.showResiduals).toggleStyle(
+                    .checkbox
+                ).font(.caption)
+                if session.showResiduals {
+                    Text(
+                        "Green on the 3DEP surface, yellow to red up to 0.5 m off, grey with none in reach."
+                    ).font(.caption2).foregroundStyle(.secondary)
+                }
+            } else if session.canRegister {
+                Text("Scored by Gerardus once the pose rests.").font(.caption2).foregroundStyle(
+                    .secondary)
+            }
+        }
+    }
+
+    private var acceptTitle: String {
+        switch session.acceptance {
+        case .hypothesis(let index, let registered):
+            return "Accept hypothesis \(index + 1) ("
+                + (registered ? "registered" : "manually placed") + ")"
+        case .pose: return "Accept this pose (manually placed)"
         }
     }
 
@@ -303,10 +419,10 @@ import SwiftUI
             Text("Decision").font(.subheadline.weight(.semibold))
             TextField("Reviewer", text: $session.reviewer)
             TextField("Note (optional)", text: $session.note)
-            Button("Accept this pose") { Task { await session.accept() } }.buttonStyle(
-                .borderedProminent
-            ).disabled(!session.canReview || session.reviewer.isEmpty).help(
-                "Record the pose drawn now as manually placed")
+            Button(acceptTitle) { Task { await session.accept() } }.buttonStyle(.borderedProminent)
+                .disabled(!session.canReview || session.reviewer.isEmpty).help(
+                    "Record the pose drawn now: a hypothesis as drawn, or your own pose once you move it"
+                )
             HStack {
                 TextField("Why reject?", text: $session.rejectReason)
                 Button("Reject") { Task { await session.reject() } }.disabled(!session.canReview)
@@ -378,6 +494,30 @@ private struct AlignmentRow: View {
 }
 
 enum AlignmentFormat {
+    /// "ground p95 0.18 m · facade p75 0.16 m · slope 0.0001 · inliers 82 %".
+    static func quality(_ q: Gerardus_Align_V1alpha1_FitQuality) -> String {
+        var parts = [
+            String(format: "ground p95 %.2f m", q.groundP95M),
+            String(format: "facade p75 %.2f m", q.facadeP75M),
+        ]
+        if q.facadeRangeSlope.isFinite {
+            parts.append(String(format: "slope %.4f", q.facadeRangeSlope))
+        }
+        parts.append(String(format: "inliers %.0f %%", q.inlierFraction * 100))
+        return parts.joined(separator: " · ")
+    }
+
+    /// " · weak: translation along 23 deg", or nothing at full rank.
+    static func weak(_ q: Gerardus_Align_V1alpha1_FitQuality) -> String {
+        q.weakDirections.isEmpty ? "" : " · weak: " + q.weakDirections.joined(separator: ", ")
+    }
+
+    static func gateValue(_ value: Double) -> String {
+        guard value.isFinite else { return "—" }
+        if value == value.rounded() && abs(value) < 1000 { return String(format: "%.0f", value) }
+        return abs(value) < 0.01 ? String(format: "%.4f", value) : String(format: "%.2f", value)
+    }
+
     static func state(_ state: Gerardus_Align_V1alpha1_RegistrationState) -> String {
         switch state {
         case .running: return "running"

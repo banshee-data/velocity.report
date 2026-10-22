@@ -461,9 +461,8 @@ Agreed work that is not being scheduled, with its reason. A parked group returns
 
 - [#403] Bumper sticker generator: configurable Python/pycairo tool for rendering road-safety bumper sticker designs to SVG or PNG; dataclass-driven layout with Cool S decoration; Makefile targets `generate-stickers` and `generate-stickers-svg`: `S`
 
-### Gerardus alignment client (after Gerardus builds pose scoring and tie points)
+### Gerardus alignment client (after Gerardus builds tie points)
 
-- Pose scoring on release: call Gerardus `EvaluatePose` when the operator stops nudging, colour the background by per-point residual and offer Snap (`refine`); waits on Gerardus building the RPC: [plan](plans/lidar-visualiser-gerardus-alignment-plan.md#item-2-pose-scoring-on-release) `M`
 - Tie-point placement: pick two or three scan and reference point pairs in the visualiser and solve the pose with Gerardus `SolveTiePoints`; waits on Gerardus building the RPC: [plan](plans/lidar-visualiser-gerardus-alignment-plan.md#item-3-tie-points) `M`
 - Accepted pose to velocity.report: send the accepted registration record to `PUT /api/lidar/sites/{l16}/pose` and fill `CoordinateFrameInfo` from it; waits on that endpoint (Gerardus MVP step 2): [plan](plans/lidar-visualiser-gerardus-alignment-plan.md#item-4-write-the-accepted-pose-to-velocityreport) `S`
 
@@ -506,6 +505,7 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 
 ## Complete
 
+- Automatic registration and pose scoring in the alignment pane (Gerardus PR 8): Register streams hypotheses and shows the gates, Accept records a hypothesis (registered when every gate passed) or the operator's pose, the pose is scored once it rests with the scan coloured by residual, and Snap refines it: [hub doc](ui/visualiser/gerardus-alignment.md#registration), [plan](plans/lidar-visualiser-gerardus-alignment-plan.md#item-2-pose-scoring-on-release)
 - [#829] Gerardus alignment client in the visualiser (MVP 0 step 4, manual path): the vendored `gerardus.align.v1alpha1` contract, the 3DEP and OSM reference drawn over a capture through the inverse pose, hint placement, local nudges, and accept or reject recorded in Gerardus's log, hidden when no Gerardus server answers: [hub doc](ui/visualiser/gerardus-alignment.md), [plan](plans/lidar-visualiser-gerardus-alignment-plan.md)
 - [#819] Debug SQL console on a read-only handle: the console at `/debug/tailsql/` queries through its own `mode=ro`, `query_only` handle on the database file, and a test finds writes sent through it refused and the data unchanged; a v0.5.1 gate under [Work unit F](plans/deploy-single-binary-image-consolidation-plan.md#work-unit-f-cut-v051-and-a-cadence-after-it-d-32-s)
 - [#756] Range-adaptive eps sweep arm (D-28): measured on October 13, 2026 against the W3 retention and fragmentation gate; it barely moves W3 and no cluster merges two objects, so the defaults are unchanged: [report](lidar/operations/l4-range-adaptive-eps-2026-10.md)

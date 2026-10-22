@@ -61,8 +61,12 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     ) async throws -> Gerardus_Align_V1alpha1_UploadScanResponse
     func register(
         _ request: Gerardus_Align_V1alpha1_RegisterRequest,
-        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void,
+        onHypothesis: @escaping @Sendable (Gerardus_Align_V1alpha1_Hypothesis) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Registration
+    func evaluatePose(
+        _ request: Gerardus_Align_V1alpha1_EvaluatePoseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EvaluatePoseResponse
     func reviewRegistration(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord
@@ -73,8 +77,8 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 
 /// gRPC client for Gerardus's SiteService and RegistrationService.
 ///
-/// EvaluatePose and SolveTiePoints are not called: the server answers both
-/// with UNIMPLEMENTED until registration is built.
+/// SolveTiePoints is not called: the server answers it with UNIMPLEMENTED
+/// until tie-point placement is built.
 @available(macOS 15.0, *) final class GerardusClient: AlignmentServiceClient, @unchecked Sendable {
 
     let address: GerardusAddress
@@ -223,11 +227,15 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         })
     }
 
-    /// Runs registration for an uploaded scan. Until the automatic stages are
-    /// built the server records every run as FAILED, carrying its initial pose.
+    /// Registers an uploaded scan: a coarse search 30 m around the start at
+    /// every heading, ICP on the best distinct poses, then the gates. Takes
+    /// 10 to 25 s on a real scan. Each hypothesis is reported as it
+    /// converges; the registration that ends the stream ranks them, best
+    /// first. Cancelling the calling task stops the run.
     func register(
         _ request: Gerardus_Align_V1alpha1_RegisterRequest,
-        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void,
+        onHypothesis: @escaping @Sendable (Gerardus_Align_V1alpha1_Hypothesis) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Registration {
         try await registrationService().register(request: ClientRequest(message: request)) {
             response in
@@ -235,14 +243,23 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
             for try await message in response.messages {
                 switch message.event {
                 case .progress(let progress): await onProgress(progress)
+                case .hypothesis(let hypothesis): await onHypothesis(hypothesis)
                 case .registration(let result): registration = result
-                // Hypotheses arrive again, ranked, on the registration.
-                case .hypothesis, nil: break
+                case nil: break
                 }
             }
             guard let registration else { throw GerardusClientError.incompleteStream("Register") }
             return registration
         }
+    }
+
+    /// Scores a pose against the reference, optionally refining it with
+    /// local ICP first. About 35 ms (150 ms with refine) once the server has
+    /// the area cached; the first call near a sensor takes a second or two.
+    func evaluatePose(
+        _ request: Gerardus_Align_V1alpha1_EvaluatePoseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EvaluatePoseResponse {
+        try await registrationService().evaluatePose(request: ClientRequest(message: request))
     }
 
     func reviewRegistration(

@@ -25,6 +25,7 @@ protocol ReferenceOverlaySink: AnyObject {
     func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?)
     func setReferenceModelMatrix(_ matrix: simd_float4x4)
     func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool)
+    func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>])
 }
 
 /// What the pane shows about the settled background it would upload.
@@ -33,6 +34,26 @@ struct AlignmentBackgroundStatus: Equatable {
     var sequence: UInt64
     /// False while the grid is still settling: such a snapshot is not uploaded.
     var settled: Bool
+}
+
+/// EvaluatePose's verdict on one pose.
+struct PoseEvaluation {
+    var quality: Gerardus_Align_V1alpha1_FitQuality
+    var summary: Gerardus_Align_V1alpha1_PoseSummary
+    /// True when the pose was refined by local ICP (Snap) before scoring.
+    var refined: Bool
+    /// One per uploaded scan point, in upload order; NaN where no reference
+    /// lies within reach.
+    var residuals: [Float]
+}
+
+/// What Accept records for the pose drawn now.
+enum AlignmentAcceptance: Equatable {
+    /// The registration's hypothesis at `index` (0 is the best): recorded
+    /// REGISTERED when the run passed every gate, else MANUALLY_PLACED.
+    case hypothesis(index: Int, registered: Bool)
+    /// The pose as it stands, nudged or snapped: MANUALLY_PLACED.
+    case pose
 }
 
 /// Counts per reference layer, as drawn.
@@ -101,6 +122,17 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var background: AlignmentBackgroundStatus?
     @Published private(set) var scan: Gerardus_Align_V1alpha1_Scan?
     @Published private(set) var registration: Gerardus_Align_V1alpha1_Registration?
+    /// Hypotheses as the run in progress reports them, then the finished
+    /// registration's own list, ranked best first.
+    @Published private(set) var hypotheses: [Gerardus_Align_V1alpha1_Hypothesis] = []
+    @Published private(set) var isRegistering = false
+    /// The hypothesis drawn now, for as long as the pose is exactly its pose.
+    @Published private(set) var selectedHypothesisID: String?
+    /// EvaluatePose's verdict on the pose drawn now, once it has rested.
+    @Published private(set) var evaluation: PoseEvaluation?
+    @Published private(set) var isEvaluating = false
+    /// Colour the uploaded scan by residual whenever an evaluation has them.
+    @Published var showResiduals = true { didSet { pushResiduals() } }
     @Published private(set) var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
     @Published var reviewer: String = "" {
         didSet { defaults?.set(reviewer, forKey: Self.reviewerKey) }
@@ -139,6 +171,23 @@ struct ReferenceSummary: Equatable {
     private var latestBackground: BackgroundSnapshot?
     /// The site and background sequence `scan` was uploaded from.
     private var uploadedFrom: (l16Token: String, sequence: UInt64)?
+    /// The snapshot `scan` was uploaded from: residuals follow its order.
+    private var uploadedSnapshot: BackgroundSnapshot?
+    /// How the pose drawn now was made, for what Accept records.
+    private var poseSource: Gerardus_Align_V1alpha1_PoseSource = .hint
+    private var registering: Task<Void, Never>?
+    private var evaluating: Task<Void, Never>?
+    /// Bumped whenever the drawn pose changes, so a late evaluation of an
+    /// earlier pose is dropped.
+    private var poseGeneration = 0
+    /// How long the pose must rest before it is scored: the end of a burst
+    /// of nudges, standing in for the release of a drag.
+    var evaluateDelay: Duration = .milliseconds(400)
+    /// How that rest is waited out. Tests replace it to await the
+    /// evaluation itself instead of a clock.
+    var evaluateSleep: @MainActor (Duration) async throws -> Void = {
+        try await Task.sleep(for: $0)
+    }
     private var hintFrameIDs: (site: String, sensor: String) = ("", "")
 
     /// `lookup` nil skips velocity.report entirely, as tests do; `defaults`
@@ -343,8 +392,14 @@ struct ReferenceSummary: Equatable {
             hintPose = start
             hintSummary = placed.summary
             pose = start
+            poseSource = .hint
+            poseGeneration += 1
             scan = nil
             registration = nil
+            hypotheses = []
+            selectedHypothesisID = nil
+            evaluation = nil
+            sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
 
             busy = "Streaming the reference"
             let geometry = try await client.streamReference(
@@ -417,9 +472,7 @@ struct ReferenceSummary: Equatable {
     /// pose and the model matrix change, and nothing is sent.
     func nudge(_ step: PoseNudge) {
         guard let current = pose else { return }
-        let moved = current.nudged(by: step)
-        pose = moved
-        sink?.setReferenceModelMatrix(moved.referenceModelMatrix)
+        setPose(current.nudged(by: step), source: .manual)
     }
 
     func nudge(x: Double = 0, y: Double = 0, z: Double = 0, yawSteps: Double = 0) {
@@ -428,8 +481,30 @@ struct ReferenceSummary: Equatable {
 
     func resetNudges() {
         guard let hintPose else { return }
-        pose = hintPose
-        sink?.setReferenceModelMatrix(hintPose.referenceModelMatrix)
+        setPose(hintPose, source: .hint)
+    }
+
+    /// Draws one of the registration's hypotheses. Accept then records that
+    /// hypothesis, until the pose is moved off it.
+    func showHypothesis(_ hypothesis: Gerardus_Align_V1alpha1_Hypothesis) {
+        setPose(SitePose(hypothesis.pose), source: .icp, hypothesis: hypothesis.hypothesisID)
+    }
+
+    /// Draws a new pose. Any residual colouring belongs to the old one, so it
+    /// goes; the new pose is scored once it has rested for `evaluateDelay`.
+    /// Moving the pose sends nothing until then.
+    private func setPose(
+        _ newPose: SitePose, source: Gerardus_Align_V1alpha1_PoseSource, hypothesis: String? = nil,
+        evaluate: Bool = true
+    ) {
+        pose = newPose
+        poseSource = source
+        selectedHypothesisID = hypothesis
+        poseGeneration += 1
+        evaluation = nil
+        sink?.setReferenceModelMatrix(newPose.referenceModelMatrix)
+        sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
+        if evaluate { scheduleEvaluation() }
     }
 
     private func pushVisibility() {
@@ -452,10 +527,17 @@ struct ReferenceSummary: Equatable {
     /// A different capture is open: its background and any run against the
     /// old one no longer apply. The reference stays until a site is placed.
     func captureChanged() {
+        registering?.cancel()
+        evaluating?.cancel()
         latestBackground = nil
         background = nil
         scan = nil
+        uploadedSnapshot = nil
         registration = nil
+        hypotheses = []
+        selectedHypothesisID = nil
+        evaluation = nil
+        sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
     }
 
     var canRegister: Bool {
@@ -473,20 +555,138 @@ struct ReferenceSummary: Equatable {
         guard let client, let site, let pose, let snapshot = latestBackground, canRegister else {
             return
         }
+        evaluating?.cancel()
         errorMessage = nil
+        registration = nil
+        hypotheses = []
+        isRegistering = true
+        var result: Gerardus_Align_V1alpha1_Registration?
         do {
+            busy = "Uploading the background"
             let uploaded = try await uploadedScan(client: client, site: site, snapshot: snapshot)
             busy = "Registering"
             var request = Gerardus_Align_V1alpha1_RegisterRequest()
             request.scanID = uploaded.scanID
+            // The server searches 30 m around this position at every
+            // heading; it does not use the start's heading.
             request.initialPose = posePayload(pose)
             request.hint = hint(heading: hintHeadingDeg)
-            registration = try await client.register(request) { [weak self] progress in
-                await self?.show(progress)
-            }
-        } catch { errorMessage = GerardusClientError.describe(error) }
+            result = try await client.register(
+                request, onProgress: { [weak self] progress in await self?.show(progress) },
+                onHypothesis: { [weak self] hypothesis in await self?.received(hypothesis) })
+        } catch {
+            errorMessage =
+                Task.isCancelled ? "Registration cancelled." : GerardusClientError.describe(error)
+        }
         busy = nil
         progress = nil
+        isRegistering = false
+        if let result {
+            registration = result
+            hypotheses = result.hypotheses
+            // The best hypothesis is drawn at once; a FAILED run with none
+            // leaves the operator's pose, to place by hand.
+            if let best = result.hypotheses.first { showHypothesis(best) }
+        }
+    }
+
+    /// Registers in a task the pane can cancel.
+    func startRegistration() {
+        registering?.cancel()
+        registering = Task { [weak self] in await self?.register() }
+    }
+
+    /// Stops a run in progress: cancelling the call stops it on the server.
+    func cancelRegistration() { registering?.cancel() }
+
+    /// The task running registration, for tests to await.
+    var pendingRegistration: Task<Void, Never>? { registering }
+
+    private func received(_ hypothesis: Gerardus_Align_V1alpha1_Hypothesis) {
+        hypotheses.append(hypothesis)
+    }
+
+    /// True when the registration passed every gate, so accepting one of its
+    /// hypotheses records REGISTERED.
+    var registrationPassed: Bool {
+        guard let registration, registration.state == .candidate, !registration.gates.isEmpty else {
+            return false
+        }
+        return registration.gates.allSatisfy(\.passed)
+    }
+
+    var acceptance: AlignmentAcceptance {
+        if let id = selectedHypothesisID, registration != nil,
+            let index = hypotheses.firstIndex(where: { $0.hypothesisID == id })
+        {
+            return .hypothesis(index: index, registered: registrationPassed)
+        }
+        return .pose
+    }
+
+    // MARK: - Evaluation
+
+    /// Scores the pose once it has rested, unless it moves again first.
+    private func scheduleEvaluation() {
+        evaluating?.cancel()
+        guard canRegister else { return }
+        let generation = poseGeneration
+        evaluating = Task { [weak self] in
+            guard let nap = self?.evaluateSleep, let delay = self?.evaluateDelay else { return }
+            try? await nap(delay)
+            if !Task.isCancelled { await self?.evaluate(refine: false, generation: generation) }
+        }
+    }
+
+    /// Refines the pose drawn now with local ICP from it (EvaluatePose with
+    /// refine), then draws and scores the result.
+    func snap() async {
+        evaluating?.cancel()
+        await evaluate(refine: true, generation: poseGeneration)
+    }
+
+    /// The task scoring the pose, for tests to await.
+    var pendingEvaluation: Task<Void, Never>? { evaluating }
+
+    private func evaluate(refine: Bool, generation: Int) async {
+        guard let client, let site, let pose, let snapshot = latestBackground, canRegister else {
+            return
+        }
+        isEvaluating = true
+        var response: Gerardus_Align_V1alpha1_EvaluatePoseResponse?
+        var failure: String?
+        do {
+            let uploaded = try await uploadedScan(client: client, site: site, snapshot: snapshot)
+            var request = Gerardus_Align_V1alpha1_EvaluatePoseRequest()
+            request.scanID = uploaded.scanID
+            request.pose = posePayload(pose)
+            request.refine = refine
+            request.includePointResiduals = true
+            response = try await client.evaluatePose(request)
+        } catch { failure = GerardusClientError.describe(error) }
+        isEvaluating = false
+        if generation != poseGeneration {
+            // The pose moved while this was asked; its own evaluation follows.
+        } else if let response {
+            if refine { setPose(SitePose(response.pose), source: .icp, evaluate: false) }
+            evaluation = PoseEvaluation(
+                quality: response.quality, summary: response.summary, refined: refine,
+                residuals: response.pointResidualsM)
+            pushResiduals()
+        } else if let failure {
+            errorMessage = failure
+        }
+    }
+
+    private func pushResiduals() {
+        let vertices =
+            showResiduals
+            ? evaluation.flatMap { evaluation in
+                uploadedSnapshot.flatMap {
+                    ResidualStyle.vertices(snapshot: $0, residuals: evaluation.residuals)
+                }
+            } : nil
+        sink?.setResidualOverlay(vertices, palette: ResidualStyle.palette)
     }
 
     /// The scan for this background, uploading it the first time.
@@ -498,7 +698,6 @@ struct ReferenceSummary: Equatable {
         {
             return scan
         }
-        busy = "Uploading the background"
         let header = ScanPacking.header(
             l16Token: site.l16Token, sensorID: sensorID, captureRef: site.replayCaseID,
             snapshot: snapshot)
@@ -506,6 +705,7 @@ struct ReferenceSummary: Equatable {
             header: header, blocks: ScanPacking.blocks(from: snapshot))
         scan = uploaded.scan
         uploadedFrom = (site.l16Token, snapshot.sequenceNumber)
+        uploadedSnapshot = snapshot
         return uploaded.scan
     }
 
@@ -519,12 +719,19 @@ struct ReferenceSummary: Equatable {
 
     var canReview: Bool { busy == nil && registration != nil && pose != nil }
 
-    /// Records the operator's pose as accepted: MANUALLY_PLACED in Gerardus.
+    /// Records the pose drawn now as accepted: the hypothesis it is
+    /// (REGISTERED when the run passed its gates, else MANUALLY_PLACED), or
+    /// the operator's own pose (MANUALLY_PLACED).
     func accept() async {
         guard let pose else { return }
         var decision = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
-        decision.acceptPose = pose.proto(
-            siteFrameID: hintFrameIDs.site, sensorFrameID: hintFrameIDs.sensor, source: .manual)
+        if case .hypothesis = acceptance, let id = selectedHypothesisID {
+            decision.acceptHypothesisID = id
+        } else {
+            decision.acceptPose = pose.proto(
+                siteFrameID: hintFrameIDs.site, sensorFrameID: hintFrameIDs.sensor,
+                source: poseSource == .icp ? .icp : .manual)
+        }
         await review(decision)
         // TODO(Gerardus MVP step 2): send `lastRecord` to velocity.report with
         // PUT /api/lidar/sites/{l16}/pose (record as protojson) once that
@@ -580,11 +787,18 @@ struct ReferenceSummary: Equatable {
         hintSummary = nil
         pose = nil
         scan = nil
+        uploadedSnapshot = nil
         registration = nil
+        hypotheses = []
+        selectedHypothesisID = nil
+        evaluation = nil
+        registering?.cancel()
+        evaluating?.cancel()
         records = []
         lastRecord = nil
         errorMessage = nil
         sink?.setReferenceOverlay(nil)
+        sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
     }
 }
 
