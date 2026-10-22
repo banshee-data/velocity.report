@@ -603,3 +603,15 @@ above are required to reach it.
 - [ ] `s2_sf_5` and `s2_sf_6` may ship without a background layer
 - [ ] Motion segments carry no single S2 filename tag; they may cross cells
 - [ ] The 116.8 m/s maximum track speed in the current DB is noise; the scorer penalises it rather than the pipeline rejecting it
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.

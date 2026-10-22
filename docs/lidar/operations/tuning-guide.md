@@ -18,6 +18,10 @@ multi-round optimisation with human feedback:
 
 ## Glossary
 
+Use the [platform vocabulary](../../platform/PLATFORM.md#platform-vocabulary) for shared nouns.
+Labels are track verdicts (class and quality flags); annotations are reviewed point masks.
+Scene means physical geometry, and a clip names the evaluation window.
+
 Terminology used across the tuning docs. Linked from individual tool docs so the
 definitions live in exactly one place.
 
@@ -28,7 +32,7 @@ definitions live in exactly one place.
 | **Round**        | One complete sweep; auto-tuning runs multiple rounds with progressively narrower bounds   |
 | **Top K**        | The best-scoring combinations from a round, used to narrow bounds for the next round      |
 | **Settle**       | The warmup period where the background model stabilises before sampling begins            |
-| **Scene**        | A named evaluation environment with labelled reference tracks for ground-truth scoring    |
+| **Clip**         | A window chosen for evaluation or annotation, with reference tracks and tuning provenance |
 | **Run**          | A single processing pass over data with fixed parameters, producing tracks for evaluation |
 | **Manual sweep** | Operator-driven grid search: full control over param grid and metric visualisation        |
 | **Auto-tune**    | Automated multi-round narrowing with weighted proxy metrics                               |
@@ -45,7 +49,7 @@ the fastest path is the quick-fix section at the top of the diagnosis doc:
 
 Track labelling and core auto-tuning workflows are implemented and active in
 production. The labelling pipeline integrates with the run browser and label APIs.
-Analysis-run integration supports labelling and replay flows. Runtime and storage
+Run integration supports labelling and replay flows. Runtime and storage
 components are in place for current usage.
 
 Deferred phases (advanced labelling, extended auto-aware tuning) are tracked in:

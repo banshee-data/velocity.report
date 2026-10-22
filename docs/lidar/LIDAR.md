@@ -162,3 +162,12 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 - **macOS app:** [tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift](../../tools/visualiser-macos/VelocityVisualiser/UI/ContentView.swift); `LabelPanelView`
 
 > **Note:** `object_class` (e.g. `pedestrian`, `car`, `bird`, `dynamic`) is a _sensor-assigned_ classification from the tracker, not a human label. It is distinct from the `user_label` taxonomy above. Ships 7 classes: car, bus, pedestrian, cyclist, bird, dynamic, noise. Truck and motorcyclist are reserved for future use (proto enum values allocated but not user-assignable).
+
+## Shared vocabulary
+
+The [platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) defines capture, evidence, estimate, track, clip,
+label, annotation, site, deployment and survey. A clip is an evaluation or annotation window;
+a run is one processing pass. A label is a person’s class and quality verdict on a track;
+an annotation is a reviewed point mask. Scene denotes physical geometry.
+The definitions do not add storage relationships: unified sites, deployment rows, surveys
+and label consolidation remain Phase 2.

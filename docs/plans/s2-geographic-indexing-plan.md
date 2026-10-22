@@ -2,7 +2,7 @@
 
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Planned; implementation targeted at v2.0
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md)
-- **Layers:** Storage, filesystem artefacts, replay cases, run records
+- **Layers:** Storage, filesystem artefacts, clips, run records
 - **Style guide:** [geographic-indexing](../lidar/architecture/geographic-indexing.md) is normative for levels, tokens, and displays. This plan does not restate those rules; it applies them
 - **Related:** [pcap-ground-plane-export-tool-plan](pcap-ground-plane-export-tool-plan.md), [pcap-analysis-mode](../lidar/operations/pcap-analysis-mode.md), [VRLOG_FORMAT](../../data/structures/VRLOG_FORMAT.md)
 
@@ -43,7 +43,7 @@ representative WGS84 position
              ├── static PCAP filename and L10 directory
              ├── segments.json and summary.txt
              ├── derived VRLOG directory and header.json
-             └── replay-case and run-record database columns
+             └── clip and run-record database columns
 ```
 
 The filename tag makes a detached static capture coarse-addressable without
@@ -109,8 +109,8 @@ packet-capture data and are not rewritten to embed velocity.report metadata.
 A VRLOG recorded from that static PCAP copies the exact canonical tokens into
 `header.json`; it does not recompute them from the source basename. Database
 registration copies the same pair into nullable `s2_l13_token` and
-`s2_l10_token` columns on the replay case and run record. These are geographic
-attributes, not replacements for replay-case, run, session, or VRLOG identity.
+`s2_l10_token` columns on the clip and run record. These are geographic
+attributes, not replacements for clip, run, session, or VRLOG identity.
 
 Conformance validation derives `Parent(10)` from the stored L13 CellID and
 requires the filename tag, `segments.json`, text summary, VRLOG header, and
@@ -135,7 +135,7 @@ All of this remains future implementation work:
 7. Extend `pcap-split` with optional WGS84 ingestion, static-segment L13/L10
    derivation, canonical L10 filename tags, and summary/JSON provenance.
 8. Propagate static-source S2 tags into VRLOG directory names and `header.json`.
-9. Add nullable L13/L10 columns and indexes to replay cases and run records,
+9. Add nullable L13/L10 columns and indexes to clips and run records,
    plus cross-surface conformance validation.
 10. Add database indexes and migrations for other S2-partitioned datasets.
 11. Migrate planned or existing geographic partition references without
@@ -146,3 +146,15 @@ All of this remains future implementation work:
 14. Validate filesystem determinism, canonical-token round trips, and PCAP /
     VRLOG / database tag consistency.
 15. Validate interoperability against known Waymo and Valgo L13 cells.
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.

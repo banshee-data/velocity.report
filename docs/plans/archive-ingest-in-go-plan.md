@@ -163,7 +163,7 @@ correction to `DeriveSessions`, not new machinery.
 
 ### 4. A site is a static period with a position
 
-The site model landed for replay cases (`lidar_sites`, canonical pose distinct
+The site model landed for clips (`lidar_sites`, canonical pose distinct
 from a case's sensor pose). A static period is the other thing that belongs at a
 site. Linking them gives the archive a position without a parallel store:
 
@@ -279,3 +279,15 @@ index.
       are a starting point for a survey rather than one
 - [ ] A real motion event mid-site still splits it; `--min-captures` reports the
       short period rather than the classifier guessing the two halves are one
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.

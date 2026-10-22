@@ -1,11 +1,11 @@
 # Compatibility register
 
-- **Status:** Living record under D-20; first entered October 20, 2026. The expiry test that reads it is planned for v0.5.3, as the clip rename's first PR, and not yet built
+- **Status:** Living record under D-20; first entered October 20, 2026. The expiry, route-alias and flag-tombstone checks are enforced by `internal/compatibility`, landed before the three renames
 
 Every old name, field, format or reader that survives a rename, one row each, with the reason it
 may survive and the release that removes it. D-20 forbids temporary dual formats; this register
 is how that decision is kept. A survivor without a row is a defect; a row past its removal release
-fails the planned expiry test.
+fails the expiry test.
 
 ## Who may still depend on an old name
 
@@ -59,15 +59,29 @@ Two items look like shims and are not. The legacy box path is an experiment arm
 renderer work in the [v0.5.0 migration record](v050-release-migration.md). The 36 operator-facing
 strings in `internal/db` that say `velocity-report migrate` are stale text, not a shim.
 
+## Declarations and expiry
+
+`internal/compatibility` reads this register in tests. A release removal date is
+checked against the Makefile’s `VERSION`, including prereleases of that release.
+Event-based removals (such as the next supported DMG) remain explicit rows and
+are retired when that event is recorded.
+
+Declare surviving route patterns with `compatibility.AliasRoute(old, canonical)`
+in the LiDAR route table. The route test rejects repeated handlers without a
+declaration, aliases without a register row, and aliases whose canonical handler
+differs. Declare retired value-taking flags with
+`compatibility.TombstoneFlag(fs, old, replacement)`; the flag test checks each
+declaration against this table. Parsing an old flag always fails before work.
+
 ## Keeping it kept
 
-| Piece                | How                                                                                                          | State   |
-| -------------------- | ------------------------------------------------------------------------------------------------------------ | ------- |
-| The expiry test      | Reads this table and fails when the Makefile's `VERSION` reaches a row's removal release                     | planned |
-| Route aliases        | Declared in the LiDAR route table with the row they belong to; a test fails on an alias route without a row  | planned |
-| Flag tombstones      | One helper registers an old flag as a refusal that prints the new name; a test lists them against this table | planned |
-| Make tombstones      | One pattern rule for renamed targets; the Make check refuses an alias recipe                                 | planned |
-| Dual readers in code | `/review-pr` reads this table and refuses a new old-format reader or projection without a row                | review  |
+| Piece                | How                                                                                                          | State    |
+| -------------------- | ------------------------------------------------------------------------------------------------------------ | -------- |
+| The expiry test      | Reads this table and fails when the Makefile's `VERSION` reaches a row's removal release                     | enforced |
+| Route aliases        | Declared in the LiDAR route table with the row they belong to; a test fails on an alias route without a row  | enforced |
+| Flag tombstones      | One helper registers an old flag as a refusal that prints the new name; a test lists them against this table | enforced |
+| Make tombstones      | One pattern rule for renamed targets; the Make check refuses an alias recipe                                 | planned  |
+| Dual readers in code | `/review-pr` reads this table and refuses a new old-format reader or projection without a row                | review   |
 
 The register was first drawn up in the [architecture
 review](../../plans/platform-architecture-review-plan.md#d-20-in-practice-who-can-still-depend-on-an-old-name).

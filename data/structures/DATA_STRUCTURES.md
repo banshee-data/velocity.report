@@ -81,3 +81,12 @@ Contributions welcome.
 - [ ] **PDF report data contract**: inputs consumed by the Go PDF pipeline
       (API response shapes, chart specifications).
       Source: [`internal/report/`](../../internal/report/)
+
+## Shared vocabulary
+
+The [platform vocabulary](../../docs/platform/PLATFORM.md#platform-vocabulary) defines capture, evidence, estimate, track, clip,
+label, annotation, site, deployment and survey. A clip is an evaluation or annotation window;
+a run is one processing pass. A label is a person’s class and quality verdict on a track;
+an annotation is a reviewed point mask. Scene denotes physical geometry.
+The definitions do not add storage relationships: unified sites, deployment rows, surveys
+and label consolidation remain Phase 2.

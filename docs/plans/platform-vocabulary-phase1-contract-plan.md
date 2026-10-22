@@ -17,20 +17,20 @@ inventory.
 ## Delivery outline
 
 1. Inventory the names and meanings across the schema, Go stores, APIs, CLI, web, macOS, public pages and persisted files.
-2. Publish the vocabulary in PLATFORM.md, LIDAR.md, DATA_STRUCTURES.md and the tuning glossary; record D-28 and the terminology-first delivery rule.
+2. Publish the vocabulary in PLATFORM.md, LIDAR.md, DATA_STRUCTURES.md and the tuning glossary; use D-31 and the terminology-first delivery rule.
 3. Reconcile the catalogue, export, archive-ingest, route-capture, VRLOG, geography and typed-ID companion plans with that vocabulary.
 4. Create an alias inventory with each old spelling, new spelling, consumer, compatibility period and owning follow-up plan.
 
 ## PR structure
 
-PR 1 records vocabulary and D-28; PR 2 aligns companion plans and publishes the consumer/alias
+PR 1 records vocabulary and D-31; PR 2 aligns companion plans and publishes the consumer/alias
 inventory.
 
 ## Acceptance
 
 - [ ] Definitions distinguish captures, evidence, estimates, tracks, clips, selections, labels, annotations, sites, deployments and surveys.
 - [ ] Every existing surface is assigned to a terminology package; future schema relationships are identified as Phase 2.
-- [ ] D-28 exists and every companion plan uses the same definitions; relative links and documentation checks pass.
+- [ ] D-31 exists and every companion plan uses the same definitions; relative links and documentation checks pass.
 
 ## Boundaries and risks
 
@@ -40,3 +40,15 @@ not imply that its storage model exists.
 The programme's original decisions and detailed ledger remain authoritative for this outline. Where
 an implementation needs a new decision, record it before writing the migration or changing a wire
 contract. Keep existing compatibility rules and the applicable surface tests.
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.
