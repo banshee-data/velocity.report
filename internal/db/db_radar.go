@@ -8,6 +8,8 @@ import (
 	"time"
 
 	_ "modernc.org/sqlite"
+
+	"github.com/banshee-data/velocity.report/internal/stats"
 )
 
 func (db *DB) RecordRadarObject(rawRadarJSON string) error {
@@ -421,9 +423,9 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 			copy(sorted, speeds)
 			sort.Float64s(sorted)
 
-			agg.P50Speed = empiricalQuantileSorted(0.5, sorted)
-			agg.P85Speed = empiricalQuantileSorted(0.85, sorted)
-			agg.P98Speed = empiricalQuantileSorted(0.98, sorted)
+			agg.P50Speed = stats.NearestRank(sorted, 0.5)
+			agg.P85Speed = stats.NearestRank(sorted, 0.85)
+			agg.P98Speed = stats.NearestRank(sorted, 0.98)
 		} else {
 			agg.MaxSpeed = 0
 			agg.Count = 0
@@ -461,20 +463,6 @@ func (db *DB) RadarObjectRollupRange(startUnix, endUnix, groupSeconds int64, min
 		Histogram:    histogram,
 		MinSpeedUsed: actualMinSpeed,
 	}, nil
-}
-
-func empiricalQuantileSorted(p float64, sorted []float64) float64 {
-	if len(sorted) == 0 {
-		return math.NaN()
-	}
-	idx := int(math.Ceil(p*float64(len(sorted)))) - 1
-	if idx < 0 {
-		idx = 0
-	}
-	if idx >= len(sorted) {
-		idx = len(sorted) - 1
-	}
-	return sorted[idx]
 }
 
 func (db *DB) RecordRawData(rawDataJSON string) error {
