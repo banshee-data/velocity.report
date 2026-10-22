@@ -42,9 +42,7 @@ def test_topo_levels_ignore_self_referential_foreign_keys():
     parents["lidar_run_tracks"].add("lidar_runs")
     children["lidar_runs"].add("lidar_run_tracks")
 
-    parents["lidar_replay_annotations"].update(
-        {"lidar_clips", "lidar_run_tracks"}
-    )
+    parents["lidar_replay_annotations"].update({"lidar_clips", "lidar_run_tracks"})
     children["lidar_clips"].add("lidar_replay_annotations")
     children["lidar_run_tracks"].add("lidar_replay_annotations")
 

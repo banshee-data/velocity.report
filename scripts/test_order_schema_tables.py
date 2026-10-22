@@ -52,9 +52,7 @@ def test_reorder_schema_handles_current_schema() -> None:
 
     run_records_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_runs"')
     run_tracks_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_run_tracks"')
-    clips_idx = reordered.index(
-        'CREATE TABLE IF NOT EXISTS "lidar_clips"'
-    )
+    clips_idx = reordered.index('CREATE TABLE IF NOT EXISTS "lidar_clips"')
     replay_annotations_idx = reordered.index("CREATE TABLE lidar_replay_annotations")
 
     assert run_records_idx < run_tracks_idx

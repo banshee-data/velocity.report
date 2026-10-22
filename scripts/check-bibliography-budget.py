@@ -20,10 +20,35 @@ BUDGET = "data/maths/bibliography-budget.json"
 # Files that hold the bibliography itself or its budget. The reference graph
 # generated from it lives under public_html/, outside SEARCH_ROOTS.
 SKIP = {BIB, BUDGET}
-SEARCH_ROOTS = ["docs", "data", "internal", "cmd", "tools", "config", "proto", "scripts"]
+SEARCH_ROOTS = [
+    "docs",
+    "data",
+    "internal",
+    "cmd",
+    "tools",
+    "config",
+    "proto",
+    "scripts",
+]
 TEXT_SUFFIXES = {
-    ".md", ".go", ".py", ".js", ".mjs", ".ts", ".svelte", ".swift", ".json",
-    ".yaml", ".yml", ".toml", ".proto", ".sql", ".txt", ".njk", ".html", ".sh",
+    ".md",
+    ".go",
+    ".py",
+    ".js",
+    ".mjs",
+    ".ts",
+    ".svelte",
+    ".swift",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".toml",
+    ".proto",
+    ".sql",
+    ".txt",
+    ".njk",
+    ".html",
+    ".sh",
 }
 
 SECTION_RULE = re.compile(r"^% =+\s*$")
@@ -64,7 +89,9 @@ def parse_bib(text):
 
 
 def tracked_text(repo):
-    out = subprocess.check_output(["git", "-C", str(repo), "ls-files", *SEARCH_ROOTS, "*.md"], text=True)
+    out = subprocess.check_output(
+        ["git", "-C", str(repo), "ls-files", *SEARCH_ROOTS, "*.md"], text=True
+    )
     chunks = []
     for name in out.splitlines():
         if name in SKIP or Path(name).suffix.lower() not in TEXT_SUFFIXES:
@@ -85,7 +112,8 @@ def report(entries, caps, corpus):
     stale = sorted(s for s in caps if s not in counts)
     lower = corpus.lower()
     uncited = [
-        key for key, _, doi in entries
+        key
+        for key, _, doi in entries
         if key not in corpus and not (doi and doi.lower() in lower)
     ]
     return counts, over, uncapped, stale, uncited
@@ -111,14 +139,18 @@ def main(argv=None):
     for section in stale:
         print(f"WARNING: cap names no section in {BIB}: {section}")
     if uncited:
-        print(f"Not cited by key or DOI in any tracked file ({len(uncited)}); "
-              "check the reference audit for author-year mentions before pruning:")
+        print(
+            f"Not cited by key or DOI in any tracked file ({len(uncited)}); "
+            "check the reference audit for author-year mentions before pruning:"
+        )
         for key in uncited:
             print(f"  {key}")
     problems = bool(over or uncapped or stale)
     if problems:
-        print("Over cap or unmatched sections: prune, merge, or raise the cap with its reason "
-              "in the reference audit (data/maths/citation-rubric.md).")
+        print(
+            "Over cap or unmatched sections: prune, merge, or raise the cap with its reason "
+            "in the reference audit (data/maths/citation-rubric.md)."
+        )
     return 1 if problems and args.strict else 0
 
 
