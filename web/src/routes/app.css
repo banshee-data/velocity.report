@@ -137,11 +137,15 @@ body {
  * use full canvas width inside vr-page directly.
  */
 .vr-content-narrow {
+	/* Full width up to the cap: as a centred flex item it would otherwise
+	   size to its widest unbreakable content, such as a nowrap table. */
+	width: 100%;
 	margin-inline: auto;
 	max-width: 48rem; /* 768px — matches Tailwind max-w-3xl */
 }
 
 .vr-content-wide {
+	width: 100%;
 	margin-inline: auto;
 	max-width: 96rem; /* 1536px — matches Tailwind max-w-screen-2xl; per DESIGN.md §5.7 analytical bound */
 }
