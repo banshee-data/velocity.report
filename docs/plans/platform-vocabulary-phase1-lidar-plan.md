@@ -22,7 +22,7 @@ route, type, response key, query parameter or schema name, so every step below r
 - The LiDAR navigation is one group, spelt LiDAR, in workflow order: Captures, Clips, Segments,
   Runs, Tracks, Sweeps. Scene Map left the navigation and is reached from Clips as "Clip
   locations".
-- "Replay case", and "scene" where it meant a case, read "clip" on the Clips, Runs, Tracks,
+- "Clip", and "scene" where it meant a case, read "clip" on the Clips, Runs, Tracks,
   Captures and Segments pages and in the web API client's error messages.
 - The macOS run browser's Case column is headed Source, because the cell holds the run's source
   file name rather than a clip (§ Ledger 6 is amended to match). It becomes Clip once runs record
@@ -33,7 +33,7 @@ route, type, response key, query parameter or schema name, so every step below r
 1. Trace clip/run and capture/sequence/period/volume names through existing schema metadata, store methods, handlers and response types.
 2. Rename existing metadata without changing stored values, keys, row counts or relationships; update indexes, triggers and embedded schema references.
 3. Follow each slice through web and macOS copy, navigation, API clients and label/annotation type names. The screen words follow the [workflow UI vocabulary](lidar-ui-workflow-plan.md#vocabulary): candidate rather than window, split for a named set of packs, and labels apart from annotations.
-4. Keep old external route, field and persisted-file spellings readable through explicit aliases or versioned compatibility readers.
+4. Cut over every release-unit caller. Keep only registered macOS aliases until the next DMG is the oldest supported; operator names become refusing tombstones.
 
 ## PR structure
 
@@ -42,7 +42,7 @@ carries its store, API and client changes together.
 
 ## Acceptance
 
-- [ ] Old and new routes perform the same operation and return equivalent values after normalising renamed keys.
+- [ ] Retired release-unit routes are absent; registered macOS aliases preserve the same values through the DMG support window.
 - [ ] Migrated rows and relationships match the pre-migration fixture; fresh and migrated databases expose the same schema.
 - [ ] Web and macOS client checks cover renamed surfaces; replay windows, labels and recording behaviour remain unchanged.
 
@@ -54,3 +54,15 @@ relationship. Scene retains its geometry sense.
 The programme's original decisions and detailed ledger remain authoritative for this outline. Where
 an implementation needs a new decision, record it before writing the migration or changing a wire
 contract. Keep existing compatibility rules and the applicable surface tests.
+
+## Vocabulary contract
+
+The [published platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) governs
+this plan: capture is a static packet file; clip is an evaluation or annotation window;
+run is a processing pass; labels are track verdicts; annotations are reviewed point masks.
+Site means place, deployment means one sensor’s placement over a period, and survey means
+one deployment’s measurement over a period. Scene is reserved for physical geometry.
+Historical schema inventories describe their original state; implementation follows the
+[D-31 cutovers](platform-vocabulary-and-data-model-plan.md#phase-1-under-d-31-three-renames)
+and the [compatibility register](../platform/operations/compatibility-register.md).
+New storage relationships remain Phase 2.
