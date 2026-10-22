@@ -306,6 +306,9 @@ func TestGetRegionDebugInfo(t *testing.T) {
 	if len(info.GridMapping) != rings*azBins {
 		t.Errorf("Expected grid mapping of size %d, got %d", rings*azBins, len(info.GridMapping))
 	}
+	if info.Rings != rings || info.AzimuthBins != azBins {
+		t.Errorf("Expected a %dx%d grid, got %dx%d", rings, azBins, info.Rings, info.AzimuthBins)
+	}
 
 	// Get debug info with cell details
 	infoWithCells := bm.GetRegionDebugInfo(true)

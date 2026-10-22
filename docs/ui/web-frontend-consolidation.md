@@ -10,14 +10,22 @@ Revised 2026-09-19 after a route-by-route survey. The previous revision's phase
 estimates and several of its factual claims were wrong; the plan records what
 changed and why.
 
+Phases 1 to 6, v0.5.2's ECharts retirement, are implemented on
+branch `claude/echarts-svelte-migration-83fbd5` (#836). The Go-embedded
+dashboards, go-echarts and the 8081 listener are gone; the Svelte LiDAR Status,
+Debug, Regions and Run a Sweep pages under `/app/lidar/` replace them, and every
+LiDAR route is on 8080. Phase 7 is a v0.7.0 row. What landed, the one deviation
+from the deletion ledger and the known replay-slot issue are in the plan's
+[v0.5.2 delivery](../plans/web-frontend-consolidation-plan.md#v052-delivery).
+
 ## Problem
 
-Three distinct web surfaces serve LiDAR functionality: the Svelte app on 8080,
-the Go-embedded HTML dashboards, and the macOS Metal visualiser. The split is
-not only a user-experience cost. The same operator task spans surfaces — running
-HINT today needs the legacy sweep dashboard to start it, the Svelte tracks page
-or the macOS app to label, and the legacy page again to continue — and the same
-data is shaped twice for two clients.
+Before v0.5.2, three distinct web surfaces served LiDAR functionality: the Svelte app on 8080,
+the Go-embedded HTML dashboards, and the macOS Metal visualiser. The split was
+not only a user-experience cost. The same operator task spanned surfaces: running
+HINT needed the legacy sweep dashboard to start it, the Svelte tracks page
+or the macOS app to label, and the legacy page again to continue. The same
+data is still shaped twice for two clients until Phase 7.
 
 ## Surface ownership
 
@@ -58,16 +66,16 @@ artefacts only: one decimation path, one artefact, two consumers.
 
 ## Revised phases
 
-| Phase | Scope                                                        | Effort      |
-| ----- | ------------------------------------------------------------ | ----------- |
-| 0     | Capabilities API and conditional nav                         | Mostly done |
-| 1     | Delete the consumer-free handlers; drop `go-echarts`         | 1 day       |
-| 2     | Retire the 8081 listener and `--lidar-listen`                | 1 day       |
-| 3     | PCAP replay and recording form in Svelte                     | 3–4 days    |
-| 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route | 2–3 days    |
-| 5     | Sweep, auto-tune and HINT control in Svelte                  | 2–3 weeks   |
-| 6     | Delete `status.html` and `sweep_dashboard.*`                 | 1 day       |
-| 7     | One scene lineage                                            | 1 week      |
+| Phase | Scope                                                        | Effort      | Status                              |
+| ----- | ------------------------------------------------------------ | ----------- | ----------------------------------- |
+| 0     | Capabilities API and conditional nav                         | Mostly done | Mostly done                         |
+| 1     | Delete the consumer-free handlers; drop `go-echarts`         | 1 day       | Done on the branch; chart JSON kept |
+| 2     | Retire the 8081 listener and `--lidar-listen`                | 1 day       | Done on the branch; flag ignored    |
+| 3     | PCAP replay and recording form in Svelte                     | 3–4 days    | Done on the branch                  |
+| 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route | 2–3 days    | Done on the branch                  |
+| 5     | Sweep, auto-tune and HINT control in Svelte                  | 2–3 weeks   | Done on the branch                  |
+| 6     | Delete `status.html` and `sweep_dashboard.*`                 | 1 day       | Done on the branch                  |
+| 7     | One scene lineage                                            | 1 week      | v0.7.0 row                          |
 
 Phase 5 dominates, but not for the reason the previous revision gave. The eight
 ECharts charts are the visible half; the form model behind them — 26 parameters
@@ -86,6 +94,13 @@ compared before and after, is the check that matters most.
   calls to `/api/lidar/*` and uses one deprecated alias; pin the Swift client
   before any alias cleanup.
 - Deleting `status.html` before Phase 3 lands, which would remove the only way
-  to record a VRLOG by hand.
+  to record a VRLOG by hand. (Resolved: the LiDAR Status page landed first.)
 - Renaming `/debug/lidar/background/regions`, which returns JSON and is cited in
-  operator docs, as though it were a debug page.
+  operator docs, as though it were a debug page. (Resolved: it is now
+  `GET /api/lidar/background/regions`, and the operator docs moved with it.)
+- The replay slot: a sweep that replays captures, started after a finished
+  analysis replay that kept its grid, waited about 150 s per combination and
+  skipped each one. (Resolved: the sweep now takes the pipeline over from a
+  finished replay, and stops with a clear error if a running replay still holds
+  the slot after its retries. The Run a Sweep page refuses only while a replay
+  is running.)

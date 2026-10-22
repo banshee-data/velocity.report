@@ -84,10 +84,11 @@ http://velocity-pi             # web UI on :80 (MagicDNS, if enabled)
 http://100.x.y.z               # web UI on :80 (Tailscale IP, always works)
 ```
 
-The LiDAR monitor is on `:8081`:
+The LiDAR pages are part of the same web UI on `:80` (the separate `:8081` LiDAR listener was
+retired in v0.5.2):
 
 ```text
-http://velocity-pi:8081
+http://velocity-pi/app/lidar/status
 ```
 
 Tailscale-protected debug endpoints (serial commands, DB backup, tailsql,
@@ -122,8 +123,8 @@ nodes (useful if you add a second Pi).
 ### Restricting port access
 
 For tighter control, replace `*` with specific ports: set the destination
-to `tag:velocity-report:80,8081,22` to restrict access to the web UI
-(80), LiDAR monitor (8081), and SSH (22) only.
+to `tag:velocity-report:80,22` to restrict access to the web UI and LiDAR
+pages (80) and SSH (22) only.
 
 ## 5. SSH access via Tailscale
 

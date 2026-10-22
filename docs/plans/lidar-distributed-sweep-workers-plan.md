@@ -93,7 +93,7 @@ velocity-report --worker \
 **What the worker does NOT run:**
 
 - No radar serial handler
-- No full web dashboard (no port 8080 / 8081 UI)
+- No full web dashboard (no port 8080 UI)
 - No PDF report generation
 - No transit worker
 - No gRPC visualiser server
@@ -494,4 +494,4 @@ Existing single-machine deployments are unaffected:
 
 3. **Auto-tune compatibility**: the `AutoTuner` and `HINTRunner` use iterative refinement where each round's bounds depend on the previous round's results. Distributing within a round is safe; distributing across rounds requires sequential aggregation. Phase 2 coordinator should handle this explicitly.
 
-4. **Worker port conflict**: port 8082 is chosen to avoid colliding with 8080 (main API) and 8081 (LiDAR monitor). If a machine runs both driver and worker (testing scenario), these ports coexist. Confirm this is acceptable or make the worker port configurable via `--worker-listen`.
+4. **Worker port conflict**: port 8082 is chosen to avoid colliding with 8080 (main API, which also carries the LiDAR routes) and 8081 (the LiDAR monitor before v0.5.2). If a machine runs both driver and worker (testing scenario), these ports coexist. Confirm this is acceptable or make the worker port configurable via `--worker-listen`.

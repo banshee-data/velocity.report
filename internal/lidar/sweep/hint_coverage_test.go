@@ -397,7 +397,7 @@ func TestRun_FullSuccessPath(t *testing.T) {
 	})
 
 	state := tuner.GetHINTState()
-	if state.Status != string(SweepStatusComplete) {
+	if state.Status != HINTStatusCompleted {
 		t.Fatalf("expected completed, got %s (error: %s)", state.Status, state.Error)
 	}
 	if clipSaver.calls == 0 {
@@ -456,7 +456,7 @@ func TestRun_MultipleRounds(t *testing.T) {
 	})
 
 	state := tuner.GetHINTState()
-	if state.Status != string(SweepStatusComplete) {
+	if state.Status != HINTStatusCompleted {
 		t.Fatalf("expected completed, got %s (error: %s)", state.Status, state.Error)
 	}
 	if len(state.RoundHistory) != 2 {
@@ -1005,7 +1005,7 @@ func TestRun_FullSuccessWithPersisterErrors(t *testing.T) {
 	})
 
 	state := tuner.GetHINTState()
-	if state.Status != string(SweepStatusComplete) {
+	if state.Status != HINTStatusCompleted {
 		t.Fatalf("expected completed even with persister error, got %s (error: %s)", state.Status, state.Error)
 	}
 }
@@ -1051,7 +1051,7 @@ func TestRun_SetOptimalParamsError(t *testing.T) {
 
 	state := tuner.GetHINTState()
 	// Should still complete even if save fails (logged, not fatal)
-	if state.Status != string(SweepStatusComplete) {
+	if state.Status != HINTStatusCompleted {
 		t.Fatalf("expected completed, got %s (error: %s)", state.Status, state.Error)
 	}
 }

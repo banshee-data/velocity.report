@@ -16,3 +16,9 @@ overrides:
   # svelte-ux lists sveld (its API-docs Vite plugin, which this app does not load);
   # sveld 0.22 pulls in Svelte 4, which has XSS advisories with no 4.x fix.
   sveld@<0.38.1: ^0.38.1
+
+peerDependencyRules:
+  allowedVersions:
+    # layerchart depends on runed, whose optional `runed/kit` entry names Kit 2
+    # as a peer. Neither layerchart nor this app imports that entry.
+    'runed>@sveltejs/kit': '3'

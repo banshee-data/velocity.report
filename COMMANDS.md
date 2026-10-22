@@ -169,8 +169,6 @@ service account or `root`, for example `sudo -u velocity /usr/local/bin/velocity
 - `plot-noise-sweep`: Generate noise sweep line plot (FILE=data.csv)
 - `plot-multisweep`: Generate multi-parameter grid (FILE=data.csv)
 - `plot-noise-buckets`: Generate per-noise bar charts (FILE=data.csv)
-- `stats-live`: Capture live LiDAR snapshots (INTERVAL=10 DURATION=60)
-- `stats-pcap`: Capture PCAP replay snapshots (PCAP=file.pcap INTERVAL=5)
 
 ## API shortcut targets (LiDAR HTTP API)
 

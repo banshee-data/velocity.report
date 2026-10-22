@@ -25,7 +25,7 @@ func Main(args []string) int {
 	fs := flag.NewFlagSet("velocity-tune-sweep", flag.ExitOnError)
 
 	// Common flags
-	monitorURL := fs.String("monitor", "http://localhost:8081", "Base URL for lidar monitor")
+	monitorURL := fs.String("monitor", "http://localhost:8080", "Base URL for lidar monitor")
 	sensorID := fs.String("sensor", "hesai-pandar40p", "Sensor ID")
 	output := fs.String("output", "", "Output CSV filename (defaults to sweep-<timestamp>.csv)")
 

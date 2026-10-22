@@ -71,7 +71,6 @@ func newConfigTestServer(t *testing.T, sensorID, dir string) *Server {
 	t.Cleanup(func() { l3grid.RegisterBackgroundManager(sensorID, nil) })
 
 	ws := NewServer(Config{
-		Address:         ":0",
 		Stats:           NewPacketStats(),
 		SensorID:        sensorID,
 		TuningConfig:    cfgpkg.MustLoadDefaultConfig(),
@@ -312,29 +311,6 @@ func TestHandlePCAPStartAppliesATuningConfig(t *testing.T) {
 	}
 	if got := ws.tracker.GetConfig(); !got.SolidBody.RectangleHeading || !got.NearEdgeTracking {
 		t.Fatalf("the replay started without the config: %+v", got.SolidBody)
-	}
-}
-
-// The status page's replay form carries the dropdown and fetches the
-// listing on load, and the JSON status endpoints name the active config.
-func TestStatusPageListsTuningConfigs(t *testing.T) {
-	dir := writeConfigTree(t)
-	ws := newConfigTestServer(t, "sensor-status-configs", dir)
-	rec := httptest.NewRecorder()
-	ws.setupRoutes().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status %d", rec.Code)
-	}
-	body := rec.Body.String()
-	for _, want := range []string{`name="tuning_config"`, `fetch('/api/lidar/configs')`, "Tuning Config", dir, "(startup config)"} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("the status page lacks %q", want)
-		}
-	}
-	rec = httptest.NewRecorder()
-	ws.handleDataSource(rec, httptest.NewRequest(http.MethodGet, "/api/lidar/data_source?sensor_id=sensor-status-configs", nil))
-	if !strings.Contains(rec.Body.String(), `"tuning_fingerprint":"`+cfgpkg.MustLoadDefaultConfig().Fingerprint()+`"`) {
-		t.Fatalf("data_source lacks the fingerprint: %s", rec.Body.String())
 	}
 }
 

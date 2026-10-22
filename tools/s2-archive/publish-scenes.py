@@ -104,7 +104,7 @@ from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-# LiDAR routes are registered on the main HTTP API; 8081 is the legacy monitor.
+# LiDAR routes are on the main HTTP API.
 API = os.environ.get("LIDAR_API_URL", "http://localhost:8080/api/lidar").rstrip("/")
 PCAP_SUBDIR = os.environ.get("REPLAY_PCAP_SUBDIR", "s2")
 SPEED_MODE = os.environ.get("REPLAY_SPEED_MODE", "analysis")
@@ -321,7 +321,7 @@ def replay(scene, tuning_config=None):
     """Replay the stretch, optionally under a tuning config file, and say what ran.
 
     tuning_config is a path relative to the server's config directory, as the
-    :8081 replay form's dropdown sends it; the server applies the whole file
+    LiDAR Status page's replay form sends it; the server applies the whole file
     before the replay starts. Returns the VRLOG, the run id and the start
     response, which echoes the file and its fingerprint.
     """

@@ -1,6 +1,6 @@
 # Surface consolidation plan
 
-- **Status:** Proposed: Phases 1 to 6 are v0.5.2's ECharts retirement and Phase 7 is a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+- **Status:** Phases 1 to 6 (v0.5.2's ECharts retirement) are implemented on branch `claude/echarts-svelte-migration-83fbd5` (#836); see [v0.5.2 delivery](#v052-delivery). Phase 7 remains a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Proposed, then Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
@@ -19,6 +19,10 @@ The project has three distinct web surfaces for LiDAR functionality:
 1. **Svelte web app** (`/app/*`, port 8080): radar dashboard, reports, sites, settings, plus LiDAR tracks/replay-cases/runs/captures/sweeps/scene-map
 2. **Go-embedded HTML dashboards** (port 8081, and on 8080 too, see below): LiDAR status, debug dashboard, parameter sweep/auto-tune, background regions
 3. **macOS Metal visualiser** (gRPC on port 50051, plus eleven HTTP calls to `/api/lidar/*` on 8080): live 3D point cloud rendering, track labelling, replay
+
+Item 2 no longer exists: v0.5.2 deleted the Go-embedded dashboards and the 8081 listener, and the
+Svelte LiDAR Status, Debug, Regions and Sweep pages replace them. The rest of this section
+describes the problem as it stood before that work.
 
 The Svelte app was originally conceived as radar-only, with LiDAR interfaces living on port 8081 and the Mac app. Over time, LiDAR tracks, scenes, and runs were added to the Svelte app, creating a mixed-concern frontend. PR #547 now hides sidebar LiDAR navigation in radar-only deployments, but direct-route disabled states and the split LiDAR tooling surfaces still need follow-through.
 
@@ -198,7 +202,8 @@ started or configured. Separately, `status.html:318` is the only UI that can
 start a **configured PCAP replay with recording**, which the plan does not list
 as a blocker at all. `tools/s2-archive/publish-scenes.py` does the same over the
 API, so scene publishing is unaffected, but the manual record-a-VRLOG workflow
-dies with the page.
+dies with the page. (Since v0.5.2 that UI is the Svelte LiDAR Status page,
+`/app/lidar/status`, and `status.html` is deleted.)
 
 **Line counts were understated by up to 66 %**: `status.html` 570 not 492,
 `regions_dashboard` 61 + 340 not 54 + 298, `dashboard.html` 46 not 43.
@@ -254,6 +259,19 @@ inventory, not an instruction to delete today.
 4. `POST /api/lidar/playback/{pause,play,seek,rate}` had no Swift call site in
    the survey, but the Metal transport UI must be exercised against a running
    8080 before they are called dead.
+
+**Deviation recorded in v0.5.2: the chart JSON routes stay.** The first row of
+the ledger (`chart_api.go` and the five `/api/lidar/chart/*` endpoints) and the
+third (`chart_data.go`, `chart_transforms.go`) were not deleted. They are no
+longer consumer-free: the Svelte LiDAR Debug page (`/app/lidar/debug`) draws
+its background cells, background buckets, foreground frame, recent clusters
+and traffic from them. Trap 1 is therefore moot. `echarts_handlers.go`,
+`legacy_assets.go`, the assets under `l9endpoints/l10clients/` (including
+`echarts.min.js` and `dashboard.html`) and `go-echarts` were deleted as listed;
+trap 2's rename landed as `GET /api/lidar/background/regions`, and
+`gridplotter.go` survives. The other ledger rows (`templates.go`,
+`track_export.go`, `training_data.go`, the three uncalled routes and
+`adaptClusters`) were outside this branch and remain.
 
 ## One scene lineage
 
@@ -319,22 +337,89 @@ Phase 0 is unchanged and mostly complete. The rest is re-ordered so that nothing
 is deleted before its replacement exists, and so the cheap, consumer-free
 deletions are not held hostage to the expensive rewrite.
 
-| Phase | Scope                                                                             | Revised effort | Depends on                 |
-| ----- | --------------------------------------------------------------------------------- | -------------- | -------------------------- |
-| 0     | Capabilities API and conditional nav                                              | Mostly done    | —                          |
-| 1     | **Deletion ledger**: the consumer-free handlers above, plus the `go-echarts` drop | 1 day          | The four traps             |
-| 2     | Retire the 8081 listener and `--lidar-listen`                                     | 1 day          | Phase 1                    |
-| 3     | PCAP replay and recording form in Svelte                                          | 3–4 days       | —                          |
-| 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route                      | 2–3 days       | —                          |
-| 5     | Sweep, auto-tune and HINT control in Svelte                                       | 2–3 weeks      | Form model, not the charts |
-| 6     | Delete `status.html` and `sweep_dashboard.*`                                      | 1 day          | Phases 3 and 5             |
-| 7     | One scene lineage: serve `projectFrame`, delete `buildLiveFrames`                 | 1 week         | Independent; highest value |
+| Phase | Scope                                                                             | Revised effort | Depends on                 | Status                                      |
+| ----- | --------------------------------------------------------------------------------- | -------------- | -------------------------- | ------------------------------------------- |
+| 0     | Capabilities API and conditional nav                                              | Mostly done    | —                          | Mostly done                                 |
+| 1     | **Deletion ledger**: the consumer-free handlers above, plus the `go-echarts` drop | 1 day          | The four traps             | Done on the branch; chart JSON kept         |
+| 2     | Retire the 8081 listener and `--lidar-listen`                                     | 1 day          | Phase 1                    | Done on the branch; flag ignored            |
+| 3     | PCAP replay and recording form in Svelte                                          | 3–4 days       | —                          | Done on the branch: `/app/lidar/status`     |
+| 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route                      | 2–3 days       | —                          | Done on the branch: `/app/lidar/regions`    |
+| 5     | Sweep, auto-tune and HINT control in Svelte                                       | 2–3 weeks      | Form model, not the charts | Done on the branch: `/app/lidar/sweeps/run` |
+| 6     | Delete `status.html` and `sweep_dashboard.*`                                      | 1 day          | Phases 3 and 5             | Done on the branch                          |
+| 7     | One scene lineage: serve `projectFrame`, delete `buildLiveFrames`                 | 1 week         | Independent; highest value | v0.7.0 row                                  |
 
 Phase 5's client layer is half-built already: `web/src/lib/api.ts` has
 `getHINTState` (:1100), `startHINTSweep` (:1110) and `stopHINT` (:1156), tested
 and imported by nothing. A smaller gap worth fixing first: `add_round` and
 `next_sweep_duration_mins` are unreachable from 8080 because
-`sweeps/+page.svelte:162` calls `continueHINT()` with defaults.
+`sweeps/+page.svelte:162` calls `continueHINT()` with defaults. (Both are
+reachable since Phase 5: the Run a Sweep page sends them.)
+
+## v0.5.2 delivery
+
+Phases 1 to 6 are implemented on branch `claude/echarts-svelte-migration-83fbd5`,
+in #836. Every LiDAR route is served on the main listener (`--listen`,
+default `127.0.0.1:8080`); `--lidar-listen` is a refusing
+tombstone: naming it fails and prints `--listen` (registered in the compatibility
+register; removed in v0.5.9).
+
+| Old surface (deleted)                                        | Replacement                                                                                                                 |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
+| `status.html` on 8081, with the PCAP replay form             | LiDAR Status, `/app/lidar/status`: state, the replay and recording form with the Tuning Config dropdown, maintenance        |
+| The six go-echarts pages and the `/debug/lidar` dashboard    | LiDAR Debug, `/app/lidar/debug`: the grid SVG from `GET /api/charts/grid`, and charts from `/api/lidar/chart/*`             |
+| The regions dashboard and `/debug/lidar/background/regions`  | Background Regions, `/app/lidar/regions`, reading `GET /api/lidar/background/regions` (now with `rings` and `azimuth_bins`) |
+| `sweep_dashboard.*` at `/debug/lidar/sweep`                  | Run a Sweep, `/app/lidar/sweeps/run`, and the sweeps list's detail panel, with the fixed default chart set                  |
+| The Python `tools/grid-heatmap/`, `stats-live`, `stats-pcap` | `GET /api/charts/grid`, shown on LiDAR Debug (D-17)                                                                         |
+
+The Tuning Config dropdown sends `tuning_config` on `POST /api/lidar/pcap/start`
+exactly as the 8081 form did, so AGENTS.md's arm-run path moved to the Status
+page in the same change.
+
+**Parity with the old sweep dashboard.** Run a Sweep also carries what the
+dashboard offered beside its charts: a results CSV, setup files saved and
+loaded, applying a clip's stored parameters, the running parameters with the
+lines that differ from the defaults highlighted, the recommendation's metrics
+and auto-tune round bounds, and the score explanation from
+`GET /api/lidar/sweep/explain/{id}` (or the last HINT round's breakdown) when a
+sweep records one. The ground-truth objective is offered only for a clip with a
+labelled reference run. While HINT sweeps, the page polls the auto-tuner it
+drives, because the HINT state's long poll wakes on phase changes and label
+progress but not on combination progress. The LiDAR Status page adds the ASC
+exports and clearing analysis runs (registered only when the server sets
+`VELOCITY_REPORT_ENABLE_DESTRUCTIVE_LIDAR_API=1`).
+
+**Tested live** on a scratch server with a 12 s kirk0 clip: a manual 2×2
+sweep, an acceptance auto-tune (2 values, 2 rounds) and its recommendation
+applied, a weighted auto-tune with acceptance criteria, and a HINT sweep from
+reference run through API-labelled tracks, the label gate and continue, to
+completion.
+
+**HINT's finished state was `complete`.** The HINT tuner set its state to the
+sweep runner's `complete`, while its documented values, the stored sweep record
+and every client (the old dashboard and the new page) use `completed`; a client
+never saw a HINT session end. The tuner now sets `HINTStatusCompleted`
+(`completed`).
+
+**Not ported, by the owner's choice.** The sweep dashboard's configurable chart
+editor. The Svelte pages draw a fixed default set: acceptance, nonzero cells,
+active tracks and alignment per combination, and acceptance, tracks and
+alignment heatmaps over the first two numeric parameters.
+`PUT /api/lidar/sweeps/charts` still exists on the server, but no client writes
+it.
+
+**Known issue: the replay slot (fixed).** A sweep that replays captures, started
+after an analysis replay had finished and kept its grid, waited about 150 s per
+combination (30 retries 5 s apart) and skipped each one, so the sweep completed
+with no results. The in-process sweep path gated on the PCAP source rather than
+on a running replay, unlike `POST /api/lidar/pcap/start`. It now waits only
+while a PCAP or VRLOG replay is running, and takes the pipeline over from a
+finished analysis replay as any replay start does: the sweep owns the pipeline,
+resetting all state for every combination and releasing it to live when it
+ends. A finished analysis replay still keeps its grid until someone starts a
+replay or sweep. If a running replay still holds the slot after the retries,
+the sweep now stops with an error naming `POST /api/lidar/replay/stop` instead
+of skipping one combination after another. The Run a Sweep page refuses only
+while a replay is running.
 
 ## Regression gate
 
@@ -352,7 +437,7 @@ Preserve as JSON APIs even as the HTML goes: `pcapRoutes`
 `publish-scenes.py` and the Makefile preflight hard-code port 8080.
 
 Deterministic scene capture Milestone 4 adds its unchecked **Make web export** option to the
-Svelte form from Phase 3. It follows that replacement, not the retired 8081 replay form; its
+Svelte form from Phase 3 (the LiDAR Status page). It follows that replacement, not the retired 8081 replay form; its
 export still waits for recording finalisation and can be retried independently.
 
 ## Where the evaluator fits

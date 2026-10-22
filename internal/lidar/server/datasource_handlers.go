@@ -17,6 +17,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 type replayFrameBuilder interface {
@@ -125,10 +126,25 @@ func (ws *Server) StopPCAPInternal() {
 
 // --- Exported helpers for DirectBackend (in-process sweep) ---
 
+// sweepSlotRetryDelay is how long StartPCAPForSweep waits between attempts
+// to claim a replay slot that another replay holds. A variable so tests can
+// exercise the wait without sleeping for it.
+var sweepSlotRetryDelay = 5 * time.Second
+
 // StartPCAPForSweep starts a PCAP replay suitable for sweep use.
 // It stops the live listener, resets all state (grid, frame builder, tracker),
-// and begins the replay. It retries on conflict (another PCAP in progress)
-// up to maxRetries times with 5-second delays.
+// and begins the replay. While another replay is running it retries up to
+// maxRetries times with sweepSlotRetryDelay between attempts, then returns
+// an error wrapping sweep.ErrReplaySlotBusy.
+//
+// Only a running replay holds the slot. A finished analysis replay leaves
+// the pipeline in pcap_analysis with its grid retained for inspection, and a
+// sweep takes the pipeline over from that state exactly as
+// POST /api/lidar/pcap/start does: the sweep resets all state for every
+// combination anyway, and releases the pipeline back to live input when it
+// ends. Gating on the PCAP source instead, as this once did, made a sweep
+// started after an analysis replay wait out every combination's retries and
+// skip it, so the whole sweep finished with no results.
 func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMode string, speedRatio float64,
 	startSeconds, durationSeconds float64, maxRetries int, disableRecording bool) error {
 
@@ -139,12 +155,17 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 	for retry := 0; retry < maxRetries; retry++ {
 		ws.dataSourceMu.Lock()
 
-		if ws.PipelineState().Source == SourceModeCapture {
+		// ReplayActive rather than PCAPInProgress: a VRLOG replay holds the
+		// slot too, and claiming it would reset the grid under that replay
+		// before tryBeginPCAPReplay refused the start.
+		if ws.PipelineState().ReplayActive {
 			ws.dataSourceMu.Unlock()
 			if retry == 0 {
 				diagf("PCAP replay in progress, waiting...")
 			}
-			time.Sleep(5 * time.Second)
+			if retry < maxRetries-1 {
+				time.Sleep(sweepSlotRetryDelay)
+			}
 			continue
 		}
 
@@ -180,7 +201,8 @@ func (ws *Server) StartPCAPForSweep(pcapFile string, analysisMode bool, speedMod
 		}
 		return nil
 	}
-	return fmt.Errorf("timeout waiting for PCAP replay slot")
+	return fmt.Errorf("%w: a replay was still running after %d attempts; stop it via POST /api/lidar/replay/stop",
+		sweep.ErrReplaySlotBusy, maxRetries)
 }
 
 // StopPCAPForSweep cancels any running PCAP replay and restores live mode.

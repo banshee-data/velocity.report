@@ -86,9 +86,11 @@ volume and writes its evidence to the same one contends with itself. Read captur
 volume or the NAS and write to the internal disk. NAS captures double a replay's wall time against
 the internal disk, and the USB LiDAR volume is slower still, so for a long run stage the run's
 segments on the internal disk when there is room (`df -h /` first; keep 10 GB free). SQLite
-evidence on the USB volume is seek-bound: never write evidence there. Ports 8080, 8081 and UDP
-2369 may belong to a long-running server: scratch servers use 18080, 18081 and
-`--lidar-live-udp-port 12369`.
+evidence on the USB volume is seek-bound: never write evidence there. Port 8080 and UDP 2369 (and
+8081, on a server built before v0.5.2) may belong to a long-running server: scratch servers use
+`--listen` on 18080 and `--lidar-live-udp-port 12369`. Every LiDAR route, and the LiDAR Status
+page's replay form (`/app/lidar/status`), is on the `--listen` port; `--lidar-listen` is retired
+and ignored.
 
 ## 3. Preflight
 

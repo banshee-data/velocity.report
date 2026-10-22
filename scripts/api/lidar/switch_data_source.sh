@@ -11,7 +11,7 @@ if [ -z "$SOURCE" ]; then
   exit 2
 fi
 
-BASE_URL="http://127.0.0.1:8081"
+BASE_URL="http://127.0.0.1:8080"
 SENSOR_ID="hesai-pandar40p"
 PCAP_FILE=""
 

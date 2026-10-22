@@ -77,4 +77,4 @@ active plan for root cause, phases, and checklist.
 
 Phases: (1) eliminate stale embeds (~172 MB), (2) strip debug symbols (~8–12 MB),
 (3) CI binary size gate (45 MB threshold), (4) optional further reductions
-(echarts removal, lazy Leaflet, UPX).
+(echarts removal, done in v0.5.2; lazy Leaflet; UPX).

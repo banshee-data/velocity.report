@@ -3,25 +3,13 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
-	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
-	"github.com/banshee-data/velocity.report/internal/version"
-)
-
-// statusTemplate is the operator status page, parsed once at initialisation.
-// Parsing per request cost a template compile on every hit and left a load
-// failure to be reported as a 500 — but the source is embedded and validated at
-// build time, so a failure here is a build mistake and belongs at startup.
-var statusTemplate = template.Must(
-	template.ParseFS(l9endpoints.LegacyStatusFS(), "status.html"),
 )
 
 // handleGridStatus returns simple statistics about the in-memory BackgroundGrid
@@ -316,126 +304,6 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
-}
-
-// handleStatus handles the main status page endpoint
-func (ws *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/lidar/server" && r.URL.Path != "/" && r.URL.Path != "/api/lidar/server" && r.URL.Path != "/api/lidar/monitor" {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html")
-
-	// Determine forwarding status
-	forwardingStatus := "disabled"
-	if ws.forwardingEnabled {
-		forwardingStatus = fmt.Sprintf("enabled (%s:%d)", ws.forwardAddr, ws.forwardPort)
-	}
-
-	// Determine parsing status
-	parsingStatus := "enabled"
-	if !ws.parsingEnabled {
-		parsingStatus = "disabled"
-	}
-
-	// StatusLabel covers every source. The switch this replaced had no case for
-	// pcap_analysis, so the page rendered "Live UDP" while the pipeline was
-	// sitting on a preserved PCAP grid.
-	state := ws.PipelineState()
-	mode := state.StatusLabel()
-	currentPCAPFile := state.PCAPFile()
-	pcapInProgress := state.PCAPInProgress()
-	pcapSpeedMode := state.SpeedMode
-	pcapSpeedRatio := state.SpeedRatio
-
-	// Get background manager to show current params
-	var bgParams *l3grid.BackgroundParams
-	var bgParamsJSON string
-	var bgParamsJSONLines int
-
-	if mgr := l3grid.GetBackgroundManager(ws.sensorID); mgr != nil {
-		params := mgr.GetParams()
-		bgParams = &params
-
-		cfg := ws.runtimeTuningConfig(mgr)
-		if jsonBytes, err := json.MarshalIndent(cfg, "", "  "); err == nil {
-			bgParamsJSON = string(jsonBytes)
-			bgParamsJSONLines = strings.Count(bgParamsJSON, "\n") + 2
-		}
-	}
-
-	// Refresh foreground snapshot counts for status rendering.
-	ws.updateLatestFgCounts(ws.sensorID)
-
-	// The template is parsed once at initialisation, not per request.
-	tmpl := statusTemplate
-
-	// Template data
-	data := struct {
-		Version           string
-		GitSHA            string
-		BuildTime         string
-		UDPPort           int
-		HTTPAddress       string
-		ForwardingStatus  string
-		ParsingStatus     string
-		Mode              string
-		PCAPSafeDir       string
-		Uptime            string
-		Stats             *StatsSnapshot
-		SensorID          string
-		BGParams          *l3grid.BackgroundParams
-		BGParamsJSON      string
-		BGParamsJSONLines int
-		PCAPFile          string
-		PCAPInProgress    bool
-		PCAPSpeedMode     string
-		PCAPSpeedRatio    float64
-		FgSnapshotCounts  map[string]int
-		ReplayPass        string
-		ReplayTotalPasses int
-		Recording         bool
-		RecordingPath     string
-		GridPreserved     bool
-		LiveListener      bool
-		TuningConfigDir   string
-		TuningConfigPath  string
-		TuningFingerprint string
-	}{
-		Version:           version.Version,
-		GitSHA:            version.GitSHA,
-		BuildTime:         version.BuildTime,
-		UDPPort:           ws.udpPort,
-		HTTPAddress:       ws.address,
-		ForwardingStatus:  forwardingStatus,
-		ParsingStatus:     parsingStatus,
-		Mode:              mode,
-		PCAPSafeDir:       ws.pcapSafeDir,
-		Uptime:            ws.stats.GetUptime().Round(time.Second).String(),
-		Stats:             ws.stats.GetLatestSnapshot(),
-		SensorID:          ws.sensorID,
-		BGParams:          bgParams,
-		BGParamsJSON:      bgParamsJSON,
-		BGParamsJSONLines: bgParamsJSONLines,
-		PCAPFile:          currentPCAPFile,
-		PCAPInProgress:    pcapInProgress,
-		PCAPSpeedMode:     pcapSpeedMode,
-		PCAPSpeedRatio:    pcapSpeedRatio,
-		ReplayPass:        string(state.Pass),
-		ReplayTotalPasses: state.TotalPasses,
-		Recording:         state.Recording,
-		RecordingPath:     state.RecordingPath,
-		GridPreserved:     state.GridPreserved,
-		LiveListener:      state.LiveListenerRunning,
-		FgSnapshotCounts:  ws.getLatestFgCounts(),
-		TuningConfigDir:   ws.tuningConfigDir,
-	}
-	data.TuningConfigPath, data.TuningFingerprint = ws.activeTuning()
-
-	if err := tmpl.Execute(w, data); err != nil {
-		http.Error(w, "could not render status page: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
 }
 
 // handleLidarPersist triggers manual persistence of a BackgroundGrid snapshot.

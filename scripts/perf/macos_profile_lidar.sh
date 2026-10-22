@@ -18,7 +18,7 @@ Usage:
 Options:
   --pcap PATH                Path to .pcap/.pcapng file (required).
   --sensor ID                Sensor ID (default: hesai-pandar40p).
-  --base-url URL             API base URL (default: http://127.0.0.1:8081).
+  --base-url URL             API base URL (default: http://127.0.0.1:8080).
   --interval SECONDS         Poll interval (default: 5).
   --idle-seconds SECONDS     Idle baseline duration before PCAP start (default: 120).
   --max-active-seconds SEC   Safety timeout for active phase (default: 1800).
@@ -44,7 +44,7 @@ require_cmd() {
 
 PCAP_PATH=""
 SENSOR_ID="hesai-pandar40p"
-BASE_URL="http://127.0.0.1:8081"
+BASE_URL="http://127.0.0.1:8080"
 INTERVAL=5
 IDLE_SECONDS=120
 MAX_ACTIVE_SECONDS=1800

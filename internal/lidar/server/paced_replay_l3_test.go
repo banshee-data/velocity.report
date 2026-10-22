@@ -44,7 +44,6 @@ func TestStartPCAPLocked_PacedReplayRunsTheTuningFilesL3(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
