@@ -577,7 +577,7 @@ describe('loadRegions', () => {
 		(global.fetch as jest.Mock).mockClear();
 		loadRegions();
 		expect(global.fetch).toHaveBeenCalledWith(
-			'/debug/lidar/background/regions?sensor_id=test-sensor'
+			'/api/lidar/background/regions?sensor_id=test-sensor'
 		);
 	});
 
@@ -656,7 +656,7 @@ describe('loadRegions', () => {
 
 		loadRegions();
 		expect(global.fetch).toHaveBeenCalledWith(
-			'/debug/lidar/background/regions?sensor_id=sensor%20with%20spaces'
+			'/api/lidar/background/regions?sensor_id=sensor%20with%20spaces'
 		);
 	});
 });

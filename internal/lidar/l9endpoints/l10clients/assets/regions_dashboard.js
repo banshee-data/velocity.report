@@ -60,7 +60,7 @@ function cellAtPixel(canvasX, canvasY, canvasWidth, canvasHeight) {
 
 function loadRegions() {
   fetch(
-    "/debug/lidar/background/regions?sensor_id=" + encodeURIComponent(sensorId),
+    "/api/lidar/background/regions?sensor_id=" + encodeURIComponent(sensorId),
   )
     .then(function (response) {
       return response.json();

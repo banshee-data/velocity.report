@@ -2121,7 +2121,7 @@ func TestCov3_HandleBackgroundRegions_WithManager(t *testing.T) {
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id="+sensorID, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sensorID, nil)
 	w := httptest.NewRecorder()
 	ws.handleBackgroundRegions(w, req)
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
@@ -2136,7 +2136,7 @@ func TestCov3_HandleBackgroundRegions_IncludeCells(t *testing.T) {
 	populateGridCell(bm, 0, 0, 5.0, 1)
 
 	ws := &Server{sensorID: sensorID}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id="+sensorID+"&include_cells=true", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sensorID+"&include_cells=true", nil)
 	w := httptest.NewRecorder()
 	ws.handleBackgroundRegions(w, req)
 	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
@@ -4988,7 +4988,7 @@ func TestCov6_HandleBackgroundRegions_NilRegionInfo(t *testing.T) {
 	require.NotNil(t, mgr)
 	mgr.Grid.RegionMgr = nil // Force nil
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id="+sid, nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id="+sid, nil)
 	rr := httptest.NewRecorder()
 	ws.handleBackgroundRegions(rr, req)
 
@@ -5211,7 +5211,7 @@ func TestCov6_HandleBackgroundRegions_DefaultSensorID(t *testing.T) {
 	ws, _ := setupCov6Server(t, sid)
 
 	// No manager registered for ws.sensorID → 404, but the default assignment is exercised.
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions", nil)
 	rr := httptest.NewRecorder()
 	ws.handleBackgroundRegions(rr, req)
 

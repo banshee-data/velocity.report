@@ -1426,7 +1426,7 @@ func TestServer_HandleBackgroundRegions_NoManager(t *testing.T) {
 	}
 	server := NewServer(config)
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id=nonexistent-sensor", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id=nonexistent-sensor", nil)
 	rr := httptest.NewRecorder()
 
 	server.handleBackgroundRegions(rr, req)
@@ -1618,7 +1618,7 @@ func TestServer_HandleBackgroundRegions_WithManager(t *testing.T) {
 	}
 	server := NewServer(config)
 
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions?sensor_id=regions-test-sensor", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions?sensor_id=regions-test-sensor", nil)
 	rr := httptest.NewRecorder()
 
 	server.handleBackgroundRegions(rr, req)

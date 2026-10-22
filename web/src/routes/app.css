@@ -94,6 +94,28 @@ body {
 	}
 }
 
+/* Compact form controls for the LiDAR operator forms (status, sweeps). */
+.vr-input {
+	border-radius: 0.25rem;
+	border-width: 1px;
+	border-color: var(--color-surface-300);
+	background-color: var(--color-surface-100);
+	padding: 0.25rem 0.5rem;
+	font-size: 0.875rem;
+}
+.vr-input:disabled {
+	opacity: 0.5;
+}
+
+/* A labelled control: caption above, control below. */
+.vr-field {
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+	font-size: 0.75rem;
+	color: color-mix(in srgb, var(--color-surface-content) 70%, transparent);
+}
+
 /* Chart container card with border and fixed height. */
 .vr-chart-card {
 	border-radius: 0.25rem;

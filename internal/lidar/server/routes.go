@@ -100,6 +100,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/grid_reset", ws.handleGridReset},
 		{"GET /api/lidar/grid_heatmap", ws.handleGridHeatmap},
 		{"/api/lidar/background/grid", ws.handleBackgroundGrid},
+		{"GET /api/lidar/background/regions", ws.handleBackgroundRegions},
 		// SVG beside the report charts on /api/charts/*; the web's LiDAR
 		// debug page embeds it.
 		{"GET /api/charts/grid", ws.handleGridChart},
@@ -148,7 +149,6 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Debug dashboard and visualisation routes
 	debugRoutes := []route{
 		{"/debug/lidar/sweep", ws.handleSweepDashboard},
-		{"/debug/lidar/background/regions", ws.handleBackgroundRegions},
 		{"/debug/lidar/background/regions/dashboard", ws.handleBackgroundRegionsDashboard},
 	}
 
