@@ -113,6 +113,7 @@ func writePhysical(b *strings.Builder, p PhysicalArms) {
 		}
 	}
 	writeCentreExtent(b, p)
+	writeAxis(b, p)
 }
 
 // writeCentreExtent is the centre-against-extent table: each arm's
@@ -165,6 +166,39 @@ func writeCentreExtent(b *strings.Builder, p PhysicalArms) {
 	for _, cv := range caveats {
 		fmt.Fprintf(b, "\n> %s\n", cv)
 	}
+}
+
+// writeAxis writes criterion G1's axis error per arm: pooled, and each
+// vehicle with every other vehicle's poses beside it.
+func writeAxis(b *strings.Builder, p PhysicalArms) {
+	if p.A.Axis == nil && p.B.Axis == nil {
+		return
+	}
+	b.WriteString("\n### Axis error (G1)\n\n")
+	b.WriteString("| Arm | Vehicle | Poses | Median ° | p90 ° | Max ° | Others: poses | Others: median ° | Others: p90 ° |\n")
+	b.WriteString("| --- | ------- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |\n")
+	var rule string
+	for _, arm := range []PhysicalResult{p.A, p.B} {
+		d := arm.Axis
+		if d == nil {
+			continue
+		}
+		rule = d.Rule
+		for _, v := range d.Vehicles {
+			fmt.Fprintf(b, "| %s | `%s` | %d | %.1f | %.1f | %.1f | %d | %.1f | %.1f |\n", arm.Arm.Label, v.ObjectID,
+				v.Poses, v.MedianDeg, v.P90Deg, v.MaxDeg, v.Others.Poses, v.Others.MedianDeg, v.Others.P90Deg)
+		}
+		fmt.Fprintf(b, "| %s | all | %d | %.1f | %.1f | %.1f | - | - | - |\n", arm.Arm.Label,
+			d.Pooled.Poses, d.Pooled.MedianDeg, d.Pooled.P90Deg, d.Pooled.MaxDeg)
+		if len(d.Excluded) > 0 {
+			var parts []string
+			for _, reason := range sortedMapKeys(d.Excluded) {
+				parts = append(parts, fmt.Sprintf("%s %d", reason, d.Excluded[reason]))
+			}
+			fmt.Fprintf(b, "\nArm %s left out: %s.\n", arm.Arm.Label, strings.Join(parts, ", "))
+		}
+	}
+	fmt.Fprintf(b, "\nRule: %s.\n", rule)
 }
 
 func describeUnscored(a ComponentAccounting) string {

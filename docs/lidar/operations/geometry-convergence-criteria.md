@@ -91,9 +91,14 @@ members, so the share is against what the tracker saw, not the persisted sample.
 scored poses, computed with `internal/stats.NearestRank` (the owner's choice in the
 [maths decision review](../../platform/operations/decision-review-maths-2026-10.md#e-11-q-11), E-11).
 Nearest rank never reads lower than a truncated or interpolated p90, so it cannot loosen the gate.
-No code computes G1 yet: the scorer does not print the axis p90 (see the W0 row below), and the
-kirk0 figure of 1.3° was not traced to code, so it is recomputed with this estimator when the
-scorer prints it. On 21 poses the three common rules pick the same pose.
+The physical scorer computes it: each arm's `physical.json` result carries an `axis` section with
+the pooled poses, the pooled median and p90, and per vehicle the vehicle's own figures beside every
+other vehicle's, so truck 2 is set apart by reading its row's `others`. The Markdown gains an
+"Axis error (G1)" table. A pose enters when its prediction is established and moving at 2 m/s or
+more; the section counts the poses left out and why. The scorer reads "folded" by this record's
+definition of the axis, orientation modulo 90°, so errors fall in [0°, 45°] and a right axis with
+the wrong length label scores 0°. The kirk0 figures above (1.3° and 1.2° p90) predate the scorer's
+computation and are recomputed on the next kirk0 physical run.
 
 **G12 stays update-level.** G12 screens `Tracker.Update` p99, unlike the near-edge plan's cost
 screen, which moved to the frame (E-04). The owner kept it there

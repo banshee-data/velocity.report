@@ -73,6 +73,13 @@ cross-month links, and corrections to sealed months remain
 [implementation blockers](../../radar/architecture/time-partitioned-data-tables.md#open-implementation-problems)
 under #324; Proposed does not mean those problems have been solved.
 
+D-18 and D-28 amendments, October 22, 2026: the [maths decision review](decision-review-maths-2026-10.md)
+amended both entries, so their rows above are refreshed here without waiting for release
+preparation. D-18 gained the nearest-rank rule for published aggregate speed percentiles, kept by
+`internal/stats/nearest_rank_test.go`, which exists; its per-track percentile features are still
+in `l6objects`, so it stays Partly drifted. D-28's B10 deferral lapsed and was renewed with a
+trigger (the valid-following record pinned and l8fol0004 reported), so it stays Kept.
+
 ## How the audit runs
 
 At each release, `/release-prep` will re-read every entry against its `Kept by:` line, record the
