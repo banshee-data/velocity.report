@@ -15,7 +15,7 @@ the review workflow and the old campaign supervisor already do, rather than buil
   removes `approved` and pins each arm's tuning fingerprint at creation (review P6, decided October 20, 2026)
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, hub); every LiDAR layer as a subject
-- **Related:** [job queue implementation](lidar-job-queue-implementation-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [vocabulary phase 2: jobs](platform-vocabulary-phase2-jobs-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [review workflow](lidar-review-workflow-plan.md), [priority review queue](lidar-visualiser-priority-review-queue-plan.md), [analysis worker](../lidar/operations/analysis-worker.md), [research briefing skill](../../.claude/skills/research-briefing/SKILL.md)
+- **Related:** [unattended harness](platform-experiment-harness-plan.md) (Phase 1 on the NAS, proposed 2026-10-22), [job queue implementation](lidar-job-queue-implementation-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md), [vocabulary phase 2: jobs](platform-vocabulary-phase2-jobs-plan.md), [HINT sweep mode](../lidar/operations/hint-sweep-mode.md), [review workflow](lidar-review-workflow-plan.md), [priority review queue](lidar-visualiser-priority-review-queue-plan.md), [analysis worker](../lidar/operations/analysis-worker.md), [research briefing skill](../../.claude/skills/research-briefing/SKILL.md)
 
 ## 1. Why
 

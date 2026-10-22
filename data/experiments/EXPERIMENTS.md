@@ -4,7 +4,8 @@ Every experiment the project runs, as one spec per experiment: what it asks, wha
 what it runs, and how long that should take. A spec is intent and lives in Git; where an
 experiment is in its execution is the queue's business, and raw outputs never come here (see
 [AGENTS.md](../../AGENTS.md)). The design is the
-[experiment queue plan](../../docs/plans/platform-experiment-queue-plan.md).
+[experiment queue plan](../../docs/plans/platform-experiment-queue-plan.md); the [unattended harness plan](../../docs/plans/platform-experiment-harness-plan.md)
+proposes running approved specs' machine steps on the NAS.
 
 - [DEPENDENCIES.md](DEPENDENCIES.md): the dependency graph and the open queue, generated from the
   specs. Do not edit it; run `make experiments-graph`.

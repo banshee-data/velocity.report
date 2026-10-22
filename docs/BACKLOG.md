@@ -161,6 +161,8 @@ Individual docs in `plans/` describe single projects, not priority lists.
 - Checkpointed sweeps survive a restart: `RecoverOrphanedSweeps` fails every running sweep with "incomplete: server restarted"; one with a checkpoint should be suspended, so it can resume: [design doc](plans/lidar-ui-workflow-plan.md) `S`
 - Sweep cards show the best score under the sweep's objective, and a HINT sweep its reference run: [design doc](plans/lidar-ui-workflow-plan.md) `S`
 - Sweeps queue as jobs: a sweep requested while one runs waits in the job queue instead of failing with "sweep already in progress", once Item 11 lands: [design doc](plans/lidar-ui-workflow-plan.md) `S`
+- Unattended experiment harness, H1–H2: the lane loop that seven October runs rebuilt by hand as `velocity experiments run <slug>` (disk gate, timeout, retry, provenance, evidence move), stamped tool builds per commit, and in-binary executors for `state_estimation_baseline`, `box_eval`, `ground_truth_eval` and a named-measure `corpus_screen`, so the approved specs have machine steps a worker can run: [design doc](plans/platform-experiment-harness-plan.md) `M`
+- Unattended experiment harness, H3–H5: `velocity experiments tick` every 30 minutes on the NAS VM, reading `main`, pinning each run, writing a bounded run note under `data/experiments/runs/` and merging its own run-note PR behind a path guard; manual steps closed in the spec, `needs_runs` chains, and a week's soak after Malory's review. Waits on the plan's seven decisions: [design doc](plans/platform-experiment-harness-plan.md) `M`
 
 ### v0.5.13 - Tracking and identity (0513)
 
