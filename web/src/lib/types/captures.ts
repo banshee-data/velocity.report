@@ -145,6 +145,51 @@ export interface CaptureJob {
 
 /** Job kinds. */
 export const JOB_KIND_MOTION_PASS = 'motion_pass';
+export const JOB_KIND_CAPTURE_EXPORT = 'capture_export';
+
+/**
+ * One capture_export job for a clip and, once it completes, the standalone
+ * capture it wrote under the replay directory.
+ */
+export interface ClipExtract {
+	job_id: string;
+	clip_id: string;
+	/** Relative to the replay directory; empty until the job completes. */
+	rel_path?: string;
+	sha256?: string;
+	size_bytes?: number;
+	packet_count?: number;
+	lidar_packet_count?: number;
+	/** Complete rotations in the file. */
+	frame_count?: number;
+	first_packet_ns?: number;
+	last_packet_ns?: number;
+	/** window: ended at the clip's end; end: the captures ran out first. */
+	closed_by?: 'window' | 'end';
+	rubric_version: number;
+	sidecar?: Record<string, unknown>;
+	created_at_ns: number;
+	completed_at_ns?: number;
+	state: string;
+	progress_current: number;
+	progress_total: number;
+	detail?: string;
+	error?: string;
+}
+
+/** The publishing state an operator sets on a clip; it replaces what is stored. */
+export interface ClipPublishing {
+	dataset_id: string;
+	north_azimuth_deg: number | null;
+	storage: 'sources' | 'extract';
+}
+
+/** What staging a clip into the dataset clone wrote. */
+export interface ClipStageResult {
+	clip_id: string;
+	raw_path: string;
+	manifest_entry: Record<string, unknown>;
+}
 
 /** Job states. */
 export const JOB_QUEUED = 'queued';

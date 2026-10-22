@@ -1787,7 +1787,10 @@ export async function createClipFromCaptures(request: {
 // Geographic identity of located replay cases
 
 import type {
+	ClipExtract,
 	ClipLocation,
+	ClipPublishing,
+	ClipStageResult,
 	LidarSite,
 	ClipLocationsResponse,
 	SiteSource
@@ -1827,6 +1830,62 @@ export async function clearClipLocation(clipId: string): Promise<void> {
 		method: 'DELETE'
 	});
 	if (!res.ok) throw apiError('Could not clear the capture location', res.status);
+}
+
+/** The server's error message for a failed response, or the fallback. */
+async function responseError(res: Response, fallback: string): Promise<Error> {
+	let detail = '';
+	try {
+		detail = (await res.json())?.error ?? '';
+	} catch {
+		// A non-JSON body leaves the status to speak for itself.
+	}
+	return apiError(detail || fallback, res.status);
+}
+
+/** getClipExtracts lists a clip's extracts, newest first. */
+export async function getClipExtracts(clipId: string): Promise<ClipExtract[]> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/extract`);
+	if (!res.ok) throw await responseError(res, 'Could not load the clip extracts');
+	const data = await res.json();
+	return data.extracts ?? [];
+}
+
+/**
+ * startClipExtract queues the job that cuts the clip's window to one
+ * standalone capture, or returns the one already queued or running.
+ */
+export async function startClipExtract(
+	clipId: string
+): Promise<{ job: CaptureJob; created: boolean }> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/extract`, { method: 'POST' });
+	if (!res.ok) throw await responseError(res, 'Could not queue the extract');
+	const data = await res.json();
+	return { job: data.job, created: data.created };
+}
+
+/** setClipPublishing stores the clip's dataset id, north azimuth and storage. */
+export async function setClipPublishing(
+	clipId: string,
+	publishing: ClipPublishing
+): Promise<LidarClip> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/publishing`, {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify(publishing)
+	});
+	if (!res.ok) throw await responseError(res, 'Could not save the publishing settings');
+	return res.json();
+}
+
+/**
+ * stageClip links the clip's extract into the dataset clone and records it in
+ * the dataset manifest. Uploading the dataset is a separate, manual step.
+ */
+export async function stageClip(clipId: string): Promise<ClipStageResult> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/stage`, { method: 'POST' });
+	if (!res.ok) throw await responseError(res, 'Could not stage the clip');
+	return res.json();
 }
 
 /** getClipLocations returns every area captures have been taken in, with the sites
