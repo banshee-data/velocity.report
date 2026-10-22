@@ -65,16 +65,16 @@ make api-export-snapshot [SENSOR=hesai-pandar40p] [SNAPSHOT_ID=123] [OUT=/path/t
 make api-export-next-frame [SENSOR=hesai-pandar40p] [OUT=/path/to/output.asc]
 
 # Data source switching
-make api-switch-data-source SOURCE=live [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
-make api-switch-data-source SOURCE=pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
-make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
-make api-stop-pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
-make api-status [BASE_URL=http://127.0.0.1:8081]
+make api-switch-data-source SOURCE=live [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]
+make api-switch-data-source SOURCE=pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]
+make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]
+make api-stop-pcap [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]
+make api-status [BASE_URL=http://127.0.0.1:8080]
 ```
 
 ## API endpoints reference
 
-All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON output.
+All scripts connect to `http://127.0.0.1:8080` and require `jq` for pretty JSON output.
 
 | Endpoint                       | Script                  | Make Target              | Description                               |
 | ------------------------------ | ----------------------- | ------------------------ | ----------------------------------------- |

@@ -9,7 +9,7 @@ import (
 // reporting it without checking the source would name a VRLOG as the current
 // PCAP.
 func TestCurrentPCAPFileReportsPathOnlyForPCAPSource(t *testing.T) {
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats()})
+	ws := NewServer(Config{Stats: NewPacketStats()})
 
 	if got := ws.CurrentPCAPFile(); got != "" {
 		t.Errorf("expected no PCAP file before any replay, got %q", got)
@@ -35,7 +35,7 @@ func TestCurrentPCAPFileReportsPathOnlyForPCAPSource(t *testing.T) {
 // TestPCAPSpeedRatioReflectsPipelineState covers the speed-ratio accessor,
 // which surfaces on the status page and in the visualiser's playback readout.
 func TestPCAPSpeedRatioReflectsPipelineState(t *testing.T) {
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats()})
+	ws := NewServer(Config{Stats: NewPacketStats()})
 
 	if got := ws.PCAPSpeedRatio(); got != 0 {
 		t.Errorf("expected a zero speed ratio before any replay, got %v", got)
@@ -53,7 +53,7 @@ func TestPCAPSpeedRatioReflectsPipelineState(t *testing.T) {
 // pointer for the life of the run, so a copy would leave analysis replays
 // writing to the production track store.
 func TestDisableTrackPersistenceFlagIsTheServersOwnFlag(t *testing.T) {
-	ws := NewServer(Config{Address: ":0", Stats: NewPacketStats()})
+	ws := NewServer(Config{Stats: NewPacketStats()})
 
 	flag := ws.DisableTrackPersistenceFlag()
 	if flag == nil {

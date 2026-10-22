@@ -1,5 +1,7 @@
 import {
 	apiPath,
+	defaultReplayRequest,
+	withSettleRule,
 	getAcceptanceMetrics,
 	getAutoTuneStatus,
 	getBackgroundRegions,
@@ -107,6 +109,19 @@ describe('requests', () => {
 });
 
 describe('replay', () => {
+	it('ticks settle-before-recording and analysis by default, and validates', () => {
+		const req = defaultReplayRequest();
+		expect(req.settle_before_recording).toBe(true);
+		expect(req.analysis_mode).toBe(true);
+		expect(validateReplayRequest({ ...req, pcap_file: 'a.pcap' })).toBeNull();
+	});
+
+	it('turns analysis on when settle is chosen, and only then', () => {
+		const off = { ...defaultReplayRequest(), analysis_mode: false, settle_before_recording: false };
+		expect(withSettleRule(off)).toBe(off);
+		expect(withSettleRule({ ...off, settle_before_recording: true }).analysis_mode).toBe(true);
+	});
+
 	it('labels tuning configs as the dropdown did', () => {
 		expect(
 			tuningConfigLabel({

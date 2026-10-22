@@ -507,3 +507,15 @@ func TestPCAPStartClearsClientBackground(t *testing.T) {
 		t.Error("PCAP start did not clear the client background; the live scene stays under replayed foreground")
 	}
 }
+
+// The :8081 listener is retired; naming its flag fails and points at -listen.
+func TestLidarListenIsATombstone(t *testing.T) {
+	f := serveFlags.Lookup("lidar-listen")
+	if f == nil {
+		t.Fatal("-lidar-listen is not registered as a tombstone")
+	}
+	err := f.Value.Set("127.0.0.1:8081")
+	if err == nil || !strings.Contains(err.Error(), "use -listen") {
+		t.Fatalf("Set = %v, want a refusal naming -listen", err)
+	}
+}

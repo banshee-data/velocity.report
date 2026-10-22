@@ -35,8 +35,7 @@ func (p *mockTimestampParser) SetTimestampMode(m parse.TimestampMode) {
 
 func TestPCAPDone_NilChannel(t *testing.T) {
 	ws := NewServer(Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	})
 	ch := ws.PCAPDone()
 	if ch != nil {
@@ -46,8 +45,7 @@ func TestPCAPDone_NilChannel(t *testing.T) {
 
 func TestPCAPDone_WithChannel(t *testing.T) {
 	ws := NewServer(Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	})
 	done := make(chan struct{})
 	ws.pcapMu.Lock()
@@ -65,8 +63,7 @@ func TestPCAPDone_WithChannel(t *testing.T) {
 
 func TestLastRunID_Empty(t *testing.T) {
 	ws := NewServer(Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	})
 	id := ws.LastRunID()
 	if id != "" {
@@ -76,8 +73,7 @@ func TestLastRunID_Empty(t *testing.T) {
 
 func TestLastRunID_Set(t *testing.T) {
 	ws := NewServer(Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	})
 	ws.pcapMu.Lock()
 	ws.mutateState("test", func(s *PipelineState) { s.LastRunID = "run-abc-123" })
@@ -95,7 +91,6 @@ func TestResetAllStateDirect(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:  ":0",
 		Stats:    NewPacketStats(),
 		SensorID: sensorID,
 	})
@@ -114,7 +109,6 @@ func TestStartPCAPForSweep_TimeoutWhenBusy(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:  ":0",
 		Stats:    NewPacketStats(),
 		SensorID: sensorID,
 	})
@@ -166,7 +160,6 @@ func TestStartPCAPForSweep_SuccessPath(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -215,7 +208,6 @@ func TestStartPCAPForSweep_AnalysisMode(t *testing.T) {
 
 	var started bool
 	ws := NewServer(Config{
-		Address:       ":0",
 		Stats:         NewPacketStats(),
 		SensorID:      sensorID,
 		PCAPSafeDir:   tmpDir,
@@ -246,8 +238,7 @@ func TestStartPCAPForSweep_AnalysisMode(t *testing.T) {
 
 func TestStopPCAPForSweep_NotInPCAPMode(t *testing.T) {
 	ws := NewServer(Config{
-		Address: ":0",
-		Stats:   NewPacketStats(),
+		Stats: NewPacketStats(),
 	})
 
 	// Default source is Live, so StopPCAPForSweep should be a no-op.
@@ -263,7 +254,6 @@ func TestStopPCAPForSweep_InPCAPMode(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -304,7 +294,6 @@ func TestStopPCAPForSweep_AnalysisMode(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -357,7 +346,6 @@ func TestStopPCAPForSweep_NilCancelAndDone(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -494,7 +482,6 @@ func TestStartPCAPForSweep_DefaultMaxRetries(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -542,7 +529,6 @@ func TestStartPCAPForSweep_AnalysisModeWithDB(t *testing.T) {
 	var pcapStarted bool
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -609,7 +595,6 @@ func TestStopPCAPForSweep_ResetStateError(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -637,7 +622,6 @@ func TestStopPCAPForSweep_ResetStateError(t *testing.T) {
 func TestStartPCAPLocked_AlreadyInProgress(t *testing.T) {
 	sensorID := "test-pcap-conflict"
 	ws := NewServer(Config{
-		Address:  ":0",
 		Stats:    NewPacketStats(),
 		SensorID: sensorID,
 	})
@@ -684,7 +668,6 @@ func TestStartPCAPLocked_NoBaseContext(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -699,7 +682,6 @@ func TestStartPCAPLocked_NoBaseContext(t *testing.T) {
 
 func TestStartLiveListenerLocked_NilBaseContext(t *testing.T) {
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
@@ -719,7 +701,6 @@ func TestStartLiveListenerLocked_NilBaseContext(t *testing.T) {
 
 func TestStartLiveListenerLocked_AlreadyHasListener(t *testing.T) {
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
 	})
@@ -825,7 +806,6 @@ func TestStartPCAPLockedWithConfig_NoBaseContextMarksRunFailed(t *testing.T) {
 	defer cleanupDB()
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -879,7 +859,6 @@ func TestStartPCAPForSweep_DisableRecording(t *testing.T) {
 
 	var recordingStartCalled bool
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -917,7 +896,6 @@ func TestStartPCAPForSweep_StartPCAPError(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: "/nonexistent",
@@ -982,7 +960,6 @@ func TestStartPCAPLocked_AnalysisModeCallbacks(t *testing.T) {
 	var recordingStopCalled bool
 
 	ws := NewServer(Config{
-		Address:         ":0",
 		Stats:           NewPacketStats(),
 		SensorID:        sensorID,
 		PCAPSafeDir:     tmpDir,
@@ -1051,7 +1028,6 @@ func TestStartPCAPLocked_RealtimeWithPlotsAndDebug(t *testing.T) {
 	plotsDir := filepath.Join(tmpDir, "plots")
 
 	ws := NewServer(Config{
-		Address:      ":0",
 		Stats:        NewPacketStats(),
 		SensorID:     sensorID,
 		PCAPSafeDir:  tmpDir,
@@ -1092,7 +1068,6 @@ func TestStartPCAPLocked_NonAnalysisWithPCAPStopped(t *testing.T) {
 
 	var stoppedCalled bool
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -1139,7 +1114,6 @@ func TestStartPCAPForSweep_ResetStateError(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -1168,7 +1142,6 @@ func TestStopPCAPForSweep_ResetAllStateFailure(t *testing.T) {
 	defer func() { _ = l3grid.NewBackgroundManager(sensorID, 2, 2, l3grid.BackgroundParams{}, nil) }()
 
 	ws := NewServer(Config{
-		Address:  ":0",
 		Stats:    NewPacketStats(),
 		SensorID: sensorID,
 	})
@@ -1203,7 +1176,6 @@ func TestStopPCAPForSweep_StartListenerError(t *testing.T) {
 	defer cleanupBg()
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1284,7 +1256,6 @@ func TestStartPCAPLocked_GridPlotterStartError(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -1321,7 +1292,6 @@ func TestStartPCAPLocked_StartRunError(t *testing.T) {
 	defer cleanupDB()
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,

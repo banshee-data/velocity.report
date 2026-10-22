@@ -2434,7 +2434,7 @@ SCENE_SOURCE ?= corpus
 SCENE_TRAIL ?= online
 # Named on every replay start, relative to the server's --lidar-config-dir
 # (config/ under dev-go-lidar), so a batch never inherits a file the server
-# last had applied from the :8081 form.
+# last had applied from the Status page's replay form.
 SCENE_TUNING_CONFIG ?= tuning.defaults.json
 
 SCENE_ASSETS_ENV := \
@@ -2721,16 +2721,16 @@ plot-noise-buckets:
 # 2) Trigger PCAP replay via API.
 # 3) Continue polling until replay completes.
 # Usage:
-#   make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]
+#   make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]
 profile-macos-lidar:
-	@[ -z "$(PCAP)" ] && echo "Usage: make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ -z "$(PCAP)" ] && echo "Usage: make profile-macos-lidar PCAP=/abs/path/file.pcapng [INTERVAL=5] [IDLE=120] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@./scripts/perf/macos_profile_lidar.sh \
 		--pcap "$(PCAP)" \
 		--interval $${INTERVAL:-5} \
 		--idle-seconds $${IDLE:-120} \
 		--sensor $${SENSOR:-hesai-pandar40p} \
-		--base-url $${BASE_URL:-http://127.0.0.1:8081}
+		--base-url $${BASE_URL:-http://127.0.0.1:8080}
 
 # PCAP capture statistics — frame rate, RPM, duration, track counts
 # Accepts a single file or a directory (recursively finds .pcap/.pcapng)
@@ -2852,7 +2852,7 @@ api-status:
 
 # PCAP replay
 api-start-pcap:
-	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ -z "$(PCAP)" ] && echo "Usage: make api-start-pcap PCAP=file.pcap [BASE_URL=http://127.0.0.1:8080]" && exit 1 || true
 	@[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true
 	@./scripts/api/lidar/start_pcap.sh "$(PCAP)" $(SENSOR) $(BASE_URL)
 
@@ -2860,7 +2860,7 @@ api-stop-pcap:
 	@./scripts/api/lidar/stop_pcap.sh $(SENSOR) $(BASE_URL)
 
 api-switch-data-source:
-	@[ -z "$(SOURCE)" ] && echo "Usage: make api-switch-data-source SOURCE={live|pcap} [PCAP=file.pcap] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8081]" && exit 1 || true
+	@[ -z "$(SOURCE)" ] && echo "Usage: make api-switch-data-source SOURCE={live|pcap} [PCAP=file.pcap] [SENSOR=hesai-pandar40p] [BASE_URL=http://127.0.0.1:8080]" && exit 1 || true
 	@if [ "$(SOURCE)" = "pcap" ]; then \
 		[ -z "$(PCAP)" ] && echo "PCAP file required when SOURCE=pcap" && exit 1 || true; \
 		[ ! -f "$(PCAP)" ] && echo "PCAP file not found: $(PCAP)" && exit 1 || true; \

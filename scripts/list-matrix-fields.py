@@ -123,7 +123,7 @@ class MatrixInventory:
     live_track_fields: list[str] = field(default_factory=list)
     classification: list[GoStruct] = field(default_factory=list)
     proto_field_groups: list[ProtoFieldGroup] = field(default_factory=list)
-    echart_endpoints: list[Endpoint] = field(default_factory=list)
+    debug_chart_endpoints: list[Endpoint] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -275,8 +275,6 @@ _LIDAR_ROUTE_PATH_OVERRIDES = {
 
 _LIDAR_METHOD_OVERRIDES = {
     "/health": "GET",
-    "/api/lidar/server": "GET",
-    "/api/lidar/monitor": "GET",
     "/api/lidar/export_snapshot": "GET",
     "/api/lidar/export_next_frame": "GET",
     "/api/lidar/export_frame_sequence": "GET",
@@ -955,11 +953,11 @@ def extract_proto_fields(root: Path) -> list[ProtoFieldGroup]:
 
 
 # ---------------------------------------------------------------------------
-# §15  ECharts dashboard endpoints (subset of §2 chart/ routes)
+# §15  Debug chart JSON endpoints (subset of §2 chart/ routes)
 # ---------------------------------------------------------------------------
 
 
-def extract_echart_endpoints(lidar_http: list[Endpoint]) -> list[Endpoint]:
+def extract_debug_chart_endpoints(lidar_http: list[Endpoint]) -> list[Endpoint]:
     return [ep for ep in lidar_http if "/chart/" in ep.path]
 
 
@@ -1063,10 +1061,10 @@ def print_text_report(inv: MatrixInventory) -> None:
         for f in g.fields:
             print(f"    - {f}")
 
-    _header("ECharts Dashboard Endpoints", "§15")
-    for ep in inv.echart_endpoints:
+    _header("Debug Chart Endpoints", "§15")
+    for ep in inv.debug_chart_endpoints:
         print(f"  {ep.method:6s} {ep.path:<45s}  → {ep.handler}")
-    print(f"  Total: {len(inv.echart_endpoints)}")
+    print(f"  Total: {len(inv.debug_chart_endpoints)}")
 
     print(f"\n{'=' * 72}")
     print("  TOTALS")
@@ -1083,7 +1081,7 @@ def print_text_report(inv: MatrixInventory) -> None:
     print(f"  §10 Tuning parameters:       {len(inv.tuning_params)}")
     print(f"  §13 Classification items:     {len(inv.classification)}")
     print(f"  §14 Proto messages:           {len(inv.proto_field_groups)}")
-    print(f"  §15 ECharts endpoints:        {len(inv.echart_endpoints)}")
+    print(f"  §15 Debug chart endpoints:   {len(inv.debug_chart_endpoints)}")
     print(f"  §16 cmd/ entry points:       {len(inv.cmd_entries)}")
     print(f"  §18 Debug routes:            {len(inv.debug_routes)}")
 
@@ -1145,7 +1143,7 @@ _SECTION_GROUPS: list[dict[str, object]] = [
         "title": "Tuning + Entry Points + Debug",
         "sections": ["§10", "§15", "§16", "§18"],
         "focus": (
-            "Trace tuning parameters (DB + Web only), ECharts endpoints "
+            "Trace tuning parameters (DB + Web only), debug chart endpoints "
             "(DB + embedded HTML), cmd/ binaries (which write to DB), "
             "and debug/admin routes (diagnostic only)."
         ),
@@ -1349,17 +1347,17 @@ def _build_checklist(inv: MatrixInventory, root: Path) -> list[ChecklistItem]:
             "Mac=✅ via StreamFrames. Check if also persisted to DB or sent via HTTP.",
         )
 
-    # §15 ECharts
+    # §15 Debug charts
     seq = 0
-    sec, stitle = "§15", "ECharts Dashboard Endpoints"
-    for ep in inv.echart_endpoints:
+    sec, stitle = "§15", "Debug Chart Endpoints"
+    for ep in inv.debug_chart_endpoints:
         _add(
             sec,
             stitle,
             f"{ep.method} {ep.path}",
             ep.file,
             ep.handler,
-            "DB: SQLite chart query? Web=✅ embedded ECharts at /debug/lidar/*. Mac: —",
+            "DB: SQLite chart query? Web=✅ Svelte /app/lidar/debug (LayerChart). Mac: —",
         )
 
     # §16 cmd entries
@@ -1502,7 +1500,7 @@ def main() -> None:
         classification=extract_classification(root),
         proto_field_groups=extract_proto_fields(root),
     )
-    inv.echart_endpoints = extract_echart_endpoints(inv.lidar_http)
+    inv.debug_chart_endpoints = extract_debug_chart_endpoints(inv.lidar_http)
 
     if args.checklist:
         checklist_items = _build_checklist(inv, root)

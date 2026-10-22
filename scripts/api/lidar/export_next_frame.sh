@@ -5,7 +5,7 @@ set -euo pipefail
 SENSOR_ID=${1:-${SENSOR_ID:-hesai-pandar40p}}
 OUTPUT_PATH=${2:-}
 
-URL="http://127.0.0.1:8081/api/lidar/export_next_frame?sensor_id=$SENSOR_ID"
+URL="http://127.0.0.1:8080/api/lidar/export_next_frame?sensor_id=$SENSOR_ID"
 if [ -n "$OUTPUT_PATH" ]; then
   URL="${URL}&out=${OUTPUT_PATH}"
 fi

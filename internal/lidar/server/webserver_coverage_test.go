@@ -22,7 +22,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
-	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,60 +46,6 @@ func TestCov_SetSweepStore(t *testing.T) {
 }
 
 // --- handleSweepDashboard ---
-
-func TestCov_HandleSweepDashboard(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor"}
-
-	req := httptest.NewRequest(http.MethodGet, "/sweep-dashboard", nil)
-	w := httptest.NewRecorder()
-	ws.handleSweepDashboard(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if ct := w.Header().Get("Content-Type"); ct != "text/html; charset=utf-8" {
-		t.Errorf("Content-Type = %q, want text/html", ct)
-	}
-	if !containsString(w.Body.String(), "test-sensor") {
-		t.Error("response should contain sensor ID")
-	}
-}
-
-func TestCov_HandleSweepDashboard_WithQuerySensorID(t *testing.T) {
-	ws := &Server{sensorID: "default-sensor"}
-
-	req := httptest.NewRequest(http.MethodGet, "/sweep-dashboard?sensor_id=custom-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleSweepDashboard(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if !containsString(w.Body.String(), "custom-sensor") {
-		t.Error("response should contain custom sensor ID")
-	}
-}
-
-// TestCov_SweepDashboardJS_ClipID verifies that the sweep dashboard JS
-// uses clip_id (not the old scene_id) when populating the scene select
-// dropdown. This catches regressions from the lidar_scenes → lidar_clips
-// rename.
-func TestCov_SweepDashboardJS_ClipID(t *testing.T) {
-	content, err := l9endpoints.ReadLegacyAsset("sweep_dashboard.js")
-	if err != nil {
-		t.Fatalf("failed to read embedded sweep_dashboard.js: %v", err)
-	}
-
-	body := string(content)
-
-	if !containsString(body, "s.clip_id") {
-		t.Error("sweep_dashboard.js should reference s.clip_id for scene dropdown")
-	}
-
-	if containsString(body, "s.scene_id") {
-		t.Error("sweep_dashboard.js must not reference s.scene_id (renamed to clip_id)")
-	}
-}
 
 // --- handleBackgroundGridPolar ---
 
@@ -1271,17 +1216,6 @@ func TestCov2_HandleBackgroundRegions_NoManager(t *testing.T) {
 
 // --- handleBackgroundRegionsDashboard ---
 
-func TestCov2_HandleBgRegionsDashboard_NoManager(t *testing.T) {
-	ws := &Server{}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/grid/regions/dashboard?sensor_id=nonexistent", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(w, req)
-	// Handler renders HTML template; check it completes without panic
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
 // --- handlePlaybackStatus ---
 
 func TestCov2_HandlePlaybackStatus_NoCallback(t *testing.T) {
@@ -1480,16 +1414,6 @@ func TestCov2_GetLatestFgCounts_Empty(t *testing.T) {
 }
 
 // --- handleStatus ---
-
-func TestCov2_HandleStatus_GET(t *testing.T) {
-	ws := &Server{sensorID: "test-sensor", stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/lidar/server", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-}
 
 // --- resetBackgroundGrid ---
 
@@ -2211,15 +2135,6 @@ func TestCov3_Close_WithPCAPCancel(t *testing.T) {
 	}
 }
 
-func TestCov3_Close_WithServer(t *testing.T) {
-	srv := &http.Server{Addr: "127.0.0.1:0"}
-	ws := &Server{server: srv}
-	err := ws.Close()
-	if err != nil {
-		t.Errorf("expected nil error, got %v", err)
-	}
-}
-
 // --- resolvePCAPPath ---
 
 func TestCov3_ResolvePCAPPath_Empty(t *testing.T) {
@@ -2702,16 +2617,6 @@ func TestCov3_HandleDataSource_GET(t *testing.T) {
 
 // --- handleSweepDashboard ---
 
-func TestCov3_HandleSweepDashboard(t *testing.T) {
-	ws := &Server{sensorID: "cov3-sweep"}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/sweep?sensor_id=cov3-sweep", nil)
-	w := httptest.NewRecorder()
-	ws.handleSweepDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
-
 // --- handleLidarStatus ---
 
 func TestCov3_HandleLidarStatus_GET(t *testing.T) {
@@ -2748,7 +2653,6 @@ func TestCov3_Start_ContextCancel(t *testing.T) {
 		sensorID: "cov3-start",
 		stats:    NewPacketStats(),
 		state:    PipelineState{Source: SourceModeCapture, ReplayActive: true, TotalPasses: 1}, // Skip live listener start
-		server:   &http.Server{Addr: "127.0.0.1:0", Handler: mux},
 	}
 	ws.RegisterRoutes(mux)
 
@@ -2802,16 +2706,6 @@ func TestCov3_UpdateLatestFgCounts_WithSnapshot(t *testing.T) {
 }
 
 // --- handleBackgroundRegionsDashboard ---
-
-func TestCov3_HandleBackgroundRegionsDashboard(t *testing.T) {
-	ws := &Server{sensorID: "cov3-regdash"}
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions/dashboard?sensor_id=cov3-regdash", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-}
 
 // --- handlePCAPStart via JSON (covers form data parsing) ---
 
@@ -4037,67 +3931,6 @@ func TestCov4_HandleLidarStatus_WithStats(t *testing.T) {
 
 // --- handleStatus (HTML status page) ---
 
-func TestCov4_HandleStatus_HTMLPage(t *testing.T) {
-	sensorID := fmt.Sprintf("cov4-status-html-%d", time.Now().UnixNano())
-	params := l3grid.BackgroundParams{}
-	mgr := l3grid.NewBackgroundManager(sensorID, 10, 36, params, nil)
-	l3grid.RegisterBackgroundManager(sensorID, mgr)
-
-	tracker := l5tracks.NewTracker(l5tracks.TrackerConfig{
-		GatingDistanceSquared: 25.0,
-		HitsToConfirm:         3,
-		MaxMisses:             5,
-		MaxMissesConfirmed:    10,
-		MaxTracks:             100,
-	})
-
-	ws := &Server{
-		sensorID:          sensorID,
-		stats:             NewPacketStats(),
-		tracker:           tracker,
-		latestFgCounts:    map[string]int{},
-		forwardingEnabled: true,
-		forwardAddr:       "10.0.0.1",
-		forwardPort:       2369,
-		parsingEnabled:    false,
-		pcapSafeDir:       "/data/pcap",
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/server", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html, got %s", w.Header().Get("Content-Type"))
-	}
-	body := w.Body.String()
-	// Status page now renders nested JSON (not flat dot-path keys)
-	if !strings.Contains(body, "background_update_fraction") {
-		t.Errorf("status page should render tuning config with background_update_fraction, body: %s", body)
-	}
-	if !strings.Contains(body, "neighbour_confirmation_count") {
-		t.Errorf("status page should render neighbour_confirmation_count, body: %s", body)
-	}
-	if strings.Contains(body, "neighbor_confirmation_count") {
-		t.Errorf("status page should not render legacy neighbour key, body: %s", body)
-	}
-	if strings.Contains(body, "safety_margin_meters") {
-		t.Errorf("status page should not render legacy metres spelling, body: %s", body)
-	}
-}
-
-func TestCov4_HandleStatus_WrongPath(t *testing.T) {
-	ws := &Server{stats: NewPacketStats(), latestFgCounts: map[string]int{}}
-	req := httptest.NewRequest(http.MethodGet, "/some/other/path", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
-}
-
 // --- handleGridHeatmap with registered BackgroundManager ---
 
 func TestCov4_HandleGridHeatmap_WithBGManager(t *testing.T) {
@@ -4121,19 +3954,6 @@ func TestCov4_HandleGridHeatmap_WithBGManager(t *testing.T) {
 }
 
 // --- handleBackgroundRegionsDashboard ---
-
-func TestCov4_HandleBackgroundRegionsDashboard(t *testing.T) {
-	ws := &Server{sensorID: "cov4-dashboard", stats: NewPacketStats()}
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions/dashboard?sensor_id=my-sensor", nil)
-	w := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(w, req)
-	if w.Code != http.StatusOK {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusOK)
-	}
-	if !strings.Contains(w.Header().Get("Content-Type"), "text/html") {
-		t.Errorf("expected text/html, got %s", w.Header().Get("Content-Type"))
-	}
-}
 
 // setupCov5Server creates a minimal Server for targeted coverage tests.
 func setupCov5Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
@@ -4162,8 +3982,6 @@ func setupCov5Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
 		sensorID:       sensorID,
 		stats:          NewPacketStats(),
 		trackAPI:       trackAPI,
-		address:        "127.0.0.1:0",
-		server:         &http.Server{Addr: "127.0.0.1:0"},
 		latestFgCounts: make(map[string]int),
 	}
 	return ws, sqlDB
@@ -4490,24 +4308,6 @@ func TestCov5_HandleBackgroundGrid_WithBgManager(t *testing.T) {
 	}
 }
 
-// --- handleBackgroundRegionsDashboard: with bg manager ---
-func TestCov5_HandleBackgroundRegionsDashboard_WithBgManager(t *testing.T) {
-	sid := fmt.Sprintf("cov5-regionsdash-%d", time.Now().UnixNano())
-	ws, _ := setupCov5Server(t, sid)
-
-	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sid, bm)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/background/regions/dashboard?sensor_id="+sid, nil)
-	rec := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(rec, req)
-
-	// Renders HTML even with empty grid
-	if rec.Code != http.StatusOK {
-		t.Errorf("status = %d", rec.Code)
-	}
-}
-
 // --- Start: basic lifecycle ---
 func TestCov5_Start_BasicLifecycle(t *testing.T) {
 	sid := fmt.Sprintf("cov5-start-%d", time.Now().UnixNano())
@@ -4516,7 +4316,6 @@ func TestCov5_Start_BasicLifecycle(t *testing.T) {
 	// Set up a real server on random port
 	mux := http.NewServeMux()
 	ws.RegisterRoutes(mux)
-	ws.server = &http.Server{Addr: "127.0.0.1:0", Handler: mux}
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -4568,29 +4367,6 @@ func TestCov5_HandleLidarSnapshotsCleanup_WithData(t *testing.T) {
 
 	// The cleanup may fail if DB method doesn't exist, but handler execution covers branches
 	if rec.Code != http.StatusOK && rec.Code != http.StatusInternalServerError {
-		t.Errorf("status = %d", rec.Code)
-	}
-}
-
-// --- handleStatus: with full state ---
-func TestCov5_HandleStatus_FullState(t *testing.T) {
-	sid := fmt.Sprintf("cov5-status-%d", time.Now().UnixNano())
-	ws, _ := setupCov5Server(t, sid)
-
-	bm := l3grid.NewBackgroundManager(sid, 10, 36, l3grid.BackgroundParams{}, nil)
-	l3grid.RegisterBackgroundManager(sid, bm)
-
-	tc := l5tracks.DefaultTrackerConfig()
-	ws.tracker = l5tracks.NewTracker(tc)
-
-	fb := l2frames.NewFrameBuilder(l2frames.FrameBuilderConfig{SensorID: sid})
-	l2frames.RegisterFrameBuilder(sid, fb)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/server?sensor_id="+sid, nil)
-	rec := httptest.NewRecorder()
-	ws.handleStatus(rec, req)
-
-	if rec.Code != http.StatusOK {
 		t.Errorf("status = %d", rec.Code)
 	}
 }
@@ -4664,8 +4440,6 @@ func setupCov6Server(t *testing.T, sensorID string) (*Server, *sql.DB) {
 		sensorID:       sensorID,
 		stats:          NewPacketStats(),
 		trackAPI:       trackAPI,
-		address:        "127.0.0.1:0",
-		server:         &http.Server{Addr: "127.0.0.1:0"},
 		latestFgCounts: make(map[string]int),
 	}
 	return ws, sqlDB
@@ -5221,19 +4995,6 @@ func TestCov6_HandleBackgroundRegions_DefaultSensorID(t *testing.T) {
 // ---------- 32. handleBackgroundRegionsDashboard — default sensor_id fallback ----------
 // Calling without sensor_id exercises the sensorID = ws.sensorID fallback (covers line 3425).
 
-func TestCov6_HandleBackgroundRegionsDashboard_DefaultSensorID(t *testing.T) {
-	sid := fmt.Sprintf("cov6-regdash-def-%d", time.Now().UnixNano())
-	ws, _ := setupCov6Server(t, sid)
-
-	req := httptest.NewRequest(http.MethodGet, "/debug/lidar/background/regions/dashboard", nil)
-	rr := httptest.NewRecorder()
-	ws.handleBackgroundRegionsDashboard(rr, req)
-
-	// Dashboard returns HTML regardless of whether a manager exists.
-	assert.Equal(t, http.StatusOK, rr.Code)
-	assert.Contains(t, rr.Header().Get("Content-Type"), "text/html")
-}
-
 // ---------- 33. HandleTuningParams POST with extended tracker fields ----------
 // Covers L963-L995 (11 extended tracker config assignments) + L1002 (valid
 // DeletedTrackGracePeriod) + L1004-L1007 (MinObservationsForClassification
@@ -5358,32 +5119,6 @@ func TestCov_BenchmarkMode_StoreAndLoad(t *testing.T) {
 
 // --- setupRoutes pprof registration via tsweb.Debugger ---
 
-func TestCov_SetupRoutes_PprofRegistered(t *testing.T) {
-	ws := &Server{
-		sensorID:       "pprof-test-sensor",
-		latestFgCounts: make(map[string]int),
-	}
-
-	mux := ws.setupRoutes()
-
-	// Verify pprof endpoints are registered via tsweb.Debugger on the lidar-only mux.
-	// tsweb enforces AllowDebugAccess (loopback + Tailscale peers);
-	// httptest requests come from loopback so they are permitted.
-	paths := []string{
-		"/debug/pprof/",
-		"/debug/pprof/cmdline",
-		"/debug/pprof/symbol",
-	}
-	for _, path := range paths {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		rec := httptest.NewRecorder()
-		mux.ServeHTTP(rec, req)
-		if rec.Code == http.StatusNotFound {
-			t.Errorf("pprof endpoint %s returned 404; expected it to be registered via tsweb.Debugger", path)
-		}
-	}
-}
-
 // ---------------------------------------------------------------------------
 // routes.go and status.go coverage — withDB, handleDataSource, handleStatus
 // ---------------------------------------------------------------------------
@@ -5496,21 +5231,4 @@ func TestHandleDataSource_WaitForDone_ContextCancelled(t *testing.T) {
 
 	// Handler returns without writing a response body when context is done.
 	// Status defaults to 200 from httptest.NewRecorder.
-}
-
-// TestHandleStatus_WrongPath verifies that handleStatus returns 404 for
-// paths that don't match the known status endpoints.
-func TestHandleStatus_WrongPath(t *testing.T) {
-	ws := &Server{
-		stats:    NewPacketStats(),
-		sensorID: "status-test",
-	}
-
-	req := httptest.NewRequest(http.MethodGet, "/some/other/path", nil)
-	w := httptest.NewRecorder()
-	ws.handleStatus(w, req)
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want %d", w.Code, http.StatusNotFound)
-	}
 }

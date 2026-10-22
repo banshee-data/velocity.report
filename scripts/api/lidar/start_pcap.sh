@@ -4,7 +4,7 @@
 set -euo pipefail
 PCAP_FILE=${1:-}
 SENSOR_ID=${2:-hesai-pandar40p}
-BASE_URL=${3:-http://127.0.0.1:8081}
+BASE_URL=${3:-http://127.0.0.1:8080}
 if [ -z "$PCAP_FILE" ]; then
   echo "Usage: $0 /path/to/pcap.pcapng [sensor_id] [base_url]"
   exit 2

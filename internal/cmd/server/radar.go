@@ -22,6 +22,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/api"
+	"github.com/banshee-data/velocity.report/internal/compatibility"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/docsite"
@@ -151,7 +152,6 @@ func installedApplianceLayoutPresent() bool {
 // Lidar options (when enabling lidar via -enable-lidar)
 var (
 	enableLidar      = serveFlags.Bool("enable-lidar", false, "Enable lidar components inside this radar binary")
-	lidarListen      = serveFlags.String("lidar-listen", "127.0.0.1:8081", "HTTP listen address for lidar monitor (use 0.0.0.0:8081 for all IPv4 interfaces, or [::]:8081 for IPv4+IPv6)")
 	lidarUDPPort     = serveFlags.Int("lidar-udp-port", 2369, "LiDAR UDP port in PCAP captures and the default live listener port")
 	lidarLiveUDPPort = serveFlags.Int("lidar-live-udp-port", 0, "Override the live LiDAR UDP listener port (0 = use lidar-udp-port)")
 	lidarUDPRcvBuf   = serveFlags.Int("lidar-udp-rcv-buf", 4<<20, "UDP receive buffer size in bytes for LiDAR listener")
@@ -163,7 +163,7 @@ var (
 	lidarFGFwdPort   = serveFlags.Int("lidar-foreground-forward-port", 2370, "Port to forward foreground LiDAR packets to")
 	lidarFGFwdAddr   = serveFlags.String("lidar-foreground-forward-addr", "localhost", "Address to forward foreground LiDAR packets to")
 	lidarPCAPDir     = serveFlags.String("lidar-pcap-dir", "../sensor_data/lidar", "Safe directory for PCAP files (only files within this directory can be replayed)")
-	lidarConfigDir   = serveFlags.String("lidar-config-dir", "", "Directory of tuning config files the :8081 replay form and GET /api/lidar/configs list and a replay may start from (default: the directory of --config)")
+	lidarConfigDir   = serveFlags.String("lidar-config-dir", "", "Directory of tuning config files the LiDAR Status page's replay form and GET /api/lidar/configs list and a replay may start from (default: the directory of --config)")
 	// Write paths are set independently of --lidar-pcap-dir rather than derived
 	// from it.
 	//
@@ -202,6 +202,8 @@ var (
 func init() {
 	serveFlags.Var(&lidarCaptureRoots, "lidar-capture-root",
 		"Capture volume to index; repeat for several. --lidar-pcap-dir is always one.")
+	// The :8081 listener is retired: the LiDAR API is served on -listen.
+	compatibility.TombstoneFlag(serveFlags, "lidar-listen", "-listen")
 }
 
 // Transit worker options (compute radar_data -> radar_data_transits)
@@ -802,7 +804,6 @@ func Main(args []string) int {
 		// Provide a PacketStats instance if parsing/forwarding is enabled
 		// Pass the same PacketStats instance to the webserver so it shows live stats
 		lidarServer = server.NewServer(server.Config{
-			Address:            *lidarListen,
 			ListenFallback:     true,
 			Stats:              packetStats,
 			ForwardingEnabled:  *lidarForward && lidarForwardPortCfg > 0,

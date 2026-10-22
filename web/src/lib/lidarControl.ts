@@ -1,6 +1,6 @@
 /**
- * Client for the LiDAR control and monitoring endpoints that the :8081
- * dashboards used to call: replay and recording, background grid and
+ * Client for the LiDAR control and monitoring endpoints that the retired
+ * :8081 dashboards used to call: replay and recording, background grid and
  * snapshot maintenance, the debug chart JSON, the background regions, and
  * sweep, auto-tune and HINT control. Every route is on the main :8080 server.
  */
@@ -182,6 +182,41 @@ export interface ReplayStartResponse {
 	settle_before_recording: boolean;
 	tuning_config?: string;
 	tuning_fingerprint?: string;
+}
+
+/**
+ * The replay form's starting values. Settling before recording is ticked:
+ * it settles the grid on a first pass, restores the snapshot, then replays
+ * and records, which is the flow that produces a recording worth replaying.
+ * Analysis is ticked with it because the server requires the pair, and a
+ * default that needed the operator to fix it would be a trap.
+ */
+export function defaultReplayRequest(): ReplayStartRequest {
+	return {
+		pcap_file: '',
+		analysis_mode: true,
+		settle_before_recording: true,
+		speed_mode: 'analysis',
+		speed_ratio: 1,
+		start_seconds: 0,
+		duration_seconds: -1,
+		debug_ring_min: 0,
+		debug_ring_max: 0,
+		debug_az_min: 0,
+		debug_az_max: 0,
+		enable_debug: false,
+		enable_plots: false,
+		benchmark_mode: false,
+		tuning_config: ''
+	};
+}
+
+/**
+ * Choosing to settle before recording turns analysis on, so the form cannot
+ * build a request the server refuses. Turning settle off leaves it alone.
+ */
+export function withSettleRule(req: ReplayStartRequest): ReplayStartRequest {
+	return req.settle_before_recording ? { ...req, analysis_mode: true } : req;
 }
 
 /**

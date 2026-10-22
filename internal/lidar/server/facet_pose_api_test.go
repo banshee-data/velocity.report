@@ -3,14 +3,15 @@ package server
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
-	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	pb "github.com/banshee-data/velocity.report/internal/lidar/recordingpb"
 )
 
 func facetPoseAPIFixture(t *testing.T) (*Server, *annotation.Pack, annotation.FacetPoseRequest) {

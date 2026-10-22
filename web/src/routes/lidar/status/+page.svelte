@@ -18,6 +18,7 @@
 	} from '#lib/api.js';
 	import {
 		DEFAULT_LIDAR_SENSOR_ID,
+		defaultReplayRequest,
 		getLidarStatus,
 		getPlaybackStatus,
 		getTuningConfigs,
@@ -28,6 +29,7 @@
 		stopReplay,
 		tuningConfigLabel,
 		validateReplayRequest,
+		withSettleRule,
 		type LidarStatus,
 		type MaintenanceAction,
 		type PlaybackStatus,
@@ -53,23 +55,7 @@
 	let configsError = $state<string | null>(null);
 	let captures = $state<PcapFileInfo[]>([]);
 	let clipId = $state('');
-	let form = $state<ReplayStartRequest>({
-		pcap_file: '',
-		analysis_mode: true,
-		settle_before_recording: true,
-		speed_mode: 'analysis',
-		speed_ratio: 1,
-		start_seconds: 0,
-		duration_seconds: -1,
-		debug_ring_min: 0,
-		debug_ring_max: 0,
-		debug_az_min: 0,
-		debug_az_max: 0,
-		enable_debug: false,
-		enable_plots: false,
-		benchmark_mode: false,
-		tuning_config: ''
-	});
+	let form = $state<ReplayStartRequest>(defaultReplayRequest());
 	let replayMessage = $state<string | null>(null);
 	let replayError = $state<string | null>(null);
 	let replayBusy = $state(false);
@@ -136,7 +122,7 @@
 	}
 
 	function onSettleChange() {
-		if (form.settle_before_recording) form.analysis_mode = true;
+		form = withSettleRule(form);
 	}
 
 	async function handleStart() {

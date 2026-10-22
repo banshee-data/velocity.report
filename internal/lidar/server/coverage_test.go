@@ -843,7 +843,6 @@ func TestPrepareClustersChartData_ClusterIDsCorrect(t *testing.T) {
 func TestServer_HandleExportSnapshotASC_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -865,7 +864,6 @@ func TestServer_HandleExportSnapshotASC_NoManager(t *testing.T) {
 func TestServer_HandleExportNextFrameASC_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -885,7 +883,6 @@ func TestServer_HandleExportNextFrameASC_NoManager(t *testing.T) {
 func TestServer_HandleExportForegroundASC_NoManager(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -905,7 +902,6 @@ func TestServer_HandleExportForegroundASC_NoManager(t *testing.T) {
 func TestServer_HandlePCAPStop_NoPCAPActive(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -926,7 +922,6 @@ func TestServer_HandlePCAPStop_NoPCAPActive(t *testing.T) {
 func TestServer_HandlePCAPResumeLive_NoPCAPActive(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -941,33 +936,9 @@ func TestServer_HandlePCAPResumeLive_NoPCAPActive(t *testing.T) {
 	t.Logf("handlePCAPResumeLive returned status %d", rec.Code)
 }
 
-func TestServer_HandleStatus_Complete(t *testing.T) {
-	sensorID := "status-test-" + time.Now().Format("150405")
-	cleanup := setupTestBackgroundManager(t, sensorID)
-	defer cleanup()
-
-	stats := NewPacketStats()
-	config := Config{
-		Address:           ":0",
-		Stats:             stats,
-		SensorID:          sensorID,
-		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
-	}
-	server := NewServer(config)
-
-	req := httptest.NewRequest(http.MethodGet, "/api/lidar/status?sensor_id="+sensorID, nil)
-	rec := httptest.NewRecorder()
-
-	server.handleStatus(rec, req)
-
-	// Log the status regardless - the actual status depends on background grid state
-	t.Logf("handleStatus returned status %d", rec.Code)
-}
-
 func TestServer_HandleBackgroundRegions_NonexistentSensor(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -991,7 +962,6 @@ func TestServer_HandleBackgroundRegions_ValidSensor(t *testing.T) {
 
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          sensorID,
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1011,7 +981,6 @@ func TestServer_HandleBackgroundRegions_ValidSensor(t *testing.T) {
 func TestServer_HandleBackgroundGrid_NonexistentSensor(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1031,7 +1000,6 @@ func TestServer_HandleBackgroundGrid_NonexistentSensor(t *testing.T) {
 func TestServer_HandleGridHeatmap_NonexistentSensor(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1051,7 +1019,6 @@ func TestServer_HandleGridHeatmap_NonexistentSensor(t *testing.T) {
 func TestServer_ResolvePCAPPath_Absolute(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1072,7 +1039,6 @@ func TestServer_ResolvePCAPPath_Absolute(t *testing.T) {
 func TestServer_ResolvePCAPPath_Relative(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1093,7 +1059,6 @@ func TestServer_ResolvePCAPPath_Relative(t *testing.T) {
 func TestServer_ResolvePCAPPath_Empty(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},
@@ -1110,7 +1075,6 @@ func TestServer_ResolvePCAPPath_Empty(t *testing.T) {
 func TestServer_Close_NotStarted(t *testing.T) {
 	stats := NewPacketStats()
 	config := Config{
-		Address:           ":0",
 		Stats:             stats,
 		SensorID:          "test-sensor",
 		UDPListenerConfig: network.UDPListenerConfig{Address: ":0"},

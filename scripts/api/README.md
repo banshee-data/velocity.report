@@ -65,7 +65,7 @@ make api-start-pcap PCAP=/path/to/file.pcap [SENSOR=hesai-pandar40p]
 
 ## API endpoints reference
 
-All scripts connect to `http://127.0.0.1:8081` and require `jq` for pretty JSON output.
+All scripts connect to `http://127.0.0.1:8080` and require `jq` for pretty JSON output.
 
 | Endpoint                       | Script                 | Make Target             | Description                      |
 | ------------------------------ | ---------------------- | ----------------------- | -------------------------------- |
