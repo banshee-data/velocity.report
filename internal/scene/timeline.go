@@ -4,6 +4,8 @@ import (
 	"math"
 	"path/filepath"
 	"sort"
+
+	"github.com/banshee-data/velocity.report/internal/stats"
 )
 
 // DefaultBucketSeconds is the timeline summary resolution.
@@ -124,11 +126,7 @@ func (a *timelineAccumulator) vehicleSpeedSummary() *VehicleSpeedSummary {
 	}
 	sort.Float64s(speeds)
 	percentile := func(p float64) *float64 {
-		idx := int(math.Ceil(float64(len(speeds))*p)) - 1
-		if idx < 0 {
-			idx = 0
-		}
-		v := math.Round(speeds[idx]*100) / 100
+		v := math.Round(stats.NearestRank(speeds, p)*100) / 100
 		return &v
 	}
 

@@ -116,9 +116,9 @@ Kept by: review only until the tool and its test paths are deleted; then the rel
 
 ### D-18 — Speed percentile aggregation semantics
 
-Reserve `p50/p85/p98` for grouped/report metrics only; for speed, keep `p98` as the high-end aggregate percentile and treat `p95` as historical-only legacy — [speed percentile plan](plans/speed-percentile-aggregation-alignment-plan.md), [TDL plan](plans/data-traffic-description-language-plan.md)
+Reserve `p50/p85/p98` for grouped/report metrics only; for speed, keep `p98` as the high-end aggregate percentile and treat `p95` as historical-only legacy. Every published aggregate speed percentile uses the nearest-rank rule, the value at 1-based rank ceil(p·n), through the shared helper `internal/stats.NearestRank`, and is computed from the underlying population, never from bucket percentiles. Amended October 22, 2026 by the owner in the [maths decision review](platform/operations/decision-review-maths-2026-10.md#e-03-q-03) (E-03); diagnostic quantiles of other quantities are outside this entry — [speed percentile plan](plans/speed-percentile-aggregation-alignment-plan.md), [TDL plan](plans/data-traffic-description-language-plan.md)
 
-Kept by: `/review-pr` on `l6objects` features until the per-track percentiles are renamed or removed; then a search test.
+Kept by: `internal/stats/nearest_rank_test.go` (exists), which fails when the rule changes, and the radar rollup and scene timeline tests that pin their p50, p85 and p98; `/review-pr` on `l6objects` features until the per-track percentiles are renamed or removed; then a search test.
 
 ### D-19 — Track raw max vs future peak naming
 
