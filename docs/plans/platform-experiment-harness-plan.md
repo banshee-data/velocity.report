@@ -8,8 +8,9 @@ reads the merged results, writes the report and decides what runs next. The harn
 mechanical half of the experiment queue: it reuses the specs, units and job kinds that already
 exist and replaces the shell lanes that every unattended run has rebuilt by hand.
 
-- **Status:** Proposed, October 22, 2026. Nothing is built. The owner took all seven decisions in
-  section 13 on October 22, 2026, so H1 can start
+- **Status:** Accepted, October 22, 2026, for v0.5.2. Nothing is built or deployed. The owner took
+  all seven decisions in section 13 and scheduled H1 to H5 for v0.5.2, with nothing deployed to
+  the NAS before H5 (section 12)
 - **Canonical:** [Experiments](../../data/experiments/EXPERIMENTS.md)
 - **Layers:** platform (jobs, workers, CI); every LiDAR layer as a subject
 - **Related:** [experiment queue](platform-experiment-queue-plan.md), [worker pool and results hub](lidar-worker-pool-and-results-hub-plan.md) (D-30), [run-experiments skill](../../.claude/skills/run-experiments/SKILL.md), [experiment-review skill](../../.claude/skills/experiment-review/SKILL.md), [analysis worker](../lidar/operations/analysis-worker.md), [TrueNAS VM shared storage](../platform/operations/truenas-vm-shared-storage-runbook.md)
@@ -346,6 +347,8 @@ The harness changes what an agent does, and leaves the decisions with the agent:
 
 ## 10. Deployment on the NAS
 
+Nothing in this section happens before H5, the last item of v0.5.2 (section 12).
+
 - **Where.** The VM `bansheeworker` on `arrow`. It already mounts `/mnt/captures` read-only and
   `/mnt/results` read-write over the local bridge, and the skill already runs experiments there as
   arrow-worker. The harness does not run on the TrueNAS host, whose middleware the runbook warns
@@ -394,15 +397,19 @@ The harness changes what an agent does, and leaves the decisions with the agent:
 
 ## 12. Phases
 
-| Phase | Work                                                                                                                                                                                                                                                                                | Size | Depends on |
-| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- |
-| H0    | This plan                                                                                                                                                                                                                                                                           | S    | Nothing    |
-| H1    | `velocity experiments run <slug>`: the lane loop in Go, with the disk gate, timeout, retry, provenance and evidence move, for `state_estimation_baseline` and `box_eval`; a shared argument builder per kind; `make build-experiment-tools`; `OnMain` corrected; corpora checked in | M    | H0         |
-| H2    | `ground_truth_eval` and `corpus_screen` executors, with the named-measure registry that replaces the per-run Python screens                                                                                                                                                         | M    | H1         |
-| H3    | `velocity experiments tick`: the lock, fetch, select, pin and build steps, the run note and its check, `closed` on steps, `needs_runs`, `approved` kept with its new meaning, the AGENTS.md amendment; dry-run on the Mac with `-no-publish`                                        | M    | H1         |
-| H4    | Publishing: the App, the draft-PR claim, the `harness-pr.yml` guard, merge after checks, the review-thread hold                                                                                                                                                                     | S    | H3         |
-| H5    | Deployment: `deploy/harness/`, the host profile, Malory's review, then a week's soak on one approved spec from approval to merged note                                                                                                                                              | S    | H2, H4     |
-| H6    | Continuation: mechanical rule clauses in the spec, with verdicts in the note; `bench_sweep` and its narrowing rounds (HINT's loop without the person)                                                                                                                               | M    | H5         |
+| Phase | Work                                                                                                                                                                                                                                                                                | Size | Depends on | Milestone    |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ---------- | ------------ |
+| H0    | This plan                                                                                                                                                                                                                                                                           | S    | Nothing    | This PR      |
+| H1    | `velocity experiments run <slug>`: the lane loop in Go, with the disk gate, timeout, retry, provenance and evidence move, for `state_estimation_baseline` and `box_eval`; a shared argument builder per kind; `make build-experiment-tools`; `OnMain` corrected; corpora checked in | M    | H0         | v0.5.2       |
+| H2    | `ground_truth_eval` and `corpus_screen` executors, with the named-measure registry that replaces the per-run Python screens                                                                                                                                                         | M    | H1         | v0.5.2       |
+| H3    | `velocity experiments tick`: the lock, fetch, select, pin and build steps, the run note and its check, `closed` on steps, `needs_runs`, `approved` kept with its new meaning, the AGENTS.md amendment; dry-run on the Mac with `-no-publish`                                        | M    | H1         | v0.5.2       |
+| H4    | Publishing: the App, the draft-PR claim, the `harness-pr.yml` guard, merge after checks, the review-thread hold                                                                                                                                                                     | S    | H3         | v0.5.2       |
+| H5    | Deployment: `deploy/harness/`, the host profile, Malory's review, then a week's soak on one approved spec from approval to merged note                                                                                                                                              | S    | H2, H4     | v0.5.2, last |
+| H6    | Continuation: mechanical rule clauses in the spec, with verdicts in the note; `bench_sweep` and its narrowing rounds (HINT's loop without the person)                                                                                                                               | M    | H5         | v0.5.3       |
+
+**Deployment waits.** The owner scheduled the harness for v0.5.2 on October 22, 2026, and asked
+for nothing to be deployed yet. H1 to H4 are built and dry-run on the Mac. The NAS runs nothing
+until H5, the last v0.5.2 item, after Malory's review. H6 follows the v0.5.2 soak in v0.5.3.
 
 **Acceptance for H1.** It replays an answered kirk0 spec and reproduces its report's headline
 numbers within the run-to-run band that the report states, with no scratch script.
