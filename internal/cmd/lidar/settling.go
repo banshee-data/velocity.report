@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/banshee-data/velocity.report/internal/compatibility"
 	"github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/settlingeval"
@@ -25,7 +26,7 @@ func SettlingEvalMain(args []string) int {
 	sensor := fs.String("sensor", "pcap-eval", "sensor ID")
 	var configPath string
 	fs.StringVar(&configPath, "config", config.DefaultConfigPath, "Path to JSON tuning config (falls back to the embedded defaults)")
-	fs.StringVar(&configPath, "tuning", config.DefaultConfigPath, "deprecated alias for -config")
+	compatibility.TombstoneFlag(fs, "tuning", "-config")
 	udpPort := fs.Int("port", 0, "UDP port filter for PCAP packets (0 = auto-detect from the capture)")
 	startSeconds := fs.Float64("start-seconds", 0, "Start replay at this capture offset in seconds")
 	durationSeconds := fs.Float64("duration-seconds", -1, "Replay duration in seconds (0 or -1 = remaining capture)")

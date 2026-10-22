@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/banshee-data/velocity.report/internal/api"
+	"github.com/banshee-data/velocity.report/internal/compatibility"
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
 	"tailscale.com/tsweb"
 )
@@ -49,7 +50,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	coreRoutes := []route{
 		{"/health", ws.handleHealth},
 		{"/api/lidar/server", ws.handleStatus},
-		{"/api/lidar/monitor", ws.handleStatus},
+		{compatibility.AliasRoute("/api/lidar/monitor", "/api/lidar/server"), ws.handleStatus},
 		{"GET /api/lidar/status", ws.handleLidarStatus},
 		{"POST /api/lidar/persist", ws.handleLidarPersist},
 	}
@@ -109,7 +110,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		// this handler, kept so existing clients and docs keep working; error
 		// messages name only the canonical route.
 		{"POST /api/lidar/replay/stop", ws.handleReplayStop},
-		{"POST /api/lidar/pcap/stop", ws.handleReplayStop},
+		{compatibility.AliasRoute("POST /api/lidar/pcap/stop", "POST /api/lidar/replay/stop"), ws.handleReplayStop},
 		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
 		{"GET /api/lidar/configs", ws.handleListTuningConfigs},
@@ -166,7 +167,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/playback/seek", ws.handlePlaybackSeek},
 		{"POST /api/lidar/playback/rate", ws.handlePlaybackRate},
 		{"POST /api/lidar/vrlog/load", ws.handleVRLogLoad},
-		{"POST /api/lidar/vrlog/stop", ws.handleReplayStop},
+		{compatibility.AliasRoute("POST /api/lidar/vrlog/stop", "POST /api/lidar/replay/stop"), ws.handleReplayStop},
 	}
 
 	// Register all route groups
@@ -188,7 +189,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	if ws.trackAPI != nil {
 		trackRoutes := []route{
 			{"/api/lidar/tracks", ws.trackAPI.handleListTracks},
-			{"/api/lidar/tracks/history", ws.trackAPI.handleListTracks},
+			{compatibility.AliasRoute("/api/lidar/tracks/history", "/api/lidar/tracks"), ws.trackAPI.handleListTracks},
 			{"/api/lidar/tracks/active", ws.trackAPI.handleActiveTracks},
 			{"/api/lidar/tracks/metrics", ws.trackAPI.handleTrackingMetrics},
 			{"/api/lidar/tracks/", ws.trackAPI.handleTrackByID},
