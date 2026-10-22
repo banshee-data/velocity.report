@@ -373,6 +373,7 @@ Land the reference edition and temporal strata before their report consumers in 
 
 ### v0.6.10 - Survey publishing (0610)
 
+- Unsited captures as published surveys: the kirk, soma, morg and clar static positions and hesai-2025-09-26 located, extracted, staged into the dataset and published as scenes from the web Captures and Clips pages. The tooling is delivered; the positions wait on their coordinates: [design doc](plans/lidar-unsited-captures-publishing-plan.md) `M`
 - Web scene export Phase 1: the other five sites in the `80858-1` family. Blocked on the surveyed WGS84 coordinates for `s2-1` and `s2_sf_2`–`s2_sf_6`, which also block S2 tagging and every map marker: [design doc](plans/lidar-web-scene-export-plan.md), [catalogue plan](plans/lidar-scene-catalogue-publishing-plan.md) `M`
 - Scene catalogue at archive scale: ingest the multi-gigabyte daily drivers, split motion from static, index captures and segments, and build the map people land on. Five workstreams sized for parallel agents: [design doc](plans/lidar-scene-catalogue-publishing-plan.md) `XL`
 - Deterministic scene capture Milestone 4: automatic stride-1 VRLOG-to-web export and an unchecked Make web export option in the Svelte replay and recording form (the LiDAR Status page, delivered in v0.5.2); finalisation-gated export, local viewer link, and independent export retry: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`

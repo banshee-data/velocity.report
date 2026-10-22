@@ -16,6 +16,7 @@
 		scanPcapFiles,
 		updateLidarClip
 	} from '#lib/api.js';
+	import ClipPublishingPanel from '#lib/components/lidar/ClipPublishingPanel.svelte';
 	import type { LidarClip } from '#lib/types/lidar.js';
 	import { linkedId, tracksQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
@@ -94,6 +95,17 @@
 			// fetch only adds the file list and location, so failing quietly
 			// leaves the panel usable rather than blocking on a second load.
 		}
+	}
+
+	/**
+	 * The publishing panel saved: keep the panel's clip and the list in step.
+	 * The save returns the stored clip without its location, so the one the
+	 * detail fetch loaded is kept.
+	 */
+	function publishingSaved(saved: LidarClip) {
+		if (selectedScene?.clip_id !== saved.clip_id) return;
+		selectedScene = { ...selectedScene, ...saved, location: selectedScene.location };
+		scenes = scenes.map((s) => (s.clip_id === saved.clip_id ? { ...s, ...saved } : s));
 	}
 
 	function deselectScene() {
@@ -691,6 +703,8 @@
 							</div>
 						</div>
 					{/if}
+
+					<ClipPublishingPanel clip={selectedScene} onChange={publishingSaved} />
 
 					<div>
 						<label for="edit-sensor" class="text-surface-content/70 mb-1 block text-sm font-medium"

@@ -31,6 +31,7 @@ var (
 // - PUT /api/lidar/clips/{clip_id} — update clip
 // - DELETE /api/lidar/clips/{clip_id} — delete clip
 // - POST /api/lidar/clips/{clip_id}/replay — clip
+// - /api/lidar/clips/{clip_id}/extract, /publishing, /stage — see clip_extract_api.go
 
 // handleClips handles /api/lidar/clips (list and create).
 func (ws *Server) handleClips(w http.ResponseWriter, r *http.Request) {
@@ -96,6 +97,12 @@ func (ws *Server) handleClipByID(w http.ResponseWriter, r *http.Request) {
 		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
+	case "extract":
+		ws.handleClipExtract(w, r, clipID)
+	case "publishing":
+		ws.handleClipPublishing(w, r, clipID)
+	case "stage":
+		ws.handleClipStage(w, r, clipID)
 	case "evaluations":
 		// /api/lidar/clips/{clip_id}/evaluations
 		switch r.Method {
@@ -419,6 +426,18 @@ func (ws *Server) handleReplayClip(w http.ResponseWriter, r *http.Request, clipI
 		ws.writeJSONError(w, http.StatusInternalServerError,
 			fmt.Sprintf("failed to load the case's captures: %v", err))
 		return
+	}
+	// A clip set to replay its extract opens that one file whole: the extract
+	// already holds exactly the clip's window.
+	if clip.Storage == sqlite.ClipStorageExtract {
+		extract, err := store.LatestClipExtract(clipID)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusConflict,
+				"the clip replays its extract, and it has no completed extract")
+			return
+		}
+		casePaths = []string{extract.RelPath}
+		startSecs, durationSecs = 0, 0
 	}
 	if len(casePaths) == 0 {
 		ws.writeJSONError(w, http.StatusBadRequest, "the clip names no captures")

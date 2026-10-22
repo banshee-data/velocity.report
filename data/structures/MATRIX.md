@@ -150,6 +150,10 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Scenes         | `scene_api.go`         | `GET/PUT/DEL /api/lidar/clips/{id}`             | ✅  | ✅  | -   |
 | Scenes         | `scene_api.go`         | `POST /api/lidar/clips/{id}/replay`             | ✅  | -   | -   |
 | Scenes         | `scene_api.go`         | `GET/POST /api/lidar/clips/{id}/evaluations`    | ✅  | -   | -   |
+| Clip extracts  | `clip_extract_api.go`  | `GET/POST /api/lidar/clips/{id}/extract`        | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`  | `PUT /api/lidar/clips/{id}/publishing`          | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`  | `POST /api/lidar/clips/{id}/stage`              | ✅  | ✅  | -   |
+| Clip extracts  | `clip_extract_api.go`  | `GET /api/lidar/dataset/site-index`             | ✅  | -   | -   |
 | Missed regions | `run_track_api.go`     | `GET/POST /api/lidar/runs/{id}/missed-regions`  | ✅  | ✅  | -   |
 | Missed regions | `run_track_api.go`     | `DEL /api/lidar/runs/{id}/missed-regions/{rid}` | ✅  | -   | -   |
 | Sweep history  | `routes.go`            | `GET /api/lidar/sweeps`                         | ✅  | ✅  | -   |
@@ -218,6 +222,7 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_replay_annotations`       | ✅  | ✅  | Replay-case labels and Mac labelling                   |
 | LiDAR  | `lidar_clips`                    | ✅  | ✅  | Replay-case browser and Mac labelling                  |
 | LiDAR  | `lidar_clip_evaluations`         | ✅  | -   | Replay evaluation and compare UI                       |
+| LiDAR  | `lidar_clip_extracts`            | ✅  | -   | A clip's standalone extract and its capture_export job |
 | LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                          |
 | LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)             |
 | LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                    |
@@ -404,6 +409,9 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_clips`                    | `created_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
 | `lidar_clips`                    | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
 | `lidar_clips`                    | `recommended_param_set_id`          | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clips`                    | `dataset_id`                        | TEXT UNIQUE   | ✅  | ✅  | -   |
+| `lidar_clips`                    | `north_azimuth_deg`                 | REAL          | ✅  | ✅  | -   |
+| `lidar_clips`                    | `storage`                           | TEXT          | ✅  | ✅  | -   |
 | `lidar_clip_evaluations`         | `evaluation_id`                     | TEXT PK       | ✅  | ✅  | -   |
 | `lidar_clip_evaluations`         | `clip_id`                           | TEXT FK       | ✅  | ✅  | -   |
 | `lidar_clip_evaluations`         | `reference_run_id`                  | TEXT FK       | ✅  | ✅  | -   |
@@ -421,6 +429,21 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_clip_evaluations`         | `reference_count`                   | INTEGER       | ✅  | ✅  | -   |
 | `lidar_clip_evaluations`         | `candidate_count`                   | INTEGER       | ✅  | ✅  | -   |
 | `lidar_clip_evaluations`         | `created_at`                        | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `job_id`                            | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `clip_id`                           | TEXT FK       | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `rel_path`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `sha256`                            | TEXT          | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `size_bytes`                        | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `packet_count`                      | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_extracts`            | `lidar_packet_count`                | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_extracts`            | `frame_count`                       | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `first_packet_ns`                   | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_extracts`            | `last_packet_ns`                    | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_extracts`            | `closed_by`                         | TEXT          | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `rubric_version`                    | INTEGER       | ✅  | ✅  | -   |
+| `lidar_clip_extracts`            | `sidecar_json`                      | TEXT          | ✅  | -   | -   |
+| `lidar_clip_extracts`            | `created_at_ns`                     | INTEGER       | ✅  | -   | -   |
+| `lidar_clip_extracts`            | `completed_at_ns`                   | INTEGER       | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `id`                                | INTEGER PK    | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `sweep_id`                          | TEXT UNIQUE   | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
@@ -1162,9 +1185,9 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 103   | 63  | 86  | 11  |
+| HTTP endpoints (LiDAR)  | 107   | 67  | 89  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 44    | -   | 34  | 6   |
+| DB tables               | 45    | -   | 35  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |

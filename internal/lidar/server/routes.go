@@ -197,6 +197,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Clip API routes (evaluation windows for track labelling and auto-tuning)
 	mux.HandleFunc("/api/lidar/clips", ws.withDB(ws.handleClips))
 	mux.HandleFunc("/api/lidar/clips/", ws.withDB(ws.handleClipByID))
+	mux.HandleFunc("/api/lidar/dataset/site-index", ws.withDB(ws.handleDatasetSiteIndex))
 	mux.HandleFunc("/api/lidar/segments/finders", ws.withDB(ws.handleSegmentFinders))
 	mux.HandleFunc("/api/lidar/segments/selectors", ws.withDB(ws.handleSegmentSelectors))
 	mux.HandleFunc("/api/lidar/segments/strip", ws.withDB(ws.handleSegmentStrip))

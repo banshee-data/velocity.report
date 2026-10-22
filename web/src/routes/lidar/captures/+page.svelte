@@ -12,6 +12,8 @@
 		cancelCaptureJob,
 		createClipFromCaptures,
 		setClipLocation,
+		setClipPublishing,
+		startClipExtract,
 		getCaptureFiles,
 		getCaptureJobs,
 		getCapturePeriods,
@@ -138,6 +140,15 @@
 	// the very start" / "to the very end" of the selection.
 	let caseStartSecs = '';
 	let caseDurationSecs = '';
+	// The motion period the selection came from, recorded on the clip. A
+	// hand-picked set of captures has none.
+	let casePeriodId: string | null = null;
+
+	// Publishing: the survey id the dataset will know the clip by, the scene
+	// viewer's north azimuth, and whether to cut the standalone extract now.
+	let datasetIdDraft = '';
+	let azimuthDraft = '';
+	let extractAfterCreate = true;
 
 	let labelDraft = '';
 	let jobPoll: ReturnType<typeof setTimeout> | null = null;
@@ -395,6 +406,7 @@
 		selectedFileIds = selectedFileIds.includes(fileId)
 			? selectedFileIds.filter((id) => id !== fileId)
 			: [...selectedFileIds, fileId];
+		casePeriodId = null;
 		createdMessage = null;
 		createdClipId = null;
 		createError = null;
@@ -414,6 +426,7 @@
 				f.first_packet_ns < period.end_ns
 		);
 		selectedFileIds = matched.map((f) => f.capture_file_id);
+		casePeriodId = period.period_id;
 		caseDescription = `${expandedSession?.label || 'session'} ${period.label}`;
 
 		// The period usually starts after the first matched file's own start —
@@ -490,8 +503,8 @@
 		}
 	}
 
-	/** Parses a trim field to seconds, or undefined for blank/unparseable text. */
-	function parseOptionalSecs(text: string): number | undefined {
+	/** Parses a number field, or undefined for blank/unparseable text. */
+	function parseOptionalNumber(text: string): number | undefined {
 		const trimmed = text.trim();
 		if (trimmed === '') return undefined;
 		const n = Number(trimmed);
@@ -509,10 +522,11 @@
 			const created = await createClipFromCaptures({
 				sensor_id: caseSensorId,
 				pcap_files: verdict.files.map((f) => f.rel_path),
-				pcap_start_secs: parseOptionalSecs(caseStartSecs),
-				pcap_duration_secs: parseOptionalSecs(caseDurationSecs),
+				pcap_start_secs: parseOptionalNumber(caseStartSecs),
+				pcap_duration_secs: parseOptionalNumber(caseDurationSecs),
 				description: caseDescription || undefined,
-				session_id: expandedSessionId ?? undefined
+				session_id: expandedSessionId ?? undefined,
+				source_period_id: casePeriodId ?? undefined
 			});
 			createdMessage = `Created clip ${created.clip_id} over ${verdict.files.length} capture${verdict.files.length === 1 ? '' : 's'}.`;
 			createdClipId = created.clip_id;
@@ -537,7 +551,43 @@
 							: 'Case created, but the location was not recorded.';
 				}
 			}
+
+			// Publishing and the extract follow the same rule as the location:
+			// the clip exists either way, and a refusal is reported beside it.
+			const datasetId = datasetIdDraft.trim();
+			const azimuth = parseOptionalNumber(azimuthDraft);
+			if (datasetId !== '' || azimuth !== undefined) {
+				try {
+					await setClipPublishing(created.clip_id, {
+						dataset_id: datasetId,
+						north_azimuth_deg: azimuth ?? null,
+						storage: 'sources'
+					});
+					if (datasetId !== '') createdMessage += ` Marked for the dataset as ${datasetId}.`;
+				} catch (e) {
+					locationNote = `${locationNote ? `${locationNote} ` : ''}${
+						e instanceof Error
+							? `The publishing settings were not saved: ${e.message}`
+							: 'The publishing settings were not saved.'
+					}`;
+				}
+			}
+			if (extractAfterCreate) {
+				try {
+					await startClipExtract(created.clip_id);
+					createdMessage += ' Extract queued.';
+					jobs = await getCaptureJobs({ limit: jobListLimit() });
+					startJobPolling();
+				} catch (e) {
+					locationNote = `${locationNote ? `${locationNote} ` : ''}${
+						e instanceof Error
+							? `The extract was not queued: ${e.message}`
+							: 'The extract was not queued.'
+					}`;
+				}
+			}
 			selectedFileIds = [];
+			casePeriodId = null;
 		} catch (e) {
 			createError = e instanceof Error ? e.message : 'Could not create the clip.';
 		} finally {
@@ -1138,7 +1188,8 @@
 														? ''
 														: 's'}{verdict.lostMs > 0
 														? `, ${formatGap(verdict.lostMs)} lost at the joins`
-														: ''}. No unioned file is written; replay reads the captures in order.
+														: ''}. Replay reads the captures in order; a standalone file is written
+													only if you cut the extract.
 												</p>
 												<div class="flex flex-wrap items-center gap-2">
 													<input
@@ -1209,6 +1260,28 @@
 													</select>
 													<span class="text-surface-content/40 text-xs">
 														optional — places the clip on the clip locations page
+													</span>
+												</div>
+
+												<div class="mt-2 flex flex-wrap items-center gap-2">
+													<span class="text-surface-content/50 text-xs">Publish as</span>
+													<input
+														class="border-surface-300 bg-surface-100 w-56 rounded border px-2 py-1 font-mono text-xs"
+														placeholder="dataset id, e.g. kirkham-9th-k3"
+														bind:value={datasetIdDraft}
+													/>
+													<input
+														class="border-surface-300 bg-surface-100 w-28 rounded border px-2 py-1 font-mono text-xs"
+														placeholder="north azimuth °"
+														bind:value={azimuthDraft}
+													/>
+													<label class="flex items-center gap-1 text-xs">
+														<input type="checkbox" bind:checked={extractAfterCreate} />
+														cut the standalone extract now
+													</label>
+													<span class="text-surface-content/40 text-xs">
+														optional — the survey id the dataset and scene pages use; the extract is
+														written under clips/ in the capture volume
 													</span>
 												</div>
 											{:else}

@@ -375,6 +375,28 @@ def claim(mark, used):
     return mark
 
 
+def with_clip_entries(archive_index):
+    """The archive's sites, then the entries merge-clip-sites.py wrote.
+
+    A clip entry ("origin": "clip") comes from the server's clips, not from the
+    archive analysis, so a rebuild keeps it as it is. An archive site and a
+    clip entry may not share an id: the scene publisher keys on it.
+    """
+    try:
+        with open(OUT) as fh:
+            existing = json.load(fh)
+    except FileNotFoundError:
+        existing = []
+    clips = [entry for entry in existing if entry.get("origin") == "clip"]
+    ids = {entry["id"] for entry in archive_index}
+    clashes = sorted(entry["id"] for entry in clips if entry["id"] in ids)
+    if clashes:
+        raise RuntimeError(
+            f"archive sites and clip entries share ids: {', '.join(clashes)}"
+        )
+    return archive_index + clips
+
+
 def write_index(index):
     with open(OUT, "w") as fh:
         json.dump(index, fh, indent=2)
@@ -413,6 +435,8 @@ if ARGS.marks_only:
         index = json.load(fh)
     used = set()
     for entry in index:
+        if entry.get("origin") == "clip":
+            continue  # positioned from its clip, not from a field mark
         start = datetime.fromisoformat(entry["start"])
         mark = claim(match({"start": start})[0], used)
         entry["id"] = site_id(mark, start)
@@ -524,4 +548,4 @@ for number, site in enumerate(sites, 1):
         }
     )
 
-write_index(index)
+write_index(with_clip_entries(index))

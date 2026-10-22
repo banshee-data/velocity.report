@@ -2,7 +2,7 @@
 # | |\/|  / /\  | |_/ | |_  | |_  | | | |   | |_
 # |_|  | /_/--\ |_| \ |_|__ |_|   |_| |_|__ |_|__
 
-VERSION := 0.5.1-pre46
+VERSION := 0.5.1-pre47
 
 # =============================================================================
 # LIDAR DATA DIRECTORIES
@@ -35,11 +35,16 @@ LIDAR_PCAP_DIR ?= $(LIDAR_DATA_DIR)
 LIDAR_VRLOG_DIR ?= $(LIDAR_DATA_DIR)/vrlog
 LIDAR_PLOTS_DIR ?= $(LIDAR_DATA_DIR)/plots
 LIDAR_ANNOTATION_DIR ?= $(LIDAR_DATA_DIR)/annotation-packs
+# The published dataset root: the directory holding manifest.json, raw/ and
+# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
+# replay path against that directory and refuses anything outside it. Clip
+# staging writes into it; the scene publisher replays from it.
+S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
 
 # Passed by every dev target that starts the LiDAR pipeline. The Makefile owns
 # the defaults and passes them as explicit CLI flags so the binary gets the
 # same resolved paths regardless of its working directory.
-LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR)) --lidar-config-dir=$(CURDIR)/config
+LIDAR_DIR_FLAGS := --lidar-pcap-dir=$(abspath $(LIDAR_PCAP_DIR)) --lidar-vrlog-dir=$(abspath $(LIDAR_VRLOG_DIR)) --lidar-plots-dir=$(abspath $(LIDAR_PLOTS_DIR)) --lidar-annotation-dir=$(abspath $(LIDAR_ANNOTATION_DIR)) --lidar-dataset-dir=$(abspath $(S2_CORPUS_DIR)) --lidar-config-dir=$(CURDIR)/config
 
 # =============================================================================
 # HELP TARGET (default)
@@ -1053,6 +1058,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_stage_label_sets.py \
 	tools/s2-archive/test_clone_labels.py \
 	tools/s2-archive/test_verify_corpus.py \
+	tools/s2-archive/test_merge_clip_sites.py \
 	tools/podcast-transcribe/test_podcast_transcribe.py
 install-python:
 	@echo "Setting up Python environment..."
@@ -2308,6 +2314,14 @@ site-index:
 	@echo "Rebuilding the archive site index from $(abspath $(LIDAR_PCAP_DIR))/s2..."
 	@python3 tools/s2-archive/build-site-index.py --archive "$(LIDAR_PCAP_DIR)"
 
+# Merge the surveys published from clips (Clips page: dataset id, location,
+# completed extract) into site-index.json, from the running server. PRUNE=1
+# drops clip entries the server no longer serves.
+.PHONY: site-index-clips
+site-index-clips:
+	@LIDAR_API_URL=$${LIDAR_API_URL:-http://localhost:8080/api/lidar} \
+		python3 tools/s2-archive/merge-clip-sites.py $(if $(PRUNE),--prune)
+
 # Regenerate everything the scenes pages are made of, in dependency order: the
 # site index from the archive, then the page data and the map, then the site
 # itself.
@@ -2399,10 +2413,8 @@ test-s2-hilbert: install-s2-hilbert
 # `make scene-assets-clean` drops the markers when the settings change and the
 # scenes have to be made again.
 
-# The published dataset root: the directory holding manifest.json, raw/ and
-# derived/. It must sit under LIDAR_PCAP_DIR, because the server resolves every
-# replay path against that directory and refuses anything outside it.
-S2_CORPUS_DIR ?= $(LIDAR_PCAP_DIR)/sf-street-speeds
+# S2_CORPUS_DIR, the published dataset root, is set with the LiDAR paths at
+# the top of this file: clip staging and the scene publisher name the same one.
 
 # Replay settings. The reason for each is in tools/s2-archive/publish-scenes.py
 # — in short, half speed stays until perf0003 decides the speed, and the

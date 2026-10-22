@@ -309,7 +309,16 @@ export interface LidarClip {
 	source_period_id?: string;
 	/** Where the capture was taken, when a position has been accepted. */
 	location?: ClipLocation;
+	/** The published survey's id when the clip is marked for the dataset. */
+	dataset_id?: string;
+	/** The scene viewer's measured north azimuth, as site-index.json records it. */
+	north_azimuth_deg?: number;
+	/** What a replay opens: the source captures, or the latest extract. */
+	storage?: ClipStorage;
 }
+
+/** What a clip replays. */
+export type ClipStorage = 'sources' | 'extract';
 
 /**
  * Aggregate track statistics stored when an analysis run completes

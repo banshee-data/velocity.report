@@ -93,6 +93,18 @@ made-up sensor model, commit, duration or capture type. Additional provenance
 that does not belong in a filename may be added as clearly named manifest
 fields.
 
+`export_provenance.static_export_policy` says how the raw file chose its
+packets:
+
+| Policy                            | Made by                                                        | Packets                                                                                                                  |
+| --------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `all_packets_between_site_bounds` | `export-static-pcaps.py`, from the archive's site index        | Every packet between the site's start and end times                                                                      |
+| `clip_frame_bounds`               | the server's clip staging (`POST /api/lidar/clips/{id}/stage`) | Whole rotations between the frame boundaries that bound the clip's window; the entry adds `clip_id` and `rubric_version` |
+| `whole_original_capture`          | a hand-written entry (`kirkham-9th`)                           | The original capture file unchanged                                                                                      |
+
+A capture staged from a clip is a hard link to its extract under the capture
+volume's `clips/` directory; its site-index entry carries `"origin": "clip"`.
+
 ## Label sets
 
 A label set holds reference objects and their per-frame membership, citing the capture's returns by

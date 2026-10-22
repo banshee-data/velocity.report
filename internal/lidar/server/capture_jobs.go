@@ -93,6 +93,8 @@ func (ws *Server) runCaptureJob(ctx context.Context, job capjobs.Job, report fun
 		return ws.runMotionPass(ctx, job, report)
 	case "vrlog_record":
 		return ws.runSegmentClipJob(ctx, job, report)
+	case sqlite.JobKindCaptureExport:
+		return ws.runClipExtract(ctx, job, report)
 	default:
 		return fmt.Errorf("unknown capture job kind %q", job.Kind)
 	}

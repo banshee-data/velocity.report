@@ -178,6 +178,10 @@ var (
 	lidarVRLogDir      = serveFlags.String("lidar-vrlog-dir", "../sensor_data/lidar/vrlog", "Directory for VRLOG recordings (read and write; independent of --lidar-pcap-dir)")
 	lidarPlotsDir      = serveFlags.String("lidar-plots-dir", "../sensor_data/lidar/plots", "Directory for plot output (independent of --lidar-pcap-dir)")
 	lidarAnnotationDir = serveFlags.String("lidar-annotation-dir", "../sensor_data/lidar/annotation-packs", "Directory for exported annotation packs (independent of --lidar-pcap-dir)")
+	// Off when empty. Staging a clip writes its extract and manifest entry
+	// into this clone of the published dataset; publishing it stays a person's
+	// step.
+	lidarDatasetDir = serveFlags.String("lidar-dataset-dir", "", "Published survey dataset clone that clip staging writes into (inside --lidar-pcap-dir); empty disables staging")
 	// Read once at startup. Empty uses the repository's file when the server
 	// runs from the repository, and the binary's own copy anywhere else.
 	lidarSegmentSelectors = serveFlags.String("lidar-segment-selectors", "",
@@ -825,6 +829,7 @@ func Main(args []string) int {
 			AnnotationPacksDir: resolveLidarDir(*lidarAnnotationDir, "annotation pack", log.Printf),
 			TuningConfig:       tuningCfg,
 			SegmentSelectors:   selectors,
+			DatasetDir:         *lidarDatasetDir,
 			OnPCAPStarted:      closeLiveObservationsOnReplayStart,
 			OnTuningChange:     endLiveObservationsOnTuning,
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),

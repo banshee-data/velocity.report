@@ -82,3 +82,19 @@ func TestSelectEntriesRejectsBadRequests(t *testing.T) {
 		t.Fatal("accepted an unknown request")
 	}
 }
+
+func TestReadIndexLeavesClipEntriesToTheDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "site-index.json")
+	body := `[{"id":"ashbury-downey","captures":["s2-sf-0.pcapng"]},` +
+		`{"id":"kirkham-9th-k3","captures":["kirk2.pcapng"],"origin":"clip"}]`
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := readIndex(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].ID != "ashbury-downey" {
+		t.Fatalf("entries %+v, want only the archive's", entries)
+	}
+}
