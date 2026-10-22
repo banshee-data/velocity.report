@@ -9,8 +9,8 @@ maths question depends on them. Seven questions are on the agenda; the inventory
 what was found and why the rest is not.
 
 - **Packet:** DR-MATHS-2026-10
-- **Revision:** 3
-- **Phase:** integrate (E-01 to E-07 integrated; Q-08 returned to voice)
+- **Revision:** 4
+- **Phase:** voice (Q-08 confirmed as option A in text; E-08 ready for integration)
 - **Branch:** `claude/peaceful-davinci-w8iuw8`
 - **Related:** [MATHS.md](../../../data/maths/MATHS.md),
   [pipeline review](../../../data/maths/pipeline-review-open-questions.md),
@@ -134,6 +134,10 @@ About 3 minutes. Prerequisite Q-01 for l8fol0004's framing. Card revision 1.
 
 ### Q-08: Do diagnostic quantiles follow the nearest-rank rule?
 
+Correction, revision 4: the card below says the two helpers feed the G1 axis gate. They do not.
+G1 is read from the physical scorer's yaw error, and no code computes its p90 that I could find.
+No pinned gate reads either helper. The question is consistency only.
+
 Returned by integration from E-03. You chose nearest rank for aggregate p50, p85 and p98, and the
 card said the analysis report's and the replay evaluation's helpers would move to it. They do not
 compute speed percentiles: they compute angle diagnostics, course alignment and solid-body axis
@@ -150,16 +154,16 @@ prerequisites. Card revision 1.
 
 ## Question index
 
-| ID   | Category | Source ID and link                                                                                                                                                                                                                                                                                              | State              | Depends on | Current decision entry |
-| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | ---------- | ---------------------- |
-| Q-01 | maths    | [Briefing 2026-10-19, Q2](../../lidar/operations/brief/research-briefing-2026-10-19.md#open-questions); [l8fol0004](../../../data/experiments/l8fol/l8fol0004.md)                                                                                                                                               | integrated         | none       | [E-01](#e-01-q-01)     |
-| Q-02 | maths    | [Behaviour plan B10](../../plans/lidar-behaviour-analytics-plan.md#13-open-research-questions); [D-28](../../DECISIONS.md#d-28--research-briefing-decisions-october-2026)                                                                                                                                       | integrated         | Q-01       | [E-02](#e-02-q-02)     |
-| Q-03 | maths    | [Percentile plan §5, canonical aggregate percentile algorithm](../../plans/speed-percentile-aggregation-alignment-plan.md#5-decisions-that-still-need-explicit-implementation-choices); [pipeline review §5.2](../../../data/maths/pipeline-review-open-questions.md#52-speed-percentile-aggregation-alignment) | integrated         | none       | [E-03](#e-03-q-03)     |
-| Q-04 | maths    | [Near-edge frame cost](../../lidar/operations/near-edge-frame-cost-2026-10.md#interpretation); [backlog, solid-body remaining work](../../BACKLOG.md)                                                                                                                                                           | integrated         | none       | [E-04](#e-04-q-04)     |
-| Q-05 | maths    | [Gap analysis S3](../../../data/maths/paper-implementation-gap-analysis.md#computed-s3); [backlog, association cost](../../BACKLOG.md); [l5id0001](../../../data/experiments/l5id/l5id0001.md)                                                                                                                  | integrated         | none       | [E-05](#e-05-q-05)     |
-| Q-06 | maths    | [Gap analysis D6](../../../data/maths/paper-implementation-gap-analysis.md#gaps); [remediation plan, P2 D6](../../../data/maths/paper-implementation-gap-analysis.md#phase-1-tests-for-known-gaps-no-paper-downloads-needed)                                                                                    | integrated         | none       | [E-06](#e-06-q-06)     |
-| Q-07 | maths    | [Experiment queue](../../../data/experiments/DEPENDENCIES.md); specs l8fol0004, ground0001, ground0002, l3bg0022, l3bg0024, l5est0001, l5est0002, geom0002, geom0012                                                                                                                                            | integrated         | Q-01       | [E-07](#e-07-q-07)     |
-| Q-08 | maths    | Returned from [E-03](#e-03-q-03) by integration; [geometry convergence criteria, G1](../../lidar/operations/geometry-convergence-criteria.md)                                                                                                                                                                   | needs voice review | none       | none                   |
+| ID   | Category | Source ID and link                                                                                                                                                                                                                                                                                              | State                 | Depends on | Current decision entry |
+| ---- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ---------- | ---------------------- |
+| Q-01 | maths    | [Briefing 2026-10-19, Q2](../../lidar/operations/brief/research-briefing-2026-10-19.md#open-questions); [l8fol0004](../../../data/experiments/l8fol/l8fol0004.md)                                                                                                                                               | integrated            | none       | [E-01](#e-01-q-01)     |
+| Q-02 | maths    | [Behaviour plan B10](../../plans/lidar-behaviour-analytics-plan.md#13-open-research-questions); [D-28](../../DECISIONS.md#d-28--research-briefing-decisions-october-2026)                                                                                                                                       | integrated            | Q-01       | [E-02](#e-02-q-02)     |
+| Q-03 | maths    | [Percentile plan §5, canonical aggregate percentile algorithm](../../plans/speed-percentile-aggregation-alignment-plan.md#5-decisions-that-still-need-explicit-implementation-choices); [pipeline review §5.2](../../../data/maths/pipeline-review-open-questions.md#52-speed-percentile-aggregation-alignment) | integrated            | none       | [E-03](#e-03-q-03)     |
+| Q-04 | maths    | [Near-edge frame cost](../../lidar/operations/near-edge-frame-cost-2026-10.md#interpretation); [backlog, solid-body remaining work](../../BACKLOG.md)                                                                                                                                                           | integrated            | none       | [E-04](#e-04-q-04)     |
+| Q-05 | maths    | [Gap analysis S3](../../../data/maths/paper-implementation-gap-analysis.md#computed-s3); [backlog, association cost](../../BACKLOG.md); [l5id0001](../../../data/experiments/l5id/l5id0001.md)                                                                                                                  | integrated            | none       | [E-05](#e-05-q-05)     |
+| Q-06 | maths    | [Gap analysis D6](../../../data/maths/paper-implementation-gap-analysis.md#gaps); [remediation plan, P2 D6](../../../data/maths/paper-implementation-gap-analysis.md#phase-1-tests-for-known-gaps-no-paper-downloads-needed)                                                                                    | integrated            | none       | [E-06](#e-06-q-06)     |
+| Q-07 | maths    | [Experiment queue](../../../data/experiments/DEPENDENCIES.md); specs l8fol0004, ground0001, ground0002, l3bg0022, l3bg0024, l5est0001, l5est0002, geom0002, geom0012                                                                                                                                            | integrated            | Q-01       | [E-07](#e-07-q-07)     |
+| Q-08 | maths    | Returned from [E-03](#e-03-q-03) by integration; [geometry convergence criteria, G1](../../lidar/operations/geometry-convergence-criteria.md)                                                                                                                                                                   | ready for integration | none       | none                   |
 
 ## Candidate inventory
 
@@ -515,7 +519,7 @@ Integrated in revision 3 with option A; the closure for each row is in the
 
 ### Evidence Q-08: Diagnostic quantiles and the nearest-rank rule
 
-- Card revision: 1.
+- Card revision: 2 (correction: no pinned gate reads these helpers; see the voice card).
 - Current behaviour and decision boundary: E-03 now governs published aggregate speed
   percentiles, through `internal/stats.NearestRank` (commit `2eb3ec3`). The analysis report's
   `percentileSorted` (course-alignment p50 and p90 in `internal/lidar/analysis/report.go`) and
@@ -671,22 +675,43 @@ the owner's explicit choice; integration review has not yet run on any of them.
 - Supersedes: none.
 - Follow-ups: F-09 (status edits and graph regeneration).
 
+### E-08: Q-08
+
+- State: ready for integration.
+- Disposition: adopt.
+- Choice and constraints: option A. The two diagnostic angle quantile helpers keep their current
+  rule (`percentileSorted` in the analysis report, `percentile` in the replay evaluation), each
+  documented where it is defined as the truncated rule and as outside E-03. Speed percentiles stay
+  on nearest rank. The G1 criterion's p90 is named in the criteria record as an estimator still to
+  be specified when the physical scorer prints it; no reported figure changes now.
+- Rationale: no pinned gate reads these helpers, so changing them would move reported diagnostics
+  for consistency alone. The one-rank difference is small, and the criteria record's own
+  description of the axis p90 is left as it stands.
+- Confirmation: explicit selection of option A, in a text session, after the card was corrected
+  in the same session. The correction was stated before the choice. No ambiguity remained.
+- Provenance: Claude Code session `session_01CCGg6RfzL9uoYZhqKsEqK9`, text modality (no voice),
+  2026-10-22T03:55:00Z; last served model `claude-haiku-5-5`, configured model `claude-fable-5-1`.
+- Reviewed card: DR-MATHS-2026-10 revision 4, evidence card Q-08 revision 2.
+- Supersedes: none.
+- Follow-ups: F-11 resolved by this entry; F-13 for naming G1's estimator.
+
 ## Follow-ups
 
-| ID   | Question or decision entry | Action and reason                                                                                                                                                                                          | Owner        | Blocks | Acceptance condition                                      | Disposition and durable destination                                                                                                                     |
-| ---- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| F-01 | inventory                  | The pipeline review still says "Active review (March 2026)" while its Q5 and Q8 are superseded by the state-estimation plan and D-04; mark it a historical review and point each question at its successor | unassigned   | none   | Status line and §3 headers link the successors            | resolved: status and successor note, commit `ced4552`                                                                                                   |
-| F-02 | inventory                  | AGENTS.md's L3 row says "EMA + Welford variance"; the spread is an EMA of absolute deviation (gap analysis B6, beam-wise review errata); correct the row                                                   | unassigned   | none   | AGENTS.md row matches `background-grid-settling-maths.md` | resolved: AGENTS.md and ARCHITECTURE.md, commit `ced4552`                                                                                               |
-| F-03 | Q-03                       | After the rule is chosen, one shared percentile helper replaces the three aggregate helpers; the per-track one goes with D-18                                                                              | unassigned   | none   | One helper, three call sites, tests pass                  | resolved for speed percentiles: `internal/stats.NearestRank`, commit `2eb3ec3`; the two LiDAR helpers returned as Q-08                                  |
-| F-04 | Q-04                       | A Pi frame-time measurement of A2 before any promotion, whichever screen is chosen                                                                                                                         | unassigned   | none   | A perf spec names it                                      | resolved: [perf0004](../../../data/experiments/perf/perf0004.md) proposed, commit `f95212b`                                                             |
-| F-05 | E-01                       | Choose the 4 or 6 s net ceiling and the 10 mph band edge on kirk0's reviewed pairs; pin floor, ceiling, margin, dwell and band edge in the following record as a D-NN                                      | owner        | E-02   | l8fol0004 `decide` step closed with a D-NN                | pending; l8fol0004's `decide` step, now approved and carrying the fields (commits `300a9e4`, `6f656a6`)                                                 |
-| F-06 | E-02                       | Record B10's deferral and its trigger in the behaviour plan's B10 row, D-28 and the backlog row                                                                                                            | unassigned   | none   | The three rows cite E-02 and the trigger                  | resolved: commit `300a9e4`                                                                                                                              |
-| F-07 | E-05                       | Write the likelihood-cost spec (held-out identity, containment share as an input, inflation retirement as its consequence) once W2 is scored                                                               | unassigned   | none   | Spec validates and depends on the W2 spec                 | deferred; blocked on W2's containment score; recorded in the backlog's S3 row (commit `f95212b`)                                                        |
-| F-08 | E-06                       | Write the l4clus spec for `ScaleMinPtsWhenSubsampled` on capped frames, adding a replay experiment switch if none exists                                                                                   | unassigned   | none   | Spec validates; the switch has a test                     | resolved: [l4clus0004](../../../data/experiments/l4clus/l4clus0004.md) proposed; the switch `density_cap` already existed, so no code; commit `6f656a6` |
-| F-09 | E-07                       | Set l8fol0004, ground0001 and l3bg0024 to `approved`; regenerate DEPENDENCIES.md                                                                                                                           | unassigned   | none   | `make check-experiments` passes                           | resolved: commit `6f656a6`                                                                                                                              |
-| F-10 | E-04, E-06                 | Approve or refuse the two new proposed specs, perf0004 and l4clus0004; the decisions chose what to measure, not the approval                                                                               | owner        | none   | Each spec's status is set                                 | pending; next experiment review                                                                                                                         |
-| F-11 | E-03                       | Q-08: whether diagnostic quantiles follow nearest rank                                                                                                                                                     | owner        | none   | An entry for Q-08                                         | returned to voice                                                                                                                                       |
-| F-12 | D-18, D-28                 | Both register entries were amended; the decision audit's rows for them are refreshed at the next release preparation, as its cadence requires                                                              | release prep | none   | Audit rows cite the amendments                            | pending; release prep                                                                                                                                   |
+| ID   | Question or decision entry | Action and reason                                                                                                                                                                                          | Owner        | Blocks | Acceptance condition                                                  | Disposition and durable destination                                                                                                                     |
+| ---- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------ | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F-01 | inventory                  | The pipeline review still says "Active review (March 2026)" while its Q5 and Q8 are superseded by the state-estimation plan and D-04; mark it a historical review and point each question at its successor | unassigned   | none   | Status line and §3 headers link the successors                        | resolved: status and successor note, commit `ced4552`                                                                                                   |
+| F-02 | inventory                  | AGENTS.md's L3 row says "EMA + Welford variance"; the spread is an EMA of absolute deviation (gap analysis B6, beam-wise review errata); correct the row                                                   | unassigned   | none   | AGENTS.md row matches `background-grid-settling-maths.md`             | resolved: AGENTS.md and ARCHITECTURE.md, commit `ced4552`                                                                                               |
+| F-03 | Q-03                       | After the rule is chosen, one shared percentile helper replaces the three aggregate helpers; the per-track one goes with D-18                                                                              | unassigned   | none   | One helper, three call sites, tests pass                              | resolved for speed percentiles: `internal/stats.NearestRank`, commit `2eb3ec3`; the two LiDAR helpers returned as Q-08                                  |
+| F-04 | Q-04                       | A Pi frame-time measurement of A2 before any promotion, whichever screen is chosen                                                                                                                         | unassigned   | none   | A perf spec names it                                                  | resolved: [perf0004](../../../data/experiments/perf/perf0004.md) proposed, commit `f95212b`                                                             |
+| F-05 | E-01                       | Choose the 4 or 6 s net ceiling and the 10 mph band edge on kirk0's reviewed pairs; pin floor, ceiling, margin, dwell and band edge in the following record as a D-NN                                      | owner        | E-02   | l8fol0004 `decide` step closed with a D-NN                            | pending; l8fol0004's `decide` step, now approved and carrying the fields (commits `300a9e4`, `6f656a6`)                                                 |
+| F-06 | E-02                       | Record B10's deferral and its trigger in the behaviour plan's B10 row, D-28 and the backlog row                                                                                                            | unassigned   | none   | The three rows cite E-02 and the trigger                              | resolved: commit `300a9e4`                                                                                                                              |
+| F-07 | E-05                       | Write the likelihood-cost spec (held-out identity, containment share as an input, inflation retirement as its consequence) once W2 is scored                                                               | unassigned   | none   | Spec validates and depends on the W2 spec                             | deferred; blocked on W2's containment score; recorded in the backlog's S3 row (commit `f95212b`)                                                        |
+| F-08 | E-06                       | Write the l4clus spec for `ScaleMinPtsWhenSubsampled` on capped frames, adding a replay experiment switch if none exists                                                                                   | unassigned   | none   | Spec validates; the switch has a test                                 | resolved: [l4clus0004](../../../data/experiments/l4clus/l4clus0004.md) proposed; the switch `density_cap` already existed, so no code; commit `6f656a6` |
+| F-09 | E-07                       | Set l8fol0004, ground0001 and l3bg0024 to `approved`; regenerate DEPENDENCIES.md                                                                                                                           | unassigned   | none   | `make check-experiments` passes                                       | resolved: commit `6f656a6`                                                                                                                              |
+| F-10 | E-04, E-06                 | Approve or refuse the two new proposed specs, perf0004 and l4clus0004; the decisions chose what to measure, not the approval                                                                               | owner        | none   | Each spec's status is set                                             | pending; next experiment review                                                                                                                         |
+| F-11 | E-03                       | Q-08: whether diagnostic quantiles follow nearest rank                                                                                                                                                     | owner        | none   | An entry for Q-08                                                     | resolved by E-08: option A, no change to the helpers                                                                                                    |
+| F-12 | D-18, D-28                 | Both register entries were amended; the decision audit's rows for them are refreshed at the next release preparation, as its cadence requires                                                              | release prep | none   | Audit rows cite the amendments                                        | pending; release prep                                                                                                                                   |
+| F-13 | E-08                       | Name G1's p90 estimator and where it is computed when the physical scorer prints the axis p90 (the criteria record says it is not printed yet, and the kirk0 figure of 1.3° has no traced code)            | unassigned   | none   | The criteria record names the estimator and the code that computes it | pending; geometry convergence criteria                                                                                                                  |
 
 ## Integration review
 
@@ -747,25 +772,28 @@ those helpers, which returns as Q-08; the rest of E-03 is independent of it and 
 - Phase runs (continued): integrate, revision 3, requested tier high, actual model
   `claude-opus-5-5` as the session reports it, session `session_01CCGg6RfzL9uoYZhqKsEqK9`, 2026-10-22T01:35:10Z.
   Commits `2eb3ec3`, `300a9e4`, `f95212b`, `6f656a6`, `ced4552` on the packet's branch.
-- Validation: question IDs and source links checked by hand; after revision 3, Q-01 to Q-07 are
-  `integrated` and Q-08 is `needs voice review`; each entry records its confirmation; dependency rows cover each option; follow-ups have destinations;
+- Phase runs (continued): voice, revision 4, requested tier light, actual model `claude-haiku-5-5`
+  (last served; configured `claude-fable-5-1`), text, session `session_01CCGg6RfzL9uoYZhqKsEqK9`, 2026-10-22T03:55:00Z.
+- Validation: question IDs and source links checked by hand; after revision 4, Q-01 to Q-07 are
+  `integrated` and Q-08 is `ready for integration` (E-08); each entry records its confirmation; dependency rows cover each option; follow-ups have destinations;
   `make format-docs` and `make lint-docs` run before commit (results in the commit message).
 
 ## Resume handoff
 
-- Next phase and requested tier: voice/light, for Q-08 only; then integrate/high for its entry.
+- Next phase and requested tier: integrate/high, for E-08 only.
 - Packet and revision: `docs/platform/operations/decision-review-maths-2026-10.md`,
-  DR-MATHS-2026-10, revision 3.
-- Branch and PR: `claude/peaceful-davinci-w8iuw8`, pushed;
+  DR-MATHS-2026-10, revision 4.
+- Branch and PR: `claude/peaceful-davinci-w8iuw8`; PR
   [banshee-data/velocity.report#834](https://github.com/banshee-data/velocity.report/pull/834),
   ready for review.
-- Read first: Voice brief Q-08, Evidence Q-08, the integration review, this section.
-- Resume at: Q-08. Integrated: Q-01 to Q-07. Returned: Q-08. Blockers: none. Owner work: F-05
-  (l8fol0004's decide step) and F-10 (approve perf0004 and l4clus0004).
-- Invocation: `/decision-review-voice docs/platform/operations/decision-review-maths-2026-10.md`
-- Handoff prompt: Read the Q-08 card, ask for A, B or C, and record an explicit choice as
-  `ready for integration` with any conditions. Then integrate it: option A adds doc comments to
-  the two helpers and names the estimator in the G1 criterion; option B moves them to
-  `stats.NearestRank`, updates their tests and records the estimator change against G1 with its
-  date. Run `make lint-go`, the two packages' tests and `make lint-docs`, and set Q-08 to
-  `integrated`.
+- Read first: Decision log E-08, the Q-08 correction in the voice card and evidence card, and
+  Follow-ups F-13.
+- Resume at: integration of E-08. Integrated: Q-01 to Q-07. Ready: Q-08 (E-08). Blockers: none.
+  Owner work: F-05 (l8fol0004's decide step), F-10 (approve perf0004 and l4clus0004), F-13.
+- Invocation: `/decision-review-integrate docs/platform/operations/decision-review-maths-2026-10.md`
+- Handoff prompt: Integrate E-08 as documentation only. Add a doc comment to the analysis report's
+  `percentileSorted` and to the replay evaluation's `percentile` stating the truncated rule and
+  that `internal/stats.NearestRank` does not govern them. Add one sentence to the geometry
+  convergence criteria, under G1, saying the p90 estimator is not yet specified and is F-13. Change
+  no code path and no reported figure. Run `make lint-go` (the two packages' tests too), then
+  `make lint-docs`, then set Q-08 to `integrated` and record the outcome.
