@@ -87,6 +87,13 @@ members, so the share is against what the tracker saw, not the persisted sample.
 | G11 | Identity, A2 only                       | `identity.json` ID switches on `whole-pack` against the A2 baseline's; HOTA and IDF1 reported                                                                                                      | Within the larger of 10 % of the baseline and the measured no-op floor |
 | G12 | Cost                                    | `tracker_timing.json` p99 against the arm's baseline, median of four balanced runs; the orientation fit's time stated per cluster on the Mac and on a Pi                                           | Within 10 %; the fit measured, not estimated                           |
 
+**The G1 estimator.** G1's p90 has no estimator named here yet, and no code was found that computes
+it: the scorer does not print the axis p90 (see the W0 row below), and the kirk0 figure was not
+traced to code. It is to be named with the code that computes it when the scorer prints it
+([maths decision review F-13](../../platform/operations/decision-review-maths-2026-10.md#follow-ups)).
+The `axis_by_age` p90 that G3's rows carry truncates p·(n−1) and stays on that rule (E-08); nearest
+rank applies to published speed percentiles only.
+
 **The no-op floor of G11.** On the frozen split, A2's identity moves with any change to the
 solid body whether or not a scored pose changes. The one arm of the alignment run that changed
 no scored pose, `solid_body_vehicle_extent_floor` alone, moved the switches from 100 to 81, so

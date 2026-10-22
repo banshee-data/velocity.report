@@ -19,6 +19,8 @@ func TestNearestRank(t *testing.T) {
 		{"p85 of five is the fifth", five, 0.85, 50},
 		{"p98 of five is the fifth", five, 0.98, 50},
 		{"one clamps to last", five, 1, 50},
+		{"above one clamps to last", five, 1.5, 50},
+		{"below zero clamps to first", five, -0.5, 10},
 		{"single value", []float64{7}, 0.85, 7},
 		{"median of an even count is the lower middle", []float64{1, 2, 3, 4}, 0.5, 2},
 	}
