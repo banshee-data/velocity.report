@@ -10,7 +10,7 @@ import {
 	getCapturePeriods,
 	getCaptureRoots,
 	getCaptureSessions,
-	getSceneMap,
+	getClipLocations,
 	queueMissingMotionPasses,
 	scanCaptureRoots,
 	setClipLocation,
@@ -287,37 +287,37 @@ describe('clearClipLocation', () => {
 	});
 });
 
-describe('getSceneMap', () => {
+describe('getClipLocations', () => {
 	it('returns the areas, each holding its sites', async () => {
 		fetchMock.mockReturnValue(
 			ok({
-				areas: [
+				districts: [
 					{
 						s2_l10_token: '808581',
 						s2_l10_display: '80858-1',
-						case_count: 2,
+						clip_count: 2,
 						neighbourhood_count: 1,
 						sites: [
 							{
 								s2_l16_token: '8085800c',
 								s2_l13_token: '80858004',
 								s2_l10_token: '808581',
-								cases: []
+								clips: []
 							}
 						]
 					}
 				],
-				area_count: 1,
+				district_count: 1,
 				site_count: 1,
-				case_count: 2,
+				clip_count: 2,
 				coarse_level: 10,
 				fine_level: 13,
 				precise_level: 16
 			})
 		);
-		const map = await getSceneMap();
-		expect(map.area_count).toBe(1);
-		expect(map.areas[0].sites[0].s2_l16_token).toBe('8085800c');
+		const map = await getClipLocations();
+		expect(map.district_count).toBe(1);
+		expect(map.districts[0].sites[0].s2_l16_token).toBe('8085800c');
 		// The levels are reported so the page need not hard-code them.
 		expect(map.coarse_level).toBe(10);
 		expect(map.precise_level).toBe(16);
@@ -325,7 +325,7 @@ describe('getSceneMap', () => {
 
 	it('throws on a failure', async () => {
 		fetchMock.mockReturnValue(fail(503));
-		await expect(getSceneMap()).rejects.toThrow();
+		await expect(getClipLocations()).rejects.toThrow();
 	});
 });
 

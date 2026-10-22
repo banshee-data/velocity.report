@@ -94,7 +94,7 @@ sensor deployment, and a published recording describes a survey only where that 
 | **gap mark**             | A region and time a person says the pipeline missed                                                                                                                                                                                                            |
 | **clip**                 | A window within a survey chosen for evaluation or annotation, with its selection provenance, reference run, recommended parameters and pack                                                                                                                    |
 | **selector**, **finder** | A configured way of ranking candidate windows; the algorithm it uses                                                                                                                                                                                           |
-| **site**                 | A place, one row for both sensors: surrogate `site_id`, `slug`, `name`, coordinates, and the cell tokens derived from them                                                                                                                                     |
+| **site**                 | A physical place with a name and position. S2 cells index the place; the current radar and LiDAR site stores remain separate until Phase 2.                                                                                                                    |
 | **district**             | An S2 L10 cell, the filesystem roll-up; never a map extent                                                                                                                                                                                                     |
 | **neighbourhood**        | An S2 L13 cell, the fine partition for joins and datasets                                                                                                                                                                                                      |
 | **site cell**            | An S2 L16 cell, a junction and its approaches; where a site sits, not what it is                                                                                                                                                                               |
@@ -118,3 +118,15 @@ sensor deployment, and a published recording describes a survey only where that 
 | **points**               | The survey export tier holding a short foreground point-cloud excerpt                                                                                                                                                                                          |
 
 Compatibility treatments and expiry are owned by the [compatibility register](operations/compatibility-register.md).
+
+## Existing place surfaces
+
+A **deployment** is one sensor's placement over a period, with its mounting and pose.
+The Sites screen calls the existing radar configuration periods radar deployments;
+this does not add a deployment table or sensor relationship. A **survey** is that
+sensor's measurement over a period. Reports select measurement periods, and the
+existing published-recording catalogue is shown as Surveys.
+
+The catalogue editor retains its current database/API field contract until Phase 2.
+Its `Survey` frontend type does not claim that the future unified surveys table exists.
+Clip locations use districts, sites and site cells; scene is reserved for physical geometry.

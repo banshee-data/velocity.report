@@ -9,13 +9,13 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
-// SetCaseLocationRequest labels a clip with where it was captured.
+// SetClipLocationRequest labels a clip with where it was captured.
 //
 // Only the position is accepted. The S2 tokens are derived from it server-side
 // with Parent, never taken from the caller: a family assembled by a client
 // could disagree with itself, and the guide treats that as a hard provenance
 // error rather than something to reconcile.
-type SetCaseLocationRequest struct {
+type SetClipLocationRequest struct {
 	Lat float64 `json:"origin_lat"`
 	Lon float64 `json:"origin_lon"`
 	// Source records how the position was established: surveyed, operator, or
@@ -23,11 +23,11 @@ type SetCaseLocationRequest struct {
 	Source string `json:"geographic_source,omitempty"`
 }
 
-// handleSetCaseLocation records a clip's capture position.
+// handleSetClipLocation records a clip's capture position.
 //
 // POST /api/lidar/clips/{clip_id}/location
 // DELETE the same path clears it.
-func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, clipID string) {
+func (ws *Server) handleSetClipLocation(w http.ResponseWriter, r *http.Request, clipID string) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "no database configured")
 		return
@@ -35,7 +35,7 @@ func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, 
 	store := sqlite.NewClipStore(ws.db)
 
 	if r.Method == http.MethodDelete {
-		if err := store.ClearCaseLocation(clipID); err != nil {
+		if err := store.ClearClipLocation(clipID); err != nil {
 			if errors.Is(err, sqlite.ErrNotFound) {
 				ws.writeJSONError(w, http.StatusNotFound, "clip not found")
 				return
@@ -50,7 +50,7 @@ func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	var req SetCaseLocationRequest
+	var req SetClipLocationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body")
 		return
@@ -62,7 +62,7 @@ func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	loc, err := store.SetCaseLocation(clipID, req.Lat, req.Lon, req.Source)
+	loc, err := store.SetClipLocation(clipID, req.Lat, req.Lon, req.Source)
 	if err != nil {
 		switch {
 		case errors.Is(err, geoindex.ErrNoPosition):
@@ -80,37 +80,39 @@ func (ws *Server) handleSetCaseLocation(w http.ResponseWriter, r *http.Request, 
 	})
 }
 
-// handleSceneMap returns every area captures have been taken in, each holding
-// the sites within it and the cases captured at each one.
+// handleClipLocations returns every area captures have been taken in, each holding
+// the sites within it and the clips captured at each one.
 //
-// GET /api/lidar/scene-map
+// GET /api/lidar/clip-locations
 //
 // An area is an L10 cell, district-scale, so it typically holds several
 // distinct sites (L16 cells — a junction and its approaches). Each area
 // carries its cell's centre and bounds, so a map can draw it rather than only
 // pin a position inside it.
-func (ws *Server) handleSceneMap(w http.ResponseWriter, r *http.Request) {
+func (ws *Server) handleClipLocations(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {
 		ws.writeJSONError(w, http.StatusServiceUnavailable, "no database configured")
 		return
 	}
-	areas, err := sqlite.NewClipStore(ws.db).SceneAreas()
+	districts, err := sqlite.NewClipStore(ws.db).Districts()
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	var cases, sites int
-	for _, a := range areas {
-		cases += a.CaseCount
+	var clips, sites int
+	for _, a := range districts {
+		clips += a.ClipCount
 		sites += len(a.Sites)
 	}
 	ws.writeJSON(w, http.StatusOK, map[string]any{
-		"areas":         areas,
-		"area_count":    len(areas),
-		"site_count":    sites,
-		"case_count":    cases,
-		"coarse_level":  geoindex.LevelCoarse,
-		"fine_level":    geoindex.LevelFine,
-		"precise_level": geoindex.LevelPrecise,
+		// Registered aliases for the previous DMG; current clients use districts and clips.
+		"areas": districts, "area_count": len(districts), "case_count": clips,
+		"districts":      districts,
+		"district_count": len(districts),
+		"site_count":     sites,
+		"clip_count":     clips,
+		"coarse_level":   geoindex.LevelCoarse,
+		"fine_level":     geoindex.LevelFine,
+		"precise_level":  geoindex.LevelPrecise,
 	})
 }

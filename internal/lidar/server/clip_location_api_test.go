@@ -3,6 +3,7 @@ package server
 import (
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -32,13 +33,13 @@ func locatedCaseServer(t *testing.T) (*Server, string) {
 func setLocation(t *testing.T, ws *Server, caseID, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	ws.handleSetCaseLocation(rec,
+	ws.handleSetClipLocation(rec,
 		httptest.NewRequest("POST", "/api/lidar/clips/"+caseID+"/location", strings.NewReader(body)),
 		caseID)
 	return rec
 }
 
-func TestSetCaseLocationEndpointDerivesTheFamily(t *testing.T) {
+func TestSetClipLocationEndpointDerivesTheFamily(t *testing.T) {
 	ws, caseID := locatedCaseServer(t)
 
 	rec := setLocation(t, ws, caseID, `{"origin_lat":37.7987,"origin_lon":-122.4073,"geographic_source":"surveyed"}`)
@@ -77,7 +78,7 @@ func TestSetCaseLocationEndpointDerivesTheFamily(t *testing.T) {
 	}
 }
 
-func TestSetCaseLocationEndpointIgnoresClientTokens(t *testing.T) {
+func TestSetClipLocationEndpointIgnoresClientTokens(t *testing.T) {
 	// The tokens are derived server-side with Parent. A family assembled by a
 	// client could disagree with itself, which the guide treats as a hard
 	// provenance error rather than something to reconcile.
@@ -100,7 +101,7 @@ func TestSetCaseLocationEndpointIgnoresClientTokens(t *testing.T) {
 	}
 }
 
-func TestSetCaseLocationEndpointRejectsBadInput(t *testing.T) {
+func TestSetClipLocationEndpointRejectsBadInput(t *testing.T) {
 	ws, caseID := locatedCaseServer(t)
 	for _, tc := range []struct {
 		name string
@@ -120,7 +121,7 @@ func TestSetCaseLocationEndpointRejectsBadInput(t *testing.T) {
 	}
 }
 
-func TestSetCaseLocationEndpointOnAnUnknownCase(t *testing.T) {
+func TestSetClipLocationEndpointOnAnUnknownCase(t *testing.T) {
 	ws, _ := locatedCaseServer(t)
 	rec := setLocation(t, ws, "case-nope", `{"origin_lat":37.8,"origin_lon":-122.4}`)
 	if rec.Code != http.StatusNotFound {
@@ -128,14 +129,14 @@ func TestSetCaseLocationEndpointOnAnUnknownCase(t *testing.T) {
 	}
 }
 
-func TestClearCaseLocationEndpoint(t *testing.T) {
+func TestClearClipLocationEndpoint(t *testing.T) {
 	ws, caseID := locatedCaseServer(t)
 	if rec := setLocation(t, ws, caseID, `{"origin_lat":37.7987,"origin_lon":-122.4073}`); rec.Code != http.StatusOK {
 		t.Fatalf("set = %d", rec.Code)
 	}
 
 	rec := httptest.NewRecorder()
-	ws.handleSetCaseLocation(rec,
+	ws.handleSetClipLocation(rec,
 		httptest.NewRequest("DELETE", "/api/lidar/clips/"+caseID+"/location", nil), caseID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("delete = %d: %s", rec.Code, rec.Body.String())
@@ -165,20 +166,20 @@ func TestGetCaseReportsItsLocation(t *testing.T) {
 	}
 }
 
-func TestSceneMapEndpointGroupsSites(t *testing.T) {
+func TestClipLocationsEndpointGroupsSites(t *testing.T) {
 	ws, caseID := locatedCaseServer(t)
 	if rec := setLocation(t, ws, caseID, `{"origin_lat":37.7987,"origin_lon":-122.4073}`); rec.Code != http.StatusOK {
 		t.Fatalf("set = %d", rec.Code)
 	}
 
 	rec := httptest.NewRecorder()
-	ws.handleSceneMap(rec, httptest.NewRequest("GET", "/api/lidar/scene-map", nil))
+	ws.handleClipLocations(rec, httptest.NewRequest("GET", "/api/lidar/clip-locations", nil))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("scene map = %d: %s", rec.Code, rec.Body.String())
+		t.Fatalf("clip locations = %d: %s", rec.Code, rec.Body.String())
 	}
 	payload := decodeCaseBody(t, rec)
-	if payload["area_count"] != float64(1) {
-		t.Fatalf("area_count = %v, want 1", payload["area_count"])
+	if payload["district_count"] != float64(1) {
+		t.Fatalf("area_count = %v, want 1", payload["district_count"])
 	}
 	if payload["site_count"] != float64(1) {
 		t.Fatalf("site_count = %v, want 1", payload["site_count"])
@@ -187,7 +188,7 @@ func TestSceneMapEndpointGroupsSites(t *testing.T) {
 	if payload["coarse_level"] != float64(geoindex.LevelCoarse) {
 		t.Errorf("coarse_level = %v, want %d", payload["coarse_level"], geoindex.LevelCoarse)
 	}
-	area := payload["areas"].([]any)[0].(map[string]any)
+	area := payload["districts"].([]any)[0].(map[string]any)
 	if !strings.Contains(area["s2_l10_display"].(string), "-") {
 		t.Errorf("area display %v is not a family display", area["s2_l10_display"])
 	}
@@ -196,16 +197,54 @@ func TestSceneMapEndpointGroupsSites(t *testing.T) {
 		t.Fatalf("area holds %d sites, want 1", len(sites))
 	}
 	site := sites[0].(map[string]any)
-	if len(site["cases"].([]any)) != 1 {
+	if len(site["clips"].([]any)) != 1 {
 		t.Error("the site does not link to its case")
 	}
 }
 
-func TestSceneMapEndpointWithoutADatabase(t *testing.T) {
+func TestClipLocationsEndpointWithoutADatabase(t *testing.T) {
 	ws := &Server{}
 	rec := httptest.NewRecorder()
-	ws.handleSceneMap(rec, httptest.NewRequest("GET", "/api/lidar/scene-map", nil))
+	ws.handleClipLocations(rec, httptest.NewRequest("GET", "/api/lidar/clip-locations", nil))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("status = %d, want 503", rec.Code)
+	}
+}
+
+func TestClipLocationsPreserveRegisteredDMGFields(t *testing.T) {
+	ws, id := locatedCaseServer(t)
+	if response := setLocation(t, ws, id, `{"origin_lat":37.7987,"origin_lon":-122.4073}`); response.Code != http.StatusOK {
+		t.Fatal(response.Body.String())
+	}
+	mux := http.NewServeMux()
+	ws.RegisterRoutes(mux)
+	var canonical map[string]any
+	for _, path := range []string{"/api/lidar/clip-locations", "/api/lidar/scene-map"} {
+		response := httptest.NewRecorder()
+		mux.ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", path, response.Code, response.Body.String())
+		}
+		fields := decodeCaseBody(t, response)
+		if canonical == nil {
+			canonical = fields
+		} else if !reflect.DeepEqual(canonical, fields) {
+			t.Fatal("registered route changes the map")
+		}
+		if !reflect.DeepEqual(fields["districts"], fields["areas"]) || fields["district_count"] != fields["area_count"] || fields["clip_count"] != fields["case_count"] {
+			t.Fatalf("map aliases: %v", fields)
+		}
+		district := fields["districts"].([]any)[0].(map[string]any)
+		if district["clip_count"] != district["case_count"] {
+			t.Fatal("district count alias differs")
+		}
+		site := district["sites"].([]any)[0].(map[string]any)
+		if !reflect.DeepEqual(site["clips"], site["cases"]) {
+			t.Fatal("site clips alias differs")
+		}
+		clip := site["clips"].([]any)[0].(map[string]any)
+		if clip["clip_id"] != id || clip["replay_case_id"] != id {
+			t.Fatal("DMG clip identity was lost")
+		}
 	}
 }

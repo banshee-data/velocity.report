@@ -47,37 +47,27 @@ The hyphen is presentation only. Removing it recovers the canonical token.
 
 ## Levels
 
-velocity.report uses Google S2 Geometry for geographic partitioning, at two
-fixed levels:
+velocity.report uses three S2 partitions, derived from the authoritative WGS84 fix:
 
-```text
-WGS84 position
-        │
-        ▼
-     S2 L13
-fine geographic partition
-database / analytics / interoperability
-        │
-        ▼ Parent(10)
-     S2 L10
-coarse geographic partition
-filesystem / coarse browsing
-```
+| Level | Noun          | Use                                     | Example canonical token | Family display |
+| ----- | ------------- | --------------------------------------- | ----------------------- | -------------- |
+| L10   | district      | Filesystem roll-up and coarse browsing  | `808581`                | `80858-1`      |
+| L13   | neighbourhood | Fine partition for joins and datasets   | `80858004`              | `80858-004`    |
+| L16   | site cell     | Index for a junction and its approaches | `808580f3f`             | `80858-0f3f`   |
 
-The raw WGS84 fix remains the authoritative physical position measurement at
-the sensor and geometry boundary. S2 indexes that measurement; it does not
-reduce the precision of captured or exported geometry.
+A **site** is the physical place, not its cell. The existing LiDAR site table uses
+an L16 token as its key; the radar site table has its own key. Their merge and
+surrogate identity remain Phase 2. No new relationship is implied by using the
+agreed nouns on the current screens.
 
-S2 L13 is the canonical fine partition for database indexing, aggregation,
-joins, lookups, and external dataset interoperability. L13 was chosen in part
-for deliberate interoperability with published S2 L13 datasets and
-methodologies used by Waymo and Valgo HumanBaselines. That is an
-interoperability choice, not a claim that Waymo defines an industry standard.
+Calculate the L16 cell from the WGS84 position and derive parents with
+`Parent(13)` and `Parent(10)`. The raw fix remains the physical measurement;
+indexing does not reduce the precision of captured or exported geometry.
 
-S2 L10 is the canonical coarse partition for filesystem layout, filenames,
-path prefixes, and human-oriented regional browsing. Code should calculate L13
-from the WGS84 position and derive L10 from that CellID. It must not independently
-persist competing calculations of the two levels.
+L13 supports database indexing, aggregation, joins and dataset interoperability,
+including published Waymo and Valgo HumanBaselines data. That is an interoperability
+choice, not a claim that Waymo defines an industry standard. L10 supplies the
+filesystem roll-up; it is not a map extent.
 
 ## How S2 positions and numbers cells
 

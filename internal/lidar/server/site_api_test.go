@@ -8,7 +8,7 @@ import (
 )
 
 // locatedSiteToken creates a located case and returns its L16 token — the
-// site created alongside it by SetCaseLocation.
+// site created alongside it by SetClipLocation.
 func locatedSiteToken(t *testing.T, ws *Server, caseID string) string {
 	t.Helper()
 	rec := setLocation(t, ws, caseID, `{"origin_lat":37.7987,"origin_lon":-122.4073}`)

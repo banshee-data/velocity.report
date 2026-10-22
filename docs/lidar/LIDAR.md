@@ -171,3 +171,12 @@ a run is one processing pass. A label is a person’s class and quality verdict 
 an annotation is a reviewed point mask. Scene denotes physical geometry.
 The definitions do not add storage relationships: unified sites, deployment rows, surveys
 and label consolidation remain Phase 2.
+
+## Sites, deployments and surveys
+
+A site is a physical place; its S2 site cell is a geographic index. A deployment
+is one sensor's placement and settings over a period. A survey is that deployment's
+measurement over a period. Current screens use these nouns where their meaning
+matches the existing records; unified site, deployment and survey relationships
+remain Phase 2. The location browser is [Clip locations](../../web/src/routes/lidar/clip-locations/+page.svelte),
+served by `/api/lidar/clip-locations` and grouped by L10 district.

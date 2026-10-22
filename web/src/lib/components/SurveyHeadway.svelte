@@ -1,13 +1,13 @@
 <script lang="ts">
-	// A scene's following distribution: the Go-served histogram SVG
+	// A survey’s following distribution: the Go-served histogram SVG
 	// (/api/charts/histogram?kind=headway, D-11/D-17) and the summary tables
 	// from GET /api/scenes/<id>/headway. Every figure is the server's; the
 	// helpers in #lib/headway only format it.
 	import {
 		buildHeadwayChartPath,
-		getSceneHeadway,
+		getSurveyHeadway,
 		type HeadwaySelection,
-		type SceneHeadway
+		type SurveyHeadway
 	} from '#lib/api.js';
 	import InlineSvgChart from '#lib/components/charts/InlineSvgChart.svelte';
 	import {
@@ -23,23 +23,23 @@
 		versionLabel
 	} from '#lib/headway.js';
 
-	export let sceneId: string;
+	export let surveyId: string;
 
-	let headway: SceneHeadway | null = null;
+	let headway: SurveyHeadway | null = null;
 	let loading = true;
 	let error = '';
 	let selection: HeadwaySelection = {};
 	let metric: string = HEADWAY_METRICS.netTimeGap;
 	let requestSerial = 0;
 
-	$: void load(sceneId, selection);
+	$: void load(surveyId, selection);
 
 	async function load(id: string, sel: HeadwaySelection) {
 		const serial = ++requestSerial;
 		loading = true;
 		error = '';
 		try {
-			const result = await getSceneHeadway(id, sel);
+			const result = await getSurveyHeadway(id, sel);
 			if (serial !== requestSerial) return;
 			headway = result;
 		} catch (e) {
@@ -55,7 +55,7 @@
 	$: chartUrl =
 		headway?.availability === 'available'
 			? buildHeadwayChartPath({
-					sceneId,
+					surveyId,
 					sourceId: headway.source_id,
 					version: headway.version,
 					metric
@@ -78,9 +78,9 @@
 	}
 </script>
 
-<section class="mt-10 max-w-3xl space-y-4" aria-labelledby="scene-headway-heading">
+<section class="mt-10 max-w-3xl space-y-4" aria-labelledby="survey-headway-heading">
 	<h2
-		id="scene-headway-heading"
+		id="survey-headway-heading"
 		class="border-surface-content/15 border-b pb-2 text-lg font-semibold"
 	>
 		Following distribution
@@ -98,7 +98,7 @@
 			<span class="text-surface-content/70">{headwayStatusNote(headway.status)}</span>
 		</div>
 
-		<!-- Native selects, as in the scene form above: short lists of opaque
+		<!-- Native selects, as in the survey form above: short lists of opaque
 		     analysis ids need no richer control. -->
 		{#if headway.sources.length > 1}
 			<label class="block">

@@ -3,7 +3,7 @@
 // records. Gerardus keys everything by the site's L16 token, and its hint
 // needs the eye-read position a clip carries:
 //
-//   GET /api/lidar/scene-map           every located case, grouped by site
+//   GET /api/lidar/clip-locations           every located case, grouped by site
 //   GET /api/lidar/runs/{run_id}       the run's clip and source file
 //   GET /api/lidar/data_source         what the server is replaying now
 //   GET /api/lidar/clips/{case_id}    a case's capture files
@@ -147,30 +147,30 @@ struct AlignmentSiteLookupClient {
         self.session = session
     }
 
-    private struct SceneMap: Decodable {
-        struct Area: Decodable { var sites: [Site]? }
+    private struct ClipLocations: Decodable {
+        struct District: Decodable { var sites: [Site]? }
         struct Site: Decodable {
             var s2L16Token: String
             var s2L13Token: String?
-            var cases: [Case]?
+            var clips: [Clip]?
         }
-        struct Case: Decodable {
+        struct Clip: Decodable {
             var clipId: String
             var description: String?
             var sensorId: String?
             var originLat: Double
             var originLon: Double
         }
-        var areas: [Area]?
+        var districts: [District]?
     }
 
     /// Every located clip, ordered by description.
     func locatedSites() async throws -> [AlignmentSite] {
-        let map: SceneMap = try await get("api/lidar/scene-map")
+        let map: ClipLocations = try await get("api/lidar/clip-locations")
         var sites = [AlignmentSite]()
-        for area in map.areas ?? [] {
+        for area in map.districts ?? [] {
             for site in area.sites ?? [] {
-                for c in site.cases ?? [] {
+                for c in site.clips ?? [] {
                     sites.append(
                         AlignmentSite(
                             clipID: c.clipId, l16Token: site.s2L16Token,
@@ -221,14 +221,14 @@ struct AlignmentSiteLookupClient {
         return evidence
     }
 
-    private struct Case: Decodable {
+    private struct Clip: Decodable {
         struct File: Decodable { var pcapFile: String }
         var files: [File]?
     }
 
     /// A case's capture files, relative to the server's PCAP root.
     func captureFiles(clipID: String) async throws -> [String] {
-        let c: Case = try await get("api/lidar/clips/\(clipID)")
+        let c: Clip = try await get("api/lidar/clips/\(clipID)")
         return (c.files ?? []).map(\.pcapFile).filter {
             !$0.isEmpty
         }

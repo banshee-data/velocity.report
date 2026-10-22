@@ -243,3 +243,12 @@ func TestClipDMGNamesHaveRegisterRows(t *testing.T) {
 		}
 	}
 }
+
+func TestLocationMapCompatibilityNamesHaveRows(t *testing.T) {
+	entries := register(t)
+	for _, name := range []string{"/api/lidar/scene-map", "areas", "area_count", "cases", "case_count", "/lidar/scene-map", "/scene", "/scene/{id}"} {
+		if !Registered(entries, name) {
+			t.Errorf("unregistered location compatibility name %s", name)
+		}
+	}
+}

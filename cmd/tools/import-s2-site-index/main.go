@@ -99,7 +99,7 @@ func main() {
 		if err := store.SetClipFiles(caseID, caseFiles); err != nil {
 			fatal(fmt.Errorf("set captures for %s: %w", entry.ID, err))
 		}
-		if _, err := store.SetCaseLocation(caseID, entry.Lat, entry.Lon, sqlite.GeoSourceOperator); err != nil {
+		if _, err := store.SetClipLocation(caseID, entry.Lat, entry.Lon, sqlite.GeoSourceOperator); err != nil {
 			fatal(fmt.Errorf("set location for %s: %w", entry.ID, err))
 		}
 		verb := "updated"

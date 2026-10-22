@@ -2,22 +2,29 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
-	import { createScene, getScene, getSites, updateScene, type Scene, type Site } from '#lib/api.js';
-	import SceneHeadway from '#lib/components/SceneHeadway.svelte';
+	import {
+		createSurvey,
+		getSurvey,
+		getSites,
+		updateSurvey,
+		type Survey,
+		type Site
+	} from '#lib/api.js';
+	import SurveyHeadway from '#lib/components/SurveyHeadway.svelte';
 	import { mdiContentSave, mdiArrowLeft } from '@mdi/js';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 	import { toStore } from 'svelte/store';
 
 	// $app/state is runes-only, and this page reads it from legacy `$:`
-	// statements. Saving a new scene navigates to /scene/<id>, which reuses
-	// this component, so sceneId has to follow the params: read directly, it
-	// would stay 'new' and a second Save would create a second scene.
+	// statements. Saving a new survey navigates to /survey/<id>, which reuses
+	// this component, so surveyId has to follow the params: read directly, it
+	// would stay 'new' and a second Save would create a second survey.
 	const pageParams = toStore(() => page.params);
 
 	// The route always supplies an id, but the typed params allow undefined.
-	$: sceneId = $pageParams.id ?? 'new';
-	$: isNew = sceneId === 'new';
+	$: surveyId = $pageParams.id ?? 'new';
+	$: isNew = surveyId === 'new';
 
 	let loading = true;
 	let saving = false;
@@ -49,15 +56,15 @@
 		try {
 			sites = await getSites();
 		} catch {
-			// A missing site list is not fatal: a scene can carry its own position.
+			// A missing site list is not fatal: a survey can carry its own position.
 			sites = [];
 		}
 		if (!isNew) {
 			try {
-				const scene = await getScene(sceneId);
-				fillForm(scene);
+				const survey = await getSurvey(surveyId);
+				fillForm(survey);
 			} catch (e) {
-				error = e instanceof Error ? e.message : 'Could not load scene.';
+				error = e instanceof Error ? e.message : 'Could not load survey.';
 			}
 		}
 		loading = false;
@@ -77,26 +84,26 @@
 		return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 	}
 
-	function fillForm(scene: Scene) {
+	function fillForm(survey: Survey) {
 		form = {
-			scene_id: scene.scene_id,
-			title: scene.title,
-			description: scene.description ?? '',
-			site_id: scene.site_id == null ? '' : String(scene.site_id),
-			latitude: scene.latitude == null ? '' : String(scene.latitude),
-			longitude: scene.longitude == null ? '' : String(scene.longitude),
-			captured_start: toLocalInput(scene.captured_start),
-			captured_end: toLocalInput(scene.captured_end),
-			source_capture: scene.source_capture ?? '',
-			source_vrlog_sha256: scene.source_vrlog_sha256 ?? '',
-			frame_count: scene.frame_count == null ? '' : String(scene.frame_count),
-			frame_stride: scene.frame_stride == null ? '' : String(scene.frame_stride),
-			asset_path: scene.asset_path ?? '',
-			published: scene.published
+			scene_id: survey.scene_id,
+			title: survey.title,
+			description: survey.description ?? '',
+			site_id: survey.site_id == null ? '' : String(survey.site_id),
+			latitude: survey.latitude == null ? '' : String(survey.latitude),
+			longitude: survey.longitude == null ? '' : String(survey.longitude),
+			captured_start: toLocalInput(survey.captured_start),
+			captured_end: toLocalInput(survey.captured_end),
+			source_capture: survey.source_capture ?? '',
+			source_vrlog_sha256: survey.source_vrlog_sha256 ?? '',
+			frame_count: survey.frame_count == null ? '' : String(survey.frame_count),
+			frame_stride: survey.frame_stride == null ? '' : String(survey.frame_stride),
+			asset_path: survey.asset_path ?? '',
+			published: survey.published
 		};
 		resolvedPosition =
-			scene.effective_latitude != null && scene.effective_longitude != null
-				? `${scene.effective_latitude.toFixed(5)}, ${scene.effective_longitude.toFixed(5)} (${scene.position_source})`
+			survey.effective_latitude != null && survey.effective_longitude != null
+				? `${survey.effective_latitude.toFixed(5)}, ${survey.effective_longitude.toFixed(5)} (${survey.position_source === 'scene' ? 'survey' : survey.position_source})`
 				: 'No position resolved';
 	}
 
@@ -134,7 +141,7 @@
 		error = '';
 		saving = true;
 		try {
-			const payload: Partial<Scene> = {
+			const payload: Partial<Survey> = {
 				scene_id: form.scene_id.trim(),
 				title: form.title.trim(),
 				description: textOrNull(form.description),
@@ -153,15 +160,15 @@
 				// from a list the publisher deliberately emptied.
 			};
 
-			const saved = isNew ? await createScene(payload) : await updateScene(sceneId, payload);
+			const saved = isNew ? await createSurvey(payload) : await updateSurvey(surveyId, payload);
 
 			if (isNew) {
-				goto(resolve('/scene/[id]', { id: saved.scene_id }));
+				goto(resolve('/survey/[id]', { id: saved.scene_id }));
 			} else {
 				fillForm(saved);
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not save scene.';
+			error = e instanceof Error ? e.message : 'Could not save survey.';
 		} finally {
 			saving = false;
 		}
@@ -169,17 +176,17 @@
 </script>
 
 <svelte:head>
-	<title>{isNew ? 'New scene' : form.title || 'Scene'}</title>
+	<title>{isNew ? 'New survey' : form.title || 'Survey'}</title>
 </svelte:head>
 
 <div class="p-4">
 	<div class="mb-4 flex items-center gap-3">
 		<Button
 			icon={mdiArrowLeft}
-			on:click={() => goto(resolve('/scene'))}
-			aria-label="Back to scenes"
+			on:click={() => goto(resolve('/survey'))}
+			aria-label="Back to surveys"
 		/>
-		<h1 class="text-2xl font-semibold">{isNew ? 'New scene' : form.title || form.scene_id}</h1>
+		<h1 class="text-2xl font-semibold">{isNew ? 'New survey' : form.title || form.scene_id}</h1>
 	</div>
 
 	{#if error}
@@ -196,7 +203,7 @@
 				<legend class="mb-2 font-medium">Identity</legend>
 
 				<label class="block">
-					<span class="mb-1 block text-sm">Scene ID</span>
+					<span class="mb-1 block text-sm">Survey ID</span>
 					<input
 						class="border-surface-content/25 w-full rounded border bg-transparent px-3 py-2 font-mono text-sm"
 						bind:value={form.scene_id}
@@ -353,7 +360,7 @@
 					<input
 						class="border-surface-content/25 w-full rounded border bg-transparent px-3 py-2 font-mono text-sm"
 						bind:value={form.asset_path}
-						placeholder="/scenes/soma1/assets/manifest.json"
+						placeholder="/surveys/soma1/assets/manifest.json"
 					/>
 				</label>
 
@@ -371,14 +378,14 @@
 					icon={mdiContentSave}
 					disabled={saving}
 				>
-					{saving ? 'Saving…' : 'Save scene'}
+					{saving ? 'Saving…' : 'Save survey'}
 				</Button>
-				<Button type="button" on:click={() => goto(resolve('/scene'))}>Cancel</Button>
+				<Button type="button" on:click={() => goto(resolve('/survey'))}>Cancel</Button>
 			</div>
 		</form>
 
 		{#if !isNew}
-			<SceneHeadway {sceneId} />
+			<SurveyHeadway {surveyId} />
 		{/if}
 	{/if}
 </div>

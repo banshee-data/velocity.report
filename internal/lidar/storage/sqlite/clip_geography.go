@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,7 +10,7 @@ import (
 
 // Geographic statuses a clip can be in.
 const (
-	// GeoLocated means the case carries an accepted WGS84 position and the S2
+	// GeoLocated means the clip carries an accepted WGS84 position and the S2
 	// family derived from it.
 	GeoLocated = "located"
 	// GeoUnavailable means no accepted position. This is the ordinary state for
@@ -24,14 +25,14 @@ const (
 	GeoSourceFix      = "fix"
 )
 
-// CaseLocation is where a clip was captured — its sensor pose: where
+// ClipLocation is where a clip was captured — its sensor pose: where
 // the car was that day, which is free to differ between visits to the same
 // site.
 //
 // The tokens are the identity; Lat and Lon are what they were derived from and
 // what a map draws. The family displays are presentation and are filled in on
 // read rather than stored, because the guide forbids persisting them.
-type CaseLocation struct {
+type ClipLocation struct {
 	Lat float64 `json:"origin_lat"`
 	Lon float64 `json:"origin_lon"`
 
@@ -45,7 +46,7 @@ type CaseLocation struct {
 	L13Display string `json:"s2_l13_display"`
 	L16Display string `json:"s2_l16_display"`
 
-	// SiteID is the site this case is at — the L16 token, unless something has
+	// SiteID is the site this clip is at — the L16 token, unless something has
 	// gone wrong, in which case they would disagree and that is a provenance
 	// fault rather than something to reconcile silently.
 	SiteID string `json:"site_id"`
@@ -55,25 +56,25 @@ type CaseLocation struct {
 }
 
 // withDisplays fills in the derived presentation forms.
-func (l *CaseLocation) withDisplays() {
+func (l *ClipLocation) withDisplays() {
 	l.L10Display = geoindex.FamilyDisplay(l.L10Token)
 	l.L13Display = geoindex.FamilyDisplay(l.L13Token)
 	l.L16Display = geoindex.FamilyDisplay(l.L16Token)
 }
 
-// SetCaseLocation records where a case was captured, deriving the S2 family
-// from the position and linking the case to the site it names — creating that
+// SetClipLocation records where a clip was captured, deriving the S2 family
+// from the position and linking the clip to the site it names — creating that
 // site, with no canonical pose yet, the first time anything visits it.
 //
 // The three tokens are derived together with Parent rather than accepted from
 // the caller, so a stored family cannot disagree with itself and no caller can
 // introduce a mismatch the guide would treat as a provenance error. The site
-// link and the case's own fields are written in one transaction: a case
+// link and the clip's own fields are written in one transaction: a clip
 // cannot end up naming a site that was not also recorded.
-func (s *ClipStore) SetCaseLocation(clipID string, lat, lon float64, source string) (CaseLocation, error) {
+func (s *ClipStore) SetClipLocation(clipID string, lat, lon float64, source string) (ClipLocation, error) {
 	tokens, err := geoindex.FromLatLng(lat, lon)
 	if err != nil {
-		return CaseLocation{}, err
+		return ClipLocation{}, err
 	}
 	if source == "" {
 		source = GeoSourceOperator
@@ -81,12 +82,12 @@ func (s *ClipStore) SetCaseLocation(clipID string, lat, lon float64, source stri
 
 	tx, err := s.db.Begin()
 	if err != nil {
-		return CaseLocation{}, fmt.Errorf("begin set case location: %w", err)
+		return ClipLocation{}, fmt.Errorf("begin set clip location: %w", err)
 	}
 	defer func() { _ = tx.Rollback() }()
 
 	if err := upsertSite(tx, tokens.Precise, tokens.Fine, tokens.Coarse); err != nil {
-		return CaseLocation{}, err
+		return ClipLocation{}, err
 	}
 
 	res, err := tx.Exec(`
@@ -98,17 +99,17 @@ func (s *ClipStore) SetCaseLocation(clipID string, lat, lon float64, source stri
 		lat, lon, tokens.Coarse, tokens.Fine, tokens.Precise, tokens.Precise,
 		source, GeoLocated, time.Now().UnixNano(), clipID)
 	if err != nil {
-		return CaseLocation{}, fmt.Errorf("set case location: %w", err)
+		return ClipLocation{}, fmt.Errorf("set clip location: %w", err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
-		return CaseLocation{}, ErrNotFound
+		return ClipLocation{}, ErrNotFound
 	}
 
 	if err := tx.Commit(); err != nil {
-		return CaseLocation{}, fmt.Errorf("commit set case location: %w", err)
+		return ClipLocation{}, fmt.Errorf("commit set clip location: %w", err)
 	}
 
-	loc := CaseLocation{
+	loc := ClipLocation{
 		Lat: lat, Lon: lon,
 		L10Token: tokens.Coarse, L13Token: tokens.Fine, L16Token: tokens.Precise,
 		SiteID: tokens.Precise,
@@ -118,10 +119,10 @@ func (s *ClipStore) SetCaseLocation(clipID string, lat, lon float64, source stri
 	return loc, nil
 }
 
-// ClearCaseLocation removes a case's position, returning it to the ordinary
-// unlocated state. The site itself is left in place — other cases, or a
+// ClearClipLocation removes a clip's position, returning it to the ordinary
+// unlocated state. The site itself is left in place — other clips, or a
 // canonical pose someone has already set, may still depend on it.
-func (s *ClipStore) ClearCaseLocation(clipID string) error {
+func (s *ClipStore) ClearClipLocation(clipID string) error {
 	res, err := s.db.Exec(`
 		UPDATE lidar_clips
 		   SET origin_lat = NULL, origin_lon = NULL,
@@ -130,7 +131,7 @@ func (s *ClipStore) ClearCaseLocation(clipID string) error {
 		 WHERE clip_id = ?`,
 		GeoUnavailable, time.Now().UnixNano(), clipID)
 	if err != nil {
-		return fmt.Errorf("clear case location: %w", err)
+		return fmt.Errorf("clear clip location: %w", err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return ErrNotFound
@@ -138,8 +139,8 @@ func (s *ClipStore) ClearCaseLocation(clipID string) error {
 	return nil
 }
 
-// CaseLocationOf returns a case's location, or a nil location when it has none.
-func (s *ClipStore) CaseLocationOf(clipID string) (*CaseLocation, error) {
+// ClipLocationOf returns a clip's location, or a nil location when it has none.
+func (s *ClipStore) ClipLocationOf(clipID string) (*ClipLocation, error) {
 	row := s.db.QueryRow(`
 		SELECT origin_lat, origin_lon, s2_l10_token, s2_l13_token, s2_l16_token,
 		       site_id, geographic_source, geographic_status
@@ -154,7 +155,7 @@ func (s *ClipStore) CaseLocationOf(clipID string) (*CaseLocation, error) {
 	if status != GeoLocated || lat == nil || lon == nil || l10 == nil {
 		return nil, nil
 	}
-	loc := &CaseLocation{
+	loc := &ClipLocation{
 		Lat: *lat, Lon: *lon,
 		L10Token: derefString(l10), L13Token: derefString(l13), L16Token: derefString(l16),
 		SiteID: derefString(siteID),
@@ -164,13 +165,13 @@ func (s *ClipStore) CaseLocationOf(clipID string) (*CaseLocation, error) {
 	return loc, nil
 }
 
-// SceneArea is one area captures were taken in, as the scene map shows it. The
+// District is one area captures were taken in, as the clip-locations map shows it. The
 // grouping is the L10 cell, which is district-scale — about 12 km by 8 km at
 // San Francisco's latitude. That is the archive-scale roll-up, not a
-// junction: the junction is a Site (the L16 cell), and SiteCount is how many
+// junction: the junction is a Site indexed by an L16 cell, and SiteCount is how many
 // of them the area holds. A single entry covering several distinct sites is
 // expected and is why Sites is a list, not a single spot.
-type SceneArea struct {
+type District struct {
 	L10Token   string `json:"s2_l10_token"`
 	L10Display string `json:"s2_l10_display"`
 
@@ -183,22 +184,22 @@ type SceneArea struct {
 	NorthEastLat float64 `json:"ne_lat"`
 	NorthEastLon float64 `json:"ne_lon"`
 
-	CaseCount          int `json:"case_count"`
+	ClipCount          int `json:"clip_count"`
 	NeighbourhoodCount int `json:"neighbourhood_count"`
 
-	// Sites are the area's distinct junctions, each with the cases captured
-	// there, newest first within a site and by site's most recent case
+	// Sites are the area's distinct junctions, each with the clips captured
+	// there, newest first within a site and by site's most recent clip
 	// otherwise.
 	Sites []Site `json:"sites"`
 }
 
-// SceneAreas returns every located area, coarsest grouping first, each
-// holding the sites within it and the cases captured at each one.
+// Districts returns every located area, coarsest grouping first, each
+// holding the sites within it and the clips captured at each one.
 //
 // This is the scene map: one entry per L10 cell, containing the L16 sites
 // visited inside it. A site with a canonical pose already set carries it
 // here; one without is the ordinary case, not a defect.
-func (s *ClipStore) SceneAreas() ([]SceneArea, error) {
+func (s *ClipStore) Districts() ([]District, error) {
 	siteRows, err := s.db.Query(`SELECT ` + siteSelectColumns + ` FROM lidar_sites`)
 	if err != nil {
 		return nil, fmt.Errorf("list sites: %w", err)
@@ -228,24 +229,24 @@ func (s *ClipStore) SceneAreas() ([]SceneArea, error) {
 		   AND s2_l10_token IS NOT NULL
 		 ORDER BY s2_l10_token, s2_l16_token, created_at_ns DESC`, GeoLocated)
 	if err != nil {
-		return nil, fmt.Errorf("list located cases: %w", err)
+		return nil, fmt.Errorf("list located clips: %w", err)
 	}
 	defer caseRows.Close()
 
-	areaByToken := map[string]*SceneArea{}
+	areaByToken := map[string]*District{}
 	areaOrder := []string{}
 	// A site's parent area is unambiguous from its own tokens, so sites are
-	// attached to their area the first time a case under them is seen —
+	// attached to their area the first time a clip under them is seen —
 	// there is no need to visit lidar_sites again for that.
 	siteAttached := map[string]bool{}
 	neighbourhoodsSeen := map[string]map[string]struct{}{}
 
 	for caseRows.Next() {
-		var c SiteCase
+		var c SiteClip
 		var l10, l13, l16 string
 		if err := caseRows.Scan(&c.ClipID, &c.Description, &c.SensorID,
 			&l10, &l13, &l16, &c.Lat, &c.Lon, &c.CreatedAtNs); err != nil {
-			return nil, fmt.Errorf("scan located case: %w", err)
+			return nil, fmt.Errorf("scan located clip: %w", err)
 		}
 
 		area, ok := areaByToken[l10]
@@ -260,7 +261,7 @@ func (s *ClipStore) SceneAreas() ([]SceneArea, error) {
 			if err != nil {
 				continue
 			}
-			area = &SceneArea{
+			area = &District{
 				L10Token: l10, L10Display: geoindex.FamilyDisplay(l10),
 				CentreLat: centreLat, CentreLon: centreLon,
 				SouthWestLat: swLat, SouthWestLon: swLon,
@@ -273,9 +274,9 @@ func (s *ClipStore) SceneAreas() ([]SceneArea, error) {
 
 		site := sitesByToken[l16]
 		if site == nil {
-			// A located case always upserts its site in the same transaction
-			// (SetCaseLocation), so this is defensive rather than expected —
-			// a case whose site row is missing still gets one here, unlabelled
+			// A located clip always upserts its site in the same transaction
+			// (SetClipLocation), so this is defensive rather than expected —
+			// a clip whose site row is missing still gets one here, unlabelled
 			// and without a canonical pose, so it is not silently dropped.
 			site = &Site{L16Token: l16, L13Token: l13, L10Token: l10}
 			sitesByToken[l16] = site
@@ -284,23 +285,23 @@ func (s *ClipStore) SceneAreas() ([]SceneArea, error) {
 			area.Sites = append(area.Sites, *site)
 			siteAttached[l16] = true
 		}
-		// area.Sites holds copies; index back in to append this case to the
+		// area.Sites holds copies; index back in to append this clip to the
 		// right one rather than the local site pointer, which is not shared
 		// with what was just appended.
 		for i := range area.Sites {
 			if area.Sites[i].L16Token == l16 {
-				area.Sites[i].Cases = append(area.Sites[i].Cases, c)
+				area.Sites[i].Clips = append(area.Sites[i].Clips, c)
 				break
 			}
 		}
-		area.CaseCount++
+		area.ClipCount++
 		neighbourhoodsSeen[l10][l13] = struct{}{}
 	}
 	if err := caseRows.Err(); err != nil {
 		return nil, err
 	}
 
-	areas := make([]SceneArea, 0, len(areaOrder))
+	areas := make([]District, 0, len(areaOrder))
 	for _, l10 := range areaOrder {
 		area := areaByToken[l10]
 		area.NeighbourhoodCount = len(neighbourhoodsSeen[l10])
@@ -314,4 +315,13 @@ func derefString(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// MarshalJSON retains the count key used by the previous DMG’s map.
+func (district District) MarshalJSON() ([]byte, error) {
+	type payload District
+	return json.Marshal(struct {
+		payload
+		LegacyClipCount int `json:"case_count"`
+	}{payload: payload(district), LegacyClipCount: district.ClipCount})
 }

@@ -24,7 +24,7 @@
 	import { Button, SelectField } from 'svelte-ux';
 	import { SvelteSet } from 'svelte/reactivity';
 
-	// Scene list
+	// Survey list
 	let scenes: LidarClip[] = [];
 	let loading = true;
 	let error: string | null = null;
@@ -303,7 +303,9 @@
 					<a href={resolve('/lidar/captures')} class="text-primary hover:underline">Captures</a>
 					or from a ranked window on
 					<a href={resolve('/lidar/segments')} class="text-primary hover:underline">Segments</a>;
-					<a href={resolve('/lidar/scene-map')} class="text-primary hover:underline">Locations</a>
+					<a href={resolve('/lidar/clip-locations')} class="text-primary hover:underline"
+						>Locations</a
+					>
 					shows where the located ones were captured.
 				</p>
 			</div>
@@ -319,7 +321,7 @@
 	</div>
 
 	<div class="flex flex-1 overflow-hidden">
-		<!-- Left: Scene List -->
+		<!-- Left: Survey List -->
 		<div class="flex-1 overflow-y-auto p-6">
 			{#if error}
 				<div class="mb-4 rounded bg-red-50 px-4 py-3 text-sm text-red-600">
@@ -524,7 +526,7 @@
 				</div>
 			{/if}
 
-			<!-- Scene Table -->
+			<!-- Survey Table -->
 			{#if loading}
 				<div class="text-surface-content/50 py-12 text-center">Loading clips...</div>
 			{:else if scenes.length === 0}
@@ -673,7 +675,7 @@
 							<div class="text-surface-content/70 mb-1 flex justify-between text-sm font-medium">
 								<span>Captured at</span>
 								<a
-									href={resolve('/lidar/scene-map')}
+									href={resolve('/lidar/clip-locations')}
 									class="text-primary text-xs font-normal hover:underline">Locations →</a
 								>
 							</div>

@@ -1,4 +1,4 @@
-// Presentation helpers for a scene's following distribution
+// Presentation helpers for a survey’s following distribution
 // (GET /api/scenes/<id>/headway). They format what the server served and
 // decide nothing: which encounters enter the distribution, the bins, the
 // excluded time and every statistic come from the Go aggregation in
@@ -12,7 +12,7 @@ import type {
 	HeadwayStatus,
 	HeadwayVersionSummary,
 	InteractionVersion,
-	SceneHeadway
+	SurveyHeadway
 } from '#lib/api.js';
 
 /** Registry ids the page reads (docs/platform/architecture/metrics-registry.md). */
@@ -41,7 +41,7 @@ export function headwayStatusNote(status: HeadwayStatus): string {
 }
 
 /** Why a response carries no distribution, in words a reader can act on. */
-export function headwayAvailabilityMessage(h: SceneHeadway, requestedStage = 'final'): string {
+export function headwayAvailabilityMessage(h: SurveyHeadway, requestedStage = 'final'): string {
 	switch (h.availability) {
 		case 'available':
 			return '';
@@ -53,8 +53,8 @@ export function headwayAvailabilityMessage(h: SceneHeadway, requestedStage = 'fi
 			return `${h.sources.length} analyses cover this capture window. Choose one to see its distribution.`;
 		case 'no_matching_version':
 			return h.versions.length > 0
-				? `No ${requestedStage} analysis exists for this scene. Choose one of the versions that do.`
-				: `No ${requestedStage} analysis exists for this scene.`;
+				? `No ${requestedStage} analysis exists for this survey. Choose one of the versions that do.`
+				: `No ${requestedStage} analysis exists for this survey.`;
 	}
 }
 
@@ -170,7 +170,7 @@ export interface HeadwayEncounterRow {
 	eventId: string;
 	follower: string;
 	leader: string;
-	/** Seconds from the scene's capture start. */
+	/** Seconds from the survey’s capture start. */
 	start: string;
 	validTime: string;
 	minNetTimeGap: string;
@@ -181,7 +181,7 @@ export interface HeadwayEncounterRow {
 }
 
 /** One row per encounter, values from the block its stage allows. */
-export function headwayEncounterRows(h: SceneHeadway): HeadwayEncounterRow[] {
+export function headwayEncounterRows(h: SurveyHeadway): HeadwayEncounterRow[] {
 	const final = h.version?.estimate_stage === 'final';
 	const origin = h.start_unix_nanos ?? 0;
 	return h.encounters.map((e: HeadwayEncounter) => {

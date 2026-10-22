@@ -2,9 +2,9 @@ import {
 	buildComparisonChartPath,
 	buildHeadwayChartPath,
 	buildHistogramChartPath,
-	buildSceneHeadwayPath,
+	buildSurveyHeadwayPath,
 	buildTimeSeriesChartPath,
-	getSceneHeadway,
+	getSurveyHeadway,
 	createSite,
 	deleteReport,
 	deleteSite,
@@ -31,15 +31,15 @@ import {
 	getTrackObservationsRange,
 	getTrackSummary,
 	getTransitWorkerState,
-	listSiteConfigPeriods,
+	listRadarDeployments,
 	updateSite,
 	updateTransitWorker,
-	upsertSiteConfigPeriod,
+	upsertRadarDeployment,
 	type Capabilities,
 	type Config,
 	type Event,
 	type Site,
-	type SiteConfigPeriod,
+	type RadarDeployment,
 	type SiteReport,
 	type TransitWorkerState,
 	type TransitWorkerUpdateResponse
@@ -369,11 +369,11 @@ describe('api', () => {
 		};
 
 		it('builds the headway path with the default selection', () => {
-			expect(buildSceneHeadwayPath('soma1')).toBe('/api/scenes/soma1/headway');
+			expect(buildSurveyHeadwayPath('soma1')).toBe('/api/scenes/soma1/headway');
 		});
 
 		it('selects a source and an exact version, stage included', () => {
-			const path = buildSceneHeadwayPath('soma 1', { sourceId: 'source/v1/a', version });
+			const path = buildSurveyHeadwayPath('soma 1', { sourceId: 'source/v1/a', version });
 			expect(path).toContain('/api/scenes/soma%201/headway?');
 			expect(path).toContain('source_id=source%2Fv1%2Fa');
 			expect(path).toContain('stage=fixed_lag');
@@ -384,11 +384,11 @@ describe('api', () => {
 		});
 
 		it('builds the headway chart path on the histogram endpoint', () => {
-			expect(buildHeadwayChartPath({ sceneId: 'soma1' })).toBe(
+			expect(buildHeadwayChartPath({ surveyId: 'soma1' })).toBe(
 				'/api/charts/histogram?kind=headway&scene=soma1'
 			);
 			const path = buildHeadwayChartPath({
-				sceneId: 'soma1',
+				surveyId: 'soma1',
 				stage: 'final',
 				metric: 'interaction.following_spatial_gap_m',
 				paperSize: 'a4'
@@ -402,7 +402,7 @@ describe('api', () => {
 		it('fetches a scene headway', async () => {
 			const body = { scene_id: 'soma1', status: 'provisional', availability: 'no_encounters' };
 			(global.fetch as jest.Mock).mockResolvedValueOnce({ ok: true, json: async () => body });
-			await expect(getSceneHeadway('soma1', { stage: 'final' })).resolves.toEqual(body);
+			await expect(getSurveyHeadway('soma1', { stage: 'final' })).resolves.toEqual(body);
 			expect(global.fetch).toHaveBeenCalledWith('/api/scenes/soma1/headway?stage=final');
 		});
 
@@ -412,7 +412,7 @@ describe('api', () => {
 				status: 400,
 				json: async () => ({ error: "Invalid 'stage'; must be one of online, fixed_lag, final" })
 			});
-			await expect(getSceneHeadway('soma1')).rejects.toThrow("Invalid 'stage'");
+			await expect(getSurveyHeadway('soma1')).rejects.toThrow("Invalid 'stage'");
 		});
 	});
 
@@ -536,7 +536,7 @@ describe('api', () => {
 
 	describe('site config periods', () => {
 		it('should list site config periods', async () => {
-			const mockPeriods: SiteConfigPeriod[] = [
+			const mockPeriods: RadarDeployment[] = [
 				{
 					id: 1,
 					site_id: 42,
@@ -553,7 +553,7 @@ describe('api', () => {
 				json: async () => mockPeriods
 			});
 
-			const result = await listSiteConfigPeriods(42);
+			const result = await listRadarDeployments(42);
 
 			expect(global.fetch).toHaveBeenCalled();
 			const callUrl = (global.fetch as jest.Mock).mock.calls[0][0].toString();
@@ -562,19 +562,19 @@ describe('api', () => {
 			expect(result).toEqual(mockPeriods);
 		});
 
-		it('should handle listSiteConfigPeriods errors', async () => {
+		it('should handle listRadarDeployments errors', async () => {
 			(global.fetch as jest.Mock).mockResolvedValueOnce({
 				ok: false,
 				status: 418
 			});
 
-			await expect(listSiteConfigPeriods(42)).rejects.toThrow(
+			await expect(listRadarDeployments(42)).rejects.toThrow(
 				'Could not load site configuration periods (HTTP 418)'
 			);
 		});
 
 		it('should create or update site config period', async () => {
-			const mockPeriod: SiteConfigPeriod = {
+			const mockPeriod: RadarDeployment = {
 				site_id: 7,
 				effective_start_unix: 1000,
 				effective_end_unix: null,
@@ -589,7 +589,7 @@ describe('api', () => {
 				json: async () => response
 			});
 
-			const result = await upsertSiteConfigPeriod(mockPeriod);
+			const result = await upsertRadarDeployment(mockPeriod);
 
 			expect(global.fetch).toHaveBeenCalledWith(
 				'/api/site_config_periods',
@@ -602,8 +602,8 @@ describe('api', () => {
 			expect(result).toEqual(response);
 		});
 
-		it('should handle upsertSiteConfigPeriod error with JSON error message', async () => {
-			const mockPeriod: SiteConfigPeriod = {
+		it('should handle upsertRadarDeployment error with JSON error message', async () => {
+			const mockPeriod: RadarDeployment = {
 				site_id: 7,
 				effective_start_unix: 1000,
 				effective_end_unix: null,
@@ -618,13 +618,13 @@ describe('api', () => {
 				json: async () => ({ error: 'Invalid period configuration' })
 			});
 
-			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow(
+			await expect(upsertRadarDeployment(mockPeriod)).rejects.toThrow(
 				'Invalid period configuration'
 			);
 		});
 
-		it('should handle upsertSiteConfigPeriod error when JSON parsing fails', async () => {
-			const mockPeriod: SiteConfigPeriod = {
+		it('should handle upsertRadarDeployment error when JSON parsing fails', async () => {
+			const mockPeriod: RadarDeployment = {
 				site_id: 7,
 				effective_start_unix: 1000,
 				effective_end_unix: null,
@@ -641,11 +641,11 @@ describe('api', () => {
 				}
 			});
 
-			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow('HTTP 500');
+			await expect(upsertRadarDeployment(mockPeriod)).rejects.toThrow('HTTP 500');
 		});
 
-		it('should fall back to the status when upsertSiteConfigPeriod has no error field', async () => {
-			const mockPeriod: SiteConfigPeriod = {
+		it('should fall back to the status when upsertRadarDeployment has no error field', async () => {
+			const mockPeriod: RadarDeployment = {
 				site_id: 7,
 				effective_start_unix: 1000,
 				effective_end_unix: null,
@@ -660,7 +660,7 @@ describe('api', () => {
 				json: async () => ({})
 			});
 
-			await expect(upsertSiteConfigPeriod(mockPeriod)).rejects.toThrow(
+			await expect(upsertRadarDeployment(mockPeriod)).rejects.toThrow(
 				'Could not save site configuration period: 409'
 			);
 		});

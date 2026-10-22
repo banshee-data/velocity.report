@@ -1,30 +1,23 @@
 <script lang="ts">
 	/**
-	 * Clip locations — every place a located clip was captured.
-	 *
-	 * The route keeps its old name; the vocabulary reserves "scene" for the
-	 * geometry a sensor observes, and folds this page into Sites as its map
-	 * view once sites are merged. It is reached from Clips, not the nav.
-	 *
-	 * Rows group by the S2 L10 cell, which is district-scale: about 12 km by
-	 * 8 km at San Francisco's latitude. That is the archive-scale roll-up, not
-	 * a junction. The junction is a site — the L16 cell, roughly 180 m across
-	 * — so an area typically holds several, and this is where a site's
-	 * canonical pose (the midpoint of the intersection, say) is set: distinct
-	 * from any one clip's own sensor pose, which is where the car was that day.
-	 *
-	 * Canonical tokens are the identifiers. What is shown is the family
-	 * display, which carries one hyphen at the family boundary and is
-	 * presentation only — it is never sent back as a key.
+	 * Clip locations group physical sites by L10 district. An L16 site cell
+	 * indexes a junction and its approaches; it is not the physical site.
+	 * A site's canonical pose is separate from each clip's sensor pose.
+	 * The radar and LiDAR stores remain separate until Phase 2.
 	 */
-	import { getSceneMap, setSiteCanonicalPose } from '#lib/api.js';
-	import type { LidarSite, SceneArea, SceneMapResponse, SiteSource } from '#lib/types/captures.js';
+	import { getClipLocations, setSiteCanonicalPose } from '#lib/api.js';
+	import type {
+		LidarSite,
+		District,
+		ClipLocationsResponse,
+		SiteSource
+	} from '#lib/types/captures.js';
 	import { clipQuery } from '#lib/lidarLinks.js';
 	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { Button } from 'svelte-ux';
 
-	let map: SceneMapResponse | null = null;
+	let map: ClipLocationsResponse | null = null;
 	let loading = true;
 	let error: string | null = null;
 	let expanded: string | null = null;
@@ -40,7 +33,7 @@
 		loading = true;
 		error = null;
 		try {
-			map = await getSceneMap();
+			map = await getClipLocations();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load clip locations.';
 		} finally {
@@ -48,7 +41,7 @@
 		}
 	}
 
-	function toggle(area: SceneArea) {
+	function toggle(area: District) {
 		expanded = expanded === area.s2_l10_token ? null : area.s2_l10_token;
 	}
 
@@ -90,7 +83,7 @@
 			if (map) {
 				map = {
 					...map,
-					areas: map.areas.map((area) => ({
+					districts: map.districts.map((area) => ({
 						...area,
 						sites: area.sites.map((s) => (s.s2_l16_token === token ? updated : s))
 					}))
@@ -108,7 +101,7 @@
 	}
 
 	/** A rough north-south span for the area cell, for a sense of scale. */
-	function spanMetres(area: SceneArea): number {
+	function spanMetres(area: District): number {
 		const latMetres = (area.ne_lat - area.sw_lat) * 111_320;
 		return Math.round(latMetres);
 	}
@@ -128,10 +121,9 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Clip locations</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Where each located clip was captured, grouped by S2 area. An area is one L10 cell, about
-					12 km across — the archive-scale roll-up. The sites inside it are L16 cells, roughly 180 m
-					across: a junction and its approaches, and where a canonical pose — the midpoint of the
-					intersection, say — can be set, apart from any one clip's own sensor pose.
+					Where each located clip was captured, grouped by S2 district. A district is an L10 cell,
+					about 12 km across. Each physical site is indexed by an L16 site cell, roughly 180 m
+					across. Its canonical pose is separate from a clip's sensor pose.
 				</p>
 			</div>
 			<a
@@ -149,7 +141,7 @@
 
 			{#if loading}
 				<p class="text-surface-content/50 py-8 text-center text-sm">Loading clip locations…</p>
-			{:else if !map || map.area_count === 0}
+			{:else if !map || map.district_count === 0}
 				<div class="border-surface-300 rounded border border-dashed p-8 text-center">
 					<h2 class="text-surface-content mb-1 text-lg">No located clips yet</h2>
 					<p class="text-surface-content/60 mx-auto max-w-lg text-sm">
@@ -160,12 +152,12 @@
 				</div>
 			{:else}
 				<div class="text-surface-content/60 mb-3 text-sm">
-					{map.area_count} area{map.area_count === 1 ? '' : 's'} · {map.site_count} site{map.site_count ===
+					{map.district_count} district{map.district_count === 1 ? '' : 's'} · {map.site_count} site{map.site_count ===
 					1
 						? ''
-						: 's'} · {map.case_count} located clip{map.case_count === 1 ? '' : 's'}
+						: 's'} · {map.clip_count} located clip{map.clip_count === 1 ? '' : 's'}
 					<span class="text-surface-content/40">
-						· areas are L{map.coarse_level}, neighbourhoods L{map.fine_level}, sites L{map.precise_level}
+						· districts are L{map.coarse_level}, neighbourhoods L{map.fine_level}, site cells L{map.precise_level}
 					</span>
 				</div>
 
@@ -181,7 +173,7 @@
 						<span class="w-16 text-right">Sites</span>
 					</div>
 
-					{#each map.areas as area (area.s2_l10_token)}
+					{#each map.districts as area (area.s2_l10_token)}
 						<div class="border-surface-300 border-b last:border-b-0">
 							<button
 								class="hover:bg-surface-100 flex w-full items-center gap-3 px-3 py-2 text-left text-sm"
@@ -197,7 +189,7 @@
 									~{spanMetres(area).toLocaleString()} m
 								</span>
 								<span class="text-surface-content/70 w-16 text-right text-xs"
-									>{area.case_count}</span
+									>{area.clip_count}</span
 								>
 								<span class="text-surface-content/70 w-28 text-right text-xs"
 									>{area.neighbourhood_count}</span
@@ -232,7 +224,7 @@
 														{site.label || `site ${site.s2_l16_token}`}
 													</span>
 													<span class="text-surface-content/40 text-xs"
-														>{site.cases.length} clip{site.cases.length === 1 ? '' : 's'}</span
+														>{site.clips.length} clip{site.clips.length === 1 ? '' : 's'}</span
 													>
 													<span class="flex-1"></span>
 													{#if site.canonical_lat != null && site.canonical_lon != null}
@@ -312,7 +304,7 @@
 
 												<div class="border-surface-300 mt-2 overflow-hidden rounded border">
 													<!-- eslint-disable svelte/no-navigation-without-resolve -->
-													{#each site.cases as c (c.clip_id)}
+													{#each site.clips as c (c.clip_id)}
 														<a
 															href={`${resolve('/lidar/clips')}?${clipQuery(c.clip_id)}`}
 															class="border-surface-300 hover:bg-surface-200 flex items-center gap-3 border-b px-2 py-1.5 text-xs last:border-b-0"

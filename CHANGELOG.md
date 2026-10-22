@@ -65,6 +65,11 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Changed
 
+- Place surfaces distinguish sites, radar deployments and surveys. Clip locations
+  use districts and site cells, with registered aliases for the previous DMG.
+  The catalogue editor uses `/survey`; old editor and map bookmarks redirect.
+  The radar and LiDAR site tables remain separate until Phase 2.
+
 - Label types are `ObjectClass` and `QualityFlag` across Go, web and macOS.
   Annotation routes now live under `/api/lidar/annotations/`; registered aliases
   support the previous DMG. Misplaced split/merge class verdicts migrate to quality

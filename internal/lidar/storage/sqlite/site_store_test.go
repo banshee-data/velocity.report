@@ -18,9 +18,9 @@ func TestSetCanonicalPoseRejectsAnUnknownSource(t *testing.T) {
 	db := setupGeoDB(t)
 	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	sites := NewSiteStore(db)
@@ -37,9 +37,9 @@ func TestSetCanonicalPoseRoundTrip(t *testing.T) {
 	db := setupGeoDB(t)
 	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	sites := NewSiteStore(db)
@@ -58,9 +58,9 @@ func TestSetCanonicalPoseRoundTrip(t *testing.T) {
 	}
 
 	// The case's own sensor pose is untouched by the site's canonical one.
-	again, err := store.CaseLocationOf("case-1")
+	again, err := store.ClipLocationOf("case-1")
 	if err != nil {
-		t.Fatalf("CaseLocationOf: %v", err)
+		t.Fatalf("ClipLocationOf: %v", err)
 	}
 	if again.Lat != broadwayLat || again.Lon != broadwayLng {
 		t.Errorf("case sensor pose changed to %v,%v, want the original fix", again.Lat, again.Lon)
@@ -71,9 +71,9 @@ func TestSetCanonicalPoseWithNoLabelLeavesTheExistingOne(t *testing.T) {
 	db := setupGeoDB(t)
 	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	sites := NewSiteStore(db)
@@ -98,7 +98,7 @@ func TestMigration046BackfillsSitesForAlreadyLocatedCases(t *testing.T) {
 	applyMigrationScript(t, db, "000045_replay_case_geography.up.sql")
 
 	// Simulate a pre-46 deployment: located via raw SQL, exactly the shape
-	// SetCaseLocation wrote before site_id existed.
+	// SetClipLocation wrote before site_id existed.
 	if _, err := db.Exec(`INSERT INTO lidar_replay_cases(replay_case_id,sensor_id,pcap_file,created_at_ns) VALUES('case-1','sensor','a.pcap',1)`); err != nil {
 		t.Fatal(err)
 	}

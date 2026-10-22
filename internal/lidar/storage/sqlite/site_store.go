@@ -2,24 +2,15 @@ package sqlite
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 )
 
-// Site is a place captures have been taken, at L16 — a junction and its
-// approaches, per docs/lidar/architecture/geographic-indexing.md. It is what
-// "a scene should be at a site" refers to: many clips can visit the
-// same site, each recording its own sensor pose (CaseLocation's lat/lon —
-// where the car was that day, which moves visit to visit), while the site
-// itself optionally carries a canonical pose: a fixed point such as the
-// midpoint of the intersection, set deliberately rather than derived from any
-// one visit.
-//
-// A site is created the first time a case is located there (see
-// SetCaseLocation) and its identity is the L16 token itself — consistent with
-// the geographic-indexing guide's rule that only the canonical token is an
-// identifier. Its canonical pose starts unset: a site with several visits and
-// no canonical pose yet is the ordinary case, not a defect.
+// Site is a physical place indexed by an L16 site cell. A clip records its
+// own sensor pose at that place; the site's canonical pose is shared.
+// The existing LiDAR table uses the cell token as its key. Unifying it with
+// radar sites and introducing deployment relationships remains Phase 2.
 type Site struct {
 	L16Token string `json:"s2_l16_token"`
 	L13Token string `json:"s2_l13_token"`
@@ -36,17 +27,17 @@ type Site struct {
 	CreatedAtNs int64  `json:"created_at_ns"`
 	UpdatedAtNs *int64 `json:"updated_at_ns,omitempty"`
 
-	// Cases are the located clips visited at this site, newest first.
-	// Not a stored column — populated by SceneAreas when it assembles the
-	// scene map.
-	Cases []SiteCase `json:"cases,omitempty"`
+	// Clips are the located clips visited at this site, newest first.
+	// Not a stored column — populated by Districts when it assembles the
+	// clip-locations map.
+	Clips []SiteClip `json:"clips,omitempty"`
 }
 
-// SiteCase is one clip as a site lists it: its own sensor pose (where
+// SiteClip is one clip as a site lists it: its own sensor pose (where
 // the car was that visit) alongside the site's shared, possibly-canonical
 // one. It does not repeat the site's own S2 tokens — the parent Site already
 // carries those.
-type SiteCase struct {
+type SiteClip struct {
 	ClipID      string  `json:"clip_id"`
 	Description string  `json:"description,omitempty"`
 	SensorID    string  `json:"sensor_id,omitempty"`
@@ -55,7 +46,7 @@ type SiteCase struct {
 	CreatedAtNs int64   `json:"created_at_ns"`
 }
 
-// How a site's canonical pose was established. Unlike a case's
+// How a site's canonical pose was established. Unlike a clip's
 // geographic_source, there is no "fix" here: a canonical pose is by
 // definition not one sensor's fix on one visit.
 const (
@@ -72,11 +63,11 @@ type execer interface {
 
 // upsertSite records that a site exists, denormalizing its L13/L10 ancestors
 // for the scene map's rollups. It never touches the canonical pose — that is
-// set deliberately, once, by SetSiteCanonicalPose, not implied by a case
+// set deliberately, once, by SetSiteCanonicalPose, not implied by a clip
 // merely being located here.
 //
-// Takes an execer rather than a *ClipStore so SetCaseLocation can run it
-// inside its own transaction: a case and the site it names come into being
+// Takes an execer rather than a *ClipStore so SetClipLocation can run it
+// inside its own transaction: a clip and the site it names come into being
 // together or not at all.
 func upsertSite(x execer, l16, l13, l10 string) error {
 	if l16 == "" {
@@ -179,7 +170,7 @@ func (s *SiteStore) All() ([]Site, error) {
 // any one visit's sensor pose. Label is set alongside it when non-empty;
 // pass an empty label to leave whatever is already there.
 //
-// Unlike a case's location, this does not derive S2 tokens from the position:
+// Unlike a clip's location, this does not derive S2 tokens from the position:
 // the site's identity is already the L16 token it was created under, and a
 // canonical pose is not required to fall inside that cell (a surveyed
 // intersection midpoint from real survey data takes precedence over the
@@ -213,4 +204,22 @@ func (s *SiteStore) SetCanonicalPose(l16Token string, lat, lon float64, source, 
 		return nil, ErrNotFound
 	}
 	return s.ByToken(l16Token)
+}
+
+// MarshalJSON retains the previous DMG’s registered site-association key.
+func (site Site) MarshalJSON() ([]byte, error) {
+	type payload Site
+	return json.Marshal(struct {
+		payload
+		LegacyClips []SiteClip `json:"cases,omitempty"`
+	}{payload: payload(site), LegacyClips: site.Clips})
+}
+
+// MarshalJSON retains the identifier key used by the previous DMG’s map.
+func (clip SiteClip) MarshalJSON() ([]byte, error) {
+	type payload SiteClip
+	return json.Marshal(struct {
+		payload
+		LegacyClipID string `json:"replay_case_id"`
+	}{payload: payload(clip), LegacyClipID: clip.ClipID})
 }

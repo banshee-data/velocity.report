@@ -345,7 +345,9 @@ export interface DownloadResult {
 	filename: string;
 }
 
-export interface SiteConfigPeriod {
+/** Existing radar deployment settings over a time period. Stored by the current
+ * site_config_periods API; unified deployment rows remain Phase 2. */
+export interface RadarDeployment {
 	id?: number;
 	site_id: number;
 	effective_start_unix: number;
@@ -363,11 +365,11 @@ export interface TimelineResponse {
 		start_unix: number;
 		end_unix: number;
 	};
-	config_periods: SiteConfigPeriod[];
+	config_periods: RadarDeployment[];
 	unconfigured_periods: Array<{ start_unix: number; end_unix: number }>;
 }
 
-export async function listSiteConfigPeriods(siteId: number): Promise<SiteConfigPeriod[]> {
+export async function listRadarDeployments(siteId: number): Promise<RadarDeployment[]> {
 	const url = new URL(`${API_BASE}/site_config_periods`, window.location.origin);
 	url.searchParams.append('site_id', siteId.toString());
 	const res = await fetch(url);
@@ -375,7 +377,7 @@ export async function listSiteConfigPeriods(siteId: number): Promise<SiteConfigP
 	return res.json();
 }
 
-export async function upsertSiteConfigPeriod(period: SiteConfigPeriod): Promise<SiteConfigPeriod> {
+export async function upsertRadarDeployment(period: RadarDeployment): Promise<RadarDeployment> {
 	const res = await fetch(`${API_BASE}/site_config_periods`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -803,7 +805,7 @@ export async function getLidarClip(clipId: string): Promise<LidarClip> {
 	return res.json();
 }
 
-export async function createLidarClip(scene: {
+export async function createLidarClip(clip: {
 	sensor_id: string;
 	pcap_files: string[];
 	pcap_start_secs?: number;
@@ -813,7 +815,7 @@ export async function createLidarClip(scene: {
 	const res = await fetch(`${API_BASE}/lidar/clips`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(scene)
+		body: JSON.stringify(clip)
 	});
 	if (!res.ok) throw apiError('Could not create the clip', res.status);
 	return res.json();
@@ -1329,15 +1331,15 @@ export async function reloadSerialConfig(): Promise<SerialReloadResult> {
 }
 
 /**
- * A publishable LiDAR scene: the index entry giving a recording a place, a
+ * An existing published LiDAR survey: the index entry giving a recording a place, a
  * time and a name.
  *
  * `latitude`/`longitude` are optional overrides. Leave them empty and the
- * scene inherits its linked site's position; `effective_*` and
+ * survey inherits its linked site's position; `effective_*` and
  * `position_source` report what the server resolved, so a caller placing a map
  * marker never has to work out where the number came from.
  */
-export interface Scene {
+export interface Survey {
 	scene_id: string;
 	site_id: number | null;
 	title: string;
@@ -1368,52 +1370,52 @@ export interface Scene {
 	updated_at: string;
 }
 
-export async function getScenes(): Promise<Scene[]> {
+export async function getSurveys(): Promise<Survey[]> {
 	const res = await fetch(`${API_BASE}/scenes`);
-	if (!res.ok) throw apiError('Could not load scenes', res.status);
+	if (!res.ok) throw apiError('Could not load surveys', res.status);
 	return res.json();
 }
 
-export async function getScene(sceneId: string): Promise<Scene> {
-	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`);
-	if (!res.ok) throw apiError('Could not load scene', res.status);
+export async function getSurvey(surveyId: string): Promise<Survey> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(surveyId)}`);
+	if (!res.ok) throw apiError('Could not load survey', res.status);
 	return res.json();
 }
 
 /** Surfaces the server's own message, which explains what to fix. */
-async function sceneError(res: Response, fallback: string): Promise<Error> {
+async function surveyError(res: Response, fallback: string): Promise<Error> {
 	const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
 	return new Error(data.error || `${fallback}: ${res.status}`);
 }
 
-export async function createScene(scene: Partial<Scene>): Promise<Scene> {
+export async function createSurvey(survey: Partial<Survey>): Promise<Survey> {
 	const res = await fetch(`${API_BASE}/scenes`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(scene)
+		body: JSON.stringify(survey)
 	});
-	if (!res.ok) throw await sceneError(res, 'Could not create scene');
+	if (!res.ok) throw await surveyError(res, 'Could not create survey');
 	return res.json();
 }
 
-export async function updateScene(sceneId: string, scene: Partial<Scene>): Promise<Scene> {
-	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`, {
+export async function updateSurvey(surveyId: string, survey: Partial<Survey>): Promise<Survey> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(surveyId)}`, {
 		method: 'PUT',
 		headers: { 'Content-Type': 'application/json' },
-		body: JSON.stringify(scene)
+		body: JSON.stringify(survey)
 	});
-	if (!res.ok) throw await sceneError(res, 'Could not update scene');
+	if (!res.ok) throw await surveyError(res, 'Could not update survey');
 	return res.json();
 }
 
-export async function deleteScene(sceneId: string): Promise<void> {
-	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(sceneId)}`, {
+export async function deleteSurvey(surveyId: string): Promise<void> {
+	const res = await fetch(`${API_BASE}/scenes/${encodeURIComponent(surveyId)}`, {
 		method: 'DELETE'
 	});
-	if (!res.ok) throw await sceneError(res, 'Could not delete scene');
+	if (!res.ok) throw await surveyError(res, 'Could not delete survey');
 }
 
-// Scene headway: GET /api/scenes/<id>/headway and its SVG through
+// Survey headway: GET /api/scenes/<id>/headway and its SVG through
 // /api/charts/histogram?kind=headway. Field names are the Go payload's,
 // which are behaviour registry ids and structural names; metric-keyed maps
 // are keyed by registry id (for example interaction.following_net_time_gap_s)
@@ -1543,7 +1545,7 @@ export interface HeadwayVersionSummary {
 	status: HeadwayStatus;
 }
 
-export interface SceneHeadway {
+export interface SurveyHeadway {
 	scene_id: string;
 	status: HeadwayStatus;
 	availability: HeadwayAvailability;
@@ -1576,15 +1578,15 @@ function headwaySelectionParams(selection: HeadwaySelection = {}) {
 	};
 }
 
-export function buildSceneHeadwayPath(sceneId: string, selection: HeadwaySelection = {}): string {
+export function buildSurveyHeadwayPath(surveyId: string, selection: HeadwaySelection = {}): string {
 	return buildRelativeApiPath(
-		`/scenes/${encodeURIComponent(sceneId)}/headway`,
+		`/scenes/${encodeURIComponent(surveyId)}/headway`,
 		headwaySelectionParams(selection)
 	);
 }
 
 export interface HeadwayChartRequest extends HeadwaySelection {
-	sceneId: string;
+	surveyId: string;
 	/** A distributed metric id; the server defaults to the net time gap. */
 	metric?: string;
 	paperSize?: 'a4' | 'letter';
@@ -1593,19 +1595,19 @@ export interface HeadwayChartRequest extends HeadwaySelection {
 export function buildHeadwayChartPath(request: HeadwayChartRequest): string {
 	return buildRelativeApiPath('/charts/histogram', {
 		kind: 'headway',
-		scene: request.sceneId,
+		scene: request.surveyId,
 		...headwaySelectionParams(request),
 		metric: request.metric,
 		paper_size: request.paperSize
 	});
 }
 
-export async function getSceneHeadway(
-	sceneId: string,
+export async function getSurveyHeadway(
+	surveyId: string,
 	selection: HeadwaySelection = {}
-): Promise<SceneHeadway> {
-	const res = await fetch(buildSceneHeadwayPath(sceneId, selection));
-	if (!res.ok) throw await sceneError(res, 'Could not load following distribution');
+): Promise<SurveyHeadway> {
+	const res = await fetch(buildSurveyHeadwayPath(surveyId, selection));
+	if (!res.ok) throw await surveyError(res, 'Could not load following distribution');
 	return res.json();
 }
 
@@ -1784,7 +1786,12 @@ export async function createClipFromCaptures(request: {
 
 // Geographic identity of located replay cases
 
-import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '#lib/types/captures.js';
+import type {
+	ClipLocation,
+	LidarSite,
+	ClipLocationsResponse,
+	SiteSource
+} from '#lib/types/captures.js';
 
 /**
  * setClipLocation records where a case was captured.
@@ -1796,7 +1803,7 @@ import type { CaseLocation, LidarSite, SceneMapResponse, SiteSource } from '#lib
 export async function setClipLocation(
 	clipId: string,
 	location: { origin_lat: number; origin_lon: number; geographic_source?: string }
-): Promise<CaseLocation> {
+): Promise<ClipLocation> {
 	const res = await fetch(`${API_BASE}/lidar/clips/${clipId}/location`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -1822,10 +1829,10 @@ export async function clearClipLocation(clipId: string): Promise<void> {
 	if (!res.ok) throw apiError('Could not clear the capture location', res.status);
 }
 
-/** getSceneMap returns every area captures have been taken in, with the sites
+/** getClipLocations returns every area captures have been taken in, with the sites
  * and cases within each. */
-export async function getSceneMap(): Promise<SceneMapResponse> {
-	const res = await fetch(`${API_BASE}/lidar/scene-map`);
+export async function getClipLocations(): Promise<ClipLocationsResponse> {
+	const res = await fetch(`${API_BASE}/lidar/clip-locations`);
 	if (!res.ok) throw apiError('Could not load clip locations', res.status);
 	return res.json();
 }

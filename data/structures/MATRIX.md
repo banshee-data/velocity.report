@@ -167,7 +167,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`       | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |
-| Scene map      | `scene_geo_api.go`     | `GET /api/lidar/scene-map`                      | ✅  | ✅  | -   |
+| Clip locations | `clip_location_api.go` | `GET /api/lidar/clip-locations`                 | ✅  | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments/finders`               | -   | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments`                       | ✅  | ✅  | -   |
 | Segments       | `segments_api.go`      | `GET /api/lidar/segments/strip`                 | ✅  | -   | -   |
@@ -237,7 +237,7 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_scenes`                   | ✅  | ?   | Scene player; Mac trace pending                        |
 | LiDAR  | `lidar_segment_clip_jobs`        | ✅  | -   | Clip job, its segment, and the pack it made            |
 | LiDAR  | `lidar_segment_selections`       | ✅  | -   | Chosen window, its replay case and what chose it       |
-| LiDAR  | `lidar_sites`                    | ✅  | ?   | Scene map; Mac trace pending                           |
+| LiDAR  | `lidar_sites`                    | ✅  | ?   | Clip locations; Mac trace pending                      |
 | LiDAR  | `lidar_track_estimate_revisions` | ?   | ?   | Smoother revision evidence                             |
 | LiDAR  | `lidar_track_estimates`          | ?   | ?   | Track state estimates                                  |
 | LiDAR  | `lidar_track_residuals`          | ?   | ?   | Observation residual evidence                          |

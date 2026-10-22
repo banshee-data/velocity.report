@@ -23,7 +23,7 @@ type SetSiteCanonicalPoseRequest struct {
 // handleSiteByToken handles /api/lidar/sites/{l16_token}.
 //
 // PUT sets the site's canonical pose. A site only exists once a case has been
-// located there (see handleSetCaseLocation), so this 404s for a token nothing
+// located there (see handleSetClipLocation), so this 404s for a token nothing
 // has visited yet rather than creating a site out of nowhere.
 func (ws *Server) handleSiteByToken(w http.ResponseWriter, r *http.Request) {
 	if ws.db == nil {

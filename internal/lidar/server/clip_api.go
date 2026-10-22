@@ -92,7 +92,7 @@ func (ws *Server) handleClipByID(w http.ResponseWriter, r *http.Request) {
 		// /api/lidar/clips/{clip_id}/location
 		switch r.Method {
 		case http.MethodPost, http.MethodPut, http.MethodDelete:
-			ws.handleSetCaseLocation(w, r, clipID)
+			ws.handleSetClipLocation(w, r, clipID)
 		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
@@ -247,7 +247,7 @@ func (ws *Server) handleGetClip(w http.ResponseWriter, r *http.Request, clipID s
 	} else {
 		clip.Files = files
 	}
-	if loc, err := store.CaseLocationOf(clipID); err != nil {
+	if loc, err := store.ClipLocationOf(clipID); err != nil {
 		opsf("Warning: could not load the location of clip %s: %v", clipID, err)
 	} else {
 		clip.Location = loc

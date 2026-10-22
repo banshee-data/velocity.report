@@ -208,16 +208,16 @@ export interface PeriodsResponse {
  * hyphen at the family boundary, may appear in UI and logs, and must never be
  * sent back as a key or used to address anything.
  */
-export interface CaseLocation {
+export interface ClipLocation {
 	/**
-	 * The case's own sensor pose: where the car was for this one visit. Free
-	 * to differ from the site's canonical pose, and from another case's visit
+	 * The clip’s own sensor pose: where the car was for this one visit. Free
+	 * to differ from the site's canonical pose, and from another clip’s visit
 	 * to the same site.
 	 */
 	origin_lat: number;
 	origin_lon: number;
 	/**
-	 * Canonical S2 tokens. L16 is the site — a junction and its approaches,
+	 * Canonical S2 tokens. L16 is the site cell indexing a junction and its approaches,
 	 * about 180 m across. L13 is the neighbourhood around it and L10 the
 	 * district, which is the archive-scale roll-up.
 	 */
@@ -248,8 +248,8 @@ export type GeoSource = (typeof GEO_SOURCES)[number];
 export const SITE_SOURCES = ['surveyed', 'operator'] as const;
 export type SiteSource = (typeof SITE_SOURCES)[number];
 
-/** One replay case as a site lists it — its own sensor pose for that visit. */
-export interface SiteCase {
+/** One clip as a site lists it — its own sensor pose for that visit. */
+export interface SiteClip {
 	clip_id: string;
 	description?: string;
 	sensor_id?: string;
@@ -259,10 +259,10 @@ export interface SiteCase {
 }
 
 /**
- * A site is one L16 cell: a junction and its approaches, about 180 m across.
- * It exists once any case has been located there, and its own canonical pose
+ * A site is a physical place, indexed today by an L16 site cell about 180 m across.
+ * It exists once any clip has been located there, and its own canonical pose
  * — a fixed point such as the midpoint of the intersection — is separate from
- * any one case's sensor pose, and unset until someone (a surveyor or an
+ * any one clip’s sensor pose, and unset until someone (a surveyor or an
  * operator) records it deliberately.
  */
 export interface LidarSite {
@@ -276,14 +276,14 @@ export interface LidarSite {
 	canonical_source?: string;
 	created_at_ns: number;
 	updated_at_ns?: number;
-	cases: SiteCase[];
+	clips: SiteClip[];
 }
 
 /**
  * One area captures were taken in. The grouping is the L10 cell, which is
  * district-scale, so an entry typically holds several distinct sites.
  */
-export interface SceneArea {
+export interface District {
 	s2_l10_token: string;
 	s2_l10_display: string;
 	centre_lat: number;
@@ -292,17 +292,17 @@ export interface SceneArea {
 	sw_lon: number;
 	ne_lat: number;
 	ne_lon: number;
-	case_count: number;
+	clip_count: number;
 	/** Distinct L13 cells within the area. */
 	neighbourhood_count: number;
 	sites: LidarSite[];
 }
 
-export interface SceneMapResponse {
-	areas: SceneArea[];
-	area_count: number;
+export interface ClipLocationsResponse {
+	districts: District[];
+	district_count: number;
 	site_count: number;
-	case_count: number;
+	clip_count: number;
 	coarse_level: number;
 	fine_level: number;
 	precise_level: number;

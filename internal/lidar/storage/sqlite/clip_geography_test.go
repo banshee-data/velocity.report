@@ -46,13 +46,13 @@ func applyMigrationScript(t *testing.T, db *sql.DB, filename string) {
 	}
 }
 
-func TestSetCaseLocationDerivesTheFamily(t *testing.T) {
+func TestSetClipLocationDerivesTheFamily(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
 
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, GeoSourceOperator)
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, GeoSourceOperator)
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 	if loc.Status != GeoLocated {
 		t.Errorf("status = %q, want %q", loc.Status, GeoLocated)
@@ -80,14 +80,14 @@ func TestSetCaseLocationDerivesTheFamily(t *testing.T) {
 	}
 }
 
-func TestSetCaseLocationStoresTokensNotDisplays(t *testing.T) {
+func TestSetClipLocationStoresTokensNotDisplays(t *testing.T) {
 	// The guide forbids persisting the family display. A hyphen in a column
 	// would mean two spellings of one cell and so two keys for one place.
 	db := setupGeoDB(t)
 	store := NewClipStore(db)
 	insertCase(t, store, "case-1", "a.pcap")
-	if _, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
 	var l10, l13, l16 string
@@ -107,19 +107,19 @@ func TestSetCaseLocationStoresTokensNotDisplays(t *testing.T) {
 	}
 }
 
-func TestSetCaseLocationDefaultsTheSource(t *testing.T) {
+func TestSetClipLocationDefaultsTheSource(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 	if loc.Source != GeoSourceOperator {
 		t.Errorf("source = %q, want %q", loc.Source, GeoSourceOperator)
 	}
 }
 
-func TestSetCaseLocationRejectsNonPositions(t *testing.T) {
+func TestSetClipLocationRejectsNonPositions(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
 	for _, tc := range []struct {
@@ -130,40 +130,40 @@ func TestSetCaseLocationRejectsNonPositions(t *testing.T) {
 		{"null island", 0, 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			if _, err := store.SetCaseLocation("case-1", tc.lat, tc.lng, ""); !errors.Is(err, geoindex.ErrNoPosition) {
-				t.Fatalf("SetCaseLocation = %v, want ErrNoPosition", err)
+			if _, err := store.SetClipLocation("case-1", tc.lat, tc.lng, ""); !errors.Is(err, geoindex.ErrNoPosition) {
+				t.Fatalf("SetClipLocation = %v, want ErrNoPosition", err)
 			}
 		})
 	}
 }
 
-func TestSetCaseLocationOnAnUnknownCase(t *testing.T) {
+func TestSetClipLocationOnAnUnknownCase(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
-	if _, err := store.SetCaseLocation("case-nope", broadwayLat, broadwayLng, ""); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("SetCaseLocation = %v, want ErrNotFound", err)
+	if _, err := store.SetClipLocation("case-nope", broadwayLat, broadwayLng, ""); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("SetClipLocation = %v, want ErrNotFound", err)
 	}
 }
 
-func TestCaseLocationRoundTrip(t *testing.T) {
+func TestClipLocationRoundTrip(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
 
 	// A case with no position is the ordinary state, not a defect.
-	before, err := store.CaseLocationOf("case-1")
+	before, err := store.ClipLocationOf("case-1")
 	if err != nil {
-		t.Fatalf("CaseLocationOf: %v", err)
+		t.Fatalf("ClipLocationOf: %v", err)
 	}
 	if before != nil {
 		t.Errorf("an unlocated case reported a location: %+v", before)
 	}
 
-	set, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, GeoSourceSurveyed)
+	set, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, GeoSourceSurveyed)
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
-	got, err := store.CaseLocationOf("case-1")
+	got, err := store.ClipLocationOf("case-1")
 	if err != nil {
-		t.Fatalf("CaseLocationOf: %v", err)
+		t.Fatalf("ClipLocationOf: %v", err)
 	}
 	if got == nil {
 		t.Fatal("a located case reported no location")
@@ -176,28 +176,28 @@ func TestCaseLocationRoundTrip(t *testing.T) {
 	}
 }
 
-func TestClearCaseLocation(t *testing.T) {
+func TestClearClipLocation(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
-	if _, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
-	if err := store.ClearCaseLocation("case-1"); err != nil {
-		t.Fatalf("ClearCaseLocation: %v", err)
+	if err := store.ClearClipLocation("case-1"); err != nil {
+		t.Fatalf("ClearClipLocation: %v", err)
 	}
-	got, err := store.CaseLocationOf("case-1")
+	got, err := store.ClipLocationOf("case-1")
 	if err != nil {
-		t.Fatalf("CaseLocationOf: %v", err)
+		t.Fatalf("ClipLocationOf: %v", err)
 	}
 	if got != nil {
 		t.Errorf("a cleared case still reports a location: %+v", got)
 	}
-	if err := store.ClearCaseLocation("case-nope"); !errors.Is(err, ErrNotFound) {
+	if err := store.ClearClipLocation("case-nope"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("clearing an unknown case = %v, want ErrNotFound", err)
 	}
 }
 
-func TestSceneAreasGroupsByCoarseCell(t *testing.T) {
+func TestDistrictsGroupsByCoarseCell(t *testing.T) {
 	// The scene map's whole job: many visits to one junction collapse into one
 	// site, and two junctions stay apart. Two junctions many km apart also
 	// stay in separate areas.
@@ -207,27 +207,27 @@ func TestSceneAreasGroupsByCoarseCell(t *testing.T) {
 	}
 	// Two at Broadway a few metres apart — one site, two visits — plus one
 	// across town in its own area.
-	if _, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
-	if _, err := store.SetCaseLocation("case-2", broadwayLat+0.0001, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-2", broadwayLat+0.0001, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
-	if _, err := store.SetCaseLocation("case-3", kirkhamLat, kirkhamLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-3", kirkhamLat, kirkhamLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
-	areas, err := store.SceneAreas()
+	areas, err := store.Districts()
 	if err != nil {
-		t.Fatalf("SceneAreas: %v", err)
+		t.Fatalf("Districts: %v", err)
 	}
 	if len(areas) != 2 {
 		t.Fatalf("got %d areas, want 2 junctions' worth", len(areas))
 	}
 
-	var broadway *SceneArea
+	var broadway *District
 	for i := range areas {
-		if areas[i].CaseCount == 2 {
+		if areas[i].ClipCount == 2 {
 			broadway = &areas[i]
 		}
 	}
@@ -240,8 +240,8 @@ func TestSceneAreasGroupsByCoarseCell(t *testing.T) {
 	if len(broadway.Sites) != 1 {
 		t.Fatalf("area holds %d sites, want 1 — the two cases are metres apart", len(broadway.Sites))
 	}
-	if len(broadway.Sites[0].Cases) != 2 {
-		t.Errorf("site lists %d cases, want 2", len(broadway.Sites[0].Cases))
+	if len(broadway.Sites[0].Clips) != 2 {
+		t.Errorf("site lists %d cases, want 2", len(broadway.Sites[0].Clips))
 	}
 	// The cell's bounds must contain the positions it groups.
 	if broadwayLat < broadway.SouthWestLat || broadwayLat > broadway.NorthEastLat {
@@ -252,7 +252,7 @@ func TestSceneAreasGroupsByCoarseCell(t *testing.T) {
 	}
 }
 
-func TestSceneAreasCountsDistinctSites(t *testing.T) {
+func TestDistrictsCountsDistinctSites(t *testing.T) {
 	// An area's site count says how many distinct junctions it holds, which
 	// is what distinguishes one visit repeated from two different places.
 	store := NewClipStore(setupGeoDB(t))
@@ -260,22 +260,22 @@ func TestSceneAreasCountsDistinctSites(t *testing.T) {
 		insertCase(t, store, id, id+".pcap")
 	}
 	// The same position twice: one site, two visits.
-	if _, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
-	if _, err := store.SetCaseLocation("case-2", broadwayLat, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("case-2", broadwayLat, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
-	areas, err := store.SceneAreas()
+	areas, err := store.Districts()
 	if err != nil {
-		t.Fatalf("SceneAreas: %v", err)
+		t.Fatalf("Districts: %v", err)
 	}
 	if len(areas) != 1 {
 		t.Fatalf("got %d areas, want 1", len(areas))
 	}
-	if areas[0].CaseCount != 2 {
-		t.Errorf("case count = %d, want 2", areas[0].CaseCount)
+	if areas[0].ClipCount != 2 {
+		t.Errorf("case count = %d, want 2", areas[0].ClipCount)
 	}
 	if len(areas[0].Sites) != 1 {
 		t.Errorf("site count = %d, want 1 for one junction visited twice", len(areas[0].Sites))
@@ -285,46 +285,46 @@ func TestSceneAreasCountsDistinctSites(t *testing.T) {
 	}
 }
 
-func TestSceneAreasOmitsUnlocatedCases(t *testing.T) {
+func TestDistrictsOmitsUnlocatedCases(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "located", "a.pcap")
 	insertCase(t, store, "unlocated", "b.pcap")
-	if _, err := store.SetCaseLocation("located", broadwayLat, broadwayLng, ""); err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+	if _, err := store.SetClipLocation("located", broadwayLat, broadwayLng, ""); err != nil {
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
-	areas, err := store.SceneAreas()
+	areas, err := store.Districts()
 	if err != nil {
-		t.Fatalf("SceneAreas: %v", err)
+		t.Fatalf("Districts: %v", err)
 	}
-	if len(areas) != 1 || areas[0].CaseCount != 1 {
+	if len(areas) != 1 || areas[0].ClipCount != 1 {
 		t.Fatalf("got %+v, want only the located case", areas)
 	}
-	if areas[0].Sites[0].Cases[0].ClipID != "located" {
-		t.Errorf("site lists %q, want the located case", areas[0].Sites[0].Cases[0].ClipID)
+	if areas[0].Sites[0].Clips[0].ClipID != "located" {
+		t.Errorf("site lists %q, want the located case", areas[0].Sites[0].Clips[0].ClipID)
 	}
 }
 
-func TestSceneAreasOnAnEmptyDatabase(t *testing.T) {
+func TestDistrictsOnAnEmptyDatabase(t *testing.T) {
 	store := NewClipStore(setupGeoDB(t))
-	areas, err := store.SceneAreas()
+	areas, err := store.Districts()
 	if err != nil {
-		t.Fatalf("SceneAreas: %v", err)
+		t.Fatalf("Districts: %v", err)
 	}
 	if len(areas) != 0 {
 		t.Errorf("got %d areas, want none", len(areas))
 	}
 }
 
-func TestSetCaseLocationLinksTheCaseToItsSite(t *testing.T) {
+func TestSetClipLocationLinksTheCaseToItsSite(t *testing.T) {
 	// "A scene should be at a site": locating a case must both create the
 	// site (if this is the first visit) and record which one the case is at.
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
 
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 	if loc.SiteID != loc.L16Token {
 		t.Errorf("location site_id = %q, want the L16 token %q", loc.SiteID, loc.L16Token)
@@ -345,32 +345,32 @@ func TestSetCaseLocationLinksTheCaseToItsSite(t *testing.T) {
 	// A second case at the same junction shares the site rather than
 	// duplicating it.
 	insertCase(t, store, "case-2", "b.pcap")
-	loc2, err := store.SetCaseLocation("case-2", broadwayLat, broadwayLng, "")
+	loc2, err := store.SetClipLocation("case-2", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 	if loc2.SiteID != loc.SiteID {
 		t.Errorf("second visit got site %q, want the same site %q", loc2.SiteID, loc.SiteID)
 	}
 }
 
-func TestClearCaseLocationLeavesTheSiteInPlace(t *testing.T) {
+func TestClearClipLocationLeavesTheSiteInPlace(t *testing.T) {
 	// Unlocating a case must not delete a site other cases, or an
 	// already-set canonical pose, may still depend on.
 	store := NewClipStore(setupGeoDB(t))
 	insertCase(t, store, "case-1", "a.pcap")
-	loc, err := store.SetCaseLocation("case-1", broadwayLat, broadwayLng, "")
+	loc, err := store.SetClipLocation("case-1", broadwayLat, broadwayLng, "")
 	if err != nil {
-		t.Fatalf("SetCaseLocation: %v", err)
+		t.Fatalf("SetClipLocation: %v", err)
 	}
 
-	if err := store.ClearCaseLocation("case-1"); err != nil {
-		t.Fatalf("ClearCaseLocation: %v", err)
+	if err := store.ClearClipLocation("case-1"); err != nil {
+		t.Fatalf("ClearClipLocation: %v", err)
 	}
 
-	got, err := store.CaseLocationOf("case-1")
+	got, err := store.ClipLocationOf("case-1")
 	if err != nil {
-		t.Fatalf("CaseLocationOf: %v", err)
+		t.Fatalf("ClipLocationOf: %v", err)
 	}
 	if got != nil {
 		t.Errorf("a cleared case still reports a location: %+v", got)

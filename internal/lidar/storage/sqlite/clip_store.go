@@ -43,7 +43,7 @@ type Clip struct {
 	// Location is where the capture was taken, when a position has been
 	// accepted. Populated by the handlers that load it; the family displays it
 	// carries are derived on read and never stored.
-	Location *CaseLocation `json:"location,omitempty"`
+	Location *ClipLocation `json:"location,omitempty"`
 }
 
 // ClipStore provides persistence for LiDAR evaluation clips.

@@ -59,7 +59,7 @@
 	let playbackSpeed = 1.0;
 	let isPlaying = false;
 
-	// Scene and run selection
+	// Survey and run selection
 	let scenes: LidarClip[] = [];
 	let selectedSceneId: string | null = null;
 	let runs: Run[] = [];
