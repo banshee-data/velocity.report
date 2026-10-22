@@ -85,7 +85,7 @@ flowchart TB
     l5id0008["<b>l5id0008</b><br/>Offline fragment links on kirk: a…<br/>proposed · 44m machine + 22h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
     l5id0009["<b>l5id0009</b><br/>Links through a merge: a second placement…<br/>proposed · 12m machine + 24h30m person<br/>manual: implement, capture, review, write"]:::proposed
     l5id0010["<b>l5id0010</b><br/>Fragment links on the frozen held-out…<br/>proposed · 22m machine + 6h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
-    l5id0011["<b>l5id0011</b><br/>The likelihood cost with the box's…<br/>proposed · 2h8m machine + 6h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
+    l5id0011["<b>l5id0011</b><br/>The likelihood cost with the box's…<br/>approved · 2h8m machine + 6h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::approved
   end
   subgraph area_l6cls ["l6cls: L6 classification"]
     l6cls0001["<b>l6cls0001</b><br/>How much following the class gate holds…<br/>answered · 1h9m machine + 1h person (took 30m)<br/>manual: write"]:::answered
