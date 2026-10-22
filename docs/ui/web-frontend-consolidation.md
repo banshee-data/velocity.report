@@ -98,7 +98,9 @@ compared before and after, is the check that matters most.
 - Renaming `/debug/lidar/background/regions`, which returns JSON and is cited in
   operator docs, as though it were a debug page. (Resolved: it is now
   `GET /api/lidar/background/regions`, and the operator docs moved with it.)
-- The replay slot: a finished analysis replay that kept its grid holds the slot
-  until it is stopped or live data is resumed, so a sweep that replays captures
-  waits about 150 s per combination and skips each one. The Run a Sweep page
-  refuses such a sweep up front; the server-side fix is a follow-up.
+- The replay slot: a sweep that replays captures, started after a finished
+  analysis replay that kept its grid, waited about 150 s per combination and
+  skipped each one. (Resolved: the sweep now takes the pipeline over from a
+  finished replay, and stops with a clear error if a running replay still holds
+  the slot after its retries. The Run a Sweep page refuses only while a replay
+  is running.)

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 // mockTimestampParser satisfies network.Parser and exposes SetTimestampMode so
@@ -118,13 +120,123 @@ func TestStartPCAPForSweep_TimeoutWhenBusy(t *testing.T) {
 	ws.dataSourceMu.Lock()
 	ws.setTestSourcePCAPReplaying()
 	ws.dataSourceMu.Unlock()
+	shortenSweepSlotRetryDelay(t)
 
-	err := ws.StartPCAPForSweep("/dummy.pcap", false, "analysis", 1.0, 0, 0, 1, false)
+	err := ws.StartPCAPForSweep("/dummy.pcap", false, "analysis", 1.0, 0, 0, 3, false)
 	if err == nil {
 		t.Fatal("expected timeout error when PCAP already in progress")
 	}
-	if err.Error() != "timeout waiting for PCAP replay slot" {
-		t.Errorf("unexpected error: %v", err)
+	if !errors.Is(err, sweep.ErrReplaySlotBusy) {
+		t.Errorf("error = %v, want it to wrap sweep.ErrReplaySlotBusy", err)
+	}
+	if !strings.Contains(err.Error(), "/api/lidar/replay/stop") {
+		t.Errorf("error = %q, want it to name the stop endpoint", err)
+	}
+	if !ws.PipelineState().PCAPInProgress() {
+		t.Error("the running replay's state was disturbed by a refused sweep start")
+	}
+}
+
+// A VRLOG replay holds the slot as firmly as a PCAP one. Claiming it would
+// reset the grid under that replay before the start was refused.
+func TestStartPCAPForSweep_WaitsForVRLogReplay(t *testing.T) {
+	sensorID := "test-sweep-vrlog-busy"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	ws := NewServer(Config{
+		Stats:    NewPacketStats(),
+		SensorID: sensorID,
+	})
+	ws.setBaseContext(context.Background())
+	ws.mutateState("test", func(s *PipelineState) {
+		s.Source = SourceModeVRLog
+		s.ReplayActive = true
+	})
+	shortenSweepSlotRetryDelay(t)
+
+	err := ws.StartPCAPForSweep("/dummy.pcap", false, "analysis", 1.0, 0, 0, 2, false)
+	if !errors.Is(err, sweep.ErrReplaySlotBusy) {
+		t.Fatalf("error = %v, want sweep.ErrReplaySlotBusy", err)
+	}
+	if got := ws.PipelineState().Source; got != SourceModeVRLog {
+		t.Errorf("source = %q, want vrlog left in place", got)
+	}
+}
+
+// A finished analysis replay leaves its grid held in pcap_analysis, but no
+// replay is running. A sweep takes the pipeline over at once, as
+// POST /api/lidar/pcap/start does, instead of waiting out its retries.
+func TestStartPCAPForSweep_TakesOverFinishedAnalysisReplay(t *testing.T) {
+	sensorID := "test-sweep-held-grid"
+	cleanupBg := setupTestBackgroundManager(t, sensorID)
+	defer cleanupBg()
+
+	tmpDir := resolveSymlinks(t, t.TempDir())
+	if err := os.WriteFile(filepath.Join(tmpDir, "held.pcap"), minimalPCAPHeader(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var started bool
+	ws := NewServer(Config{
+		Stats:         NewPacketStats(),
+		SensorID:      sensorID,
+		PCAPSafeDir:   tmpDir,
+		OnPCAPStarted: func() { started = true },
+	})
+	ws.setBaseContext(context.Background())
+	ws.setTestSourcePCAPAnalysis()
+	ws.setTestPCAPFile(filepath.Join(tmpDir, "earlier.pcap"))
+	if got := ws.PipelineState().DataSourceWire(); got != string(DataSourceCaptureAnalysis) {
+		t.Fatalf("precondition: wire source = %q, want pcap_analysis", got)
+	}
+
+	// A wait would be visible: every retry would cost an hour.
+	prev := sweepSlotRetryDelay
+	sweepSlotRetryDelay = time.Hour
+	t.Cleanup(func() { sweepSlotRetryDelay = prev })
+
+	begin := time.Now()
+	if err := ws.StartPCAPForSweep("held.pcap", true, "analysis", 1.0, 0, 0, 30, true); err != nil {
+		t.Fatalf("StartPCAPForSweep() error: %v", err)
+	}
+	if elapsed := time.Since(begin); elapsed > 5*time.Second {
+		t.Fatalf("StartPCAPForSweep took %v: it waited on a finished replay", elapsed)
+	}
+	if !started {
+		t.Error("expected onPCAPStarted to be called")
+	}
+	if got := ws.PipelineState().SourcePath; !strings.HasSuffix(got, "held.pcap") {
+		t.Errorf("source path = %q, want the sweep's capture", got)
+	}
+
+	if done := ws.PCAPDone(); done != nil {
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Fatal("PCAP goroutine did not finish in time")
+		}
+	}
+}
+
+// shortenSweepSlotRetryDelay makes StartPCAPForSweep's busy-slot retries
+// immediate for the duration of a test.
+func shortenSweepSlotRetryDelay(t *testing.T) {
+	t.Helper()
+	prev := sweepSlotRetryDelay
+	sweepSlotRetryDelay = time.Millisecond
+	t.Cleanup(func() { sweepSlotRetryDelay = prev })
+}
+
+// minimalPCAPHeader is a little-endian PCAP global header with no packets.
+func minimalPCAPHeader() []byte {
+	return []byte{
+		0xd4, 0xc3, 0xb2, 0xa1, // magic number (little-endian)
+		0x02, 0x00, 0x04, 0x00, // version 2.4
+		0x00, 0x00, 0x00, 0x00, // thiszone
+		0x00, 0x00, 0x00, 0x00, // sigfigs
+		0xff, 0xff, 0x00, 0x00, // snaplen
+		0x01, 0x00, 0x00, 0x00, // network (Ethernet)
 	}
 }
 

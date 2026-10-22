@@ -2,12 +2,15 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/sweep"
 )
 
 func TestNewClient(t *testing.T) {
@@ -405,6 +408,9 @@ func TestClient_StartPCAPReplay_Timeout(t *testing.T) {
 
 	if err == nil {
 		t.Error("Expected timeout error")
+	}
+	if !errors.Is(err, sweep.ErrReplaySlotBusy) {
+		t.Errorf("error = %v, want it to wrap sweep.ErrReplaySlotBusy", err)
 	}
 	if callCount != 1 {
 		t.Errorf("Expected 1 call, got %d", callCount)

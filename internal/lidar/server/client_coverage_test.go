@@ -274,16 +274,22 @@ func TestStartPCAPReplayWithConfig_ConflictTimeout(t *testing.T) {
 	}))
 	defer srv.Close()
 
+	shortenSweepSlotRetryDelay(t)
 	c := NewClient(srv.Client(), srv.URL, "sensor-1")
 	err := c.StartPCAPReplayWithConfig(PCAPReplayConfig{
 		PCAPFile:   "test.pcap",
-		MaxRetries: 1,
+		MaxRetries: 3,
 	})
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
-	if callCount != 1 {
-		t.Errorf("expected 1 call, got %d", callCount)
+	// The sweep runner stops the whole sweep on this sentinel rather than
+	// skipping one combination after another.
+	if !errors.Is(err, sweep.ErrReplaySlotBusy) {
+		t.Errorf("error = %v, want it to wrap sweep.ErrReplaySlotBusy", err)
+	}
+	if callCount != 3 {
+		t.Errorf("expected 3 calls, got %d", callCount)
 	}
 }
 

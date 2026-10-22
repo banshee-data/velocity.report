@@ -407,14 +407,19 @@ alignment heatmaps over the first two numeric parameters.
 `PUT /api/lidar/sweeps/charts` still exists on the server, but no client writes
 it.
 
-**Known issue: the replay slot.** A finished analysis replay that kept its grid
-holds the replay slot until it is stopped or live data is resumed, exactly as a
-running replay does. A sweep that replays captures then waits about 150 s per
-combination (30 retries 5 s apart) and skips each one. The Run a Sweep page
-refuses to start such a sweep while the slot is held and says why; the server
-behaviour is unchanged. Follow-up: decide whether the sweep runner should take
-over or release a parked analysis replay itself, rather than relying on the
-page's refusal.
+**Known issue: the replay slot (fixed).** A sweep that replays captures, started
+after an analysis replay had finished and kept its grid, waited about 150 s per
+combination (30 retries 5 s apart) and skipped each one, so the sweep completed
+with no results. The in-process sweep path gated on the PCAP source rather than
+on a running replay, unlike `POST /api/lidar/pcap/start`. It now waits only
+while a PCAP or VRLOG replay is running, and takes the pipeline over from a
+finished analysis replay as any replay start does: the sweep owns the pipeline,
+resetting all state for every combination and releasing it to live when it
+ends. A finished analysis replay still keeps its grid until someone starts a
+replay or sweep. If a running replay still holds the slot after the retries,
+the sweep now stops with an error naming `POST /api/lidar/replay/stop` instead
+of skipping one combination after another. The Run a Sweep page refuses only
+while a replay is running.
 
 ## Regression gate
 

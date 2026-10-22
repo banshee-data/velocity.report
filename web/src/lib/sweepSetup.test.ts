@@ -315,18 +315,26 @@ describe('estimateSweep', () => {
 
 describe('replaySlotProblem', () => {
 	const live = { data_source: 'live', pcap_in_progress: false };
-	const held = { data_source: 'pcap_analysis', pcap_in_progress: false };
-	const busy = { data_source: 'pcap', pcap_in_progress: true };
+	const held = { data_source: 'capture_analysis', pcap_in_progress: false };
+	const busy = { data_source: 'capture', pcap_in_progress: true };
+	const vrlog = { data_source: 'vrlog', pcap_in_progress: false };
 
 	it('allows a live sweep whatever the pipeline is doing', () => {
 		expect(replaySlotProblem(form(), held)).toBeNull();
+		expect(replaySlotProblem(form(), busy)).toBeNull();
 	});
 
-	it('refuses a replaying sweep while the slot is held', () => {
+	it('refuses a replaying sweep while a replay is running', () => {
 		expect(replaySlotProblem(form({ dataSource: 'pcap' }), live)).toBeNull();
 		expect(replaySlotProblem(form({ dataSource: 'pcap' }), busy)).toMatch(/replay is running/);
-		expect(replaySlotProblem(form({ dataSource: 'clip' }), held)).toMatch(/pcap_analysis/);
-		expect(replaySlotProblem(form({ mode: 'hint' }), held)).toMatch(/finished replay/);
+		expect(replaySlotProblem(form({ dataSource: 'clip' }), vrlog)).toMatch(/replay is running/);
+		expect(replaySlotProblem(form({ mode: 'hint' }), busy)).toMatch(/replay is running/);
+	});
+
+	it('lets a replaying sweep take over a finished analysis replay', () => {
+		expect(replaySlotProblem(form({ dataSource: 'pcap' }), held)).toBeNull();
+		expect(replaySlotProblem(form({ dataSource: 'clip' }), held)).toBeNull();
+		expect(replaySlotProblem(form({ mode: 'hint' }), held)).toBeNull();
 	});
 });
 

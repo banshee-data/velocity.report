@@ -658,20 +658,22 @@ export function estimateSweep(form: SweepForm): SweepEstimate | null {
 
 /**
  * Why a sweep that replays captures cannot start now, or null. Each
- * combination waits for the replay slot, and the slot is held both by a
- * running replay and by a finished analysis replay that kept its grid, until
- * the replay is stopped or live data resumed. The server waits minutes per
- * combination before skipping it, so the form refuses up front instead.
+ * combination needs the replay slot, which a running PCAP or VRLOG replay
+ * holds until it is stopped. The server waits a few minutes for it and then
+ * fails the sweep, so the form refuses up front instead. A finished analysis
+ * replay that kept its grid (capture_analysis) does not hold the slot: the sweep
+ * takes the pipeline over from it, as starting any replay does.
  */
 export function replaySlotProblem(
 	form: SweepForm,
 	status: { data_source: string; pcap_in_progress: boolean }
 ): string | null {
 	const replays = form.mode === 'hint' || form.dataSource !== 'live';
-	if (!replays || status.data_source === 'live') return null;
-	return status.pcap_in_progress
-		? 'A replay is running. Stop it on the Status page before starting a sweep that replays a capture.'
-		: `The pipeline is still holding a finished replay (${status.data_source}). Stop it or resume live data on the Status page first.`;
+	if (!replays) return null;
+	if (status.pcap_in_progress || status.data_source === 'vrlog') {
+		return 'A replay is running. Stop it on the Status page before starting a sweep that replays a capture.';
+	}
+	return null;
 }
 
 /**

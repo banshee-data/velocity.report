@@ -311,7 +311,7 @@ stateDiagram-v2
 	[*] --> Live
 	Live --> PCAP: pcap/start
 	PCAP --> PCAPParked: replay ends, slot released
-	PCAPParked --> PCAP: pcap/start (another replay)
+	PCAPParked --> PCAP: pcap/start or a sweep (another replay)
 	PCAPParked --> Live: replay/stop (grid reset)
 	PCAPParked --> Live: pcap/resume_live (grid preserved)
 ```
@@ -319,7 +319,10 @@ stateDiagram-v2
 `PCAPParked` reports `pcap_in_progress: false` with `data_source` still naming
 the replay — `pcap_analysis` when the run preserved its grid, `pcap` otherwise.
 The visualiser's Live toggle shows this as **Replay** and stays there until
-switched back.
+switched back. A parked replay does not hold the replay slot: starting another
+replay, or a sweep, auto-tune or HINT run that replays captures, resets the grid
+and takes the pipeline over. Only a replay that is still running makes them
+wait.
 
 Two earlier designs decided this automatically and both surprised operators.
 Choosing from the analysis flag stranded `settle_before_recording` runs, which
