@@ -256,7 +256,7 @@ func TestSegmentClipJobRejectsMissingOrCorruptSelectionEvidence(t *testing.T) {
 		{"missing case", `DROP TABLE lidar_clips`},
 		{"unreadable case", `ALTER TABLE lidar_clips RENAME COLUMN description TO broken_description`},
 		{"unreadable case files", `ALTER TABLE lidar_clip_captures RENAME COLUMN pcap_file TO broken_path`},
-		{"empty case files", `DELETE FROM lidar_clip_captures; UPDATE lidar_clips SET pcap_file=''`},
+		{"empty case files", `DELETE FROM lidar_clip_captures`},
 		{"unsafe case file", `UPDATE lidar_clip_captures SET pcap_file='../outside.pcap'`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
