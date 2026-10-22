@@ -16,7 +16,7 @@ what was found and why the rest is not.
   [pipeline review](../../../data/maths/pipeline-review-open-questions.md),
   [gap analysis](../../../data/maths/paper-implementation-gap-analysis.md),
   [decision register](../../DECISIONS.md), [experiment review, October 18](../../lidar/operations/experiment-review-2026-10-18.md);
-  checkpoint PR: none yet
+  checkpoint PR: [banshee-data/velocity.report#834](https://github.com/banshee-data/velocity.report/pull/834)
 
 ## Voice brief
 
@@ -655,8 +655,8 @@ integration` after revision 2; each entry records its confirmation; dependency r
 - Next phase and requested tier: integrate/high.
 - Packet and revision: `docs/platform/operations/decision-review-maths-2026-10.md`,
   DR-MATHS-2026-10, revision 2.
-- Branch and PR: `claude/peaceful-davinci-w8iuw8`; committed; the draft PR link is in the
-  Related line once opened.
+- Branch and PR: `claude/peaceful-davinci-w8iuw8`, pushed; draft
+  [banshee-data/velocity.report#834](https://github.com/banshee-data/velocity.report/pull/834).
 - Read first: Decision log E-01 to E-07, Follow-ups F-03 to F-09, the Impact tables of the
   chosen options, then this section.
 - Resume at: integration of E-01 to E-07. Confirmed: Q-01 to Q-07. Returned: none. Blockers:
