@@ -10,7 +10,7 @@ binary and the server first:
     make scene-variants SET=tools/s2-archive/scene-variants/geometry-convergence.json
 
 A set file names its variants by tuning config, each a path relative to the
-server's config directory exactly as the :8081 replay form's dropdown names it,
+server's config directory exactly as the LiDAR Status page's replay form names it,
 and the sites and windows to replay. Every variant is the same packets replayed
 through publish-scenes.py's own replay with the variant's tuning_config, and the
 same exporter at the same settings, written in the layout of a published scene's

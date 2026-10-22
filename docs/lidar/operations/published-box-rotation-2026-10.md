@@ -559,7 +559,8 @@ frame with 50 tracks pays about 1.5 ms here. Scene assets with the box centre ar
 Build the server and the visualiser from this change (`make build-radar-local`, `make build-mac`).
 Since geom0006 the box model is in the defaults, so a server or replay draws it unless its tuning
 switches it off; [box-model-off.json](../../../config/experiments/box-model-off.json) (the
-server's `--config`, or chosen in the 8081 replay form's Tuning Config list, `tuning_config` on
+server's `--config`, or chosen in the Tuning Config list of the replay form (the 8081 form when
+this report was written, the LiDAR Status page at `/app/lidar/status` since v0.5.2), `tuning_config` on
 `POST /api/lidar/pcap/start`) draws the legacy box beside it. The visualiser draws the box model's
 box at its own centre.
 A scene exported from that replay's VRLOG (`velocity scene export`) carries `bx` and `by`, which

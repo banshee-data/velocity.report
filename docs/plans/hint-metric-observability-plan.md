@@ -8,6 +8,8 @@
   - [Backend surface matrix](../../data/structures/MATRIX.md)
   - [Clustering observability](lidar-clustering-observability-and-benchmark-plan.md)
 - **Canonical:** [observability-surfaces.md](../lidar/operations/observability-surfaces.md)
+- **Note:** "HINT dashboard" below means the HINT controls, which moved from the `:8081` sweep
+  dashboard to the Run a Sweep page (`/app/lidar/sweeps/run`) in v0.5.2.
 
 ---
 
@@ -64,9 +66,9 @@ Expose the 12 fields already in `lidar_analysis_runs.statistics_json`.
 
 **Files:**
 
-- `internal/lidar/monitor/run_track_api.go`: API response
+- `internal/lidar/server/run_track_api.go`: API response
 - [web/src/routes/lidar/runs/](../../web/src/routes/lidar/runs): Svelte rendering
-- `internal/lidar/monitor/assets/sweep_dashboard.js`: HINT round history
+- `web/src/routes/lidar/sweeps/run/+page.svelte`: HINT round history
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results,
 PDF reports
@@ -84,7 +86,7 @@ responses.
 
 **Files:**
 
-- `internal/lidar/monitor/run_track_api.go`: include columns in query
+- `internal/lidar/server/run_track_api.go`: include columns in query
 - [web/src/routes/lidar/tracks/](../../web/src/routes/lidar/tracks): Svelte rendering
 
 **Beneficiaries:** HINT labelling, runs page, analysis dashboards
@@ -105,7 +107,7 @@ computed but never persisted.
 
 - [internal/db/](../../internal/db): migration
 - [internal/lidar/storage/sqlite/](../../internal/lidar/storage/sqlite): write logic
-- `internal/lidar/monitor/run_track_api.go`: API
+- `internal/lidar/server/run_track_api.go`: API
 - [web/src/routes/lidar/tracks/](../../web/src/routes/lidar/tracks): rendering
 
 **Beneficiaries:** HINT labelling, runs page, training data curation
@@ -126,9 +128,9 @@ Expose `compareParams()` and `computeTemporalIoU()` via a new endpoint.
 
 **Files:**
 
-- `internal/lidar/monitor/run_track_api.go`: new handler
+- `internal/lidar/server/run_track_api.go`: new handler
 - [internal/lidar/storage/sqlite/run_compare.go](../../internal/lidar/storage/sqlite/run_compare.go): already implemented
-- `internal/lidar/monitor/assets/sweep_dashboard.js`: HINT round comparison
+- `web/src/routes/lidar/sweeps/run/+page.svelte`: HINT round comparison
 
 **Beneficiaries:** HINT labelling, HINT dashboard, runs page, sweep results
 
@@ -182,7 +184,7 @@ only exposed as the derived `FragmentationRatio`.
 **Files:**
 
 - [internal/lidar/sweep/hint.go](../../internal/lidar/sweep/hint.go): `HINTRound` struct
-- `internal/lidar/monitor/assets/sweep_dashboard.js`: rendering
+- `web/src/routes/lidar/sweeps/run/+page.svelte`: rendering
 
 **Beneficiaries:** HINT dashboard, sweep results, tracker debugging
 
@@ -197,7 +199,7 @@ only exposed as the derived `FragmentationRatio`.
 **Files:**
 
 - [internal/lidar/sweep/hint.go](../../internal/lidar/sweep/hint.go): `HINTRound` struct
-- `internal/lidar/monitor/assets/sweep_dashboard.js`: rendering
+- `web/src/routes/lidar/sweeps/run/+page.svelte`: rendering
 
 **Beneficiaries:** HINT dashboard, sweep analysis
 
@@ -222,7 +224,7 @@ accumulators but only rolled up into run-level `TrackingMetrics`.
 - [internal/db/](../../internal/db): migration
 - [internal/lidar/l5tracks/tracking.go](../../internal/lidar/l5tracks/tracking.go): finalise per-track values
 - [internal/lidar/storage/sqlite/](../../internal/lidar/storage/sqlite): write logic
-- `internal/lidar/monitor/run_track_api.go`: API
+- `internal/lidar/server/run_track_api.go`: API
 
 **Beneficiaries:** HINT labelling, runs page, tracker debugging
 

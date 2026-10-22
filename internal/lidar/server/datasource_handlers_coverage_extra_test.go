@@ -95,7 +95,6 @@ func TestFailReplayRun_FailRunError(t *testing.T) {
 	defer cleanupDB()
 
 	ws := NewServer(Config{
-		Address:  ":0",
 		Stats:    NewPacketStats(),
 		SensorID: "fail-run-error",
 		DB:       dbWrapped,
@@ -311,7 +310,6 @@ func TestStartPCAPLocked_AnalysisMode_CountErrorProgressAndDroppedFrames(t *test
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -401,7 +399,6 @@ func TestStartPCAPLocked_SettleBeforeRecordingRunsTwoPasses(t *testing.T) {
 	getReplayFrameBuilder = func(string) replayFrameBuilder { return frameBuilder }
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -507,7 +504,6 @@ func TestStartPCAPLocked_RealtimePlotsSuccessAndStopped(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -572,7 +568,6 @@ func TestStartPCAPLocked_RealtimePlotGenerateError(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -657,7 +652,6 @@ func TestStartPCAPLocked_AnalysisMode_FailRunError(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    sensorID,
 		PCAPSafeDir: tmpDir,
@@ -716,7 +710,6 @@ func TestStartPCAPLocked_AnalysisMode_CompleteAndVRLogUpdateErrors(t *testing.T)
 	}
 
 	ws := NewServer(Config{
-		Address:          ":0",
 		Stats:            NewPacketStats(),
 		SensorID:         sensorID,
 		PCAPSafeDir:      tmpDir,
@@ -771,7 +764,6 @@ func TestStartPCAPLocked_NonAnalysis_ResetStateErrorAndStopped(t *testing.T) {
 
 	var stopped bool
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,
@@ -816,7 +808,6 @@ func TestStartPCAPLocked_NonAnalysis_StartLiveListenerError(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:           ":0",
 		Stats:             NewPacketStats(),
 		SensorID:          sensorID,
 		PCAPSafeDir:       tmpDir,

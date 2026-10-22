@@ -29,7 +29,7 @@ velocity.report ships **one multi-call binary**, `velocity`, dispatched on `os.A
 Compatibility alias: `velocity-report [serve flags]` (and suffixed dev/release artefact names like `velocity-report-local`) routes to the server surface. The former separate binaries — `velocity-ctl`, `sweep`, and the `velocity-update` redirect stub — no longer exist; their functions are namespaces above.
 
 - **100+ Makefile targets**: build, test, and development tasks
-- **Multiple HTTP APIs**: radar API (`:8080`), LiDAR monitor (`:8081`), admin routes (`/debug/`)
+- **One HTTP listener** (`:8080`): radar API, LiDAR API (when enabled) and admin routes (`/debug/`); the separate LiDAR monitor on `:8081` was retired in v0.5.2
 
 This document covers what exists and works today.
 
@@ -54,8 +54,8 @@ velocity serve --db-path /var/lib/velocity-report/sensor_data.db
 # Development (no hardware)
 velocity serve --disable-radar --debug
 
-# With lidar enabled
-velocity serve --enable-lidar --lidar-listen :8081
+# With lidar enabled (LiDAR routes are served on --listen)
+velocity serve --enable-lidar
 ```
 
 > The systemd unit and the `velocity-report` compatibility alias invoke this
@@ -82,7 +82,7 @@ velocity serve --enable-lidar --lidar-listen :8081
 **LiDAR Integration Flags:**
 
 - `--enable-lidar` - Enable in-process lidar components
-- `--lidar-listen :8081` - HTTP listen address for lidar monitor
+- `--lidar-listen` - Retired in v0.5.2: a tombstone that fails and names `--listen`, where the LiDAR routes are
 - `--lidar-no-parse` - Disable packet parsing (forwarding only)
 - `--lidar-forward` - Forward UDP packets to another port
 - `--lidar-forward-addr localhost` - Forwarding destination address
@@ -183,10 +183,9 @@ forwards `velocity data …` and `velocity report …` here):
 - `/debug/tail` - Live tail of serial port output
 - `/debug/serial-disabled` - Status page when radar disabled
 
-**LiDAR Monitor (`:8081` when `--enable-lidar`):**
+**LiDAR API (on the main listener when `--enable-lidar`):**
 
 - `GET /health` - Health check
-- `GET /` - Status page (HTML dashboard)
 - `GET /api/lidar/status` - LiDAR system status
 - `POST /api/lidar/persist` - Manually trigger background persistence
 - `GET /api/lidar/snapshot` - Retrieve latest background snapshot
@@ -211,6 +210,9 @@ forwards `velocity data …` and `velocity report …` here):
 - `GET /api/lidar/traffic` - Traffic statistics
 - `GET /api/lidar/settling_eval` - Settling evaluation metrics
 - `GET /api/lidar/background/grid` - Background grid data
+- `GET /api/lidar/background/regions` - Background region map (was `/debug/lidar/background/regions`)
+- `GET /api/charts/grid` - Background grid as SVG, coloured by `metric` (`fill_rate`, `settle_rate`, `unsettled_ratio`, `frozen_ratio`, `mean_times_seen`)
+- `GET /api/lidar/configs` - Tuning config files the replay form can apply
 
 **Track API:**
 
@@ -232,7 +234,7 @@ forwards `velocity data …` and `velocity report …` here):
 
 **Chart & Visualisation API:**
 
-- `GET /api/lidar/chart/*` - JSON chart data endpoints (acceptance, grid, tracks, etc.)
+- `GET /api/lidar/chart/{polar,heatmap,foreground,clusters,traffic}` - JSON chart data for the LiDAR Debug page
 
 **Playback & VRLOG API:**
 
@@ -244,9 +246,9 @@ forwards `velocity data …` and `velocity report …` here):
 - `/api/lidar/runs/*` - Run management
 - `/api/lidar/clips/*` - Scene management
 
-**Debug Dashboard (`:8081/debug/`):**
+**LiDAR pages (web app):**
 
-- `/debug/lidar/*` - LiDAR debug dashboard and diagnostic views
+- `/app/lidar/status`, `/app/lidar/debug`, `/app/lidar/regions`, `/app/lidar/sweeps/run` - the Svelte pages that replaced the `/debug/lidar/*` dashboards in v0.5.2
 
 ---
 
@@ -275,7 +277,7 @@ velocity tune sweep --pcap recording.pcap --pcap-settle 20s
 
 **Core Configuration:**
 
-- `--monitor http://localhost:8081` - Base URL for lidar monitor API
+- `--monitor http://localhost:8080` - Base URL of the server's LiDAR API
 - `--sensor hesai-pandar40p` - Sensor ID
 - `--output <file>` - Output CSV filename (defaults to `sweep-<mode>-<timestamp>.csv`)
 
@@ -553,7 +555,7 @@ make plot-multisweep INPUT=sweep-results.csv
 **Port Usage:**
 
 - **8080** - Main HTTP API and web UI
-- **8081** - LiDAR monitor (when enabled)
+- **8081** - Retired in v0.5.2 (was the LiDAR monitor); LiDAR routes are on 8080
 - **2369** - LiDAR UDP packets (incoming)
 - **2368** - LiDAR forwarding (to LidarView)
 

@@ -59,7 +59,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-BASE_URL="${1:-http://127.0.0.1:8081}"
+BASE_URL="${1:-http://127.0.0.1:8080}"
 SENSOR_ID="hesai-pandar40p"
 PCAP_FILE="static/kirk0.pcapng"
 

@@ -10,18 +10,28 @@ import { defineConfig, type Plugin } from 'vite';
  * Prevents @tailwindcss/vite from choking on virtual CSS modules that
  * vite-plugin-svelte fails to extract from node_modules components.
  * When extraction fails the raw Svelte source is mistakenly passed as CSS.
+ * LayerChart is exempt: its axis, tooltip and legend styles live in its
+ * components' <style> blocks, and the charts are unreadable without them.
  */
+function isBlankedComponentStyle(id: string): boolean {
+	return (
+		id.includes('node_modules') &&
+		!id.includes('/layerchart/') &&
+		id.includes('.svelte?svelte&type=style&lang.css')
+	);
+}
+
 function svelteVirtualCssFix(): Plugin {
 	return {
 		name: 'svelte-virtual-css-fix',
 		enforce: 'pre',
 		resolveId(id) {
-			if (id.includes('node_modules') && id.includes('.svelte?svelte&type=style&lang.css')) {
+			if (isBlankedComponentStyle(id)) {
 				return id;
 			}
 		},
 		load(id) {
-			if (id.includes('node_modules') && id.includes('.svelte?svelte&type=style&lang.css')) {
+			if (isBlankedComponentStyle(id)) {
 				return '';
 			}
 		}
@@ -40,9 +50,10 @@ export default defineConfig({
 				realpathSync(resolve('../public_html/src/js'))
 			]
 		},
+		// Every API route, LiDAR included, is on the main server. A scratch
+		// server on another port is reached with VELOCITY_API_URL.
 		proxy: {
-			'/api/lidar': 'http://localhost:8081',
-			'/api': 'http://localhost:8080'
+			'/api': process.env.VELOCITY_API_URL ?? 'http://localhost:8080'
 		}
 	},
 	plugins: [

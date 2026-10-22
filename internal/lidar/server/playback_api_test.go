@@ -60,7 +60,6 @@ func TestHandlePCAPStartAcceptsAPacedSequence(t *testing.T) {
 	}
 
 	ws := NewServer(Config{
-		Address:     ":0",
 		Stats:       NewPacketStats(),
 		SensorID:    "sensor-sequence",
 		PCAPSafeDir: tmpDir,
@@ -96,7 +95,6 @@ func TestHandlePCAPStartOmittedAnalysisModeDefaultsToTrue(t *testing.T) {
 			t.Fatalf("WriteFile(): %v", err)
 		}
 		ws := NewServer(Config{
-			Address:     ":0",
 			Stats:       NewPacketStats(),
 			SensorID:    "sensor-omitted-mode",
 			PCAPSafeDir: tmpDir,

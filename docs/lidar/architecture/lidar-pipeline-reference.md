@@ -38,7 +38,7 @@ PCAP/Live UDP → Parse → Frame → Background → Foreground → Cluster → 
 | Sweep Runner          | [internal/lidar/sweep/runner.go](../../../internal/lidar/sweep/runner.go)                             | ✅ Complete |
 | Auto-Tuner            | [internal/lidar/sweep/auto.go](../../../internal/lidar/sweep/auto.go)                                 | ✅ Complete |
 | Sweep Scoring         | `internal/lidar/sweep/scoring.go`                                                                     | ✅ Complete |
-| Sweep Dashboard       | `internal/lidar/monitor/html/sweep_dashboard.html`                                                    | ✅ Complete |
+| Sweep UI (web)        | [web/src/routes/lidar/sweeps/run/+page.svelte](../../../web/src/routes/lidar/sweeps/run/+page.svelte) | ✅ Complete |
 | Hungarian Solver      | [internal/lidar/l5tracks/hungarian.go](../../../internal/lidar/l5tracks/hungarian.go)                 | ✅ Complete |
 | Ground Removal        | [internal/lidar/l4perception/ground.go](../../../internal/lidar/l4perception/ground.go)               | ✅ Complete |
 | OBB Estimation        | [internal/lidar/l4perception/obb.go](../../../internal/lidar/l4perception/obb.go)                     | ✅ Complete |

@@ -2,13 +2,9 @@ package server
 
 import (
 	"context"
-	"errors"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -65,7 +61,6 @@ func replayWith(t *testing.T, opts replayOpts) (reads int, run *sqlite.Run, ws *
 	prepareSettledPCAPReplay = func(*Server, string, string) error { return nil }
 
 	ws = NewServer(Config{
-		Address:            ":0",
 		Stats:              NewPacketStats(),
 		SensorID:           sensorID,
 		PCAPSafeDir:        tmpDir,
@@ -200,59 +195,10 @@ func startMonitor(t *testing.T, srv *Server) {
 	}
 }
 
-// The monitor port held by another server moves rather than taking the
-// monitor down, and Addr names the port that was bound.
-func TestStart_HeldMonitorPortFallsBack(t *testing.T) {
-	held, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer held.Close()
-
-	srv := NewServer(Config{
-		Address:        held.Addr().String(),
-		ListenFallback: true,
-		Stats:          NewPacketStats(),
-		UDPListenerConfig: network.UDPListenerConfig{
-			Address: "127.0.0.1:0",
-		},
-	})
-	startMonitor(t, srv)
-
-	got := srv.Addr()
-	if got == "" || got == held.Addr().String() {
-		t.Fatalf("Addr() = %q, want a port other than the held %s", got, held.Addr())
-	}
-	resp, err := http.Get("http://" + got + "/")
-	if err != nil {
-		t.Fatalf("the fallback address does not serve: %v", err)
-	}
-	resp.Body.Close()
-}
-
-// Without fallback a held port is still a startup error, as it was.
-func TestStart_HeldMonitorPortFailsWithoutFallback(t *testing.T) {
-	held, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer held.Close()
-
-	srv := NewServer(Config{Address: held.Addr().String(), Stats: NewPacketStats()})
-	err = srv.Start(context.Background())
-	if err == nil {
-		t.Fatal("Start returned nil on a held port without ListenFallback")
-	}
-	if !errors.Is(err, syscall.EADDRINUSE) {
-		t.Errorf("start error = %v, want address in use", err)
-	}
-}
-
-// The live sensor port cannot move, so a server tolerating another on the host
-// serves replays without it rather than not serving at all.
+// With fallback, a live UDP port held by another server leaves this one
+// serving replays rather than failing to start.
 func TestStart_HeldLiveUDPPortServesReplaysWithFallback(t *testing.T) {
 	srv := NewServer(Config{
-		Address:        "127.0.0.1:0",
 		ListenFallback: true,
 		Stats:          NewPacketStats(),
 		UDPListenerConfig: network.UDPListenerConfig{
@@ -260,7 +206,4 @@ func TestStart_HeldLiveUDPPortServesReplaysWithFallback(t *testing.T) {
 		},
 	})
 	startMonitor(t, srv)
-	if srv.Addr() == "" {
-		t.Fatal("monitor did not bind although only the UDP listener failed")
-	}
 }

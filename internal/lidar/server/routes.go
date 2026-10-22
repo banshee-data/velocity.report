@@ -6,8 +6,6 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/api"
 	"github.com/banshee-data/velocity.report/internal/compatibility"
-	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
-	"tailscale.com/tsweb"
 )
 
 // route defines a single HTTP route with pattern and handler.
@@ -44,13 +42,9 @@ func featureGate(envVar string, next http.HandlerFunc) http.HandlerFunc {
 
 // RegisterRoutes registers all Lidar monitor routes on the provided mux
 func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
-	assetsFS := l9endpoints.LegacyAssetsFS()
-
 	// Core status and health routes
 	coreRoutes := []route{
 		{"/health", ws.handleHealth},
-		{"/api/lidar/server", ws.handleStatus},
-		{compatibility.AliasRoute("/api/lidar/monitor", "/api/lidar/server"), ws.handleStatus},
 		{"GET /api/lidar/status", ws.handleLidarStatus},
 		{"POST /api/lidar/persist", ws.handleLidarPersist},
 	}
@@ -100,6 +94,10 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/grid_reset", ws.handleGridReset},
 		{"GET /api/lidar/grid_heatmap", ws.handleGridHeatmap},
 		{"/api/lidar/background/grid", ws.handleBackgroundGrid},
+		{"GET /api/lidar/background/regions", ws.handleBackgroundRegions},
+		// SVG beside the report charts on /api/charts/*; the web's LiDAR
+		// debug page embeds it.
+		{"GET /api/charts/grid", ws.handleGridChart},
 	}
 
 	// Data source and PCAP replay routes
@@ -142,23 +140,8 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"/api/lidar/chart/traffic", ws.handleChartTrafficJSON},
 	}
 
-	// Debug dashboard and visualisation routes
-	debugRoutes := []route{
-		{"/debug/lidar/sweep", ws.handleSweepDashboard},
-		{"/debug/lidar/background/regions", ws.handleBackgroundRegions},
-		{"/debug/lidar/background/regions/dashboard", ws.handleBackgroundRegionsDashboard},
-		{"/debug/lidar", ws.handleLidarDebugDashboard},
-		{"/debug/lidar/background/polar", ws.handleBackgroundGridPolar},
-		{"/debug/lidar/background/heatmap", ws.handleBackgroundGridHeatmapChart},
-		{"/debug/lidar/foreground", ws.handleForegroundFrameChart},
-		{"/debug/lidar/traffic", ws.handleTrafficChart},
-		{"/debug/lidar/clusters", ws.handleClustersChart},
-		{"/debug/lidar/tracks", ws.handleTracksChart},
-	}
-
 	// Note: pprof endpoints (/debug/pprof/*) are registered by tsweb.Debugger()
-	// via db.AttachAdminRoutes() on the main mux, and by setupRoutes() on
-	// the lidar-only server mux.
+	// via db.AttachAdminRoutes() on the main mux.
 
 	// Playback API routes (VRLOG replay control)
 	playbackRoutes := []route{
@@ -174,16 +157,11 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// Register all route groups
 	for _, group := range [][]route{
 		coreRoutes, snapshotRoutes, metricsRoutes, sweepRoutes,
-		gridRoutes, pcapRoutes, captureRoutes, chartRoutes, debugRoutes, playbackRoutes,
+		gridRoutes, pcapRoutes, captureRoutes, chartRoutes, playbackRoutes,
 	} {
 		for _, r := range group {
 			mux.HandleFunc(r.pattern, r.handler)
 		}
-	}
-
-	// ECharts assets (static file serving)
-	if assetsFS != nil {
-		mux.Handle(echartsAssetsPrefix, http.StripPrefix(echartsAssetsPrefix, http.FileServer(http.FS(assetsFS))))
 	}
 
 	// Track API routes (delegate to TrackAPI handlers)
@@ -255,20 +233,4 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	// intersection midpoint) — distinct from a case's own sensor pose.
 	mux.HandleFunc("/api/lidar/sites/", ws.withDB(ws.handleSiteByToken))
 
-}
-
-// setupRoutes configures the HTTP routes and handlers for the lidar-only
-// server. pprof and debug endpoints are registered via tsweb.Debugger(),
-// matching the radar admin server's access control (tailscale-only).
-func (ws *Server) setupRoutes() *http.ServeMux {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/{$}", ws.handleStatus)
-	ws.RegisterRoutes(mux)
-
-	// Register pprof and debug endpoints via tsweb.Debugger, which
-	// restricts access to loopback and authenticated Tailscale peers
-	// — same mechanism as the radar admin server.
-	tsweb.Debugger(mux)
-
-	return mux
 }

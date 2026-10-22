@@ -278,7 +278,10 @@ type RegionDebugInfo struct {
 	RegionCount            int          `json:"region_count"`
 	Regions                []RegionInfo `json:"regions"`
 	// Grid mapping: for each cell, which region it belongs to
-	GridMapping []int `json:"grid_mapping"` // maps cell index to region ID
+	GridMapping []int `json:"grid_mapping"` // maps cell index to region ID, ring-major
+	// Rings and AzimuthBins size the grid GridMapping indexes.
+	Rings       int `json:"rings"`
+	AzimuthBins int `json:"azimuth_bins"`
 }
 
 // GetRegionDebugInfo returns comprehensive region information for debugging
@@ -301,6 +304,8 @@ func (bm *BackgroundManager) GetRegionDebugInfo(includeCells bool) *RegionDebugI
 		RegionCount:            len(rm.Regions),
 		Regions:                make([]RegionInfo, 0, len(rm.Regions)),
 		GridMapping:            make([]int, len(rm.CellToRegionID)),
+		Rings:                  g.Rings,
+		AzimuthBins:            g.AzimuthBins,
 	}
 
 	if rm.IdentificationComplete {

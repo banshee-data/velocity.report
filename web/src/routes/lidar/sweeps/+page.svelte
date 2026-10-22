@@ -3,7 +3,8 @@
 	 * LiDAR Sweeps Page
 	 *
 	 * Lists sweep/auto-tune runs with a detail panel showing recommendation,
-	 * request config, and links to the sweep dashboard.
+	 * request config, and the results charts. Sweeps are started from
+	 * /lidar/sweeps/run.
 	 */
 	import {
 		applyLidarParams,
@@ -13,6 +14,7 @@
 		getSweep,
 		listSweeps
 	} from '#lib/api.js';
+	import SweepResults from '#lib/components/lidar/SweepResults.svelte';
 	import { clipQuery, runQuery } from '#lib/lidarLinks.js';
 	import { objectiveText } from '#lib/lidarRecords.js';
 	import type { HINTState, LidarClip, SweepRecord, SweepSummary } from '#lib/types/lidar.js';
@@ -268,11 +270,6 @@
 		}
 	}
 
-	/** Build URL to the sweep dashboard with the sweep pre-selected. */
-	function dashboardUrl(sweepId: string): string {
-		return `/debug/lidar/sweep?sweep_id=${encodeURIComponent(sweepId)}`;
-	}
-
 	/** Format a recommendation object as readable key=value lines. */
 	function formatRecommendation(rec: Record<string, unknown>): {
 		params: [string, string][];
@@ -309,6 +306,11 @@
 				</p>
 			</div>
 			<div class="flex gap-2">
+				<!-- eslint-disable svelte/no-navigation-without-resolve -->
+				<a href={resolve('/lidar/sweeps/run')}>
+					<Button variant="fill" color="primary">Run a sweep</Button>
+				</a>
+				<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				<Button variant="outline" on:click={loadData} disabled={loading}>
 					{loading ? 'Loading...' : 'Refresh'}
 				</Button>
@@ -330,9 +332,9 @@
 				<p class="text-surface-content/50 text-sm">Loading sweeps…</p>
 			{:else if sweeps.length === 0}
 				<p class="text-surface-content/50 text-sm">
-					No sweeps found. Run a sweep from the
+					No sweeps found.
 					<!-- eslint-disable svelte/no-navigation-without-resolve -->
-					<a href="/debug/lidar/sweep" class="text-primary underline">sweep dashboard</a>.
+					<a href={resolve('/lidar/sweeps/run')} class="text-primary underline">Run a sweep</a>.
 				</p>
 			{:else}
 				<div class="space-y-2">
@@ -500,19 +502,6 @@
 							<span class="text-surface-content/60">Sweep ID</span>
 							<code class="text-xs">{selectedSweep.sweep_id}</code>
 						</div>
-					</div>
-
-					<!-- Dashboard Link -->
-					<div class="mb-4">
-						<!-- eslint-disable svelte/no-navigation-without-resolve -->
-						<a
-							href={dashboardUrl(selectedSweep.sweep_id)}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-primary text-sm underline"
-						>
-							Open in Sweep Dashboard →
-						</a>
 					</div>
 
 					<!-- HINT: Inline Continue for awaiting_labels -->
@@ -737,19 +726,12 @@
 						</details>
 					{/if}
 
-					<!-- Results Summary -->
+					<!-- Results -->
 					{#if selectedSweep.results && Array.isArray(selectedSweep.results)}
-						<details class="mb-4">
-							<summary class="text-surface-content cursor-pointer text-sm font-semibold">
-								Results ({selectedSweep.results.length} combos)
-							</summary>
-							<pre
-								class="bg-surface-200 mt-2 max-h-96 overflow-auto rounded p-3 text-xs">{JSON.stringify(
-									selectedSweep.results,
-									null,
-									2
-								)}</pre>
-						</details>
+						<div class="mb-4">
+							<h3 class="text-surface-content mb-2 text-sm font-semibold">Results</h3>
+							<SweepResults results={selectedSweep.results} columns={1} />
+						</div>
 					{/if}
 				{/if}
 			</div>

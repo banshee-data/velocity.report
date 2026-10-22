@@ -147,21 +147,20 @@ It is a purpose-built on-device management tool with no SSH surface.
 | **PDF Generator**            | Go            | [internal/report/](../../../internal/report)                                       | Built into main binary            |
 | **Transit Backfill**         | Go            | `cmd/transit-backfill/`                                                            | Manual `go build`                 |
 | **Ring Elevations Backfill** | Go            | [cmd/tools/backfill_ring_elevations/](../../../cmd/tools/backfill_ring_elevations) | Manual `go build`                 |
-| **Grid Heatmap**             | Python        | [tools/grid-heatmap/](../../../tools/grid-heatmap)                                 | Manual invocation                 |
 | **Web Frontend**             | Svelte        | `web/`                                                                             | `//go:embed` in assets.go         |
 
 ## User personas
 
-| Persona                    | Needs                                                                   |
-| -------------------------- | ----------------------------------------------------------------------- |
-| **Neighbourhood Advocate** | Single binary, web UI, PDF reports, systemd auto-start                  |
-| **Traffic Engineer**       | All tools (sweep, heatmap, backfill), Python available, CLI proficiency |
-| **Developer**              | Source repo with Makefile, all build targets, dev convenience           |
+| Persona                    | Needs                                                          |
+| -------------------------- | -------------------------------------------------------------- |
+| **Neighbourhood Advocate** | Single binary, web UI, PDF reports, systemd auto-start         |
+| **Traffic Engineer**       | All tools (sweep, backfill), Python available, CLI proficiency |
+| **Developer**              | Source repo with Makefile, all build targets, dev convenience  |
 
 ## Tool categorisation
 
 - **Core tools** (in main binary): serve, migrate, pdf, basic backfill
-- **Power user tools** (separate): sweep, grid-heatmap
+- **Power user tools** (separate): sweep. The Python grid-heatmap tool was retired in v0.5.2; the server serves the grid view as SVG (`GET /api/charts/grid`)
 - **Developer tools** (not installed): ring elevations backfill, dev scripts
 
 ## Installed system layout

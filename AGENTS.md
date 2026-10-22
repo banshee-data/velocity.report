@@ -41,7 +41,8 @@ Run each experiment arm from a tuning config file in `config/experiments/`, not 
 patches typed at the time. If no file holds the arm's parameters, build one before the runs: copy
 `config/tuning.defaults.json`, change only the keys the arm changes, and add a row to
 `config/experiments/README.md` naming each changed key and the report. Run the arm from that file:
-the :8081 replay form's Tuning Config dropdown, `tuning_config` on `POST /api/lidar/pcap/start`,
+the replay form's Tuning Config dropdown on the LiDAR Status page (`/app/lidar/status`),
+`tuning_config` on `POST /api/lidar/pcap/start`,
 `--config` at startup, or a replay tool's `-tuning`. Record the file's path and fingerprint in the
 report's provenance, and commit the file with the report. A parameter set is hand-authored
 configuration, not raw output, so it belongs in Git. `go test ./internal/config -run Experiment`
@@ -186,13 +187,10 @@ flowchart TB
 	Lidar["LiDAR <br> (ethernet)"]
 	GRPC[gRPC API <br> :50051]
 	GRPC --> Vis[macOS visualiser]
-	LiDAR_API[LiDAR API <br> :8081]
-	API[HTTP API <br> :8080]
-	LiDAR_API --> Vis
-	LiDAR_API --> Web
+	API[HTTP API <br> :8080 <br> radar + LiDAR]
+	API --> Vis
 	API --> Web["Web <br> (Svelte)"]
 	API --> PDF[PDF report]
-	Go --> LiDAR_API
 	Go --> API
 	Go --> GRPC
 	Go["Go binary"]
@@ -217,6 +215,7 @@ The core. Runs as a systemd service on Raspberry Pi (ARM64 Linux). Handles:
 - **LiDAR ingest** (`internal/lidar/`): UDP packet decoder for Hesai Pandar40P → layered perception pipeline (L1–L9)
 - **Transit worker**: background sessionisation of `radar_data` → `radar_data_transits`
 - **HTTP API** ([internal/api/](internal/api/)): radar stats, config, capabilities, report generation, sites, site-config periods, timeline, transit worker control, DB stats, SVG chart endpoints (`/api/charts/timeseries|histogram|comparison`)
+- **LiDAR HTTP API** ([internal/lidar/server/](internal/lidar/server/)): registered on the same main mux (`--listen`, default `127.0.0.1:8080`); the separate :8081 listener is retired. Replay and recording, tuning parameters, sweeps, grid and regions, chart JSON (`/api/lidar/chart/*`), and the background grid SVG (`/api/charts/grid`)
 - **Offline docs** ([internal/docsite/](internal/docsite/)): serves the embedded Eleventy docs site at `/docs/` on the main HTTP mux; source is `embed` (default) or `disk`
 - **gRPC server** (`internal/lidar/l9endpoints/`): streams `FrameBundle` protobufs to the macOS visualiser; supports live, PCAP replay, VRLOG replay, and synthetic modes
 
@@ -236,7 +235,7 @@ For the canonical L1-L10 model and concept chart, see [ARCHITECTURE.md#segmented
 | L6    | `l6objects/`    | Track classification (vehicle, pedestrian, noise) and quality assessment                        |
 | L8    | `l8analytics/`  | Run metrics, cross-run comparisons, scoring, percentile helpers                                 |
 | L8    | `l8behaviour/`  | Behaviour: following gap and time gap, local path, leader choice, exposure                      |
-| L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), HTTP charts, legacy web UI                   |
+| L9    | `l9endpoints/`  | gRPC streaming, VRLOG recording/replay (protobuf), chart data for the web                       |
 
 **`pipeline/`** is the composition root: it orchestrates L3–L6 and is the only package that imports from all layer packages; layer packages never import `pipeline/`.
 
@@ -262,7 +261,7 @@ Produces PDF reports: direct DB queries → SVG charts ([internal/report/chart](
 
 ### Web frontend (`web/`)
 
-Svelte 5 + TypeScript + Vite. Fetches from Go HTTP API. Dev server on `:5173`; production build served as static files by the Go server.
+Svelte 5 + TypeScript + Vite. Fetches from Go HTTP API. Dev server on `:5173`; production build served as static files by the Go server. The LiDAR operator pages (Status with the replay and recording form, Debug, Regions, Sweeps) live under `/app/lidar/`; their charts use LayerChart.
 
 ### macOS visualiser (`tools/visualiser-macos/`)
 

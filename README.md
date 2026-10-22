@@ -285,8 +285,9 @@ Requires macOS 15+ and a Mac with Metal support.
 make dev-mac
 ```
 
-Open the LiDAR Dashboard at [localhost:8081](http://localhost:8081) to replay captured point cloud
-data (.pcap files).
+Open the LiDAR Status page at
+[localhost:8080/app/lidar/status](http://localhost:8080/app/lidar/status) to replay captured point
+cloud data (.pcap files).
 See [tools/visualiser-macos/README.md](tools/visualiser-macos/README.md) for controls and camera
 navigation.
 Signed GitHub release DMGs use Developer ID Application signing and Apple

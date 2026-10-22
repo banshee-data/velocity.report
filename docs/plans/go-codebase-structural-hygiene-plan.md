@@ -125,7 +125,7 @@ Two silent error drop locations remain:
 
 - `internal/db/db.go:181`: `_ = db.Close()` inside the `NewDBWithMigrationCheck`
   error-return path (line number shifted from the original 251)
-- [internal/lidar/server/echarts_handlers.go](../../internal/lidar/server/echarts_handlers.go): 8 ignored `_, _ = w.Write(...)` results
+- `internal/lidar/server/echarts_handlers.go`: 8 ignored `_, _ = w.Write(...)` results (the file was deleted in v0.5.2, so this one is gone)
 
 The `export_bg_snapshot.go` (`SetRingElevations`) and `datasource_handlers.go` sites have
 been fixed since this assessment was first written: all now use `if err :=` handling or
@@ -157,7 +157,7 @@ been removed from `main`.
 
 | Dependency                             | Why it exists                                                                                                                                                                                                                        | Scope              | Keep?                                                             |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | ----------------------------------------------------------------- |
-| `github.com/go-echarts/go-echarts/v2`  | HTML chart rendering in [internal/lidar/server/echarts_handlers.go](../../internal/lidar/server/echarts_handlers.go)                                                                                                                 | Production         | Yes                                                               |
+| `github.com/go-echarts/go-echarts/v2`  | HTML chart rendering in `internal/lidar/server/echarts_handlers.go`                                                                                                                                                                  | Production         | No: removed in v0.5.2 with the debug pages                        |
 | `github.com/golang-migrate/migrate/v4` | Schema migration engine in [internal/db/migrate.go](../../internal/db/migrate.go)                                                                                                                                                    | Production         | Yes                                                               |
 | `github.com/google/go-cmp`             | Test comparison helper in [internal/cmd/server/radar_test.go](../../internal/cmd/server/radar_test.go)                                                                                                                               | Test-only          | Yes, low cost                                                     |
 | `github.com/google/gopacket`           | PCAP parsing/counting in `internal/lidar/l1packets/network/*.go`                                                                                                                                                                     | Production         | Yes                                                               |
@@ -287,5 +287,5 @@ pre-v0.5.0 work from this plan will be on `main`.
 
 - [ ] `internal/db/db.go:181`: `_ = db.Close()` on error-return path in
       `NewDBWithMigrationCheck`; low consequence, function already returning an error
-- [ ] [internal/lidar/server/echarts_handlers.go](../../internal/lidar/server/echarts_handlers.go): 8 × `_, _ = w.Write(...)` after
+- [x] `internal/lidar/server/echarts_handlers.go` (deleted in v0.5.2): 8 × `_, _ = w.Write(...)` after
       headers sent; standard Go HTTP write-after-headers pattern, log-or-ignore

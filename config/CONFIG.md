@@ -242,7 +242,8 @@ fails the test rather than running as something other than its arm.
 
 ### Running a set
 
-- **The :8081 status page.** The PCAP Replay form has a Tuning Config
+- **The LiDAR Status page** (`/app/lidar/status` on the main server). The
+  replay form has a Tuning Config
   dropdown, filled on page load from every `.json` file under the server's
   config directory. A file that cannot be applied to the running server is
   listed but disabled, with the reason. "(keep the server's current
