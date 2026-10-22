@@ -1,7 +1,19 @@
 # Pipeline review: open questions and high-value work
 
-- **Status:** Active review (March 2026)
+- **Status:** Historical review (March 2026). Its questions are answered, decided or carried
+  elsewhere; read the successors below for current state. The October 2026
+  [maths decision review](../../docs/platform/operations/decision-review-maths-2026-10.md#candidate-inventory)
+  dispositioned each one.
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L7 Scene (planned), L8 Analytics (planned)
+
+**Successors (October 2026).** Q1, Q2 and Q9: the ground model experiments
+([ground area](../experiments/ground/README.md)) and P3 under D-05. Q3: deferred with the
+sign-anchor proposal until an anchor diagnostic reports false resets. Q4: P4 under D-05. Q5:
+the state-estimation plan's Phase 4 (G-EST-1) owns constant acceleration and IMM. Q6 and Q8:
+D-04 and the held-out geometry gate G-GEO-1. Q7 and Q11: the evidence table in
+[config/CONFIG.md](../../config/CONFIG.md#config-to-maths-cross-reference) and the corpus
+campaigns. Q10: the perf gate and [perf0001](../experiments/perf/perf0001.md). §5.2: D-18,
+amended with the nearest-rank rule.
 
 Mathematical review of the current pipeline, pursuant to proposals, and existing
 plans. Identifies open questions that need reasoning, implementations that need

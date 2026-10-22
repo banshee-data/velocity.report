@@ -1150,18 +1150,18 @@ Layers L1–L6 form a complete stack from raw UDP frames to classified objects:
 DBSCAN clustering, Kalman-filtered tracking with Hungarian assignment,
 and rule-based classification, all tuneable and inspectable end to end.
 
-| Layer | Package         | Capability                                                                      | Status         |
-| ----- | --------------- | ------------------------------------------------------------------------------- | -------------- |
-| L1    | `l1packets/`    | Sensor ingest (Hesai Pandar40P UDP, PCAP replay)                                | ✅ Implemented |
-| L2    | `l2frames/`     | Frame assembly, rotation geometry, coordinate transforms                        | ✅ Implemented |
-| L3    | `l3grid/`       | Background/foreground separation (EMA grid, Welford variance, adaptive regions) | ✅ Implemented |
-| L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes via PCA, ground-plane removal        | ✅ Implemented |
-| L5    | `l5tracks/`     | Kalman-filtered multi-object tracking, Hungarian assignment, occlusion coasting | ✅ Implemented |
-| L6    | `l6objects/`    | Rule-based classification (8 object types), feature extraction                  | ✅ Implemented |
-| L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                     | Planned (v1.0) |
-| L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                               | ✅ Implemented |
-| L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                 | ✅ Implemented |
-| L10   | Clients         | macOS visualiser (Metal), Svelte frontend                                       | ✅ Implemented |
+| Layer | Package         | Capability                                                                                   | Status         |
+| ----- | --------------- | -------------------------------------------------------------------------------------------- | -------------- |
+| L1    | `l1packets/`    | Sensor ingest (Hesai Pandar40P UDP, PCAP replay)                                             | ✅ Implemented |
+| L2    | `l2frames/`     | Frame assembly, rotation geometry, coordinate transforms                                     | ✅ Implemented |
+| L3    | `l3grid/`       | Background/foreground separation (EMA grid, EMA absolute-deviation spread, adaptive regions) | ✅ Implemented |
+| L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes via PCA, ground-plane removal                     | ✅ Implemented |
+| L5    | `l5tracks/`     | Kalman-filtered multi-object tracking, Hungarian assignment, occlusion coasting              | ✅ Implemented |
+| L6    | `l6objects/`    | Rule-based classification (8 object types), feature extraction                               | ✅ Implemented |
+| L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                                  | Planned (v1.0) |
+| L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                                            | ✅ Implemented |
+| L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                              | ✅ Implemented |
+| L10   | Clients         | macOS visualiser (Metal), Svelte frontend                                                    | ✅ Implemented |
 
 Canonical layer reference:
 [LIDAR_ARCHITECTURE.md](docs/lidar/architecture/LIDAR_ARCHITECTURE.md)
