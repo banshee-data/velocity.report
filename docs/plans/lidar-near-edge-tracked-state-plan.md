@@ -20,6 +20,16 @@ inspection, and Claren continuity investigation precede any correction. Historic
 below are not a promotion decision or a substitute for this broader same-build comparison.
 Raw outputs remain outside Git; the written findings remain part of this plan's evidence record.
 
+**Cost screen (decided October 22, 2026, [maths decision review E-04](../platform/operations/decision-review-maths-2026-10.md#e-04-q-04)).**
+The cost screen is the frame's, not Tracker.Update's: a candidate arm's frame p99 stays under the
+98 ms budget and within 1.5 times the baseline's at each timing site. The update p99 ratio is still
+reported, as a regression signal for the tracker, and gates nothing. A Pi frame measurement
+([perf0004](../../data/experiments/perf/perf0004.md)) is a condition of any promotion. On the Mac,
+A2 passes the frame screen at the three timing sites
+([frame cost](../lidar/operations/near-edge-frame-cost-2026-10.md)); the October campaign's
+update-cost breaches were read against the earlier screen. B0 stays production either way:
+geometry breaches and governed validation are separate gates.
+
 ## Motivation
 
 The tracked filter still measures the medoid, so every persisted point estimate refers to a
