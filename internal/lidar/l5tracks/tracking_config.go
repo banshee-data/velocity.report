@@ -218,6 +218,16 @@ type TrackerConfig struct {
 	// the soft extent-compatibility cost (AssociationExtentCostWeight) is
 	// what charges that direction. Default false. See identity.go.
 	ClassIdentity bool
+	// ContainmentClaim refuses a confirmed track a cluster its contained box
+	// cannot hold when another track bidding for the same cluster can: a
+	// cluster the body's box cannot hold is a cluster the body should not
+	// claim (W5, experiment l5id0011). The box is the solid body's reported
+	// one at the predicted pose, floored under SolidBody.Containment, and
+	// "hold" is G5's level, 98 % of the cluster's points. It forbids pairings
+	// and makes none cheaper, so it cannot deepen S3's discount. It needs the
+	// solid body with Containment and does nothing without it. Default false.
+	// See containment_claim.go.
+	ContainmentClaim bool
 	// MeasurementSourceMode selects the position model. Empty means the
 	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource

@@ -350,7 +350,8 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `capture_gap_predict`, `coast_support`, `coast_time_inflation`,
 `class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
 `contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,
-`class_identity`, `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
+`class_identity`, `containment_claim` (which needs `solid_body`,
+`solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
 `overlap_end_body` and `overlap_end_older`, `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name) and `box_ground` (which needs the box model). An arm that uses one runs through the offline replay tools,
 and its report names the experiment beside the set. `velocity lidar pcap-replay --experiment`

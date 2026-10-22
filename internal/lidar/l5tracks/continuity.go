@@ -1006,6 +1006,10 @@ type ContinuityStats struct {
 	// gate and the guards would otherwise have admitted.
 	ReacquisitionsContested int64 `json:"reacquisitions_contested,omitempty"`
 	ClassIdentityRefusals   int64 `json:"class_identity_refusals,omitempty"`
+	// ContainmentClaimRefusals counts pairings ContainmentClaim forbade:
+	// a confirmed track whose box could not hold a cluster another bidder's
+	// could. Zero, and omitted, with the option off.
+	ContainmentClaimRefusals int64 `json:"containment_claim_refusals,omitempty"`
 }
 
 // ContinuityStats returns a snapshot of the continuity diagnostics.
