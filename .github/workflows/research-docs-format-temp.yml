@@ -1,0 +1,33 @@
+name: Temporary research docs formatter
+on:
+  push:
+    branches:
+      - docs/2026-10-22-safety-research-briefing
+    paths:
+      - .github/workflows/research-docs-format-temp.yml
+permissions:
+  contents: write
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.6.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Install pinned formatter
+        run: pnpm --dir web install --frozen-lockfile
+      - name: Format only research documents
+        run: pnpm --dir web exec prettier --ignore-path ../.prettierignore --write '../docs/research/2026-10-22/*.md'
+      - name: Commit formatting
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/research/2026-10-22
+          if ! git diff --cached --quiet; then
+            git commit -m 'style(docs): apply pinned prettier to October research reports'
+            git push origin HEAD:docs/2026-10-22-safety-research-briefing
+          fi
