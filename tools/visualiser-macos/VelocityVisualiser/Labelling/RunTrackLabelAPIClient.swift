@@ -363,6 +363,20 @@ struct Run: Codable, Identifiable {
         return String(format: "%2d %@ %2d:%02d %@", day, monthNames[month - 1], h12, minute, ampm)
     }
 
+    /// The capture or recording the run read: the server's source_name, else
+    /// the last component of source_path, else "-".
+    var fileDisplay: String {
+        if let name = sourceName, !name.isEmpty { return name }
+        if let path = sourcePath, !path.isEmpty { return (path as NSString).lastPathComponent }
+        return "-"
+    }
+
+    /// The clip the run was started from, or "-" for runs started from a capture.
+    var clipDisplay: String {
+        if let clip = clipId, !clip.isEmpty { return clip }
+        return "-"
+    }
+
     /// Short run ID prefix for compact display — first 8 chars (up to first dash).
     var shortIdPrefix: String {
         if let dashIdx = runId.firstIndex(of: "-") {

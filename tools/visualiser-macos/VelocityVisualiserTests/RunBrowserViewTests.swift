@@ -114,16 +114,36 @@ struct RunComputedPropertyTests {
         #expect(run.notes == "Test run with short recording")
     }
 
+    @Test func fileDisplayUsesSourceName() throws {
+        let run = makeRun()
+        #expect(run.fileDisplay == "test")
+    }
+
+    @Test func fileDisplayFallsBackToPathThenDash() throws {
+        var run = makeRun(sourceName: nil)
+        #expect(run.fileDisplay == "test.vrlog")
+        run = makeRun(sourcePath: nil, sourceName: "")
+        #expect(run.fileDisplay == "-")
+    }
+
+    @Test func clipDisplayShowsClipOrDash() throws {
+        var run = makeRun()
+        #expect(run.clipDisplay == "-")
+        run.clipId = "kirkham-9th-k3"
+        #expect(run.clipDisplay == "kirkham-9th-k3")
+    }
+
     private func makeRun(
         vrlogPath: String? = nil, status: String = "completed", errorMessage: String? = nil,
-        notes: String? = nil
+        notes: String? = nil, sourcePath: String? = "/data/test.vrlog",
+        sourceName: String? = "test"
     ) -> Run {
         Run(
             runId: "run-test", createdAt: Date(), sourceType: "vrlog",
-            sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
+            sourcePath: sourcePath, sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
-            sourceName: "test")
+            sourceName: sourceName)
     }
 }
 

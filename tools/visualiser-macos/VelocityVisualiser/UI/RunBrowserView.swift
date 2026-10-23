@@ -13,7 +13,8 @@ private enum RunBrowserLayout {
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 120
-    static let clipWidth: CGFloat = 40
+    static let fileWidth: CGFloat = 270
+    static let clipWidth: CGFloat = 110
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
@@ -148,7 +149,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 450, height: 700).task { await runBrowserState.fetchRuns() }
+        }.frame(width: 760, height: 700).task { await runBrowserState.fetchRuns() }
     }
 
 }
@@ -162,6 +163,7 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
+            Text("File").frame(width: RunBrowserLayout.fileWidth, alignment: .leading)
             Text("Clip").frame(width: RunBrowserLayout.clipWidth, alignment: .leading)
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
@@ -170,7 +172,7 @@ private struct RunBrowserHeaderRow: View {
     }
 }
 
-/// Row view for a single run — 6-column table layout.
+/// Row view for a single run — 7-column table layout.
 @available(macOS 15.0, *) struct RunRowView: View {
     let run: Run
     let isSelected: Bool
@@ -202,23 +204,27 @@ private struct RunBrowserHeaderRow: View {
                 width: RunBrowserLayout.dateWidth, alignment: .leading
             ).lineLimit(1)
 
-            // Col 3: the source's file name. The server calls it source_name,
-            // but it is the capture or recording the run read, not a clip: runs
-            // started from a capture record no clip to name.
-            Text(run.clipId ?? "-").font(.caption).frame(
-                width: RunBrowserLayout.clipWidth, alignment: .leading
-            ).lineLimit(1)
+            // Col 3: the capture or recording the run read (source_name).
+            Text(run.fileDisplay).font(.caption).frame(
+                width: RunBrowserLayout.fileWidth, alignment: .leading
+            ).lineLimit(1).truncationMode(.middle).help(run.sourcePath ?? run.fileDisplay)
 
-            // Col 4: Duration mm:ss
+            // Col 4: the clip, if the run was started from one; runs started
+            // from a capture record none.
+            Text(run.clipDisplay).font(.caption).frame(
+                width: RunBrowserLayout.clipWidth, alignment: .leading
+            ).lineLimit(1).truncationMode(.middle).help(run.clipDisplay)
+
+            // Col 5: Duration mm:ss
             Text(runRowFormatDuration(run.durationSecs)).font(
                 .system(.caption, design: .monospaced)
             ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
 
-            // Col 5: Tracks count
+            // Col 6: Tracks count
             Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
                 width: RunBrowserLayout.tracksWidth, alignment: .trailing)
 
-            // Col 6: Label rollup
+            // Col 7: Label rollup
             RunLabelRollupIcon(rollup: run.labelRollup).frame(
                 width: RunBrowserLayout.labelsWidth, alignment: .center)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(
