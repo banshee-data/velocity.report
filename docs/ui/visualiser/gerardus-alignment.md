@@ -44,15 +44,16 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 
 ## The operator's path
 
-| Step              | What the pane does                                                                                                                                                     | Gerardus RPC                                                    |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| Open the pane     | Lists velocity.report's located clips and picks the open capture's                                                                                                     | `GetServerInfo` (on connect)                                    |
-| Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                            | `PrepareSite`, `PoseFromHint`, `StreamReference`                |
-| Register          | Uploads the settled background once per snapshot, then registers it from the position drawn now. Hypotheses show as they converge; the best is drawn when the run ends | `UploadScan`, `Register`                                        |
-| Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                          | none                                                            |
-| Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual           | `EvaluatePose` (after the rest)                                 |
-| Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                         | `EvaluatePose(refine)`                                          |
-| Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason, then redraws the site model's layers if the model moved                        | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel` |
+| Step              | What the pane does                                                                                                                                                                                                                                                                        | Gerardus RPC                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Open the pane     | Lists velocity.report's located clips and picks the open capture's                                                                                                                                                                                                                        | `GetServerInfo` (on connect)                                     |
+| Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                                                                                                                                               | `PrepareSite`, `PoseFromHint`, `StreamReference`, `GetSiteModel` |
+| Accumulate frames | During a replay, collects the background and ground points of the next N frames, thins them to 0.05 m and uploads them as an accumulated scan, which Register then uses                                                                                                                   | `UploadScan` (`SCAN_KIND_ACCUMULATED`)                           |
+| Register          | Uploads the settled background once per snapshot (or takes the accumulated scan), then registers it from the position drawn now, against 3DEP alone or, with **Against site model** on, against the site model too. Hypotheses show as they converge; the best is drawn when the run ends | `UploadScan`, `Register`                                         |
+| Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                                                                                                                                             | none                                                             |
+| Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual                                                                                                                              | `EvaluatePose` (after the rest)                                  |
+| Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                                                                                                                                            | `EvaluatePose(refine)`                                           |
+| Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason, then redraws the site model's layers if the model moved                                                                                                                                           | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel`  |
 
 ### Registration
 
@@ -67,6 +68,45 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
   - **Accept hypothesis N (registered)** for a hypothesis of a run that passed every gate;
   - **(manually placed)** for one that did not;
   - **Accept this pose (manually placed)** once the pose has been nudged or snapped off the hypothesis. A snapped pose is recorded with source `ICP`.
+
+### Against the site model
+
+The **Against site model** switch beside Register sets `RegisterRequest.against_site_model`. It is off by default. On, Gerardus fits the scan against 3DEP plus the site's accepted scans, leaving out the scan being registered (Gerardus `docs/plans/SITE-MODEL-SPIKE.md` §6.3).
+
+- **Gates:** the ground and facade gates are still measured against 3DEP alone, so a pose that passes still sits on public data.
+- **Model residuals:** when a hypothesis's fit used the model (`FitQuality.model_points > 0`), the pane shows `model_p50_m`, `model_p75_m` and `model_points` under the gates, and on that hypothesis's row. They are reported as Gerardus gives them, and are not gates: they never change the verdict or what Accept records.
+- **Disabled, with the reason under it:**
+  - when `GetServerInfo` lists no `REGISTERED_SCANS` layer;
+  - when the site model holds no accepted scan, or none besides the one being registered;
+  - when the pane cannot tell which scans the model holds.
+- **The model's scans:** the pane asks `GetSiteModel` once the reference is placed, and again after each decision. When Gerardus answers `UNIMPLEMENTED` it uses the scans the registered-scans layer streamed.
+- **When it is decided:** the switch is read once the scan is uploaded, when its `scan_id` is known. A model holding only this scan therefore sends `against_site_model = false`, whatever the switch shows.
+
+A Gerardus that does not yet build this ignores the field and leaves the `model_*` fields at 0, so nothing extra is shown.
+
+### Accumulated frames
+
+**Accumulate frames** builds a second kind of scan from the replay's own frames, for the null test in the spike's §7: the background and the frames accumulated over the same replay should register to the same pose.
+
+1. **Collect.** Press it during a replay; it collects the next N frames that reach the visualiser. N is chosen beside it and is 50 by default, about 5 s.
+   - **Kept:** only points classed background (0) or ground (2). Foreground (1) points are never collected (ADR-0011: an accumulated scan is a settled background, with no foreground and no per-point time).
+   - **Full rate only:** frames must have `decimation_ratio` 0 or 1, no voxel decimation, and nothing stripped.
+   - **Repeats:** a frame seen twice counts once.
+2. **Thin.** The points stay in the sensor frame and are thinned in the client to one per 0.05 m voxel, at the centroid of the points in it.
+3. **Upload.** `UploadScan` sends them with header `kind = SCAN_KIND_ACCUMULATED`, in blocks of at most 65,536 points, with no confidence (each point weighs the same).
+   - **`capture_ref`:** `<run id>#f<first>-<last>`. The run id is the replay's run, or the site's clip id when the replay has none. The frame numbers are the replay's position in its log for a VRLOG, else the frames' own ids.
+4. **Use.** The accumulated scan becomes the scan Register and scoring use, with the switch on or off, and the pose drawn now is scored against it. **Use background** goes back to the settled background. Opening another capture or site drops it.
+
+The button refuses, and says why, when:
+
+- the frames come from a live sensor;
+- the stream is decimated;
+- the stream carries foreground points only;
+- the frames carry no point classes;
+- the replay jumps back during the collection;
+- the frames hold no background or ground points.
+
+A decimated frame arriving partway through stops the collection, and nothing is uploaded.
 
 ### Scoring and residuals
 
@@ -125,11 +165,19 @@ Registered scans, observed features and the ground mesh are built from the site 
 - The server's `PoseSummary` for the hint pose: heading with its 1σ, pitch and roll, height above the 3DEP ground, position on NAD83(2011), and NAVD88 height. Ellipsoidal height reads "not given" until Gerardus wires in GEOID18.
 - The nudge as east, north and up offsets and a heading change, computed in the client. The server never sees a summary of a nudged pose until it is registered or accepted.
 - The background snapshot that Register would upload, and whether the grid has settled. An unsettled snapshot is not uploaded, scored or registered.
-- The registration's state, gates and hypotheses, and the fit of the pose drawn now.
+- The registration's state, gates and hypotheses, and the fit of the pose drawn now; the site model's residuals beside the gates when the fit used the model.
+- Which scan Register uses: the background, or the accumulated frames with their point counts and `capture_ref`.
 - The site's records, newest first.
 
 ## Known limits
 
 - OSM building outlines sit about 0.8 m east of the 3DEP points at the measured sites, and named intersections sit 9 to 34 m from the eye-read positions. Both are in the data, not the drawing; align to the 3DEP points.
 - The sensor model in a scan header is always `hesai-pandar40p`.
+- **Accumulate frames refuses on today's velocity.report server** (the spike's q4), read from the code but not seen on a replay:
+  - with a LiDAR background grid the server streams split frames (`internal/cmd/server/radar.go`, `SplitStreaming`), and every frame then carries foreground points only (`DECIMATION_FOREGROUND_ONLY`);
+  - a VRLOG records frames after that stripping, so its replay does too.
+
+  The tap therefore sees no background or ground to collect. The alternative is velocity.report's frame-sequence export, outside the pane.
+
+- The visualiser's client passes on at most about 30 frames a second, so above 3× playback of a 10 Hz capture the N frames are not consecutive; `capture_ref` still names the first and last.
 - `lidar-state-estimation-baseline`'s `siteCalibration` rotates the sensor's +X onto `north_azimuth_deg`. By the measurement above, +Y lies at 180° − N, so +X lies at 270° − N: that transform is wrong too. It is not used here.
