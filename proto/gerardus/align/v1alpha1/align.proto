@@ -1,7 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 308eb2ce021481ca7ff5f5cdea005f2c2951d944 on claude/vector-spike-merge-check-04d85d
-// (site model spike V1; not merged yet: update this line to the main commit when it is).
+// Commit: f39479d6d5678804d714b7f49ee31358d4082479 on claude/vector-spike-merge-check-04d85d
+// (site model spike V6; not merged yet: update this line to the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -139,8 +139,11 @@ service RegistrationService {
   // Re-solves the accepted poses at a site together, as a small pose graph of
   // 3DEP priors and scan pairs (docs/plans/SITE-MODEL-SPIKE.md §6.4). Writes
   // one Registration per scan whose single hypothesis, "j1", is the jointly
-  // refined pose; ReviewRegistration accepts it. Streams progress; the last
-  // message carries the result. Not built yet: UNIMPLEMENTED.
+  // refined pose; ReviewRegistration accepts it, and refuses with
+  // FAILED_PRECONDITION once the scan's accepted pose has changed since the
+  // refinement ran. Accept every j1 of one result together. Needs two
+  // accepted scans and aerial data, else FAILED_PRECONDITION. Streams
+  // progress; the last message carries the result.
   rpc RefineSite(RefineSiteRequest) returns (stream RefineSiteResponse);
 }
 
@@ -742,8 +745,11 @@ message GetSiteModelResponse {
 
 message RefineSiteRequest {
   string l16_token = 1;
-  repeated string scan_ids = 2;     // empty: every accepted scan at the site
+  repeated string scan_ids = 2;     // empty: every accepted scan at the site; two at least
   RegistrationOptions options = 3;
+  // Independent residuals each fit is taken to have when weighting the
+  // graph's factors; 0: the default, 500 (SITE-MODEL-SPIKE.md §10 q2).
+  double n_eff = 4;
 }
 
 message RefinedScan {
@@ -761,8 +767,8 @@ message RefinedScan {
 
 // A pair of scans the refinement matched against each other.
 message ScanPair {
-  string scan_a = 1;
-  string scan_b = 2;
+  string scan_a = 1;                // the scan fitted against
+  string scan_b = 2;                // the scan fitted
   uint32 matched = 3;
   float p75_before_m = 4;
   float p75_after_m = 5;
@@ -777,6 +783,7 @@ message RefineSiteResult {
   uint32 iterations = 4;
   double cost_before = 5;
   double cost_after = 6;
+  double n_eff = 7;                 // the weighting the graph ran with
 }
 
 message RefineSiteResponse {

@@ -59,6 +59,10 @@ import SwiftUI
                     registrationSection
                 }
                 if session.registration != nil { reviewSection }
+                if session.siteModelScanIDs != nil {
+                    Divider()
+                    siteModelSection
+                }
                 if session.site != nil {
                     Divider()
                     recordsSection
@@ -540,6 +544,98 @@ import SwiftUI
                     .caption
                 ).foregroundStyle(.green).textSelection(.enabled)
             }
+        }
+    }
+
+    // MARK: Site model
+
+    private var siteModelSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Site model").font(.subheadline.weight(.semibold))
+                Spacer()
+                Picker("", selection: $session.refineNEff) {
+                    ForEach(AlignmentSession.refineNEffChoices, id: \.self) { n in
+                        Text(n == 0 ? "N_eff 500" : "N_eff \(Int(n))").tag(n)
+                    }
+                }.labelsHidden().fixedSize().font(.caption).help(
+                    "Independent residuals each fit counts as when the graph weighs 3DEP against the scan pairs"
+                )
+                Button("Refine site") { Task { await session.refine() } }.disabled(
+                    !session.canRefine
+                ).help(
+                    "Re-solve every accepted pose at the site together: each scan's fit to 3DEP and the fits between overlapping scans. Needs two accepted scans"
+                )
+            }
+            Text("\(session.siteModelScanIDs?.count ?? 0) accepted scans").font(.caption)
+                .foregroundStyle(.secondary)
+            if let refinement = session.refinement { refinementView(refinement) }
+        }
+    }
+
+    private func refinementView(_ refinement: Gerardus_Align_V1alpha1_RefineSiteResult) -> some View
+    {
+        VStack(alignment: .leading, spacing: 4) {
+            let used = refinement.pairs.filter(\.used)
+            Text(
+                "\(refinement.scans.count) scans, \(used.count) of \(refinement.pairs.count) pairs used, \(refinement.iterations) iterations, N_eff \(Int(refinement.nEff))"
+            ).font(.caption)
+            ForEach(refinement.scans, id: \.scanID) { refined in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(String(refined.scanID.suffix(10))).font(.caption.monospaced())
+                        Text(
+                            String(
+                                format: "moved %.3f m, %.2f° · rank %d", refined.deltaM,
+                                refined.deltaDeg, refined.jointConstraintRank)
+                        ).font(.caption.monospacedDigit())
+                        Spacer()
+                        if session.refinedAccepted.contains(refined.scanID) {
+                            Image(systemName: "checkmark").foregroundStyle(.green)
+                        } else {
+                            Text(session.refinedPassed(refined) ? "registered" : "manually placed")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    }
+                    if let run = session.refinedRuns[refined.scanID] {
+                        HStack(spacing: 6) {
+                            ForEach(Array(run.gates.enumerated()), id: \.offset) { _, gate in
+                                Label(
+                                    gate.name,
+                                    systemImage: gate.passed ? "checkmark.circle" : "xmark.circle"
+                                ).foregroundStyle(gate.passed ? .green : .orange).font(.caption2)
+                                    .help(
+                                        "\(AlignmentFormat.gateValue(gate.value)) against \(AlignmentFormat.gateValue(gate.threshold))"
+                                    )
+                            }
+                        }
+                    }
+                    Text(AlignmentFormat.quality(refined.afterQuality)).font(
+                        .caption2.monospacedDigit()
+                    ).foregroundStyle(.secondary)
+                    if !refined.jointWeakDirections.isEmpty {
+                        Text("weak: " + refined.jointWeakDirections.joined(separator: ", ")).font(
+                            .caption2
+                        ).foregroundStyle(.orange)
+                    }
+                }.padding(4).background(Color.secondary.opacity(0.06)).clipShape(
+                    RoundedRectangle(cornerRadius: 4))
+            }
+            ForEach(Array(refinement.pairs.enumerated()), id: \.offset) { _, pair in
+                Text(
+                    String(
+                        format: "%@ ← %@: p75 %.3f → %.3f m, %d matched%@",
+                        String(pair.scanA.suffix(6)), String(pair.scanB.suffix(6)), pair.p75BeforeM,
+                        pair.p75AfterM, pair.matched, pair.used ? "" : " (not used: \(pair.reason))"
+                    )
+                ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+            }
+            if session.registration == nil { TextField("Reviewer", text: $session.reviewer) }
+            Button("Accept refinement") { Task { await session.acceptRefinement() } }.disabled(
+                !session.canAcceptRefinement
+            ).help(
+                "Record every scan's refined pose together: registered where its run passed every gate, else manually placed"
+            )
         }
     }
 

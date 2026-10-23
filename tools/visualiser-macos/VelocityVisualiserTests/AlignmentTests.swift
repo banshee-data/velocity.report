@@ -11,6 +11,7 @@
 
 import Combine
 import Foundation
+import GRPCCore
 import Metal
 import MetalKit
 import SwiftProtobuf
@@ -793,6 +794,16 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var emptyRegisteredLayers = false
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
+    /// Every ReviewRegistration request, in order.
+    var reviews: [Gerardus_Align_V1alpha1_ReviewRegistrationRequest] = []
+    /// Runs whose review is refused with FAILED_PRECONDITION, as Gerardus
+    /// refuses a j1 whose scan's accepted pose changed since RefineSite ran.
+    var refusedReviews: Set<String> = []
+    /// What RefineSite answers, the last request it got, and the runs
+    /// GetRegistration answers, by id.
+    var refineResult = Gerardus_Align_V1alpha1_RefineSiteResult()
+    var lastRefine: Gerardus_Align_V1alpha1_RefineSiteRequest?
+    var runs: [String: Gerardus_Align_V1alpha1_Registration] = [:]
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
     /// Every UploadScan header, in order.
     var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
@@ -979,6 +990,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
         log("ReviewRegistration")
         lastReview = request
+        reviews.append(request)
+        if refusedReviews.contains(request.registrationID) {
+            throw RPCError(
+                code: .failedPrecondition,
+                message: "the scan's accepted pose has changed since this refinement ran")
+        }
         var record = Gerardus_Align_V1alpha1_RegistrationRecord()
         record.recordID = "gms:rec\(records.count)"
         switch request.decision {
@@ -996,6 +1013,25 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
         log("ListRegistrationRecords")
         return records
+    }
+
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
+        log("GetRegistration")
+        guard let run = runs[id] else { throw GerardusClientError.incompleteStream("no run \(id)") }
+        return run
+    }
+
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult {
+        log("RefineSite")
+        lastRefine = request
+        var progress = Gerardus_Align_V1alpha1_Progress()
+        progress.stage = "solve"
+        progress.fraction = -1
+        await onProgress(progress)
+        return refineResult
     }
 }
 
@@ -1907,6 +1943,15 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse? {
         try await inner.getSiteModel(l16Token: l16Token)
     }
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
+        try await inner.getRegistration(id: id)
+    }
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult {
+        try await inner.refineSite(request, onProgress: onProgress)
+    }
 }
 
 @MainActor struct AlignmentAddressChangeTests {
@@ -2769,4 +2814,114 @@ final class LockedBox<T>: @unchecked Sendable {
     private var value: T?
     func set(_ v: T) { lock.withLock { value = v } }
     func get() -> T? { lock.withLock { value } }
+}
+
+// MARK: - Refinement (site model spike V6)
+
+@MainActor struct AlignmentRefinementTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed at a site whose model holds `scans`, with a refinement of the
+    /// first two of them ready: scan a passed every gate, scan b failed one.
+    private func placed(
+        scans: [String] = ["sha256:a", "sha256:b"]
+    ) async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.siteModelID = "sha256:model-a"
+        service.siteModelScans = scans
+        var results: [Gerardus_Align_V1alpha1_RefinedScan] = []
+        for (id, passed) in [("a", true), ("b", false)] {
+            var refined = Gerardus_Align_V1alpha1_RefinedScan()
+            refined.scanID = "sha256:\(id)"
+            refined.registrationID = "gms:refine-\(id)"
+            refined.deltaM = 0.03
+            refined.jointConstraintRank = 6
+            results.append(refined)
+            var run = Gerardus_Align_V1alpha1_Registration()
+            run.registrationID = refined.registrationID
+            run.state = passed ? .candidate : .failed
+            run.gates = [gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: passed)]
+            service.runs[run.registrationID] = run
+        }
+        service.refineResult.scans = results
+        service.refineResult.modelID = "sha256:model-a"
+        service.refineResult.nEff = 500
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = FakeOverlaySink()
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service)
+    }
+
+    @Test func refineListsEachScanWithItsGatesAndWeighting() async {
+        let (session, service) = await placed()
+        #expect(session.canRefine)
+        session.refineNEff = 250
+        await session.refine()
+        #expect(service.lastRefine?.l16Token == "808580f47")
+        #expect(service.lastRefine?.nEff == 250)
+        #expect(service.calls.filter { $0 == "GetRegistration" }.count == 2)
+        let scans = session.refinement?.scans ?? []
+        #expect(scans.map(\.scanID) == ["sha256:a", "sha256:b"])
+        #expect(session.refinedPassed(scans[0]))
+        #expect(!session.refinedPassed(scans[1]), "a failed gate records MANUALLY_PLACED")
+        #expect(!session.isRefining && session.busy == nil && session.progress == nil)
+    }
+
+    @Test func refineNeedsTwoAcceptedScans() async {
+        let (session, service) = await placed(scans: ["sha256:a"])
+        #expect(!session.canRefine)
+        await session.refine()
+        #expect(!service.calls.contains("RefineSite"))
+    }
+
+    @Test func acceptRefinementSendsEveryJointHypothesisThenRestreams() async {
+        let (session, service) = await placed()
+        await session.refine()
+        session.reviewer = ""
+        #expect(!session.canAcceptRefinement, "a reviewer is required")
+        session.reviewer = "operator"
+        #expect(session.canAcceptRefinement)
+        // Accepting moves the site model.
+        service.siteModelID = "sha256:model-b"
+        service.servedModelID = "sha256:model-b"
+        let streamsBefore = service.calls.filter { $0 == "StreamReference" }.count
+        await session.acceptRefinement()
+
+        #expect(service.reviews.map(\.registrationID) == ["gms:refine-a", "gms:refine-b"])
+        for review in service.reviews {
+            guard case .acceptHypothesisID(let id) = review.decision else {
+                Issue.record("accept sent no hypothesis")
+                return
+            }
+            #expect(id == "j1" && review.reviewer == "operator")
+        }
+        #expect(session.refinedAccepted == ["sha256:a", "sha256:b"])
+        #expect(session.errorMessage == nil)
+        #expect(service.calls.contains("ListRegistrationRecords"))
+        #expect(service.calls.filter { $0 == "StreamReference" }.count > streamsBefore)
+
+        // Accepted once: a second press records nothing.
+        #expect(!session.canAcceptRefinement)
+        await session.acceptRefinement()
+        #expect(service.reviews.count == 2)
+    }
+
+    @Test func aStaleJointHypothesisStopsTheAcceptanceAndSaysSo() async {
+        let (session, service) = await placed()
+        await session.refine()
+        session.reviewer = "operator"
+        service.refusedReviews = ["gms:refine-b"]
+        await session.acceptRefinement()
+        #expect(session.refinedAccepted == ["sha256:a"])
+        let message = session.errorMessage ?? ""
+        #expect(message.contains("1 of 2 recorded before it"), "\(message)")
+        #expect(message.contains("refine again"), "\(message)")
+        #expect(session.busy == nil)
+    }
 }

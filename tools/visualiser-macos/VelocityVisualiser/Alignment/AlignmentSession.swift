@@ -17,6 +17,9 @@
 //   Accept / Reject   ReviewRegistration → ListRegistrationRecords →
 //                     GetSiteModel → StreamReference per registered layer,
 //                     when the site model moved
+//   Refine site       RefineSite → GetRegistration per scan, for its gates
+//   Accept refinement ReviewRegistration of every scan's j1, in order →
+//                     ListRegistrationRecords → GetSiteModel → StreamReference
 //
 // The registered layers (REGISTERED_SCANS, OBSERVED, GROUND_MESH) are built
 // from the site's accepted scans (Gerardus docs/plans/SITE-MODEL-SPIKE.md).
@@ -131,6 +134,11 @@ struct ReferenceSummary: Equatable {
     /// heading itself, so they are not read.
     static let northAzimuthKeyPrefix = "alignment.northAzimuth."
     static let reviewerKey = "alignment.reviewer"
+    /// The hypothesis RefineSite writes for each scan.
+    static let refinedHypothesisID = "j1"
+    /// The weightings the pane offers for a refinement (plan §10 q2); 0 is
+    /// the server's default, 500.
+    static let refineNEffChoices: [Double] = [0, 250, 1000]
 
     // MARK: - Published state
 
@@ -225,6 +233,14 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var errorMessage: String?
     /// The record most recently written, until the pane is told otherwise.
     @Published private(set) var lastRecord: Gerardus_Align_V1alpha1_RegistrationRecord?
+    /// RefineSite's answer, and the run it wrote for each scan, by scan id.
+    @Published private(set) var refinement: Gerardus_Align_V1alpha1_RefineSiteResult?
+    @Published private(set) var refinedRuns: [String: Gerardus_Align_V1alpha1_Registration] = [:]
+    /// Scans whose refined pose has been recorded.
+    @Published private(set) var refinedAccepted: Set<String> = []
+    @Published private(set) var isRefining = false
+    /// Independent residuals per fit when weighting the graph; 0: the default.
+    @Published var refineNEff: Double = 0
 
     var delta: PoseDelta? {
         guard let hintPose, let pose else { return nil }
@@ -1421,6 +1437,92 @@ struct ReferenceSummary: Equatable {
         if recorded { await refreshSiteModel(client: client) }
     }
 
+    // MARK: - Refinement
+
+    /// RefineSite needs two accepted scans; with fewer the button stays off
+    /// rather than asking for a FAILED_PRECONDITION.
+    var canRefine: Bool {
+        busy == nil && site != nil && preparedSite != nil && (siteModelScanIDs?.count ?? 0) >= 2
+    }
+
+    /// Re-solves every accepted pose at the site together (RefineSite), then
+    /// reads the run written for each scan, which carries its gates.
+    func refine() async {
+        guard let client, let site, canRefine else { return }
+        errorMessage = nil
+        refinement = nil
+        refinedRuns = [:]
+        refinedAccepted = []
+        isRefining = true
+        busy = "Refining the site"
+        var request = Gerardus_Align_V1alpha1_RefineSiteRequest()
+        request.l16Token = site.l16Token
+        request.nEff = refineNEff
+        var result: Gerardus_Align_V1alpha1_RefineSiteResult?
+        do {
+            result = try await client.refineSite(request) { [weak self] progress in
+                await self?.show(progress)
+            }
+        } catch { errorMessage = GerardusClientError.describe(error) }
+        var runs: [String: Gerardus_Align_V1alpha1_Registration] = [:]
+        for refined in result?.scans ?? [] {
+            // Without the run the pane shows no gate badges; nothing else is lost.
+            if let run = try? await client.getRegistration(id: refined.registrationID) {
+                runs[refined.scanID] = run
+            }
+        }
+        busy = nil
+        progress = nil
+        isRefining = false
+        refinement = result
+        refinedRuns = runs
+    }
+
+    /// True when the refined pose for this scan passed every gate, so
+    /// accepting it records REGISTERED.
+    func refinedPassed(_ refined: Gerardus_Align_V1alpha1_RefinedScan) -> Bool {
+        guard let run = refinedRuns[refined.scanID], run.state == .candidate, !run.gates.isEmpty
+        else { return false }
+        return run.gates.allSatisfy(\.passed)
+    }
+
+    var canAcceptRefinement: Bool {
+        guard busy == nil, let refinement, !refinement.scans.isEmpty else { return false }
+        return refinedAccepted.isEmpty && !reviewer.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    /// Accepts the refinement whole: j1 of every scan's run, in order. Each
+    /// pose was solved against the others, so accepting some would leave the
+    /// rest placed against poses never accepted. Stops at the first refusal:
+    /// Gerardus refuses a j1 whose scan's accepted pose changed since the
+    /// refinement ran, and the way on is to refine again.
+    func acceptRefinement() async {
+        guard let client, let refinement, canAcceptRefinement else { return }
+        errorMessage = nil
+        busy = "Recording the refined poses"
+        let scans = refinement.scans
+        for (index, refined) in scans.enumerated() {
+            var request = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
+            request.registrationID = refined.registrationID
+            request.acceptHypothesisID = Self.refinedHypothesisID
+            request.reviewer = reviewer.trimmingCharacters(in: .whitespaces)
+            request.note = note
+            do {
+                lastRecord = try await client.reviewRegistration(request)
+                refinedAccepted.insert(refined.scanID)
+            } catch {
+                errorMessage =
+                    "\(GerardusClientError.describe(error)) (\(index) of \(scans.count) recorded before it; refine again)"
+                break
+            }
+        }
+        busy = nil
+        if !refinedAccepted.isEmpty {
+            await loadRecords()
+            await refreshSiteModel(client: client)
+        }
+    }
+
     /// The site's records, newest first.
     func loadRecords() async {
         guard let client, let site else { return }
@@ -1459,6 +1561,9 @@ struct ReferenceSummary: Equatable {
         evaluating?.cancel()
         records = []
         lastRecord = nil
+        refinement = nil
+        refinedRuns = [:]
+        refinedAccepted = []
         errorMessage = nil
         sink?.setReferenceOverlay(nil)
         sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
