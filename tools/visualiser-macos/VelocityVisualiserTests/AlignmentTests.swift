@@ -3516,6 +3516,90 @@ final class LockedBox<T>: @unchecked Sendable {
 }
 
 
+// MARK: - The refinement column
+
+@MainActor struct RefinementColumnTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed at a site whose model holds two accepted scans, with a
+    /// refinement of them ready and no registration open.
+    private func placed() async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.siteModelID = "sha256:model-a"
+        service.siteModelScans = ["sha256:a", "sha256:b"]
+        for id in ["a", "b"] {
+            var refined = Gerardus_Align_V1alpha1_RefinedScan()
+            refined.scanID = "sha256:\(id)"
+            refined.registrationID = "gms:refine-\(id)"
+            service.refineResult.scans.append(refined)
+            var run = Gerardus_Align_V1alpha1_Registration()
+            run.registrationID = refined.registrationID
+            run.state = .candidate
+            run.gates = [gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: true)]
+            service.runs[run.registrationID] = run
+        }
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = FakeOverlaySink()
+        session.reviewer = "operator"
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service)
+    }
+
+    @Test func itIsClosedUntilARefinementRunsAndOpensWhenOneDoes() async {
+        let (session, service) = await placed()
+        #expect(!session.refinementColumnOpen)
+        var openWhileRunning = false
+        service.duringRefine = { openWhileRunning = session.refinementColumnOpen }
+        await session.refine()
+        #expect(openWhileRunning, "the column is open while the refinement runs")
+        #expect(session.refinementColumnOpen)
+        #expect(session.showsReviewerField, "Accept refinement is shown, so its reviewer is")
+    }
+
+    @Test func closingItKeepsTheRefinementForWhenItReopens() async {
+        let (session, _) = await placed()
+        await session.refine()
+        session.closeRefinementColumn()
+        #expect(!session.refinementColumnOpen)
+        #expect(session.refinement?.scans.map(\.scanID) == ["sha256:a", "sha256:b"])
+        #expect(session.refinedRuns.count == 2)
+        // Neither Accept is shown now, so neither is the reviewer.
+        #expect(!session.showsReviewerField)
+        session.openRefinementColumn()
+        #expect(session.refinementColumnOpen)
+        #expect(session.refinement?.scans.count == 2)
+        #expect(session.refinedRuns["sha256:a"]?.gates.map(\.name) == ["ground_p95_m", "refine_shift_m"])
+        #expect(session.canAcceptRefinement)
+    }
+
+    @Test func theOperatorCanOpenItBeforeRefining() async {
+        let (session, service) = await placed()
+        session.openRefinementColumn()
+        #expect(session.refinementColumnOpen)
+        #expect(session.refinement == nil)
+        #expect(!service.calls.contains("RefineSite"), "opening the column refines nothing")
+        #expect(session.acceptRefinementBlockers == ["No refinement yet: press Refine site."])
+        #expect(session.canRefine && session.refineBlocker == nil)
+    }
+
+    @Test func aRefinementAtAnotherSiteIsNotCarriedOver() async {
+        let (session, _) = await placed()
+        await session.refine()
+        session.choose(
+            AlignmentSite(
+                clipID: "other", l16Token: "808580f49", l13Token: "808580f4", description: "",
+                sensorID: "hesai-pandar40p", latitude: 37.79, longitude: -122.40))
+        #expect(!session.refinementColumnOpen)
+        #expect(session.refinement == nil)
+    }
+}
+
 // MARK: - Boxes and wall planes in the session
 
 @MainActor struct BoxesAndWallPlanesSessionTests {

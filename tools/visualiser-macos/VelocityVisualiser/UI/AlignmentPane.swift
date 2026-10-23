@@ -473,15 +473,7 @@ import SwiftUI
         VStack(alignment: .leading, spacing: 2) {
             Text("Gates, on the best hypothesis").font(.caption.weight(.semibold))
             ForEach(Array(gates.enumerated()), id: \.offset) { _, gate in
-                HStack {
-                    Image(systemName: gate.passed ? "checkmark.circle" : "xmark.circle")
-                        .foregroundStyle(gate.passed ? .green : .orange)
-                    Text(gate.name).font(.caption.monospaced())
-                    Spacer()
-                    Text(
-                        "\(AlignmentFormat.gateValue(gate.value)) \(gate.passed ? "within" : "against") \(AlignmentFormat.gateValue(gate.threshold))"
-                    ).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                }
+                AlignmentGateRow(gate: gate)
             }
         }
     }
@@ -606,94 +598,27 @@ import SwiftUI
 
     // MARK: Site model
 
+    /// The refinement itself is in its own column (RefinementColumn), opened
+    /// from here; the pane keeps only the count and the way in.
     private var siteModelSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Site model").font(.subheadline.weight(.semibold))
                 Spacer()
-                Picker("", selection: $session.refineNEff) {
-                    ForEach(AlignmentSession.refineNEffChoices, id: \.self) { n in
-                        Text(n == 0 ? "N_eff 500" : "N_eff \(Int(n))").tag(n)
-                    }
-                }.labelsHidden().fixedSize().font(.caption).help(
-                    "Independent residuals each fit counts as when the graph weighs 3DEP against the scan pairs"
-                )
-                Button("Refine site") { Task { await session.refine() } }.disabled(
-                    !session.canRefine
-                ).help(
-                    "Re-solve every accepted pose at the site together: each scan's fit to 3DEP and the fits between overlapping scans. Needs two accepted scans"
-                )
+                Button("Refine site…") { session.openRefinementColumn() }.help(
+                    "Open the refinement column: re-solve every accepted pose at the site together")
             }
-            Text("\(session.siteModelScanIDs?.count ?? 0) accepted scans").font(.caption)
-                .foregroundStyle(.secondary)
-            if let refinement = session.refinement { refinementView(refinement) }
+            Text(siteModelCaption).font(.caption).foregroundStyle(.secondary)
         }
     }
 
-    private func refinementView(_ refinement: Gerardus_Align_V1alpha1_RefineSiteResult) -> some View
-    {
-        VStack(alignment: .leading, spacing: 4) {
-            let used = refinement.pairs.filter(\.used)
-            Text(
-                "\(refinement.scans.count) scans, \(used.count) of \(refinement.pairs.count) pairs used, \(refinement.iterations) iterations, N_eff \(Int(refinement.nEff))"
-            ).font(.caption)
-            ForEach(refinement.scans, id: \.scanID) { refined in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(String(refined.scanID.suffix(10))).font(.caption.monospaced())
-                        Text(
-                            String(
-                                format: "moved %.3f m, %.2f° · rank %d", refined.deltaM,
-                                refined.deltaDeg, refined.jointConstraintRank)
-                        ).font(.caption.monospacedDigit())
-                        Spacer()
-                        if session.refinedAccepted.contains(refined.scanID) {
-                            Image(systemName: "checkmark").foregroundStyle(.green)
-                        } else {
-                            Text(session.refinedPassed(refined) ? "registered" : "manually placed")
-                                .font(.caption2).foregroundStyle(.secondary)
-                        }
-                    }
-                    if let run = session.refinedRuns[refined.scanID] {
-                        HStack(spacing: 6) {
-                            ForEach(Array(run.gates.enumerated()), id: \.offset) { _, gate in
-                                Label(
-                                    gate.name,
-                                    systemImage: gate.passed ? "checkmark.circle" : "xmark.circle"
-                                ).foregroundStyle(gate.passed ? .green : .orange).font(.caption2)
-                                    .help(
-                                        "\(AlignmentFormat.gateValue(gate.value)) against \(AlignmentFormat.gateValue(gate.threshold))"
-                                    )
-                            }
-                        }
-                    }
-                    Text(AlignmentFormat.quality(refined.afterQuality)).font(
-                        .caption2.monospacedDigit()
-                    ).foregroundStyle(.secondary)
-                    if !refined.jointWeakDirections.isEmpty {
-                        Text("weak: " + refined.jointWeakDirections.joined(separator: ", ")).font(
-                            .caption2
-                        ).foregroundStyle(.orange)
-                    }
-                }.padding(4).background(Color.secondary.opacity(0.06)).clipShape(
-                    RoundedRectangle(cornerRadius: 4))
-            }
-            ForEach(Array(refinement.pairs.enumerated()), id: \.offset) { _, pair in
-                Text(
-                    String(
-                        format: "%@ ← %@: p75 %.3f → %.3f m, %d matched%@",
-                        String(pair.scanA.suffix(6)), String(pair.scanB.suffix(6)), pair.p75BeforeM,
-                        pair.p75AfterM, pair.matched, pair.used ? "" : " (not used: \(pair.reason))"
-                    )
-                ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
-            }
-            Button("Accept refinement") { Task { await session.acceptRefinement() } }.disabled(
-                !session.canAcceptRefinement
-            ).help(
-                "Record every scan's refined pose together: registered where its run passed every gate, else manually placed"
-            )
-            AlignmentBlockers(reasons: session.acceptRefinementBlockers)
+    private var siteModelCaption: String {
+        let scans = "\(session.siteModelScanIDs?.count ?? 0) accepted scans"
+        if session.isRefining { return scans + " · refining" }
+        if let refinement = session.refinement, !session.refinementColumnOpen {
+            return scans + " · a refinement of \(refinement.scans.count) scans is in its column"
         }
+        return scans
     }
 
     private var recordsSection: some View {
@@ -752,8 +677,26 @@ struct AlignmentBlockers: View {
     }
 }
 
+/// One gate on one line: its mark, its name, and its value against its
+/// threshold. The registration's gates and each refined scan's use it.
+struct AlignmentGateRow: View {
+    let gate: Gerardus_Align_V1alpha1_GateResult
+
+    var body: some View {
+        HStack {
+            Image(systemName: gate.passed ? "checkmark.circle" : "xmark.circle").foregroundStyle(
+                gate.passed ? .green : .orange)
+            Text(gate.name).font(.caption.monospaced()).lineLimit(1)
+            Spacer()
+            Text(
+                "\(AlignmentFormat.gateValue(gate.value)) \(gate.passed ? "within" : "against") \(AlignmentFormat.gateValue(gate.threshold))"
+            ).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+        }.help(gate.passed ? "Passed" : "Failed")
+    }
+}
+
 /// A label and a value on one line.
-private struct AlignmentRow: View {
+struct AlignmentRow: View {
     let label: String
     let value: String
 

@@ -304,6 +304,10 @@ struct ReferenceSummary: Equatable {
     /// A scan of the refinement shown whose pose was accepted on its own
     /// since the refinement ran; Gerardus refuses its j1.
     @Published private(set) var refinementOverridden: String?
+    /// The refinement column beside the pane: opened by Refine site or the
+    /// operator, closed only by the operator (or a new site). Closing it
+    /// keeps the refinement, which shows again when it is reopened.
+    @Published private(set) var refinementColumnOpen = false
     /// Independent residuals per fit when weighting the graph; 0: the default.
     @Published var refineNEff: Double = 0
 
@@ -1517,7 +1521,9 @@ struct ReferenceSummary: Equatable {
     /// Whether the pane shows its Reviewer field: whenever Accept or Accept
     /// refinement is shown. There is one field for both, so a blank name
     /// is never out of sight while it blocks either.
-    var showsReviewerField: Bool { registration != nil || refinement != nil }
+    var showsReviewerField: Bool {
+        registration != nil || (refinementColumnOpen && refinement != nil)
+    }
 
     /// The reviewer as sent: Gerardus trims it and refuses it blank.
     private var reviewerName: String { reviewer.trimmingCharacters(in: .whitespaces) }
@@ -1525,7 +1531,7 @@ struct ReferenceSummary: Equatable {
     static let noRegistrationReason = "No registration to decide on: press Register first."
     static let noPoseReason = "No pose drawn: place the sensor from its hint first."
     static let noReviewerReason =
-        "No reviewer name: type yours in Reviewer at the top of the pane; Gerardus records who decided."
+        "No reviewer name: type yours in Reviewer at the top of the alignment pane; Gerardus records who decided."
 
     /// "Busy re-streaming the site model: wait for it to finish."
     static func busyReason(_ busy: String) -> String {
@@ -1604,6 +1610,7 @@ struct ReferenceSummary: Equatable {
     /// reads the run written for each scan, which carries its gates.
     func refine() async {
         guard let client, let site, canRefine else { return }
+        refinementColumnOpen = true
         errorMessage = nil
         refinement = nil
         refinedRuns = [:]
@@ -1633,6 +1640,12 @@ struct ReferenceSummary: Equatable {
         refinement = result
         refinedRuns = runs
     }
+
+    /// Shows the refinement column, with the refinement if there is one.
+    func openRefinementColumn() { refinementColumnOpen = true }
+
+    /// Hides the column; the refinement and its runs are kept.
+    func closeRefinementColumn() { refinementColumnOpen = false }
 
     /// True when the refined pose for this scan passed every gate, so
     /// accepting it records REGISTERED.
@@ -1757,6 +1770,7 @@ struct ReferenceSummary: Equatable {
         refinedRuns = [:]
         refinedAccepted = []
         refinementOverridden = nil
+        refinementColumnOpen = false
         errorMessage = nil
         sink?.setReferenceOverlay(nil)
         sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)

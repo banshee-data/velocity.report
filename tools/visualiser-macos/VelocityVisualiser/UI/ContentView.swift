@@ -86,10 +86,9 @@ struct ContentView: View {
                 // select without popping the panel open.
                 if appState.showSidePanel { SidePanelView().frame(width: 520) }
 
-                // Alignment pane: only while a Gerardus server answers.
-                if appState.showAlignmentPane {
-                    AlignmentPane(session: appState.alignment).frame(width: 340)
-                }
+                // Alignment pane: only while a Gerardus server answers. The
+                // refinement column opens to its left.
+                if appState.showAlignmentPane { AlignmentColumns(session: appState.alignment) }
 
             }
 
