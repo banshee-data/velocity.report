@@ -108,6 +108,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | PCAP           | `routes.go`             | `POST /api/lidar/pcap/start`                    | -   | ✅  | -   |
 | PCAP           | `routes.go`             | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
 | PCAP           | `routes.go`             | `POST /api/lidar/pcap/resume_live`              | -   | ✅  | -   |
+| PCAP           | `routes.go`             | `POST /api/lidar/replay/full_frames`            | -   | -   | -   |
 | PCAP           | `routes.go`             | `GET /api/lidar/pcap/files`                     | -   | ✅  | -   |
 | Playback       | `routes.go`             | `GET /api/lidar/playback/status`                | -   | -   | 🔶  |
 | Playback       | `routes.go`             | `POST /api/lidar/playback/pause`                | -   | -   | -   |

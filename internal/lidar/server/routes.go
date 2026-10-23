@@ -110,6 +110,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/replay/stop", ws.handleReplayStop},
 		{compatibility.AliasRoute("POST /api/lidar/pcap/stop", "POST /api/lidar/replay/stop"), ws.handleReplayStop},
 		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
+		{"POST /api/lidar/replay/full_frames", ws.handleReplayFullFrames},
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
 		{"GET /api/lidar/configs", ws.handleListTuningConfigs},
 	}

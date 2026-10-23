@@ -22,7 +22,19 @@ type FrameAdapter struct {
 	// foreground-classified points. Background points are delivered via
 	// a separate BackgroundSnapshot message, so including them here
 	// wastes CPU and bandwidth.
+	//
+	// Set once at startup, before the pipeline runs. What changes while it
+	// runs is fullFrames, which overrides it.
 	SplitStreaming bool
+
+	// fullFrames suspends split streaming while it is set: every frame
+	// carries its whole classified cloud (0 background, 1 foreground) as
+	// FrameTypeFull, and the publisher neither strips it nor records it whole
+	// (see FrameBundle.fullCloud). The lidar server sets it for a PCAP replay
+	// that asks for full frames and clears it on every way out of that
+	// replay, so live input never sees it. Atomic because an HTTP handler
+	// flips it under a running pipeline.
+	fullFrames atomic.Bool
 
 	// Performance tracking
 	totalAdaptTimeNs atomic.Int64
@@ -38,6 +50,13 @@ func NewFrameAdapter(sensorID string) *FrameAdapter {
 	}
 }
 
+// SetFullFrames turns the full-frames replay mode on or off. Safe to call
+// while frames are being adapted: each frame reads it once.
+func (a *FrameAdapter) SetFullFrames(on bool) { a.fullFrames.Store(on) }
+
+// FullFrames reports whether frames currently carry their whole cloud.
+func (a *FrameAdapter) FullFrames() bool { return a.fullFrames.Load() }
+
 // AdaptFrame converts a LiDARFrame and tracking outputs to a FrameBundle.
 // debugFrame is optional debug data from the tracking algorithm.
 func (a *FrameAdapter) AdaptFrame(
@@ -52,16 +71,27 @@ func (a *FrameAdapter) AdaptFrame(
 
 	bundle := NewFrameBundle(a.frameID, a.sensorID, frame.StartTimestamp)
 
+	// Read once, so the cloud and the frame type agree when the mode is
+	// switched mid-frame.
+	full := a.fullFrames.Load()
+	split := a.SplitStreaming && !full
+
 	// Adapt point cloud
 	if frame != nil && len(frame.Points) > 0 {
-		bundle.PointCloud = a.adaptPointCloud(frame, foregroundMask)
+		bundle.PointCloud = a.adaptPointCloud(frame, foregroundMask, split)
 	}
 
 	// M3.5: Mark frame type when split streaming is active.
 	// This tells the publisher not to re-strip background points
 	// (the adapter already emitted foreground-only).
-	if a.SplitStreaming && len(foregroundMask) > 0 {
+	if split && len(foregroundMask) > 0 {
 		bundle.FrameType = FrameTypeForeground
+	}
+	// Full frames: the whole cloud goes to clients as FrameTypeFull, and the
+	// publisher records it as split streaming would have.
+	if full && bundle.PointCloud != nil {
+		bundle.FrameType = FrameTypeFull
+		bundle.fullCloud = true
 	}
 
 	// Adapt tracks first so we can identify which clusters are already tracked
@@ -129,14 +159,32 @@ func (a *FrameAdapter) AdaptEmptyFrame(frame *l2frames.LiDARFrame) interface{} {
 	return bundle
 }
 
+// AdaptEmptyFrameWithMask is AdaptEmptyFrame for a frame whose foreground
+// mask is known. Outside full-frames mode it is exactly AdaptEmptyFrame. In
+// it, the frame keeps its whole classified cloud for clients, since a frame
+// with nothing in the foreground is the best view of the background there is;
+// the recorder is still given the empty frame (see FrameBundle.recordEmpty).
+func (a *FrameAdapter) AdaptEmptyFrameWithMask(frame *l2frames.LiDARFrame, mask []bool) interface{} {
+	if !a.fullFrames.Load() || len(mask) == 0 || frame == nil || len(frame.Points) == 0 {
+		return a.AdaptEmptyFrame(frame)
+	}
+	a.frameID++
+	bundle := NewFrameBundle(a.frameID, a.sensorID, frame.StartTimestamp)
+	bundle.PointCloud = a.adaptPointCloud(frame, mask, false)
+	bundle.FrameType = FrameTypeFull
+	bundle.fullCloud = true
+	bundle.recordEmpty = true
+	return bundle
+}
+
 // adaptPointCloud converts a LiDARFrame to a PointCloudFrame.
 // Uses sync.Pool for slice allocation to reduce GC pressure.
-func (a *FrameAdapter) adaptPointCloud(frame *l2frames.LiDARFrame, mask []bool) *PointCloudFrame {
+func (a *FrameAdapter) adaptPointCloud(frame *l2frames.LiDARFrame, mask []bool, split bool) *PointCloudFrame {
 	// When split streaming is active, emit only foreground points.
 	// Background is delivered via BackgroundSnapshot every 30s, so
 	// including it here wastes allocation, copy, and serialisation
 	// time for ~97% of points that the publisher would strip anyway.
-	if a.SplitStreaming && len(mask) > 0 {
+	if split && len(mask) > 0 {
 		return a.adaptForegroundOnly(frame, mask)
 	}
 

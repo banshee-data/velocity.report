@@ -75,6 +75,13 @@ type VisualiserAdapter interface {
 	AdaptEmptyFrame(frame *l2frames.LiDARFrame) interface{}
 }
 
+// maskedEmptyFrameAdapter is the optional half of VisualiserAdapter that
+// takes the foreground mask for a frame that would be published empty, so
+// the full-frames replay mode can still give clients the frame's points.
+type maskedEmptyFrameAdapter interface {
+	AdaptEmptyFrameWithMask(frame *l2frames.LiDARFrame, mask []bool) interface{}
+}
+
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
 type LidarViewAdapter interface {
 	PublishFrameBundle(bundle interface{}, foregroundPoints []l2frames.PointPolar)
@@ -528,15 +535,27 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// frames with no foreground objects. This helper publishes a minimal
 	// empty FrameBundle (FrameTypeEmpty) at early-return points that would
 	// otherwise skip Publish().
+	//
+	// mask is the frame's foreground mask once it is known, nil before. An
+	// adapter in full-frames mode uses it to send the frame's whole classified
+	// cloud to clients in place of the empty bundle (the recording still gets
+	// the empty one): the frames with nothing in the foreground are the ones
+	// a background is best accumulated from.
 	hasVisualiser := !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher)
-	publishEmptyFrame := func(frame *l2frames.LiDARFrame) {
+	maskedEmpty, _ := cfg.VisualiserAdapter.(maskedEmptyFrameAdapter)
+	publishEmptyFrame := func(frame *l2frames.LiDARFrame, mask []bool) {
 		if baseline, ok := cfg.Tracker.(interface{ RecordBaselineEmptyFrame() }); ok && !isNilInterface(baseline) {
 			baseline.RecordBaselineEmptyFrame()
 		}
 		if !hasVisualiser {
 			return
 		}
-		emptyBundle := cfg.VisualiserAdapter.AdaptEmptyFrame(frame)
+		var emptyBundle interface{}
+		if maskedEmpty != nil && mask != nil {
+			emptyBundle = maskedEmpty.AdaptEmptyFrameWithMask(frame, mask)
+		} else {
+			emptyBundle = cfg.VisualiserAdapter.AdaptEmptyFrame(frame)
+		}
 		cfg.VisualiserPublisher.Publish(emptyBundle)
 	}
 
@@ -575,7 +594,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		if cfg.BackgroundManager == nil {
 			draft.Fail(l4bobserve.StageL3Foreground, "no background model configured")
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, nil)
 			return
 		}
 
@@ -601,7 +620,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if draft != nil {
 				draft.Fail(l4bobserve.StageL3Foreground, fmt.Sprintf("foreground mask unavailable: %v", err))
 			}
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, nil)
 			return
 		}
 
@@ -642,7 +661,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if len(foregroundPoints) == 0 {
 			// No foreground detected — still record an empty frame for
 			// deterministic 1:1 PCAP-to-VRLOG mapping.
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 
@@ -668,7 +687,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			//
 			// Still record the frame for deterministic VRLOG mapping.
 			draft.Suppress(l4bobserve.StageL4Transform, "replay frame-rate throttle")
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 		// Kept current even when the throttle is inactive, so a replay
@@ -787,7 +806,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 
@@ -863,7 +882,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 
@@ -926,7 +945,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 
@@ -978,7 +997,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 
@@ -991,7 +1010,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
-			publishEmptyFrame(frame)
+			publishEmptyFrame(frame, mask)
 			return
 		}
 

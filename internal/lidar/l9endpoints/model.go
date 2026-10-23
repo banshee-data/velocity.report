@@ -33,6 +33,16 @@ type FrameBundle struct {
 	FrameType     FrameType
 	Background    *BackgroundSnapshot
 	BackgroundSeq uint64
+
+	// fullCloud marks a frame the adapter built in full-frames mode: its
+	// cloud holds background as well as foreground on purpose, so the
+	// publisher must not strip it, and must record the split-streaming form
+	// instead (foreground only, or recordEmpty's empty frame). Never set on
+	// a replayed VRLOG frame, and never serialised.
+	fullCloud bool
+	// recordEmpty marks a full-frames bundle that split streaming would have
+	// published as FrameTypeEmpty with no points.
+	recordEmpty bool
 }
 
 // CoordinateFrameInfo describes the coordinate frame of the data.

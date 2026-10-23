@@ -112,6 +112,14 @@ keys other than DBSCAN's three. Without the field, the replay runs on the
 server's current parameters. See
 [Experiment parameter sets](../../../config/CONFIG.md#experiment-parameter-sets).
 
+`full_frames` is optional and defaults to `false` (a JSON boolean, or the form
+field `full_frames=true` or `1`). When set, the visualiser stream carries every
+frame's whole classified cloud for this replay (class 0 background, class 1
+foreground, `frame_type` full, no decimation) instead of split streaming's
+foreground points. It needs the visualiser gRPC stream: a server started
+without it refuses the start with 400. It can also be switched while the replay
+runs (see below), and it always ends with the replay.
+
 Every speed mode runs the tuning file's L3 as written. **Until October 2026
 (#782) a `scaled` or `realtime` replay substituted five L3 values for the file's
 while it ran** (closeness 2.0, safety margin 0.30 m, neighbour confirmation 5,
@@ -137,9 +145,43 @@ Until October 2026 neither held, and a replay's result depended on the
 server's history ([l3bg0021](../../../data/experiments/l3bg/l3bg0021.md)).
 
 **Response:** returns `status: "started"`, `sensor_id`, `current_source: "pcap"`,
-`pcap_file` (resolved path), `analysis_mode: true`, and the requested
-`settle_before_recording` value. With `tuning_config`, it also returns
+`pcap_file` (resolved path), `analysis_mode: true`, the requested
+`settle_before_recording` value, and `full_frames`. With `tuning_config`, it also returns
 `tuning_config` and `tuning_fingerprint`, the applied file's fingerprint.
+
+### Switch full frames during a replay
+
+```bash
+POST /api/lidar/replay/full_frames
+Content-Type: application/json
+
+{ "enabled": true }
+```
+
+Turns full frames on or off for the PCAP replay that is running now: the
+visualiser stream then carries background (class 0) and foreground (class 1)
+points in every frame, as FrameTypeFull, instead of split streaming's
+foreground only. The macOS visualiser's _Accumulate frames_ uses it to collect
+background points from a replay.
+
+- It answers **409** unless a PCAP replay is running: live input never gets
+  full frames, a VRLOG replay holds foreground points only, and a finished
+  replay has no frames left to send. A server without the visualiser stream
+  answers **501**.
+- It always ends with the replay. Stopping it, reaching the end of the file,
+  resuming live and parking a finished replay all restore split streaming.
+- The recording does not change. A VRLOG recorded meanwhile is written with
+  the foreground-only frames split streaming would have sent (and the empty
+  frames, where nothing was in the foreground), and background snapshots go
+  out as before.
+- Frames with nothing in the foreground, which split streaming sends as empty
+  frames, carry their whole cloud too while it is on.
+
+`sensor_id` is optional, as for `replay/stop`.
+
+**Response:** returns `success: true`, `full_frames` (the state now), and
+`current_source`. `GET /api/lidar/playback/status` reports the same state as
+`full_frames`.
 
 ### List tuning configs
 

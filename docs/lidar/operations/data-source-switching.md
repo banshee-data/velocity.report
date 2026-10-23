@@ -58,16 +58,17 @@ validated separately and should not be conflated.
 
 All are served on the main API (`:8080`); the separate LiDAR port (`:8081`) was retired in v0.5.2.
 
-| Endpoint                           | Purpose                                                                |
-| ---------------------------------- | ---------------------------------------------------------------------- |
-| `GET /api/lidar/data_source`       | Full state snapshot (see below)                                        |
-| `GET /api/lidar/status`            | Server status including `data_source`, `pcap_file`, `pcap_in_progress` |
-| `GET /api/lidar/playback/status`   | Playback mode plus replay position                                     |
-| `POST /api/lidar/pcap/start`       | Start a PCAP replay (stops live ingest, resets the grid)               |
-| `POST /api/lidar/replay/stop`      | Stop whatever is replaying (PCAP or VRLOG) and resume live             |
-| `POST /api/lidar/pcap/resume_live` | Resume live from analysis mode, **keeping** the grid                   |
-| `POST /api/lidar/vrlog/load`       | Start a VRLOG replay (stops live ingest)                               |
-| `POST /api/lidar/vrlog/stop`       | Alias of `replay/stop`, kept for existing clients                      |
+| Endpoint                             | Purpose                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `GET /api/lidar/data_source`         | Full state snapshot (see below)                                        |
+| `GET /api/lidar/status`              | Server status including `data_source`, `pcap_file`, `pcap_in_progress` |
+| `GET /api/lidar/playback/status`     | Playback mode plus replay position                                     |
+| `POST /api/lidar/pcap/start`         | Start a PCAP replay (stops live ingest, resets the grid)               |
+| `POST /api/lidar/replay/stop`        | Stop whatever is replaying (PCAP or VRLOG) and resume live             |
+| `POST /api/lidar/pcap/resume_live`   | Resume live from analysis mode, **keeping** the grid                   |
+| `POST /api/lidar/replay/full_frames` | Full frames on or off for the running PCAP replay (409 otherwise)      |
+| `POST /api/lidar/vrlog/load`         | Start a VRLOG replay (stops live ingest)                               |
+| `POST /api/lidar/vrlog/stop`         | Alias of `replay/stop`, kept for existing clients                      |
 
 ### `GET /api/lidar/data_source`
 
@@ -101,7 +102,10 @@ calls that once per parameter combination.
 
 Reports `mode` using the same four-value vocabulary, alongside `paused`, `rate`,
 `seekable`, frame position, `replay_pass`, `replay_total_passes`, `recording`,
-`recording_path`, and `recording_frames`.
+`recording_path`, `recording_frames`, and `full_frames`: true while a PCAP replay
+streams whole classified clouds instead of split streaming's foreground points
+(see [full frames](pcap-analysis-mode.md#switch-full-frames-during-a-replay)).
+Full frames end with the replay on every transition below.
 
 Mode and recording come from the server's own state. Only the fast-moving replay
 position (`paused`, `rate`, `current_frame`) is pulled from the streaming layer,

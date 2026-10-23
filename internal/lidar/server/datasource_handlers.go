@@ -620,8 +620,19 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 	ws.markReplayRunning(resolvedPath, replayCfg.SpeedMode, replayCfg.SpeedRatio, runID)
 
+	// Full frames belong to this replay alone. Set as its goroutine starts,
+	// after every way the start can fail, and cleared as it exits.
+	if replayCfg.FullFrames && ws.fullFrames != nil {
+		ws.fullFrames.SetFullFrames(true)
+	}
+
 	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string, plan *replayPlan) {
 		defer close(finished)
+		// Restore split streaming on every exit path. Deferred before the slot
+		// release so it runs after it: a full-frames request that arrives in
+		// between then finds no replay and is refused, rather than switching
+		// the mode back on behind a replay that has gone.
+		defer ws.endReplayFullFrames()
 		// Release the slot claimed by tryBeginPCAPReplay on every exit path,
 		// whatever the source is by then. See releaseReplaySlot for what the
 		// old conditional teardown stranded.

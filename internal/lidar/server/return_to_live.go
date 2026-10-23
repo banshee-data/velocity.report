@@ -26,6 +26,9 @@ const parkedLiveWatchInterval = 500 * time.Millisecond
 func (ws *Server) ParkFinishedReplay(reason string) { ws.parkFinishedReplay(reason) }
 
 func (ws *Server) parkFinishedReplay(reason string) {
+	// A parked replay's listener may take live input; it must not get full
+	// frames. The replay goroutine has cleared them already.
+	ws.endReplayFullFrames()
 	ws.mutateState("parkFinishedReplay", func(s *PipelineState) {
 		s.ReplayActive = false
 		s.Pass = ReplayPassNone
@@ -165,6 +168,7 @@ func (ws *Server) returnToLive(reason string, stopActiveReplay bool) error {
 	// the teardown, which is what reconcileLiveOnce fires on — see
 	// endReplayAndClaimLive.
 	ws.endReplayAndClaimLive()
+	ws.endReplayFullFrames()
 
 	ws.dataSourceMu.Lock()
 	defer ws.dataSourceMu.Unlock()
