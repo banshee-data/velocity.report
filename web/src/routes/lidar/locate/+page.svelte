@@ -172,12 +172,19 @@
 	async function loadKnown() {
 		try {
 			const current = clip?.clip_id ?? periodClip?.clip_id;
-			known = (await getLocatedClips()).filter((c) => c.clip_id !== current);
+			known = (await getLocatedClips())
+				.filter((c) => c.clip_id !== current)
+				.sort((a, b) => knownLabel(a).localeCompare(knownLabel(b)));
 		} catch {
 			// The picker is a convenience; the page works without it.
 			known = [];
 		}
 	}
+
+	// Clips aligned on the map carry a heading; the archive's sites were placed
+	// from field marks with a position only. The aligned ones are listed first.
+	$: knownAligned = known.filter((c) => c.north_azimuth_deg != null);
+	$: knownPlaced = known.filter((c) => c.north_azimuth_deg == null);
 
 	function knownLabel(c: LidarClip): string {
 		const name = c.dataset_id || c.description || c.clip_id.slice(0, 8);
@@ -701,9 +708,20 @@
 							on:change={() => applyKnown(knownChoice)}
 						>
 							<option value="">— a located clip —</option>
-							{#each known as k (k.clip_id)}
-								<option value={k.clip_id}>{knownLabel(k)}</option>
-							{/each}
+							{#if knownAligned.length > 0}
+								<optgroup label="Aligned, with a heading">
+									{#each knownAligned as k (k.clip_id)}
+										<option value={k.clip_id}>{knownLabel(k)}</option>
+									{/each}
+								</optgroup>
+							{/if}
+							{#if knownPlaced.length > 0}
+								<optgroup label="Position only (heading 0°)">
+									{#each knownPlaced as k (k.clip_id)}
+										<option value={k.clip_id}>{knownLabel(k)}</option>
+									{/each}
+								</optgroup>
+							{/if}
 						</select>
 					</label>
 					<p class="text-surface-content/40 text-xs">
