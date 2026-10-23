@@ -262,7 +262,9 @@ struct ReferenceGeometry: Sendable {
                     ? Array(block.intensity.prefix(n)) : Array(repeating: 0, count: n))
         case .lines(let set): lines.append(contentsOf: set.features)
         case .intersections(let set): intersections.append(contentsOf: set.intersections)
-        case nil: break
+        // Registered scans and the ground surface are not requested yet (site
+        // model spike V4).
+        case .scanPoints, .groundMesh, nil: break
         }
         if message.layerComplete { completeLayers.insert(message.layer) }
     }
@@ -365,7 +367,9 @@ enum ReferenceStyle {
         case .kerb: return SIMD4(1.00, 0.55, 0.20, 0.95)
         case .rail: return SIMD4(0.95, 0.40, 0.90, 0.95)
         case .building: return SIMD4(1.00, 0.40, 0.35, 0.85)
-        case .other, .unspecified, .UNRECOGNIZED: return SIMD4(0.80, 0.80, 0.80, 0.70)
+        // Observed-layer kinds get their own styles with the layer (site model spike V4).
+        case .sensor, .correction, .facade, .pole, .other, .unspecified, .UNRECOGNIZED:
+            return SIMD4(0.80, 0.80, 0.80, 0.70)
         }
     }
 
