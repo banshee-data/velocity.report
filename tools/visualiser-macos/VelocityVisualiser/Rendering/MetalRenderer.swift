@@ -124,13 +124,30 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var referenceOSMVertexCount: Int = 0
     private var referenceIntersectionBuffer: MTLBuffer?
     private(set) var referenceIntersectionVertexCount: Int = 0
+    private var referenceFootprintBuffer: MTLBuffer?
+    private(set) var referenceFootprintVertexCount: Int = 0
+    /// The site model's layers: accepted scans as points, the lines derived
+    /// from them, and the ground mesh as a wireframe. All in the site frame,
+    /// drawn through the same model matrix as the rest of the reference.
+    private var referenceScanBuffer: MTLBuffer?
+    private(set) var referenceScanCount: Int = 0
+    private var referenceObservedBuffer: MTLBuffer?
+    private(set) var referenceObservedVertexCount: Int = 0
+    private var referenceGroundMeshBuffer: MTLBuffer?
+    private(set) var referenceGroundMeshVertexCount: Int = 0
     private var referencePaletteBuffer: MTLBuffer?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var showReferenceAerial: Bool = true
     private(set) var showReferenceOSM: Bool = true
     private(set) var showReferenceIntersections: Bool = true
+    private(set) var showReferenceFootprints: Bool = true
+    private(set) var showReferenceScans: Bool = true
+    private(set) var showReferenceObserved: Bool = true
+    private(set) var showReferenceGroundMesh: Bool = false
     /// Aerial points are dense; drawn at full size they bury the scan.
     static let referencePointScale: Float = 0.5
+    /// Registered scans are sparser than 3DEP and nearer the sensor's own.
+    static let referenceScanPointScale: Float = 0.7
     /// The uploaded scan coloured by EvaluatePose's residuals, in the sensor
     /// frame. Drawn over the background points it repeats, so its depth
     /// test lets equal depths through.
@@ -440,6 +457,17 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceIntersectionBuffer = buffer(vertices?.intersectionLines ?? [])
         referenceIntersectionVertexCount =
             referenceIntersectionBuffer == nil ? 0 : vertices?.intersectionVertexCount ?? 0
+        referenceFootprintBuffer = buffer(vertices?.footprintLines ?? [])
+        referenceFootprintVertexCount =
+            referenceFootprintBuffer == nil ? 0 : vertices?.footprintVertexCount ?? 0
+        referenceScanBuffer = buffer(vertices?.scans ?? [])
+        referenceScanCount = referenceScanBuffer == nil ? 0 : vertices?.scanCount ?? 0
+        referenceObservedBuffer = buffer(vertices?.observedLines ?? [])
+        referenceObservedVertexCount =
+            referenceObservedBuffer == nil ? 0 : vertices?.observedVertexCount ?? 0
+        referenceGroundMeshBuffer = buffer(vertices?.groundMeshLines ?? [])
+        referenceGroundMeshVertexCount =
+            referenceGroundMeshBuffer == nil ? 0 : vertices?.groundMeshVertexCount ?? 0
         referencePaletteBuffer = vertices.flatMap { vertices in
             vertices.palette.withUnsafeBytes { table in
                 device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
@@ -477,6 +505,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         showReferenceAerial = aerial
         showReferenceOSM = osm
         showReferenceIntersections = intersections
+        view?.needsDisplay = true
+    }
+
+    func setModelLayerVisibility(footprints: Bool, scans: Bool, observed: Bool, groundMesh: Bool) {
+        showReferenceFootprints = footprints
+        showReferenceScans = scans
+        showReferenceObserved = observed
+        showReferenceGroundMesh = groundMesh
         view?.needsDisplay = true
     }
 
@@ -520,13 +556,30 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: referenceAerialCount)
         }
 
+        // Registered scans use the reference's palette too, from the codes
+        // after the ASPRS groups (ReferenceStyle.scanCodeBase).
+        if showReferenceScans, referenceScanCount > 0, let pipeline = pointCloudPipeline,
+            let points = referenceScanBuffer, let palette = referencePaletteBuffer
+        {
+            reference.pointSize = pointSize * Self.referenceScanPointScale
+            reference.padding.x = IntensityColouring.table.rawValue
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(points, offset: 0, index: 0)
+            encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.setFragmentBuffer(palette, offset: 0, index: 0)
+            encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: referenceScanCount)
+        }
+
         guard let pipeline = linePipeline else { return }
         for (visible, buffer, count) in [
+            (showReferenceGroundMesh, referenceGroundMeshBuffer, referenceGroundMeshVertexCount),
             (showReferenceOSM, referenceOSMBuffer, referenceOSMVertexCount),
+            (showReferenceFootprints, referenceFootprintBuffer, referenceFootprintVertexCount),
             (
                 showReferenceIntersections, referenceIntersectionBuffer,
                 referenceIntersectionVertexCount
             ),
+            (showReferenceObserved, referenceObservedBuffer, referenceObservedVertexCount),
         ] {
             guard visible, let buffer, count > 0 else { continue }
             encoder.setRenderPipelineState(pipeline)

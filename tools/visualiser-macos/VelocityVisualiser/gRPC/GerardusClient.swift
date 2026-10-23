@@ -2,8 +2,10 @@
 // gRPC client for the Gerardus alignment service (gerardus.align.v1alpha1).
 //
 // Gerardus (banshee-data/gerardus) prepares reference data for a survey site
-// (USGS 3DEP aerial points, OpenStreetMap ways and intersections) and keeps
-// an append-only log of every alignment decision. The visualiser reaches it on
+// (USGS 3DEP aerial points, OpenStreetMap ways and intersections, DataSF
+// footprints) and keeps an append-only log of every alignment decision. Once
+// scans are accepted it also serves the site model: those scans in the site
+// frame, lines derived from them, and a ground mesh. The visualiser reaches it on
 // a second channel beside its channel to velocity.report; velocity.report's
 // server is not in the path. The contract is vendored at
 // proto/gerardus/align/v1alpha1/align.proto.
@@ -26,11 +28,14 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     case notConnected
     /// A streaming call ended without the message that closes it.
     case incompleteStream(String)
+    /// The client in use has no implementation of this call.
+    case unsupported(String)
 
     var errorDescription: String? {
         switch self {
         case .notConnected: return "Not connected to the alignment service"
         case .incompleteStream(let rpc): return "\(rpc) ended without its result"
+        case .unsupported(let rpc): return "\(rpc) is not available from this client"
         }
     }
 
@@ -73,12 +78,38 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func listRegistrationRecords(
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord]
+    func getSiteModel(l16Token: String) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult
+}
+
+/// The site-model calls came after the first clients: one that predates them
+/// answers as if the server had not built them.
+@available(macOS 15.0, *) extension AlignmentServiceClient {
+    func getSiteModel(l16Token: String) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse
+    {
+        throw GerardusClientError.unsupported("GetSiteModel")
+    }
+
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
+        throw GerardusClientError.unsupported("GetRegistration")
+    }
+
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult {
+        throw GerardusClientError.unsupported("RefineSite")
+    }
 }
 
 /// gRPC client for Gerardus's SiteService and RegistrationService.
 ///
 /// SolveTiePoints is not called: the server answers it with UNIMPLEMENTED
-/// until tie-point placement is built.
+/// until tie-point placement is built. ListSites and GetSite are not needed.
 @available(macOS 15.0, *) final class GerardusClient: AlignmentServiceClient, @unchecked Sendable {
 
     let address: GerardusAddress
@@ -190,6 +221,15 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         }
     }
 
+    /// The site model: which accepted scans it holds, and the model_id the
+    /// model layers of StreamReference carry.
+    func getSiteModel(l16Token: String) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse
+    {
+        var request = Gerardus_Align_V1alpha1_GetSiteModelRequest()
+        request.l16Token = l16Token
+        return try await siteService().getSiteModel(request: ClientRequest(message: request))
+    }
+
     /// Streams reference geometry in the site frame and gathers it, layer by
     /// layer, into one value.
     func streamReference(
@@ -267,6 +307,37 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
         try await registrationService().reviewRegistration(request: ClientRequest(message: request))
             .record
+    }
+
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
+        var request = Gerardus_Align_V1alpha1_GetRegistrationRequest()
+        request.registrationID = id
+        return try await registrationService().getRegistration(
+            request: ClientRequest(message: request)
+        ).registration
+    }
+
+    /// Re-solves every accepted pose at the site together: each scan's fit to
+    /// 3DEP and the fits between overlapping scans, as one pose graph. The
+    /// server writes one registration per scan, whose hypothesis "j1" is the
+    /// refined pose; nothing is recorded until an operator accepts it.
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult {
+        try await registrationService().refineSite(request: ClientRequest(message: request)) {
+            response in
+            var result: Gerardus_Align_V1alpha1_RefineSiteResult?
+            for try await message in response.messages {
+                switch message.event {
+                case .progress(let progress): await onProgress(progress)
+                case .result(let finished): result = finished
+                case nil: break
+                }
+            }
+            guard let result else { throw GerardusClientError.incompleteStream("RefineSite") }
+            return result
+        }
     }
 
     /// A site's records, newest first.

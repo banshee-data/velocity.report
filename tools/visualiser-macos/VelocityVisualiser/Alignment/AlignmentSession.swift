@@ -8,10 +8,14 @@
 //   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m)
 //   Nudge             nothing on the wire: only the model matrix changes
 //   Register          UploadScan (once per background) → Register
-//   Accept / Reject   ReviewRegistration → ListRegistrationRecords
+//   Accept / Reject   ReviewRegistration → ListRegistrationRecords → GetSiteModel
+//   Accumulate        frames from the replay → UploadScan (SCAN_KIND_ACCUMULATED)
+//   Refine site       RefineSite → GetRegistration per scan; Accept: ReviewRegistration
 //
-// Until Gerardus builds ICP, Register comes back FAILED carrying the pose it
-// was given, and Accept records the operator's pose as MANUALLY_PLACED.
+// Gerardus also serves the site model: the scans whose pose was accepted,
+// lines derived from them and a ground mesh. Those layers change whenever a
+// record does, so an accept asks for the model again and re-streams them
+// when its model_id has moved (Gerardus docs/plans/SITE-MODEL-SPIKE.md).
 
 import Combine
 import Foundation
@@ -26,6 +30,21 @@ protocol ReferenceOverlaySink: AnyObject {
     func setReferenceModelMatrix(_ matrix: simd_float4x4)
     func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool)
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>])
+    func setModelLayerVisibility(footprints: Bool, scans: Bool, observed: Bool, groundMesh: Bool)
+}
+
+extension ReferenceOverlaySink {
+    /// A sink that draws no site-model layers ignores their visibility.
+    func setModelLayerVisibility(footprints: Bool, scans: Bool, observed: Bool, groundMesh: Bool) {}
+}
+
+/// How far an accumulation of replayed frames has got, for the pane.
+struct AccumulationStatus: Equatable {
+    var frames: Int
+    var target: Int
+    var points: Int
+    /// True once every frame is in and the scan is on its way up.
+    var uploading: Bool
 }
 
 /// What the pane shows about the settled background it would upload.
@@ -64,6 +83,14 @@ struct ReferenceSummary: Equatable {
     /// "© OpenStreetMap contributors", shown whenever OSM is visible.
     var osmAttribution: String
     var aerialAttribution: String
+    var footprints: Int = 0
+    var footprintAttribution: String = ""
+    /// The site model's layers: accepted scans and their points, derived
+    /// lines, and whether a ground mesh came.
+    var registeredScans: Int = 0
+    var registeredScanPoints: Int = 0
+    var observedFeatures: Int = 0
+    var groundMesh: Bool = false
 }
 
 @available(macOS 15.0, *) @MainActor final class AlignmentSession: ObservableObject {
@@ -81,6 +108,15 @@ struct ReferenceSummary: Equatable {
     /// heading itself, so they are not read.
     static let northAzimuthKeyPrefix = "alignment.northAzimuth."
     static let reviewerKey = "alignment.reviewer"
+    /// What placing asks for. The server leaves out what it does not serve:
+    /// the registered scans come only from a server started with
+    /// --serve-scans, and only to this machine or the tailnet.
+    static let wantedLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed,
+        .groundMesh,
+    ]
+    /// The hypothesis RefineSite writes for each scan.
+    static let refinedHypothesisID = "j1"
 
     // MARK: - Published state
 
@@ -111,6 +147,17 @@ struct ReferenceSummary: Equatable {
     @Published var showAerial = true { didSet { pushVisibility() } }
     @Published var showOSM = true { didSet { pushVisibility() } }
     @Published var showIntersections = true { didSet { pushVisibility() } }
+    @Published var showFootprints = true { didSet { pushVisibility() } }
+    @Published var showScans = true { didSet { pushVisibility() } }
+    /// Once its pose is accepted, the open capture's own scan is in the site
+    /// model too, drawn over the live background it repeats. Hidden unless
+    /// the operator asks for it, as a check.
+    @Published var showOwnScan = false { didSet { redrawReference() } }
+    @Published var showObserved = true { didSet { pushVisibility() } }
+    /// A dense wireframe, so off until asked for.
+    @Published var showGroundMesh = false { didSet { pushVisibility() } }
+    /// The site model the drawn scans, lines and mesh came from.
+    @Published private(set) var modelID: String?
 
     @Published private(set) var hintPose: SitePose?
     @Published private(set) var hintSummary: Gerardus_Align_V1alpha1_PoseSummary?
@@ -126,6 +173,19 @@ struct ReferenceSummary: Equatable {
     /// registration's own list, ranked best first.
     @Published private(set) var hypotheses: [Gerardus_Align_V1alpha1_Hypothesis] = []
     @Published private(set) var isRegistering = false
+    /// Register also fits against the site's other accepted scans; its
+    /// ground and facade gates stay measured against 3DEP alone.
+    @Published var againstSiteModel = false
+    @Published private(set) var accumulation: AccumulationStatus?
+    /// The scan the last accumulation uploaded.
+    @Published private(set) var accumulatedScan: Gerardus_Align_V1alpha1_Scan?
+    /// RefineSite's answer, and the run it wrote for each scan (by scan id),
+    /// which carries the gates.
+    @Published private(set) var refinement: Gerardus_Align_V1alpha1_RefineSiteResult?
+    @Published private(set) var refinedRuns: [String: Gerardus_Align_V1alpha1_Registration] = [:]
+    /// Scans whose refined pose has been accepted.
+    @Published private(set) var refinedAccepted: Set<String> = []
+    @Published private(set) var isRefining = false
     /// The hypothesis drawn now, for as long as the pose is exactly its pose.
     @Published private(set) var selectedHypothesisID: String?
     /// EvaluatePose's verdict on the pose drawn now, once it has rested.
@@ -189,6 +249,17 @@ struct ReferenceSummary: Equatable {
         try await Task.sleep(for: $0)
     }
     private var hintFrameIDs: (site: String, sensor: String) = ("", "")
+    /// Everything StreamReference sent, kept so the site model's layers can
+    /// be replaced without streaming 3DEP again.
+    private var geometry: ReferenceGeometry?
+    private var referenceCentre: SIMD3<Double>?
+    /// Bumped whenever the drawn reference changes hands, so a late vertex
+    /// build for an old one is dropped.
+    private var drawGeneration = 0
+    /// Scans this session uploaded: the open capture's own.
+    private var ownScanIDs: Set<String> = []
+    private var accumulator: FrameAccumulator?
+    private var accumulatingFor: (l16Token: String, replayID: String)?
 
     /// `lookup` nil skips velocity.report entirely, as tests do; `defaults`
     /// nil keeps typed headings and the server address out of the app's
@@ -402,19 +473,17 @@ struct ReferenceSummary: Equatable {
             sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
 
             busy = "Streaming the reference"
+            referenceCentre = start.translation
             let geometry = try await client.streamReference(
                 referenceRequest(l16Token: site.l16Token, centre: start.translation))
-            let vertices = await Task.detached { ReferenceStyle.vertices(for: geometry) }.value
-            reference = ReferenceSummary(
-                aerialPoints: geometry.aerialCount, osmFeatures: geometry.lines.count,
-                intersections: geometry.intersections.count,
-                osmAttribution: attribution(prepared, layer: .osm),
-                aerialAttribution: attribution(prepared, layer: .aerialPoints))
-            sink?.setReferenceOverlay(vertices)
+            self.geometry = geometry
+            modelID = geometry.modelID.isEmpty ? nil : geometry.modelID
+            reference = summary(of: geometry, prepared: prepared)
+            await drawReference()
             sink?.setReferenceModelMatrix(start.referenceModelMatrix)
             pushVisibility()
             logger.info(
-                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.intersections.count) intersections"
+                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.intersections.count) intersections, \(geometry.scans.count) registered scans, \(geometry.observed.count) observed lines"
             )
 
             busy = "Reading records"
@@ -424,14 +493,14 @@ struct ReferenceSummary: Equatable {
 
     private func show(_ progress: Gerardus_Align_V1alpha1_Progress) { self.progress = progress }
 
+    /// `layers` nil asks for every layer placing wants.
     func referenceRequest(
-        l16Token: String, centre: SIMD3<Double>
+        l16Token: String, centre: SIMD3<Double>,
+        layers: [Gerardus_Align_V1alpha1_ReferenceLayer]? = nil
     ) -> Gerardus_Align_V1alpha1_StreamReferenceRequest {
         var request = Gerardus_Align_V1alpha1_StreamReferenceRequest()
         request.l16Token = l16Token
-        let wanted: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-            .aerialPoints, .osm, .intersections,
-        ]
+        let wanted = layers ?? Self.wantedLayers
         request.layers = wanted.filter { availableLayers.isEmpty || availableLayers.contains($0) }
         request.centre.x = centre.x
         request.centre.y = centre.y
@@ -464,6 +533,87 @@ struct ReferenceSummary: Equatable {
     ) -> String {
         site.sources.filter { $0.layer == layer }.map(\.attribution).filter { !$0.isEmpty }.joined(
             separator: "; ")
+    }
+
+    private func summary(
+        of geometry: ReferenceGeometry, prepared: Gerardus_Align_V1alpha1_Site?
+    ) -> ReferenceSummary {
+        ReferenceSummary(
+            aerialPoints: geometry.aerialCount, osmFeatures: geometry.lines.count,
+            intersections: geometry.intersections.count,
+            osmAttribution: prepared.map { attribution($0, layer: .osm) } ?? "",
+            aerialAttribution: prepared.map { attribution($0, layer: .aerialPoints) } ?? "",
+            footprints: geometry.footprints.count,
+            footprintAttribution: prepared.map { attribution($0, layer: .footprints) } ?? "",
+            registeredScans: geometry.scans.count, registeredScanPoints: geometry.scanPointCount,
+            observedFeatures: geometry.observed.count, groundMesh: geometry.groundMesh != nil)
+    }
+
+    /// Builds the reference's vertices off the main actor and hands them to
+    /// the renderer, leaving out the open capture's own registered scan
+    /// unless `showOwnScan`.
+    private func drawReference() async {
+        guard let geometry else { return }
+        drawGeneration += 1
+        let generation = drawGeneration
+        let hidden = hiddenScanIDs(in: geometry)
+        let sensor = (pose ?? hintPose).map {
+            SIMD2<Float>(Float($0.translation.x), Float($0.translation.y))
+        }
+        let vertices = await Task.detached {
+            ReferenceStyle.vertices(for: geometry, hidingScans: hidden, sensor: sensor)
+        }.value
+        // A newer drawing, or none, has taken over while this one was built.
+        guard generation == drawGeneration else { return }
+        sink?.setReferenceOverlay(vertices)
+    }
+
+    private func redrawReference() {
+        guard geometry != nil else { return }
+        Task { [weak self] in await self?.drawReference() }
+    }
+
+    /// The open capture's own scans in the site model: those this session
+    /// uploaded, and any whose capture reference is this capture's clip.
+    func hiddenScanIDs(in geometry: ReferenceGeometry) -> Set<String> {
+        guard !showOwnScan else { return [] }
+        let clip = site?.clipID
+        return Set(
+            geometry.scans.filter { ownScanIDs.contains($0.scanID) || $0.captureRef == clip }.map(
+                \.scanID))
+    }
+
+    /// True when the server offers any of the site model's layers.
+    var servesSiteModel: Bool {
+        ReferenceGeometry.modelLayers.contains { availableLayers.contains($0) }
+    }
+
+    /// Asks for the site model and, when it has changed since the reference
+    /// was drawn, streams its layers again: an accepted pose adds a scan to
+    /// the model, the derived lines follow, and the ground mesh is refined.
+    func refreshSiteModel() async {
+        guard let client, let site, geometry != nil, servesSiteModel else { return }
+        let centre = referenceCentre ?? hintPose?.translation ?? .zero
+        var fresh: ReferenceGeometry?
+        var freshID = ""
+        do {
+            let model = try await client.getSiteModel(l16Token: site.l16Token)
+            freshID = model.modelID
+            if model.modelID != (modelID ?? "") {
+                fresh = try await client.streamReference(
+                    referenceRequest(
+                        l16Token: site.l16Token, centre: centre,
+                        layers: ReferenceGeometry.modelLayers))
+            }
+        } catch { errorMessage = GerardusClientError.describe(error) }
+        if let fresh, var current = geometry {
+            current.replaceModelLayers(with: fresh)
+            if current.modelID.isEmpty { current.modelID = freshID }
+            geometry = current
+            modelID = current.modelID.isEmpty ? nil : current.modelID
+            reference = summary(of: current, prepared: preparedSite)
+            await drawReference()
+        }
     }
 
     // MARK: - Nudging
@@ -510,6 +660,9 @@ struct ReferenceSummary: Equatable {
     private func pushVisibility() {
         sink?.setReferenceVisibility(
             aerial: showAerial, osm: showOSM, intersections: showIntersections)
+        sink?.setModelLayerVisibility(
+            footprints: showFootprints, scans: showScans, observed: showObserved,
+            groundMesh: showGroundMesh)
     }
 
     // MARK: - Scan
@@ -537,7 +690,14 @@ struct ReferenceSummary: Equatable {
         hypotheses = []
         selectedHypothesisID = nil
         evaluation = nil
+        cancelAccumulating()
+        accumulatedScan = nil
         sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
+        // The old capture's scans are no longer this capture's own.
+        if !ownScanIDs.isEmpty {
+            ownScanIDs = []
+            redrawReference()
+        }
     }
 
     var canRegister: Bool {
@@ -571,6 +731,7 @@ struct ReferenceSummary: Equatable {
             // heading; it does not use the start's heading.
             request.initialPose = posePayload(pose)
             request.hint = hint(heading: hintHeadingDeg)
+            request.againstSiteModel = againstSiteModel
             result = try await client.register(
                 request, onProgress: { [weak self] progress in await self?.show(progress) },
                 onHypothesis: { [weak self] hypothesis in await self?.received(hypothesis) })
@@ -587,6 +748,186 @@ struct ReferenceSummary: Equatable {
             // The best hypothesis is drawn at once; a FAILED run with none
             // leaves the operator's pose, to place by hand.
             if let best = result.hypotheses.first { showHypothesis(best) }
+        }
+    }
+
+    var canRegisterAccumulated: Bool { busy == nil && pose != nil && accumulatedScan != nil }
+
+    /// Registers the accumulated scan from the pose drawn now, as `register()`
+    /// does the background. Written in the same shape as `register()`.
+    func registerAccumulated() async {
+        guard let client, let pose, let uploaded = accumulatedScan, canRegisterAccumulated else {
+            return
+        }
+        evaluating?.cancel()
+        errorMessage = nil
+        registration = nil
+        hypotheses = []
+        isRegistering = true
+        var result: Gerardus_Align_V1alpha1_Registration?
+        do {
+            busy = "Registering the accumulated frames"
+            var request = Gerardus_Align_V1alpha1_RegisterRequest()
+            request.scanID = uploaded.scanID
+            request.initialPose = posePayload(pose)
+            request.hint = hint(heading: hintHeadingDeg)
+            request.againstSiteModel = againstSiteModel
+            result = try await client.register(
+                request, onProgress: { [weak self] progress in await self?.show(progress) },
+                onHypothesis: { [weak self] hypothesis in await self?.received(hypothesis) })
+        } catch {
+            errorMessage =
+                Task.isCancelled ? "Registration cancelled." : GerardusClientError.describe(error)
+        }
+        busy = nil
+        progress = nil
+        isRegistering = false
+        if let result {
+            registration = result
+            hypotheses = result.hypotheses
+            if let best = result.hypotheses.first { showHypothesis(best) }
+        }
+    }
+
+    /// Registers the accumulated scan in a task the pane can cancel.
+    func startAccumulatedRegistration() {
+        registering?.cancel()
+        registering = Task { [weak self] in await self?.registerAccumulated() }
+    }
+
+    // MARK: - Accumulated frames
+
+    var isAccumulating: Bool { accumulator != nil }
+    var canAccumulate: Bool { busy == nil && accumulator == nil && site != nil && pose != nil }
+
+    /// Starts collecting the next `frames` frames of the replay (50 is about
+    /// five seconds). Once they are in, they are uploaded as one scan
+    /// (`uploadAccumulated()`).
+    func startAccumulating(replayID: String?, frames: Int = 50) {
+        guard let site, canAccumulate else { return }
+        errorMessage = nil
+        accumulatedScan = nil
+        let collector = FrameAccumulator(targetFrames: frames)
+        accumulator = collector
+        let replay = replayID.flatMap { $0.isEmpty ? nil : $0 } ?? site.clipID
+        accumulatingFor = (site.l16Token, replay)
+        accumulation = AccumulationStatus(
+            frames: 0, target: collector.targetFrames, points: 0, uploading: false)
+    }
+
+    func cancelAccumulating() {
+        accumulator = nil
+        accumulatingFor = nil
+        accumulation = nil
+    }
+
+    /// Called for every frame while accumulating. A frame that cannot be
+    /// used (decimated, foreground only, unclassified) stops the
+    /// accumulation and says why.
+    func noteFrame(_ cloud: PointCloudFrame, frameType: FrameType) {
+        guard accumulator?.isComplete == false else { return }
+        do { try accumulator?.add(cloud, frameType: frameType) } catch {
+            cancelAccumulating()
+            errorMessage = error.localizedDescription
+            return
+        }
+        guard let collector = accumulator else { return }
+        accumulation = AccumulationStatus(
+            frames: collector.frameCount, target: collector.targetFrames,
+            points: collector.pointCount, uploading: collector.isComplete)
+        if collector.isComplete { Task { [weak self] in await self?.uploadAccumulated() } }
+    }
+
+    /// Uploads the accumulated frames as one scan (SCAN_KIND_ACCUMULATED).
+    func uploadAccumulated() async {
+        guard let client, let collector = accumulator, collector.isComplete,
+            let target = accumulatingFor
+        else { return }
+        // Taken now, so frames that arrive during the upload are not added.
+        accumulator = nil
+        var uploaded: Gerardus_Align_V1alpha1_Scan?
+        do {
+            let header = collector.header(
+                l16Token: target.l16Token, sensorID: sensorID, replayID: target.replayID)
+            uploaded = try await client.uploadScan(header: header, blocks: collector.blocks()).scan
+        } catch { errorMessage = GerardusClientError.describe(error) }
+        accumulatingFor = nil
+        accumulation = nil
+        if let uploaded {
+            accumulatedScan = uploaded
+            ownScanIDs.insert(uploaded.scanID)
+            logger.info(
+                "Accumulated \(collector.frameCount) frames into \(collector.pointCount) points: \(uploaded.scanID)"
+            )
+        }
+    }
+
+    // MARK: - Refinement
+
+    var canRefine: Bool { busy == nil && site != nil && preparedSite != nil }
+
+    /// Re-solves every accepted pose at the site together (RefineSite), then
+    /// reads the run written for each scan, which carries its gates.
+    func refine() async {
+        guard let client, let site, canRefine else { return }
+        errorMessage = nil
+        refinement = nil
+        refinedRuns = [:]
+        refinedAccepted = []
+        isRefining = true
+        busy = "Refining the site"
+        var request = Gerardus_Align_V1alpha1_RefineSiteRequest()
+        request.l16Token = site.l16Token
+        var result: Gerardus_Align_V1alpha1_RefineSiteResult?
+        do {
+            result = try await client.refineSite(request) { [weak self] progress in
+                await self?.show(progress)
+            }
+        } catch { errorMessage = GerardusClientError.describe(error) }
+        var runs: [String: Gerardus_Align_V1alpha1_Registration] = [:]
+        for refined in result?.scans ?? [] {
+            // Without the run the pane shows no gate badges; nothing else is lost.
+            if let run = try? await client.getRegistration(id: refined.registrationID) {
+                runs[refined.scanID] = run
+            }
+        }
+        busy = nil
+        progress = nil
+        isRefining = false
+        refinement = result
+        refinedRuns = runs
+    }
+
+    /// True when the refined pose for this scan passed every gate, so
+    /// accepting it records REGISTERED.
+    func refinedPassed(_ refined: Gerardus_Align_V1alpha1_RefinedScan) -> Bool {
+        guard let run = refinedRuns[refined.scanID], run.state == .candidate, !run.gates.isEmpty
+        else { return false }
+        return run.gates.allSatisfy(\.passed)
+    }
+
+    /// Accepts a scan's refined pose: hypothesis "j1" of the run RefineSite
+    /// wrote for it. REGISTERED when that run passed its gates, else
+    /// MANUALLY_PLACED; the new record supersedes the scan's old one.
+    func acceptRefined(_ refined: Gerardus_Align_V1alpha1_RefinedScan) async {
+        guard let client, busy == nil, !refinedAccepted.contains(refined.scanID) else { return }
+        var request = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
+        request.registrationID = refined.registrationID
+        request.acceptHypothesisID = Self.refinedHypothesisID
+        request.reviewer = reviewer.trimmingCharacters(in: .whitespaces)
+        request.note = note
+        errorMessage = nil
+        busy = "Recording the refined pose"
+        var record: Gerardus_Align_V1alpha1_RegistrationRecord?
+        do { record = try await client.reviewRegistration(request) } catch {
+            errorMessage = GerardusClientError.describe(error)
+        }
+        busy = nil
+        if let record {
+            lastRecord = record
+            refinedAccepted.insert(refined.scanID)
+            await loadRecords()
+            await refreshSiteModel()
         }
     }
 
@@ -706,6 +1047,11 @@ struct ReferenceSummary: Equatable {
         scan = uploaded.scan
         uploadedFrom = (site.l16Token, snapshot.sequenceNumber)
         uploadedSnapshot = snapshot
+        let (inserted, _) = ownScanIDs.insert(uploaded.scan.scanID)
+        // Already in the site model from an earlier accept: hide it now.
+        if inserted, geometry?.scans.contains(where: { $0.scanID == uploaded.scan.scanID }) == true {
+            redrawReference()
+        }
         return uploaded.scan
     }
 
@@ -764,6 +1110,9 @@ struct ReferenceSummary: Equatable {
             lastRecord = try await client.reviewRegistration(request)
             rejectReason = ""
             await loadRecords()
+            // An accept adds the scan to the site model, a reject may take
+            // one out: either way its layers may have moved.
+            await refreshSiteModel()
         } catch { errorMessage = GerardusClientError.describe(error) }
     }
 
@@ -797,6 +1146,16 @@ struct ReferenceSummary: Equatable {
         records = []
         lastRecord = nil
         errorMessage = nil
+        geometry = nil
+        modelID = nil
+        referenceCentre = nil
+        drawGeneration += 1
+        ownScanIDs = []
+        cancelAccumulating()
+        accumulatedScan = nil
+        refinement = nil
+        refinedRuns = [:]
+        refinedAccepted = []
         sink?.setReferenceOverlay(nil)
         sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
     }

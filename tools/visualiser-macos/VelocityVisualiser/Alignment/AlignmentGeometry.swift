@@ -228,7 +228,136 @@ enum ScanPacking {
     }
 }
 
+/// Gathers the background- and ground-classed points of replayed frames into
+/// one scan for UploadScan (SCAN_KIND_ACCUMULATED). The settled background
+/// keeps one point per grid cell; a few seconds of frames keep every return,
+/// thinned to `voxelM`. Foreground points (things that moved) are never kept.
+/// Only full frames will do: a decimated frame would thin the scan unevenly,
+/// and a foreground-only frame has no background to keep.
+struct FrameAccumulator {
+    enum Refusal: Error, Equatable, LocalizedError {
+        case decimated(ratio: Float)
+        case foregroundOnly
+        case unclassified
+
+        var errorDescription: String? {
+            switch self {
+            case .decimated(let ratio):
+                return String(
+                    format:
+                        "Frames are decimated (ratio %.2f): accumulate from full frames, with decimation off",
+                    ratio)
+            case .foregroundOnly:
+                return "Frames carry only foreground points: accumulate from full frames"
+            case .unclassified:
+                return "Frames carry no point classes, so background cannot be told from foreground"
+            }
+        }
+    }
+
+    /// One point is kept per voxel of this size, metres.
+    static let voxelM: Float = 0.05
+    /// PointCloudFrame classes: background 0 and ground 2; foreground 1 is dropped.
+    static let keptClasses: Set<UInt8> = [0, 2]
+
+    let targetFrames: Int
+    private(set) var frameCount = 0
+    private(set) var firstFrameID: UInt64?
+    private(set) var lastFrameID: UInt64?
+    private(set) var x: [Float] = []
+    private(set) var y: [Float] = []
+    private(set) var z: [Float] = []
+    private var seen = Set<SIMD3<Int32>>()
+
+    init(targetFrames: Int = 50) { self.targetFrames = max(1, targetFrames) }
+
+    var isComplete: Bool { frameCount >= targetFrames }
+    var pointCount: Int { x.count }
+
+    /// Why a frame cannot be accumulated, or nothing when it can.
+    static func check(_ cloud: PointCloudFrame, frameType: FrameType) throws {
+        if frameType == .foreground || cloud.decimationMode == .foregroundOnly {
+            throw Refusal.foregroundOnly
+        }
+        // Spelled out, so `.none` cannot be taken for Optional.none.
+        let decimated =
+            cloud.decimationMode != DecimationMode.none
+            || !(cloud.decimationRatio == 0 || cloud.decimationRatio == 1)
+        if decimated {
+            throw Refusal.decimated(ratio: cloud.decimationRatio)
+        }
+        let n = min(cloud.x.count, cloud.y.count, cloud.z.count)
+        if n > 0, cloud.classification.count < n { throw Refusal.unclassified }
+    }
+
+    /// Adds one frame's background and ground points, or throws why the frame
+    /// cannot be used; a refused frame adds nothing.
+    mutating func add(_ cloud: PointCloudFrame, frameType: FrameType = .full) throws {
+        try Self.check(cloud, frameType: frameType)
+        let n = min(cloud.x.count, cloud.y.count, cloud.z.count, cloud.classification.count)
+        for i in 0..<n where Self.keptClasses.contains(cloud.classification[i]) {
+            let p = SIMD3<Float>(cloud.x[i], cloud.y[i], cloud.z[i])
+            // Far beyond any return, and keeps the voxel index inside Int32.
+            guard p.x.isFinite, p.y.isFinite, p.z.isFinite, simd_length(p) < 10_000 else { continue }
+            let cell = (p / Self.voxelM).rounded(.down)
+            if seen.insert(SIMD3<Int32>(Int32(cell.x), Int32(cell.y), Int32(cell.z))).inserted {
+                x.append(p.x)
+                y.append(p.y)
+                z.append(p.z)
+            }
+        }
+        frameCount += 1
+        if firstFrameID == nil { firstFrameID = cloud.frameID }
+        lastFrameID = cloud.frameID
+    }
+
+    /// Point blocks in the sensor frame, in the order points were first seen.
+    func blocks(maxPoints: Int = ScanPacking.maxPointsPerBlock) -> [Gerardus_Align_V1alpha1_PointBlock]
+    {
+        guard !x.isEmpty, maxPoints > 0 else { return [] }
+        return stride(from: 0, to: x.count, by: maxPoints).map { start in
+            let end = min(start + maxPoints, x.count)
+            var block = Gerardus_Align_V1alpha1_PointBlock()
+            block.x = Array(x[start..<end])
+            block.y = Array(y[start..<end])
+            block.z = Array(z[start..<end])
+            return block
+        }
+    }
+
+    /// The capture reference names the replay and the frames: "<replay>#frames=<first>-<last>".
+    func captureRef(replayID: String) -> String {
+        "\(replayID)#frames=\(firstFrameID ?? 0)-\(lastFrameID ?? 0)"
+    }
+
+    func header(l16Token: String, sensorID: String, replayID: String)
+        -> Gerardus_Align_V1alpha1_ScanHeader
+    {
+        var header = Gerardus_Align_V1alpha1_ScanHeader()
+        header.l16Token = l16Token
+        header.sensorID = sensorID
+        header.sensorModel = "hesai-pandar40p"
+        header.kind = .accumulated
+        header.captureRef = captureRef(replayID: replayID)
+        return header
+    }
+}
+
 // MARK: - Reference geometry
+
+/// One accepted scan of the site model, as StreamReference sends it: points
+/// in the site frame, placed by the record that accepted the scan's pose.
+struct RegisteredScan: Equatable, Sendable {
+    var scanID: String
+    var recordID: String
+    var kind: Gerardus_Align_V1alpha1_ScanKind
+    var captureRef: String
+    var x: [Float] = []
+    var y: [Float] = []
+    var z: [Float] = []
+
+    var pointCount: Int { x.count }
+}
 
 /// Reference geometry gathered from StreamReference, in the site frame.
 struct ReferenceGeometry: Sendable {
@@ -238,12 +367,45 @@ struct ReferenceGeometry: Sendable {
     var aerialZ: [Float] = []
     var aerialClass: [UInt32] = []
     var aerialIntensity: [UInt32] = []
+    /// OSM ways.
     var lines: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// DataSF building footprints, kept apart from OSM so each has a toggle.
+    var footprints: [Gerardus_Align_V1alpha1_LineFeature] = []
     var intersections: [Gerardus_Align_V1alpha1_Intersection] = []
+    /// The site model's layers: accepted scans, the lines derived from them
+    /// (sensors, corrections, facade traces and other proposed features) and
+    /// the ground mesh.
+    var scans: [RegisteredScan] = []
+    var observed: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var groundMesh: Gerardus_Align_V1alpha1_Heightfield?
+    /// The site model those layers were built from; empty when none came.
+    var modelID: String = ""
     /// Layers whose last chunk arrived.
     var completeLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
 
     var aerialCount: Int { aerialX.count }
+    var scanPointCount: Int { scans.reduce(0) { $0 + $1.pointCount } }
+
+    /// The layers built from the site model, which change whenever a record
+    /// does; the rest come from the bundle and stay put.
+    static let modelLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .registeredScans, .observed, .groundMesh,
+    ]
+
+    /// Takes the site model's layers from `other`, keeping the bundle's.
+    mutating func replaceModelLayers(with other: ReferenceGeometry) {
+        scans = other.scans
+        observed = other.observed
+        groundMesh = other.groundMesh
+        modelID = other.modelID
+        for layer in Self.modelLayers {
+            if other.completeLayers.contains(layer) {
+                completeLayers.insert(layer)
+            } else {
+                completeLayers.remove(layer)
+            }
+        }
+    }
 
     mutating func append(_ message: Gerardus_Align_V1alpha1_StreamReferenceResponse) {
         switch message.payload {
@@ -260,10 +422,34 @@ struct ReferenceGeometry: Sendable {
             aerialIntensity.append(
                 contentsOf: block.intensity.count >= n
                     ? Array(block.intensity.prefix(n)) : Array(repeating: 0, count: n))
-        case .lines(let set): lines.append(contentsOf: set.features)
+        case .lines(let set):
+            switch message.layer {
+            case .footprints: footprints.append(contentsOf: set.features)
+            case .observed: observed.append(contentsOf: set.features)
+            default: lines.append(contentsOf: set.features)
+            }
         case .intersections(let set): intersections.append(contentsOf: set.intersections)
+        case .scanPoints(let part):
+            let block = part.points
+            let n = min(block.x.count, block.y.count, block.z.count)
+            // A scan's blocks arrive in order; later ones extend the first.
+            let index: Int
+            if let found = scans.firstIndex(where: { $0.scanID == part.scanID }) {
+                index = found
+            } else {
+                scans.append(
+                    RegisteredScan(
+                        scanID: part.scanID, recordID: part.recordID, kind: part.kind,
+                        captureRef: part.captureRef))
+                index = scans.count - 1
+            }
+            scans[index].x.append(contentsOf: block.x.prefix(n))
+            scans[index].y.append(contentsOf: block.y.prefix(n))
+            scans[index].z.append(contentsOf: block.z.prefix(n))
+        case .groundMesh(let field): groundMesh = field
         case nil: break
         }
+        if !message.modelID.isEmpty { modelID = message.modelID }
         if message.layerComplete { completeLayers.insert(message.layer) }
     }
 }
@@ -276,11 +462,22 @@ struct ReferenceOverlayVertices: Sendable {
     /// Debug-line layout: [x, y, z, r, g, b, a] per vertex, two per segment.
     var osmLines: [Float] = []
     var intersectionLines: [Float] = []
+    var footprintLines: [Float] = []
+    /// Sensors, corrections and proposed features from the site model.
+    var observedLines: [Float] = []
+    /// The ground mesh as a wireframe: lines only, no triangles.
+    var groundMeshLines: [Float] = []
+    /// Registered scans in the point layout, each scan its own palette code.
+    var scans: [Float] = []
     var palette: [SIMD4<Float>] = ReferenceStyle.palette
 
     var aerialCount: Int { aerial.count / 5 }
     var osmVertexCount: Int { osmLines.count / 7 }
     var intersectionVertexCount: Int { intersectionLines.count / 7 }
+    var footprintVertexCount: Int { footprintLines.count / 7 }
+    var observedVertexCount: Int { observedLines.count / 7 }
+    var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
+    var scanCount: Int { scans.count / 5 }
 }
 
 /// Colours for the reference, chosen here rather than by the server: the
@@ -326,7 +523,19 @@ enum ReferenceStyle {
         }
     }
 
-    /// 256 colours: a ramp per group, the rest unused and white.
+    /// Registered scans take the codes after the ASPRS groups' runs, one
+    /// colour per scan, repeating after the last.
+    static let scanCodeBase = Group.allCases.count * shadesPerGroup
+    static let scanColours: [SIMD3<Float>] = [
+        SIMD3(0.20, 0.95, 0.95), SIMD3(0.95, 0.35, 0.75), SIMD3(0.55, 1.00, 0.35),
+        SIMD3(1.00, 0.60, 0.15), SIMD3(0.55, 0.60, 1.00), SIMD3(1.00, 1.00, 0.45),
+        SIMD3(0.40, 0.85, 0.60), SIMD3(0.95, 0.55, 0.55),
+    ]
+
+    static func scanCode(index: Int) -> Int { scanCodeBase + index % scanColours.count }
+
+    /// 256 colours: a ramp per group, then the scan colours, the rest unused
+    /// and white.
     static let palette: [SIMD4<Float>] = {
         var table = [SIMD4<Float>](repeating: SIMD4(1, 1, 1, 1), count: 256)
         for group in Group.allCases {
@@ -336,6 +545,7 @@ enum ReferenceStyle {
                 table[group.rawValue * shadesPerGroup + shade] = SIMD4(group.colour * level, 1)
             }
         }
+        for (i, colour) in scanColours.enumerated() { table[scanCodeBase + i] = SIMD4(colour, 1) }
         return table
     }()
 
@@ -365,9 +575,19 @@ enum ReferenceStyle {
         case .kerb: return SIMD4(1.00, 0.55, 0.20, 0.95)
         case .rail: return SIMD4(0.95, 0.40, 0.90, 0.95)
         case .building: return SIMD4(1.00, 0.40, 0.35, 0.85)
+        case .sensor: return SIMD4(1.00, 1.00, 1.00, 0.95)
+        case .correction: return SIMD4(1.00, 0.75, 0.10, 0.95)
+        case .facade: return SIMD4(0.10, 0.90, 1.00, 0.95)
+        case .pole: return SIMD4(0.70, 1.00, 0.40, 0.95)
         case .other, .unspecified, .UNRECOGNIZED: return SIMD4(0.80, 0.80, 0.80, 0.70)
         }
     }
+
+    static let groundMeshColour = SIMD4<Float>(0.55, 0.70, 0.60, 0.40)
+    /// Within this many metres of the sensor the ground mesh is drawn at its
+    /// own cell size; beyond it, every `groundMeshFarSpacingM` only.
+    static let groundMeshNearM: Float = 40
+    static let groundMeshFarSpacingM: Float = 2
 
     static let intersectionColour = SIMD4<Float>(1.00, 1.00, 1.00, 0.95)
     static let approachColour = SIMD4<Float>(0.35, 1.00, 0.95, 0.95)
@@ -381,11 +601,76 @@ enum ReferenceStyle {
 
     // MARK: Vertex building
 
-    static func vertices(for geometry: ReferenceGeometry) -> ReferenceOverlayVertices {
+    /// `hidingScans` leaves those scans out of the scan points; `sensor`, the
+    /// sensor's position in the site frame, decides where the ground mesh
+    /// thins out.
+    static func vertices(
+        for geometry: ReferenceGeometry, hidingScans: Set<String> = [], sensor: SIMD2<Float>? = nil
+    ) -> ReferenceOverlayVertices {
         var out = ReferenceOverlayVertices()
         out.aerial = aerialVertices(geometry)
         out.osmLines = lineVertices(geometry.lines)
         out.intersectionLines = intersectionVertices(geometry.intersections)
+        out.footprintLines = lineVertices(geometry.footprints)
+        out.observedLines = lineVertices(geometry.observed)
+        out.scans = scanVertices(geometry.scans, hiding: hidingScans)
+        if let field = geometry.groundMesh {
+            out.groundMeshLines = groundMeshVertices(field, sensor: sensor)
+        }
+        return out
+    }
+
+    /// Each scan's points in the point layout, coloured by the scan's place
+    /// in the list, so a scan keeps its colour when another is hidden.
+    static func scanVertices(_ scans: [RegisteredScan], hiding: Set<String> = []) -> [Float] {
+        var out = [Float]()
+        out.reserveCapacity(scans.reduce(0) { $0 + $1.pointCount } * 5)
+        for (index, scan) in scans.enumerated() where !hiding.contains(scan.scanID) {
+            let code = Float(scanCode(index: index)) / 255
+            let n = min(scan.x.count, scan.y.count, scan.z.count)
+            for i in 0..<n { out.append(contentsOf: [scan.x[i], scan.y[i], scan.z[i], code, 0]) }
+        }
+        return out
+    }
+
+    /// The heightfield as a wireframe: a segment between each pair of
+    /// neighbouring nodes that both have ground. Beyond `groundMeshNearM` of
+    /// the sensor only every `groundMeshFarSpacingM` row and column is drawn,
+    /// so the far field does not become a solid sheet of lines.
+    static func groundMeshVertices(
+        _ field: Gerardus_Align_V1alpha1_Heightfield, sensor: SIMD2<Float>? = nil
+    ) -> [Float] {
+        let nx = Int(field.nx)
+        let ny = Int(field.ny)
+        guard nx > 0, ny > 0, field.z.count == nx * ny, field.cellM > 0 else { return [] }
+        let cell = field.cellM
+        let step = max(1, Int((groundMeshFarSpacingM / cell).rounded()))
+        let ox = Float(field.origin.x)
+        let oy = Float(field.origin.y)
+        let lift = lineLift / 2
+        func node(_ i: Int, _ j: Int) -> SIMD3<Float>? {
+            let z = field.z[j * nx + i]
+            guard z.isFinite else { return nil }
+            return SIMD3(ox + Float(i) * cell, oy + Float(j) * cell, z + lift)
+        }
+        func near(_ p: SIMD3<Float>) -> Bool {
+            guard let sensor else { return true }
+            return simd_length(SIMD2(p.x, p.y) - sensor) <= groundMeshNearM
+        }
+        var out = [Float]()
+        for j in 0..<ny {
+            for i in 0..<nx {
+                guard let a = node(i, j) else { continue }
+                // Along x, on this row.
+                if i + 1 < nx, let b = node(i + 1, j), near(a) || near(b) || j % step == 0 {
+                    appendSegment(&out, a, b, groundMeshColour)
+                }
+                // Along y, on this column.
+                if j + 1 < ny, let b = node(i, j + 1), near(a) || near(b) || i % step == 0 {
+                    appendSegment(&out, a, b, groundMeshColour)
+                }
+            }
+        }
         return out
     }
 

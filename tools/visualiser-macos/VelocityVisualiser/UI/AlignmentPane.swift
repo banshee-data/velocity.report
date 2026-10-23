@@ -1,7 +1,10 @@
 // AlignmentPane.swift
 // The alignment pane: place the sensor from its eye-read hint against the
-// Gerardus reference, nudge it, and record the operator's decision. Shown
-// only while a Gerardus server answers (AlignmentSession.isAvailable).
+// Gerardus reference, nudge it, and record the operator's decision. Once
+// poses are accepted it also draws the site model (registered scans, lines
+// derived from them, a ground mesh), accumulates replayed frames into a
+// denser scan, and refines every pose at the site together. Shown only while
+// a Gerardus server answers (AlignmentSession.isAvailable).
 
 import SwiftProtobuf
 import SwiftUI
@@ -59,6 +62,10 @@ import SwiftUI
                     registrationSection
                 }
                 if session.registration != nil { reviewSection }
+                if session.preparedSite != nil {
+                    Divider()
+                    siteModelSection
+                }
                 if session.site != nil {
                     Divider()
                     recordsSection
@@ -162,10 +169,40 @@ import SwiftUI
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
+                if reference.footprints > 0 {
+                    Toggle(
+                        "DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
+                }
                 Toggle(
                     "Intersections (\(reference.intersections))", isOn: $session.showIntersections)
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
+                }
+                if session.showFootprints, reference.footprints > 0,
+                    !reference.footprintAttribution.isEmpty
+                {
+                    Text(reference.footprintAttribution).font(.caption2).foregroundStyle(.secondary)
+                }
+                if reference.registeredScans > 0 {
+                    Toggle(
+                        "Registered scans (\(reference.registeredScans), \(reference.registeredScanPoints.formatted()) points)",
+                        isOn: $session.showScans)
+                    Toggle("Include this capture's own scan", isOn: $session.showOwnScan).padding(
+                        .leading, 16
+                    ).disabled(!session.showScans).help(
+                        "Once accepted, this capture's scan is in the site model too, over the live background it repeats"
+                    )
+                }
+                if reference.observedFeatures > 0 {
+                    Toggle(
+                        "Observed lines (\(reference.observedFeatures))", isOn: $session.showObserved
+                    ).help(
+                        "Sensors (white), eye-read corrections (amber) and facade traces (cyan) derived from the accepted scans"
+                    )
+                }
+                if reference.groundMesh {
+                    Toggle("Ground mesh", isOn: $session.showGroundMesh).help(
+                        "The 3DEP ground, refined where accepted scans see it, as a wireframe")
                 }
             }
         }.toggleStyle(.checkbox).font(.callout)
@@ -293,6 +330,12 @@ import SwiftUI
                         "Stop the run; the server logs it as far as it got")
                 }
             }
+            Toggle("Against the site model", isOn: $session.againstSiteModel).toggleStyle(
+                .checkbox
+            ).font(.caption).help(
+                "Also fit against the site's other accepted scans. The ground and facade gates stay measured against 3DEP alone"
+            )
+            accumulationView
             if let registration = session.registration {
                 AlignmentRow("Result", AlignmentFormat.state(registration.state))
                 if !registration.failureReason.isEmpty {
@@ -307,6 +350,49 @@ import SwiftUI
             if !session.hypotheses.isEmpty { hypothesesView }
             fitView
         }
+    }
+
+    @ViewBuilder private var accumulationView: some View {
+        HStack {
+            if let status = session.accumulation {
+                ProgressView(value: Double(status.frames), total: Double(max(status.target, 1)))
+                    .frame(width: 80)
+                Text(accumulationLabel(status)).font(.caption.monospacedDigit())
+                if !status.uploading {
+                    Button("Stop") { session.cancelAccumulating() }.font(.caption)
+                }
+            } else {
+                Button("Accumulate frames") {
+                    session.startAccumulating(replayID: appState.currentRunID)
+                }.disabled(!session.canAccumulate).help(
+                    "Collect the next 50 full frames of the replay (background and ground points only), thinned to 5 cm, and upload them as one scan"
+                )
+            }
+        }
+        if let accumulated = session.accumulatedScan {
+            HStack {
+                Text("Accumulated: \(accumulated.pointCount.formatted()) points").font(.caption)
+                Spacer()
+                Button("Register accumulated") { session.startAccumulatedRegistration() }.disabled(
+                    !session.canRegisterAccumulated
+                ).help("Register the accumulated scan from the pose drawn now")
+            }
+            Text(accumulated.header.captureRef).font(.caption2.monospaced()).foregroundStyle(
+                .secondary
+            ).textSelection(.enabled)
+        }
+    }
+
+    private func accumulationLabel(_ status: AccumulationStatus) -> String {
+        status.uploading
+            ? "Uploading \(status.points.formatted()) points"
+            : "\(status.frames)/\(status.target) frames, \(status.points.formatted()) points"
+    }
+
+    private func acceptRefinedHelp(_ refined: Gerardus_Align_V1alpha1_RefinedScan) -> String {
+        session.refinedPassed(refined)
+            ? "Record the refined pose (registered)"
+            : "Record the refined pose (manually placed: a gate failed)"
     }
 
     private func gatesView(_ gates: [Gerardus_Align_V1alpha1_GateResult]) -> some View {
@@ -431,6 +517,91 @@ import SwiftUI
                 Text("Recorded \(AlignmentFormat.state(record.state)): \(record.recordID)").font(
                     .caption
                 ).foregroundStyle(.green).textSelection(.enabled)
+            }
+        }
+    }
+
+    // MARK: Site model
+
+    private var siteModelSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Site model").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("Refine site") { Task { await session.refine() } }.disabled(
+                    !session.canRefine
+                ).help(
+                    "Re-solve every accepted pose at the site together: each scan's fit to 3DEP and the fits between overlapping scans"
+                )
+            }
+            if let modelID = session.modelID {
+                Text(modelID).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(1)
+                    .truncationMode(.middle).textSelection(.enabled)
+            }
+            if let refinement = session.refinement { refinementView(refinement) }
+        }
+    }
+
+    private func refinementView(_ refinement: Gerardus_Align_V1alpha1_RefineSiteResult) -> some View
+    {
+        VStack(alignment: .leading, spacing: 4) {
+            let used = refinement.pairs.filter(\.used)
+            Text(
+                "\(refinement.scans.count) scans, \(used.count) of \(refinement.pairs.count) pairs used, \(refinement.iterations) iterations"
+            ).font(.caption)
+            ForEach(Array(refinement.scans.enumerated()), id: \.element.scanID) { _, refined in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack {
+                        Text(String(refined.scanID.suffix(10))).font(.caption.monospaced())
+                        Text(
+                            String(
+                                format: "moved %.3f m, %.2f° · rank %d", refined.deltaM,
+                                refined.deltaDeg, refined.jointConstraintRank)
+                        ).font(.caption.monospacedDigit())
+                        Spacer()
+                        if session.refinedAccepted.contains(refined.scanID) {
+                            Image(systemName: "checkmark").foregroundStyle(.green)
+                        } else {
+                            Button("Accept") { Task { await session.acceptRefined(refined) } }
+                                .font(.caption).disabled(
+                                    session.busy != nil || session.reviewer.isEmpty
+                                ).help(acceptRefinedHelp(refined))
+                        }
+                    }
+                    if let run = session.refinedRuns[refined.scanID] {
+                        HStack(spacing: 6) {
+                            ForEach(Array(run.gates.enumerated()), id: \.offset) { _, gate in
+                                Label(
+                                    gate.name,
+                                    systemImage: gate.passed ? "checkmark.circle" : "xmark.circle"
+                                ).foregroundStyle(gate.passed ? .green : .orange).font(.caption2)
+                                    .help(
+                                        "\(AlignmentFormat.gateValue(gate.value)) against \(AlignmentFormat.gateValue(gate.threshold))"
+                                    )
+                            }
+                        }
+                    }
+                    Text(AlignmentFormat.quality(refined.afterQuality)).font(
+                        .caption2.monospacedDigit()
+                    ).foregroundStyle(.secondary)
+                    if !refined.jointWeakDirections.isEmpty {
+                        Text("weak: " + refined.jointWeakDirections.joined(separator: ", ")).font(
+                            .caption2
+                        ).foregroundStyle(.orange)
+                    }
+                }.padding(4).background(Color.secondary.opacity(0.06)).clipShape(
+                    RoundedRectangle(cornerRadius: 4))
+            }
+            if !refinement.pairs.isEmpty {
+                ForEach(Array(refinement.pairs.enumerated()), id: \.offset) { _, pair in
+                    Text(
+                        String(
+                            format: "%@ ↔ %@: p75 %.3f → %.3f m, %d matched%@",
+                            String(pair.scanA.suffix(6)), String(pair.scanB.suffix(6)),
+                            pair.p75BeforeM, pair.p75AfterM, pair.matched,
+                            pair.used ? "" : " (not used: \(pair.reason))")
+                    ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                }
             }
         }
     }

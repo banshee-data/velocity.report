@@ -1330,6 +1330,10 @@ private let logger = DevLogger(category: "AppState")
         if alignment.isAvailable, let background = frame.background {
             alignment.noteBackground(background)
         }
+        // While the alignment pane accumulates frames, it sees each one.
+        if alignment.isAccumulating, let cloud = frame.pointCloud {
+            alignment.noteFrame(cloud, frameType: frame.frameType)
+        }
 
         // Apply persistent track filters BEFORE rendering so filtered tracks
         // never appear even briefly.
