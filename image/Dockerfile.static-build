@@ -145,11 +145,11 @@ RUN --mount=type=cache,id=velocity-go-build-${TARGETARCH},target=/root/.cache/go
                 ./cmd/velocity; then \
             :; \
         else \
-            status=$$?; \
-            if [ "$$status" -eq 124 ]; then \
+            status=$?; \
+            if [ "$status" -eq 124 ]; then \
                 echo "ERROR: static Go build exceeded 45 minutes; inspect compiler output and Docker resources." >&2; \
             fi; \
-            exit "$$status"; \
+            exit "$status"; \
         fi; \
         file "$out"; \
     done

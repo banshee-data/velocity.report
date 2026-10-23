@@ -6,7 +6,12 @@
 #   - libpcap submodule drift
 #   - --self-check failures in a clean Debian target (DNS, UDP, libpcap)
 #
-# Runs are ~3–5 minutes cold, ~1 minute warm (BuildKit cache).
+# Runs take ~9 minutes: ~4.5 min for the Docker build (90 s per arch of
+# Go compile, which is never cached between runs), ~2.5 min for the ARM64
+# VM boot under TCG, and the rest in docs, smoke tests and setup. The
+# toolchain/libpcap layers and the VM gate's .debs are cached between
+# runs; a miss on either adds ~1.5 min, or more if the Ubuntu mirror is
+# slow.
 
 name: Static build CI
 
@@ -40,6 +45,9 @@ on:
 permissions:
   contents: read
 
+env:
+  ARM64_VM_PACKAGES: qemu-system-arm qemu-efi-aarch64 qemu-utils ipxe-qemu genisoimage
+
 jobs:
   build-and-smoke-test:
     name: Static build + smoke test
@@ -69,8 +77,41 @@ jobs:
       - name: Build complete embedded docs site
         run: make build-docs-offline
 
+      # Persist the toolchain and libpcap stages between runs. Each job
+      # gets a fresh buildx builder, so without this every run rebuilds
+      # them (~80 s). The Go build cache is a BuildKit cache mount, which
+      # layer caching does not carry, so the Go compile stays cold.
+      - name: Key the BuildKit layer cache
+        id: layer-cache-key
+        run: echo "libpcap=$(git rev-parse HEAD:third_party/libpcap)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore BuildKit layer cache
+        id: layer-cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/buildkit-cache
+          key: static-build-layers-${{ runner.arch }}-${{ steps.layer-cache-key.outputs.libpcap }}-${{ hashFiles('image/Dockerfile.static-build', 'go.mod', 'go.sum', 'third_party/libpcap-static/**') }}
+          restore-keys: static-build-layers-${{ runner.arch }}-
+
       - name: Build static binaries (amd64 + arm64)
-        run: make build-radar-static
+        env:
+          LAYER_CACHE: ${{ runner.temp }}/buildkit-cache
+          LAYER_CACHE_HIT: ${{ steps.layer-cache.outputs.cache-hit }}
+        run: |
+          if [[ -f "$LAYER_CACHE/index.json" ]]; then
+            export BUILD_CACHE_FROM="type=local,src=$LAYER_CACHE"
+          fi
+          # Export only when the key missed, into a fresh directory: the
+          # local exporter never prunes, so writing over the restored
+          # cache would carry stale blobs forward.
+          if [[ "$LAYER_CACHE_HIT" != "true" ]]; then
+            export BUILD_CACHE_TO="type=local,dest=$LAYER_CACHE.new,mode=max"
+          fi
+          make build-radar-static
+          if [[ -d "$LAYER_CACHE.new" ]]; then
+            rm -rf "$LAYER_CACHE"
+            mv "$LAYER_CACHE.new" "$LAYER_CACHE"
+          fi
 
       - name: Verify embedded docs routes in the amd64 binary
         run: |
@@ -98,8 +139,37 @@ jobs:
           bin=$(ls build/static/velocity-report-*-linux-arm64-*-static | head -1)
           ./scripts/smoke-test-static.sh "$bin"
 
+      # The runner's Ubuntu mirror is sometimes throttled to tens of kB/s,
+      # which once stretched this install from 20 s to 23 min. Keep the
+      # downloaded .debs between runs so only the package index comes from
+      # the mirror, and install only what the VM gate uses. qemu-img (in
+      # qemu-utils) and virtio-net-pci's option ROM (in ipxe-qemu) are
+      # named so they do not depend on recommends.
+      - name: Key the ARM64 test package cache
+        id: apt-cache-key
+        env:
+          PACKAGES: ${{ env.ARM64_VM_PACKAGES }}
+        run: echo "key=arm64-vm-debs-$ImageOS-$ImageVersion-$(echo "$PACKAGES" | sha256sum | cut -c1-12)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore ARM64 test package cache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ${{ runner.temp }}/apt-archives
+          key: ${{ steps.apt-cache-key.outputs.key }}
+          restore-keys: arm64-vm-debs-
+
       - name: Install full-system ARM64 test dependencies
-        run: sudo apt-get update && sudo apt-get install -y qemu-system-arm qemu-efi-aarch64 genisoimage
+        env:
+          APT_ARCHIVES: ${{ runner.temp }}/apt-archives
+        run: |
+          mkdir -p "$APT_ARCHIVES/partial"
+          apt_opts=(-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Dir::Cache::Archives="$APT_ARCHIVES")
+          sudo apt-get "${apt_opts[@]}" update
+          sudo apt-get "${apt_opts[@]}" install -y --no-install-recommends $ARM64_VM_PACKAGES
+          # Drop superseded versions carried in by a restore-keys match.
+          sudo apt-get "${apt_opts[@]}" autoclean
+          sudo rm -f "$APT_ARCHIVES/lock"
+          sudo chown -R "$(id -u):$(id -g)" "$APT_ARCHIVES"
 
       - name: Test ARM64 binary under an ARM64 kernel
         run: |
