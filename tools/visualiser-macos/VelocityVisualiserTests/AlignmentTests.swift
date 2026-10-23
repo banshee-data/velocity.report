@@ -1033,6 +1033,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Wall planes the observed layer carries; none until Gerardus builds them.
     var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
+    /// Refuse Register with against_boxes, FAILED_PRECONDITION with this
+    /// message, as Gerardus refuses a site with no box walls.
+    var refuseAgainstBoxes: String?
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     /// Every ReviewRegistration request, in order.
     var reviews: [Gerardus_Align_V1alpha1_ReviewRegistrationRequest] = []
@@ -1185,6 +1188,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_Registration {
         log("Register")
         lastRegister = request
+        if request.againstBoxes, let refuseAgainstBoxes {
+            throw RPCError(code: .failedPrecondition, message: refuseAgainstBoxes)
+        }
         if registerUntilCancelled {
             while !Task.isCancelled { await Task.yield() }
             throw CancellationError()
@@ -2431,6 +2437,139 @@ private let columbusSite = AlignmentSite(
         await session.accept()
         #expect(session.siteModelScanIDs == [ownScanID, "sha256:k2"])
         #expect(session.againstSiteModelUnavailable == nil)
+    }
+}
+
+// MARK: - Against the DataSF boxes (Gerardus 4e90c8c, q7)
+
+@MainActor struct AgainstBoxesTests {
+    /// Every layer the default fake lists, and BOXES.
+    private static let withBoxes: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+        .boxes,
+    ]
+
+    @Test func theSwitchIsOffByDefaultAndSetsTheRequestField() async {
+        let (session, service) = await placedSession { $0.availableLayers = Self.withBoxes }
+        session.noteBackground(snapshot(count: 10))
+        #expect(!session.againstBoxes)
+        // The fake serves two box walls.
+        #expect(session.reference?.boxWalls == 2)
+        #expect(session.againstBoxesUnavailable == nil)
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == false)
+        #expect(session.registeredAgainst == AlignmentModelReference())
+
+        session.againstBoxes = true
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == true)
+        #expect(service.lastRegister?.againstSiteModel == false)
+        #expect(session.registersAgainstBoxes)
+        #expect(session.registeredAgainst == AlignmentModelReference(siteModel: false, boxes: true))
+    }
+
+    @Test func aServerThatDoesNotListBoxesDisablesIt() async {
+        // The default fake lists every layer but BOXES.
+        let (session, service) = await placedSession()
+        session.noteBackground(snapshot(count: 10))
+        session.againstBoxes = true
+        #expect(session.againstBoxesUnavailable?.contains("no boxes layer") == true)
+        #expect(!session.registersAgainstBoxes)
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == false)
+
+        // Nor a server that lists no layers at all: BOXES must be listed.
+        let (quiet, _) = await placedSession { $0.availableLayers = [] }
+        #expect(quiet.againstBoxesUnavailable?.contains("no boxes layer") == true)
+    }
+
+    @Test func aBoxesLayerWithNoWallsDisablesIt() async {
+        let (session, service) = await placedSession {
+            $0.availableLayers = Self.withBoxes
+            $0.emptyBoxes = true
+        }
+        session.noteBackground(snapshot(count: 10))
+        session.againstBoxes = true
+        #expect(session.reference?.boxesServed == true)
+        #expect(session.againstBoxesUnavailable?.contains("holds no walls") == true)
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == false)
+    }
+
+    @Test func itIsDisabledUntilTheReferenceIsStreamed() async {
+        let service = FakeAlignmentService()
+        service.availableLayers = Self.withBoxes
+        let session = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: nil, fullFrames: FakeFullFrames())
+        session.sink = FakeOverlaySink()
+        await session.probe()
+        #expect(session.againstBoxesUnavailable?.contains("not been streamed") == true)
+    }
+
+    @Test func bothSwitchesCanBeOnTogether() async {
+        let (session, service) = await placedSession { $0.availableLayers = Self.withBoxes }
+        session.noteBackground(snapshot(count: 10))
+        session.againstSiteModel = true
+        session.againstBoxes = true
+        #expect(session.againstSiteModelUnavailable == nil)
+        #expect(session.againstBoxesUnavailable == nil)
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == true)
+        #expect(service.lastRegister?.againstBoxes == true)
+        #expect(session.registeredAgainst == AlignmentModelReference(siteModel: true, boxes: true))
+
+        // Turning one off leaves the other sent.
+        session.againstSiteModel = false
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == false)
+        #expect(service.lastRegister?.againstBoxes == true)
+    }
+
+    @Test func theCaptionNamesWhatTheRunFittedAgainst() {
+        let siteModel = AlignmentModelReference(siteModel: true, boxes: false)
+        let boxes = AlignmentModelReference(siteModel: false, boxes: true)
+        let both = AlignmentModelReference(siteModel: true, boxes: true)
+        #expect(
+            AlignmentFormat.modelFitCaption(siteModel)
+                == "Against the site model, reported, not gated: ")
+        #expect(
+            AlignmentFormat.modelFitCaption(boxes)
+                == "Against the DataSF boxes, reported, not gated: ")
+        #expect(
+            AlignmentFormat.modelFitCaption(both)
+                == "Against the site model and boxes, reported, not gated: ")
+
+        var q = Gerardus_Align_V1alpha1_FitQuality()
+        q.modelP50M = 0.04
+        q.modelP75M = 0.07
+        q.modelPoints = 800
+        #expect(
+            AlignmentFormat.modelFit(q, against: siteModel)
+                == "site model p50 0.04 m · p75 0.07 m · 800 points")
+        #expect(
+            AlignmentFormat.modelFit(q, against: boxes)
+                == "boxes p50 0.04 m · p75 0.07 m · 800 points")
+        #expect(
+            AlignmentFormat.modelFit(q, against: both)
+                == "site model and boxes p50 0.04 m · p75 0.07 m · 800 points")
+        q.modelPoints = 0
+        #expect(AlignmentFormat.modelFit(q, against: boxes) == nil)
+    }
+
+    @Test func aFailedPreconditionShowsTheServersMessage() async {
+        let (session, service) = await placedSession {
+            $0.availableLayers = Self.withBoxes
+            $0.refuseAgainstBoxes = "site 808580f47 has no box walls"
+        }
+        session.noteBackground(snapshot(count: 10))
+        session.againstBoxes = true
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == true)
+        let message = session.errorMessage ?? ""
+        #expect(message.contains("site 808580f47 has no box walls"), "\(message)")
+        #expect(session.registration == nil)
+        #expect(!session.isRegistering)
+        #expect(session.busy == nil)
     }
 }
 

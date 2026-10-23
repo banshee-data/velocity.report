@@ -1,7 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: e2aa4f8b45c75277b333b7551bd7e22754201503 on claude/vector-spike-merge-check-04d85d
-// (site model spike V8; not merged yet: update this line to the main commit when it is).
+// Commit: 4e90c8c86ba166152d0c76841c7fde6eb93471d5 on claude/vector-spike-merge-check-04d85d
+// (site model spike, q5 and q7; not merged yet: update this line to the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -475,8 +475,9 @@ message FitQuality {
   // not grow with range. NaN with fewer than 100 facade residuals.
   float facade_range_slope = 12;
 
-  // Residuals against the site's accepted scans alone, when a fit used them
-  // (RegisterRequest.against_site_model). Reported, not gated.
+  // Residuals against what the request added to 3DEP alone: the site's
+  // accepted scans (against_site_model) and/or its corrected box walls
+  // (against_boxes). Reported, not gated.
   float model_p50_m = 13;
   float model_p75_m = 14;
   uint32 model_points = 15;
@@ -655,6 +656,9 @@ message RegisterRequest {
   PoseHint hint = 3;
   RegistrationOptions options = 4;  // unset fields take the server defaults
   bool against_site_model = 5;      // also fit against the site's accepted scans
+  // Also fit against the site's DataSF box walls, corrected by the measured
+  // wall planes where they exist (docs/plans/SITE-MODEL-SPIKE.md §10 q7).
+  bool against_boxes = 6;
 }
 
 message RegisterResponse {

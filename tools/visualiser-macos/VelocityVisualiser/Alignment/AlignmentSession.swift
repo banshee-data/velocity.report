@@ -13,7 +13,8 @@
 //                     while the frames are collected, full frames off; then
 //                     UploadScan (SCAN_KIND_ACCUMULATED), which Register then uses
 //   Register          UploadScan (once per background) → Register, against
-//                     3DEP alone or, with the switch on, against the site model
+//                     3DEP alone or, with the switches on, against the site
+//                     model, the DataSF boxes, or both
 //   Accept / Reject   ReviewRegistration → ListRegistrationRecords →
 //                     GetSiteModel → StreamReference per registered layer,
 //                     when the site model moved
@@ -85,6 +86,33 @@ struct PoseEvaluation {
     /// One per uploaded scan point, in upload order; NaN where no reference
     /// lies within reach.
     var residuals: [Float]
+}
+
+/// What a registration was asked to fit against besides 3DEP: the site's
+/// accepted scans (against_site_model), its corrected box walls
+/// (against_boxes), or both. FitQuality's model_* residuals are against these.
+struct AlignmentModelReference: Equatable {
+    var siteModel = false
+    var boxes = false
+
+    /// "the site model", "the DataSF boxes" or "the site model and boxes".
+    var label: String {
+        switch (siteModel, boxes) {
+        case (true, true): return "the site model and boxes"
+        case (false, true): return "the DataSF boxes"
+        default: return "the site model"
+        }
+    }
+
+    /// The residual line's leading words: "site model", "boxes" or
+    /// "site model and boxes".
+    var shortLabel: String {
+        switch (siteModel, boxes) {
+        case (true, true): return "site model and boxes"
+        case (false, true): return "boxes"
+        default: return "site model"
+        }
+    }
 }
 
 /// What Accept records for the pose drawn now.
@@ -225,6 +253,14 @@ struct ReferenceSummary: Equatable {
     /// (RegisterRequest.against_site_model). Off by default, and sent only
     /// while `againstSiteModelUnavailable` is nil.
     @Published var againstSiteModel = false
+    /// Register also fits against the site's DataSF box walls, corrected by
+    /// the measured wall planes (RegisterRequest.against_boxes). Off by
+    /// default, and sent only while `againstBoxesUnavailable` is nil. It can
+    /// be on with `againstSiteModel`.
+    @Published var againstBoxes = false
+    /// What the registration shown now was asked to fit against besides
+    /// 3DEP, for the caption on its model residuals.
+    @Published private(set) var registeredAgainst = AlignmentModelReference()
     /// The scans the site model holds, by scan_id: GetSiteModel's list, or
     /// the registered layer's when GetSiteModel is not answered; nil when
     /// neither said.
@@ -901,6 +937,22 @@ struct ReferenceSummary: Equatable {
     /// What Register sends as against_site_model.
     var registersAgainstSiteModel: Bool { againstSiteModel && againstSiteModelUnavailable == nil }
 
+    /// Why Register cannot fit against the DataSF boxes now, or nil when it
+    /// can: the server must list the boxes layer, and the layer it streamed
+    /// must hold walls. Gerardus answers FAILED_PRECONDITION to a site
+    /// without them.
+    var againstBoxesUnavailable: String? {
+        guard availableLayers.contains(.boxes) else {
+            return "This Gerardus lists no boxes layer, so it has no DataSF box walls."
+        }
+        guard let reference else { return "The reference has not been streamed yet." }
+        if reference.boxWalls == 0 { return "The boxes layer holds no walls at this site." }
+        return nil
+    }
+
+    /// What Register sends as against_boxes.
+    var registersAgainstBoxes: Bool { againstBoxes && againstBoxesUnavailable == nil }
+
     // MARK: - Scan
 
     /// Keeps the newest background snapshot. Called for every background
@@ -975,6 +1027,9 @@ struct ReferenceSummary: Equatable {
             // Decided once the scan's id is known, so a model holding only
             // this scan is not asked for.
             request.againstSiteModel = registersAgainstSiteModel
+            request.againstBoxes = registersAgainstBoxes
+            registeredAgainst = AlignmentModelReference(
+                siteModel: request.againstSiteModel, boxes: request.againstBoxes)
             result = try await client.register(
                 request, onProgress: { [weak self] progress in await self?.show(progress) },
                 onHypothesis: { [weak self] hypothesis in await self?.received(hypothesis) })
@@ -1019,9 +1074,9 @@ struct ReferenceSummary: Equatable {
         return registration.gates.allSatisfy(\.passed)
     }
 
-    /// The best hypothesis's fit against the site's accepted scans, when the
-    /// run measured one (model_points > 0). Reported beside the gates; it is
-    /// not one of them.
+    /// The best hypothesis's fit against what the run added to 3DEP
+    /// (`registeredAgainst`), when it measured one (model_points > 0).
+    /// Reported beside the gates; it is not one of them.
     var modelFit: Gerardus_Align_V1alpha1_FitQuality? {
         guard let quality = registration?.hypotheses.first?.quality, quality.modelPoints > 0 else {
             return nil

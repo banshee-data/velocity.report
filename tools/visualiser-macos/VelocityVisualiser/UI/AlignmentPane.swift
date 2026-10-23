@@ -342,18 +342,26 @@ import SwiftUI
                             ? "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the reference (10 to 25 s)"
                             : "Search 30 m around the pose drawn now, at every heading, for where the accumulated frames fit the reference (10 to 25 s)"
                     )
-                Toggle("Against site model", isOn: againstSiteModel).toggleStyle(.switch)
-                    .controlSize(.mini).font(.caption).disabled(
-                        session.againstSiteModelUnavailable != nil || session.isRegistering
-                    ).help(
-                        "Fit against 3DEP and the site's accepted scans. The gates are still measured against 3DEP alone."
-                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Against site model", isOn: againstSiteModel).toggleStyle(.switch)
+                        .controlSize(.mini).font(.caption).disabled(
+                            session.againstSiteModelUnavailable != nil || session.isRegistering
+                        ).help(
+                            "Fit against 3DEP and the site's accepted scans. The gates are still measured against 3DEP alone."
+                        )
+                    Toggle("Against DataSF boxes", isOn: againstBoxes).toggleStyle(.switch)
+                        .controlSize(.mini).font(.caption).disabled(
+                            session.againstBoxesUnavailable != nil || session.isRegistering
+                        ).help(
+                            "Fit against 3DEP and the site's DataSF box walls, corrected by the measured wall planes. The gates are still measured against 3DEP alone."
+                        )
+                }
                 if session.isRegistering {
                     Button("Cancel") { session.cancelRegistration() }.help(
                         "Stop the run; the server logs it as far as it got")
                 }
             }
-            if let reason = session.againstSiteModelUnavailable {
+            ForEach(switchReasons, id: \.self) { reason in
                 Text(reason).font(.caption2).foregroundStyle(.secondary).fixedSize(
                     horizontal: false, vertical: true)
             }
@@ -364,8 +372,10 @@ import SwiftUI
                         .textSelection(.enabled)
                 }
                 if !registration.gates.isEmpty { gatesView(registration.gates) }
-                if let fit = session.modelFit, let line = AlignmentFormat.modelFit(fit) {
-                    Text("Against the site model, reported, not gated: " + line).font(
+                if let fit = session.modelFit,
+                    let line = AlignmentFormat.modelFit(fit, against: session.registeredAgainst)
+                {
+                    Text(AlignmentFormat.modelFitCaption(session.registeredAgainst) + line).font(
                         .caption2.monospacedDigit()
                     ).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
@@ -381,6 +391,15 @@ import SwiftUI
     /// Shows the switch on only while it is sent.
     private var againstSiteModel: Binding<Bool> {
         Binding(get: { session.registersAgainstSiteModel }, set: { session.againstSiteModel = $0 })
+    }
+
+    private var againstBoxes: Binding<Bool> {
+        Binding(get: { session.registersAgainstBoxes }, set: { session.againstBoxes = $0 })
+    }
+
+    /// Why either switch is disabled, site model first.
+    private var switchReasons: [String] {
+        [session.againstSiteModelUnavailable, session.againstBoxesUnavailable].compactMap { $0 }
     }
 
     @ViewBuilder private var accumulationView: some View {
@@ -469,7 +488,9 @@ import SwiftUI
                         Text(AlignmentFormat.quality(hypothesis.quality)).font(
                             .caption2.monospacedDigit()
                         ).foregroundStyle(.secondary)
-                        if let model = AlignmentFormat.modelFit(hypothesis.quality) {
+                        if let model = AlignmentFormat.modelFit(
+                            hypothesis.quality, against: session.registeredAgainst)
+                        {
                             Text(model).font(.caption2.monospacedDigit()).foregroundStyle(
                                 .secondary)
                         }
@@ -726,13 +747,25 @@ enum AlignmentFormat {
     }
 
     /// "site model p50 0.04 m · p75 0.07 m · 12345 points", when the fit was
-    /// measured against the site's accepted scans (model_points > 0); nil
-    /// otherwise. Reported as the server gives it: it is not a gate.
-    static func modelFit(_ q: Gerardus_Align_V1alpha1_FitQuality) -> String? {
+    /// measured against what the request added to 3DEP (model_points > 0);
+    /// nil otherwise. `against` names it: "boxes p50 …" for the DataSF boxes
+    /// alone, "site model and boxes p50 …" for both. Reported as the server
+    /// gives it: it is not a gate.
+    static func modelFit(
+        _ q: Gerardus_Align_V1alpha1_FitQuality,
+        against: AlignmentModelReference = AlignmentModelReference(siteModel: true)
+    ) -> String? {
         guard q.modelPoints > 0 else { return nil }
-        return String(
-            format: "site model p50 %.2f m · p75 %.2f m · %u points", q.modelP50M, q.modelP75M,
-            q.modelPoints)
+        return against.shortLabel
+            + String(
+                format: " p50 %.2f m · p75 %.2f m · %u points", q.modelP50M, q.modelP75M,
+                q.modelPoints)
+    }
+
+    /// The caption before the registration's model residuals: "Against the
+    /// DataSF boxes, reported, not gated: ".
+    static func modelFitCaption(_ against: AlignmentModelReference) -> String {
+        "Against \(against.label), reported, not gated: "
     }
 
     /// " · weak: translation along 23 deg", or nothing at full rank.
