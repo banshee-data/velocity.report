@@ -306,7 +306,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_runs`                     | `completed_at`                      | INTEGER       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `frame_start_ns`                    | INTEGER       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `frame_end_ns`                      | INTEGER       | ✅  | ✅  | -   |
-| `lidar_runs`                     | `frame_mode`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_runs`                     | `frame_mode`                        | TEXT          | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `lidar_cluster_id`                  | INTEGER PK    | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `sensor_id`                         | TEXT          | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `frame_id`                          | TEXT          | ✅  | -   | -   |

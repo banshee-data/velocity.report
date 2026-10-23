@@ -48,7 +48,7 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | Open the pane     | Lists velocity.report's located clips and picks the open capture's                                                                                                                                                                                                                        | `GetServerInfo` (on connect)                                     |
 | Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                                                                                                                                               | `PrepareSite`, `PoseFromHint`, `StreamReference`, `GetSiteModel` |
-| Accumulate frames | During a replay, collects the background and ground points of the next N frames, thins them to 0.05 m and uploads them as an accumulated scan, which Register then uses                                                                                                                   | `UploadScan` (`SCAN_KIND_ACCUMULATED`)                           |
+| Accumulate frames | During a pcap replay (with velocity.report's full frames on meanwhile) or a full-frames run's VRLOG replay, collects the background and ground points of the next N frames, thins them to 0.05 m and uploads them as an accumulated scan, which Register then uses                        | `UploadScan` (`SCAN_KIND_ACCUMULATED`)                           |
 | Register          | Uploads the settled background once per snapshot (or takes the accumulated scan), then registers it from the position drawn now, against 3DEP alone or, with **Against site model** on, against the site model too. Hypotheses show as they converge; the best is drawn when the run ends | `UploadScan`, `Register`                                         |
 | Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                                                                                                                                             | none                                                             |
 | Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual                                                                                                                              | `EvaluatePose` (after the rest)                                  |
@@ -89,6 +89,8 @@ A Gerardus that does not yet build this ignores the field and leaves the `model_
 **Accumulate frames** builds a second kind of scan from the replay's own frames, for the null test in the spike's §7: the background and the frames accumulated over the same replay should register to the same pose.
 
 1. **Collect.** Press it during a replay; it collects the next N frames that reach the visualiser. N is chosen beside it and is 50 by default, about 5 s.
+   - **A pcap replay** is split-streamed, foreground points only, so the pane first asks velocity.report for full frames (`POST /api/lidar/replay/full_frames {"enabled": true}`), waits out the split frames already on their way, collects, and switches full frames off again however the collection ends: done, refused partway, **Cancel**, another capture, the source turning live, or the pane closing. The off request waits for the on request's answer. velocity.report ends full frames with the replay in any case, and the switch never changes what that replay records.
+   - **A VRLOG replay** accumulates only when its run was recorded with full frames (the run's `frame_mode` is `full`, shown as **Full** in the Analysis Runs sheet's Frames column): its frames carry background as recorded, and nothing is switched. A foreground run's VRLOG (**FG**) is refused up front.
    - **Kept:** only points classed background (0) or ground (2). Foreground (1) points are never collected (ADR-0011: an accumulated scan is a settled background, with no foreground and no per-point time).
    - **Full rate only:** frames must have `decimation_ratio` 0 or 1, no voxel decimation, and nothing stripped.
    - **Repeats:** a frame seen twice counts once.
@@ -100,8 +102,12 @@ A Gerardus that does not yet build this ignores the field and leaves the `model_
 The button refuses, and says why, when:
 
 - the frames come from a live sensor;
+- the replay is a foreground run's VRLOG: "This run's VRLOG holds foreground points only; replay its pcap with Full frames, or load a full-frames run.";
+- velocity.report refuses full frames (409 when no pcap replay is running, 501 without its gRPC stream), with the server's reason;
+- velocity.report is older than the switch (it answers 404 or 405, or a 200 that does not state `full_frames`), which the pane says rather than collecting nothing;
+- the request to switch fails (it is still followed by a switch-off, in case it did switch);
 - the stream is decimated;
-- the stream carries foreground points only;
+- the stream carries foreground points only and no source says it is a pcap replay;
 - the frames carry no point classes;
 - the replay jumps back during the collection;
 - the frames hold no background or ground points.
@@ -173,11 +179,10 @@ Registered scans, observed features and the ground mesh are built from the site 
 
 - OSM building outlines sit about 0.8 m east of the 3DEP points at the measured sites, and named intersections sit 9 to 34 m from the eye-read positions. Both are in the data, not the drawing; align to the 3DEP points.
 - The sensor model in a scan header is always `hesai-pandar40p`.
-- **Accumulate frames refuses on today's velocity.report server** (the spike's q4), read from the code but not seen on a replay:
-  - with a LiDAR background grid the server streams split frames (`internal/cmd/server/radar.go`, `SplitStreaming`), and every frame then carries foreground points only (`DECIMATION_FOREGROUND_ONLY`);
-  - a VRLOG records frames after that stripping, so its replay does too.
-
-  The tap therefore sees no background or ground to collect. The alternative is velocity.report's frame-sequence export, outside the pane.
+- **Accumulate frames needs a pcap replay, or a full-frames run's VRLOG** (the spike's q4). velocity.report split-streams foreground points only, so the pane switches its full frames on for the collection. Every VRLOG recorded before `frame_mode` existed, and every run started without **Full frames**, holds foreground points only, and is refused. This has been checked in tests against fake servers, not yet on a real replay.
+- velocity.report's full frames classify points 0 (background) and 1 (foreground) only: ground is in class 0, so "background and ground" means class 0 in practice.
+- A full-frames replay streams about 70,000 points a frame to the visualiser while it runs, and a full-frames VRLOG is correspondingly larger than a foreground one.
+- A pcap replay started with **Full frames** keeps them on until it ends: the pane's switch-off is refused (409) and only logged.
 
 - The visualiser's client passes on at most about 30 frames a second, so above 3× playback of a 10 Hz capture the N frames are not consecutive; `capture_ref` still names the first and last.
 - `lidar-state-estimation-baseline`'s `siteCalibration` rotates the sensor's +X onto `north_azimuth_deg`. By the measurement above, +Y lies at 180° − N, so +X lies at 270° − N: that transform is wrong too. It is not used here.
