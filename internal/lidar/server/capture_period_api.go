@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
 	"github.com/banshee-data/velocity.report/internal/lidar/pcapsplit"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
@@ -22,6 +23,7 @@ import (
 // Routes:
 // - GET  /api/lidar/capture/periods/background?period_id=  — settled background, sensor frame
 // - POST /api/lidar/capture/periods/clip                  — the period's clip, created if none
+// - GET  /api/lidar/clips/{clip_id}/background             — the same for a clip's own window
 
 // periodBackgroundFunc builds a period's background. A variable so the
 // handler can be tested without libpcap.
@@ -171,13 +173,17 @@ func (ws *Server) handleCapturePeriodBackground(w http.ResponseWriter, r *http.R
 		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	writeBackground(w, bg, map[string]any{"period_id": periodID, "session_id": pc.period.SessionID})
+}
+
+// writeBackground writes a settled background and the fields naming what it is
+// the background of.
+func writeBackground(w http.ResponseWriter, bg *pcapsplit.Background, ids map[string]any) {
 	xyz := make([]float64, 0, 3*len(bg.Points))
 	for _, p := range bg.Points {
 		xyz = append(xyz, centimetres(p.X), centimetres(p.Y), centimetres(p.Z))
 	}
-	writeCaptureJSON(w, map[string]any{
-		"period_id":         periodID,
-		"session_id":        pc.period.SessionID,
+	body := map[string]any{
 		"frames":            bg.Frames,
 		"window_start_ns":   bg.FirstTime.UnixNano(),
 		"window_end_ns":     bg.LastTime.UnixNano(),
@@ -185,7 +191,72 @@ func (ws *Server) handleCapturePeriodBackground(w http.ResponseWriter, r *http.R
 		"count":             len(bg.Points),
 		"frame":             "sensor",
 		"xyz":               xyz,
+	}
+	for k, v := range ids {
+		body[k] = v
+	}
+	writeCaptureJSON(w, body)
+}
+
+// handleClipBackground returns the settled background of a clip's window, the
+// first 90 s of it, so an existing clip's alignment can be checked whether or
+// not it was cut from a motion period.
+//
+// GET /api/lidar/clips/{clip_id}/background
+func (ws *Server) handleClipBackground(w http.ResponseWriter, r *http.Request, clipID string) {
+	if r.Method != http.MethodGet {
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	clip, err := sqlite.NewClipStore(ws.db).GetClip(clipID)
+	if err != nil {
+		ws.writeClipLoadError(w, err)
+		return
+	}
+	if len(clip.Files) == 0 {
+		ws.writeJSONError(w, http.StatusBadRequest, "the clip names no captures")
+		return
+	}
+	paths := make([]string, 0, len(clip.Files))
+	for _, f := range clip.Files {
+		resolved, err := ws.resolvePCAPPath(f.PCAPFile)
+		if err != nil {
+			ws.writeJSONError(w, http.StatusConflict, fmt.Sprintf("resolving %s: %v", f.PCAPFile, err))
+			return
+		}
+		paths = append(paths, resolved)
+	}
+	index := ws.loadIndexedCaptures()
+	var extents []capseq.Segment
+	for _, p := range paths {
+		e, ok := index.extent(p, 0)
+		if !ok {
+			// Unindexed captures are counted by the replay itself.
+			extents = nil
+			break
+		}
+		extents = append(extents, e)
+	}
+	start, window := 0.0, pcapsplit.BackgroundSettleWindow.Seconds()
+	if clip.PCAPStartSecs != nil {
+		start = *clip.PCAPStartSecs
+	}
+	if clip.PCAPDurationSecs != nil && *clip.PCAPDurationSecs > 0 {
+		window = math.Min(window, *clip.PCAPDurationSecs)
+	}
+	key := fmt.Sprintf("clip:%s:%.3f:%.3f", clipID, start, window)
+	bg, err := ws.backgrounds.get(r.Context(), key, func(ctx context.Context) (*pcapsplit.Background, error) {
+		buildCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Minute)
+		defer cancel()
+		return periodBackgroundFunc(buildCtx, paths, extents, ws.clipUDPPort(clip),
+			ws.snapshotTuningConfig(), start, window)
 	})
+	if err != nil {
+		ws.writeJSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeBackground(w, bg, map[string]any{"clip_id": clipID, "session_id": clip.SessionID,
+		"period_id": clip.SourcePeriodID})
 }
 
 func centimetres(v float32) float64 {

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -214,4 +215,73 @@ func TestBackgroundCacheSharesABuildAndForgetsFailures(t *testing.T) {
 		t.Fatalf("a waiter ignored its context: %v", err)
 	}
 	close(block)
+}
+
+func TestClipBackgroundUsesTheClipWindowAndLocatedClipsList(t *testing.T) {
+	ws, staticID, _ := periodFixture(t)
+	store, _ := ws.captureStore()
+	roots, err := store.ListRoots()
+	if err != nil || len(roots) == 0 {
+		t.Fatalf("roots %v %v", roots, err)
+	}
+	// The replay check compares canonical paths; macOS's temp directory is a symlink.
+	safe, err := filepath.EvalSymlinks(roots[0].Path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ws.pcapSafeDir = safe
+
+	created := periodRequest(ws, "POST", "/api/lidar/capture/periods/clip",
+		`{"period_id":"`+staticID+`"}`, ws.handleCapturePeriodClip)
+	var clip sqlite.Clip
+	if err := json.Unmarshal(created.Body.Bytes(), &clip); err != nil {
+		t.Fatal(err)
+	}
+
+	var gotStart, gotWindow float64
+	var gotPaths int
+	prev := periodBackgroundFunc
+	t.Cleanup(func() { periodBackgroundFunc = prev })
+	periodBackgroundFunc = func(_ context.Context, paths []string, _ []capseq.Segment, _ int,
+		_ *cfgpkg.TuningConfig, start, window float64) (*pcapsplit.Background, error) {
+		gotPaths, gotStart, gotWindow = len(paths), start, window
+		return &pcapsplit.Background{Frames: 3, Points: []pcapsplit.BackgroundPoint{{X: 1, Y: 2, Z: 3}}}, nil
+	}
+	rec := periodRequest(ws, "GET", "/api/lidar/clips/"+clip.ClipID+"/background", "", ws.handleClipByID)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clip background: %d %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	if body["clip_id"] != clip.ClipID || body["period_id"] != staticID || body["count"] != float64(1) {
+		t.Fatalf("body %v", body)
+	}
+	if gotPaths != 2 || gotStart != 60 || gotWindow != 90 {
+		t.Fatalf("built from %d paths at %v s for %v s", gotPaths, gotStart, gotWindow)
+	}
+	if rec := periodRequest(ws, "POST", "/api/lidar/clips/"+clip.ClipID+"/background", "", ws.handleClipByID); rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST background: %d", rec.Code)
+	}
+	if rec := periodRequest(ws, "GET", "/api/lidar/clips/nope/background", "", ws.handleClipByID); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown clip: %d", rec.Code)
+	}
+
+	list := func() []sqlite.Clip {
+		rec := periodRequest(ws, "GET", "/api/lidar/clips?located=1", "", ws.handleClips)
+		var payload struct {
+			Clips []sqlite.Clip `json:"clips"`
+		}
+		_ = json.Unmarshal(rec.Body.Bytes(), &payload)
+		return payload.Clips
+	}
+	if got := list(); len(got) != 0 {
+		t.Fatalf("an unlocated clip was listed as located: %+v", got)
+	}
+	if _, err := sqlite.NewClipStore(ws.db).SetClipLocation(clip.ClipID, 37.7531, -122.4561, ""); err != nil {
+		t.Fatal(err)
+	}
+	got := list()
+	if len(got) != 1 || got[0].Location == nil || got[0].Location.Lat != 37.7531 {
+		t.Fatalf("located clips %+v", got)
+	}
 }
