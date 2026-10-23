@@ -5,10 +5,18 @@
 //
 // The operator's path, one RPC per step (Gerardus docs/INTERFACE-VISUALISER.md):
 //
-//   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m)
+//   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m),
+//                     then StreamReference once per registered layer
 //   Nudge             nothing on the wire: only the model matrix changes
 //   Register          UploadScan (once per background) → Register
-//   Accept / Reject   ReviewRegistration → ListRegistrationRecords
+//   Accept / Reject   ReviewRegistration → ListRegistrationRecords →
+//                     GetSiteModel → StreamReference per registered layer,
+//                     when the site model moved
+//
+// The registered layers (REGISTERED_SCANS, OBSERVED, GROUND_MESH) are built
+// from the site's accepted scans (Gerardus docs/plans/SITE-MODEL-SPIKE.md).
+// Each is streamed on a call of its own, so a refusal of one (the scans are
+// served only to loopback and tailnet peers) leaves the others drawn.
 //
 // Until Gerardus builds ICP, Register comes back FAILED carrying the pose it
 // was given, and Accept records the operator's pose as MANUALLY_PLACED.
@@ -24,7 +32,7 @@ private let logger = DevLogger(category: "Alignment")
 protocol ReferenceOverlaySink: AnyObject {
     func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?)
     func setReferenceModelMatrix(_ matrix: simd_float4x4)
-    func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool)
+    func setReferenceVisibility(_ visibility: ReferenceVisibility)
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>])
 }
 
@@ -60,10 +68,23 @@ enum AlignmentAcceptance: Equatable {
 struct ReferenceSummary: Equatable {
     var aerialPoints: Int
     var osmFeatures: Int
+    var footprints: Int = 0
     var intersections: Int
+    /// Distinct registered scans, and their points as drawn.
+    var registeredScans: Int = 0
+    var registeredPoints: Int = 0
+    /// Points of the open capture's own scan in the registered layer, drawn
+    /// or not: it is hidden unless the operator asks for it.
+    var ownScanPoints: Int = 0
+    var observedFeatures: Int = 0
+    var groundMeshCells: Int = 0
+    /// The site model the registered layers were built from; empty when no
+    /// registered layer named one.
+    var modelID: String = ""
     /// "© OpenStreetMap contributors", shown whenever OSM is visible.
     var osmAttribution: String
     var aerialAttribution: String
+    var footprintAttribution: String = ""
 }
 
 @available(macOS 15.0, *) @MainActor final class AlignmentSession: ObservableObject {
@@ -110,7 +131,18 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var reference: ReferenceSummary?
     @Published var showAerial = true { didSet { pushVisibility() } }
     @Published var showOSM = true { didSet { pushVisibility() } }
+    @Published var showFootprints = true { didSet { pushVisibility() } }
     @Published var showIntersections = true { didSet { pushVisibility() } }
+    @Published var showRegisteredScans = true { didSet { pushVisibility() } }
+    @Published var showObserved = true { didSet { pushVisibility() } }
+    @Published var showGroundMesh = true { didSet { pushVisibility() } }
+    /// The open capture's scan is drawn live; its registered copy is drawn
+    /// too only when the operator asks, as a check of the accepted pose.
+    @Published var showOwnScan = false {
+        didSet { if showOwnScan != oldValue { scheduleRestyle() } }
+    }
+    /// Why a registered layer is missing, when the server did not send it.
+    @Published private(set) var registeredLayersNote: String?
 
     @Published private(set) var hintPose: SitePose?
     @Published private(set) var hintSummary: Gerardus_Align_V1alpha1_PoseSummary?
@@ -189,6 +221,19 @@ struct ReferenceSummary: Equatable {
         try await Task.sleep(for: $0)
     }
     private var hintFrameIDs: (site: String, sensor: String) = ("", "")
+    /// What was streamed, kept so the overlay can be rebuilt when a toggle or
+    /// the site model changes; nil until placed.
+    private var geometry: ReferenceGeometry?
+    /// The streaming centre: the hint pose's origin, in the site frame.
+    private var referenceCentre: SIMD3<Double>?
+    /// The site model the registered layers drawn now came from, as the
+    /// stream or GetSiteModel named it; empty when neither did.
+    private var siteModelID = ""
+    /// The scan whose registered copy the overlay was last built without.
+    private var styledOwnScanID: String?
+    /// Bumped by each rebuild, so a slow one cannot replace a newer one.
+    private var styleGeneration = 0
+    private var styling: Task<Void, Never>?
 
     /// `lookup` nil skips velocity.report entirely, as tests do; `defaults`
     /// nil keeps typed headings and the server address out of the app's
@@ -401,19 +446,19 @@ struct ReferenceSummary: Equatable {
             sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
 
             busy = "Streaming the reference"
-            let geometry = try await client.streamReference(
+            var geometry = try await client.streamReference(
                 referenceRequest(l16Token: site.l16Token, centre: start.translation))
-            let vertices = await Task.detached { ReferenceStyle.vertices(for: geometry) }.value
-            reference = ReferenceSummary(
-                aerialPoints: geometry.aerialCount, osmFeatures: geometry.lines.count,
-                intersections: geometry.intersections.count,
-                osmAttribution: attribution(prepared, layer: .osm),
-                aerialAttribution: attribution(prepared, layer: .aerialPoints))
-            sink?.setReferenceOverlay(vertices)
+            busy = "Streaming the site model"
+            let registered = await streamRegisteredLayers(
+                client: client, l16Token: site.l16Token, centre: start.translation)
+            geometry.replaceRegistered(with: registered)
+            self.geometry = geometry
+            referenceCentre = start.translation
+            siteModelID = geometry.modelID
+            await restyleReference()
             sink?.setReferenceModelMatrix(start.referenceModelMatrix)
-            pushVisibility()
             logger.info(
-                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.intersections.count) intersections"
+                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.footprints.count) footprints, \(geometry.intersections.count) intersections, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
             )
 
             busy = "Reading records"
@@ -423,15 +468,29 @@ struct ReferenceSummary: Equatable {
 
     private func show(_ progress: Gerardus_Align_V1alpha1_Progress) { self.progress = progress }
 
+    /// The bundle's layers, on one call.
+    static let bundleLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections,
+    ]
+    /// The site model's layers, each on a call of its own.
+    static let registeredLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .registeredScans, .observed, .groundMesh,
+    ]
+
+    /// The wanted layers the server lists; all of them when it lists none.
+    private func served(
+        _ wanted: [Gerardus_Align_V1alpha1_ReferenceLayer]
+    ) -> [Gerardus_Align_V1alpha1_ReferenceLayer] {
+        wanted.filter { availableLayers.isEmpty || availableLayers.contains($0) }
+    }
+
     func referenceRequest(
-        l16Token: String, centre: SIMD3<Double>
+        l16Token: String, centre: SIMD3<Double>,
+        layers: [Gerardus_Align_V1alpha1_ReferenceLayer]? = nil
     ) -> Gerardus_Align_V1alpha1_StreamReferenceRequest {
         var request = Gerardus_Align_V1alpha1_StreamReferenceRequest()
         request.l16Token = l16Token
-        let wanted: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-            .aerialPoints, .osm, .intersections,
-        ]
-        request.layers = wanted.filter { availableLayers.isEmpty || availableLayers.contains($0) }
+        request.layers = layers ?? served(Self.bundleLayers)
         request.centre.x = centre.x
         request.centre.y = centre.y
         request.centre.z = centre.z
@@ -439,6 +498,56 @@ struct ReferenceSummary: Equatable {
         // 0 asks for the server's default spacing.
         request.voxelSizeM = 0
         return request
+    }
+
+    /// The registered layers the server lists, one request each.
+    func registeredReferenceRequests(
+        l16Token: String, centre: SIMD3<Double>
+    ) -> [Gerardus_Align_V1alpha1_StreamReferenceRequest] {
+        served(Self.registeredLayers).map {
+            referenceRequest(l16Token: l16Token, centre: centre, layers: [$0])
+        }
+    }
+
+    /// Streams each registered layer on its own call. A layer the server
+    /// refuses or fails is left empty and named in `registeredLayersNote`;
+    /// the others, and the bundle's layers, are untouched. A layer served
+    /// empty (no accepted scans yet) is simply empty.
+    private func streamRegisteredLayers(
+        client: AlignmentServiceClient, l16Token: String, centre: SIMD3<Double>
+    ) async -> ReferenceGeometry {
+        var registered = ReferenceGeometry()
+        var notes = [String]()
+        for request in registeredReferenceRequests(l16Token: l16Token, centre: centre) {
+            let layer = request.layers.first ?? .unspecified
+            do { registered.merge(try await client.streamReference(request)) } catch {
+                notes.append(Self.note(layer: layer, error: error))
+                logger.info(
+                    "No \(Self.layerName(layer)) for \(l16Token): \(GerardusClientError.describe(error))"
+                )
+            }
+        }
+        registeredLayersNote = notes.isEmpty ? nil : notes.joined(separator: "\n")
+        return registered
+    }
+
+    nonisolated static func layerName(_ layer: Gerardus_Align_V1alpha1_ReferenceLayer) -> String {
+        switch layer {
+        case .registeredScans: return "Registered scans"
+        case .observed: return "Observed features"
+        case .groundMesh: return "Ground mesh"
+        default: return "Layer \(layer.rawValue)"
+        }
+    }
+
+    nonisolated static func note(
+        layer: Gerardus_Align_V1alpha1_ReferenceLayer, error: Error
+    ) -> String {
+        if case GerardusClientError.permissionDenied = error, layer == .registeredScans {
+            return
+                "Registered scans not served to this machine: Gerardus sends them only under `serve --serve-scans`, to loopback and tailnet peers."
+        }
+        return "\(layerName(layer)) not drawn: \(GerardusClientError.describe(error))"
     }
 
     private func hint(heading: Double?) -> Gerardus_Align_V1alpha1_PoseHint {
@@ -506,9 +615,105 @@ struct ReferenceSummary: Equatable {
         if evaluate { scheduleEvaluation() }
     }
 
-    private func pushVisibility() {
-        sink?.setReferenceVisibility(
-            aerial: showAerial, osm: showOSM, intersections: showIntersections)
+    var visibility: ReferenceVisibility {
+        ReferenceVisibility(
+            aerial: showAerial, osm: showOSM, footprints: showFootprints,
+            intersections: showIntersections, registeredScans: showRegisteredScans,
+            observed: showObserved, groundMesh: showGroundMesh)
+    }
+
+    private func pushVisibility() { sink?.setReferenceVisibility(visibility) }
+
+    // MARK: - Reference overlay
+
+    /// Scans left out of the registered layer: the open capture's own, by
+    /// scan_id, once it is known from the upload, unless the operator asks
+    /// for it.
+    private var hiddenScanIDs: Set<String> {
+        guard !showOwnScan, let id = scan?.scanID, !id.isEmpty else { return [] }
+        return [id]
+    }
+
+    /// Rebuilds the overlay from the geometry kept, off the main actor, and
+    /// hands it to the renderer with the counts the pane shows.
+    func restyleReference() async {
+        guard let geometry else { return }
+        styleGeneration += 1
+        let generation = styleGeneration
+        let centre = referenceCentre
+        let hidden = hiddenScanIDs
+        let vertices = await Task.detached {
+            ReferenceStyle.vertices(for: geometry, centre: centre, hiddenScanIDs: hidden)
+        }.value
+        guard generation == styleGeneration else { return }
+        styledOwnScanID = scan?.scanID
+        reference = summary(geometry, vertices: vertices)
+        sink?.setReferenceOverlay(vertices)
+        pushVisibility()
+    }
+
+    /// Rebuilds the overlay in a task, for callers that cannot wait.
+    private func scheduleRestyle() {
+        guard geometry != nil else { return }
+        styling = Task { [weak self] in await self?.restyleReference() }
+    }
+
+    /// The task rebuilding the overlay, for tests to await.
+    var pendingStyling: Task<Void, Never>? { styling }
+
+    /// The open capture's scan changed: rebuild if its registered copy is
+    /// drawn, or should now be hidden.
+    private func ownScanChanged() async {
+        guard geometry != nil, scan?.scanID != styledOwnScanID else { return }
+        await restyleReference()
+    }
+
+    private func summary(
+        _ geometry: ReferenceGeometry, vertices: ReferenceOverlayVertices
+    ) -> ReferenceSummary {
+        let own = scan?.scanID
+        let ownPoints = geometry.scans.filter { own != nil && $0.scanID == own }.reduce(0) {
+            $0 + ReferenceGeometry.count($1.points)
+        }
+        var out = ReferenceSummary(
+            aerialPoints: geometry.aerialCount, osmFeatures: geometry.lines.count,
+            intersections: geometry.intersections.count,
+            osmAttribution: preparedSite.map { attribution($0, layer: .osm) } ?? "",
+            aerialAttribution: preparedSite.map { attribution($0, layer: .aerialPoints) } ?? "")
+        out.footprints = geometry.footprints.count
+        out.footprintAttribution = preparedSite.map { attribution($0, layer: .footprints) } ?? ""
+        out.registeredScans = geometry.scanOrder.count
+        out.registeredPoints = vertices.scanCount
+        out.ownScanPoints = ownPoints
+        out.observedFeatures = geometry.observed.count
+        out.groundMeshCells = geometry.groundMeshCells
+        out.modelID = geometry.modelID
+        return out
+    }
+
+    /// After a decision, asks whether the site model moved, and re-streams
+    /// the registered layers if it did. With no answer to compare (a server
+    /// that answers GetSiteModel UNIMPLEMENTED, or an error) they are
+    /// re-streamed anyway: an accept is what moves the model.
+    private func refreshSiteModel(client: AlignmentServiceClient) async {
+        guard let site, let centre = referenceCentre, geometry != nil,
+            !served(Self.registeredLayers).isEmpty
+        else { return }
+        var current: Gerardus_Align_V1alpha1_GetSiteModelResponse?
+        do { current = try await client.getSiteModel(l16Token: site.l16Token) } catch {
+            logger.info(
+                "No site model for \(site.l16Token): \(GerardusClientError.describe(error))")
+        }
+        if let current, !current.modelID.isEmpty, current.modelID == siteModelID { return }
+        busy = "Re-streaming the site model"
+        let registered = await streamRegisteredLayers(
+            client: client, l16Token: site.l16Token, centre: centre)
+        // The site was changed or cleared while this was asked.
+        guard self.site == site, referenceCentre == centre, var geometry else { return }
+        geometry.replaceRegistered(with: registered)
+        self.geometry = geometry
+        siteModelID = registered.modelID.isEmpty ? (current?.modelID ?? "") : registered.modelID
+        await restyleReference()
     }
 
     // MARK: - Scan
@@ -537,6 +742,8 @@ struct ReferenceSummary: Equatable {
         selectedHypothesisID = nil
         evaluation = nil
         sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
+        // The old capture's registered copy is no longer this capture's own.
+        if geometry != nil, styledOwnScanID != nil { scheduleRestyle() }
     }
 
     var canRegister: Bool {
@@ -705,6 +912,7 @@ struct ReferenceSummary: Equatable {
         scan = uploaded.scan
         uploadedFrom = (site.l16Token, snapshot.sequenceNumber)
         uploadedSnapshot = snapshot
+        await ownScanChanged()
         return uploaded.scan
     }
 
@@ -759,11 +967,14 @@ struct ReferenceSummary: Equatable {
         errorMessage = nil
         busy = "Recording the decision"
         defer { busy = nil }
+        var recorded = false
         do {
             lastRecord = try await client.reviewRegistration(request)
             rejectReason = ""
+            recorded = true
             await loadRecords()
         } catch { errorMessage = GerardusClientError.describe(error) }
+        if recorded { await refreshSiteModel(client: client) }
     }
 
     /// The site's records, newest first.
@@ -782,6 +993,13 @@ struct ReferenceSummary: Equatable {
     private func clearPlacement() {
         preparedSite = nil
         reference = nil
+        geometry = nil
+        referenceCentre = nil
+        siteModelID = ""
+        styledOwnScanID = nil
+        styleGeneration += 1
+        styling?.cancel()
+        registeredLayersNote = nil
         hintPose = nil
         hintSummary = nil
         pose = nil

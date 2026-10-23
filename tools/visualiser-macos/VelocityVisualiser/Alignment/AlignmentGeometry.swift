@@ -231,24 +231,62 @@ enum ScanPacking {
 // MARK: - Reference geometry
 
 /// Reference geometry gathered from StreamReference, in the site frame.
+///
+/// The registered layers (REGISTERED_SCANS, OBSERVED, GROUND_MESH) are built
+/// from the site model, the site's accepted scans, and carry the model's id.
+/// They move whenever a record is accepted, so the session re-streams them on
+/// their own and swaps them in with `replaceRegistered(with:)`.
 struct ReferenceGeometry: Sendable {
+    /// The layers built from the site model rather than the bundle.
+    static let registeredLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = [
+        .registeredScans, .observed, .groundMesh,
+    ]
+
     /// Aerial points as parallel arrays, as they arrived.
     var aerialX: [Float] = []
     var aerialY: [Float] = []
     var aerialZ: [Float] = []
     var aerialClass: [UInt32] = []
     var aerialIntensity: [UInt32] = []
+    /// OSM ways.
     var lines: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// DataSF building footprints, draped.
+    var footprints: [Gerardus_Align_V1alpha1_LineFeature] = []
     var intersections: [Gerardus_Align_V1alpha1_Intersection] = []
+    /// Registered scans, block by block, in the site frame.
+    var scans: [Gerardus_Align_V1alpha1_ScanPoints] = []
+    /// The observed layer: sensors, corrections and the proposed features
+    /// (facade traces, poles) derived from the registered scans.
+    var observed: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// The ground surface, normally one heightfield.
+    var groundMesh: [Gerardus_Align_V1alpha1_Heightfield] = []
+    /// The site model the registered layers were built from; empty until a
+    /// registered layer names one.
+    var modelID: String = ""
     /// Layers whose last chunk arrived.
     var completeLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
 
     var aerialCount: Int { aerialX.count }
 
+    /// Registered scan points, whatever is drawn.
+    var scanPointCount: Int { scans.reduce(0) { $0 + Self.count($1.points) } }
+
+    /// Each registered scan's id once, in the order the scans arrived: the
+    /// order that gives each scan its colour.
+    var scanOrder: [String] {
+        var seen = Set<String>()
+        return scans.map(\.scanID).filter { seen.insert($0).inserted }
+    }
+
+    /// Ground mesh cells that hold ground.
+    var groundMeshCells: Int {
+        groundMesh.reduce(0) { total, field in total + field.z.filter(\.isFinite).count }
+    }
+
     mutating func append(_ message: Gerardus_Align_V1alpha1_StreamReferenceResponse) {
         switch message.payload {
         case .points(let block):
-            let n = min(block.x.count, block.y.count, block.z.count)
+            let n = Self.count(block)
             aerialX.append(contentsOf: block.x.prefix(n))
             aerialY.append(contentsOf: block.y.prefix(n))
             aerialZ.append(contentsOf: block.z.prefix(n))
@@ -260,14 +298,64 @@ struct ReferenceGeometry: Sendable {
             aerialIntensity.append(
                 contentsOf: block.intensity.count >= n
                     ? Array(block.intensity.prefix(n)) : Array(repeating: 0, count: n))
-        case .lines(let set): lines.append(contentsOf: set.features)
+        case .lines(let set):
+            // Three layers send line features; each keeps its own toggle.
+            switch message.layer {
+            case .observed: observed.append(contentsOf: set.features)
+            case .footprints: footprints.append(contentsOf: set.features)
+            default: lines.append(contentsOf: set.features)
+            }
         case .intersections(let set): intersections.append(contentsOf: set.intersections)
-        // Registered scans and the ground surface are not requested yet (site
-        // model spike V4).
-        case .scanPoints, .groundMesh, nil: break
+        case .scanPoints(let block): scans.append(block)
+        case .groundMesh(let field): groundMesh.append(field)
+        case nil: break
         }
+        if !message.modelID.isEmpty { modelID = message.modelID }
         if message.layerComplete { completeLayers.insert(message.layer) }
     }
+
+    /// Adds another stream's geometry to this one.
+    mutating func merge(_ other: ReferenceGeometry) {
+        aerialX.append(contentsOf: other.aerialX)
+        aerialY.append(contentsOf: other.aerialY)
+        aerialZ.append(contentsOf: other.aerialZ)
+        aerialClass.append(contentsOf: other.aerialClass)
+        aerialIntensity.append(contentsOf: other.aerialIntensity)
+        lines.append(contentsOf: other.lines)
+        footprints.append(contentsOf: other.footprints)
+        intersections.append(contentsOf: other.intersections)
+        scans.append(contentsOf: other.scans)
+        observed.append(contentsOf: other.observed)
+        groundMesh.append(contentsOf: other.groundMesh)
+        if !other.modelID.isEmpty { modelID = other.modelID }
+        completeLayers.formUnion(other.completeLayers)
+    }
+
+    /// Swaps in `other`'s registered layers and model id, keeping the bundle's
+    /// layers (aerial, OSM, footprints, intersections) as they are.
+    mutating func replaceRegistered(with other: ReferenceGeometry) {
+        scans = other.scans
+        observed = other.observed
+        groundMesh = other.groundMesh
+        modelID = other.modelID
+        completeLayers.subtract(Self.registeredLayers)
+        completeLayers.formUnion(other.completeLayers.intersection(Self.registeredLayers))
+    }
+
+    static func count(_ block: Gerardus_Align_V1alpha1_PointBlock) -> Int {
+        min(block.x.count, block.y.count, block.z.count)
+    }
+}
+
+/// Which reference layers are drawn.
+struct ReferenceVisibility: Equatable, Sendable {
+    var aerial = true
+    var osm = true
+    var footprints = true
+    var intersections = true
+    var registeredScans = true
+    var observed = true
+    var groundMesh = true
 }
 
 /// Vertex data the renderer draws for the reference, already coloured.
@@ -275,14 +363,24 @@ struct ReferenceOverlayVertices: Sendable {
     /// Point pipeline layout: [x, y, z, colour code / 255, 0] per point. The
     /// code indexes `palette`, which the point shader reads in its table mode.
     var aerial: [Float] = []
+    /// Registered scans in the point layout, one palette code per scan.
+    var scans: [Float] = []
     /// Debug-line layout: [x, y, z, r, g, b, a] per vertex, two per segment.
     var osmLines: [Float] = []
+    var footprintLines: [Float] = []
     var intersectionLines: [Float] = []
+    var observedLines: [Float] = []
+    /// The ground surface as a wireframe, through the same line layout.
+    var groundMeshLines: [Float] = []
     var palette: [SIMD4<Float>] = ReferenceStyle.palette
 
     var aerialCount: Int { aerial.count / 5 }
+    var scanCount: Int { scans.count / 5 }
     var osmVertexCount: Int { osmLines.count / 7 }
+    var footprintVertexCount: Int { footprintLines.count / 7 }
     var intersectionVertexCount: Int { intersectionLines.count / 7 }
+    var observedVertexCount: Int { observedLines.count / 7 }
+    var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
 }
 
 /// Colours for the reference, chosen here rather than by the server: the
@@ -328,7 +426,12 @@ enum ReferenceStyle {
         }
     }
 
-    /// 256 colours: a ramp per group, the rest unused and white.
+    /// The first code above the ASPRS groups' runs (7 × 32 = 224). Registered
+    /// scans take the codes from here to 255, one per scan.
+    static let scanCodeBase = Group.allCases.count * shadesPerGroup
+    static let scanCodeCount = 256 - scanCodeBase
+
+    /// 256 colours: a ramp per group, then one colour per registered scan.
     static let palette: [SIMD4<Float>] = {
         var table = [SIMD4<Float>](repeating: SIMD4(1, 1, 1, 1), count: 256)
         for group in Group.allCases {
@@ -338,8 +441,41 @@ enum ReferenceStyle {
                 table[group.rawValue * shadesPerGroup + shade] = SIMD4(group.colour * level, 1)
             }
         }
+        for index in 0..<scanCodeCount { table[scanCodeBase + index] = scanColour(index) }
         return table
     }()
+
+    /// The palette code for the registered scan that arrived `index`th.
+    /// Past 32 scans the colours repeat.
+    static func scanCode(index: Int) -> Int { scanCodeBase + index % scanCodeCount }
+
+    /// A distinct hue per scan: golden-ratio steps round the colour wheel,
+    /// skipping the greens the live foreground is drawn in.
+    static func scanColour(_ index: Int) -> SIMD4<Float> {
+        let step = (Double(index) * 0.618_033_988_75).truncatingRemainder(dividingBy: 1)
+        // Hues 0.45 to 1.20 of a turn: cyan, blue, violet, red, orange, yellow.
+        let hue = (0.45 + step * 0.75).truncatingRemainder(dividingBy: 1)
+        return SIMD4(hsv(hue: hue, saturation: 0.6, value: 1), 1)
+    }
+
+    private static func hsv(hue: Double, saturation s: Double, value v: Double) -> SIMD3<Float> {
+        let h = hue * 6
+        let sector = Int(h) % 6
+        let f = h - floor(h)
+        let p = v * (1 - s)
+        let q = v * (1 - s * f)
+        let t = v * (1 - s * (1 - f))
+        let rgb: (Double, Double, Double)
+        switch sector {
+        case 0: rgb = (v, t, p)
+        case 1: rgb = (q, v, p)
+        case 2: rgb = (p, v, t)
+        case 3: rgb = (p, q, v)
+        case 4: rgb = (t, p, v)
+        default: rgb = (v, p, q)
+        }
+        return SIMD3(Float(rgb.0), Float(rgb.1), Float(rgb.2))
+    }
 
     /// The palette code for a point: its group's run, offset by brightness.
     static func code(asprsClass: UInt32, brightness: Float) -> Int {
@@ -367,14 +503,19 @@ enum ReferenceStyle {
         case .kerb: return SIMD4(1.00, 0.55, 0.20, 0.95)
         case .rail: return SIMD4(0.95, 0.40, 0.90, 0.95)
         case .building: return SIMD4(1.00, 0.40, 0.35, 0.85)
-        // Observed-layer kinds get their own styles with the layer (site model spike V4).
-        case .sensor, .correction, .facade, .pole, .other, .unspecified, .UNRECOGNIZED:
-            return SIMD4(0.80, 0.80, 0.80, 0.70)
+        // The observed layer, from the registered scans and their records.
+        case .sensor: return SIMD4(1.00, 1.00, 1.00, 1.00)
+        case .correction: return SIMD4(1.00, 0.70, 0.00, 1.00)
+        case .facade: return SIMD4(0.00, 0.90, 1.00, 0.95)
+        case .pole: return SIMD4(0.35, 0.45, 1.00, 0.95)
+        case .other, .unspecified, .UNRECOGNIZED: return SIMD4(0.80, 0.80, 0.80, 0.70)
         }
     }
 
     static let intersectionColour = SIMD4<Float>(1.00, 1.00, 1.00, 0.95)
     static let approachColour = SIMD4<Float>(0.35, 1.00, 0.95, 0.95)
+    /// Faint, so the wireframe reads as a surface under everything else.
+    static let groundMeshColour = SIMD4<Float>(0.55, 0.80, 0.60, 0.35)
 
     /// Draped lines lie on the 3DEP ground and would fight its points for
     /// depth, so they are drawn this far above it. Display only.
@@ -383,13 +524,124 @@ enum ReferenceStyle {
     static let crossHalfSize: Float = 2
     static let approachLength: Float = 8
 
+    /// The lift a kind is drawn with. Sensors, corrections and poles are
+    /// placed in the air by the server (a sensor's stalk ends at its origin,
+    /// a correction sits 0.2 m up), so they are drawn where they are.
+    static func lift(_ kind: Gerardus_Align_V1alpha1_FeatureKind) -> Float {
+        switch kind {
+        case .sensor, .correction, .pole: return 0
+        default: return lineLift
+        }
+    }
+
+    /// The ground mesh is clipped to the streaming radius, and drawn at its
+    /// own cell size only near the sensor (site model spike §6.5).
+    static let groundMeshRadiusM: Double = 150
+    static let groundMeshDenseRadiusM: Double = 40
+    static let groundMeshCoarseSpacingM: Double = 2
+
     // MARK: Vertex building
 
-    static func vertices(for geometry: ReferenceGeometry) -> ReferenceOverlayVertices {
+    /// Everything the renderer draws for `geometry`. `centre` is the sensor's
+    /// position in the site frame, which the ground mesh is clipped around;
+    /// scans in `hiddenScanIDs` are left out.
+    static func vertices(
+        for geometry: ReferenceGeometry, centre: SIMD3<Double>? = nil,
+        hiddenScanIDs: Set<String> = []
+    ) -> ReferenceOverlayVertices {
         var out = ReferenceOverlayVertices()
         out.aerial = aerialVertices(geometry)
+        out.scans = scanVertices(geometry, hidden: hiddenScanIDs)
         out.osmLines = lineVertices(geometry.lines)
+        out.footprintLines = lineVertices(geometry.footprints)
         out.intersectionLines = intersectionVertices(geometry.intersections)
+        out.observedLines = lineVertices(geometry.observed)
+        out.groundMeshLines = groundMeshVertices(
+            geometry.groundMesh, centre: centre.map { SIMD2($0.x, $0.y) })
+        return out
+    }
+
+    /// Registered scan points in the point layout, each in its scan's colour.
+    /// A scan's colour follows its place in `scanOrder`, so hiding one scan
+    /// does not recolour the rest.
+    static func scanVertices(_ geometry: ReferenceGeometry, hidden: Set<String>) -> [Float] {
+        var codes = [String: Float]()
+        for (index, id) in geometry.scanOrder.enumerated() {
+            codes[id] = Float(scanCode(index: index)) / 255
+        }
+        var out = [Float]()
+        out.reserveCapacity(geometry.scanPointCount * 5)
+        for block in geometry.scans where !hidden.contains(block.scanID) {
+            let points = block.points
+            let code = codes[block.scanID] ?? Float(scanCodeBase) / 255
+            for i in 0..<ReferenceGeometry.count(points) {
+                // Classification 0 keeps the shader on its table path.
+                out.append(contentsOf: [points.x[i], points.y[i], points.z[i], code, 0])
+            }
+        }
+        return out
+    }
+
+    /// A heightfield as a wireframe: an edge joins neighbouring cell centres
+    /// that both hold ground. Row-major from the south-west cell centre:
+    /// z[j·nx + i] lies at origin + (i·cell_m, j·cell_m); NaN is no ground.
+    ///
+    /// With a `centre`, cells beyond `radiusM` of it are left out, and beyond
+    /// `denseRadiusM` only the lines every `coarseSpacingM` are drawn, with
+    /// edges that span the cells between (which must all hold ground too).
+    static func groundMeshVertices(
+        _ fields: [Gerardus_Align_V1alpha1_Heightfield], centre: SIMD2<Double>?,
+        radiusM: Double = groundMeshRadiusM, denseRadiusM: Double = groundMeshDenseRadiusM,
+        coarseSpacingM: Double = groundMeshCoarseSpacingM
+    ) -> [Float] {
+        var out = [Float]()
+        for field in fields {
+            let nx = Int(field.nx)
+            let ny = Int(field.ny)
+            let cell = Double(field.cellM)
+            guard nx > 0, ny > 0, cell > 0, field.z.count >= nx * ny else { continue }
+            let step = max(1, Int((coarseSpacingM / cell).rounded()))
+            let origin = SIMD2(field.origin.x, field.origin.y)
+            func site(_ i: Double, _ j: Double) -> SIMD2<Double> { origin + SIMD2(i, j) * cell }
+            func distance(_ i: Double, _ j: Double) -> Double {
+                centre.map { simd_length(site(i, j) - $0) } ?? 0
+            }
+            // Which cell centres are drawn at all: ground, within the radius.
+            var inside = [Bool](repeating: false, count: nx * ny)
+            for j in 0..<ny {
+                for i in 0..<nx {
+                    let z = field.z[j * nx + i]
+                    inside[j * nx + i] = z.isFinite && distance(Double(i), Double(j)) <= radiusM
+                }
+            }
+            func vertex(_ i: Int, _ j: Int) -> SIMD3<Float> {
+                let p = site(Double(i), Double(j))
+                return SIMD3(Float(p.x), Float(p.y), field.z[j * nx + i] + lineLift)
+            }
+            // An edge of `span` cells from (i, j) along (di, dj), if every
+            // centre on it is drawn and its midpoint falls in the right band.
+            func edge(_ i: Int, _ j: Int, _ di: Int, _ dj: Int, span: Int, dense: Bool) {
+                let ei = i + di * span
+                let ej = j + dj * span
+                guard ei < nx, ej < ny else { return }
+                let mid = distance(Double(i + ei) / 2, Double(j + ej) / 2)
+                // Without a centre every distance is 0: all of it is dense.
+                guard dense == (mid <= denseRadiusM) else { return }
+                for k in 0...span where !inside[(j + dj * k) * nx + i + di * k] { return }
+                appendSegment(&out, vertex(i, j), vertex(ei, ej), groundMeshColour)
+            }
+            for j in 0..<ny {
+                for i in 0..<nx {
+                    guard inside[j * nx + i] else { continue }
+                    edge(i, j, 1, 0, span: 1, dense: true)
+                    edge(i, j, 0, 1, span: 1, dense: true)
+                    if centre != nil, i % step == 0, j % step == 0 {
+                        edge(i, j, 1, 0, span: step, dense: false)
+                        edge(i, j, 0, 1, span: step, dense: false)
+                    }
+                }
+            }
+        }
         return out
     }
 
@@ -411,18 +663,29 @@ enum ReferenceStyle {
         return out
     }
 
-    /// Each polyline as a list of segments, closing a closed one.
+    /// Each polyline as a list of segments, closing a closed one. A facade
+    /// trace with a height also gets its top edge and an upright at each end,
+    /// so it stands as high as the scans saw the wall.
     static func lineVertices(_ lines: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
         var out = [Float]()
         for line in lines {
             let count = line.xyz.count / 3
             guard count >= 2 else { continue }
             let colour = lineColour(line.kind)
-            func vertex(_ i: Int) -> SIMD3<Float> {
-                SIMD3(line.xyz[i * 3], line.xyz[i * 3 + 1], line.xyz[i * 3 + 2] + lineLift)
+            let raise = lift(line.kind)
+            func vertex(_ i: Int, up: Float = 0) -> SIMD3<Float> {
+                SIMD3(line.xyz[i * 3], line.xyz[i * 3 + 1], line.xyz[i * 3 + 2] + raise + up)
             }
             for i in 0..<(count - 1) { appendSegment(&out, vertex(i), vertex(i + 1), colour) }
             if line.closed { appendSegment(&out, vertex(count - 1), vertex(0), colour) }
+            if line.kind == .facade, line.heightM > 0 {
+                let h = line.heightM
+                for i in 0..<(count - 1) {
+                    appendSegment(&out, vertex(i, up: h), vertex(i + 1, up: h), colour)
+                }
+                appendSegment(&out, vertex(0), vertex(0, up: h), colour)
+                appendSegment(&out, vertex(count - 1), vertex(count - 1, up: h), colour)
+            }
         }
         return out
     }

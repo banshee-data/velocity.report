@@ -162,10 +162,43 @@ import SwiftUI
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
+                Toggle("DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
                 Toggle(
                     "Intersections (\(reference.intersections))", isOn: $session.showIntersections)
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
+                }
+                if session.showFootprints, reference.footprints > 0,
+                    !reference.footprintAttribution.isEmpty
+                {
+                    Text(reference.footprintAttribution).font(.caption2).foregroundStyle(.secondary)
+                }
+                Divider()
+                Text("Site model").font(.subheadline.weight(.semibold))
+                Toggle(
+                    "Registered scans (\(reference.registeredScans), \(reference.registeredPoints.formatted()) points)",
+                    isOn: $session.showRegisteredScans)
+                if reference.ownScanPoints > 0 {
+                    Toggle(
+                        "Include this capture's own scan (\(reference.ownScanPoints.formatted()) points)",
+                        isOn: $session.showOwnScan
+                    ).padding(.leading, 16).help(
+                        "Draw this capture's registered copy over its live points, as a check of the accepted pose"
+                    )
+                }
+                Toggle(
+                    "Observed features (\(reference.observedFeatures))", isOn: $session.showObserved
+                ).help("Sensors white, corrections amber, facade traces cyan, poles blue")
+                Toggle(
+                    "Ground mesh (\(reference.groundMeshCells.formatted()) cells)",
+                    isOn: $session.showGroundMesh)
+                if !reference.modelID.isEmpty {
+                    Text("Model \(AlignmentFormat.shortID(reference.modelID))").font(.caption2)
+                        .foregroundStyle(.secondary).textSelection(.enabled).help(reference.modelID)
+                }
+                if let note = session.registeredLayersNote {
+                    Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
                 }
             }
         }.toggleStyle(.checkbox).font(.callout)
@@ -510,6 +543,13 @@ enum AlignmentFormat {
     /// " · weak: translation along 23 deg", or nothing at full rank.
     static func weak(_ q: Gerardus_Align_V1alpha1_FitQuality) -> String {
         q.weakDirections.isEmpty ? "" : " · weak: " + q.weakDirections.joined(separator: ", ")
+    }
+
+    /// "sha256:1a2b3c4d5e6f" from a full content address: enough to tell
+    /// two models apart at a glance.
+    static func shortID(_ id: String) -> String {
+        guard let colon = id.firstIndex(of: ":") else { return String(id.prefix(12)) }
+        return String(id[...colon]) + id[id.index(after: colon)...].prefix(12)
     }
 
     static func gateValue(_ value: Double) -> String {

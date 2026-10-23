@@ -11,6 +11,8 @@
 
 import Combine
 import Foundation
+import Metal
+import MetalKit
 import SwiftProtobuf
 import Testing
 import simd
@@ -329,6 +331,256 @@ struct ReferenceStyleTests {
     }
 }
 
+// MARK: - Site model layers
+
+/// The registered layers' payloads: decoding, colours and the ground mesh.
+struct SiteModelStyleTests {
+    private func geometry(
+        _ layers: [Gerardus_Align_V1alpha1_ReferenceLayer], modelID: String = "sha256:m"
+    ) -> ReferenceGeometry {
+        var geometry = ReferenceGeometry()
+        for layer in layers {
+            for message in referenceMessages(layer, modelID: modelID) { geometry.append(message) }
+        }
+        return geometry
+    }
+
+    private func flatField(n: UInt32, cell: Float = 1) -> Gerardus_Align_V1alpha1_Heightfield {
+        var field = Gerardus_Align_V1alpha1_Heightfield()
+        field.cellM = cell
+        field.nx = n
+        field.ny = n
+        field.z = Array(repeating: 0, count: Int(n * n))
+        return field
+    }
+
+    @Test func scanPointsDecodeWithTheirScanRecordAndModel() {
+        let g = geometry([.registeredScans])
+        #expect(g.scans.map(\.scanID) == [ownScanID, "sha256:other"])
+        #expect(g.scans.map(\.recordID) == ["gms:rec-own", "gms:rec-other"])
+        #expect(g.scans.allSatisfy { $0.kind == .background })
+        #expect(g.scans.first?.captureRef == "capture/\(ownScanID)")
+        #expect(g.scanPointCount == 5)
+        #expect(g.scanOrder == [ownScanID, "sha256:other"])
+        #expect(g.modelID == "sha256:m")
+        #expect(g.completeLayers == [.registeredScans])
+        // Scan points never land among the aerial ones.
+        #expect(g.aerialCount == 0)
+    }
+
+    @Test func aBundleLayerLeavesTheModelIDAlone() {
+        var g = geometry([.registeredScans], modelID: "sha256:m")
+        var aerial = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        aerial.layer = .aerialPoints
+        aerial.points.x = [1]
+        aerial.points.y = [1]
+        aerial.points.z = [1]
+        g.append(aerial)
+        #expect(g.modelID == "sha256:m")
+    }
+
+    @Test func scansTakeOneCodeEachAboveTheASPRSGroups() {
+        #expect(ReferenceStyle.scanCodeBase == 7 * 32)
+        #expect(ReferenceStyle.scanCodeCount == 32)
+        #expect(ReferenceStyle.scanCode(index: 0) == 224)
+        #expect(ReferenceStyle.scanCode(index: 31) == 255)
+        #expect(ReferenceStyle.scanCode(index: 32) == 224)
+        #expect(ReferenceStyle.code(asprsClass: 250, brightness: 1) < 224)
+        let colours = (224..<256).map { ReferenceStyle.palette[$0] }
+        #expect(Set(colours.map { [$0.x, $0.y, $0.z] }).count == 32)
+        #expect(colours.allSatisfy { $0.w == 1 && $0 != SIMD4(1, 1, 1, 1) })
+        // None is the live foreground's green.
+        #expect(colours.allSatisfy { !($0.y > $0.x + 0.2 && $0.y > $0.z + 0.2) })
+    }
+
+    @Test func scanVerticesAreColouredByScanAndHiddenByID() {
+        let g = geometry([.registeredScans])
+        let all = ReferenceStyle.scanVertices(g, hidden: [])
+        #expect(all.count == 5 * 5)
+        #expect(Array(all[0..<3]) == [-9, -38, 21])
+        let codes = (0..<5).map { Int(all[$0 * 5 + 3] * 255 + 0.5) }
+        #expect(codes == [224, 224, 224, 225, 225])
+        // Classification 0 keeps the shader on its table path.
+        #expect((0..<5).allSatisfy { all[$0 * 5 + 4] == 0 })
+
+        let others = ReferenceStyle.scanVertices(g, hidden: [ownScanID])
+        #expect(others.count == 2 * 5)
+        // Hiding a scan does not recolour the rest.
+        #expect(Int(others[3] * 255 + 0.5) == 225)
+        let vertices = ReferenceStyle.vertices(for: g, hiddenScanIDs: [ownScanID])
+        #expect(vertices.scanCount == 2)
+        #expect(vertices.aerialCount == 0)
+        #expect(vertices.palette == ReferenceStyle.palette)
+    }
+
+    @Test func eachObservedKindHasItsOwnColour() {
+        #expect(ReferenceStyle.lineColour(.sensor) == SIMD4(1, 1, 1, 1))
+        let amber = ReferenceStyle.lineColour(.correction)
+        #expect(amber.x == 1 && amber.y > 0.5 && amber.y < 0.85 && amber.z == 0)
+        let cyan = ReferenceStyle.lineColour(.facade)
+        #expect(cyan.x < 0.1 && cyan.y > 0.8 && cyan.z > 0.9)
+        let kinds: [Gerardus_Align_V1alpha1_FeatureKind] = [
+            .road, .path, .kerb, .rail, .building, .sensor, .correction, .facade, .pole, .other,
+        ]
+        let colours = kinds.map { ReferenceStyle.lineColour($0) }
+        #expect(Set(colours.map { [$0.x, $0.y, $0.z] }).count == kinds.count)
+    }
+
+    @Test func eachLineLayerKeepsItsOwnFeatures() {
+        let g = geometry([.osm, .footprints, .observed])
+        #expect(g.lines.map(\.kind) == [.road])
+        #expect(g.footprints.map(\.kind) == [.building])
+        #expect(g.observed.map(\.kind) == [.sensor, .correction, .facade, .pole])
+        #expect(g.modelID == "sha256:m")
+        let v = ReferenceStyle.vertices(for: g)
+        #expect(v.osmVertexCount == 2)
+        // The closed outline: three segments.
+        #expect(v.footprintVertexCount == 6)
+        // Sensor 2 segments, correction 1, facade 4 (foot, top, two
+        // uprights), pole 1.
+        #expect(v.observedVertexCount == 16)
+    }
+
+    @Test func sensorsAndPolesAreDrawnWhereTheyAre() {
+        var sensor = Gerardus_Align_V1alpha1_LineFeature()
+        sensor.kind = .sensor
+        sensor.xyz = [0, 0, 21, 0, 0, 23]
+        let v = ReferenceStyle.lineVertices([sensor])
+        // The stalk ends at the sensor's origin: no display lift.
+        #expect(v[2] == 21 && v[9] == 23)
+        let white = ReferenceStyle.lineColour(.sensor)
+        #expect(Array(v[3..<7]) == [white.x, white.y, white.z, white.w])
+        sensor.kind = .pole
+        #expect(ReferenceStyle.lineVertices([sensor])[2] == 21)
+        #expect(ReferenceStyle.lift(.correction) == 0)
+        #expect(ReferenceStyle.lift(.facade) == ReferenceStyle.lineLift)
+    }
+
+    @Test func aFacadeTraceStandsAsHighAsTheScansSawIt() {
+        var facade = Gerardus_Align_V1alpha1_LineFeature()
+        facade.kind = .facade
+        facade.xyz = [0, 5, 21, 10, 5, 21]
+        facade.heightM = 6
+        let v = ReferenceStyle.lineVertices([facade])
+        #expect(v.count == 4 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(v[2] == 21 + lift)
+        // The second segment is the top edge.
+        #expect(v[14 + 2] == 21 + lift + 6)
+        #expect(v[21 + 2] == 21 + lift + 6)
+        facade.heightM = 0
+        #expect(ReferenceStyle.lineVertices([facade]).count == 2 * 7)
+    }
+
+    @Test func aHeightfieldDecodesAndDrawsAsAWireframeAroundItsHoles() {
+        let g = geometry([.groundMesh])
+        #expect(g.groundMesh.count == 1)
+        let field = g.groundMesh[0]
+        #expect(field.nx == 3 && field.ny == 2 && field.cellM == 1)
+        #expect(field.origin.x == -10 && field.origin.y == -40)
+        #expect(g.groundMeshCells == 5)
+        #expect(g.modelID == "sha256:m")
+        #expect(g.completeLayers == [.groundMesh])
+
+        let v = ReferenceStyle.groundMeshVertices(g.groundMesh, centre: nil)
+        // Row 0's two edges and the columns at i = 0 and 2; (1, 1) is NaN.
+        #expect(v.count == 4 * 2 * 7)
+        for k in 0..<(v.count / 7) {
+            // z[j·nx + i] lies at origin + (i, j)·cell_m.
+            let i = v[k * 7] + 10
+            let j = v[k * 7 + 1] + 40
+            #expect(i == i.rounded() && j == j.rounded())
+            #expect(!(i == 1 && j == 1))
+            #expect(v[k * 7 + 2] == 21 + ReferenceStyle.lineLift)
+        }
+        let colour = ReferenceStyle.groundMeshColour
+        #expect(Array(v[3..<7]) == [colour.x, colour.y, colour.z, colour.w])
+    }
+
+    @Test func theGroundMeshIsClippedToTheStreamingRadius() {
+        let field = flatField(n: 21)
+        let v = ReferenceStyle.groundMeshVertices(
+            [field], centre: SIMD2(10, 10), radiusM: 5, denseRadiusM: 100)
+        #expect(!v.isEmpty)
+        for k in 0..<(v.count / 7) { #expect(hypot(v[k * 7] - 10, v[k * 7 + 1] - 10) <= 5 + 1e-4) }
+        #expect(ReferenceStyle.groundMeshRadiusM == 150)
+    }
+
+    @Test func beyondFortyMetresTheMeshIsDrawnEveryTwo() {
+        #expect(ReferenceStyle.groundMeshDenseRadiusM == 40)
+        #expect(ReferenceStyle.groundMeshCoarseSpacingM == 2)
+        let field = flatField(n: 9)
+        // All of it far from the sensor: a 2 m lattice, 5 lines each way of
+        // 4 edges.
+        let coarse = ReferenceStyle.groundMeshVertices(
+            [field], centre: SIMD2(-1000, -1000), radiusM: 10_000, denseRadiusM: 40)
+        #expect(coarse.count == 40 * 2 * 7)
+        for k in 0..<(coarse.count / 7) {
+            #expect(Int(coarse[k * 7]) % 2 == 0 && Int(coarse[k * 7 + 1]) % 2 == 0)
+        }
+        // All of it near: every 1 m line, 9 each way of 8 edges.
+        let dense = ReferenceStyle.groundMeshVertices([field], centre: SIMD2(4, 4))
+        #expect(dense.count == 144 * 2 * 7)
+        // A coarse edge is not drawn across a hole.
+        var holed = field
+        holed.z[1] = .nan
+        let around = ReferenceStyle.groundMeshVertices(
+            [holed], centre: SIMD2(-1000, -1000), radiusM: 10_000, denseRadiusM: 40)
+        #expect(around.count == 39 * 2 * 7)
+    }
+
+    @Test func aMalformedHeightfieldDrawsNothing() {
+        var short = flatField(n: 3)
+        short.z.removeLast()
+        #expect(ReferenceStyle.groundMeshVertices([short], centre: nil).isEmpty)
+        var flat = flatField(n: 3)
+        flat.cellM = 0
+        #expect(ReferenceStyle.groundMeshVertices([flat], centre: nil).isEmpty)
+        #expect(ReferenceStyle.groundMeshVertices([], centre: nil).isEmpty)
+    }
+
+    @Test func replacingTheRegisteredLayersKeepsTheBundlesOwn() {
+        var g = geometry(
+            [.aerialPoints, .osm, .footprints, .registeredScans, .observed, .groundMesh],
+            modelID: "sha256:a")
+        g.replaceRegistered(with: geometry([.observed], modelID: "sha256:b"))
+        #expect(g.aerialCount == 2 && g.lines.count == 1 && g.footprints.count == 1)
+        #expect(g.scans.isEmpty && g.groundMesh.isEmpty)
+        #expect(g.observed.count == 4)
+        #expect(g.modelID == "sha256:b")
+        #expect(g.completeLayers == [.aerialPoints, .osm, .footprints, .observed])
+    }
+}
+
+/// The renderer keeps a buffer and a toggle for each new layer.
+@MainActor struct ReferenceOverlayRendererTests {
+    @Test func eachNewLayerHasABufferAndAToggle() {
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        let view = MTKView()
+        view.device = device
+        guard let renderer = MetalRenderer(metalView: view) else { return }
+        var g = ReferenceGeometry()
+        for layer in AlignmentSession.bundleLayers + AlignmentSession.registeredLayers {
+            for message in referenceMessages(layer, modelID: "sha256:m") { g.append(message) }
+        }
+        renderer.setReferenceOverlay(
+            ReferenceStyle.vertices(for: g, centre: SIMD3(-9.4, -38.5, 23)))
+        #expect(renderer.referenceScanCount == 5)
+        #expect(renderer.referenceFootprintVertexCount == 6)
+        #expect(renderer.referenceObservedVertexCount == 16)
+        #expect(renderer.referenceGroundMeshVertexCount == 8)
+        var shown = ReferenceVisibility()
+        shown.registeredScans = false
+        shown.groundMesh = false
+        renderer.setReferenceVisibility(shown)
+        #expect(renderer.referenceVisibility == shown)
+        renderer.setReferenceOverlay(nil)
+        #expect(renderer.referenceScanCount == 0)
+        #expect(renderer.referenceObservedVertexCount == 0)
+        #expect(renderer.referenceGroundMeshVertexCount == 0)
+    }
+}
+
 // MARK: - Site lookup
 
 struct AlignmentSiteResolverTests {
@@ -398,6 +650,115 @@ struct AlignmentSiteResolverTests {
 
 // MARK: - Session against a fake service
 
+/// The scan the fake's UploadScan names, and so the open capture's own.
+private let ownScanID = "sha256:scan"
+
+/// What the fake Gerardus streams for one layer. The registered layers are
+/// shaped as SITE-MODEL-SPIKE.md §6 describes them: two accepted scans (the
+/// open capture's own and another), a sensor, a correction, a facade trace
+/// and a pole, and a small ground heightfield near the hint pose.
+private func referenceMessages(
+    _ layer: Gerardus_Align_V1alpha1_ReferenceLayer, modelID: String
+) -> [Gerardus_Align_V1alpha1_StreamReferenceResponse] {
+    func message(
+        _ fill: (inout Gerardus_Align_V1alpha1_StreamReferenceResponse) -> Void
+    ) -> Gerardus_Align_V1alpha1_StreamReferenceResponse {
+        var m = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        m.layer = layer
+        fill(&m)
+        return m
+    }
+    func line(
+        _ kind: Gerardus_Align_V1alpha1_FeatureKind, _ xyz: [Float], height: Float = 0
+    ) -> Gerardus_Align_V1alpha1_LineFeature {
+        var feature = Gerardus_Align_V1alpha1_LineFeature()
+        feature.kind = kind
+        feature.xyz = xyz
+        feature.heightM = height
+        return feature
+    }
+    func scan(_ id: String, record: String, points: Int) -> Gerardus_Align_V1alpha1_ScanPoints {
+        var block = Gerardus_Align_V1alpha1_ScanPoints()
+        block.scanID = id
+        block.recordID = record
+        block.kind = .background
+        block.captureRef = "capture/\(id)"
+        block.points.x = (0..<points).map { Float($0) - 9 }
+        block.points.y = (0..<points).map { _ in -38 }
+        block.points.z = (0..<points).map { _ in 21 }
+        return block
+    }
+    switch layer {
+    case .aerialPoints:
+        return [
+            message {
+                $0.points.x = [0, 1]
+                $0.points.y = [0, 1]
+                $0.points.z = [21, 21]
+                $0.points.classification = [2, 2]
+                $0.points.intensity = [10, 20]
+                $0.layerComplete = true
+            }
+        ]
+    case .osm:
+        return [
+            message {
+                $0.lines.features = [line(.road, [0, 0, 21, 5, 0, 21])]
+                $0.layerComplete = true
+            }
+        ]
+    case .footprints:
+        var outline = line(.building, [10, 10, 21, 20, 10, 21, 20, 20, 21])
+        outline.closed = true
+        return [
+            message {
+                $0.lines.features = [outline]
+                $0.layerComplete = true
+            }
+        ]
+    case .intersections: return [message { $0.layerComplete = true }]
+    case .registeredScans:
+        return [
+            message {
+                $0.scanPoints = scan(ownScanID, record: "gms:rec-own", points: 3)
+                $0.modelID = modelID
+            },
+            message {
+                $0.scanPoints = scan("sha256:other", record: "gms:rec-other", points: 2)
+                $0.modelID = modelID
+                $0.layerComplete = true
+            },
+        ]
+    case .observed:
+        return [
+            message {
+                $0.lines.features = [
+                    line(.sensor, [-9.4, -38.5, 21, -9.4, -38.5, 23, -7.7, -36.0, 23]),
+                    line(.correction, [-12, -40, 21.2, -9.4, -38.5, 21.2]),
+                    line(.facade, [0, 5, 21, 10, 5, 21], height: 6),
+                    line(.pole, [3, 3, 21, 3, 3, 27]),
+                ]
+                $0.modelID = modelID
+                $0.layerComplete = true
+            }
+        ]
+    case .groundMesh:
+        return [
+            message {
+                $0.groundMesh.origin.x = -10
+                $0.groundMesh.origin.y = -40
+                $0.groundMesh.cellM = 1
+                $0.groundMesh.nx = 3
+                $0.groundMesh.ny = 2
+                $0.groundMesh.z = [21, 21, 21, 21, .nan, 21]
+                $0.modelID = modelID
+                $0.layerComplete = true
+            }
+        ]
+    default: return []
+    }
+}
+
 /// A stand-in for Gerardus: canned answers and a log of every call.
 final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     private let lock = NSLock()
@@ -411,7 +772,23 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Probes that fail before the server first answers.
     var failuresBeforeAnswering = 0
     var lastHint: Gerardus_Align_V1alpha1_PoseFromHintRequest?
-    var lastReference: Gerardus_Align_V1alpha1_StreamReferenceRequest?
+    /// Every StreamReference request, in order.
+    var references: [Gerardus_Align_V1alpha1_StreamReferenceRequest] = []
+    /// What GetServerInfo lists: every layer, as a server run with
+    /// `serve --serve-scans` would.
+    var availableLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+    ]
+    /// Layers StreamReference refuses with PERMISSION_DENIED.
+    var refusedLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
+    /// The model_id the registered layers carry.
+    var servedModelID = "sha256:model-a"
+    /// What GetSiteModel answers; nil is UNIMPLEMENTED, as Gerardus answers
+    /// until V2 builds the site model.
+    var siteModelID: String?
+    /// Serve the registered layers empty and complete, with no model_id, as
+    /// Gerardus does before it builds them.
+    var emptyRegisteredLayers = false
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
@@ -434,7 +811,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         var info = Gerardus_Align_V1alpha1_GetServerInfoResponse()
         info.serverVersion = "0.1.0"
         info.apiVersion = "gerardus.align.v1alpha1"
-        info.availableLayers = [.aerialPoints, .osm, .intersections]
+        info.availableLayers = availableLayers
         return info
     }
 
@@ -458,22 +835,41 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         return site
     }
 
+    /// Answers each requested layer with the messages a server would send,
+    /// gathered the way GerardusClient gathers them.
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry {
         log("StreamReference")
-        lastReference = request
+        references.append(request)
+        if request.layers.contains(where: refusedLayers.contains) {
+            throw GerardusClientError.permissionDenied(
+                "REGISTERED_SCANS is served only to loopback and tailnet peers")
+        }
         var geometry = ReferenceGeometry()
-        geometry.aerialX = [0, 1]
-        geometry.aerialY = [0, 1]
-        geometry.aerialZ = [21, 21]
-        geometry.aerialClass = [2, 2]
-        geometry.aerialIntensity = [10, 20]
-        var road = Gerardus_Align_V1alpha1_LineFeature()
-        road.kind = .road
-        road.xyz = [0, 0, 21, 5, 0, 21]
-        geometry.lines = [road]
+        for layer in request.layers {
+            if emptyRegisteredLayers, ReferenceGeometry.registeredLayers.contains(layer) {
+                var empty = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                empty.layer = layer
+                empty.layerComplete = true
+                geometry.append(empty)
+                continue
+            }
+            for message in referenceMessages(layer, modelID: servedModelID) {
+                geometry.append(message)
+            }
+        }
         return geometry
+    }
+
+    func getSiteModel(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse? {
+        log("GetSiteModel")
+        guard let siteModelID else { return nil }
+        var response = Gerardus_Align_V1alpha1_GetSiteModelResponse()
+        response.modelID = siteModelID
+        return response
     }
 
     func poseFromHint(
@@ -596,13 +992,11 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
 final class FakeOverlaySink: ReferenceOverlaySink {
     var overlays: [ReferenceOverlayVertices?] = []
     var matrices: [simd_float4x4] = []
-    var visibility: (Bool, Bool, Bool)?
+    var visibility: ReferenceVisibility?
 
     func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?) { overlays.append(vertices) }
     func setReferenceModelMatrix(_ matrix: simd_float4x4) { matrices.append(matrix) }
-    func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
-        visibility = (aerial, osm, intersections)
-    }
+    func setReferenceVisibility(_ visibility: ReferenceVisibility) { self.visibility = visibility }
     var residuals: [[Float]?] = []
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>]) {
         residuals.append(vertices)
@@ -729,10 +1123,11 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     @Test func placingAsksForTheHintThenTheReferenceAroundIt() async {
         let (session, service, sink) = await placed()
         #expect(session.availability == .available(serverVersion: "0.1.0"))
+        // The bundle's layers on one call, then each registered layer on its own.
         #expect(
             service.calls == [
                 "GetServerInfo", "PrepareSite", "PoseFromHint", "StreamReference",
-                "ListRegistrationRecords",
+                "StreamReference", "StreamReference", "StreamReference", "ListRegistrationRecords",
             ])
         let hint = service.lastHint
         #expect(hint?.l16Token == "808580f47")
@@ -740,12 +1135,17 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(hint?.hint.position.longitudeDeg == -122.4065)
         // north_azimuth_deg 35 at columbus-broadway: the hint heading is 180 − 35.
         #expect(hint?.hint.hasHeadingDeg == true && hint?.hint.headingDeg == 145)
-        let reference = service.lastReference
+        let reference = service.references.first
         #expect(reference?.radiusM == 150)
         #expect(reference?.voxelSizeM == 0)
         #expect(reference?.centre.x == service.hintPose.translation.x)
         #expect(reference?.centre.y == service.hintPose.translation.y)
-        #expect(reference?.layers == [.aerialPoints, .osm, .intersections])
+        #expect(reference?.layers == [.aerialPoints, .osm, .footprints, .intersections])
+        #expect(
+            service.references.dropFirst().map(\.layers) == [
+                [.registeredScans], [.observed], [.groundMesh],
+            ])
+        #expect(service.references.allSatisfy { $0.radiusM == 150 })
 
         #expect(sink.overlays.last??.aerialCount == 2)
         #expect(sink.matrices.last == service.hintPose.referenceModelMatrix)
@@ -862,6 +1262,207 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(!session.canRegister)
         // The reference stays drawn until a site is placed again.
         #expect(session.reference != nil)
+    }
+}
+
+// MARK: - Site model in the session
+
+@MainActor struct AlignmentSiteModelTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    private func placed(
+        _ configure: (FakeAlignmentService) -> Void = { _ in }
+    ) async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let service = FakeAlignmentService()
+        configure(service)
+        let sink = FakeOverlaySink()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = sink
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service, sink)
+    }
+
+    /// Placed, with the background uploaded: the open capture's scan is
+    /// then known by its id.
+    private func registered(
+        _ configure: (FakeAlignmentService) -> Void = { _ in }
+    ) async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let (session, service, sink) = await placed(configure)
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        return (session, service, sink)
+    }
+
+    @Test func theRegisteredLayersAreDrawnAndCounted() async throws {
+        let (session, _, sink) = await placed()
+        let summary = try #require(session.reference)
+        #expect(summary.footprints == 1)
+        #expect(summary.registeredScans == 2)
+        // The open capture's scan is not known before its upload.
+        #expect(summary.registeredPoints == 5)
+        #expect(summary.ownScanPoints == 0)
+        #expect(summary.observedFeatures == 4)
+        #expect(summary.groundMeshCells == 5)
+        #expect(summary.modelID == "sha256:model-a")
+        #expect(session.registeredLayersNote == nil)
+        #expect(session.errorMessage == nil)
+
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.scanCount == 5)
+        #expect(overlay.footprintVertexCount == 6)
+        #expect(overlay.observedVertexCount == 16)
+        // The ground mesh lies within 40 m of the sensor: drawn cell by cell.
+        #expect(overlay.groundMeshVertexCount == 8)
+
+        #expect(sink.visibility == ReferenceVisibility())
+        session.showGroundMesh = false
+        session.showFootprints = false
+        #expect(sink.visibility?.groundMesh == false)
+        #expect(sink.visibility?.footprints == false)
+        #expect(sink.visibility?.registeredScans == true)
+        session.showRegisteredScans = false
+        session.showObserved = false
+        #expect(sink.visibility?.registeredScans == false)
+        #expect(sink.visibility?.observed == false)
+    }
+
+    @Test func theOpenCapturesOwnScanIsHiddenUntilAskedFor() async {
+        let (session, _, sink) = await registered()
+        #expect(session.scan?.scanID == ownScanID)
+        #expect(session.reference?.ownScanPoints == 3)
+        #expect(session.reference?.registeredPoints == 2)
+        #expect(sink.overlays.last??.scanCount == 2)
+
+        session.showOwnScan = true
+        await session.pendingStyling?.value
+        #expect(sink.overlays.last??.scanCount == 5)
+        #expect(session.reference?.registeredPoints == 5)
+
+        session.showOwnScan = false
+        await session.pendingStyling?.value
+        #expect(sink.overlays.last??.scanCount == 2)
+
+        // Another capture opens: the scan is no longer this capture's own.
+        session.captureChanged()
+        await session.pendingStyling?.value
+        #expect(sink.overlays.last??.scanCount == 5)
+        #expect(session.reference?.ownScanPoints == 0)
+    }
+
+    @Test func refusedScansLeaveEveryOtherLayerDrawn() async {
+        let (session, service, sink) = await placed { $0.refusedLayers = [.registeredScans] }
+        #expect(session.errorMessage == nil)
+        #expect(session.reference?.aerialPoints == 2)
+        #expect(session.reference?.registeredScans == 0)
+        #expect(session.reference?.observedFeatures == 4)
+        #expect(session.reference?.groundMeshCells == 5)
+        #expect(session.reference?.modelID == "sha256:model-a")
+        #expect(session.registeredLayersNote?.contains("--serve-scans") == true)
+        #expect(sink.overlays.last??.scanCount == 0)
+        #expect(sink.overlays.last??.aerialCount == 2)
+        // Placement carried on to the records.
+        #expect(service.calls.last == "ListRegistrationRecords")
+    }
+
+    @Test func anotherFailureIsNamedWithItsLayer() {
+        let note = AlignmentSession.note(
+            layer: .groundMesh, error: GerardusClientError.incompleteStream("StreamReference"))
+        #expect(note == "Ground mesh not drawn: StreamReference ended without its result")
+    }
+
+    @Test func emptyRegisteredLayersAreNotAnError() async {
+        let (session, _, sink) = await placed { $0.emptyRegisteredLayers = true }
+        #expect(session.errorMessage == nil)
+        #expect(session.registeredLayersNote == nil)
+        #expect(session.reference?.registeredScans == 0)
+        #expect(session.reference?.observedFeatures == 0)
+        #expect(session.reference?.groundMeshCells == 0)
+        #expect(session.reference?.modelID == "")
+        #expect(session.reference?.aerialPoints == 2)
+        #expect(sink.overlays.last??.scanCount == 0)
+    }
+
+    @Test func aServerWithoutTheSiteModelIsAskedForTheBundleOnly() async {
+        let (session, service, _) = await registered {
+            $0.availableLayers = [.aerialPoints, .osm, .intersections]
+        }
+        #expect(service.references.map(\.layers) == [[.aerialPoints, .osm, .intersections]])
+        #expect(session.reference?.registeredScans == 0)
+        #expect(session.registeredLayersNote == nil)
+        // Nor is the site model asked about after an accept.
+        await session.accept()
+        #expect(session.lastRecord != nil)
+        #expect(!service.calls.contains("GetSiteModel"))
+        #expect(service.references.count == 1)
+    }
+
+    @Test func anAcceptReStreamsTheRegisteredLayersWhenTheModelMoves() async {
+        let (session, service, sink) = await registered { $0.siteModelID = "sha256:model-a" }
+        let before = service.references.count
+        service.servedModelID = "sha256:model-b"
+        service.siteModelID = "sha256:model-b"
+        await session.accept()
+        #expect(
+            Array(service.calls.suffix(6)) == [
+                "ReviewRegistration", "ListRegistrationRecords", "GetSiteModel", "StreamReference",
+                "StreamReference", "StreamReference",
+            ])
+        #expect(
+            service.references.dropFirst(before).map(\.layers) == [
+                [.registeredScans], [.observed], [.groundMesh],
+            ])
+        #expect(session.reference?.modelID == "sha256:model-b")
+        // The bundle's layers were not asked for again, and are still drawn,
+        // and the open capture's copy is still hidden.
+        #expect(session.reference?.aerialPoints == 2)
+        #expect(sink.overlays.last??.aerialCount == 2)
+        #expect(sink.overlays.last??.scanCount == 2)
+        #expect(session.busy == nil)
+
+        // A second decision on a model that has not moved streams nothing.
+        let streamed = service.references.count
+        await session.accept()
+        #expect(service.calls.last == "GetSiteModel")
+        #expect(service.references.count == streamed)
+    }
+
+    @Test func anUnchangedModelIsNotReStreamed() async {
+        let (session, service, _) = await registered { $0.siteModelID = "sha256:model-a" }
+        let before = service.references.count
+        await session.accept()
+        #expect(service.calls.last == "GetSiteModel")
+        #expect(service.references.count == before)
+        #expect(session.reference?.modelID == "sha256:model-a")
+    }
+
+    @Test func anUnimplementedSiteModelStillReStreamsAfterAnAccept() async {
+        // Today's Gerardus: GetSiteModel answers UNIMPLEMENTED.
+        let (session, service, _) = await registered()
+        let before = service.references.count
+        service.servedModelID = "sha256:model-b"
+        await session.accept()
+        #expect(service.calls.contains("GetSiteModel"))
+        #expect(service.references.count == before + 3)
+        #expect(session.reference?.modelID == "sha256:model-b")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func aRejectionAlsoAsksWhetherTheModelMoved() async {
+        let (session, service, _) = await registered { $0.siteModelID = "sha256:model-a" }
+        session.rejectReason = "wrong corner"
+        await session.reject()
+        #expect(service.calls.last == "GetSiteModel")
+    }
+
+    @Test func theModelIDShortensForThePane() {
+        #expect(AlignmentFormat.shortID("sha256:0123456789abcdef") == "sha256:0123456789ab")
+        #expect(AlignmentFormat.shortID("plain-id-that-is-long") == "plain-id-tha")
     }
 }
 
@@ -1288,6 +1889,11 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
         try await inner.listRegistrationRecords(l16Token: l16Token)
+    }
+    func getSiteModel(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse? {
+        try await inner.getSiteModel(l16Token: l16Token)
     }
 }
 

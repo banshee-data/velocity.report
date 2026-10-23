@@ -26,11 +26,17 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     case notConnected
     /// A streaming call ended without the message that closes it.
     case incompleteStream(String)
+    /// The server refused the request (PERMISSION_DENIED). Gerardus answers so
+    /// when REGISTERED_SCANS is asked for by a peer outside loopback and the
+    /// tailnet (site model spike §8).
+    case permissionDenied(String)
 
     var errorDescription: String? {
         switch self {
         case .notConnected: return "Not connected to the alignment service"
         case .incompleteStream(let rpc): return "\(rpc) ended without its result"
+        case .permissionDenied(let message):
+            return message.isEmpty ? "Permission denied" : "Permission denied: \(message)"
         }
     }
 
@@ -73,12 +79,19 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func listRegistrationRecords(
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord]
+    /// The site model: the site's accepted scans and the model_id the
+    /// registered layers are built from. Nil while the server answers
+    /// UNIMPLEMENTED, as Gerardus does until it builds site models.
+    func getSiteModel(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse?
 }
 
 /// gRPC client for Gerardus's SiteService and RegistrationService.
 ///
 /// SolveTiePoints is not called: the server answers it with UNIMPLEMENTED
-/// until tie-point placement is built.
+/// until tie-point placement is built. GetSiteModel is, and its UNIMPLEMENTED
+/// reads as no site model.
 @available(macOS 15.0, *) final class GerardusClient: AlignmentServiceClient, @unchecked Sendable {
 
     let address: GerardusAddress
@@ -191,16 +204,32 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     }
 
     /// Streams reference geometry in the site frame and gathers it, layer by
-    /// layer, into one value.
+    /// layer, into one value. A refusal (PERMISSION_DENIED, which Gerardus
+    /// gives REGISTERED_SCANS outside loopback and the tailnet) is thrown as
+    /// `GerardusClientError.permissionDenied`.
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry {
-        try await siteService().streamReference(request: ClientRequest(message: request)) {
-            response in
-            var geometry = ReferenceGeometry()
-            for try await message in response.messages { geometry.append(message) }
-            return geometry
+        do {
+            return try await siteService().streamReference(request: ClientRequest(message: request))
+            { response in
+                var geometry = ReferenceGeometry()
+                for try await message in response.messages { geometry.append(message) }
+                return geometry
+            }
+        } catch let error as RPCError where error.code == .permissionDenied {
+            throw GerardusClientError.permissionDenied(error.message)
         }
+    }
+
+    func getSiteModel(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse? {
+        var request = Gerardus_Align_V1alpha1_GetSiteModelRequest()
+        request.l16Token = l16Token
+        do {
+            return try await siteService().getSiteModel(request: ClientRequest(message: request))
+        } catch let error as RPCError where error.code == .unimplemented { return nil }
     }
 
     // MARK: - RegistrationService
