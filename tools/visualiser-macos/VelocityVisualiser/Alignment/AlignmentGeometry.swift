@@ -248,7 +248,8 @@ enum ScanPacking {
 /// The registered layers (REGISTERED_SCANS, OBSERVED, GROUND_MESH) are built
 /// from the site model, the site's accepted scans, and carry the model's id.
 /// They move whenever a record is accepted, so the session re-streams them on
-/// their own and swaps them in with `replaceRegistered(with:)`.
+/// their own and swaps them in with `replaceRegistered(with:)`. The boxes
+/// (BOXES) are reference data built with the bundle, so they stay.
 struct ReferenceGeometry: Sendable {
     /// The layers built from the site model rather than the bundle.
     static let registeredLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = [
@@ -265,12 +266,20 @@ struct ReferenceGeometry: Sendable {
     var lines: [Gerardus_Align_V1alpha1_LineFeature] = []
     /// DataSF building footprints, draped.
     var footprints: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// DataSF footprints as boxes (site model spike §6.6): one closed
+    /// vertical rectangle per wall, from the 3DEP ground to a roof height
+    /// measured in 3DEP.
+    var boxes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var intersections: [Gerardus_Align_V1alpha1_Intersection] = []
     /// Registered scans, block by block, in the site frame.
     var scans: [Gerardus_Align_V1alpha1_ScanPoints] = []
     /// The observed layer: sensors, corrections and the proposed features
-    /// (facade traces, poles) derived from the registered scans.
+    /// (facade traces, poles) derived from the registered scans. Wall planes
+    /// arrive in the same layer but are kept in `wallPlanes`.
     var observed: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// The observed layer's wall planes: closed vertical rectangles the
+    /// registered scans measure against a box wall, each with a role.
+    var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
     /// The ground surface, normally one heightfield.
     var groundMesh: [Gerardus_Align_V1alpha1_Heightfield] = []
     /// The site model the registered layers were built from; empty until a
@@ -280,6 +289,14 @@ struct ReferenceGeometry: Sendable {
     var completeLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
 
     var aerialCount: Int { aerialX.count }
+
+    /// Box walls shared with a neighbour, which nobody sees from the street.
+    var partyWallCount: Int { boxes.filter(ReferenceStyle.isPartyWall).count }
+
+    /// Wall planes by role.
+    var wallPlaneRoles: [ReferenceStyle.WallPlaneRole: Int] {
+        wallPlanes.reduce(into: [:]) { $0[ReferenceStyle.wallPlaneRole($1), default: 0] += 1 }
+    }
 
     /// Registered scan points, whatever is drawn.
     var scanPointCount: Int { scans.reduce(0) { $0 + Self.count($1.points) } }
@@ -312,10 +329,19 @@ struct ReferenceGeometry: Sendable {
                 contentsOf: block.intensity.count >= n
                     ? Array(block.intensity.prefix(n)) : Array(repeating: 0, count: n))
         case .lines(let set):
-            // Three layers send line features; each keeps its own toggle.
+            // Four layers send line features; each keeps its own toggle, and
+            // the observed layer's wall planes have one of their own.
             switch message.layer {
-            case .observed: observed.append(contentsOf: set.features)
+            case .observed:
+                for feature in set.features {
+                    if feature.kind == .wallPlane {
+                        wallPlanes.append(feature)
+                    } else {
+                        observed.append(feature)
+                    }
+                }
             case .footprints: footprints.append(contentsOf: set.features)
+            case .boxes: boxes.append(contentsOf: set.features)
             default: lines.append(contentsOf: set.features)
             }
         case .intersections(let set): intersections.append(contentsOf: set.intersections)
@@ -336,19 +362,22 @@ struct ReferenceGeometry: Sendable {
         aerialIntensity.append(contentsOf: other.aerialIntensity)
         lines.append(contentsOf: other.lines)
         footprints.append(contentsOf: other.footprints)
+        boxes.append(contentsOf: other.boxes)
         intersections.append(contentsOf: other.intersections)
         scans.append(contentsOf: other.scans)
         observed.append(contentsOf: other.observed)
+        wallPlanes.append(contentsOf: other.wallPlanes)
         groundMesh.append(contentsOf: other.groundMesh)
         if !other.modelID.isEmpty { modelID = other.modelID }
         completeLayers.formUnion(other.completeLayers)
     }
 
     /// Swaps in `other`'s registered layers and model id, keeping the bundle's
-    /// layers (aerial, OSM, footprints, intersections) as they are.
+    /// layers (aerial, OSM, footprints, boxes, intersections) as they are.
     mutating func replaceRegistered(with other: ReferenceGeometry) {
         scans = other.scans
         observed = other.observed
+        wallPlanes = other.wallPlanes
         groundMesh = other.groundMesh
         modelID = other.modelID
         completeLayers.subtract(Self.registeredLayers)
@@ -365,9 +394,11 @@ struct ReferenceVisibility: Equatable, Sendable {
     var aerial = true
     var osm = true
     var footprints = true
+    var boxes = true
     var intersections = true
     var registeredScans = true
     var observed = true
+    var wallPlanes = true
     var groundMesh = true
 }
 
@@ -381,8 +412,12 @@ struct ReferenceOverlayVertices: Sendable {
     /// Debug-line layout: [x, y, z, r, g, b, a] per vertex, two per segment.
     var osmLines: [Float] = []
     var footprintLines: [Float] = []
+    /// Box walls, party walls fainter.
+    var boxLines: [Float] = []
     var intersectionLines: [Float] = []
     var observedLines: [Float] = []
+    /// Wall planes, coloured by role.
+    var wallPlaneLines: [Float] = []
     /// The ground surface as a wireframe, through the same line layout.
     var groundMeshLines: [Float] = []
     var palette: [SIMD4<Float>] = ReferenceStyle.palette
@@ -391,8 +426,10 @@ struct ReferenceOverlayVertices: Sendable {
     var scanCount: Int { scans.count / 5 }
     var osmVertexCount: Int { osmLines.count / 7 }
     var footprintVertexCount: Int { footprintLines.count / 7 }
+    var boxVertexCount: Int { boxLines.count / 7 }
     var intersectionVertexCount: Int { intersectionLines.count / 7 }
     var observedVertexCount: Int { observedLines.count / 7 }
+    var wallPlaneVertexCount: Int { wallPlaneLines.count / 7 }
     var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
 }
 
@@ -521,7 +558,51 @@ enum ReferenceStyle {
         case .correction: return SIMD4(1.00, 0.70, 0.00, 1.00)
         case .facade: return SIMD4(0.00, 0.90, 1.00, 0.95)
         case .pole: return SIMD4(0.35, 0.45, 1.00, 0.95)
-        case .other, .unspecified, .UNRECOGNIZED: return SIMD4(0.80, 0.80, 0.80, 0.70)
+        case .wallPlane: return wallPlaneColour(.wall)
+        case .other, .unspecified, .UNRECOGNIZED: return otherColour
+        }
+    }
+
+    static let otherColour = SIMD4<Float>(0.80, 0.80, 0.80, 0.70)
+
+    // MARK: Boxes and wall planes (site model spike §6.6)
+
+    /// A box wall: a darker, greyer red than the flat footprints' outline,
+    /// so the two read apart when both are drawn.
+    static let boxWallColour = SIMD4<Float>(0.72, 0.36, 0.33, 0.70)
+    /// A party wall, shared with a neighbour and seen from no street: the
+    /// same red, fainter.
+    static let partyWallColour = SIMD4<Float>(0.72, 0.36, 0.33, 0.25)
+
+    /// Tagged `party=true` by Gerardus.
+    static func isPartyWall(_ wall: Gerardus_Align_V1alpha1_LineFeature) -> Bool {
+        wall.tags["party"] == "true"
+    }
+
+    static func boxWallColour(_ wall: Gerardus_Align_V1alpha1_LineFeature) -> SIMD4<Float> {
+        isPartyWall(wall) ? partyWallColour : boxWallColour
+    }
+
+    /// What a wall plane is, from its `role` tag: the wall itself, or a part
+    /// standing out from it or set back. A role the client does not know is
+    /// `other`.
+    enum WallPlaneRole: String, CaseIterable, Sendable {
+        case wall
+        case popout
+        case recess
+        case other
+    }
+
+    static func wallPlaneRole(_ plane: Gerardus_Align_V1alpha1_LineFeature) -> WallPlaneRole {
+        WallPlaneRole(rawValue: plane.tags["role"] ?? "") ?? .other
+    }
+
+    static func wallPlaneColour(_ role: WallPlaneRole) -> SIMD4<Float> {
+        switch role {
+        case .wall: return SIMD4(0.10, 0.80, 0.70, 0.95)  // cyan-teal
+        case .popout: return SIMD4(1.00, 0.60, 0.10, 0.95)  // orange
+        case .recess: return SIMD4(0.65, 0.40, 1.00, 0.95)  // violet
+        case .other: return otherColour
         }
     }
 
@@ -567,8 +648,10 @@ enum ReferenceStyle {
         out.scans = scanVertices(geometry, hidden: hiddenScanIDs)
         out.osmLines = lineVertices(geometry.lines)
         out.footprintLines = lineVertices(geometry.footprints)
+        out.boxLines = boxVertices(geometry.boxes)
         out.intersectionLines = intersectionVertices(geometry.intersections)
         out.observedLines = lineVertices(geometry.observed)
+        out.wallPlaneLines = wallPlaneVertices(geometry.wallPlanes)
         out.groundMeshLines = groundMeshVertices(
             geometry.groundMesh, centre: centre.map { SIMD2($0.x, $0.y) })
         return out
@@ -689,8 +772,7 @@ enum ReferenceStyle {
             func vertex(_ i: Int, up: Float = 0) -> SIMD3<Float> {
                 SIMD3(line.xyz[i * 3], line.xyz[i * 3 + 1], line.xyz[i * 3 + 2] + raise + up)
             }
-            for i in 0..<(count - 1) { appendSegment(&out, vertex(i), vertex(i + 1), colour) }
-            if line.closed { appendSegment(&out, vertex(count - 1), vertex(0), colour) }
+            appendPolyline(&out, line, colour: colour)
             if line.kind == .facade, line.heightM > 0 {
                 let h = line.heightM
                 for i in 0..<(count - 1) {
@@ -701,6 +783,39 @@ enum ReferenceStyle {
             }
         }
         return out
+    }
+
+    /// Box walls as given: each a closed vertical rectangle, closed back to
+    /// its first vertex. Its `height_m` is the roof, already in the
+    /// rectangle, so nothing is added on top.
+    static func boxVertices(_ walls: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
+        var out = [Float]()
+        for wall in walls { appendPolyline(&out, wall, colour: boxWallColour(wall)) }
+        return out
+    }
+
+    /// Wall planes as given, closed, in their role's colour. Unlike a facade
+    /// trace a plane is already the whole rectangle: no top edge or uprights.
+    static func wallPlaneVertices(_ planes: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
+        var out = [Float]()
+        for plane in planes {
+            appendPolyline(&out, plane, colour: wallPlaneColour(wallPlaneRole(plane)))
+        }
+        return out
+    }
+
+    /// A polyline's segments at its kind's lift, closing a closed one.
+    private static func appendPolyline(
+        _ out: inout [Float], _ line: Gerardus_Align_V1alpha1_LineFeature, colour: SIMD4<Float>
+    ) {
+        let count = line.xyz.count / 3
+        guard count >= 2 else { return }
+        let raise = lift(line.kind)
+        func vertex(_ i: Int) -> SIMD3<Float> {
+            SIMD3(line.xyz[i * 3], line.xyz[i * 3 + 1], line.xyz[i * 3 + 2] + raise)
+        }
+        for i in 0..<(count - 1) { appendSegment(&out, vertex(i), vertex(i + 1), colour) }
+        if line.closed { appendSegment(&out, vertex(count - 1), vertex(0), colour) }
     }
 
     /// A cross at each intersection, and a tick down each approach: an

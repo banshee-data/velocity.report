@@ -167,12 +167,19 @@ import SwiftUI
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
                 Toggle("DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
+                if reference.boxesServed {
+                    Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
+                        .help(
+                            "Footprints extruded from the 3DEP ground to the roof measured in 3DEP, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
+                        )
+                }
                 Toggle(
                     "Intersections (\(reference.intersections))", isOn: $session.showIntersections)
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
                 }
-                if session.showFootprints, reference.footprints > 0,
+                if (session.showFootprints && reference.footprints > 0)
+                    || (session.showBoxes && reference.boxWalls > 0),
                     !reference.footprintAttribution.isEmpty
                 {
                     Text(reference.footprintAttribution).font(.caption2).foregroundStyle(.secondary)
@@ -193,6 +200,13 @@ import SwiftUI
                 Toggle(
                     "Observed features (\(reference.observedFeatures))", isOn: $session.showObserved
                 ).help("Sensors white, corrections amber, facade traces cyan, poles blue")
+                Toggle("Wall planes (\(reference.wallPlanes))", isOn: $session.showWallPlanes).help(
+                    "Measured against the box walls: walls cyan-teal, popouts orange, recesses violet"
+                )
+                if reference.wallPlanes > 0 {
+                    Text(reference.wallPlaneRoleText).font(.caption2).foregroundStyle(.secondary)
+                        .padding(.leading, 16)
+                }
                 Toggle(
                     "Ground mesh (\(reference.groundMeshCells.formatted()) cells)",
                     isOn: $session.showGroundMesh)

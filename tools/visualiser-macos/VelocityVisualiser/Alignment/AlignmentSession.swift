@@ -101,6 +101,11 @@ struct ReferenceSummary: Equatable {
     var aerialPoints: Int
     var osmFeatures: Int
     var footprints: Int = 0
+    /// Whether the server sent the boxes layer at all, and its walls (party
+    /// walls among them).
+    var boxesServed: Bool = false
+    var boxWalls: Int = 0
+    var partyWalls: Int = 0
     var intersections: Int
     /// Distinct registered scans, and their points as drawn.
     var registeredScans: Int = 0
@@ -109,6 +114,9 @@ struct ReferenceSummary: Equatable {
     /// or not: it is hidden unless the operator asks for it.
     var ownScanPoints: Int = 0
     var observedFeatures: Int = 0
+    /// Wall planes, and how many of each role.
+    var wallPlanes: Int = 0
+    var wallPlaneRoles: [ReferenceStyle.WallPlaneRole: Int] = [:]
     var groundMeshCells: Int = 0
     /// The site model the registered layers were built from; empty when no
     /// registered layer named one.
@@ -117,6 +125,22 @@ struct ReferenceSummary: Equatable {
     var osmAttribution: String
     var aerialAttribution: String
     var footprintAttribution: String = ""
+
+    /// The wall planes' counts by role, for the pane: "3 walls · 1 popout".
+    /// Roles with none are left out.
+    var wallPlaneRoleText: String {
+        ReferenceStyle.WallPlaneRole.allCases.compactMap { role in
+            guard let n = wallPlaneRoles[role], n > 0 else { return nil }
+            let name: String
+            switch role {
+            case .wall: name = n == 1 ? "wall" : "walls"
+            case .popout: name = n == 1 ? "popout" : "popouts"
+            case .recess: name = n == 1 ? "recess" : "recesses"
+            case .other: name = "other"
+            }
+            return "\(n) \(name)"
+        }.joined(separator: " · ")
+    }
 }
 
 @available(macOS 15.0, *) @MainActor final class AlignmentSession: ObservableObject {
@@ -169,9 +193,11 @@ struct ReferenceSummary: Equatable {
     @Published var showAerial = true { didSet { pushVisibility() } }
     @Published var showOSM = true { didSet { pushVisibility() } }
     @Published var showFootprints = true { didSet { pushVisibility() } }
+    @Published var showBoxes = true { didSet { pushVisibility() } }
     @Published var showIntersections = true { didSet { pushVisibility() } }
     @Published var showRegisteredScans = true { didSet { pushVisibility() } }
     @Published var showObserved = true { didSet { pushVisibility() } }
+    @Published var showWallPlanes = true { didSet { pushVisibility() } }
     @Published var showGroundMesh = true { didSet { pushVisibility() } }
     /// The open capture's scan is drawn live; its registered copy is drawn
     /// too only when the operator asks, as a check of the accepted pose.
@@ -548,7 +574,7 @@ struct ReferenceSummary: Equatable {
             await restyleReference()
             sink?.setReferenceModelMatrix(start.referenceModelMatrix)
             logger.info(
-                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.footprints.count) footprints, \(geometry.intersections.count) intersections, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
+                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.footprints.count) footprints, \(geometry.boxes.count) box walls, \(geometry.intersections.count) intersections, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.wallPlanes.count) wall planes, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
             )
 
             busy = "Reading the site model"
@@ -565,6 +591,10 @@ struct ReferenceSummary: Equatable {
     static let bundleLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
         .aerialPoints, .osm, .footprints, .intersections,
     ]
+    /// Reference layers asked for on the bundle's call only when the server
+    /// lists them: a server from before them would refuse a layer it does
+    /// not know, and with it the bundle.
+    static let listedOnlyLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.boxes]
     /// The site model's layers, each on a call of its own.
     static let registeredLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
         .registeredScans, .observed, .groundMesh,
@@ -583,7 +613,9 @@ struct ReferenceSummary: Equatable {
     ) -> Gerardus_Align_V1alpha1_StreamReferenceRequest {
         var request = Gerardus_Align_V1alpha1_StreamReferenceRequest()
         request.l16Token = l16Token
-        request.layers = layers ?? served(Self.bundleLayers)
+        request.layers =
+            layers
+            ?? (served(Self.bundleLayers) + Self.listedOnlyLayers.filter(availableLayers.contains))
         request.centre.x = centre.x
         request.centre.y = centre.y
         request.centre.z = centre.z
@@ -710,9 +742,9 @@ struct ReferenceSummary: Equatable {
 
     var visibility: ReferenceVisibility {
         ReferenceVisibility(
-            aerial: showAerial, osm: showOSM, footprints: showFootprints,
+            aerial: showAerial, osm: showOSM, footprints: showFootprints, boxes: showBoxes,
             intersections: showIntersections, registeredScans: showRegisteredScans,
-            observed: showObserved, groundMesh: showGroundMesh)
+            observed: showObserved, wallPlanes: showWallPlanes, groundMesh: showGroundMesh)
     }
 
     private func pushVisibility() { sink?.setReferenceVisibility(visibility) }
@@ -775,10 +807,15 @@ struct ReferenceSummary: Equatable {
             aerialAttribution: preparedSite.map { attribution($0, layer: .aerialPoints) } ?? "")
         out.footprints = geometry.footprints.count
         out.footprintAttribution = preparedSite.map { attribution($0, layer: .footprints) } ?? ""
+        out.boxesServed = !geometry.boxes.isEmpty || geometry.completeLayers.contains(.boxes)
+        out.boxWalls = geometry.boxes.count
+        out.partyWalls = geometry.partyWallCount
         out.registeredScans = geometry.scanOrder.count
         out.registeredPoints = vertices.scanCount
         out.ownScanPoints = ownPoints
         out.observedFeatures = geometry.observed.count
+        out.wallPlanes = geometry.wallPlanes.count
+        out.wallPlaneRoles = geometry.wallPlaneRoles
         out.groundMeshCells = geometry.groundMeshCells
         out.modelID = geometry.modelID
         return out

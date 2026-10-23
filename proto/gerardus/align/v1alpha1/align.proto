@@ -1,7 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: f39479d6d5678804d714b7f49ee31358d4082479 on claude/vector-spike-merge-check-04d85d
-// (site model spike V6; not merged yet: update this line to the main commit when it is).
+// Commit: e2aa4f8b45c75277b333b7551bd7e22754201503 on claude/vector-spike-merge-check-04d85d
+// (site model spike V8; not merged yet: update this line to the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -280,6 +280,12 @@ enum ReferenceLayer {
   // The current ground-surface feature as a Heightfield: 3DEP, refined by
   // registered scans.
   REFERENCE_LAYER_GROUND_MESH = 7;
+  // DataSF footprints as boxes (docs/plans/SITE-MODEL-SPIKE.md §6.6): each
+  // wall a closed vertical rectangle of kind BUILDING, from the 3DEP ground to
+  // a roof height measured in 3DEP, moved by the site's footprint shift.
+  // Tags: building_id, wall, party, roof_p50_m, roof_p95_m, shift_east_m,
+  // shift_north_m. Public data only.
+  REFERENCE_LAYER_BOXES = 8;
 }
 
 // SourceInfo names one input and the terms it came under. A client that
@@ -324,6 +330,11 @@ enum FeatureKind {
   FEATURE_KIND_CORRECTION = 7;      // from a run's initial pose to the accepted pose
   FEATURE_KIND_FACADE = 8;          // a wall trace seen at street level by registered scans; height_m is its observed top
   FEATURE_KIND_POLE = 9;            // vertical segment, base to top
+  // A wall plane measured by registered scans against a box wall: a closed
+  // vertical rectangle (4 vertices). Tag role is "wall" (the wall itself) or
+  // "popout" / "recess" (a part standing out or back, such as a bay window);
+  // offset_m is its distance in front of the box wall.
+  FEATURE_KIND_WALL_PLANE = 10;
   FEATURE_KIND_OTHER = 15;
 }
 

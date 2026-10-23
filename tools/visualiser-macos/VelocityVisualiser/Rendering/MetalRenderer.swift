@@ -128,6 +128,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var referenceOSMVertexCount: Int = 0
     private var referenceFootprintBuffer: MTLBuffer?
     private(set) var referenceFootprintVertexCount: Int = 0
+    /// DataSF boxes' walls and the observed layer's wall planes: lines, each
+    /// with a toggle of its own.
+    private var referenceBoxBuffer: MTLBuffer?
+    private(set) var referenceBoxVertexCount: Int = 0
+    private var referenceWallPlaneBuffer: MTLBuffer?
+    private(set) var referenceWallPlaneVertexCount: Int = 0
     private var referenceIntersectionBuffer: MTLBuffer?
     private(set) var referenceIntersectionVertexCount: Int = 0
     private var referenceObservedBuffer: MTLBuffer?
@@ -450,6 +456,11 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceFootprintBuffer = buffer(vertices?.footprintLines ?? [])
         referenceFootprintVertexCount =
             referenceFootprintBuffer == nil ? 0 : vertices?.footprintVertexCount ?? 0
+        referenceBoxBuffer = buffer(vertices?.boxLines ?? [])
+        referenceBoxVertexCount = referenceBoxBuffer == nil ? 0 : vertices?.boxVertexCount ?? 0
+        referenceWallPlaneBuffer = buffer(vertices?.wallPlaneLines ?? [])
+        referenceWallPlaneVertexCount =
+            referenceWallPlaneBuffer == nil ? 0 : vertices?.wallPlaneVertexCount ?? 0
         referenceIntersectionBuffer = buffer(vertices?.intersectionLines ?? [])
         referenceIntersectionVertexCount =
             referenceIntersectionBuffer == nil ? 0 : vertices?.intersectionVertexCount ?? 0
@@ -551,7 +562,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             (shown.groundMesh, referenceGroundMeshBuffer, referenceGroundMeshVertexCount),
             (shown.osm, referenceOSMBuffer, referenceOSMVertexCount),
             (shown.footprints, referenceFootprintBuffer, referenceFootprintVertexCount),
+            (shown.boxes, referenceBoxBuffer, referenceBoxVertexCount),
             (shown.observed, referenceObservedBuffer, referenceObservedVertexCount),
+            (shown.wallPlanes, referenceWallPlaneBuffer, referenceWallPlaneVertexCount),
             (shown.intersections, referenceIntersectionBuffer, referenceIntersectionVertexCount),
         ] {
             guard visible, let buffer, count > 0 else { continue }

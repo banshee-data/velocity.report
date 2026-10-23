@@ -553,6 +553,181 @@ struct SiteModelStyleTests {
     }
 }
 
+// MARK: - Boxes and wall planes
+
+/// DataSF boxes (REFERENCE_LAYER_BOXES) and the observed layer's wall planes
+/// (site model spike §6.6): decoding, colours, and closed rectangles drawn as
+/// given.
+struct BoxesAndWallPlanesStyleTests {
+    private func geometry(_ layers: [Gerardus_Align_V1alpha1_ReferenceLayer]) -> ReferenceGeometry {
+        var geometry = ReferenceGeometry()
+        for layer in layers {
+            for message in referenceMessages(layer, modelID: "sha256:m") { geometry.append(message) }
+        }
+        return geometry
+    }
+
+    private func observed(
+        _ features: [Gerardus_Align_V1alpha1_LineFeature]
+    ) -> Gerardus_Align_V1alpha1_StreamReferenceResponse {
+        var message = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        message.layer = .observed
+        message.lines.features = features
+        message.modelID = "sha256:m"
+        message.layerComplete = true
+        return message
+    }
+
+    /// The vertex at `index` of a line layout, as (x, y, z).
+    private func point(_ v: [Float], _ index: Int) -> [Float] {
+        Array(v[(index * 7)..<(index * 7 + 3)])
+    }
+
+    private func colour(_ v: [Float], _ index: Int) -> SIMD4<Float> {
+        SIMD4(v[index * 7 + 3], v[index * 7 + 4], v[index * 7 + 5], v[index * 7 + 6])
+    }
+
+    @Test func boxWallsDecodeIntoTheirOwnLayerWithTheirTags() {
+        let g = geometry([.footprints, .boxes])
+        #expect(g.footprints.count == 1)
+        #expect(g.boxes.count == 2)
+        #expect(g.lines.isEmpty && g.observed.isEmpty)
+        #expect(g.boxes.allSatisfy { $0.kind == .building && $0.closed && $0.xyz.count == 12 })
+        #expect(g.boxes.map { $0.tags["wall"] } == ["0", "1"])
+        #expect(g.boxes.first?.tags["roof_p50_m"] == "12.0")
+        #expect(g.boxes.first?.tags["shift_east_m"] == "0.3")
+        #expect(g.partyWallCount == 1)
+        #expect(g.boxes.map(ReferenceStyle.isPartyWall) == [false, true])
+        #expect(g.completeLayers == [.footprints, .boxes])
+        // Boxes are bundle data: they carry no model id.
+        #expect(g.modelID == "")
+    }
+
+    @Test func boxWallsAreDrawnClosedAndPartyWallsFainter() {
+        let g = geometry([.boxes])
+        let v = ReferenceStyle.boxVertices(g.boxes)
+        // Two rectangles of four segments each: nothing added for height_m.
+        #expect(v.count == 2 * 4 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(point(v, 0) == [10, 10, 21 + lift])
+        // The fourth segment of the first wall closes it on its first vertex.
+        #expect(point(v, 7) == [10, 10, 21 + lift])
+        #expect(point(v, 15) == [20, 10, 21 + lift])
+        // The roof edge stays at the roof, not at the roof plus height_m.
+        #expect((0..<16).allSatisfy { point(v, $0)[2] <= 33 + lift + 1e-4 })
+
+        let street = colour(v, 0)
+        let party = colour(v, 8)
+        #expect(street == ReferenceStyle.boxWallColour)
+        #expect(party == ReferenceStyle.partyWallColour)
+        #expect(party.w < street.w / 2)
+        #expect(SIMD3(party.x, party.y, party.z) == SIMD3(street.x, street.y, street.z))
+        // A building red, distinct from the flat footprints' outline.
+        let flat = ReferenceStyle.lineColour(.building)
+        #expect(street != flat)
+        #expect(street.x > street.y + 0.2 && street.x > street.z + 0.2)
+        #expect(street.x < flat.x)
+
+        let all = ReferenceStyle.vertices(for: g)
+        #expect(all.boxVertexCount == 16)
+        #expect(all.footprintVertexCount == 0)
+    }
+
+    @Test func wallPlanesDecodeApartFromTheObservedFeatures() {
+        var g = ReferenceGeometry()
+        var facade = Gerardus_Align_V1alpha1_LineFeature()
+        facade.kind = .facade
+        facade.xyz = [0, 5, 21, 10, 5, 21]
+        g.append(observed([facade, wallPlane(role: "wall"), wallPlane(role: "recess", offset: -0.4)]))
+        #expect(g.observed.map(\.kind) == [.facade])
+        #expect(g.wallPlanes.count == 2)
+        #expect(g.wallPlaneRoles == [.wall: 1, .recess: 1])
+        #expect(g.wallPlanes.last?.tags["offset_m"] == "-0.4")
+        #expect(g.completeLayers == [.observed])
+
+        // The wall planes are registered data: replaced with the observed
+        // layer, while the boxes stay with the bundle.
+        var drawn = geometry([.boxes, .observed])
+        #expect(drawn.wallPlanes.isEmpty)
+        drawn.replaceRegistered(with: g)
+        #expect(drawn.wallPlanes.count == 2)
+        #expect(drawn.observed.count == 1)
+        #expect(drawn.boxes.count == 2)
+        #expect(drawn.completeLayers == [.boxes, .observed])
+        var merged = ReferenceGeometry()
+        merged.merge(drawn)
+        #expect(merged.wallPlanes.count == 2 && merged.boxes.count == 2)
+    }
+
+    @Test func eachWallPlaneRoleHasItsOwnColour() {
+        let wall = ReferenceStyle.wallPlaneColour(.wall)
+        let popout = ReferenceStyle.wallPlaneColour(.popout)
+        let recess = ReferenceStyle.wallPlaneColour(.recess)
+        // Cyan-teal, orange, violet.
+        #expect(wall.x < 0.2 && wall.y > 0.7 && wall.z > 0.6 && wall.z < wall.y)
+        #expect(popout.x == 1 && popout.y > 0.4 && popout.y < 0.75 && popout.z < 0.2)
+        #expect(recess.z == 1 && recess.x > 0.5 && recess.y < 0.5)
+        // None is a facade trace's cyan, so planes and traces read apart.
+        let facade = ReferenceStyle.lineColour(.facade)
+        let colours = [wall, popout, recess, facade].map { [$0.x, $0.y, $0.z] }
+        #expect(Set(colours).count == 4)
+        #expect(ReferenceStyle.lineColour(.wallPlane) == wall)
+
+        #expect(ReferenceStyle.wallPlaneRole(wallPlane(role: "popout")) == .popout)
+        #expect(ReferenceStyle.wallPlaneRole(wallPlane(role: "recess")) == .recess)
+        #expect(ReferenceStyle.wallPlaneRole(wallPlane(role: "bay")) == .other)
+        var untagged = wallPlane(role: "wall")
+        untagged.tags = [:]
+        #expect(ReferenceStyle.wallPlaneRole(untagged) == .other)
+        #expect(ReferenceStyle.wallPlaneColour(.other) == ReferenceStyle.otherColour)
+    }
+
+    @Test func wallPlanesAreDrawnClosedWithoutAFacadeTop() {
+        // A height_m on a plane adds nothing: the rectangle is the whole of it.
+        let planes = [
+            wallPlane(role: "wall", height: 6), wallPlane(role: "popout", offset: 0.6),
+            wallPlane(role: "recess", offset: -0.3),
+        ]
+        let v = ReferenceStyle.wallPlaneVertices(planes)
+        #expect(v.count == 3 * 4 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(point(v, 0) == [11, 10, 21 + lift])
+        // The closing segment runs from the last vertex back to the first.
+        #expect(point(v, 6) == [11, 10, 30 + lift])
+        #expect(point(v, 7) == [11, 10, 21 + lift])
+        #expect((0..<(v.count / 7)).allSatisfy { point(v, $0)[2] <= 30 + lift + 1e-4 })
+        #expect(colour(v, 0) == ReferenceStyle.wallPlaneColour(.wall))
+        #expect(colour(v, 8) == ReferenceStyle.wallPlaneColour(.popout))
+        #expect(colour(v, 16) == ReferenceStyle.wallPlaneColour(.recess))
+        // A popout stands in front of the box wall: towards −y here.
+        #expect(abs(point(v, 8)[1] - 9.4) < 1e-4)
+
+        // In the overlay, planes have their own buffer, apart from the
+        // observed features (which a facade trace still gets its top in).
+        var g = geometry([.observed])
+        g.append(observed(planes))
+        let overlay = ReferenceStyle.vertices(for: g)
+        #expect(overlay.wallPlaneVertexCount == 24)
+        #expect(overlay.observedVertexCount == 16)
+
+        // An open plane is drawn open, as given.
+        var open = wallPlane(role: "wall")
+        open.closed = false
+        #expect(ReferenceStyle.wallPlaneVertices([open]).count == 3 * 2 * 7)
+    }
+
+    @Test func roleCountsReadForThePane() {
+        var summary = ReferenceSummary(
+            aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
+            aerialAttribution: "")
+        #expect(summary.wallPlaneRoleText == "")
+        summary.wallPlaneRoles = [.wall: 3, .popout: 1, .recess: 2]
+        #expect(summary.wallPlaneRoleText == "3 walls · 1 popout · 2 recesses")
+        summary.wallPlaneRoles = [.wall: 1, .recess: 1, .other: 2, .popout: 0]
+        #expect(summary.wallPlaneRoleText == "1 wall · 1 recess · 2 other")
+    }
+}
+
 /// The renderer keeps a buffer and a toggle for each new layer.
 @MainActor struct ReferenceOverlayRendererTests {
     @Test func eachNewLayerHasABufferAndAToggle() {
@@ -561,23 +736,36 @@ struct SiteModelStyleTests {
         view.device = device
         guard let renderer = MetalRenderer(metalView: view) else { return }
         var g = ReferenceGeometry()
-        for layer in AlignmentSession.bundleLayers + AlignmentSession.registeredLayers {
+        for layer in AlignmentSession.bundleLayers + AlignmentSession.listedOnlyLayers
+            + AlignmentSession.registeredLayers
+        {
             for message in referenceMessages(layer, modelID: "sha256:m") { g.append(message) }
         }
+        var planes = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        planes.layer = .observed
+        planes.lines.features = [wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.5)]
+        g.append(planes)
         renderer.setReferenceOverlay(
             ReferenceStyle.vertices(for: g, centre: SIMD3(-9.4, -38.5, 23)))
         #expect(renderer.referenceScanCount == 5)
         #expect(renderer.referenceFootprintVertexCount == 6)
+        #expect(renderer.referenceBoxVertexCount == 16)
         #expect(renderer.referenceObservedVertexCount == 16)
+        #expect(renderer.referenceWallPlaneVertexCount == 16)
         #expect(renderer.referenceGroundMeshVertexCount == 8)
         var shown = ReferenceVisibility()
+        #expect(shown.boxes && shown.wallPlanes)
         shown.registeredScans = false
         shown.groundMesh = false
+        shown.boxes = false
+        shown.wallPlanes = false
         renderer.setReferenceVisibility(shown)
         #expect(renderer.referenceVisibility == shown)
         renderer.setReferenceOverlay(nil)
         #expect(renderer.referenceScanCount == 0)
+        #expect(renderer.referenceBoxVertexCount == 0)
         #expect(renderer.referenceObservedVertexCount == 0)
+        #expect(renderer.referenceWallPlaneVertexCount == 0)
         #expect(renderer.referenceGroundMeshVertexCount == 0)
     }
 }
@@ -718,6 +906,18 @@ private func referenceMessages(
             }
         ]
     case .intersections: return [message { $0.layerComplete = true }]
+    case .boxes:
+        // The footprint's box: one street wall and one party wall, each a
+        // closed vertical rectangle from the ground (21 m) to the roof.
+        return [
+            message {
+                $0.lines.features = [
+                    boxWall([10, 10, 21, 20, 10, 21, 20, 10, 33, 10, 10, 33], wall: 0, party: false),
+                    boxWall([20, 10, 21, 20, 20, 21, 20, 20, 33, 20, 10, 33], wall: 1, party: true),
+                ]
+                $0.layerComplete = true
+            }
+        ]
     case .registeredScans:
         return [
             message {
@@ -760,6 +960,41 @@ private func referenceMessages(
     }
 }
 
+/// One wall of a DataSF box, tagged as Gerardus tags it.
+private func boxWall(
+    _ xyz: [Float], wall: Int, party: Bool
+) -> Gerardus_Align_V1alpha1_LineFeature {
+    var feature = Gerardus_Align_V1alpha1_LineFeature()
+    feature.featureID = "datasf:ynuv-fyni/1#\(wall)"
+    feature.kind = .building
+    feature.xyz = xyz
+    feature.closed = true
+    feature.heightM = 12
+    feature.tags = [
+        "building_id": "1", "wall": "\(wall)", "party": party ? "true" : "false",
+        "roof_p50_m": "12.0", "roof_p95_m": "12.6", "shift_east_m": "0.3",
+        "shift_north_m": "-0.2",
+    ]
+    return feature
+}
+
+/// A wall plane in front of the box's street wall: a closed vertical
+/// rectangle with a role.
+private func wallPlane(
+    role: String, offset: Float = 0, height: Float = 0
+) -> Gerardus_Align_V1alpha1_LineFeature {
+    var feature = Gerardus_Align_V1alpha1_LineFeature()
+    feature.kind = .wallPlane
+    let y = 10 - offset
+    feature.xyz = [11, y, 21, 15, y, 21, 15, y, 30, 11, y, 30]
+    feature.closed = true
+    feature.heightM = height
+    feature.tags = [
+        "role": role, "offset_m": "\(offset)", "points": "420", "building_id": "1", "wall": "0",
+    ]
+    return feature
+}
+
 /// A stand-in for Gerardus: canned answers and a log of every call.
 final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     private let lock = NSLock()
@@ -792,6 +1027,11 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Serve the registered layers empty and complete, with no model_id, as
     /// Gerardus does before it builds them.
     var emptyRegisteredLayers = false
+    /// Serve the boxes layer empty and complete, as Gerardus does before it
+    /// builds them.
+    var emptyBoxes = false
+    /// Wall planes the observed layer carries; none until Gerardus builds them.
+    var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     /// Every ReviewRegistration request, in order.
@@ -863,7 +1103,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         }
         var geometry = ReferenceGeometry()
         for layer in request.layers {
-            if emptyRegisteredLayers, ReferenceGeometry.registeredLayers.contains(layer) {
+            if (emptyRegisteredLayers && ReferenceGeometry.registeredLayers.contains(layer))
+                || (emptyBoxes && layer == .boxes)
+            {
                 var empty = Gerardus_Align_V1alpha1_StreamReferenceResponse()
                 empty.layer = layer
                 empty.layerComplete = true
@@ -872,6 +1114,13 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             }
             for message in referenceMessages(layer, modelID: servedModelID) {
                 geometry.append(message)
+            }
+            if layer == .observed, !wallPlanes.isEmpty {
+                var planes = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                planes.layer = .observed
+                planes.lines.features = wallPlanes
+                planes.modelID = servedModelID
+                geometry.append(planes)
             }
         }
         return geometry
@@ -2923,5 +3172,143 @@ final class LockedBox<T>: @unchecked Sendable {
         #expect(message.contains("1 of 2 recorded before it"), "\(message)")
         #expect(message.contains("refine again"), "\(message)")
         #expect(session.busy == nil)
+    }
+}
+
+
+// MARK: - Boxes and wall planes in the session
+
+@MainActor struct BoxesAndWallPlanesSessionTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Every layer the default fake lists, and BOXES.
+    private static let withBoxes: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+        .boxes,
+    ]
+
+    private func placed(
+        _ configure: (FakeAlignmentService) -> Void = { _ in }
+    ) async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let service = FakeAlignmentService()
+        configure(service)
+        let sink = FakeOverlaySink()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = sink
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service, sink)
+    }
+
+    @Test func listedBoxesAreAskedForWithTheBundleAndDrawn() async throws {
+        let (session, service, sink) = await placed {
+            $0.availableLayers = Self.withBoxes
+            $0.wallPlanes = [
+                wallPlane(role: "wall"), wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.6),
+                wallPlane(role: "recess", offset: -0.3),
+            ]
+        }
+        #expect(session.errorMessage == nil)
+        // On the bundle's call, not a call of its own.
+        #expect(
+            service.references.map(\.layers) == [
+                [.aerialPoints, .osm, .footprints, .intersections, .boxes], [.registeredScans],
+                [.observed], [.groundMesh],
+            ])
+        let summary = try #require(session.reference)
+        #expect(summary.boxesServed)
+        #expect(summary.boxWalls == 2 && summary.partyWalls == 1)
+        #expect(summary.footprints == 1)
+        // Wall planes are counted apart from the observed features.
+        #expect(summary.observedFeatures == 4)
+        #expect(summary.wallPlanes == 4)
+        #expect(summary.wallPlaneRoles == [.wall: 2, .popout: 1, .recess: 1])
+        #expect(summary.wallPlaneRoleText == "2 walls · 1 popout · 1 recess")
+
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.boxVertexCount == 16)
+        #expect(overlay.footprintVertexCount == 6)
+        #expect(overlay.wallPlaneVertexCount == 32)
+        #expect(overlay.observedVertexCount == 16)
+
+        // Both on by default, each with its own toggle.
+        #expect(sink.visibility?.boxes == true && sink.visibility?.wallPlanes == true)
+        session.showBoxes = false
+        #expect(sink.visibility?.boxes == false)
+        #expect(sink.visibility?.footprints == true && sink.visibility?.wallPlanes == true)
+        session.showWallPlanes = false
+        #expect(sink.visibility?.wallPlanes == false)
+        #expect(sink.visibility?.observed == true)
+        session.showObserved = false
+        session.showBoxes = true
+        #expect(sink.visibility?.observed == false && sink.visibility?.boxes == true)
+        #expect(sink.visibility?.wallPlanes == false)
+    }
+
+    @Test func anEmptyBoxesLayerAndNoWallPlanesAreNotAnError() async throws {
+        // Gerardus today: BOXES listed, served empty and complete; OBSERVED
+        // without a wall plane.
+        let (session, service, sink) = await placed {
+            $0.availableLayers = Self.withBoxes
+            $0.emptyBoxes = true
+        }
+        #expect(session.errorMessage == nil)
+        #expect(session.registeredLayersNote == nil)
+        #expect(service.references.first?.layers.last == .boxes)
+        let summary = try #require(session.reference)
+        // Served, so the toggle is shown, with nothing in it.
+        #expect(summary.boxesServed)
+        #expect(summary.boxWalls == 0 && summary.partyWalls == 0)
+        #expect(summary.wallPlanes == 0 && summary.wallPlaneRoles.isEmpty)
+        #expect(summary.wallPlaneRoleText == "")
+        #expect(summary.observedFeatures == 4)
+        #expect(summary.footprints == 1 && summary.aerialPoints == 2)
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.boxVertexCount == 0 && overlay.wallPlaneVertexCount == 0)
+        #expect(overlay.footprintVertexCount == 6)
+    }
+
+    @Test func aServerThatDoesNotListBoxesIsNotAskedForThem() async throws {
+        let (session, service, _) = await placed()
+        #expect(!service.availableLayers.contains(.boxes))
+        #expect(service.references.first?.layers == AlignmentSession.bundleLayers)
+        #expect(!service.references.contains { $0.layers.contains(.boxes) })
+        let summary = try #require(session.reference)
+        #expect(!summary.boxesServed)
+        #expect(summary.boxWalls == 0)
+
+        // Nor one that lists no layers at all: BOXES is asked for only when
+        // listed, since an older server would refuse the bundle with it.
+        let (_, quiet, _) = await placed { $0.availableLayers = [] }
+        #expect(quiet.references.first?.layers == AlignmentSession.bundleLayers)
+    }
+
+    @Test func anAcceptKeepsTheBoxesAndReplacesTheWallPlanes() async throws {
+        let (session, service, sink) = await placed {
+            $0.availableLayers = Self.withBoxes
+            $0.siteModelID = "sha256:model-a"
+            $0.wallPlanes = [wallPlane(role: "wall")]
+        }
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        let before = service.references.count
+        service.servedModelID = "sha256:model-b"
+        service.siteModelID = "sha256:model-b"
+        service.wallPlanes = [wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.5)]
+        await session.accept()
+        // Only the registered layers are re-streamed.
+        #expect(
+            service.references.dropFirst(before).map(\.layers) == [
+                [.registeredScans], [.observed], [.groundMesh],
+            ])
+        #expect(session.reference?.boxWalls == 2)
+        #expect(session.reference?.wallPlanes == 2)
+        #expect(sink.overlays.last??.boxVertexCount == 16)
+        #expect(sink.overlays.last??.wallPlaneVertexCount == 16)
     }
 }
