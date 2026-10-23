@@ -20,4 +20,7 @@ The [SpatialRust source review](../../../docs/lidar/operations/spatialrust-segme
 sets out the next steps: check for sparse XY radius-graph paths with an independent membership
 oracle, then compare DBSCAN with exact Euclidean connectivity where those paths exist; absent
 paths need motion-supported joining. Test vertical constraints independently. These follow-ups
-require registered specs, merge cases, and checked-in parameter sets before replaying.
+require registered specs, merge cases, and checked-in parameter sets before replaying. The
+[LiDAR-Processing-V2 review](../../../docs/lidar/operations/lidar-processing-v2-segmentation-review.md)
+adds curved-voxel connectivity (connected components over spherical bins, no density core) as a
+third arm of that comparison once the path question is answered; it is not a spec of its own.

@@ -21,6 +21,10 @@ then compare Euclidean XY connectivity, and only then change the vertical distan
 backend must preserve source ordinals and rejection evidence. The production callback calls DBSCAN directly,
 so implementing `ClustererInterface` alone does not integrate an alternative algorithm.
 
+The [LiDAR-Processing-V2 review](../lidar/operations/lidar-processing-v2-segmentation-review.md)
+adds curved-voxel connectivity as a third arm of that comparison, after the path question, and
+takes the boundary question to L3 instead (l3bg0026); it changes nothing here.
+
 Use the review's proposed gates and case requirements when writing follow-up specs. Record raw
 benchmark and replay outputs locally and edited findings in `docs/`, following `AGENTS.md`;
 historical references below to checked-in logs do not override that rule.
