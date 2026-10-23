@@ -4,6 +4,7 @@ The visualiser's client for the Gerardus alignment service: it draws USGS 3DEP a
 
 - **Plan:** [lidar-visualiser-gerardus-alignment-plan.md](../../plans/lidar-visualiser-gerardus-alignment-plan.md) (the work still to come)
 - **Contract:** [proto/gerardus/align/v1alpha1/align.proto](../../../proto/gerardus/align/v1alpha1/align.proto), vendored from banshee-data/gerardus
+- **Site model spike:** Gerardus `docs/plans/SITE-MODEL-SPIKE.md` (registered scans, an observed vector layer, accumulated frames, refinement), with the decisions in Gerardus ADR-0012
 
 ## Summary
 
@@ -16,6 +17,14 @@ What ships is Gerardus MVP 0's operator loop, without tie points:
 - scoring of the pose drawn now, with the scan coloured by residual, and Snap;
 - local nudges;
 - accepting a hypothesis or the operator's own pose.
+
+The site model spike adds, against a Gerardus server that serves them:
+
+- DataSF building footprints, which the pane did not ask for before;
+- the site model: every accepted scan in the site frame, lines derived from them, and a ground mesh, re-streamed whenever an accept moves the model;
+- registering against the site model as well as 3DEP;
+- frames accumulated from the replay into a denser scan;
+- refining every accepted pose at the site together.
 
 Gerardus does not build tie points yet, so the pane does not call `SolveTiePoints`.
 
@@ -44,15 +53,17 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 
 ## The operator's path
 
-| Step              | What the pane does                                                                                                                                                     | Gerardus RPC                                     |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| Open the pane     | Lists velocity.report's located clips and picks the open capture's                                                                                                     | `GetServerInfo` (on connect)                     |
-| Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                            | `PrepareSite`, `PoseFromHint`, `StreamReference` |
-| Register          | Uploads the settled background once per snapshot, then registers it from the position drawn now. Hypotheses show as they converge; the best is drawn when the run ends | `UploadScan`, `Register`                         |
-| Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                          | none                                             |
-| Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual           | `EvaluatePose` (after the rest)                  |
-| Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                         | `EvaluatePose(refine)`                           |
-| Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason                                                                                 | `ReviewRegistration`, `ListRegistrationRecords`  |
+| Step              | What the pane does                                                                                                                                                                                      | Gerardus RPC                                                                       |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Open the pane     | Lists velocity.report's located clips and picks the open capture's                                                                                                                                      | `GetServerInfo` (on connect)                                                       |
+| Place from hint   | Prepares the site, places the sensor from the eye-read position and the typed `north_azimuth_deg`, and streams 150 m of reference around it                                                             | `PrepareSite`, `PoseFromHint`, `StreamReference`                                   |
+| Register          | Uploads the settled background once per snapshot, then registers it from the position drawn now. Hypotheses show as they converge; the best is drawn when the run ends                                  | `UploadScan`, `Register`                                                           |
+| Pick a hypothesis | Draws it; Accept then records that hypothesis                                                                                                                                                           | none                                                                               |
+| Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual                                            | `EvaluatePose` (after the rest)                                                    |
+| Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                                                          | `EvaluatePose(refine)`                                                             |
+| Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason. When the server serves the site model, asks for it again and re-streams its layers if its `model_id` moved      | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel`, `StreamReference` |
+| Accumulate frames | Collects the next 50 full frames of the replay, keeps their background and ground points thinned to 5 cm, and uploads them as one scan (`SCAN_KIND_ACCUMULATED`); **Register accumulated** registers it | `UploadScan`, `Register`                                                           |
+| Refine site       | Re-solves every accepted pose at the site together, lists each scan's move, joint constraint rank and gates; **Accept** records a scan's refined pose                                                   | `RefineSite`, `GetRegistration`, `ReviewRegistration`                              |
 
 ### Registration
 
@@ -67,6 +78,26 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
   - **Accept hypothesis N (registered)** for a hypothesis of a run that passed every gate;
   - **(manually placed)** for one that did not;
   - **Accept this pose (manually placed)** once the pose has been nudged or snapped off the hypothesis. A snapped pose is recorded with source `ICP`.
+
+### Against the site model
+
+**Against the site model** sets `RegisterRequest.against_site_model`. Gerardus then fits the scan against the site's other accepted scans as well as 3DEP, which sees the walls 2 to 6 m up that the aerial survey barely does. The ground and facade gates are still measured against 3DEP alone, so a pose that passes still sits on public data. Each hypothesis also reports `model_p50_m` and `model_p75_m`, its residuals against the accepted scans alone.
+
+### Accumulated frames
+
+**Accumulate frames** collects the next 50 frames the replay streams, about five seconds. It keeps the points classed background or ground, never the foreground, one per 5 cm voxel, and uploads them as one scan of kind `SCAN_KIND_ACCUMULATED`. The capture reference names the replay and the frames: `<replay>#frames=<first>-<last>`.
+
+Only full frames will do. A decimated frame (decimation not off, or a ratio other than 1), a foreground-only frame from split streaming, or a frame without point classes stops the accumulation and says why. Turn decimation off and replay the full stream first.
+
+### Refining the site
+
+**Refine site** calls `RefineSite`, which re-solves the poses of every accepted scan at the site as one pose graph. Each scan's fit to 3DEP is a prior, and each fit between overlapping scans is a pair. Gerardus writes one registration per scan, whose hypothesis `j1` is the refined pose. The pane reads each one (`GetRegistration`) for its gates and lists, per scan:
+
+- how far the pose moved, in metres and degrees;
+- the joint constraint rank, which a second scan can raise where one scan alone leaves a direction free, and any weak direction;
+- the fit to 3DEP after refinement, and a badge for each gate.
+
+It also lists each pair of scans with its residual before and after, and why any pair was left out. **Accept** records hypothesis `j1` with `ReviewRegistration`: registered when that run passed its gates, else manually placed. The new record supersedes the scan's old one, so the site model moves and its layers are re-streamed.
 
 ### Scoring and residuals
 
@@ -97,16 +128,22 @@ The visualiser draws in the sensor frame, velocity.report's pipeline frame: +Y i
 
 The renderer draws the reference with the inverse of the pose as its model matrix, folded into `Uniforms.modelViewProjection` and `Uniforms.modelView` for those draws only. A nudge replaces that matrix and sends nothing. Each nudge moves the drawing by one step in the sensor frame, and the pose becomes `P·N⁻¹`, so the reference lands where the operator put it.
 
-| Layer          | Pipeline                                                                                      | Colour                                                                                                                         |
-| -------------- | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| 3DEP points    | Point pipeline, `[x, y, z, code / 255, 0]` per point, table colouring                         | The ASPRS class picks a ramp (ground amber, unclassified violet, building red, and so on); intensity picks the shade within it |
-| Scan residuals | Point pipeline in the sensor frame, drawn over the background with a less-or-equal depth test | By the size of each point's `EvaluatePose` residual: green, yellow, red at 0.5 m; grey with no reference in reach              |
-| OSM ways       | Debug-line pipeline, `[x, y, z, r, g, b, a]` per vertex                                       | By `FeatureKind`: roads yellow, paths light blue, kerbs orange, rails magenta, buildings red                                   |
-| Intersections  | Debug-line pipeline                                                                           | A white cross at each node, and a cyan tick down each approach                                                                 |
+| Layer             | Pipeline                                                                                        | Colour                                                                                                                                                                |
+| ----------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3DEP points       | Point pipeline, `[x, y, z, code / 255, 0]` per point, table colouring                           | The ASPRS class picks a ramp (ground amber, unclassified violet, building red, and so on); intensity picks the shade within it                                        |
+| Scan residuals    | Point pipeline in the sensor frame, drawn over the background with a less-or-equal depth test   | By the size of each point's `EvaluatePose` residual: green, yellow, red at 0.5 m; grey with no reference in reach                                                     |
+| OSM ways          | Debug-line pipeline, `[x, y, z, r, g, b, a]` per vertex                                         | By `FeatureKind`: roads yellow, paths light blue, kerbs orange, rails magenta, buildings red                                                                          |
+| Intersections     | Debug-line pipeline                                                                             | A white cross at each node, and a cyan tick down each approach                                                                                                        |
+| DataSF footprints | Debug-line pipeline                                                                             | Building red, as OSM buildings; a toggle of their own                                                                                                                 |
+| Registered scans  | Point pipeline in the site frame, palette codes 224–231, drawn at 0.7 of the scene's point size | One colour per scan, by its place in the list. The open capture's own scan is hidden unless **Include this capture's own scan** is on                                 |
+| Observed lines    | Debug-line pipeline                                                                             | By `FeatureKind`: sensors white (a stalk from the ground, then an arrow along +Y), corrections amber (eye-read to accepted position), facade traces cyan, poles green |
+| Ground mesh       | Debug-line pipeline: a wireframe, never triangles                                               | Grey-green. Full cell size within 40 m of the sensor, every 2 m beyond. Off by default                                                                                |
 
 The point shader's table mode reads a palette from fragment buffer 0. The reference binds its own 256-entry palette there, so one byte carries both class and brightness and the shader needs no new mode. Draped lines sit 0.10 m above the 3DEP ground so they do not fight its points for depth; this offset is display only. Aerial points draw at half the scene's point size.
 
-When OSM ways are visible, "© OpenStreetMap contributors" (from `Site.sources`) shows in the corner of the scene. The 3DEP attribution shows in the pane.
+When OSM ways are visible, "© OpenStreetMap contributors" (from `Site.sources`) shows in the corner of the scene. The 3DEP attribution, and DataSF's when footprints are shown, appear in the pane.
+
+The registered-scans layer is served only by a Gerardus started with `--serve-scans`, and only to this machine or the tailnet: a settled background is not published before Gerardus's stationary-person check (its ADR-0011). Without it the pane draws the observed lines and the ground mesh, and no scans.
 
 ## What the pane shows
 
