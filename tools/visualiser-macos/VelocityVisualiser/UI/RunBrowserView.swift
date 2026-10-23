@@ -36,7 +36,11 @@ private enum RunBrowserLayout {
     // Whether Accumulate frames can collect from this VRLOG: only a run
     // recorded with full frames carries background in its frames.
     let run = runBrowserState.runs.first { $0.runId == runID }
-    appState.alignment.noteLoadedRun(fullFrames: run?.holdsFullFrames == true)
+    // Its background is uploaded under the run's own name (its clip, else the
+    // run id), never the site picker's, which may be another position.
+    let clip = run?.clipId?.trimmingCharacters(in: .whitespaces) ?? ""
+    appState.alignment.noteLoadedRun(
+        fullFrames: run?.holdsFullFrames == true, captureRef: clip.isEmpty ? runID : clip)
     // Set currentRunID so labels route to run-track API
     appState.currentRunID = runID
     await runBrowserState.primeTrackCache(runID: runID)

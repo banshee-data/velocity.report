@@ -318,6 +318,10 @@ struct ReferenceSummary: Equatable {
     private var accumulationGeneration = 0
     /// The VRLOG loaded now was recorded with full frames (frame_mode full).
     private var loadedRunHoldsFullFrames = false
+    /// What the loaded run calls its capture: its clip id, else its run id.
+    /// A background replayed from it is uploaded under this name, not the
+    /// site picker's clip, which may be another position at the same site.
+    private var loadedRunCaptureRef: String?
     /// How the pose drawn now was made, for what Accept records.
     private var poseSource: Gerardus_Align_V1alpha1_PoseSource = .hint
     private var registering: Task<Void, Never>?
@@ -920,6 +924,7 @@ struct ReferenceSummary: Equatable {
         streamRefusal = nil
         frameSource = .unspecified
         loadedRunHoldsFullFrames = false
+        loadedRunCaptureRef = nil
         scan = nil
         uploadedSnapshot = nil
         registration = nil
@@ -1124,8 +1129,8 @@ struct ReferenceSummary: Equatable {
             return scan
         }
         let header = ScanPacking.header(
-            l16Token: site.l16Token, sensorID: sensorID, captureRef: site.clipID, snapshot: snapshot
-        )
+            l16Token: site.l16Token, sensorID: sensorID,
+            captureRef: loadedRunCaptureRef ?? site.clipID, snapshot: snapshot)
         let uploaded = try await client.uploadScan(
             header: header, blocks: ScanPacking.blocks(from: snapshot))
         scan = uploaded.scan
@@ -1246,10 +1251,13 @@ struct ReferenceSummary: Equatable {
     }
 
     /// A run's VRLOG was loaded for replay: whether it was recorded with full
-    /// frames (its frame_mode), which is what lets Accumulate use it. Called
-    /// after captureChanged, which forgets the previous run's.
-    func noteLoadedRun(fullFrames: Bool) {
+    /// frames (its frame_mode), which is what lets Accumulate use it, and the
+    /// name its background is uploaded under. Called after captureChanged,
+    /// which forgets the previous run's.
+    func noteLoadedRun(fullFrames: Bool, captureRef: String? = nil) {
         loadedRunHoldsFullFrames = fullFrames
+        let named = captureRef?.trimmingCharacters(in: .whitespaces) ?? ""
+        loadedRunCaptureRef = named.isEmpty ? nil : named
         if frameSource == .vrlog {
             let refusal = sourceRefusal
             if refusal != streamRefusal { streamRefusal = refusal }

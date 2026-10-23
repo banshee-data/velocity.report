@@ -2741,6 +2741,22 @@ struct FrameAccumulatorTests {
         #expect(!service.calls.contains("UploadScan"))
     }
 
+    @Test func aReplayedBackgroundTakesTheRunsNameNotThePickersClip() async {
+        // Replaying one position's run while the picker shows another clip
+        // at the same site once filed K1's background under K2's name.
+        let (session, service) = await placedSession()
+        session.noteLoadedRun(fullFrames: false, captureRef: "run-k1")
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        #expect(service.uploadedHeaders.last?.captureRef == "run-k1")
+
+        // Without a loaded run (a live sensor) the picker's clip names it.
+        session.captureChanged()
+        session.noteBackground(snapshot(count: 12))
+        await session.register()
+        #expect(service.uploadedHeaders.last?.captureRef == columbusSite.clipID)
+    }
+
     @Test func theBackgroundCanBeRegisteredAgain() async {
         let (session, service) = await placedSession()
         session.accumulateFrameCount = 1
