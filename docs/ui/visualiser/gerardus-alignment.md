@@ -54,6 +54,8 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 | Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual                                                                                                                              | `EvaluatePose` (after the rest)                                  |
 | Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                                                                                                                                            | `EvaluatePose(refine)`                                           |
 | Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason, then redraws the site model's layers if the model moved                                                                                                                                           | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel`  |
+| Refine site       | Re-solves every accepted pose at the site together, with the N_eff chosen beside the button, then reads each scan's run for its gates. Needs two accepted scans                                                                                                                           | `RefineSite`, `GetRegistration`                                  |
+| Accept refinement | Records every scan's refined pose (hypothesis `j1`) in order, then redraws the site model's layers. Stops at the first refusal                                                                                                                                                            | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel`  |
 
 ### Registration
 
@@ -114,6 +116,14 @@ The button refuses, and says why, when:
 
 A decimated frame arriving partway through stops the collection, and nothing is uploaded.
 
+### Refining the site
+
+**Refine site** asks Gerardus to re-solve the site's accepted poses as one small pose graph: each scan's fit to 3DEP, and the fits between overlapping scans (Gerardus `docs/plans/SITE-MODEL-SPIKE.md` §6.4). It is enabled once the site model holds two accepted scans. The picker beside it sets `n_eff`, how many independent residuals each fit counts as (500 by default, or 250 or 1,000); the result names the weighting it ran with, so the spike's q2 can be answered by refining twice.
+
+The result lists, per scan, how far the pose moved, its joint constraint rank, its gates as badges, its scores against 3DEP after refining, and any weak direction; then each pair of scans, with its p75 residual before and after and why a pair was left out. A scan whose run passed every gate is recorded `REGISTERED`, any other `MANUALLY_PLACED`. Gerardus also gates how far a `REGISTERED` scan may move (0.10 m, 0.5°) and that no 3DEP score gets worse (Gerardus `docs/plans/SITE-MODEL-SPIKE-PORT.md` §7).
+
+**Accept refinement** records every scan's `j1` together, in order: each pose was solved against the others, so accepting some would leave the rest placed against poses that were never accepted. Gerardus refuses a `j1` whose scan's accepted pose has changed since the refinement ran; the pane then stops, says how many were recorded before the refusal, and the way on is to refine again.
+
 ### Scoring and residuals
 
 - **Scoring:** moving the pose sends nothing while it moves. Once it has rested for 0.4 s, `EvaluatePose` scores it against the reference and returns a residual for every uploaded scan point. That takes about 35 ms with the area cached, and a second or two the first time.
@@ -173,6 +183,7 @@ Registered scans, observed features and the ground mesh are built from the site 
 - The background snapshot that Register would upload, and whether the grid has settled. An unsettled snapshot is not uploaded, scored or registered.
 - The registration's state, gates and hypotheses, and the fit of the pose drawn now; the site model's residuals beside the gates when the fit used the model.
 - Which scan Register uses: the background, or the accumulated frames with their point counts and `capture_ref`.
+- A refinement: per scan its move, rank, gates and scores, then its scan pairs.
 - The site's records, newest first.
 
 ## Known limits
