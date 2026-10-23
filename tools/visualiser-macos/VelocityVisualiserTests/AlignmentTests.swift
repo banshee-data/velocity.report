@@ -1024,6 +1024,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var siteModelID: String?
     /// The scans GetSiteModel lists, when it answers.
     var siteModelScans: [String] = [ownScanID, "sha256:other"]
+    /// The capture_ref GetSiteModel gives a scan, where a test sets one.
+    var siteModelCaptureRefs: [String: String] = [:]
     /// Serve the registered layers empty and complete, with no model_id, as
     /// Gerardus does before it builds them.
     var emptyRegisteredLayers = false
@@ -1142,6 +1144,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             var scan = Gerardus_Align_V1alpha1_ModelScan()
             scan.scanID = id
             scan.state = .registered
+            if let ref = siteModelCaptureRefs[id] { scan.captureRef = ref }
             return scan
         }
         return response

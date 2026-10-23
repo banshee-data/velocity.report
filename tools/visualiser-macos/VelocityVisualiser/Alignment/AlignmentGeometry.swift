@@ -402,6 +402,16 @@ struct ReferenceVisibility: Equatable, Sendable {
     var groundMesh = true
 }
 
+/// How a refinement shown in its column marks the scene: each scan's sensor
+/// arrow and correction line in its state's colour (RefinedScanState), and
+/// the selected scan bold, its sensor arrow drawn several times over, with
+/// the other registered scans' points dimmed.
+struct ReferenceEmphasis: Equatable, Sendable {
+    /// Colour by scan_id for SENSOR and CORRECTION features.
+    var tints: [String: SIMD4<Float>] = [:]
+    var selectedScanID: String?
+}
+
 /// Vertex data the renderer draws for the reference, already coloured.
 struct ReferenceOverlayVertices: Sendable {
     /// Point pipeline layout: [x, y, z, colour code / 255, 0] per point. The
@@ -641,19 +651,77 @@ enum ReferenceStyle {
     /// scans in `hiddenScanIDs` are left out.
     static func vertices(
         for geometry: ReferenceGeometry, centre: SIMD3<Double>? = nil,
-        hiddenScanIDs: Set<String> = []
+        hiddenScanIDs: Set<String> = [], emphasis: ReferenceEmphasis = ReferenceEmphasis()
     ) -> ReferenceOverlayVertices {
         var out = ReferenceOverlayVertices()
         out.aerial = aerialVertices(geometry)
         out.scans = scanVertices(geometry, hidden: hiddenScanIDs)
+        out.palette = scanPalette(
+            selectedScanID: emphasis.selectedScanID, order: geometry.scanOrder)
         out.osmLines = lineVertices(geometry.lines)
         out.footprintLines = lineVertices(geometry.footprints)
         out.boxLines = boxVertices(geometry.boxes)
         out.intersectionLines = intersectionVertices(geometry.intersections)
-        out.observedLines = lineVertices(geometry.observed)
+        out.observedLines = observedVertices(geometry.observed, emphasis: emphasis)
         out.wallPlaneLines = wallPlaneVertices(geometry.wallPlanes)
         out.groundMeshLines = groundMeshVertices(
             geometry.groundMesh, centre: centre.map { SIMD2($0.x, $0.y) })
+        return out
+    }
+
+    /// How much of its colour a registered scan keeps while another is
+    /// selected.
+    static let dimmedScanLevel: Float = 0.3
+
+    /// The palette, with every registered scan's colour but the selected
+    /// one's dimmed. Unchanged without a selection, or for a scan not drawn.
+    static func scanPalette(selectedScanID: String?, order: [String]) -> [SIMD4<Float>] {
+        guard let selectedScanID, let index = order.firstIndex(of: selectedScanID) else {
+            return palette
+        }
+        let keep = scanCode(index: index)
+        var table = palette
+        for code in scanCodeBase..<(scanCodeBase + scanCodeCount) where code != keep {
+            let c = table[code]
+            table[code] = SIMD4(SIMD3(c.x, c.y, c.z) * dimmedScanLevel, c.w)
+        }
+        return table
+    }
+
+    /// The scan a SENSOR or CORRECTION feature belongs to, from its tags.
+    static func scanID(of feature: Gerardus_Align_V1alpha1_LineFeature) -> String? {
+        guard feature.kind == .sensor || feature.kind == .correction else { return nil }
+        let id = feature.tags["scan_id"] ?? ""
+        return id.isEmpty ? nil : id
+    }
+
+    /// How far each extra copy of a selected scan's sensor arrow is set off,
+    /// in metres: lines are a pixel wide, so the copies draw it bold.
+    static let boldOffsetM: Float = 0.05
+
+    /// The observed layer, with the emphasis applied: a tinted scan's sensor
+    /// and correction in its tint, and the selected scan's sensor arrow and
+    /// correction again at four small offsets.
+    static func observedVertices(
+        _ lines: [Gerardus_Align_V1alpha1_LineFeature], emphasis: ReferenceEmphasis
+    ) -> [Float] {
+        guard !emphasis.tints.isEmpty || emphasis.selectedScanID != nil else {
+            return lineVertices(lines)
+        }
+        var out = [Float]()
+        for line in lines {
+            guard let id = scanID(of: line) else {
+                out.append(contentsOf: lineVertices([line]))
+                continue
+            }
+            let colour = emphasis.tints[id] ?? lineColour(line.kind)
+            appendPolyline(&out, line, colour: colour)
+            guard id == emphasis.selectedScanID else { continue }
+            let d = boldOffsetM
+            for offset in [SIMD3(d, 0, 0), SIMD3(-d, 0, 0), SIMD3(0, d, 0), SIMD3(0, -d, 0)] {
+                appendPolyline(&out, line, colour: colour, offset: offset)
+            }
+        }
         return out
     }
 
@@ -804,15 +872,17 @@ enum ReferenceStyle {
         return out
     }
 
-    /// A polyline's segments at its kind's lift, closing a closed one.
+    /// A polyline's segments at its kind's lift, closing a closed one,
+    /// moved by `offset`.
     private static func appendPolyline(
-        _ out: inout [Float], _ line: Gerardus_Align_V1alpha1_LineFeature, colour: SIMD4<Float>
+        _ out: inout [Float], _ line: Gerardus_Align_V1alpha1_LineFeature, colour: SIMD4<Float>,
+        offset: SIMD3<Float> = .zero
     ) {
         let count = line.xyz.count / 3
         guard count >= 2 else { return }
         let raise = lift(line.kind)
         func vertex(_ i: Int) -> SIMD3<Float> {
-            SIMD3(line.xyz[i * 3], line.xyz[i * 3 + 1], line.xyz[i * 3 + 2] + raise)
+            SIMD3(line.xyz[i * 3], line.xyz[i * 3 + 1], line.xyz[i * 3 + 2] + raise) + offset
         }
         for i in 0..<(count - 1) { appendSegment(&out, vertex(i), vertex(i + 1), colour) }
         if line.closed { appendSegment(&out, vertex(count - 1), vertex(0), colour) }

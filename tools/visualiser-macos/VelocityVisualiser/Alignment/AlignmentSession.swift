@@ -310,6 +310,19 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var refinementColumnOpen = false
     /// Independent residuals per fit when weighting the graph; 0: the default.
     @Published var refineNEff: Double = 0
+    /// Every scan of the refinement shown that was accepted on its own since
+    /// it ran (`refinementOverridden` is the latest of them).
+    @Published private(set) var staleRefinedScanIDs: Set<String> = []
+    /// Scans of the site model the next Refine leaves out (RefineSite's
+    /// scan_ids). Accepting part of a refinement stays impossible: a scan is
+    /// left out by refining without it.
+    @Published private(set) var refineExcluded: Set<String> = []
+    /// The scan picked in the refinement summary: the scene draws it bold while the refinement is shown. Kept while the
+    /// column is closed and reopened; cleared by a new refinement.
+    @Published private(set) var selectedRefinedScanID: String?
+    /// Each site-model scan's capture_ref, by scan_id, from GetSiteModel and
+    /// the registered layers, for the summary's labels.
+    @Published private(set) var scanCaptureRefs: [String: String] = [:]
 
     var delta: PoseDelta? {
         guard let hintPose, let pose else { return nil }
@@ -823,8 +836,10 @@ struct ReferenceSummary: Equatable {
         let generation = styleGeneration
         let centre = referenceCentre
         let hidden = hiddenScanIDs
+        let emphasis = refinementEmphasis
         let vertices = await Task.detached {
-            ReferenceStyle.vertices(for: geometry, centre: centre, hiddenScanIDs: hidden)
+            ReferenceStyle.vertices(
+                for: geometry, centre: centre, hiddenScanIDs: hidden, emphasis: emphasis)
         }.value
         guard generation == styleGeneration else { return }
         styledOwnScanID = scan?.scanID
@@ -890,7 +905,10 @@ struct ReferenceSummary: Equatable {
             logger.info(
                 "No site model for \(site.l16Token): \(GerardusClientError.describe(error))")
         }
-        if let current { siteModelScanIDs = current.scans.map(\.scanID) }
+        if let current {
+            siteModelScanIDs = current.scans.map(\.scanID)
+            noteSiteModel(answer: current, streamed: geometry)
+        }
         if let current, !current.modelID.isEmpty, current.modelID == siteModelID { return }
         // Put back as found: left set, it blocked every control after an
         // Accept refinement, which had already cleared its own.
@@ -907,6 +925,7 @@ struct ReferenceSummary: Equatable {
         if current == nil {
             siteModelScanIDs = Self.modelScanIDs(answer: nil, streamed: registered)
         }
+        noteSiteModel(answer: current, streamed: geometry)
         await restyleReference()
     }
 
@@ -924,6 +943,37 @@ struct ReferenceSummary: Equatable {
             logger.info("No site model for \(l16Token): \(GerardusClientError.describe(error))")
         }
         siteModelScanIDs = Self.modelScanIDs(answer: answer, streamed: streamed)
+        noteSiteModel(answer: answer, streamed: streamed)
+    }
+
+    /// Keeps each scan's capture_ref, for the refinement summary's labels.
+    private func noteSiteModel(
+        answer: Gerardus_Align_V1alpha1_GetSiteModelResponse?, streamed: ReferenceGeometry?
+    ) {
+        var refs = Self.captureRefs(answer: answer, streamed: streamed)
+        for (id, ref) in scanCaptureRefs where refs[id] == nil { refs[id] = ref }
+        scanCaptureRefs = refs
+    }
+
+    /// capture_ref by scan_id: GetSiteModel's where it names one, else the
+    /// registered layer's scan blocks', else the sensor features' tags.
+    nonisolated static func captureRefs(
+        answer: Gerardus_Align_V1alpha1_GetSiteModelResponse?, streamed: ReferenceGeometry?
+    ) -> [String: String] {
+        var refs = [String: String]()
+        for feature in streamed?.observed ?? [] where feature.kind == .sensor {
+            if let id = feature.tags["scan_id"], let ref = feature.tags["capture_ref"], !ref.isEmpty
+            {
+                refs[id] = ref
+            }
+        }
+        for block in streamed?.scans ?? [] where !block.captureRef.isEmpty {
+            refs[block.scanID] = block.captureRef
+        }
+        for scan in answer?.scans ?? [] where !scan.captureRef.isEmpty {
+            refs[scan.scanID] = scan.captureRef
+        }
+        return refs
     }
 
     /// GetSiteModel's scans when it answered; else the registered layer's,
@@ -1602,8 +1652,26 @@ struct ReferenceSummary: Equatable {
         if site == nil || preparedSite == nil { return "Place the sensor from its hint first." }
         let held = siteModelScanIDs?.count ?? 0
         if held < 2 { return "Refining needs two accepted scans; the site model holds \(held)." }
+        let chosen = refineScanIDs.count
+        if chosen < 2 {
+            return
+                "Refining needs two scans; \(chosen) of \(held) \(chosen == 1 ? "is" : "are") ticked."
+        }
         if let busy { return Self.busyReason(busy) }
         return nil
+    }
+
+    /// The site-model scans the next Refine re-solves: all but those
+    /// unticked, in the model's order.
+    var refineScanIDs: [String] { (siteModelScanIDs ?? []).filter { !refineExcluded.contains($0) } }
+
+    /// Whether the next Refine re-solves this scan.
+    func isIncludedInRefine(_ scanID: String) -> Bool { !refineExcluded.contains(scanID) }
+
+    /// Ticks or unticks a scan for the next Refine. The refinement shown is
+    /// untouched: it is accepted whole or not at all.
+    func setIncludedInRefine(_ scanID: String, _ included: Bool) {
+        if included { refineExcluded.remove(scanID) } else { refineExcluded.insert(scanID) }
     }
 
     /// Re-solves every accepted pose at the site together (RefineSite), then
@@ -1616,10 +1684,16 @@ struct ReferenceSummary: Equatable {
         refinedRuns = [:]
         refinedAccepted = []
         refinementOverridden = nil
+        staleRefinedScanIDs = []
+        selectedRefinedScanID = nil
         isRefining = true
+        scheduleRestyle()
         busy = "Refining the site"
         var request = Gerardus_Align_V1alpha1_RefineSiteRequest()
         request.l16Token = site.l16Token
+        // Empty asks for every accepted scan; a list only when some are left out.
+        let chosen = refineScanIDs
+        if chosen.count < siteModelScanIDs?.count ?? 0 { request.scanIds = chosen }
         request.nEff = refineNEff
         var result: Gerardus_Align_V1alpha1_RefineSiteResult?
         do {
@@ -1639,20 +1713,67 @@ struct ReferenceSummary: Equatable {
         isRefining = false
         refinement = result
         refinedRuns = runs
+        scheduleRestyle()
     }
 
     /// Shows the refinement column, with the refinement if there is one.
-    func openRefinementColumn() { refinementColumnOpen = true }
+    func openRefinementColumn() {
+        guard !refinementColumnOpen else { return }
+        refinementColumnOpen = true
+        scheduleRestyle()
+    }
 
-    /// Hides the column; the refinement and its runs are kept.
-    func closeRefinementColumn() { refinementColumnOpen = false }
+    /// Hides the column; the refinement, its runs and the scan selected in
+    /// it are kept, and the scene drops their colours until it reopens.
+    func closeRefinementColumn() {
+        guard refinementColumnOpen else { return }
+        refinementColumnOpen = false
+        scheduleRestyle()
+    }
 
     /// True when the refined pose for this scan passed every gate, so
     /// accepting it records REGISTERED.
     func refinedPassed(_ refined: Gerardus_Align_V1alpha1_RefinedScan) -> Bool {
-        guard let run = refinedRuns[refined.scanID], run.state == .candidate, !run.gates.isEmpty
-        else { return false }
-        return run.gates.allSatisfy(\.passed)
+        RefinementSummary.passed(refinedRuns[refined.scanID])
+    }
+
+    /// True while the column shows a refinement: the scene colours it then.
+    var refinementShown: Bool { refinementColumnOpen && refinement != nil }
+
+    /// The summary's rows: each refined scan, largest move first, then the
+    /// site model's scans the refinement left out.
+    var refinementRows: [RefinementSummaryRow] {
+        guard let refinement else { return [] }
+        return RefinementSummary.rows(
+            refinement: refinement, runs: refinedRuns, captureRefs: scanCaptureRefs,
+            siteModelScanIDs: siteModelScanIDs ?? [], stale: staleRefinedScanIDs)
+    }
+
+    /// What the scene draws for the refinement shown; nothing otherwise.
+    var refinementEmphasis: ReferenceEmphasis {
+        guard refinementShown else { return ReferenceEmphasis() }
+        var tints = [String: SIMD4<Float>]()
+        for row in refinementRows { tints[row.scanID] = row.state.colour }
+        return ReferenceEmphasis(tints: tints, selectedScanID: selectedRefinedScanID)
+    }
+
+    /// Picks a scan in the summary: the scene draws it bold. Picking the selected scan again clears the selection.
+    func selectRefinedScan(_ scanID: String) {
+        if selectedRefinedScanID == scanID {
+            clearRefinedScanSelection()
+            return
+        }
+        selectedRefinedScanID = scanID
+        scheduleRestyle()
+    }
+
+    /// Clears the summary's selection (a second click, or Escape). True when
+    /// there was one.
+    @discardableResult func clearRefinedScanSelection() -> Bool {
+        guard selectedRefinedScanID != nil else { return false }
+        selectedRefinedScanID = nil
+        scheduleRestyle()
+        return true
     }
 
     /// Why Accept refinement is off now, one line each for the pane; empty
@@ -1691,6 +1812,8 @@ struct ReferenceSummary: Equatable {
             refinement?.scans.contains(where: { $0.scanID == record.scanID }) == true
         else { return }
         refinementOverridden = record.scanID
+        staleRefinedScanIDs.insert(record.scanID)
+        scheduleRestyle()
     }
 
     /// Accepts the refinement whole: j1 of every scan's run, in order. Each
@@ -1770,6 +1893,10 @@ struct ReferenceSummary: Equatable {
         refinedRuns = [:]
         refinedAccepted = []
         refinementOverridden = nil
+        staleRefinedScanIDs = []
+        refineExcluded = []
+        selectedRefinedScanID = nil
+        scanCaptureRefs = [:]
         refinementColumnOpen = false
         errorMessage = nil
         sink?.setReferenceOverlay(nil)

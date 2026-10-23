@@ -121,7 +121,9 @@ struct ContentView: View {
             }.onKeyPress("t") { handleKeyPress(.toggleTrails, appState: appState) }.onKeyPress("v")
         { handleKeyPress(.toggleVelocity, appState: appState) }.onKeyPress("l") {
             handleKeyPress(.toggleLabels, appState: appState)
-        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }  // Run browser sheet
+        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }.onKeyPress(.escape) {
+            handleKeyPress(.escape, appState: appState)
+        }  // Run browser sheet
             // NOTE: RunBrowserView(state:) is intentionally used in the production UI,
             // even though its initialiser was originally documented as "test-only".
             // Do not remove or significantly change that initialiser without updating all call sites.
@@ -142,6 +144,8 @@ enum KeyAction {
     case selectPrevTrack, selectNextTrack
     case togglePoints, toggleBackground, toggleBoxes, toggleClusters
     case toggleTrails, toggleVelocity, toggleLabels, toggleGrid
+    /// Clears the scan picked in the refinement summary, if any.
+    case escape
 }
 
 /// Handle a keyboard action, returning the SwiftUI key-press result.
@@ -225,6 +229,10 @@ enum KeyAction {
     case .toggleGrid:
         uiLogger.debug("Key: G → toggleGrid (now \(!appState.showGrid))")
         appState.showGrid.toggle()
+        return .handled
+    case .escape:
+        guard appState.alignment.clearRefinedScanSelection() else { return .ignored }
+        uiLogger.debug("Key: ESC → cleared the refinement's scan selection")
         return .handled
     }
 }
