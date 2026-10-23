@@ -547,8 +547,10 @@ func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 	// data; the client composites them over a cached background snapshot.
 	//
 	// A full-frames bundle (FrameBundle.fullCloud) is already FrameTypeFull and
-	// keeps its background points: it is the one exception to the strip.
-	if frameBundle.FrameType == 0 && frameBundle.PointCloud != nil && !frameBundle.fullCloud {
+	// keeps its background points. A replayed frame keeps the form it was
+	// recorded in: a full-frames VRLOG holds background on purpose, and every
+	// other recording was stripped before it was written.
+	if !fromReplay && frameBundle.FrameType == 0 && frameBundle.PointCloud != nil && !frameBundle.fullCloud {
 		if p.backgroundMgr != nil {
 			frameBundle.FrameType = FrameTypeForeground
 			// Strip background points — keep only classification==1 (foreground).
@@ -581,9 +583,10 @@ func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 	rec := p.recorder
 	p.recorderMu.RUnlock()
 	if rec != nil {
-		// Full frames are for clients only. The recording gets the frame split
-		// streaming would have sent, so a VRLOG is the same size and holds the
-		// same frames whether or not a client asked for full frames meanwhile.
+		// Full frames switched on at runtime are for clients only: the recording
+		// gets the frame split streaming would have sent, so a VRLOG holds one
+		// kind of frame throughout. A replay started with full frames records
+		// them (FrameBundle.recordFull).
 		if err := rec.Record(recordedForm(frameBundle)); err != nil {
 			opsf("[Visualiser] Recording error: %v", err)
 		}
@@ -623,18 +626,20 @@ func (p *Publisher) publishInternal(frame interface{}, fromReplay bool) {
 }
 
 // recordedForm is the frame as the recorder must see it. Most frames are
-// recorded as published. A full-frames bundle is recorded in its
+// recorded as published, full-frames bundles of a replay that records full
+// frames among them. Any other full-frames bundle is recorded in its
 // split-streaming form instead: foreground points only as FrameTypeForeground,
 // or no points as FrameTypeEmpty where split streaming would have sent an
 // empty frame. The published frame is not touched; the copy gets its own
 // point slices, so the two can be released independently.
 func recordedForm(frame *FrameBundle) *FrameBundle {
-	if frame == nil || !frame.fullCloud {
+	if frame == nil || !frame.fullCloud || frame.recordFull {
 		return frame
 	}
 	recorded := *frame
 	recorded.fullCloud = false
 	recorded.recordEmpty = false
+	recorded.recordFull = false
 	if frame.recordEmpty {
 		recorded.FrameType = FrameTypeEmpty
 		recorded.PointCloud = nil

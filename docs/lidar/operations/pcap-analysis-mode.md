@@ -116,9 +116,11 @@ server's current parameters. See
 field `full_frames=true` or `1`). When set, the visualiser stream carries every
 frame's whole classified cloud for this replay (class 0 background, class 1
 foreground, `frame_type` full, no decimation) instead of split streaming's
-foreground points. It needs the visualiser gRPC stream: a server started
-without it refuses the start with 400. It can also be switched while the replay
-runs (see below), and it always ends with the replay.
+foreground points, and the replay's VRLOG records those full frames: its run
+has `frame_mode: "full"` (otherwise `"foreground"`) in `GET /api/lidar/runs`
+and `GET /api/lidar/runs/{id}`. A full-frames VRLOG is much larger. It needs
+the visualiser gRPC stream: a server started without it refuses the start with 400. Full frames can also be switched on while a replay runs (see below), and
+always end with the replay.
 
 Every speed mode runs the tuning file's L3 as written. **Until October 2026
 (#782) a `scaled` or `realtime` replay substituted five L3 values for the file's
@@ -170,10 +172,14 @@ background points from a replay.
   answers **501**.
 - It always ends with the replay. Stopping it, reaching the end of the file,
   resuming live and parking a finished replay all restore split streaming.
-- The recording does not change. A VRLOG recorded meanwhile is written with
-  the foreground-only frames split streaming would have sent (and the empty
-  frames, where nothing was in the foreground), and background snapshots go
-  out as before.
+- It does not change the recording, whose kind was fixed at the start. In a
+  replay started without `full_frames`, the VRLOG is written with the
+  foreground-only frames split streaming would have sent (and the empty
+  frames, where nothing was in the foreground). A replay started with
+  `full_frames` records full frames, so switching them off is refused with
+  **409** until it ends. Background snapshots go out as before.
+- A clip scene exported from a full-frames VRLOG leaves its background points
+  out, as one from a foreground-only VRLOG has none.
 - Frames with nothing in the foreground, which split streaming sends as empty
   frames, carry their whole cloud too while it is on.
 

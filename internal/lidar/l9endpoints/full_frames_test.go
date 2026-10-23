@@ -218,3 +218,59 @@ func TestPublisherLeavesSplitStreamingAloneWhenFullFramesAreOff(t *testing.T) {
 			stripped.PointCloud.PointCount, stripped.FrameType)
 	}
 }
+
+// A replay started with full frames records them whole, quiet frames too, so
+// its VRLOG holds background in every frame.
+func TestPublisherRecordsFullFramesForAFullFramesReplay(t *testing.T) {
+	frame, _, _ := keyedFrame()
+	pub, rec := fullFramesPublisher(t)
+	adapter := NewFrameAdapter("hesai-01")
+	adapter.SplitStreaming = true
+	adapter.SetRecordFullFrames(true)
+	if !adapter.FullFrames() {
+		t.Fatal("recording full frames must make them full")
+	}
+
+	pub.Publish(adapter.AdaptFrame(frame, fullFramesMask, nil, nil, nil))
+	pub.Publish(adapter.AdaptEmptyFrameWithMask(frame, make([]bool, len(frame.Points))))
+	for i := 0; i < 2; i++ {
+		if sent := published(t, pub); sent.PointCloud.PointCount != 6 {
+			t.Fatalf("frame %d: clients got %d points", i, sent.PointCloud.PointCount)
+		}
+	}
+	if len(rec.frames) != 2 {
+		t.Fatalf("recorded %d frames", len(rec.frames))
+	}
+	for i, f := range rec.frames {
+		if f.FrameType != FrameTypeFull || f.PointCloud == nil || f.PointCloud.PointCount != 6 {
+			t.Errorf("recorded frame %d: type %v cloud %+v, want the full six points", i, f.FrameType, f.PointCloud)
+		}
+	}
+	if want := []uint8{0, 0, 1, 0, 1, 1}; !slices.Equal(rec.frames[0].PointCloud.Classification, want) {
+		t.Errorf("recorded classes %v, want %v", rec.frames[0].PointCloud.Classification, want)
+	}
+
+	// Switching the client toggle off leaves the recording full.
+	adapter.SetFullFrames(false)
+	pub.Publish(adapter.AdaptFrame(frame, fullFramesMask, nil, nil, nil))
+	_ = published(t, pub)
+	if got := rec.frames[2]; got.PointCloud.PointCount != 6 {
+		t.Errorf("after the toggle went off the recording got %d points", got.PointCloud.PointCount)
+	}
+}
+
+// A full-frames VRLOG replays as it was recorded: background is not stripped
+// from replayed frames.
+func TestReplayedFullFramesKeepTheirBackground(t *testing.T) {
+	pub, _ := fullFramesPublisher(t)
+	pub.ClearRecorder()
+	pc := &PointCloudFrame{
+		X: []float32{1, 2, 3}, Y: []float32{1, 2, 3}, Z: []float32{0, 0, 0},
+		Intensity: []uint8{1, 2, 3}, Classification: []uint8{0, 1, 0}, PointCount: 3,
+	}
+	pub.publishReplay(&FrameBundle{FrameID: 1, TimestampNanos: 10, FrameType: FrameTypeFull, PointCloud: pc})
+	sent := published(t, pub)
+	if sent.FrameType != FrameTypeFull || sent.PointCloud.PointCount != 3 {
+		t.Fatalf("replayed full frame went out as type %v with %d points", sent.FrameType, sent.PointCloud.PointCount)
+	}
+}

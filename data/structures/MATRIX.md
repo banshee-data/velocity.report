@@ -108,7 +108,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | PCAP           | `routes.go`             | `POST /api/lidar/pcap/start`                    | -   | ✅  | -   |
 | PCAP           | `routes.go`             | `POST /api/lidar/pcap/stop`                     | -   | ✅  | -   |
 | PCAP           | `routes.go`             | `POST /api/lidar/pcap/resume_live`              | -   | ✅  | -   |
-| PCAP           | `routes.go`             | `POST /api/lidar/replay/full_frames`            | -   | -   | -   |
+| PCAP           | `routes.go`             | `POST /api/lidar/replay/full_frames`            | -   | -   | ✅  |
 | PCAP           | `routes.go`             | `GET /api/lidar/pcap/files`                     | -   | ✅  | -   |
 | Playback       | `routes.go`             | `GET /api/lidar/playback/status`                | -   | -   | 🔶  |
 | Playback       | `routes.go`             | `POST /api/lidar/playback/pause`                | -   | -   | -   |
@@ -306,6 +306,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_runs`                     | `completed_at`                      | INTEGER       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `frame_start_ns`                    | INTEGER       | ✅  | ✅  | -   |
 | `lidar_runs`                     | `frame_end_ns`                      | INTEGER       | ✅  | ✅  | -   |
+| `lidar_runs`                     | `frame_mode`                        | TEXT          | ✅  | -   | -   |
 | `lidar_clusters`                 | `lidar_cluster_id`                  | INTEGER PK    | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `sensor_id`                         | TEXT          | ✅  | ✅  | ✅  |
 | `lidar_clusters`                 | `frame_id`                          | TEXT          | ✅  | -   | -   |
@@ -1189,7 +1190,7 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 110   | 68  | 92  | 11  |
+| HTTP endpoints (LiDAR)  | 111   | 68  | 92  | 12  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 45    | -   | 35  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |

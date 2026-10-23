@@ -11,10 +11,17 @@ import (
 // FullFramesControl switches the visualiser stream's full-frames mode: while
 // it is on, every frame carries its whole classified cloud (0 background,
 // 1 foreground) instead of split streaming's foreground-only points. The
-// visualiser's frame adapter implements it; the publisher still records the
-// foreground-only form, so a VRLOG does not grow.
+// visualiser's frame adapter implements it. What the VRLOG holds is decided
+// when the replay starts: full frames for a replay started with full_frames,
+// foreground-only otherwise, however the toggle is used meanwhile.
 type FullFramesControl interface {
+	// SetFullFrames streams full frames to clients; the recording keeps the
+	// split-streaming form.
 	SetFullFrames(on bool)
+	// SetRecordFullFrames streams full frames and records them, for a replay
+	// started with full_frames.
+	SetRecordFullFrames(on bool)
+	// FullFrames reports whether frames are full now, for either reason.
 	FullFrames() bool
 }
 
@@ -22,8 +29,12 @@ type FullFramesControl interface {
 // stream to switch.
 var errFullFramesUnavailable = errors.New("full frames are not available: the server was started without the visualiser gRPC stream")
 
+// errFullFramesRecorded refuses switching off full frames for a replay that
+// records them: the VRLOG would change kind partway.
+var errFullFramesRecorded = errors.New("this replay was started with full_frames and records full frames: they stay on until it ends")
+
 // errFullFramesNotReplaying is the refusal outside a running PCAP replay.
-var errFullFramesNotReplaying = errors.New("full frames are only for a running PCAP replay: start one with POST /api/lidar/pcap/start (a VRLOG replay holds foreground points only, and live input never gets full frames)")
+var errFullFramesNotReplaying = errors.New("full frames are only for a running PCAP replay: start one with POST /api/lidar/pcap/start (a VRLOG replay plays the frames it was recorded with, and live input never gets full frames)")
 
 // setReplayFullFrames turns full frames on or off for the PCAP replay that is
 // running now. It refuses outside one, so the mode can only ever describe a
@@ -42,8 +53,24 @@ func (ws *Server) setReplayFullFrames(on bool) error {
 	if !ws.PipelineState().PCAPInProgress() {
 		return errFullFramesNotReplaying
 	}
+	if ws.fullFramesRecorded && !on {
+		return errFullFramesRecorded
+	}
 	ws.fullFrames.SetFullFrames(on)
 	return nil
+}
+
+// beginReplayFullFrames sets the mode a replay starts with: full frames,
+// recorded as such, when it was started with full_frames.
+func (ws *Server) beginReplayFullFrames(full bool) {
+	if ws.fullFrames == nil {
+		return
+	}
+	ws.fullFramesMu.Lock()
+	defer ws.fullFramesMu.Unlock()
+	ws.fullFramesRecorded = full
+	ws.fullFrames.SetRecordFullFrames(full)
+	ws.fullFrames.SetFullFrames(full)
 }
 
 // endReplayFullFrames restores split streaming. Called on every way out of a
@@ -55,6 +82,8 @@ func (ws *Server) endReplayFullFrames() {
 	}
 	ws.fullFramesMu.Lock()
 	defer ws.fullFramesMu.Unlock()
+	ws.fullFramesRecorded = false
+	ws.fullFrames.SetRecordFullFrames(false)
 	ws.fullFrames.SetFullFrames(false)
 }
 
@@ -68,7 +97,8 @@ func (ws *Server) fullFramesActive() bool {
 // Body: {"enabled": true}
 //
 // 409 unless a PCAP replay is running, 501 when the server has no visualiser
-// stream. The mode ends with the replay whatever the client does.
+// stream, and 409 for switching off a replay started with full_frames, whose
+// VRLOG records them. The mode ends with the replay whatever the client does.
 func (ws *Server) handleReplayFullFrames(w http.ResponseWriter, r *http.Request) {
 	sensorID := r.URL.Query().Get("sensor_id")
 	if sensorID != "" && sensorID != ws.sensorID {

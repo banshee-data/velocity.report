@@ -67,6 +67,9 @@ func (s *RunStore) runRecordSelectColumns() ([]string, runRecordCapabilities, er
 	if caps.StatisticsJSON {
 		columns = append(columns, "statistics_json")
 	}
+	if caps.FrameMode {
+		columns = append(columns, "frame_mode")
+	}
 
 	return columns, caps, nil
 }
@@ -131,6 +134,10 @@ func scanRunRecord(scanner runRowScanner, caps runRecordCapabilities) (*Run, err
 	if caps.StatisticsJSON {
 		dests = append(dests, &statisticsJSON)
 	}
+	var frameMode sql.NullString
+	if caps.FrameMode {
+		dests = append(dests, &frameMode)
+	}
 
 	if err := scanner.Scan(dests...); err != nil {
 		return nil, err
@@ -176,6 +183,8 @@ func scanRunRecord(scanner runRowScanner, caps runRecordCapabilities) (*Run, err
 	if statisticsJSON.Valid && strings.TrimSpace(statisticsJSON.String) != "" {
 		run.StatisticsJSON = json.RawMessage(statisticsJSON.String)
 	}
+
+	run.FrameMode = normaliseFrameMode(frameMode.String)
 
 	run.PopulateSourceName()
 	return &run, nil

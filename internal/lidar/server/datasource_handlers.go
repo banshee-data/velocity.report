@@ -479,7 +479,18 @@ func (ws *Server) startReplayRun(sourcePath string, config ReplayConfig) (string
 		RequestedParamSetID: strings.TrimSpace(config.RequestedParamSetID),
 		RequestedParamsJSON: config.RequestedParamsJSON,
 		EffectiveConfig:     ws.snapshotReplayEffectiveConfig(config),
+		FrameMode:           replayFrameMode(config),
 	})
+}
+
+// replayFrameMode is what a replay's VRLOG will hold: full frames when it was
+// started with them, foreground-only otherwise. The runtime toggle does not
+// change it (see Server.setReplayFullFrames).
+func replayFrameMode(config ReplayConfig) string {
+	if config.FullFrames {
+		return sqlite.RunFrameModeFull
+	}
+	return sqlite.RunFrameModeForeground
 }
 
 func (ws *Server) failReplayRun(runID, errMsg string) {
@@ -622,8 +633,10 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 	// Full frames belong to this replay alone. Set as its goroutine starts,
 	// after every way the start can fail, and cleared as it exits.
-	if replayCfg.FullFrames && ws.fullFrames != nil {
-		ws.fullFrames.SetFullFrames(true)
+	// A replay started with them records them too; one started without
+	// records foreground-only frames whatever the toggle does meanwhile.
+	if replayCfg.FullFrames {
+		ws.beginReplayFullFrames(true)
 	}
 
 	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string, plan *replayPlan) {

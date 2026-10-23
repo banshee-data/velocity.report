@@ -46,10 +46,30 @@ type Run struct {
 	ParentRunID         string          `json:"parent_run_id,omitempty"`
 	Notes               string          `json:"notes,omitempty"`
 	VRLogPath           string          `json:"vrlog_path,omitempty"` // Path to VRLOG recording for replay
+	// FrameMode is what the run's VRLOG frames hold: RunFrameModeForeground
+	// (split streaming's foreground points) or RunFrameModeFull (background
+	// and foreground in every frame). Decided when the replay starts; empty
+	// reads as foreground, which every VRLOG made before the column was.
+	FrameMode string `json:"frame_mode"`
 
 	// Derived fields (not persisted in DB, computed on retrieval)
 	SourceName  string          `json:"source_name,omitempty"`  // Derived from SourcePath filename
 	LabelRollup *RunLabelRollup `json:"label_rollup,omitempty"` // Derived from run-track labels
+}
+
+// The frames a run's VRLOG holds (lidar_runs.frame_mode).
+const (
+	RunFrameModeForeground = "foreground"
+	RunFrameModeFull       = "full"
+)
+
+// normaliseFrameMode reads an empty or unknown mode as foreground: a VRLOG
+// recorded without saying holds stripped frames.
+func normaliseFrameMode(mode string) string {
+	if mode == RunFrameModeFull {
+		return RunFrameModeFull
+	}
+	return RunFrameModeForeground
 }
 
 // RunLabelRollup summarises the current human labelling state for a run.

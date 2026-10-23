@@ -272,6 +272,7 @@
         , completed_at INTEGER
         , frame_start_ns INTEGER
         , frame_end_ns INTEGER
+        , frame_mode TEXT NOT NULL DEFAULT 'foreground' CHECK (frame_mode IN ('foreground', 'full'))
         , CHECK (source_type IN ('live', 'pcap'))
         , CHECK (status IN ('running', 'completed', 'failed'))
         , FOREIGN KEY (parent_run_id) REFERENCES "lidar_runs" (run_id) ON DELETE SET NULL

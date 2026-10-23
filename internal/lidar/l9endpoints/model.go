@@ -36,13 +36,17 @@ type FrameBundle struct {
 
 	// fullCloud marks a frame the adapter built in full-frames mode: its
 	// cloud holds background as well as foreground on purpose, so the
-	// publisher must not strip it, and must record the split-streaming form
-	// instead (foreground only, or recordEmpty's empty frame). Never set on
-	// a replayed VRLOG frame, and never serialised.
+	// publisher must not strip it, and records the split-streaming form
+	// instead (foreground only, or recordEmpty's empty frame) unless
+	// recordFull says the replay records full frames. Never set on a
+	// replayed VRLOG frame, and never serialised.
 	fullCloud bool
 	// recordEmpty marks a full-frames bundle that split streaming would have
 	// published as FrameTypeEmpty with no points.
 	recordEmpty bool
+	// recordFull marks a full-frames bundle from a replay started with full
+	// frames: it is recorded as published, background and all.
+	recordFull bool
 }
 
 // CoordinateFrameInfo describes the coordinate frame of the data.

@@ -63,6 +63,10 @@ func (s *RunStore) InsertRun(run *Run) error {
 		columns = append(columns, "frame_end_ns")
 		args = append(args, nullInt64(run.FrameEndNs))
 	}
+	if caps.FrameMode {
+		columns = append(columns, "frame_mode")
+		args = append(args, normaliseFrameMode(run.FrameMode))
+	}
 
 	placeholders := make([]string, len(columns))
 	for i := range placeholders {

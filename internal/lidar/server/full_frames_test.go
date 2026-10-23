@@ -18,9 +18,25 @@ import (
 
 // fakeFullFrames stands in for the visualiser's frame adapter.
 type fakeFullFrames struct {
-	mu    sync.Mutex
-	on    bool
-	calls []bool
+	mu     sync.Mutex
+	on     bool
+	record bool
+	calls  []bool
+	// recordCalls are the SetRecordFullFrames calls.
+	recordCalls []bool
+}
+
+func (f *fakeFullFrames) SetRecordFullFrames(on bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.record = on
+	f.recordCalls = append(f.recordCalls, on)
+}
+
+func (f *fakeFullFrames) recording() (bool, []bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.record, append([]bool(nil), f.recordCalls...)
 }
 
 func (f *fakeFullFrames) SetFullFrames(on bool) {
@@ -33,7 +49,7 @@ func (f *fakeFullFrames) SetFullFrames(on bool) {
 func (f *fakeFullFrames) FullFrames() bool {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.on
+	return f.on || f.record
 }
 
 func (f *fakeFullFrames) history() []bool {
@@ -110,6 +126,13 @@ func TestHandlePCAPStartFullFramesOption(t *testing.T) {
 			}
 			if len(calls) == 0 || calls[len(calls)-1] {
 				t.Errorf("calls %v: the replay's end must switch full frames off", calls)
+			}
+			// A replay started with full frames records them; one started
+			// without never asks to.
+			record, recordCalls := control.recording()
+			recordedFull := len(recordCalls) > 0 && recordCalls[0]
+			if recordedFull != tc.on || record {
+				t.Errorf("record calls %v: recording full = %v, want %v, and off at the end", recordCalls, recordedFull, tc.on)
 			}
 		})
 	}
@@ -201,6 +224,50 @@ func TestReplayFullFramesToggleDuringAPCAPReplay(t *testing.T) {
 	ws.handleReplayFullFrames(wrong, req)
 	if wrong.Code != http.StatusNotFound {
 		t.Errorf("another sensor: status %d, want 404", wrong.Code)
+	}
+}
+
+// A replay started with full frames records them, so the toggle cannot switch
+// them off partway; one started without can switch them on and off freely,
+// and its recording never changes kind.
+func TestReplayFullFramesToggleCannotStopARecordedFullFramesReplay(t *testing.T) {
+	control := &fakeFullFrames{}
+	ws := NewServer(Config{SensorID: "sensor-ff", FullFrames: control})
+	ws.setTestSourcePCAPReplaying()
+
+	if rec := toggleFullFrames(t, ws, `{"enabled":true}`); rec.Code != http.StatusOK {
+		t.Fatalf("on in a foreground run: %d", rec.Code)
+	}
+	if _, recordCalls := control.recording(); len(recordCalls) != 0 {
+		t.Fatalf("the toggle changed what is recorded: %v", recordCalls)
+	}
+	if rec := toggleFullFrames(t, ws, `{"enabled":false}`); rec.Code != http.StatusOK {
+		t.Fatalf("off in a foreground run: %d", rec.Code)
+	}
+
+	ws.beginReplayFullFrames(true)
+	rec := toggleFullFrames(t, ws, `{"enabled":false}`)
+	if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "records full frames") {
+		t.Fatalf("off in a full-frames run: %d %s", rec.Code, rec.Body.String())
+	}
+	if !control.FullFrames() {
+		t.Fatal("a refused switch-off switched them off")
+	}
+	if rec := toggleFullFrames(t, ws, `{"enabled":true}`); rec.Code != http.StatusOK {
+		t.Errorf("on in a full-frames run: %d", rec.Code)
+	}
+	ws.endReplayFullFrames()
+	if record, _ := control.recording(); record || control.FullFrames() {
+		t.Error("the replay's end left full frames on")
+	}
+}
+
+func TestReplayFrameModeFollowsTheStartOption(t *testing.T) {
+	if got := replayFrameMode(ReplayConfig{FullFrames: true}); got != "full" {
+		t.Errorf("full frames: %q", got)
+	}
+	if got := replayFrameMode(ReplayConfig{}); got != "foreground" {
+		t.Errorf("default: %q", got)
 	}
 }
 

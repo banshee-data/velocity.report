@@ -83,6 +83,9 @@ type RunStartOptions struct {
 	RequestedParamSetID string
 	RequestedParamsJSON json.RawMessage
 	EffectiveConfig     *cfgpkg.TuningConfig
+	// FrameMode is what the run's VRLOG will hold: RunFrameModeFull for a
+	// replay started with full frames, else foreground.
+	FrameMode string
 }
 
 // NewRunManager creates a new manager for tracking analysis runs.
@@ -162,6 +165,7 @@ func (m *RunManager) StartRunWithConfig(opts RunStartOptions) (string, error) {
 		ClipID:              strings.TrimSpace(opts.ClipID),
 		RequestedParamSetID: strings.TrimSpace(opts.RequestedParamSetID),
 		Status:              "running",
+		FrameMode:           normaliseFrameMode(opts.FrameMode),
 	}
 
 	configStore := configasset.NewStore(m.store.db)

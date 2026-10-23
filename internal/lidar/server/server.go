@@ -187,6 +187,9 @@ type Server struct {
 	// orders a switch against the replay's end (see setReplayFullFrames).
 	fullFrames   FullFramesControl
 	fullFramesMu sync.Mutex
+	// fullFramesRecorded is set for a replay started with full_frames, whose
+	// VRLOG holds full frames; guarded by fullFramesMu.
+	fullFramesRecorded bool
 
 	// Sweep runner for web-triggered parameter sweeps
 	sweepRunner SweepRunner
