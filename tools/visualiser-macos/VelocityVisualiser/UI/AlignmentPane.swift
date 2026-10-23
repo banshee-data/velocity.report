@@ -393,7 +393,7 @@ import SwiftUI
                     Button("Accumulate frames") {
                         session.startAccumulating(run: appState.currentRunID)
                     }.disabled(!session.canAccumulate).help(
-                        "Collect the background and ground points of the next frames a pcap replay plays (velocity.report streams full frames while they are collected), thin them to 0.05 m and upload them as an accumulated scan, which Register then uses. Foreground points are never collected."
+                        "Collect the background and ground points of the next frames a pcap replay plays (velocity.report streams full frames while they are collected) or a full-frames run's VRLOG plays, thin them to 0.05 m and upload them as an accumulated scan, which Register then uses. Foreground points are never collected."
                     )
                     Picker("Frames", selection: $session.accumulateFrameCount) {
                         Text("25").tag(25)

@@ -341,8 +341,18 @@ struct Run: Codable, Identifiable {
     let sourceName: String?
     var clipId: String? = nil
     var labelRollup: RunLabelRollup? = nil
+    /// What the run's VRLOG frames hold: "full" (background and foreground in
+    /// every frame) or "foreground". Servers before frame_mode omit it, and
+    /// every VRLOG they recorded was foreground-only.
+    var frameMode: String? = nil
 
     var id: String { runId }
+
+    /// Whether the VRLOG's frames carry background as well as foreground.
+    var holdsFullFrames: Bool { frameMode == "full" }
+
+    /// The Frames column: "Full", or "FG" for foreground points only.
+    var frameModeDisplay: String { holdsFullFrames ? "Full" : "FG" }
 
     /// Whether this run has a VRLOG available for replay.
     var hasVRLog: Bool { vrlogPath != nil && !vrlogPath!.isEmpty }

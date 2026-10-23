@@ -204,6 +204,9 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         XCTAssertEqual(runs[0].status, "completed")
         XCTAssertEqual(runs[0].totalTracks, 25)
         XCTAssertEqual(runs[0].labelRollup?.taggedOnly, 5)
+        // A server before frame_mode: the VRLOG reads as foreground-only.
+        XCTAssertNil(runs[0].frameMode)
+        XCTAssertEqual(runs[0].frameModeDisplay, "FG")
     }
 
     func testListRunsServerError() async throws {

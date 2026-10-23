@@ -2609,7 +2609,10 @@ actor FakeFullFrames: ReplayFullFramesSwitch {
         // Even a frame that looks full: a VRLOG holds foreground points only.
         session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
         #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
-        #expect(session.streamRefusal?.contains("replay the capture's pcap") == true)
+        #expect(
+            session.streamRefusal
+                == "This run's VRLOG holds foreground points only; replay its pcap with Full frames, or load a full-frames run."
+        )
         #expect(!session.canAccumulate)
         session.startAccumulating(run: "run-42")
         #expect(session.accumulating == nil)
@@ -2620,6 +2623,32 @@ actor FakeFullFrames: ReplayFullFramesSwitch {
         #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
         #expect(await fullFrames.calls.isEmpty)
         #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func aFullFramesRunsVRLOGAccumulatesWithNothingToSwitch() async throws {
+        let fullFrames = FakeFullFrames()
+        let (session, service) = await placedSession(fullFrames: fullFrames)
+        // A foreground run's VRLOG is refused; loading a full-frames run lifts it.
+        session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+        session.noteLoadedRun(fullFrames: true)
+        #expect(session.streamRefusal == nil)
+        #expect(session.canAccumulate)
+
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-full")
+        session.noteFrame(frame(cloud(classes: [0, 1, 0]), index: 10, source: .vrlog))
+        session.noteFrame(frame(cloud(classes: [0, 1, 0], x0: 10), index: 11, source: .vrlog))
+        await session.pendingAccumulation?.value
+        #expect(service.uploadedHeaders.last?.captureRef == "run-full#f10-11")
+        #expect(service.uploadedBlocks.flatMap(\.x).count == 4)
+        #expect(session.pendingFullFrames == nil)
+        #expect(await fullFrames.calls.isEmpty)
+
+        // Another capture forgets it.
+        session.captureChanged()
+        session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
     }
 
     @Test func aServerThatRefusesFullFramesStopsTheAccumulation() async {

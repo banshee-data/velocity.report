@@ -274,6 +274,8 @@ struct ReferenceSummary: Equatable {
     /// Bumped by each accumulation, so a late answer to an earlier one's
     /// request cannot stop this one.
     private var accumulationGeneration = 0
+    /// The VRLOG loaded now was recorded with full frames (frame_mode full).
+    private var loadedRunHoldsFullFrames = false
     /// How the pose drawn now was made, for what Accept records.
     private var poseSource: Gerardus_Align_V1alpha1_PoseSource = .hint
     private var registering: Task<Void, Never>?
@@ -864,6 +866,7 @@ struct ReferenceSummary: Equatable {
         dropAccumulation()
         streamRefusal = nil
         frameSource = .unspecified
+        loadedRunHoldsFullFrames = false
         scan = nil
         uploadedSnapshot = nil
         registration = nil
@@ -1084,7 +1087,7 @@ struct ReferenceSummary: Equatable {
     static let liveRefusal =
         "The frames come from a live sensor: open a replay to accumulate frames from it."
     static let vrlogRefusal =
-        "The replay is a VRLOG recording, which holds foreground points only: replay the capture's pcap to accumulate frames from it."
+        "This run's VRLOG holds foreground points only; replay its pcap with Full frames, or load a full-frames run."
     static let noFullFramesRefusal =
         "Accumulating from a pcap replay needs velocity.report to stream full frames, and this session has no velocity.report to ask."
 
@@ -1101,7 +1104,9 @@ struct ReferenceSummary: Equatable {
     private var sourceRefusal: String? {
         switch frameSource {
         case .live: return Self.liveRefusal
-        case .vrlog: return Self.vrlogRefusal
+        // A full-frames run's VRLOG carries background in every frame, so it
+        // accumulates as recorded, with nothing to switch.
+        case .vrlog: return loadedRunHoldsFullFrames ? nil : Self.vrlogRefusal
         case .pcap, .pcapAnalysis, .unspecified: return nil
         }
     }
@@ -1185,6 +1190,17 @@ struct ReferenceSummary: Equatable {
     func cancelAccumulating() {
         stopAccumulating(refusal: nil)
         accumulationTask?.cancel()
+    }
+
+    /// A run's VRLOG was loaded for replay: whether it was recorded with full
+    /// frames (its frame_mode), which is what lets Accumulate use it. Called
+    /// after captureChanged, which forgets the previous run's.
+    func noteLoadedRun(fullFrames: Bool) {
+        loadedRunHoldsFullFrames = fullFrames
+        if frameSource == .vrlog {
+            let refusal = sourceRefusal
+            if refusal != streamRefusal { streamRefusal = refusal }
+        }
     }
 
     /// The pane was closed: a collection in progress stops (and full frames
