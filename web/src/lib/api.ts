@@ -1701,6 +1701,20 @@ export async function getPeriodBackground(periodId: string): Promise<PeriodBackg
 	return res.json();
 }
 
+/** getClipBackground returns the settled background of a clip's own window (its first 90 s). */
+export async function getClipBackground(clipId: string): Promise<PeriodBackground> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${encodeURIComponent(clipId)}/background`);
+	if (!res.ok) throw await responseError(res, 'Could not build the settled background');
+	return res.json();
+}
+
+/** getLocatedClips lists the located clips with their locations: the known places. */
+export async function getLocatedClips(): Promise<LidarClip[]> {
+	const res = await fetch(`${API_BASE}/lidar/clips?located=1`);
+	if (!res.ok) throw await responseError(res, 'Could not load the located clips');
+	return (await res.json()).clips ?? [];
+}
+
 /** ensurePeriodClip returns the clip cut from a period, creating it if there is none. */
 export async function ensurePeriodClip(periodId: string): Promise<LidarClip> {
 	const res = await fetch(`${API_BASE}/lidar/capture/periods/clip`, {

@@ -1,5 +1,7 @@
 import {
 	ensurePeriodClip,
+	getClipBackground,
+	getLocatedClips,
 	getClipExtracts,
 	getPeriodBackground,
 	setClipPublishing,
@@ -131,5 +133,21 @@ describe('clip extract and publishing API', () => {
 		expect(JSON.parse(init?.body as string)).toEqual({ period_id: 'per-1' });
 		respondNotJSON(500);
 		await expect(ensurePeriodClip('per-1')).rejects.toThrow('Could not make a clip');
+	});
+
+	it('fetches a clip window background and the located clips', async () => {
+		respond(true, 200, { clip_id: 'c1', xyz: [] });
+		expect((await getClipBackground('c1')).clip_id).toBe('c1');
+		expect(lastCall()[0]).toContain('/lidar/clips/c1/background');
+		respond(false, 404, { error: 'clip not found' });
+		await expect(getClipBackground('x')).rejects.toThrow('clip not found');
+
+		respond(true, 200, { clips: [{ clip_id: 'c1' }] });
+		expect(await getLocatedClips()).toHaveLength(1);
+		expect(lastCall()[0]).toContain('/lidar/clips?located=1');
+		respond(true, 200, {});
+		expect(await getLocatedClips()).toEqual([]);
+		respondNotJSON(500);
+		await expect(getLocatedClips()).rejects.toThrow('Could not load the located clips');
 	});
 });

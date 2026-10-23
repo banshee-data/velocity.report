@@ -224,3 +224,28 @@ export function thin(points: EN[], cell: number): EN[] {
 	}
 	return out;
 }
+
+export interface FitScore {
+	/** Scan points within gate metres of an outline, and of how many. */
+	inliers: number;
+	total: number;
+	/** Root-mean-square distance of those points to the outlines, metres. */
+	rms: number;
+}
+
+/**
+ * How well a placed scan already sits on the outlines, without moving it: the
+ * check an operator runs on an existing alignment before trusting it.
+ */
+export function scoreFit(scan: EN[], segments: Segment[], gate = 0.5, cellSize = 2): FitScore {
+	const index = new SegmentIndex(segments, cellSize);
+	let inliers = 0;
+	let sum = 0;
+	for (const p of scan) {
+		const hit = index.nearest(p, gate);
+		if (!hit) continue;
+		inliers++;
+		sum += hit.distance * hit.distance;
+	}
+	return { inliers, total: scan.length, rms: inliers > 0 ? Math.sqrt(sum / inliers) : Infinity };
+}

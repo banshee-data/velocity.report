@@ -1,4 +1,12 @@
-import { icp2d, nearestOnSegment, SegmentIndex, solveRigid, thin, type Segment } from './icp';
+import {
+	icp2d,
+	nearestOnSegment,
+	scoreFit,
+	SegmentIndex,
+	solveRigid,
+	thin,
+	type Segment
+} from './icp';
 import {
 	fetchOutlines,
 	outlineQuery,
@@ -170,6 +178,17 @@ describe('icp', () => {
 		const r = icp2d([{ east: 500, north: 500 }], building, { east: 0, north: 0 });
 		expect(r.inliers).toBe(0);
 		expect(r.rms).toBe(Infinity);
+	});
+
+	it('scores a placement without moving it', () => {
+		const onWalls = sample(building, 1);
+		const good = scoreFit(onWalls, building);
+		expect(good.inliers).toBe(good.total);
+		expect(good.rms).toBeCloseTo(0, 6);
+		const shifted = onWalls.map((p) => ({ east: p.east + 2, north: p.north }));
+		const bad = scoreFit(shifted, building);
+		expect(bad.inliers).toBeLessThan(bad.total / 2);
+		expect(scoreFit([{ east: 900, north: 900 }], building).rms).toBe(Infinity);
 	});
 
 	it('thins a scan to one point per cell', () => {

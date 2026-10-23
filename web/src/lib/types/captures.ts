@@ -262,7 +262,10 @@ export interface PeriodClip {
  * first 90 s, in the sensor frame, flattened x, y, z in metres.
  */
 export interface PeriodBackground {
-	period_id: string;
+	/** The period the background is of; for a clip's background, its source period if any. */
+	period_id?: string;
+	/** Set when the background is of a clip's own window. */
+	clip_id?: string;
 	session_id: string;
 	frames: number;
 	window_start_ns: number;

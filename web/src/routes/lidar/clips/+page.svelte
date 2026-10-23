@@ -646,6 +646,11 @@
 						})}`}
 						class="text-primary hover:underline">Open in Tracks →</a
 					>
+					<a
+						href={`${resolve('/lidar/locate')}?${new URLSearchParams({ clip: selectedScene.clip_id })}`}
+						class="text-primary ml-3 hover:underline"
+						>{selectedScene.location ? 'Check alignment on map →' : 'Locate on map →'}</a
+					>
 					<!-- eslint-enable svelte/no-navigation-without-resolve -->
 				</div>
 

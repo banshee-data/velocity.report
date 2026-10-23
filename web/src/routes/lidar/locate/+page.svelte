@@ -1,6 +1,12 @@
 <script lang="ts">
 	/**
-	 * Locate — put a static period on the map.
+	 * Locate — put a static period, or an existing clip, on the map.
+	 *
+	 * Opened from a period (?session=&period=) it locates that period; opened
+	 * from a clip (?clip=) it checks or corrects that clip's alignment. A known
+	 * location — another located clip, such as an earlier capture at the same
+	 * place — can be applied as the starting pose and checked against this
+	 * capture's own background before saving.
 	 *
 	 * The period's settled background (what the sensor saw that does not move)
 	 * is drawn from above over OpenStreetMap. The operator finds the place by
@@ -10,18 +16,22 @@
 	 * heading on the period's clip, creating the clip if the period has none.
 	 *
 	 * Every OpenStreetMap request — tiles, the address search, the outlines —
-	 * waits for the operator to allow them for the session, as the site map
-	 * editor's tiles do. What leaves is a typed address or the map area, never
-	 * sensor data.
+	 * waits for the operator to allow them. The choice is remembered in this
+	 * browser (lib/align/osmConsent) and can be forgotten from the page. What
+	 * leaves is a typed address or the map area, never sensor data.
 	 */
 	import {
 		ensurePeriodClip,
 		getCapturePeriods,
+		getClipBackground,
+		getLidarClip,
+		getLocatedClips,
 		getPeriodBackground,
 		setClipLocation,
 		setClipPublishing
 	} from '#lib/api.js';
-	import { icp2d, thin, type IcpResult } from '#lib/align/icp.js';
+	import { icp2d, scoreFit, thin, type FitScore, type IcpResult } from '#lib/align/icp.js';
+	import { osmConsentRemembered, rememberOsmConsent } from '#lib/align/osmConsent.js';
 	import {
 		fetchOutlines,
 		outlineSegments,
@@ -43,16 +53,18 @@
 	import { formatClock, formatDuration } from '#lib/captures/timeline.js';
 	import { clipQuery } from '#lib/lidarLinks.js';
 	import type { MotionPeriod, PeriodClip } from '#lib/types/captures.js';
+	import type { LidarClip } from '#lib/types/lidar.js';
 	import { mdiClose } from '@mdi/js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import 'leaflet/dist/leaflet.css';
-	import type { LayerGroup, Map as LeafletMap, Marker } from 'leaflet';
+	import type { LayerGroup, Map as LeafletMap, Marker, TileLayer } from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { Button } from 'svelte-ux';
 
-	const sessionId = page.url.searchParams.get('session') ?? '';
-	const periodId = page.url.searchParams.get('period') ?? '';
+	const clipParam = page.url.searchParams.get('clip') ?? '';
+	let sessionId = page.url.searchParams.get('session') ?? '';
+	let periodId = page.url.searchParams.get('period') ?? '';
 
 	// Height bands, in metres relative to the sensor, which sits about 2.3 m
 	// above the road. Walls are what OSM outlines; the ground shows kerbs.
@@ -67,6 +79,13 @@
 
 	let period: MotionPeriod | null = null;
 	let periodClip: PeriodClip | null = null;
+	// The clip being checked, when the page was opened from one.
+	let clip: LidarClip | null = null;
+	// Located clips to start from; the one being edited is left out.
+	let known: LidarClip[] = [];
+	let knownChoice = '';
+	let fit: FitScore | null = null;
+	let checking = false;
 	let xyz: Float32Array | null = null;
 	let frames = 0;
 	let loadingPeriod = true;
@@ -86,11 +105,11 @@
 	let turning = false;
 	let outlineLayer: LayerGroup | null = null;
 
-	// Consent for OpenStreetMap requests, for this page's session.
-	type OsmAction = 'tiles' | 'search' | 'snap';
-	let osmAllowed = false;
+	// Consent for OpenStreetMap requests, remembered in this browser.
+	type OsmAction = 'tiles' | 'search' | 'snap' | 'check';
+	let osmAllowed = osmConsentRemembered();
 	let pendingAction: OsmAction | null = null;
-	let tilesAdded = false;
+	let tileLayer: TileLayer | null = null;
 
 	let query = '';
 	let places: Place[] = [];
@@ -112,19 +131,80 @@
 
 	onMount(async () => {
 		L = await import('leaflet');
-		await loadPeriod();
+		if (clipParam) await loadClip();
+		else await loadPeriod();
 		await tick();
 		initMap();
+		addTiles();
 		void loadBackground();
+		void loadKnown();
 	});
 
 	onDestroy(() => {
 		map?.remove();
 	});
 
+	function poseOf(lat?: number, lon?: number, northAzimuthDeg?: number): Pose | null {
+		if (lat == null || lon == null) return null;
+		return {
+			lat,
+			lon,
+			headingDeg: northAzimuthDeg != null ? headingFromNorthAzimuth(northAzimuthDeg) : 0
+		};
+	}
+
+	/** Opened from a clip: check its alignment against its own window. */
+	async function loadClip() {
+		try {
+			clip = await getLidarClip(clipParam);
+			pose = poseOf(clip.location?.origin_lat, clip.location?.origin_lon, clip.north_azimuth_deg);
+			if (clip.session_id && clip.source_period_id) {
+				sessionId = clip.session_id;
+				periodId = clip.source_period_id;
+			}
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Could not load the clip.';
+		} finally {
+			loadingPeriod = false;
+		}
+	}
+
+	async function loadKnown() {
+		try {
+			const current = clip?.clip_id ?? periodClip?.clip_id;
+			known = (await getLocatedClips()).filter((c) => c.clip_id !== current);
+		} catch {
+			// The picker is a convenience; the page works without it.
+			known = [];
+		}
+	}
+
+	function knownLabel(c: LidarClip): string {
+		const name = c.dataset_id || c.description || c.clip_id.slice(0, 8);
+		const az =
+			c.north_azimuth_deg != null
+				? `, heading ${headingFromNorthAzimuth(c.north_azimuth_deg).toFixed(1)}°`
+				: '';
+		return `${name}${az}`;
+	}
+
+	/** Starts from another clip's location: the place and heading it was saved with. */
+	function applyKnown(clipId: string) {
+		const c = known.find((k) => k.clip_id === clipId);
+		const next = c
+			? poseOf(c.location?.origin_lat, c.location?.origin_lon, c.north_azimuth_deg)
+			: null;
+		if (!next) return;
+		pose = next;
+		map?.setView([next.lat, next.lon], Math.max(map.getZoom(), 19));
+		lastSnap = null;
+		fit = null;
+		savedMessage = null;
+	}
+
 	async function loadPeriod() {
 		if (!sessionId || !periodId) {
-			error = 'Open this page from a static period on the Captures page.';
+			error = 'Open this page from a static period on the Captures page, or from a clip.';
 			loadingPeriod = false;
 			return;
 		}
@@ -133,15 +213,8 @@
 			period = r.periods.find((p) => p.period_id === periodId) ?? null;
 			periodClip = r.clips?.[periodId] ?? null;
 			if (!period) error = `No period ${periodId} in session ${sessionId}.`;
-			if (periodClip?.located && periodClip.origin_lat != null && periodClip.origin_lon != null) {
-				pose = {
-					lat: periodClip.origin_lat,
-					lon: periodClip.origin_lon,
-					headingDeg:
-						periodClip.north_azimuth_deg != null
-							? headingFromNorthAzimuth(periodClip.north_azimuth_deg)
-							: 0
-				};
+			if (periodClip?.located) {
+				pose = poseOf(periodClip.origin_lat, periodClip.origin_lon, periodClip.north_azimuth_deg);
 			}
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load the period.';
@@ -151,10 +224,10 @@
 	}
 
 	async function loadBackground() {
-		if (!period || period.type !== 'static') return;
+		if (!clip && (!period || period.type !== 'static')) return;
 		loadingBackground = true;
 		try {
-			const bg = await getPeriodBackground(periodId);
+			const bg = clip ? await getClipBackground(clip.clip_id) : await getPeriodBackground(periodId);
 			xyz = Float32Array.from(bg.xyz);
 			frames = bg.frames;
 		} catch (e) {
@@ -190,9 +263,19 @@
 		pendingAction = action;
 	}
 
+	/** Forgets the remembered consent: the next request asks again. */
+	function forgetOsm() {
+		rememberOsmConsent(false);
+		osmAllowed = false;
+		// Panning would keep fetching tiles: the layer goes with the consent.
+		tileLayer?.remove();
+		tileLayer = null;
+	}
+
 	function allowOsm() {
 		const action = pendingAction;
 		osmAllowed = true;
+		rememberOsmConsent(true);
 		pendingAction = null;
 		addTiles();
 		if (action && action !== 'tiles') void runOsm(action);
@@ -201,18 +284,18 @@
 	async function runOsm(action: OsmAction) {
 		if (action === 'tiles') addTiles();
 		else if (action === 'search') await search();
+		else if (action === 'check') await checkFit();
 		else await snap();
 	}
 
 	function addTiles() {
 		// The gate lives here: no path adds tiles without consent.
-		if (!L || !map || tilesAdded || !osmAllowed) return;
-		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+		if (!L || !map || tileLayer || !osmAllowed) return;
+		tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 			attribution: '© OpenStreetMap contributors',
 			maxZoom: 22,
 			maxNativeZoom: 19
 		}).addTo(map);
-		tilesAdded = true;
 	}
 
 	// ---- Placing the sensor ---------------------------------------------------
@@ -305,6 +388,7 @@
 		if (!pose) return;
 		pose = movePose(pose, dEast, dNorth, dHeading);
 		lastSnap = null;
+		fit = null;
 	}
 
 	function setHeading(text: string) {
@@ -376,25 +460,56 @@
 
 	// ---- Snap -------------------------------------------------------------------
 
+	/** The outlines around the pose, fetched again once it has moved 50 m. */
+	async function ensureOutlines(at: Pose) {
+		if (
+			!outlinesCentre ||
+			Math.hypot(...Object.values(toLocal(outlinesCentre, at.lat, at.lon))) > 50
+		) {
+			outlines = await fetchOutlines(at.lat, at.lon, OUTLINE_RADIUS);
+			outlinesCentre = { lat: at.lat, lon: at.lon };
+			drawOutlines();
+		}
+		return outlineSegments(outlines, at);
+	}
+
+	function wallScan(at: Pose) {
+		return thin(placeScan(xyz!, at, at, BANDS.walls.zMin, BANDS.walls.zMax), 0.25);
+	}
+
+	/**
+	 * Scores the pose drawn now against the outlines without moving it: the
+	 * share of wall points within 0.5 m of an outline, and their RMS distance.
+	 */
+	async function checkFit() {
+		if (!pose || !xyz || !osmAllowed) return;
+		checking = true;
+		error = null;
+		try {
+			const segments = await ensureOutlines(pose);
+			if (segments.length === 0) {
+				error = 'OpenStreetMap has no building or wall outlines here to check against.';
+				return;
+			}
+			fit = scoreFit(wallScan(pose), segments);
+		} catch (e) {
+			error = e instanceof Error ? e.message : 'Check failed.';
+		} finally {
+			checking = false;
+		}
+	}
+
 	async function snap() {
 		if (!pose || !xyz || !osmAllowed) return;
 		snapping = true;
 		error = null;
 		try {
-			if (
-				!outlinesCentre ||
-				Math.hypot(...Object.values(toLocal(outlinesCentre, pose.lat, pose.lon))) > 50
-			) {
-				outlines = await fetchOutlines(pose.lat, pose.lon, OUTLINE_RADIUS);
-				outlinesCentre = { lat: pose.lat, lon: pose.lon };
-				drawOutlines();
-			}
-			const segments = outlineSegments(outlines, pose);
+			const segments = await ensureOutlines(pose);
 			if (segments.length === 0) {
 				error = 'OpenStreetMap has no building or wall outlines here to snap to.';
 				return;
 			}
-			const scan = thin(placeScan(xyz, pose, pose, BANDS.walls.zMin, BANDS.walls.zMax), 0.25);
+			const scan = wallScan(pose);
 			const result = icp2d(scan, segments, { east: 0, north: 0 }, { maxDistance: 4 });
 			if (result.inliers < 50) {
 				error = `Snap found only ${result.inliers} wall points near an outline: move the sensor closer by hand first.`;
@@ -404,6 +519,7 @@
 			beforeSnap = pose;
 			pose = movePose(pose, result.dEast, result.dNorth, result.dHeadingDeg);
 			lastSnap = result;
+			fit = scoreFit(wallScan(pose), segments);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Snap failed.';
 		} finally {
@@ -415,6 +531,7 @@
 		if (beforeSnap) pose = beforeSnap;
 		beforeSnap = null;
 		lastSnap = null;
+		fit = null;
 	}
 
 	function drawOutlines() {
@@ -436,27 +553,28 @@
 		error = null;
 		savedMessage = null;
 		try {
-			const clip = await ensurePeriodClip(periodId);
-			await setClipLocation(clip.clip_id, {
+			// Opened from a clip, save on it; from a period, on the period's clip.
+			const target = clip ?? (await ensurePeriodClip(periodId));
+			await setClipLocation(target.clip_id, {
 				origin_lat: pose.lat,
 				origin_lon: pose.lon,
 				geographic_source: 'operator'
 			});
-			await setClipPublishing(clip.clip_id, {
-				dataset_id: clip.dataset_id ?? '',
+			await setClipPublishing(target.clip_id, {
+				dataset_id: target.dataset_id ?? '',
 				north_azimuth_deg: Math.round(northAzimuthFromHeading(pose.headingDeg) * 10) / 10,
-				storage: clip.storage ?? 'sources'
+				storage: target.storage ?? 'sources'
 			});
-			savedClipId = clip.clip_id;
+			savedClipId = target.clip_id;
 			periodClip = {
-				clip_id: clip.clip_id,
-				dataset_id: clip.dataset_id,
+				clip_id: target.clip_id,
+				dataset_id: target.dataset_id,
 				located: true,
 				origin_lat: pose.lat,
 				origin_lon: pose.lon,
 				north_azimuth_deg: northAzimuthFromHeading(pose.headingDeg)
 			};
-			savedMessage = `Saved on clip ${clip.clip_id.slice(0, 8)}: ${pose.lat.toFixed(6)}, ${pose.lon.toFixed(6)}, heading ${pose.headingDeg.toFixed(1)}°.`;
+			savedMessage = `Saved on clip ${target.clip_id.slice(0, 8)}: ${pose.lat.toFixed(6)}, ${pose.lon.toFixed(6)}, heading ${pose.headingDeg.toFixed(1)}°.`;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not save the location.';
 		} finally {
@@ -489,7 +607,20 @@
 	<div class="flex min-h-0 flex-1 gap-4 p-4">
 		<aside class="w-80 flex-none space-y-4 overflow-y-auto text-sm">
 			{#if loadingPeriod}
-				<p class="text-surface-content/60">Loading the period…</p>
+				<p class="text-surface-content/60">Loading…</p>
+			{:else if clip}
+				<section class="space-y-1">
+					<div class="font-mono text-xs">clip {clip.clip_id.slice(0, 8)}</div>
+					<div class="text-xs">{clip.dataset_id || clip.description || ''}</div>
+					<div class="text-xs">
+						{#if clip.location}
+							<span class="text-emerald-600">Located</span>: check the walls against the map, then
+							Check fit or Snap
+						{:else}
+							Not located yet
+						{/if}
+					</div>
+				</section>
 			{:else if period}
 				<section class="space-y-1">
 					<div class="font-mono text-xs">{period.label} · {sessionId}</div>
@@ -561,8 +692,32 @@
 						{/each}
 					</ul>
 				{/if}
+				{#if known.length > 0}
+					<label class="text-surface-content/60 block text-xs">
+						Start from a known location
+						<select
+							class="border-surface-content/20 bg-surface-50 mt-1 w-full rounded border px-2 py-1 text-xs"
+							bind:value={knownChoice}
+							on:change={() => applyKnown(knownChoice)}
+						>
+							<option value="">— a located clip —</option>
+							{#each known as k (k.clip_id)}
+								<option value={k.clip_id}>{knownLabel(k)}</option>
+							{/each}
+						</select>
+					</label>
+					<p class="text-surface-content/40 text-xs">
+						Takes that clip's position and heading. A tripod moved between captures shows as walls
+						that no longer sit on the map: check before saving.
+					</p>
+				{/if}
 				{#if !pose}
 					<p class="text-surface-content/50 text-xs">Or click the map to drop the sensor.</p>
+				{/if}
+				{#if osmAllowed}
+					<button class="text-surface-content/40 text-xs underline" on:click={forgetOsm}
+						>Stop allowing OpenStreetMap requests in this browser</button
+					>
 				{/if}
 			</section>
 
@@ -597,7 +752,13 @@
 					<p class="text-surface-content/50 text-xs">
 						Drag the blue dot to move, the orange dot to turn. Nudges move 25 cm.
 					</p>
-					<div class="flex gap-2">
+					<div class="flex flex-wrap gap-2">
+						<Button
+							size="sm"
+							variant="outline"
+							disabled={checking || !xyz}
+							on:click={() => requestOsm('check')}>{checking ? 'Checking…' : 'Check fit'}</Button
+						>
 						<Button
 							size="sm"
 							variant="outline"
@@ -618,6 +779,19 @@
 							)
 								? `${lastSnap.rms.toFixed(2)} m`
 								: '—'}.
+						</p>
+					{/if}
+					{#if fit}
+						<p
+							class="text-xs {fit.inliers / Math.max(1, fit.total) >= 0.3
+								? 'text-emerald-600'
+								: 'text-amber-600'}"
+						>
+							Fit: {Math.round((100 * fit.inliers) / Math.max(1, fit.total))}% of {fit.total} wall points
+							within 0.5 m of an outline, RMS {Number.isFinite(fit.rms)
+								? `${fit.rms.toFixed(2)} m`
+								: '—'}. Trees, parked cars and unmapped walls keep this below 100%; compare it
+							before and after a change.
 						</p>
 					{/if}
 					<Button variant="fill" color="primary" disabled={saving} on:click={save}
@@ -674,8 +848,9 @@
 			<div class="space-y-3 text-sm text-neutral-100">
 				<p>
 					This page will request OpenStreetMap map tiles, search the address you type with
-					Nominatim, and fetch building and wall outlines from Overpass for Snap.
+					Nominatim, and fetch building and wall outlines from Overpass for Snap and Check fit.
 				</p>
+				<p>The choice is remembered in this browser until you stop it from the page.</p>
 				<p>The address you type and the map area may be sent to those servers.</p>
 				<p>LiDAR points, vehicle data, reports and raw sensor data are not sent.</p>
 				<p class="text-neutral-300">
@@ -685,7 +860,7 @@
 			<div class="mt-6 flex justify-end gap-2">
 				<Button on:click={() => (pendingAction = null)} variant="outline">Cancel</Button>
 				<Button on:click={allowOsm} variant="fill" color="primary"
-					>Allow OpenStreetMap This Session</Button
+					>Allow OpenStreetMap Requests</Button
 				>
 			</div>
 		</div>
