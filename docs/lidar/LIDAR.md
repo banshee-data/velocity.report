@@ -18,7 +18,11 @@ file is just the index — start there for any layer detail.
 
 The [SpatialRust segmentation review](operations/spatialrust-segmentation-review.md) compares
 implemented upstream algorithms with our L3/L4 pipeline and proposes experiments, coding slices,
-and adoption gates.
+and adoption gates. The
+[LiDAR-Processing-V2 review](operations/lidar-processing-v2-segmentation-review.md) reads a
+classical range-image pipeline (RECM ground, JCP boundary vote, curved-voxel clustering, hull and
+calipers outlines) against the same layers, and proposes one spike: a two-directional boundary
+vote on the L3 grid (l3bg0026).
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

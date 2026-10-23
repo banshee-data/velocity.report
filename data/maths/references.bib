@@ -52,6 +52,20 @@
                alternative engine for {L4} clustering}
 }
 
+@inproceedings{Charron2018DROR,
+  author    = {Charron, Nicholas and Phillips, Stephen and Waslander, Steven L.},
+  title     = {De-noising of Lidar Point Clouds Corrupted by Snowfall},
+  booktitle = {Proceedings of the 15th Conference on Computer and Robot Vision
+               ({CRV} 2018)},
+  pages     = {254--261},
+  publisher = {{IEEE}},
+  year      = {2018},
+  doi       = {10.1109/CRV.2018.00043},
+  note      = {Dynamic radius outlier removal ({DROR}): the search radius grows with
+               range. Reviewed and not adopted; the {L3} support filter and the
+               {DBSCAN} core count cover it on the grid}
+}
+
 @inproceedings{Ester1996,
   author    = {Ester, Martin and Kriegel, Hans-Peter and Sander, J{\"o}rg and Xu, Xiaowei},
   title     = {A Density-Based Algorithm for Discovering Clusters in Large Spatial
@@ -199,6 +213,37 @@
   doi       = {10.1109/IROS.2016.7759050},
   note      = {Efficient alternative to {DBSCAN} using range-image connectivity;
                future optimisation path for {L4} clustering}
+}
+
+@article{Shen2021JCP,
+  author  = {Shen, Zhihao and Liang, Huawei and Lin, Linglong and Wang, Zhiling and
+             Huang, Weixin and Yu, Jie},
+  title   = {Fast Ground Segmentation for {3D} {LiDAR} Point Cloud Based on
+             Jump-Convolution-Process},
+  journal = {Remote Sensing},
+  volume  = {13},
+  number  = {16},
+  pages   = {3239},
+  year    = {2021},
+  doi     = {10.3390/rs13163239},
+  note    = {Ring-shaped elevation conjunction map ({RECM}) lower envelope and a
+             range-image boundary vote ({JCP}); the vote is the model for l3bg0026.
+             Named through the LiDAR-Processing-V2 review; text not read}
+}
+
+@inproceedings{Park2019CVC,
+  author    = {Park, Seungcheol and Wang, Shaocheng and Lim, Hyungtae and Kang, U},
+  title     = {Curved-Voxel Clustering for Accurate Segmentation of {3D} {LiDAR} Point
+               Clouds with Real-Time Performance},
+  booktitle = {Proceedings of the {IEEE/RSJ} International Conference on
+               Intelligent Robots and Systems ({IROS} 2019)},
+  pages     = {6459--6464},
+  publisher = {{IEEE}},
+  year      = {2019},
+  doi       = {10.1109/IROS40897.2019.8968026},
+  note      = {Connected components over occupied spherical voxels; a connectivity-rule
+               arm for the {L4} comparison. Named through the LiDAR-Processing-V2
+               review; text not read}
 }
 
 @inproceedings{Lang2019,
@@ -735,6 +780,29 @@
   doi       = {10.1109/IVS.2017.7995698},
   note      = {Real-time vehicle detection and {L}-shape fitting using {3D}
                {LiDAR}; informs geometry-coherent tracking}
+}
+
+@inproceedings{Toussaint1983,
+  author    = {Toussaint, Godfried T.},
+  title     = {Solving Geometric Problems with the Rotating Calipers},
+  booktitle = {Proceedings of {IEEE} {MELECON} 1983},
+  address   = {Athens},
+  year      = {1983},
+  note      = {Rotating calipers over a convex polygon's antipodal pairs; the
+               minimum-area rectangle has a side on a hull edge, which
+               MinAreaRectangle walks directly}
+}
+
+@article{Andrew1979,
+  author  = {Andrew, A. M.},
+  title   = {Another Efficient Algorithm for Convex Hulls in Two Dimensions},
+  journal = {Information Processing Letters},
+  volume  = {9},
+  number  = {5},
+  pages   = {216--219},
+  year    = {1979},
+  doi     = {10.1016/0020-0190(79)90072-3},
+  note    = {Monotone chain convex hull; convexHull2D in l4perception}
 }
 
 % -----------------------------------------------------------------------------

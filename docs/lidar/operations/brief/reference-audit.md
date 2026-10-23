@@ -175,6 +175,22 @@ of the same works; its duplicate mentions use the same keys.
 | Rise of the machines: automated vehicles and human drivers           | `Teoh2026`          | Teoh section                                     |
 | 2025 Traffic Safety Culture Index                                    | `Zhang2026a`        | Questionnaires section; also weekly briefing     |
 
+## References added from source reviews
+
+The [LiDAR-Processing-V2 review][lpv2] names the published methods that repository implements,
+read from its code; the papers' texts were not read for the review and the entries say so.
+After these five, "LiDAR processing and detection" stands at its cap of 10 (not over, so no
+prune or raise), "Geometry and shape fitting" at 27 of 30, and "Foundational algorithms" at 11
+of 15.
+
+| Source mention                                              | BibTeX key        | Source document                    |
+| ----------------------------------------------------------- | ----------------- | ---------------------------------- |
+| Jump-convolution-process ground segmentation (RECM and JCP) | `Shen2021JCP`     | [LiDAR-Processing-V2 review][lpv2] |
+| Curved-voxel clustering                                     | `Park2019CVC`     | [LiDAR-Processing-V2 review][lpv2] |
+| Rotating calipers over antipodal pairs                      | `Toussaint1983`   | [LiDAR-Processing-V2 review][lpv2] |
+| Andrew's monotone chain convex hull                         | `Andrew1979`      | [LiDAR-Processing-V2 review][lpv2] |
+| Dynamic radius outlier removal (DROR)                       | `Charron2018DROR` | [LiDAR-Processing-V2 review][lpv2] |
+
 ## Existing entries checked
 
 Every explicit BibTeX key in the data documents resolves in the bibliography. This includes the
@@ -224,3 +240,4 @@ References inside the external papers themselves are outside the audit's scope.
 [weekly]: research-briefing-2026-10-10.md
 [oct19]: research-briefing-2026-10-19.md
 [fixed]: fixed-sensor-research-briefing-2026-10-09.md
+[lpv2]: ../lidar-processing-v2-segmentation-review.md
