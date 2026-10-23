@@ -1910,8 +1910,7 @@ struct BulkLabelView: View {
             let count = appState.filteredTracks.count
             Text("Label All Visible (\(count))").font(.caption).foregroundColor(.secondary)
 
-            ForEach(Array(LabelPanelView.objectClasses.enumerated()), id: \.offset) {
-                _, entry in
+            ForEach(Array(LabelPanelView.objectClasses.enumerated()), id: \.offset) { _, entry in
                 Button(action: {
                     appState.assignLabelToAllVisible(entry.name)
                     withAnimation(.easeOut(duration: 0.3)) { bulkLabelApplied = entry.name }

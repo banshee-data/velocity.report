@@ -49,8 +49,8 @@ private func runLabelBucket(for snapshot: RunTrackLabelSnapshot) -> RunLabelBuck
     let qualityLabel = normaliseRunLabelValue(snapshot.qualityLabel)
     let hasManualLabel = isHumanManualLabelSource(snapshot.labelSource)
     let hasTagOnlyState =
-        qualityLabel != nil || snapshot.isSplitCandidate
-        || snapshot.isMergeCandidate || !snapshot.linkedTrackIDs.isEmpty
+        qualityLabel != nil || snapshot.isSplitCandidate || snapshot.isMergeCandidate
+        || !snapshot.linkedTrackIDs.isEmpty
 
     if hasManualLabel, let userLabel, !userLabel.isEmpty { return .classified }
     if hasManualLabel, hasTagOnlyState { return .taggedOnly }

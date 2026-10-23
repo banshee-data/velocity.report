@@ -311,8 +311,7 @@ struct ReferenceSummary: Equatable {
         if found == nil, !evidence.sourcePaths.isEmpty {
             var files = [String: [String]]()
             for site in sites {
-                files[site.clipID] =
-                    (try? await lookup.captureFiles(clipID: site.clipID)) ?? []
+                files[site.clipID] = (try? await lookup.captureFiles(clipID: site.clipID)) ?? []
             }
             found = AlignmentSiteResolver.resolve(evidence, sites: sites, filesByCase: files)
         }
@@ -699,8 +698,8 @@ struct ReferenceSummary: Equatable {
             return scan
         }
         let header = ScanPacking.header(
-            l16Token: site.l16Token, sensorID: sensorID, captureRef: site.clipID,
-            snapshot: snapshot)
+            l16Token: site.l16Token, sensorID: sensorID, captureRef: site.clipID, snapshot: snapshot
+        )
         let uploaded = try await client.uploadScan(
             header: header, blocks: ScanPacking.blocks(from: snapshot))
         scan = uploaded.scan
