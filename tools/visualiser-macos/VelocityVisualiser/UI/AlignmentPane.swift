@@ -45,9 +45,23 @@ import SwiftUI
     @EnvironmentObject var appState: AppState
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Pinned above the scroll, so the one Reviewer field both Accepts
+            // need cannot be scrolled out of sight while either is shown.
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                if session.showsReviewerField { reviewerField }
+            }.padding([.horizontal, .top]).padding(.bottom, 10)
+            Divider()
+            scrollingSections
+        }.frame(maxHeight: .infinity).background(Color(nsColor: .controlBackgroundColor)).task(
+            id: appState.currentRunID
+        ) { await session.refreshSites(runID: appState.currentRunID) }
+    }
+
+    private var scrollingSections: some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 14) {
-                header
                 siteSection
                 statusSection
                 if session.reference != nil { layersSection }
@@ -69,9 +83,7 @@ import SwiftUI
                 }
                 Spacer()
             }.padding()
-        }.frame(maxHeight: .infinity).background(Color(nsColor: .controlBackgroundColor)).task(
-            id: appState.currentRunID
-        ) { await session.refreshSites(runID: appState.currentRunID) }
+        }
     }
 
     // MARK: Header
@@ -87,6 +99,16 @@ import SwiftUI
             Button(action: { appState.showAlignmentPane = false }) { Image(systemName: "xmark") }
                 .buttonStyle(.borderless).help("Close the alignment pane")
         }
+    }
+
+    /// The reviewer every decision is recorded under, Accept, Reject and
+    /// Accept refinement alike.
+    private var reviewerField: some View {
+        let blank = session.reviewer.trimmingCharacters(in: .whitespaces).isEmpty
+        return HStack(alignment: .firstTextBaseline) {
+            Text("Reviewer").font(.callout).foregroundStyle(blank ? Color.orange : .secondary)
+            TextField("Your name", text: $session.reviewer).textFieldStyle(.roundedBorder)
+        }.help("Gerardus records every decision under this name, and refuses one without it")
     }
 
     // MARK: Site
@@ -564,16 +586,16 @@ import SwiftUI
     private var reviewSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Decision").font(.subheadline.weight(.semibold))
-            TextField("Reviewer", text: $session.reviewer)
             TextField("Note (optional)", text: $session.note)
             Button(acceptTitle) { Task { await session.accept() } }.buttonStyle(.borderedProminent)
-                .disabled(!session.canReview || session.reviewer.isEmpty).help(
+                .disabled(!session.canReview).help(
                     "Record the pose drawn now: a hypothesis as drawn, or your own pose once you move it"
                 )
             HStack {
                 TextField("Why reject?", text: $session.rejectReason)
                 Button("Reject") { Task { await session.reject() } }.disabled(!session.canReview)
             }
+            AlignmentBlockers(reasons: session.reviewBlockers)
             if let record = session.lastRecord {
                 Text("Recorded \(AlignmentFormat.state(record.state)): \(record.recordID)").font(
                     .caption
@@ -665,12 +687,12 @@ import SwiftUI
                     )
                 ).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
             }
-            if session.registration == nil { TextField("Reviewer", text: $session.reviewer) }
             Button("Accept refinement") { Task { await session.acceptRefinement() } }.disabled(
                 !session.canAcceptRefinement
             ).help(
                 "Record every scan's refined pose together: registered where its run passed every gate, else manually placed"
             )
+            AlignmentBlockers(reasons: session.acceptRefinementBlockers)
         }
     }
 
@@ -708,6 +730,23 @@ import SwiftUI
                     ).font(.caption2).foregroundStyle(.secondary)
                 }.padding(6).background(Color.secondary.opacity(0.08)).clipShape(
                     RoundedRectangle(cornerRadius: 4))
+            }
+        }
+    }
+}
+
+/// Why the button above is disabled, one line per reason, in plain sight
+/// rather than only in a tooltip. Draws nothing while it is enabled.
+struct AlignmentBlockers: View {
+    let reasons: [String]
+
+    var body: some View {
+        if !reasons.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(reasons, id: \.self) { reason in
+                    Label(reason, systemImage: "exclamationmark.circle").font(.caption)
+                        .foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                }
             }
         }
     }

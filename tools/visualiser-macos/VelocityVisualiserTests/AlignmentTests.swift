@@ -1047,6 +1047,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var refineResult = Gerardus_Align_V1alpha1_RefineSiteResult()
     var lastRefine: Gerardus_Align_V1alpha1_RefineSiteRequest?
     var runs: [String: Gerardus_Align_V1alpha1_Registration] = [:]
+    /// Called inside RefineSite before it answers, to look at the session then.
+    var duringRefine: (@MainActor () -> Void)?
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
     /// Every UploadScan header, in order.
     var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
@@ -1201,6 +1203,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         }
         var registration = Gerardus_Align_V1alpha1_Registration()
         registration.registrationID = "gms:reg"
+        registration.scanID = request.scanID
         registration.state = runState
         registration.hypotheses = ranked ?? streamed
         registration.gates = gates
@@ -1253,6 +1256,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         }
         var record = Gerardus_Align_V1alpha1_RegistrationRecord()
         record.recordID = "gms:rec\(records.count)"
+        // The scan the run registered, as Gerardus records it.
+        record.scanID =
+            runs[request.registrationID]?.scanID
+            ?? (request.registrationID == "gms:reg" ? lastRegister?.scanID ?? "" : "")
         switch request.decision {
         case .acceptPose: record.state = .manuallyPlaced
         case .rejectReason: record.state = .rejected
@@ -1286,6 +1293,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         progress.stage = "solve"
         progress.fraction = -1
         await onProgress(progress)
+        await duringRefine?()
         return refineResult
     }
 }
@@ -3327,6 +3335,183 @@ final class LockedBox<T>: @unchecked Sendable {
         #expect(message.contains("1 of 2 recorded before it"), "\(message)")
         #expect(message.contains("refine again"), "\(message)")
         #expect(session.busy == nil)
+    }
+}
+
+// MARK: - What blocks Accept
+
+/// A registration open at a site whose model can be refined: the operator's
+/// path in the report of a blocked Accept (register, refine, accept).
+@MainActor struct AcceptBlockingTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed at a site whose model holds two accepted scans, a refinement
+    /// of them ready (both pass), and a candidate run that passed its gates
+    /// registered from a settled background.
+    private func registered(
+        defaults: UserDefaults? = nil
+    ) async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.siteModelID = "sha256:model-a"
+        service.siteModelScans = ["sha256:a", "sha256:b"]
+        for id in ["a", "b"] {
+            var refined = Gerardus_Align_V1alpha1_RefinedScan()
+            refined.scanID = "sha256:\(id)"
+            refined.registrationID = "gms:refine-\(id)"
+            service.refineResult.scans.append(refined)
+            var run = Gerardus_Align_V1alpha1_Registration()
+            run.registrationID = refined.registrationID
+            run.scanID = refined.scanID
+            run.state = .candidate
+            run.gates = [gate("ground_p95_m", passed: true)]
+            service.runs[run.registrationID] = run
+        }
+        service.refineResult.modelID = "sha256:model-a"
+        service.streamed = [hypothesis("h-east", eastM: 5, headingDeg: 143.5)]
+        service.runState = .candidate
+        service.gates = [gate("ground_p95_m", passed: true)]
+        let session = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: defaults)
+        session.sink = FakeOverlaySink()
+        session.evaluateSleep = { _ in try await Task.sleep(for: .seconds(3600)) }
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        session.noteBackground(snapshot(count: 300))
+        await session.register()
+        session.reviewer = "operator"
+        return (session, service)
+    }
+
+    /// The model moves when anything is accepted, as Gerardus's does.
+    private func modelMovesOnAccept(_ service: FakeAlignmentService) {
+        service.siteModelID = "sha256:model-b"
+        service.servedModelID = "sha256:model-b"
+    }
+
+    @Test func registerRefineThenAcceptTheHypothesis() async {
+        let (session, service) = await registered()
+        await session.refine()
+        #expect(session.busy == nil)
+        #expect(session.canReview)
+        await session.accept()
+        guard case .acceptHypothesisID(let id) = service.lastReview?.decision else {
+            Issue.record("accept sent no hypothesis")
+            return
+        }
+        #expect(id == "h-east")
+        #expect(session.busy == nil)
+    }
+
+    @Test func acceptingTheRefinementLeavesNothingBusy() async {
+        let (session, service) = await registered()
+        await session.refine()
+        modelMovesOnAccept(service)
+        await session.acceptRefinement()
+        #expect(service.reviews.map(\.registrationID) == ["gms:refine-a", "gms:refine-b"])
+        // The registered layers were re-streamed for the moved model, and the
+        // busy line that re-stream set is gone with it.
+        #expect(session.busy == nil, "busy: \(session.busy ?? "")")
+        #expect(session.canReview)
+        #expect(session.canRefine)
+        await session.accept()
+        #expect(service.reviews.last?.registrationID == "gms:reg")
+    }
+
+    @Test func aBlankReviewerBlocksBothAcceptsAndSaysSo() async {
+        let (session, service) = await registered()
+        await session.refine()
+        session.reviewer = "   "
+        #expect(session.showsReviewerField)
+        #expect(!session.canReview)
+        #expect(session.reviewBlockers == [AlignmentSession.noReviewerReason])
+        #expect(!session.canAcceptRefinement)
+        #expect(session.acceptRefinementBlockers == [AlignmentSession.noReviewerReason])
+        // Gerardus refuses a decision without a reviewer: nothing is sent.
+        await session.accept()
+        await session.acceptRefinement()
+        #expect(service.reviews.isEmpty)
+        session.reviewer = "operator"
+        #expect(session.reviewBlockers.isEmpty && session.acceptRefinementBlockers.isEmpty)
+    }
+
+    @Test func whileRefiningBothSayWhatTheyWaitFor() async {
+        let (session, service) = await registered()
+        var during: ([String], [String]) = ([], [])
+        service.duringRefine = {
+            during = (session.reviewBlockers, session.acceptRefinementBlockers)
+        }
+        await session.refine()
+        let busy = "Busy refining the site: wait for it to finish."
+        #expect(during.0 == [busy])
+        // No "no refinement yet" while one is running.
+        #expect(during.1 == [busy])
+        #expect(session.reviewBlockers.isEmpty)
+    }
+
+    @Test func beforeAnythingIsPlacedTheReasonsSaySo() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.reviewer = "operator"
+        await session.probe()
+        #expect(
+            session.reviewBlockers == [
+                AlignmentSession.noRegistrationReason, AlignmentSession.noPoseReason,
+            ])
+        #expect(session.acceptRefinementBlockers == ["No refinement yet: press Refine site."])
+        #expect(!session.showsReviewerField)
+        #expect(session.refineBlocker == "Place the sensor from its hint first.")
+    }
+
+    @Test func aRecordedRefinementSaysToRefineAgain() async {
+        let (session, service) = await registered()
+        await session.refine()
+        modelMovesOnAccept(service)
+        await session.acceptRefinement()
+        #expect(
+            session.acceptRefinementBlockers == [
+                "Recorded 2 of 2 refined poses: refine again to record another refinement."
+            ])
+        await session.refine()
+        #expect(session.canAcceptRefinement)
+    }
+
+    @Test func acceptingOneOfTheRefinedScansOnItsOwnSaysToRefineAgain() async {
+        let (session, service) = await registered()
+        // The open capture's scan is one the refinement moved.
+        var own = Gerardus_Align_V1alpha1_RefinedScan()
+        own.scanID = "sha256:scan"
+        own.registrationID = "gms:refine-own"
+        service.refineResult.scans.append(own)
+        await session.refine()
+        #expect(session.canAcceptRefinement)
+        await session.accept()
+        #expect(!session.canAcceptRefinement)
+        let reasons = session.acceptRefinementBlockers
+        #expect(reasons.count == 1 && reasons[0].contains("accepted again"), "\(reasons)")
+        // Accept refinement would have recorded a and b, then been refused.
+        await session.acceptRefinement()
+        #expect(service.reviews.map(\.registrationID) == ["gms:reg"])
+        // A rejection moves no pose.
+        await session.refine()
+        session.rejectReason = "wrong corner"
+        await session.reject()
+        #expect(session.canAcceptRefinement)
+    }
+
+    @Test func anEmptySavedReviewerFallsBackToAName() throws {
+        let suite = "AcceptBlockingTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("", forKey: AlignmentSession.reviewerKey)
+        defaults.set("Annotator", forKey: "annotation.operatorName")
+        let session = AlignmentSession(
+            makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: defaults)
+        #expect(session.reviewer == "Annotator")
     }
 }
 

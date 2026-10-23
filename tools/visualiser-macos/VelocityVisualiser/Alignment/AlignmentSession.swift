@@ -301,6 +301,9 @@ struct ReferenceSummary: Equatable {
     /// Scans whose refined pose has been recorded.
     @Published private(set) var refinedAccepted: Set<String> = []
     @Published private(set) var isRefining = false
+    /// A scan of the refinement shown whose pose was accepted on its own
+    /// since the refinement ran; Gerardus refuses its j1.
+    @Published private(set) var refinementOverridden: String?
     /// Independent residuals per fit when weighting the graph; 0: the default.
     @Published var refineNEff: Double = 0
 
@@ -403,9 +406,18 @@ struct ReferenceSummary: Equatable {
         self.fullFrames = fullFrames ?? lookup.map { ReplayFullFramesClient(baseURL: $0.baseURL) }
         self.defaults = defaults
         self.serviceAddress = GerardusAddress.saved(in: defaults)
-        self.reviewer =
-            defaults?.string(forKey: Self.reviewerKey) ?? defaults?.string(
-                forKey: "annotation.operatorName") ?? NSFullUserName()
+        self.reviewer = Self.savedReviewer(in: defaults)
+    }
+
+    /// The reviewer last typed, else the annotation operator's name, else
+    /// the account's. A name saved blank (the field cleared once) is passed
+    /// over: kept, it left every decision disabled from then on.
+    static func savedReviewer(in defaults: UserDefaults?) -> String {
+        let named = [
+            defaults?.string(forKey: reviewerKey),
+            defaults?.string(forKey: "annotation.operatorName"),
+        ].compactMap { $0?.trimmingCharacters(in: .whitespaces) }.first { !$0.isEmpty }
+        return named ?? NSFullUserName()
     }
 
     // MARK: - Availability
@@ -876,7 +888,11 @@ struct ReferenceSummary: Equatable {
         }
         if let current { siteModelScanIDs = current.scans.map(\.scanID) }
         if let current, !current.modelID.isEmpty, current.modelID == siteModelID { return }
+        // Put back as found: left set, it blocked every control after an
+        // Accept refinement, which had already cleared its own.
+        let caller = busy
         busy = "Re-streaming the site model"
+        defer { busy = caller }
         let registered = await streamRegisteredLayers(
             client: client, l16Token: site.l16Token, centre: centre)
         // The site was changed or cleared while this was asked.
@@ -1484,7 +1500,37 @@ struct ReferenceSummary: Equatable {
 
     // MARK: - Review
 
-    var canReview: Bool { busy == nil && registration != nil && pose != nil }
+    /// Why Accept and Reject are off now, one line each for the pane; empty
+    /// when they are on. Gerardus refuses any decision without a reviewer,
+    /// so a blank one blocks Reject too.
+    var reviewBlockers: [String] {
+        var reasons = [String]()
+        if registration == nil { reasons.append(Self.noRegistrationReason) }
+        if pose == nil { reasons.append(Self.noPoseReason) }
+        if let busy { reasons.append(Self.busyReason(busy)) }
+        if reviewerName.isEmpty { reasons.append(Self.noReviewerReason) }
+        return reasons
+    }
+
+    var canReview: Bool { reviewBlockers.isEmpty }
+
+    /// Whether the pane shows its Reviewer field: whenever Accept or Accept
+    /// refinement is shown. There is one field for both, so a blank name
+    /// is never out of sight while it blocks either.
+    var showsReviewerField: Bool { registration != nil || refinement != nil }
+
+    /// The reviewer as sent: Gerardus trims it and refuses it blank.
+    private var reviewerName: String { reviewer.trimmingCharacters(in: .whitespaces) }
+
+    static let noRegistrationReason = "No registration to decide on: press Register first."
+    static let noPoseReason = "No pose drawn: place the sensor from its hint first."
+    static let noReviewerReason =
+        "No reviewer name: type yours in Reviewer at the top of the pane; Gerardus records who decided."
+
+    /// "Busy re-streaming the site model: wait for it to finish."
+    static func busyReason(_ busy: String) -> String {
+        "Busy " + busy.prefix(1).lowercased() + busy.dropFirst() + ": wait for it to finish."
+    }
 
     /// Records the pose drawn now as accepted: the hypothesis it is
     /// (REGISTERED when the run passed its gates, else MANUALLY_PLACED), or
@@ -1522,14 +1568,16 @@ struct ReferenceSummary: Equatable {
         guard let client, let registration, canReview else { return }
         var request = base
         request.registrationID = registration.registrationID
-        request.reviewer = reviewer.trimmingCharacters(in: .whitespaces)
+        request.reviewer = reviewerName
         request.note = note
         errorMessage = nil
         busy = "Recording the decision"
         defer { busy = nil }
         var recorded = false
         do {
-            lastRecord = try await client.reviewRegistration(request)
+            let record = try await client.reviewRegistration(request)
+            lastRecord = record
+            noteDecided(record)
             rejectReason = ""
             recorded = true
             await loadRecords()
@@ -1541,8 +1589,15 @@ struct ReferenceSummary: Equatable {
 
     /// RefineSite needs two accepted scans; with fewer the button stays off
     /// rather than asking for a FAILED_PRECONDITION.
-    var canRefine: Bool {
-        busy == nil && site != nil && preparedSite != nil && (siteModelScanIDs?.count ?? 0) >= 2
+    var canRefine: Bool { refineBlocker == nil }
+
+    /// Why Refine site is off now, for the pane; nil when it is on.
+    var refineBlocker: String? {
+        if site == nil || preparedSite == nil { return "Place the sensor from its hint first." }
+        let held = siteModelScanIDs?.count ?? 0
+        if held < 2 { return "Refining needs two accepted scans; the site model holds \(held)." }
+        if let busy { return Self.busyReason(busy) }
+        return nil
     }
 
     /// Re-solves every accepted pose at the site together (RefineSite), then
@@ -1553,6 +1608,7 @@ struct ReferenceSummary: Equatable {
         refinement = nil
         refinedRuns = [:]
         refinedAccepted = []
+        refinementOverridden = nil
         isRefining = true
         busy = "Refining the site"
         var request = Gerardus_Align_V1alpha1_RefineSiteRequest()
@@ -1586,9 +1642,42 @@ struct ReferenceSummary: Equatable {
         return run.gates.allSatisfy(\.passed)
     }
 
-    var canAcceptRefinement: Bool {
-        guard busy == nil, let refinement, !refinement.scans.isEmpty else { return false }
-        return refinedAccepted.isEmpty && !reviewer.trimmingCharacters(in: .whitespaces).isEmpty
+    /// Why Accept refinement is off now, one line each for the pane; empty
+    /// when it is on.
+    var acceptRefinementBlockers: [String] {
+        var reasons = [String]()
+        if let refinement {
+            if refinement.scans.isEmpty {
+                reasons.append("The refinement moved no scan: there is nothing to record.")
+            } else if !refinedAccepted.isEmpty {
+                reasons.append(
+                    "Recorded \(refinedAccepted.count) of \(refinement.scans.count) refined poses: refine again to record another refinement."
+                )
+            } else if let scanID = refinementOverridden {
+                reasons.append(
+                    "Scan \(String(scanID.suffix(10))) was accepted again since this refinement ran, so Gerardus would refuse its refined pose: refine again."
+                )
+            }
+        } else if !isRefining {
+            reasons.append("No refinement yet: press Refine site.")
+        }
+        if let busy { reasons.append(Self.busyReason(busy)) }
+        if reviewerName.isEmpty { reasons.append(Self.noReviewerReason) }
+        return reasons
+    }
+
+    var canAcceptRefinement: Bool { acceptRefinementBlockers.isEmpty }
+
+    /// A decision recorded on its own, as Accept or Reject records one: if it
+    /// is for one of the refinement's scans, that scan's refined pose was
+    /// solved from a pose no longer the accepted one, and Gerardus refuses
+    /// it (FAILED_PRECONDITION). Said before Accept refinement records the
+    /// scans ahead of it and stops part way.
+    private func noteDecided(_ record: Gerardus_Align_V1alpha1_RegistrationRecord) {
+        guard record.state != .rejected, !record.scanID.isEmpty,
+            refinement?.scans.contains(where: { $0.scanID == record.scanID }) == true
+        else { return }
+        refinementOverridden = record.scanID
     }
 
     /// Accepts the refinement whole: j1 of every scan's run, in order. Each
@@ -1596,6 +1685,9 @@ struct ReferenceSummary: Equatable {
     /// rest placed against poses never accepted. Stops at the first refusal:
     /// Gerardus refuses a j1 whose scan's accepted pose changed since the
     /// refinement ran, and the way on is to refine again.
+    ///
+    /// Busy until the records and the moved site model are read back, so
+    /// nothing else starts in between.
     func acceptRefinement() async {
         guard let client, let refinement, canAcceptRefinement else { return }
         errorMessage = nil
@@ -1605,7 +1697,7 @@ struct ReferenceSummary: Equatable {
             var request = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
             request.registrationID = refined.registrationID
             request.acceptHypothesisID = Self.refinedHypothesisID
-            request.reviewer = reviewer.trimmingCharacters(in: .whitespaces)
+            request.reviewer = reviewerName
             request.note = note
             do {
                 lastRecord = try await client.reviewRegistration(request)
@@ -1616,11 +1708,11 @@ struct ReferenceSummary: Equatable {
                 break
             }
         }
-        busy = nil
         if !refinedAccepted.isEmpty {
             await loadRecords()
             await refreshSiteModel(client: client)
         }
+        busy = nil
     }
 
     /// The site's records, newest first.
@@ -1664,6 +1756,7 @@ struct ReferenceSummary: Equatable {
         refinement = nil
         refinedRuns = [:]
         refinedAccepted = []
+        refinementOverridden = nil
         errorMessage = nil
         sink?.setReferenceOverlay(nil)
         sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
