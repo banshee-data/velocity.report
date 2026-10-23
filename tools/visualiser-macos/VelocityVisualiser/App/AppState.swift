@@ -359,7 +359,11 @@ private let logger = DevLogger(category: "AppState")
     /// answers its probe it is unavailable, its pane and toolbar button are
     /// hidden, and nothing else in the app changes.
     let alignment: AlignmentSession
-    @Published var showAlignmentPane: Bool = false
+    @Published var showAlignmentPane: Bool = false {
+        // Closing the pane stops an accumulation's collection, and with it
+        // velocity.report's full frames.
+        didSet { if oldValue, !showAlignmentPane { alignment.paneClosed() } }
+    }
     private var alignmentAvailability: AnyCancellable?
     private var alignmentProbing: AnyCancellable?
 

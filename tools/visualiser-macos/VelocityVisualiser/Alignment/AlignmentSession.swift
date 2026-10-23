@@ -8,7 +8,9 @@
 //   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m),
 //                     then StreamReference once per registered layer
 //   Nudge             nothing on the wire: only the model matrix changes
-//   Accumulate        nothing while the frames are collected; then
+//   Accumulate        during a pcap replay, velocity.report's
+//                     POST /api/lidar/replay/full_frames on, then nothing
+//                     while the frames are collected, full frames off; then
 //                     UploadScan (SCAN_KIND_ACCUMULATED), which Register then uses
 //   Register          UploadScan (once per background) → Register, against
 //                     3DEP alone or, with the switch on, against the site model
@@ -259,6 +261,19 @@ struct ReferenceSummary: Equatable {
     private var accumulatedScan: Gerardus_Align_V1alpha1_Scan?
     /// Whether the frames come from a live sensor, as they last said.
     private var frameSource: SourceMode = .unspecified
+    /// velocity.report's full-frames switch, which a pcap replay's
+    /// accumulation needs; nil when velocity.report is skipped, as in tests.
+    private let fullFrames: ReplayFullFramesSwitch?
+    /// True from the request that switches full frames on until the one that
+    /// switches them off is sent.
+    private var fullFramesRequested = false
+    /// The request switching full frames on, and the one switching them off;
+    /// each waits for the one before, so the server sees them in order.
+    private var fullFramesOn: Task<Void, Never>?
+    private var fullFramesOff: Task<Void, Never>?
+    /// Bumped by each accumulation, so a late answer to an earlier one's
+    /// request cannot stop this one.
+    private var accumulationGeneration = 0
     /// How the pose drawn now was made, for what Accept records.
     private var poseSource: Gerardus_Align_V1alpha1_PoseSource = .hint
     private var registering: Task<Void, Never>?
@@ -291,15 +306,17 @@ struct ReferenceSummary: Equatable {
 
     /// `lookup` nil skips velocity.report entirely, as tests do; `defaults`
     /// nil keeps typed headings and the server address out of the app's
-    /// preferences.
+    /// preferences. `fullFrames` nil takes velocity.report's switch at the
+    /// lookup's server, and none without a lookup.
     init(
         makeClient: @escaping (GerardusAddress) -> AlignmentServiceClient = {
             GerardusClient(address: $0)
         }, lookup: AlignmentSiteLookupClient? = AlignmentSiteLookupClient(),
-        defaults: UserDefaults? = .standard
+        defaults: UserDefaults? = .standard, fullFrames: ReplayFullFramesSwitch? = nil
     ) {
         self.makeClient = makeClient
         self.lookup = lookup
+        self.fullFrames = fullFrames ?? lookup.map { ReplayFullFramesClient(baseURL: $0.baseURL) }
         self.defaults = defaults
         self.serviceAddress = GerardusAddress.saved(in: defaults)
         self.reviewer =
@@ -1066,10 +1083,34 @@ struct ReferenceSummary: Equatable {
 
     static let liveRefusal =
         "The frames come from a live sensor: open a replay to accumulate frames from it."
+    static let vrlogRefusal =
+        "The replay is a VRLOG recording, which holds foreground points only: replay the capture's pcap to accumulate frames from it."
+    static let noFullFramesRefusal =
+        "Accumulating from a pcap replay needs velocity.report to stream full frames, and this session has no velocity.report to ask."
 
     var canAccumulate: Bool {
         busy == nil && client != nil && site != nil && accumulating == nil
             && accumulationTask == nil && streamRefusal == nil
+    }
+
+    /// A pcap replay is split-streamed, foreground points only, until
+    /// velocity.report is asked for full frames, which Accumulate does.
+    private var replaysPCAP: Bool { frameSource == .pcap || frameSource == .pcapAnalysis }
+
+    /// Why the frames from this source cannot be accumulated, whatever they hold.
+    private var sourceRefusal: String? {
+        switch frameSource {
+        case .live: return Self.liveRefusal
+        case .vrlog: return Self.vrlogRefusal
+        case .pcap, .pcapAnalysis, .unspecified: return nil
+        }
+    }
+
+    /// Why this frame's points cannot be accumulated. A pcap replay's split
+    /// frames are not a reason: Accumulate switches full frames on and waits.
+    private func refusal(for cloud: PointCloudFrame) -> String? {
+        if replaysPCAP, cloud.decimationMode == .foregroundOnly { return nil }
+        return FrameAccumulation.refusal(cloud)
     }
 
     /// Called for every frame the visualiser receives. Cheap unless an
@@ -1077,12 +1118,23 @@ struct ReferenceSummary: Equatable {
     /// could be accumulated, and publishes that only when it changes.
     func noteFrame(_ frame: FrameBundle) {
         if let mode = frame.playbackInfo?.sourceMode, mode != .unspecified { frameSource = mode }
+        if let refusal = sourceRefusal {
+            if refusal != streamRefusal { streamRefusal = refusal }
+            if accumulator != nil { stopAccumulating(refusal: refusal) }
+            return
+        }
         guard let cloud = frame.pointCloud else { return }
-        let refusal = frameSource == .live ? Self.liveRefusal : FrameAccumulation.refusal(cloud)
+        let refusal = refusal(for: cloud)
         if refusal != streamRefusal { streamRefusal = refusal }
         guard var collecting = accumulator else { return }
         if let refusal {
             stopAccumulating(refusal: refusal)
+            return
+        }
+        if cloud.decimationMode == .foregroundOnly {
+            // Frames sent before the switch took effect: wait for full ones.
+            // Without a request in flight none will come.
+            if !fullFramesRequested { stopAccumulating(refusal: FrameAccumulation.refusal(cloud)) }
             return
         }
         // The replay's position in its log where it has one (VRLOG), else
@@ -1106,16 +1158,25 @@ struct ReferenceSummary: Equatable {
         }
     }
 
-    /// Starts collecting `accumulateFrameCount` frames from the replay.
+    /// Starts collecting `accumulateFrameCount` frames from the replay. During
+    /// a pcap replay it first asks velocity.report for full frames, which it
+    /// switches off again however the collection ends.
     /// `run` names the replay in the scan's capture_ref; the site's clip id
     /// stands in when the replay has no run id.
     func startAccumulating(run: String?) {
         guard canAccumulate, let site else { return }
+        accumulationRefusal = nil
+        errorMessage = nil
+        if replaysPCAP {
+            guard let fullFrames else {
+                accumulationRefusal = Self.noFullFramesRefusal
+                return
+            }
+            requestFullFrames(from: fullFrames)
+        }
         let named = run?.trimmingCharacters(in: .whitespaces) ?? ""
         accumulationRun = named.isEmpty ? site.clipID : named
         accumulator = FrameAccumulator(frameCount: accumulateFrameCount)
-        accumulationRefusal = nil
-        errorMessage = nil
         accumulating = AlignmentAccumulationProgress(
             frames: 0, of: accumulator?.frameCount ?? 0, points: 0)
     }
@@ -1126,13 +1187,67 @@ struct ReferenceSummary: Equatable {
         accumulationTask?.cancel()
     }
 
+    /// The pane was closed: a collection in progress stops (and full frames
+    /// with it); an upload already under way is let finish.
+    func paneClosed() { if accumulator != nil { stopAccumulating(refusal: nil) } }
+
     /// The task thinning and uploading the frames, for tests to await.
     var pendingAccumulation: Task<Void, Never>? { accumulationTask }
+
+    /// The requests to velocity.report's full-frames switch, for tests to await.
+    var pendingFullFrames: Task<Void, Never>? { fullFramesOff ?? fullFramesOn }
 
     private func stopAccumulating(refusal: String?) {
         accumulator = nil
         accumulating = nil
         if let refusal { accumulationRefusal = refusal }
+        releaseFullFrames()
+    }
+
+    /// Asks for full frames, after any earlier request to switch them off.
+    private func requestFullFrames(from fullFrames: ReplayFullFramesSwitch) {
+        accumulationGeneration += 1
+        let generation = accumulationGeneration
+        let previous = fullFramesOff
+        fullFramesRequested = true
+        fullFramesOn = Task { [weak self] in
+            await previous?.value
+            do { try await fullFrames.setFullFrames(true) } catch {
+                self?.fullFramesFailed(error, generation: generation)
+            }
+        }
+    }
+
+    /// The switch would not turn on: the accumulation cannot go on.
+    private func fullFramesFailed(_ error: Error, generation: Int) {
+        guard generation == accumulationGeneration, accumulator != nil else { return }
+        if let refused = error as? ReplayFullFramesError {
+            // A refusal, or a server without the switch: nothing was turned
+            // on, so there is nothing to turn off.
+            if case .failed = refused {} else { fullFramesRequested = false }
+            stopAccumulating(refusal: refused.errorDescription)
+        } else {
+            stopAccumulating(
+                refusal: ReplayFullFramesError.failed(error.localizedDescription).errorDescription)
+        }
+    }
+
+    /// Switches full frames off again, once the request that turned them on
+    /// has been answered. A failure is only logged: the server ends full
+    /// frames with the replay in any case.
+    private func releaseFullFrames() {
+        guard fullFramesRequested, let fullFrames else { return }
+        fullFramesRequested = false
+        let enabling = fullFramesOn
+        fullFramesOn = nil
+        fullFramesOff = Task {
+            await enabling?.value
+            do { try await fullFrames.setFullFrames(false) } catch {
+                logger.info(
+                    "Full frames were not switched off: \(error.localizedDescription); the replay's end switches them off"
+                )
+            }
+        }
     }
 
     private func finishAccumulating() {

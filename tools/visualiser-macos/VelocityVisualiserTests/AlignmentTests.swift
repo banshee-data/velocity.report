@@ -2031,11 +2031,13 @@ private let columbusSite = AlignmentSite(
 
 /// A session placed at columbus-broadway against a fake configured first.
 @MainActor private func placedSession(
+    fullFrames: ReplayFullFramesSwitch? = FakeFullFrames(),
     _ configure: (FakeAlignmentService) -> Void = { _ in }
 ) async -> (AlignmentSession, FakeAlignmentService) {
     let service = FakeAlignmentService()
     configure(service)
-    let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+    let session = AlignmentSession(
+        makeClient: { _ in service }, lookup: nil, defaults: nil, fullFrames: fullFrames)
     session.sink = FakeOverlaySink()
     // Nothing is scored in these tests unless they ask.
     session.evaluateSleep = { _ in try await Task.sleep(for: .seconds(3600)) }
@@ -2210,7 +2212,7 @@ private func cloud(
 }
 
 private func frame(
-    _ cloud: PointCloudFrame, index: UInt64, source: SourceMode = .vrlog
+    _ cloud: PointCloudFrame, index: UInt64, source: SourceMode = .pcap
 ) -> FrameBundle {
     var bundle = FrameBundle()
     bundle.frameID = 9_000 + index
@@ -2396,16 +2398,18 @@ struct FrameAccumulatorTests {
         #expect(session.accumulated?.points == 70_000)
     }
 
-    @Test func aSplitStreamRefusesBeforeAnythingIsCollected() async {
+    @Test func aSplitStreamOfUnknownSourceRefusesBeforeAnythingIsCollected() async {
         let (session, service) = await placedSession()
-        // velocity.report's split streaming: foreground points only.
-        session.noteFrame(frame(cloud(classes: [1, 1], mode: .foregroundOnly), index: 1))
+        // velocity.report's split streaming, from a server that names no
+        // source: foreground points only, and nothing to switch.
+        session.noteFrame(
+            frame(cloud(classes: [1, 1], mode: .foregroundOnly), index: 1, source: .unspecified))
         #expect(session.streamRefusal?.contains("foreground points only") == true)
         #expect(!session.canAccumulate)
         session.startAccumulating(run: "run-42")
         #expect(session.accumulating == nil)
         // Full frames again: the button comes back.
-        session.noteFrame(frame(cloud(classes: [0]), index: 2))
+        session.noteFrame(frame(cloud(classes: [0]), index: 2, source: .unspecified))
         #expect(session.streamRefusal == nil)
         #expect(session.canAccumulate)
         #expect(!service.calls.contains("UploadScan"))
@@ -2491,7 +2495,249 @@ struct FrameAccumulatorTests {
         let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
         let app = AppState(autoConnectOnStartup: false, alignment: session)
         await session.probe()
-        app.onFrameReceived(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
-        #expect(session.streamRefusal?.contains("foreground points only") == true)
+        app.onFrameReceived(
+            frame(cloud(classes: [1], mode: .foregroundOnly), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
     }
+}
+
+// MARK: - Full frames for a pcap replay's accumulation
+
+/// velocity.report's full-frames switch, answering as told.
+actor FakeFullFrames: ReplayFullFramesSwitch {
+    private(set) var calls: [Bool] = []
+    private var failure: ReplayFullFramesError?
+
+    init(failing failure: ReplayFullFramesError? = nil) { self.failure = failure }
+
+    func setFullFrames(_ enabled: Bool) async throws {
+        calls.append(enabled)
+        if let failure { throw failure }
+    }
+}
+
+@MainActor struct AccumulateFullFramesTests {
+    @Test func aPCAPReplayIsSwitchedToFullFramesForTheCollectionOnly() async throws {
+        let fullFrames = FakeFullFrames()
+        let (session, service) = await placedSession(fullFrames: fullFrames)
+        // Split streaming is what a pcap replay sends until asked: no refusal.
+        session.noteFrame(frame(cloud(classes: [1, 1], mode: .foregroundOnly), index: 1))
+        #expect(session.streamRefusal == nil)
+        #expect(session.canAccumulate)
+        #expect(await fullFrames.calls.isEmpty)
+
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-42")
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true])
+
+        // A frame split before the switch took effect is waited out.
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 2))
+        #expect(session.accumulating?.frames == 0)
+        #expect(session.accumulationRefusal == nil)
+
+        // Full frames: background kept, foreground (1) never.
+        session.noteFrame(frame(cloud(classes: [0, 1, 0]), index: 3))
+        session.noteFrame(frame(cloud(classes: [0, 1, 0], x0: 10), index: 4))
+        #expect(session.accumulating == nil)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false])
+
+        await session.pendingAccumulation?.value
+        let header = try #require(service.uploadedHeaders.last)
+        #expect(header.kind == .accumulated)
+        #expect(header.captureRef == "run-42#f3-4")
+        let uploadedX = service.uploadedBlocks.flatMap(\.x)
+        #expect(uploadedX.count == 4)
+        #expect(uploadedX.allSatisfy { abs($0 - 0.1) > 1e-4 && abs($0 - 10.1) > 1e-4 })
+        #expect(session.accumulated?.frames == 2)
+    }
+
+    @Test func fullFramesGoOffWhenTheCollectionStopsShort() async {
+        let fullFrames = FakeFullFrames()
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        session.accumulateFrameCount = 5
+
+        // Refused midway: a decimated frame.
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0, 2], mode: .uniform, ratio: 0.5), index: 2))
+        #expect(session.accumulationRefusal?.contains("decimated") == true)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false])
+
+        // Cancelled.
+        session.noteFrame(frame(cloud(classes: [0]), index: 3))
+        session.startAccumulating(run: "run-42")
+        session.cancelAccumulating()
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false, true, false])
+
+        // The source turned into a live sensor.
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0]), index: 4, source: .live))
+        #expect(session.accumulationRefusal == AlignmentSession.liveRefusal)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false, true, false, true, false])
+
+        // Another capture opened.
+        session.noteFrame(frame(cloud(classes: [0]), index: 5))
+        session.startAccumulating(run: "run-42")
+        session.captureChanged()
+        #expect(session.accumulating == nil)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls.suffix(2) == [true, false])
+        #expect(await fullFrames.calls.count == 8)
+    }
+
+    @Test func closingThePaneSwitchesFullFramesOff() async {
+        let fullFrames = FakeFullFrames()
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        let app = AppState(autoConnectOnStartup: false, alignment: session)
+        app.showAlignmentPane = true
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        session.startAccumulating(run: "run-42")
+        app.showAlignmentPane = false
+        #expect(session.accumulating == nil)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false])
+    }
+
+    @Test func aVRLOGReplayIsRefusedUpFront() async {
+        let fullFrames = FakeFullFrames()
+        let (session, service) = await placedSession(fullFrames: fullFrames)
+        // Even a frame that looks full: a VRLOG holds foreground points only.
+        session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+        #expect(session.streamRefusal?.contains("replay the capture's pcap") == true)
+        #expect(!session.canAccumulate)
+        session.startAccumulating(run: "run-42")
+        #expect(session.accumulating == nil)
+        // An empty frame says the same.
+        var empty = frame(cloud(classes: []), index: 2, source: .vrlog)
+        empty.pointCloud = nil
+        session.noteFrame(empty)
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+        #expect(await fullFrames.calls.isEmpty)
+        #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func aServerThatRefusesFullFramesStopsTheAccumulation() async {
+        let reason = "full frames are only for a running PCAP replay"
+        let fullFrames = FakeFullFrames(failing: .refused(reason))
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        await session.pendingFullFrames?.value
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal?.contains("would not stream full frames") == true)
+        #expect(session.accumulationRefusal?.contains(reason) == true)
+        // Nothing was switched on, so nothing is switched off.
+        #expect(await fullFrames.calls == [true])
+        // Split frames after the refusal are no reason to refuse the button.
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 2))
+        #expect(session.canAccumulate)
+    }
+
+    @Test func anOlderServerWithoutTheSwitchIsSaidSo() async {
+        let fullFrames = FakeFullFrames(failing: .unsupported)
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        await session.pendingFullFrames?.value
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal?.contains("cannot stream full frames") == true)
+        #expect(await fullFrames.calls == [true])
+    }
+
+    @Test func aFailedRequestIsFollowedByASwitchOff() async {
+        let fullFrames = FakeFullFrames(failing: .failed("timed out"))
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        // The answer is lost, not a refusal: the server may have switched.
+        await session.pendingFullFrames?.value
+        await session.pendingFullFrames?.value
+        #expect(session.accumulationRefusal?.contains("timed out") == true)
+        #expect(await fullFrames.calls == [true, false])
+    }
+
+    @Test func withoutVelocityReportAPCAPReplayIsRefused() async {
+        let (session, _) = await placedSession(fullFrames: nil)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal == AlignmentSession.noFullFramesRefusal)
+    }
+}
+
+/// The HTTP half of the switch, against a stub server.
+struct ReplayFullFramesClientTests {
+    private func client(
+        answer: @escaping (URLRequest) throws -> (Int, String)
+    ) -> ReplayFullFramesClient {
+        let (session, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            let (status, body) = try answer(request)
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: status, httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"])!
+            return (response, Data(body.utf8))
+        }
+        return ReplayFullFramesClient(baseURL: baseURL, session: session)
+    }
+
+    @Test func itPostsTheSwitchAndChecksTheAnswer() async throws {
+        let seen = LockedBox<(String?, String, Bool?)>()
+        let c = client { request in
+            let body = try requestJSONBody(request)
+            seen.set((request.httpMethod, request.url!.path, body["enabled"] as? Bool))
+            return (200, #"{"success":true,"full_frames":true,"current_source":"pcap"}"#)
+        }
+        try await c.setFullFrames(true)
+        let (method, path, enabled) = try #require(seen.get())
+        #expect(method == "POST")
+        #expect(path == "/api/lidar/replay/full_frames")
+        #expect(enabled == true)
+    }
+
+    @Test func refusalsCarryTheServersReason() async {
+        for status in [409, 501] {
+            let c = client { _ in
+                (status, #"{"error":"full frames are only for a running PCAP replay"}"#)
+            }
+            await #expect(
+                throws: ReplayFullFramesError.refused(
+                    "full frames are only for a running PCAP replay")
+            ) { try await c.setFullFrames(true) }
+        }
+    }
+
+    @Test func aServerWithoutTheEndpointIsUnsupported() async {
+        for (status, body) in [
+            (404, "404 page not found"), (405, ""), (200, "<!doctype html><html></html>"),
+        ] {
+            let c = client { _ in (status, body) }
+            await #expect(throws: ReplayFullFramesError.unsupported) {
+                try await c.setFullFrames(true)
+            }
+        }
+    }
+
+    @Test func anAnswerThatDisagreesFails() async {
+        let c = client { _ in (200, #"{"success":true,"full_frames":false}"#) }
+        await #expect(throws: ReplayFullFramesError.self) { try await c.setFullFrames(true) }
+        let d = client { _ in (500, #"{"error":"boom"}"#) }
+        await #expect(throws: ReplayFullFramesError.failed("HTTP 500: boom")) {
+            try await d.setFullFrames(false)
+        }
+    }
+}
+
+/// A value a stub server's handler can hand back to the test.
+final class LockedBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: T?
+    func set(_ v: T) { lock.withLock { value = v } }
+    func get() -> T? { lock.withLock { value } }
 }
