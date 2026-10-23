@@ -1,6 +1,6 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 05559d93697cedc1044ddde3a12fec8c9d892c1c on main (PR 8, merged).
+// Commit: 93b56d3 on branch claude/tender-bell-cv8yih (site model spike; PR not merged yet).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -73,6 +73,12 @@ service SiteService {
   // Every prepared site.
   rpc ListSites(ListSitesRequest) returns (ListSitesResponse);
 
+  // The site model: the scans whose newest record accepts a pose, placed
+  // in the site frame, and the model_id that names that set. The model
+  // changes whenever a record is added or superseded
+  // (docs/plans/SITE-MODEL-SPIKE.md §6.1).
+  rpc GetSiteModel(GetSiteModelRequest) returns (GetSiteModelResponse);
+
   // Reference geometry for a prepared site, in the site frame, in chunks of
   // at most a few megabytes. Layers arrive in the order requested; each
   // layer's last chunk has layer_complete set.
@@ -129,6 +135,13 @@ service RegistrationService {
   // Records for a site, newest first, for velocity.report to reconcile
   // against what it stored.
   rpc ListRegistrationRecords(ListRegistrationRecordsRequest) returns (ListRegistrationRecordsResponse);
+
+  // Re-solves the poses of a site's accepted scans together: a pose graph
+  // of each scan's fit to 3DEP and of the fits between overlapping scans
+  // (docs/plans/SITE-MODEL-SPIKE.md §6.4). Writes one Registration per
+  // scan whose single hypothesis, "j1", is the refined pose; an operator
+  // accepts it with ReviewRegistration. Streams progress, then the result.
+  rpc RefineSite(RefineSiteRequest) returns (stream RefineSiteResponse);
 }
 
 // =============================================================================
@@ -206,6 +219,7 @@ enum PoseSource {
   POSE_SOURCE_MANUAL = 2;           // placed or nudged by an operator
   POSE_SOURCE_TIE_POINTS = 3;       // solved from operator-picked correspondences
   POSE_SOURCE_ICP = 4;              // registration output
+  POSE_SOURCE_JOINT = 5;            // refined together with the site's other accepted scans
 }
 
 // SensorPose places a sensor frame in a site frame.
@@ -254,6 +268,17 @@ enum ReferenceLayer {
   REFERENCE_LAYER_OSM = 2;             // OpenStreetMap ways, draped on the 3DEP ground
   REFERENCE_LAYER_FOOTPRINTS = 3;      // DataSF building footprints, draped
   REFERENCE_LAYER_INTERSECTIONS = 4;   // candidate intersections with approach bearings
+  // Accepted scans in the site frame, as ScanPoints. Served only by a server
+  // started with --serve-scans, and only to loopback and tailnet peers: a
+  // settled background is not published before the stationary-person check
+  // (ADR-0011).
+  REFERENCE_LAYER_REGISTERED_SCANS = 5;
+  // Lines derived from the site model: sensors and corrections restated
+  // from records, and the current proposed features (ADR-0012).
+  REFERENCE_LAYER_OBSERVED = 6;
+  // The current ground-surface feature, as a Heightfield: the 3DEP ground
+  // grid, refined where registered scans see the ground.
+  REFERENCE_LAYER_GROUND_MESH = 7;
 }
 
 // SourceInfo names one input and the terms it came under. A client that
@@ -294,6 +319,10 @@ enum FeatureKind {
   FEATURE_KIND_KERB = 3;            // OSM barrier=kerb or kerb lines
   FEATURE_KIND_RAIL = 4;            // OSM railway=tram|rail|light_rail
   FEATURE_KIND_BUILDING = 5;        // footprint outline, closed
+  FEATURE_KIND_SENSOR = 6;          // a registered sensor: a stalk from the ground to its origin, then an arrow along +Y
+  FEATURE_KIND_CORRECTION = 7;      // from a registration's initial position to the accepted one
+  FEATURE_KIND_FACADE = 8;          // a wall trace seen at street level by registered scans; height_m is its observed top
+  FEATURE_KIND_POLE = 9;            // a vertical segment, base to top
   FEATURE_KIND_OTHER = 15;
 }
 
@@ -309,6 +338,25 @@ message LineFeature {
 
 message LineFeatureSet {
   repeated LineFeature features = 1;
+}
+
+// One block of a registered scan, in the site frame.
+message ScanPoints {
+  string scan_id = 1;
+  string record_id = 2;             // the accepted record whose pose placed these points
+  ScanKind kind = 3;
+  string capture_ref = 4;
+  PointBlock points = 5;            // site frame; x, y and z only
+}
+
+// A height grid, row-major from the south-west corner.
+message Heightfield {
+  string feature_id = 1;            // the ground-surface feature it draws
+  Vector3 origin = 2;               // site frame: the centre of the south-west cell; z unused
+  float cell_m = 3;
+  uint32 nx = 4;
+  uint32 ny = 5;
+  repeated float z = 6 [packed = true];  // site-frame height; NaN where there is no ground
 }
 
 message Approach {
@@ -335,6 +383,8 @@ message IntersectionSet {
 enum ScanKind {
   SCAN_KIND_UNSPECIFIED = 0;
   SCAN_KIND_BACKGROUND = 1;         // a settled background snapshot
+  SCAN_KIND_ACCUMULATED = 2;        // background- and ground-classed points of N replayed frames, sensor frame
+  SCAN_KIND_MAP = 3;                // a merged map (SLAM) in its own map frame; no 60 m range cut
 }
 
 message ScanHeader {
@@ -409,6 +459,12 @@ message FitQuality {
   // error of a radians adds up to a metres per metre; facade geometry does
   // not grow with range. NaN with fewer than 100 facade residuals.
   float facade_range_slope = 12;
+  // Residuals of held-out points against the site's other accepted scans
+  // alone, when registered against the site model. Reported, not gated;
+  // all three are 0 when not measured.
+  float model_p50_m = 13;
+  float model_p75_m = 14;
+  uint32 model_points = 15;
 }
 
 // One acceptance gate and how the pose did against it.
@@ -544,8 +600,11 @@ message StreamReferenceResponse {
     PointBlock points = 2;
     LineFeatureSet lines = 3;
     IntersectionSet intersections = 4;
+    ScanPoints scan_points = 6;
+    Heightfield ground_mesh = 7;
   }
   bool layer_complete = 5;          // last chunk of this layer
+  string model_id = 8;              // for the site model's layers: the model they were built from
 }
 
 message UploadScanRequest {
@@ -578,6 +637,9 @@ message RegisterRequest {
   SensorPose initial_pose = 2;
   PoseHint hint = 3;
   RegistrationOptions options = 4;  // unset fields take the server defaults
+  // Also fit against the site's other accepted scans. The ground and
+  // facade gates are still measured against 3DEP alone.
+  bool against_site_model = 5;
 }
 
 message RegisterResponse {
@@ -652,4 +714,70 @@ message ListRegistrationRecordsRequest {
 
 message ListRegistrationRecordsResponse {
   repeated RegistrationRecord records = 1;
+}
+
+message GetSiteModelRequest {
+  string l16_token = 1;
+}
+
+message ModelScan {
+  string scan_id = 1;
+  string record_id = 2;
+  ScanKind kind = 3;
+  string capture_ref = 4;
+  RegistrationState state = 5;      // REGISTERED or MANUALLY_PLACED
+  SensorPose pose = 6;
+  uint64 point_count = 7;           // after thinning to the model's voxel
+}
+
+message GetSiteModelResponse {
+  string model_id = 1;              // "sha256:<hex>" over bundle_id and the accepted record ids
+  string bundle_id = 2;
+  repeated ModelScan scans = 3;
+}
+
+message RefineSiteRequest {
+  string l16_token = 1;
+  repeated string scan_ids = 2;     // empty: every accepted scan at the site
+  RegistrationOptions options = 3;  // max_correspondence_m is used
+}
+
+message RefinedScan {
+  string scan_id = 1;
+  string registration_id = 2;       // the run written for this scan; accept hypothesis "j1"
+  SensorPose before = 3;
+  SensorPose after = 4;
+  double delta_m = 5;
+  double delta_deg = 6;
+  FitQuality before_quality = 7;    // against 3DEP alone
+  FitQuality after_quality = 8;
+  uint32 joint_constraint_rank = 9; // from the scan's marginal information in the graph
+  repeated string joint_weak_directions = 10;
+}
+
+message ScanPair {
+  string scan_a = 1;                // the scan fitted against
+  string scan_b = 2;                // the scan fitted
+  uint32 matched = 3;
+  float p75_before_m = 4;
+  float p75_after_m = 5;
+  bool used = 6;
+  string reason = 7;                // why a pair was left out of the graph
+}
+
+message RefineSiteResult {
+  string model_id = 1;              // the model refined, before any acceptance
+  repeated RefinedScan scans = 2;
+  repeated ScanPair pairs = 3;
+  uint32 iterations = 4;
+  double cost_before = 5;
+  double cost_after = 6;
+  double n_eff = 7;                 // independent residuals assumed per fit when weighting factors
+}
+
+message RefineSiteResponse {
+  oneof event {
+    Progress progress = 1;
+    RefineSiteResult result = 2;    // last message
+  }
 }
