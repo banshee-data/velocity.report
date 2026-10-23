@@ -83,6 +83,17 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   the scene publisher. Uploading the dataset stays a manual step.
 - Creating a clip from a static period on the Captures page records the period, and can set the
   dataset id and north azimuth and queue the extract in the same action.
+- The macOS alignment pane draws the Gerardus site model: registered scans coloured per scan,
+  observed features (sensors, corrections, facade traces), a ground-mesh wireframe, DataSF
+  footprints and boxes, and wall planes with their popouts and recesses. Each has a toggle.
+  Registration can fit against the site model and against the DataSF boxes, and reports the
+  residuals against them. Refine site re-solves a site's accepted poses together, in a column
+  of its own, and its result can be accepted whole.
+- _Accumulate frames_ collects background and ground from a replay and registers them as one
+  cloud. A pcap replay can stream full frames (`full_frames` on `POST /api/lidar/pcap/start`,
+  or `POST /api/lidar/replay/full_frames` while it runs), and a replay started with full
+  frames records them in its VRLOG. Each run says which frames it holds (`frame_mode`,
+  migration 067), shown as FG or Full on the Runs page and in the macOS runs sheet.
 
 ### Changed
 
@@ -113,6 +124,14 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 - A replay starts from nothing, whatever the server replayed before it: the background grid's
   settling state is reset, a PCAP replay neither restores nor persists a region snapshot (except
   its own settling pass), and a replay's frames end only on their azimuth wrap (l3bg0021).
+
+### Fixed
+
+- The macOS runs sheet shows each run's source file and clip in their own columns again.
+- A replayed background is uploaded to Gerardus under its run's name, not the site picker's
+  clip, which had filed one position's scan under another's capture.
+- Accept in the alignment pane is no longer blocked after accepting a refinement, and both
+  Accept buttons say why they are off.
 
 ## [0.5.1] - 2026-05-11 🌞 `Sunny Southeast`
 
