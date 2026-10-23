@@ -171,6 +171,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Capture        | `capture_api.go`        | `GET /api/lidar/capture/periods`                | ✅  | ✅  | -   |
 | Capture        | `capture_period_api.go` | `GET /api/lidar/capture/periods/background`     | -   | ✅  | -   |
 | Capture        | `capture_period_api.go` | `POST /api/lidar/capture/periods/clip`          | ✅  | ✅  | -   |
+| Clip extracts  | `capture_period_api.go` | `GET /api/lidar/clips/{id}/background`          | -   | ✅  | -   |
 | Capture        | `capture_api.go`        | `GET /api/lidar/capture/jobs`                   | ✅  | ✅  | -   |
 | Capture        | `capture_api.go`        | `POST /api/lidar/capture/jobs/cancel`           | ✅  | ✅  | -   |
 | Clip locations | `clip_location_api.go`  | `GET /api/lidar/clip-locations`                 | ✅  | ✅  | -   |
@@ -1187,7 +1188,7 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 109   | 68  | 91  | 11  |
+| HTTP endpoints (LiDAR)  | 110   | 68  | 92  | 11  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
 | DB tables               | 45    | -   | 35  | 6   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
