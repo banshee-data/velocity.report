@@ -298,7 +298,9 @@ replaced the old `:8081` status page in v0.5.2. It includes:
   VRLOG" and optional "Settle the grid, reload, and record from the start"
   checkboxes, plus speed mode and ratio, start and duration, and debug options.
   Selecting settling also selects analysis mode because the warm first pass is
-  specifically a VRLOG capture workflow.
+  specifically a VRLOG capture workflow. "Full frames (background and ground in
+  every frame; larger VRLOG)" sends `full_frames`, so the replay streams and
+  records full frames.
 - **Tuning Config dropdown** on the start form, filled on page load from
   `GET /api/lidar/configs`. Each option shows the file, its solid-body summary
   and fingerprint. A file that cannot be applied is disabled, with the reason.
@@ -306,8 +308,10 @@ replaced the old `:8081` status page in v0.5.2. It includes:
 - **Resume live, keep grid** button
 - **Stop replay** button (resets grid)
 - **Pipeline, Packets, and Replay and recording** panels show the source, the
-  packet rates, the replay pass, whether a VRLOG is being recorded, and the
-  tuning config and fingerprint in use
+  packet rates, the replay pass, whether a VRLOG is being recorded, whether full
+  frames are on, and the tuning config and fingerprint in use
+- The **Runs** page's Frames column says what each run's VRLOG holds: `FG`
+  (foreground points only) or `Full`, from the run's `frame_mode`
 - **Tuning parameters** editor for the running parameters, and **Maintenance**
   actions (reset grid, reset acceptance, save snapshot, clean up snapshots,
   clear tracks)

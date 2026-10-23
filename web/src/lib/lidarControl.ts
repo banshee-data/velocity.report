@@ -109,6 +109,8 @@ export interface PlaybackStatus {
 	recording_path?: string;
 	recording_run_id?: string;
 	recording_frames: number;
+	/** True while a PCAP replay streams full frames; absent from older servers. */
+	full_frames?: boolean;
 }
 
 export function getPlaybackStatus(): Promise<PlaybackStatus> {
@@ -170,6 +172,8 @@ export interface ReplayStartRequest {
 	enable_debug?: boolean;
 	enable_plots?: boolean;
 	benchmark_mode?: boolean;
+	/** Background and foreground in every frame, streamed and recorded. */
+	full_frames?: boolean;
 	tuning_config?: string;
 }
 
@@ -180,6 +184,7 @@ export interface ReplayStartResponse {
 	pcap_file: string;
 	analysis_mode: boolean;
 	settle_before_recording: boolean;
+	full_frames?: boolean;
 	tuning_config?: string;
 	tuning_fingerprint?: string;
 }
@@ -207,6 +212,7 @@ export function defaultReplayRequest(): ReplayStartRequest {
 		enable_debug: false,
 		enable_plots: false,
 		benchmark_mode: false,
+		full_frames: false,
 		tuning_config: ''
 	};
 }

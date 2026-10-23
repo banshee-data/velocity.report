@@ -352,6 +352,8 @@
 								<dt class="text-surface-content/60">Run</dt>
 								<dd class="font-mono text-xs">{playback.recording_run_id}</dd>
 							{/if}
+							<dt class="text-surface-content/60">Full frames</dt>
+							<dd>{playback.full_frames ? 'on' : 'off'}</dd>
 						</dl>
 					{:else}
 						<p class="text-surface-content/50 text-sm">Loading…</p>
@@ -431,6 +433,10 @@
 							onchange={onSettleChange}
 						/>
 						Settle the grid, reload, and record from the start
+					</label>
+					<label class="flex items-center gap-2">
+						<input type="checkbox" bind:checked={form.full_frames} />
+						Full frames (background and ground in every frame; larger VRLOG)
 					</label>
 				</div>
 

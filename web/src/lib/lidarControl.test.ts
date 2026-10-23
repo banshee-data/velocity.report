@@ -177,6 +177,15 @@ describe('replay', () => {
 		expect(body.tuning_config).toBe('a.json');
 	});
 
+	it('sends full frames only when asked, and off by default', async () => {
+		expect(defaultReplayRequest().full_frames).toBe(false);
+		fetchMock.mockResolvedValue(respond(200, { status: 'started', full_frames: true }));
+		await startReplay('s', { ...baseReplay, full_frames: true });
+		expect(JSON.parse(lastCall()[1].body as string).full_frames).toBe(true);
+		await startReplay('s', { ...baseReplay, full_frames: false });
+		expect(JSON.parse(lastCall()[1].body as string).full_frames).toBe(false);
+	});
+
 	it('fills the form from a clip', () => {
 		const base = { clip_id: 'c', sensor_id: 's', created_at_ns: 0, file_count: 1 };
 		// A listing carries no captures, only the trim.
