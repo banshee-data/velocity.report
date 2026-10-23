@@ -165,7 +165,7 @@ import SwiftUI
             }
             legend
             Text(
-                "Click a scan to draw it bold in the scene; click it again or press Escape to clear. The box keeps it in the next Refine."
+                "Click a scan to frame it in the scene and draw it bold; click it again or press Escape to clear. The box keeps it in the next Refine."
             ).font(.caption2).foregroundStyle(.secondary).fixedSize(
                 horizontal: false, vertical: true)
         }
@@ -226,7 +226,7 @@ import SwiftUI
                 }.font(.caption.monospacedDigit()).contentShape(Rectangle()).onTapGesture {
                     session.selectRefinedScan(row.scanID)
                 }.help(
-                    "\(row.captureRef.isEmpty ? "" : row.captureRef + " · ")\(row.scanID)\n\(row.state.title)\(row.leftOutReason.map { ": " + $0 } ?? ""). Click to select it."
+                    "\(row.captureRef.isEmpty ? "" : row.captureRef + " · ")\(row.scanID)\n\(row.state.title)\(row.leftOutReason.map { ": " + $0 } ?? ""). Click to frame it in the scene."
                 )
                 Button(action: { toggleExpanded(row.scanID) }) {
                     Image(systemName: open ? "chevron.down" : "chevron.right").font(.caption2)

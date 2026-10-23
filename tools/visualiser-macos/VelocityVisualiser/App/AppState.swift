@@ -148,6 +148,9 @@ private let logger = DevLogger(category: "AppState")
     @Published var showAssociation: Bool = false  // M6: Association lines
     @Published var showResiduals: Bool = false  // M6: Residual vectors
     @Published var showGrid: Bool = true  // Ground reference grid
+    /// The site model's faces (W toggle): the DataSF box walls and the wall
+    /// planes. Off hides both, whatever the alignment pane's own toggles say.
+    @Published var showFaces: Bool = true { didSet { alignment.showFaces = showFaces } }
     @Published var showTrackLabels: Bool = true  // Track ID/class labels above 3D boxes
     @Published var pointSize: Float = 5.0  // Point size for rendering (1-20)
 

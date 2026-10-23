@@ -43,6 +43,9 @@ protocol ReferenceOverlaySink: AnyObject {
     func setReferenceModelMatrix(_ matrix: simd_float4x4)
     func setReferenceVisibility(_ visibility: ReferenceVisibility)
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>])
+    /// Moves the camera to frame a point of the site frame, keeping the
+    /// direction it looks in.
+    func focusCamera(onSitePoint point: SIMD3<Double>)
 }
 
 /// What the pane shows about the settled background it would upload.
@@ -227,6 +230,9 @@ struct ReferenceSummary: Equatable {
     @Published var showObserved = true { didSet { pushVisibility() } }
     @Published var showWallPlanes = true { didSet { pushVisibility() } }
     @Published var showGroundMesh = true { didSet { pushVisibility() } }
+    /// The toolbar's faces switch: off hides the DataSF box walls and the
+    /// wall planes whatever their own toggles say; on leaves those to them.
+    @Published var showFaces = true { didSet { pushVisibility() } }
     /// The open capture's scan is drawn live; its registered copy is drawn
     /// too only when the operator asks, as a check of the accepted pose.
     @Published var showOwnScan = false {
@@ -317,7 +323,8 @@ struct ReferenceSummary: Equatable {
     /// scan_ids). Accepting part of a refinement stays impossible: a scan is
     /// left out by refining without it.
     @Published private(set) var refineExcluded: Set<String> = []
-    /// The scan picked in the refinement summary: the scene draws it bold while the refinement is shown. Kept while the
+    /// The scan picked in the refinement summary: the camera framed it, and
+    /// the scene draws it bold while the refinement is shown. Kept while the
     /// column is closed and reopened; cleared by a new refinement.
     @Published private(set) var selectedRefinedScanID: String?
     /// Each site-model scan's capture_ref, by scan_id, from GetSiteModel and
@@ -404,6 +411,9 @@ struct ReferenceSummary: Equatable {
     private var siteModelID = ""
     /// The scan whose registered copy the overlay was last built without.
     private var styledOwnScanID: String?
+    /// Each site-model scan's sensor position in the site frame, from
+    /// GetSiteModel, for framing a scan the refinement did not move.
+    private var siteModelPositions: [String: SIMD3<Double>] = [:]
     /// Bumped by each rebuild, so a slow one cannot replace a newer one.
     private var styleGeneration = 0
     private var styling: Task<Void, Never>?
@@ -811,9 +821,10 @@ struct ReferenceSummary: Equatable {
 
     var visibility: ReferenceVisibility {
         ReferenceVisibility(
-            aerial: showAerial, osm: showOSM, footprints: showFootprints, boxes: showBoxes,
-            intersections: showIntersections, registeredScans: showRegisteredScans,
-            observed: showObserved, wallPlanes: showWallPlanes, groundMesh: showGroundMesh)
+            aerial: showAerial, osm: showOSM, footprints: showFootprints,
+            boxes: showBoxes && showFaces, intersections: showIntersections,
+            registeredScans: showRegisteredScans, observed: showObserved,
+            wallPlanes: showWallPlanes && showFaces, groundMesh: showGroundMesh)
     }
 
     private func pushVisibility() { sink?.setReferenceVisibility(visibility) }
@@ -946,13 +957,17 @@ struct ReferenceSummary: Equatable {
         noteSiteModel(answer: answer, streamed: streamed)
     }
 
-    /// Keeps each scan's capture_ref, for the refinement summary's labels.
+    /// Keeps each scan's capture_ref and sensor position, for the
+    /// refinement summary's labels and for framing a scan.
     private func noteSiteModel(
         answer: Gerardus_Align_V1alpha1_GetSiteModelResponse?, streamed: ReferenceGeometry?
     ) {
         var refs = Self.captureRefs(answer: answer, streamed: streamed)
         for (id, ref) in scanCaptureRefs where refs[id] == nil { refs[id] = ref }
         scanCaptureRefs = refs
+        for scan in answer?.scans ?? [] where scan.hasPose {
+            siteModelPositions[scan.scanID] = SitePose(scan.pose).translation
+        }
     }
 
     /// capture_ref by scan_id: GetSiteModel's where it names one, else the
@@ -1757,13 +1772,24 @@ struct ReferenceSummary: Equatable {
         return ReferenceEmphasis(tints: tints, selectedScanID: selectedRefinedScanID)
     }
 
-    /// Picks a scan in the summary: the scene draws it bold. Picking the selected scan again clears the selection.
+    /// Where a scan's sensor sits in the site frame: its refined pose when
+    /// the refinement moved it, else its accepted one.
+    func sensorPosition(of scanID: String) -> SIMD3<Double>? {
+        if let refined = refinement?.scans.first(where: { $0.scanID == scanID }), refined.hasAfter {
+            return SitePose(refined.after).translation
+        }
+        return siteModelPositions[scanID]
+    }
+
+    /// Picks a scan in the summary: frames it in the scene and draws it
+    /// bold. Picking the selected scan again clears the selection.
     func selectRefinedScan(_ scanID: String) {
         if selectedRefinedScanID == scanID {
             clearRefinedScanSelection()
             return
         }
         selectedRefinedScanID = scanID
+        if let position = sensorPosition(of: scanID) { sink?.focusCamera(onSitePoint: position) }
         scheduleRestyle()
     }
 
@@ -1897,6 +1923,7 @@ struct ReferenceSummary: Equatable {
         refineExcluded = []
         selectedRefinedScanID = nil
         scanCaptureRefs = [:]
+        siteModelPositions = [:]
         refinementColumnOpen = false
         errorMessage = nil
         sink?.setReferenceOverlay(nil)

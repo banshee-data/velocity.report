@@ -1024,8 +1024,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var siteModelID: String?
     /// The scans GetSiteModel lists, when it answers.
     var siteModelScans: [String] = [ownScanID, "sha256:other"]
-    /// The capture_ref GetSiteModel gives a scan, where a test sets one.
+    /// The capture_ref and sensor position GetSiteModel gives a scan, where
+    /// a test sets them.
     var siteModelCaptureRefs: [String: String] = [:]
+    var siteModelPositions: [String: SIMD3<Double>] = [:]
     /// Serve the registered layers empty and complete, with no model_id, as
     /// Gerardus does before it builds them.
     var emptyRegisteredLayers = false
@@ -1145,6 +1147,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             scan.scanID = id
             scan.state = .registered
             if let ref = siteModelCaptureRefs[id] { scan.captureRef = ref }
+            if let at = siteModelPositions[id] {
+                scan.pose = levelPose(headingDeg: 0, at: at).proto(
+                    siteFrameID: "site", sensorFrameID: "sensor", source: .manual)
+            }
             return scan
         }
         return response
@@ -1314,6 +1320,9 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>]) {
         residuals.append(vertices)
     }
+    /// Every point the camera was asked to frame, in the site frame.
+    var focuses: [SIMD3<Double>] = []
+    func focusCamera(onSitePoint point: SIMD3<Double>) { focuses.append(point) }
 }
 
 @MainActor struct AlignmentProbingTests {

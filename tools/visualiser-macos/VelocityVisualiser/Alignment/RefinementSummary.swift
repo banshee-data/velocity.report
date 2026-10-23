@@ -186,4 +186,22 @@ enum RefinementSummary {
         return
             "Accepts \(poses) together. Each was solved against the others, so they are accepted as one; to leave a scan out, refine without it."
     }
+
+    /// Where the camera goes to frame a scan: centred on `sitePoint` (its
+    /// sensor position in the site frame, drawn through `model`), `distance`
+    /// back from it along the camera's current view direction.
+    static func focus(
+        sitePoint: SIMD3<Double>, model: simd_float4x4, cameraPosition: simd_float3,
+        cameraTarget: simd_float3, distance: Float = focusDistanceM
+    ) -> (position: simd_float3, target: simd_float3) {
+        let p = model * SIMD4<Float>(Float(sitePoint.x), Float(sitePoint.y), Float(sitePoint.z), 1)
+        let target = simd_float3(p.x, p.y, p.z)
+        var back = cameraPosition - cameraTarget
+        // A camera sitting on its target has no direction: look down and in.
+        if simd_length(back) < 1e-4 { back = simd_float3(0, -1, 1) }
+        return (target + simd_normalize(back) * distance, target)
+    }
+
+    /// Far enough back to see the sensor's arrow and the scan's points near it.
+    static let focusDistanceM: Float = 25
 }

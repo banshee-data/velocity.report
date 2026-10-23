@@ -1317,6 +1317,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         camera.position = camera.target + offset
     }
 
+    /// Frames a point of the reference's site frame: the camera looks at it,
+    /// through the reference's model matrix, from `RefinementSummary`'s
+    /// focus distance along the direction it looks in now.
+    func focusCamera(onSitePoint point: SIMD3<Double>) {
+        let placed = RefinementSummary.focus(
+            sitePoint: point, model: referenceModelMatrix, cameraPosition: camera.position,
+            cameraTarget: camera.target)
+        camera.position = placed.position
+        camera.target = placed.target
+        view?.needsDisplay = true
+    }
+
     /// Reset camera to default view.
     func resetCamera() {
         camera.position = simd_float3(0, -30, 20)

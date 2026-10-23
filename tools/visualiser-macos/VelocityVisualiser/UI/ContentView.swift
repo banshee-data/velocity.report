@@ -121,9 +121,9 @@ struct ContentView: View {
             }.onKeyPress("t") { handleKeyPress(.toggleTrails, appState: appState) }.onKeyPress("v")
         { handleKeyPress(.toggleVelocity, appState: appState) }.onKeyPress("l") {
             handleKeyPress(.toggleLabels, appState: appState)
-        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }.onKeyPress(.escape) {
-            handleKeyPress(.escape, appState: appState)
-        }  // Run browser sheet
+        }.onKeyPress("g") { handleKeyPress(.toggleGrid, appState: appState) }.onKeyPress("w") {
+            handleKeyPress(.toggleFaces, appState: appState)
+        }.onKeyPress(.escape) { handleKeyPress(.escape, appState: appState) }  // Run browser sheet
             // NOTE: RunBrowserView(state:) is intentionally used in the production UI,
             // even though its initialiser was originally documented as "test-only".
             // Do not remove or significantly change that initialiser without updating all call sites.
@@ -143,7 +143,7 @@ enum KeyAction {
     case label1, label2, label3, label4, label5, label6, label7, label8, label9
     case selectPrevTrack, selectNextTrack
     case togglePoints, toggleBackground, toggleBoxes, toggleClusters
-    case toggleTrails, toggleVelocity, toggleLabels, toggleGrid
+    case toggleTrails, toggleVelocity, toggleLabels, toggleGrid, toggleFaces
     /// Clears the scan picked in the refinement summary, if any.
     case escape
 }
@@ -229,6 +229,10 @@ enum KeyAction {
     case .toggleGrid:
         uiLogger.debug("Key: G → toggleGrid (now \(!appState.showGrid))")
         appState.showGrid.toggle()
+        return .handled
+    case .toggleFaces:
+        uiLogger.debug("Key: W → toggleFaces (now \(!appState.showFaces))")
+        appState.showFaces.toggle()
         return .handled
     case .escape:
         guard appState.alignment.clearRefinedScanSelection() else { return .ignored }
@@ -826,6 +830,8 @@ struct OverlayTogglesView: View {
             ToggleButton(label: "V", isOn: $appState.showVelocity, help: "Velocity")
             ToggleButton(label: "L", isOn: $appState.showTrackLabels, help: "Track Labels")
             ToggleButton(label: "G", isOn: $appState.showGrid, help: "Ground Grid")
+            ToggleButton(
+                label: "W", isOn: $appState.showFaces, help: "Faces: DataSF boxes and wall planes")
 
             Divider().frame(height: 20)
 
