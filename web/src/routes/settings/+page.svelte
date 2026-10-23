@@ -26,6 +26,11 @@
 		type TransitWorkerState
 	} from '#lib/api.js';
 	import { AVAILABLE_PAPER_SIZES, getPaperLabel, type PaperSize } from '#lib/paper.js';
+	import {
+		GERARDUS_DEFAULT_ADDRESS,
+		gerardusAddress,
+		rememberGerardusAddress
+	} from '#lib/streets/gerardus.js';
 	import { initializePaperSize, paperSize, updatePaperSize } from '#lib/stores/paper.js';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '#lib/stores/timezone.js';
 	import { displayUnits, initializeUnits, updateUnits } from '#lib/stores/units.js';
@@ -53,6 +58,13 @@
 	let selectedPaperSize: PaperSize = 'a4';
 	let loading = true;
 	let message = '';
+
+	// ─── Gerardus (the street editor's service), saved to this browser ──
+	let gerardusInput = gerardusAddress();
+
+	function saveGerardusAddress() {
+		gerardusInput = rememberGerardusAddress(gerardusInput);
+	}
 
 	// ─── Transit worker ─────────────────────────────────────────────────
 	let transitWorkerEnabled = true;
@@ -688,7 +700,7 @@
 			<div>
 				<h1 class="text-surface-content text-2xl font-semibold">Settings</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
-					Display preferences, sensor serial ports, transit worker, and Tailscale
+					Display preferences, sensor serial ports, Gerardus, transit worker, and Tailscale
 				</p>
 			</div>
 		</div>
@@ -857,6 +869,31 @@
 								Saved to this browser. Server defaults: {getUnitLabel(config.units as Unit)},
 								{getTimezoneLabel(config.timezone as Timezone)}. Current paper:
 								{getPaperLabel($paperSize)}.
+							</p>
+						</div>
+					</section>
+
+					<section class="space-y-4">
+						<h2
+							class="text-surface-content border-surface-content/10 border-b pb-2 text-lg font-semibold"
+						>
+							Gerardus
+						</h2>
+						<div class="space-y-2">
+							<label class="text-surface-content/70 block text-sm" for="gerardus-address"
+								>Gerardus address</label
+							>
+							<input
+								id="gerardus-address"
+								class="border-surface-content/20 bg-surface-50 w-full rounded border px-3 py-2 font-mono text-sm"
+								placeholder={GERARDUS_DEFAULT_ADDRESS}
+								bind:value={gerardusInput}
+								on:change={saveGerardusAddress}
+							/>
+							<p class="text-surface-content/70 text-xs">
+								The street editor (LiDAR → Streets) reads a site's layers from Gerardus and saves
+								street use to it, from this browser. Saved to this browser; empty means
+								{GERARDUS_DEFAULT_ADDRESS}.
 							</p>
 						</div>
 					</section>
