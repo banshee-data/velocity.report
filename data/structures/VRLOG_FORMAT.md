@@ -199,7 +199,7 @@ into each chunk frame:
 
 | Value | Constant              | Description                                          |
 | ----- | --------------------- | ---------------------------------------------------- |
-| 0     | `FrameTypeFull`       | Legacy: all points included                          |
+| 0     | `FrameTypeFull`       | All points, classified (full-frames recordings)      |
 | 1     | `FrameTypeForeground` | Split streaming: foreground + clusters + tracks only |
 | 2     | `FrameTypeBackground` | Background grid snapshot                             |
 | 3     | `FrameTypeDelta`      | Reserved for future incremental updates              |
@@ -209,6 +209,17 @@ into each chunk frame:
 `SensorID`, `CoordinateFrame`). All perception fields (`PointCloud`,
 `Clusters`, `Tracks`) are nil. These frames exist for deterministic 1:1
 PCAP-to-VRLOG mapping and must be preserved during replay/seek.
+
+A recording holds one kind of rotation frame throughout, named by its run's
+`lidar_runs.frame_mode`. `foreground` (every recording before migration 67, and
+any replay started without `full_frames`) holds `FrameTypeForeground` and
+`FrameTypeEmpty` frames. `full` (a PCAP replay started with `full_frames: true`)
+holds `FrameTypeFull` frames: every point of the rotation, class 0 background and
+class 1 foreground, undecimated, including rotations with nothing in the
+foreground. Both carry the periodic background snapshots. Turning full frames on
+at runtime (`POST /api/lidar/replay/full_frames`) changes only what clients are
+sent, never the recording. A replay sends each frame as recorded, so a `full`
+recording replays with its background.
 
 Full model definition: [`internal/lidar/l9endpoints/model.go`](../../internal/lidar/l9endpoints/model.go)
 
@@ -242,8 +253,9 @@ FrameBuilder), not by a fixed time interval. Consequently:
 
 3. **Empty frame recording**: when the perception pipeline determines a
    sensor rotation has no foreground objects (no moving targets), it still
-   records a `FrameTypeEmpty` placeholder. The frame preserves the rotation's
-   timestamp and monotonic ID.
+   records a `FrameTypeEmpty` placeholder (a full `FrameTypeFull` frame in a
+   `full` recording). The frame preserves the rotation's timestamp and
+   monotonic ID.
 
 4. **Throttle-safe recording**: when the pipeline's frame-rate throttle skips
    expensive clustering/tracking, the throttled frame is still recorded as a

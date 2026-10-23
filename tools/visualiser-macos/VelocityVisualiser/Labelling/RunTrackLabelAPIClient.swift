@@ -341,8 +341,18 @@ struct Run: Codable, Identifiable {
     let sourceName: String?
     var clipId: String? = nil
     var labelRollup: RunLabelRollup? = nil
+    /// What the run's VRLOG frames hold: "full" (background and foreground in
+    /// every frame) or "foreground". Servers before frame_mode omit it, and
+    /// every VRLOG they recorded was foreground-only.
+    var frameMode: String? = nil
 
     var id: String { runId }
+
+    /// Whether the VRLOG's frames carry background as well as foreground.
+    var holdsFullFrames: Bool { frameMode == "full" }
+
+    /// The Frames column: "Full", or "FG" for foreground points only.
+    var frameModeDisplay: String { holdsFullFrames ? "Full" : "FG" }
 
     /// Whether this run has a VRLOG available for replay.
     var hasVRLog: Bool { vrlogPath != nil && !vrlogPath!.isEmpty }
@@ -361,6 +371,20 @@ struct Run: Codable, Identifiable {
         let h12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour)
         let ampm = hour < 12 ? "AM" : "PM"
         return String(format: "%2d %@ %2d:%02d %@", day, monthNames[month - 1], h12, minute, ampm)
+    }
+
+    /// The capture or recording the run read: the server's source_name, else
+    /// the last component of source_path, else "-".
+    var fileDisplay: String {
+        if let name = sourceName, !name.isEmpty { return name }
+        if let path = sourcePath, !path.isEmpty { return (path as NSString).lastPathComponent }
+        return "-"
+    }
+
+    /// The clip the run was started from, or "-" for runs started from a capture.
+    var clipDisplay: String {
+        if let clip = clipId, !clip.isEmpty { return clip }
+        return "-"
     }
 
     /// Short run ID prefix for compact display — first 8 chars (up to first dash).

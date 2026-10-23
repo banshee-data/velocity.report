@@ -1,6 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 05559d93697cedc1044ddde3a12fec8c9d892c1c on main (PR 8, merged).
+// Commit: 4e90c8c86ba166152d0c76841c7fde6eb93471d5 on claude/vector-spike-merge-check-04d85d
+// (site model spike, q5 and q7; not merged yet: update this line to the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -77,6 +78,11 @@ service SiteService {
   // at most a few megabytes. Layers arrive in the order requested; each
   // layer's last chunk has layer_complete set.
   rpc StreamReference(StreamReferenceRequest) returns (stream StreamReferenceResponse);
+
+  // The site model: the site's scans with an accepted pose, newest record per
+  // scan, and the model_id the registered layers are built from
+  // (docs/plans/SITE-MODEL-SPIKE.md §6.1). Not built yet: UNIMPLEMENTED.
+  rpc GetSiteModel(GetSiteModelRequest) returns (GetSiteModelResponse);
 }
 
 // RegistrationService registers a sensor scan against a site and records the
@@ -129,6 +135,16 @@ service RegistrationService {
   // Records for a site, newest first, for velocity.report to reconcile
   // against what it stored.
   rpc ListRegistrationRecords(ListRegistrationRecordsRequest) returns (ListRegistrationRecordsResponse);
+
+  // Re-solves the accepted poses at a site together, as a small pose graph of
+  // 3DEP priors and scan pairs (docs/plans/SITE-MODEL-SPIKE.md §6.4). Writes
+  // one Registration per scan whose single hypothesis, "j1", is the jointly
+  // refined pose; ReviewRegistration accepts it, and refuses with
+  // FAILED_PRECONDITION once the scan's accepted pose has changed since the
+  // refinement ran. Accept every j1 of one result together. Needs two
+  // accepted scans and aerial data, else FAILED_PRECONDITION. Streams
+  // progress; the last message carries the result.
+  rpc RefineSite(RefineSiteRequest) returns (stream RefineSiteResponse);
 }
 
 // =============================================================================
@@ -206,6 +222,7 @@ enum PoseSource {
   POSE_SOURCE_MANUAL = 2;           // placed or nudged by an operator
   POSE_SOURCE_TIE_POINTS = 3;       // solved from operator-picked correspondences
   POSE_SOURCE_ICP = 4;              // registration output
+  POSE_SOURCE_JOINT = 5;            // refined together with the site's other accepted scans (RefineSite)
 }
 
 // SensorPose places a sensor frame in a site frame.
@@ -254,6 +271,21 @@ enum ReferenceLayer {
   REFERENCE_LAYER_OSM = 2;             // OpenStreetMap ways, draped on the 3DEP ground
   REFERENCE_LAYER_FOOTPRINTS = 3;      // DataSF building footprints, draped
   REFERENCE_LAYER_INTERSECTIONS = 4;   // candidate intersections with approach bearings
+  // Accepted scans in the site frame, as ScanPoints. Served only by
+  // `serve --serve-scans`, and only to loopback and tailnet peers (ADR-0011).
+  REFERENCE_LAYER_REGISTERED_SCANS = 5;
+  // Sensors and corrections from the records, plus the current proposed
+  // features (ADR-0012), as line features.
+  REFERENCE_LAYER_OBSERVED = 6;
+  // The current ground-surface feature as a Heightfield: 3DEP, refined by
+  // registered scans.
+  REFERENCE_LAYER_GROUND_MESH = 7;
+  // DataSF footprints as boxes (docs/plans/SITE-MODEL-SPIKE.md §6.6): each
+  // wall a closed vertical rectangle of kind BUILDING, from the 3DEP ground to
+  // a roof height measured in 3DEP, moved by the site's footprint shift.
+  // Tags: building_id, wall, party, roof_p50_m, roof_p95_m, shift_east_m,
+  // shift_north_m. Public data only.
+  REFERENCE_LAYER_BOXES = 8;
 }
 
 // SourceInfo names one input and the terms it came under. A client that
@@ -294,6 +326,15 @@ enum FeatureKind {
   FEATURE_KIND_KERB = 3;            // OSM barrier=kerb or kerb lines
   FEATURE_KIND_RAIL = 4;            // OSM railway=tram|rail|light_rail
   FEATURE_KIND_BUILDING = 5;        // footprint outline, closed
+  FEATURE_KIND_SENSOR = 6;          // a registered sensor: stalk from the ground to the origin, then a +Y arrow
+  FEATURE_KIND_CORRECTION = 7;      // from a run's initial pose to the accepted pose
+  FEATURE_KIND_FACADE = 8;          // a wall trace seen at street level by registered scans; height_m is its observed top
+  FEATURE_KIND_POLE = 9;            // vertical segment, base to top
+  // A wall plane measured by registered scans against a box wall: a closed
+  // vertical rectangle (4 vertices). Tag role is "wall" (the wall itself) or
+  // "popout" / "recess" (a part standing out or back, such as a bay window);
+  // offset_m is its distance in front of the box wall.
+  FEATURE_KIND_WALL_PLANE = 10;
   FEATURE_KIND_OTHER = 15;
 }
 
@@ -328,6 +369,26 @@ message IntersectionSet {
   repeated Intersection intersections = 1;
 }
 
+// One block of a registered scan, placed by an accepted record.
+message ScanPoints {
+  string scan_id = 1;
+  string record_id = 2;             // the accepted record whose pose placed these points
+  ScanKind kind = 3;
+  string capture_ref = 4;
+  PointBlock points = 5;            // site frame
+}
+
+// A ground surface on a regular grid, drawn as a wireframe (no triangle mesh).
+// Row-major from the south-west corner: z[j * nx + i] is the cell centre at
+// origin + (i * cell_m, j * cell_m).
+message Heightfield {
+  Vector3 origin = 1;               // site frame, south-west cell centre
+  float cell_m = 2;
+  uint32 nx = 3;
+  uint32 ny = 4;
+  repeated float z = 5 [packed = true];  // NaN where there is no ground
+}
+
 // =============================================================================
 // Scans and registration
 // =============================================================================
@@ -335,6 +396,10 @@ message IntersectionSet {
 enum ScanKind {
   SCAN_KIND_UNSPECIFIED = 0;
   SCAN_KIND_BACKGROUND = 1;         // a settled background snapshot
+  // Background- and ground-classed points of N replayed frames, sensor frame.
+  SCAN_KIND_ACCUMULATED = 2;
+  // A merged map (SLAM) in its own map frame; Register skips the range cut.
+  SCAN_KIND_MAP = 3;
 }
 
 message ScanHeader {
@@ -409,6 +474,13 @@ message FitQuality {
   // error of a radians adds up to a metres per metre; facade geometry does
   // not grow with range. NaN with fewer than 100 facade residuals.
   float facade_range_slope = 12;
+
+  // Residuals against what the request added to 3DEP alone: the site's
+  // accepted scans (against_site_model) and/or its corrected box walls
+  // (against_boxes). Reported, not gated.
+  float model_p50_m = 13;
+  float model_p75_m = 14;
+  uint32 model_points = 15;
 }
 
 // One acceptance gate and how the pose did against it.
@@ -544,8 +616,13 @@ message StreamReferenceResponse {
     PointBlock points = 2;
     LineFeatureSet lines = 3;
     IntersectionSet intersections = 4;
+    ScanPoints scan_points = 6;     // REFERENCE_LAYER_REGISTERED_SCANS
+    Heightfield ground_mesh = 7;    // REFERENCE_LAYER_GROUND_MESH
   }
   bool layer_complete = 5;          // last chunk of this layer
+  // The site model the registered layers (REGISTERED_SCANS, OBSERVED,
+  // GROUND_MESH) were built from; empty on other layers.
+  string model_id = 8;
 }
 
 message UploadScanRequest {
@@ -578,6 +655,10 @@ message RegisterRequest {
   SensorPose initial_pose = 2;
   PoseHint hint = 3;
   RegistrationOptions options = 4;  // unset fields take the server defaults
+  bool against_site_model = 5;      // also fit against the site's accepted scans
+  // Also fit against the site's DataSF box walls, corrected by the measured
+  // wall planes where they exist (docs/plans/SITE-MODEL-SPIKE.md §10 q7).
+  bool against_boxes = 6;
 }
 
 message RegisterResponse {
@@ -652,4 +733,77 @@ message ListRegistrationRecordsRequest {
 
 message ListRegistrationRecordsResponse {
   repeated RegistrationRecord records = 1;
+}
+
+message GetSiteModelRequest {
+  string l16_token = 1;
+}
+
+// A scan in the site model, placed by its newest accepted record.
+message ModelScan {
+  string scan_id = 1;
+  string record_id = 2;
+  ScanKind kind = 3;
+  string capture_ref = 4;
+  RegistrationState state = 5;      // REGISTERED or MANUALLY_PLACED
+  SensorPose pose = 6;
+  uint64 point_count = 7;
+}
+
+message GetSiteModelResponse {
+  // "sha256:<hex>" over the bundle_id and the accepted record ids: changes
+  // when a record is accepted or superseded.
+  string model_id = 1;
+  string bundle_id = 2;
+  repeated ModelScan scans = 3;
+}
+
+message RefineSiteRequest {
+  string l16_token = 1;
+  repeated string scan_ids = 2;     // empty: every accepted scan at the site; two at least
+  RegistrationOptions options = 3;
+  // Independent residuals each fit is taken to have when weighting the
+  // graph's factors; 0: the default, 500 (SITE-MODEL-SPIKE.md §10 q2).
+  double n_eff = 4;
+}
+
+message RefinedScan {
+  string scan_id = 1;
+  string registration_id = 2;       // the run written for this scan; accept its hypothesis "j1"
+  SensorPose before = 3;
+  SensorPose after = 4;
+  double delta_m = 5;
+  double delta_deg = 6;
+  FitQuality before_quality = 7;    // against 3DEP alone
+  FitQuality after_quality = 8;
+  uint32 joint_constraint_rank = 9; // from the node's marginal information in the graph
+  repeated string joint_weak_directions = 10;
+}
+
+// A pair of scans the refinement matched against each other.
+message ScanPair {
+  string scan_a = 1;                // the scan fitted against
+  string scan_b = 2;                // the scan fitted
+  uint32 matched = 3;
+  float p75_before_m = 4;
+  float p75_after_m = 5;
+  bool used = 6;
+  string reason = 7;                // why a pair was left out
+}
+
+message RefineSiteResult {
+  string model_id = 1;              // the model refined (before acceptance)
+  repeated RefinedScan scans = 2;
+  repeated ScanPair pairs = 3;
+  uint32 iterations = 4;
+  double cost_before = 5;
+  double cost_after = 6;
+  double n_eff = 7;                 // the weighting the graph ran with
+}
+
+message RefineSiteResponse {
+  oneof event {
+    Progress progress = 1;
+    RefineSiteResult result = 2;    // last message
+  }
 }

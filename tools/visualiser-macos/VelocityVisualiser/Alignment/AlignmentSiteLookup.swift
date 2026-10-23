@@ -229,9 +229,7 @@ struct AlignmentSiteLookupClient {
     /// A case's capture files, relative to the server's PCAP root.
     func captureFiles(clipID: String) async throws -> [String] {
         let c: Clip = try await get("api/lidar/clips/\(clipID)")
-        return (c.files ?? []).map(\.pcapFile).filter {
-            !$0.isEmpty
-        }
+        return (c.files ?? []).map(\.pcapFile).filter { !$0.isEmpty }
     }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {

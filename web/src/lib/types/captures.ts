@@ -243,6 +243,37 @@ export interface PeriodsResponse {
 	count: number;
 	static_seconds: number;
 	motion_seconds: number;
+	/** The clip cut from each period that has one, keyed by period_id. */
+	clips?: Record<string, PeriodClip>;
+}
+
+/** The clip cut from a motion period, and whether it has been located. */
+export interface PeriodClip {
+	clip_id: string;
+	dataset_id?: string;
+	located: boolean;
+	origin_lat?: number;
+	origin_lon?: number;
+	north_azimuth_deg?: number;
+}
+
+/**
+ * A static period's settled background: the L3 cells that settled over its
+ * first 90 s, in the sensor frame, flattened x, y, z in metres.
+ */
+export interface PeriodBackground {
+	/** The period the background is of; for a clip's background, its source period if any. */
+	period_id?: string;
+	/** Set when the background is of a clip's own window. */
+	clip_id?: string;
+	session_id: string;
+	frames: number;
+	window_start_ns: number;
+	window_end_ns: number;
+	settled_threshold: number;
+	count: number;
+	frame: 'sensor';
+	xyz: number[];
 }
 
 /**

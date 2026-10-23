@@ -110,6 +110,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/replay/stop", ws.handleReplayStop},
 		{compatibility.AliasRoute("POST /api/lidar/pcap/stop", "POST /api/lidar/replay/stop"), ws.handleReplayStop},
 		{"POST /api/lidar/pcap/resume_live", ws.handlePCAPResumeLive},
+		{"POST /api/lidar/replay/full_frames", ws.handleReplayFullFrames},
 		{"GET /api/lidar/pcap/files", ws.handleListPCAPFiles},
 		{"GET /api/lidar/configs", ws.handleListTuningConfigs},
 	}
@@ -125,6 +126,8 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 		{"POST /api/lidar/capture/motion-pass", ws.handleCaptureMotionPass},
 		{"POST /api/lidar/capture/motion-pass/missing", ws.handleCaptureMissingMotionPasses},
 		{"GET /api/lidar/capture/periods", ws.handleCapturePeriods},
+		{"GET /api/lidar/capture/periods/background", ws.handleCapturePeriodBackground},
+		{"POST /api/lidar/capture/periods/clip", ws.handleCapturePeriodClip},
 		{"GET /api/lidar/capture/jobs", ws.handleCaptureJobs},
 		{"POST /api/lidar/capture/jobs/cancel", ws.handleCaptureJobCancel},
 		{"GET /api/lidar/clip-locations", ws.handleClipLocations},

@@ -120,15 +120,29 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// buffer. Not transient: clearing a replay's data leaves it in place.
     private var referenceAerialBuffer: MTLBuffer?
     private(set) var referenceAerialCount: Int = 0
+    /// Registered scans: points like the aerial ones, with a toggle of their
+    /// own, coloured by scan from the same palette.
+    private var referenceScanBuffer: MTLBuffer?
+    private(set) var referenceScanCount: Int = 0
     private var referenceOSMBuffer: MTLBuffer?
     private(set) var referenceOSMVertexCount: Int = 0
+    private var referenceFootprintBuffer: MTLBuffer?
+    private(set) var referenceFootprintVertexCount: Int = 0
+    /// DataSF boxes' walls and the observed layer's wall planes: lines, each
+    /// with a toggle of its own.
+    private var referenceBoxBuffer: MTLBuffer?
+    private(set) var referenceBoxVertexCount: Int = 0
+    private var referenceWallPlaneBuffer: MTLBuffer?
+    private(set) var referenceWallPlaneVertexCount: Int = 0
     private var referenceIntersectionBuffer: MTLBuffer?
     private(set) var referenceIntersectionVertexCount: Int = 0
+    private var referenceObservedBuffer: MTLBuffer?
+    private(set) var referenceObservedVertexCount: Int = 0
+    private var referenceGroundMeshBuffer: MTLBuffer?
+    private(set) var referenceGroundMeshVertexCount: Int = 0
     private var referencePaletteBuffer: MTLBuffer?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
-    private(set) var showReferenceAerial: Bool = true
-    private(set) var showReferenceOSM: Bool = true
-    private(set) var showReferenceIntersections: Bool = true
+    private(set) var referenceVisibility = ReferenceVisibility()
     /// Aerial points are dense; drawn at full size they bury the scan.
     static let referencePointScale: Float = 0.5
     /// The uploaded scan coloured by EvaluatePose's residuals, in the sensor
@@ -435,11 +449,27 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
         referenceAerialBuffer = buffer(vertices?.aerial ?? [])
         referenceAerialCount = referenceAerialBuffer == nil ? 0 : vertices?.aerialCount ?? 0
+        referenceScanBuffer = buffer(vertices?.scans ?? [])
+        referenceScanCount = referenceScanBuffer == nil ? 0 : vertices?.scanCount ?? 0
         referenceOSMBuffer = buffer(vertices?.osmLines ?? [])
         referenceOSMVertexCount = referenceOSMBuffer == nil ? 0 : vertices?.osmVertexCount ?? 0
+        referenceFootprintBuffer = buffer(vertices?.footprintLines ?? [])
+        referenceFootprintVertexCount =
+            referenceFootprintBuffer == nil ? 0 : vertices?.footprintVertexCount ?? 0
+        referenceBoxBuffer = buffer(vertices?.boxLines ?? [])
+        referenceBoxVertexCount = referenceBoxBuffer == nil ? 0 : vertices?.boxVertexCount ?? 0
+        referenceWallPlaneBuffer = buffer(vertices?.wallPlaneLines ?? [])
+        referenceWallPlaneVertexCount =
+            referenceWallPlaneBuffer == nil ? 0 : vertices?.wallPlaneVertexCount ?? 0
         referenceIntersectionBuffer = buffer(vertices?.intersectionLines ?? [])
         referenceIntersectionVertexCount =
             referenceIntersectionBuffer == nil ? 0 : vertices?.intersectionVertexCount ?? 0
+        referenceObservedBuffer = buffer(vertices?.observedLines ?? [])
+        referenceObservedVertexCount =
+            referenceObservedBuffer == nil ? 0 : vertices?.observedVertexCount ?? 0
+        referenceGroundMeshBuffer = buffer(vertices?.groundMeshLines ?? [])
+        referenceGroundMeshVertexCount =
+            referenceGroundMeshBuffer == nil ? 0 : vertices?.groundMeshVertexCount ?? 0
         referencePaletteBuffer = vertices.flatMap { vertices in
             vertices.palette.withUnsafeBytes { table in
                 device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
@@ -473,10 +503,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         view?.needsDisplay = true
     }
 
-    func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
-        showReferenceAerial = aerial
-        showReferenceOSM = osm
-        showReferenceIntersections = intersections
+    func setReferenceVisibility(_ visibility: ReferenceVisibility) {
+        guard visibility != referenceVisibility else { return }
+        referenceVisibility = visibility
         view?.needsDisplay = true
     }
 
@@ -504,29 +533,39 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setDepthStencilState(depthStencilState)
         }
 
+        // Everything from Gerardus is in the site frame, scans included, so
+        // one model matrix draws it all.
         var reference = Self.uniforms(uniforms, model: referenceModelMatrix)
+        let shown = referenceVisibility
 
-        if showReferenceAerial, referenceAerialCount > 0, let pipeline = pointCloudPipeline,
-            let points = referenceAerialBuffer, let palette = referencePaletteBuffer
-        {
+        if let pipeline = pointCloudPipeline, let palette = referencePaletteBuffer {
             reference.pointSize = pointSize * Self.referencePointScale
             // The palette code rides in the intensity slot; the table mode
             // looks it up in the reference's own palette.
             reference.padding.x = IntensityColouring.table.rawValue
-            encoder.setRenderPipelineState(pipeline)
-            encoder.setVertexBuffer(points, offset: 0, index: 0)
-            encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
-            encoder.setFragmentBuffer(palette, offset: 0, index: 0)
-            encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: referenceAerialCount)
+            for (visible, buffer, count) in [
+                (shown.aerial, referenceAerialBuffer, referenceAerialCount),
+                (shown.registeredScans, referenceScanBuffer, referenceScanCount),
+            ] {
+                guard visible, let buffer, count > 0 else { continue }
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+                encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.setFragmentBuffer(palette, offset: 0, index: 0)
+                encoder.drawPrimitives(type: .point, vertexStart: 0, vertexCount: count)
+            }
         }
 
         guard let pipeline = linePipeline else { return }
+        // The ground mesh first, so the lines that lie on it draw over it.
         for (visible, buffer, count) in [
-            (showReferenceOSM, referenceOSMBuffer, referenceOSMVertexCount),
-            (
-                showReferenceIntersections, referenceIntersectionBuffer,
-                referenceIntersectionVertexCount
-            ),
+            (shown.groundMesh, referenceGroundMeshBuffer, referenceGroundMeshVertexCount),
+            (shown.osm, referenceOSMBuffer, referenceOSMVertexCount),
+            (shown.footprints, referenceFootprintBuffer, referenceFootprintVertexCount),
+            (shown.boxes, referenceBoxBuffer, referenceBoxVertexCount),
+            (shown.observed, referenceObservedBuffer, referenceObservedVertexCount),
+            (shown.wallPlanes, referenceWallPlaneBuffer, referenceWallPlaneVertexCount),
+            (shown.intersections, referenceIntersectionBuffer, referenceIntersectionVertexCount),
         ] {
             guard visible, let buffer, count > 0 else { continue }
             encoder.setRenderPipelineState(pipeline)
@@ -1276,6 +1315,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         let newDistance = max(1.0, min(500.0, length(offset) * zoomFactor))
         offset = normalize(offset) * newDistance
         camera.position = camera.target + offset
+    }
+
+    /// Frames a point of the reference's site frame: the camera looks at it,
+    /// through the reference's model matrix, from `RefinementSummary`'s
+    /// focus distance along the direction it looks in now.
+    func focusCamera(onSitePoint point: SIMD3<Double>) {
+        let placed = RefinementSummary.focus(
+            sitePoint: point, model: referenceModelMatrix, cameraPosition: camera.position,
+            cameraTarget: camera.target)
+        camera.position = placed.position
+        camera.target = placed.target
+        view?.needsDisplay = true
     }
 
     /// Reset camera to default view.

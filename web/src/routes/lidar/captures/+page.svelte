@@ -54,6 +54,11 @@
 	} from '#lib/captures/progress.js';
 	import { pickActiveRoot, rootLabel } from '#lib/captures/roots.js';
 	import { clipQuery } from '#lib/lidarLinks.js';
+	import {
+		locateQuery,
+		MIN_LOCATABLE_SECONDS,
+		unlocatedStaticPeriods
+	} from '#lib/captures/locating.js';
 	import CoverageTimeline from '#lib/components/lidar/CoverageTimeline.svelte';
 	import MotionLegend from '#lib/components/lidar/MotionLegend.svelte';
 	import MotionStrip from '#lib/components/lidar/MotionStrip.svelte';
@@ -69,7 +74,8 @@
 		type CaptureJob,
 		type CaptureRoot,
 		type CaptureSession,
-		type MotionPeriod
+		type MotionPeriod,
+		type PeriodClip
 	} from '#lib/types/captures.js';
 	import { resolve } from '$app/paths';
 	import { onDestroy, onMount } from 'svelte';
@@ -92,6 +98,10 @@
 	const zone = zoneLabel();
 	let jobs: CaptureJob[] = [];
 	let periodsBySession: Record<string, MotionPeriod[]> = {};
+	// The clip cut from each period, keyed by period_id: whether it is located.
+	let clipsByPeriod: Record<string, PeriodClip> = {};
+	// Show only the sessions with a static period that still needs a place.
+	let onlyUnlocated = false;
 
 	let selectedRootId: string | null = null;
 	let expandedSessionId: string | null = null;
@@ -173,6 +183,16 @@
 	$: visibleSessions = activeRoot
 		? sessions.filter((s) => s.root_id === activeRoot.root_id)
 		: sessions;
+	$: unlocatedBySession = Object.fromEntries(
+		visibleSessions.map((s) => [
+			s.session_id,
+			unlocatedStaticPeriods(periodsBySession[s.session_id] ?? [], clipsByPeriod).length
+		])
+	);
+	$: unlocatedSessionCount = Object.values(unlocatedBySession).filter((n) => n > 0).length;
+	$: listedSessions = onlyUnlocated
+		? visibleSessions.filter((s) => (unlocatedBySession[s.session_id] ?? 0) > 0)
+		: visibleSessions;
 	$: sessionsById = Object.fromEntries(sessions.map((s) => [s.session_id, s]));
 	$: expandedSession = visibleSessions.find((s) => s.session_id === expandedSessionId) ?? null;
 	$: selectedFiles = sessionFiles.filter((f) => selectedFileIds.includes(f.capture_file_id));
@@ -271,14 +291,15 @@
 			list.map(async (s) => {
 				try {
 					const r = await getCapturePeriods(s.session_id);
-					return [s.session_id, r.periods] as const;
+					return [s.session_id, r.periods, r.clips ?? {}] as const;
 				} catch {
 					unknown.push(s.session_id);
-					return [s.session_id, [] as MotionPeriod[]] as const;
+					return [s.session_id, [] as MotionPeriod[], {}] as const;
 				}
 			})
 		);
-		periodsBySession = Object.fromEntries(results);
+		periodsBySession = Object.fromEntries(results.map(([id, periods]) => [id, periods]));
+		clipsByPeriod = Object.assign({}, ...results.map(([, , clips]) => clips));
 		periodsUnknown = unknown;
 	}
 
@@ -287,19 +308,23 @@
 		const updates = await Promise.all(
 			sessionIds.map(async (id) => {
 				try {
-					return { id, periods: (await getCapturePeriods(id)).periods, ok: true };
+					const r = await getCapturePeriods(id);
+					return { id, periods: r.periods, clips: r.clips ?? {}, ok: true };
 				} catch {
-					return { id, periods: [] as MotionPeriod[], ok: false };
+					return { id, periods: [] as MotionPeriod[], clips: {}, ok: false };
 				}
 			})
 		);
 		const next = { ...periodsBySession };
 		const unknown = periodsUnknown.filter((id) => !sessionIds.includes(id));
+		const nextClips = { ...clipsByPeriod };
 		for (const u of updates) {
 			next[u.id] = u.periods;
+			Object.assign(nextClips, u.clips);
 			if (!u.ok) unknown.push(u.id);
 		}
 		periodsBySession = next;
+		clipsByPeriod = nextClips;
 		periodsUnknown = unknown;
 	}
 
@@ -982,6 +1007,10 @@
 				</section>
 
 				<!-- Sessions -->
+				<label class="text-surface-content/70 flex items-center gap-2 text-xs">
+					<input type="checkbox" bind:checked={onlyUnlocated} />
+					Only sessions with a static period that needs a location ({unlocatedSessionCount})
+				</label>
 				<section class="border-surface-300 overflow-hidden rounded border">
 					<div
 						class="border-surface-300 bg-surface-200 text-surface-content/60 flex items-center gap-3 border-b px-3 py-2 text-xs"
@@ -999,9 +1028,13 @@
 							No sessions on this volume yet. Scan and probe to build them from the captures' packet
 							clocks.
 						</p>
+					{:else if listedSessions.length === 0}
+						<p class="text-surface-content/50 px-3 py-8 text-center text-sm">
+							Every static period of at least {MIN_LOCATABLE_SECONDS} s on this volume has a location.
+						</p>
 					{/if}
 
-					{#each visibleSessions as s (s.session_id)}
+					{#each listedSessions as s (s.session_id)}
 						{@const share = sessionShare(periodsBySession[s.session_id] ?? [])}
 						<div class="border-surface-300 border-b last:border-b-0">
 							<button
@@ -1009,6 +1042,13 @@
 								on:click={() => toggleSession(s.session_id)}
 							>
 								<span class="text-surface-content flex-1 truncate">
+									{#if (unlocatedBySession[s.session_id] ?? 0) > 0}
+										<span
+											class="mr-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800"
+											title="Static periods of at least {MIN_LOCATABLE_SECONDS} s with no location"
+											>{unlocatedBySession[s.session_id]} to locate</span
+										>
+									{/if}
 									{s.label || s.session_id}
 									{#if s.label}<span class="text-surface-content/40 ml-2 font-mono text-xs"
 											>{s.session_id}</span
@@ -1097,18 +1137,34 @@
 											</h3>
 											<div class="flex flex-wrap gap-1.5">
 												{#each expandedPeriods as p (p.period_id)}
-													<button
-														class="rounded border px-2 py-1 font-mono text-xs {p.type === 'static'
-															? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-															: 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'}"
-														title="{formatClock(p.start_ns, true)} → {formatClock(p.end_ns, true)}"
-														on:click={() => selectPeriod(p)}
-													>
-														{p.label}
-														<span class="opacity-60"
-															>{formatDuration(p.duration_ns / 1_000_000_000)}</span
+													{@const pc = clipsByPeriod[p.period_id]}
+													<span class="inline-flex items-center gap-1">
+														<button
+															class="rounded border px-2 py-1 font-mono text-xs {p.type === 'static'
+																? 'border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+																: 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100'}"
+															title="{formatClock(p.start_ns, true)} → {formatClock(
+																p.end_ns,
+																true
+															)}"
+															on:click={() => selectPeriod(p)}
 														>
-													</button>
+															{p.label}
+															<span class="opacity-60"
+																>{formatDuration(p.duration_ns / 1_000_000_000)}</span
+															>
+															{#if pc?.located}<span title="Located">📍</span>{/if}
+														</button>
+														{#if p.type === 'static' && expandedSessionId}
+															<!-- eslint-disable svelte/no-navigation-without-resolve -->
+															<a
+																class="text-primary text-xs hover:underline"
+																href={`${resolve('/lidar/locate')}?${locateQuery(expandedSessionId, p.period_id)}`}
+																>{pc?.located ? 'Adjust on map' : 'Locate on map'}</a
+															>
+															<!-- eslint-enable svelte/no-navigation-without-resolve -->
+														{/if}
+													</span>
 												{/each}
 											</div>
 											<p class="text-surface-content/40 mt-1 text-xs">

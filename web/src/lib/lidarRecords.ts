@@ -81,6 +81,16 @@ export function labelShare(rollup: LabelRollup | null | undefined): LabelShare |
 }
 
 /**
+ * frameModeLabel is the short badge for what a run's VRLOG holds: "Full" for
+ * full frames (background and foreground in every frame), "FG" for
+ * foreground points only. A run that does not say is foreground: every VRLOG
+ * recorded before frame_mode existed was.
+ */
+export function frameModeLabel(mode: string | null | undefined): 'Full' | 'FG' {
+	return mode === 'full' ? 'Full' : 'FG';
+}
+
+/**
  * objectiveText names a sweep's objective as prose: ground_truth → "ground
  * truth". A plain sweep records "manual", meaning it scored nothing and left
  * its results for a person to compare, so it reads as that.

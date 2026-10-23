@@ -365,9 +365,24 @@ func (ws *Server) handleCapturePeriods(w http.ResponseWriter, r *http.Request) {
 			motionNs += p.DurationNs
 		}
 	}
+	// Which periods already have a clip, and whether it is located, so the
+	// Captures page can show the static periods still waiting for a place.
+	clips := map[string]sqlite.PeriodClip{}
+	if ws.db != nil {
+		ids := make([]string, 0, len(periods))
+		for _, p := range periods {
+			ids = append(ids, p.PeriodID)
+		}
+		if found, err := sqlite.NewClipStore(ws.db).PeriodClips(ids); err == nil {
+			clips = found
+		} else {
+			opsf("Warning: could not read the clips of session %s's periods: %v", sessionID, err)
+		}
+	}
 	writeCaptureJSON(w, map[string]any{
 		"session_id":     sessionID,
 		"periods":        periods,
+		"clips":          clips,
 		"count":          len(periods),
 		"static_seconds": time.Duration(staticNs).Seconds(),
 		"motion_seconds": time.Duration(motionNs).Seconds(),

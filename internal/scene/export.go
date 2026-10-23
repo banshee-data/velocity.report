@@ -457,11 +457,24 @@ func projectFrame(fb *l9endpoints.FrameBundle, opts Options, keys *trackKeyer, t
 		if n > len(pc.Z) {
 			n = len(pc.Z)
 		}
-		step := 1
-		if opts.MaxPointsPerFrame > 0 && n > opts.MaxPointsPerFrame {
-			step = (n + opts.MaxPointsPerFrame - 1) / opts.MaxPointsPerFrame
+		// A full-frames VRLOG (lidar_runs.frame_mode = full) carries background
+		// points (class 0) in every frame. A clip scene publishes the moving
+		// points only, as it always has from foreground-only recordings, so
+		// background is left out wherever the points are classified.
+		keep := make([]int, 0, n)
+		classified := len(pc.Classification) >= n
+		for i := 0; i < n; i++ {
+			if classified && pc.Classification[i] == 0 {
+				continue
+			}
+			keep = append(keep, i)
 		}
-		for i := 0; i < n; i += step {
+		step := 1
+		if opts.MaxPointsPerFrame > 0 && len(keep) > opts.MaxPointsPerFrame {
+			step = (len(keep) + opts.MaxPointsPerFrame - 1) / opts.MaxPointsPerFrame
+		}
+		for k := 0; k < len(keep); k += step {
+			i := keep[k]
 			var intensity float64
 			if i < len(pc.Intensity) {
 				intensity = float64(pc.Intensity[i])

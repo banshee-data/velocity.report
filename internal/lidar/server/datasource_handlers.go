@@ -479,7 +479,18 @@ func (ws *Server) startReplayRun(sourcePath string, config ReplayConfig) (string
 		RequestedParamSetID: strings.TrimSpace(config.RequestedParamSetID),
 		RequestedParamsJSON: config.RequestedParamsJSON,
 		EffectiveConfig:     ws.snapshotReplayEffectiveConfig(config),
+		FrameMode:           replayFrameMode(config),
 	})
+}
+
+// replayFrameMode is what a replay's VRLOG will hold: full frames when it was
+// started with them, foreground-only otherwise. The runtime toggle does not
+// change it (see Server.setReplayFullFrames).
+func replayFrameMode(config ReplayConfig) string {
+	if config.FullFrames {
+		return sqlite.RunFrameModeFull
+	}
+	return sqlite.RunFrameModeForeground
 }
 
 func (ws *Server) failReplayRun(runID, errMsg string) {
@@ -620,8 +631,21 @@ func (ws *Server) startPCAPLockedWithConfig(pcapFile string, config ReplayConfig
 
 	ws.markReplayRunning(resolvedPath, replayCfg.SpeedMode, replayCfg.SpeedRatio, runID)
 
+	// Full frames belong to this replay alone. Set as its goroutine starts,
+	// after every way the start can fail, and cleared as it exits.
+	// A replay started with them records them too; one started without
+	// records foreground-only frames whatever the toggle does meanwhile.
+	if replayCfg.FullFrames {
+		ws.beginReplayFullFrames(true)
+	}
+
 	go func(path string, ctx context.Context, cancel context.CancelFunc, finished chan struct{}, replayCfg ReplayConfig, runID string, plan *replayPlan) {
 		defer close(finished)
+		// Restore split streaming on every exit path. Deferred before the slot
+		// release so it runs after it: a full-frames request that arrives in
+		// between then finds no replay and is refused, rather than switching
+		// the mode back on behind a replay that has gone.
+		defer ws.endReplayFullFrames()
 		// Release the slot claimed by tryBeginPCAPReplay on every exit path,
 		// whatever the source is by then. See releaseReplaySlot for what the
 		// old conditional teardown stranded.

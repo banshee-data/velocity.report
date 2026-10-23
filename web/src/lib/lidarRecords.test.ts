@@ -1,4 +1,4 @@
-import { clipForRun, labelShare, objectiveText, shortDigest } from './lidarRecords';
+import { clipForRun, frameModeLabel, labelShare, objectiveText, shortDigest } from './lidarRecords';
 import type { Run, LidarClip } from './types/lidar';
 
 function clip(id: string, extra: Partial<LidarClip> = {}): LidarClip {
@@ -119,5 +119,15 @@ describe('objectiveText', () => {
 
 	it('says a plain sweep scored nothing', () => {
 		expect(objectiveText('manual')).toBe('none, compared by hand');
+	});
+});
+
+describe('frameModeLabel', () => {
+	it('names a full-frames VRLOG and reads anything else as foreground', () => {
+		expect(frameModeLabel('full')).toBe('Full');
+		expect(frameModeLabel('foreground')).toBe('FG');
+		// Runs from servers before frame_mode, and every VRLOG they recorded.
+		expect(frameModeLabel(undefined)).toBe('FG');
+		expect(frameModeLabel(null)).toBe('FG');
 	});
 });

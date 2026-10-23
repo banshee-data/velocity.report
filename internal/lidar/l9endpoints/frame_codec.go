@@ -208,6 +208,40 @@ func (pc *PointCloudFrame) applyUniformDecimation(ratio float32) {
 	pc.PointCount = len(newX)
 }
 
+// foregroundCopy returns a new frame holding only this frame's foreground
+// points (classification == 1), as the adapter's foreground-only path would
+// have built it. The receiver is left as it was: the copy shares no slice it
+// writes to, and its refcount starts from zero.
+func (pc *PointCloudFrame) foregroundCopy() *PointCloudFrame {
+	if pc == nil {
+		return nil
+	}
+	cp := &PointCloudFrame{
+		FrameID:         pc.FrameID,
+		TimestampNanos:  pc.TimestampNanos,
+		SensorID:        pc.SensorID,
+		X:               pc.X,
+		Y:               pc.Y,
+		Z:               pc.Z,
+		Intensity:       pc.Intensity,
+		Classification:  pc.Classification,
+		DecimationMode:  pc.DecimationMode,
+		DecimationRatio: pc.DecimationRatio,
+		PointCount:      pc.PointCount,
+		PacketKeys:      pc.PacketKeys,
+		ReturnRefs:      pc.ReturnRefs,
+		ReturnStart:     pc.ReturnStart,
+		ReturnEnd:       pc.ReturnEnd,
+		ReturnModel:     pc.ReturnModel,
+		ReturnBlocks:    pc.ReturnBlocks,
+		ReturnChannels:  pc.ReturnChannels,
+	}
+	// The filter appends into new slices and only reads the shared ones;
+	// PacketKeys is shared and never written.
+	cp.ApplyDecimation(DecimationForegroundOnly, 0)
+	return cp
+}
+
 // applyForegroundOnlyDecimation keeps only foreground points (classification == 1).
 func (pc *PointCloudFrame) applyForegroundOnlyDecimation() {
 	newX := make([]float32, 0, pc.PointCount/2)

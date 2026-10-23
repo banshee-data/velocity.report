@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -300,4 +301,60 @@ func (s *ClipStore) PublishingClips() ([]*Clip, error) {
 		clips = append(clips, clip)
 	}
 	return clips, nil
+}
+
+// PeriodClip is the clip cut from a motion period, as the Captures page needs
+// it to say whether the period has been located.
+type PeriodClip struct {
+	ClipID          string   `json:"clip_id"`
+	DatasetID       string   `json:"dataset_id,omitempty"`
+	Located         bool     `json:"located"`
+	Lat             *float64 `json:"origin_lat,omitempty"`
+	Lon             *float64 `json:"origin_lon,omitempty"`
+	NorthAzimuthDeg *float64 `json:"north_azimuth_deg,omitempty"`
+}
+
+// PeriodClips returns, for each period that has one, the clip cut from it.
+// When several were, the newest located clip wins, else the newest clip.
+func (s *ClipStore) PeriodClips(periodIDs []string) (map[string]PeriodClip, error) {
+	out := map[string]PeriodClip{}
+	if len(periodIDs) == 0 {
+		return out, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(periodIDs)), ",")
+	args := make([]any, len(periodIDs))
+	for i, id := range periodIDs {
+		args[i] = id
+	}
+	rows, err := s.db.Query(`
+		SELECT source_period_id, clip_id, COALESCE(dataset_id, ''), geographic_status,
+		       origin_lat, origin_lon, north_azimuth_deg
+		  FROM lidar_clips
+		 WHERE source_period_id IN (`+placeholders+`)
+		 ORDER BY (geographic_status = '`+GeoLocated+`') ASC, created_at_ns ASC`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("period clips: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var periodID, status string
+		var pc PeriodClip
+		var lat, lon, az sql.NullFloat64
+		if err := rows.Scan(&periodID, &pc.ClipID, &pc.DatasetID, &status, &lat, &lon, &az); err != nil {
+			return nil, err
+		}
+		pc.Located = status == GeoLocated && lat.Valid && lon.Valid
+		if pc.Located {
+			la, lo := lat.Float64, lon.Float64
+			pc.Lat, pc.Lon = &la, &lo
+		}
+		if az.Valid {
+			v := az.Float64
+			pc.NorthAzimuthDeg = &v
+		}
+		// Rows arrive unlocated first and oldest first, so the last one kept is
+		// the newest located clip, or the newest clip when none is located.
+		out[periodID] = pc
+	}
+	return out, rows.Err()
 }

@@ -139,3 +139,35 @@ func TestSetClipPublishingValidates(t *testing.T) {
 		t.Fatalf("cleared clip still listed: %v", clips)
 	}
 }
+
+func TestPeriodClipsPrefersALocatedClip(t *testing.T) {
+	s := setupExtractStore(t)
+	insertCase(t, s, "older-located", "a.pcapng")
+	insertCase(t, s, "newer-unlocated", "a.pcapng")
+	insertCase(t, s, "other-period", "b.pcapng")
+	for clip, period := range map[string]string{"older-located": "per-1", "newer-unlocated": "per-1", "other-period": "per-2"} {
+		if err := s.SetClipSession(clip, "ses-1", period); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.db.Exec(`UPDATE lidar_clips SET created_at_ns = created_at_ns + 1000 WHERE clip_id = 'newer-unlocated'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetClipLocation("older-located", kirkhamLat, kirkhamLng, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := s.PeriodClips([]string{"per-1", "per-2", "per-3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got["per-1"].ClipID != "older-located" || !got["per-1"].Located || *got["per-1"].Lat != kirkhamLat {
+		t.Fatalf("per-1: %+v", got)
+	}
+	if got["per-2"].ClipID != "other-period" || got["per-2"].Located {
+		t.Fatalf("per-2: %+v", got["per-2"])
+	}
+	if empty, err := s.PeriodClips(nil); err != nil || len(empty) != 0 {
+		t.Fatalf("no periods: %v %v", empty, err)
+	}
+}

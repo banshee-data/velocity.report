@@ -16,7 +16,7 @@
 	} from '#lib/api.js';
 	import type { Run, LabellingProgress, LidarClip, RunTrack } from '#lib/types/lidar.js';
 	import { clipQuery, linkedId, tracksQuery } from '#lib/lidarLinks.js';
-	import { clipForRun, labelShare, shortDigest } from '#lib/lidarRecords.js';
+	import { clipForRun, frameModeLabel, labelShare, shortDigest } from '#lib/lidarRecords.js';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
@@ -252,6 +252,11 @@
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
 									>Source</th
 								>
+								<th
+									class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
+									title="What the run's VRLOG frames hold: foreground points only (FG), or background and foreground (Full)"
+									>Frames</th
+								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium">Clip</th
 								>
 								<th class="text-surface-content/70 px-4 py-3 text-left text-sm font-medium"
@@ -302,6 +307,18 @@
 										tabindex="0"
 									>
 										{run.source_path ? basename(run.source_path) : run.source_type}
+									</td>
+									<td class="px-4 py-3 text-sm">
+										<span
+											class="rounded px-2 py-0.5 text-xs font-medium {run.frame_mode === 'full'
+												? 'bg-primary/15 text-primary'
+												: 'bg-surface-content/10 text-surface-content/70'}"
+											title={run.frame_mode === 'full'
+												? 'Full frames: background and foreground in every frame'
+												: 'Foreground points only'}
+										>
+											{frameModeLabel(run.frame_mode)}
+										</span>
 									</td>
 									<td
 										class="text-surface-content/70 cursor-pointer px-4 py-3 text-sm"

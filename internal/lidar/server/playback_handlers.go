@@ -43,6 +43,10 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 	var enablePlots bool
 	var benchmarkMode bool
 	var settleBeforeRecording bool
+	// Stream full frames (background and foreground) to the visualiser for
+	// this replay instead of split streaming's foreground only. The
+	// recording stays foreground-only either way.
+	var fullFrames bool
 	// A tuning config file under the server's config directory, applied to
 	// the running pipeline before the replay starts; empty keeps the
 	// parameters the server has.
@@ -74,6 +78,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 			EnablePlots           bool    `json:"enable_plots"`
 			BenchmarkMode         bool    `json:"benchmark_mode"`
 			SettleBeforeRecording bool    `json:"settle_before_recording"`
+			FullFrames            bool    `json:"full_frames"`
 			TuningConfig          string  `json:"tuning_config"`
 		}
 		// Set defaults
@@ -105,6 +110,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enablePlots = req.EnablePlots
 		benchmarkMode = req.BenchmarkMode
 		settleBeforeRecording = req.SettleBeforeRecording
+		fullFrames = req.FullFrames
 		tuningConfig = req.TuningConfig
 	} else {
 		// Parse form data (default for HTML forms)
@@ -162,11 +168,17 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		enablePlots = r.FormValue("enable_plots") == "true" || r.FormValue("enable_plots") == "1"
 		benchmarkMode = r.FormValue("benchmark_mode") == "true" || r.FormValue("benchmark_mode") == "1"
 		settleBeforeRecording = r.FormValue("settle_before_recording") == "true" || r.FormValue("settle_before_recording") == "1"
+		fullFrames = r.FormValue("full_frames") == "true" || r.FormValue("full_frames") == "1"
 		tuningConfig = r.FormValue("tuning_config")
 	}
 
 	if settleBeforeRecording && !analysisMode {
 		ws.writeJSONError(w, http.StatusBadRequest, "settle_before_recording requires analysis_mode=true so the second pass can record a VRLOG")
+		return
+	}
+
+	if fullFrames && ws.fullFrames == nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "full_frames needs the visualiser gRPC stream, and this server was started without it")
 		return
 	}
 
@@ -229,6 +241,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		SpeedRatio:            speedRatio,
 		AnalysisMode:          analysisMode,
 		SettleBeforeRecording: settleBeforeRecording,
+		FullFrames:            fullFrames,
 		SensorID:              ws.sensorID,
 		DebugRingMin:          debugRingMin,
 		DebugRingMax:          debugRingMax,
@@ -274,6 +287,7 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		"pcap_file":               currentFile,
 		"analysis_mode":           analysisMode,
 		"settle_before_recording": settleBeforeRecording,
+		"full_frames":             ws.fullFramesActive(),
 		"tuning_config":           activePath,
 		"tuning_fingerprint":      activeFingerprint,
 	})
@@ -337,6 +351,10 @@ func (ws *Server) handlePCAPResumeLive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Live input never gets full frames. The replay that set them has ended
+	// already; this only makes sure.
+	ws.endReplayFullFrames()
+
 	// Resume-live deliberately keeps the grid built by the analysis replay.
 	// Recording that fact is what lets the status surfaces keep reporting it;
 	// previously it appeared once in this response and was then lost.
@@ -395,6 +413,8 @@ func (ws *Server) handlePlaybackStatus(w http.ResponseWriter, r *http.Request) {
 		RecordingPath:   state.RecordingPath,
 		RecordingRunID:  state.RecordingRunID,
 		RecordingFrames: state.RecordingFrames,
+
+		FullFrames: ws.fullFramesActive(),
 	}
 	if state.Source == SourceModeVRLog {
 		status.VRLogPath = state.SourcePath

@@ -609,6 +609,7 @@ func Main(args []string) int {
 		var pipelineConfig *pipeline.TrackingPipelineConfig // hoisted so BenchmarkMode can be wired post-webserver creation
 		var visualiserServer *l9endpoints.Server            // Hoisted so Config callbacks can reference it
 		var visualiserPublisher *l9endpoints.Publisher      // Hoisted so OnVRLogLoad callback can reference it
+		var fullFramesControl server.FullFramesControl      // the frame adapter, for a PCAP replay's full frames; nil without gRPC
 		var vrlogRecorderMu sync.Mutex
 		var vrlogRecorder *recorder.Recorder
 		var vrlogRecorderPath string
@@ -679,6 +680,7 @@ func Main(args []string) int {
 				defer visualiserPublisher.Stop()
 
 				frameAdapter = l9endpoints.NewFrameAdapter(lidarSensorID)
+				fullFramesControl = frameAdapter
 
 				// Wire M3.5 split streaming: connect background manager to publisher
 				// so that background snapshots are sent periodically instead of
@@ -835,6 +837,7 @@ func Main(args []string) int {
 			OnPCAPStopped:      replayStoppedCallback(visualiserPublisher, visualiserServer, log.Printf),
 			OnPCAPProgress:     pcapProgressCallback(visualiserServer),
 			PlaybackProbe:      visualiserPlaybackProbe{server: visualiserServer},
+			FullFrames:         fullFramesControl,
 			OnPCAPTimestamps:   pcapTimestampsCallback(visualiserServer),
 			RecordingAvailable: func() bool { return visualiserPublisher != nil },
 			OnRecordingStart: func(runID string) string {

@@ -13,7 +13,9 @@ private enum RunBrowserLayout {
     static let runStatusSpacing: CGFloat = 4
     static let runWidth: CGFloat = 80
     static let dateWidth: CGFloat = 120
-    static let clipWidth: CGFloat = 40
+    static let fileWidth: CGFloat = 226
+    static let clipWidth: CGFloat = 110
+    static let framesWidth: CGFloat = 44
     static let durationWidth: CGFloat = 60
     static let tracksWidth: CGFloat = 50
     static let labelsWidth: CGFloat = 54
@@ -31,6 +33,14 @@ private enum RunBrowserLayout {
 
     // Only reset playback state after a successful load.
     appState.prepareForNewReplay()
+    // Whether Accumulate frames can collect from this VRLOG: only a run
+    // recorded with full frames carries background in its frames.
+    let run = runBrowserState.runs.first { $0.runId == runID }
+    // Its background is uploaded under the run's own name (its clip, else the
+    // run id), never the site picker's, which may be another position.
+    let clip = run?.clipId?.trimmingCharacters(in: .whitespaces) ?? ""
+    appState.alignment.noteLoadedRun(
+        fullFrames: run?.holdsFullFrames == true, captureRef: clip.isEmpty ? runID : clip)
     // Set currentRunID so labels route to run-track API
     appState.currentRunID = runID
     await runBrowserState.primeTrackCache(runID: runID)
@@ -148,7 +158,7 @@ private enum RunBrowserLayout {
                 }
                 Button("Close") { dismiss() }.buttonStyle(.bordered)
             }.padding()
-        }.frame(width: 450, height: 700).task { await runBrowserState.fetchRuns() }
+        }.frame(width: 760, height: 700).task { await runBrowserState.fetchRuns() }
     }
 
 }
@@ -162,7 +172,11 @@ private struct RunBrowserHeaderRow: View {
                 Text("Run")
             }.frame(width: RunBrowserLayout.runWidth, alignment: .leading)
             Text("Date").frame(width: RunBrowserLayout.dateWidth, alignment: .leading)
+            Text("File").frame(width: RunBrowserLayout.fileWidth, alignment: .leading)
             Text("Clip").frame(width: RunBrowserLayout.clipWidth, alignment: .leading)
+            Text("Frames").frame(width: RunBrowserLayout.framesWidth, alignment: .leading).help(
+                "What the VRLOG holds: FG, foreground points only; Full, background and foreground in every frame"
+            )
             Text("Duration").frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
             Text("Tracks").frame(width: RunBrowserLayout.tracksWidth, alignment: .trailing)
             Text("Labels").frame(width: RunBrowserLayout.labelsWidth, alignment: .center)
@@ -170,7 +184,7 @@ private struct RunBrowserHeaderRow: View {
     }
 }
 
-/// Row view for a single run — 6-column table layout.
+/// Row view for a single run — 8-column table layout.
 @available(macOS 15.0, *) struct RunRowView: View {
     let run: Run
     let isSelected: Bool
@@ -202,23 +216,35 @@ private struct RunBrowserHeaderRow: View {
                 width: RunBrowserLayout.dateWidth, alignment: .leading
             ).lineLimit(1)
 
-            // Col 3: the source's file name. The server calls it source_name,
-            // but it is the capture or recording the run read, not a clip: runs
-            // started from a capture record no clip to name.
-            Text(run.clipId ?? "-").font(.caption).frame(
-                width: RunBrowserLayout.clipWidth, alignment: .leading
-            ).lineLimit(1)
+            // Col 3: the capture or recording the run read (source_name).
+            Text(run.fileDisplay).font(.caption).frame(
+                width: RunBrowserLayout.fileWidth, alignment: .leading
+            ).lineLimit(1).truncationMode(.middle).help(run.sourcePath ?? run.fileDisplay)
 
-            // Col 4: Duration mm:ss
+            // Col 4: the clip, if the run was started from one; runs started
+            // from a capture record none.
+            Text(run.clipDisplay).font(.caption).frame(
+                width: RunBrowserLayout.clipWidth, alignment: .leading
+            ).lineLimit(1).truncationMode(.middle).help(run.clipDisplay)
+
+            // Col 5: what the VRLOG's frames hold.
+            Text(run.frameModeDisplay).font(.caption2.weight(.medium)).foregroundStyle(
+                run.holdsFullFrames ? Color.accentColor : Color.secondary
+            ).frame(width: RunBrowserLayout.framesWidth, alignment: .leading).help(
+                run.holdsFullFrames
+                    ? "Full frames: background and foreground in every frame"
+                    : "Foreground points only")
+
+            // Col 6: Duration mm:ss
             Text(runRowFormatDuration(run.durationSecs)).font(
                 .system(.caption, design: .monospaced)
             ).frame(width: RunBrowserLayout.durationWidth, alignment: .trailing)
 
-            // Col 5: Tracks count
+            // Col 7: Tracks count
             Text("\(run.totalTracks)").font(.system(.caption, design: .monospaced)).frame(
                 width: RunBrowserLayout.tracksWidth, alignment: .trailing)
 
-            // Col 6: Label rollup
+            // Col 8: Label rollup
             RunLabelRollupIcon(rollup: run.labelRollup).frame(
                 width: RunBrowserLayout.labelsWidth, alignment: .center)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 2).padding(

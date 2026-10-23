@@ -222,7 +222,8 @@ struct PhysicalReferenceAPIClient {
     }
 
     func restore(_ restore: RestoreRequest) async throws -> PhysicalPackState {
-        try await post("api/lidar/annotations/physical/restore", restore, as: PhysicalPackState.self)
+        try await post(
+            "api/lidar/annotations/physical/restore", restore, as: PhysicalPackState.self)
     }
 
     // MARK: Transport

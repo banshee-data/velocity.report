@@ -112,9 +112,7 @@ class LabelAPIClient {
             URLQueryItem(name: "track_id", value: trackID),
             URLQueryItem(name: "run_id", value: runID),
         ]
-        if !clipID.isEmpty {
-            queryItems.append(URLQueryItem(name: "clip_id", value: clipID))
-        }
+        if !clipID.isEmpty { queryItems.append(URLQueryItem(name: "clip_id", value: clipID)) }
         components.queryItems = queryItems
 
         let (data, response) = try await session.data(from: components.url!)

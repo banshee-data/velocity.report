@@ -260,7 +260,8 @@ struct SplitFreezeAPIClient {
     }
 
     func splits() async throws -> [FrozenSplitListing] {
-        var request = URLRequest(url: baseURL.appendingPathComponent("api/lidar/annotations/splits"))
+        var request = URLRequest(
+            url: baseURL.appendingPathComponent("api/lidar/annotations/splits"))
         request.httpMethod = "GET"
         struct Listing: Decodable { var splits: [FrozenSplitListing] }
         return try await send(request, as: Listing.self).splits

@@ -59,7 +59,9 @@ type Server struct {
 	captureRoots []string
 	// captureRunner drains the capture job queue. Nil until StartCaptureJobs
 	// runs, and left nil when the server has no database to queue work in.
-	captureRunner   *capjobs.Runner
+	captureRunner *capjobs.Runner
+	// backgrounds holds the settled backgrounds the map alignment asked for.
+	backgrounds     backgroundCache
 	vrlogSafeDir    string // Safe directory for VRLOG file access
 	packetForwarder *network.PacketForwarder
 	tuningConfigMu  sync.RWMutex
@@ -180,6 +182,15 @@ type Server struct {
 	onVRLogStop     func()
 	playbackProbe   PlaybackProbe
 
+	// fullFrames switches the visualiser stream's full-frames mode for a
+	// running PCAP replay; nil without a visualiser stream. fullFramesMu
+	// orders a switch against the replay's end (see setReplayFullFrames).
+	fullFrames   FullFramesControl
+	fullFramesMu sync.Mutex
+	// fullFramesRecorded is set for a replay started with full_frames, whose
+	// VRLOG holds full frames; guarded by fullFramesMu.
+	fullFramesRecorded bool
+
 	// Sweep runner for web-triggered parameter sweeps
 	sweepRunner SweepRunner
 
@@ -244,6 +255,10 @@ type PlaybackStatusInfo struct {
 	RecordingPath   string `json:"recording_path,omitempty"`
 	RecordingRunID  string `json:"recording_run_id,omitempty"`
 	RecordingFrames uint64 `json:"recording_frames"`
+
+	// FullFrames is true while a PCAP replay streams full frames (background
+	// and foreground points) instead of split streaming's foreground only.
+	FullFrames bool `json:"full_frames"`
 }
 
 // Config contains configuration options for the web server
@@ -347,6 +362,12 @@ type Config struct {
 	// A nil probe yields a zero position; mode and recording still report
 	// truthfully from the server's own state.
 	PlaybackProbe PlaybackProbe
+
+	// FullFrames switches the visualiser stream between split streaming and
+	// full frames, for the full_frames option of POST /api/lidar/pcap/start
+	// and POST /api/lidar/replay/full_frames. Nil (no visualiser stream)
+	// refuses both.
+	FullFrames FullFramesControl
 }
 
 // NewServer creates a new web server with the provided configuration
@@ -436,6 +457,7 @@ func NewServer(config Config) *Server {
 		onVRLogLoad:        config.OnVRLogLoad,
 		onVRLogStop:        config.OnVRLogStop,
 		playbackProbe:      config.PlaybackProbe,
+		fullFrames:         config.FullFrames,
 	}
 
 	ws.clusterMembers.Store(tuningFullMembers(config.TuningConfig))

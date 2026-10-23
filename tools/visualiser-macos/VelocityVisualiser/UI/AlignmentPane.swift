@@ -45,9 +45,23 @@ import SwiftUI
     @EnvironmentObject var appState: AppState
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Pinned above the scroll, so the one Reviewer field both Accepts
+            // need cannot be scrolled out of sight while either is shown.
+            VStack(alignment: .leading, spacing: 8) {
+                header
+                if session.showsReviewerField { reviewerField }
+            }.padding([.horizontal, .top]).padding(.bottom, 10)
+            Divider()
+            scrollingSections
+        }.frame(maxHeight: .infinity).background(Color(nsColor: .controlBackgroundColor)).task(
+            id: appState.currentRunID
+        ) { await session.refreshSites(runID: appState.currentRunID) }
+    }
+
+    private var scrollingSections: some View {
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 14) {
-                header
                 siteSection
                 statusSection
                 if session.reference != nil { layersSection }
@@ -59,15 +73,17 @@ import SwiftUI
                     registrationSection
                 }
                 if session.registration != nil { reviewSection }
+                if session.siteModelScanIDs != nil {
+                    Divider()
+                    siteModelSection
+                }
                 if session.site != nil {
                     Divider()
                     recordsSection
                 }
                 Spacer()
             }.padding()
-        }.frame(maxHeight: .infinity).background(Color(nsColor: .controlBackgroundColor)).task(
-            id: appState.currentRunID
-        ) { await session.refreshSites(runID: appState.currentRunID) }
+        }
     }
 
     // MARK: Header
@@ -83,6 +99,16 @@ import SwiftUI
             Button(action: { appState.showAlignmentPane = false }) { Image(systemName: "xmark") }
                 .buttonStyle(.borderless).help("Close the alignment pane")
         }
+    }
+
+    /// The reviewer every decision is recorded under, Accept, Reject and
+    /// Accept refinement alike.
+    private var reviewerField: some View {
+        let blank = session.reviewer.trimmingCharacters(in: .whitespaces).isEmpty
+        return HStack(alignment: .firstTextBaseline) {
+            Text("Reviewer").font(.callout).foregroundStyle(blank ? Color.orange : .secondary)
+            TextField("Your name", text: $session.reviewer).textFieldStyle(.roundedBorder)
+        }.help("Gerardus records every decision under this name, and refuses one without it")
     }
 
     // MARK: Site
@@ -162,10 +188,57 @@ import SwiftUI
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
+                Toggle("DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
+                if reference.boxesServed {
+                    Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
+                        .help(
+                            "Footprints extruded from the 3DEP ground to the roof measured in 3DEP, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
+                        )
+                }
                 Toggle(
                     "Intersections (\(reference.intersections))", isOn: $session.showIntersections)
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
+                }
+                if (session.showFootprints && reference.footprints > 0)
+                    || (session.showBoxes && reference.boxWalls > 0),
+                    !reference.footprintAttribution.isEmpty
+                {
+                    Text(reference.footprintAttribution).font(.caption2).foregroundStyle(.secondary)
+                }
+                Divider()
+                Text("Site model").font(.subheadline.weight(.semibold))
+                Toggle(
+                    "Registered scans (\(reference.registeredScans), \(reference.registeredPoints.formatted()) points)",
+                    isOn: $session.showRegisteredScans)
+                if reference.ownScanPoints > 0 {
+                    Toggle(
+                        "Include this capture's own scan (\(reference.ownScanPoints.formatted()) points)",
+                        isOn: $session.showOwnScan
+                    ).padding(.leading, 16).help(
+                        "Draw this capture's registered copy over its live points, as a check of the accepted pose"
+                    )
+                }
+                Toggle(
+                    "Observed features (\(reference.observedFeatures))", isOn: $session.showObserved
+                ).help("Sensors white, corrections amber, facade traces cyan, poles blue")
+                Toggle("Wall planes (\(reference.wallPlanes))", isOn: $session.showWallPlanes).help(
+                    "Measured against the box walls: walls cyan-teal, popouts orange, recesses violet"
+                )
+                if reference.wallPlanes > 0 {
+                    Text(reference.wallPlaneRoleText).font(.caption2).foregroundStyle(.secondary)
+                        .padding(.leading, 16)
+                }
+                Toggle(
+                    "Ground mesh (\(reference.groundMeshCells.formatted()) cells)",
+                    isOn: $session.showGroundMesh)
+                if !reference.modelID.isEmpty {
+                    Text("Model \(AlignmentFormat.shortID(reference.modelID))").font(.caption2)
+                        .foregroundStyle(.secondary).textSelection(.enabled).help(reference.modelID)
+                }
+                if let note = session.registeredLayersNote {
+                    Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
                 }
             }
         }.toggleStyle(.checkbox).font(.callout)
@@ -283,15 +356,36 @@ import SwiftUI
                     .caption
                 ).foregroundStyle(.secondary)
             }
+            accumulationView
             HStack {
                 Button("Register") { session.startRegistration() }.disabled(!session.canRegister)
                     .help(
-                        "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the 3DEP points (10 to 25 s)"
+                        session.accumulated == nil
+                            ? "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the reference (10 to 25 s)"
+                            : "Search 30 m around the pose drawn now, at every heading, for where the accumulated frames fit the reference (10 to 25 s)"
                     )
+                VStack(alignment: .leading, spacing: 2) {
+                    Toggle("Against site model", isOn: againstSiteModel).toggleStyle(.switch)
+                        .controlSize(.mini).font(.caption).disabled(
+                            session.againstSiteModelUnavailable != nil || session.isRegistering
+                        ).help(
+                            "Fit against 3DEP and the site's accepted scans. The gates are still measured against 3DEP alone."
+                        )
+                    Toggle("Against DataSF boxes", isOn: againstBoxes).toggleStyle(.switch)
+                        .controlSize(.mini).font(.caption).disabled(
+                            session.againstBoxesUnavailable != nil || session.isRegistering
+                        ).help(
+                            "Fit against 3DEP and the site's DataSF box walls, corrected by the measured wall planes. The gates are still measured against 3DEP alone."
+                        )
+                }
                 if session.isRegistering {
                     Button("Cancel") { session.cancelRegistration() }.help(
                         "Stop the run; the server logs it as far as it got")
                 }
+            }
+            ForEach(switchReasons, id: \.self) { reason in
+                Text(reason).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
             }
             if let registration = session.registration {
                 AlignmentRow("Result", AlignmentFormat.state(registration.state))
@@ -300,6 +394,13 @@ import SwiftUI
                         .textSelection(.enabled)
                 }
                 if !registration.gates.isEmpty { gatesView(registration.gates) }
+                if let fit = session.modelFit,
+                    let line = AlignmentFormat.modelFit(fit, against: session.registeredAgainst)
+                {
+                    Text(AlignmentFormat.modelFitCaption(session.registeredAgainst) + line).font(
+                        .caption2.monospacedDigit()
+                    ).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 Text(registration.registrationID).font(.caption2.monospaced()).foregroundStyle(
                     .secondary
                 ).textSelection(.enabled)
@@ -309,19 +410,70 @@ import SwiftUI
         }
     }
 
+    /// Shows the switch on only while it is sent.
+    private var againstSiteModel: Binding<Bool> {
+        Binding(get: { session.registersAgainstSiteModel }, set: { session.againstSiteModel = $0 })
+    }
+
+    private var againstBoxes: Binding<Bool> {
+        Binding(get: { session.registersAgainstBoxes }, set: { session.againstBoxes = $0 })
+    }
+
+    /// Why either switch is disabled, site model first.
+    private var switchReasons: [String] {
+        [session.againstSiteModelUnavailable, session.againstBoxesUnavailable].compactMap { $0 }
+    }
+
+    @ViewBuilder private var accumulationView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let accumulated = session.accumulated {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(
+                        "Registering accumulated frames: \(accumulated.points.formatted()) points (\(accumulated.pointsCollected.formatted()) before thinning) from \(accumulated.frames) frames"
+                    ).font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Use background") { session.useBackground() }.controlSize(.small)
+                        .disabled(session.busy != nil).help(
+                            "Register the settled background again instead")
+                }
+                Text(accumulated.captureRef).font(.caption2.monospaced()).foregroundStyle(
+                    .secondary
+                ).textSelection(.enabled)
+            }
+            HStack {
+                if let progress = session.accumulating {
+                    ProgressView(value: Double(progress.frames), total: Double(max(progress.of, 1)))
+                        .frame(width: 80)
+                    Text(
+                        "\(progress.frames)/\(progress.of) frames, \(progress.points.formatted()) points"
+                    ).font(.caption.monospacedDigit())
+                    Button("Cancel") { session.cancelAccumulating() }.controlSize(.small)
+                } else {
+                    Button("Accumulate frames") {
+                        session.startAccumulating(run: appState.currentRunID)
+                    }.disabled(!session.canAccumulate).help(
+                        "Collect the background and ground points of the next frames a pcap replay plays (velocity.report streams full frames while they are collected) or a full-frames run's VRLOG plays, thin them to 0.05 m and upload them as an accumulated scan, which Register then uses. Foreground points are never collected."
+                    )
+                    Picker("Frames", selection: $session.accumulateFrameCount) {
+                        Text("25").tag(25)
+                        Text("50").tag(50)
+                        Text("100").tag(100)
+                        Text("200").tag(200)
+                    }.labelsHidden().frame(width: 64).help("Frames to collect (50 is about 5 s)")
+                }
+            }
+            if let refusal = session.accumulationRefusal ?? session.streamRefusal {
+                Text(refusal).font(.caption2).foregroundStyle(.orange).fixedSize(
+                    horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private func gatesView(_ gates: [Gerardus_Align_V1alpha1_GateResult]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text("Gates, on the best hypothesis").font(.caption.weight(.semibold))
             ForEach(Array(gates.enumerated()), id: \.offset) { _, gate in
-                HStack {
-                    Image(systemName: gate.passed ? "checkmark.circle" : "xmark.circle")
-                        .foregroundStyle(gate.passed ? .green : .orange)
-                    Text(gate.name).font(.caption.monospaced())
-                    Spacer()
-                    Text(
-                        "\(AlignmentFormat.gateValue(gate.value)) \(gate.passed ? "within" : "against") \(AlignmentFormat.gateValue(gate.threshold))"
-                    ).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                }
+                AlignmentGateRow(gate: gate)
             }
         }
     }
@@ -350,6 +502,12 @@ import SwiftUI
                         Text(AlignmentFormat.quality(hypothesis.quality)).font(
                             .caption2.monospacedDigit()
                         ).foregroundStyle(.secondary)
+                        if let model = AlignmentFormat.modelFit(
+                            hypothesis.quality, against: session.registeredAgainst)
+                        {
+                            Text(model).font(.caption2.monospacedDigit()).foregroundStyle(
+                                .secondary)
+                        }
                         Text(
                             "seeds \(hypothesis.seedsConverged)/\(hypothesis.seedsTotal)"
                                 + AlignmentFormat.weak(hypothesis.quality)
@@ -390,6 +548,9 @@ import SwiftUI
                         evaluation.quality.constraintRank)
                         + AlignmentFormat.weak(evaluation.quality)
                 ).font(.caption2).foregroundStyle(.secondary)
+                if let model = AlignmentFormat.modelFit(evaluation.quality) {
+                    Text(model).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                }
                 Toggle("Colour the scan by residual", isOn: $session.showResiduals).toggleStyle(
                     .checkbox
                 ).font(.caption)
@@ -417,22 +578,47 @@ import SwiftUI
     private var reviewSection: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Decision").font(.subheadline.weight(.semibold))
-            TextField("Reviewer", text: $session.reviewer)
             TextField("Note (optional)", text: $session.note)
             Button(acceptTitle) { Task { await session.accept() } }.buttonStyle(.borderedProminent)
-                .disabled(!session.canReview || session.reviewer.isEmpty).help(
+                .disabled(!session.canReview).help(
                     "Record the pose drawn now: a hypothesis as drawn, or your own pose once you move it"
                 )
             HStack {
                 TextField("Why reject?", text: $session.rejectReason)
                 Button("Reject") { Task { await session.reject() } }.disabled(!session.canReview)
             }
+            AlignmentBlockers(reasons: session.reviewBlockers)
             if let record = session.lastRecord {
                 Text("Recorded \(AlignmentFormat.state(record.state)): \(record.recordID)").font(
                     .caption
                 ).foregroundStyle(.green).textSelection(.enabled)
             }
         }
+    }
+
+    // MARK: Site model
+
+    /// The refinement itself is in its own column (RefinementColumn), opened
+    /// from here; the pane keeps only the count and the way in.
+    private var siteModelSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("Site model").font(.subheadline.weight(.semibold))
+                Spacer()
+                Button("Refine site…") { session.openRefinementColumn() }.help(
+                    "Open the refinement column: re-solve every accepted pose at the site together")
+            }
+            Text(siteModelCaption).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var siteModelCaption: String {
+        let scans = "\(session.siteModelScanIDs?.count ?? 0) accepted scans"
+        if session.isRefining { return scans + " · refining" }
+        if let refinement = session.refinement, !session.refinementColumnOpen {
+            return scans + " · a refinement of \(refinement.scans.count) scans is in its column"
+        }
+        return scans
     }
 
     private var recordsSection: some View {
@@ -474,8 +660,43 @@ import SwiftUI
     }
 }
 
+/// Why the button above is disabled, one line per reason, in plain sight
+/// rather than only in a tooltip. Draws nothing while it is enabled.
+struct AlignmentBlockers: View {
+    let reasons: [String]
+
+    var body: some View {
+        if !reasons.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(reasons, id: \.self) { reason in
+                    Label(reason, systemImage: "exclamationmark.circle").font(.caption)
+                        .foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+    }
+}
+
+/// One gate on one line: its mark, its name, and its value against its
+/// threshold. The registration's gates and each refined scan's use it.
+struct AlignmentGateRow: View {
+    let gate: Gerardus_Align_V1alpha1_GateResult
+
+    var body: some View {
+        HStack {
+            Image(systemName: gate.passed ? "checkmark.circle" : "xmark.circle").foregroundStyle(
+                gate.passed ? .green : .orange)
+            Text(gate.name).font(.caption.monospaced()).lineLimit(1)
+            Spacer()
+            Text(
+                "\(AlignmentFormat.gateValue(gate.value)) \(gate.passed ? "within" : "against") \(AlignmentFormat.gateValue(gate.threshold))"
+            ).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+        }.help(gate.passed ? "Passed" : "Failed")
+    }
+}
+
 /// A label and a value on one line.
-private struct AlignmentRow: View {
+struct AlignmentRow: View {
     let label: String
     let value: String
 
@@ -507,9 +728,38 @@ enum AlignmentFormat {
         return parts.joined(separator: " · ")
     }
 
+    /// "site model p50 0.04 m · p75 0.07 m · 12345 points", when the fit was
+    /// measured against what the request added to 3DEP (model_points > 0);
+    /// nil otherwise. `against` names it: "boxes p50 …" for the DataSF boxes
+    /// alone, "site model and boxes p50 …" for both. Reported as the server
+    /// gives it: it is not a gate.
+    static func modelFit(
+        _ q: Gerardus_Align_V1alpha1_FitQuality,
+        against: AlignmentModelReference = AlignmentModelReference(siteModel: true)
+    ) -> String? {
+        guard q.modelPoints > 0 else { return nil }
+        return against.shortLabel
+            + String(
+                format: " p50 %.2f m · p75 %.2f m · %u points", q.modelP50M, q.modelP75M,
+                q.modelPoints)
+    }
+
+    /// The caption before the registration's model residuals: "Against the
+    /// DataSF boxes, reported, not gated: ".
+    static func modelFitCaption(_ against: AlignmentModelReference) -> String {
+        "Against \(against.label), reported, not gated: "
+    }
+
     /// " · weak: translation along 23 deg", or nothing at full rank.
     static func weak(_ q: Gerardus_Align_V1alpha1_FitQuality) -> String {
         q.weakDirections.isEmpty ? "" : " · weak: " + q.weakDirections.joined(separator: ", ")
+    }
+
+    /// "sha256:1a2b3c4d5e6f" from a full content address: enough to tell
+    /// two models apart at a glance.
+    static func shortID(_ id: String) -> String {
+        guard let colon = id.firstIndex(of: ":") else { return String(id.prefix(12)) }
+        return String(id[...colon]) + id[id.index(after: colon)...].prefix(12)
     }
 
     static func gateValue(_ value: Double) -> String {

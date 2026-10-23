@@ -13,6 +13,7 @@ type runRecordCapabilities struct {
 	FrameStartNs        bool
 	FrameEndNs          bool
 	StatisticsJSON      bool
+	FrameMode           bool
 }
 
 type runSchemaRows interface {
@@ -65,6 +66,8 @@ func readRunRecordCapabilitiesRows(rows runSchemaRows) (runRecordCapabilities, e
 			caps.FrameEndNs = true
 		case "statistics_json":
 			caps.StatisticsJSON = true
+		case "frame_mode":
+			caps.FrameMode = true
 		}
 	}
 	if err := rows.Err(); err != nil {

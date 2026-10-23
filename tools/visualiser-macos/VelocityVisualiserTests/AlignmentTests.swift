@@ -11,6 +11,9 @@
 
 import Combine
 import Foundation
+import GRPCCore
+import Metal
+import MetalKit
 import SwiftProtobuf
 import Testing
 import simd
@@ -329,6 +332,444 @@ struct ReferenceStyleTests {
     }
 }
 
+// MARK: - Site model layers
+
+/// The registered layers' payloads: decoding, colours and the ground mesh.
+struct SiteModelStyleTests {
+    private func geometry(
+        _ layers: [Gerardus_Align_V1alpha1_ReferenceLayer], modelID: String = "sha256:m"
+    ) -> ReferenceGeometry {
+        var geometry = ReferenceGeometry()
+        for layer in layers {
+            for message in referenceMessages(layer, modelID: modelID) { geometry.append(message) }
+        }
+        return geometry
+    }
+
+    private func flatField(n: UInt32, cell: Float = 1) -> Gerardus_Align_V1alpha1_Heightfield {
+        var field = Gerardus_Align_V1alpha1_Heightfield()
+        field.cellM = cell
+        field.nx = n
+        field.ny = n
+        field.z = Array(repeating: 0, count: Int(n * n))
+        return field
+    }
+
+    @Test func scanPointsDecodeWithTheirScanRecordAndModel() {
+        let g = geometry([.registeredScans])
+        #expect(g.scans.map(\.scanID) == [ownScanID, "sha256:other"])
+        #expect(g.scans.map(\.recordID) == ["gms:rec-own", "gms:rec-other"])
+        #expect(g.scans.allSatisfy { $0.kind == .background })
+        #expect(g.scans.first?.captureRef == "capture/\(ownScanID)")
+        #expect(g.scanPointCount == 5)
+        #expect(g.scanOrder == [ownScanID, "sha256:other"])
+        #expect(g.modelID == "sha256:m")
+        #expect(g.completeLayers == [.registeredScans])
+        // Scan points never land among the aerial ones.
+        #expect(g.aerialCount == 0)
+    }
+
+    @Test func aBundleLayerLeavesTheModelIDAlone() {
+        var g = geometry([.registeredScans], modelID: "sha256:m")
+        var aerial = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        aerial.layer = .aerialPoints
+        aerial.points.x = [1]
+        aerial.points.y = [1]
+        aerial.points.z = [1]
+        g.append(aerial)
+        #expect(g.modelID == "sha256:m")
+    }
+
+    @Test func scansTakeOneCodeEachAboveTheASPRSGroups() {
+        #expect(ReferenceStyle.scanCodeBase == 7 * 32)
+        #expect(ReferenceStyle.scanCodeCount == 32)
+        #expect(ReferenceStyle.scanCode(index: 0) == 224)
+        #expect(ReferenceStyle.scanCode(index: 31) == 255)
+        #expect(ReferenceStyle.scanCode(index: 32) == 224)
+        #expect(ReferenceStyle.code(asprsClass: 250, brightness: 1) < 224)
+        let colours = (224..<256).map { ReferenceStyle.palette[$0] }
+        #expect(Set(colours.map { [$0.x, $0.y, $0.z] }).count == 32)
+        #expect(colours.allSatisfy { $0.w == 1 && $0 != SIMD4(1, 1, 1, 1) })
+        // None is the live foreground's green.
+        #expect(colours.allSatisfy { !($0.y > $0.x + 0.2 && $0.y > $0.z + 0.2) })
+    }
+
+    @Test func scanVerticesAreColouredByScanAndHiddenByID() {
+        let g = geometry([.registeredScans])
+        let all = ReferenceStyle.scanVertices(g, hidden: [])
+        #expect(all.count == 5 * 5)
+        #expect(Array(all[0..<3]) == [-9, -38, 21])
+        let codes = (0..<5).map { Int(all[$0 * 5 + 3] * 255 + 0.5) }
+        #expect(codes == [224, 224, 224, 225, 225])
+        // Classification 0 keeps the shader on its table path.
+        #expect((0..<5).allSatisfy { all[$0 * 5 + 4] == 0 })
+
+        let others = ReferenceStyle.scanVertices(g, hidden: [ownScanID])
+        #expect(others.count == 2 * 5)
+        // Hiding a scan does not recolour the rest.
+        #expect(Int(others[3] * 255 + 0.5) == 225)
+        let vertices = ReferenceStyle.vertices(for: g, hiddenScanIDs: [ownScanID])
+        #expect(vertices.scanCount == 2)
+        #expect(vertices.aerialCount == 0)
+        #expect(vertices.palette == ReferenceStyle.palette)
+    }
+
+    @Test func eachObservedKindHasItsOwnColour() {
+        #expect(ReferenceStyle.lineColour(.sensor) == SIMD4(1, 1, 1, 1))
+        let amber = ReferenceStyle.lineColour(.correction)
+        #expect(amber.x == 1 && amber.y > 0.5 && amber.y < 0.85 && amber.z == 0)
+        let cyan = ReferenceStyle.lineColour(.facade)
+        #expect(cyan.x < 0.1 && cyan.y > 0.8 && cyan.z > 0.9)
+        let kinds: [Gerardus_Align_V1alpha1_FeatureKind] = [
+            .road, .path, .kerb, .rail, .building, .sensor, .correction, .facade, .pole, .other,
+        ]
+        let colours = kinds.map { ReferenceStyle.lineColour($0) }
+        #expect(Set(colours.map { [$0.x, $0.y, $0.z] }).count == kinds.count)
+    }
+
+    @Test func eachLineLayerKeepsItsOwnFeatures() {
+        let g = geometry([.osm, .footprints, .observed])
+        #expect(g.lines.map(\.kind) == [.road])
+        #expect(g.footprints.map(\.kind) == [.building])
+        #expect(g.observed.map(\.kind) == [.sensor, .correction, .facade, .pole])
+        #expect(g.modelID == "sha256:m")
+        let v = ReferenceStyle.vertices(for: g)
+        #expect(v.osmVertexCount == 2)
+        // The closed outline: three segments.
+        #expect(v.footprintVertexCount == 6)
+        // Sensor 2 segments, correction 1, facade 4 (foot, top, two
+        // uprights), pole 1.
+        #expect(v.observedVertexCount == 16)
+    }
+
+    @Test func sensorsAndPolesAreDrawnWhereTheyAre() {
+        var sensor = Gerardus_Align_V1alpha1_LineFeature()
+        sensor.kind = .sensor
+        sensor.xyz = [0, 0, 21, 0, 0, 23]
+        let v = ReferenceStyle.lineVertices([sensor])
+        // The stalk ends at the sensor's origin: no display lift.
+        #expect(v[2] == 21 && v[9] == 23)
+        let white = ReferenceStyle.lineColour(.sensor)
+        #expect(Array(v[3..<7]) == [white.x, white.y, white.z, white.w])
+        sensor.kind = .pole
+        #expect(ReferenceStyle.lineVertices([sensor])[2] == 21)
+        #expect(ReferenceStyle.lift(.correction) == 0)
+        #expect(ReferenceStyle.lift(.facade) == ReferenceStyle.lineLift)
+    }
+
+    @Test func aFacadeTraceStandsAsHighAsTheScansSawIt() {
+        var facade = Gerardus_Align_V1alpha1_LineFeature()
+        facade.kind = .facade
+        facade.xyz = [0, 5, 21, 10, 5, 21]
+        facade.heightM = 6
+        let v = ReferenceStyle.lineVertices([facade])
+        #expect(v.count == 4 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(v[2] == 21 + lift)
+        // The second segment is the top edge.
+        #expect(v[14 + 2] == 21 + lift + 6)
+        #expect(v[21 + 2] == 21 + lift + 6)
+        facade.heightM = 0
+        #expect(ReferenceStyle.lineVertices([facade]).count == 2 * 7)
+    }
+
+    @Test func aHeightfieldDecodesAndDrawsAsAWireframeAroundItsHoles() {
+        let g = geometry([.groundMesh])
+        #expect(g.groundMesh.count == 1)
+        let field = g.groundMesh[0]
+        #expect(field.nx == 3 && field.ny == 2 && field.cellM == 1)
+        #expect(field.origin.x == -10 && field.origin.y == -40)
+        #expect(g.groundMeshCells == 5)
+        #expect(g.modelID == "sha256:m")
+        #expect(g.completeLayers == [.groundMesh])
+
+        let v = ReferenceStyle.groundMeshVertices(g.groundMesh, centre: nil)
+        // Row 0's two edges and the columns at i = 0 and 2; (1, 1) is NaN.
+        #expect(v.count == 4 * 2 * 7)
+        for k in 0..<(v.count / 7) {
+            // z[j·nx + i] lies at origin + (i, j)·cell_m.
+            let i = v[k * 7] + 10
+            let j = v[k * 7 + 1] + 40
+            #expect(i == i.rounded() && j == j.rounded())
+            #expect(!(i == 1 && j == 1))
+            #expect(v[k * 7 + 2] == 21 + ReferenceStyle.lineLift)
+        }
+        let colour = ReferenceStyle.groundMeshColour
+        #expect(Array(v[3..<7]) == [colour.x, colour.y, colour.z, colour.w])
+    }
+
+    @Test func theGroundMeshIsClippedToTheStreamingRadius() {
+        let field = flatField(n: 21)
+        let v = ReferenceStyle.groundMeshVertices(
+            [field], centre: SIMD2(10, 10), radiusM: 5, denseRadiusM: 100)
+        #expect(!v.isEmpty)
+        for k in 0..<(v.count / 7) { #expect(hypot(v[k * 7] - 10, v[k * 7 + 1] - 10) <= 5 + 1e-4) }
+        #expect(ReferenceStyle.groundMeshRadiusM == 150)
+    }
+
+    @Test func beyondFortyMetresTheMeshIsDrawnEveryTwo() {
+        #expect(ReferenceStyle.groundMeshDenseRadiusM == 40)
+        #expect(ReferenceStyle.groundMeshCoarseSpacingM == 2)
+        let field = flatField(n: 9)
+        // All of it far from the sensor: a 2 m lattice, 5 lines each way of
+        // 4 edges.
+        let coarse = ReferenceStyle.groundMeshVertices(
+            [field], centre: SIMD2(-1000, -1000), radiusM: 10_000, denseRadiusM: 40)
+        #expect(coarse.count == 40 * 2 * 7)
+        for k in 0..<(coarse.count / 7) {
+            #expect(Int(coarse[k * 7]) % 2 == 0 && Int(coarse[k * 7 + 1]) % 2 == 0)
+        }
+        // All of it near: every 1 m line, 9 each way of 8 edges.
+        let dense = ReferenceStyle.groundMeshVertices([field], centre: SIMD2(4, 4))
+        #expect(dense.count == 144 * 2 * 7)
+        // A coarse edge is not drawn across a hole.
+        var holed = field
+        holed.z[1] = .nan
+        let around = ReferenceStyle.groundMeshVertices(
+            [holed], centre: SIMD2(-1000, -1000), radiusM: 10_000, denseRadiusM: 40)
+        #expect(around.count == 39 * 2 * 7)
+    }
+
+    @Test func aMalformedHeightfieldDrawsNothing() {
+        var short = flatField(n: 3)
+        short.z.removeLast()
+        #expect(ReferenceStyle.groundMeshVertices([short], centre: nil).isEmpty)
+        var flat = flatField(n: 3)
+        flat.cellM = 0
+        #expect(ReferenceStyle.groundMeshVertices([flat], centre: nil).isEmpty)
+        #expect(ReferenceStyle.groundMeshVertices([], centre: nil).isEmpty)
+    }
+
+    @Test func replacingTheRegisteredLayersKeepsTheBundlesOwn() {
+        var g = geometry(
+            [.aerialPoints, .osm, .footprints, .registeredScans, .observed, .groundMesh],
+            modelID: "sha256:a")
+        g.replaceRegistered(with: geometry([.observed], modelID: "sha256:b"))
+        #expect(g.aerialCount == 2 && g.lines.count == 1 && g.footprints.count == 1)
+        #expect(g.scans.isEmpty && g.groundMesh.isEmpty)
+        #expect(g.observed.count == 4)
+        #expect(g.modelID == "sha256:b")
+        #expect(g.completeLayers == [.aerialPoints, .osm, .footprints, .observed])
+    }
+}
+
+// MARK: - Boxes and wall planes
+
+/// DataSF boxes (REFERENCE_LAYER_BOXES) and the observed layer's wall planes
+/// (site model spike §6.6): decoding, colours, and closed rectangles drawn as
+/// given.
+struct BoxesAndWallPlanesStyleTests {
+    private func geometry(_ layers: [Gerardus_Align_V1alpha1_ReferenceLayer]) -> ReferenceGeometry {
+        var geometry = ReferenceGeometry()
+        for layer in layers {
+            for message in referenceMessages(layer, modelID: "sha256:m") { geometry.append(message) }
+        }
+        return geometry
+    }
+
+    private func observed(
+        _ features: [Gerardus_Align_V1alpha1_LineFeature]
+    ) -> Gerardus_Align_V1alpha1_StreamReferenceResponse {
+        var message = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        message.layer = .observed
+        message.lines.features = features
+        message.modelID = "sha256:m"
+        message.layerComplete = true
+        return message
+    }
+
+    /// The vertex at `index` of a line layout, as (x, y, z).
+    private func point(_ v: [Float], _ index: Int) -> [Float] {
+        Array(v[(index * 7)..<(index * 7 + 3)])
+    }
+
+    private func colour(_ v: [Float], _ index: Int) -> SIMD4<Float> {
+        SIMD4(v[index * 7 + 3], v[index * 7 + 4], v[index * 7 + 5], v[index * 7 + 6])
+    }
+
+    @Test func boxWallsDecodeIntoTheirOwnLayerWithTheirTags() {
+        let g = geometry([.footprints, .boxes])
+        #expect(g.footprints.count == 1)
+        #expect(g.boxes.count == 2)
+        #expect(g.lines.isEmpty && g.observed.isEmpty)
+        #expect(g.boxes.allSatisfy { $0.kind == .building && $0.closed && $0.xyz.count == 12 })
+        #expect(g.boxes.map { $0.tags["wall"] } == ["0", "1"])
+        #expect(g.boxes.first?.tags["roof_p50_m"] == "12.0")
+        #expect(g.boxes.first?.tags["shift_east_m"] == "0.3")
+        #expect(g.partyWallCount == 1)
+        #expect(g.boxes.map(ReferenceStyle.isPartyWall) == [false, true])
+        #expect(g.completeLayers == [.footprints, .boxes])
+        // Boxes are bundle data: they carry no model id.
+        #expect(g.modelID == "")
+    }
+
+    @Test func boxWallsAreDrawnClosedAndPartyWallsFainter() {
+        let g = geometry([.boxes])
+        let v = ReferenceStyle.boxVertices(g.boxes)
+        // Two rectangles of four segments each: nothing added for height_m.
+        #expect(v.count == 2 * 4 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(point(v, 0) == [10, 10, 21 + lift])
+        // The fourth segment of the first wall closes it on its first vertex.
+        #expect(point(v, 7) == [10, 10, 21 + lift])
+        #expect(point(v, 15) == [20, 10, 21 + lift])
+        // The roof edge stays at the roof, not at the roof plus height_m.
+        #expect((0..<16).allSatisfy { point(v, $0)[2] <= 33 + lift + 1e-4 })
+
+        let street = colour(v, 0)
+        let party = colour(v, 8)
+        #expect(street == ReferenceStyle.boxWallColour)
+        #expect(party == ReferenceStyle.partyWallColour)
+        #expect(party.w < street.w / 2)
+        #expect(SIMD3(party.x, party.y, party.z) == SIMD3(street.x, street.y, street.z))
+        // A building red, distinct from the flat footprints' outline.
+        let flat = ReferenceStyle.lineColour(.building)
+        #expect(street != flat)
+        #expect(street.x > street.y + 0.2 && street.x > street.z + 0.2)
+        #expect(street.x < flat.x)
+
+        let all = ReferenceStyle.vertices(for: g)
+        #expect(all.boxVertexCount == 16)
+        #expect(all.footprintVertexCount == 0)
+    }
+
+    @Test func wallPlanesDecodeApartFromTheObservedFeatures() {
+        var g = ReferenceGeometry()
+        var facade = Gerardus_Align_V1alpha1_LineFeature()
+        facade.kind = .facade
+        facade.xyz = [0, 5, 21, 10, 5, 21]
+        g.append(observed([facade, wallPlane(role: "wall"), wallPlane(role: "recess", offset: -0.4)]))
+        #expect(g.observed.map(\.kind) == [.facade])
+        #expect(g.wallPlanes.count == 2)
+        #expect(g.wallPlaneRoles == [.wall: 1, .recess: 1])
+        #expect(g.wallPlanes.last?.tags["offset_m"] == "-0.4")
+        #expect(g.completeLayers == [.observed])
+
+        // The wall planes are registered data: replaced with the observed
+        // layer, while the boxes stay with the bundle.
+        var drawn = geometry([.boxes, .observed])
+        #expect(drawn.wallPlanes.isEmpty)
+        drawn.replaceRegistered(with: g)
+        #expect(drawn.wallPlanes.count == 2)
+        #expect(drawn.observed.count == 1)
+        #expect(drawn.boxes.count == 2)
+        #expect(drawn.completeLayers == [.boxes, .observed])
+        var merged = ReferenceGeometry()
+        merged.merge(drawn)
+        #expect(merged.wallPlanes.count == 2 && merged.boxes.count == 2)
+    }
+
+    @Test func eachWallPlaneRoleHasItsOwnColour() {
+        let wall = ReferenceStyle.wallPlaneColour(.wall)
+        let popout = ReferenceStyle.wallPlaneColour(.popout)
+        let recess = ReferenceStyle.wallPlaneColour(.recess)
+        // Cyan-teal, orange, violet.
+        #expect(wall.x < 0.2 && wall.y > 0.7 && wall.z > 0.6 && wall.z < wall.y)
+        #expect(popout.x == 1 && popout.y > 0.4 && popout.y < 0.75 && popout.z < 0.2)
+        #expect(recess.z == 1 && recess.x > 0.5 && recess.y < 0.5)
+        // None is a facade trace's cyan, so planes and traces read apart.
+        let facade = ReferenceStyle.lineColour(.facade)
+        let colours = [wall, popout, recess, facade].map { [$0.x, $0.y, $0.z] }
+        #expect(Set(colours).count == 4)
+        #expect(ReferenceStyle.lineColour(.wallPlane) == wall)
+
+        #expect(ReferenceStyle.wallPlaneRole(wallPlane(role: "popout")) == .popout)
+        #expect(ReferenceStyle.wallPlaneRole(wallPlane(role: "recess")) == .recess)
+        #expect(ReferenceStyle.wallPlaneRole(wallPlane(role: "bay")) == .other)
+        var untagged = wallPlane(role: "wall")
+        untagged.tags = [:]
+        #expect(ReferenceStyle.wallPlaneRole(untagged) == .other)
+        #expect(ReferenceStyle.wallPlaneColour(.other) == ReferenceStyle.otherColour)
+    }
+
+    @Test func wallPlanesAreDrawnClosedWithoutAFacadeTop() {
+        // A height_m on a plane adds nothing: the rectangle is the whole of it.
+        let planes = [
+            wallPlane(role: "wall", height: 6), wallPlane(role: "popout", offset: 0.6),
+            wallPlane(role: "recess", offset: -0.3),
+        ]
+        let v = ReferenceStyle.wallPlaneVertices(planes)
+        #expect(v.count == 3 * 4 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(point(v, 0) == [11, 10, 21 + lift])
+        // The closing segment runs from the last vertex back to the first.
+        #expect(point(v, 6) == [11, 10, 30 + lift])
+        #expect(point(v, 7) == [11, 10, 21 + lift])
+        #expect((0..<(v.count / 7)).allSatisfy { point(v, $0)[2] <= 30 + lift + 1e-4 })
+        #expect(colour(v, 0) == ReferenceStyle.wallPlaneColour(.wall))
+        #expect(colour(v, 8) == ReferenceStyle.wallPlaneColour(.popout))
+        #expect(colour(v, 16) == ReferenceStyle.wallPlaneColour(.recess))
+        // A popout stands in front of the box wall: towards −y here.
+        #expect(abs(point(v, 8)[1] - 9.4) < 1e-4)
+
+        // In the overlay, planes have their own buffer, apart from the
+        // observed features (which a facade trace still gets its top in).
+        var g = geometry([.observed])
+        g.append(observed(planes))
+        let overlay = ReferenceStyle.vertices(for: g)
+        #expect(overlay.wallPlaneVertexCount == 24)
+        #expect(overlay.observedVertexCount == 16)
+
+        // An open plane is drawn open, as given.
+        var open = wallPlane(role: "wall")
+        open.closed = false
+        #expect(ReferenceStyle.wallPlaneVertices([open]).count == 3 * 2 * 7)
+    }
+
+    @Test func roleCountsReadForThePane() {
+        var summary = ReferenceSummary(
+            aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
+            aerialAttribution: "")
+        #expect(summary.wallPlaneRoleText == "")
+        summary.wallPlaneRoles = [.wall: 3, .popout: 1, .recess: 2]
+        #expect(summary.wallPlaneRoleText == "3 walls · 1 popout · 2 recesses")
+        summary.wallPlaneRoles = [.wall: 1, .recess: 1, .other: 2, .popout: 0]
+        #expect(summary.wallPlaneRoleText == "1 wall · 1 recess · 2 other")
+    }
+}
+
+/// The renderer keeps a buffer and a toggle for each new layer.
+@MainActor struct ReferenceOverlayRendererTests {
+    @Test func eachNewLayerHasABufferAndAToggle() {
+        guard let device = MTLCreateSystemDefaultDevice() else { return }
+        let view = MTKView()
+        view.device = device
+        guard let renderer = MetalRenderer(metalView: view) else { return }
+        var g = ReferenceGeometry()
+        for layer in AlignmentSession.bundleLayers + AlignmentSession.listedOnlyLayers
+            + AlignmentSession.registeredLayers
+        {
+            for message in referenceMessages(layer, modelID: "sha256:m") { g.append(message) }
+        }
+        var planes = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        planes.layer = .observed
+        planes.lines.features = [wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.5)]
+        g.append(planes)
+        renderer.setReferenceOverlay(
+            ReferenceStyle.vertices(for: g, centre: SIMD3(-9.4, -38.5, 23)))
+        #expect(renderer.referenceScanCount == 5)
+        #expect(renderer.referenceFootprintVertexCount == 6)
+        #expect(renderer.referenceBoxVertexCount == 16)
+        #expect(renderer.referenceObservedVertexCount == 16)
+        #expect(renderer.referenceWallPlaneVertexCount == 16)
+        #expect(renderer.referenceGroundMeshVertexCount == 8)
+        var shown = ReferenceVisibility()
+        #expect(shown.boxes && shown.wallPlanes)
+        shown.registeredScans = false
+        shown.groundMesh = false
+        shown.boxes = false
+        shown.wallPlanes = false
+        renderer.setReferenceVisibility(shown)
+        #expect(renderer.referenceVisibility == shown)
+        renderer.setReferenceOverlay(nil)
+        #expect(renderer.referenceScanCount == 0)
+        #expect(renderer.referenceBoxVertexCount == 0)
+        #expect(renderer.referenceObservedVertexCount == 0)
+        #expect(renderer.referenceWallPlaneVertexCount == 0)
+        #expect(renderer.referenceGroundMeshVertexCount == 0)
+    }
+}
+
 // MARK: - Site lookup
 
 struct AlignmentSiteResolverTests {
@@ -398,6 +839,162 @@ struct AlignmentSiteResolverTests {
 
 // MARK: - Session against a fake service
 
+/// The scan the fake's UploadScan names, and so the open capture's own.
+private let ownScanID = "sha256:scan"
+
+/// What the fake Gerardus streams for one layer. The registered layers are
+/// shaped as SITE-MODEL-SPIKE.md §6 describes them: two accepted scans (the
+/// open capture's own and another), a sensor, a correction, a facade trace
+/// and a pole, and a small ground heightfield near the hint pose.
+private func referenceMessages(
+    _ layer: Gerardus_Align_V1alpha1_ReferenceLayer, modelID: String
+) -> [Gerardus_Align_V1alpha1_StreamReferenceResponse] {
+    func message(
+        _ fill: (inout Gerardus_Align_V1alpha1_StreamReferenceResponse) -> Void
+    ) -> Gerardus_Align_V1alpha1_StreamReferenceResponse {
+        var m = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        m.layer = layer
+        fill(&m)
+        return m
+    }
+    func line(
+        _ kind: Gerardus_Align_V1alpha1_FeatureKind, _ xyz: [Float], height: Float = 0
+    ) -> Gerardus_Align_V1alpha1_LineFeature {
+        var feature = Gerardus_Align_V1alpha1_LineFeature()
+        feature.kind = kind
+        feature.xyz = xyz
+        feature.heightM = height
+        return feature
+    }
+    func scan(_ id: String, record: String, points: Int) -> Gerardus_Align_V1alpha1_ScanPoints {
+        var block = Gerardus_Align_V1alpha1_ScanPoints()
+        block.scanID = id
+        block.recordID = record
+        block.kind = .background
+        block.captureRef = "capture/\(id)"
+        block.points.x = (0..<points).map { Float($0) - 9 }
+        block.points.y = (0..<points).map { _ in -38 }
+        block.points.z = (0..<points).map { _ in 21 }
+        return block
+    }
+    switch layer {
+    case .aerialPoints:
+        return [
+            message {
+                $0.points.x = [0, 1]
+                $0.points.y = [0, 1]
+                $0.points.z = [21, 21]
+                $0.points.classification = [2, 2]
+                $0.points.intensity = [10, 20]
+                $0.layerComplete = true
+            }
+        ]
+    case .osm:
+        return [
+            message {
+                $0.lines.features = [line(.road, [0, 0, 21, 5, 0, 21])]
+                $0.layerComplete = true
+            }
+        ]
+    case .footprints:
+        var outline = line(.building, [10, 10, 21, 20, 10, 21, 20, 20, 21])
+        outline.closed = true
+        return [
+            message {
+                $0.lines.features = [outline]
+                $0.layerComplete = true
+            }
+        ]
+    case .intersections: return [message { $0.layerComplete = true }]
+    case .boxes:
+        // The footprint's box: one street wall and one party wall, each a
+        // closed vertical rectangle from the ground (21 m) to the roof.
+        return [
+            message {
+                $0.lines.features = [
+                    boxWall([10, 10, 21, 20, 10, 21, 20, 10, 33, 10, 10, 33], wall: 0, party: false),
+                    boxWall([20, 10, 21, 20, 20, 21, 20, 20, 33, 20, 10, 33], wall: 1, party: true),
+                ]
+                $0.layerComplete = true
+            }
+        ]
+    case .registeredScans:
+        return [
+            message {
+                $0.scanPoints = scan(ownScanID, record: "gms:rec-own", points: 3)
+                $0.modelID = modelID
+            },
+            message {
+                $0.scanPoints = scan("sha256:other", record: "gms:rec-other", points: 2)
+                $0.modelID = modelID
+                $0.layerComplete = true
+            },
+        ]
+    case .observed:
+        return [
+            message {
+                $0.lines.features = [
+                    line(.sensor, [-9.4, -38.5, 21, -9.4, -38.5, 23, -7.7, -36.0, 23]),
+                    line(.correction, [-12, -40, 21.2, -9.4, -38.5, 21.2]),
+                    line(.facade, [0, 5, 21, 10, 5, 21], height: 6),
+                    line(.pole, [3, 3, 21, 3, 3, 27]),
+                ]
+                $0.modelID = modelID
+                $0.layerComplete = true
+            }
+        ]
+    case .groundMesh:
+        return [
+            message {
+                $0.groundMesh.origin.x = -10
+                $0.groundMesh.origin.y = -40
+                $0.groundMesh.cellM = 1
+                $0.groundMesh.nx = 3
+                $0.groundMesh.ny = 2
+                $0.groundMesh.z = [21, 21, 21, 21, .nan, 21]
+                $0.modelID = modelID
+                $0.layerComplete = true
+            }
+        ]
+    default: return []
+    }
+}
+
+/// One wall of a DataSF box, tagged as Gerardus tags it.
+private func boxWall(
+    _ xyz: [Float], wall: Int, party: Bool
+) -> Gerardus_Align_V1alpha1_LineFeature {
+    var feature = Gerardus_Align_V1alpha1_LineFeature()
+    feature.featureID = "datasf:ynuv-fyni/1#\(wall)"
+    feature.kind = .building
+    feature.xyz = xyz
+    feature.closed = true
+    feature.heightM = 12
+    feature.tags = [
+        "building_id": "1", "wall": "\(wall)", "party": party ? "true" : "false",
+        "roof_p50_m": "12.0", "roof_p95_m": "12.6", "shift_east_m": "0.3",
+        "shift_north_m": "-0.2",
+    ]
+    return feature
+}
+
+/// A wall plane in front of the box's street wall: a closed vertical
+/// rectangle with a role.
+private func wallPlane(
+    role: String, offset: Float = 0, height: Float = 0
+) -> Gerardus_Align_V1alpha1_LineFeature {
+    var feature = Gerardus_Align_V1alpha1_LineFeature()
+    feature.kind = .wallPlane
+    let y = 10 - offset
+    feature.xyz = [11, y, 21, 15, y, 21, 15, y, 30, 11, y, 30]
+    feature.closed = true
+    feature.heightM = height
+    feature.tags = [
+        "role": role, "offset_m": "\(offset)", "points": "420", "building_id": "1", "wall": "0",
+    ]
+    return feature
+}
+
 /// A stand-in for Gerardus: canned answers and a log of every call.
 final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     private let lock = NSLock()
@@ -411,10 +1008,54 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Probes that fail before the server first answers.
     var failuresBeforeAnswering = 0
     var lastHint: Gerardus_Align_V1alpha1_PoseFromHintRequest?
-    var lastReference: Gerardus_Align_V1alpha1_StreamReferenceRequest?
+    /// Every StreamReference request, in order.
+    var references: [Gerardus_Align_V1alpha1_StreamReferenceRequest] = []
+    /// What GetServerInfo lists: every layer, as a server run with
+    /// `serve --serve-scans` would.
+    var availableLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+    ]
+    /// Layers StreamReference refuses with PERMISSION_DENIED.
+    var refusedLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
+    /// The model_id the registered layers carry.
+    var servedModelID = "sha256:model-a"
+    /// What GetSiteModel answers; nil is UNIMPLEMENTED, as Gerardus answers
+    /// until V2 builds the site model.
+    var siteModelID: String?
+    /// The scans GetSiteModel lists, when it answers.
+    var siteModelScans: [String] = [ownScanID, "sha256:other"]
+    /// The capture_ref and sensor position GetSiteModel gives a scan, where
+    /// a test sets them.
+    var siteModelCaptureRefs: [String: String] = [:]
+    var siteModelPositions: [String: SIMD3<Double>] = [:]
+    /// Serve the registered layers empty and complete, with no model_id, as
+    /// Gerardus does before it builds them.
+    var emptyRegisteredLayers = false
+    /// Serve the boxes layer empty and complete, as Gerardus does before it
+    /// builds them.
+    var emptyBoxes = false
+    /// Wall planes the observed layer carries; none until Gerardus builds them.
+    var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
+    /// Refuse Register with against_boxes, FAILED_PRECONDITION with this
+    /// message, as Gerardus refuses a site with no box walls.
+    var refuseAgainstBoxes: String?
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
+    /// Every ReviewRegistration request, in order.
+    var reviews: [Gerardus_Align_V1alpha1_ReviewRegistrationRequest] = []
+    /// Runs whose review is refused with FAILED_PRECONDITION, as Gerardus
+    /// refuses a j1 whose scan's accepted pose changed since RefineSite ran.
+    var refusedReviews: Set<String> = []
+    /// What RefineSite answers, the last request it got, and the runs
+    /// GetRegistration answers, by id.
+    var refineResult = Gerardus_Align_V1alpha1_RefineSiteResult()
+    var lastRefine: Gerardus_Align_V1alpha1_RefineSiteRequest?
+    var runs: [String: Gerardus_Align_V1alpha1_Registration] = [:]
+    /// Called inside RefineSite before it answers, to look at the session then.
+    var duringRefine: (@MainActor () -> Void)?
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
+    /// Every UploadScan header, in order.
+    var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
     var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
     let hintPose = levelPose(headingDeg: 35, at: SIMD3(-9.4, -38.5, 23))
 
@@ -434,7 +1075,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         var info = Gerardus_Align_V1alpha1_GetServerInfoResponse()
         info.serverVersion = "0.1.0"
         info.apiVersion = "gerardus.align.v1alpha1"
-        info.availableLayers = [.aerialPoints, .osm, .intersections]
+        info.availableLayers = availableLayers
         return info
     }
 
@@ -458,22 +1099,61 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         return site
     }
 
+    /// Answers each requested layer with the messages a server would send,
+    /// gathered the way GerardusClient gathers them.
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry {
         log("StreamReference")
-        lastReference = request
+        references.append(request)
+        if request.layers.contains(where: refusedLayers.contains) {
+            throw GerardusClientError.permissionDenied(
+                "REGISTERED_SCANS is served only to loopback and tailnet peers")
+        }
         var geometry = ReferenceGeometry()
-        geometry.aerialX = [0, 1]
-        geometry.aerialY = [0, 1]
-        geometry.aerialZ = [21, 21]
-        geometry.aerialClass = [2, 2]
-        geometry.aerialIntensity = [10, 20]
-        var road = Gerardus_Align_V1alpha1_LineFeature()
-        road.kind = .road
-        road.xyz = [0, 0, 21, 5, 0, 21]
-        geometry.lines = [road]
+        for layer in request.layers {
+            if (emptyRegisteredLayers && ReferenceGeometry.registeredLayers.contains(layer))
+                || (emptyBoxes && layer == .boxes)
+            {
+                var empty = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                empty.layer = layer
+                empty.layerComplete = true
+                geometry.append(empty)
+                continue
+            }
+            for message in referenceMessages(layer, modelID: servedModelID) {
+                geometry.append(message)
+            }
+            if layer == .observed, !wallPlanes.isEmpty {
+                var planes = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                planes.layer = .observed
+                planes.lines.features = wallPlanes
+                planes.modelID = servedModelID
+                geometry.append(planes)
+            }
+        }
         return geometry
+    }
+
+    func getSiteModel(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse? {
+        log("GetSiteModel")
+        guard let siteModelID else { return nil }
+        var response = Gerardus_Align_V1alpha1_GetSiteModelResponse()
+        response.modelID = siteModelID
+        response.scans = siteModelScans.map { id in
+            var scan = Gerardus_Align_V1alpha1_ModelScan()
+            scan.scanID = id
+            scan.state = .registered
+            if let ref = siteModelCaptureRefs[id] { scan.captureRef = ref }
+            if let at = siteModelPositions[id] {
+                scan.pose = levelPose(headingDeg: 0, at: at).proto(
+                    siteFrameID: "site", sensorFrameID: "sensor", source: .manual)
+            }
+            return scan
+        }
+        return response
     }
 
     func poseFromHint(
@@ -494,6 +1174,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_UploadScanResponse {
         log("UploadScan")
         uploadedBlocks = blocks
+        uploadedHeaders.append(header)
         var response = Gerardus_Align_V1alpha1_UploadScanResponse()
         response.scan.scanID = "sha256:scan"
         response.scan.header = header
@@ -518,6 +1199,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_Registration {
         log("Register")
         lastRegister = request
+        if request.againstBoxes, let refuseAgainstBoxes {
+            throw RPCError(code: .failedPrecondition, message: refuseAgainstBoxes)
+        }
         if registerUntilCancelled {
             while !Task.isCancelled { await Task.yield() }
             throw CancellationError()
@@ -528,6 +1212,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         }
         var registration = Gerardus_Align_V1alpha1_Registration()
         registration.registrationID = "gms:reg"
+        registration.scanID = request.scanID
         registration.state = runState
         registration.hypotheses = ranked ?? streamed
         registration.gates = gates
@@ -572,8 +1257,18 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
         log("ReviewRegistration")
         lastReview = request
+        reviews.append(request)
+        if refusedReviews.contains(request.registrationID) {
+            throw RPCError(
+                code: .failedPrecondition,
+                message: "the scan's accepted pose has changed since this refinement ran")
+        }
         var record = Gerardus_Align_V1alpha1_RegistrationRecord()
         record.recordID = "gms:rec\(records.count)"
+        // The scan the run registered, as Gerardus records it.
+        record.scanID =
+            runs[request.registrationID]?.scanID
+            ?? (request.registrationID == "gms:reg" ? lastRegister?.scanID ?? "" : "")
         switch request.decision {
         case .acceptPose: record.state = .manuallyPlaced
         case .rejectReason: record.state = .rejected
@@ -590,23 +1285,44 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         log("ListRegistrationRecords")
         return records
     }
+
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
+        log("GetRegistration")
+        guard let run = runs[id] else { throw GerardusClientError.incompleteStream("no run \(id)") }
+        return run
+    }
+
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult {
+        log("RefineSite")
+        lastRefine = request
+        var progress = Gerardus_Align_V1alpha1_Progress()
+        progress.stage = "solve"
+        progress.fraction = -1
+        await onProgress(progress)
+        await duringRefine?()
+        return refineResult
+    }
 }
 
 /// Records what the session hands the renderer.
 final class FakeOverlaySink: ReferenceOverlaySink {
     var overlays: [ReferenceOverlayVertices?] = []
     var matrices: [simd_float4x4] = []
-    var visibility: (Bool, Bool, Bool)?
+    var visibility: ReferenceVisibility?
 
     func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?) { overlays.append(vertices) }
     func setReferenceModelMatrix(_ matrix: simd_float4x4) { matrices.append(matrix) }
-    func setReferenceVisibility(aerial: Bool, osm: Bool, intersections: Bool) {
-        visibility = (aerial, osm, intersections)
-    }
+    func setReferenceVisibility(_ visibility: ReferenceVisibility) { self.visibility = visibility }
     var residuals: [[Float]?] = []
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>]) {
         residuals.append(vertices)
     }
+    /// Every point the camera was asked to frame, in the site frame.
+    var focuses: [SIMD3<Double>] = []
+    func focusCamera(onSitePoint point: SIMD3<Double>) { focuses.append(point) }
 }
 
 @MainActor struct AlignmentProbingTests {
@@ -729,9 +1445,11 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     @Test func placingAsksForTheHintThenTheReferenceAroundIt() async {
         let (session, service, sink) = await placed()
         #expect(session.availability == .available(serverVersion: "0.1.0"))
+        // The bundle's layers on one call, then each registered layer on its own.
         #expect(
             service.calls == [
                 "GetServerInfo", "PrepareSite", "PoseFromHint", "StreamReference",
+                "StreamReference", "StreamReference", "StreamReference", "GetSiteModel",
                 "ListRegistrationRecords",
             ])
         let hint = service.lastHint
@@ -740,12 +1458,17 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(hint?.hint.position.longitudeDeg == -122.4065)
         // north_azimuth_deg 35 at columbus-broadway: the hint heading is 180 − 35.
         #expect(hint?.hint.hasHeadingDeg == true && hint?.hint.headingDeg == 145)
-        let reference = service.lastReference
+        let reference = service.references.first
         #expect(reference?.radiusM == 150)
         #expect(reference?.voxelSizeM == 0)
         #expect(reference?.centre.x == service.hintPose.translation.x)
         #expect(reference?.centre.y == service.hintPose.translation.y)
-        #expect(reference?.layers == [.aerialPoints, .osm, .intersections])
+        #expect(reference?.layers == [.aerialPoints, .osm, .footprints, .intersections])
+        #expect(
+            service.references.dropFirst().map(\.layers) == [
+                [.registeredScans], [.observed], [.groundMesh],
+            ])
+        #expect(service.references.allSatisfy { $0.radiusM == 150 })
 
         #expect(sink.overlays.last??.aerialCount == 2)
         #expect(sink.matrices.last == service.hintPose.referenceModelMatrix)
@@ -862,6 +1585,207 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(!session.canRegister)
         // The reference stays drawn until a site is placed again.
         #expect(session.reference != nil)
+    }
+}
+
+// MARK: - Site model in the session
+
+@MainActor struct AlignmentSiteModelTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    private func placed(
+        _ configure: (FakeAlignmentService) -> Void = { _ in }
+    ) async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let service = FakeAlignmentService()
+        configure(service)
+        let sink = FakeOverlaySink()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = sink
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service, sink)
+    }
+
+    /// Placed, with the background uploaded: the open capture's scan is
+    /// then known by its id.
+    private func registered(
+        _ configure: (FakeAlignmentService) -> Void = { _ in }
+    ) async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let (session, service, sink) = await placed(configure)
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        return (session, service, sink)
+    }
+
+    @Test func theRegisteredLayersAreDrawnAndCounted() async throws {
+        let (session, _, sink) = await placed()
+        let summary = try #require(session.reference)
+        #expect(summary.footprints == 1)
+        #expect(summary.registeredScans == 2)
+        // The open capture's scan is not known before its upload.
+        #expect(summary.registeredPoints == 5)
+        #expect(summary.ownScanPoints == 0)
+        #expect(summary.observedFeatures == 4)
+        #expect(summary.groundMeshCells == 5)
+        #expect(summary.modelID == "sha256:model-a")
+        #expect(session.registeredLayersNote == nil)
+        #expect(session.errorMessage == nil)
+
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.scanCount == 5)
+        #expect(overlay.footprintVertexCount == 6)
+        #expect(overlay.observedVertexCount == 16)
+        // The ground mesh lies within 40 m of the sensor: drawn cell by cell.
+        #expect(overlay.groundMeshVertexCount == 8)
+
+        #expect(sink.visibility == ReferenceVisibility())
+        session.showGroundMesh = false
+        session.showFootprints = false
+        #expect(sink.visibility?.groundMesh == false)
+        #expect(sink.visibility?.footprints == false)
+        #expect(sink.visibility?.registeredScans == true)
+        session.showRegisteredScans = false
+        session.showObserved = false
+        #expect(sink.visibility?.registeredScans == false)
+        #expect(sink.visibility?.observed == false)
+    }
+
+    @Test func theOpenCapturesOwnScanIsHiddenUntilAskedFor() async {
+        let (session, _, sink) = await registered()
+        #expect(session.scan?.scanID == ownScanID)
+        #expect(session.reference?.ownScanPoints == 3)
+        #expect(session.reference?.registeredPoints == 2)
+        #expect(sink.overlays.last??.scanCount == 2)
+
+        session.showOwnScan = true
+        await session.pendingStyling?.value
+        #expect(sink.overlays.last??.scanCount == 5)
+        #expect(session.reference?.registeredPoints == 5)
+
+        session.showOwnScan = false
+        await session.pendingStyling?.value
+        #expect(sink.overlays.last??.scanCount == 2)
+
+        // Another capture opens: the scan is no longer this capture's own.
+        session.captureChanged()
+        await session.pendingStyling?.value
+        #expect(sink.overlays.last??.scanCount == 5)
+        #expect(session.reference?.ownScanPoints == 0)
+    }
+
+    @Test func refusedScansLeaveEveryOtherLayerDrawn() async {
+        let (session, service, sink) = await placed { $0.refusedLayers = [.registeredScans] }
+        #expect(session.errorMessage == nil)
+        #expect(session.reference?.aerialPoints == 2)
+        #expect(session.reference?.registeredScans == 0)
+        #expect(session.reference?.observedFeatures == 4)
+        #expect(session.reference?.groundMeshCells == 5)
+        #expect(session.reference?.modelID == "sha256:model-a")
+        #expect(session.registeredLayersNote?.contains("--serve-scans") == true)
+        #expect(sink.overlays.last??.scanCount == 0)
+        #expect(sink.overlays.last??.aerialCount == 2)
+        // Placement carried on to the records.
+        #expect(service.calls.last == "ListRegistrationRecords")
+    }
+
+    @Test func anotherFailureIsNamedWithItsLayer() {
+        let note = AlignmentSession.note(
+            layer: .groundMesh, error: GerardusClientError.incompleteStream("StreamReference"))
+        #expect(note == "Ground mesh not drawn: StreamReference ended without its result")
+    }
+
+    @Test func emptyRegisteredLayersAreNotAnError() async {
+        let (session, _, sink) = await placed { $0.emptyRegisteredLayers = true }
+        #expect(session.errorMessage == nil)
+        #expect(session.registeredLayersNote == nil)
+        #expect(session.reference?.registeredScans == 0)
+        #expect(session.reference?.observedFeatures == 0)
+        #expect(session.reference?.groundMeshCells == 0)
+        #expect(session.reference?.modelID == "")
+        #expect(session.reference?.aerialPoints == 2)
+        #expect(sink.overlays.last??.scanCount == 0)
+    }
+
+    @Test func aServerWithoutTheSiteModelIsAskedForTheBundleOnly() async {
+        let (session, service, _) = await registered {
+            $0.availableLayers = [.aerialPoints, .osm, .intersections]
+        }
+        #expect(service.references.map(\.layers) == [[.aerialPoints, .osm, .intersections]])
+        #expect(session.reference?.registeredScans == 0)
+        #expect(session.registeredLayersNote == nil)
+        // Nor is the site model asked about after an accept.
+        await session.accept()
+        #expect(session.lastRecord != nil)
+        #expect(!service.calls.contains("GetSiteModel"))
+        #expect(service.references.count == 1)
+    }
+
+    @Test func anAcceptReStreamsTheRegisteredLayersWhenTheModelMoves() async {
+        let (session, service, sink) = await registered { $0.siteModelID = "sha256:model-a" }
+        let before = service.references.count
+        service.servedModelID = "sha256:model-b"
+        service.siteModelID = "sha256:model-b"
+        await session.accept()
+        #expect(
+            Array(service.calls.suffix(6)) == [
+                "ReviewRegistration", "ListRegistrationRecords", "GetSiteModel", "StreamReference",
+                "StreamReference", "StreamReference",
+            ])
+        #expect(
+            service.references.dropFirst(before).map(\.layers) == [
+                [.registeredScans], [.observed], [.groundMesh],
+            ])
+        #expect(session.reference?.modelID == "sha256:model-b")
+        // The bundle's layers were not asked for again, and are still drawn,
+        // and the open capture's copy is still hidden.
+        #expect(session.reference?.aerialPoints == 2)
+        #expect(sink.overlays.last??.aerialCount == 2)
+        #expect(sink.overlays.last??.scanCount == 2)
+        #expect(session.busy == nil)
+
+        // A second decision on a model that has not moved streams nothing.
+        let streamed = service.references.count
+        await session.accept()
+        #expect(service.calls.last == "GetSiteModel")
+        #expect(service.references.count == streamed)
+    }
+
+    @Test func anUnchangedModelIsNotReStreamed() async {
+        let (session, service, _) = await registered { $0.siteModelID = "sha256:model-a" }
+        let before = service.references.count
+        await session.accept()
+        #expect(service.calls.last == "GetSiteModel")
+        #expect(service.references.count == before)
+        #expect(session.reference?.modelID == "sha256:model-a")
+    }
+
+    @Test func anUnimplementedSiteModelStillReStreamsAfterAnAccept() async {
+        // Today's Gerardus: GetSiteModel answers UNIMPLEMENTED.
+        let (session, service, _) = await registered()
+        let before = service.references.count
+        service.servedModelID = "sha256:model-b"
+        await session.accept()
+        #expect(service.calls.contains("GetSiteModel"))
+        #expect(service.references.count == before + 3)
+        #expect(session.reference?.modelID == "sha256:model-b")
+        #expect(session.errorMessage == nil)
+    }
+
+    @Test func aRejectionAlsoAsksWhetherTheModelMoved() async {
+        let (session, service, _) = await registered { $0.siteModelID = "sha256:model-a" }
+        session.rejectReason = "wrong corner"
+        await session.reject()
+        #expect(service.calls.last == "GetSiteModel")
+    }
+
+    @Test func theModelIDShortensForThePane() {
+        #expect(AlignmentFormat.shortID("sha256:0123456789abcdef") == "sha256:0123456789ab")
+        #expect(AlignmentFormat.shortID("plain-id-that-is-long") == "plain-id-tha")
     }
 }
 
@@ -1289,6 +2213,20 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
         try await inner.listRegistrationRecords(l16Token: l16Token)
     }
+    func getSiteModel(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetSiteModelResponse? {
+        try await inner.getSiteModel(l16Token: l16Token)
+    }
+    func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
+        try await inner.getRegistration(id: id)
+    }
+    func refineSite(
+        _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult {
+        try await inner.refineSite(request, onProgress: onProgress)
+    }
 }
 
 @MainActor struct AlignmentAddressChangeTests {
@@ -1401,5 +2339,1412 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         #expect(app.showAlignmentPane)
         session.useServiceAddress(remote)
         #expect(!app.showAlignmentPane)
+    }
+}
+
+// MARK: - Registering against the site model (spike V5)
+
+private let columbusSite = AlignmentSite(
+    clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+    description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+    sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+/// A session placed at columbus-broadway against a fake configured first.
+@MainActor private func placedSession(
+    fullFrames: ReplayFullFramesSwitch? = FakeFullFrames(),
+    _ configure: (FakeAlignmentService) -> Void = { _ in }
+) async -> (AlignmentSession, FakeAlignmentService) {
+    let service = FakeAlignmentService()
+    configure(service)
+    let session = AlignmentSession(
+        makeClient: { _ in service }, lookup: nil, defaults: nil, fullFrames: fullFrames)
+    session.sink = FakeOverlaySink()
+    // Nothing is scored in these tests unless they ask.
+    session.evaluateSleep = { _ in try await Task.sleep(for: .seconds(3600)) }
+    await session.probe()
+    session.choose(columbusSite)
+    session.northAzimuthText = "35"
+    await session.placeFromHint()
+    return (session, service)
+}
+
+@MainActor struct AgainstSiteModelTests {
+    @Test func theSwitchIsOffByDefaultAndSetsTheRequestField() async {
+        let (session, service) = await placedSession()
+        session.noteBackground(snapshot(count: 10))
+        #expect(!session.againstSiteModel)
+        // The fake lists every layer and its model holds another scan.
+        #expect(session.againstSiteModelUnavailable == nil)
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == false)
+
+        session.againstSiteModel = true
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == true)
+        #expect(session.registersAgainstSiteModel)
+    }
+
+    @Test func aServerWithoutTheScansLayerDisablesIt() async {
+        let (session, service) = await placedSession {
+            $0.availableLayers = [.aerialPoints, .osm, .footprints, .intersections, .observed]
+        }
+        session.noteBackground(snapshot(count: 10))
+        session.againstSiteModel = true
+        #expect(session.againstSiteModelUnavailable?.contains("registered-scans") == true)
+        #expect(!session.registersAgainstSiteModel)
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == false)
+    }
+
+    @Test func aModelHoldingOnlyThisScanDisablesItOnceTheScanIsKnown() async {
+        let (session, service) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = [ownScanID]
+        }
+        #expect(session.siteModelScanIDs == [ownScanID])
+        session.noteBackground(snapshot(count: 10))
+        session.againstSiteModel = true
+        // Before the upload the scan's id is not known.
+        #expect(session.againstSiteModelUnavailable == nil)
+        await session.register()
+        // Decided after the upload: the model holds nothing but this scan.
+        #expect(service.lastRegister?.againstSiteModel == false)
+        #expect(session.againstSiteModelUnavailable?.contains("besides this one") == true)
+    }
+
+    @Test func anEmptyModelDisablesIt() async {
+        let (session, _) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = []
+        }
+        #expect(session.againstSiteModelUnavailable?.contains("no accepted scan yet") == true)
+    }
+
+    @Test func getSiteModelsListWinsOverTheStreamedScans() async {
+        let (session, _) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = ["sha256:k1", "sha256:k2"]
+        }
+        #expect(session.siteModelScanIDs == ["sha256:k1", "sha256:k2"])
+        #expect(session.againstSiteModelUnavailable == nil)
+    }
+
+    @Test func todaysServerFallsBackToTheStreamedScans() async {
+        // GetSiteModel UNIMPLEMENTED: the registered layer names the scans.
+        let (session, service) = await placedSession()
+        #expect(service.calls.contains("GetSiteModel"))
+        #expect(session.siteModelScanIDs == [ownScanID, "sha256:other"])
+    }
+
+    @Test func unknownScansDisableIt() async {
+        // The scans layer refused, and GetSiteModel unanswered.
+        let (session, _) = await placedSession { $0.refusedLayers = [.registeredScans] }
+        #expect(session.siteModelScanIDs == nil)
+        #expect(session.againstSiteModelUnavailable?.contains("has not said") == true)
+    }
+
+    @Test func anAcceptUpdatesTheModelsScans() async {
+        let (session, service) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = [ownScanID]
+        }
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        #expect(session.againstSiteModelUnavailable != nil)
+        service.siteModelID = "sha256:model-b"
+        service.siteModelScans = [ownScanID, "sha256:k2"]
+        session.reviewer = "operator"
+        await session.accept()
+        #expect(session.siteModelScanIDs == [ownScanID, "sha256:k2"])
+        #expect(session.againstSiteModelUnavailable == nil)
+    }
+}
+
+// MARK: - Against the DataSF boxes (Gerardus 4e90c8c, q7)
+
+@MainActor struct AgainstBoxesTests {
+    /// Every layer the default fake lists, and BOXES.
+    private static let withBoxes: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+        .boxes,
+    ]
+
+    @Test func theSwitchIsOffByDefaultAndSetsTheRequestField() async {
+        let (session, service) = await placedSession { $0.availableLayers = Self.withBoxes }
+        session.noteBackground(snapshot(count: 10))
+        #expect(!session.againstBoxes)
+        // The fake serves two box walls.
+        #expect(session.reference?.boxWalls == 2)
+        #expect(session.againstBoxesUnavailable == nil)
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == false)
+        #expect(session.registeredAgainst == AlignmentModelReference())
+
+        session.againstBoxes = true
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == true)
+        #expect(service.lastRegister?.againstSiteModel == false)
+        #expect(session.registersAgainstBoxes)
+        #expect(session.registeredAgainst == AlignmentModelReference(siteModel: false, boxes: true))
+    }
+
+    @Test func aServerThatDoesNotListBoxesDisablesIt() async {
+        // The default fake lists every layer but BOXES.
+        let (session, service) = await placedSession()
+        session.noteBackground(snapshot(count: 10))
+        session.againstBoxes = true
+        #expect(session.againstBoxesUnavailable?.contains("no boxes layer") == true)
+        #expect(!session.registersAgainstBoxes)
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == false)
+
+        // Nor a server that lists no layers at all: BOXES must be listed.
+        let (quiet, _) = await placedSession { $0.availableLayers = [] }
+        #expect(quiet.againstBoxesUnavailable?.contains("no boxes layer") == true)
+    }
+
+    @Test func aBoxesLayerWithNoWallsDisablesIt() async {
+        let (session, service) = await placedSession {
+            $0.availableLayers = Self.withBoxes
+            $0.emptyBoxes = true
+        }
+        session.noteBackground(snapshot(count: 10))
+        session.againstBoxes = true
+        #expect(session.reference?.boxesServed == true)
+        #expect(session.againstBoxesUnavailable?.contains("holds no walls") == true)
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == false)
+    }
+
+    @Test func itIsDisabledUntilTheReferenceIsStreamed() async {
+        let service = FakeAlignmentService()
+        service.availableLayers = Self.withBoxes
+        let session = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: nil, fullFrames: FakeFullFrames())
+        session.sink = FakeOverlaySink()
+        await session.probe()
+        #expect(session.againstBoxesUnavailable?.contains("not been streamed") == true)
+    }
+
+    @Test func bothSwitchesCanBeOnTogether() async {
+        let (session, service) = await placedSession { $0.availableLayers = Self.withBoxes }
+        session.noteBackground(snapshot(count: 10))
+        session.againstSiteModel = true
+        session.againstBoxes = true
+        #expect(session.againstSiteModelUnavailable == nil)
+        #expect(session.againstBoxesUnavailable == nil)
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == true)
+        #expect(service.lastRegister?.againstBoxes == true)
+        #expect(session.registeredAgainst == AlignmentModelReference(siteModel: true, boxes: true))
+
+        // Turning one off leaves the other sent.
+        session.againstSiteModel = false
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == false)
+        #expect(service.lastRegister?.againstBoxes == true)
+    }
+
+    @Test func theCaptionNamesWhatTheRunFittedAgainst() {
+        let siteModel = AlignmentModelReference(siteModel: true, boxes: false)
+        let boxes = AlignmentModelReference(siteModel: false, boxes: true)
+        let both = AlignmentModelReference(siteModel: true, boxes: true)
+        #expect(
+            AlignmentFormat.modelFitCaption(siteModel)
+                == "Against the site model, reported, not gated: ")
+        #expect(
+            AlignmentFormat.modelFitCaption(boxes)
+                == "Against the DataSF boxes, reported, not gated: ")
+        #expect(
+            AlignmentFormat.modelFitCaption(both)
+                == "Against the site model and boxes, reported, not gated: ")
+
+        var q = Gerardus_Align_V1alpha1_FitQuality()
+        q.modelP50M = 0.04
+        q.modelP75M = 0.07
+        q.modelPoints = 800
+        #expect(
+            AlignmentFormat.modelFit(q, against: siteModel)
+                == "site model p50 0.04 m · p75 0.07 m · 800 points")
+        #expect(
+            AlignmentFormat.modelFit(q, against: boxes)
+                == "boxes p50 0.04 m · p75 0.07 m · 800 points")
+        #expect(
+            AlignmentFormat.modelFit(q, against: both)
+                == "site model and boxes p50 0.04 m · p75 0.07 m · 800 points")
+        q.modelPoints = 0
+        #expect(AlignmentFormat.modelFit(q, against: boxes) == nil)
+    }
+
+    @Test func aFailedPreconditionShowsTheServersMessage() async {
+        let (session, service) = await placedSession {
+            $0.availableLayers = Self.withBoxes
+            $0.refuseAgainstBoxes = "site 808580f47 has no box walls"
+        }
+        session.noteBackground(snapshot(count: 10))
+        session.againstBoxes = true
+        await session.register()
+        #expect(service.lastRegister?.againstBoxes == true)
+        let message = session.errorMessage ?? ""
+        #expect(message.contains("site 808580f47 has no box walls"), "\(message)")
+        #expect(session.registration == nil)
+        #expect(!session.isRegistering)
+        #expect(session.busy == nil)
+    }
+}
+
+@MainActor struct ModelResidualTests {
+    private func quality(points: UInt32) -> Gerardus_Align_V1alpha1_FitQuality {
+        var q = Gerardus_Align_V1alpha1_FitQuality()
+        q.groundP95M = 0.12
+        q.facadeP75M = 0.15
+        q.modelP50M = 0.04
+        q.modelP75M = 0.07
+        q.modelPoints = points
+        return q
+    }
+
+    @Test func theyAreFormattedOnlyWhenTheFitUsedTheModel() {
+        #expect(AlignmentFormat.modelFit(quality(points: 0)) == nil)
+        #expect(
+            AlignmentFormat.modelFit(quality(points: 12_345))
+                == "site model p50 0.04 m · p75 0.07 m · 12345 points")
+        // The 3DEP line is unchanged by them.
+        #expect(!AlignmentFormat.quality(quality(points: 12_345)).contains("model"))
+    }
+
+    @Test func theSessionReportsThemForTheBestHypothesisOnly() async {
+        let (session, service) = await placedSession()
+        var best = Gerardus_Align_V1alpha1_Hypothesis()
+        best.hypothesisID = "h1"
+        best.pose = service.hintPose.proto(
+            siteFrameID: "site/808580f47", sensorFrameID: "sensor/hesai-pandar40p", source: .icp)
+        best.quality = quality(points: 0)
+        var second = best
+        second.hypothesisID = "h2"
+        second.quality = quality(points: 900)
+        service.streamed = [best, second]
+        service.runState = .candidate
+        service.gates = [gate("ground_p95_m", passed: true)]
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        // model_points 0 on the best: nothing to report.
+        #expect(session.modelFit == nil)
+
+        best.quality = quality(points: 1_200)
+        service.streamed = [best, second]
+        await session.register()
+        #expect(session.modelFit?.modelPoints == 1_200)
+        #expect(session.modelFit?.modelP75M == 0.07)
+        // Reported, not gated: the verdict is the gates' alone.
+        #expect(session.registrationPassed)
+        service.gates = [gate("ground_p95_m", passed: false)]
+        await session.register()
+        #expect(session.modelFit != nil)
+        #expect(!session.registrationPassed)
+    }
+}
+
+// MARK: - Accumulated frames (spike V5)
+
+/// One replayed frame: `classes` per point, at x = `x0` + 0.1 m per point.
+private func cloud(
+    classes: [UInt8], x0: Float = 0, mode: DecimationMode = .none, ratio: Float = 0
+) -> PointCloudFrame {
+    var pc = PointCloudFrame()
+    pc.timestampNanos = 1_788_000_000_000_000_000
+    pc.x = classes.indices.map { x0 + Float($0) * 0.1 }
+    pc.y = classes.map { _ in 2 }
+    pc.z = classes.map { _ in -1.5 }
+    pc.intensity = classes.map { _ in 40 }
+    pc.classification = classes
+    pc.decimationMode = mode
+    pc.decimationRatio = ratio
+    pc.pointCount = classes.count
+    return pc
+}
+
+private func frame(
+    _ cloud: PointCloudFrame, index: UInt64, source: SourceMode = .pcap
+) -> FrameBundle {
+    var bundle = FrameBundle()
+    bundle.frameID = 9_000 + index
+    bundle.frameType = .full
+    bundle.pointCloud = cloud
+    var playback = PlaybackInfo()
+    playback.sourceMode = source
+    playback.currentFrameIndex = index
+    playback.totalFrames = 5_000
+    playback.seekable = source == .vrlog
+    bundle.playbackInfo = playback
+    return bundle
+}
+
+struct FrameAccumulatorTests {
+    @Test func onlyBackgroundAndGroundAreKept() {
+        var acc = FrameAccumulator(frameCount: 2)
+        #expect(acc.add(cloud(classes: [0, 1, 2, 1, 0, 3]), frameNumber: 10) == .taken)
+        // Points 0, 2 and 4: background, ground, background. Foreground (1)
+        // and anything else never are.
+        #expect(acc.x == [0, 0.2, 0.4].map { Float($0) })
+        #expect(acc.pointsKept == 3)
+        #expect(!acc.isComplete)
+        #expect(acc.add(cloud(classes: [1, 1, 1]), frameNumber: 11) == .taken)
+        #expect(acc.pointsKept == 3)
+        #expect(acc.isComplete)
+        #expect(acc.captureRef(run: "run-7") == "run-7#f10-11")
+    }
+
+    @Test func decimatedFramesAreRefused() {
+        let full = [
+            cloud(classes: [0], mode: .none, ratio: 0), cloud(classes: [0], mode: .none, ratio: 1),
+            cloud(classes: [0], mode: .uniform, ratio: 1),
+        ]
+        for pc in full { #expect(FrameAccumulation.refusal(pc) == nil) }
+        let decimated = [
+            cloud(classes: [1], mode: .foregroundOnly, ratio: 0),
+            cloud(classes: [0], mode: .uniform, ratio: 0.5),
+            cloud(classes: [0], mode: .voxel, ratio: 1),
+            cloud(classes: [0], mode: .none, ratio: 0.25),
+        ]
+        for pc in decimated {
+            #expect(FrameAccumulation.refusal(pc) != nil)
+            var acc = FrameAccumulator(frameCount: 1)
+            guard case .refused = acc.add(pc, frameNumber: 1) else {
+                Issue.record("a decimated frame was taken")
+                continue
+            }
+            #expect(acc.pointsKept == 0)
+        }
+        #expect(
+            FrameAccumulation.refusal(cloud(classes: [1], mode: .foregroundOnly))?.contains(
+                "foreground points only") == true)
+    }
+
+    @Test func pointsWithoutClassesAreRefused() {
+        var pc = cloud(classes: [0, 0])
+        pc.classification = []
+        #expect(FrameAccumulation.refusal(pc)?.contains("no classes") == true)
+    }
+
+    @Test func aRepeatedFrameIsSkippedAndAJumpBackRefused() {
+        var acc = FrameAccumulator(frameCount: 5)
+        #expect(acc.add(cloud(classes: [0]), frameNumber: 40) == .taken)
+        #expect(acc.add(cloud(classes: [0]), frameNumber: 40) == .skipped)
+        #expect(acc.framesTaken == 1)
+        guard case .refused = acc.add(cloud(classes: [0]), frameNumber: 12) else {
+            Issue.record("a jump back was taken")
+            return
+        }
+    }
+
+    @Test func thinningKeepsOneCentroidPerFiveCentimetreVoxel() {
+        var pc = cloud(classes: [0, 0, 2, 0, 0])
+        pc.x = [0.01, 0.03, 0.06, -0.01, 0.01]
+        pc.y = [0.01, 0.03, 0.01, 0.01, 0.01]
+        pc.z = [0.01, 0.03, 0.01, 0.01, 0.06]
+        var acc = FrameAccumulator(frameCount: 1)
+        #expect(acc.add(pc, frameNumber: 1) == .taken)
+        let thinned = FrameAccumulation.thinned(acc)
+        #expect(FrameAccumulation.voxelM == 0.05)
+        // (0.01, 0.01, 0.01) and (0.03, 0.03, 0.03) share a voxel; the rest
+        // each have their own, across the zero boundary too.
+        #expect(thinned.pointCount == 4)
+        let points = (0..<thinned.pointCount).map {
+            SIMD3(thinned.x[$0], thinned.y[$0], thinned.z[$0])
+        }
+        #expect(points.contains { simd_length($0 - SIMD3(0.02, 0.02, 0.02)) < 1e-6 })
+        #expect(points.contains { simd_length($0 - SIMD3(-0.01, 0.01, 0.01)) < 1e-6 })
+        #expect(points.contains { simd_length($0 - SIMD3(0.06, 0.01, 0.01)) < 1e-6 })
+        #expect(points.contains { simd_length($0 - SIMD3(0.01, 0.01, 0.06)) < 1e-6 })
+        // Weighted alike: no confidence. And repeatable.
+        #expect(thinned.confidence.isEmpty)
+        #expect(FrameAccumulation.thinned(acc).x == thinned.x)
+        #expect(thinned.timestampNanos == pc.timestampNanos)
+    }
+
+    @Test func manyFramesOfAStillSceneThinToOneFrame() {
+        var acc = FrameAccumulator(frameCount: 50)
+        for n in 0..<50 {
+            // Each point 0.02 m into its voxel, with range noise that keeps
+            // it there.
+            var pc = cloud(classes: Array(repeating: 0, count: 100), x0: 0.02)
+            pc.x = pc.x.map { $0 + 0.003 * Float(n % 5) }
+            #expect(acc.add(pc, frameNumber: UInt64(n)) == .taken)
+        }
+        #expect(acc.pointsKept == 5_000)
+        #expect(FrameAccumulation.thinned(acc).pointCount == 100)
+    }
+
+    @Test func theAccumulatedHeaderNamesItsKindAndFrames() {
+        var s = BackgroundSnapshot()
+        s.timestampNanos = 1_788_000_000_500_000_000
+        let header = ScanPacking.accumulatedHeader(
+            l16Token: "808580f47", sensorID: "hesai-pandar40p", captureRef: "run-7#f10-59",
+            snapshot: s)
+        #expect(header.kind == .accumulated)
+        #expect(header.captureRef == "run-7#f10-59")
+        #expect(header.backgroundSequence == 0)
+        #expect(header.capturedAt.seconds == 1_788_000_000)
+        #expect(header.capturedAt.nanos == 500_000_000)
+    }
+}
+
+@MainActor struct AccumulateFramesTests {
+    @Test func accumulatedFramesAreUploadedAndRegistered() async throws {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 3
+        #expect(session.canAccumulate)
+        session.startAccumulating(run: "run-42")
+        for n in UInt64(100)...102 {
+            session.noteFrame(frame(cloud(classes: [0, 1, 2, 1], x0: Float(n)), index: n))
+        }
+        #expect(session.accumulating == nil)
+        await session.pendingAccumulation?.value
+
+        let header = try #require(service.uploadedHeaders.last)
+        #expect(header.kind == .accumulated)
+        #expect(header.captureRef == "run-42#f100-102")
+        #expect(header.l16Token == "808580f47")
+        #expect(header.sensorID == "hesai-pandar40p")
+        // Two points a frame (background and ground), none of them foreground.
+        let uploadedX = service.uploadedBlocks.flatMap(\.x)
+        #expect(uploadedX.count == 6)
+        let foregroundX = (100...102).flatMap { n in [Float(n) + 0.1, Float(n) + 0.3] }
+        #expect(uploadedX.allSatisfy { x in !foregroundX.contains { abs($0 - x) < 1e-4 } })
+        #expect(service.uploadedBlocks.allSatisfy { $0.confidence.isEmpty })
+        let expected = AlignmentAccumulatedScan(
+            scanID: ownScanID, captureRef: "run-42#f100-102", frames: 3, pointsCollected: 6,
+            points: 6)
+        #expect(session.accumulated == expected)
+        #expect(session.scan?.scanID == ownScanID)
+
+        // No background has arrived: Register uses the accumulated scan, and
+        // uploads nothing more.
+        #expect(session.background == nil)
+        #expect(session.canRegister)
+        session.againstSiteModel = true
+        await session.register()
+        #expect(service.calls.filter { $0 == "UploadScan" }.count == 1)
+        #expect(service.lastRegister?.scanID == ownScanID)
+        // The model's only other scan is "sha256:other", so the switch holds.
+        #expect(service.lastRegister?.againstSiteModel == true)
+    }
+
+    @Test func aReplayWithoutARunIsNamedByItsClip() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: nil)
+        session.noteFrame(frame(cloud(classes: [0]), index: 7))
+        await session.pendingAccumulation?.value
+        #expect(service.uploadedHeaders.last?.captureRef == "\(columbusSite.clipID)#f7-7")
+    }
+
+    @Test func aLargeAccumulationIsUploadedInContractBlocks() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-42")
+        // 70,000 background points 0.1 m apart: thinning keeps every one.
+        session.noteFrame(frame(cloud(classes: Array(repeating: 0, count: 70_000)), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(service.uploadedBlocks.map(\.x.count) == [65_536, 4_464])
+        #expect(session.accumulated?.points == 70_000)
+    }
+
+    @Test func aSplitStreamOfUnknownSourceRefusesBeforeAnythingIsCollected() async {
+        let (session, service) = await placedSession()
+        // velocity.report's split streaming, from a server that names no
+        // source: foreground points only, and nothing to switch.
+        session.noteFrame(
+            frame(cloud(classes: [1, 1], mode: .foregroundOnly), index: 1, source: .unspecified))
+        #expect(session.streamRefusal?.contains("foreground points only") == true)
+        #expect(!session.canAccumulate)
+        session.startAccumulating(run: "run-42")
+        #expect(session.accumulating == nil)
+        // Full frames again: the button comes back.
+        session.noteFrame(frame(cloud(classes: [0]), index: 2, source: .unspecified))
+        #expect(session.streamRefusal == nil)
+        #expect(session.canAccumulate)
+        #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func aDecimatedFrameMidwayStopsTheAccumulation() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 3
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 1))
+        #expect(session.accumulating?.frames == 1)
+        session.noteFrame(frame(cloud(classes: [0, 2], mode: .uniform, ratio: 0.5), index: 2))
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal?.contains("decimated") == true)
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 3))
+        #expect(session.pendingAccumulation == nil)
+        #expect(!service.calls.contains("UploadScan"))
+        #expect(session.accumulated == nil)
+    }
+
+    @Test func aLiveSensorRefuses() async {
+        let (session, _) = await placedSession()
+        session.noteFrame(frame(cloud(classes: [0]), index: 1, source: .live))
+        #expect(session.streamRefusal == AlignmentSession.liveRefusal)
+        #expect(!session.canAccumulate)
+    }
+
+    @Test func framesWithNothingToKeepUploadNothing() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [1, 1]), index: 1))
+        session.noteFrame(frame(cloud(classes: [1]), index: 2))
+        #expect(session.accumulationRefusal?.contains("no background or ground") == true)
+        #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func aReplayedBackgroundTakesTheRunsNameNotThePickersClip() async {
+        // Replaying one position's run while the picker shows another clip
+        // at the same site once filed K1's background under K2's name.
+        let (session, service) = await placedSession()
+        session.noteLoadedRun(fullFrames: false, captureRef: "run-k1")
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        #expect(service.uploadedHeaders.last?.captureRef == "run-k1")
+
+        // Without a loaded run (a live sensor) the picker's clip names it.
+        session.captureChanged()
+        session.noteBackground(snapshot(count: 12))
+        await session.register()
+        #expect(service.uploadedHeaders.last?.captureRef == columbusSite.clipID)
+    }
+
+    @Test func theBackgroundCanBeRegisteredAgain() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(session.accumulated != nil)
+
+        session.useBackground()
+        #expect(session.accumulated == nil)
+        #expect(!session.canRegister)
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        #expect(service.uploadedHeaders.map(\.kind) == [.accumulated, .background])
+        #expect(service.uploadedBlocks.flatMap(\.x).count == 10)
+    }
+
+    @Test func aNewCaptureDropsTheAccumulation() async {
+        let (session, _) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(session.accumulated != nil)
+        session.captureChanged()
+        #expect(session.accumulated == nil)
+        #expect(session.scan == nil)
+        #expect(!session.canRegister)
+    }
+
+    @Test func cancellingStopsTheCollection() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 5
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        session.cancelAccumulating()
+        #expect(session.accumulating == nil)
+        session.noteFrame(frame(cloud(classes: [0]), index: 2))
+        #expect(session.accumulating == nil)
+        #expect(!service.calls.contains("UploadScan"))
+        #expect(session.accumulationRefusal == nil)
+    }
+
+    @Test func theAppTapsEveryFrame() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        let app = AppState(autoConnectOnStartup: false, alignment: session)
+        await session.probe()
+        app.onFrameReceived(
+            frame(cloud(classes: [1], mode: .foregroundOnly), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+    }
+}
+
+// MARK: - Full frames for a pcap replay's accumulation
+
+/// velocity.report's full-frames switch, answering as told.
+actor FakeFullFrames: ReplayFullFramesSwitch {
+    private(set) var calls: [Bool] = []
+    private var failure: ReplayFullFramesError?
+
+    init(failing failure: ReplayFullFramesError? = nil) { self.failure = failure }
+
+    func setFullFrames(_ enabled: Bool) async throws {
+        calls.append(enabled)
+        if let failure { throw failure }
+    }
+}
+
+@MainActor struct AccumulateFullFramesTests {
+    @Test func aPCAPReplayIsSwitchedToFullFramesForTheCollectionOnly() async throws {
+        let fullFrames = FakeFullFrames()
+        let (session, service) = await placedSession(fullFrames: fullFrames)
+        // Split streaming is what a pcap replay sends until asked: no refusal.
+        session.noteFrame(frame(cloud(classes: [1, 1], mode: .foregroundOnly), index: 1))
+        #expect(session.streamRefusal == nil)
+        #expect(session.canAccumulate)
+        #expect(await fullFrames.calls.isEmpty)
+
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-42")
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true])
+
+        // A frame split before the switch took effect is waited out.
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 2))
+        #expect(session.accumulating?.frames == 0)
+        #expect(session.accumulationRefusal == nil)
+
+        // Full frames: background kept, foreground (1) never.
+        session.noteFrame(frame(cloud(classes: [0, 1, 0]), index: 3))
+        session.noteFrame(frame(cloud(classes: [0, 1, 0], x0: 10), index: 4))
+        #expect(session.accumulating == nil)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false])
+
+        await session.pendingAccumulation?.value
+        let header = try #require(service.uploadedHeaders.last)
+        #expect(header.kind == .accumulated)
+        #expect(header.captureRef == "run-42#f3-4")
+        let uploadedX = service.uploadedBlocks.flatMap(\.x)
+        #expect(uploadedX.count == 4)
+        #expect(uploadedX.allSatisfy { abs($0 - 0.1) > 1e-4 && abs($0 - 10.1) > 1e-4 })
+        #expect(session.accumulated?.frames == 2)
+    }
+
+    @Test func fullFramesGoOffWhenTheCollectionStopsShort() async {
+        let fullFrames = FakeFullFrames()
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        session.accumulateFrameCount = 5
+
+        // Refused midway: a decimated frame.
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0, 2], mode: .uniform, ratio: 0.5), index: 2))
+        #expect(session.accumulationRefusal?.contains("decimated") == true)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false])
+
+        // Cancelled.
+        session.noteFrame(frame(cloud(classes: [0]), index: 3))
+        session.startAccumulating(run: "run-42")
+        session.cancelAccumulating()
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false, true, false])
+
+        // The source turned into a live sensor.
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0]), index: 4, source: .live))
+        #expect(session.accumulationRefusal == AlignmentSession.liveRefusal)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false, true, false, true, false])
+
+        // Another capture opened.
+        session.noteFrame(frame(cloud(classes: [0]), index: 5))
+        session.startAccumulating(run: "run-42")
+        session.captureChanged()
+        #expect(session.accumulating == nil)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls.suffix(2) == [true, false])
+        #expect(await fullFrames.calls.count == 8)
+    }
+
+    @Test func closingThePaneSwitchesFullFramesOff() async {
+        let fullFrames = FakeFullFrames()
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        let app = AppState(autoConnectOnStartup: false, alignment: session)
+        app.showAlignmentPane = true
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        session.startAccumulating(run: "run-42")
+        app.showAlignmentPane = false
+        #expect(session.accumulating == nil)
+        await session.pendingFullFrames?.value
+        #expect(await fullFrames.calls == [true, false])
+    }
+
+    @Test func aVRLOGReplayIsRefusedUpFront() async {
+        let fullFrames = FakeFullFrames()
+        let (session, service) = await placedSession(fullFrames: fullFrames)
+        // Even a frame that looks full: a VRLOG holds foreground points only.
+        session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+        #expect(
+            session.streamRefusal
+                == "This run's VRLOG holds foreground points only; replay its pcap with Full frames, or load a full-frames run."
+        )
+        #expect(!session.canAccumulate)
+        session.startAccumulating(run: "run-42")
+        #expect(session.accumulating == nil)
+        // An empty frame says the same.
+        var empty = frame(cloud(classes: []), index: 2, source: .vrlog)
+        empty.pointCloud = nil
+        session.noteFrame(empty)
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+        #expect(await fullFrames.calls.isEmpty)
+        #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func aFullFramesRunsVRLOGAccumulatesWithNothingToSwitch() async throws {
+        let fullFrames = FakeFullFrames()
+        let (session, service) = await placedSession(fullFrames: fullFrames)
+        // A foreground run's VRLOG is refused; loading a full-frames run lifts it.
+        session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+        session.noteLoadedRun(fullFrames: true)
+        #expect(session.streamRefusal == nil)
+        #expect(session.canAccumulate)
+
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-full")
+        session.noteFrame(frame(cloud(classes: [0, 1, 0]), index: 10, source: .vrlog))
+        session.noteFrame(frame(cloud(classes: [0, 1, 0], x0: 10), index: 11, source: .vrlog))
+        await session.pendingAccumulation?.value
+        #expect(service.uploadedHeaders.last?.captureRef == "run-full#f10-11")
+        #expect(service.uploadedBlocks.flatMap(\.x).count == 4)
+        #expect(session.pendingFullFrames == nil)
+        #expect(await fullFrames.calls.isEmpty)
+
+        // Another capture forgets it.
+        session.captureChanged()
+        session.noteFrame(frame(cloud(classes: [0, 1]), index: 1, source: .vrlog))
+        #expect(session.streamRefusal == AlignmentSession.vrlogRefusal)
+    }
+
+    @Test func aServerThatRefusesFullFramesStopsTheAccumulation() async {
+        let reason = "full frames are only for a running PCAP replay"
+        let fullFrames = FakeFullFrames(failing: .refused(reason))
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        await session.pendingFullFrames?.value
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal?.contains("would not stream full frames") == true)
+        #expect(session.accumulationRefusal?.contains(reason) == true)
+        // Nothing was switched on, so nothing is switched off.
+        #expect(await fullFrames.calls == [true])
+        // Split frames after the refusal are no reason to refuse the button.
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 2))
+        #expect(session.canAccumulate)
+    }
+
+    @Test func anOlderServerWithoutTheSwitchIsSaidSo() async {
+        let fullFrames = FakeFullFrames(failing: .unsupported)
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        await session.pendingFullFrames?.value
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal?.contains("cannot stream full frames") == true)
+        #expect(await fullFrames.calls == [true])
+    }
+
+    @Test func aFailedRequestIsFollowedByASwitchOff() async {
+        let fullFrames = FakeFullFrames(failing: .failed("timed out"))
+        let (session, _) = await placedSession(fullFrames: fullFrames)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        // The answer is lost, not a refusal: the server may have switched.
+        await session.pendingFullFrames?.value
+        await session.pendingFullFrames?.value
+        #expect(session.accumulationRefusal?.contains("timed out") == true)
+        #expect(await fullFrames.calls == [true, false])
+    }
+
+    @Test func withoutVelocityReportAPCAPReplayIsRefused() async {
+        let (session, _) = await placedSession(fullFrames: nil)
+        session.noteFrame(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        session.startAccumulating(run: "run-42")
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal == AlignmentSession.noFullFramesRefusal)
+    }
+}
+
+/// The HTTP half of the switch, against a stub server.
+struct ReplayFullFramesClientTests {
+    private func client(
+        answer: @escaping (URLRequest) throws -> (Int, String)
+    ) -> ReplayFullFramesClient {
+        let (session, baseURL, register) = AnnotationMockURLProtocol.makeSession()
+        register { request in
+            let (status, body) = try answer(request)
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: status, httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"])!
+            return (response, Data(body.utf8))
+        }
+        return ReplayFullFramesClient(baseURL: baseURL, session: session)
+    }
+
+    @Test func itPostsTheSwitchAndChecksTheAnswer() async throws {
+        let seen = LockedBox<(String?, String, Bool?)>()
+        let c = client { request in
+            let body = try requestJSONBody(request)
+            seen.set((request.httpMethod, request.url!.path, body["enabled"] as? Bool))
+            return (200, #"{"success":true,"full_frames":true,"current_source":"pcap"}"#)
+        }
+        try await c.setFullFrames(true)
+        let (method, path, enabled) = try #require(seen.get())
+        #expect(method == "POST")
+        #expect(path == "/api/lidar/replay/full_frames")
+        #expect(enabled == true)
+    }
+
+    @Test func refusalsCarryTheServersReason() async {
+        for status in [409, 501] {
+            let c = client { _ in
+                (status, #"{"error":"full frames are only for a running PCAP replay"}"#)
+            }
+            await #expect(
+                throws: ReplayFullFramesError.refused(
+                    "full frames are only for a running PCAP replay")
+            ) { try await c.setFullFrames(true) }
+        }
+    }
+
+    @Test func aServerWithoutTheEndpointIsUnsupported() async {
+        for (status, body) in [
+            (404, "404 page not found"), (405, ""), (200, "<!doctype html><html></html>"),
+        ] {
+            let c = client { _ in (status, body) }
+            await #expect(throws: ReplayFullFramesError.unsupported) {
+                try await c.setFullFrames(true)
+            }
+        }
+    }
+
+    @Test func anAnswerThatDisagreesFails() async {
+        let c = client { _ in (200, #"{"success":true,"full_frames":false}"#) }
+        await #expect(throws: ReplayFullFramesError.self) { try await c.setFullFrames(true) }
+        let d = client { _ in (500, #"{"error":"boom"}"#) }
+        await #expect(throws: ReplayFullFramesError.failed("HTTP 500: boom")) {
+            try await d.setFullFrames(false)
+        }
+    }
+}
+
+/// A value a stub server's handler can hand back to the test.
+final class LockedBox<T>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: T?
+    func set(_ v: T) { lock.withLock { value = v } }
+    func get() -> T? { lock.withLock { value } }
+}
+
+// MARK: - Refinement (site model spike V6)
+
+@MainActor struct AlignmentRefinementTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed at a site whose model holds `scans`, with a refinement of the
+    /// first two of them ready: scan a passed every gate, scan b failed one.
+    private func placed(
+        scans: [String] = ["sha256:a", "sha256:b"]
+    ) async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.siteModelID = "sha256:model-a"
+        service.siteModelScans = scans
+        var results: [Gerardus_Align_V1alpha1_RefinedScan] = []
+        for (id, passed) in [("a", true), ("b", false)] {
+            var refined = Gerardus_Align_V1alpha1_RefinedScan()
+            refined.scanID = "sha256:\(id)"
+            refined.registrationID = "gms:refine-\(id)"
+            refined.deltaM = 0.03
+            refined.jointConstraintRank = 6
+            results.append(refined)
+            var run = Gerardus_Align_V1alpha1_Registration()
+            run.registrationID = refined.registrationID
+            run.state = passed ? .candidate : .failed
+            run.gates = [gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: passed)]
+            service.runs[run.registrationID] = run
+        }
+        service.refineResult.scans = results
+        service.refineResult.modelID = "sha256:model-a"
+        service.refineResult.nEff = 500
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = FakeOverlaySink()
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service)
+    }
+
+    @Test func refineListsEachScanWithItsGatesAndWeighting() async {
+        let (session, service) = await placed()
+        #expect(session.canRefine)
+        session.refineNEff = 250
+        await session.refine()
+        #expect(service.lastRefine?.l16Token == "808580f47")
+        #expect(service.lastRefine?.nEff == 250)
+        #expect(service.calls.filter { $0 == "GetRegistration" }.count == 2)
+        let scans = session.refinement?.scans ?? []
+        #expect(scans.map(\.scanID) == ["sha256:a", "sha256:b"])
+        #expect(session.refinedPassed(scans[0]))
+        #expect(!session.refinedPassed(scans[1]), "a failed gate records MANUALLY_PLACED")
+        #expect(!session.isRefining && session.busy == nil && session.progress == nil)
+    }
+
+    @Test func refineNeedsTwoAcceptedScans() async {
+        let (session, service) = await placed(scans: ["sha256:a"])
+        #expect(!session.canRefine)
+        await session.refine()
+        #expect(!service.calls.contains("RefineSite"))
+    }
+
+    @Test func acceptRefinementSendsEveryJointHypothesisThenRestreams() async {
+        let (session, service) = await placed()
+        await session.refine()
+        session.reviewer = ""
+        #expect(!session.canAcceptRefinement, "a reviewer is required")
+        session.reviewer = "operator"
+        #expect(session.canAcceptRefinement)
+        // Accepting moves the site model.
+        service.siteModelID = "sha256:model-b"
+        service.servedModelID = "sha256:model-b"
+        let streamsBefore = service.calls.filter { $0 == "StreamReference" }.count
+        await session.acceptRefinement()
+
+        #expect(service.reviews.map(\.registrationID) == ["gms:refine-a", "gms:refine-b"])
+        for review in service.reviews {
+            guard case .acceptHypothesisID(let id) = review.decision else {
+                Issue.record("accept sent no hypothesis")
+                return
+            }
+            #expect(id == "j1" && review.reviewer == "operator")
+        }
+        #expect(session.refinedAccepted == ["sha256:a", "sha256:b"])
+        #expect(session.errorMessage == nil)
+        #expect(service.calls.contains("ListRegistrationRecords"))
+        #expect(service.calls.filter { $0 == "StreamReference" }.count > streamsBefore)
+
+        // Accepted once: a second press records nothing.
+        #expect(!session.canAcceptRefinement)
+        await session.acceptRefinement()
+        #expect(service.reviews.count == 2)
+    }
+
+    @Test func aStaleJointHypothesisStopsTheAcceptanceAndSaysSo() async {
+        let (session, service) = await placed()
+        await session.refine()
+        session.reviewer = "operator"
+        service.refusedReviews = ["gms:refine-b"]
+        await session.acceptRefinement()
+        #expect(session.refinedAccepted == ["sha256:a"])
+        let message = session.errorMessage ?? ""
+        #expect(message.contains("1 of 2 recorded before it"), "\(message)")
+        #expect(message.contains("refine again"), "\(message)")
+        #expect(session.busy == nil)
+    }
+}
+
+// MARK: - What blocks Accept
+
+/// A registration open at a site whose model can be refined: the operator's
+/// path in the report of a blocked Accept (register, refine, accept).
+@MainActor struct AcceptBlockingTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed at a site whose model holds two accepted scans, a refinement
+    /// of them ready (both pass), and a candidate run that passed its gates
+    /// registered from a settled background.
+    private func registered(
+        defaults: UserDefaults? = nil
+    ) async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.siteModelID = "sha256:model-a"
+        service.siteModelScans = ["sha256:a", "sha256:b"]
+        for id in ["a", "b"] {
+            var refined = Gerardus_Align_V1alpha1_RefinedScan()
+            refined.scanID = "sha256:\(id)"
+            refined.registrationID = "gms:refine-\(id)"
+            service.refineResult.scans.append(refined)
+            var run = Gerardus_Align_V1alpha1_Registration()
+            run.registrationID = refined.registrationID
+            run.scanID = refined.scanID
+            run.state = .candidate
+            run.gates = [gate("ground_p95_m", passed: true)]
+            service.runs[run.registrationID] = run
+        }
+        service.refineResult.modelID = "sha256:model-a"
+        service.streamed = [hypothesis("h-east", eastM: 5, headingDeg: 143.5)]
+        service.runState = .candidate
+        service.gates = [gate("ground_p95_m", passed: true)]
+        let session = AlignmentSession(
+            makeClient: { _ in service }, lookup: nil, defaults: defaults)
+        session.sink = FakeOverlaySink()
+        session.evaluateSleep = { _ in try await Task.sleep(for: .seconds(3600)) }
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        session.noteBackground(snapshot(count: 300))
+        await session.register()
+        session.reviewer = "operator"
+        return (session, service)
+    }
+
+    /// The model moves when anything is accepted, as Gerardus's does.
+    private func modelMovesOnAccept(_ service: FakeAlignmentService) {
+        service.siteModelID = "sha256:model-b"
+        service.servedModelID = "sha256:model-b"
+    }
+
+    @Test func registerRefineThenAcceptTheHypothesis() async {
+        let (session, service) = await registered()
+        await session.refine()
+        #expect(session.busy == nil)
+        #expect(session.canReview)
+        await session.accept()
+        guard case .acceptHypothesisID(let id) = service.lastReview?.decision else {
+            Issue.record("accept sent no hypothesis")
+            return
+        }
+        #expect(id == "h-east")
+        #expect(session.busy == nil)
+    }
+
+    @Test func acceptingTheRefinementLeavesNothingBusy() async {
+        let (session, service) = await registered()
+        await session.refine()
+        modelMovesOnAccept(service)
+        await session.acceptRefinement()
+        #expect(service.reviews.map(\.registrationID) == ["gms:refine-a", "gms:refine-b"])
+        // The registered layers were re-streamed for the moved model, and the
+        // busy line that re-stream set is gone with it.
+        #expect(session.busy == nil, "busy: \(session.busy ?? "")")
+        #expect(session.canReview)
+        #expect(session.canRefine)
+        await session.accept()
+        #expect(service.reviews.last?.registrationID == "gms:reg")
+    }
+
+    @Test func aBlankReviewerBlocksBothAcceptsAndSaysSo() async {
+        let (session, service) = await registered()
+        await session.refine()
+        session.reviewer = "   "
+        #expect(session.showsReviewerField)
+        #expect(!session.canReview)
+        #expect(session.reviewBlockers == [AlignmentSession.noReviewerReason])
+        #expect(!session.canAcceptRefinement)
+        #expect(session.acceptRefinementBlockers == [AlignmentSession.noReviewerReason])
+        // Gerardus refuses a decision without a reviewer: nothing is sent.
+        await session.accept()
+        await session.acceptRefinement()
+        #expect(service.reviews.isEmpty)
+        session.reviewer = "operator"
+        #expect(session.reviewBlockers.isEmpty && session.acceptRefinementBlockers.isEmpty)
+    }
+
+    @Test func whileRefiningBothSayWhatTheyWaitFor() async {
+        let (session, service) = await registered()
+        var during: ([String], [String]) = ([], [])
+        service.duringRefine = {
+            during = (session.reviewBlockers, session.acceptRefinementBlockers)
+        }
+        await session.refine()
+        let busy = "Busy refining the site: wait for it to finish."
+        #expect(during.0 == [busy])
+        // No "no refinement yet" while one is running.
+        #expect(during.1 == [busy])
+        #expect(session.reviewBlockers.isEmpty)
+    }
+
+    @Test func beforeAnythingIsPlacedTheReasonsSaySo() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.reviewer = "operator"
+        await session.probe()
+        #expect(
+            session.reviewBlockers == [
+                AlignmentSession.noRegistrationReason, AlignmentSession.noPoseReason,
+            ])
+        #expect(session.acceptRefinementBlockers == ["No refinement yet: press Refine site."])
+        #expect(!session.showsReviewerField)
+        #expect(session.refineBlocker == "Place the sensor from its hint first.")
+    }
+
+    @Test func aRecordedRefinementSaysToRefineAgain() async {
+        let (session, service) = await registered()
+        await session.refine()
+        modelMovesOnAccept(service)
+        await session.acceptRefinement()
+        #expect(
+            session.acceptRefinementBlockers == [
+                "Recorded 2 of 2 refined poses: refine again to record another refinement."
+            ])
+        await session.refine()
+        #expect(session.canAcceptRefinement)
+    }
+
+    @Test func acceptingOneOfTheRefinedScansOnItsOwnSaysToRefineAgain() async {
+        let (session, service) = await registered()
+        // The open capture's scan is one the refinement moved.
+        var own = Gerardus_Align_V1alpha1_RefinedScan()
+        own.scanID = "sha256:scan"
+        own.registrationID = "gms:refine-own"
+        service.refineResult.scans.append(own)
+        await session.refine()
+        #expect(session.canAcceptRefinement)
+        await session.accept()
+        #expect(!session.canAcceptRefinement)
+        let reasons = session.acceptRefinementBlockers
+        #expect(reasons.count == 1 && reasons[0].contains("accepted again"), "\(reasons)")
+        // Accept refinement would have recorded a and b, then been refused.
+        await session.acceptRefinement()
+        #expect(service.reviews.map(\.registrationID) == ["gms:reg"])
+        // A rejection moves no pose.
+        await session.refine()
+        session.rejectReason = "wrong corner"
+        await session.reject()
+        #expect(session.canAcceptRefinement)
+    }
+
+    @Test func anEmptySavedReviewerFallsBackToAName() throws {
+        let suite = "AcceptBlockingTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("", forKey: AlignmentSession.reviewerKey)
+        defaults.set("Annotator", forKey: "annotation.operatorName")
+        let session = AlignmentSession(
+            makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: defaults)
+        #expect(session.reviewer == "Annotator")
+    }
+}
+
+
+// MARK: - The refinement column
+
+@MainActor struct RefinementColumnTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Placed at a site whose model holds two accepted scans, with a
+    /// refinement of them ready and no registration open.
+    private func placed() async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.siteModelID = "sha256:model-a"
+        service.siteModelScans = ["sha256:a", "sha256:b"]
+        for id in ["a", "b"] {
+            var refined = Gerardus_Align_V1alpha1_RefinedScan()
+            refined.scanID = "sha256:\(id)"
+            refined.registrationID = "gms:refine-\(id)"
+            service.refineResult.scans.append(refined)
+            var run = Gerardus_Align_V1alpha1_Registration()
+            run.registrationID = refined.registrationID
+            run.state = .candidate
+            run.gates = [gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: true)]
+            service.runs[run.registrationID] = run
+        }
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = FakeOverlaySink()
+        session.reviewer = "operator"
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service)
+    }
+
+    @Test func itIsClosedUntilARefinementRunsAndOpensWhenOneDoes() async {
+        let (session, service) = await placed()
+        #expect(!session.refinementColumnOpen)
+        var openWhileRunning = false
+        service.duringRefine = { openWhileRunning = session.refinementColumnOpen }
+        await session.refine()
+        #expect(openWhileRunning, "the column is open while the refinement runs")
+        #expect(session.refinementColumnOpen)
+        #expect(session.showsReviewerField, "Accept refinement is shown, so its reviewer is")
+    }
+
+    @Test func closingItKeepsTheRefinementForWhenItReopens() async {
+        let (session, _) = await placed()
+        await session.refine()
+        session.closeRefinementColumn()
+        #expect(!session.refinementColumnOpen)
+        #expect(session.refinement?.scans.map(\.scanID) == ["sha256:a", "sha256:b"])
+        #expect(session.refinedRuns.count == 2)
+        // Neither Accept is shown now, so neither is the reviewer.
+        #expect(!session.showsReviewerField)
+        session.openRefinementColumn()
+        #expect(session.refinementColumnOpen)
+        #expect(session.refinement?.scans.count == 2)
+        #expect(session.refinedRuns["sha256:a"]?.gates.map(\.name) == ["ground_p95_m", "refine_shift_m"])
+        #expect(session.canAcceptRefinement)
+    }
+
+    @Test func theOperatorCanOpenItBeforeRefining() async {
+        let (session, service) = await placed()
+        session.openRefinementColumn()
+        #expect(session.refinementColumnOpen)
+        #expect(session.refinement == nil)
+        #expect(!service.calls.contains("RefineSite"), "opening the column refines nothing")
+        #expect(session.acceptRefinementBlockers == ["No refinement yet: press Refine site."])
+        #expect(session.canRefine && session.refineBlocker == nil)
+    }
+
+    @Test func aRefinementAtAnotherSiteIsNotCarriedOver() async {
+        let (session, _) = await placed()
+        await session.refine()
+        session.choose(
+            AlignmentSite(
+                clipID: "other", l16Token: "808580f49", l13Token: "808580f4", description: "",
+                sensorID: "hesai-pandar40p", latitude: 37.79, longitude: -122.40))
+        #expect(!session.refinementColumnOpen)
+        #expect(session.refinement == nil)
+    }
+}
+
+// MARK: - Boxes and wall planes in the session
+
+@MainActor struct BoxesAndWallPlanesSessionTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    /// Every layer the default fake lists, and BOXES.
+    private static let withBoxes: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+        .boxes,
+    ]
+
+    private func placed(
+        _ configure: (FakeAlignmentService) -> Void = { _ in }
+    ) async -> (AlignmentSession, FakeAlignmentService, FakeOverlaySink) {
+        let service = FakeAlignmentService()
+        configure(service)
+        let sink = FakeOverlaySink()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = sink
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        return (session, service, sink)
+    }
+
+    @Test func listedBoxesAreAskedForWithTheBundleAndDrawn() async throws {
+        let (session, service, sink) = await placed {
+            $0.availableLayers = Self.withBoxes
+            $0.wallPlanes = [
+                wallPlane(role: "wall"), wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.6),
+                wallPlane(role: "recess", offset: -0.3),
+            ]
+        }
+        #expect(session.errorMessage == nil)
+        // On the bundle's call, not a call of its own.
+        #expect(
+            service.references.map(\.layers) == [
+                [.aerialPoints, .osm, .footprints, .intersections, .boxes], [.registeredScans],
+                [.observed], [.groundMesh],
+            ])
+        let summary = try #require(session.reference)
+        #expect(summary.boxesServed)
+        #expect(summary.boxWalls == 2 && summary.partyWalls == 1)
+        #expect(summary.footprints == 1)
+        // Wall planes are counted apart from the observed features.
+        #expect(summary.observedFeatures == 4)
+        #expect(summary.wallPlanes == 4)
+        #expect(summary.wallPlaneRoles == [.wall: 2, .popout: 1, .recess: 1])
+        #expect(summary.wallPlaneRoleText == "2 walls · 1 popout · 1 recess")
+
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.boxVertexCount == 16)
+        #expect(overlay.footprintVertexCount == 6)
+        #expect(overlay.wallPlaneVertexCount == 32)
+        #expect(overlay.observedVertexCount == 16)
+
+        // Both on by default, each with its own toggle.
+        #expect(sink.visibility?.boxes == true && sink.visibility?.wallPlanes == true)
+        session.showBoxes = false
+        #expect(sink.visibility?.boxes == false)
+        #expect(sink.visibility?.footprints == true && sink.visibility?.wallPlanes == true)
+        session.showWallPlanes = false
+        #expect(sink.visibility?.wallPlanes == false)
+        #expect(sink.visibility?.observed == true)
+        session.showObserved = false
+        session.showBoxes = true
+        #expect(sink.visibility?.observed == false && sink.visibility?.boxes == true)
+        #expect(sink.visibility?.wallPlanes == false)
+    }
+
+    @Test func anEmptyBoxesLayerAndNoWallPlanesAreNotAnError() async throws {
+        // Gerardus today: BOXES listed, served empty and complete; OBSERVED
+        // without a wall plane.
+        let (session, service, sink) = await placed {
+            $0.availableLayers = Self.withBoxes
+            $0.emptyBoxes = true
+        }
+        #expect(session.errorMessage == nil)
+        #expect(session.registeredLayersNote == nil)
+        #expect(service.references.first?.layers.last == .boxes)
+        let summary = try #require(session.reference)
+        // Served, so the toggle is shown, with nothing in it.
+        #expect(summary.boxesServed)
+        #expect(summary.boxWalls == 0 && summary.partyWalls == 0)
+        #expect(summary.wallPlanes == 0 && summary.wallPlaneRoles.isEmpty)
+        #expect(summary.wallPlaneRoleText == "")
+        #expect(summary.observedFeatures == 4)
+        #expect(summary.footprints == 1 && summary.aerialPoints == 2)
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.boxVertexCount == 0 && overlay.wallPlaneVertexCount == 0)
+        #expect(overlay.footprintVertexCount == 6)
+    }
+
+    @Test func aServerThatDoesNotListBoxesIsNotAskedForThem() async throws {
+        let (session, service, _) = await placed()
+        #expect(!service.availableLayers.contains(.boxes))
+        #expect(service.references.first?.layers == AlignmentSession.bundleLayers)
+        #expect(!service.references.contains { $0.layers.contains(.boxes) })
+        let summary = try #require(session.reference)
+        #expect(!summary.boxesServed)
+        #expect(summary.boxWalls == 0)
+
+        // Nor one that lists no layers at all: BOXES is asked for only when
+        // listed, since an older server would refuse the bundle with it.
+        let (_, quiet, _) = await placed { $0.availableLayers = [] }
+        #expect(quiet.references.first?.layers == AlignmentSession.bundleLayers)
+    }
+
+    @Test func anAcceptKeepsTheBoxesAndReplacesTheWallPlanes() async throws {
+        let (session, service, sink) = await placed {
+            $0.availableLayers = Self.withBoxes
+            $0.siteModelID = "sha256:model-a"
+            $0.wallPlanes = [wallPlane(role: "wall")]
+        }
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        let before = service.references.count
+        service.servedModelID = "sha256:model-b"
+        service.siteModelID = "sha256:model-b"
+        service.wallPlanes = [wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.5)]
+        await session.accept()
+        // Only the registered layers are re-streamed.
+        #expect(
+            service.references.dropFirst(before).map(\.layers) == [
+                [.registeredScans], [.observed], [.groundMesh],
+            ])
+        #expect(session.reference?.boxWalls == 2)
+        #expect(session.reference?.wallPlanes == 2)
+        #expect(sink.overlays.last??.boxVertexCount == 16)
+        #expect(sink.overlays.last??.wallPlaneVertexCount == 16)
     }
 }

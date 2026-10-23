@@ -700,3 +700,22 @@ func TestExportStartFrameBeyondTheRotationsIsRefused(t *testing.T) {
 		t.Fatal("Export accepted a start beyond the recording's 4 rotations (8 records)")
 	}
 }
+
+// A full-frames recording's background points stay out of a clip scene: it
+// publishes what a foreground-only recording of the same replay would.
+func TestClipSceneLeavesOutBackgroundPoints(t *testing.T) {
+	fb := &l9endpoints.FrameBundle{
+		FrameID: 7, TimestampNanos: 1_000, FrameType: l9endpoints.FrameTypeFull,
+		PointCloud: &l9endpoints.PointCloudFrame{
+			X: []float32{1, 2, 3, 4}, Y: []float32{1, 2, 3, 4}, Z: []float32{0, 0, 0, 0},
+			Intensity: []uint8{9, 9, 9, 9}, Classification: []uint8{0, 1, 0, 1}, PointCount: 4,
+		},
+	}
+	out, ok := projectFrame(fb, Options{Kind: KindClip}, newTrackKeyer(), nil)
+	if !ok {
+		t.Fatal("frame not projected")
+	}
+	if len(out.Points) != 2 || out.Points[0][0] != 2 || out.Points[1][0] != 4 {
+		t.Fatalf("points %v, want the two foreground ones", out.Points)
+	}
+}

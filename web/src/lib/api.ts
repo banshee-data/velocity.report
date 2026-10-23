@@ -1622,6 +1622,7 @@ import type {
 	CaptureRoot,
 	CaptureSession,
 	MissingMotionPassesResponse,
+	PeriodBackground,
 	PeriodsResponse,
 	ScanResponse
 } from '#lib/types/captures.js';
@@ -1684,6 +1685,44 @@ export async function getCapturePeriods(sessionId: string): Promise<PeriodsRespo
 		`${API_BASE}/lidar/capture/periods?session_id=${encodeURIComponent(sessionId)}`
 	);
 	if (!res.ok) throw apiError('Could not load the motion timeline', res.status);
+	return res.json();
+}
+
+/**
+ * getPeriodBackground returns a static period's settled background. The server
+ * builds it on first request by replaying the period's first 90 s, which takes
+ * seconds to tens of seconds; later requests are served from its cache.
+ */
+export async function getPeriodBackground(periodId: string): Promise<PeriodBackground> {
+	const res = await fetch(
+		`${API_BASE}/lidar/capture/periods/background?period_id=${encodeURIComponent(periodId)}`
+	);
+	if (!res.ok) throw await responseError(res, 'Could not build the settled background');
+	return res.json();
+}
+
+/** getClipBackground returns the settled background of a clip's own window (its first 90 s). */
+export async function getClipBackground(clipId: string): Promise<PeriodBackground> {
+	const res = await fetch(`${API_BASE}/lidar/clips/${encodeURIComponent(clipId)}/background`);
+	if (!res.ok) throw await responseError(res, 'Could not build the settled background');
+	return res.json();
+}
+
+/** getLocatedClips lists the located clips with their locations: the known places. */
+export async function getLocatedClips(): Promise<LidarClip[]> {
+	const res = await fetch(`${API_BASE}/lidar/clips?located=1`);
+	if (!res.ok) throw await responseError(res, 'Could not load the located clips');
+	return (await res.json()).clips ?? [];
+}
+
+/** ensurePeriodClip returns the clip cut from a period, creating it if there is none. */
+export async function ensurePeriodClip(periodId: string): Promise<LidarClip> {
+	const res = await fetch(`${API_BASE}/lidar/capture/periods/clip`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ period_id: periodId })
+	});
+	if (!res.ok) throw await responseError(res, 'Could not make a clip for the period');
 	return res.json();
 }
 

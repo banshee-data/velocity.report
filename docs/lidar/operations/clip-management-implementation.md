@@ -79,3 +79,35 @@ Staging refuses a clip with no dataset id, no location or no completed extract, 
 clone that is not there, and a dataset id another capture in the manifest already uses. It
 never uploads: publishing the dataset stays a person's step. A part grid above 4 GB is not
 cut yet; an extract is one file whatever its size.
+
+## Locating a static period on a map
+
+The Captures page lists, under "Only sessions with a static period that needs a location", the
+sessions with a static period of at least 60 s whose clip is not located (or that has no clip).
+`GET /api/lidar/capture/periods` carries each period's clip and whether it is located. Every static
+period links to `/lidar/locate`.
+
+The Locate page draws the period's **settled background** from above:
+`GET /api/lidar/capture/periods/background?period_id=` replays the period's first 90 s into a
+fresh L3 model (the motion pass's parameters, never refreshed) and returns the cells that settled,
+in the sensor frame. The server builds it once per period and keeps the last eight. The operator
+places the sensor by address search or by clicking, drags it and its heading handle (the bearing of
++Y), and can **Snap**: 2D point-to-segment ICP, in the browser, of the wall band (−1.5 m to +4 m
+about the sensor) against OpenStreetMap building and wall outlines from Overpass. Save calls
+`POST /api/lidar/capture/periods/clip`, which returns the period's clip or makes one from its
+captures and trim, then records the position (`geographic_source` operator) and the heading as
+`north_azimuth_deg = 180 − heading`, the convention `site-index.json` and the Gerardus pane use.
+
+**Known locations and checks.** "Start from a known location" applies another located clip's
+position and heading (from `GET /api/lidar/clips?located=1`), so a place located once can be applied
+to the other captures there and checked against each one's own background. **Check fit** scores the
+pose drawn now without moving it: the share of wall points within 0.5 m of an outline and their RMS.
+Opened with `?clip=`, the page checks an existing clip against its own window's background
+(`GET /api/lidar/clips/{id}/background`) and saves back to that clip; the Clips page links it as
+"Check alignment on map".
+
+Map tiles, the address search (Nominatim) and the outlines (Overpass) are external requests. None
+is made until the operator allows OpenStreetMap requests, a choice this browser remembers until it is
+withdrawn on the page; what leaves is the typed
+address and the map area, never sensor data. Without them the page still draws the background on a
+blank map, and the coordinates can be typed on the Captures page instead.

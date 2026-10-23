@@ -376,6 +376,8 @@ export interface Run {
 	error_message?: string;
 	parent_run_id?: string;
 	notes?: string;
+	/** What the run's VRLOG frames hold; older servers omit it (foreground). */
+	frame_mode?: 'foreground' | 'full';
 	label_rollup?: {
 		total: number;
 		classified: number;

@@ -25,7 +25,7 @@ var (
 // These handlers manage LiDAR clips (PCAP + sensor + params).
 //
 // Routes:
-// - GET /api/lidar/clips — list clips (optional sensor_id filter)
+// - GET /api/lidar/clips — list clips (optional sensor_id filter; located=1 for located clips with their location)
 // - POST /api/lidar/clips — create clip
 // - GET /api/lidar/clips/{clip_id} — get clip details
 // - PUT /api/lidar/clips/{clip_id} — update clip
@@ -97,6 +97,8 @@ func (ws *Server) handleClipByID(w http.ResponseWriter, r *http.Request) {
 		default:
 			ws.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		}
+	case "background":
+		ws.handleClipBackground(w, r, clipID)
 	case "extract":
 		ws.handleClipExtract(w, r, clipID)
 	case "publishing":
@@ -142,6 +144,25 @@ func (ws *Server) handleListClips(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to list clips: %v", err))
 		return
+	}
+
+	// located=1 keeps only located clips, each with its location: the known
+	// places an operator can start a new period's alignment from.
+	if r.URL.Query().Get("located") == "1" {
+		located := make([]*sqlite.Clip, 0, len(clips))
+		for _, clip := range clips {
+			loc, err := store.ClipLocationOf(clip.ClipID)
+			if err != nil {
+				ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("failed to read a clip location: %v", err))
+				return
+			}
+			if loc == nil {
+				continue
+			}
+			clip.Location = loc
+			located = append(located, clip)
+		}
+		clips = located
 	}
 
 	// Ensure we return an empty array instead of null when no clips

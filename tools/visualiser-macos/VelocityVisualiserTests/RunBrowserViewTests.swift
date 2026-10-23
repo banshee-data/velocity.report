@@ -114,16 +114,67 @@ struct RunComputedPropertyTests {
         #expect(run.notes == "Test run with short recording")
     }
 
+    @Test func fileDisplayUsesSourceName() throws {
+        let run = makeRun()
+        #expect(run.fileDisplay == "test")
+    }
+
+    @Test func fileDisplayFallsBackToPathThenDash() throws {
+        var run = makeRun(sourceName: nil)
+        #expect(run.fileDisplay == "test.vrlog")
+        run = makeRun(sourcePath: nil, sourceName: "")
+        #expect(run.fileDisplay == "-")
+    }
+
+    @Test func frameModeShowsFullOrForeground() throws {
+        var run = makeRun()
+        // Missing: every VRLOG before frame_mode was foreground-only.
+        #expect(run.frameMode == nil)
+        #expect(!run.holdsFullFrames)
+        #expect(run.frameModeDisplay == "FG")
+        run.frameMode = "foreground"
+        #expect(run.frameModeDisplay == "FG")
+        run.frameMode = "full"
+        #expect(run.holdsFullFrames)
+        #expect(run.frameModeDisplay == "Full")
+    }
+
+    @Test func frameModeIsDecodedFromTheRunJSON() throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        func decode(_ extra: String) throws -> Run {
+            let json = """
+                {"run_id": "run-1", "created_at": "2026-10-23T09:00:00Z", "source_type": "pcap",
+                 "sensor_id": "hesai-01", "duration_secs": 10, "total_frames": 100,
+                 "total_clusters": 5, "total_tracks": 2, "confirmed_tracks": 2,
+                 "status": "completed", "vrlog_path": "/vrlog/run-1"\(extra)}
+                """
+            return try decoder.decode(Run.self, from: Data(json.utf8))
+        }
+        #expect(try decode(#", "frame_mode": "full""#).frameModeDisplay == "Full")
+        #expect(try decode(#", "frame_mode": "foreground""#).frameModeDisplay == "FG")
+        #expect(try decode("").frameModeDisplay == "FG")
+    }
+
+    @Test func clipDisplayShowsClipOrDash() throws {
+        var run = makeRun()
+        #expect(run.clipDisplay == "-")
+        run.clipId = "kirkham-9th-k3"
+        #expect(run.clipDisplay == "kirkham-9th-k3")
+    }
+
     private func makeRun(
         vrlogPath: String? = nil, status: String = "completed", errorMessage: String? = nil,
-        notes: String? = nil
+        notes: String? = nil, sourcePath: String? = "/data/test.vrlog",
+        sourceName: String? = "test"
     ) -> Run {
         Run(
             runId: "run-test", createdAt: Date(), sourceType: "vrlog",
-            sourcePath: "/data/test.vrlog", sensorId: "hesai-01", durationSecs: 120.0,
+            sourcePath: sourcePath, sensorId: "hesai-01", durationSecs: 120.0,
             totalFrames: 1200, totalClusters: 500, totalTracks: 25, confirmedTracks: 20,
             status: status, errorMessage: errorMessage, vrlogPath: vrlogPath, notes: notes,
-            sourceName: "test")
+            sourceName: sourceName)
     }
 }
 
@@ -301,6 +352,48 @@ struct PlaybackStatusModelTests {
         XCTAssertFalse(state.isPaused)
         XCTAssertFalse(state.replayFinished)
         XCTAssertEqual(state.currentTimestamp, 0)
+    }
+
+    /// Loading a run tells Accumulate frames whether its VRLOG carries
+    /// background: a full-frames run's does, a foreground run's does not.
+    func testLoadingARunSaysWhetherItsVRLOGCanBeAccumulated() async throws {
+        var cloud = PointCloudFrame()
+        cloud.x = [1, 2]
+        cloud.y = [1, 2]
+        cloud.z = [0, 0]
+        cloud.classification = [0, 1]
+        cloud.pointCount = 2
+        var frame = FrameBundle()
+        frame.frameID = 1
+        frame.frameType = .full
+        frame.pointCloud = cloud
+        var playback = PlaybackInfo()
+        playback.sourceMode = .vrlog
+        frame.playbackInfo = playback
+
+        for (mode, refusal) in [
+            ("full", nil), ("foreground", AlignmentSession.vrlogRefusal),
+            (nil, AlignmentSession.vrlogRefusal),
+        ] as [(String?, String?)] {
+            let state = SpyRunBrowserAppState()
+            var run = makeBrowserRun(id: "run-\(mode ?? "old")")
+            run.frameMode = mode
+            state.runBrowserState.runs = [run]
+            await loadRunForReplayAndUpdateAppState(
+                runID: run.runId, appState: state, runBrowserState: state.runBrowserState
+            ) { VRLogLoadResponse(success: true, vrlogPath: "/vrlog/x", frameEncoding: "protobuf") }
+            state.alignment.noteFrame(frame)
+            XCTAssertEqual(
+                state.alignment.streamRefusal, refusal, "frame_mode \(mode ?? "missing")")
+        }
+    }
+
+    private func makeBrowserRun(id: String) -> Run {
+        Run(
+            runId: id, createdAt: Date(), sourceType: "pcap", sourcePath: "/data/a.pcapng",
+            sensorId: "hesai-01", durationSecs: 10, totalFrames: 100, totalClusters: 5,
+            totalTracks: 2, confirmedTracks: 2, status: "completed", errorMessage: nil,
+            vrlogPath: "/vrlog/\(id)", notes: nil, sourceName: "a")
     }
 
     func testLoadRunForReplayAndUpdateAppStateFailureSkipsReplayActivation() async throws {
