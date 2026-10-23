@@ -54,7 +54,7 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 | Nudge             | Moves the reference along the sensor's axes, or turns it about the sensor; once the pose has rested for 0.4 s it is scored and the scan coloured by residual                                                                                                                                                                                                                                                                                                                                                                                         | `EvaluatePose` (after the rest)                                  |
 | Snap              | Refines the pose drawn now with local ICP from it, draws and scores the result                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | `EvaluatePose(refine)`                                           |
 | Accept or reject  | Records the hypothesis drawn, or the pose as it stands, or a rejection with its reason, then redraws the site model's layers if the model moved                                                                                                                                                                                                                                                                                                                                                                                                      | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel`  |
-| Refine site       | Re-solves every accepted pose at the site together, with the N_eff chosen beside the button, then reads each scan's run for its gates. Needs two accepted scans                                                                                                                                                                                                                                                                                                                                                                                      | `RefineSite`, `GetRegistration`                                  |
+| Refine site       | Opens the refinement column left of the pane. Re-solves every accepted pose at the site together, with the N_eff chosen there, then reads each scan's run for its gates. Needs two accepted scans                                                                                                                                                                                                                                                                                                                                                    | `RefineSite`, `GetRegistration`                                  |
 | Accept refinement | Records every scan's refined pose (hypothesis `j1`) in order, then redraws the site model's layers. Stops at the first refusal                                                                                                                                                                                                                                                                                                                                                                                                                       | `ReviewRegistration`, `ListRegistrationRecords`, `GetSiteModel`  |
 
 ### Registration
@@ -118,11 +118,33 @@ A decimated frame arriving partway through stops the collection, and nothing is 
 
 ### Refining the site
 
-**Refine site** asks Gerardus to re-solve the site's accepted poses as one small pose graph: each scan's fit to 3DEP, and the fits between overlapping scans (Gerardus `docs/plans/SITE-MODEL-SPIKE.md` §6.4). It is enabled once the site model holds two accepted scans. The picker beside it sets `n_eff`, how many independent residuals each fit counts as (500 by default, or 250 or 1,000); the result names the weighting it ran with, so the spike's q2 can be answered by refining twice.
+Refining has a column of its own, 460 pt wide, to the left of the alignment pane. The pane keeps a compact **Refine site…** button under **Site model**, which opens it. A refinement opens it too, from its start. Its close button hides it. Closing keeps the refinement and each scan's run, and reopening shows them again. A new site closes it and drops the refinement.
 
-The result lists, per scan, how far the pose moved, its joint constraint rank, its gates as badges, its scores against 3DEP after refining, and any weak direction; then each pair of scans, with its p75 residual before and after and why a pair was left out. A scan whose run passed every gate is recorded `REGISTERED`, any other `MANUALLY_PLACED`. Gerardus also gates how far a `REGISTERED` scan may move (0.10 m, 0.5°) and that no 3DEP score gets worse (Gerardus `docs/plans/SITE-MODEL-SPIKE-PORT.md` §7).
+**Refine site** in the column asks Gerardus to re-solve the site's accepted poses as one small pose graph: each scan's fit to 3DEP, and the fits between overlapping scans (Gerardus `docs/plans/SITE-MODEL-SPIKE.md` §6.4). It is enabled once the site model holds two accepted scans; until then the column says how many it holds. The **Weighting** picker beside it sets `n_eff`, how many independent residuals each fit counts as (500 by default, or 250 or 1,000); the result names the weighting it ran with, so the spike's q2 can be answered by refining twice.
 
-**Accept refinement** records every scan's `j1` together, in order: each pose was solved against the others, so accepting some would leave the rest placed against poses that were never accepted. Gerardus refuses a `j1` whose scan's accepted pose has changed since the refinement ran; the pane then stops, says how many were recorded before the refusal, and the way on is to refine again.
+The result opens with the scan and pair counts, the iterations, the N_eff and the model. Each scan's card then gives:
+
+- how far the pose moved, and its joint constraint rank;
+- what accepting it would record;
+- its gates, one row each as in the registration's list: the pass or fail mark, the name, and the value against its threshold;
+- its scores against 3DEP after refining, and any weak direction.
+
+A table of scan pairs follows: whether each pair was used, its p75 residual before and after, the points matched, and why a pair was left out. A scan whose run passed every gate is recorded `REGISTERED`, any other `MANUALLY_PLACED`. Gerardus also gates how far a `REGISTERED` scan may move (0.10 m, 0.5°) and that no 3DEP score gets worse (Gerardus `docs/plans/SITE-MODEL-SPIKE-PORT.md` §7).
+
+**Accept refinement** records every scan's `j1` together, in order: each pose was solved against the others, so accepting some would leave the rest placed against poses that were never accepted. Gerardus refuses a `j1` whose scan's accepted pose has changed since the refinement ran; the pane then stops, says how many were recorded before the refusal, and the way on is to refine again. An Accept recorded since the refinement ran, for one of its scans, makes that refusal certain. Accept refinement is then disabled before it records any scan, and says to refine again.
+
+### Why Accept is disabled
+
+Accept, Reject and Accept refinement list why they are disabled, in orange text under the button, not only in a tooltip. One line is given per reason:
+
+- **No registration to decide on**, or **no pose drawn** (Accept and Reject);
+- **No refinement yet**, **the refinement moved no scan**, **already recorded** (with the count), or **a scan accepted again since the refinement ran** (Accept refinement);
+- **Busy**, naming what is running, for example "Busy re-streaming the site model: wait for it to finish.";
+- **No reviewer name.** Gerardus refuses any decision, a rejection included, without a reviewer.
+
+The reviewer is one field, pinned under the pane's title above the scroll. It is shown whenever Accept or Accept refinement is, and its label turns orange while it is blank. The name is saved as `alignment.reviewer`. A name saved blank is passed over at launch for the annotation operator's name, then the account's, so a cleared field cannot block every decision from then on. It is trimmed before it is sent, as Gerardus trims it.
+
+Before this, accepting a refinement left the pane busy for good. When the model moved, the re-stream of its layers set "Re-streaming the site model" after Accept refinement had cleared its own busy line. Nothing cleared it, and Accept, Reject, Register and Refine site all stayed disabled until the site was placed again.
 
 ### Scoring and residuals
 
@@ -188,7 +210,7 @@ Registered scans, observed features and the ground mesh are built from the site 
 - The background snapshot that Register would upload, and whether the grid has settled. An unsettled snapshot is not uploaded, scored or registered.
 - The registration's state, gates and hypotheses, and the fit of the pose drawn now; the site model's residuals beside the gates when the fit used the model.
 - Which scan Register uses: the background, or the accumulated frames with their point counts and `capture_ref`.
-- A refinement: per scan its move, rank, gates and scores, then its scan pairs.
+- A refinement, in its own column: per scan its move, rank, gates and scores, then its scan pairs.
 - The site's records, newest first.
 
 ## Known limits
