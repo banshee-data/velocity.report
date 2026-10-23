@@ -786,12 +786,16 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// What GetSiteModel answers; nil is UNIMPLEMENTED, as Gerardus answers
     /// until V2 builds the site model.
     var siteModelID: String?
+    /// The scans GetSiteModel lists, when it answers.
+    var siteModelScans: [String] = [ownScanID, "sha256:other"]
     /// Serve the registered layers empty and complete, with no model_id, as
     /// Gerardus does before it builds them.
     var emptyRegisteredLayers = false
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
+    /// Every UploadScan header, in order.
+    var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
     var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
     let hintPose = levelPose(headingDeg: 35, at: SIMD3(-9.4, -38.5, 23))
 
@@ -869,6 +873,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         guard let siteModelID else { return nil }
         var response = Gerardus_Align_V1alpha1_GetSiteModelResponse()
         response.modelID = siteModelID
+        response.scans = siteModelScans.map { id in
+            var scan = Gerardus_Align_V1alpha1_ModelScan()
+            scan.scanID = id
+            scan.state = .registered
+            return scan
+        }
         return response
     }
 
@@ -890,6 +900,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_UploadScanResponse {
         log("UploadScan")
         uploadedBlocks = blocks
+        uploadedHeaders.append(header)
         var response = Gerardus_Align_V1alpha1_UploadScanResponse()
         response.scan.scanID = "sha256:scan"
         response.scan.header = header
@@ -1127,7 +1138,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(
             service.calls == [
                 "GetServerInfo", "PrepareSite", "PoseFromHint", "StreamReference",
-                "StreamReference", "StreamReference", "StreamReference", "ListRegistrationRecords",
+                "StreamReference", "StreamReference", "StreamReference", "GetSiteModel",
+                "ListRegistrationRecords",
             ])
         let hint = service.lastHint
         #expect(hint?.l16Token == "808580f47")
@@ -2007,5 +2019,479 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         #expect(app.showAlignmentPane)
         session.useServiceAddress(remote)
         #expect(!app.showAlignmentPane)
+    }
+}
+
+// MARK: - Registering against the site model (spike V5)
+
+private let columbusSite = AlignmentSite(
+    clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+    description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+    sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+/// A session placed at columbus-broadway against a fake configured first.
+@MainActor private func placedSession(
+    _ configure: (FakeAlignmentService) -> Void = { _ in }
+) async -> (AlignmentSession, FakeAlignmentService) {
+    let service = FakeAlignmentService()
+    configure(service)
+    let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+    session.sink = FakeOverlaySink()
+    // Nothing is scored in these tests unless they ask.
+    session.evaluateSleep = { _ in try await Task.sleep(for: .seconds(3600)) }
+    await session.probe()
+    session.choose(columbusSite)
+    session.northAzimuthText = "35"
+    await session.placeFromHint()
+    return (session, service)
+}
+
+@MainActor struct AgainstSiteModelTests {
+    @Test func theSwitchIsOffByDefaultAndSetsTheRequestField() async {
+        let (session, service) = await placedSession()
+        session.noteBackground(snapshot(count: 10))
+        #expect(!session.againstSiteModel)
+        // The fake lists every layer and its model holds another scan.
+        #expect(session.againstSiteModelUnavailable == nil)
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == false)
+
+        session.againstSiteModel = true
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == true)
+        #expect(session.registersAgainstSiteModel)
+    }
+
+    @Test func aServerWithoutTheScansLayerDisablesIt() async {
+        let (session, service) = await placedSession {
+            $0.availableLayers = [.aerialPoints, .osm, .footprints, .intersections, .observed]
+        }
+        session.noteBackground(snapshot(count: 10))
+        session.againstSiteModel = true
+        #expect(session.againstSiteModelUnavailable?.contains("registered-scans") == true)
+        #expect(!session.registersAgainstSiteModel)
+        await session.register()
+        #expect(service.lastRegister?.againstSiteModel == false)
+    }
+
+    @Test func aModelHoldingOnlyThisScanDisablesItOnceTheScanIsKnown() async {
+        let (session, service) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = [ownScanID]
+        }
+        #expect(session.siteModelScanIDs == [ownScanID])
+        session.noteBackground(snapshot(count: 10))
+        session.againstSiteModel = true
+        // Before the upload the scan's id is not known.
+        #expect(session.againstSiteModelUnavailable == nil)
+        await session.register()
+        // Decided after the upload: the model holds nothing but this scan.
+        #expect(service.lastRegister?.againstSiteModel == false)
+        #expect(session.againstSiteModelUnavailable?.contains("besides this one") == true)
+    }
+
+    @Test func anEmptyModelDisablesIt() async {
+        let (session, _) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = []
+        }
+        #expect(session.againstSiteModelUnavailable?.contains("no accepted scan yet") == true)
+    }
+
+    @Test func getSiteModelsListWinsOverTheStreamedScans() async {
+        let (session, _) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = ["sha256:k1", "sha256:k2"]
+        }
+        #expect(session.siteModelScanIDs == ["sha256:k1", "sha256:k2"])
+        #expect(session.againstSiteModelUnavailable == nil)
+    }
+
+    @Test func todaysServerFallsBackToTheStreamedScans() async {
+        // GetSiteModel UNIMPLEMENTED: the registered layer names the scans.
+        let (session, service) = await placedSession()
+        #expect(service.calls.contains("GetSiteModel"))
+        #expect(session.siteModelScanIDs == [ownScanID, "sha256:other"])
+    }
+
+    @Test func unknownScansDisableIt() async {
+        // The scans layer refused, and GetSiteModel unanswered.
+        let (session, _) = await placedSession { $0.refusedLayers = [.registeredScans] }
+        #expect(session.siteModelScanIDs == nil)
+        #expect(session.againstSiteModelUnavailable?.contains("has not said") == true)
+    }
+
+    @Test func anAcceptUpdatesTheModelsScans() async {
+        let (session, service) = await placedSession {
+            $0.siteModelID = "sha256:model-a"
+            $0.siteModelScans = [ownScanID]
+        }
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        #expect(session.againstSiteModelUnavailable != nil)
+        service.siteModelID = "sha256:model-b"
+        service.siteModelScans = [ownScanID, "sha256:k2"]
+        session.reviewer = "operator"
+        await session.accept()
+        #expect(session.siteModelScanIDs == [ownScanID, "sha256:k2"])
+        #expect(session.againstSiteModelUnavailable == nil)
+    }
+}
+
+@MainActor struct ModelResidualTests {
+    private func quality(points: UInt32) -> Gerardus_Align_V1alpha1_FitQuality {
+        var q = Gerardus_Align_V1alpha1_FitQuality()
+        q.groundP95M = 0.12
+        q.facadeP75M = 0.15
+        q.modelP50M = 0.04
+        q.modelP75M = 0.07
+        q.modelPoints = points
+        return q
+    }
+
+    @Test func theyAreFormattedOnlyWhenTheFitUsedTheModel() {
+        #expect(AlignmentFormat.modelFit(quality(points: 0)) == nil)
+        #expect(
+            AlignmentFormat.modelFit(quality(points: 12_345))
+                == "site model p50 0.04 m · p75 0.07 m · 12345 points")
+        // The 3DEP line is unchanged by them.
+        #expect(!AlignmentFormat.quality(quality(points: 12_345)).contains("model"))
+    }
+
+    @Test func theSessionReportsThemForTheBestHypothesisOnly() async {
+        let (session, service) = await placedSession()
+        var best = Gerardus_Align_V1alpha1_Hypothesis()
+        best.hypothesisID = "h1"
+        best.pose = service.hintPose.proto(
+            siteFrameID: "site/808580f47", sensorFrameID: "sensor/hesai-pandar40p", source: .icp)
+        best.quality = quality(points: 0)
+        var second = best
+        second.hypothesisID = "h2"
+        second.quality = quality(points: 900)
+        service.streamed = [best, second]
+        service.runState = .candidate
+        service.gates = [gate("ground_p95_m", passed: true)]
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        // model_points 0 on the best: nothing to report.
+        #expect(session.modelFit == nil)
+
+        best.quality = quality(points: 1_200)
+        service.streamed = [best, second]
+        await session.register()
+        #expect(session.modelFit?.modelPoints == 1_200)
+        #expect(session.modelFit?.modelP75M == 0.07)
+        // Reported, not gated: the verdict is the gates' alone.
+        #expect(session.registrationPassed)
+        service.gates = [gate("ground_p95_m", passed: false)]
+        await session.register()
+        #expect(session.modelFit != nil)
+        #expect(!session.registrationPassed)
+    }
+}
+
+// MARK: - Accumulated frames (spike V5)
+
+/// One replayed frame: `classes` per point, at x = `x0` + 0.1 m per point.
+private func cloud(
+    classes: [UInt8], x0: Float = 0, mode: DecimationMode = .none, ratio: Float = 0
+) -> PointCloudFrame {
+    var pc = PointCloudFrame()
+    pc.timestampNanos = 1_788_000_000_000_000_000
+    pc.x = classes.indices.map { x0 + Float($0) * 0.1 }
+    pc.y = classes.map { _ in 2 }
+    pc.z = classes.map { _ in -1.5 }
+    pc.intensity = classes.map { _ in 40 }
+    pc.classification = classes
+    pc.decimationMode = mode
+    pc.decimationRatio = ratio
+    pc.pointCount = classes.count
+    return pc
+}
+
+private func frame(
+    _ cloud: PointCloudFrame, index: UInt64, source: SourceMode = .vrlog
+) -> FrameBundle {
+    var bundle = FrameBundle()
+    bundle.frameID = 9_000 + index
+    bundle.frameType = .full
+    bundle.pointCloud = cloud
+    var playback = PlaybackInfo()
+    playback.sourceMode = source
+    playback.currentFrameIndex = index
+    playback.totalFrames = 5_000
+    playback.seekable = source == .vrlog
+    bundle.playbackInfo = playback
+    return bundle
+}
+
+struct FrameAccumulatorTests {
+    @Test func onlyBackgroundAndGroundAreKept() {
+        var acc = FrameAccumulator(frameCount: 2)
+        #expect(acc.add(cloud(classes: [0, 1, 2, 1, 0, 3]), frameNumber: 10) == .taken)
+        // Points 0, 2 and 4: background, ground, background. Foreground (1)
+        // and anything else never are.
+        #expect(acc.x == [0, 0.2, 0.4].map { Float($0) })
+        #expect(acc.pointsKept == 3)
+        #expect(!acc.isComplete)
+        #expect(acc.add(cloud(classes: [1, 1, 1]), frameNumber: 11) == .taken)
+        #expect(acc.pointsKept == 3)
+        #expect(acc.isComplete)
+        #expect(acc.captureRef(run: "run-7") == "run-7#f10-11")
+    }
+
+    @Test func decimatedFramesAreRefused() {
+        let full = [
+            cloud(classes: [0], mode: .none, ratio: 0), cloud(classes: [0], mode: .none, ratio: 1),
+            cloud(classes: [0], mode: .uniform, ratio: 1),
+        ]
+        for pc in full { #expect(FrameAccumulation.refusal(pc) == nil) }
+        let decimated = [
+            cloud(classes: [1], mode: .foregroundOnly, ratio: 0),
+            cloud(classes: [0], mode: .uniform, ratio: 0.5),
+            cloud(classes: [0], mode: .voxel, ratio: 1),
+            cloud(classes: [0], mode: .none, ratio: 0.25),
+        ]
+        for pc in decimated {
+            #expect(FrameAccumulation.refusal(pc) != nil)
+            var acc = FrameAccumulator(frameCount: 1)
+            guard case .refused = acc.add(pc, frameNumber: 1) else {
+                Issue.record("a decimated frame was taken")
+                continue
+            }
+            #expect(acc.pointsKept == 0)
+        }
+        #expect(
+            FrameAccumulation.refusal(cloud(classes: [1], mode: .foregroundOnly))?.contains(
+                "foreground points only") == true)
+    }
+
+    @Test func pointsWithoutClassesAreRefused() {
+        var pc = cloud(classes: [0, 0])
+        pc.classification = []
+        #expect(FrameAccumulation.refusal(pc)?.contains("no classes") == true)
+    }
+
+    @Test func aRepeatedFrameIsSkippedAndAJumpBackRefused() {
+        var acc = FrameAccumulator(frameCount: 5)
+        #expect(acc.add(cloud(classes: [0]), frameNumber: 40) == .taken)
+        #expect(acc.add(cloud(classes: [0]), frameNumber: 40) == .skipped)
+        #expect(acc.framesTaken == 1)
+        guard case .refused = acc.add(cloud(classes: [0]), frameNumber: 12) else {
+            Issue.record("a jump back was taken")
+            return
+        }
+    }
+
+    @Test func thinningKeepsOneCentroidPerFiveCentimetreVoxel() {
+        var pc = cloud(classes: [0, 0, 2, 0, 0])
+        pc.x = [0.01, 0.03, 0.06, -0.01, 0.01]
+        pc.y = [0.01, 0.03, 0.01, 0.01, 0.01]
+        pc.z = [0.01, 0.03, 0.01, 0.01, 0.06]
+        var acc = FrameAccumulator(frameCount: 1)
+        #expect(acc.add(pc, frameNumber: 1) == .taken)
+        let thinned = FrameAccumulation.thinned(acc)
+        #expect(FrameAccumulation.voxelM == 0.05)
+        // (0.01, 0.01, 0.01) and (0.03, 0.03, 0.03) share a voxel; the rest
+        // each have their own, across the zero boundary too.
+        #expect(thinned.pointCount == 4)
+        let points = (0..<thinned.pointCount).map {
+            SIMD3(thinned.x[$0], thinned.y[$0], thinned.z[$0])
+        }
+        #expect(points.contains { simd_length($0 - SIMD3(0.02, 0.02, 0.02)) < 1e-6 })
+        #expect(points.contains { simd_length($0 - SIMD3(-0.01, 0.01, 0.01)) < 1e-6 })
+        #expect(points.contains { simd_length($0 - SIMD3(0.06, 0.01, 0.01)) < 1e-6 })
+        #expect(points.contains { simd_length($0 - SIMD3(0.01, 0.01, 0.06)) < 1e-6 })
+        // Weighted alike: no confidence. And repeatable.
+        #expect(thinned.confidence.isEmpty)
+        #expect(FrameAccumulation.thinned(acc).x == thinned.x)
+        #expect(thinned.timestampNanos == pc.timestampNanos)
+    }
+
+    @Test func manyFramesOfAStillSceneThinToOneFrame() {
+        var acc = FrameAccumulator(frameCount: 50)
+        for n in 0..<50 {
+            // Each point 0.02 m into its voxel, with range noise that keeps
+            // it there.
+            var pc = cloud(classes: Array(repeating: 0, count: 100), x0: 0.02)
+            pc.x = pc.x.map { $0 + 0.003 * Float(n % 5) }
+            #expect(acc.add(pc, frameNumber: UInt64(n)) == .taken)
+        }
+        #expect(acc.pointsKept == 5_000)
+        #expect(FrameAccumulation.thinned(acc).pointCount == 100)
+    }
+
+    @Test func theAccumulatedHeaderNamesItsKindAndFrames() {
+        var s = BackgroundSnapshot()
+        s.timestampNanos = 1_788_000_000_500_000_000
+        let header = ScanPacking.accumulatedHeader(
+            l16Token: "808580f47", sensorID: "hesai-pandar40p", captureRef: "run-7#f10-59",
+            snapshot: s)
+        #expect(header.kind == .accumulated)
+        #expect(header.captureRef == "run-7#f10-59")
+        #expect(header.backgroundSequence == 0)
+        #expect(header.capturedAt.seconds == 1_788_000_000)
+        #expect(header.capturedAt.nanos == 500_000_000)
+    }
+}
+
+@MainActor struct AccumulateFramesTests {
+    @Test func accumulatedFramesAreUploadedAndRegistered() async throws {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 3
+        #expect(session.canAccumulate)
+        session.startAccumulating(run: "run-42")
+        for n in UInt64(100)...102 {
+            session.noteFrame(frame(cloud(classes: [0, 1, 2, 1], x0: Float(n)), index: n))
+        }
+        #expect(session.accumulating == nil)
+        await session.pendingAccumulation?.value
+
+        let header = try #require(service.uploadedHeaders.last)
+        #expect(header.kind == .accumulated)
+        #expect(header.captureRef == "run-42#f100-102")
+        #expect(header.l16Token == "808580f47")
+        #expect(header.sensorID == "hesai-pandar40p")
+        // Two points a frame (background and ground), none of them foreground.
+        let uploadedX = service.uploadedBlocks.flatMap(\.x)
+        #expect(uploadedX.count == 6)
+        let foregroundX = (100...102).flatMap { n in [Float(n) + 0.1, Float(n) + 0.3] }
+        #expect(uploadedX.allSatisfy { x in !foregroundX.contains { abs($0 - x) < 1e-4 } })
+        #expect(service.uploadedBlocks.allSatisfy { $0.confidence.isEmpty })
+        let expected = AlignmentAccumulatedScan(
+            scanID: ownScanID, captureRef: "run-42#f100-102", frames: 3, pointsCollected: 6,
+            points: 6)
+        #expect(session.accumulated == expected)
+        #expect(session.scan?.scanID == ownScanID)
+
+        // No background has arrived: Register uses the accumulated scan, and
+        // uploads nothing more.
+        #expect(session.background == nil)
+        #expect(session.canRegister)
+        session.againstSiteModel = true
+        await session.register()
+        #expect(service.calls.filter { $0 == "UploadScan" }.count == 1)
+        #expect(service.lastRegister?.scanID == ownScanID)
+        // The model's only other scan is "sha256:other", so the switch holds.
+        #expect(service.lastRegister?.againstSiteModel == true)
+    }
+
+    @Test func aReplayWithoutARunIsNamedByItsClip() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: nil)
+        session.noteFrame(frame(cloud(classes: [0]), index: 7))
+        await session.pendingAccumulation?.value
+        #expect(service.uploadedHeaders.last?.captureRef == "\(columbusSite.clipID)#f7-7")
+    }
+
+    @Test func aLargeAccumulationIsUploadedInContractBlocks() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-42")
+        // 70,000 background points 0.1 m apart: thinning keeps every one.
+        session.noteFrame(frame(cloud(classes: Array(repeating: 0, count: 70_000)), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(service.uploadedBlocks.map(\.x.count) == [65_536, 4_464])
+        #expect(session.accumulated?.points == 70_000)
+    }
+
+    @Test func aSplitStreamRefusesBeforeAnythingIsCollected() async {
+        let (session, service) = await placedSession()
+        // velocity.report's split streaming: foreground points only.
+        session.noteFrame(frame(cloud(classes: [1, 1], mode: .foregroundOnly), index: 1))
+        #expect(session.streamRefusal?.contains("foreground points only") == true)
+        #expect(!session.canAccumulate)
+        session.startAccumulating(run: "run-42")
+        #expect(session.accumulating == nil)
+        // Full frames again: the button comes back.
+        session.noteFrame(frame(cloud(classes: [0]), index: 2))
+        #expect(session.streamRefusal == nil)
+        #expect(session.canAccumulate)
+        #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func aDecimatedFrameMidwayStopsTheAccumulation() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 3
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 1))
+        #expect(session.accumulating?.frames == 1)
+        session.noteFrame(frame(cloud(classes: [0, 2], mode: .uniform, ratio: 0.5), index: 2))
+        #expect(session.accumulating == nil)
+        #expect(session.accumulationRefusal?.contains("decimated") == true)
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 3))
+        #expect(session.pendingAccumulation == nil)
+        #expect(!service.calls.contains("UploadScan"))
+        #expect(session.accumulated == nil)
+    }
+
+    @Test func aLiveSensorRefuses() async {
+        let (session, _) = await placedSession()
+        session.noteFrame(frame(cloud(classes: [0]), index: 1, source: .live))
+        #expect(session.streamRefusal == AlignmentSession.liveRefusal)
+        #expect(!session.canAccumulate)
+    }
+
+    @Test func framesWithNothingToKeepUploadNothing() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [1, 1]), index: 1))
+        session.noteFrame(frame(cloud(classes: [1]), index: 2))
+        #expect(session.accumulationRefusal?.contains("no background or ground") == true)
+        #expect(!service.calls.contains("UploadScan"))
+    }
+
+    @Test func theBackgroundCanBeRegisteredAgain() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(session.accumulated != nil)
+
+        session.useBackground()
+        #expect(session.accumulated == nil)
+        #expect(!session.canRegister)
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        #expect(service.uploadedHeaders.map(\.kind) == [.accumulated, .background])
+        #expect(service.uploadedBlocks.flatMap(\.x).count == 10)
+    }
+
+    @Test func aNewCaptureDropsTheAccumulation() async {
+        let (session, _) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(session.accumulated != nil)
+        session.captureChanged()
+        #expect(session.accumulated == nil)
+        #expect(session.scan == nil)
+        #expect(!session.canRegister)
+    }
+
+    @Test func cancellingStopsTheCollection() async {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 5
+        session.startAccumulating(run: "run-42")
+        session.noteFrame(frame(cloud(classes: [0]), index: 1))
+        session.cancelAccumulating()
+        #expect(session.accumulating == nil)
+        session.noteFrame(frame(cloud(classes: [0]), index: 2))
+        #expect(session.accumulating == nil)
+        #expect(!service.calls.contains("UploadScan"))
+        #expect(session.accumulationRefusal == nil)
+    }
+
+    @Test func theAppTapsEveryFrame() async {
+        let service = FakeAlignmentService()
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        let app = AppState(autoConnectOnStartup: false, alignment: session)
+        await session.probe()
+        app.onFrameReceived(frame(cloud(classes: [1], mode: .foregroundOnly), index: 1))
+        #expect(session.streamRefusal?.contains("foreground points only") == true)
     }
 }

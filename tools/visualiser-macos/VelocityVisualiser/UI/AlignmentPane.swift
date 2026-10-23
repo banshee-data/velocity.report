@@ -316,15 +316,28 @@ import SwiftUI
                     .caption
                 ).foregroundStyle(.secondary)
             }
+            accumulationView
             HStack {
                 Button("Register") { session.startRegistration() }.disabled(!session.canRegister)
                     .help(
-                        "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the 3DEP points (10 to 25 s)"
+                        session.accumulated == nil
+                            ? "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the reference (10 to 25 s)"
+                            : "Search 30 m around the pose drawn now, at every heading, for where the accumulated frames fit the reference (10 to 25 s)"
+                    )
+                Toggle("Against site model", isOn: againstSiteModel).toggleStyle(.switch)
+                    .controlSize(.mini).font(.caption).disabled(
+                        session.againstSiteModelUnavailable != nil || session.isRegistering
+                    ).help(
+                        "Fit against 3DEP and the site's accepted scans. The gates are still measured against 3DEP alone."
                     )
                 if session.isRegistering {
                     Button("Cancel") { session.cancelRegistration() }.help(
                         "Stop the run; the server logs it as far as it got")
                 }
+            }
+            if let reason = session.againstSiteModelUnavailable {
+                Text(reason).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                    horizontal: false, vertical: true)
             }
             if let registration = session.registration {
                 AlignmentRow("Result", AlignmentFormat.state(registration.state))
@@ -333,12 +346,67 @@ import SwiftUI
                         .textSelection(.enabled)
                 }
                 if !registration.gates.isEmpty { gatesView(registration.gates) }
+                if let fit = session.modelFit, let line = AlignmentFormat.modelFit(fit) {
+                    Text("Against the site model, reported, not gated: " + line).font(
+                        .caption2.monospacedDigit()
+                    ).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
                 Text(registration.registrationID).font(.caption2.monospaced()).foregroundStyle(
                     .secondary
                 ).textSelection(.enabled)
             }
             if !session.hypotheses.isEmpty { hypothesesView }
             fitView
+        }
+    }
+
+    /// Shows the switch on only while it is sent.
+    private var againstSiteModel: Binding<Bool> {
+        Binding(get: { session.registersAgainstSiteModel }, set: { session.againstSiteModel = $0 })
+    }
+
+    @ViewBuilder private var accumulationView: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if let accumulated = session.accumulated {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(
+                        "Registering accumulated frames: \(accumulated.points.formatted()) points (\(accumulated.pointsCollected.formatted()) before thinning) from \(accumulated.frames) frames"
+                    ).font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Use background") { session.useBackground() }.controlSize(.small)
+                        .disabled(session.busy != nil).help(
+                            "Register the settled background again instead")
+                }
+                Text(accumulated.captureRef).font(.caption2.monospaced()).foregroundStyle(
+                    .secondary
+                ).textSelection(.enabled)
+            }
+            HStack {
+                if let progress = session.accumulating {
+                    ProgressView(value: Double(progress.frames), total: Double(max(progress.of, 1)))
+                        .frame(width: 80)
+                    Text(
+                        "\(progress.frames)/\(progress.of) frames, \(progress.points.formatted()) points"
+                    ).font(.caption.monospacedDigit())
+                    Button("Cancel") { session.cancelAccumulating() }.controlSize(.small)
+                } else {
+                    Button("Accumulate frames") {
+                        session.startAccumulating(run: appState.currentRunID)
+                    }.disabled(!session.canAccumulate).help(
+                        "Collect the background and ground points of the next frames the replay plays, thin them to 0.05 m and upload them as an accumulated scan, which Register then uses. Foreground points are never collected."
+                    )
+                    Picker("Frames", selection: $session.accumulateFrameCount) {
+                        Text("25").tag(25)
+                        Text("50").tag(50)
+                        Text("100").tag(100)
+                        Text("200").tag(200)
+                    }.labelsHidden().frame(width: 64).help("Frames to collect (50 is about 5 s)")
+                }
+            }
+            if let refusal = session.accumulationRefusal ?? session.streamRefusal {
+                Text(refusal).font(.caption2).foregroundStyle(.orange).fixedSize(
+                    horizontal: false, vertical: true)
+            }
         }
     }
 
@@ -383,6 +451,10 @@ import SwiftUI
                         Text(AlignmentFormat.quality(hypothesis.quality)).font(
                             .caption2.monospacedDigit()
                         ).foregroundStyle(.secondary)
+                        if let model = AlignmentFormat.modelFit(hypothesis.quality) {
+                            Text(model).font(.caption2.monospacedDigit()).foregroundStyle(
+                                .secondary)
+                        }
                         Text(
                             "seeds \(hypothesis.seedsConverged)/\(hypothesis.seedsTotal)"
                                 + AlignmentFormat.weak(hypothesis.quality)
@@ -423,6 +495,9 @@ import SwiftUI
                         evaluation.quality.constraintRank)
                         + AlignmentFormat.weak(evaluation.quality)
                 ).font(.caption2).foregroundStyle(.secondary)
+                if let model = AlignmentFormat.modelFit(evaluation.quality) {
+                    Text(model).font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                }
                 Toggle("Colour the scan by residual", isOn: $session.showResiduals).toggleStyle(
                     .checkbox
                 ).font(.caption)
@@ -538,6 +613,16 @@ enum AlignmentFormat {
         }
         parts.append(String(format: "inliers %.0f %%", q.inlierFraction * 100))
         return parts.joined(separator: " · ")
+    }
+
+    /// "site model p50 0.04 m · p75 0.07 m · 12345 points", when the fit was
+    /// measured against the site's accepted scans (model_points > 0); nil
+    /// otherwise. Reported as the server gives it: it is not a gate.
+    static func modelFit(_ q: Gerardus_Align_V1alpha1_FitQuality) -> String? {
+        guard q.modelPoints > 0 else { return nil }
+        return String(
+            format: "site model p50 %.2f m · p75 %.2f m · %u points", q.modelP50M, q.modelP75M,
+            q.modelPoints)
     }
 
     /// " · weak: translation along 23 deg", or nothing at full rank.

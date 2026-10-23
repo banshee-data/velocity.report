@@ -8,7 +8,10 @@
 //   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m),
 //                     then StreamReference once per registered layer
 //   Nudge             nothing on the wire: only the model matrix changes
-//   Register          UploadScan (once per background) → Register
+//   Accumulate        nothing while the frames are collected; then
+//                     UploadScan (SCAN_KIND_ACCUMULATED), which Register then uses
+//   Register          UploadScan (once per background) → Register, against
+//                     3DEP alone or, with the switch on, against the site model
 //   Accept / Reject   ReviewRegistration → ListRegistrationRecords →
 //                     GetSiteModel → StreamReference per registered layer,
 //                     when the site model moved
@@ -42,6 +45,30 @@ struct AlignmentBackgroundStatus: Equatable {
     var sequence: UInt64
     /// False while the grid is still settling: such a snapshot is not uploaded.
     var settled: Bool
+}
+
+enum AlignmentScanError: Error, LocalizedError {
+    case noScan
+
+    var errorDescription: String? { "No settled background or accumulated scan to register." }
+}
+
+/// Frames collected so far, while an accumulation runs.
+struct AlignmentAccumulationProgress: Equatable {
+    var frames: Int
+    var of: Int
+    var points: Int
+}
+
+/// The accumulated scan Register uses in place of the background.
+struct AlignmentAccumulatedScan: Equatable {
+    var scanID: String
+    var captureRef: String
+    var frames: Int
+    /// Background and ground points collected, before thinning.
+    var pointsCollected: Int
+    /// Points uploaded, one per 0.05 m voxel.
+    var points: Int
 }
 
 /// EvaluatePose's verdict on one pose.
@@ -158,6 +185,25 @@ struct ReferenceSummary: Equatable {
     /// registration's own list, ranked best first.
     @Published private(set) var hypotheses: [Gerardus_Align_V1alpha1_Hypothesis] = []
     @Published private(set) var isRegistering = false
+    /// Register also fits against the site's accepted scans
+    /// (RegisterRequest.against_site_model). Off by default, and sent only
+    /// while `againstSiteModelUnavailable` is nil.
+    @Published var againstSiteModel = false
+    /// The scans the site model holds, by scan_id: GetSiteModel's list, or
+    /// the registered layer's when GetSiteModel is not answered; nil when
+    /// neither said.
+    @Published private(set) var siteModelScanIDs: [String]?
+    /// How many frames Accumulate collects.
+    @Published var accumulateFrameCount = FrameAccumulation.defaultFrameCount
+    /// While frames are being collected.
+    @Published private(set) var accumulating: AlignmentAccumulationProgress?
+    /// The uploaded accumulated scan, which Register and scoring use in
+    /// place of the background until it is dropped.
+    @Published private(set) var accumulated: AlignmentAccumulatedScan?
+    /// Why the stream's frames cannot be accumulated, from the latest frame.
+    @Published private(set) var streamRefusal: String?
+    /// Why the last accumulation stopped short.
+    @Published private(set) var accumulationRefusal: String?
     /// The hypothesis drawn now, for as long as the pose is exactly its pose.
     @Published private(set) var selectedHypothesisID: String?
     /// EvaluatePose's verdict on the pose drawn now, once it has rested.
@@ -205,6 +251,14 @@ struct ReferenceSummary: Equatable {
     private var uploadedFrom: (l16Token: String, sequence: UInt64)?
     /// The snapshot `scan` was uploaded from: residuals follow its order.
     private var uploadedSnapshot: BackgroundSnapshot?
+    /// The accumulation in progress, and the run its capture_ref names.
+    private var accumulator: FrameAccumulator?
+    private var accumulationRun = ""
+    private var accumulationTask: Task<Void, Never>?
+    /// The accumulated scan as uploaded; nil while the background is used.
+    private var accumulatedScan: Gerardus_Align_V1alpha1_Scan?
+    /// Whether the frames come from a live sensor, as they last said.
+    private var frameSource: SourceMode = .unspecified
     /// How the pose drawn now was made, for what Accept records.
     private var poseSource: Gerardus_Align_V1alpha1_PoseSource = .hint
     private var registering: Task<Void, Never>?
@@ -438,7 +492,8 @@ struct ReferenceSummary: Equatable {
             pose = start
             poseSource = .hint
             poseGeneration += 1
-            scan = nil
+            // An accumulated scan is kept: it belongs to the site, not the pose.
+            scan = accumulatedScan
             registration = nil
             hypotheses = []
             selectedHypothesisID = nil
@@ -460,6 +515,9 @@ struct ReferenceSummary: Equatable {
             logger.info(
                 "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.footprints.count) footprints, \(geometry.intersections.count) intersections, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
             )
+
+            busy = "Reading the site model"
+            await readSiteModelScans(client: client, l16Token: site.l16Token, streamed: registered)
 
             busy = "Reading records"
             await loadRecords()
@@ -704,6 +762,7 @@ struct ReferenceSummary: Equatable {
             logger.info(
                 "No site model for \(site.l16Token): \(GerardusClientError.describe(error))")
         }
+        if let current { siteModelScanIDs = current.scans.map(\.scanID) }
         if let current, !current.modelID.isEmpty, current.modelID == siteModelID { return }
         busy = "Re-streaming the site model"
         let registered = await streamRegisteredLayers(
@@ -713,8 +772,58 @@ struct ReferenceSummary: Equatable {
         geometry.replaceRegistered(with: registered)
         self.geometry = geometry
         siteModelID = registered.modelID.isEmpty ? (current?.modelID ?? "") : registered.modelID
+        if current == nil {
+            siteModelScanIDs = Self.modelScanIDs(answer: nil, streamed: registered)
+        }
         await restyleReference()
     }
+
+    /// Asks which scans the site model holds, for the switch that registers
+    /// against it. Only asked of a server that lists a registered layer.
+    private func readSiteModelScans(
+        client: AlignmentServiceClient, l16Token: String, streamed: ReferenceGeometry
+    ) async {
+        guard !served(Self.registeredLayers).isEmpty else {
+            siteModelScanIDs = nil
+            return
+        }
+        var answer: Gerardus_Align_V1alpha1_GetSiteModelResponse?
+        do { answer = try await client.getSiteModel(l16Token: l16Token) } catch {
+            logger.info("No site model for \(l16Token): \(GerardusClientError.describe(error))")
+        }
+        siteModelScanIDs = Self.modelScanIDs(answer: answer, streamed: streamed)
+    }
+
+    /// GetSiteModel's scans when it answered; else the registered layer's,
+    /// when that layer streamed to its end; else unknown.
+    nonisolated static func modelScanIDs(
+        answer: Gerardus_Align_V1alpha1_GetSiteModelResponse?, streamed: ReferenceGeometry
+    ) -> [String]? {
+        if let answer { return answer.scans.map(\.scanID) }
+        if streamed.completeLayers.contains(.registeredScans) { return streamed.scanOrder }
+        return nil
+    }
+
+    /// Why Register cannot fit against the site model now, or nil when it
+    /// can: the server must list the registered-scans layer, and the model
+    /// must hold an accepted scan other than the one being registered.
+    var againstSiteModelUnavailable: String? {
+        guard !served([.registeredScans]).isEmpty else {
+            return "This Gerardus lists no registered-scans layer, so it has no site model."
+        }
+        guard let ids = siteModelScanIDs else {
+            return "Gerardus has not said which scans the site model holds."
+        }
+        if ids.isEmpty { return "The site model holds no accepted scan yet." }
+        let own = scan?.scanID
+        if ids.allSatisfy({ $0 == own }) {
+            return "The site model holds no accepted scan besides this one."
+        }
+        return nil
+    }
+
+    /// What Register sends as against_site_model.
+    var registersAgainstSiteModel: Bool { againstSiteModel && againstSiteModelUnavailable == nil }
 
     // MARK: - Scan
 
@@ -735,6 +844,9 @@ struct ReferenceSummary: Equatable {
         evaluating?.cancel()
         latestBackground = nil
         background = nil
+        dropAccumulation()
+        streamRefusal = nil
+        frameSource = .unspecified
         scan = nil
         uploadedSnapshot = nil
         registration = nil
@@ -746,21 +858,25 @@ struct ReferenceSummary: Equatable {
         if geometry != nil, styledOwnScanID != nil { scheduleRestyle() }
     }
 
-    var canRegister: Bool {
-        busy == nil && pose != nil && site != nil && background?.settled == true
-            && (background?.points ?? 0) > 0
+    /// A scan to register: the accumulated one, or a settled background.
+    private var hasScanToRegister: Bool {
+        accumulatedScan != nil || (background?.settled == true && (background?.points ?? 0) > 0)
     }
 
-    /// Uploads the settled background unless this one is already up, then
-    /// registers it from the current pose.
+    var canRegister: Bool { busy == nil && pose != nil && site != nil && hasScanToRegister }
+
+    /// Uploads the settled background unless this one is already up, or
+    /// takes the accumulated scan, then registers it from the current pose.
     ///
     /// Written without a `defer` or an early return inside `do`: in that shape
     /// the test host aborted in swift_task_dealloc ("freed pointer was not the
     /// last allocation") on the Xcode 26 toolchain.
     func register() async {
-        guard let client, let site, let pose, let snapshot = latestBackground, canRegister else {
-            return
-        }
+        guard let client, let site, let pose, canRegister else { return }
+        // Taken here, as the first version took it, rather than inside
+        // `registrationScan`: without it in this frame the test host aborted
+        // in swift_task_dealloc on the Xcode 26 toolchain.
+        let snapshot = latestBackground
         evaluating?.cancel()
         errorMessage = nil
         registration = nil
@@ -769,7 +885,8 @@ struct ReferenceSummary: Equatable {
         var result: Gerardus_Align_V1alpha1_Registration?
         do {
             busy = "Uploading the background"
-            let uploaded = try await uploadedScan(client: client, site: site, snapshot: snapshot)
+            let uploaded = try await registrationScan(
+                client: client, site: site, snapshot: snapshot)
             busy = "Registering"
             var request = Gerardus_Align_V1alpha1_RegisterRequest()
             request.scanID = uploaded.scanID
@@ -777,6 +894,9 @@ struct ReferenceSummary: Equatable {
             // heading; it does not use the start's heading.
             request.initialPose = posePayload(pose)
             request.hint = hint(heading: hintHeadingDeg)
+            // Decided once the scan's id is known, so a model holding only
+            // this scan is not asked for.
+            request.againstSiteModel = registersAgainstSiteModel
             result = try await client.register(
                 request, onProgress: { [weak self] progress in await self?.show(progress) },
                 onHypothesis: { [weak self] hypothesis in await self?.received(hypothesis) })
@@ -821,6 +941,16 @@ struct ReferenceSummary: Equatable {
         return registration.gates.allSatisfy(\.passed)
     }
 
+    /// The best hypothesis's fit against the site's accepted scans, when the
+    /// run measured one (model_points > 0). Reported beside the gates; it is
+    /// not one of them.
+    var modelFit: Gerardus_Align_V1alpha1_FitQuality? {
+        guard let quality = registration?.hypotheses.first?.quality, quality.modelPoints > 0 else {
+            return nil
+        }
+        return quality
+    }
+
     var acceptance: AlignmentAcceptance {
         if let id = selectedHypothesisID, registration != nil,
             let index = hypotheses.firstIndex(where: { $0.hypothesisID == id })
@@ -855,14 +985,14 @@ struct ReferenceSummary: Equatable {
     var pendingEvaluation: Task<Void, Never>? { evaluating }
 
     private func evaluate(refine: Bool, generation: Int) async {
-        guard let client, let site, let pose, let snapshot = latestBackground, canRegister else {
-            return
-        }
+        guard let client, let site, let pose, canRegister else { return }
+        let snapshot = latestBackground
         isEvaluating = true
         var response: Gerardus_Align_V1alpha1_EvaluatePoseResponse?
         var failure: String?
         do {
-            let uploaded = try await uploadedScan(client: client, site: site, snapshot: snapshot)
+            let uploaded = try await registrationScan(
+                client: client, site: site, snapshot: snapshot)
             var request = Gerardus_Align_V1alpha1_EvaluatePoseRequest()
             request.scanID = uploaded.scanID
             request.pose = posePayload(pose)
@@ -895,6 +1025,22 @@ struct ReferenceSummary: Equatable {
         sink?.setResidualOverlay(vertices, palette: ResidualStyle.palette)
     }
 
+    /// The scan Register and scoring use: the accumulated one when there is
+    /// one, else the latest background, uploaded the first time.
+    private func registrationScan(
+        client: AlignmentServiceClient, site: AlignmentSite, snapshot: BackgroundSnapshot?
+    ) async throws -> Gerardus_Align_V1alpha1_Scan {
+        let chosen: Gerardus_Align_V1alpha1_Scan
+        if let accumulatedScan {
+            chosen = accumulatedScan
+        } else if let snapshot {
+            chosen = try await uploadedScan(client: client, site: site, snapshot: snapshot)
+        } else {
+            throw AlignmentScanError.noScan
+        }
+        return chosen
+    }
+
     /// The scan for this background, uploading it the first time.
     private func uploadedScan(
         client: AlignmentServiceClient, site: AlignmentSite, snapshot: BackgroundSnapshot
@@ -914,6 +1060,173 @@ struct ReferenceSummary: Equatable {
         uploadedSnapshot = snapshot
         await ownScanChanged()
         return uploaded.scan
+    }
+
+    // MARK: - Accumulated frames
+
+    static let liveRefusal =
+        "The frames come from a live sensor: open a replay to accumulate frames from it."
+
+    var canAccumulate: Bool {
+        busy == nil && client != nil && site != nil && accumulating == nil
+            && accumulationTask == nil && streamRefusal == nil
+    }
+
+    /// Called for every frame the visualiser receives. Cheap unless an
+    /// accumulation is running: it notes only whether the stream's frames
+    /// could be accumulated, and publishes that only when it changes.
+    func noteFrame(_ frame: FrameBundle) {
+        if let mode = frame.playbackInfo?.sourceMode, mode != .unspecified { frameSource = mode }
+        guard let cloud = frame.pointCloud else { return }
+        let refusal = frameSource == .live ? Self.liveRefusal : FrameAccumulation.refusal(cloud)
+        if refusal != streamRefusal { streamRefusal = refusal }
+        guard var collecting = accumulator else { return }
+        if let refusal {
+            stopAccumulating(refusal: refusal)
+            return
+        }
+        // The replay's position in its log where it has one (VRLOG), else
+        // the frame's own id.
+        var number = frame.frameID
+        if let playback = frame.playbackInfo, playback.totalFrames > 0 {
+            number = playback.currentFrameIndex
+        }
+        // Released while the frame is added, so the growing arrays are not
+        // copied on write.
+        accumulator = nil
+        switch collecting.add(cloud, frameNumber: number) {
+        case .refused(let reason): stopAccumulating(refusal: reason)
+        case .skipped: accumulator = collecting
+        case .taken:
+            accumulator = collecting
+            accumulating = AlignmentAccumulationProgress(
+                frames: collecting.framesTaken, of: collecting.frameCount,
+                points: collecting.pointsKept)
+            if collecting.isComplete { finishAccumulating() }
+        }
+    }
+
+    /// Starts collecting `accumulateFrameCount` frames from the replay.
+    /// `run` names the replay in the scan's capture_ref; the site's clip id
+    /// stands in when the replay has no run id.
+    func startAccumulating(run: String?) {
+        guard canAccumulate, let site else { return }
+        let named = run?.trimmingCharacters(in: .whitespaces) ?? ""
+        accumulationRun = named.isEmpty ? site.clipID : named
+        accumulator = FrameAccumulator(frameCount: accumulateFrameCount)
+        accumulationRefusal = nil
+        errorMessage = nil
+        accumulating = AlignmentAccumulationProgress(
+            frames: 0, of: accumulator?.frameCount ?? 0, points: 0)
+    }
+
+    /// Stops collecting, or stops the upload that follows; nothing is kept.
+    func cancelAccumulating() {
+        stopAccumulating(refusal: nil)
+        accumulationTask?.cancel()
+    }
+
+    /// The task thinning and uploading the frames, for tests to await.
+    var pendingAccumulation: Task<Void, Never>? { accumulationTask }
+
+    private func stopAccumulating(refusal: String?) {
+        accumulator = nil
+        accumulating = nil
+        if let refusal { accumulationRefusal = refusal }
+    }
+
+    private func finishAccumulating() {
+        guard let collected = accumulator, let client, let site else {
+            stopAccumulating(refusal: nil)
+            return
+        }
+        stopAccumulating(refusal: nil)
+        guard collected.pointsKept > 0 else {
+            accumulationRefusal =
+                "\(collected.framesTaken) frames held no background or ground points to accumulate."
+            return
+        }
+        let captureRef = collected.captureRef(run: accumulationRun)
+        accumulationTask = Task { [weak self] in
+            await self?.uploadAccumulated(
+                collected, captureRef: captureRef, client: client, site: site)
+        }
+    }
+
+    /// Thins the frames off the main actor and uploads them. Written, like
+    /// `register()`, without a `defer` or an early return inside `do`.
+    private func uploadAccumulated(
+        _ collected: FrameAccumulator, captureRef: String, client: AlignmentServiceClient,
+        site: AlignmentSite
+    ) async {
+        busy = "Thinning \(collected.pointsKept.formatted()) points"
+        let snapshot = await Task.detached { FrameAccumulation.thinned(collected) }.value
+        var uploaded: Gerardus_Align_V1alpha1_Scan?
+        if !Task.isCancelled, self.site == site {
+            busy = "Uploading the accumulated frames"
+            do {
+                let header = ScanPacking.accumulatedHeader(
+                    l16Token: site.l16Token, sensorID: sensorID, captureRef: captureRef,
+                    snapshot: snapshot)
+                uploaded = try await client.uploadScan(
+                    header: header, blocks: ScanPacking.blocks(from: snapshot)
+                ).scan
+            } catch {
+                errorMessage =
+                    Task.isCancelled
+                    ? "Accumulation cancelled." : GerardusClientError.describe(error)
+            }
+        }
+        busy = nil
+        // A cancelled task was already let go, and may have a successor.
+        if !Task.isCancelled { accumulationTask = nil }
+        // Cancelled, or the site changed while this ran: the scan is not
+        // this capture's.
+        if let uploaded, !Task.isCancelled, self.site == site {
+            useAccumulated(
+                uploaded, snapshot: snapshot,
+                status: AlignmentAccumulatedScan(
+                    scanID: uploaded.scanID, captureRef: captureRef, frames: collected.framesTaken,
+                    pointsCollected: collected.pointsKept, points: snapshot.pointCount))
+        }
+    }
+
+    /// Makes the uploaded accumulated scan the one Register and scoring use.
+    /// The pose drawn now is scored again against it.
+    private func useAccumulated(
+        _ uploaded: Gerardus_Align_V1alpha1_Scan, snapshot: BackgroundSnapshot,
+        status: AlignmentAccumulatedScan
+    ) {
+        accumulatedScan = uploaded
+        accumulated = status
+        scan = uploaded
+        uploadedSnapshot = snapshot
+        uploadedFrom = nil
+        evaluation = nil
+        sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
+        scheduleRestyle()
+        scheduleEvaluation()
+    }
+
+    /// Goes back to registering the background.
+    func useBackground() {
+        guard accumulatedScan != nil else { return }
+        dropAccumulation()
+        scan = nil
+        uploadedSnapshot = nil
+        uploadedFrom = nil
+        evaluation = nil
+        sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
+        scheduleRestyle()
+        scheduleEvaluation()
+    }
+
+    private func dropAccumulation() {
+        cancelAccumulating()
+        accumulationTask = nil
+        accumulatedScan = nil
+        accumulated = nil
+        accumulationRefusal = nil
     }
 
     private func posePayload(_ pose: SitePose) -> Gerardus_Align_V1alpha1_SensorPose {
@@ -1000,6 +1313,8 @@ struct ReferenceSummary: Equatable {
         styleGeneration += 1
         styling?.cancel()
         registeredLayersNote = nil
+        siteModelScanIDs = nil
+        dropAccumulation()
         hintPose = nil
         hintSummary = nil
         pose = nil

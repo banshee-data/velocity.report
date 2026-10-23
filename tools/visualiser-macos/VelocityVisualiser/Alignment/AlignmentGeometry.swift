@@ -226,6 +226,19 @@ enum ScanPacking {
         }
         return header
     }
+
+    /// The header for accumulated frames: SCAN_KIND_ACCUMULATED, named by the
+    /// replay and its frame range, captured when the first frame was. No
+    /// background sequence: the points did not come from the grid.
+    static func accumulatedHeader(
+        l16Token: String, sensorID: String, captureRef: String, snapshot: BackgroundSnapshot
+    ) -> Gerardus_Align_V1alpha1_ScanHeader {
+        var accumulated = header(
+            l16Token: l16Token, sensorID: sensorID, captureRef: captureRef, snapshot: snapshot)
+        accumulated.kind = .accumulated
+        accumulated.backgroundSequence = 0
+        return accumulated
+    }
 }
 
 // MARK: - Reference geometry

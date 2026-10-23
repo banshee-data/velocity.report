@@ -1327,8 +1327,11 @@ private let logger = DevLogger(category: "AppState")
 
         // Update non-published frame data immediately (bypasses SwiftUI)
         currentFrame = frame
-        if alignment.isAvailable, let background = frame.background {
-            alignment.noteBackground(background)
+        if alignment.isAvailable {
+            if let background = frame.background { alignment.noteBackground(background) }
+            // The frame tap for Accumulate frames (Gerardus site model spike
+            // §6.3); cheap while no accumulation runs.
+            alignment.noteFrame(frame)
         }
 
         // Apply persistent track filters BEFORE rendering so filtered tracks
