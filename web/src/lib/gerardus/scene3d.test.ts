@@ -51,7 +51,7 @@ const square = (z = 0, size = 10): Vec3[] => [
 ];
 
 describe('the ground mesh', () => {
-	it('puts a vertex at the centre of every cell with a height', () => {
+	it('puts a vertex at the centre of every cell with a height, x0, y0 the south-west one', () => {
 		const m = groundMesh({
 			x0: 100,
 			y0: 200,
@@ -60,7 +60,7 @@ describe('the ground mesh', () => {
 			ny: 2,
 			heights: [1, 2, 3, 4]
 		});
-		expect(Array.from(m.positions)).toEqual([101, 201, 1, 103, 201, 2, 101, 203, 3, 103, 203, 4]);
+		expect(Array.from(m.positions)).toEqual([100, 200, 1, 102, 200, 2, 100, 202, 3, 102, 202, 4]);
 		// Two triangles for the one square, counter-clockwise from above.
 		expect(Array.from(m.indices)).toEqual([0, 1, 3, 0, 3, 2]);
 		for (const n of normals(m)) expect(n[2]).toBeGreaterThan(0);

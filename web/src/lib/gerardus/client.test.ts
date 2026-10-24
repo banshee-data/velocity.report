@@ -14,6 +14,7 @@ import {
 	isL16Token,
 	isOsmLayer,
 	listSites,
+	frameOf,
 	looksGeographic,
 	normaliseAddress,
 	parseCollection,
@@ -24,7 +25,8 @@ import {
 	parseSiteFrameCollection,
 	parseSiteFrameFeature,
 	parseSites,
-	rememberGerardusAddress
+	rememberGerardusAddress,
+	voxelUsed
 } from './client';
 
 const BASE = 'http://127.0.0.1:50061';
@@ -410,6 +412,7 @@ describe('layers', () => {
 });
 
 const SITES = {
+	epoch: 2026.8111,
 	sites: [
 		{
 			l16: '808580f3f',
@@ -445,6 +448,7 @@ describe('GET the site list', () => {
 			{ l16: '80858a1', label: '', lon: -122.41, lat: 37.79, heightM: 0, layers: [] }
 		]);
 		expect(skipped).toBe(5);
+		expect((await listSites(BASE, { fetch })).epoch).toBe(2026.8111);
 	});
 
 	it('parses one site, and refuses what is not one', () => {
@@ -457,6 +461,7 @@ describe('GET the site list', () => {
 		expect(() => parseSites({})).toThrow(GerardusError);
 		expect(() => parseSites(null)).toThrow('list of sites');
 		expect(parseSites({ sites: [] })).toEqual({ sites: [], skipped: 0 });
+		expect(parseSites({ sites: [], epoch: 'now' })).toEqual({ sites: [], skipped: 0 });
 	});
 
 	it('calls a Gerardus without the list unsupported, not unprepared', async () => {
@@ -483,6 +488,10 @@ describe('GET the site list', () => {
 
 const SITE_FRAME = {
 	type: 'FeatureCollection',
+	l16_token: '808580f3f',
+	layers: ['boxes', 'wall_planes', 'observed', 'kerbs'],
+	frame: 'site',
+	epoch: 2026.8111,
 	features: [
 		{
 			type: 'Feature',
@@ -565,7 +574,24 @@ describe('GET the site frame', () => {
 		expect(() => parseSiteFrameCollection([])).toThrow(GerardusError);
 	});
 
-	it('refuses longitude and latitude from a Gerardus that ignored frame=site', async () => {
+	it('refuses a collection that says it is in WGS 84', async () => {
+		const fetch = jest.fn().mockResolvedValue(jsonResponse({ ...SITE_FRAME, frame: 'wgs84' }));
+		await expect(getSiteFrameGeojson(BASE, SITE, SITE_LAYERS, { fetch })).rejects.toMatchObject({
+			kind: 'unsupported'
+		});
+		// A collection that says it is in the site frame is believed, origin or not.
+		fetch.mockResolvedValue(jsonResponse(SITE_FRAME));
+		const { features } = await getSiteFrameGeojson(BASE, SITE, SITE_LAYERS, {
+			fetch,
+			origin: { lon: 1, lat: 2 }
+		});
+		expect(features).toHaveLength(3);
+		expect(frameOf(SITE_FRAME)).toBe('site');
+		expect(frameOf(SITE_GEOJSON)).toBeNull();
+		expect(frameOf(null)).toBeNull();
+	});
+
+	it('refuses longitude and latitude from a Gerardus too old to say its frame', async () => {
 		const fetch = jest.fn().mockResolvedValue(jsonResponse(SITE_GEOJSON));
 		await expect(
 			getSiteFrameGeojson(BASE, SITE, SITE_LAYERS, {
@@ -600,6 +626,7 @@ describe('GET the site frame', () => {
 
 describe('GET the ground', () => {
 	const GRID = {
+		l16: '808580f3f',
 		x0: -10,
 		y0: -20,
 		cell_m: 0.5,
@@ -672,7 +699,8 @@ describe('GET the scans', () => {
 		const fetch = jest.fn().mockResolvedValue(
 			binaryResponse(scanBytes(POINTS), {
 				'x-gerardus-model-id': 'model-7',
-				'x-gerardus-point-count': '2'
+				'x-gerardus-point-count': '2',
+				'x-gerardus-voxel-m': '0.5'
 			})
 		);
 		const cloud = await getSiteScans(BASE, SITE, 0.5, { fetch });
@@ -697,6 +725,18 @@ describe('GET the scans', () => {
 		const cloud = await getSiteScans(BASE, SITE, undefined, { fetch });
 		expect(fetch.mock.calls[0][0]).toBe(`${BASE}/api/v1/sites/${SITE}/scans?voxel_m=0.2`);
 		expect(cloud).toMatchObject({ count: 0, modelId: '', voxelM: 0.2 });
+	});
+
+	it('takes the voxel Gerardus used over the one asked for', async () => {
+		const fetch = jest
+			.fn()
+			.mockResolvedValue(binaryResponse(scanBytes([]), { 'x-gerardus-voxel-m': '2' }));
+		expect((await getSiteScans(BASE, SITE, 5, { fetch })).voxelM).toBe(2);
+		expect(voxelUsed(null, 0.2)).toBe(0.2);
+		expect(voxelUsed(' ', 0.2)).toBe(0.2);
+		expect(voxelUsed('0.05', 0.01)).toBe(0.05);
+		expect(() => voxelUsed('fine', 0.2)).toThrow(GerardusError);
+		expect(() => voxelUsed('0', 0.2)).toThrow('voxel of “0”');
 	});
 
 	it('calls a length that is not whole points malformed', async () => {

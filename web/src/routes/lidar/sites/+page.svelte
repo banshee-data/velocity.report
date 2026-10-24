@@ -102,6 +102,8 @@
 	let addressInput = address;
 	let sites: ViewerSite[] = [];
 	let sitesNote: string | null = null;
+	// The epoch Gerardus gives its sites' origins at, when it says.
+	let sitesEpoch: number | null = null;
 	let siteChoice = '';
 	let tokenInput = page.url.searchParams.get('site') ?? '';
 	let siteToken = '';
@@ -222,8 +224,10 @@
 
 	async function loadSites() {
 		sitesNote = null;
+		sitesEpoch = null;
 		try {
 			const r = await listSites(address);
+			sitesEpoch = r.epoch ?? null;
 			sites = r.sites
 				.map((s): ViewerSite => ({
 					token: s.l16,
@@ -299,13 +303,14 @@
 		scansNote = null;
 		error3d = null;
 		groundError = null;
-		const served = servedLayers(siteOf(token, sites));
+		const site = siteOf(token, sites);
+		const served = servedLayers(site);
 		try {
-			const { features: fs, skipped: bad } = await getSiteGeojson(
-				address,
+			const { features: fs, skipped: bad } = await getGeojsonOrOlder(
 				token,
 				served.filter((l) => !isOsmLayer(l)),
-				{ signal: abort.signal }
+				site?.source === 'gerardus',
+				abort.signal
 			);
 			if (abort.signal.aborted) return;
 			features = fs;
@@ -321,6 +326,32 @@
 			skipped = 0;
 		} finally {
 			if (loadAbort === abort) loading = false;
+		}
+	}
+
+	/**
+	 * The 2D layers. Gerardus refuses a layer name it does not know (400), so a
+	 * Gerardus that did not list its own layers, and is older than the observed
+	 * and wall-plane layers, is asked again without them.
+	 */
+	async function getGeojsonOrOlder(
+		token: string,
+		layers: string[],
+		listed: boolean,
+		signal: AbortSignal
+	) {
+		try {
+			return await getSiteGeojson(address, token, layers, { signal });
+		} catch (e) {
+			const newer = ['observed', 'wall_planes'];
+			if (listed || !(e instanceof GerardusError) || e.kind !== 'rejected') throw e;
+			if (!layers.some((l) => newer.includes(l))) throw e;
+			return getSiteGeojson(
+				address,
+				token,
+				layers.filter((l) => !newer.includes(l)),
+				{ signal }
+			);
 		}
 	}
 
@@ -701,7 +732,9 @@
 						</div>
 						{#if knownSite?.source === 'gerardus'}
 							<div>
-								Site frame origin {knownSite.lat?.toFixed(6)}, {knownSite.lon?.toFixed(6)}
+								Site frame origin {knownSite.lat?.toFixed(7)}, {knownSite.lon?.toFixed(
+									7
+								)}{sitesEpoch !== null ? ` (WGS 84 at epoch ${sitesEpoch})` : ''}
 							</div>
 						{/if}
 						{#if skipped > 0}
@@ -876,9 +909,9 @@
 					</label>
 					{#if scans}
 						<p class="text-surface-content/50 text-xs">
-							{scans.count.toLocaleString()} points at {scans.voxelM} m{scans.modelId
-								? ` · model ${scans.modelId}`
-								: ''}
+							{scans.count.toLocaleString()} points at {scans.voxelM} m{scans.voxelM !== voxelM
+								? ` (Gerardus's limit; ${voxelM} m was asked for)`
+								: ''}{scans.modelId ? ` · model ${scans.modelId}` : ''}
 						</p>
 					{/if}
 					{#if scansNote}

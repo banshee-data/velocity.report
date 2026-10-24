@@ -8,20 +8,23 @@
  * and tailnet origins.
  *
  * - `GET /api/v1/sites` lists the prepared sites:
- *   `{"sites": [{"l16", "label", "lon", "lat", "height_m", "layers": […]}]}`,
- *   each with its site-frame origin and the GeoJSON layers it can serve.
+ *   `{"epoch", "sites": [{"l16", "label", "lon", "lat", "height_m", "layers": […]}]}`,
+ *   each with its site-frame origin (WGS 84 at `epoch`) and the GeoJSON
+ *   layers it can serve.
  * - `GET /api/v1/sites/{l16}/geojson?layers=…` returns an RFC 7946
  *   FeatureCollection in WGS 84, height as a third coordinate; with
  *   `&frame=site`, positions are site-frame metres `[x east, y north, z up]`.
- *   Each feature's properties carry `layer`, `id`, `kind`, its tags, `author`
+ *   The collection says which in its `frame` member (`"wgs84"` or `"site"`);
+ *   an unknown layer or frame is a 400. Each feature's properties carry `layer`, `id`, `kind`, its tags, `author`
  *   and `edited_at`. A layer the site's bundle lacks is absent.
  * - `GET /api/v1/sites/{l16}/ground` returns the ground grid,
- *   `{"x0", "y0", "cell_m", "nx", "ny", "heights": […]}` in the site frame,
- *   row-major with y outer and null where a cell is empty; 404 when the site
- *   has no grid.
+ *   `{"l16", "x0", "y0", "cell_m", "nx", "ny", "heights": […]}` in the site
+ *   frame, (x0, y0) the south-west cell's centre, row-major with y outer and
+ *   null where a cell is empty; 404 when the site has no grid.
  * - `GET /api/v1/sites/{l16}/scans?voxel_m=…` returns the scan points as
  *   little-endian float32 x, y, z triplets in the site frame, with the
- *   `X-Gerardus-Model-Id` and `X-Gerardus-Point-Count` headers; 403 unless
+ *   `X-Gerardus-Model-Id`, `X-Gerardus-Point-Count` and `X-Gerardus-Voxel-M`
+ *   (the voxel used: Gerardus clamps it to 0.05–2 m) headers; 403 unless
  *   Gerardus serves scans to this peer.
  *
  * Its address is a setting kept in this browser, defaulting to the port
@@ -115,9 +118,9 @@ export interface GerardusSite {
 }
 
 /**
- * The site's ground grid. Cell (i, j) spans x0 + i·cell_m to x0 + (i+1)·cell_m
- * east and likewise north from y0; its height is `heights[j·nx + i]`, null when
- * the cell is empty.
+ * The site's ground grid. Cell (i, j) is centred x0 + i·cell_m east and
+ * y0 + j·cell_m north, (x0, y0) being the south-west cell's centre; its height
+ * is `heights[j·nx + i]`, null when the cell is empty.
  */
 export interface GroundGrid {
 	x0: number;
@@ -134,7 +137,15 @@ export interface ScanCloud {
 	points: Float32Array;
 	count: number;
 	modelId: string;
+	/** The voxel Gerardus used, which it may have clamped from the one asked for. */
 	voxelM: number;
+}
+
+/** Gerardus's site list: the epoch the origins are given at, when it says. */
+export interface SiteList {
+	sites: GerardusSite[];
+	skipped: number;
+	epoch?: number;
 }
 
 /**
@@ -421,13 +432,19 @@ export function parseSite(v: unknown): GerardusSite | null {
 }
 
 /** The body of `GET /api/v1/sites`: its sites, those that do not parse left out and counted. */
-export function parseSites(v: unknown): { sites: GerardusSite[]; skipped: number } {
-	const list = v && typeof v === 'object' ? (v as { sites?: unknown }).sites : undefined;
-	if (!Array.isArray(list)) {
+export function parseSites(v: unknown): SiteList {
+	const body = v && typeof v === 'object' ? (v as { sites?: unknown; epoch?: unknown }) : {};
+	if (!Array.isArray(body.sites)) {
 		throw new GerardusError('malformed', 'Gerardus did not answer with a list of sites.');
 	}
-	const { features: sites, skipped } = collect(list, parseSite);
-	return { sites, skipped };
+	const { features: sites, skipped } = collect(body.sites, parseSite);
+	return isFiniteNumber(body.epoch) ? { sites, skipped, epoch: body.epoch } : { sites, skipped };
+}
+
+/** The frame a collection says it is in, `"site"` or `"wgs84"`, or null when it does not say. */
+export function frameOf(v: unknown): string | null {
+	const frame = v && typeof v === 'object' ? (v as { frame?: unknown }).frame : undefined;
+	return typeof frame === 'string' ? frame : null;
 }
 
 /** The body of `GET /api/v1/sites/{l16}/ground`. Anything off the contract is malformed. */
@@ -606,10 +623,7 @@ function layersQuery(layers: readonly string[], extra: Record<string, string> = 
 const GEOJSON = 'application/geo+json, application/json';
 
 /** Every prepared site Gerardus holds, with its origin and the layers it serves. */
-export async function listSites(
-	base: string,
-	opts: CallOptions = {}
-): Promise<{ sites: GerardusSite[]; skipped: number }> {
+export async function listSites(base: string, opts: CallOptions = {}): Promise<SiteList> {
 	const res = await request(
 		base,
 		'/api/v1/sites',
@@ -639,10 +653,11 @@ export async function getSiteGeojson(
 }
 
 /**
- * The site's layers in the site frame, metres about its origin. Given the
- * origin, an answer still in longitude and latitude — from a Gerardus that
- * does not know `frame=site` and ignored it — is refused as unsupported
- * rather than drawn a hundred kilometres off.
+ * The site's layers in the site frame, metres about its origin. An answer
+ * still in longitude and latitude — from a Gerardus that does not know
+ * `frame=site` and ignored it — is refused as unsupported rather than drawn a
+ * hundred kilometres off: the collection's `frame` member says so, or, from a
+ * Gerardus too old to send one, its positions lie by the origin given.
  */
 export async function getSiteFrameGeojson(
 	base: string,
@@ -653,15 +668,17 @@ export async function getSiteFrameGeojson(
 	const path = `${sitePath(l16)}/geojson?${layersQuery(layers, { frame: 'site' })}`;
 	const res = await request(base, path, GEOJSON, siteNotFound(l16), opts);
 	const body = await readJson(res);
-	if (opts.origin) {
-		const { features } = parseCollection(body);
-		if (looksGeographic(features, opts.origin)) {
-			throw new GerardusError(
-				'unsupported',
-				`Gerardus at ${base} answered in longitude and latitude: it does not serve the site ` +
-					`frame (frame=site). Run a newer Gerardus for the 3D view.`
-			);
-		}
+	const frame = frameOf(body);
+	const geographic =
+		frame !== null
+			? frame !== 'site'
+			: opts.origin !== undefined && looksGeographic(parseCollection(body).features, opts.origin);
+	if (geographic) {
+		throw new GerardusError(
+			'unsupported',
+			`Gerardus at ${base} answered in longitude and latitude: it does not serve the site ` +
+				`frame (frame=site). Run a newer Gerardus for the 3D view.`
+		);
 	}
 	return parseSiteFrameCollection(body);
 }
@@ -712,6 +729,19 @@ export async function getSiteScans(
 		points,
 		count: points.length / 3,
 		modelId: res.headers?.get('x-gerardus-model-id') ?? '',
-		voxelM
+		voxelM: voxelUsed(res.headers?.get('x-gerardus-voxel-m') ?? null, voxelM)
 	};
+}
+
+/**
+ * The voxel Gerardus says it used, or the one asked for when it does not say.
+ * A header that is not a positive size is malformed.
+ */
+export function voxelUsed(header: string | null, asked: number): number {
+	if (header === null || header.trim() === '') return asked;
+	const v = Number(header.trim());
+	if (!(Number.isFinite(v) && v > 0)) {
+		throw new GerardusError('malformed', `Gerardus said it used a voxel of “${header}”.`);
+	}
+	return v;
 }

@@ -25,7 +25,7 @@ const EMPTY_MESH: MeshData = { positions: new Float32Array(0), indices: new Uint
 
 /**
  * The ground grid as a mesh: a vertex at the centre of each cell that has a
- * height, two triangles for each square of four such cells, and one for a
+ * height (x0, y0 being the south-west cell's centre), two triangles for each square of four such cells, and one for a
  * square missing one corner, so the mesh stops at empty cells rather than
  * bridging them. Triangles wind counter-clockwise seen from above.
  */
@@ -39,7 +39,7 @@ export function groundMesh(g: GroundGrid): MeshData {
 			const h = g.heights[j * nx + i];
 			if (h === null) continue;
 			vertex[j * nx + i] = n++;
-			positions.push(g.x0 + (i + 0.5) * cellM, g.y0 + (j + 0.5) * cellM, h);
+			positions.push(g.x0 + i * cellM, g.y0 + j * cellM, h);
 		}
 	}
 	const indices: number[] = [];
