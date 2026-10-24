@@ -307,6 +307,7 @@ private let logger = DevLogger(category: "AppState")
         self.renderer = renderer
         alignment.sink = renderer
         streets.sink = renderer
+        camera.sink = renderer
         logger.info("Renderer registered")
     }
 
@@ -392,6 +393,14 @@ private let logger = DevLogger(category: "AppState")
 
     func toggleAlignmentPane() { showAlignmentPane = alignment.isAvailable && !showAlignmentPane }
 
+    // MARK: - Camera pane
+
+    /// The camera pane's orbit, flight and viewpoints.
+    let camera: CameraControlSession
+    /// Closing the pane stops its orbit (putting the camera back) and its
+    /// flight.
+    @Published var showCameraPane: Bool = false { didSet { camera.isPaneOpen = showCameraPane } }
+
     // MARK: - Initialisation
 
     /// `alignment` replaces the session talking to a real Gerardus, for tests.
@@ -401,6 +410,9 @@ private let logger = DevLogger(category: "AppState")
         alignment =
             injected ?? AlignmentSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
         streets = StreetPainterSession(alignment: alignment)
+        camera = CameraControlSession(
+            alignment: alignment, painter: streets,
+            defaults: Self.isRunningUnderXCTest ? nil : .standard)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false
@@ -418,6 +430,12 @@ private let logger = DevLogger(category: "AppState")
                 }
             }
         }
+
+        camera.selectedObjectCentre = { [weak self] in
+            guard let track = self?.selectedTrackData else { return nil }
+            return SIMD3(track.x, track.y, track.z)
+        }
+        camera.onCameraMoved = { [weak self] in self?.reprojectLabels() }
 
         let autoConnectOnStartup = autoConnectOnStartup ?? Self.shouldAutoConnectOnStartup
 
@@ -1213,6 +1231,8 @@ private let logger = DevLogger(category: "AppState")
         }
         // Reproject labels so the overlay highlights the newly selected track
         reprojectLabels()
+        // An orbit preview round the selected object moves with it.
+        if camera.settings.orbit.centre == .selectedObject { camera.refreshPreview() }
     }
 
     func assignLabel(_ label: String) {

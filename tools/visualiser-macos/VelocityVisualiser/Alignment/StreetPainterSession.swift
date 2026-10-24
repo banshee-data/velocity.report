@@ -172,6 +172,11 @@ struct StreetReference: Sendable {
     @Published private(set) var unsupported: String?
     /// Whether the marks are drawn while not painting.
     @Published var showStreetUse = true { didSet { refresh() } }
+    /// Why the camera pane will not give up the camera now (an orbit is
+    /// playing, or the camera is flying); nil when it will. The camera pane
+    /// sets it: paint mode and the pane's orbit and flight exclude each
+    /// other, as their holds on the renderer's camera do.
+    @Published var cameraBlocker: String?
 
     // MARK: - Collaborators
 
@@ -221,6 +226,7 @@ struct StreetReference: Sendable {
 
     /// Why paint mode cannot start now; nil when it can.
     var paintBlocker: String? {
+        if let cameraBlocker { return cameraBlocker }
         if !alignment.isAvailable { return "No Gerardus server has answered." }
         if alignment.site == nil || alignment.pose == nil || alignment.reference == nil {
             return

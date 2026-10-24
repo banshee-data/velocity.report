@@ -106,6 +106,13 @@ struct AppCommands: Commands {
         CommandGroup(replacing: .toolbar) {
             Button("Clear") { appState.clearAll() }.keyboardShortcut(
                 "k", modifiers: [.command, .shift])
+            Divider()
+            // The camera pane: orbit the view round an ellipse, or fly it.
+            Toggle(
+                "Camera Pane",
+                isOn: Binding(
+                    get: { appState.showCameraPane }, set: { appState.showCameraPane = $0 })
+            ).keyboardShortcut("c", modifiers: [.command, .option])
         }
         CommandGroup(replacing: .sidebar) {}
 

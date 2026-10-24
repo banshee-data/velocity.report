@@ -112,6 +112,17 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   `EditStreetUse` with the author and a note, then draws what Gerardus snapped and its problems
   beside the marks they name. Settings has a Gerardus tab: the server's address, a connection
   test with its version and git sha, the author, and whether it serves registered scans.
+- The macOS visualiser has a camera pane (toolbar **Camera**, View ▸ Camera Pane, ⌥⌘C). Orbit
+  flies the 3D view round an ellipse about the camera's target, the selected object or the site
+  origin: radii A along a compass heading and B across it, edited apart or with their ratio
+  locked, height or elevation, look-at height, lap time, direction, and loop or once, with Play,
+  Pause and Stop (which puts the camera back) and the path drawn in the view. The radii are
+  measured from the camera, from the extent of the registered scans (or the boxes and kerbs), or
+  from two clicks. Fly is free flight with WASD, the arrows, Q/E and ⌥-mouse look, a top speed
+  and a ramp; Fly to moves to one of eight saved viewpoints. One speed curve shapes both: linear,
+  cubic, exponential and sine easings, bounce, elastic, back, or a custom Bézier, with a warning
+  when a looping orbit's curve jumps at the seam. Settings are kept per site. Orbit and Fly are
+  off while painting streets, and painting is off while they run.
 - _Accumulate frames_ collects background and ground from a replay and registers them as one
   cloud. A pcap replay can stream full frames (`full_frames` on `POST /api/lidar/pcap/start`,
   or `POST /api/lidar/replay/full_frames` while it runs), and a replay started with full
