@@ -140,6 +140,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var referenceObservedVertexCount: Int = 0
     private var referenceGroundMeshBuffer: MTLBuffer?
     private(set) var referenceGroundMeshVertexCount: Int = 0
+    /// The street layers: kerbs and islands, and the City's centrelines
+    /// with their intersections.
+    private var referenceKerbBuffer: MTLBuffer?
+    private(set) var referenceKerbVertexCount: Int = 0
+    private var referenceCityStreetBuffer: MTLBuffer?
+    private(set) var referenceCityStreetVertexCount: Int = 0
     private var referencePaletteBuffer: MTLBuffer?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
@@ -152,6 +158,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var residualPointCount: Int = 0
     private var residualPaletteBuffer: MTLBuffer?
     private var residualDepthState: MTLDepthStencilState?
+    /// The street painter's marks, draft and handles, in the site frame:
+    /// triangles for fills and bands, and lines. Drawn through the
+    /// reference's model matrix, over everything while the plan view is
+    /// locked, depth-tested like the reference otherwise.
+    private var streetFillBuffer: MTLBuffer?
+    private(set) var streetFillVertexCount: Int = 0
+    private var streetLineBuffer: MTLBuffer?
+    private(set) var streetLineVertexCount: Int = 0
+    private var overlayDepthState: MTLDepthStencilState?
+    /// The camera the plan view replaced, while the street painter holds
+    /// the camera; nil otherwise. While held, orbiting is refused: the plan
+    /// view looks straight down and only pans and zooms.
+    private(set) var savedCamera: Camera?
+    var isPlanLocked: Bool { savedCamera != nil }
 
     // M6: Debug overlay buffers
     var debugLineVertices: MTLBuffer?  // Association lines + residual vectors
@@ -377,6 +397,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         depthStencilState = device.makeDepthStencilState(descriptor: descriptor)
         descriptor.depthCompareFunction = .lessEqual
         residualDepthState = device.makeDepthStencilState(descriptor: descriptor)
+        descriptor.depthCompareFunction = .always
+        descriptor.isDepthWriteEnabled = false
+        overlayDepthState = device.makeDepthStencilState(descriptor: descriptor)
     }
 
     private func buildBoxGeometry() {
@@ -470,6 +493,11 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceGroundMeshBuffer = buffer(vertices?.groundMeshLines ?? [])
         referenceGroundMeshVertexCount =
             referenceGroundMeshBuffer == nil ? 0 : vertices?.groundMeshVertexCount ?? 0
+        referenceKerbBuffer = buffer(vertices?.kerbLines ?? [])
+        referenceKerbVertexCount = referenceKerbBuffer == nil ? 0 : vertices?.kerbVertexCount ?? 0
+        referenceCityStreetBuffer = buffer(vertices?.cityStreetLines ?? [])
+        referenceCityStreetVertexCount =
+            referenceCityStreetBuffer == nil ? 0 : vertices?.cityStreetVertexCount ?? 0
         referencePaletteBuffer = vertices.flatMap { vertices in
             vertices.palette.withUnsafeBytes { table in
                 device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
@@ -507,6 +535,63 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         guard visibility != referenceVisibility else { return }
         referenceVisibility = visibility
         view?.needsDisplay = true
+    }
+
+    // MARK: - Street painter
+
+    /// Replaces the street painter's overlay, or removes it with nil.
+    func setStreetOverlay(_ vertices: StreetOverlayVertices?) {
+        func buffer(_ floats: [Float]) -> MTLBuffer? {
+            floats.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: floats, length: floats.count * MemoryLayout<Float>.stride,
+                    options: .storageModeShared)
+        }
+        streetFillBuffer = buffer(vertices?.fills ?? [])
+        streetFillVertexCount = streetFillBuffer == nil ? 0 : vertices?.fillVertexCount ?? 0
+        streetLineBuffer = buffer(vertices?.lines ?? [])
+        streetLineVertexCount = streetLineBuffer == nil ? 0 : vertices?.lineVertexCount ?? 0
+        view?.needsDisplay = true
+    }
+
+    /// Locks the camera to the street painter's plan view. The first call
+    /// keeps the camera it replaces; the view's aspect stays the view's.
+    func setPlanCamera(_ next: Camera) {
+        if savedCamera == nil { savedCamera = camera }
+        var placed = next
+        placed.aspectRatio = camera.aspectRatio
+        camera = placed
+        view?.needsDisplay = true
+    }
+
+    /// Unlocks the camera and puts back the one the plan view replaced, at
+    /// the view's aspect now.
+    func exitPlanView() {
+        guard var restored = savedCamera else { return }
+        restored.aspectRatio = camera.aspectRatio
+        camera = restored
+        savedCamera = nil
+        view?.needsDisplay = true
+    }
+
+    private func drawStreetOverlay(encoder: MTLRenderCommandEncoder) {
+        guard let pipeline = linePipeline, streetFillVertexCount > 0 || streetLineVertexCount > 0
+        else { return }
+        var street = Self.uniforms(uniforms, model: referenceModelMatrix)
+        if isPlanLocked { encoder.setDepthStencilState(overlayDepthState) }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setVertexBytes(&street, length: MemoryLayout<Uniforms>.stride, index: 1)
+        if let fills = streetFillBuffer, streetFillVertexCount > 0 {
+            encoder.setVertexBuffer(fills, offset: 0, index: 0)
+            encoder.drawPrimitives(
+                type: .triangle, vertexStart: 0, vertexCount: streetFillVertexCount)
+        }
+        if let lines = streetLineBuffer, streetLineVertexCount > 0 {
+            encoder.setVertexBuffer(lines, offset: 0, index: 0)
+            encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: streetLineVertexCount)
+        }
+        encoder.setDepthStencilState(depthStencilState)
     }
 
     /// The uniforms for geometry drawn through a model matrix: the camera's
@@ -566,6 +651,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             (shown.observed, referenceObservedBuffer, referenceObservedVertexCount),
             (shown.wallPlanes, referenceWallPlaneBuffer, referenceWallPlaneVertexCount),
             (shown.intersections, referenceIntersectionBuffer, referenceIntersectionVertexCount),
+            (shown.cityStreets, referenceCityStreetBuffer, referenceCityStreetVertexCount),
+            (shown.kerbs, referenceKerbBuffer, referenceKerbVertexCount),
         ] {
             guard visible, let buffer, count > 0 else { continue }
             encoder.setRenderPipelineState(pipeline)
@@ -1162,6 +1249,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         }
 
         drawReferenceOverlay(encoder: encoder)
+        drawStreetOverlay(encoder: encoder)
 
         // M4: Draw cluster boxes first (behind tracks)
         if showClusters, let pipeline = boxPipeline, let boxVerts = boxVertices,
@@ -1260,6 +1348,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     /// Handle mouse/trackpad drag for camera orbit or pan.
     func handleMouseDrag(deltaX: CGFloat, deltaY: CGFloat, isRightButton: Bool, shiftHeld: Bool) {
+        // The plan view's pan and zoom are the street painter's, and it does
+        // not turn.
+        guard !isPlanLocked else { return }
         if isRightButton || shiftHeld {
             // Pan: move camera and target together in screen space
             let sensitivity: Float = 0.05
@@ -1307,6 +1398,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     /// Handle scroll wheel or pinch for zoom.
     func handleZoom(delta: CGFloat) {
+        guard !isPlanLocked else { return }
         let sensitivity: Float = 0.1
         let zoomFactor = 1.0 - Float(delta) * sensitivity
 
@@ -1321,6 +1413,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// through the reference's model matrix, from `RefinementSummary`'s
     /// focus distance along the direction it looks in now.
     func focusCamera(onSitePoint point: SIMD3<Double>) {
+        guard !isPlanLocked else { return }
         let placed = RefinementSummary.focus(
             sitePoint: point, model: referenceModelMatrix, cameraPosition: camera.position,
             cameraTarget: camera.target)
@@ -1548,6 +1641,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// Handle keyboard input for camera control.
     /// Returns true if the key was handled.
     func handleKeyDown(keyCode: UInt16, modifiers: NSEvent.ModifierFlags) -> Bool {
+        guard !isPlanLocked else { return false }
         let moveStep: Float = 2.0
         let right = normalize(cross(camera.up, camera.position - camera.target))
         let forward = normalize(camera.target - camera.position)
@@ -1589,7 +1683,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
 // MARK: - Camera
 
-struct Camera {
+struct Camera: Equatable {
     /// How the camera projects.
     ///
     /// Annotation selection needs orthographic: under perspective the same

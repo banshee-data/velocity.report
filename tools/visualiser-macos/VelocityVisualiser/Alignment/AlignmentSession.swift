@@ -6,7 +6,9 @@
 // The operator's path, one RPC per step (Gerardus docs/INTERFACE-VISUALISER.md):
 //
 //   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m),
-//                     then StreamReference once per registered layer
+//                     StreamReference for the street layers the server lists
+//                     (CITY_STREETS, CITY_INTERSECTIONS, KERBS), then
+//                     StreamReference once per registered layer
 //   Nudge             nothing on the wire: only the model matrix changes
 //   Accumulate        during a pcap replay, velocity.report's
 //                     POST /api/lidar/replay/full_frames on, then nothing
@@ -149,6 +151,12 @@ struct ReferenceSummary: Equatable {
     var wallPlanes: Int = 0
     var wallPlaneRoles: [ReferenceStyle.WallPlaneRole: Int] = [:]
     var groundMeshCells: Int = 0
+    /// The street layers, when the server listed them: the City's
+    /// centrelines and intersections, and kerb and island lines.
+    var cityStreets: Int = 0
+    var cityIntersections: Int = 0
+    var kerbs: Int = 0
+    var streetLayersServed: Bool = false
     /// The site model the registered layers were built from; empty when no
     /// registered layer named one.
     var modelID: String = ""
@@ -230,6 +238,8 @@ struct ReferenceSummary: Equatable {
     @Published var showObserved = true { didSet { pushVisibility() } }
     @Published var showWallPlanes = true { didSet { pushVisibility() } }
     @Published var showGroundMesh = true { didSet { pushVisibility() } }
+    @Published var showKerbs = true { didSet { pushVisibility() } }
+    @Published var showCityStreets = true { didSet { pushVisibility() } }
     /// The toolbar's faces switch: off hides the DataSF box walls and the
     /// wall planes whatever their own toggles say; on leaves those to them.
     @Published var showFaces = true { didSet { pushVisibility() } }
@@ -240,6 +250,9 @@ struct ReferenceSummary: Equatable {
     }
     /// Why a registered layer is missing, when the server did not send it.
     @Published private(set) var registeredLayersNote: String?
+    /// Why the street layers are missing, when the server listed them and
+    /// then did not send them.
+    @Published private(set) var streetLayersNote: String?
 
     @Published private(set) var hintPose: SitePose?
     @Published private(set) var hintSummary: Gerardus_Align_V1alpha1_PoseSummary?
@@ -346,6 +359,11 @@ struct ReferenceSummary: Equatable {
 
     private let makeClient: (GerardusAddress) -> AlignmentServiceClient
     private var client: AlignmentServiceClient?
+    /// The client that answered, for the street painter's ListStreetUse and
+    /// EditStreetUse; nil while no server has.
+    var gerardusClient: AlignmentServiceClient? { client }
+    /// What the server that answered said about itself.
+    @Published private(set) var serverInfo: Gerardus_Align_V1alpha1_GetServerInfoResponse?
     /// Bumped when the address changes, so a probe of the old server that
     /// answers late cannot claim the session for it.
     private var addressGeneration = 0
@@ -408,6 +426,8 @@ struct ReferenceSummary: Equatable {
     /// What was streamed, kept so the overlay can be rebuilt when a toggle or
     /// the site model changes; nil until placed.
     private var geometry: ReferenceGeometry?
+    /// What was streamed, for the street painter's snapping and ground.
+    var referenceGeometry: ReferenceGeometry? { geometry }
     /// The streaming centre: the hint pose's origin, in the site frame.
     private var referenceCentre: SIMD3<Double>?
     /// The site model the registered layers drawn now came from, as the
@@ -470,11 +490,13 @@ struct ReferenceSummary: Equatable {
         } else if let info {
             client = candidate
             availableLayers = info.availableLayers
+            serverInfo = info
             availability = .available(serverVersion: info.serverVersion)
             probeFailure = nil
             isChecking = false
         } else {
             client = nil
+            serverInfo = nil
             // Set only on a change, so a repeated miss redraws nothing.
             if availability != .unavailable { availability = .unavailable }
             if probeFailure != failure { probeFailure = failure }
@@ -493,6 +515,7 @@ struct ReferenceSummary: Equatable {
         addressGeneration += 1
         client?.disconnect()
         client = nil
+        serverInfo = nil
         serviceAddress = address
         address.save(to: defaults)
         clearPlacement()
@@ -647,6 +670,10 @@ struct ReferenceSummary: Equatable {
             busy = "Streaming the reference"
             var geometry = try await client.streamReference(
                 referenceRequest(l16Token: site.l16Token, centre: start.translation))
+            busy = "Streaming the streets"
+            geometry.merge(
+                await streamStreetLayers(
+                    client: client, l16Token: site.l16Token, centre: start.translation))
             busy = "Streaming the site model"
             let registered = await streamRegisteredLayers(
                 client: client, l16Token: site.l16Token, centre: start.translation)
@@ -678,6 +705,12 @@ struct ReferenceSummary: Equatable {
     /// lists them: a server from before them would refuse a layer it does
     /// not know, and with it the bundle.
     static let listedOnlyLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.boxes]
+    /// The street layers the street painter draws over and snaps to, on one
+    /// call of their own and only when the server lists them: a server from
+    /// before them would refuse the call.
+    static let streetLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .cityStreets, .cityIntersections, .kerbs,
+    ]
     /// The site model's layers, each on a call of its own.
     static let registeredLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
         .registeredScans, .observed, .groundMesh,
@@ -706,6 +739,32 @@ struct ReferenceSummary: Equatable {
         // 0 asks for the server's default spacing.
         request.voxelSizeM = 0
         return request
+    }
+
+    /// The street layers the server lists, on one request; nil when it
+    /// lists none of them.
+    func streetReferenceRequest(
+        l16Token: String, centre: SIMD3<Double>
+    ) -> Gerardus_Align_V1alpha1_StreamReferenceRequest? {
+        let listed = Self.streetLayers.filter(availableLayers.contains)
+        guard !listed.isEmpty else { return nil }
+        return referenceRequest(l16Token: l16Token, centre: centre, layers: listed)
+    }
+
+    /// Streams the street layers. A failure leaves them empty and says so
+    /// in `streetLayersNote`; the bundle drawn already is untouched.
+    private func streamStreetLayers(
+        client: AlignmentServiceClient, l16Token: String, centre: SIMD3<Double>
+    ) async -> ReferenceGeometry {
+        streetLayersNote = nil
+        guard let request = streetReferenceRequest(l16Token: l16Token, centre: centre) else {
+            return ReferenceGeometry()
+        }
+        do { return try await client.streamReference(request) } catch {
+            streetLayersNote = "Streets and kerbs not drawn: \(GerardusClientError.describe(error))"
+            logger.info("No street layers for \(l16Token): \(GerardusClientError.describe(error))")
+            return ReferenceGeometry()
+        }
     }
 
     /// The registered layers the server lists, one request each.
@@ -828,7 +887,8 @@ struct ReferenceSummary: Equatable {
             aerial: showAerial, osm: showOSM, footprints: showFootprints,
             boxes: showBoxes && showFaces, intersections: showIntersections,
             registeredScans: showRegisteredScans, observed: showObserved,
-            wallPlanes: showWallPlanes && showFaces, groundMesh: showGroundMesh)
+            wallPlanes: showWallPlanes && showFaces, groundMesh: showGroundMesh, kerbs: showKerbs,
+            cityStreets: showCityStreets)
     }
 
     private func pushVisibility() { sink?.setReferenceVisibility(visibility) }
@@ -903,6 +963,10 @@ struct ReferenceSummary: Equatable {
         out.wallPlanes = geometry.wallPlanes.count
         out.wallPlaneRoles = geometry.wallPlaneRoles
         out.groundMeshCells = geometry.groundMeshCells
+        out.cityStreets = geometry.cityStreets.count
+        out.cityIntersections = geometry.cityIntersections.count
+        out.kerbs = geometry.kerbs.count
+        out.streetLayersServed = Self.streetLayers.contains(where: availableLayers.contains)
         out.modelID = geometry.modelID
         return out
     }
@@ -1921,6 +1985,7 @@ struct ReferenceSummary: Equatable {
         styleGeneration += 1
         styling?.cancel()
         registeredLayersNote = nil
+        streetLayersNote = nil
         siteModelScanIDs = nil
         dropAccumulation()
         hintPose = nil

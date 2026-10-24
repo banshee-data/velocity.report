@@ -306,6 +306,7 @@ private let logger = DevLogger(category: "AppState")
     func registerRenderer(_ renderer: MetalRenderer) {
         self.renderer = renderer
         alignment.sink = renderer
+        streets.sink = renderer
         logger.info("Renderer registered")
     }
 
@@ -325,6 +326,7 @@ private let logger = DevLogger(category: "AppState")
         let formattedSize = String(format: "%.1fx%.1f", newSize.width, newSize.height)
         logger.debug("metalViewSize <- \(formattedSize) source=\(source)")
         metalViewSize = newSize
+        streets.viewSize = newSize
     }
 
     // MARK: - Internal
@@ -362,10 +364,28 @@ private let logger = DevLogger(category: "AppState")
     /// answers its probe it is unavailable, its pane and toolbar button are
     /// hidden, and nothing else in the app changes.
     let alignment: AlignmentSession
+    /// The street painter, over the reference the alignment pane placed.
+    let streets: StreetPainterSession
     @Published var showAlignmentPane: Bool = false {
         // Closing the pane stops an accumulation's collection, and with it
-        // velocity.report's full frames.
-        didSet { if oldValue, !showAlignmentPane { alignment.paneClosed() } }
+        // velocity.report's full frames, and leaves paint mode.
+        didSet {
+            if oldValue, !showAlignmentPane {
+                alignment.paneClosed()
+                streets.setPainting(false)
+            }
+        }
+    }
+
+    /// The toolbar's Paint streets switch: opens the alignment pane in
+    /// paint mode, or leaves paint mode.
+    func toggleStreetPainting() {
+        if streets.isPainting {
+            streets.setPainting(false)
+        } else {
+            showAlignmentPane = alignment.isAvailable
+            streets.setPainting(true)
+        }
     }
     private var alignmentAvailability: AnyCancellable?
     private var alignmentProbing: AnyCancellable?
@@ -380,6 +400,7 @@ private let logger = DevLogger(category: "AppState")
 
         alignment =
             injected ?? AlignmentSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
+        streets = StreetPainterSession(alignment: alignment)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false

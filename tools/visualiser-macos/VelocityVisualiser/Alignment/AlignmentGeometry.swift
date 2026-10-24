@@ -317,6 +317,13 @@ struct ReferenceGeometry: Sendable {
     /// measured in 3DEP.
     var boxes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var intersections: [Gerardus_Align_V1alpha1_Intersection] = []
+    /// The street layers the street painter draws over and snaps to: DataSF
+    /// street centrelines (CITY_STREETS), the nodes where three or more meet
+    /// (CITY_INTERSECTIONS), and kerb and island lines (KERBS), from DataSF
+    /// and from the registered scans.
+    var cityStreets: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var cityIntersections: [Gerardus_Align_V1alpha1_Intersection] = []
+    var kerbs: [Gerardus_Align_V1alpha1_LineFeature] = []
     /// Registered scans, block by block, in the site frame.
     var scans: [Gerardus_Align_V1alpha1_ScanPoints] = []
     /// The observed layer: sensors, corrections and the proposed features
@@ -388,9 +395,16 @@ struct ReferenceGeometry: Sendable {
                 }
             case .footprints: footprints.append(contentsOf: set.features)
             case .boxes: boxes.append(contentsOf: set.features)
+            case .cityStreets: cityStreets.append(contentsOf: set.features)
+            case .kerbs: kerbs.append(contentsOf: set.features)
             default: lines.append(contentsOf: set.features)
             }
-        case .intersections(let set): intersections.append(contentsOf: set.intersections)
+        case .intersections(let set):
+            if message.layer == .cityIntersections {
+                cityIntersections.append(contentsOf: set.intersections)
+            } else {
+                intersections.append(contentsOf: set.intersections)
+            }
         case .scanPoints(let block): scans.append(block)
         case .groundMesh(let field): groundMesh.append(field)
         case nil: break
@@ -410,6 +424,9 @@ struct ReferenceGeometry: Sendable {
         footprints.append(contentsOf: other.footprints)
         boxes.append(contentsOf: other.boxes)
         intersections.append(contentsOf: other.intersections)
+        cityStreets.append(contentsOf: other.cityStreets)
+        cityIntersections.append(contentsOf: other.cityIntersections)
+        kerbs.append(contentsOf: other.kerbs)
         scans.append(contentsOf: other.scans)
         observed.append(contentsOf: other.observed)
         wallPlanes.append(contentsOf: other.wallPlanes)
@@ -446,6 +463,9 @@ struct ReferenceVisibility: Equatable, Sendable {
     var observed = true
     var wallPlanes = true
     var groundMesh = true
+    var kerbs = true
+    /// The City's centrelines and their intersections.
+    var cityStreets = true
 }
 
 /// How a refinement shown in its column marks the scene: each scan's sensor
@@ -476,6 +496,10 @@ struct ReferenceOverlayVertices: Sendable {
     var wallPlaneLines: [Float] = []
     /// The ground surface as a wireframe, through the same line layout.
     var groundMeshLines: [Float] = []
+    /// Kerb and island lines, and the City's centrelines with a cross at
+    /// each of its intersections.
+    var kerbLines: [Float] = []
+    var cityStreetLines: [Float] = []
     var palette: [SIMD4<Float>] = ReferenceStyle.palette
 
     var aerialCount: Int { aerial.count / 5 }
@@ -487,6 +511,8 @@ struct ReferenceOverlayVertices: Sendable {
     var observedVertexCount: Int { observedLines.count / 7 }
     var wallPlaneVertexCount: Int { wallPlaneLines.count / 7 }
     var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
+    var kerbVertexCount: Int { kerbLines.count / 7 }
+    var cityStreetVertexCount: Int { cityStreetLines.count / 7 }
 }
 
 /// Colours for the reference, chosen here rather than by the server: the
@@ -621,6 +647,7 @@ enum ReferenceStyle {
         case .driveway: return SIMD4(0.75, 1.00, 0.45, 0.95)
         case .parkingSpace: return SIMD4(0.55, 0.75, 1.00, 0.90)
         case .travelLane: return SIMD4(1.00, 1.00, 1.00, 0.60)
+        case .surface: return SIMD4(0.60, 0.60, 0.65, 0.80)
         case .other, .unspecified, .UNRECOGNIZED: return otherColour
         }
     }
@@ -669,6 +696,9 @@ enum ReferenceStyle {
     }
 
     static let intersectionColour = SIMD4<Float>(1.00, 1.00, 1.00, 0.95)
+    /// The City's centrelines: a pale slate, so they read apart from OSM's
+    /// yellow roads when both are drawn.
+    static let cityStreetColour = SIMD4<Float>(0.62, 0.70, 0.82, 0.90)
     static let approachColour = SIMD4<Float>(0.35, 1.00, 0.95, 0.95)
     /// Faint, so the wireframe reads as a surface under everything else.
     static let groundMeshColour = SIMD4<Float>(0.55, 0.80, 0.60, 0.35)
@@ -718,6 +748,27 @@ enum ReferenceStyle {
         out.wallPlaneLines = wallPlaneVertices(geometry.wallPlanes)
         out.groundMeshLines = groundMeshVertices(
             geometry.groundMesh, centre: centre.map { SIMD2($0.x, $0.y) })
+        out.kerbLines = lineVertices(geometry.kerbs)
+        out.cityStreetLines = cityStreetVertices(
+            geometry.cityStreets, intersections: geometry.cityIntersections)
+        return out
+    }
+
+    /// The City's centrelines in their own colour, whatever kind they carry,
+    /// and a cross at each of its intersections, without approach ticks.
+    static func cityStreetVertices(
+        _ streets: [Gerardus_Align_V1alpha1_LineFeature],
+        intersections: [Gerardus_Align_V1alpha1_Intersection]
+    ) -> [Float] {
+        var out = [Float]()
+        for street in streets { appendPolyline(&out, street, colour: cityStreetColour) }
+        for node in intersections {
+            let p = SIMD3<Float>(
+                Float(node.position.x), Float(node.position.y), Float(node.position.z) + lineLift)
+            let h = crossHalfSize
+            appendSegment(&out, p - SIMD3(h, 0, 0), p + SIMD3(h, 0, 0), intersectionColour)
+            appendSegment(&out, p - SIMD3(0, h, 0), p + SIMD3(0, h, 0), intersectionColour)
+        }
         return out
     }
 

@@ -957,6 +957,38 @@ private func referenceMessages(
                 $0.layerComplete = true
             }
         ]
+    case .cityStreets:
+        // A centreline down the middle of a street running east, 10 m wide.
+        return [
+            message {
+                var street = line(.road, [-40, 0, 21, 40, 0, 21])
+                street.featureID = "datasf:streets/1"
+                $0.lines.features = [street]
+                $0.layerComplete = true
+            }
+        ]
+    case .cityIntersections:
+        return [
+            message {
+                var node = Gerardus_Align_V1alpha1_Intersection()
+                node.intersectionID = "datasf:nodes/1"
+                node.position.z = 21
+                $0.intersections.intersections = [node]
+                $0.layerComplete = true
+            }
+        ]
+    case .kerbs:
+        // The street's two kerbs, 5 m either side of the centreline.
+        var north = line(.kerb, [-40, 5, 21, 40, 5, 21])
+        north.featureID = "datasf:curbs/north"
+        var south = line(.kerb, [-40, -5, 21, 40, -5, 21])
+        south.featureID = "datasf:curbs/south"
+        return [
+            message {
+                $0.lines.features = [north, south]
+                $0.layerComplete = true
+            }
+        ]
     default: return []
     }
 }
@@ -1054,6 +1086,17 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var runs: [String: Gerardus_Align_V1alpha1_Registration] = [:]
     /// Called inside RefineSite before it answers, to look at the session then.
     var duringRefine: (@MainActor () -> Void)?
+    /// The site's marked street use, as ListStreetUse answers it, and what
+    /// EditStreetUse answers with; nil `streetUse` is UNIMPLEMENTED, as a
+    /// server from before street use answers.
+    var streetUse: [Gerardus_Align_V1alpha1_StreetUseFeature]? = []
+    var streetUseEdits: [Gerardus_Align_V1alpha1_EditStreetUseRequest] = []
+    /// The problems EditStreetUse reports, given the features after the edit.
+    var streetUseProblems: ([Gerardus_Align_V1alpha1_StreetUseFeature]) -> [String] = { _ in [] }
+    /// Refuse EditStreetUse with this message, as Gerardus refuses a batch
+    /// it cannot apply whole.
+    var refuseStreetUse: String?
+    private var streetUseCounter = 0
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
     /// Every UploadScan header, in order.
     var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
@@ -1291,6 +1334,59 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         log("GetRegistration")
         guard let run = runs[id] else { throw GerardusClientError.incompleteStream("no run \(id)") }
         return run
+    }
+
+    func listStreetUse(l16Token: String) async throws -> [Gerardus_Align_V1alpha1_StreetUseFeature]
+    {
+        log("ListStreetUse")
+        guard let streetUse else { throw RPCError(code: .unimplemented, message: "ListStreetUse") }
+        return streetUse
+    }
+
+    /// Applies the edits as Gerardus would, whole or not at all: removes,
+    /// then upserts, a new feature given an id. Each vertex is snapped to a
+    /// 0.1 m grid and draped at 21 m, so what comes back is not quite what
+    /// was sent.
+    func editStreetUse(
+        _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse {
+        log("EditStreetUse")
+        streetUseEdits.append(request)
+        guard !request.author.isEmpty else {
+            throw RPCError(code: .invalidArgument, message: "author is required")
+        }
+        if let refuseStreetUse { throw RPCError(code: .failedPrecondition, message: refuseStreetUse) }
+        var features = streetUse ?? []
+        for edit in request.edits {
+            switch edit.change {
+            case .removeFeatureID(let id): features.removeAll { $0.featureID == id }
+            case .upsert(var feature):
+                if feature.featureID.isEmpty {
+                    streetUseCounter += 1
+                    feature.featureID = "gms:01NEW\(streetUseCounter)"
+                }
+                var snapped = [Float]()
+                for i in stride(from: 0, to: feature.xyz.count - 2, by: 3) {
+                    let x: Float = (feature.xyz[i] * 10).rounded() / 10
+                    let y: Float = (feature.xyz[i + 1] * 10).rounded() / 10
+                    snapped.append(contentsOf: [x, y, 21])
+                }
+                feature.xyz = snapped
+                feature.author = request.author
+                feature.rowID = "row-\(feature.featureID)-\(streetUseEdits.count)"
+                if let i = features.firstIndex(where: { $0.featureID == feature.featureID }) {
+                    features[i] = feature
+                } else {
+                    features.append(feature)
+                }
+            case nil: break
+            }
+        }
+        streetUse = features
+        var response = Gerardus_Align_V1alpha1_EditStreetUseResponse()
+        response.features = features
+        response.problems = streetUseProblems(features)
+        return response
     }
 
     func refineSite(
