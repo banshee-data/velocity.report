@@ -57,10 +57,9 @@ private let appLogger = DevLogger(category: "App")
         Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
             .defaultSize(width: 1560, height: 940).restorationBehavior(.disabled)
 
-        // Settings (⌘,): where the Gerardus alignment server is.
-        Settings {
-            if !AppState.isRunningUnderXCTest { AlignmentSettingsView(session: appState.alignment) }
-        }
+        // Settings (⌘,) ▸ Gerardus: where the server is, what it is, and the
+        // street painter's author.
+        Settings { if !AppState.isRunningUnderXCTest { SettingsView(session: appState.alignment) } }
     }
 
     init() {

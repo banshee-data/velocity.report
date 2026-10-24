@@ -47,7 +47,8 @@ struct ContentView: View {
                             pointSize: appState.pointSize,
                             onRendererCreated: { renderer in appState.registerRenderer(renderer) },
                             onTrackSelected: { trackID in appState.selectTrack(trackID) },
-                            onCameraChanged: { appState.reprojectLabels() })
+                            onCameraChanged: { appState.reprojectLabels() },
+                            paintInput: appState.streets)
 
                         // Track label overlay (SwiftUI text positioned over 3D tracks)
                         if appState.showTrackLabels {
@@ -88,7 +89,9 @@ struct ContentView: View {
 
                 // Alignment pane: only while a Gerardus server answers. The
                 // refinement column opens to its left.
-                if appState.showAlignmentPane { AlignmentColumns(session: appState.alignment) }
+                if appState.showAlignmentPane {
+                    AlignmentColumns(session: appState.alignment, painter: appState.streets)
+                }
 
             }
 
@@ -651,6 +654,7 @@ struct ToolbarView: View {
                     appState.hasActiveFilters ? .orange : nil)
 
                 AlignmentToolbarButton(session: appState.alignment)
+                StreetPaintToolbarButton(painter: appState.streets, session: appState.alignment)
 
                 Divider().frame(height: 20)
                 LiveToggleView()
@@ -2315,6 +2319,8 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var onTrackSelected: ((String?) -> Void)?
     // Camera changed callback — reproject labels when the user orbits/pans/zooms
     var onCameraChanged: (() -> Void)?
+    /// The street painter, which takes the pointer and keys while it paints.
+    var paintInput: StreetPainterSession?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -2328,6 +2334,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.renderer = renderer
             metalView.onTrackSelected = onTrackSelected
             metalView.onCameraChanged = onCameraChanged
+            metalView.paintInput = paintInput
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -2353,6 +2360,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
         if let metalView = nsView as? InteractiveMetalView {
             metalView.onTrackSelected = onTrackSelected
             metalView.onCameraChanged = onCameraChanged
+            metalView.paintInput = paintInput
         }
 
         // Trigger a redraw so toggle changes are visible immediately
@@ -2371,8 +2379,12 @@ class InteractiveMetalView: MTKView {
     weak var renderer: MetalRenderer?
     var onTrackSelected: ((String?) -> Void)?
     var onCameraChanged: (() -> Void)?
+    /// While it paints, the street painter takes the pointer and the keys:
+    /// the camera is locked to its plan view, which it pans and zooms.
+    weak var paintInput: StreetPainterSession?
     private var lastMouseLocation = CGPoint.zero
     private var mouseDownLocation = CGPoint.zero  // M6: Track click detection
+    private var paintTracking: NSTrackingArea?
 
     override var acceptsFirstResponder: Bool { true }
 
@@ -2381,16 +2393,73 @@ class InteractiveMetalView: MTKView {
         return true
     }
 
+    /// The painter, when it is painting.
+    private var painter: StreetPainterSession? {
+        guard let paintInput, paintInput.isPainting else { return nil }
+        return paintInput
+    }
+
+    /// A point of the event in the view, origin at the bottom left.
+    private func viewPoint(_ event: NSEvent) -> CGPoint {
+        convert(event.locationInWindow, from: nil)
+    }
+
+    private func painted() {
+        needsDisplay = true
+        onCameraChanged?()
+    }
+
+    // The painter's snap preview follows the pointer without a button down.
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let paintTracking { removeTrackingArea(paintTracking) }
+        let area = NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self, userInfo: nil)
+        addTrackingArea(area)
+        paintTracking = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        guard let painter else { return super.mouseMoved(with: event) }
+        painter.viewSize = bounds.size
+        painter.mouseMoved(to: viewPoint(event))
+        needsDisplay = true
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        guard let painter else { return super.mouseExited(with: event) }
+        painter.mouseExited()
+        needsDisplay = true
+    }
+
     // MARK: - Mouse Events
 
     override func mouseDown(with event: NSEvent) {
         lastMouseLocation = event.locationInWindow
         mouseDownLocation = event.locationInWindow
+        if let painter {
+            window?.makeFirstResponder(self)
+            painter.viewSize = bounds.size
+            painter.mouseDown(at: viewPoint(event))
+            painted()
+        }
     }
 
-    override func rightMouseDown(with event: NSEvent) { lastMouseLocation = event.locationInWindow }
+    override func rightMouseDown(with event: NSEvent) {
+        lastMouseLocation = event.locationInWindow
+        if let painter {
+            painter.viewSize = bounds.size
+            painter.rightMouseDown(at: viewPoint(event))
+        }
+    }
 
     override func mouseDragged(with event: NSEvent) {
+        if let painter {
+            painter.mouseDragged(to: viewPoint(event))
+            return painted()
+        }
         let location = event.locationInWindow
         let deltaX = location.x - lastMouseLocation.x
         let deltaY = location.y - lastMouseLocation.y
@@ -2404,6 +2473,10 @@ class InteractiveMetalView: MTKView {
     }
 
     override func mouseUp(with event: NSEvent) {
+        if let painter {
+            painter.mouseUp(at: viewPoint(event), clickCount: event.clickCount)
+            return painted()
+        }
         let location = event.locationInWindow
         let dx = location.x - mouseDownLocation.x
         let dy = location.y - mouseDownLocation.y
@@ -2419,6 +2492,10 @@ class InteractiveMetalView: MTKView {
     }
 
     override func rightMouseDragged(with event: NSEvent) {
+        if let painter {
+            painter.rightMouseDragged(to: viewPoint(event))
+            return painted()
+        }
         let location = event.locationInWindow
         let deltaX = location.x - lastMouseLocation.x
         let deltaY = location.y - lastMouseLocation.y
@@ -2430,15 +2507,30 @@ class InteractiveMetalView: MTKView {
         onCameraChanged?()
     }
 
+    override func rightMouseUp(with event: NSEvent) {
+        guard let painter else { return super.rightMouseUp(with: event) }
+        painter.rightMouseUp(at: viewPoint(event))
+        painted()
+    }
+
     override func scrollWheel(with event: NSEvent) {
         // Trackpad: use scrollingDeltaY. Mouse wheel: use deltaY
         let delta = event.hasPreciseScrollingDeltas ? event.scrollingDeltaY / 10 : event.deltaY
+        if let painter {
+            painter.viewSize = bounds.size
+            painter.zoom(delta: delta, at: viewPoint(event))
+            return painted()
+        }
         renderer?.handleZoom(delta: delta)
         self.needsDisplay = true
         onCameraChanged?()
     }
 
     override func magnify(with event: NSEvent) {
+        if let painter {
+            painter.zoom(delta: event.magnification * 10, at: viewPoint(event))
+            return painted()
+        }
         // Pinch gesture on trackpad
         renderer?.handleZoom(delta: event.magnification * 10)
         self.needsDisplay = true
@@ -2448,6 +2540,9 @@ class InteractiveMetalView: MTKView {
     // MARK: - Keyboard Events
 
     override func keyDown(with event: NSEvent) {
+        if let painter, let key = Self.paintKey(event.keyCode), painter.key(key) {
+            return painted()
+        }
         if let renderer = renderer,
             renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
         {
@@ -2457,6 +2552,36 @@ class InteractiveMetalView: MTKView {
             return
         }
         super.keyDown(with: event)
+    }
+
+    /// Return and keypad Enter finish a mark, Escape cancels, Delete and
+    /// Forward Delete take back a vertex or delete the selected mark.
+    static func paintKey(_ keyCode: UInt16) -> StreetPainterSession.Key? {
+        switch keyCode {
+        case 36, 76: return .finish
+        case 53: return .cancel
+        case 51, 117: return .delete
+        default: return nil
+        }
+    }
+
+    // Edit ▸ Undo and Redo reach the first responder; while painting they
+    // are the painter's.
+    @objc func undo(_ sender: Any?) {
+        painter?.undo()
+        needsDisplay = true
+    }
+
+    @objc func redo(_ sender: Any?) {
+        painter?.redo()
+        needsDisplay = true
+    }
+
+    override func responds(to aSelector: Selector!) -> Bool {
+        if aSelector == #selector(undo(_:)) || aSelector == #selector(redo(_:)) {
+            return painter != nil
+        }
+        return super.responds(to: aSelector)
     }
 }
 

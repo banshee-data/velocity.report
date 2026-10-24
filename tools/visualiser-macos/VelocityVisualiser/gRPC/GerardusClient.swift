@@ -93,6 +93,27 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         _ request: Gerardus_Align_V1alpha1_RefineSiteRequest,
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_RefineSiteResult
+    /// The site's marked street use (STREET_USE): each feature's current
+    /// version, with its id, author and row.
+    func listStreetUse(l16Token: String) async throws -> [Gerardus_Align_V1alpha1_StreetUseFeature]
+    /// Adds, changes or removes marked features in one transaction, all or
+    /// nothing. Gerardus snaps and drapes every vertex, and answers with every
+    /// current feature and its problems ("<feature id>: message").
+    func editStreetUse(
+        _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse
+}
+
+/// A client that has no street use answers as a server from before it would.
+@available(macOS 15.0, *) extension AlignmentServiceClient {
+    func listStreetUse(l16Token: String) async throws -> [Gerardus_Align_V1alpha1_StreetUseFeature]
+    { throw RPCError(code: .unimplemented, message: "ListStreetUse") }
+
+    func editStreetUse(
+        _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse {
+        throw RPCError(code: .unimplemented, message: "EditStreetUse")
+    }
 }
 
 /// gRPC client for Gerardus's SiteService and RegistrationService.
@@ -238,6 +259,20 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         do {
             return try await siteService().getSiteModel(request: ClientRequest(message: request))
         } catch let error as RPCError where error.code == .unimplemented { return nil }
+    }
+
+    func listStreetUse(l16Token: String) async throws -> [Gerardus_Align_V1alpha1_StreetUseFeature]
+    {
+        var request = Gerardus_Align_V1alpha1_ListStreetUseRequest()
+        request.l16Token = l16Token
+        return try await siteService().listStreetUse(request: ClientRequest(message: request))
+            .features
+    }
+
+    func editStreetUse(
+        _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
+    ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse {
+        try await siteService().editStreetUse(request: ClientRequest(message: request))
     }
 
     // MARK: - RegistrationService

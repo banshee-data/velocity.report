@@ -1,7 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 9b3e9bb434b1d5644614fd664a6934ee7573468b, the W1-W3 contract, on
-// origin/claude/w1-city-streets-editor (not merged yet: update this line to the main commit when it is).
+// Commit: 43451710da9f81159fc862d230820f763ec5a210, the W1-W3 contract with FEATURE_KIND_SURFACE, on
+// origin/claude/street-surfaces (not merged yet: update this line to the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -369,6 +369,11 @@ enum FeatureKind {
   // A traffic island's outline, closed (KERBS).
   FEATURE_KIND_ISLAND = 14;
   FEATURE_KIND_OTHER = 15;
+  // Marked by an operator (STREET_USE): a closed polygon saying what a piece
+  // of ground is. Tag surface is "carriageway" (road surface between the
+  // kerbs, where lanes are drawn), "sidewalk", "verge" (planting strip or
+  // tree well), "apron" (a driveway's ramp across the sidewalk) or "median".
+  FEATURE_KIND_SURFACE = 16;
 }
 
 message LineFeature {

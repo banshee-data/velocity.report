@@ -42,6 +42,7 @@ import SwiftUI
 
 @available(macOS 15.0, *) struct AlignmentPane: View {
     @ObservedObject var session: AlignmentSession
+    @ObservedObject var painter: StreetPainterSession
     @EnvironmentObject var appState: AppState
 
     var body: some View {
@@ -50,10 +51,15 @@ import SwiftUI
             // need cannot be scrolled out of sight while either is shown.
             VStack(alignment: .leading, spacing: 8) {
                 header
-                if session.showsReviewerField { reviewerField }
+                paintSwitch
+                if session.showsReviewerField, !painter.isPainting { reviewerField }
             }.padding([.horizontal, .top]).padding(.bottom, 10)
             Divider()
-            scrollingSections
+            if painter.isPainting {
+                StreetPainterPane(painter: painter, session: session)
+            } else {
+                scrollingSections
+            }
         }.frame(maxHeight: .infinity).background(Color(nsColor: .controlBackgroundColor)).task(
             id: appState.currentRunID
         ) { await session.refreshSites(runID: appState.currentRunID) }
@@ -98,6 +104,27 @@ import SwiftUI
             Spacer()
             Button(action: { appState.showAlignmentPane = false }) { Image(systemName: "xmark") }
                 .buttonStyle(.borderless).help("Close the alignment pane")
+        }
+    }
+
+    /// Paint mode's switch: the plan view and the street painter's tools in
+    /// place of the alignment sections, or back.
+    private var paintSwitch: some View {
+        HStack {
+            Toggle(isOn: Binding(get: { painter.isPainting }, set: painter.setPainting)) {
+                Label("Paint streets", systemImage: "paintbrush.pointed")
+            }.toggleStyle(.button).disabled(!painter.isPainting && !painter.canPaint).help(
+                painter.paintBlocker
+                    ?? "Look straight down on the site and mark its surfaces, lanes, spaces and driveways"
+            )
+            if !painter.isPainting, let blocker = painter.paintBlocker,
+                session.reference == nil || painter.unsupported != nil
+            {
+                Text(blocker).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
+            } else if !painter.isPainting, !painter.edit.marks.isEmpty {
+                Text("\(painter.edit.marks.count) marks").font(.caption2).foregroundStyle(
+                    .secondary)
+            }
         }
     }
 
@@ -197,6 +224,18 @@ import SwiftUI
                 }
                 Toggle(
                     "Intersections (\(reference.intersections))", isOn: $session.showIntersections)
+                if reference.streetLayersServed {
+                    Toggle(
+                        "City streets (\(reference.cityStreets), \(reference.cityIntersections) intersections)",
+                        isOn: $session.showCityStreets
+                    ).help("DataSF street centrelines, and a cross where three or more meet")
+                    Toggle("Kerbs and islands (\(reference.kerbs))", isOn: $session.showKerbs).help(
+                        "DataSF kerbs and islands, and kerbs observed in registered scans")
+                }
+                if let note = session.streetLayersNote {
+                    Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+                }
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
                 }

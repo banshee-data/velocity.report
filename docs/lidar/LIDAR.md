@@ -191,7 +191,7 @@ served by `/api/lidar/clip-locations` and grouped by L10 district.
 The Site viewer (`/lidar/sites`, in the LiDAR navigation) shows what Gerardus serves for a
 site: its vector map on a 2D map, and the same layers with the ground and the scans in 3D. It
 only reads. Street use (driveways, parked-car spaces, travel lanes and surfaces) is marked in the
-macOS app, which saves it to Gerardus; the web street editor that came before this page is gone,
+macOS app's [Paint mode](../ui/visualiser/gerardus-alignment.md#paint-mode-the-street-painter), which saves it to Gerardus with `EditStreetUse`; the web street editor that came before this page is gone,
 and `/lidar/streets` redirects here, keeping `?site=`. It is the browser's view of W1 in
 Gerardus's vector map plan (`docs/plans/VECTOR-MAP.md` §4.1 in the Gerardus repository).
 

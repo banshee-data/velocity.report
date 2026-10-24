@@ -122,6 +122,16 @@ and records an accepted pose in Gerardus's alignment log. Without a Gerardus ser
 and the app are unchanged. See
 [gerardus-alignment.md](../../docs/ui/visualiser/gerardus-alignment.md).
 
+### Painting a site's streets
+
+Once the sensor is placed, **Paint streets** (in the alignment pane's header, or beside **Align**)
+snaps the view to a top-down plan over the site, north up, which pans and zooms but does not turn.
+Mark surfaces (carriageway, sidewalk, verge, apron, median), travel lanes, parked-car spaces or a
+row of them along a kerb, and driveways; vertices snap to kerbs, centrelines, box walls and other
+marks within 0.5 m. **Save** sends the changes to Gerardus in one batch under your author name,
+and shows its problems beside the marks they name. This replaces the web Streets page; see
+[Paint mode](../../docs/ui/visualiser/gerardus-alignment.md#paint-mode-the-street-painter).
+
 ## Keyboard shortcuts
 
 | Action             | Shortcut |
@@ -214,7 +224,8 @@ The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.pli
 - `pointSize`: Point rendering size
 - `trailDuration`: How long trails persist (seconds)
 - `defaultOverlays`: Which overlays are enabled by default
-- `alignment.serviceAddress`: Gerardus alignment server, set in Settings (⌘,); unset means 127.0.0.1:50061
+- `alignment.serviceAddress`: Gerardus server, set in Settings (⌘,) ▸ Gerardus; unset means 127.0.0.1:50061
+- `streets.author`: the street painter's author name, set in Settings ▸ Gerardus or the painter's Author field
 - `annotation.serviceURL`: velocity.report HTTP API (http://localhost:8080)
 
 ## Development

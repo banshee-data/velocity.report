@@ -12,14 +12,16 @@ import SwiftUI
 /// The alignment pane, with the refinement column to its left while open.
 @available(macOS 15.0, *) struct AlignmentColumns: View {
     @ObservedObject var session: AlignmentSession
+    @ObservedObject var painter: StreetPainterSession
 
     var body: some View {
         HStack(spacing: 0) {
-            if session.refinementColumnOpen {
+            if session.refinementColumnOpen, !painter.isPainting {
                 RefinementColumn(session: session).frame(width: RefinementColumn.width)
                 Divider()
             }
-            AlignmentPane(session: session).frame(width: AlignmentColumns.paneWidth)
+            AlignmentPane(session: session, painter: painter).frame(
+                width: AlignmentColumns.paneWidth)
         }
     }
 
