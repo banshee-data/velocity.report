@@ -123,6 +123,15 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   cubic, exponential and sine easings, bounce, elastic, back, or a custom Bézier, with a warning
   when a looping orbit's curve jumps at the seam. Settings are kept per site. Orbit and Fly are
   off while painting streets, and painting is off while they run.
+- The macOS alignment pane and the web Site viewer draw Gerardus's W4–W7 layers when Gerardus
+  lists them: building parts and their roof planes, lane markings, poles and signs, and trees,
+  each with a toggle of its own. In the pane, parts are wireframe prisms from `min_height` to
+  `height`, roof planes translucent fills coloured by slope or by their part's `roof:shape`,
+  markings bright lines, poles a line with a ring of their diameter, signs short thick segments,
+  and trees a trunk with crown rings at the crown's base and top. In the Site viewer's 3D view,
+  parts are extruded, roof planes triangulated at their z, poles and trunks cylinders, signs small
+  boxes and crowns ellipsoids; the 2D map styles all five layers, and a click shows a part's
+  `roof:shape` with its other properties. The vendored Gerardus contract is Gerardus `6c98fca`.
 - _Accumulate frames_ collects background and ground from a replay and registers them as one
   cloud. A pcap replay can stream full frames (`full_frames` on `POST /api/lidar/pcap/start`,
   or `POST /api/lidar/replay/full_frames` while it runs), and a replay started with full
