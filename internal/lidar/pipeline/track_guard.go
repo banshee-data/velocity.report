@@ -66,8 +66,9 @@ func edgeBoxes(tracks []*l5tracks.TrackedObject, clusters []l4perception.WorldCl
 		if !(o.Length > 0 && o.Width > 0 && o.Height > 0) {
 			continue
 		}
+		// The OBB's CenterZ is its lowest point, not its centre.
 		boxes = append(boxes, l3grid.GuardBox{
-			X: float64(o.CenterX), Y: float64(o.CenterY), Z: float64(o.CenterZ),
+			X: float64(o.CenterX), Y: float64(o.CenterY), Z: float64(o.CenterZ + o.Height/2),
 			Length: float64(o.Length), Width: float64(o.Width), Height: float64(o.Height),
 			HeadingRad: float64(o.HeadingRad),
 		})

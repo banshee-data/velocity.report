@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"math"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -23,7 +24,7 @@ func TestHoldBoxesHoldMovingTracksOnly(t *testing.T) {
 	if len(boxes) != 2 {
 		t.Fatalf("%d held boxes, want the moving and the coasting track's", len(boxes))
 	}
-	if boxes[0].X != 0 || boxes[0].VX != 5 || boxes[0].Length != 4 || boxes[0].Z != float64(float32(0.8)) || boxes[1].X != 10 {
+	if boxes[0].X != 0 || boxes[0].VX != 5 || boxes[0].Length != 4 || boxes[0].Z != float64(float32(0.8)+float32(1.6)/2) || boxes[1].X != 10 {
 		t.Fatalf("held boxes %+v", boxes)
 	}
 	if n := len(holdBoxes(tracks, 0)); n != 3 {
@@ -48,6 +49,12 @@ func TestEdgeBoxesFollowObservedTracksAndTheirClusters(t *testing.T) {
 	}
 	if boxes[0].X != 0 || boxes[1].X != float64(float32(0.3)) || boxes[1].Length != 4.5 {
 		t.Fatalf("edge boxes %+v", boxes)
+	}
+	// Both stand on their base, 0.8 m: the centre is half their height above it.
+	for _, b := range boxes {
+		if math.Abs(b.Z-1.6) > 1e-6 {
+			t.Fatalf("edge box centre z %.3f, want 1.6 (base 0.8 + height 1.6 / 2): %+v", b.Z, b)
+		}
 	}
 	if n := len(edgeBoxes(tracks, clusters, nil)); n != 1 {
 		t.Fatalf("with no associations %d edge boxes, want the observed track's alone", n)
