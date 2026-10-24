@@ -55,6 +55,18 @@ type BackgroundManager struct {
 	// the same reason as maskBuf. Only used when Params.SupportFilter is set.
 	supportScratch supportFilterScratch
 
+	// The track guard's state (Params.TrackGuard; see track_guard.go), all
+	// guarded by Grid.mu. trackHolds are the boxes SetTrackHolds gave, as
+	// they stood at trackHoldsAt; holdSet is the frame's prepared copy;
+	// heldMask the frame's held returns, heldAny whether there were any; and
+	// heldUntil, per cell, the end of the cell's cool-down.
+	trackHolds   []GuardBox
+	trackHoldsAt int64
+	holdSet      boxSet
+	heldMask     []bool
+	heldAny      bool
+	heldUntil    []int64
+
 	// SourcePath stores the current data source path (e.g., PCAP filename).
 	// Used for region restoration: matching by source path is faster and more
 	// reliable than scene hash matching during early settling.
@@ -544,6 +556,8 @@ func (bm *BackgroundManager) ResetGrid() error {
 	// Reset BackgroundManager timing state
 	bm.StartTime = time.Time{} // Reset to zero value
 	bm.HasSettled = false
+	// A reset grid has held nothing: no cell is cooling down.
+	clear(bm.heldUntil)
 
 	// Count nonzero cells BEFORE reset (Log A: grid reset diagnostics)
 	nonzeroBefore := 0

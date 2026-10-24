@@ -226,6 +226,12 @@ type Config struct {
 	// against every return. Nothing but the solid body and the box model
 	// reads them, so it changes no estimate of a replay without those.
 	KeepClusterMembers bool
+	// BackgroundLeak measures how much of the replay's tracked objects the
+	// background keeps, in the published frames and in the settled
+	// background at the end, and writes it to background_leak.json (see
+	// BackgroundLeakReport). It reads the published frames and changes
+	// nothing in them.
+	BackgroundLeak bool
 }
 
 // TrackerTapFrame is one tracker update as Config.TrackerTap sees it. The
@@ -334,6 +340,9 @@ type Result struct {
 	// stats count only the scoring window's absorbed expiries. It is also
 	// written to replay_manifest.json.
 	Dwell *pipeline.DwellReport
+	// BackgroundLeak is Config.BackgroundLeak's report, over the whole
+	// processed window; nil without it.
+	BackgroundLeak *BackgroundLeakReport
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -1016,6 +1025,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.TrackerTap != nil {
 		pipeCfg.Tracker = &tapTracker{TrackerInterface: pipeCfg.Tracker, tap: cfg.TrackerTap, start: scoreStart}
 	}
+	var leak *backgroundLeak
+	if cfg.BackgroundLeak {
+		leak = newBackgroundLeak(bgMgr)
+		pipeCfg.VisualiserAdapter = &leakAdapter{inner: adapter, tracker: pipeCfg.Tracker, leak: leak}
+	}
 	pipelineCallback, err := pipeCfg.BuildFrameCallback()
 	if err != nil {
 		return nil, fmt.Errorf("build the tracking pipeline: %w", err)
@@ -1264,6 +1278,18 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		uncertainty, uncertaintySamples = &report, window.Samples
 	}
 
+	var leakReport *BackgroundLeakReport
+	if leak != nil {
+		report := leak.finish(bgMgr)
+		leakReport = &report
+		reportJSON, err := runtime.marshalIndent(leakReport, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("marshal background leak report: %w", err)
+		}
+		if err := runtime.writeFile(filepath.Join(cfg.OutDir, backgroundLeakFile), append(reportJSON, '\n'), 0644); err != nil {
+			return nil, fmt.Errorf("write background leak report: %w", err)
+		}
+	}
 	if campaign != nil {
 		if err := campaign.write(runtime, cfg.OutDir); err != nil {
 			return nil, fmt.Errorf("write campaign metrics: %w", err)
@@ -1297,6 +1323,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		TimeDomain:       timeDomain,
 		Continuity:       continuity,
 		Dwell:            dwellReport,
+		BackgroundLeak:   leakReport,
 	}
 	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
 	return result, nil

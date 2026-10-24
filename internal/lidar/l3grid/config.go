@@ -50,6 +50,10 @@ type BackgroundConfig struct {
 	ForegroundMinClusterPoints int     // Min points for cluster (default: 0)
 	ForegroundDBSCANEps        float32 // DBSCAN epsilon (default: 0)
 	ForegroundMaxInputPoints   int     // Max points fed to DBSCAN; 0 means use default (8000)
+
+	// TrackGuard keeps tracked objects out of the model (track_guard.go);
+	// nil is off.
+	TrackGuard *TrackGuardParams
 }
 
 // DefaultBackgroundConfig returns a BackgroundConfig loaded from the
@@ -118,6 +122,7 @@ func backgroundConfigFromCommon(l3cfg *config.L3Common, l4cfg *config.L4Common) 
 		SettlingMaxSpreadDelta:            float32(l3cfg.SettlingMaxSpreadDelta),
 		SettlingMinRegionStability:        float32(l3cfg.SettlingMinRegionStability),
 		SettlingMinConfidence:             float32(l3cfg.SettlingMinConfidence),
+		TrackGuard:                        TrackGuardParamsFromTuning(l3cfg.TrackGuard),
 
 		ForegroundMinClusterPoints: l4cfg.ForegroundMinClusterPoints,
 		ForegroundDBSCANEps:        float32(l4cfg.ForegroundDBSCANEps),
@@ -228,6 +233,7 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 		ForegroundMinClusterPoints:        c.ForegroundMinClusterPoints,
 		ForegroundDBSCANEps:               c.ForegroundDBSCANEps,
 		ForegroundMaxInputPoints:          c.ForegroundMaxInputPoints,
+		TrackGuard:                        c.TrackGuard.clone(),
 	}
 }
 

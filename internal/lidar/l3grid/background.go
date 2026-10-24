@@ -125,6 +125,14 @@ type BackgroundParams struct {
 	// replay experiment support_filter sets it to DefaultSupportFilterParams.
 	SupportFilter *SupportFilterParams
 
+	// TrackGuard, when set, keeps the objects L5 tracks out of the model and
+	// publishes their edges as foreground (track_guard.go): returns inside a
+	// confirmed track's box leave their cells unchanged, a cell that held one
+	// stays unchanged for a cool-down, and the pipeline publishes a tracked
+	// object's background returns as foreground. Set from the tuning file's
+	// l3 track_guard block; nil, as an L3 without the block runs, is off.
+	TrackGuard *TrackGuardParams
+
 	// SeedFromFirstObservation, when true, will initialize empty background cells
 	// from the first observation seen for that cell. This is useful for PCAP
 	// replay mode where there is no prior live-warmup data; default: false.

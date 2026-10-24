@@ -39,6 +39,7 @@ func ReplayEvalMain(args []string) int {
 	requireSettled := fs.Bool("require-settled", false, "Fail unless the background is settled before the first scored frame")
 	includePoints := fs.Bool("include-points", false, "Record the point cloud (much larger output; needed only for the visualiser)")
 	includeDebug := fs.Bool("include-debug", false, "Record raw cluster boxes, associations, predictions, and innovations beside track estimates")
+	backgroundLeak := fs.Bool("background-leak", false, "Measure the background returns inside observed confirmed tracks' boxes, in the published frames and in the settled background at the end; writes background_leak.json")
 	progress := fs.Int("progress-frames", 200, "Log progress every N frames (0 = off)")
 	analyse := fs.Bool("analyse", true, "Generate analysis.json in the output directory")
 	compareTo := fs.String("compare-to", "", "Path to a baseline VRLOG; writes an A/B comparison against it")
@@ -152,6 +153,7 @@ manifest declares that identity transform rather than a surveyed one.
 		IncludePoints:   *includePoints,
 		IncludeDebug:    *includeDebug,
 		ProgressEvery:   *progress,
+		BackgroundLeak:  *backgroundLeak,
 	}
 	if len(experiments) > 0 {
 		// Set only when named, so a replay without the flag is given exactly
@@ -174,6 +176,14 @@ manifest declares that identity transform rather than a surveyed one.
 	fmt.Printf("vrlog: %s\n", result.VRLOGPath)
 	if len(experiments) > 0 {
 		fmt.Printf("experiments: %s\n", strings.Join(experiments, ", "))
+	}
+	if l := result.BackgroundLeak; l != nil {
+		fmt.Printf("background leak: %d of %d published background returns inside %d confirmed track boxes over %d frames (%d above the bottom 0.3 m)\n",
+			l.BackgroundInTrackBoxes, l.BackgroundPoints, l.TrackBoxes, l.Frames, l.BackgroundAboveBase)
+		fmt.Printf("settled background: %d points, %d inside a box, %d inside a moving track's (%d above the bottom 0.3 m)\n",
+			l.SnapshotPoints, l.SnapshotInTrackBoxes, l.SnapshotInMovingTrackBoxes, l.SnapshotAboveBase)
+		fmt.Printf("  of those above the bottom: %d learned nearer under the box, %d held the same range before it, %d unsettled before it\n",
+			l.SnapshotLearnedUnderMovingBoxes, l.SnapshotHeldUnderMovingBoxes, l.SnapshotUnsettledBeforeMovingBoxes)
 	}
 	if s := result.ObservationLog; s != nil {
 		fmt.Printf("observations: %s (%d frames, %d gaps, %d chunks, %d bytes, semantic %s)\n",

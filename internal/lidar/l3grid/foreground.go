@@ -209,6 +209,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		effectiveAlpha = alpha
 	}
 
+	// The track guard's boxes for this frame; off unless Params.TrackGuard
+	// holds tracks.
+	guardFrame := bm.beginTrackGuardLocked(n, nowNanos)
+
 	// Process each point individually
 	foregroundCount := int64(0)
 	backgroundCount := int64(0)
@@ -232,6 +236,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
+
+		// Track guard: a return inside a confirmed track's box, or in a cell
+		// still cooling down from one, is classed by the cell's model as any
+		// other and leaves the cell exactly as it was (track_guard.go).
+		readOnly := guardFrame.readOnly(i, p, cellIdx, azBin, nowNanos, bm)
 
 		// Region-adaptive parameter overrides (if identified) must apply on the
 		// mask path as well, since this is the production runtime path.
@@ -262,7 +271,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		// Note: We only trigger thaw when the freeze was meaningful (expired at least 1ms ago).
 		// This avoids false triggers when FreezeDurationNanos=0 causes immediate "expiry".
 		// Limitation: Thaw is only detected when a point observation hits this cell.
-		if cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+ThawGracePeriodNanos <= nowNanos {
+		if !readOnly && cell.FrozenUntilUnixNanos > 0 && cell.FrozenUntilUnixNanos+ThawGracePeriodNanos <= nowNanos {
 			if enableDiag && g.Params.IsInDebugRange(ring, az) {
 				tracef("[FG_THAW] r=%d az=%.1f thawed after freeze, resetting recFg from %d to 0",
 					ring, az, cell.RecentForegroundCount)
@@ -364,7 +373,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		// we assume our background model is stale/corrupted and force an update.
 		// This fixes "ghost trails" where the model learns a transient edge value
 		// and then rejects the true background because it differs from that edge.
-		if !isBackgroundLike && cell.TimesSeenCount <= minConfFloor && cell.RecentForegroundCount > 4 {
+		// A held cell is never force-learned: its divergent returns are the
+		// tracked object, not a stale model.
+		if !readOnly && !isBackgroundLike && cell.TimesSeenCount <= minConfFloor && cell.RecentForegroundCount > 4 {
 			// Only force-learn if we wouldn't otherwise freeze this cell (avoid learning dynamic obstacles)
 			freezeThresh := freezeThresholdMultiplier * closenessThreshold
 			if cellDiff <= freezeThresh {
@@ -374,7 +385,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 
 		// Handle empty cells based on seed-from-first setting
 		initIfEmpty := false
-		if seedFromFirst && cell.TimesSeenCount == 0 {
+		if seedFromFirst && cell.TimesSeenCount == 0 && !readOnly {
 			initIfEmpty = true
 		}
 
@@ -384,7 +395,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			backgroundCount++
 
 			// Update cell EMA for background points
-			if cell.TimesSeenCount == 0 {
+			if readOnly {
+				// Held: the cell learns nothing from the tracked object.
+			} else if cell.TimesSeenCount == 0 {
 				cell.AverageRangeMeters = float32(p.Distance)
 				cell.RangeSpreadMeters = 0.0 // Single point, no spread yet
 				cell.TimesSeenCount = 1
@@ -431,7 +444,14 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 					cell.RecentForegroundCount--
 				}
 			}
-			cell.LastUpdateUnixNanos = nowNanos
+			if !readOnly {
+				cell.LastUpdateUnixNanos = nowNanos
+			}
+		} else if readOnly {
+			// Held: foreground, and the cell keeps its confidence and stays
+			// unfrozen, since the divergence is the tracked object.
+			foregroundMask[i] = true
+			foregroundCount++
 		} else {
 			foregroundMask[i] = true
 			foregroundCount++
@@ -477,7 +497,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				cell.FrozenUntilUnixNanos > nowNanos, !foregroundMask[i])
 		}
 
-		g.ChangesSinceSnapshot++
+		if !readOnly {
+			g.ChangesSinceSnapshot++
+		}
 
 		// Update per-range acceptance metrics (mirrors ProcessFramePolar logic).
 		// This is essential for the sweep tool to measure background-model fit.

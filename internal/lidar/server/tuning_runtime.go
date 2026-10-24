@@ -128,6 +128,9 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			l3.SettlingMaxSpreadDelta = roundTo6(float64(params.SettlingMaxSpreadDelta))
 			l3.SettlingMinRegionStability = roundTo6(float64(params.SettlingMinRegionStability))
 			l3.SettlingMinConfidence = roundTo6(float64(params.SettlingMinConfidence))
+			// The guard reads back as the manager runs it; off, the block
+			// is absent, as a config without it is.
+			l3.TrackGuard = l3grid.TrackGuardTuningFromParams(params.TrackGuard)
 		}
 		if l4 != nil {
 			l4.ForegroundDBSCANEps = roundTo6(float64(params.ForegroundDBSCANEps))
@@ -410,6 +413,11 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 		params := bm.GetParams()
 		l3 := cfg.L3.ActiveCommon()
 		l4 := cfg.L4.ActiveCommon()
+		if path == "l3.ema_baseline_v1.track_guard" || strings.HasPrefix(path, "l3.ema_baseline_v1.track_guard.") {
+			// The whole block goes on at once, as the box model's does.
+			params.TrackGuard = l3grid.TrackGuardParamsFromTuning(l3.TrackGuard)
+			return bm.SetParams(params)
+		}
 		switch path {
 		case "l3.ema_baseline_v1.background_update_fraction":
 			params.BackgroundUpdateFraction = float32(l3.BackgroundUpdateFraction)

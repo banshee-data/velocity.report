@@ -232,6 +232,53 @@ func (c *L3Common) Validate() error {
 	if c.SettlingMinConfidence < 0 {
 		return fmt.Errorf("settling_min_confidence must be non-negative, got %f", c.SettlingMinConfidence)
 	}
+	if err := c.TrackGuard.Validate(); err != nil {
+		return fmt.Errorf("track_guard: %w", err)
+	}
+	return nil
+}
+
+// maxTrackGuardMarginMetres bounds the track guard's margins: a margin of a
+// few metres holds the road around every vehicle, not the vehicle.
+const maxTrackGuardMarginMetres = 5.0
+
+// maxTrackGuardCooldown bounds the cool-down: a cell held for longer than
+// this would stop following a scene that really changed.
+const maxTrackGuardCooldown = time.Minute
+
+// maxTrackGuardMinSpeedMps bounds the hold's speed floor: above it no
+// vehicle on a street would be held.
+const maxTrackGuardMinSpeedMps = 30.0
+
+// Validate checks the track guard block: finite margins in
+// [0, maxTrackGuardMarginMetres], a speed floor in
+// [0, maxTrackGuardMinSpeedMps] and a cool-down that parses and lies in
+// [0, maxTrackGuardCooldown]. A nil block is the guard off and valid.
+func (g *L3TrackGuard) Validate() error {
+	if g == nil {
+		return nil
+	}
+	for _, f := range []struct {
+		name  string
+		value float64
+	}{
+		{"hold_margin_metres", g.HoldMarginMetres},
+		{"edge_margin_metres", g.EdgeMarginMetres},
+	} {
+		if math.IsNaN(f.value) || f.value < 0 || f.value > maxTrackGuardMarginMetres {
+			return fmt.Errorf("%s must be in [0, %g], got %g", f.name, maxTrackGuardMarginMetres, f.value)
+		}
+	}
+	if math.IsNaN(g.HoldMinSpeedMps) || g.HoldMinSpeedMps < 0 || g.HoldMinSpeedMps > maxTrackGuardMinSpeedMps {
+		return fmt.Errorf("hold_min_speed_mps must be in [0, %g], got %g", maxTrackGuardMinSpeedMps, g.HoldMinSpeedMps)
+	}
+	d, err := time.ParseDuration(g.HoldCooldown)
+	if err != nil {
+		return fmt.Errorf("invalid hold_cooldown %q: %w", g.HoldCooldown, err)
+	}
+	if d < 0 || d > maxTrackGuardCooldown {
+		return fmt.Errorf("hold_cooldown must be in [0s, %v], got %v", maxTrackGuardCooldown, d)
+	}
 	return nil
 }
 

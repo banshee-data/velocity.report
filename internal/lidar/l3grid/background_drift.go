@@ -190,11 +190,7 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 	z := make([]float32, 0, estimatedPoints)
 	confidence := make([]uint32, 0, estimatedPoints)
 
-	// Settled threshold: cells must have been seen enough times
-	settledThreshold := uint32(10)
-	if g.Params.LockedBaselineThreshold > 0 {
-		settledThreshold = g.Params.LockedBaselineThreshold
-	}
+	settledThreshold := g.snapshotSettledThreshold()
 
 	// Iterate through all cells and extract settled background points
 	azBinResDeg := 360.0 / float64(g.AzimuthBins)
@@ -206,13 +202,7 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 			idx := g.Idx(ring, azBin)
 			cell := g.Cells[idx]
 
-			// Skip unsettled or empty cells
-			if cell.TimesSeenCount < settledThreshold {
-				continue
-			}
-
-			// Skip cells with invalid range
-			if cell.AverageRangeMeters <= 0 || cell.AverageRangeMeters > 200 {
+			if !snapshotCell(cell, settledThreshold) {
 				continue
 			}
 
@@ -256,6 +246,43 @@ func (bm *BackgroundManager) GenerateBackgroundSnapshot() (*BackgroundSnapshotDa
 	}
 
 	return snapshot, nil
+}
+
+// snapshotSettledThreshold is the TimesSeenCount from which a cell is in
+// the settled background GenerateBackgroundSnapshot sends. The caller holds
+// g.mu.
+func (g *BackgroundGrid) snapshotSettledThreshold() uint32 {
+	if g.Params.LockedBaselineThreshold > 0 {
+		return g.Params.LockedBaselineThreshold
+	}
+	return 10
+}
+
+// snapshotCell reports whether a cell is in the settled background: seen
+// often enough, with a range in (0, 200] m.
+func snapshotCell(cell BackgroundCell, settledThreshold uint32) bool {
+	return cell.TimesSeenCount >= settledThreshold &&
+		cell.AverageRangeMeters > 0 && cell.AverageRangeMeters <= 200
+}
+
+// SnapshotRanges returns the range of every cell GenerateBackgroundSnapshot
+// would send, indexed as BackgroundGrid.Idx, and 0 for every other cell.
+// Comparing two of them shows which settled cells moved between them.
+func (bm *BackgroundManager) SnapshotRanges() []float32 {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	threshold := g.snapshotSettledThreshold()
+	ranges := make([]float32, len(g.Cells))
+	for i, cell := range g.Cells {
+		if snapshotCell(cell, threshold) {
+			ranges[i] = cell.AverageRangeMeters
+		}
+	}
+	return ranges
 }
 
 // GetBackgroundSequenceNumber returns the current background sequence number.

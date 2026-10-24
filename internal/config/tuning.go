@@ -74,6 +74,38 @@ type L3Common struct {
 	SettlingMaxSpreadDelta            float64 `json:"settling_max_spread_delta"`
 	SettlingMinRegionStability        float64 `json:"settling_min_region_stability"`
 	SettlingMinConfidence             float64 `json:"settling_min_confidence"`
+	// TrackGuard keeps the objects L5 tracks out of the background model and
+	// publishes their edges with their class (l3grid.TrackGuardParams). It is
+	// a pointer omitted when nil, so a config written before it existed
+	// keeps its fingerprint and runs with the guard off; the shipped
+	// defaults carry it on.
+	TrackGuard *L3TrackGuard `json:"track_guard,omitempty"`
+}
+
+// L3TrackGuard is the track guard's options, one tuning value per
+// l3grid.TrackGuardParams field. Every key is required when the block is
+// present.
+type L3TrackGuard struct {
+	// HoldTracks leaves a background cell unchanged by a return inside a
+	// confirmed track's box: the cell neither learns the object nor loses
+	// confidence to it.
+	HoldTracks bool `json:"hold_tracks"`
+	// HoldMarginMetres grows the held boxes in the plane and above.
+	HoldMarginMetres float64 `json:"hold_margin_metres"`
+	// HoldCooldown is how long a cell stays unchanged after it last held a
+	// return, as a Go duration; "0s" holds only the returns in a box.
+	HoldCooldown string `json:"hold_cooldown"`
+	// HoldMinSpeedMps holds only the tracks moving at least this fast. A
+	// track that stays still is held by nothing, so a static object tracked
+	// as one (a hedge, a sign) is learned as background as it was without
+	// the guard, and cannot keep itself foreground by its own hold.
+	HoldMinSpeedMps float64 `json:"hold_min_speed_mps"`
+	// EdgeFollowCluster publishes a tracked object's background returns as
+	// foreground: those inside a held box, a confirmed track's box, or the
+	// box of a cluster associated with one.
+	EdgeFollowCluster bool `json:"edge_follow_cluster"`
+	// EdgeMarginMetres grows the boxes of EdgeFollowCluster.
+	EdgeMarginMetres float64 `json:"edge_margin_metres"`
 }
 
 // L3EmaBaselineV1 is the current production L3 engine.
