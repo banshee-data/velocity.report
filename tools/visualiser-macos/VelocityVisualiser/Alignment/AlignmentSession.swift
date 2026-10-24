@@ -366,6 +366,10 @@ struct ReferenceSummary: Equatable {
     private var accumulatedScan: Gerardus_Align_V1alpha1_Scan?
     /// Whether the frames come from a live sensor, as they last said.
     private var frameSource: SourceMode = .unspecified
+    /// The replay's log span, from its frames' playback info: the first and
+    /// last frames' capture times. Zero until a frame carries them.
+    private var logStartNs: Int64 = 0
+    private var logEndNs: Int64 = 0
     /// velocity.report's full-frames switch, which a pcap replay's
     /// accumulation needs; nil when velocity.report is skipped, as in tests.
     private let fullFrames: ReplayFullFramesSwitch?
@@ -1060,6 +1064,8 @@ struct ReferenceSummary: Equatable {
         dropAccumulation()
         streamRefusal = nil
         frameSource = .unspecified
+        logStartNs = 0
+        logEndNs = 0
         loadedRunHoldsFullFrames = false
         loadedRunCaptureRef = nil
         scan = nil
@@ -1259,6 +1265,14 @@ struct ReferenceSummary: Equatable {
         return chosen
     }
 
+    /// When the points a scan holds were captured: the capture's time, never
+    /// the replay's (ScanPacking.capturedAtNanos).
+    private func capturedAtNanos(observed: Int64) -> Int64? {
+        ScanPacking.capturedAtNanos(
+            source: frameSource, logStartNs: logStartNs, logEndNs: logEndNs, observedNanos: observed
+        )
+    }
+
     /// The scan for this background, uploading it the first time.
     private func uploadedScan(
         client: AlignmentServiceClient, site: AlignmentSite, snapshot: BackgroundSnapshot
@@ -1270,7 +1284,8 @@ struct ReferenceSummary: Equatable {
         }
         let header = ScanPacking.header(
             l16Token: site.l16Token, sensorID: sensorID,
-            captureRef: loadedRunCaptureRef ?? site.clipID, snapshot: snapshot)
+            captureRef: loadedRunCaptureRef ?? site.clipID, snapshot: snapshot,
+            capturedAtNanos: capturedAtNanos(observed: snapshot.timestampNanos))
         let uploaded = try await client.uploadScan(
             header: header, blocks: ScanPacking.blocks(from: snapshot))
         scan = uploaded.scan
@@ -1321,6 +1336,10 @@ struct ReferenceSummary: Equatable {
     /// could be accumulated, and publishes that only when it changes.
     func noteFrame(_ frame: FrameBundle) {
         if let mode = frame.playbackInfo?.sourceMode, mode != .unspecified { frameSource = mode }
+        if let playback = frame.playbackInfo, playback.logStartNs > 0 {
+            logStartNs = playback.logStartNs
+            logEndNs = playback.logEndNs
+        }
         if let refusal = sourceRefusal {
             if refusal != streamRefusal { streamRefusal = refusal }
             if accumulator != nil { stopAccumulating(refusal: refusal) }
@@ -1349,7 +1368,7 @@ struct ReferenceSummary: Equatable {
         // Released while the frame is added, so the growing arrays are not
         // copied on write.
         accumulator = nil
-        switch collecting.add(cloud, frameNumber: number) {
+        switch collecting.add(cloud, tracks: frame.tracks?.tracks ?? [], frameNumber: number) {
         case .refused(let reason): stopAccumulating(refusal: reason)
         case .skipped: accumulator = collecting
         case .taken:
@@ -1499,7 +1518,9 @@ struct ReferenceSummary: Equatable {
             do {
                 let header = ScanPacking.accumulatedHeader(
                     l16Token: site.l16Token, sensorID: sensorID, captureRef: captureRef,
-                    snapshot: snapshot)
+                    snapshot: snapshot,
+                    capturedAtNanos: capturedAtNanos(observed: snapshot.timestampNanos),
+                    transient: collected.transient)
                 uploaded = try await client.uploadScan(
                     header: header, blocks: ScanPacking.blocks(from: snapshot)
                 ).scan

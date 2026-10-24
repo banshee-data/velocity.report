@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
@@ -396,5 +397,56 @@ func TestApplyTuningConfigFileKeepsTheBoxModelsMembers(t *testing.T) {
 	}
 	if got := ws.tracker.GetConfig(); got.BoxModel.Enabled || ws.clusterMembers.Load() {
 		t.Fatalf("a file without the box model left it %v and members %v", got.BoxModel.Enabled, ws.clusterMembers.Load())
+	}
+}
+
+// The runtime params path takes the track guard block whole, puts it on the
+// background manager, reads it back as the manager runs it, and refuses a
+// half block.
+func TestRuntimeParamsApplyTrackGuardBlock(t *testing.T) {
+	ws := newConfigTestServer(t, "sensor-guard", writeConfigTree(t))
+	bm := l3grid.GetBackgroundManager("sensor-guard")
+	block := map[string]interface{}{
+		"hold_tracks": true, "hold_margin_metres": 0.4, "hold_cooldown": "2s", "hold_min_speed_mps": 0.5,
+		"edge_follow_cluster": false, "edge_margin_metres": 0.1,
+	}
+	patch, err := normaliseTuningPatch(map[string]interface{}{"l3": map[string]interface{}{"ema_baseline_v1": map[string]interface{}{"track_guard": block}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := applyRuntimeTuningPatch(ws, bm, patch); err != nil {
+		t.Fatalf("the block was refused: %v", err)
+	}
+	want := l3grid.TrackGuardParams{HoldTracks: true, HoldMarginMetres: 0.4, HoldCooldownNanos: int64(2 * time.Second),
+		HoldMinSpeedMps: 0.5, EdgeMarginMetres: 0.1}
+	got := bm.GetParams().TrackGuard
+	if got == nil || *got != want {
+		t.Fatalf("manager runs guard %+v, want %+v", got, want)
+	}
+	back := ws.runtimeTuningConfigForSource(bm, "").L3.ActiveCommon().TrackGuard
+	if back == nil || !back.HoldTracks || back.HoldCooldown != "2s" || back.HoldMinSpeedMps != 0.5 || back.EdgeFollowCluster {
+		t.Fatalf("the running config reads the guard back as %+v", back)
+	}
+	// One key edits the running block.
+	one, _ := normaliseTuningPatch(map[string]interface{}{"l3": map[string]interface{}{"ema_baseline_v1": map[string]interface{}{"track_guard": map[string]interface{}{"hold_tracks": false}}}})
+	if err := applyRuntimeTuningPatch(ws, bm, one); err != nil {
+		t.Fatalf("a one-key edit was refused: %v", err)
+	}
+	want.HoldTracks = false
+	if got := bm.GetParams().TrackGuard; got == nil || *got != want {
+		t.Fatalf("after a one-key edit the manager runs %+v, want %+v", got, want)
+	}
+	// With the guard off there is no block to edit, so one key is half a
+	// block and is refused.
+	params := bm.GetParams()
+	params.TrackGuard = nil
+	if err := bm.SetParams(params); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyRuntimeTuningPatch(ws, bm, one); err == nil || !strings.Contains(err.Error(), "hold_cooldown") {
+		t.Fatalf("half a block was accepted onto a guard that is off: %v", err)
+	}
+	if got := bm.GetParams().TrackGuard; got != nil {
+		t.Fatalf("a refused patch switched the guard on: %+v", got)
 	}
 }

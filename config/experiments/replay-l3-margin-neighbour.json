@@ -33,7 +33,15 @@
       "settling_min_coverage": 0.8,
       "settling_max_spread_delta": 0.001,
       "settling_min_region_stability": 0.95,
-      "settling_min_confidence": 10
+      "settling_min_confidence": 10,
+      "track_guard": {
+        "hold_tracks": true,
+        "hold_margin_metres": 0.3,
+        "hold_cooldown": "1s",
+        "hold_min_speed_mps": 1.0,
+        "edge_follow_cluster": true,
+        "edge_margin_metres": 0.2
+      }
     }
   },
   "l4": {

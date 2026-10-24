@@ -99,7 +99,15 @@ parity between them.
       "settling_min_coverage": 0.8,
       "settling_max_spread_delta": 0.001,
       "settling_min_region_stability": 0.95,
-      "settling_min_confidence": 10
+      "settling_min_confidence": 10,
+      "track_guard": {
+        "hold_tracks": true,
+        "hold_margin_metres": 0.3,
+        "hold_cooldown": "1s",
+        "hold_min_speed_mps": 1.0,
+        "edge_follow_cluster": true,
+        "edge_margin_metres": 0.2
+      }
     }
   },
   "l4": {
@@ -204,7 +212,10 @@ Example:
 
 Hot-reloadable parameters:
 
-- L3 engine parameters (`l3.ema_baseline_v1.*`)
+- L3 engine parameters (`l3.ema_baseline_v1.*`), including the optional
+  `l3.ema_baseline_v1.track_guard` block, which goes on whole. One key of
+  it edits the running block; with the guard off there is no block to edit,
+  so the whole block is required.
 - L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
 - L5 tracker parameters (`l5.cv_kf_v1.*`), including the optional
   `l5.cv_kf_v1.solid_body` and `l5.cv_kf_v1.box_model` blocks. A block is
@@ -454,6 +465,34 @@ Maths: [background-grid-settling-maths.md](../data/maths/background-grid-settlin
 | `l3.ema_baseline_v1.settling_max_spread_delta`             | float64 | [GetSettlingMaxSpreadDelta](../internal/config/tuning_accessors.go)            | Maximum spread delta for convergence.                                          |
 | `l3.ema_baseline_v1.settling_min_region_stability`         | float64 | [GetSettlingMinRegionStability](../internal/config/tuning_accessors.go)        | Minimum region stability for convergence.                                      |
 | `l3.ema_baseline_v1.settling_min_confidence`               | float64 | [GetSettlingMinConfidence](../internal/config/tuning_accessors.go)             | Minimum confidence for convergence.                                            |
+
+### L3 track guard
+
+On by default. The guard keeps the objects L5 tracks out of the background model and publishes
+their edges with their class. After each tracker update the pipeline hands L3 the boxes of the
+confirmed tracks moving at `hold_min_speed_mps` or more; for the next half second, carried by
+each track's velocity, a return inside one of them is classed by its cell as usual but leaves the
+cell unchanged, and so does every return in that cell for `hold_cooldown` after. Under
+`edge_follow_cluster` the published mask (full frames, the streamed foreground) also carries as
+foreground every background return inside a held box, an observed confirmed track's box, or the
+box of a cluster associated with one; L4's input is L3's own mask. A config without the block runs
+the guard off, as L3 ran before it ([track-guard-off.json](experiments/track-guard-off.json)).
+When the block is present, every key is required. Schema:
+[L3TrackGuard](../internal/config/tuning.go). Guard:
+[track_guard.go](../internal/lidar/l3grid/track_guard.go). Report:
+[L3 track guard](../docs/lidar/operations/l3-track-guard-kirk-2026-10.md).
+
+Rules: margins finite in [0, 5] m, `hold_min_speed_mps` in [0, 30], and `hold_cooldown` a Go
+duration in [0s, 1m].
+
+| Path (under `l3.ema_baseline_v1.track_guard.`) | Type    | Notes                                                                                                                        |
+| ---------------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `hold_tracks`                                  | bool    | Leaves a cell unchanged by a return inside a held box: it neither learns the object nor loses confidence to it.              |
+| `hold_margin_metres`                           | float64 | Grows each held box in the plane and above its top, never below its base. `0.3`.                                             |
+| `hold_cooldown`                                | string  | How long a cell stays unchanged after it last held a return. `1s`; `0s` holds only the returns in a box.                     |
+| `hold_min_speed_mps`                           | float64 | Holds only the tracks moving at least this fast, so a static object tracked as one is learned as before. `1.0`.              |
+| `edge_follow_cluster`                          | bool    | Publishes the background returns inside held, observed track and associated cluster boxes as foreground. L4 is not affected. |
+| `edge_margin_metres`                           | float64 | Grows the boxes of `edge_follow_cluster`. `0.2`.                                                                             |
 
 ### L4
 

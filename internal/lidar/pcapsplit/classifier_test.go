@@ -2,6 +2,7 @@ package pcapsplit
 
 import (
 	"math"
+	"reflect"
 	"testing"
 	"time"
 
@@ -84,7 +85,8 @@ func TestMotionClassifierUsesActiveTuningAndCaptureTime(t *testing.T) {
 		t.Fatal("offline classifier must enable replay mode")
 	}
 	wantParams := l3grid.BackgroundConfigFromActiveTuning(config.MustLoadDefaultConfig()).ToBackgroundParams()
-	if params != wantParams {
+	// DeepEqual: the track guard is a pointer, compared by what it holds.
+	if !reflect.DeepEqual(params, wantParams) {
 		t.Fatalf("offline params differ from live tuning\n got: %+v\nwant: %+v", params, wantParams)
 	}
 

@@ -1,7 +1,7 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 4e90c8c86ba166152d0c76841c7fde6eb93471d5 on claude/vector-spike-merge-check-04d85d
-// (site model spike, q5 and q7; not merged yet: update this line to the main commit when it is).
+// Commit: 9b3e9bb434b1d5644614fd664a6934ee7573468b, the W1-W3 contract, on
+// origin/claude/w1-city-streets-editor (not merged yet: update this line to the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -83,6 +83,16 @@ service SiteService {
   // scan, and the model_id the registered layers are built from
   // (docs/plans/SITE-MODEL-SPIKE.md §6.1). Not built yet: UNIMPLEMENTED.
   rpc GetSiteModel(GetSiteModelRequest) returns (GetSiteModelResponse);
+
+  // The site's street use as marked by operators: each feature's current
+  // version (VECTOR-MAP §4.1).
+  rpc ListStreetUse(ListStreetUseRequest) returns (ListStreetUseResponse);
+
+  // Adds, changes or removes marked features in one transaction. Vertices
+  // snap to kerbs, centrelines and other marks within 0.5 m; problems (a
+  // lane across a kerb, a space in a lane, a driveway off any kerb) come
+  // back as warnings and do not block the edit. Rows are append-only.
+  rpc EditStreetUse(EditStreetUseRequest) returns (EditStreetUseResponse);
 }
 
 // RegistrationService registers a sensor scan against a site and records the
@@ -286,6 +296,19 @@ enum ReferenceLayer {
   // Tags: building_id, wall, party, roof_p50_m, roof_p95_m, shift_east_m,
   // shift_north_m. Public data only.
   REFERENCE_LAYER_BOXES = 8;
+  // DataSF street centrelines (Streets, PDDL), draped; retired segments are
+  // kept with active=false (docs/plans/CITY-STREETS.md §3.2).
+  REFERENCE_LAYER_CITY_STREETS = 9;
+  // DataSF street nodes where three or more vehicle segments meet, as an
+  // IntersectionSet (CITY-STREETS §3.3).
+  REFERENCE_LAYER_CITY_INTERSECTIONS = 10;
+  // Kerb and island lines: DataSF Curbs and Islands (PDDL), and kerbs
+  // observed in registered scans. Tag source says which; observed ones are
+  // ADR-0012 proposals (docs/plans/VECTOR-MAP.md W2).
+  REFERENCE_LAYER_KERBS = 11;
+  // What operators marked on the street: driveways, parked-car spaces and
+  // travel lanes (VECTOR-MAP §4.1, EditStreetUse).
+  REFERENCE_LAYER_STREET_USE = 12;
 }
 
 // SourceInfo names one input and the terms it came under. A client that
@@ -335,6 +358,16 @@ enum FeatureKind {
   // "popout" / "recess" (a part standing out or back, such as a bay window);
   // offset_m is its distance in front of the box wall.
   FEATURE_KIND_WALL_PLANE = 10;
+  // Marked by an operator (STREET_USE). A driveway is a span of kerb, as a
+  // two-vertex line along it; a parked-car space a closed polygon on the
+  // ground (tags space_type: metered, permit, loading, disabled, free;
+  // count; time_limit); a travel lane a centreline in its direction of
+  // travel (tags lane_type: general, bus, bike, turn; width_m).
+  FEATURE_KIND_DRIVEWAY = 11;
+  FEATURE_KIND_PARKING_SPACE = 12;
+  FEATURE_KIND_TRAVEL_LANE = 13;
+  // A traffic island's outline, closed (KERBS).
+  FEATURE_KIND_ISLAND = 14;
   FEATURE_KIND_OTHER = 15;
 }
 
@@ -410,6 +443,19 @@ message ScanHeader {
   string capture_ref = 5;           // velocity.report's name for the capture: replay case id or archive stem
   google.protobuf.Timestamp captured_at = 6;
   uint64 background_sequence = 7;   // BackgroundSnapshot.sequence_number
+  // Where things that move were seen while the scan was gathered (tracked
+  // objects' boxes, sensor frame). Gerardus drops scan points inside them
+  // before a scan joins the site model (VECTOR-MAP W3).
+  repeated Box3 transient = 8;
+}
+
+// An oriented box: centre and size in metres, turned about +Z by heading_rad
+// (counter-clockwise from +X). Its frame is the message's.
+message Box3 {
+  Vector3 centre = 1;
+  Vector3 size_m = 2;
+  double heading_rad = 3;
+  string label = 4;                 // the tracker's class, e.g. "car"
 }
 
 message Scan {
@@ -566,6 +612,11 @@ message GetServerInfoResponse {
   string api_version = 2;           // "gerardus.align.v1alpha1"
   repeated ReferenceLayer available_layers = 3;  // layers this server can build (aerial needs an indexed dataset)
   RegistrationOptions default_options = 4;
+  // The street and intersection layers fusion products read by default
+  // (ADR-0009): CITY_STREETS and CITY_INTERSECTIONS unless the server runs
+  // with --street-source osm.
+  ReferenceLayer default_streets = 5;
+  ReferenceLayer default_intersections = 6;
 }
 
 message PrepareSiteRequest {
@@ -806,4 +857,44 @@ message RefineSiteResponse {
     Progress progress = 1;
     RefineSiteResult result = 2;    // last message
   }
+}
+
+// One operator-marked feature (STREET_USE) in the site frame, at its current
+// version.
+message StreetUseFeature {
+  string feature_id = 1;            // "gms:<ulid>", kept across versions; empty on a new feature
+  FeatureKind kind = 2;             // DRIVEWAY, PARKING_SPACE or TRAVEL_LANE
+  repeated float xyz = 3 [packed = true];  // site frame, interleaved, draped on the ground
+  bool closed = 4;
+  map<string, string> tags = 5;
+  string author = 6;
+  google.protobuf.Timestamp edited_at = 7;
+  string row_id = 8;                // this version
+}
+
+message StreetUseEdit {
+  oneof change {
+    StreetUseFeature upsert = 1;    // new when feature_id is empty, else a new version
+    string remove_feature_id = 2;
+  }
+}
+
+message ListStreetUseRequest {
+  string l16_token = 1;
+}
+
+message ListStreetUseResponse {
+  repeated StreetUseFeature features = 1;
+}
+
+message EditStreetUseRequest {
+  string l16_token = 1;
+  string author = 2;                // required
+  string note = 3;
+  repeated StreetUseEdit edits = 4;
+}
+
+message EditStreetUseResponse {
+  repeated StreetUseFeature features = 1;  // every current feature after the edit
+  repeated string problems = 2;     // validation warnings, by feature id
 }

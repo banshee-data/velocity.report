@@ -11,6 +11,12 @@
 // in the sensor frame, are thinned to one per 0.05 m voxel here, and go up
 // with UploadScan as SCAN_KIND_ACCUMULATED, named by the replay and the frames
 // they came from.
+//
+// Each frame's confirmed tracks that have moved go up with them as the
+// header's transient boxes (Gerardus VECTOR-MAP W3), in the same sensor
+// frame: Gerardus drops the scan's points inside them before the scan joins
+// the site model, so a vehicle velocity.report classed background in one of
+// the frames does not stay in the model.
 
 import Foundation
 
@@ -22,6 +28,28 @@ enum FrameAccumulation {
     /// Point classes kept: background and ground. Foreground (1) never is.
     static let backgroundClass: UInt8 = 0
     static let groundClass: UInt8 = 2
+    /// A track's box is transient once the track has moved this fast: as
+    /// velocity.report's L3 track guard holds (`hold_min_speed_mps`), a
+    /// static object tracked as one (a hedge, a sign) is not.
+    static let transientMinSpeedMps: Float = 1
+
+    /// The boxes of a frame's tracks that are things that move: confirmed,
+    /// with a box, and moving at `transientMinSpeedMps` now or at some time
+    /// in their life. A box's centre is its drawn centre, halfway up from the
+    /// base the visualiser draws it on.
+    static func transientBoxes(_ tracks: [Track]) -> [TransientBox] {
+        tracks.compactMap { t in
+            guard t.state == .confirmed, t.bboxLength > 0, t.bboxWidth > 0, t.bboxHeight > 0,
+                max(t.speedMps, t.maxSpeedMps) >= transientMinSpeedMps
+            else { return nil }
+            let box = TransientBox(
+                centre: SIMD3(t.boxCentreX, t.boxCentreY, t.z + t.bboxHeight / 2),
+                size: SIMD3(t.bboxLength, t.bboxWidth, t.bboxHeight),
+                headingRad: t.bboxHeadingRad != 0 ? t.bboxHeadingRad : t.headingRad,
+                label: t.classLabel)
+            return box.isFinite ? box : nil
+        }
+    }
 
     /// Why this frame's points cannot be accumulated, or nil when they can:
     /// full-rate frames (decimation ratio 0 or 1, nothing stripped) whose
@@ -97,6 +125,19 @@ enum FrameAccumulation {
     }
 }
 
+/// A moving object's box from one frame, sensor frame: the visualiser's
+/// copy of Gerardus's Box3.
+struct TransientBox: Equatable, Sendable {
+    var centre: SIMD3<Float>
+    var size: SIMD3<Float>
+    var headingRad: Float
+    var label: String
+
+    var isFinite: Bool {
+        [centre.x, centre.y, centre.z, size.x, size.y, size.z, headingRad].allSatisfy(\.isFinite)
+    }
+}
+
 /// Background and ground points gathered from successive replay frames.
 struct FrameAccumulator: Sendable {
     enum Outcome: Equatable {
@@ -118,6 +159,8 @@ struct FrameAccumulator: Sendable {
     private(set) var x: [Float] = []
     private(set) var y: [Float] = []
     private(set) var z: [Float] = []
+    /// The moving objects' boxes of every frame taken, in frame order.
+    private(set) var transient: [TransientBox] = []
 
     init(frameCount: Int = FrameAccumulation.defaultFrameCount) {
         self.frameCount = max(1, frameCount)
@@ -126,9 +169,12 @@ struct FrameAccumulator: Sendable {
     var pointsKept: Int { x.count }
     var isComplete: Bool { framesTaken >= frameCount }
 
-    /// Takes one frame's background and ground points. `frameNumber` places
-    /// the frame in the replay; it must not go backwards.
-    mutating func add(_ cloud: PointCloudFrame, frameNumber: UInt64) -> Outcome {
+    /// Takes one frame's background and ground points, and the boxes of its
+    /// moving tracks. `frameNumber` places the frame in the replay; it must
+    /// not go backwards.
+    mutating func add(
+        _ cloud: PointCloudFrame, tracks: [Track] = [], frameNumber: UInt64
+    ) -> Outcome {
         if let refusal = FrameAccumulation.refusal(cloud) { return .refused(refusal) }
         if let last = lastFrame {
             if frameNumber == last { return .skipped }
@@ -149,6 +195,7 @@ struct FrameAccumulator: Sendable {
             y.append(py)
             z.append(pz)
         }
+        transient.append(contentsOf: FrameAccumulation.transientBoxes(tracks))
         if firstFrame == nil {
             firstFrame = frameNumber
             firstTimestampNanos = cloud.timestampNanos

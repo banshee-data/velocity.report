@@ -1,0 +1,65 @@
+{
+  "version": "2.0",
+  "timestamp": "2026-10-24T02:32:19Z",
+  "pcap_file": "kirk0.pcapng",
+  "profile": "full",
+  "tuning_fingerprint": "e44f577dc1df",
+  "system_info": {
+    "goos": "darwin",
+    "goarch": "arm64",
+    "host_class": "mac",
+    "num_cpu": 8,
+    "cpu_model": "Apple M1 Pro",
+    "go_version": "go1.27.1",
+    "commit_hash": "c10b5061d1a1"
+  },
+  "metrics": {
+    "wall_clock_ms": 11837,
+    "frame_time_stats": {
+      "min_ms": 2.925417,
+      "max_ms": 68.227791,
+      "avg_ms": 10.223631211538464,
+      "p50_ms": 6.355,
+      "p95_ms": 41.469959,
+      "p99_ms": 56.898916,
+      "samples": 832
+    },
+    "frames_per_second": 70.28807974993664,
+    "packets_per_second": 12650.249218551999,
+    "points_per_second": 4847212.638337417,
+    "heap_alloc_bytes": 19749096,
+    "total_alloc_bytes": 20364577240,
+    "num_gc": 815,
+    "gc_pause_ns": 106149109,
+    "pipeline_time_ms": 11837,
+    "cluster_time_ms": 4631,
+    "tracking_time_ms": 178,
+    "classify_time_ms": 16,
+    "work": {
+      "frames": 832,
+      "foreground_points": 1760445,
+      "background_points": 55616011,
+      "clusters": 5810,
+      "confirmed_tracks": 39,
+      "distinct_confirmed_tracks": 130
+    },
+    "frame_budget": {
+      "budget_ms": 98,
+      "frames_over": 0,
+      "frames_over_pct": 0,
+      "worst_ms": 68.227791
+    }
+  },
+  "repeat_spread": {
+    "runs": 5,
+    "wall_clock_ms": [
+      10656,
+      11027,
+      11837,
+      11851,
+      12311
+    ],
+    "median_ms": 11837,
+    "spread_pct": 15.531156156156156
+  }
+}

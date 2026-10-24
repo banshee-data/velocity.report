@@ -372,7 +372,7 @@ packages define that boundary; the reference driver is not a runtime dependency.
 
 ### L3 grid: background/foreground separation
 
-**Our approach:** Exponential Moving Average (EMA) per polar-grid cell (40 rings × 1800 azimuth bins = 72,000 cells). Each cell tracks mean range and spread. Foreground points are those deviating beyond a distance-adaptive threshold from the learned baseline. Neighbour confirmation voting reduces noise. Settling period: 100 frames + 30 seconds.
+**Our approach:** Exponential Moving Average (EMA) per polar-grid cell (40 rings × 1800 azimuth bins = 72,000 cells). Each cell tracks mean range and spread. Foreground points are those deviating beyond a distance-adaptive threshold from the learned baseline. Neighbour confirmation voting reduces noise. Settling period: 100 frames + 30 seconds. The track guard feeds L5 back to L3: a return inside the box of a confirmed track moving at 1 m/s or more leaves its cell unchanged, as does every return in that cell for a second after, and the published mask carries a tracked object's background returns as foreground ([L3 track guard](../operations/l3-track-guard-kirk-2026-10.md)).
 
 **Literature context:** Background subtraction in point clouds parallels the well-studied problem in video surveillance. Our approach is most closely related to Gaussian Mixture Model (GMM) background subtraction, but simplified to a single-component EMA because the sensor is stationary and the scene is predominantly static.
 

@@ -543,6 +543,18 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// a background is best accumulated from.
 	hasVisualiser := !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher)
 	maskedEmpty, _ := cfg.VisualiserAdapter.(maskedEmptyFrameAdapter)
+	// published is the mask as clients get it: under the track guard's edge
+	// follow, the returns L3 held inside a tracked object's box are
+	// foreground (l3grid.BackgroundManager.PublishedMask). It is a copy then,
+	// in a buffer reused frame to frame; otherwise the mask itself.
+	var publishBuf []bool
+	published := func(mask []bool) []bool {
+		out := cfg.BackgroundManager.PublishedMask(mask, publishBuf)
+		if len(out) > 0 && !sameBacking(out, mask) {
+			publishBuf = out
+		}
+		return out
+	}
 	publishEmptyFrame := func(frame *l2frames.LiDARFrame, mask []bool) {
 		if baseline, ok := cfg.Tracker.(interface{ RecordBaselineEmptyFrame() }); ok && !isNilInterface(baseline) {
 			baseline.RecordBaselineEmptyFrame()
@@ -552,7 +564,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 		var emptyBundle interface{}
 		if maskedEmpty != nil && mask != nil {
-			emptyBundle = maskedEmpty.AdaptEmptyFrameWithMask(frame, mask)
+			emptyBundle = maskedEmpty.AdaptEmptyFrameWithMask(frame, published(mask))
 		} else {
 			emptyBundle = cfg.VisualiserAdapter.AdaptEmptyFrame(frame)
 		}
@@ -1146,7 +1158,14 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("publish")
 		}
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
-			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, mask, clusters, cfg.Tracker, debugFrame)
+			// The published mask: L3's, with the track guard's edge follow
+			// giving each tracked object's background returns its class.
+			publishMask := published(mask)
+			if guard := params.TrackGuard; guard != nil && guard.EdgeFollowCluster && !sameBacking(publishMask, mask) {
+				l3grid.FollowBoxes(polar, publishMask,
+					edgeBoxes(confirmedTracks, clusters, cfg.Tracker.GetLastAssociations()), guard.EdgeMarginMetres)
+			}
+			frameBundle := cfg.VisualiserAdapter.AdaptFrame(frame, publishMask, clusters, cfg.Tracker, debugFrame)
 
 			// Publish to gRPC stream
 			cfg.VisualiserPublisher.Publish(frameBundle)
@@ -1173,6 +1192,17 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			}
 			dwell.absorbDue(cfg.BackgroundManager, cfg.Tracker, confirmedTracks, clusters,
 				foregroundPoints, sensorID, frame.StartTimestamp)
+		}
+
+		// Stage 6c: the track guard's holds for the frames that follow: the
+		// boxes of the tracks confirmed now, after the dwell policy has ended
+		// any it absorbed.
+		if guard := params.TrackGuard; guard != nil && guard.HoldTracks {
+			held := confirmedTracks
+			if dwell != nil {
+				held = cfg.Tracker.GetConfirmedTracks()
+			}
+			cfg.BackgroundManager.SetTrackHolds(holdBoxes(held, guard.HoldMinSpeedMps), frame.StartTimestamp)
 		}
 
 		if emitTiming != nil {
