@@ -188,6 +188,13 @@ served by `/api/lidar/clip-locations` and grouped by L10 district.
 
 ## Street use editor
 
+Street use is now painted in the macOS VelocityVisualiser: once the alignment pane has placed the
+sensor, **Paint streets** marks surfaces, travel lanes, parked-car spaces and driveways from a
+top-down view over the reference, kerbs, City streets, boxes, ground mesh and registered scans, and
+saves them to Gerardus with `EditStreetUse`. See
+[Paint mode](../ui/visualiser/gerardus-alignment.md#paint-mode-the-street-painter). The web page
+below is the earlier editor; it does not draw surfaces.
+
 No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run.
 The Streets page (`/lidar/streets`, in the LiDAR navigation) lets an operator mark them once per
 site, over geometry that is already public or measured. It is the client half of W1 in Gerardus's

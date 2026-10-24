@@ -16,7 +16,7 @@ VelocityVisualiser, the macOS 3D point cloud viewer for LiDAR data.
 
 | Document                                                                   | Content                            |
 | -------------------------------------------------------------------------- | ---------------------------------- |
-| [gerardus-alignment.md](gerardus-alignment.md)                             | Gerardus alignment pane            |
+| [gerardus-alignment.md](gerardus-alignment.md)                             | Gerardus alignment, street painter |
 | [light-mode.md](light-mode.md)                                             | Light/dark appearance tokens       |
 | [performance-and-timeline-metrics.md](performance-and-timeline-metrics.md) | Scene health timeline              |
 | [physics-checks.md](physics-checks.md)                                     | Violation types and thresholds     |

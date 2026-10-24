@@ -98,6 +98,17 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   Registration can fit against the site model and against the DataSF boxes, and reports the
   residuals against them. Refine site re-solves a site's accepted poses together, in a column
   of its own, and its result can be accepted whole.
+- The macOS alignment pane paints a site's street use. **Paint streets** locks the 3D view to a
+  top-down plan over the placed reference, which pans and zooms but does not turn, and puts the
+  old camera back when it ends. Draw surfaces (carriageway, sidewalk, verge, apron, median),
+  travel lanes with their direction and width, parked-car spaces or a row of them along a kerb,
+  and driveways, over the kerbs, the City's streets and intersections, the DataSF boxes, the
+  ground mesh and registered scans, which the pane now also streams and draws. Vertices snap to
+  kerbs, centrelines, box walls and other marks within 0.5 m as a preview and land on the ground
+  mesh; Select moves, adds and removes vertices, with Undo and Redo. Save sends the changes as one
+  `EditStreetUse` with the author and a note, then draws what Gerardus snapped and its problems
+  beside the marks they name. Settings has a Gerardus tab: the server's address, a connection
+  test with its version and git sha, the author, and whether it serves registered scans.
 - _Accumulate frames_ collects background and ground from a replay and registers them as one
   cloud. A pcap replay can stream full frames (`full_frames` on `POST /api/lidar/pcap/start`,
   or `POST /api/lidar/replay/full_frames` while it runs), and a replay started with full
