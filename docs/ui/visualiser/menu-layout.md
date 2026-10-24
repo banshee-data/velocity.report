@@ -13,6 +13,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 | **Playback**   | Play/Pause (Space), Step (./,), Rate (]/[), Time Display     |
 | **Overlays**   | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g)    |
 | **Labels**     | Label Selected Track (l), Classify submenu (1–9)             |
+| **View**       | Clear (⇧⌘K), Camera Pane (⌥⌘C)                               |
 | **Annotation** | Open Annotation Window (⇧⌘A)                                 |
 | **Edit**       | Undo (⌘Z), Redo (⇧⌘Z)                                        |
 | **Window**     | VelocityVisualiser, About VelocityVisualiser.app, Annotation |
@@ -38,6 +39,13 @@ asked for, and are not restored from the last session.
 
 > Never change existing single-key shortcuts. They are optimised for rapid
 > one-handed operation during replay review.
+
+### While the camera pane flies
+
+With **Fly** pressed in the [camera pane](camera-pane.md) and the 3D view holding the keyboard,
+W/A/S/D and the arrows move the camera and Q/E lower and raise it, in place of the arrows' pan
+and the track list's ↑/↓; holding ⌥ while moving the mouse looks round. None of the single keys
+above is taken.
 
 ### In the Annotation window
 
