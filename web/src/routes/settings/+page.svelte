@@ -30,7 +30,7 @@
 		GERARDUS_DEFAULT_ADDRESS,
 		gerardusAddress,
 		rememberGerardusAddress
-	} from '#lib/streets/gerardus.js';
+	} from '#lib/gerardus/client.js';
 	import { initializePaperSize, paperSize, updatePaperSize } from '#lib/stores/paper.js';
 	import { displayTimezone, initializeTimezone, updateTimezone } from '#lib/stores/timezone.js';
 	import { displayUnits, initializeUnits, updateUnits } from '#lib/stores/units.js';
@@ -59,7 +59,7 @@
 	let loading = true;
 	let message = '';
 
-	// ─── Gerardus (the street editor's service), saved to this browser ──
+	// ─── Gerardus (the site viewer's service), saved to this browser ────
 	let gerardusInput = gerardusAddress();
 
 	function saveGerardusAddress() {
@@ -891,8 +891,8 @@
 								on:change={saveGerardusAddress}
 							/>
 							<p class="text-surface-content/70 text-xs">
-								The street editor (LiDAR → Streets) reads a site's layers from Gerardus and saves
-								street use to it, from this browser. Saved to this browser; empty means
+								The site viewer (LiDAR → Site viewer) reads a site's layers, ground and scans from
+								Gerardus, from this browser. Saved to this browser; empty means
 								{GERARDUS_DEFAULT_ADDRESS}.
 							</p>
 						</div>

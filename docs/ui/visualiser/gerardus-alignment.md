@@ -238,7 +238,7 @@ Registered scans, observed features and the ground mesh are built from the site 
 
 ## Paint mode: the street painter
 
-No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run, so an operator marks them once per site (Gerardus `docs/plans/VECTOR-MAP.md` §4.1). Paint mode is where: it replaces the web Streets page, whose logic it ports (`web/src/lib/streets/`: the snap, rows of spaces, a lane's direction, the save diff and Undo).
+No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run, so an operator marks them once per site (Gerardus `docs/plans/VECTOR-MAP.md` §4.1). Paint mode is where: it replaces the web Streets page, now the read-only [Site viewer](../../lidar/LIDAR.md#site-viewer) at `/lidar/sites`, and ports that editor's logic (the snap, rows of spaces, a lane's direction, the save diff and Undo).
 
 **Getting there.** Place the sensor from its hint, then press **Paint streets**, in the alignment pane's header or in the main toolbar beside **Align**. It is disabled, with the reason as its tooltip, until a reference is placed, and when the server answers `ListStreetUse` `UNIMPLEMENTED`. The pane's sections give way to the painter's while it paints; pressing it again, closing the pane, choosing another site or losing the server leaves paint mode.
 

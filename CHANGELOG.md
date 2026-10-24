@@ -72,15 +72,18 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   on the period's clip. A known location can be applied to another period and checked with Check
   fit, and an existing clip's alignment can be checked from the Clips page. OpenStreetMap requests
   wait for the operator's consent, which the browser remembers until it is withdrawn.
-- A Streets page (LiDAR → Streets) marks a site's driveways, parked-car spaces and travel lanes
-  over Gerardus's layers: the City's street centrelines and intersections, kerbs and islands, and
-  the DataSF boxes. Choose a located site or type its L16 token; draw a driveway as two points on
-  the kerb, a space as a polygon or a row of spaces along the kerb with a count, and a lane in its
-  direction of travel. Vertices snap to kerbs, centrelines and other marks within 0.5 m as a
-  preview. Save sends one batch with the author and a note to Gerardus's street-use API, which
-  snaps the edits again, and its problems are shown beside the marks they name. The browser talks
-  to Gerardus directly, at an address set in Settings (default `http://127.0.0.1:50061`);
-  OpenStreetMap tiles are an optional backdrop behind a per-visit consent.
+- A Site viewer page (LiDAR → Site viewer, `/lidar/sites`) shows what Gerardus serves for a site,
+  read only. Choose one of Gerardus's prepared sites or type its L16 token. The 2D map draws every
+  layer the site serves, with a checkbox each: street use by kind and surfaces by type
+  (carriageway, sidewalk, verge, apron, median), the City's streets and intersections, kerbs,
+  boxes, footprints, wall planes and what the scans observed; a click shows a feature's
+  properties. The 3D view draws the same layers at their heights in the site frame, with the
+  ground grid as a mesh, boxes raised to their height, wall planes by role, lanes with arrows and,
+  where Gerardus serves them to this browser, the scan points at a chosen voxel size; orbit, reset
+  the view and follow the north arrow. Street use is marked in the macOS app, not on the web;
+  `/lidar/streets` links redirect here. The browser talks to Gerardus directly, at an address set
+  in Settings (default `http://127.0.0.1:50061`); OpenStreetMap tiles and layers wait for a
+  per-visit consent.
 - A clip can be cut to one standalone capture, its extract: whole rotations between the frame
   boundaries that bound the clip's window, every packet copied as captured, with full digests of
   the extract and its sources. It runs as a `capture_export` job from the Captures and Clips pages

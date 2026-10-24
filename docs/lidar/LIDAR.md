@@ -186,67 +186,61 @@ matches the existing records; unified site, deployment and survey relationships
 remain Phase 2. The location browser is [Clip locations](../../web/src/routes/lidar/clip-locations/+page.svelte),
 served by `/api/lidar/clip-locations` and grouped by L10 district.
 
-## Street use editor
+## Site viewer
 
-Street use is now painted in the macOS VelocityVisualiser: once the alignment pane has placed the
-sensor, **Paint streets** marks surfaces, travel lanes, parked-car spaces and driveways from a
-top-down view over the reference, kerbs, City streets, boxes, ground mesh and registered scans, and
-saves them to Gerardus with `EditStreetUse`. See
-[Paint mode](../ui/visualiser/gerardus-alignment.md#paint-mode-the-street-painter). The web page
-below is the earlier editor; it does not draw surfaces.
+The Site viewer (`/lidar/sites`, in the LiDAR navigation) shows what Gerardus serves for a
+site: its vector map on a 2D map, and the same layers with the ground and the scans in 3D. It
+only reads. Street use (driveways, parked-car spaces, travel lanes and surfaces) is marked in the
+macOS app's [Paint mode](../ui/visualiser/gerardus-alignment.md#paint-mode-the-street-painter), which saves it to Gerardus with `EditStreetUse`; the web street editor that came before this page is gone,
+and `/lidar/streets` redirects here, keeping `?site=`. It is the browser's view of W1 in
+Gerardus's vector map plan (`docs/plans/VECTOR-MAP.md` §4.1 in the Gerardus repository).
 
-No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run.
-The Streets page (`/lidar/streets`, in the LiDAR navigation) lets an operator mark them once per
-site, over geometry that is already public or measured. It is the client half of W1 in Gerardus's
-vector map plan (`docs/plans/VECTOR-MAP.md` §4.1 in the Gerardus repository); Gerardus stores the
-marks as authored features and serves them to the alignment pane and to later work (kerb cuts,
-transient points in parked-car spaces, lanes per approach).
+**Choosing a site.** The picker lists Gerardus's prepared sites from `GET /api/v1/sites`, each with
+its label, its site-frame origin (WGS 84 longitude and latitude at the list's `epoch`, and
+height) and the layers it can serve. A Gerardus older than that list (one that answers 404 or as gRPC) gets the located sites
+from `GET /api/lidar/clip-locations` instead, and the page says so. Any L16 token can be typed,
+`?site=<token>` opens one directly, and `?view=3d` opens the 3D view.
 
-**Choosing a site.** The picker lists the located sites from `GET /api/lidar/clip-locations`, by
-label and L16 token; any L16 token can also be typed, and `?site=<token>` opens one directly. The
-page then reads `GET /api/v1/sites/{l16}/geojson?layers=city_streets,city_intersections,kerbs,boxes,footprints,street_use`
-from Gerardus: GeoJSON in WGS 84 with height as a third coordinate, each feature carrying its
-`layer`, `id`, `kind`, tags and, for street use, `author` and `edited_at`. A layer the bundle lacks
-is absent, and the page says so; until kerbs exist (W2), driveways and rows snap to the box walls'
-feet.
+**The 2D map.** The page reads `GET /api/v1/sites/{l16}/geojson?layers=…` for every layer the site
+serves: GeoJSON in WGS 84 with height as a third coordinate, each feature carrying its `layer`,
+`id`, `kind`, tags, `author` and `edited_at` (observed features and wall planes also `state` and
+`model_id`). Gerardus refuses a layer name it does not know with a 400, so a Gerardus that did not
+list its layers is asked again without `observed` and `wall_planes`. Each layer has a checkbox with its feature count.
+Street use is drawn by kind (driveways pink; spaces filled by `space_type`; lanes by `lane_type`
+with arrows in the direction of travel) and surfaces filled by `surface`: carriageway, sidewalk,
+verge, apron or median. Kerbs and islands are strong and white, city centrelines thin and grey,
+boxes and footprints outlined, wall planes drawn along their foot by `role` (wall, popout, recess),
+and what the scans observed by kind (facade, kerb, sensor, correction, pole). A click shows a
+feature's properties. The ground is plain and dark.
 
-**What is drawn.** City street centrelines thin and grey, intersections as rings, kerbs and islands
-strong and white, boxes and footprints as outlines, and the street use by kind: driveways pink;
-spaces filled by `space_type` (metered, permit, loading, disabled, free), with a divider per space
-for a row; lanes by `lane_type` (general, bus, bike, turn) with arrows in the direction of travel.
-The ground is plain and dark. OpenStreetMap tiles are an optional backdrop: none is requested until
-the operator allows it, once per visit, as in the site map editor, and nothing is snapped to or
-taken from them.
+**The 3D view** (three.js) asks for the same layers with `&frame=site`, in site-frame metres
+(`[x east, y north, z up]`; the collection's `frame` member says `"site"`), and for `GET /api/v1/sites/{l16}/ground`, the ground grid, which it
+draws as a mesh through the centres of the cells that have a height (`x0`, `y0` is the south-west
+cell's centre). Boxes are raised by
+`height_m` from their base, wall planes are translucent and coloured by role, surfaces are
+translucent fills draped on their own heights, kerbs, centrelines and observed lines sit at their
+z, lanes carry arrows, and a point with a `height_m` (a pole) stands as an upright. Scan points
+come from `GET /api/v1/sites/{l16}/scans?voxel_m=…` (little-endian float32 x, y, z triplets,
+coloured by height) at the voxel chosen, 0.1 to 1 m; Gerardus clamps it to 0.05–2 m and says the one
+it used in `X-Gerardus-Voxel-M`, which the page shows; Gerardus answers 403 unless it serves scans
+to this browser's peer, and the page says so. The camera orbits about the site (drag; right-drag
+or Shift-drag pans; scroll zooms), Reset view returns to the view from the south, a north arrow
+turns with the camera, and each layer, the ground and the scans can be hidden. Loading another
+site disposes the old site's geometry. A collection in longitude and latitude (`"frame": "wgs84"`,
+or, from a Gerardus too old to say, positions by the origin) is reported, not drawn.
 
-**Tools.**
-
-| Tool          | How                                                                                                                                              | Tags                                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| Driveway      | Click the two ends of the kerb cut                                                                                                               | none                                |
-| Space         | Click the corners; Enter or double-click finishes                                                                                                | `space_type`, `count`, `time_limit` |
-| Row of spaces | Click two points along the kerb; the row runs between them, `count` spaces deep on the street side (towards the nearest centreline), with a flip | `space_type`, `count`, `time_limit` |
-| Travel lane   | Click along the lane in its direction of travel; Enter or double-click finishes; Reverse turns it                                                | `lane_type`, `width_m`              |
-| Select        | Click a mark to edit its tags; drag a vertex to move it, right-click one to remove it; Delete removes the mark                                   | as above                            |
-
-Every vertex snaps, as a preview, to a vertex within 0.5 m of a kerb, centreline or other mark, or
-else to the nearest point along one; driveways and rows also snap to box walls. Gerardus snaps and
-drapes every vertex again in the site frame when the batch is saved. Undo (Ctrl or ⌘ Z) steps back
-through unsaved changes; Escape cancels a drawing and Backspace drops its last vertex.
-
-**Saving.** Save sends one batch to `POST /api/v1/sites/{l16}/street-use`: the author (required,
-remembered in this browser), a note, and an upsert for each new or changed mark (`properties.id`
-empty for a new one) and a remove for each deleted one. A mark moved and moved back sends nothing.
-Gerardus answers with every current mark and a list of problems, each `"<id>: …"`; the page shows
-each beside the mark it names, with a red halo on the map, and any it cannot place under Save. A
-400 shows Gerardus's message and keeps the unsaved marks.
+**OpenStreetMap.** The OpenStreetMap layers (`osm`, `intersections`) and the OpenStreetMap tiles
+behind the 2D map are asked for only after the operator allows it, once per visit, as in the site
+map editor. Without consent the page makes no OpenStreetMap request of any kind.
 
 **Gerardus's address and failures.** The browser calls Gerardus directly; its address is a setting
-on the Settings page (and on the Streets page), kept in this browser, default
-`http://127.0.0.1:50061`. Gerardus must allow the page's origin (it answers loopback and tailnet
-origins). The page says which failure it met: nothing answering (or an origin Gerardus refused,
-which a browser cannot tell apart), a site with no prepared bundle (404: run `gerardus
-prepare-site`), or a Gerardus without this API.
+on the Settings page (and on this page), kept in this browser, default `http://127.0.0.1:50061`.
+Gerardus must allow the page's origin (it answers loopback and tailnet origins). The page says
+which failure it met: nothing answering (or an origin Gerardus refused, which a browser cannot tell
+apart), a site with no prepared bundle (404: run `gerardus prepare-site`), a Gerardus without this
+API, a server error, or an answer off the contract.
 
-What leaves the machine: the site token and the marks go to Gerardus at the address set; map tiles
-go to OpenStreetMap only after consent. No sensor data is sent. The client is
-`web/src/lib/streets/` (the typed API client, the geometry and the edit state, with tests).
+What leaves the machine: the site token goes to Gerardus at the address set; map tiles go to
+OpenStreetMap only after consent. Nothing is sent to Gerardus but requests to read. The client is
+`web/src/lib/gerardus/` (the typed API client, the map styles, and the 3D builders as plain arrays,
+with tests); the 3D view is `web/src/lib/components/lidar/SiteScene3D.svelte`.
