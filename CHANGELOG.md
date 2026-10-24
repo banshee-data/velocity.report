@@ -127,6 +127,13 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Fixed
 
+- Moving vehicles no longer settle into the L3 background. While a confirmed track moves at 1 m/s
+  or more, its box leaves the cells under it unchanged, with a short cool-down after, and the
+  published mask marks the returns in and around tracked boxes as foreground
+  (`l3.ema_baseline_v1.track_guard`). On kirk0, background returns inside tracked boxes fall from
+  534,882 to 0, and settled cells learning a nearer surface under moving boxes from 2,414 to 498.
+- Scans uploaded to Gerardus carry the boxes of the vehicles that moved while they were gathered
+  (`ScanHeader.transient`), and `captured_at` is the capture's own time, not the replay's.
 - The macOS runs sheet shows each run's source file and clip in their own columns again.
 - A replayed background is uploaded to Gerardus under its run's name, not the site picker's
   clip, which had filed one position's scan under another's capture.
