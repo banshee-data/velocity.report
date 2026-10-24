@@ -196,14 +196,16 @@ and `/lidar/streets` redirects here, keeping `?site=`. It is the browser's view 
 Gerardus's vector map plan (`docs/plans/VECTOR-MAP.md` §4.1 in the Gerardus repository).
 
 **Choosing a site.** The picker lists Gerardus's prepared sites from `GET /api/v1/sites`, each with
-its label, its site-frame origin (WGS 84 longitude, latitude and height) and the layers it can
-serve. A Gerardus older than that list (one that answers 404 or as gRPC) gets the located sites
+its label, its site-frame origin (WGS 84 longitude and latitude at the list's `epoch`, and
+height) and the layers it can serve. A Gerardus older than that list (one that answers 404 or as gRPC) gets the located sites
 from `GET /api/lidar/clip-locations` instead, and the page says so. Any L16 token can be typed,
 `?site=<token>` opens one directly, and `?view=3d` opens the 3D view.
 
 **The 2D map.** The page reads `GET /api/v1/sites/{l16}/geojson?layers=…` for every layer the site
 serves: GeoJSON in WGS 84 with height as a third coordinate, each feature carrying its `layer`,
-`id`, `kind`, tags, `author` and `edited_at`. Each layer has a checkbox with its feature count.
+`id`, `kind`, tags, `author` and `edited_at` (observed features and wall planes also `state` and
+`model_id`). Gerardus refuses a layer name it does not know with a 400, so a Gerardus that did not
+list its layers is asked again without `observed` and `wall_planes`. Each layer has a checkbox with its feature count.
 Street use is drawn by kind (driveways pink; spaces filled by `space_type`; lanes by `lane_type`
 with arrows in the direction of travel) and surfaces filled by `surface`: carriageway, sidewalk,
 verge, apron or median. Kerbs and islands are strong and white, city centrelines thin and grey,
@@ -212,18 +214,20 @@ and what the scans observed by kind (facade, kerb, sensor, correction, pole). A 
 feature's properties. The ground is plain and dark.
 
 **The 3D view** (three.js) asks for the same layers with `&frame=site`, in site-frame metres
-(`[x east, y north, z up]`), and for `GET /api/v1/sites/{l16}/ground`, the ground grid, which it
-draws as a mesh through the centres of the cells that have a height. Boxes are raised by
+(`[x east, y north, z up]`; the collection's `frame` member says `"site"`), and for `GET /api/v1/sites/{l16}/ground`, the ground grid, which it
+draws as a mesh through the centres of the cells that have a height (`x0`, `y0` is the south-west
+cell's centre). Boxes are raised by
 `height_m` from their base, wall planes are translucent and coloured by role, surfaces are
 translucent fills draped on their own heights, kerbs, centrelines and observed lines sit at their
 z, lanes carry arrows, and a point with a `height_m` (a pole) stands as an upright. Scan points
 come from `GET /api/v1/sites/{l16}/scans?voxel_m=…` (little-endian float32 x, y, z triplets,
-coloured by height) at the voxel chosen, 0.1 to 1 m; Gerardus answers 403 unless it serves scans
+coloured by height) at the voxel chosen, 0.1 to 1 m; Gerardus clamps it to 0.05–2 m and says the one
+it used in `X-Gerardus-Voxel-M`, which the page shows; Gerardus answers 403 unless it serves scans
 to this browser's peer, and the page says so. The camera orbits about the site (drag; right-drag
 or Shift-drag pans; scroll zooms), Reset view returns to the view from the south, a north arrow
 turns with the camera, and each layer, the ground and the scans can be hidden. Loading another
-site disposes the old site's geometry. A Gerardus that ignores `frame=site` and answers in
-longitude and latitude is reported, not drawn.
+site disposes the old site's geometry. A collection in longitude and latitude (`"frame": "wgs84"`,
+or, from a Gerardus too old to say, positions by the origin) is reported, not drawn.
 
 **OpenStreetMap.** The OpenStreetMap layers (`osm`, `intersections`) and the OpenStreetMap tiles
 behind the 2D map are asked for only after the operator allows it, once per visit, as in the site
