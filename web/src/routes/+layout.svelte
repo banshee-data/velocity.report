@@ -4,6 +4,7 @@
 		mdiChartBoxOutline,
 		mdiChartScatterPlot,
 		mdiCog,
+		mdiCubeOutline,
 		mdiFileDocument,
 		mdiFilmstrip,
 		mdiGithub,
@@ -13,7 +14,6 @@
 		mdiMapMarkerPath,
 		mdiMonitorDashboard,
 		mdiPlayCircleOutline,
-		mdiRoadVariant,
 		mdiSelection,
 		mdiVectorSquare
 	} from '@mdi/js';
@@ -112,8 +112,8 @@
 			     as tracks, and sweeps tune the parameters the runs use. Status, where a
 			     replay or recording is started by hand, comes first; the regions and
 			     debug views of the running grid come last. The clip locations page is
-			     reached from Clips rather than listed here. Streets marks a located
-			     site's street use in Gerardus, so it follows Clips, which locate sites. -->
+			     reached from Clips rather than listed here. The site viewer shows what
+			     Gerardus serves for a located site, so it follows Clips, which locate sites. -->
 			<div role="group" aria-labelledby="nav-lidar">
 				<div
 					id="nav-lidar"
@@ -135,9 +135,9 @@
 				/>
 				<NavItem text="Clips" icon={mdiFilmstrip} path="/app/lidar/clips" currentUrl={navUrl} />
 				<NavItem
-					text="Streets"
-					icon={mdiRoadVariant}
-					path="/app/lidar/streets"
+					text="Site viewer"
+					icon={mdiCubeOutline}
+					path="/app/lidar/sites"
 					currentUrl={navUrl}
 				/>
 				<NavItem
