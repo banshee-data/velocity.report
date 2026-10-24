@@ -146,6 +146,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var referenceKerbVertexCount: Int = 0
     private var referenceCityStreetBuffer: MTLBuffer?
     private(set) var referenceCityStreetVertexCount: Int = 0
+    /// The W4–W7 layers: building parts and roof outlines as lines, roof
+    /// fills as translucent triangles, lane markings, poles and signs, trees.
+    private var referenceBuildingBuffer: MTLBuffer?
+    private(set) var referenceBuildingVertexCount: Int = 0
+    private var referenceRoofFillBuffer: MTLBuffer?
+    private(set) var referenceRoofFillVertexCount: Int = 0
+    private var referenceLaneMarkingBuffer: MTLBuffer?
+    private(set) var referenceLaneMarkingVertexCount: Int = 0
+    private var referenceStreetFurnitureBuffer: MTLBuffer?
+    private(set) var referenceStreetFurnitureVertexCount: Int = 0
+    private var referenceTreeBuffer: MTLBuffer?
+    private(set) var referenceTreeVertexCount: Int = 0
     private var referencePaletteBuffer: MTLBuffer?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
@@ -507,6 +519,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceCityStreetBuffer = buffer(vertices?.cityStreetLines ?? [])
         referenceCityStreetVertexCount =
             referenceCityStreetBuffer == nil ? 0 : vertices?.cityStreetVertexCount ?? 0
+        referenceBuildingBuffer = buffer(vertices?.buildingLines ?? [])
+        referenceBuildingVertexCount =
+            referenceBuildingBuffer == nil ? 0 : vertices?.buildingVertexCount ?? 0
+        referenceRoofFillBuffer = buffer(vertices?.roofFills ?? [])
+        referenceRoofFillVertexCount =
+            referenceRoofFillBuffer == nil ? 0 : vertices?.roofFillVertexCount ?? 0
+        referenceLaneMarkingBuffer = buffer(vertices?.laneMarkingLines ?? [])
+        referenceLaneMarkingVertexCount =
+            referenceLaneMarkingBuffer == nil ? 0 : vertices?.laneMarkingVertexCount ?? 0
+        referenceStreetFurnitureBuffer = buffer(vertices?.streetFurnitureLines ?? [])
+        referenceStreetFurnitureVertexCount =
+            referenceStreetFurnitureBuffer == nil ? 0 : vertices?.streetFurnitureVertexCount ?? 0
+        referenceTreeBuffer = buffer(vertices?.treeLines ?? [])
+        referenceTreeVertexCount = referenceTreeBuffer == nil ? 0 : vertices?.treeVertexCount ?? 0
         referencePaletteBuffer = vertices.flatMap { vertices in
             vertices.palette.withUnsafeBytes { table in
                 device.makeBuffer(bytes: table.baseAddress!, length: table.count, options: [])
@@ -716,12 +742,28 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             (shown.intersections, referenceIntersectionBuffer, referenceIntersectionVertexCount),
             (shown.cityStreets, referenceCityStreetBuffer, referenceCityStreetVertexCount),
             (shown.kerbs, referenceKerbBuffer, referenceKerbVertexCount),
+            (shown.buildings, referenceBuildingBuffer, referenceBuildingVertexCount),
+            (shown.laneMarkings, referenceLaneMarkingBuffer, referenceLaneMarkingVertexCount),
+            (
+                shown.streetFurniture, referenceStreetFurnitureBuffer,
+                referenceStreetFurnitureVertexCount
+            ), (shown.trees, referenceTreeBuffer, referenceTreeVertexCount),
         ] {
             guard visible, let buffer, count > 0 else { continue }
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(buffer, offset: 0, index: 0)
             encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
+        }
+        // Roof fills last, so the lines behind a translucent roof still show
+        // through it.
+        if shown.buildings, let fills = referenceRoofFillBuffer, referenceRoofFillVertexCount >= 3 {
+            encoder.setRenderPipelineState(pipeline)
+            encoder.setVertexBuffer(fills, offset: 0, index: 0)
+            encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(
+                type: .triangle, vertexStart: 0,
+                vertexCount: referenceRoofFillVertexCount - referenceRoofFillVertexCount % 3)
         }
     }
 

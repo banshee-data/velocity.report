@@ -989,7 +989,7 @@ private func referenceMessages(
                 $0.layerComplete = true
             }
         ]
-    default: return []
+    default: return featureLayerMessages(layer)
     }
 }
 

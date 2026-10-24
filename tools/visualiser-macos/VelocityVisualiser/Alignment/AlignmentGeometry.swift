@@ -324,6 +324,14 @@ struct ReferenceGeometry: Sendable {
     var cityStreets: [Gerardus_Align_V1alpha1_LineFeature] = []
     var cityIntersections: [Gerardus_Align_V1alpha1_Intersection] = []
     var kerbs: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// The W4–W7 layers, when the server lists them: building parts and
+    /// their roof planes (BUILDINGS), painted markings (LANE_MARKINGS),
+    /// poles and signs (STREET_FURNITURE), and trees (TREES).
+    var buildingParts: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var roofPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var laneMarkings: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var streetFurniture: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var trees: [Gerardus_Align_V1alpha1_LineFeature] = []
     /// Registered scans, block by block, in the site frame.
     var scans: [Gerardus_Align_V1alpha1_ScanPoints] = []
     /// The observed layer: sensors, corrections and the proposed features
@@ -397,6 +405,17 @@ struct ReferenceGeometry: Sendable {
             case .boxes: boxes.append(contentsOf: set.features)
             case .cityStreets: cityStreets.append(contentsOf: set.features)
             case .kerbs: kerbs.append(contentsOf: set.features)
+            case .buildings:
+                for feature in set.features {
+                    if feature.kind == .roofPlane {
+                        roofPlanes.append(feature)
+                    } else {
+                        buildingParts.append(feature)
+                    }
+                }
+            case .laneMarkings: laneMarkings.append(contentsOf: set.features)
+            case .streetFurniture: streetFurniture.append(contentsOf: set.features)
+            case .trees: trees.append(contentsOf: set.features)
             default: lines.append(contentsOf: set.features)
             }
         case .intersections(let set):
@@ -409,7 +428,11 @@ struct ReferenceGeometry: Sendable {
         case .groundMesh(let field): groundMesh.append(field)
         case nil: break
         }
-        if !message.modelID.isEmpty { modelID = message.modelID }
+        // BUILDINGS names a model of its own: only the registered layers'
+        // is the site model's.
+        if !message.modelID.isEmpty, Self.registeredLayers.contains(message.layer) {
+            modelID = message.modelID
+        }
         if message.layerComplete { completeLayers.insert(message.layer) }
     }
 
@@ -427,6 +450,11 @@ struct ReferenceGeometry: Sendable {
         cityStreets.append(contentsOf: other.cityStreets)
         cityIntersections.append(contentsOf: other.cityIntersections)
         kerbs.append(contentsOf: other.kerbs)
+        buildingParts.append(contentsOf: other.buildingParts)
+        roofPlanes.append(contentsOf: other.roofPlanes)
+        laneMarkings.append(contentsOf: other.laneMarkings)
+        streetFurniture.append(contentsOf: other.streetFurniture)
+        trees.append(contentsOf: other.trees)
         scans.append(contentsOf: other.scans)
         observed.append(contentsOf: other.observed)
         wallPlanes.append(contentsOf: other.wallPlanes)
@@ -466,6 +494,12 @@ struct ReferenceVisibility: Equatable, Sendable {
     var kerbs = true
     /// The City's centrelines and their intersections.
     var cityStreets = true
+    /// The W4–W7 layers: building parts with their roofs, lane markings,
+    /// poles and signs, and trees.
+    var buildings = true
+    var laneMarkings = true
+    var streetFurniture = true
+    var trees = true
 }
 
 /// How a refinement shown in its column marks the scene: each scan's sensor
@@ -500,6 +534,13 @@ struct ReferenceOverlayVertices: Sendable {
     /// each of its intersections.
     var kerbLines: [Float] = []
     var cityStreetLines: [Float] = []
+    /// Building parts as wireframe prisms with their roof planes' outlines;
+    /// the roof planes' fills as triangles in the same layout.
+    var buildingLines: [Float] = []
+    var roofFills: [Float] = []
+    var laneMarkingLines: [Float] = []
+    var streetFurnitureLines: [Float] = []
+    var treeLines: [Float] = []
     var palette: [SIMD4<Float>] = ReferenceStyle.palette
 
     var aerialCount: Int { aerial.count / 5 }
@@ -513,6 +554,11 @@ struct ReferenceOverlayVertices: Sendable {
     var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
     var kerbVertexCount: Int { kerbLines.count / 7 }
     var cityStreetVertexCount: Int { cityStreetLines.count / 7 }
+    var buildingVertexCount: Int { buildingLines.count / 7 }
+    var roofFillVertexCount: Int { roofFills.count / 7 }
+    var laneMarkingVertexCount: Int { laneMarkingLines.count / 7 }
+    var streetFurnitureVertexCount: Int { streetFurnitureLines.count / 7 }
+    var treeVertexCount: Int { treeLines.count / 7 }
 }
 
 /// Colours for the reference, chosen here rather than by the server: the
@@ -648,6 +694,14 @@ enum ReferenceStyle {
         case .parkingSpace: return SIMD4(0.55, 0.75, 1.00, 0.90)
         case .travelLane: return SIMD4(1.00, 1.00, 1.00, 0.60)
         case .surface: return SIMD4(0.60, 0.60, 0.65, 0.80)
+        // The W4–W7 layers. A roof plane is drawn in its slope's or its
+        // part's shape's colour (FeatureLayerStyle); this is its colour when
+        // it carries neither.
+        case .roofPlane: return SIMD4(0.85, 0.50, 0.40, 0.95)
+        case .buildingPart: return SIMD4(0.95, 0.78, 0.55, 0.85)
+        case .laneMarking: return SIMD4(1.00, 0.98, 0.80, 1.00)
+        case .sign: return SIMD4(0.95, 0.20, 0.50, 1.00)
+        case .tree: return SIMD4(0.55, 0.95, 0.30, 0.90)
         case .other, .unspecified, .UNRECOGNIZED: return otherColour
         }
     }
@@ -715,7 +769,7 @@ enum ReferenceStyle {
     /// a correction sits 0.2 m up), so they are drawn where they are.
     static func lift(_ kind: Gerardus_Align_V1alpha1_FeatureKind) -> Float {
         switch kind {
-        case .sensor, .correction, .pole: return 0
+        case .sensor, .correction, .pole, .sign, .tree, .roofPlane: return 0
         default: return lineLift
         }
     }
@@ -733,7 +787,8 @@ enum ReferenceStyle {
     /// scans in `hiddenScanIDs` are left out.
     static func vertices(
         for geometry: ReferenceGeometry, centre: SIMD3<Double>? = nil,
-        hiddenScanIDs: Set<String> = [], emphasis: ReferenceEmphasis = ReferenceEmphasis()
+        hiddenScanIDs: Set<String> = [], emphasis: ReferenceEmphasis = ReferenceEmphasis(),
+        roofColouring: RoofColouring = .slope
     ) -> ReferenceOverlayVertices {
         var out = ReferenceOverlayVertices()
         out.aerial = aerialVertices(geometry)
@@ -751,6 +806,13 @@ enum ReferenceStyle {
         out.kerbLines = lineVertices(geometry.kerbs)
         out.cityStreetLines = cityStreetVertices(
             geometry.cityStreets, intersections: geometry.cityIntersections)
+        let roofs = roofPlaneVertices(
+            geometry.roofPlanes, parts: geometry.buildingParts, colouring: roofColouring)
+        out.buildingLines = buildingPartVertices(geometry.buildingParts) + roofs.lines
+        out.roofFills = roofs.fills
+        out.laneMarkingLines = laneMarkingVertices(geometry.laneMarkings)
+        out.streetFurnitureLines = streetFurnitureVertices(geometry.streetFurniture)
+        out.treeLines = treeVertices(geometry.trees)
         return out
     }
 

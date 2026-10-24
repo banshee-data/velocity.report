@@ -1,7 +1,8 @@
 // Vendored from banshee-data/gerardus, do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 43451710da9f81159fc862d230820f763ec5a210, the W1-W3 contract with FEATURE_KIND_SURFACE, on
-// origin/claude/street-surfaces (not merged yet: update this line to the main commit when it is).
+// Commit: 6c98fca11d6eac9561eaa808c3c6a38402dcf513, the W4-W7 contract (BUILDINGS, LANE_MARKINGS,
+// STREET_FURNITURE, TREES), on origin/claude/w4-w7-contract (not merged yet: update this line to
+// the main commit when it is).
 // To update: copy the file from a newer Gerardus commit, change this header,
 // and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
 // closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
@@ -44,6 +45,20 @@
 //
 // Site key. A site is named by the token of its S2 level-16 cell, the same
 // key velocity.report uses for lidar_sites. Tokens are lower-case hex text.
+//
+// Callers and OpenStreetMap. A client may name its player in request
+// metadata, as gerardus.map.v1alpha1 describes: x-gerardus-player-id (Game
+// Center's team-scoped player id) and x-gerardus-player-alias. The OSM
+// layers (REFERENCE_LAYER_OSM and REFERENCE_LAYER_INTERSECTIONS, built from
+// OSM ways) go only to admins, the ids in the server's `serve --admin`
+// list, and, when the server runs with --osm-to-local-peers (as `make dev`
+// does, for the visualiser), to loopback and tailnet peers. Every other
+// client is ordinary: GetServerInfo does not offer it those layers,
+// StreamReference leaves them out of "every layer" and refuses them by name
+// with PERMISSION_DENIED, before any message. Nothing an ordinary client is
+// sent derives from OSM (ADR-0005, ADR-0008); the server still fetches OSM
+// for its own checks and coarse registration hypotheses, and Site still
+// lists it among the bundle's sources.
 
 syntax = "proto3";
 
@@ -76,7 +91,9 @@ service SiteService {
 
   // Reference geometry for a prepared site, in the site frame, in chunks of
   // at most a few megabytes. Layers arrive in the order requested; each
-  // layer's last chunk has layer_complete set.
+  // layer's last chunk has layer_complete set. The OSM layers go only to the
+  // callers allowed them (see "Callers and OpenStreetMap" above); anyone
+  // else naming one gets PERMISSION_DENIED before any message.
   rpc StreamReference(StreamReferenceRequest) returns (stream StreamReferenceResponse);
 
   // The site model: the site's scans with an accepted pose, newest record per
@@ -90,8 +107,10 @@ service SiteService {
 
   // Adds, changes or removes marked features in one transaction. Vertices
   // snap to kerbs, centrelines and other marks within 0.5 m; problems (a
-  // lane across a kerb, a space in a lane, a driveway off any kerb) come
-  // back as warnings and do not block the edit. Rows are append-only.
+  // lane across a kerb, a space in a lane, a driveway off any kerb, two
+  // surfaces overlapping, a lane off the carriageway) come back as warnings
+  // and do not block the edit. A SURFACE without a known surface tag is
+  // refused. Rows are append-only.
   rpc EditStreetUse(EditStreetUseRequest) returns (EditStreetUseResponse);
 }
 
@@ -278,9 +297,9 @@ message GeoPose {
 enum ReferenceLayer {
   REFERENCE_LAYER_UNSPECIFIED = 0;
   REFERENCE_LAYER_AERIAL_POINTS = 1;   // USGS 3DEP points
-  REFERENCE_LAYER_OSM = 2;             // OpenStreetMap ways, draped on the 3DEP ground
+  REFERENCE_LAYER_OSM = 2;             // OpenStreetMap ways, draped on the 3DEP ground; admins only (see above)
   REFERENCE_LAYER_FOOTPRINTS = 3;      // DataSF building footprints, draped
-  REFERENCE_LAYER_INTERSECTIONS = 4;   // candidate intersections with approach bearings
+  REFERENCE_LAYER_INTERSECTIONS = 4;   // candidate intersections with approach bearings, from OSM ways; admins only
   // Accepted scans in the site frame, as ScanPoints. Served only by
   // `serve --serve-scans`, and only to loopback and tailnet peers (ADR-0011).
   REFERENCE_LAYER_REGISTERED_SCANS = 5;
@@ -306,9 +325,23 @@ enum ReferenceLayer {
   // observed in registered scans. Tag source says which; observed ones are
   // ADR-0012 proposals (docs/plans/VECTOR-MAP.md W2).
   REFERENCE_LAYER_KERBS = 11;
-  // What operators marked on the street: driveways, parked-car spaces and
-  // travel lanes (VECTOR-MAP §4.1, EditStreetUse).
+  // What operators marked on the street: driveways, parked-car spaces,
+  // travel lanes and ground surfaces (VECTOR-MAP §4.1, EditStreetUse).
   REFERENCE_LAYER_STREET_USE = 12;
+  // LoD2 buildings (W4, docs/plans/BUILDINGS.md): each building part's
+  // outline (BUILDING_PART) and its roof faces (ROOF_PLANE), reconstructed
+  // from 3DEP inside the DataSF footprints and refined by registered scans.
+  // Derived rows (ADR-0012, ADR-0013); the message names the model.
+  REFERENCE_LAYER_BUILDINGS = 13;
+  // Lane markings (W5): a public layer if the City publishes one, and
+  // markings traced from scan and 3DEP intensity, as LANE_MARKING lines.
+  REFERENCE_LAYER_LANE_MARKINGS = 14;
+  // Street furniture (W6): City inventories (streetlights, signals, parking
+  // meters, signs) and poles and signs fitted in the scans, as POLE and SIGN.
+  REFERENCE_LAYER_STREET_FURNITURE = 15;
+  // Trees (W7, ADR-0014): DataSF's Street Tree List and trunks and crowns
+  // fitted in 3DEP and the scans, as TREE.
+  REFERENCE_LAYER_TREES = 16;
 }
 
 // SourceInfo names one input and the terms it came under. A client that
@@ -374,6 +407,33 @@ enum FeatureKind {
   // kerbs, where lanes are drawn), "sidewalk", "verge" (planting strip or
   // tree well), "apron" (a driveway's ramp across the sidewalk) or "median".
   FEATURE_KIND_SURFACE = 16;
+  // A roof face of a building part (BUILDINGS): a closed planar polygon with
+  // its z. Tags part (the BUILDING_PART's feature_id), slope_deg,
+  // azimuth_deg (downslope, degrees clockwise from true north), role
+  // ("roof"; "parapet" for a false front's top).
+  FEATURE_KIND_ROOF_PLANE = 17;
+  // A building part (BUILDINGS): its outline, closed, at its base (z is
+  // min_height above the ground, or the ground). Tags use OSM's Simple 3D
+  // Buildings keys verbatim where they apply (roof:shape, roof:height,
+  // roof:direction, roof:orientation, roof:angle, height, min_height,
+  // building:levels) and gms:* keys otherwise (gms:roof_shape=unknown with
+  // gms:roof_shape_candidate, gms:roof_shape_confidence, gms:false_front,
+  // gms:parapet_height_m, gms:footprint); see BUILDINGS.md's mapping.
+  FEATURE_KIND_BUILDING_PART = 18;
+  // A painted marking (LANE_MARKINGS) as a polyline on the road, or a closed
+  // polygon for an area marking. Tags marking: lane_line, centre_line,
+  // edge_line, stop_line, crosswalk, bike_lane, arrow, other; pattern: solid,
+  // dashed, double; colour: white, yellow.
+  FEATURE_KIND_LANE_MARKING = 19;
+  // A sign (STREET_FURNITURE): a vertical segment from the bottom to the
+  // top of its face. Tags sign_type when known, pole (the POLE it is on).
+  // POLE (9) is a pole: base to top, with tags pole_type (streetlight,
+  // signal, meter, utility, sign, other) and diameter_m.
+  FEATURE_KIND_SIGN = 20;
+  // A tree (TREES): a vertical segment from the trunk's base to the crown's
+  // base. Tags dbh_m, height_m, crown_base_m, crown_radius_m, species, and
+  // datasf_id for a Street Tree List match.
+  FEATURE_KIND_TREE = 21;
 }
 
 message LineFeature {
@@ -615,7 +675,9 @@ message GetServerInfoRequest {}
 message GetServerInfoResponse {
   string server_version = 1;
   string api_version = 2;           // "gerardus.align.v1alpha1"
-  repeated ReferenceLayer available_layers = 3;  // layers this server can build (aerial needs an indexed dataset)
+  // Layers this server can build and send this caller: aerial needs an
+  // indexed dataset, and the OSM layers a caller allowed them.
+  repeated ReferenceLayer available_layers = 3;
   RegistrationOptions default_options = 4;
   // The street and intersection layers fusion products read by default
   // (ADR-0009): CITY_STREETS and CITY_INTERSECTIONS unless the server runs
@@ -653,7 +715,9 @@ message ListSitesResponse {
 
 message StreamReferenceRequest {
   string l16_token = 1;
-  repeated ReferenceLayer layers = 2;  // empty: every layer, in enum order
+  // Empty: every bundle layer the caller may have, in enum order (the OSM
+  // layers only for callers allowed them).
+  repeated ReferenceLayer layers = 2;
   Vector3 centre = 3;               // site frame; unset: the origin
   float radius_m = 4;               // horizontal; 0: the whole bundle
   // Aerial thinning: the server sends every EPT level of detail whose
@@ -868,7 +932,7 @@ message RefineSiteResponse {
 // version.
 message StreetUseFeature {
   string feature_id = 1;            // "gms:<ulid>", kept across versions; empty on a new feature
-  FeatureKind kind = 2;             // DRIVEWAY, PARKING_SPACE or TRAVEL_LANE
+  FeatureKind kind = 2;             // DRIVEWAY, PARKING_SPACE, TRAVEL_LANE or SURFACE
   repeated float xyz = 3 [packed = true];  // site frame, interleaved, draped on the ground
   bool closed = 4;
   map<string, string> tags = 5;

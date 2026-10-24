@@ -8,7 +8,9 @@
 //   Place from hint   PrepareSite → PoseFromHint → StreamReference (150 m),
 //                     StreamReference for the street layers the server lists
 //                     (CITY_STREETS, CITY_INTERSECTIONS, KERBS), then
-//                     StreamReference once per registered layer
+//                     StreamReference once per W4–W7 layer the server lists
+//                     (BUILDINGS, LANE_MARKINGS, STREET_FURNITURE, TREES),
+//                     then StreamReference once per registered layer
 //   Nudge             nothing on the wire: only the model matrix changes
 //   Accumulate        during a pcap replay, velocity.report's
 //                     POST /api/lidar/replay/full_frames on, then nothing
@@ -157,6 +159,15 @@ struct ReferenceSummary: Equatable {
     var cityIntersections: Int = 0
     var kerbs: Int = 0
     var streetLayersServed: Bool = false
+    /// The W4–W7 layers the server lists, and what each sent: building
+    /// parts and their roof planes, lane markings, poles and signs, trees.
+    var featureLayersServed: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
+    var buildingParts: Int = 0
+    var roofPlanes: Int = 0
+    var laneMarkings: Int = 0
+    var poles: Int = 0
+    var signs: Int = 0
+    var trees: Int = 0
     /// The site model the registered layers were built from; empty when no
     /// registered layer named one.
     var modelID: String = ""
@@ -240,6 +251,15 @@ struct ReferenceSummary: Equatable {
     @Published var showGroundMesh = true { didSet { pushVisibility() } }
     @Published var showKerbs = true { didSet { pushVisibility() } }
     @Published var showCityStreets = true { didSet { pushVisibility() } }
+    @Published var showBuildings = true { didSet { pushVisibility() } }
+    @Published var showLaneMarkings = true { didSet { pushVisibility() } }
+    @Published var showStreetFurniture = true { didSet { pushVisibility() } }
+    @Published var showTrees = true { didSet { pushVisibility() } }
+    /// How roof planes are coloured: the colours are in the vertices, so a
+    /// change rebuilds the overlay.
+    @Published var roofColouring: RoofColouring = .slope {
+        didSet { if roofColouring != oldValue { scheduleRestyle() } }
+    }
     /// The toolbar's faces switch: off hides the DataSF box walls and the
     /// wall planes whatever their own toggles say; on leaves those to them.
     @Published var showFaces = true { didSet { pushVisibility() } }
@@ -253,6 +273,9 @@ struct ReferenceSummary: Equatable {
     /// Why the street layers are missing, when the server listed them and
     /// then did not send them.
     @Published private(set) var streetLayersNote: String?
+    /// Why a W4–W7 layer is missing, when the server listed it and then did
+    /// not send it.
+    @Published private(set) var featureLayersNote: String?
 
     @Published private(set) var hintPose: SitePose?
     @Published private(set) var hintSummary: Gerardus_Align_V1alpha1_PoseSummary?
@@ -674,6 +697,10 @@ struct ReferenceSummary: Equatable {
             geometry.merge(
                 await streamStreetLayers(
                     client: client, l16Token: site.l16Token, centre: start.translation))
+            busy = "Streaming buildings, markings, furniture and trees"
+            geometry.merge(
+                await streamFeatureLayers(
+                    client: client, l16Token: site.l16Token, centre: start.translation))
             busy = "Streaming the site model"
             let registered = await streamRegisteredLayers(
                 client: client, l16Token: site.l16Token, centre: start.translation)
@@ -710,6 +737,13 @@ struct ReferenceSummary: Equatable {
     /// before them would refuse the call.
     static let streetLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
         .cityStreets, .cityIntersections, .kerbs,
+    ]
+    /// The W4–W7 layers (Gerardus's buildings, lane markings, street
+    /// furniture and trees), each on a call of its own and only when the
+    /// server lists it: they are built in parallel, so one not working yet
+    /// must not take the others with it.
+    static let featureLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .buildings, .laneMarkings, .streetFurniture, .trees,
     ]
     /// The site model's layers, each on a call of its own.
     static let registeredLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
@@ -767,6 +801,36 @@ struct ReferenceSummary: Equatable {
         }
     }
 
+    /// The W4–W7 layers the server lists, one request each; none when it
+    /// lists none of them, or lists no layers at all.
+    func featureReferenceRequests(
+        l16Token: String, centre: SIMD3<Double>
+    ) -> [Gerardus_Align_V1alpha1_StreamReferenceRequest] {
+        Self.featureLayers.filter(availableLayers.contains).map {
+            referenceRequest(l16Token: l16Token, centre: centre, layers: [$0])
+        }
+    }
+
+    /// Streams each W4–W7 layer the server lists on its own call. A layer
+    /// that fails is left empty and named in `featureLayersNote`.
+    private func streamFeatureLayers(
+        client: AlignmentServiceClient, l16Token: String, centre: SIMD3<Double>
+    ) async -> ReferenceGeometry {
+        var features = ReferenceGeometry()
+        var notes = [String]()
+        for request in featureReferenceRequests(l16Token: l16Token, centre: centre) {
+            let layer = request.layers.first ?? .unspecified
+            do { features.merge(try await client.streamReference(request)) } catch {
+                notes.append(Self.note(layer: layer, error: error))
+                logger.info(
+                    "No \(Self.layerName(layer)) for \(l16Token): \(GerardusClientError.describe(error))"
+                )
+            }
+        }
+        featureLayersNote = notes.isEmpty ? nil : notes.joined(separator: "\n")
+        return features
+    }
+
     /// The registered layers the server lists, one request each.
     func registeredReferenceRequests(
         l16Token: String, centre: SIMD3<Double>
@@ -803,6 +867,10 @@ struct ReferenceSummary: Equatable {
         case .registeredScans: return "Registered scans"
         case .observed: return "Observed features"
         case .groundMesh: return "Ground mesh"
+        case .buildings: return "Buildings"
+        case .laneMarkings: return "Lane markings"
+        case .streetFurniture: return "Street furniture"
+        case .trees: return "Trees"
         default: return "Layer \(layer.rawValue)"
         }
     }
@@ -888,7 +956,8 @@ struct ReferenceSummary: Equatable {
             boxes: showBoxes && showFaces, intersections: showIntersections,
             registeredScans: showRegisteredScans, observed: showObserved,
             wallPlanes: showWallPlanes && showFaces, groundMesh: showGroundMesh, kerbs: showKerbs,
-            cityStreets: showCityStreets)
+            cityStreets: showCityStreets, buildings: showBuildings, laneMarkings: showLaneMarkings,
+            streetFurniture: showStreetFurniture, trees: showTrees)
     }
 
     private func pushVisibility() { sink?.setReferenceVisibility(visibility) }
@@ -912,9 +981,11 @@ struct ReferenceSummary: Equatable {
         let centre = referenceCentre
         let hidden = hiddenScanIDs
         let emphasis = refinementEmphasis
+        let roofs = roofColouring
         let vertices = await Task.detached {
             ReferenceStyle.vertices(
-                for: geometry, centre: centre, hiddenScanIDs: hidden, emphasis: emphasis)
+                for: geometry, centre: centre, hiddenScanIDs: hidden, emphasis: emphasis,
+                roofColouring: roofs)
         }.value
         guard generation == styleGeneration else { return }
         styledOwnScanID = scan?.scanID
@@ -967,6 +1038,13 @@ struct ReferenceSummary: Equatable {
         out.cityIntersections = geometry.cityIntersections.count
         out.kerbs = geometry.kerbs.count
         out.streetLayersServed = Self.streetLayers.contains(where: availableLayers.contains)
+        out.featureLayersServed = Set(Self.featureLayers.filter(availableLayers.contains))
+        out.buildingParts = geometry.buildingParts.count
+        out.roofPlanes = geometry.roofPlanes.count
+        out.laneMarkings = geometry.laneMarkings.count
+        out.poles = geometry.streetFurniture.filter { $0.kind == .pole }.count
+        out.signs = geometry.streetFurniture.filter { $0.kind == .sign }.count
+        out.trees = geometry.trees.count
         out.modelID = geometry.modelID
         return out
     }
@@ -1986,6 +2064,7 @@ struct ReferenceSummary: Equatable {
         styling?.cancel()
         registeredLayersNote = nil
         streetLayersNote = nil
+        featureLayersNote = nil
         siteModelScanIDs = nil
         dropAccumulation()
         hintPose = nil

@@ -236,6 +236,7 @@ import SwiftUI
                     Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
                         horizontal: false, vertical: true)
                 }
+                featureLayerToggles(reference)
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
                 }
@@ -281,6 +282,46 @@ import SwiftUI
                 }
             }
         }.toggleStyle(.checkbox).font(.callout)
+    }
+
+    /// A toggle for each W4–W7 layer the server lists.
+    @ViewBuilder private func featureLayerToggles(_ reference: ReferenceSummary) -> some View {
+        let served = reference.featureLayersServed
+        if served.contains(.buildings) {
+            Toggle(
+                "Buildings (\(reference.buildingParts) parts, \(reference.roofPlanes) roof planes)",
+                isOn: $session.showBuildings
+            ).help(
+                "Building parts extruded from min_height to height, and their roof planes filled by slope or by the part's roof:shape"
+            )
+            if session.showBuildings, reference.roofPlanes > 0 {
+                Picker("Roofs by", selection: $session.roofColouring) {
+                    Text("Slope").tag(RoofColouring.slope)
+                    Text("Shape").tag(RoofColouring.shape)
+                }.pickerStyle(.segmented).fixedSize().padding(.leading, 16).help(
+                    "Slope: flat blue, 22° yellow, 45° and steeper red. Shape: each roof:shape its own colour, grey when unknown"
+                )
+            }
+        }
+        if served.contains(.laneMarkings) {
+            Toggle("Lane markings (\(reference.laneMarkings))", isOn: $session.showLaneMarkings)
+                .help("Painted lines and areas, white or yellow as tagged")
+        }
+        if served.contains(.streetFurniture) {
+            Toggle(
+                "Street furniture (\(reference.poles) poles, \(reference.signs) signs)",
+                isOn: $session.showStreetFurniture
+            ).help("Poles blue with a ring of their diameter at each end; signs crimson")
+        }
+        if served.contains(.trees) {
+            Toggle("Trees (\(reference.trees))", isOn: $session.showTrees).help(
+                "Trunks brown to the crown's base; crowns green, a ring of crown_radius_m at its base and top"
+            )
+        }
+        if let note = session.featureLayersNote {
+            Text(note).font(.caption2).foregroundStyle(.secondary).fixedSize(
+                horizontal: false, vertical: true)
+        }
     }
 
     // MARK: Pose
