@@ -8,9 +8,13 @@ import (
 func TestPublishedBoxFallsBackToTheOBB(t *testing.T) {
 	tr := &TrackedObject{X: 1, Y: 2, LatestZ: 0.8, OBBLength: 4, OBBWidth: 2, OBBHeight: 1.6, OBBHeadingRad: 0.5}
 	got := tr.PublishedBox()
-	want := PublishedBox{X: 1, Y: 2, Z: 0.8, Length: 4, Width: 2, Height: 1.6, HeadingRad: 0.5}
+	// LatestZ is the cluster's lowest return, the box's base: Z is its middle.
+	want := PublishedBox{X: 1, Y: 2, Z: 1.6, Length: 4, Width: 2, Height: 1.6, HeadingRad: 0.5}
 	if got != want {
 		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	if !got.Contains(1, 2, 0.85, 0, 0) || got.Contains(1, 2, 0.75, 0, 0) || !got.Contains(1, 2, 2.35, 0, 0) {
+		t.Fatalf("the box spans its base 0.8 m to its top 2.4 m: %+v", got)
 	}
 }
 
@@ -20,7 +24,7 @@ func TestPublishedBoxPrefersTheBoxModel(t *testing.T) {
 		BoxX: 1.2, BoxY: 2.1, BoxLength: 4.5, BoxWidth: 1.9, BoxHeadingRad: 0.4,
 	}
 	got := tr.PublishedBox()
-	want := PublishedBox{X: 1.2, Y: 2.1, Z: 0.8, Length: 4.5, Width: 1.9, Height: 1.6, HeadingRad: 0.4}
+	want := PublishedBox{X: 1.2, Y: 2.1, Z: 1.6, Length: 4.5, Width: 1.9, Height: 1.6, HeadingRad: 0.4}
 	if got != want {
 		t.Fatalf("plan from the box model: got %+v, want %+v", got, want)
 	}

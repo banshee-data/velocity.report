@@ -8,9 +8,10 @@ import "math"
 // the frame's OBB extents. Coordinates are the tracker's frame, which offline
 // replay and the live sensor-frame pipeline both make the sensor frame.
 //
-// Z is the box's vertical centre: the cluster OBB's centre, or the middle of
-// the ground-anchored base and height when the box model stands the box on
-// the fitted surface.
+// Z is the box's vertical centre: the middle of its base and height. The
+// base is the cluster's lowest return (LatestZ: the OBB's CenterZ is its
+// minimum Z, so the drawn box sits on the lowest point), or the fitted
+// surface when the box model stands the box on it (BoxZ).
 type PublishedBox struct {
 	X, Y, Z               float32
 	Length, Width, Height float32
@@ -20,7 +21,7 @@ type PublishedBox struct {
 // PublishedBox returns the box viewers draw for the track.
 func (t *TrackedObject) PublishedBox() PublishedBox {
 	b := PublishedBox{
-		X: t.X, Y: t.Y, Z: t.LatestZ,
+		X: t.X, Y: t.Y, Z: t.LatestZ + t.OBBHeight/2,
 		Length: t.OBBLength, Width: t.OBBWidth, Height: t.OBBHeight,
 		HeadingRad: t.OBBHeadingRad,
 	}

@@ -21,9 +21,10 @@ type leakTracker struct {
 func (f *leakTracker) GetConfirmedTracks() []*l5tracks.TrackedObject { return f.tracks }
 
 func TestBackgroundLeakCountsReturnsInsideObservedConfirmedBoxes(t *testing.T) {
-	box := &l5tracks.TrackedObject{TrackID: "car", ObjectClass: "car", X: 0, Y: 10, LatestZ: 1,
+	// LatestZ is a box's base: both boxes stand on z = 0 and reach z = 2.
+	box := &l5tracks.TrackedObject{TrackID: "car", ObjectClass: "car", X: 0, Y: 10, LatestZ: 0,
 		OBBLength: 4, OBBWidth: 2, OBBHeight: 2, VX: 5}
-	coasting := &l5tracks.TrackedObject{TrackID: "coast", X: 20, Y: 0, LatestZ: 1,
+	coasting := &l5tracks.TrackedObject{TrackID: "coast", X: 20, Y: 0, LatestZ: 0,
 		OBBLength: 4, OBBWidth: 2, OBBHeight: 2, Misses: 1}
 	tracker := &leakTracker{tracks: []*l5tracks.TrackedObject{box, coasting}}
 	frame := &l2frames.LiDARFrame{Points: []l2frames.Point{
@@ -79,9 +80,11 @@ func TestBackgroundLeakSplitsTheSettledBackgroundUnderMovingBoxes(t *testing.T) 
 	}
 
 	az := 5.0 * math.Pi / 180
-	car := &l5tracks.TrackedObject{TrackID: "car", X: float32(15 * math.Sin(az)), Y: float32(15 * math.Cos(az)), LatestZ: 0,
+	// The boxes stand on z = -1 (LatestZ is their base), so the ring's cells
+	// at z = 0 are 1 m above it.
+	car := &l5tracks.TrackedObject{TrackID: "car", X: float32(15 * math.Sin(az)), Y: float32(15 * math.Cos(az)), LatestZ: -1,
 		OBBLength: 1, OBBWidth: 6, OBBHeight: 2, VX: 5}
-	still := &l5tracks.TrackedObject{TrackID: "still", X: float32(15 * math.Sin(az)), Y: float32(15 * math.Cos(az)), LatestZ: 0,
+	still := &l5tracks.TrackedObject{TrackID: "still", X: float32(15 * math.Sin(az)), Y: float32(15 * math.Cos(az)), LatestZ: -1,
 		OBBLength: 1, OBBWidth: 6, OBBHeight: 2}
 	tracker := &leakTracker{}
 	l := newBackgroundLeak(bm)
