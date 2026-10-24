@@ -167,11 +167,20 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private var streetLineBuffer: MTLBuffer?
     private(set) var streetLineVertexCount: Int = 0
     private var overlayDepthState: MTLDepthStencilState?
-    /// The camera the plan view replaced, while the street painter holds
-    /// the camera; nil otherwise. While held, orbiting is refused: the plan
-    /// view looks straight down and only pans and zooms.
+    /// The camera a holder replaced, while one holds the camera; nil
+    /// otherwise. The street painter's plan view, the camera pane's orbit
+    /// and its free flight each take the camera this way, one at a time,
+    /// and the camera it replaced is put back, or kept, when it lets go.
     private(set) var savedCamera: Camera?
-    var isPlanLocked: Bool { savedCamera != nil }
+    private(set) var cameraHolder: CameraHolder?
+    /// While the plan view holds the camera, orbiting is refused: it looks
+    /// straight down and only pans and zooms.
+    var isPlanLocked: Bool { cameraHolder == .plan }
+    /// The camera pane's orbit preview: a closed line strip round the
+    /// ellipse and a tick at its start, in the frame the camera is in.
+    private var cameraPathBuffer: MTLBuffer?
+    private(set) var cameraPathVertexCount: Int = 0
+    private var cameraPathStripCount: Int = 0
 
     // M6: Debug overlay buffers
     var debugLineVertices: MTLBuffer?  // Association lines + residual vectors
@@ -557,22 +566,76 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     /// Locks the camera to the street painter's plan view. The first call
     /// keeps the camera it replaces; the view's aspect stays the view's.
-    func setPlanCamera(_ next: Camera) {
-        if savedCamera == nil { savedCamera = camera }
+    /// Refused while the camera pane holds the camera.
+    func setPlanCamera(_ next: Camera) { holdCamera(.plan, next) }
+
+    /// Unlocks the camera and puts back the one the plan view replaced, at
+    /// the view's aspect now.
+    func exitPlanView() { releaseCamera(.plan, restore: true) }
+
+    /// Moves the camera for `holder`. The first call keeps the camera it
+    /// replaces; the view's aspect stays the view's. False, and nothing
+    /// moves, while another holder has the camera.
+    @discardableResult func holdCamera(_ holder: CameraHolder, _ next: Camera) -> Bool {
+        if let cameraHolder, cameraHolder != holder { return false }
+        if cameraHolder == nil {
+            savedCamera = camera
+            cameraHolder = holder
+        }
         var placed = next
         placed.aspectRatio = camera.aspectRatio
         camera = placed
         view?.needsDisplay = true
+        return true
     }
 
-    /// Unlocks the camera and puts back the one the plan view replaced, at
-    /// the view's aspect now.
-    func exitPlanView() {
-        guard var restored = savedCamera else { return }
-        restored.aspectRatio = camera.aspectRatio
-        camera = restored
+    /// Lets go of the camera `holder` holds, putting back the one it
+    /// replaced (at the view's aspect now), or leaving the camera where the
+    /// holder left it. Nothing happens unless `holder` holds it.
+    func releaseCamera(_ holder: CameraHolder, restore: Bool) {
+        guard cameraHolder == holder else { return }
+        if restore, var restored = savedCamera {
+            restored.aspectRatio = camera.aspectRatio
+            camera = restored
+        }
         savedCamera = nil
+        cameraHolder = nil
         view?.needsDisplay = true
+    }
+
+    /// Replaces the orbit preview, or removes it with nil: `strip` is a
+    /// line strip in the line pipeline's layout, `ticks` line pairs after it.
+    func setCameraPathPreview(strip: [Float]?, ticks: [Float] = []) {
+        let floats = (strip ?? []) + (strip == nil ? [] : ticks)
+        if floats.isEmpty {
+            cameraPathBuffer = nil
+            cameraPathVertexCount = 0
+            cameraPathStripCount = 0
+        } else {
+            cameraPathBuffer = device.makeBuffer(
+                bytes: floats, length: floats.count * MemoryLayout<Float>.stride,
+                options: .storageModeShared)
+            cameraPathVertexCount = cameraPathBuffer == nil ? 0 : floats.count / 7
+            cameraPathStripCount = cameraPathBuffer == nil ? 0 : (strip?.count ?? 0) / 7
+        }
+        view?.needsDisplay = true
+    }
+
+    private func drawCameraPath(encoder: MTLRenderCommandEncoder) {
+        guard let pipeline = linePipeline, let buffer = cameraPathBuffer, cameraPathVertexCount > 1
+        else { return }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+        if cameraPathStripCount > 1 {
+            encoder.drawPrimitives(
+                type: .lineStrip, vertexStart: 0, vertexCount: cameraPathStripCount)
+        }
+        let ticks = cameraPathVertexCount - cameraPathStripCount
+        if ticks >= 2 {
+            encoder.drawPrimitives(
+                type: .line, vertexStart: cameraPathStripCount, vertexCount: ticks - ticks % 2)
+        }
     }
 
     private func drawStreetOverlay(encoder: MTLRenderCommandEncoder) {
@@ -1250,6 +1313,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         drawReferenceOverlay(encoder: encoder)
         drawStreetOverlay(encoder: encoder)
+        drawCameraPath(encoder: encoder)
 
         // M4: Draw cluster boxes first (behind tracks)
         if showClusters, let pipeline = boxPipeline, let boxVerts = boxVertices,
@@ -1682,6 +1746,17 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 }
 
 // MARK: - Camera
+
+/// Who has taken the main view's camera from the operator's own orbit, pan
+/// and zoom (`MetalRenderer.holdCamera`): one at a time.
+enum CameraHolder: Equatable, Sendable {
+    /// The street painter's top-down plan view.
+    case plan
+    /// The camera pane's orbit, from Play until Stop.
+    case orbit
+    /// The camera pane's free flight and Fly to.
+    case fly
+}
 
 struct Camera: Equatable {
     /// How the camera projects.

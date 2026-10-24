@@ -47,8 +47,10 @@ struct ContentView: View {
                             pointSize: appState.pointSize,
                             onRendererCreated: { renderer in appState.registerRenderer(renderer) },
                             onTrackSelected: { trackID in appState.selectTrack(trackID) },
-                            onCameraChanged: { appState.reprojectLabels() },
-                            paintInput: appState.streets)
+                            onCameraChanged: {
+                                appState.reprojectLabels()
+                                appState.camera.cameraMoved()
+                            }, paintInput: appState.streets, cameraInput: appState.camera)
 
                         // Track label overlay (SwiftUI text positioned over 3D tracks)
                         if appState.showTrackLabels {
@@ -77,6 +79,12 @@ struct ContentView: View {
                         }.allowsHitTesting(false)
                     }.frame(minWidth: 400, minHeight: 300)
                 }.frame(minWidth: 600)
+
+                // Camera pane: orbit, fly and viewpoints for the 3D view.
+                if appState.showCameraPane {
+                    CameraPane(session: appState.camera, painter: appState.streets).frame(
+                        width: CameraPane.width)
+                }
 
                 // Side panel. Visibility is showSidePanel alone: selecting a
                 // track opens the panel by setting it (see selectTrack), so
@@ -659,6 +667,9 @@ struct ToolbarView: View {
                 Divider().frame(height: 20)
                 LiveToggleView()
             }
+
+            Divider().frame(height: 20)
+            CameraToolbarButton()
 
             Spacer()
 
@@ -2321,6 +2332,9 @@ struct MetalViewRepresentable: NSViewRepresentable {
     var onCameraChanged: (() -> Void)?
     /// The street painter, which takes the pointer and keys while it paints.
     var paintInput: StreetPainterSession?
+    /// The camera pane: flight's keys and mouse look, its picks, and the
+    /// manual input that pauses an orbit.
+    var cameraInput: CameraControlSession?
 
     func makeNSView(context: Context) -> MTKView {
         let metalView = InteractiveMetalView()
@@ -2335,6 +2349,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.onTrackSelected = onTrackSelected
             metalView.onCameraChanged = onCameraChanged
             metalView.paintInput = paintInput
+            metalView.cameraInput = cameraInput
             // Register the renderer so it can receive frame updates directly
             onRendererCreated?(renderer)
         }
@@ -2361,6 +2376,7 @@ struct MetalViewRepresentable: NSViewRepresentable {
             metalView.onTrackSelected = onTrackSelected
             metalView.onCameraChanged = onCameraChanged
             metalView.paintInput = paintInput
+            metalView.cameraInput = cameraInput
         }
 
         // Trigger a redraw so toggle changes are visible immediately
@@ -2382,6 +2398,10 @@ class InteractiveMetalView: MTKView {
     /// While it paints, the street painter takes the pointer and the keys:
     /// the camera is locked to its plan view, which it pans and zooms.
     weak var paintInput: StreetPainterSession?
+    /// The camera pane. While it flies, WASD, the arrows and Q/E are its,
+    /// and the mouse looks while Option is held; while it picks, a click is
+    /// its; and any orbit, pan or zoom by hand pauses its orbit.
+    weak var cameraInput: CameraControlSession?
     private var lastMouseLocation = CGPoint.zero
     private var mouseDownLocation = CGPoint.zero  // M6: Track click detection
     private var paintTracking: NSTrackingArea?
@@ -2391,6 +2411,23 @@ class InteractiveMetalView: MTKView {
     override func becomeFirstResponder() -> Bool {
         super.becomeFirstResponder()
         return true
+    }
+
+    override func resignFirstResponder() -> Bool {
+        cameraInput?.releaseKeys()
+        return super.resignFirstResponder()
+    }
+
+    /// Whether this event looks round in free flight: Option held while
+    /// flying.
+    private func looks(_ event: NSEvent) -> Bool {
+        guard let cameraInput, cameraInput.isFlying else { return false }
+        return event.modifierFlags.contains(.option)
+    }
+
+    private func look(_ event: NSEvent) {
+        cameraInput?.look(dx: event.deltaX, dy: event.deltaY)
+        needsDisplay = true
     }
 
     /// The painter, when it is painting.
@@ -2422,6 +2459,7 @@ class InteractiveMetalView: MTKView {
     }
 
     override func mouseMoved(with event: NSEvent) {
+        if looks(event) { return look(event) }
         guard let painter else { return super.mouseMoved(with: event) }
         painter.viewSize = bounds.size
         painter.mouseMoved(to: viewPoint(event))
@@ -2464,7 +2502,9 @@ class InteractiveMetalView: MTKView {
         let deltaX = location.x - lastMouseLocation.x
         let deltaY = location.y - lastMouseLocation.y
         lastMouseLocation = location
+        if looks(event) { return look(event) }
 
+        cameraInput?.manualInput()
         let shiftHeld = event.modifierFlags.contains(.shift)
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: false, shiftHeld: shiftHeld)
@@ -2486,6 +2526,11 @@ class InteractiveMetalView: MTKView {
         if dragDistance < 5.0 {
             // Convert to view coordinates
             let viewPoint = convert(location, from: nil)
+            // While the camera pane picks a radius's end, the click is its.
+            if let cameraInput, cameraInput.picking != nil {
+                cameraInput.pick(at: viewPoint, viewSize: bounds.size)
+                return
+            }
             let trackID = renderer?.hitTestTrack(at: viewPoint, viewSize: bounds.size)
             onTrackSelected?(trackID)
         }
@@ -2501,6 +2546,7 @@ class InteractiveMetalView: MTKView {
         let deltaY = location.y - lastMouseLocation.y
         lastMouseLocation = location
 
+        cameraInput?.manualInput()
         renderer?.handleMouseDrag(
             deltaX: deltaX, deltaY: deltaY, isRightButton: true, shiftHeld: false)
         self.needsDisplay = true
@@ -2521,6 +2567,7 @@ class InteractiveMetalView: MTKView {
             painter.zoom(delta: delta, at: viewPoint(event))
             return painted()
         }
+        cameraInput?.manualInput()
         renderer?.handleZoom(delta: delta)
         self.needsDisplay = true
         onCameraChanged?()
@@ -2532,6 +2579,7 @@ class InteractiveMetalView: MTKView {
             return painted()
         }
         // Pinch gesture on trackpad
+        cameraInput?.manualInput()
         renderer?.handleZoom(delta: event.magnification * 10)
         self.needsDisplay = true
         onCameraChanged?()
@@ -2543,15 +2591,27 @@ class InteractiveMetalView: MTKView {
         if let painter, let key = Self.paintKey(event.keyCode), painter.key(key) {
             return painted()
         }
+        // Flight's keys, unless a command is being typed with them.
+        let commandFlags = event.modifierFlags.intersection([.command, .control])
+        if commandFlags.isEmpty, let cameraInput, cameraInput.flyKeyDown(event.keyCode) { return }
+        if let cameraInput, cameraInput.picking != nil, event.keyCode == 53 {
+            return cameraInput.cancelPicking()
+        }
         if let renderer = renderer,
             renderer.handleKeyDown(keyCode: event.keyCode, modifiers: event.modifierFlags)
         {
             // Key was handled (camera movement)
+            cameraInput?.manualInput()
             self.needsDisplay = true
             onCameraChanged?()
             return
         }
         super.keyDown(with: event)
+    }
+
+    override func keyUp(with event: NSEvent) {
+        if let cameraInput, cameraInput.flyKeyUp(event.keyCode) { return }
+        super.keyUp(with: event)
     }
 
     /// Return and keypad Enter finish a mark, Escape cancels, Delete and
