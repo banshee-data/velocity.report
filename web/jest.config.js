@@ -58,7 +58,13 @@ export default {
 		]
 	},
 	moduleFileExtensions: ['js', 'ts', 'svelte'],
-	transformIgnorePatterns: ['node_modules/(?!(svelte|@testing-library))'],
+	// three.js's vendored earcut (three/src/extras/lib/earcut.js) is ESM inside
+	// node_modules; the site viewer triangulates with it, so it is transformed
+	// like the source. Anchored, because under pnpm the path holds node_modules
+	// twice and an unanchored exception would still match the second.
+	transformIgnorePatterns: [
+		'^(?!.*/three/src/extras/lib/earcut\\.js$).*node_modules/(?!(svelte|@testing-library))'
+	],
 	collectCoverageFrom: [
 		'web/src/lib/**/*.{ts,js}',
 		'!web/src/lib/**/*.d.ts',
