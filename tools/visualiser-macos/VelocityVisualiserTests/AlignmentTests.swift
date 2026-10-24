@@ -103,7 +103,8 @@ struct ScanPackingTests {
     @Test func headerNamesTheSiteSensorCaseAndSnapshot() {
         let header = ScanPacking.header(
             l16Token: "808580f47", sensorID: "hesai-pandar40p",
-            captureRef: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", snapshot: snapshot(count: 3))
+            captureRef: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", snapshot: snapshot(count: 3),
+            capturedAtNanos: 1_788_000_000_123_456_789)
         #expect(header.l16Token == "808580f47")
         #expect(header.sensorID == "hesai-pandar40p")
         #expect(header.captureRef == "6451411d-81c3-47f3-a5ff-5ce37b3ab768")
@@ -2781,12 +2782,205 @@ struct FrameAccumulatorTests {
         s.timestampNanos = 1_788_000_000_500_000_000
         let header = ScanPacking.accumulatedHeader(
             l16Token: "808580f47", sensorID: "hesai-pandar40p", captureRef: "run-7#f10-59",
-            snapshot: s)
+            snapshot: s, capturedAtNanos: s.timestampNanos)
         #expect(header.kind == .accumulated)
         #expect(header.captureRef == "run-7#f10-59")
         #expect(header.backgroundSequence == 0)
         #expect(header.capturedAt.seconds == 1_788_000_000)
         #expect(header.capturedAt.nanos == 500_000_000)
+    }
+}
+
+private func movingTrack(
+    _ id: String, state: TrackState = .confirmed, speed: Float = 8, maxSpeed: Float = 8,
+    length: Float = 4.5
+) -> Track {
+    var t = Track()
+    t.trackID = id
+    t.state = state
+    t.x = 10
+    t.y = 2
+    t.z = -1.8
+    t.speedMps = speed
+    t.maxSpeedMps = maxSpeed
+    t.bboxLength = length
+    t.bboxWidth = 1.9
+    t.bboxHeight = 1.5
+    t.bboxHeadingRad = 0.25
+    t.classLabel = "car"
+    return t
+}
+
+struct TransientBoxTests {
+    @Test func onlyConfirmedTracksThatHaveMovedAreTransient() {
+        var drawn = movingTrack("drawn")
+        drawn.bboxCenterX = 10.4
+        drawn.bboxCenterY = 2.1
+        drawn.bboxCenterValid = true
+        var nan = movingTrack("nan")
+        nan.bboxHeadingRad = .nan
+        nan.headingRad = .nan
+        let tracks = [
+            movingTrack("moving"),
+            drawn,
+            movingTrack("tentative", state: .tentative),
+            movingTrack("hedge", speed: 0.1, maxSpeed: 0.6),
+            movingTrack("parked since", speed: 0, maxSpeed: 6),
+            movingTrack("no box", length: 0),
+            nan,
+        ]
+        let boxes = FrameAccumulation.transientBoxes(tracks)
+        #expect(boxes.count == 3)
+        // Centred halfway up from the base the box is drawn on, at the
+        // tracked position or the box model's own centre.
+        #expect(boxes[0].centre == SIMD3(10, 2, -1.05))
+        #expect(boxes[0].size == SIMD3(4.5, 1.9, 1.5))
+        #expect(boxes[0].headingRad == 0.25)
+        #expect(boxes[0].label == "car")
+        #expect(boxes[1].centre == SIMD3(10.4, 2.1, -1.05))
+        #expect(FrameAccumulation.transientMinSpeedMps == 1)
+    }
+
+    @Test func theAccumulatorKeepsTheBoxesOfFramesItTakes() {
+        var acc = FrameAccumulator(frameCount: 3)
+        #expect(acc.add(cloud(classes: [0]), tracks: [movingTrack("a")], frameNumber: 1) == .taken)
+        #expect(acc.add(cloud(classes: [0]), tracks: [movingTrack("a")], frameNumber: 1) == .skipped)
+        #expect(
+            acc.add(cloud(classes: [0]), tracks: [movingTrack("a"), movingTrack("b")], frameNumber: 2)
+                == .taken)
+        guard case .refused = acc.add(
+            cloud(classes: [0], mode: .voxel), tracks: [movingTrack("c")], frameNumber: 3)
+        else {
+            Issue.record("a voxel frame was taken")
+            return
+        }
+        #expect(acc.transient.count == 3)
+        #expect(acc.add(cloud(classes: [0]), frameNumber: 4) == .taken)
+        #expect(acc.transient.count == 3)
+    }
+
+    @Test func theAccumulatedHeaderCarriesTheBoxesAsBox3() throws {
+        let box = try #require(FrameAccumulation.transientBoxes([movingTrack("a")]).first)
+        let header = ScanPacking.accumulatedHeader(
+            l16Token: "808580f47", sensorID: "hesai-pandar40p", captureRef: "run-7#f1-2",
+            snapshot: BackgroundSnapshot(), capturedAtNanos: nil, transient: [box])
+        let b3 = try #require(header.transient.first)
+        #expect(header.transient.count == 1)
+        #expect(abs(b3.centre.x - 10) < 1e-6 && abs(b3.centre.y - 2) < 1e-6)
+        #expect(abs(b3.centre.z + 1.05) < 1e-6)
+        #expect(abs(b3.sizeM.x - 4.5) < 1e-6 && abs(b3.sizeM.y - 1.9) < 1e-6)
+        #expect(abs(b3.sizeM.z - 1.5) < 1e-6)
+        #expect(abs(b3.headingRad - 0.25) < 1e-6)
+        #expect(b3.label == "car")
+        // A background scan's header carries none.
+        #expect(
+            ScanPacking.header(
+                l16Token: "808580f47", sensorID: "hesai-pandar40p", captureRef: "c",
+                snapshot: BackgroundSnapshot(), capturedAtNanos: nil
+            ).transient.isEmpty)
+    }
+}
+
+struct CapturedAtTests {
+    // kirk0's capture, 2025-12-05, replayed on 2026-10-23.
+    static let logStart: Int64 = 1_764_973_024_741_089_000
+    static let logEnd: Int64 = 1_764_973_107_924_472_000
+    static let replayedAt: Int64 = 1_792_800_000_000_000_000
+
+    @Test func aReplayStampsTheCaptureNotTheReplay() {
+        for source in [SourceMode.pcap, .pcapAnalysis, .vrlog] {
+            // A background snapshot, stamped when the server took it today.
+            #expect(
+                ScanPacking.capturedAtNanos(
+                    source: source, logStartNs: Self.logStart, logEndNs: Self.logEnd,
+                    observedNanos: Self.replayedAt) == Self.logStart)
+            // A frame stamped with its own capture time keeps it.
+            let frameTime = Self.logStart + 30_000_000_000
+            #expect(
+                ScanPacking.capturedAtNanos(
+                    source: source, logStartNs: Self.logStart, logEndNs: Self.logEnd,
+                    observedNanos: frameTime) == frameTime)
+            // No log span: unset, never now.
+            #expect(
+                ScanPacking.capturedAtNanos(
+                    source: source, logStartNs: 0, logEndNs: 0, observedNanos: Self.replayedAt)
+                    == nil)
+        }
+        #expect(
+            ScanPacking.capturedAtNanos(
+                source: .live, logStartNs: 0, logEndNs: 0, observedNanos: Self.replayedAt)
+                == Self.replayedAt)
+        #expect(
+            ScanPacking.capturedAtNanos(
+                source: .unspecified, logStartNs: Self.logStart, logEndNs: Self.logEnd,
+                observedNanos: Self.replayedAt) == nil)
+        let unset = ScanPacking.header(
+            l16Token: "808580f47", sensorID: "hesai-pandar40p", captureRef: "c",
+            snapshot: BackgroundSnapshot(), capturedAtNanos: nil)
+        #expect(!unset.hasCapturedAt)
+    }
+}
+
+@MainActor struct CapturedAtUploadTests {
+    private func replayFrame(_ n: UInt64) -> FrameBundle {
+        var pc = cloud(classes: [0, 2], x0: Float(n))
+        pc.timestampNanos = CapturedAtTests.replayedAt + Int64(n) * 100_000_000
+        var bundle = frame(pc, index: n)
+        bundle.playbackInfo?.logStartNs = CapturedAtTests.logStart
+        bundle.playbackInfo?.logEndNs = CapturedAtTests.logEnd
+        return bundle
+    }
+
+    @Test func aReplayTodayStampsTheOriginalCaptureTime() async throws {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-k0")
+        session.noteFrame(replayFrame(1))
+        await session.pendingAccumulation?.value
+        let accumulated = try #require(service.uploadedHeaders.last)
+        #expect(accumulated.kind == .accumulated)
+        let start = CapturedAtTests.logStart
+        #expect(accumulated.capturedAt.seconds == start / 1_000_000_000)
+        #expect(accumulated.capturedAt.nanos == Int32(start % 1_000_000_000))
+
+        // The background, stamped by the server at replay time, too.
+        session.useBackground()
+        var background = snapshot(count: 10)
+        background.timestampNanos = CapturedAtTests.replayedAt
+        session.noteBackground(background)
+        await session.register()
+        let header = try #require(service.uploadedHeaders.last)
+        #expect(header.kind == .background)
+        #expect(header.capturedAt.seconds == start / 1_000_000_000)
+    }
+
+    @Test func aReplayWithoutALogSpanLeavesItUnset() async throws {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 1
+        session.startAccumulating(run: "run-k0")
+        session.noteFrame(frame(cloud(classes: [0, 2]), index: 1))
+        await session.pendingAccumulation?.value
+        #expect(try #require(service.uploadedHeaders.last).hasCapturedAt == false)
+    }
+}
+
+@MainActor struct AccumulatedTransientUploadTests {
+    @Test func theFramesMovingTracksGoUpWithTheScan() async throws {
+        let (session, service) = await placedSession()
+        session.accumulateFrameCount = 2
+        session.startAccumulating(run: "run-42")
+        for n in UInt64(100)...101 {
+            var bundle = frame(cloud(classes: [0, 2], x0: Float(n)), index: n)
+            var tracks = TrackSet()
+            tracks.tracks = [movingTrack("car-\(n)"), movingTrack("hedge", speed: 0, maxSpeed: 0)]
+            bundle.tracks = tracks
+            session.noteFrame(bundle)
+        }
+        await session.pendingAccumulation?.value
+        let header = try #require(service.uploadedHeaders.last)
+        #expect(header.kind == .accumulated)
+        #expect(header.transient.count == 2)
+        #expect(header.transient.allSatisfy { $0.label == "car" })
     }
 }
 

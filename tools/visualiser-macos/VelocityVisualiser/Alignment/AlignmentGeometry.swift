@@ -210,8 +210,11 @@ enum ScanPacking {
         }
     }
 
+    /// `capturedAtNanos` is when the points were captured (`capturedAtNanos(...)`),
+    /// or nil to leave `captured_at` unset: never the time of the replay.
     static func header(
-        l16Token: String, sensorID: String, captureRef: String, snapshot: BackgroundSnapshot
+        l16Token: String, sensorID: String, captureRef: String, snapshot: BackgroundSnapshot,
+        capturedAtNanos: Int64?
     ) -> Gerardus_Align_V1alpha1_ScanHeader {
         var header = Gerardus_Align_V1alpha1_ScanHeader()
         header.l16Token = l16Token
@@ -220,24 +223,67 @@ enum ScanPacking {
         header.kind = .background
         header.captureRef = captureRef
         header.backgroundSequence = snapshot.sequenceNumber
-        if snapshot.timestampNanos > 0 {
-            header.capturedAt.seconds = snapshot.timestampNanos / 1_000_000_000
-            header.capturedAt.nanos = Int32(snapshot.timestampNanos % 1_000_000_000)
+        if let at = capturedAtNanos, at > 0 {
+            header.capturedAt.seconds = at / 1_000_000_000
+            header.capturedAt.nanos = Int32(at % 1_000_000_000)
         }
         return header
     }
 
+    /// When a scan's points were captured, for `captured_at`: Gerardus's
+    /// permanence filter counts the days a point was seen on, so a replay
+    /// must stamp the capture's day, not its own. `observedNanos` is the
+    /// time on the points (a snapshot's, or the first accumulated frame's).
+    ///
+    /// - Live: the points were captured as they were observed.
+    /// - A pcap or VRLOG replay: the observed time when it lies in the log's
+    ///   span (a frame stamped with its capture time), else the log's first
+    ///   frame (a background snapshot is stamped when the server took it).
+    /// - Otherwise, or with no log span: nil, and the field stays unset.
+    static func capturedAtNanos(
+        source: SourceMode, logStartNs: Int64, logEndNs: Int64, observedNanos: Int64
+    ) -> Int64? {
+        switch source {
+        case .live: return observedNanos > 0 ? observedNanos : nil
+        case .pcap, .pcapAnalysis, .vrlog:
+            guard logStartNs > 0 else { return nil }
+            if logEndNs >= logStartNs, observedNanos >= logStartNs, observedNanos <= logEndNs {
+                return observedNanos
+            }
+            return logStartNs
+        case .unspecified: return nil
+        }
+    }
+
     /// The header for accumulated frames: SCAN_KIND_ACCUMULATED, named by the
     /// replay and its frame range, captured when the first frame was. No
-    /// background sequence: the points did not come from the grid.
+    /// background sequence: the points did not come from the grid. The
+    /// frames' moving objects go up as its transient boxes.
     static func accumulatedHeader(
-        l16Token: String, sensorID: String, captureRef: String, snapshot: BackgroundSnapshot
+        l16Token: String, sensorID: String, captureRef: String, snapshot: BackgroundSnapshot,
+        capturedAtNanos: Int64?, transient: [TransientBox] = []
     ) -> Gerardus_Align_V1alpha1_ScanHeader {
         var accumulated = header(
-            l16Token: l16Token, sensorID: sensorID, captureRef: captureRef, snapshot: snapshot)
+            l16Token: l16Token, sensorID: sensorID, captureRef: captureRef, snapshot: snapshot,
+            capturedAtNanos: capturedAtNanos)
         accumulated.kind = .accumulated
         accumulated.backgroundSequence = 0
+        accumulated.transient = transient.map(box3)
         return accumulated
+    }
+
+    /// A transient box as Gerardus's Box3, in the scan's sensor frame.
+    static func box3(_ box: TransientBox) -> Gerardus_Align_V1alpha1_Box3 {
+        var b = Gerardus_Align_V1alpha1_Box3()
+        b.centre.x = Double(box.centre.x)
+        b.centre.y = Double(box.centre.y)
+        b.centre.z = Double(box.centre.z)
+        b.sizeM.x = Double(box.size.x)
+        b.sizeM.y = Double(box.size.y)
+        b.sizeM.z = Double(box.size.z)
+        b.headingRad = Double(box.headingRad)
+        b.label = box.label
+        return b
     }
 }
 
@@ -569,6 +615,12 @@ enum ReferenceStyle {
         case .facade: return SIMD4(0.00, 0.90, 1.00, 0.95)
         case .pole: return SIMD4(0.35, 0.45, 1.00, 0.95)
         case .wallPlane: return wallPlaneColour(.wall)
+        // A traffic island's outline reads as the kerb it is.
+        case .island: return SIMD4(1.00, 0.55, 0.20, 0.95)
+        // Operator-marked street use (Gerardus VECTOR-MAP §4.1).
+        case .driveway: return SIMD4(0.75, 1.00, 0.45, 0.95)
+        case .parkingSpace: return SIMD4(0.55, 0.75, 1.00, 0.90)
+        case .travelLane: return SIMD4(1.00, 1.00, 1.00, 0.60)
         case .other, .unspecified, .UNRECOGNIZED: return otherColour
         }
     }
