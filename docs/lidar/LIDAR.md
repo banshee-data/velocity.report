@@ -185,3 +185,61 @@ measurement over a period. Current screens use these nouns where their meaning
 matches the existing records; unified site, deployment and survey relationships
 remain Phase 2. The location browser is [Clip locations](../../web/src/routes/lidar/clip-locations/+page.svelte),
 served by `/api/lidar/clip-locations` and grouped by L10 district.
+
+## Street use editor
+
+No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run.
+The Streets page (`/lidar/streets`, in the LiDAR navigation) lets an operator mark them once per
+site, over geometry that is already public or measured. It is the client half of W1 in Gerardus's
+vector map plan (`docs/plans/VECTOR-MAP.md` §4.1 in the Gerardus repository); Gerardus stores the
+marks as authored features and serves them to the alignment pane and to later work (kerb cuts,
+transient points in parked-car spaces, lanes per approach).
+
+**Choosing a site.** The picker lists the located sites from `GET /api/lidar/clip-locations`, by
+label and L16 token; any L16 token can also be typed, and `?site=<token>` opens one directly. The
+page then reads `GET /api/v1/sites/{l16}/geojson?layers=city_streets,city_intersections,kerbs,boxes,footprints,street_use`
+from Gerardus: GeoJSON in WGS 84 with height as a third coordinate, each feature carrying its
+`layer`, `id`, `kind`, tags and, for street use, `author` and `edited_at`. A layer the bundle lacks
+is absent, and the page says so; until kerbs exist (W2), driveways and rows snap to the box walls'
+feet.
+
+**What is drawn.** City street centrelines thin and grey, intersections as rings, kerbs and islands
+strong and white, boxes and footprints as outlines, and the street use by kind: driveways pink;
+spaces filled by `space_type` (metered, permit, loading, disabled, free), with a divider per space
+for a row; lanes by `lane_type` (general, bus, bike, turn) with arrows in the direction of travel.
+The ground is plain and dark. OpenStreetMap tiles are an optional backdrop: none is requested until
+the operator allows it, once per visit, as in the site map editor, and nothing is snapped to or
+taken from them.
+
+**Tools.**
+
+| Tool          | How                                                                                                                                              | Tags                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Driveway      | Click the two ends of the kerb cut                                                                                                               | none                                |
+| Space         | Click the corners; Enter or double-click finishes                                                                                                | `space_type`, `count`, `time_limit` |
+| Row of spaces | Click two points along the kerb; the row runs between them, `count` spaces deep on the street side (towards the nearest centreline), with a flip | `space_type`, `count`, `time_limit` |
+| Travel lane   | Click along the lane in its direction of travel; Enter or double-click finishes; Reverse turns it                                                | `lane_type`, `width_m`              |
+| Select        | Click a mark to edit its tags; drag a vertex to move it, right-click one to remove it; Delete removes the mark                                   | as above                            |
+
+Every vertex snaps, as a preview, to a vertex within 0.5 m of a kerb, centreline or other mark, or
+else to the nearest point along one; driveways and rows also snap to box walls. Gerardus snaps and
+drapes every vertex again in the site frame when the batch is saved. Undo (Ctrl or ⌘ Z) steps back
+through unsaved changes; Escape cancels a drawing and Backspace drops its last vertex.
+
+**Saving.** Save sends one batch to `POST /api/v1/sites/{l16}/street-use`: the author (required,
+remembered in this browser), a note, and an upsert for each new or changed mark (`properties.id`
+empty for a new one) and a remove for each deleted one. A mark moved and moved back sends nothing.
+Gerardus answers with every current mark and a list of problems, each `"<id>: …"`; the page shows
+each beside the mark it names, with a red halo on the map, and any it cannot place under Save. A
+400 shows Gerardus's message and keeps the unsaved marks.
+
+**Gerardus's address and failures.** The browser calls Gerardus directly; its address is a setting
+on the Settings page (and on the Streets page), kept in this browser, default
+`http://127.0.0.1:50061`. Gerardus must allow the page's origin (it answers loopback and tailnet
+origins). The page says which failure it met: nothing answering (or an origin Gerardus refused,
+which a browser cannot tell apart), a site with no prepared bundle (404: run `gerardus
+prepare-site`), or a Gerardus without this API.
+
+What leaves the machine: the site token and the marks go to Gerardus at the address set; map tiles
+go to OpenStreetMap only after consent. No sensor data is sent. The client is
+`web/src/lib/streets/` (the typed API client, the geometry and the edit state, with tests).

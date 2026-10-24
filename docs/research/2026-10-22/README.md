@@ -1,6 +1,6 @@
 # October 22, 2026 — driving-behavior research assessments
 
-**Status:** research review and proposed experiments only. No shipped algorithms, calibrated thresholds, or safety effects claimed.
+- **Status:** research review and proposed experiments only. No shipped algorithms, calibrated thresholds, or safety effects claimed.
 
 These notes triage six items from the October 22 briefing and related discussion. Primary-source details from the briefing must be checked against full texts before use in public claims. They are not replacements for the canonical [behaviour analytics plan](../../plans/lidar-behaviour-analytics-plan.md), [decisions register](../../DECISIONS.md), or [backlog](../../BACKLOG.md).
 
