@@ -50,8 +50,12 @@ open tools/visualiser-macos/build/Build/Products/Release/VelocityVisualiser.app
    velocity-report --grpc-enabled --grpc-addr localhost:50051
    ```
 
-2. Launch VelocityVisualiser
-3. Click "Connect" (or press ⌘⇧C)
+2. Launch VelocityVisualiser. It connects to the server in Settings (⌘,) ▸ Servers,
+   `http://localhost:8080` with the stream on port 50051 unless you change it, and retries with
+   backoff until the server answers.
+3. The status indicator at the top left says whether it is connected; click it for Settings ▸
+   Servers, where **Test connection** checks a server before you use it. File ▸ Reconnect (⌘R)
+   retries at once. See [server-settings.md](../../docs/ui/visualiser/server-settings.md).
 4. The visualiser will start rendering live data
 
 ### Replaying recorded logs
@@ -114,7 +118,7 @@ The full workflow is in
 
 ### Aligning a capture with Gerardus
 
-When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers at the address in Settings (⌘,), `127.0.0.1:50061` unless you change it,
+When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers at the address in Settings (⌘,) ▸ Servers, `127.0.0.1:50061` unless you change it,
 the toolbar shows **Align**. While connected, the visualiser looks for one every 30 seconds until
 it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and OpenStreetMap ways over the
 capture, places the sensor from its eye-read position and the `north_azimuth_deg` you type, lets you nudge it,
@@ -134,24 +138,25 @@ and shows its problems beside the marks they name. This replaces the web Streets
 
 ## Keyboard shortcuts
 
-| Action             | Shortcut |
-| ------------------ | -------- |
-| Connect/Disconnect | ⌘⇧C      |
-| Pause/Play         | Space    |
-| Step Forward       | .        |
-| Step Backward      | ,        |
-| Increase Rate      | ]        |
-| Decrease Rate      | [        |
-| Toggle Points      | P        |
-| Toggle Boxes       | B        |
-| Toggle Clusters    | C        |
-| Toggle Trails      | T        |
-| Toggle Velocity    | V        |
-| Toggle Debug       | D        |
-| Reset Camera       | R        |
-| Label Track        | L        |
-| Export Labels      | ⌘E       |
-| Annotation window  | ⇧⌘A      |
+| Action            | Shortcut |
+| ----------------- | -------- |
+| Reconnect         | ⌘R       |
+| Settings          | ⌘,       |
+| Pause/Play        | Space    |
+| Step Forward      | .        |
+| Step Backward     | ,        |
+| Increase Rate     | ]        |
+| Decrease Rate     | [        |
+| Toggle Points     | P        |
+| Toggle Boxes      | B        |
+| Toggle Clusters   | C        |
+| Toggle Trails     | T        |
+| Toggle Velocity   | V        |
+| Toggle Debug      | D        |
+| Reset Camera      | R        |
+| Label Track       | L        |
+| Export Labels     | ⌘E       |
+| Annotation window | ⇧⌘A      |
 
 With the Annotation window in front, some keys mean that window instead:
 
@@ -220,13 +225,13 @@ See [implementation plan](../../docs/ui/visualiser/implementation.md) and [archi
 
 The app stores preferences in `~/Library/Preferences/com.velocity.visualiser.plist`:
 
-- `serverAddress`: Default server address (localhost:50051)
+- `velocityReport.serverURL`: velocity.report's HTTP API, set in Settings (⌘,) ▸ Servers; unset means http://localhost:8080. Moved at launch from `annotation.serviceURL`, which earlier builds read
+- `velocityReport.streamPort`: the gRPC frame stream's port on the same host; unset means 50051
 - `pointSize`: Point rendering size
 - `trailDuration`: How long trails persist (seconds)
 - `defaultOverlays`: Which overlays are enabled by default
-- `alignment.serviceAddress`: Gerardus server, set in Settings (⌘,) ▸ Gerardus; unset means 127.0.0.1:50061
-- `streets.author`: the street painter's author name, set in Settings ▸ Gerardus or the painter's Author field
-- `annotation.serviceURL`: velocity.report HTTP API (http://localhost:8080)
+- `alignment.serviceAddress`: Gerardus server, set in Settings (⌘,) ▸ Servers; unset means 127.0.0.1:50061
+- `streets.author`: the street painter's author name, set in Settings ▸ Servers or the painter's Author field
 
 ## Development
 

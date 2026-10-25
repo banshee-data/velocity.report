@@ -32,7 +32,7 @@
 | Menu         | Items                                                                         |
 | ------------ | ----------------------------------------------------------------------------- |
 | **App Info** | About VelocityReport.app                                                      |
-| **File**     | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)                              |
+| **File**     | Reconnect (⌘R), Open Recording... (⌘O)                                        |
 | **Playback** | Play/Pause (Space), Step Fwd (.), Step Back (,), Rate +/- (]/[), Time Display |
 | **Overlays** | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g)                     |
 | **Labels**   | Label Selected Track (l), Classify submenu (1–9)                              |
@@ -112,13 +112,13 @@ or proposed). Categories:
 
 ### Capture menu
 
-| Wireshark Item     | VV Equivalent            | Status | Notes                             |
-| ------------------ | ------------------------ | ------ | --------------------------------- |
-| Start/Stop         | Connect/Disconnect (⇧⌘C) | ✅     | Analogous: start/stop data stream |
-| Restart            | -                        | 🔵     | Reconnect to server               |
-| Options            | -                        | 🟡     | Connection settings (host, port)  |
-| Capture Filters    | -                        | ⬜     | BPF filters N/A                   |
-| Refresh Interfaces | -                        | ⬜     | Network interfaces N/A            |
+| Wireshark Item     | VV Equivalent           | Status | Notes                            |
+| ------------------ | ----------------------- | ------ | -------------------------------- |
+| Start/Stop         | -                       | ⬜     | Removed: the app connects itself |
+| Restart            | Reconnect (⌘R)          | ✅     | Reconnect to server              |
+| Options            | Settings ▸ Servers (⌘,) | ✅     | Connection settings (host, port) |
+| Capture Filters    | -                       | ⬜     | BPF filters N/A                  |
+| Refresh Interfaces | -                       | ⬜     | Network interfaces N/A           |
 
 ### Analyse menu
 
@@ -178,21 +178,21 @@ or proposed). Categories:
 
 ### Proposed new shortcuts (multi-key combos, Wireshark-aligned)
 
-| Shortcut | Proposed Action               | Wireshark Equivalent                 |
-| -------- | ----------------------------- | ------------------------------------ |
-| ⌘O       | Open Recording (exists)       | Open (⌘O)                            |
-| ⇧⌘C      | Connect/Disconnect (exists)   | : (Capture Start is ⌘E in Wireshark) |
-| ⌘G       | Go to Frame                   | Go to Packet (⌘G)                    |
-| ⌘F       | Find Track                    | Find Packet (⌘F)                     |
-| ⌘,       | Preferences                   | Preferences (⌘,)                     |
-| ⌘+       | Zoom In                       | Zoom In (⌘+)                         |
-| ⌘-       | Zoom Out                      | Zoom Out (⌘-)                        |
-| ⌘0       | Reset Zoom                    | Normal Size (⌘0)                     |
-| ⌘W       | Close Recording               | Close (⌘W)                           |
-| ⌘Home    | Jump to First Frame           | First Packet (⌘Home)                 |
-| ⌘End     | Jump to Last Frame            | Last Packet (⌘End)                   |
-| ⌥→       | Next in Selection History     | Next Packet In History (⌥→)          |
-| ⌥←       | Previous in Selection History | Previous Packet In History (⌥←)      |
+| Shortcut | Proposed Action               | Wireshark Equivalent            |
+| -------- | ----------------------------- | ------------------------------- |
+| ⌘O       | Open Recording (exists)       | Open (⌘O)                       |
+| ⌘R       | Reconnect (exists)            | Capture ▸ Restart               |
+| ⌘G       | Go to Frame                   | Go to Packet (⌘G)               |
+| ⌘F       | Find Track                    | Find Packet (⌘F)                |
+| ⌘,       | Preferences                   | Preferences (⌘,)                |
+| ⌘+       | Zoom In                       | Zoom In (⌘+)                    |
+| ⌘-       | Zoom Out                      | Zoom Out (⌘-)                   |
+| ⌘0       | Reset Zoom                    | Normal Size (⌘0)                |
+| ⌘W       | Close Recording               | Close (⌘W)                      |
+| ⌘Home    | Jump to First Frame           | First Packet (⌘Home)            |
+| ⌘End     | Jump to Last Frame            | Last Packet (⌘End)              |
+| ⌥→       | Next in Selection History     | Next Packet In History (⌥→)     |
+| ⌥←       | Previous in Selection History | Previous Packet In History (⌥←) |
 
 ---
 
@@ -238,7 +238,7 @@ VelocityReport.app
 ├── Preferences...          (⌘,)     [Phase 2]
 │
 ├── File
-│   ├── Connect/Disconnect  (⇧⌘C)
+│   ├── Reconnect           (⌘R)
 │   ├── Open Recording...   (⌘O)
 │   ├── Open Recent         →        [Phase 1]
 │   ├── ─────────

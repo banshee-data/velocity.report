@@ -28,17 +28,17 @@ Gerardus does not build tie points yet, so the pane does not call `SolveTiePoint
 
 ### Which Gerardus server
 
-Settings (⌘,) has a **Gerardus** tab. It holds the server's address: a host name or IP address, with an optional port (50061 if left out). For example: `machine.tailnet.ts.net`, `100.64.0.1:50061`, or `[fd7a:115c:a1e0::1]:50061`.
+Settings (⌘,) ▸ **Servers** has a **Gerardus** section, below velocity.report's ([server-settings.md](server-settings.md)). It holds the server's address: a host name or IP address, with an optional port (50061 if left out). For example: `machine.tailnet.ts.net`, `100.64.0.1:50061`, or `[fd7a:115c:a1e0::1]:50061`.
 
 - **Saved:** the address is kept in the app's preferences as `alignment.serviceAddress`. An unset preference, and **Use this Mac**, mean `127.0.0.1:50061`.
 - **Changing it:** **Connect** reconnects at once, closes the pane until the new server answers, and drops whatever was placed against the old one.
-- **Status:** the line under the field names the address in use, and says whether Gerardus answered there and, if not, why.
+- **Status:** the line under the field names the address in use, and says whether Gerardus answered there and, if not, why. The main window's status indicator shows the same beside velocity.report's when the toolbar has room.
 - **Bad addresses:** text that is not a host and port is refused before anything is sent. An address with no Gerardus behind it leaves the alignment controls hidden, and nothing else in the app changes.
-- **Test connection:** asks the server for `GetServerInfo` again. Once it answers, **This server** shows its version and git sha, which Gerardus sends together as `server_version` (`0.1.0+3f2a9c1e0b7d`: the sha is the semver build metadata), and its API version.
+- **Test connection:** asks for `GetServerInfo` on a channel of its own, at the typed address when it parses, with a 3 s timeout, and reports reachable with the round trip in milliseconds, wrong service (`UNIMPLEMENTED`: no Gerardus `SiteService` there), unreachable or no answer. When it answers, **This Gerardus** shows its version and git sha, which Gerardus sends together as `server_version` (`0.1.0+3f2a9c1e0b7d`: the sha is the semver build metadata), and its API version.
 - **Serves registered scans:** shown when `GetServerInfo` lists any layer: yes when it lists `REGISTERED_SCANS`, which Gerardus does only under `serve --serve-scans`. It is the server's setting, read only here; a server that lists no layers says nothing either way, and the line is left out.
 - **Author:** the street painter's author name, kept as `streets.author`. The painter's own **Author** field is the same setting.
 
-`annotation.serviceURL` sets the velocity.report HTTP address that the site lookup shares with the other clients. It has no Settings field.
+The velocity.report HTTP address that the site lookup shares with the other clients is set in the same tab, as `velocityReport.serverURL` (formerly `annotation.serviceURL`, moved at launch).
 
 Reaching Gerardus on another machine needs nothing more over Tailscale:
 

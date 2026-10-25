@@ -26,6 +26,7 @@ VelocityVisualiser, the macOS 3D point cloud viewer for LiDAR data.
 | [qc-dashboard-and-audit.md](qc-dashboard-and-audit.md)                     | QC dashboard and audit export       |
 | [qc-enhancements-overview.md](qc-enhancements-overview.md)                 | Shared QC table architecture        |
 | [run-list-labelling-rollup.md](run-list-labelling-rollup.md)               | Run list labelling rollup icons     |
+| [server-settings.md](server-settings.md)                                   | Settings ▸ Servers, status, retry   |
 | [split-merge-repair.md](split-merge-repair.md)                             | Track split/merge repair workbench  |
 | [track-event-timeline.md](track-event-timeline.md)                         | Track event timeline bar            |
 | [track-quality-scoring.md](track-quality-scoring.md)                       | Quality score weights and grades    |
