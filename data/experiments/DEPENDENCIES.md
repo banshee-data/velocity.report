@@ -111,6 +111,9 @@ flowchart TB
     perf0003["<b>perf0003</b><br/>Pacing does not change a replay, asked…<br/>proposed · 5h machine + 1h person<br/>manual: write<br/>needs tooling: scene_variants"]:::proposed
     perf0004["<b>perf0004</b><br/>The near-edge arm's frame times on the…<br/>approved · 1h30m machine + 1h person<br/>manual: write<br/>needs tooling: pi_timing"]:::approved
   end
+  subgraph area_pose ["pose: Sensor pose: registering the static sites against the public reference"]
+    pose0001["<b>pose0001</b><br/>Register the 24 archive sites: the…<br/>answered · 46m machine + 6h person (took 4h)<br/>manual: implement, write"]:::answered
+  end
   geom0001 --> geom0002
   geom0003 --> geom0004
   geom0005 --> geom0006
@@ -270,6 +273,7 @@ flowchart TB
 - [l8fol0002](l8fol/l8fol0002.md) Class evidence for the following gate: reviewed road users' tracks and the class they end with: [report](../../docs/lidar/operations/following-class-evidence-kirk-2026-10.md); estimated 12m, took 5m on m1pro; asked [headway-report-oracle #provisional-field-run](../../docs/lidar/operations/headway-report-oracle.md#provisional-field-run), [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days), [D-28](../../docs/DECISIONS.md).
 - [l8fol0003](l8fol/l8fol0003.md) The published box as the physical endpoint source: kirk0's reference gaps and the field run's paths: [report](../../docs/lidar/operations/following-box-endpoints-2026-10.md); estimated 55m, took 4h30m on m1pro; asked [physical-reference-pilot-kirk0-2026-10 #recommendations](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#recommendations), [headway-report-oracle #provisional-field-run](../../docs/lidar/operations/headway-report-oracle.md#provisional-field-run), [lidar-052-mvp-sprint-plan #s5-and-s7-one-explainable-measu…](../../docs/plans/lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population), [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
 - [perf0002](perf/perf0002.md) Which replay speed a published scene should use, and whether analysis mode loses anything: [report](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md); estimated 10h, took 5h30m on m1pro; asked [README #replay-speed](../../tools/s2-archive/README.md#replay-speed).
+- [pose0001](pose/pose0001.md) Register the 24 archive sites: the outcomes table, and which search settings move it: [report](../../docs/lidar/operations/gerardus-static-registration-2026-10.md); estimated 46m, took 4h on m1pro; asked [lidar-visualiser-gerardus-alignment-plan #item-4-write-the-accepted-pose-…](../../docs/plans/lidar-visualiser-gerardus-alignment-plan.md#item-4-write-the-accepted-pose-to-velocityreport), [l3-track-guard-kirk-2026-10](../../docs/lidar/operations/l3-track-guard-kirk-2026-10.md).
 
 ## Totals
 
