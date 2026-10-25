@@ -64,6 +64,18 @@ export function polygonsOf<P extends Position>(g: Geometry<P>): { outer: P[]; ho
 	return [];
 }
 
+/**
+ * Whether a line of two or more vertices stands upright: every vertex over the
+ * first, within `tolerance` (degrees on the 2D map, metres in the site
+ * frame). A pole, a sign's face and a tree's trunk are such lines; seen from
+ * above each is a point.
+ */
+export function isUpright(points: readonly Position[], tolerance = 1e-9): boolean {
+	if (points.length < 2) return false;
+	const [x, y] = points[0];
+	return points.every((p) => Math.abs(p[0] - x) <= tolerance && Math.abs(p[1] - y) <= tolerance);
+}
+
 // ---- Distances and bearings -----------------------------------------------------
 
 export function distance(a: EN, b: EN): number {

@@ -9,7 +9,7 @@
 import earcut from 'three/src/extras/lib/earcut.js';
 import type { GroundGrid, SiteFrameFeature, SitePosition } from './client';
 import { laneArrows, partsOf, polygonsOf } from './geometry';
-import { featureColour } from './style';
+import { crownRadius, featureColour, tagNumber, TREE_COLOURS } from './style';
 
 export type Vec3 = SitePosition;
 
@@ -209,6 +209,207 @@ export function extrudeBox(outer: Vec3[], height: number, holes: Vec3[][] = []):
 	return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
 }
 
+// ---- Solids for the W4–W7 layers ----------------------------------------------------------
+
+/**
+ * A building part's rise above its outline, metres. Gerardus places the
+ * outline at the part's base, `min_height` above the ground, and `height`
+ * (Simple 3D Buildings') is measured from the ground, so the part stands
+ * `height − min_height` above its outline; without a `height`, its
+ * `height_m`. Zero when neither says, or the part has no height above its base.
+ */
+export function partRise(tags: Record<string, string>): number {
+	const height = tagNumber(tags, 'height');
+	if (Number.isFinite(height)) {
+		const min = tagNumber(tags, 'min_height');
+		return Math.max(0, height - (Number.isFinite(min) ? min : 0));
+	}
+	const h = tagNumber(tags, 'height_m');
+	return Number.isFinite(h) && h > 0 ? h : 0;
+}
+
+function add(a: Vec3, b: Vec3): Vec3 {
+	return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+}
+
+function scale(a: Vec3, k: number): Vec3 {
+	return [a[0] * k, a[1] * k, a[2] * k];
+}
+
+function unit(a: Vec3): Vec3 {
+	const n = Math.hypot(...a);
+	return n > 0 ? scale(a, 1 / n) : [0, 0, 0];
+}
+
+/**
+ * A cylinder of `radius` from `base` to `top`, with a cap on top and none
+ * underneath (it stands on something): `segments` side quads wound to face out.
+ */
+export function cylinderMesh(base: Vec3, top: Vec3, radius: number, segments = 12): MeshData {
+	const axis = sub(top, base);
+	if (!(radius > 0) || Math.hypot(...axis) < 1e-9 || segments < 3) return EMPTY_MESH;
+	const a = unit(axis);
+	// u × v = a, so the angle runs anticlockwise about the axis.
+	const u = unit(cross(a, Math.abs(a[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
+	const v = cross(a, u);
+	const positions: number[] = [];
+	for (const centre of [base, top]) {
+		for (let i = 0; i < segments; i++) {
+			const t = (2 * Math.PI * i) / segments;
+			const p = add(centre, add(scale(u, radius * Math.cos(t)), scale(v, radius * Math.sin(t))));
+			positions.push(...p);
+		}
+	}
+	positions.push(...top);
+	const indices: number[] = [];
+	const cap = 2 * segments;
+	for (let i = 0; i < segments; i++) {
+		const j = (i + 1) % segments;
+		indices.push(i, j, segments + j, i, segments + j, segments + i);
+		indices.push(cap, segments + i, segments + j);
+	}
+	return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
+}
+
+/** An axis-aligned box about `centre`, `size` metres along x, y and z, each face wound to face out. */
+export function boxMesh(centre: Vec3, size: Vec3): MeshData {
+	if (!size.every((s) => s > 0)) return EMPTY_MESH;
+	const h = scale(size, 0.5);
+	const positions: number[] = [];
+	const indices: number[] = [];
+	// Each face: its outward axis and sign; corners anticlockwise seen from outside.
+	for (let k = 0; k < 3; k++) {
+		for (const sign of [1, -1]) {
+			const [p, q] = [(k + 1) % 3, (k + 2) % 3];
+			const corners = [
+				[-1, -1],
+				[1, -1],
+				[1, 1],
+				[-1, 1]
+			].map(([a, b]) => {
+				const c: Vec3 = [0, 0, 0];
+				c[k] = sign * h[k];
+				// Swapping the in-face axes on the far side keeps the winding outward.
+				c[p] = (sign > 0 ? a : b) * h[p];
+				c[q] = (sign > 0 ? b : a) * h[q];
+				return add(centre, c);
+			});
+			const v0 = positions.length / 3;
+			for (const c of corners) positions.push(...c);
+			indices.push(v0, v0 + 1, v0 + 2, v0, v0 + 2, v0 + 3);
+		}
+	}
+	return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
+}
+
+/** An ellipsoid about `centre` with semi-axes `radii`, in `rings` bands of `segments` quads, facing out. */
+export function ellipsoidMesh(centre: Vec3, radii: Vec3, segments = 16, rings = 8): MeshData {
+	if (!radii.every((r) => r > 0) || segments < 3 || rings < 2) return EMPTY_MESH;
+	const positions: number[] = [];
+	for (let r = 0; r <= rings; r++) {
+		const phi = -Math.PI / 2 + (Math.PI * r) / rings;
+		for (let i = 0; i < segments; i++) {
+			const theta = (2 * Math.PI * i) / segments;
+			positions.push(
+				centre[0] + radii[0] * Math.cos(phi) * Math.cos(theta),
+				centre[1] + radii[1] * Math.cos(phi) * Math.sin(theta),
+				centre[2] + radii[2] * Math.sin(phi)
+			);
+		}
+	}
+	const indices: number[] = [];
+	for (let r = 0; r < rings; r++) {
+		for (let i = 0; i < segments; i++) {
+			const j = (i + 1) % segments;
+			const [a, b, c, d] = [
+				r * segments + i,
+				r * segments + j,
+				(r + 1) * segments + j,
+				(r + 1) * segments + i
+			];
+			// The bands at the poles have one collapsed edge: one triangle each.
+			if (r > 0) indices.push(a, b, c);
+			if (r < rings - 1) indices.push(a, c, d);
+		}
+	}
+	return { positions: new Float32Array(positions), indices: new Uint32Array(indices) };
+}
+
+/** A pole's diameter, and a tree's trunk, when they carry none. */
+export const DEFAULT_POLE_DIAMETER_M = 0.2;
+export const DEFAULT_DBH_M = 0.3;
+/** A sign's face when nothing says how big it is. */
+export const SIGN_WIDTH_M = 0.6;
+export const SIGN_DEPTH_M = 0.05;
+
+/** A pole as a cylinder from base to top, `diameter_m` across (0.2 m when it does not say). */
+export function poleMesh(base: Vec3, top: Vec3, tags: Record<string, string>): MeshData {
+	const d = tagNumber(tags, 'diameter_m');
+	return cylinderMesh(base, top, (Number.isFinite(d) && d > 0 ? d : DEFAULT_POLE_DIAMETER_M) / 2);
+}
+
+/** A sign as a small box over its face, bottom to top: 0.6 m wide, 5 cm deep. */
+export function signMesh(bottom: Vec3, top: Vec3): MeshData {
+	const height = Math.abs(top[2] - bottom[2]);
+	const centre = scale(add(bottom, top), 0.5);
+	return boxMesh(centre, [SIGN_WIDTH_M, SIGN_DEPTH_M, height]);
+}
+
+/** Where a tree's parts are, metres in the site frame. */
+export interface TreeShape {
+	base: Vec3;
+	trunkRadius: number;
+	/** The crown's bottom and top heights, and its radius. */
+	crownBottom: number;
+	crownTop: number;
+	crownRadius: number;
+}
+
+/**
+ * A tree from its tags, heights measured from its trunk's base: the trunk to
+ * `crown_base_m` (else the top of the feature's segment), `dbh_m` across (else
+ * 0.3 m); the crown from there to `height_m` (else as tall as it is wide), of
+ * radius `crown_radius_m` (else 2 m).
+ */
+export function treeShape(base: Vec3, tags: Record<string, string>, trunkTop?: Vec3): TreeShape {
+	const r = crownRadius(tags);
+	const crownBase = tagNumber(tags, 'crown_base_m');
+	const bottom = Number.isFinite(crownBase) ? base[2] + crownBase : (trunkTop?.[2] ?? base[2]);
+	const height = tagNumber(tags, 'height_m');
+	const top = Number.isFinite(height) ? base[2] + height : bottom + 2 * r;
+	const dbh = tagNumber(tags, 'dbh_m');
+	return {
+		base,
+		trunkRadius: (Number.isFinite(dbh) && dbh > 0 ? dbh : DEFAULT_DBH_M) / 2,
+		crownBottom: bottom,
+		crownTop: Math.max(top, bottom),
+		crownRadius: r
+	};
+}
+
+/** A tree's trunk, a cylinder to the crown's base, and its crown, an ellipsoid filling its height. */
+export function treeMeshes(shape: TreeShape): { trunk: MeshData; crown: MeshData } {
+	const { base, crownBottom, crownTop, crownRadius: r } = shape;
+	const trunk = cylinderMesh(base, [base[0], base[1], crownBottom], shape.trunkRadius);
+	const half = (crownTop - crownBottom) / 2;
+	const crown = ellipsoidMesh([base[0], base[1], crownBottom + half], [r, r, half]);
+	return { trunk, crown };
+}
+
+/**
+ * A feature drawn standing up (a pole, a sign's face, a tree's trunk): its
+ * first vertex and its last, or its point with no top. Null without one.
+ */
+export function uprightOf(f: SiteFrameFeature): { base: Vec3; top: Vec3 | null } | null {
+	const part = partsOf(f.geometry).find((p) => p.points.length > 0);
+	if (!part) return null;
+	const pts = part.points;
+	if (pts.length === 1) return { base: pts[0], top: null };
+	const [a, b] = [pts[0], pts[pts.length - 1]];
+	// Base first, whichever way the segment was written.
+	return a[2] <= b[2] ? { base: a, top: b } : { base: b, top: a };
+}
+
 // ---- Lines and points ------------------------------------------------------------------
 
 /** Lines and rings as segment pairs (for a LineSegments), raised by `lift`. Rings close. */
@@ -311,7 +512,7 @@ export interface LayerScene {
 }
 
 /** Heights above the ground at which fills and lines are drawn, so they are not lost in it. */
-const LIFT = { surface: 0.02, space: 0.04, line: 0.06 } as const;
+const LIFT = { surface: 0.02, space: 0.04, marking: 0.05, line: 0.06 } as const;
 
 class LayerBuilder {
 	private meshes = new Map<string, { spec: Omit<MeshSpec, 'mesh'>; parts: MeshData[] }>();
@@ -410,6 +611,52 @@ function addFeature(b: LayerBuilder, f: SiteFrameFeature) {
 		if (!drawn) b.undrawn++;
 		return;
 	}
+	if (f.layer === 'building_parts' && polygons.length > 0) {
+		const rise = partRise(f.tags);
+		let drawn = false;
+		for (const { outer, holes } of polygons) {
+			drawn = b.mesh(colour, 0.55, false, extrudeBox(outer, rise, holes)) || drawn;
+		}
+		// The outline at the part's base, and again at its top.
+		b.line(colour, lineSegments(lines));
+		if (rise > 0) b.line(colour, lineSegments(lines, rise));
+		if (!drawn) b.undrawn++;
+		return;
+	}
+	if (f.layer === 'roof_planes' && polygons.length > 0) {
+		let drawn = false;
+		for (const { outer } of polygons) drawn = b.mesh(colour, 0.8, true, planeMesh(outer)) || drawn;
+		b.line(colour, lineSegments(lines));
+		if (!drawn) b.undrawn++;
+		return;
+	}
+	if (f.layer === 'lane_markings') {
+		// On the road, a little above the surfaces painted on it.
+		for (const { outer, holes } of polygons) {
+			b.mesh(colour, 0.85, true, surfaceMesh(outer, holes, LIFT.marking));
+		}
+		b.line(colour, lineSegments(lines, LIFT.marking));
+		return;
+	}
+	const upright = ['pole', 'sign', 'tree'].includes(f.kind) ? uprightOf(f) : null;
+	if (upright && (f.layer === 'street_furniture' || f.layer === 'trees')) {
+		const { base, top } = upright;
+		let drawn = false;
+		if (f.kind === 'tree') {
+			const { trunk, crown } = treeMeshes(treeShape(base, f.tags, top ?? undefined));
+			drawn = b.mesh(TREE_COLOURS.trunk, 1, false, trunk);
+			drawn = b.mesh(TREE_COLOURS.crown, 0.7, false, crown) || drawn;
+		} else if (top) {
+			drawn = b.mesh(
+				colour,
+				1,
+				false,
+				f.kind === 'pole' ? poleMesh(base, top, f.tags) : signMesh(base, top)
+			);
+		}
+		if (!drawn) b.undrawn++;
+		return;
+	}
 	b.line(colour, lineSegments(lines, LIFT.line));
 	if (f.layer === 'street_use' && f.kind === 'travel_lane') {
 		for (const l of lines) b.line(colour, laneArrowSegments(l.points, 8, 1.2, LIFT.line));
@@ -424,8 +671,11 @@ function addFeature(b: LayerBuilder, f: SiteFrameFeature) {
  * The 3D view's drawing of each layer the features belong to, in the order
  * the layers first appear: boxes raised by their `height_m`, wall planes and
  * surfaces as translucent fills, parked-car spaces as fills with outlines,
- * lanes with arrows, every other line at its own height, and points as dots
- * (with an upright of `height_m` where one is set).
+ * lanes with arrows, building parts raised from `min_height` to `height`,
+ * roof planes as fills at their z, lane markings on the road, poles as
+ * cylinders, signs as small boxes, trees as a trunk and a crown, every other
+ * line at its own height, and points as dots (with an upright of `height_m`
+ * where one is set).
  */
 export function buildLayerScenes(features: SiteFrameFeature[]): LayerScene[] {
 	const builders = new Map<string, LayerBuilder>();

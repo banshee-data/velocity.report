@@ -16,7 +16,9 @@
  *   `&frame=site`, positions are site-frame metres `[x east, y north, z up]`.
  *   The collection says which in its `frame` member (`"wgs84"` or `"site"`);
  *   an unknown layer or frame is a 400. Each feature's properties carry `layer`, `id`, `kind`, its tags, `author`
- *   and `edited_at`. A layer the site's bundle lacks is absent.
+ *   and `edited_at`; a derived row's also carry `model_id` and `state`. A layer the site's bundle
+ *   lacks is absent. The W4–W7 layers (MODEL_LAYERS) are not among the defaults: the viewer asks
+ *   for them only when the site lists them.
  * - `GET /api/v1/sites/{l16}/ground` returns the ground grid,
  *   `{"l16", "x0", "y0", "cell_m", "nx", "ny", "heights": […]}` in the site
  *   frame, (x0, y0) the south-west cell's centre, row-major with y outer and
@@ -50,18 +52,52 @@ export const SITE_LAYERS = [
 ] as const;
 
 /**
+ * Gerardus's W4–W7 layers, built in parallel and served only once built: the
+ * site's building parts and their roof planes (W4), painted lane markings
+ * (W5), poles and signs (W6) and trees (W7). Gerardus leaves them out of its
+ * default layers, and refuses a name it does not know, so the viewer asks for
+ * them only when `GET /api/v1/sites` lists them for the site.
+ */
+export const MODEL_LAYERS = [
+	'building_parts',
+	'roof_planes',
+	'lane_markings',
+	'street_furniture',
+	'trees'
+] as const;
+
+/**
  * Layers taken from OpenStreetMap. The viewer asks for them only after this
  * visit's consent, as it does for OpenStreetMap tiles.
  */
 export const OSM_LAYERS = ['osm', 'intersections'] as const;
 
-export type SiteLayer = (typeof SITE_LAYERS)[number] | (typeof OSM_LAYERS)[number];
+export type SiteLayer =
+	(typeof SITE_LAYERS)[number] | (typeof MODEL_LAYERS)[number] | (typeof OSM_LAYERS)[number];
 
-/** Every layer the viewer knows how to draw. */
-export const KNOWN_LAYERS: readonly SiteLayer[] = [...SITE_LAYERS, ...OSM_LAYERS];
+/** Every layer the viewer knows how to draw, in the order it lists them. */
+export const KNOWN_LAYERS: readonly SiteLayer[] = [...SITE_LAYERS, ...MODEL_LAYERS, ...OSM_LAYERS];
 
 export function isOsmLayer(layer: string): boolean {
 	return (OSM_LAYERS as readonly string[]).includes(layer);
+}
+
+export function isModelLayer(layer: string): boolean {
+	return (MODEL_LAYERS as readonly string[]).includes(layer);
+}
+
+/**
+ * The layers to ask for a site, given the ones Gerardus lists for it: those
+ * the viewer knows in its own order, then any others it lists. With no list
+ * (a site velocity.report located, or a Gerardus that lists none), every
+ * layer the viewer knows except the W4–W7 ones, which a Gerardus without them
+ * would refuse.
+ */
+export function servedLayers(listed: readonly string[]): string[] {
+	if (listed.length === 0) return KNOWN_LAYERS.filter((l) => !isModelLayer(l));
+	const known = KNOWN_LAYERS.filter((l) => listed.includes(l));
+	const other = listed.filter((l) => !(KNOWN_LAYERS as readonly string[]).includes(l));
+	return [...known, ...other];
 }
 
 /** The kinds of street use; operators mark them in the macOS app. */
@@ -76,6 +112,16 @@ export const OBSERVED_KINDS = ['facade', 'kerb', 'sensor', 'correction', 'pole']
 
 /** A wall plane's `role`. */
 export const WALL_ROLES = ['wall', 'popout', 'recess'] as const;
+
+/** The kinds of the W4–W7 layers, as their features name them. */
+export const MODEL_KINDS = [
+	'building_part',
+	'roof_plane',
+	'lane_marking',
+	'pole',
+	'sign',
+	'tree'
+] as const;
 
 /** A GeoJSON position: longitude, latitude and, optionally, height. */
 export type Position = [number, number] | [number, number, number];
@@ -99,6 +145,9 @@ export interface SiteFeature<P extends Position = Position> {
 	tags: Record<string, string>;
 	author?: string;
 	editedAt?: string;
+	/** The model a derived row (a building part, a fitted tree) belongs to, and its state. */
+	modelId?: string;
+	state?: string;
 	geometry: Geometry<P>;
 }
 
@@ -248,7 +297,7 @@ export function isL16Token(token: string): boolean {
 	return /^[0-9a-f]{1,16}$/.test(token);
 }
 
-const RESERVED = new Set(['layer', 'id', 'kind', 'author', 'edited_at']);
+const RESERVED = new Set(['layer', 'id', 'kind', 'author', 'edited_at', 'model_id', 'state']);
 
 const isFiniteNumber = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n);
 
@@ -314,6 +363,8 @@ function featureOf(v: unknown, defaultLayer: string, needZ: boolean): SiteFeatur
 	};
 	if (typeof props.author === 'string' && props.author) feature.author = props.author;
 	if (typeof props.edited_at === 'string' && props.edited_at) feature.editedAt = props.edited_at;
+	if (typeof props.model_id === 'string' && props.model_id) feature.modelId = props.model_id;
+	if (typeof props.state === 'string' && props.state) feature.state = props.state;
 	return feature;
 }
 

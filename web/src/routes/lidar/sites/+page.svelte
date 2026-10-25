@@ -7,10 +7,13 @@
 	 * The 2D map draws the site's GeoJSON layers in WGS 84 over a plain dark
 	 * ground: street use by kind and surfaces by what they are, the City's
 	 * streets and intersections, kerbs, boxes, footprints, wall planes and what
-	 * the scans observed. A click shows a feature's properties. The 3D view asks
-	 * for the same layers in the site frame and draws them at their heights,
-	 * with the ground grid and, where Gerardus serves them to this browser, the
-	 * scan points.
+	 * the scans observed, and, where the site lists them, Gerardus's W4–W7
+	 * layers: building parts by roof:shape, roof planes by slope, lane markings,
+	 * poles and signs, and trees by their crowns. A click shows a feature's
+	 * properties. The 3D view asks for the same layers in the site frame and
+	 * draws them at their heights (parts raised from min_height to height, poles
+	 * as cylinders, trees as a trunk and a crown), with the ground grid and,
+	 * where Gerardus serves them to this browser, the scan points.
 	 *
 	 * The browser talks to Gerardus directly (lib/gerardus), at the address in
 	 * Settings. Sites come from Gerardus's own list, or, from a Gerardus older
@@ -31,12 +34,12 @@
 		groupByLayer,
 		isL16Token,
 		isOsmLayer,
-		KNOWN_LAYERS,
 		listSites,
 		OBSERVED_KINDS,
 		OSM_LAYERS,
 		rememberGerardusAddress,
 		SCAN_VOXELS_M,
+		servedLayers,
 		SURFACE_TYPES,
 		WALL_ROLES,
 		type GroundGrid,
@@ -47,21 +50,29 @@
 	import {
 		boundsOf,
 		enOf,
+		isUpright,
 		laneArrows,
 		partsOf,
 		polygonsOf,
 		positionOf
 	} from '#lib/gerardus/geometry.js';
 	import {
+		crownRadius,
+		FURNITURE_COLOURS,
 		LANE_COLOURS,
 		LAYER_COLOURS,
 		layerLabel,
 		mapStyle,
+		MARKING_COLOURS,
 		OBSERVED_COLOURS,
 		propertyRows,
+		roofSlopeColour,
+		ROOF_SHAPE_COLOURS,
+		ROOF_SHAPE_UNKNOWN,
 		SPACE_COLOURS,
 		STREET_USE_COLOURS,
 		SURFACE_COLOURS,
+		TREE_COLOURS,
 		WALL_ROLE_COLOURS
 	} from '#lib/gerardus/style.js';
 	import { mdiClose } from '@mdi/js';
@@ -155,8 +166,8 @@
 	let scene3d: SiteScene3D | null = null;
 
 	$: knownSite = siteOf(siteToken, sites);
-	$: gerardusLayers = servedLayers(knownSite).filter((l) => !isOsmLayer(l));
-	$: osmLayers = servedLayers(knownSite).filter((l) => isOsmLayer(l));
+	$: gerardusLayers = siteLayers(knownSite).filter((l) => !isOsmLayer(l));
+	$: osmLayers = siteLayers(knownSite).filter((l) => isOsmLayer(l));
 	$: counts2d = countsOf([...features, ...osmFeatures]);
 	$: counts3d = countsOf(frameFeatures);
 	$: counts = tab === '3d' ? counts3d : counts2d;
@@ -187,12 +198,12 @@
 		return list.find((s) => s.token === token) ?? null;
 	}
 
-	/** The layers a site serves: Gerardus's word for it, else every layer the viewer knows. */
-	function servedLayers(site: ViewerSite | null): string[] {
-		if (!site || site.source !== 'gerardus' || site.layers.length === 0) return [...KNOWN_LAYERS];
-		const known = KNOWN_LAYERS.filter((l) => site.layers.includes(l));
-		const other = site.layers.filter((l) => !(KNOWN_LAYERS as readonly string[]).includes(l));
-		return [...known, ...other];
+	/**
+	 * The layers a site serves: Gerardus's word for it, else every layer the
+	 * viewer knows but the W4–W7 ones, which are asked for only when listed.
+	 */
+	function siteLayers(site: ViewerSite | null): string[] {
+		return servedLayers(site?.source === 'gerardus' ? site.layers : []);
 	}
 
 	/** Whether an OpenStreetMap layer is wanted: only ever after this visit's consent. */
@@ -304,7 +315,7 @@
 		error3d = null;
 		groundError = null;
 		const site = siteOf(token, sites);
-		const served = servedLayers(site);
+		const served = siteLayers(site);
 		try {
 			const { features: fs, skipped: bad } = await getGeojsonOrOlder(
 				token,
@@ -407,7 +418,7 @@
 		loading3d = true;
 		error3d = null;
 		groundError = null;
-		const layers = servedLayers(siteOf(token, sites)).filter((l) => !isOsmLayer(l) || osmWanted(l));
+		const layers = siteLayers(siteOf(token, sites)).filter((l) => !isOsmLayer(l) || osmWanted(l));
 		const [geo, grid] = await Promise.allSettled([
 			getSiteFrameGeojson(address, token, layers, {
 				signal: abort.signal,
@@ -579,7 +590,20 @@
 			} else {
 				for (const part of partsOf(f.geometry)) {
 					const pts = ring(part.points);
-					if (part.points.length === 1) {
+					// A tree is its crown, seen from above, as wide as it is.
+					if (f.kind === 'tree') {
+						shapes.push(
+							Lf.circle(pts[0], {
+								...base,
+								radius: crownRadius(f.tags),
+								fillColor: style.colour,
+								fillOpacity: style.fillOpacity
+							})
+						);
+						continue;
+					}
+					// A pole or a sign stands up: seen from above, a point.
+					if (part.points.length === 1 || isUpright(part.points)) {
 						shapes.push(
 							Lf.circleMarker(pts[0], {
 								...base,
@@ -623,7 +647,8 @@
 			};
 			for (const part of partsOf(sel.geometry)) {
 				const pts = ring(part.points);
-				if (part.points.length === 1) Lf.circleMarker(pts[0], { ...halo, radius: 9 }).addTo(layer);
+				if (part.points.length === 1 || isUpright(part.points))
+					Lf.circleMarker(pts[0], { ...halo, radius: 9 }).addTo(layer);
 				else if (part.closed) Lf.polygon(pts, halo).addTo(layer);
 				else Lf.polyline(pts, halo).addTo(layer);
 			}
@@ -984,6 +1009,29 @@
 							style="color:{OBSERVED_COLOURS[s]}">{s}</span
 						>{/each}
 				</div>
+				{#if gerardusLayers.some((l) => l === 'building_parts' || l === 'roof_planes')}
+					<div>
+						building parts by roof:shape:
+						{#each Object.keys(ROOF_SHAPE_COLOURS).slice(0, 6) as s, i (s)}{i > 0 ? ' · ' : ''}<span
+								style="color:{ROOF_SHAPE_COLOURS[s]}">{s}</span
+							>{/each} · <span style="color:{ROOF_SHAPE_UNKNOWN}">other or unknown</span>
+					</div>
+					<div>
+						roof planes by slope:
+						{#each [0, 15, 30, 45] as d, i (d)}{i > 0 ? ' · ' : ''}<span
+								style="color:{roofSlopeColour(d)}">{d}°{d === 45 ? '+' : ''}</span
+							>{/each}
+					</div>
+				{/if}
+				{#if gerardusLayers.some((l) => l === 'lane_markings' || l === 'street_furniture' || l === 'trees')}
+					<div>
+						<span style="color:{MARKING_COLOURS.white}">━</span> white and
+						<span style="color:{MARKING_COLOURS.yellow}">━</span> yellow markings ·
+						<span style="color:{FURNITURE_COLOURS.pole}">●</span> pole ·
+						<span style="color:{FURNITURE_COLOURS.sign}">●</span> sign ·
+						<span style="color:{TREE_COLOURS.crown}">◯</span> tree crown
+					</div>
+				{/if}
 				<div>
 					<span style="color:{LAYER_COLOURS.boxes}">▭</span> box ·
 					<span style="color:{LAYER_COLOURS.footprints}">▭</span> footprint ·

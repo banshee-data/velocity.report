@@ -3,6 +3,8 @@ import {
 	GERARDUS_DEFAULT_ADDRESS,
 	GerardusError,
 	KNOWN_LAYERS,
+	MODEL_KINDS,
+	MODEL_LAYERS,
 	OSM_LAYERS,
 	SITE_LAYERS,
 	gerardusAddress,
@@ -12,6 +14,7 @@ import {
 	getSiteScans,
 	groupByLayer,
 	isL16Token,
+	isModelLayer,
 	isOsmLayer,
 	listSites,
 	frameOf,
@@ -26,6 +29,7 @@ import {
 	parseSiteFrameFeature,
 	parseSites,
 	rememberGerardusAddress,
+	servedLayers,
 	voxelUsed
 } from './client';
 
@@ -404,7 +408,7 @@ describe('GET the site layers', () => {
 describe('layers', () => {
 	it('keeps the OpenStreetMap layers apart', () => {
 		expect(OSM_LAYERS).toEqual(['osm', 'intersections']);
-		expect(KNOWN_LAYERS).toEqual([...SITE_LAYERS, ...OSM_LAYERS]);
+		expect(KNOWN_LAYERS).toEqual([...SITE_LAYERS, ...MODEL_LAYERS, ...OSM_LAYERS]);
 		expect(SITE_LAYERS.some(isOsmLayer)).toBe(false);
 		expect(isOsmLayer('intersections')).toBe(true);
 		expect(isOsmLayer('city_intersections')).toBe(false);
@@ -797,5 +801,210 @@ describe('GET the scans', () => {
 		await expect(getSiteScans(BASE, SITE, 0.2, { fetch })).rejects.toMatchObject({
 			kind: 'malformed'
 		});
+	});
+});
+
+/** The W4–W7 layers in the site frame, as Gerardus serves them with frame=site. */
+const MODEL_FRAME = {
+	type: 'FeatureCollection',
+	frame: 'site',
+	features: [
+		{
+			type: 'Feature',
+			geometry: {
+				type: 'Polygon',
+				coordinates: [
+					[
+						[0, 0, 3],
+						[4, 0, 3],
+						[4, 2, 3],
+						[0, 2, 3],
+						[0, 0, 3]
+					]
+				]
+			},
+			properties: {
+				layer: 'building_parts',
+				id: 'gms:part/bay',
+				kind: 'building_part',
+				model_id: 'sha256:buildings',
+				state: 'proposed',
+				'roof:shape': 'flat',
+				height: 8,
+				min_height: 3,
+				'gms:roof_shape_confidence': 0.9
+			}
+		},
+		{
+			type: 'Feature',
+			geometry: {
+				type: 'Polygon',
+				coordinates: [
+					[
+						[0, 0, 10],
+						[10, 0, 10],
+						[10, 5, 12],
+						[0, 5, 12],
+						[0, 0, 10]
+					]
+				]
+			},
+			properties: {
+				layer: 'roof_planes',
+				id: 'gms:roof/1',
+				kind: 'roof_plane',
+				part: 'gms:part/main',
+				slope_deg: 21.8,
+				azimuth_deg: 180,
+				role: 'roof'
+			}
+		},
+		{
+			type: 'Feature',
+			geometry: {
+				type: 'LineString',
+				coordinates: [
+					[-20, 0, 0.1],
+					[20, 0, 0.2]
+				]
+			},
+			properties: {
+				layer: 'lane_markings',
+				id: 'gms:mark/1',
+				kind: 'lane_marking',
+				marking: 'centre_line',
+				pattern: 'double',
+				colour: 'yellow'
+			}
+		},
+		{
+			type: 'Feature',
+			geometry: {
+				type: 'LineString',
+				coordinates: [
+					[3, 3, 0],
+					[3, 3, 6]
+				]
+			},
+			properties: {
+				layer: 'street_furniture',
+				id: 'gms:pole/1',
+				kind: 'pole',
+				pole_type: 'streetlight',
+				diameter_m: 0.3
+			}
+		},
+		{
+			type: 'Feature',
+			geometry: {
+				type: 'LineString',
+				coordinates: [
+					[5, -3, 0],
+					[5, -3, 2.5]
+				]
+			},
+			properties: {
+				layer: 'trees',
+				id: 'datasf:tree/42',
+				kind: 'tree',
+				dbh_m: 0.4,
+				height_m: 9,
+				crown_base_m: 2.5,
+				crown_radius_m: 3,
+				species: 'Platanus x hispanica',
+				datasf_id: 42
+			}
+		}
+	]
+};
+
+describe('the W4–W7 layers', () => {
+	it('names the layers and kinds as Gerardus does, and keeps them out of the defaults', () => {
+		expect(MODEL_LAYERS).toEqual([
+			'building_parts',
+			'roof_planes',
+			'lane_markings',
+			'street_furniture',
+			'trees'
+		]);
+		expect(MODEL_KINDS).toEqual([
+			'building_part',
+			'roof_plane',
+			'lane_marking',
+			'pole',
+			'sign',
+			'tree'
+		]);
+		expect(MODEL_LAYERS.every(isModelLayer)).toBe(true);
+		expect(SITE_LAYERS.some(isModelLayer)).toBe(false);
+		expect(MODEL_LAYERS.some(isOsmLayer)).toBe(false);
+	});
+
+	it('asks for them only when the site lists them', () => {
+		// No list: every layer but these.
+		expect(servedLayers([])).toEqual([...SITE_LAYERS, ...OSM_LAYERS]);
+		// Listed, in the viewer's order, with a layer it does not know kept at the end.
+		expect(servedLayers(['trees', 'kerbs', 'roof_planes', 'building_parts', 'bike_racks'])).toEqual(
+			['kerbs', 'building_parts', 'roof_planes', 'trees', 'bike_racks']
+		);
+		expect(servedLayers(['kerbs'])).toEqual(['kerbs']);
+	});
+
+	it('does not ask for them by default', async () => {
+		const fetch = jest
+			.fn()
+			.mockResolvedValue(jsonResponse({ type: 'FeatureCollection', features: [] }));
+		await getSiteGeojson(BASE, SITE, undefined, { fetch });
+		const url = new URL(fetch.mock.calls[0][0]);
+		expect(url.searchParams.get('layers')?.split(',').some(isModelLayer)).toBe(false);
+	});
+
+	it('parses them in the site frame, lifting model_id and state out of the tags', async () => {
+		const fetch = jest.fn().mockResolvedValue(jsonResponse(MODEL_FRAME));
+		const { features, skipped } = await getSiteFrameGeojson(BASE, SITE, MODEL_LAYERS, { fetch });
+		expect(fetch.mock.calls[0][0]).toBe(
+			`${BASE}/api/v1/sites/${SITE}/geojson?layers=building_parts,roof_planes,lane_markings,street_furniture,trees&frame=site`
+		);
+		expect(skipped).toBe(0);
+		expect(features.map((f) => [f.layer, f.kind])).toEqual([
+			['building_parts', 'building_part'],
+			['roof_planes', 'roof_plane'],
+			['lane_markings', 'lane_marking'],
+			['street_furniture', 'pole'],
+			['trees', 'tree']
+		]);
+		const [part, roof, marking, pole, tree] = features;
+		expect(part.modelId).toBe('sha256:buildings');
+		expect(part.state).toBe('proposed');
+		// OSM's keys verbatim, numbers as strings, and the reserved ones gone.
+		expect(part.tags).toEqual({
+			'roof:shape': 'flat',
+			height: '8',
+			min_height: '3',
+			'gms:roof_shape_confidence': '0.9'
+		});
+		expect(roof.tags).toMatchObject({ part: 'gms:part/main', slope_deg: '21.8', role: 'roof' });
+		expect(roof.modelId).toBeUndefined();
+		expect(marking.tags).toEqual({ marking: 'centre_line', pattern: 'double', colour: 'yellow' });
+		expect(pole.tags.diameter_m).toBe('0.3');
+		expect(pole.geometry).toEqual({
+			type: 'LineString',
+			coordinates: [
+				[3, 3, 0],
+				[3, 3, 6]
+			]
+		});
+		expect(tree.tags).toMatchObject({ crown_radius_m: '3', datasf_id: '42' });
+	});
+
+	it('reads a site list that offers them', () => {
+		const site = parseSite({
+			l16: '808580f3f',
+			lon: -122.4,
+			lat: 37.8,
+			layers: ['kerbs', 'building_parts', 'trees']
+		});
+		expect(site?.layers).toEqual(['kerbs', 'building_parts', 'trees']);
+		expect(servedLayers(site?.layers ?? [])).toEqual(['kerbs', 'building_parts', 'trees']);
 	});
 });

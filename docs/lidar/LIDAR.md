@@ -229,6 +229,24 @@ turns with the camera, and each layer, the ground and the scans can be hidden. L
 site disposes the old site's geometry. A collection in longitude and latitude (`"frame": "wgs84"`,
 or, from a Gerardus too old to say, positions by the origin) is reported, not drawn.
 
+**Buildings, markings, furniture and trees.** Gerardus's W4–W7 layers, `building_parts`,
+`roof_planes`, `lane_markings`, `street_furniture` and `trees`, are not among its default layers,
+and it refuses a layer name it does not know, so the page asks for each only when
+`GET /api/v1/sites` lists it for the site. Their features carry the tags plus `layer`, `id`, `kind`,
+`model_id` and `state`; kinds are `building_part`, `roof_plane`, `lane_marking`, `pole`, `sign` and
+`tree`. On the 2D map, building parts are outlined and faintly filled by `roof:shape` (each Simple
+3D Buildings shape its own colour, grey for none or `unknown`), roof planes filled by `slope_deg`
+(blue flat, yellow at 22.5°, red at 45° and steeper), lane markings white or yellow by `colour`,
+dashed when `pattern` is `dashed` and heavier when it is `double`, poles and signs as dots (a
+vertical segment seen from above), and trees as their crown, a circle of `crown_radius_m` (2 m
+when absent). A click shows the feature's properties, `roof:shape`, `model_id` and `state`
+among them. In 3D, a building part, whose outline lies at its base (the ground plus
+`min_height`), is raised by `height − min_height`; roof planes are triangulated at their z;
+markings lie on the road at their own z, area markings filled; poles are cylinders of `diameter_m`
+(0.2 m when absent); signs are small boxes, 0.6 m by 5 cm, over the face; and trees are a trunk
+cylinder of `dbh_m` (0.3 m when absent) up to `crown_base_m` with a translucent crown ellipsoid of
+radius `crown_radius_m` from `crown_base_m` to `height_m`. Each layer has its own checkbox.
+
 **OpenStreetMap.** The OpenStreetMap layers (`osm`, `intersections`) and the OpenStreetMap tiles
 behind the 2D map are asked for only after the operator allows it, once per visit, as in the site
 map editor. Without consent the page makes no OpenStreetMap request of any kind.

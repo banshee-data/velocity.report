@@ -185,12 +185,14 @@ struct RefinementSummaryTests {
         }
         let kinds: [Gerardus_Align_V1alpha1_FeatureKind] = [
             .road, .path, .kerb, .rail, .building, .sensor, .correction, .facade, .pole, .other,
+            .roofPlane, .buildingPart, .laneMarking, .sign, .tree,
         ]
         var layers = kinds.map(ReferenceStyle.lineColour)
         layers += ReferenceStyle.WallPlaneRole.allCases.map(ReferenceStyle.wallPlaneColour)
         layers += [
             ReferenceStyle.boxWallColour, ReferenceStyle.intersectionColour,
             ReferenceStyle.approachColour, ReferenceStyle.groundMeshColour,
+            ReferenceStyle.treeTrunkColour,
         ]
         for state in RefinedScanState.allCases {
             for layer in layers {
