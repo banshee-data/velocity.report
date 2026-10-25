@@ -66,6 +66,12 @@ The contract and its reasoning are Gerardus's: `align.proto` and `docs/INTERFACE
 
 **Milestone:** with Gerardus MVP step 2 (pose record and frame), which also gives the pane a stored heading to start from.
 
+### Item 5: the 24 sites registered
+
+**Summary:** MVP 0 step 5 from velocity.report's side: every archive site's settled background registered against 3DEP, so the pane has candidates to accept. Run unattended on 2026-10-24 under [pose0001](../../data/experiments/pose/pose0001.md), with the backgrounds exported by `cmd/tools/bgasc`: [report](../lidar/operations/gerardus-static-registration-2026-10.md).
+
+**Milestone:** the outcomes table; acceptance in the pane follows, and write-back waits on item 4.
+
 ## Dependencies
 
 - Gerardus PR 2, merged to its `main` as `16250eb`: the API this client calls. The vendored proto names that commit.

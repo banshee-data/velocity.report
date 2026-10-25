@@ -8,6 +8,11 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 24, 2026 - The 24 archive sites registered against 3DEP, and the vector map reviewed
+
+- {claude/geraldus-vector-slam-388337} Registered all 24 archive sites' settled backgrounds against USGS 3DEP through Gerardus from their eye-read positions, unattended, under thirteen search-setting arms and with the L3 track guard on and off, by a rule written first (`pose0001`, a new `pose` experiment area); exported each background with the new `cmd/tools/bgasc` from a 300 s analysis replay: [report](lidar/operations/gerardus-static-registration-2026-10.md)
+- {Gerardus claude/register-experiments} Reviewed the vector map W1–W9 as built, the trees layer against Canopy's census, static registration and the mobile SLAM spike, with a maths note on what a kerbside scan can observe against nadir aerial LiDAR and an eight-week sequencing: Gerardus `docs/reviews/2026-10-24-vector-map-and-slam-review.md`
+
 ## October 23, 2026 - A classical range-image pipeline read against L3 and L4
 
 - {claude/w3-background-leaks} Measured the background's leak of tracked vehicles on kirk0 (`pcap-replay --background-leak`): with the guard off 42 % of the returns inside observed confirmed boxes were published as background, admitted by windows metres wide in region-override cells and learned at the re-acquisition rate, and 2,414 settled cells learned a vehicle under a moving box; shipped the L3 track guard on by default (moving tracks' boxes held, a 1 s cool-down, the published mask following tracked objects), which publishes none and leaves 498 learned cells, with the tracks it changes still to be scored: [report](lidar/operations/l3-track-guard-kirk-2026-10.md)
