@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 25, 2026 - The background's length for registration
+
+- {claude/pose-background-window} Replayed the first 60, 90 and 180 s of the five wrong-peak archive sites and five passing ones, and registered each against 3DEP, by a rule committed before the replays (`pose0002`). No window beats 300 s: the wrong-peak sites alternate between peaks from window to window with point counts within 0.3 %, and ground p95 at a fixed pose moves up to 0.08 m between windows at two passing sites; proposed `pose0003`, registration by agreement across windows: [report](lidar/operations/gerardus-background-window-2026-10.md)
+
 ## October 24, 2026 - The 24 archive sites registered against 3DEP, and the vector map reviewed
 
 - {claude/geraldus-vector-slam-388337} Registered all 24 archive sites' settled backgrounds against USGS 3DEP through Gerardus from their eye-read positions, unattended, under thirteen search-setting arms and with the L3 track guard on and off, by a rule written first (`pose0001`, a new `pose` experiment area); exported each background with the new `cmd/tools/bgasc` from a 300 s analysis replay: [report](lidar/operations/gerardus-static-registration-2026-10.md)

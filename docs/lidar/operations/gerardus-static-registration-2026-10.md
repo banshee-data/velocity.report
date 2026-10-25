@@ -282,6 +282,11 @@ radius around a right peak, and the wrong-peak sites are wrong from any start.
    where the 300 s ones do not at embarcadero-folsom. A window sweep (60, 90, 180, 300 s) at the
    five wrong-peak sites is the next cheap experiment.
 
+   **Answered by [pose0002](../../../data/experiments/pose/pose0002.md) (2026-10-25):** no window
+   from 60 to 300 s is better under its rule. The wrong-peak sites alternate between peaks from
+   window to window, so the length is not a dial for them:
+   [report](gerardus-background-window-2026-10.md).
+
 ## Limitations
 
 - No pose is checked against a surveyed position. The gates measure consistency with the aerial

@@ -113,6 +113,8 @@ flowchart TB
   end
   subgraph area_pose ["pose: Sensor pose: registering the static sites against the public reference"]
     pose0001["<b>pose0001</b><br/>Register the 24 archive sites: the…<br/>answered · 46m machine + 6h person (took 4h)<br/>manual: implement, write"]:::answered
+    pose0002["<b>pose0002</b><br/>The background's length: do short windows…<br/>answered · 40m machine + 2h30m person (took 25m)<br/>manual: implement, write"]:::answered
+    pose0003["<b>pose0003</b><br/>Register from several windows and accept…<br/>proposed · 1h9m machine + 2h30m person<br/>manual: implement, write<br/>needs tooling: scene_variants"]:::proposed
   end
   geom0001 --> geom0002
   geom0003 --> geom0004
@@ -189,6 +191,8 @@ flowchart TB
   l3bg0021 --> perf0003
   l3bg0023 --> perf0003
   perf0001 --> perf0004
+  pose0001 --> pose0002
+  pose0002 --> pose0003
 ```
 
 ## Open experiments
@@ -225,6 +229,7 @@ flowchart TB
 - [perf0001](perf/perf0001.md) The Pi's frame times under the defaults' L3, the L3 before it, and CMR: ready, but a step needs tooling; 30m machine + 1h person; after l3bg0005, l3bg0025; asks [replay-l3-consolidation-2026-10 #recommendations](../../docs/lidar/operations/replay-l3-consolidation-2026-10.md#recommendations), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [perf0003](perf/perf0003.md) Pacing does not change a replay, asked again on a server that starts each replay from nothing, under the consolidated L3: proposed, awaiting approval; 5h machine + 1h person; after l3bg0021, l3bg0023; asks [replay-speed-and-analysis-mode-2026-10 #recommendations](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md#recommendations).
 - [perf0004](perf/perf0004.md) The near-edge arm's frame times on the Pi, under the frame-level cost screen: waiting on a dependency; 1h30m machine + 1h person; after perf0001; asks [decision-review-maths-2026-10 #e-04-q-04](../../docs/platform/operations/decision-review-maths-2026-10.md#e-04-q-04), [near-edge-frame-cost-2026-10 #limitations](../../docs/lidar/operations/near-edge-frame-cost-2026-10.md#limitations).
+- [pose0003](pose/pose0003.md) Register from several windows and accept a pose only when they agree: proposed, awaiting approval; 1h9m machine + 2h30m person; after pose0002; asks [gerardus-background-window-2026-10 #interpretation](../../docs/lidar/operations/gerardus-background-window-2026-10.md#interpretation).
 
 ## Answered
 
@@ -274,8 +279,9 @@ flowchart TB
 - [l8fol0003](l8fol/l8fol0003.md) The published box as the physical endpoint source: kirk0's reference gaps and the field run's paths: [report](../../docs/lidar/operations/following-box-endpoints-2026-10.md); estimated 55m, took 4h30m on m1pro; asked [physical-reference-pilot-kirk0-2026-10 #recommendations](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#recommendations), [headway-report-oracle #provisional-field-run](../../docs/lidar/operations/headway-report-oracle.md#provisional-field-run), [lidar-052-mvp-sprint-plan #s5-and-s7-one-explainable-measu…](../../docs/plans/lidar-052-mvp-sprint-plan.md#s5-and-s7-one-explainable-measurement-population), [published-box-refinement-2026-10 #recommendations](../../docs/lidar/operations/published-box-refinement-2026-10.md#recommendations), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
 - [perf0002](perf/perf0002.md) Which replay speed a published scene should use, and whether analysis mode loses anything: [report](../../docs/lidar/operations/replay-speed-and-analysis-mode-2026-10.md); estimated 10h, took 5h30m on m1pro; asked [README #replay-speed](../../tools/s2-archive/README.md#replay-speed).
 - [pose0001](pose/pose0001.md) Register the 24 archive sites: the outcomes table, and which search settings move it: [report](../../docs/lidar/operations/gerardus-static-registration-2026-10.md); estimated 46m, took 4h on m1pro; asked [lidar-visualiser-gerardus-alignment-plan #item-4-write-the-accepted-pose-…](../../docs/plans/lidar-visualiser-gerardus-alignment-plan.md#item-4-write-the-accepted-pose-to-velocityreport), [l3-track-guard-kirk-2026-10](../../docs/lidar/operations/l3-track-guard-kirk-2026-10.md).
+- [pose0002](pose/pose0002.md) The background's length: do short windows register the wrong-peak sites, and what do they cost the passing ones?: [report](../../docs/lidar/operations/gerardus-background-window-2026-10.md); estimated 40m, took 25m on m1pro; asked [gerardus-static-registration-2026-10 #interpretation](../../docs/lidar/operations/gerardus-static-registration-2026-10.md#interpretation).
 
 ## Totals
 
-- 32 open experiments: 69h44m machine + 228h person estimated.
+- 33 open experiments: 70h53m machine + 230h30m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
