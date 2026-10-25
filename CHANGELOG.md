@@ -110,8 +110,17 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   kerbs, centrelines, box walls and other marks within 0.5 m as a preview and land on the ground
   mesh; Select moves, adds and removes vertices, with Undo and Redo. Save sends the changes as one
   `EditStreetUse` with the author and a note, then draws what Gerardus snapped and its problems
-  beside the marks they name. Settings has a Gerardus tab: the server's address, a connection
-  test with its version and git sha, the author, and whether it serves registered scans.
+  beside the marks they name. Settings ▸ Servers has a Gerardus section: the server's address, a
+  connection test with its version and git sha, the author, and whether it serves registered scans.
+- The macOS visualiser's Settings (⌘,) ▸ Servers sets both servers it talks to. velocity.report
+  takes an HTTP URL (`http` on 8080 when no port is given) and the gRPC stream's port (50051),
+  validated with the reason for a refusal, and applied on Apply or Enter, which saves it and
+  reconnects once. Each server has **Test connection** with a 3 s timeout and its round trip in
+  milliseconds: velocity.report's asks `/api/version` (version, git sha, build time) and the
+  stream's `GetCapabilities`; Gerardus's asks `GetServerInfo` (version, git sha, whether it serves
+  scans). Each reports reachable, wrong service, unreachable or timed out. The HTTP address that
+  `annotation.serviceURL` used to set is moved to `velocityReport.serverURL` at launch, and every
+  HTTP client follows a change without a relaunch.
 - The macOS visualiser has a camera pane (toolbar **Camera**, View ▸ Camera Pane, ⌥⌘C). Orbit
   flies the 3D view round an ellipse about the camera's target, the selected object or the site
   origin: radii A along a compass heading and B across it, edited apart or with their ratio
@@ -140,6 +149,12 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Changed
 
+- The macOS visualiser's Connect/Disconnect button and its ⇧⌘C menu item are gone. The top left
+  of the main window is a status indicator: a dot and a word (connected, connecting,
+  disconnected, or an error with a short reason) for velocity.report and, with room, Gerardus;
+  its tooltip has each URL and last error, and a click opens Settings ▸ Servers. The app connects
+  to the saved server at launch and retries with backoff (1 s, doubling to 30 s) while it is
+  unreachable, and when a live stream drops. File ▸ Reconnect (⌘R) retries at once.
 - Place surfaces distinguish sites, radar deployments and surveys. Clip locations
   use districts and site cells, with registered aliases for the previous DMG.
   The catalogue editor uses `/survey`; old editor and map bookmarks redirect.

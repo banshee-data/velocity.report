@@ -635,13 +635,9 @@ struct ToolbarView: View {
 
     var body: some View {
         HStack {
-            // Connection button
-            ConnectionButtonView()
-
-            Divider().frame(height: 20)
-
-            // Connection status
-            ConnectionStatusView()
+            // Status only: the app keeps the connection up itself, and a
+            // click opens Settings ▸ Servers.
+            ServerStatusIndicator(connection: appState.connection, session: appState.alignment)
 
             // Run browser button
             if appState.isConnected {
@@ -731,38 +727,6 @@ struct LiveToggleView: View {
                 guard selected == .live, !appState.isLiveSource else { return }
                 appState.returnToLive()
             })
-    }
-}
-
-// Extracted to break dependency cycle
-struct ConnectionButtonView: View {
-    @EnvironmentObject var appState: AppState
-
-    var body: some View {
-        let isConnected = appState.isConnected
-        let isConnecting = appState.isConnecting
-
-        Button(action: { appState.toggleConnection() }) {
-            if isConnecting {
-                ProgressView().controlSize(.small).frame(width: 16, height: 16)
-            } else {
-                Image(systemName: isConnected ? "stop.circle.fill" : "play.circle.fill")
-            }
-            Text(isConnecting ? "Connecting..." : (isConnected ? "Disconnect" : "Connect"))
-        }.tint(isConnected ? .red : .green).inert(isConnecting, hint: "Connecting to the server")
-    }
-}
-
-struct ConnectionStatusView: View {
-    @EnvironmentObject var appState: AppState
-
-    var body: some View {
-        let isConnected = appState.isConnected
-        let errorMessage = appState.connectionError
-        let hasError = errorMessage != nil
-
-        Circle().fill(isConnected ? .green : (hasError ? .red : .gray)).frame(width: 8, height: 8)
-            .help(errorMessage ?? (isConnected ? appState.serverAddress : "Disconnected"))
     }
 }
 

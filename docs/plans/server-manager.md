@@ -11,15 +11,16 @@
 
 ## Current state
 
-- **Hardcoded address:** `serverAddress` defaults to `"localhost:50051"` in
-  `AppState`: no UI to change it.
-- **Auto-connect:** App connects to `serverAddress` 500 ms after launch.
-- **Status indicator:** Small coloured circle (`ConnectionStatusView`) —
-  green when connected, red on error, grey when disconnected. Hover tooltip
-  shows the address or error message.
-- **Connect button:** `ConnectionButtonView` toggles connect/disconnect with
-  play/stop icon and "Connect" / "Disconnect" / "Connecting..." text.
-- **No persistence:** Server address is not saved between sessions.
+- **One saved server:** Settings (⌘,) ▸ Servers sets velocity.report's HTTP
+  URL and stream port, kept as `velocityReport.serverURL` and
+  `velocityReport.streamPort`, with Test connection
+  ([server-settings.md](../ui/visualiser/server-settings.md)).
+- **Auto-connect:** App connects to the saved server 500 ms after launch and
+  retries with backoff (1 s doubling to 30 s) while it is unreachable.
+- **Status indicator:** `ServerStatusIndicator`, a dot and a word for
+  velocity.report and Gerardus; its tooltip has the address and last error,
+  and a click opens Settings ▸ Servers.
+- **No connect button:** File ▸ Reconnect (⌘R) is the manual retry.
 - **Single server only:** No concept of a server list or switching.
 
 ---
@@ -249,11 +250,11 @@ On first launch with no saved servers, auto-create a default entry:
 
 ## Keyboard shortcuts
 
-| Shortcut | Action                        |
-| -------- | ----------------------------- |
-| ⇧⌘N      | Add Server...                 |
-| ⇧⌘E      | Edit Servers...               |
-| ⇧⌘C      | Connect/Disconnect (existing) |
+| Shortcut | Action               |
+| -------- | -------------------- |
+| ⇧⌘N      | Add Server...        |
+| ⇧⌘E      | Edit Servers...      |
+| ⌘R       | Reconnect (existing) |
 
 ---
 

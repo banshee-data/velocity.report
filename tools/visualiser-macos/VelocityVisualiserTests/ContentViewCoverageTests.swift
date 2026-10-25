@@ -259,55 +259,37 @@ private func makeFrame(tracks: [Track], frameID: UInt64 = 1) -> FrameBundle {
     }
 }
 
-// MARK: - ConnectionStatusView Tests
+// MARK: - ServerStatusIndicator Tests
 
-@available(macOS 15.0, *) @MainActor final class ConnectionStatusViewCoverageTests: XCTestCase {
+@available(macOS 15.0, *) @MainActor final class ServerStatusIndicatorCoverageTests: XCTestCase {
+
+    private func host(_ state: AppState) {
+        hostView(
+            ServerStatusIndicator(connection: state.connection, session: state.alignment),
+            state: state)
+    }
 
     func testDisconnectedNoError() throws {
         let state = AppState()
         state.isConnected = false
         state.connectionError = nil
-        hostView(ConnectionStatusView(), state: state)
+        host(state)
+        XCTAssertEqual(state.connection.status, .disconnected)
     }
 
     func testDisconnectedWithError() throws {
         let state = AppState()
         state.isConnected = false
         state.connectionError = "Connection refused"
-        hostView(ConnectionStatusView(), state: state)
+        host(state)
+        XCTAssertEqual(state.connection.status, .error("Connection refused"))
     }
 
-    func testConnected() throws {
-        let state = AppState()
-        state.isConnected = true
-        state.serverAddress = "192.168.1.100:50051"
-        hostView(ConnectionStatusView(), state: state)
-    }
-}
-
-// MARK: - ConnectionButtonView Tests
-
-@available(macOS 15.0, *) @MainActor final class ConnectionButtonViewCoverageTests: XCTestCase {
-
-    func testConnectingState() throws {
+    func testConnecting() throws {
         let state = AppState()
         state.isConnecting = true
-        state.isConnected = false
-        hostView(ConnectionButtonView(), state: state)
-    }
-
-    func testConnectedState() throws {
-        let state = AppState()
-        state.isConnecting = false
-        state.isConnected = true
-        hostView(ConnectionButtonView(), state: state)
-    }
-
-    func testDisconnectedState() throws {
-        let state = AppState()
-        state.isConnecting = false
-        state.isConnected = false
-        hostView(ConnectionButtonView(), state: state)
+        host(state)
+        XCTAssertEqual(state.connection.status, .connecting)
     }
 }
 

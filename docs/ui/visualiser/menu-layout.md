@@ -9,7 +9,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 | Menu           | Items                                                        |
 | -------------- | ------------------------------------------------------------ |
 | **App Info**   | About VelocityReport.app                                     |
-| **File**       | Connect/Disconnect (⇧⌘C), Open Recording... (⌘O)             |
+| **File**       | Reconnect (⌘R), Open Recording... (⌘O)                       |
 | **Playback**   | Play/Pause (Space), Step (./,), Rate (]/[), Time Display     |
 | **Overlays**   | Points (p), Boxes (b), Trails (t), Velocity (v), Grid (g)    |
 | **Labels**     | Label Selected Track (l), Classify submenu (1–9)             |
@@ -17,6 +17,12 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 | **Annotation** | Open Annotation Window (⇧⌘A)                                 |
 | **Edit**       | Undo (⌘Z), Redo (⇧⌘Z)                                        |
 | **Window**     | VelocityVisualiser, About VelocityVisualiser.app, Annotation |
+
+File ▸ Reconnect drops the velocity.report connection and connects again at once. There is no
+Connect/Disconnect item any more (it was ⇧⌘C): the app connects at launch and retries with
+backoff by itself, and the status indicator at the top left of the main window only reports.
+Clicking the indicator opens Settings (⌘,) ▸ Servers, where both servers are set and tested. See
+[server-settings.md](server-settings.md).
 
 Window → VelocityVisualiser brings the main window to the front, and reopens it if it was
 closed. The main window opens at every launch; the About and Annotation windows open only when
@@ -72,7 +78,6 @@ timestamp. Undo and redo fall through to a text field that is being edited.
 | -------- | --------------------- | -------------------- |
 | ⌘G       | Go to Frame           | Go to Packet         |
 | ⌘F       | Find Track            | Find Packet          |
-| ⌘,       | Preferences           | Preferences          |
 | ⌘+/⌘-/⌘0 | Zoom In/Out/Reset     | Zoom controls        |
 | ⌘W       | Close Recording       | Close                |
 | ⌘Home    | Jump to First Frame   | First Packet         |
@@ -83,9 +88,9 @@ timestamp. Undo and redo fall through to a text field that is being edited.
 
 ```
 VelocityReport.app
-├── About / Preferences (⌘,)
+├── About / Settings (⌘,): Servers
 ├── File
-│   ├── Connect/Disconnect (⇧⌘C)
+│   ├── Reconnect (⌘R)
 │   ├── Open Recording... (⌘O)
 │   ├── Open Recent →
 │   ├── Close Recording (⌘W)
@@ -118,8 +123,8 @@ Open Recent, Close Recording (⌘W), Go to Frame (⌘G), First/Last Frame
 
 ### Phase 2: view enhancements
 
-Zoom controls (⌘+/⌘-/⌘0), VRLOG File Properties, Preferences (⌘,),
-Reset Layout.
+Zoom controls (⌘+/⌘-/⌘0), VRLOG File Properties, Reset Layout. Settings
+(⌘,) exists, with its Servers tab.
 
 ### Phase 3: analysis features
 

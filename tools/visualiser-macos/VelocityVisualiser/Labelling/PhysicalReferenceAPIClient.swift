@@ -51,25 +51,18 @@ private struct PhysicalServiceError: Decodable {
 }
 
 struct PhysicalReferenceAPIClient {
-    /// Where the service is. The same default every other client here uses;
-    /// `annotation.serviceURL` in the app's defaults overrides it.
-    static var defaultBaseURL: URL {
-        if let configured = UserDefaults.standard.string(forKey: "annotation.serviceURL"),
-            let url = URL(string: configured)
-        {
-            return url
-        }
-        return URL(string: "http://localhost:8080")!
-    }
+    /// Where the service is: velocity.report's HTTP API as Settings ▸
+    /// Servers keeps it (`velocityReport.serverURL`, formerly
+    /// `annotation.serviceURL`), http://localhost:8080 when unset.
+    static var defaultBaseURL: URL { VelocityReportServer.currentHTTPURL }
 
-    let baseURL: URL
+    /// A fixed server, for tests; nil follows Settings ▸ Servers at each call.
+    let configuredBaseURL: URL?
+    var baseURL: URL { configuredBaseURL ?? VelocityReportServer.currentHTTPURL }
     private let session: URLSession
 
-    init(
-        baseURL: URL = PhysicalReferenceAPIClient.defaultBaseURL,
-        session: URLSession = APISession.shared
-    ) {
-        self.baseURL = baseURL
+    init(baseURL: URL? = nil, session: URLSession = APISession.shared) {
+        self.configuredBaseURL = baseURL
         self.session = session
     }
 

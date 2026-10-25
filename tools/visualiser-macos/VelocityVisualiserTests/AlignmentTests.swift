@@ -1466,9 +1466,12 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         let app = AppState(autoConnectOnStartup: false, alignment: session)
         #expect(session.probing == nil)
 
-        // Connecting starts the loop and disconnecting stops it, before it
-        // has asked anything.
+        // A transport alone is not connected: every retry makes one.
         app.isConnected = true
+        #expect(session.probing == nil)
+        // The service answering starts the loop and disconnecting stops it,
+        // before it has asked anything.
+        app.streamDidOpen(client: nil)
         #expect(session.probing != nil)
         app.isConnected = false
         #expect(session.probing == nil)
