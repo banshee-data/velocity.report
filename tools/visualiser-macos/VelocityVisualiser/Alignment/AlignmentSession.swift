@@ -477,7 +477,8 @@ struct ReferenceSummary: Equatable {
     ) {
         self.makeClient = makeClient
         self.lookup = lookup
-        self.fullFrames = fullFrames ?? lookup.map { ReplayFullFramesClient(baseURL: $0.baseURL) }
+        self.fullFrames =
+            fullFrames ?? lookup.map { ReplayFullFramesClient(baseURL: $0.configuredBaseURL) }
         self.defaults = defaults
         self.serviceAddress = GerardusAddress.saved(in: defaults)
         self.reviewer = Self.savedReviewer(in: defaults)
@@ -525,6 +526,21 @@ struct ReferenceSummary: Equatable {
             if probeFailure != failure { probeFailure = failure }
             isChecking = false
         }
+    }
+
+    /// Settings' Test connection: GetServerInfo on a channel of its own,
+    /// timed, at `address` (the one in use when nil). The session's own
+    /// connection is left alone, except that its server, found while the
+    /// session had none, is taken up at once.
+    func testConnection(
+        _ address: GerardusAddress? = nil, now: ServerConnectionTest.Clock = { .now }
+    ) async -> ConnectionTestResult {
+        let target = address ?? serviceAddress
+        let client = makeClient(target)
+        let result = await ServerConnectionTest.gerardus(connect: client.connect, now: now)
+        client.disconnect()
+        if result.isOK && target == serviceAddress && !isAvailable && !isChecking { await probe() }
+        return result
     }
 
     /// Points the session at another Gerardus server, and keeps the address

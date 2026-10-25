@@ -196,33 +196,39 @@ import XCTest
         state.connect()  // Should skip when already connected
     }
 
-    // MARK: - Toggle Connection Tests
+    // MARK: - Reconnect and Disconnect Tests
 
-    func testToggleConnectionIgnoresWhenConnecting() throws {
+    func testReconnectWhileConnectingStartsAnotherAttempt() throws {
         let state = AppState()
+        state.makeVisualiserClient = { _ in VisualiserClient(address: "unparseable") }
         state.isConnecting = true
 
-        state.toggleConnection()  // Should ignore toggle while connecting
+        state.reconnect()  // Abandons the attempt in flight and starts one
+        XCTAssertTrue(state.isConnecting)
+        XCTAssertEqual(state.connectionAttempts, 1)
+        state.disconnect()
     }
 
-    func testToggleConnectionDisconnectsWhenConnected() throws {
+    func testDisconnectWhenConnected() throws {
         let state = AppState()
         state.isConnected = true
         state.isConnecting = false
 
-        state.toggleConnection()
-        // Should trigger disconnect
+        state.disconnect()
         XCTAssertFalse(state.isConnected)
+        XCTAssertFalse(state.wantsConnection)
     }
 
-    func testToggleConnectionConnectsWhenDisconnected() throws {
+    func testReconnectWhenDisconnected() throws {
         let state = AppState()
+        state.makeVisualiserClient = { _ in VisualiserClient(address: "unparseable") }
         state.isConnected = false
         state.isConnecting = false
 
-        state.toggleConnection()
-        // Should trigger connect
+        state.reconnect()
         XCTAssertTrue(state.isConnecting)
+        XCTAssertTrue(state.wantsConnection)
+        state.disconnect()
     }
 }
 
@@ -869,44 +875,12 @@ struct VisualiserClientDecodeTests {
         let _ = ToolbarView().environmentObject(state)
     }
 
-    @Test func connectionButtonViewShowsConnecting() throws {
-        let state = AppState()
-        state.isConnecting = true
-        state.isConnected = false
-
-        let _ = ConnectionButtonView().environmentObject(state)
-    }
-
-    @Test func connectionButtonViewShowsConnected() throws {
-        let state = AppState()
-        state.isConnecting = false
-        state.isConnected = true
-
-        let _ = ConnectionButtonView().environmentObject(state)
-    }
-
-    @Test func connectionButtonViewShowsDisconnected() throws {
-        let state = AppState()
-        state.isConnecting = false
-        state.isConnected = false
-
-        let _ = ConnectionButtonView().environmentObject(state)
-    }
-
-    @Test func connectionStatusViewWithError() throws {
+    @Test func serverStatusIndicatorInstantiates() throws {
         let state = AppState()
         state.isConnected = false
         state.connectionError = "Connection failed"
 
-        let _ = ConnectionStatusView().environmentObject(state)
-    }
-
-    @Test func connectionStatusViewConnected() throws {
-        let state = AppState()
-        state.isConnected = true
-        state.serverAddress = "localhost:50051"
-
-        let _ = ConnectionStatusView().environmentObject(state)
+        let _ = ServerStatusIndicator(connection: state.connection, session: state.alignment)
     }
 
     @Test func statsDisplayViewWhenConnected() throws {

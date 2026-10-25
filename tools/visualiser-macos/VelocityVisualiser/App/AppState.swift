@@ -79,8 +79,41 @@ private let logger = DevLogger(category: "AppState")
 
     @Published var isConnected: Bool = false
     @Published var isConnecting: Bool = false
-    @Published var serverAddress: String = "localhost:50051"
+    /// The frame stream's host:port, from `connection.server`.
+    @Published var serverAddress: String = VelocityReportServer.local.streamAddress
     @Published var connectionError: String?
+    /// True once the visualiser service has answered: GetCapabilities on the
+    /// new client, or the frame stream accepted. `isConnected` turns true as
+    /// soon as a transport exists, listening or not.
+    @Published private(set) var isStreamOpen: Bool = false
+    /// velocity.report's server and connection state, for Settings ▸ Servers
+    /// and the status indicator, which must not redraw on every frame.
+    let connection: VelocityReportConnection
+    /// Where the server is kept; nil under XCTest.
+    private let serverDefaults: UserDefaults?
+
+    // MARK: - Connection lifecycle
+
+    /// True from launch (or Reconnect) until `disconnect()`: while it is, a
+    /// failed or dropped connection is retried with `reconnectBackoff`.
+    private(set) var wantsConnection = false
+    /// Failures in a row since a stream last opened, which sets the next wait.
+    private(set) var failuresSinceConnected = 0
+    /// Every connect() that made a client: what Reconnect and a changed URL
+    /// are counted by.
+    private(set) var connectionAttempts = 0
+    var reconnectBackoff = ReconnectBackoff()
+    /// How a retry waits out its delay. Tests replace it with a fake clock.
+    var reconnectSleep: @MainActor (Duration) async throws -> Void = {
+        try await Task.sleep(for: $0)
+    }
+    /// Makes the frame stream's client. Tests replace it with one that fails
+    /// at once, so nothing dials a real server.
+    var makeVisualiserClient: (String) -> VisualiserClient = { VisualiserClient(address: $0) }
+    private var retryTask: Task<Void, Never>?
+    /// The scheduled retry, while there is one.
+    var isRetryScheduled: Bool { retryTask != nil }
+    private var connectionStatusSync: AnyCancellable?
     /// True while a return-to-live request is in flight, so the Live toggle can
     /// show progress and reject a second press.
     @Published var isReturningToLive: Bool = false
@@ -404,8 +437,19 @@ private let logger = DevLogger(category: "AppState")
     // MARK: - Initialisation
 
     /// `alignment` replaces the session talking to a real Gerardus, for tests.
-    init(autoConnectOnStartup: Bool? = nil, alignment injected: AlignmentSession? = nil) {
+    /// `serverDefaults` is where velocity.report's server is kept; it is nil
+    /// under XCTest, so a test never reads or writes the operator's own.
+    init(
+        autoConnectOnStartup: Bool? = nil, alignment injected: AlignmentSession? = nil,
+        serverDefaults: UserDefaults? = AppState.defaultServerDefaults
+    ) {
         // FPS is calculated per-frame using exponential moving average
+
+        self.serverDefaults = serverDefaults
+        VelocityReportServer.migrate(in: serverDefaults)
+        let server = VelocityReportServer.saved(in: serverDefaults)
+        connection = VelocityReportConnection(server: server)
+        serverAddress = server.streamAddress
 
         alignment =
             injected ?? AlignmentSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
@@ -417,12 +461,16 @@ private let logger = DevLogger(category: "AppState")
             if case .available = availability { return }
             self?.showAlignmentPane = false
         }
-        // Look for Gerardus while connected to velocity.report: at once, then
-        // every reprobeInterval until a server answers, so one started later
-        // still brings up the pane. Never against a real server under XCTest,
-        // so a developer's running Gerardus cannot change what a test sees.
+        // Look for Gerardus while connected to velocity.report (its service
+        // has answered, not merely a transport made, which every retry does):
+        // at once, then every reprobeInterval until a server answers, so one
+        // started later still brings up the pane. Never against a real server
+        // under XCTest, so a developer's running Gerardus cannot change what a
+        // test sees.
         if injected != nil || !Self.isRunningUnderXCTest {
-            alignmentProbing = $isConnected.removeDuplicates().sink { [weak self] connected in
+            alignmentProbing = Publishers.CombineLatest($isConnected, $isStreamOpen).map {
+                $0 && $1
+            }.removeDuplicates().sink { [weak self] connected in
                 if connected {
                     self?.alignment.startProbing()
                 } else {
@@ -437,6 +485,16 @@ private let logger = DevLogger(category: "AppState")
         }
         camera.onCameraMoved = { [weak self] in self?.reprojectLabels() }
 
+        // The indicator's and Settings' view of the connection, set only on a
+        // change. @Published emits before the property is stored, so the four
+        // values arrive as the new ones.
+        connectionStatusSync = Publishers.CombineLatest4(
+            $isConnected, $isConnecting, $isStreamOpen, $connectionError
+        ).map { connected, connecting, open, error in
+            ServerStatus.velocityReport(
+                isConnected: connected, isConnecting: connecting, isStreamOpen: open, error: error)
+        }.removeDuplicates().sink { [weak self] status in self?.connection.update(status: status) }
+
         let autoConnectOnStartup = autoConnectOnStartup ?? Self.shouldAutoConnectOnStartup
 
         guard autoConnectOnStartup else {
@@ -444,14 +502,20 @@ private let logger = DevLogger(category: "AppState")
             return
         }
 
-        // Auto-connect on startup
+        // Connect on launch to the saved server, and keep trying while it
+        // does not answer: there is no Connect button to press.
         Task {
             try? await Task.sleep(nanoseconds: 500_000_000)  // 500ms delay
             await MainActor.run {
-                logger.info("Auto-connecting to \(self.serverAddress) on startup")
-                self.connect()
+                logger.info("Connecting to \(self.serverAddress) on launch")
+                self.startConnection()
             }
         }
+    }
+
+    /// The operator's preferences, except under XCTest.
+    nonisolated static var defaultServerDefaults: UserDefaults? {
+        isRunningUnderXCTest ? nil : .standard
     }
 
     deinit {
@@ -630,72 +694,124 @@ private let logger = DevLogger(category: "AppState")
 
     // MARK: - Connection
 
-    func toggleConnection() {
-        vlog(
-            "[AppState] toggleConnection called, isConnected: \(isConnected), isConnecting: \(isConnecting)"
-        )
-        logger.info(
-            "toggleConnection called, isConnected: \(self.isConnected), isConnecting: \(self.isConnecting)"
-        )
-        // Guard: ignore toggle while a connection attempt is in flight to
-        // prevent the auto-connect / user-click race that immediately
-        // disconnects a freshly-established connection.
-        if isConnecting {
-            logger.info("toggleConnection ignored — connection attempt in progress")
-            return
-        }
-        if isConnected { disconnect() } else { connect() }
+    /// Connects to the saved server and keeps the connection up: a failed
+    /// attempt or a dropped stream is retried with backoff until it opens or
+    /// `disconnect()` is called. What launch does.
+    func startConnection() {
+        logger.info("startConnection() — \(self.serverAddress)")
+        wantsConnection = true
+        failuresSinceConnected = 0
+        cancelRetry()
+        connect()
     }
 
+    /// Drops whatever connection there is and connects again at once, with
+    /// the backoff started afresh: the Reconnect menu item, and a server
+    /// changed in Settings.
+    func reconnect() {
+        logger.info("reconnect() — \(self.serverAddress)")
+        wantsConnection = true
+        failuresSinceConnected = 0
+        cancelRetry()
+        tearDownConnection()
+        connect()
+    }
+
+    /// Points the app at another velocity.report server: saves it, and
+    /// reconnects once. The same server again changes nothing and is not a
+    /// reconnect; returns whether it changed.
+    @discardableResult func useVelocityReportServer(_ server: VelocityReportServer) -> Bool {
+        guard server != connection.server else { return false }
+        logger.info("velocity.report server is now \(server.urlDescription)")
+        server.save(to: serverDefaults)
+        connection.update(server: server, lastError: .some(nil))
+        serverAddress = server.streamAddress
+        reconnect()
+        return true
+    }
+
+    /// One attempt. Without `startConnection()` or `reconnect()` before it,
+    /// a failure is not retried.
     func connect() {
         // Guard: do not start a second connection if one is already
-        // in progress or established (prevents auto-connect racing
-        // with a user-initiated connect).
+        // in progress or established.
         guard !isConnecting && !isConnected else {
             logger.info("connect() skipped — already connecting or connected")
             return
         }
         vlog("[AppState] 🔌 CONNECTING to \(serverAddress)...")
         logger.info("connect() starting, serverAddress: \(self.serverAddress)")
+        connectionAttempts += 1
         isConnecting = true
+        isStreamOpen = false
         connectionError = nil
         bumpPlaybackGeneration()
         setPlaybackMode(.unknown)
 
-        grpcClient = VisualiserClient(address: serverAddress)
-        grpcClient?.includeDebug = showDebug  // M6: Request debug data when enabled
+        let client = makeVisualiserClient(serverAddress)
+        client.includeDebug = showDebug  // M6: Request debug data when enabled
+        grpcClient = client
         clientDelegate = ClientDelegateAdapter(appState: self, generation: playbackStateGeneration)
-        grpcClient?.delegate = clientDelegate
+        client.delegate = clientDelegate
         logger.debug("Created VisualiserClient and delegate")
 
         Task {
             do {
                 logger.debug("Calling grpcClient.connect()...")
-                try await grpcClient?.connect()
-                vlog("[AppState] ✅ CONNECTION SUCCEEDED to \(serverAddress)")
+                try await client.connect()
+                vlog("[AppState] ✅ CONNECTION SUCCEEDED to \(client.address)")
                 logger.info("grpcClient.connect() succeeded!")
-                await MainActor.run { self.isConnecting = false }
+                await MainActor.run {
+                    guard self.grpcClient === client else { return }
+                    self.isConnecting = false
+                }
+                // The transport exists whether or not anything listens; an
+                // answer from the service is what makes it connected. A
+                // failure here is left to the stream, which fails too.
+                if (try? await client.getCapabilities(timeout: ServerConnectionTest.timeout)) != nil
+                {
+                    await MainActor.run { self.streamDidOpen(client: client) }
+                }
             } catch {
                 vlog("[AppState] ❌ CONNECTION FAILED: \(error.localizedDescription)")
                 logger.error("Connection error: \(error.localizedDescription)")
                 await MainActor.run {
-                    self.connectionError = "Failed: cannot connect to \(self.serverAddress)"
+                    // A teardown or a newer attempt has replaced this one.
+                    guard self.grpcClient === client else { return }
+                    self.connectionError = "Failed: cannot connect to \(client.address)"
+                    self.connection.update(lastError: .some(error.localizedDescription))
                     self.isConnected = false
                     self.isConnecting = false
                     self.grpcClient = nil
                     self.clientDelegate = nil
+                    self.scheduleRetry()
                 }
             }
         }
     }
 
+    /// Disconnects and stops retrying. Nothing in the window calls it any
+    /// more; it is kept for callers that need the stream gone.
     func disconnect() {
+        wantsConnection = false
+        cancelRetry()
+        tearDownConnection()
+    }
+
+    /// Closes the client and clears what it streamed, leaving the
+    /// lifecycle's intent alone.
+    private func tearDownConnection() {
         vlog("[AppState] 🔌 DISCONNECTING...")
-        logger.info("disconnect() called")
+        logger.info("tearDownConnection() called")
+        // Detach first: the client's own disconnect callback would otherwise
+        // land after a reconnect has begun and mark the new attempt down.
+        grpcClient?.delegate = nil
         grpcClient?.disconnect()
         grpcClient = nil
         clientDelegate = nil
         isConnected = false
+        isConnecting = false
+        isStreamOpen = false
         currentFrame = nil
         resetPlaybackState(mode: .unknown)
         frameCount = 0
@@ -705,6 +821,56 @@ private let logger = DevLogger(category: "AppState")
         allSeenTracks = [:]
         inViewTrackIDs = []
         logger.debug("Disconnected")
+    }
+
+    /// The server accepted the stream: the connection is up, and the next
+    /// failure starts the backoff from its first step.
+    func streamDidOpen(client: VisualiserClient?) {
+        guard client == nil || client === grpcClient else { return }
+        failuresSinceConnected = 0
+        cancelRetry()
+        if !isStreamOpen { isStreamOpen = true }
+        connection.update(lastError: .some(nil))
+    }
+
+    /// The client's stream ended with an error, or a live stream ended at
+    /// all. Retried while the lifecycle wants a connection.
+    func connectionDropped(client: VisualiserClient?, reason: String?) {
+        guard client == nil || client === grpcClient else { return }
+        isStreamOpen = false
+        if let reason { connection.update(lastError: .some(reason)) }
+        scheduleRetry()
+    }
+
+    /// A replay's stream ran to its end: not a failure, and not retried.
+    func streamEnded(client: VisualiserClient?) {
+        guard client == nil || client === grpcClient else { return }
+        isStreamOpen = false
+    }
+
+    private func scheduleRetry() {
+        guard wantsConnection else { return }
+        retryTask?.cancel()
+        failuresSinceConnected += 1
+        let delay = reconnectBackoff.delay(afterFailures: failuresSinceConnected)
+        logger.info(
+            "Retrying \(self.serverAddress) in \(delay) (failure \(self.failuresSinceConnected))")
+        connection.update(retryIn: .some(delay))
+        let sleep = reconnectSleep
+        retryTask = Task { [weak self] in
+            do { try await sleep(delay) } catch { return }
+            guard let self, !Task.isCancelled, self.wantsConnection else { return }
+            self.retryTask = nil
+            self.connection.update(retryIn: .some(nil))
+            self.tearDownConnection()
+            self.connect()
+        }
+    }
+
+    private func cancelRetry() {
+        retryTask?.cancel()
+        retryTask = nil
+        connection.update(retryIn: .some(nil))
     }
 
     /// Whether live sensor input is driving the pipeline.
@@ -1748,7 +1914,11 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
                 delegateLogger.info("Preserving replay-finished state after disconnect")
             } else {
                 appState.resetPlaybackState(mode: .unknown)
-                if error != nil { appState.connectionError = "Connection lost" }
+                if let error {
+                    appState.connectionError = "Connection lost"
+                    appState.connectionDropped(
+                        client: client, reason: GerardusClientError.describe(error))
+                }
             }
         }
     }
@@ -1763,6 +1933,11 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         }
     }
 
+    func clientStreamDidOpen(_ client: VisualiserClient) {
+        delegateLogger.info("clientStreamDidOpen called")
+        Task { @MainActor [weak self] in self?.appState?.streamDidOpen(client: client) }
+    }
+
     func clientDidFinishStream(_ client: VisualiserClient) {
         vlog("[ClientDelegate] 🏁 REPLAY STREAM FINISHED")
         delegateLogger.info("clientDidFinishStream called - replay reached end")
@@ -1773,12 +1948,20 @@ final class ClientDelegateAdapter: VisualiserClientDelegate, @unchecked Sendable
         // pending frame-delivery Tasks, or overridden by clientDidDisconnect.
         MainActor.assumeIsolated { [weak self] in
             guard let appState = self?.appState else { return }
+            let wasLive = appState.sourceMode == .live
             appState.handleStreamFinished(expectedGeneration: generation)
             // The RPC is over, whatever ended it. No further frames can arrive
             // on this stream, so the connection indicator must stop claiming
             // otherwise — a server that restarts closes the stream this way,
             // and the client went on showing "connected" indefinitely.
             appState.isConnected = false
+            // A live stream has no end of its own: the server went away, so
+            // reconnect. A replay's end is the replay's, and Play restarts it.
+            if wasLive {
+                appState.connectionDropped(client: client, reason: "The server closed the stream")
+            } else {
+                appState.streamEnded(client: client)
+            }
         }
     }
 }

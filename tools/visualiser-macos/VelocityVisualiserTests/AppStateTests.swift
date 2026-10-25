@@ -925,13 +925,10 @@ import XCTest
         XCTAssertFalse(state.isConnecting)
     }
 
-    func testToggleConnectionWhenDisconnected() throws {
+    func testNotConnectedByDefault() throws {
         let state = AppState()
-        state.isConnected = false
-
-        // toggleConnection calls connect() which creates client
-        // We're testing the state transitions, not actual connection
         XCTAssertFalse(state.isConnected)
+        XCTAssertFalse(state.wantsConnection)
     }
 }
 
@@ -1135,27 +1132,27 @@ import XCTest
     }
 }
 
-// MARK: - Toggle Connection Tests
+// MARK: - Connect and Disconnect Tests
 
-@available(macOS 15.0, *) @MainActor final class ToggleConnectionTests: XCTestCase {
+@available(macOS 15.0, *) @MainActor final class ConnectAndDisconnectTests: XCTestCase {
 
-    func testToggleConnectionIgnoredWhileConnecting() throws {
+    func testStartConnectionIgnoredWhileConnecting() throws {
         let state = AppState()
         state.isConnecting = true
 
-        // Should be ignored
-        state.toggleConnection()
-        // isConnecting should remain true (not toggled)
+        // connect() inside it is skipped: one attempt at a time
+        state.startConnection()
         XCTAssertTrue(state.isConnecting)
+        XCTAssertEqual(state.connectionAttempts, 0)
+        state.disconnect()
     }
 
-    func testToggleConnectionCallsDisconnectWhenConnected() throws {
+    func testDisconnectWhenConnected() throws {
         let state = AppState()
         state.isConnected = true
         state.isConnecting = false
 
-        state.toggleConnection()
-        // disconnect() clears isConnected
+        state.disconnect()
         XCTAssertFalse(state.isConnected)
     }
 

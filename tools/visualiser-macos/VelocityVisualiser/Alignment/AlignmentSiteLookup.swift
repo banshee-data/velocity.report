@@ -135,15 +135,14 @@ enum AlignmentSiteResolver {
 
 /// HTTP lookups against velocity.report.
 struct AlignmentSiteLookupClient {
-    let baseURL: URL
+    /// A fixed server, for tests; nil follows Settings ▸ Servers at each call.
+    let configuredBaseURL: URL?
+    var baseURL: URL { configuredBaseURL ?? VelocityReportServer.currentHTTPURL }
     private let session: URLSession
 
     /// The same server, and the same override, as the other HTTP clients here.
-    init(
-        baseURL: URL = PhysicalReferenceAPIClient.defaultBaseURL,
-        session: URLSession = APISession.shared
-    ) {
-        self.baseURL = baseURL
+    init(baseURL: URL? = nil, session: URLSession = APISession.shared) {
+        self.configuredBaseURL = baseURL
         self.session = session
     }
 

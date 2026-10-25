@@ -26,7 +26,7 @@ private let appLogger = DevLogger(category: "App")
         // AppState and one stream to draw, and a Window scene has an item in
         // the Window menu that brings the window back once it is closed. A
         // WindowGroup's only way back is File > New Window, which the
-        // commands below replace with Connect/Disconnect.
+        // commands below replace with Reconnect.
         Window(Self.mainWindowTitle, id: "main") {
             if AppState.isRunningUnderXCTest {
                 EmptyView()
@@ -57,9 +57,10 @@ private let appLogger = DevLogger(category: "App")
         Window("Annotation", id: "annotation") { AnnotationWindow().environmentObject(appState) }
             .defaultSize(width: 1560, height: 940).restorationBehavior(.disabled)
 
-        // Settings (⌘,) ▸ Gerardus: where the server is, what it is, and the
-        // street painter's author.
-        Settings { if !AppState.isRunningUnderXCTest { SettingsView(session: appState.alignment) } }
+        // Settings (⌘,) ▸ Servers: velocity.report and Gerardus, where each
+        // is, whether it answers and what it is, and the street painter's
+        // author. The main window's status indicator opens it.
+        Settings { if !AppState.isRunningUnderXCTest { SettingsView(appState: appState) } }
     }
 
     init() {
@@ -137,10 +138,12 @@ struct AppCommands: Commands {
             }.keyboardShortcut("z", modifiers: [.command, .shift])
         }
 
-        // Connection commands
+        // Connection. The app connects at launch and retries by itself;
+        // this is the manual retry, which also starts the backoff afresh.
+        // There is no Disconnect: the indicator reports the connection, and
+        // Settings ▸ Servers says where it goes.
         CommandGroup(replacing: .newItem) {
-            Button("Connect/Disconnect") { appState.toggleConnection() }.keyboardShortcut(
-                "c", modifiers: [.command, .shift])
+            Button("Reconnect") { appState.reconnect() }.keyboardShortcut("r", modifiers: .command)
         }
 
         // Playback commands

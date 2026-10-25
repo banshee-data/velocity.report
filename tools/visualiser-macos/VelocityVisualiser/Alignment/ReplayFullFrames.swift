@@ -40,14 +40,13 @@ enum ReplayFullFramesError: Error, Equatable, LocalizedError {
 /// The HTTP client for the switch, against the same server as the other
 /// velocity.report clients here.
 struct ReplayFullFramesClient: ReplayFullFramesSwitch {
-    let baseURL: URL
+    /// A fixed server, for tests; nil follows Settings ▸ Servers at each call.
+    let configuredBaseURL: URL?
+    var baseURL: URL { configuredBaseURL ?? VelocityReportServer.currentHTTPURL }
     private let session: URLSession
 
-    init(
-        baseURL: URL = PhysicalReferenceAPIClient.defaultBaseURL,
-        session: URLSession = APISession.shared
-    ) {
-        self.baseURL = baseURL
+    init(baseURL: URL? = nil, session: URLSession = APISession.shared) {
+        self.configuredBaseURL = baseURL
         self.session = session
     }
 

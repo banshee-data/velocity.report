@@ -59,14 +59,13 @@ enum AnnotationCoverage: String, CaseIterable, Identifiable {
 /// mutation on an existing run, and the error path needs the server's actual
 /// message (a missing VRLOG, an empty window) rather than a bare status code.
 struct AnnotationExportAPIClient {
-    private let baseURL: URL
+    /// A fixed server, for tests; nil follows Settings ▸ Servers at each call.
+    let configuredBaseURL: URL?
+    private var baseURL: URL { configuredBaseURL ?? VelocityReportServer.currentHTTPURL }
     private let session: URLSession
 
-    init(
-        baseURL: URL = URL(string: "http://localhost:8080")!,
-        session: URLSession = APISession.shared
-    ) {
-        self.baseURL = baseURL
+    init(baseURL: URL? = nil, session: URLSession = APISession.shared) {
+        self.configuredBaseURL = baseURL
         self.session = session
     }
 

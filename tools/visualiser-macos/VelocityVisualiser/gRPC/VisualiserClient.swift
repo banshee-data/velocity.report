@@ -19,7 +19,13 @@ protocol VisualiserClientDelegate: AnyObject {
     func clientDidDisconnect(_ client: VisualiserClient, error: Error?)
     func client(_ client: VisualiserClient, didReceiveFrame frame: FrameBundle)
     func clientDidFinishStream(_ client: VisualiserClient)  // Called when replay stream ends (EOF)
+    /// The server accepted StreamFrames: something is listening, and it is
+    /// the visualiser service. `clientDidConnect` comes earlier, once the
+    /// transport exists, whether or not anything listens.
+    func clientStreamDidOpen(_ client: VisualiserClient)
 }
+
+extension VisualiserClientDelegate { func clientStreamDidOpen(_ client: VisualiserClient) {} }
 
 /// Minimal playback control API used by AppState. Abstracted for tests.
 @available(macOS 15.0, *) protocol PlaybackRPCClient: AnyObject {
@@ -107,18 +113,15 @@ enum VisualiserClientError: Error, LocalizedError {
         }
 
         // Parse address
-        let components = address.split(separator: ":")
-        guard components.count == 2, let port = Int(components[1]) else {
+        let target: any ResolvableTarget
+        do { target = try Self.target(for: address) } catch {
             logger.error("Invalid address format: \(self.address)")
-            throw VisualiserClientError.invalidAddress(
-                "Invalid format: \(address), expected host:port")
+            throw error
         }
-        let host = String(components[0])
-        logger.debug("Parsed host: \(host), port: \(port)")
 
         // Create gRPC transport and client
         do {
-            vlog("[VisualiserClient] Creating gRPC transport to \(host):\(port)...")
+            vlog("[VisualiserClient] Creating gRPC transport to \(address)...")
 
             // Configure max message size for large point clouds (64k+ points).
             // Default 4MB is insufficient; use 16MB to handle full-resolution frames.
@@ -140,7 +143,7 @@ enum VisualiserClientError: Error, LocalizedError {
             config.http2.maxFrameSize = 1 << 20
 
             let transport = try HTTP2ClientTransport.Posix(
-                target: .dns(host: host, port: port), transportSecurity: .plaintext, config: config,
+                target: target, transportSecurity: .plaintext, config: config,
                 serviceConfig: serviceConfig)
 
             let grpcClient = GRPCClient(transport: transport)
@@ -169,6 +172,65 @@ enum VisualiserClientError: Error, LocalizedError {
             logger.error("Failed to create gRPC transport: \(error.localizedDescription)")
             throw VisualiserClientError.connectionFailed(error.localizedDescription)
         }
+    }
+
+    /// "host:port" or "[IPv6]:port" as a target to dial. An IPv6 literal is
+    /// dialled as it stands; anything else goes through the resolver.
+    static func target(for address: String) throws -> any ResolvableTarget {
+        let invalid = VisualiserClientError.invalidAddress(
+            "Invalid format: \(address), expected host:port")
+        guard let colon = address.lastIndex(of: ":"),
+            let port = Int(address[address.index(after: colon)...]), (1...65_535).contains(port)
+        else { throw invalid }
+        var host = String(address[..<colon])
+        if host.hasPrefix("[") && host.hasSuffix("]") {
+            host = String(host.dropFirst().dropLast())
+            guard host.contains(":") else { throw invalid }
+            return ResolvableTargets.IPv6(addresses: [SocketAddress.IPv6(host: host, port: port)])
+        }
+        guard !host.isEmpty, !host.contains(":") else { throw invalid }
+        return ResolvableTargets.DNS(host: host, port: port)
+    }
+
+    /// Asks the server at `address` for GetCapabilities on a channel of its
+    /// own, closed again before returning: Settings' Test connection, which
+    /// must neither need nor disturb the stream the window draws.
+    static func probeCapabilities(
+        address: String, timeout: Duration
+    ) async throws -> Velocity_Visualiser_V1_CapabilitiesResponse {
+        let transport = try HTTP2ClientTransport.Posix(
+            target: target(for: address), transportSecurity: .plaintext)
+        let client = GRPCClient(transport: transport)
+        let running = Task { try await client.runConnections() }
+        defer {
+            client.beginGracefulShutdown()
+            running.cancel()
+        }
+        var options = CallOptions.defaults
+        options.timeout = timeout
+        options.waitForReady = false
+        return try await Velocity_Visualiser_V1_VisualiserService.Client(wrapping: client)
+            .getCapabilities(
+                request: ClientRequest(message: Velocity_Visualiser_V1_CapabilitiesRequest()),
+                options: options)
+    }
+
+    /// GetCapabilities on this client's own channel: whether the visualiser
+    /// service answers there. The stream's headers say the same, but a server
+    /// with nothing to send may not send them until its first frame.
+    func getCapabilities(
+        timeout: Duration
+    ) async throws -> Velocity_Visualiser_V1_CapabilitiesResponse {
+        guard isConnected, let grpcClient = _grpcClient.value else {
+            throw VisualiserClientError.notConnected
+        }
+        var options = CallOptions.defaults
+        options.timeout = timeout
+        options.waitForReady = false
+        return try await Velocity_Visualiser_V1_VisualiserService.Client(wrapping: grpcClient)
+            .getCapabilities(
+                request: ClientRequest(message: Velocity_Visualiser_V1_CapabilitiesRequest()),
+                options: options)
     }
 
     /// Disconnect from the gRPC server.
@@ -272,6 +334,9 @@ enum VisualiserClientError: Error, LocalizedError {
                 switch response.accepted {
                 case .success(let contents):
                     vlog("[VisualiserClient] ✅ Stream accepted, metadata: \(contents.metadata)")
+                    if let self {
+                        await MainActor.run { streamDelegate?.clientStreamDidOpen(self) }
+                    }
 
                     var frameCount: UInt64 = 0
                     var skippedFrames: UInt64 = 0

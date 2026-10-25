@@ -1,7 +1,7 @@
 // GerardusSettingsView.swift
-// Settings (⌘,) ▸ Gerardus: where the Gerardus server is, whether it answers
-// and what it is, the street painter's author name, and whether the server
-// serves registered scans.
+// Settings (⌘,) ▸ Servers, the Gerardus sections: where the Gerardus server
+// is, whether it answers and what it is, whether it serves registered scans,
+// and the street painter's author name.
 //
 // The address is kept in the app's preferences as `alignment.serviceAddress`
 // (GerardusAddress); the local server, 127.0.0.1:50061, is the default.
@@ -49,70 +49,69 @@ enum GerardusSettings {
     }
 }
 
-/// Settings' tabs: one for Gerardus, so far.
-@available(macOS 15.0, *) struct SettingsView: View {
-    @ObservedObject var session: AlignmentSession
-
-    var body: some View {
-        TabView {
-            GerardusSettingsView(session: session).tabItem { Label("Gerardus", systemImage: "map") }
-        }.frame(width: 520)
-    }
-}
-
+/// The Gerardus sections of Settings ▸ Servers, inside its Form.
 @available(macOS 15.0, *) struct GerardusSettingsView: View {
     @ObservedObject var session: AlignmentSession
     @AppStorage(StreetPainterSession.authorKey) private var author = ""
     @State private var text = ""
     @State private var parseError: String?
+    @State private var testing = false
+    @State private var testResult: ConnectionTestResult?
 
     var body: some View {
-        Form {
-            Section {
-                TextField("Server", text: $text, prompt: Text(GerardusAddress.local.description))
-                    .onSubmit(apply).autocorrectionDisabled()
-                Text(
-                    "A host name or IP address, with an optional port (50061 if left out): machine.tailnet.ts.net, 100.64.0.1:50061, [fd7a:115c:a1e0::1]:50061."
-                ).font(.caption).foregroundStyle(.secondary)
-                HStack {
-                    Button("Connect", action: apply).keyboardShortcut(.defaultAction)
-                    Button("Use this Mac") {
-                        text = GerardusAddress.local.description
-                        apply()
-                    }.disabled(
-                        session.serviceAddress == .local
-                            && text == GerardusAddress.local.description)
-                    Button("Test connection") { Task { await session.probe() } }.disabled(
-                        session.isChecking
-                    ).help("Ask the server for its version (GetServerInfo)")
-                    Spacer()
-                }
-                status
-            } header: {
-                Text("Server")
+        Section {
+            TextField("Server", text: $text, prompt: Text(GerardusAddress.local.description))
+                .onSubmit(apply).autocorrectionDisabled()
+            Text(
+                "A host name or IP address, with an optional port (50061 if left out): machine.tailnet.ts.net, 100.64.0.1:50061, [fd7a:115c:a1e0::1]:50061."
+            ).font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button("Connect", action: apply)
+                Button("Use this Mac") {
+                    text = GerardusAddress.local.description
+                    apply()
+                }.disabled(
+                    session.serviceAddress == .local && text == GerardusAddress.local.description)
+                Button("Test connection", action: test).disabled(testing).help(
+                    "Ask the server for GetServerInfo, with a 3 s timeout")
+                Spacer()
             }
-            if let info = session.serverInfo { serverSection(info) }
-            Section {
-                TextField("Author", text: $author, prompt: Text("Your name"))
-                Text(
-                    "Gerardus records every street-use edit under this name, and refuses one without it. The painter's Author field is the same setting."
-                ).font(.caption).foregroundStyle(.secondary)
-            } header: {
-                Text("Street painter")
+            status
+            if testing || testResult != nil {
+                ConnectionTestRow(title: "Test", result: testResult, testing: testing)
             }
-        }.formStyle(.grouped).onAppear { text = session.serviceAddress.description }
+        } header: {
+            Text("Gerardus")
+        }.onAppear { text = session.serviceAddress.description }
+        if let identity { serverSection(identity) }
+        Section {
+            TextField("Author", text: $author, prompt: Text("Your name"))
+            Text(
+                "Gerardus records every street-use edit under this name, and refuses one without it. The painter's Author field is the same setting."
+            ).font(.caption).foregroundStyle(.secondary)
+        } header: {
+            Text("Street painter")
+        }
     }
 
-    @ViewBuilder private func serverSection(
-        _ info: Gerardus_Align_V1alpha1_GetServerInfoResponse
-    ) -> some View {
+    /// What the last test found, else what the session's server said.
+    private var identity: ServerIdentity? {
+        if case .ok(let identity, _) = testResult { return identity }
+        guard let info = session.serverInfo else { return nil }
         let version = GerardusSettings.version(info.serverVersion)
+        return ServerIdentity(
+            version: version.version.isEmpty ? nil : version.version, gitSHA: version.gitSHA,
+            apiVersion: info.apiVersion.isEmpty ? nil : info.apiVersion,
+            servesScans: GerardusSettings.servesScans(info))
+    }
+
+    @ViewBuilder private func serverSection(_ identity: ServerIdentity) -> some View {
         Section {
-            LabeledContent("Version", value: version.version.isEmpty ? "—" : version.version)
-            LabeledContent("Git sha", value: version.gitSHA ?? "not reported").textSelection(
+            LabeledContent("Version", value: identity.version ?? "—")
+            LabeledContent("Git sha", value: identity.gitSHA ?? "not reported").textSelection(
                 .enabled)
-            if !info.apiVersion.isEmpty { LabeledContent("API", value: info.apiVersion) }
-            if let serves = GerardusSettings.servesScans(info) {
+            if let api = identity.apiVersion { LabeledContent("API", value: api) }
+            if let serves = identity.servesScans {
                 LabeledContent(
                     "Serves registered scans", value: serves ? "yes (serve --serve-scans)" : "no")
                 Text(
@@ -120,7 +119,7 @@ enum GerardusSettings {
                 ).font(.caption).foregroundStyle(.secondary)
             }
         } header: {
-            Text("This server")
+            Text("This Gerardus")
         }
     }
 
@@ -157,8 +156,20 @@ enum GerardusSettings {
         switch GerardusSettings.apply(text, to: session) {
         case .success(let address):
             parseError = nil
+            testResult = nil
             text = address.description
         case .failure(let error): parseError = error.localizedDescription
+        }
+    }
+
+    private func test() {
+        testing = true
+        testResult = nil
+        Task {
+            // What is typed, when it is an address: it can be tried before
+            // it is used.
+            testResult = await session.testConnection(try? GerardusAddress.parse(text))
+            testing = false
         }
     }
 }

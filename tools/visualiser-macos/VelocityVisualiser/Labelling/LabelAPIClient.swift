@@ -15,7 +15,9 @@ class LabelAPIClient {
     // MARK: - Properties
 
     /// Base URL for the Go backend API.
-    private let baseURL: URL
+    /// A fixed server, for tests; nil follows Settings ▸ Servers at each call.
+    let configuredBaseURL: URL?
+    private var baseURL: URL { configuredBaseURL ?? VelocityReportServer.currentHTTPURL }
 
     /// URL session for HTTP requests.
     private let session: URLSession
@@ -37,11 +39,8 @@ class LabelAPIClient {
 
     // MARK: - Initialisation
 
-    init(
-        baseURL: URL = URL(string: "http://localhost:8080")!,
-        session: URLSession = APISession.shared
-    ) {
-        self.baseURL = baseURL
+    init(baseURL: URL? = nil, session: URLSession = APISession.shared) {
+        self.configuredBaseURL = baseURL
         self.session = session
     }
 

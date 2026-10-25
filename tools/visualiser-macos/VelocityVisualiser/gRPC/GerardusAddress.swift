@@ -18,7 +18,7 @@ struct GerardusAddress: Equatable, Hashable, Sendable, CustomStringConvertible {
     static let defaultPort = 50061
     /// The server on this Mac. An unset preference means this.
     static let local = GerardusAddress(host: "127.0.0.1", port: defaultPort)
-    /// UserDefaults key, next to `annotation.serviceURL`.
+    /// UserDefaults key, next to `velocityReport.serverURL`.
     static let preferenceKey = "alignment.serviceAddress"
 
     /// A host name in lower case, or an IP literal; IPv6 without brackets.
@@ -95,7 +95,7 @@ struct GerardusAddress: Equatable, Hashable, Sendable, CustomStringConvertible {
     /// An IPv4 literal as it stands, or a host name (RFC 1123 labels) in
     /// lower case without a trailing dot. Dotted numbers that are not a
     /// valid IPv4 address are refused rather than looked up as a name.
-    private static func normalisedHost(_ text: String) -> String? {
+    static func normalisedHost(_ text: String) -> String? {
         if isIPv4(text) { return text }
         var name = text.lowercased()
         if name.hasSuffix(".") { name.removeLast() }
@@ -110,12 +110,12 @@ struct GerardusAddress: Equatable, Hashable, Sendable, CustomStringConvertible {
         return name
     }
 
-    private static func isIPv4(_ text: String) -> Bool {
+    static func isIPv4(_ text: String) -> Bool {
         var address = in_addr()
         return text.withCString { inet_pton(AF_INET, $0, &address) } == 1
     }
 
-    private static func isIPv6(_ text: String) -> Bool {
+    static func isIPv6(_ text: String) -> Bool {
         var address = in6_addr()
         return text.withCString { inet_pton(AF_INET6, $0, &address) } == 1
     }
