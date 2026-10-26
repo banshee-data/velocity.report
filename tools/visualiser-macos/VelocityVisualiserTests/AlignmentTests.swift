@@ -1332,7 +1332,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
         log("ListRegistrationRecords")
-        return records
+        return records.reversed()
     }
 
     func reviewRegistrations(
@@ -1702,6 +1702,24 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(service.reviews.count == 2)
         #expect(service.reviews[0] == service.reviews[1])
         #expect(!service.reviews[0].requestID.isEmpty)
+    }
+
+    @Test func expectedHeadsFollowAppendOrderEvenIfTheClockMovesBackwards() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        var old = Gerardus_Align_V1alpha1_RegistrationRecord()
+        old.scanID = session.registration!.scanID
+        old.recordID = "old"
+        old.reviewedAt.seconds = 100
+        var head = old
+        head.recordID = "head"
+        head.reviewedAt.seconds = 50
+        service.records = [old, head]
+        await session.loadRecords()
+        session.reviewer = "operator"
+        await session.accept()
+        #expect(service.lastReview?.expectedRecordID == "head")
     }
 
     @Test func aStaleReviewKeepsItsPoseAndNoteUntilAnExplicitRead() async {

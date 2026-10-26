@@ -400,6 +400,7 @@ struct StreetReference: Sendable {
         request.author = author.trimmingCharacters(in: .whitespaces)
         request.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
         request.edits = edits
+        let retrying = pendingSave != nil
         if let pendingSave {
             request.requestID = pendingSave.requestID
             guard request == pendingSave else {
@@ -425,6 +426,9 @@ struct StreetReference: Sendable {
                 }
                 errorMessage =
                     "Conflict: your draft is kept. Reload marks to discard it and start from the current version."
+            } else if !retrying && GerardusClientError.isDefiniteRejection(error) {
+                // Correct rejected geometry without discarding other drafts.
+                pendingSave = nil
             }
         }
         isSaving = false

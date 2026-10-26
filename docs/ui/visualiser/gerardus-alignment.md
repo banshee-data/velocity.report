@@ -321,7 +321,7 @@ Fills and bands are triangles on the debug-line pipeline, lifted 0.15 m above th
 The vendored alpha contract includes Gerardus #33's safe-write requirements.
 Every decision carries the record the operator read and a request ID. Street
 updates and removals carry their original row IDs; creates have no expected row.
-An unchanged retry retains the entire request and its ID, so a lost response
+An unchanged retry after an unknown outcome retains the entire request and its ID, so a lost response
 cannot create a second contribution. Changing an unresolved request is refused
 until the operator reconciles it with a deliberate read.
 
@@ -339,3 +339,8 @@ a stale-head refusal refine again. Reads in the web site viewer remain read-only
 Session tests exercise the real visualiser state/client contracts against a fake
 service, including lost responses, conflicts and atomic batch refusal. They do
 not establish production deployment, storage recovery or physical scan quality.
+
+A definite validation refusal keeps the draft editable and gives a corrected
+intent a new request ID. A transport/internal failure retains the pending ID
+until its outcome is reconciled. Review heads follow the server's append order,
+independently of the timestamps used to display the records.

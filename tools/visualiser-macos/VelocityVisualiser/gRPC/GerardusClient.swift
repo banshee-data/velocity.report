@@ -45,6 +45,18 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         if let rpc = error as? RPCError { return "\(rpc.code): \(rpc.message)" }
         return error.localizedDescription
     }
+
+    /// These statuses refuse the mutation. Transport/internal failures have
+    /// an unknown outcome and must retain the original request identity.
+    static func isDefiniteRejection(_ error: Error) -> Bool {
+        guard let rpc = error as? RPCError else { return false }
+        switch rpc.code {
+        case .invalidArgument, .notFound, .alreadyExists, .permissionDenied, .unauthenticated,
+            .failedPrecondition, .unimplemented, .outOfRange:
+            return true
+        default: return false
+        }
+    }
 }
 
 /// The calls the alignment session makes. Abstracted so tests can count them:

@@ -2321,3 +2321,7 @@ writes retain drafts and unchanged retry identities; conflicts read current
 state separately and require explicit reconciliation. The web site viewer has
 no write path. Details and validation limits are in
 [the alignment guide](ui/visualiser/gerardus-alignment.md#safe-writes-and-conflicts-2026-10-25).
+
+Validation refusals leave drafts editable; unknown outcomes retain pending IDs
+across later refusals. Review preconditions use append order even when the wall
+clock moves backwards. Regression coverage includes both cases.

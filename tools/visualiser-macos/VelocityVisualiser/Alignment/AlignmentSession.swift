@@ -327,6 +327,7 @@ struct ReferenceSummary: Equatable {
     /// Colour the uploaded scan by residual whenever an evaluation has them.
     @Published var showResiduals = true { didSet { pushResiduals() } }
     @Published private(set) var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
+    private var recordHeads: [String: String] = [:]
     private var pendingReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     private var pendingRefinement: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest?
     private var refinementHeads: [String: String] = [:]
@@ -1832,6 +1833,7 @@ struct ReferenceSummary: Equatable {
         request.registrationID = registration.registrationID
         request.reviewer = reviewerName
         request.note = note
+        let retrying = pendingReview != nil
         if let pendingReview {
             request.expectedRecordID = pendingReview.expectedRecordID
             request.requestID = pendingReview.requestID
@@ -1841,8 +1843,7 @@ struct ReferenceSummary: Equatable {
                 return
             }
         } else {
-            request.expectedRecordID =
-                records.first(where: { $0.scanID == registration.scanID })?.recordID ?? ""
+            request.expectedRecordID = recordHeads[registration.scanID] ?? ""
             request.requestID = UUID().uuidString
         }
         pendingReview = request
@@ -1853,6 +1854,7 @@ struct ReferenceSummary: Equatable {
         do {
             let record = try await client.reviewRegistration(request)
             lastRecord = record
+            recordHeads[record.scanID] = record.recordID
             pendingReview = nil
             noteDecided(record)
             rejectReason = ""
@@ -1865,6 +1867,8 @@ struct ReferenceSummary: Equatable {
                 conflictingRecords =
                     (try? await client.listRegistrationRecords(l16Token: site?.l16Token ?? ""))
                     ?? []
+            } else if !retrying && GerardusClientError.isDefiniteRejection(error) {
+                pendingReview = nil
             }
         }
         if recorded { await refreshSiteModel(client: client) }
@@ -1913,8 +1917,7 @@ struct ReferenceSummary: Equatable {
         refinedRuns = [:]
         refinedAccepted = []
         pendingRefinement = nil
-        refinementHeads = Dictionary(
-            records.map { ($0.scanID, $0.recordID) }, uniquingKeysWith: { first, _ in first })
+        refinementHeads = recordHeads
         refinementOverridden = nil
         staleRefinedScanIDs = []
         selectedRefinedScanID = nil
@@ -2084,6 +2087,7 @@ struct ReferenceSummary: Equatable {
             request.expectedRecordID = refinementHeads[refined.scanID] ?? ""
             return request
         }
+        let retrying = pendingRefinement != nil
         if let pendingRefinement {
             batch.requestID = pendingRefinement.requestID
             guard batch == pendingRefinement else {
@@ -2102,6 +2106,9 @@ struct ReferenceSummary: Equatable {
             refinedAccepted = Set(scans.map(\.scanID))
             pendingRefinement = nil
         } catch {
+            if !retrying && GerardusClientError.isDefiniteRejection(error) {
+                pendingRefinement = nil
+            }
             errorMessage =
                 "\(GerardusClientError.describe(error)) (no partial acceptance; retry the unchanged batch after a connection failure, or refine again after a conflict)"
         }
@@ -2117,6 +2124,10 @@ struct ReferenceSummary: Equatable {
         guard let client, let site else { return }
         do {
             let listed = try await client.listRegistrationRecords(l16Token: site.l16Token)
+            // Append order chooses heads even if the wall clock moved back.
+            // Timestamp sorting below is for display only.
+            recordHeads = Dictionary(
+                listed.map { ($0.scanID, $0.recordID) }, uniquingKeysWith: { first, _ in first })
             records = listed.sorted { a, b in
                 (a.reviewedAt.seconds, a.reviewedAt.nanos) > (
                     b.reviewedAt.seconds, b.reviewedAt.nanos
@@ -2129,6 +2140,7 @@ struct ReferenceSummary: Equatable {
     }
 
     private func clearPlacement() {
+        recordHeads = [:]
         pendingReview = nil
         pendingRefinement = nil
         refinementHeads = [:]

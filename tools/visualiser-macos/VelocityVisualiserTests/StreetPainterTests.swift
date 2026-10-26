@@ -962,7 +962,7 @@ struct StreetStyleTests {
     }
 
     @Test func aRefusedSaveKeepsTheChanges() async {
-        let (painter, _, _, _) = await placedPainter {
+        let (painter, _, service, _) = await placedPainter {
             $0.refuseStreetUse = "lane 3 crosses itself"
         }
         painter.setPainting(true)
@@ -972,6 +972,12 @@ struct StreetStyleTests {
         await painter.save(author: "Ada")
         #expect(painter.errorMessage?.contains("lane 3 crosses itself") == true)
         #expect(painter.edit.pendingEdits.count == 1)
+        let rejectedID = service.streetUseEdits[0].requestID
+        service.refuseStreetUse = nil
+        painter.note = "corrected intent"
+        await painter.save(author: "Ada")
+        #expect(!painter.edit.isDirty)
+        #expect(service.streetUseEdits.last?.requestID != rejectedID)
     }
 
     @Test func aLostResponseRetriesTheSameStreetIntentAndID() async {
@@ -1003,6 +1009,26 @@ struct StreetStyleTests {
         #expect(service.streetUseEdits.count == 1)
         #expect(painter.errorMessage?.contains("draft is kept") == true)
         #expect(service.calls.last == "ListStreetUse")
+    }
+
+    @Test func aLaterRefusalCannotResolveAnEarlierUnknownOutcome() async {
+        let (painter, _, service, _) = await placedPainter()
+        painter.setPainting(true)
+        painter.tool = .driveway
+        click(painter, plan(3, -5))
+        click(painter, plan(7, -5))
+        service.streetUseFailure = RPCError(code: .unavailable, message: "lost response")
+        await painter.save(author: "Ada")
+        service.streetUseFailure = RPCError(
+            code: .failedPrecondition, message: "reference temporarily missing")
+        await painter.save(author: "Ada")
+        #expect(painter.hasPendingSave)
+        #expect(service.streetUseEdits[0] == service.streetUseEdits[1])
+        painter.note = "a different intent"
+        service.streetUseFailure = nil
+        await painter.save(author: "Ada")
+        #expect(service.streetUseEdits.count == 2)
+        #expect(painter.edit.isDirty)
     }
 
     @Test func aServerWithoutStreetUseCannotBePainted() async {
