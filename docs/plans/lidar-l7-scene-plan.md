@@ -35,8 +35,8 @@ The persistent static scene is no longer only a plan. It is being built in Gerar
 
 - **Now:** finish Gerardus's buildings (W4) and trees (W7), about 1–1.5 weeks. Vector work then pauses for vehicle state estimation, filtering and tracking ([state-estimation plan](lidar-state-estimation-plan.md), the 05x tracking slots).
 - **Later in Gerardus:** W8 exports (2–3 days, when a consumer needs them) and W9 evaluation (1–2 weeks, bound by hand labels).
-- **In this repository:** the accepted pose written back (`S`, the backlog's Gerardus alignment client section); the v0.6.9 road layer for posted limits, re-scoped onto Gerardus's city streets, painted travel lanes and signs (`M`, was `L`); the v1.0 L7 row narrowed to canonical objects, cross-sensor track fusion and accumulated relations (`L`, was `XL`), which waits on the tracking work above and on a site with a second sensor.
-- **Mobile mapping (SLAM)** is its own series, [010x](../BACKLOG.md#010x-roving-routes-) (v0.10.0–v0.10.4), after v0.9.0: portable timing, the SLAM spike Gerardus runs, then backpack and bike transfer.
+- **In this repository:** the accepted pose written back (`S`, the backlog's Gerardus alignment client section); the v0.7.7 road layer for posted limits, re-scoped onto Gerardus's city streets, painted travel lanes and signs (`M`, was `L`); the v1.0 L7 row narrowed to canonical objects, cross-sensor track fusion and accumulated relations (`L`, was `XL`), which waits on the tracking work above and on a site with a second sensor.
+- **Mobile mapping (SLAM)** is the [06x series](../BACKLOG.md#06x-roving-routes-) (v0.6.0–v0.6.4), after the 05x tracking work: the SLAM spike Gerardus runs, portable timing, then backpack and bike transfer and route speeds. The static deployment and reporting slots that were 06x are now 07x.
 
 ---
 

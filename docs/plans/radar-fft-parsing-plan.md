@@ -1,9 +1,9 @@
 # Radar FFT parsing and scene evidence plan
 
-- **Status:** Parked: queued for v0.6.5; revisit when that release slot becomes next (D-32).
+- **Status:** Parked: queued for v0.7.3; revisit when that release slot becomes next (D-32).
 - **Decisions:** D-30 (one binary and role boundaries), D-31 (coordinated vocabulary cutovers), D-32 (planning limits), D-33 (shipped behaviour versus intent).
 - **Layers:** Radar ingest, local evidence storage, operator charts, LiDAR track association.
-- **Target:** v0.6.5; six independently deliverable items in [BACKLOG.md](../BACKLOG.md).
+- **Target:** v0.7.3; six independently deliverable items in [BACKLOG.md](../BACKLOG.md).
 - **Canonical:** [RADAR_FFT_FORMAT.md](../../data/structures/RADAR_FFT_FORMAT.md)
 - **Related:** [Exploration](../radar/operations/fft-stream-exploration.md), [serial classification](radar-serial-line-classification-and-command-response-plan.md), [L7 scene](lidar-l7-scene-plan.md).
 

@@ -5,7 +5,7 @@ A recording remains useful after development; the guard preserves the distinctio
 repeatable development check and fresh acceptance evidence.
 
 - **Status:** Proposed; implementation not started
-- **Target:** v0.6.0, deployment and packaging tooling
+- **Target:** v0.7.0, deployment and packaging tooling
 - **Layers:** Offline analysis, experiment jobs, and L10 tools
 - **Canonical:** [Per-frame evaluation](../lidar/operations/per-frame-evaluation.md#freezing-a-split)
 - **Related:** [Test corpus](lidar-test-corpus-plan.md), [capture-bound labels](lidar-capture-bound-annotation-format-plan.md), [experiment queue](platform-experiment-queue-plan.md), [capture identity, D-27](../DECISIONS.md#d-27--capture-identity-and-the-capture-indexs-rules), [backlog](../BACKLOG.md#v060---deployment--packaging-060)
@@ -183,7 +183,7 @@ resolved. Already used recordings remain valuable for labelling and regression.
 | R2: shared admission       | Go decision function, typed purposes, receipt, and read-only preview                      | Every allow/refuse row in Section 4 is exercised; absent policy and contradictory splits refuse before packet decoding.                        |
 | R3: execution integration  | CLI, sweep/API, campaign, and worker paths use the same check                             | Direct calls and queued jobs give the same decision; no optional split argument bypasses policy; retries and cached results preserve identity. |
 | R4: acceptance and history | Pinned declaration, frozen references, local use events, and release-for-development flow | Final tests cannot tune candidates, stale jobs are rejected, and prior exposure survives later policy and label revisions.                     |
-| R5: deployment and handoff | Install/configure the policy location, migrate callers, and document recovery             | A clean v0.6.0 analysis setup previews and runs allowed inputs; missing setup explains how to repair it; live capture still starts offline.    |
+| R5: deployment and handoff | Install/configure the policy location, migrate callers, and document recovery             | A clean v0.7.0 analysis setup previews and runs allowed inputs; missing setup explains how to repair it; live capture still starts offline.    |
 
 Ship increments in this order without advertising automatic exclusion until R3 covers every
 inventoried recording-backed analysis path. Keep the existing split requirements during
@@ -232,7 +232,7 @@ The plan protects experimental evidence without making a file unreadable to its 
 
 ## 11. Completion
 
-The 0.6.0 backlog item is complete when the policy can reserve unlabelled placement groups,
+The 0.7.0 backlog item is complete when the policy can reserve unlabelled placement groups,
 all inventoried recording-backed analysis entry points enforce it, reference scoring retains
 its frozen split, and a local receipt proves the purpose and data used. The refusal and
 migration cases above must pass.

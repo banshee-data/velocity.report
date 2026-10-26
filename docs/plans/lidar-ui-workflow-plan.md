@@ -5,9 +5,9 @@ sweep. This plan keeps its screens and intent and maps each change onto the voca
 the repository already has, so the design can be built without reopening settled decisions.
 
 - **Status:** Proposed. The copy, links and lineage it shares with #707 have landed; the rest is
-  allocated to v0.5.9–v0.5.12 and v0.6.6 below
+  allocated to v0.5.9–v0.5.12 and v0.7.4 below
 - **Layers:** L9 Endpoints, L10 Clients (web and macOS)
-- **Target:** v0.5.10 to v0.5.12 for the screens; site and survey work with Item 14 in v0.6.6
+- **Target:** v0.5.10 to v0.5.12 for the screens; site and survey work with Item 14 in v0.7.4
 - **Companion plans:** [platform vocabulary](platform-vocabulary-and-data-model-plan.md),
   [P1-B LiDAR terminology](platform-vocabulary-phase1-lidar-plan.md),
   [P2-B clips and labels](platform-vocabulary-phase2-clips-labels-plan.md),
@@ -73,7 +73,7 @@ The design's words, against the nouns the vocabulary plan settled.
 | Sweep        | A parameter search scored against a clip's labels        | sweep (V6)                                                                                            | Adopt; name the objective, since only `ground_truth` scores against labels                                                        |
 | Labels       | Points agreed and objects reviewed                       | label is a track verdict; annotation is a point mask (V10)                                            | "Labels" for track verdicts, "Annotations" for mask review                                                                        |
 | p·7f3a       | A four-digit parameter hash                              | the param set's `params_hash`; the tuning config's fingerprint (V33)                                  | Show the existing digest at eight hex digits; four would collide within one sweep                                                 |
-| Site         | A picker on sessions and clips, from radar Sites         | site (V14), deployment (V17); a clip's coordinates move to its survey (V18)                           | Clips pick from `lidar_sites` now; sessions take a site from deployments in v0.6.6                                                |
+| Site         | A picker on sessions and clips, from radar Sites         | site (V14), deployment (V17); a clip's coordinates move to its survey (V18)                           | Clips pick from `lidar_sites` now; sessions take a site from deployments in v0.7.4                                                |
 
 ## The twelve changes
 
@@ -87,7 +87,7 @@ Each change, what this plan does with it, and where it lands. "Landed" means #70
 | T4  | Every run carries a clip; parameter hash and diff; fold repeats        | Adapted. Clip match, digest and the recommended mark landed. Runs record their clip at write, group by clip, and fold a sweep's runs under the sweep             | v0.5.10                         |
 | T5  | Sweeps show clip, base run, best score; queue; resumable               | Adapted. Clip and objective landed. Best score on the card; "base run" only for HINT, which has a reference run; queueing through jobs; resumable is `suspended` | v0.5.12                         |
 | T6  | Tracks' clip picker defaults to the run's clip                         | Landed as specified. Target: the clip as a link, with a picker over that clip's runs                                                                             | v0.5.10                         |
-| T7  | Pick the site from Sites instead of free text                          | Adapted. Clips pick from `lidar_sites` now; a session's site comes from its deployment                                                                           | v0.5.11; v0.6.6                 |
+| T7  | Pick the site from Sites instead of free text                          | Adapted. Clips pick from `lidar_sites` now; a session's site comes from its deployment                                                                           | v0.5.11; v0.7.4                 |
 | T8  | Packs get a visible state; counts on Clips                             | Adapted. The Segments page already derives the status; it moves to the candidates panel and Clips counts it. No writable state                                   | Item 6, v0.5.10; counts v0.5.11 |
 | T9  | Web Tracks becomes a preview with "Open in visualiser"                 | Adopted. Read-only playback landed; the deep link needs a macOS URL scheme                                                                                       | v0.5.11                         |
 | T10 | macOS run browser by clip, "Queued for me", clip in the window title   | Adapted. Group by clip and title by clip; "Awaiting review" from pack status instead of an assignee                                                              | v0.5.11                         |
@@ -196,7 +196,7 @@ Each line is one backlog item, linked to this plan unless it is a vocabulary ite
 | v0.5.12 | Sweep cards show the best score; HINT names its reference run                                      | T5      |
 | v0.5.12 | Checkpointed sweeps survive a restart                                                              | T5      |
 | v0.5.12 | A sweep requested while one runs is queued as a job                                                | T5      |
-| v0.6.6  | Vocabulary Item 14: a session's site from its deployment                                           | T7      |
+| v0.7.4  | Vocabulary Item 14: a session's site from its deployment                                           | T7      |
 
 ## Acceptance
 

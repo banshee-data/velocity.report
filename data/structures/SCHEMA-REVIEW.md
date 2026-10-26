@@ -17,8 +17,8 @@ The review raised ten findings about segments, jobs, and captures, and four abou
 | [5. The held-out guard reads every selection](#findings-resolved-by-migration-55)        | 1        | Resolved; the guard moves to the capture digest (Items 3, 6)               |
 | [6. A clip job borrows the queue's session column](#decisions-on-the-remaining-findings) | 2        | Resolved: migration 58 holds two kinds until one job queue                 |
 | [7. A pack is an absolute path, and `''` means none](#findings-resolved-by-migration-55) | 2        | Resolved                                                                   |
-| [8. A replay case repeats its first file](#decisions-on-the-remaining-findings)          | 2        | Decided: case files name the digest; `pcap_file` goes in v0.6.7            |
-| [9. Session keys are unconstrained](#decisions-on-the-remaining-findings)                | 2        | Resolved: notes until v0.6.7 drops them                                    |
+| [8. A replay case repeats its first file](#decisions-on-the-remaining-findings)          | 2        | Decided: case files name the digest; `pcap_file` goes in v0.7.5            |
+| [9. Session keys are unconstrained](#decisions-on-the-remaining-findings)                | 2        | Resolved: notes until v0.7.5 drops them                                    |
 | [10. Capture extents permit contradictions](#decisions-on-the-remaining-findings)        | 3        | Decided: earliest and latest beside first and last (backlog); periods held |
 | [Wider schema watchlist](#wider-schema-watchlist)                                        | 2 to 3   | Two audits on the backlog; two items in the vocabulary plan                |
 
@@ -128,11 +128,11 @@ whole read, but the probe's read makes that saving small, and two identities wou
   cannot earn a capture a second random window. Once the selection folds into the clip (Item 6),
   the clip needs a `capture_id` generated from its selection document for the guard's index.
 - A case's files name their captures by digest (`capture_id`, Item 6). `capture_file_id`, which no
-  case file sets today, goes in v0.6.7, and so does `lidar_replay_cases.pcap_file` (Item 18).
+  case file sets today, goes in v0.7.5, and so does `lidar_replay_cases.pcap_file` (Item 18).
 - A capture that has not been probed has no digest yet; a clip names it by its relative path
   until the probe links it.
 - Rows that share a digest are one capture found twice. The plan keeps the path-derived row key
-  until v0.6.7, so it has to say whether such rows merge or become locations of one capture before
+  until v0.7.5, so it has to say whether such rows merge or become locations of one capture before
   the digest becomes the key.
 
 ### A replay case notes where it was cut from
@@ -148,7 +148,7 @@ and no motion period exists at all.
 are the authority, so a re-derive can lose a note's target but never the case.
 `TestACaseOutlivesTheSessionItWasCutFrom` in `internal/lidar/storage/sqlite` grows the session and
 re-derives under a case, and fails if either column becomes a key. Both columns stay notes until
-the vocabulary plan drops them in v0.6.7 (Item 18), and the test goes with them.
+the vocabulary plan drops them in v0.7.5 (Item 18), and the test goes with them.
 
 ### A capture's clock may step backwards
 
@@ -234,7 +234,7 @@ Migration 58 refuses nothing this database holds: it has no capture jobs and no 
 
 ## Wider schema watchlist
 
-These are separate from the segment delivery. They surfaced while comparing every table's declared keys in the refreshed ERD, and need a data and lifecycle audit before a migration is designed. The [platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md) settles two of them: one `sites` table for both sensors replaces the two meanings of `site_id` (Item 14, v0.6.6), and `radar_objects`, renamed `radar_detections`, gains `detection_id` (Item 17, v0.6.7). It leaves the estimate tables' parent key to this watchlist and treats those tables as a rebuildable catalogue of a vrlog's analysis stream (V34), which is where that audit starts. The audits of the estimate links and the timestamp units are on the backlog for v0.5.9.
+These are separate from the segment delivery. They surfaced while comparing every table's declared keys in the refreshed ERD, and need a data and lifecycle audit before a migration is designed. The [platform vocabulary plan](../../docs/plans/platform-vocabulary-and-data-model-plan.md) settles two of them: one `sites` table for both sensors replaces the two meanings of `site_id` (Item 14, v0.7.4), and `radar_objects`, renamed `radar_detections`, gains `detection_id` (Item 17, v0.7.5). It leaves the estimate tables' parent key to this watchlist and treats those tables as a rebuildable catalogue of a vrlog's analysis stream (V34), which is where that audit starts. The audits of the estimate links and the timestamp units are on the backlog for v0.5.9.
 
 | Priority | Observed shape                                                                                                                                                                                                                                                                                         | Direction to investigate                                                                                                                                                                                                                                                                                              |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -253,7 +253,7 @@ The same probe against the current schema is now a test. Each of those writes is
 
 1. Add the probe's earliest and latest packet and its backward steps, then the extent checks of finding 10 (backlog, v0.5.5).
 2. Key captures, the held-out guard and clip files on the capture digest with the vocabulary plan's Items 3 and 6 (findings 5, 8 and 9).
-3. Retire `pcap_file`, `capture_file_id` and the case notes with Item 18 (v0.6.7).
+3. Retire `pcap_file`, `capture_file_id` and the case notes with Item 18 (v0.7.5).
 4. Audit the estimate links and the timestamp units; the site and radar detection items follow the vocabulary plan.
 
 Keep `internal/db/schema.sql` generated from migrations, regenerate [SCHEMA.svg](SCHEMA.svg) after each schema change, and extend [MATRIX.md](MATRIX.md) when a new field becomes a real consumer contract.

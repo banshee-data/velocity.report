@@ -14,9 +14,9 @@ checked against that text; its state-level estimates were read for their method 
 The aggressive-driving report was read from a text extraction the owner supplied: its front matter,
 definitions and frameworks only. A figure no read source carries is marked **Confirm**.
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.6.9 (safety reporting) and later; revisit when v0.6.9 is next. Was: Proposed; no code written
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.7.7 (safety reporting) and later; revisit when v0.7.7 is next. Was: Proposed; no code written
 - **Layers:** Cross-cutting (PDF report copy and `data.json`, wording guard, safety-reference edition, L8 behaviour benchmarks, documentation)
-- **Target:** v0.6.9 for the shared wording guard, the percentile copy, the pace-of-traffic line, the limit-relative shares against the operator-supplied limit, and the attitudes entries in the safety-reference edition; v0.6.9 for shares per limit segment and schedule, after posted limits and schedules; research notes deferred
+- **Target:** v0.7.7 for the shared wording guard, the percentile copy, the pace-of-traffic line, the limit-relative shares against the operator-supplied limit, and the attitudes entries in the safety-reference edition; v0.7.7 for shares per limit segment and schedule, after posted limits and schedules; research notes deferred
 - **Companion plans:** [crash data and published risk models](platform-crash-data-integration-plan.md), [behaviour analytics](lidar-behaviour-analytics-plan.md), [posted speed limits](posted-speed-limits-plan.md), [traffic description language](data-traffic-description-language-plan.md), [platform vocabulary](platform-vocabulary-and-data-model-plan.md)
 - **Related:** [human crash baselines analysis](../platform/operations/human-crash-baselines-analysis-2026-10.md), [percentile aggregation semantics](../radar/architecture/percentile-aggregation-semantics.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [editorial role](../../.github/knowledge/role-editorial.md), [research briefing, January 2025 to October 2026](../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md), [TENETS](../../TENETS.md)
 - **Canonical:** [PDF reporting](../platform/operations/pdf-reporting.md)
@@ -798,7 +798,7 @@ extractions did not carry, and settle the rights.
 **Acceptance:** no **Confirm** mark remains in this plan, and the rights row states what may be
 reproduced.
 
-**Milestone:** v0.6.9, before Item 3b
+**Milestone:** v0.7.7, before Item 3b
 
 ### Item 2: one wording guard and the percentile copy
 
@@ -817,7 +817,7 @@ word-bounded `rage`, and the percentile paragraph rewritten without labels on pe
 3. A guard test over the full rendered report's `data.json` and text, as the headway report's
    `TestNoVerdictLanguage` does, since the speed report has none today.
 
-**Milestone:** v0.6.9
+**Milestone:** v0.7.7
 
 ### Item 3a: the pace line and the limit-relative shares
 
@@ -843,7 +843,7 @@ against the operator-supplied limit, with no external data.
 **Acceptance:** a report at a site with a limit prints the pace line and the shares table, a report
 without one prints neither, and the headline numbers do not change.
 
-**Milestone:** v0.6.9; the period-level table depends on nothing, the stratum rows on the
+**Milestone:** v0.7.7; the period-level table depends on nothing, the stratum rows on the
 crash-data plan's Item 2a
 
 ### Item 3b: the attitudes entries and the cited paragraph
@@ -869,7 +869,7 @@ crash-data plan's Item 2a
 **Acceptance:** the paragraph renders from the edition with its identifier, and no figure in it
 exists outside the edition.
 
-**Milestone:** v0.6.9, after Item 1 and after the crash-data plan's Item 2 ships the edition
+**Milestone:** v0.7.7, after Item 1 and after the crash-data plan's Item 2 ships the edition
 
 ### Item 4: guide and plan cross-references
 
@@ -880,7 +880,7 @@ plan entries.
 and the vocabulary plan's next round name the pace, the questionnaire and the road type;
 `references.bib` carries both entries.
 
-**Milestone:** v0.6.9, after Item 1
+**Milestone:** v0.7.7, after Item 1
 
 ### Item 5: shares per limit segment and schedule
 
@@ -888,7 +888,7 @@ and the vocabulary plan's next round name the pace, the questionnaire and the ro
 jurisdiction and schedule, the shares split at limit changes and the operator-supplied caveat
 goes; a school-zone schedule gives the shares during active hours.
 
-**Milestone:** v0.6.9, after the posted speed limits plan and D-16
+**Milestone:** v0.7.7, after the posted speed limits plan and D-16
 
 ## Dependencies
 

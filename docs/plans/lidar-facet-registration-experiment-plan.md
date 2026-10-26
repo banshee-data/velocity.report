@@ -324,7 +324,7 @@ full 6D tracking, articulation, a general factor graph, or Pi optimisation.
 | 0.5.2.3–4 / S5–S7: following inspection, persistence, report and qualification | F3 uses the same analyser and references                                      | Provisional MVP A can finish independently; qualified exit B retains all gates |
 | v0.5.4: passing clearance and PET                                              | Reuse references/error attribution if useful                                  | Do not make these products depend on a constellation graph                     |
 | v0.5.7: perception/descriptor foundations                                      | F4–F5, only after a useful decision                                           | Natural default home for supported facet measurements and descriptors          |
-| v0.10.2–3 mobile transfer, v0.6.7 Pi pass                                      | Revalidate sampling, ego-motion, timing, and target-hardware budget           | Static M1 evidence does not transfer automatically                             |
+| v0.6.2–3 mobile transfer, v0.7.5 Pi pass                                       | Revalidate sampling, ego-motion, timing, and target-hardware budget           | Static M1 evidence does not transfer automatically                             |
 | v1.x+ vehicle identification and surface products                              | Separate H4/H5 pilots                                                         | No dependency on the first qualified headway report                            |
 
 With **two engineers**, protect one for S0–S7 and assign the other to F0–F3, sharing the evidence

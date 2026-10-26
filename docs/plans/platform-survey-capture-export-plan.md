@@ -1,8 +1,8 @@
 # Survey capture export: parted captures for Hugging Face
 
-- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.6.6 is next, or the owner settles the public scene data at D-34's step 2. Was: Draft. One decision round (2026-09-29) settled every open question but Q10, which waits on Item 1's measurements; the plan changes no code
+- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.7.4 is next, or the owner settles the public scene data at D-34's step 2. Was: Draft. One decision round (2026-09-29) settled every open question but Q10, which waits on Item 1's measurements; the plan changes no code
 - **Layers:** L1 captures and the capture index; publishing (surveys, the Hugging Face dataset)
-- **Target:** v0.6.6, with surveys (Item 15 of the vocabulary plan); Item 1 measures the corpus
+- **Target:** v0.7.4, with surveys (Item 15 of the vocabulary plan); Item 1 measures the corpus
   to confirm the rubric before the cutter is written
 - **Companion plans:** [platform-vocabulary-and-data-model-plan](platform-vocabulary-and-data-model-plan.md) (V1 capture, V12 survey, V28 privacy, V36 the export), [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md), [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md), [archive-ingest-in-go-plan](archive-ingest-in-go-plan.md), [lidar-cluster-observation-log-and-async-tracking-plan](lidar-cluster-observation-log-and-async-tracking-plan.md)
 - **Canonical:** [PLATFORM.md](../platform/PLATFORM.md)
@@ -57,12 +57,12 @@ surveys are never published, or are published as files nobody can use.
 
 | Area                | Current state                                                                                                                                                                      | Severity | Release view                                   |
 | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------------------- |
-| One file per survey | A route survey is one file of tens of gigabytes; no resume, no partial download, no per-part verification                                                                          | High     | v0.6.6: parts                                  |
-| Arbitrary start     | The export starts at a time, so the first rotation is partial and each consumer trims differently                                                                                  | Medium   | v0.6.6: an anchor at a frame boundary          |
+| One file per survey | A route survey is one file of tens of gigabytes; no resume, no partial download, no per-part verification                                                                          | High     | v0.7.4: parts                                  |
+| Arbitrary start     | The export starts at a time, so the first rotation is partial and each consumer trims differently                                                                                  | Medium   | v0.7.4: an anchor at a frame boundary          |
 | Rolls are not parts | Five-minute wall-time rolls cut inside a rotation; a part cut at frame boundaries cannot simply be a roll                                                                          | Medium   | Open: Q10, after Item 1's measurements         |
 | Stragglers          | A packet of frame N can follow the first packet of frame N+1 in the file; the builder never reorders, so it joins frame N+1 and widens its span, in a part and in the source alike | Medium   | Decided: measured in Item 1; an L2 fix if any  |
 | Route privacy       | The points of a moving sensor encode the operator's path                                                                                                                           | High     | Decided: opt-in per survey, ends trimmed (V28) |
-| No rubric version   | Nothing records how a file was cut, so a re-cut cannot be compared and a consumer cannot know the rule                                                                             | Medium   | v0.6.6: `rubric_version`                       |
+| No rubric version   | Nothing records how a file was cut, so a re-cut cannot be compared and a consumer cannot know the rule                                                                             | Medium   | v0.7.4: `rubric_version`                       |
 
 ## Design
 
@@ -227,7 +227,7 @@ capture; the bytes per part at every mode present in the corpus, each under the 
 every would-be part's first rotation covers at least 340°; and a written decision on Q10. The
 measurements need no survey row, so this item can start before surveys exist.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ### Item 2: the cutter (`M`)
 
@@ -250,7 +250,7 @@ window; a route survey without opt-in yields no parts; with opt-in, no exported 
 captured within the privacy radius of the route's start or end, checked against the trajectory
 locally; a privacy review of the trim passes.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ### Item 3: manifest, layout and upload (`M`)
 
@@ -269,7 +269,7 @@ re-cut; uploads resume per part.
 **Acceptance:** the dataset card lists parts and states the route privacy rule; a consumer
 downloads one part and replays it alone; every published survey has a `rubric_version`.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ## Dependencies
 
@@ -292,7 +292,7 @@ downloads one part and replays it alone; every published survey has a `rubric_ve
 | A route passes a private place in its middle           | Low        | Medium | The operator may widen the radius or not opt in; the dataset card states that an opted-in route's middle can be reconstructed                        |
 | Re-cutting the existing release breaks published links | High       | Low    | The paths change under the new names either way; the originals stay outside the root until the re-cut is accepted, and the card lists the move       |
 | Hugging Face limits change                             | Low        | Low    | The 4 GB ceiling is a fifth of the recommended split; limits are rechecked with their date at upload                                                 |
-| The three items are a chain and Item 1 overruns        | Medium     | Medium | Item 1 starts now on the static corpus; if it finds many stragglers, Items 2 and 3 move to v0.6.7 rather than cut under a rule that is not confirmed |
+| The three items are a chain and Item 1 overruns        | Medium     | Medium | Item 1 starts now on the static corpus; if it finds many stragglers, Items 2 and 3 move to v0.7.5 rather than cut under a rule that is not confirmed |
 
 ## Checklist
 

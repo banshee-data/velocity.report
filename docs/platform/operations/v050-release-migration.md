@@ -31,7 +31,7 @@ bump. No temporary dual-format shims retained after the cut.
 
 ## Externally gated deferrals
 
-- **`cmd/deploy`**: gated on #210 image pipeline (v0.7.0+).
+- **`cmd/deploy`**: gated on #210 image pipeline (v0.7.9+).
 - **Python PDF elimination**: gated on Go charting migration.
 - **VRLOG speed-key fallback**: deferred to v0.5.2 (migration window).
 
