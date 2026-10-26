@@ -128,6 +128,7 @@ of the same works; its duplicate mentions use the same keys.
 | ------------------------------------------------------------------------- | ------------------ | ------------------------------------------------- |
 | How the TGSIM trajectory datasets were collected                          | `Ammourah2025`     | [October 19 briefing][oct19], follow-up reading   |
 | Are the speed-crash models applicable for low speeds?                     | `Ambros2025`       | Low-speed speed-change model                      |
+| Crowdsourced enforcement alerts and spot speeds at the alert site         | `Anderson2026`     | [October 26 briefing][oct26], Anderson section    |
 | Heterogeneity of 30 km/h speed interventions                              | `Ambros2026`       | Low-speed speed-change model                      |
 | Speed-limit compliance in San Francisco and Phoenix                       | `Campolettano2025` | Campolettano section                              |
 | Dynamic benchmarks: spatial and temporal alignment                        | `Chen2025`         | Benchmark-alignment family                        |
@@ -239,5 +240,6 @@ References inside the external papers themselves are outside the audit's scope.
 [long-brief]: research-briefing-2025-01-to-2026-10.md
 [weekly]: research-briefing-2026-10-10.md
 [oct19]: research-briefing-2026-10-19.md
+[oct26]: research-briefing-2026-10-26.md
 [fixed]: fixed-sensor-research-briefing-2026-10-09.md
 [lpv2]: ../lidar-processing-v2-segmentation-review.md

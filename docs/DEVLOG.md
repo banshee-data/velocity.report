@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 26, 2026 - Research briefing: a measured site moves when it is believed enforced
+
+- {claude/research-briefing-2026-10-26} Reviewed the week's roadside LiDAR and safety literature: no definition, threshold or metric changed. Anderson (_Journal of Experimental Criminology_, open access), read in full, measured laser spot speeds at 33 Queensland sites and found speed relative to the limit fell 5.19 km/h at every site after a navigation-app enforcement alert appeared; the figures reproduce, but the design has no controls and the alert period always comes second. It now sits in the attitudes plan's sources beside the radar-detector question, with a new open question on whether a deployment can itself be reported as enforcement. San Francisco's 18-month speed camera report was read from the press release only, and a second open question asks whether a site records nearby automated enforcement as context ([briefing](lidar/operations/brief/research-briefing-2026-10-26.md)).
+
 ## October 25, 2026 - The background's length for registration
 
 - {claude/pose-background-window} Replayed the first 60, 90 and 180 s of the five wrong-peak archive sites and five passing ones, and registered each against 3DEP, by a rule committed before the replays (`pose0002`). No window beats 300 s: the wrong-peak sites alternate between peaks from window to window with point counts within 0.3 %, and ground p95 at a fixed pose moves up to 0.08 m between windows at two passing sites; proposed `pose0003`, registration by agreement across windows: [report](lidar/operations/gerardus-background-window-2026-10.md)
