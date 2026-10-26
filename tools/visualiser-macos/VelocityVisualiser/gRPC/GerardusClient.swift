@@ -76,6 +76,9 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func reviewRegistration(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord]
     func listRegistrationRecords(
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord]
@@ -106,6 +109,11 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 
 /// A client that has no street use answers as a server from before it would.
 @available(macOS 15.0, *) extension AlignmentServiceClient {
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        throw RPCError(code: .unimplemented, message: "Atomic ReviewRegistrations is required")
+    }
     func listStreetUse(l16Token: String) async throws -> [Gerardus_Align_V1alpha1_StreetUseFeature]
     { throw RPCError(code: .unimplemented, message: "ListStreetUse") }
 
@@ -339,6 +347,14 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
         try await registrationService().reviewRegistration(request: ClientRequest(message: request))
             .record
+    }
+
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        try await registrationService().reviewRegistrations(
+            request: ClientRequest(message: request)
+        ).records
     }
 
     func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {

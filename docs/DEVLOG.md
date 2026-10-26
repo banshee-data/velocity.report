@@ -2312,3 +2312,12 @@ older entries stay put, however tempting hindsight may be.
 - Added gocron for backup scheduling.
 - Configured DuckDB for initial data storage.
 - Added .gitignore for database files and backup directory.
+
+## 2026-10-25: Gerardus safe-write clients
+
+The alignment pane and street painter now follow Gerardus #33's expected-head
+and idempotency contract. Joint refinement uses one atomic review batch. Failed
+writes retain drafts and unchanged retry identities; conflicts read current
+state separately and require explicit reconciliation. The web site viewer has
+no write path. Details and validation limits are in
+[the alignment guide](ui/visualiser/gerardus-alignment.md#safe-writes-and-conflicts-2026-10-25).
