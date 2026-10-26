@@ -219,7 +219,7 @@ import SwiftUI
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
                         .help(
-                            "Footprints extruded from the 3DEP ground to the roof measured in 3DEP, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
+                            "Footprint walls from the 3DEP ground to the roof measured in 3DEP, or to the roofline where the building has roof planes, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
                         )
                 }
                 Toggle(
@@ -289,10 +289,12 @@ import SwiftUI
         let served = reference.featureLayersServed
         if served.contains(.buildings) {
             Toggle(
-                "Buildings (\(reference.buildingParts) parts, \(reference.roofPlanes) roof planes)",
+                "Buildings (\(reference.buildingParts) parts, \(reference.roofPlanes) roof planes, \(reference.wallSurfaces) walls)",
                 isOn: $session.showBuildings
             ).help(
-                "Building parts extruded from min_height to height, and their roof planes filled by slope or by the part's roof:shape"
+                reference.wallSurfaces > 0
+                    ? "Building parts' outlines, their walls up to the roofline, and their roof planes filled by slope or by the part's roof:shape"
+                    : "Building parts extruded from min_height to height (this server sends no wall surfaces), and their roof planes filled by slope or by the part's roof:shape"
             )
             if session.showBuildings, reference.roofPlanes > 0 {
                 Picker("Roofs by", selection: $session.roofColouring) {
@@ -715,27 +717,37 @@ import SwiftUI
                 Text("None for this site.").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(session.records, id: \.recordID) { record in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(AlignmentFormat.state(record.state)).font(.caption.weight(.semibold))
-                        Spacer()
-                        Text(record.reviewedAt.date.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
-                    if record.hasSummary {
+                let selected = session.selectedRecordID == record.recordID
+                Button(action: { session.showRecord(record) }) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(AlignmentFormat.state(record.state)).font(
+                                .caption.weight(.semibold))
+                            Spacer()
+                            Text(
+                                record.reviewedAt.date.formatted(
+                                    date: .abbreviated, time: .shortened)
+                            ).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        if record.hasSummary {
+                            Text(
+                                String(
+                                    format: "%.1f° · %.6f, %.6f", record.summary.headingDeg,
+                                    record.summary.position.latitudeDeg,
+                                    record.summary.position.longitudeDeg)
+                            ).font(.caption2.monospaced())
+                        }
                         Text(
-                            String(
-                                format: "%.1f° · %.6f, %.6f", record.summary.headingDeg,
-                                record.summary.position.latitudeDeg,
-                                record.summary.position.longitudeDeg)
-                        ).font(.caption2.monospaced())
-                    }
-                    Text(
-                        [record.reviewer, record.note].filter { !$0.isEmpty }.joined(
-                            separator: " · ")
-                    ).font(.caption2).foregroundStyle(.secondary)
-                }.padding(6).background(Color.secondary.opacity(0.08)).clipShape(
-                    RoundedRectangle(cornerRadius: 4))
+                            [record.reviewer, record.note].filter { !$0.isEmpty }.joined(
+                                separator: " · ")
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }.padding(6).frame(maxWidth: .infinity, alignment: .leading).background(
+                        selected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)
+                    ).clipShape(RoundedRectangle(cornerRadius: 4)).contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(!record.hasPose).help(
+                    record.hasPose
+                        ? "Draw the sensor where this decision put it; Accept then records it again"
+                        : "A rejected decision carries no pose")
             }
         }
     }

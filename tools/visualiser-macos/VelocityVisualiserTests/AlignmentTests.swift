@@ -636,6 +636,21 @@ struct BoxesAndWallPlanesStyleTests {
         #expect(all.footprintVertexCount == 0)
     }
 
+    /// A wall whose top follows a gable's roofline has more than four
+    /// vertices, and is drawn closed as it comes.
+    @Test func aRooflineBoxWallDrawsAllItsVertices() {
+        var wall = boxWall(
+            [10, 10, 21, 20, 10, 21, 20, 10, 30, 15, 10, 34, 10, 10, 30], wall: 0, party: false)
+        wall.tags["top"] = "roofline"
+        let v = ReferenceStyle.boxVertices([wall])
+        #expect(v.count == 5 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(point(v, 6) == [15, 10, 34 + lift])
+        // The last segment closes on the first vertex.
+        #expect(point(v, 9) == [10, 10, 21 + lift])
+        #expect(colour(v, 0) == ReferenceStyle.boxWallColour)
+    }
+
     @Test func wallPlanesDecodeApartFromTheObservedFeatures() {
         var g = ReferenceGeometry()
         var facade = Gerardus_Align_V1alpha1_LineFeature()
@@ -1070,6 +1085,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var emptyBoxes = false
     /// Wall planes the observed layer carries; none until Gerardus builds them.
     var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// Wall surfaces the BUILDINGS layer carries; none from a server older
+    /// than Gerardus's roofline walls.
+    var wallSurfaces: [Gerardus_Align_V1alpha1_LineFeature] = []
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     /// Refuse Register with against_boxes, FAILED_PRECONDITION with this
     /// message, as Gerardus refuses a site with no box walls.
@@ -1185,6 +1203,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
                 planes.lines.features = wallPlanes
                 planes.modelID = servedModelID
                 geometry.append(planes)
+            }
+            if layer == .buildings, !wallSurfaces.isEmpty {
+                var walls = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                walls.layer = .buildings
+                walls.lines.features = wallSurfaces
+                geometry.append(walls)
             }
         }
         return geometry
@@ -1410,7 +1434,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
                 record.scanID = scanID(of: review.registrationID)
                 record.supersedesRecordID = head(record.scanID)
                 switch review.decision {
-                case .acceptPose: record.state = .manuallyPlaced
+                case .acceptPose(let pose):
+                    record.state = .manuallyPlaced
+                    record.pose = pose
                 case .rejectReason: record.state = .rejected
                 default: record.state = .unspecified
                 }
@@ -2006,6 +2032,101 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         service.records = [older, newer]
         await session.loadRecords()
         #expect(session.records.map(\.recordID) == ["new", "old"])
+    }
+
+    /// A record with a pose `eastM` east of the fake's hint, for `captureRef`.
+    private func record(
+        _ id: String, at seconds: Int64, eastM: Double, captureRef: String = "",
+        state: Gerardus_Align_V1alpha1_RegistrationState = .manuallyPlaced
+    ) -> Gerardus_Align_V1alpha1_RegistrationRecord {
+        var record = Gerardus_Align_V1alpha1_RegistrationRecord()
+        record.recordID = id
+        record.state = state
+        record.captureRef = captureRef
+        record.reviewedAt.seconds = seconds
+        if state != .rejected {
+            let hint = FakeAlignmentService().hintPose
+            record.pose = SitePose(
+                translation: hint.translation + SIMD3(eastM, 0, 0), rotation: hint.rotation
+            ).proto(siteFrameID: "site/808580f47", sensorFrameID: "sensor/x", source: .icp)
+        }
+        return record
+    }
+
+    @Test func clickingARecordSnapsThePoseToIt() async {
+        let (session, service, sink) = await placed()
+        service.records = [
+            record("new", at: 20, eastM: 4), record("old", at: 10, eastM: 2),
+            record("no", at: 5, eastM: 0, state: .rejected),
+        ]
+        await session.loadRecords()
+        #expect(session.selectedRecordID == nil, "reading the list again moves nothing")
+        session.showRecord(session.records[1])
+        #expect(session.selectedRecordID == "old")
+        #expect(close(session.pose!.matrix, SitePose(session.records[1].pose).matrix, 1e-12))
+        #expect(sink.matrices.last == SitePose(session.records[1].pose).referenceModelMatrix)
+        #expect(session.acceptance == .pose)
+        // A rejected record has no pose to snap to.
+        session.showRecord(session.records[2])
+        #expect(session.selectedRecordID == "old")
+        // Moving off it drops the selection; the pose is the operator's.
+        session.nudge(x: 1)
+        #expect(session.selectedRecordID == nil)
+        // Accepting a record's pose records it as manually placed.
+        session.noteBackground(snapshot(count: 70_000))
+        await session.register()
+        let snapped = SitePose(session.records[0].pose)
+        session.showRecord(session.records[0])
+        session.reviewer = "operator"
+        await session.accept()
+        guard case .acceptPose(let accepted) = service.lastReview?.decision else {
+            Issue.record("accept sent no pose")
+            return
+        }
+        #expect(accepted.source == .manual)
+        #expect(close(SitePose(accepted).matrix, snapped.matrix, 1e-12))
+        // The decision just written is the selected record, and the newest.
+        let written = session.lastRecord?.recordID
+        #expect(written?.hasPrefix("gms:rec") == true)
+        #expect(session.selectedRecordID == written)
+        #expect(session.records.first?.recordID == written)
+    }
+
+    @Test func placementDrawsTheNewestRecordForThisCapture() async {
+        let service = FakeAlignmentService()
+        service.records = [
+            record("other-newest", at: 30, eastM: 9, captureRef: "elsewhere"),
+            record("own", at: 20, eastM: 4, captureRef: site.clipID),
+            record("own-older", at: 10, eastM: 2, captureRef: site.clipID),
+        ]
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        session.northAzimuthText = "35"
+        await session.placeFromHint()
+        #expect(session.selectedRecordID == "own")
+        #expect(close(session.pose!.matrix, SitePose(service.records[1].pose).matrix, 1e-12))
+        // Reset nudges goes back to the hint.
+        session.resetNudges()
+        #expect(session.selectedRecordID == nil)
+        #expect(session.pose == session.hintPose)
+    }
+
+    @Test func defaultRecordIsTheNewestWithAPose() {
+        let rejected = record("rejected", at: 40, eastM: 0, state: .rejected)
+        let other = record("other", at: 30, eastM: 9, captureRef: "elsewhere")
+        let own = record("own", at: 20, eastM: 4, captureRef: "here")
+        let list = [rejected, other, own]
+        #expect(
+            AlignmentSession.defaultRecord(list, captureRef: "here", scanID: nil)?.recordID
+                == "own")
+        #expect(
+            AlignmentSession.defaultRecord(list, captureRef: "nowhere", scanID: nil)?.recordID
+                == "other", "no record for this capture: the site's newest")
+        #expect(
+            AlignmentSession.defaultRecord(list, captureRef: nil, scanID: "")?.recordID == "other")
+        #expect(AlignmentSession.defaultRecord([rejected], captureRef: "here", scanID: nil) == nil)
+        #expect(AlignmentSession.defaultRecord([], captureRef: nil, scanID: nil) == nil)
     }
 
     @Test func aNewCaptureDropsTheScanAndRegistration() async {

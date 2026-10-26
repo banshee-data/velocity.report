@@ -11,9 +11,11 @@
 	 * layers: building parts by roof:shape, roof planes by slope, lane markings,
 	 * poles and signs, and trees by their crowns. A click shows a feature's
 	 * properties. The 3D view asks for the same layers in the site frame and
-	 * draws them at their heights (parts raised from min_height to height, poles
-	 * as cylinders, trees as a trunk and a crown), with the ground grid and,
-	 * where Gerardus serves them to this browser, the scan points.
+	 * draws them at their heights (box walls and building walls up to the
+	 * roofline as Gerardus sends them, where it does; an older Gerardus's boxes
+	 * and parts raised by their heights; poles as cylinders, trees as a trunk
+	 * and a crown), with the ground grid and, where Gerardus serves them to this
+	 * browser, the scan points.
 	 *
 	 * The browser talks to Gerardus directly (lib/gerardus), at the address in
 	 * Settings. Sites come from Gerardus's own list, or, from a Gerardus older
@@ -41,6 +43,7 @@
 		SCAN_VOXELS_M,
 		servedLayers,
 		SURFACE_TYPES,
+		viewLayers,
 		WALL_ROLES,
 		type GroundGrid,
 		type ScanCloud,
@@ -166,7 +169,7 @@
 	let scene3d: SiteScene3D | null = null;
 
 	$: knownSite = siteOf(siteToken, sites);
-	$: gerardusLayers = siteLayers(knownSite).filter((l) => !isOsmLayer(l));
+	$: gerardusLayers = viewLayers(siteLayers(knownSite), tab).filter((l) => !isOsmLayer(l));
 	$: osmLayers = siteLayers(knownSite).filter((l) => isOsmLayer(l));
 	$: counts2d = countsOf([...features, ...osmFeatures]);
 	$: counts3d = countsOf(frameFeatures);
@@ -319,7 +322,7 @@
 		try {
 			const { features: fs, skipped: bad } = await getGeojsonOrOlder(
 				token,
-				served.filter((l) => !isOsmLayer(l)),
+				viewLayers(served, '2d').filter((l) => !isOsmLayer(l)),
 				site?.source === 'gerardus',
 				abort.signal
 			);
@@ -418,7 +421,9 @@
 		loading3d = true;
 		error3d = null;
 		groundError = null;
-		const layers = siteLayers(siteOf(token, sites)).filter((l) => !isOsmLayer(l) || osmWanted(l));
+		const layers = viewLayers(siteLayers(siteOf(token, sites)), '3d').filter(
+			(l) => !isOsmLayer(l) || osmWanted(l)
+		);
 		const [geo, grid] = await Promise.allSettled([
 			getSiteFrameGeojson(address, token, layers, {
 				signal: abort.signal,
@@ -1016,6 +1021,11 @@
 								style="color:{ROOF_SHAPE_COLOURS[s]}">{s}</span
 							>{/each} · <span style="color:{ROOF_SHAPE_UNKNOWN}">other or unknown</span>
 					</div>
+					{#if gerardusLayers.includes('wall_surfaces')}
+						<div>
+							<span style="color:{LAYER_COLOURS.wall_surfaces}">▮</span> building wall, up to the roofline
+						</div>
+					{/if}
 					<div>
 						roof planes by slope:
 						{#each [0, 15, 30, 45] as d, i (d)}{i > 0 ? ' · ' : ''}<span

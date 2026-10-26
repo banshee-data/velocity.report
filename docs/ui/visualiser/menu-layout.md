@@ -20,7 +20,7 @@ Defines the menu bar structure and keyboard shortcuts for VelocityVisualiser on 
 
 File ▸ Reconnect drops the velocity.report connection and connects again at once. There is no
 Connect/Disconnect item any more (it was ⇧⌘C): the app connects at launch and retries with
-backoff by itself, and the status indicator at the top left of the main window only reports.
+backoff by itself, and the status indicator inlaid in the top left of the 3D view only reports.
 Clicking the indicator opens Settings (⌘,) ▸ Servers, where both servers are set and tested. See
 [server-settings.md](server-settings.md).
 

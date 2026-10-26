@@ -4,7 +4,8 @@
 //
 //  Gerardus's W4–W7 layers without a server: how BUILDINGS, LANE_MARKINGS,
 //  STREET_FURNITURE and TREES decode, the vertices each kind draws (part
-//  prisms, roof triangles, rings for poles and crowns, thick signs), their
+//  outlines and wall surfaces, an older server's part prisms, roof
+//  triangles, rings for poles and crowns, thick signs), their
 //  colours, and that the session asks for each layer only when the server
 //  lists it.
 //
@@ -51,7 +52,24 @@ private let roofFaces = [
         tags: ["part": "gms:part/main", "slope_deg": "21.8", "azimuth_deg": "0", "role": "roof"]),
 ]
 
-/// The W4–W7 layers as a server would send them, for FakeAlignmentService.
+/// The main part's walls as a server with roofline walls sends them: closed
+/// vertical polygons with their z, height_m 0. The south wall stops at the
+/// eave (31 m); the east gable end rises to the ridge (33 m) in five
+/// vertices. The part's height tag still says 12 (the top of its roof):
+/// extruding it would stand every wall 2 m over the gutter.
+let rooflineWallSurfaces = [
+    feature(
+        .wallSurface, [0, 0, 21, 10, 0, 21, 10, 0, 31, 0, 0, 31], id: "gms:wall/main-0",
+        closed: true,
+        tags: ["part": "gms:part/main", "edge": "0", "role": "wall", "top": "roofline"]),
+    feature(
+        .wallSurface, [10, 0, 21, 10, 10, 21, 10, 10, 31, 10, 5, 33, 10, 0, 31],
+        id: "gms:wall/main-1", closed: true,
+        tags: ["part": "gms:part/main", "edge": "1", "role": "gable", "top": "roofline"]),
+]
+
+/// The W4–W7 layers as a server would send them, for FakeAlignmentService:
+/// BUILDINGS as an older server sends it, with no wall surfaces.
 func featureLayerMessages(
     _ layer: Gerardus_Align_V1alpha1_ReferenceLayer
 ) -> [Gerardus_Align_V1alpha1_StreamReferenceResponse] {
@@ -145,6 +163,22 @@ struct FeatureLayerDecodingTests {
         #expect(g.completeLayers == [.buildings, .laneMarkings, .streetFurniture, .trees])
         // BUILDINGS names a model of its own, which is not the site model.
         #expect(g.modelID.isEmpty)
+        #expect(g.wallSurfaces.isEmpty)
+    }
+
+    @Test func wallSurfacesDecodeApartFromTheParts() {
+        var g = geometry([.buildings])
+        var walls = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        walls.layer = .buildings
+        walls.lines.features = rooflineWallSurfaces
+        g.append(walls)
+        #expect(g.buildingParts.map(\.featureID) == ["gms:part/main", "gms:part/bay"])
+        #expect(g.roofPlanes.count == 2)
+        #expect(g.wallSurfaces.map(\.featureID) == ["gms:wall/main-0", "gms:wall/main-1"])
+        #expect(g.wallSurfaces.map { $0.tags["role"] } == ["wall", "gable"])
+        var merged = ReferenceGeometry()
+        merged.merge(g)
+        #expect(merged.wallSurfaces.count == 2)
     }
 
     @Test func mergingCarriesTheNewLayers() {
@@ -161,7 +195,7 @@ struct FeatureLayerDecodingTests {
     /// and from the colour a kind the client does not know gets.
     @Test func eachNewKindHasItsOwnColour() {
         let new: [Gerardus_Align_V1alpha1_FeatureKind] = [
-            .roofPlane, .buildingPart, .laneMarking, .sign, .tree,
+            .roofPlane, .buildingPart, .laneMarking, .sign, .tree, .wallSurface,
         ]
         let old: [Gerardus_Align_V1alpha1_FeatureKind] = [
             .road, .path, .kerb, .rail, .building, .sensor, .correction, .facade, .pole, .island,
@@ -179,7 +213,9 @@ struct FeatureLayerDecodingTests {
     }
 
     @Test func signsTreesAndRoofsAreDrawnWhereTheyAre() {
-        for kind: Gerardus_Align_V1alpha1_FeatureKind in [.sign, .tree, .roofPlane, .pole] {
+        for kind: Gerardus_Align_V1alpha1_FeatureKind in [
+            .sign, .tree, .roofPlane, .pole, .wallSurface,
+        ] {
             #expect(ReferenceStyle.lift(kind) == 0)
         }
         #expect(ReferenceStyle.lift(.laneMarking) == ReferenceStyle.lineLift)
@@ -206,6 +242,33 @@ struct BuildingStyleTests {
         let z = Set(points(v).map(\.z))
         #expect(z == [24, 29])
         #expect(colours(v).allSatisfy { $0 == ReferenceStyle.lineColour(.buildingPart) })
+    }
+
+    @Test func wallSurfacesAreDrawnAndPartsAreNotExtruded() {
+        let v = ReferenceStyle.buildingPartVertices(
+            [mainPart, bayPart], walls: rooflineWallSurfaces)
+        // Two base rings of four segments, the eave wall's four segments and
+        // the gable's five: no top rings, no uprights.
+        let expected: Int = 2 * 8 + 8 + 10
+        #expect(v.count / 7 == expected)
+        let z = Set(points(v).map(\.z))
+        // Bases at 21 and 24, the eave at 31, the ridge at 33; never the
+        // bay's extruded top at 29.
+        let heights: Set<Float> = [21, 24, 31, 33]
+        #expect(z == heights)
+        let parts = colours(v).prefix(16)
+        #expect(parts.allSatisfy { $0 == ReferenceStyle.lineColour(.buildingPart) })
+        let walls = colours(v).dropFirst(16)
+        #expect(walls.allSatisfy { $0 == ReferenceStyle.lineColour(.wallSurface) })
+        // The gable closes on its first vertex.
+        #expect(points(v).last == SIMD3(10, 0, 21))
+    }
+
+    @Test func aWallThatRepeatsItsFirstVertexIsNotClosedTwice() {
+        var wall = rooflineWallSurfaces[0]
+        wall.xyz += [0, 0, 21]
+        let v = ReferenceStyle.buildingPartVertices([], walls: [wall])
+        #expect(v.count / 7 == 8)
     }
 
     @Test func aPartWithoutAHeightIsItsOutline() {
@@ -474,6 +537,29 @@ struct StreetscapeStyleTests {
         await session.pendingStyling?.value
         #expect(sink.overlays.count == before + 1)
         #expect(sink.overlays.last??.roofFills != overlay.roofFills)
+    }
+
+    @Test func aServerWithRooflineWallsDrawsThemInsteadOfExtrudingParts() async throws {
+        let (session, _, sink) = await placed {
+            $0.availableLayers += [.buildings]
+            $0.wallSurfaces = rooflineWallSurfaces
+        }
+        let summary = try #require(session.reference)
+        #expect(summary.buildingParts == 2)
+        #expect(summary.roofPlanes == 2)
+        #expect(summary.wallSurfaces == 2)
+        let overlay = try #require(sink.overlays.last ?? nil)
+        // Two base rings (16), the walls (18) and the roof outlines (16),
+        // against an older server's 64 with the parts extruded.
+        #expect(overlay.buildingVertexCount == 50)
+        #expect(overlay.roofFillVertexCount == 12)
+    }
+
+    @Test func anOlderServerStillHasItsPartsExtruded() async throws {
+        let (session, _, sink) = await placed { $0.availableLayers += [.buildings] }
+        #expect(session.reference?.wallSurfaces == 0)
+        let overlay = try #require(sink.overlays.last ?? nil)
+        #expect(overlay.buildingVertexCount == 64)
     }
 
     @Test func onlyTheListedLayersAreAskedFor() async {

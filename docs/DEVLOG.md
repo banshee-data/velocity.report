@@ -8,8 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 26, 2026 - The visualiser's Gerardus fake refuses what Gerardus refuses
+## October 26, 2026 - Where the L7 scene stands, radar FFT evidence, and a stricter Gerardus fake
 
+- Recorded in the L7 scene plan what is built of it: static geometry, public priors, provenance and the static half of multi-sensor fusion exist as proposals in Gerardus, from settled backgrounds registered against 3DEP; canonical objects, cross-sensor track fusion and the scene graph are not built, and no L7 feature is stored in this repository yet (#867)
+- {codex/radar-fft-plan} Recorded the OPS243-A FFT exploration, proposed separate spectral evidence and scene-association records, and queued six parsing, replay, component, inspection, association and Pi-qualification items in v0.6.5; the public capture illustrates adjacent speed bins without validating vehicle counts: [report](radar/operations/fft-stream-exploration.md), [contract](../data/structures/RADAR_FFT_FORMAT.md), [plan](plans/radar-fft-parsing-plan.md).
 - {claude/gerardus-safe-write-fake} Made the visualiser's fake Gerardus apply Gerardus #33's write rules: a `request_id` of 1–128 printable ASCII applied at most once, with an exact retry given the saved answer; reviews refused without the scan's current `expected_record_id`; and street updates and removals refused without the feature's current `expected_row_id`. The fake also gains a write whose answer is lost after it applies. Added tests that a lost review or save is applied once, that a second decision names the first, and that another reviewer's or author's write since the read is a conflict; two refinement fixtures had relied on the old fake accepting reviews of unknown heads: [guide](ui/visualiser/gerardus-alignment.md)
 
 ## October 25, 2026 - The background's length for registration

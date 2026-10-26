@@ -324,11 +324,14 @@ struct ReferenceGeometry: Sendable {
     var cityStreets: [Gerardus_Align_V1alpha1_LineFeature] = []
     var cityIntersections: [Gerardus_Align_V1alpha1_Intersection] = []
     var kerbs: [Gerardus_Align_V1alpha1_LineFeature] = []
-    /// The W4–W7 layers, when the server lists them: building parts and
-    /// their roof planes (BUILDINGS), painted markings (LANE_MARKINGS),
-    /// poles and signs (STREET_FURNITURE), and trees (TREES).
+    /// The W4–W7 layers, when the server lists them: building parts, their
+    /// roof planes and their wall surfaces (BUILDINGS), painted markings
+    /// (LANE_MARKINGS), poles and signs (STREET_FURNITURE), and trees
+    /// (TREES). A server older than Gerardus's roofline walls sends no wall
+    /// surfaces, and its parts are extruded instead.
     var buildingParts: [Gerardus_Align_V1alpha1_LineFeature] = []
     var roofPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var wallSurfaces: [Gerardus_Align_V1alpha1_LineFeature] = []
     var laneMarkings: [Gerardus_Align_V1alpha1_LineFeature] = []
     var streetFurniture: [Gerardus_Align_V1alpha1_LineFeature] = []
     var trees: [Gerardus_Align_V1alpha1_LineFeature] = []
@@ -407,10 +410,10 @@ struct ReferenceGeometry: Sendable {
             case .kerbs: kerbs.append(contentsOf: set.features)
             case .buildings:
                 for feature in set.features {
-                    if feature.kind == .roofPlane {
-                        roofPlanes.append(feature)
-                    } else {
-                        buildingParts.append(feature)
+                    switch feature.kind {
+                    case .roofPlane: roofPlanes.append(feature)
+                    case .wallSurface: wallSurfaces.append(feature)
+                    default: buildingParts.append(feature)
                     }
                 }
             case .laneMarkings: laneMarkings.append(contentsOf: set.features)
@@ -452,6 +455,7 @@ struct ReferenceGeometry: Sendable {
         kerbs.append(contentsOf: other.kerbs)
         buildingParts.append(contentsOf: other.buildingParts)
         roofPlanes.append(contentsOf: other.roofPlanes)
+        wallSurfaces.append(contentsOf: other.wallSurfaces)
         laneMarkings.append(contentsOf: other.laneMarkings)
         streetFurniture.append(contentsOf: other.streetFurniture)
         trees.append(contentsOf: other.trees)
@@ -699,6 +703,7 @@ enum ReferenceStyle {
         // it carries neither.
         case .roofPlane: return SIMD4(0.85, 0.50, 0.40, 0.95)
         case .buildingPart: return SIMD4(0.95, 0.78, 0.55, 0.85)
+        case .wallSurface: return SIMD4(0.85, 0.62, 0.40, 0.85)
         case .laneMarking: return SIMD4(1.00, 0.98, 0.80, 1.00)
         case .sign: return SIMD4(0.95, 0.20, 0.50, 1.00)
         case .tree: return SIMD4(0.55, 0.95, 0.30, 0.90)
@@ -769,7 +774,7 @@ enum ReferenceStyle {
     /// a correction sits 0.2 m up), so they are drawn where they are.
     static func lift(_ kind: Gerardus_Align_V1alpha1_FeatureKind) -> Float {
         switch kind {
-        case .sensor, .correction, .pole, .sign, .tree, .roofPlane: return 0
+        case .sensor, .correction, .pole, .sign, .tree, .roofPlane, .wallSurface: return 0
         default: return lineLift
         }
     }
@@ -808,7 +813,8 @@ enum ReferenceStyle {
             geometry.cityStreets, intersections: geometry.cityIntersections)
         let roofs = roofPlaneVertices(
             geometry.roofPlanes, parts: geometry.buildingParts, colouring: roofColouring)
-        out.buildingLines = buildingPartVertices(geometry.buildingParts) + roofs.lines
+        out.buildingLines =
+            buildingPartVertices(geometry.buildingParts, walls: geometry.wallSurfaces) + roofs.lines
         out.roofFills = roofs.fills
         out.laneMarkingLines = laneMarkingVertices(geometry.laneMarkings)
         out.streetFurnitureLines = streetFurnitureVertices(geometry.streetFurniture)

@@ -161,10 +161,12 @@ struct ReferenceSummary: Equatable {
     var kerbs: Int = 0
     var streetLayersServed: Bool = false
     /// The W4–W7 layers the server lists, and what each sent: building
-    /// parts and their roof planes, lane markings, poles and signs, trees.
+    /// parts, their roof planes and wall surfaces, lane markings, poles and
+    /// signs, trees.
     var featureLayersServed: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
     var buildingParts: Int = 0
     var roofPlanes: Int = 0
+    var wallSurfaces: Int = 0
     var laneMarkings: Int = 0
     var poles: Int = 0
     var signs: Int = 0
@@ -327,6 +329,10 @@ struct ReferenceSummary: Equatable {
     /// Colour the uploaded scan by residual whenever an evaluation has them.
     @Published var showResiduals = true { didSet { pushResiduals() } }
     @Published private(set) var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
+    /// The record the pose was last drawn from, until the pose is moved off
+    /// it: the one clicked in the pane, the one Accept just wrote, or, on
+    /// placement, the newest with a pose (this capture's own first).
+    @Published private(set) var selectedRecordID: String?
     private var recordHeads: [String: String] = [:]
     private var pendingReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     private var pendingRefinement: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest?
@@ -711,6 +717,7 @@ struct ReferenceSummary: Equatable {
             registration = nil
             hypotheses = []
             selectedHypothesisID = nil
+            selectedRecordID = nil
             evaluation = nil
             sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
 
@@ -743,6 +750,14 @@ struct ReferenceSummary: Equatable {
 
             busy = "Reading records"
             await loadRecords()
+            // The last decision is the best knowledge of where the sensor
+            // stands: draw it, so Register starts from it rather than the
+            // eye-read hint. Reset nudges goes back to the hint.
+            if let record = Self.defaultRecord(
+                records, captureRef: loadedRunCaptureRef ?? site.clipID, scanID: scan?.scanID)
+            {
+                showRecord(record)
+            }
         } catch { errorMessage = GerardusClientError.describe(error) }
     }
 
@@ -957,16 +972,40 @@ struct ReferenceSummary: Equatable {
         setPose(SitePose(hypothesis.pose), source: .icp, hypothesis: hypothesis.hypothesisID)
     }
 
+    /// Snaps the drawn pose to a record's: the sensor where that decision put
+    /// it. Accept then records it again as MANUALLY_PLACED, the operator
+    /// having chosen it. A rejected record carries no pose and is left alone.
+    func showRecord(_ record: Gerardus_Align_V1alpha1_RegistrationRecord) {
+        guard record.hasPose else { return }
+        setPose(SitePose(record.pose), source: .manual, record: record.recordID)
+    }
+
+    /// The record drawn by default once a site's records are read on
+    /// placement: the newest with a pose for this capture, else the newest
+    /// with a pose at the site. Nil when none has one.
+    nonisolated static func defaultRecord(
+        _ records: [Gerardus_Align_V1alpha1_RegistrationRecord], captureRef: String?,
+        scanID: String?
+    ) -> Gerardus_Align_V1alpha1_RegistrationRecord? {
+        let posed = records.filter(\.hasPose)
+        let own = posed.first { record in
+            (captureRef.map { !$0.isEmpty && record.captureRef == $0 } ?? false)
+                || (scanID.map { !$0.isEmpty && record.scanID == $0 } ?? false)
+        }
+        return own ?? posed.first
+    }
+
     /// Draws a new pose. Any residual colouring belongs to the old one, so it
     /// goes; the new pose is scored once it has rested for `evaluateDelay`.
     /// Moving the pose sends nothing until then.
     private func setPose(
         _ newPose: SitePose, source: Gerardus_Align_V1alpha1_PoseSource, hypothesis: String? = nil,
-        evaluate: Bool = true
+        record: String? = nil, evaluate: Bool = true
     ) {
         pose = newPose
         poseSource = source
         selectedHypothesisID = hypothesis
+        selectedRecordID = record
         poseGeneration += 1
         evaluation = nil
         sink?.setReferenceModelMatrix(newPose.referenceModelMatrix)
@@ -1065,6 +1104,7 @@ struct ReferenceSummary: Equatable {
         out.featureLayersServed = Set(Self.featureLayers.filter(availableLayers.contains))
         out.buildingParts = geometry.buildingParts.count
         out.roofPlanes = geometry.roofPlanes.count
+        out.wallSurfaces = geometry.wallSurfaces.count
         out.laneMarkings = geometry.laneMarkings.count
         out.poles = geometry.streetFurniture.filter { $0.kind == .pole }.count
         out.signs = geometry.streetFurniture.filter { $0.kind == .sign }.count
@@ -1860,6 +1900,7 @@ struct ReferenceSummary: Equatable {
             rejectReason = ""
             recorded = true
             await loadRecords()
+            if record.hasPose { selectedRecordID = record.recordID }
         } catch {
             errorMessage = GerardusClientError.describe(error)
             if let rpc = error as? RPCError, rpc.code == .aborted {
@@ -2133,6 +2174,9 @@ struct ReferenceSummary: Equatable {
                     b.reviewedAt.seconds, b.reviewedAt.nanos
                 )
             }
+            if let id = selectedRecordID, !records.contains(where: { $0.recordID == id }) {
+                selectedRecordID = nil
+            }
             pendingReview = nil
             reviewNeedsReload = false
             conflictingRecords = []
@@ -2171,6 +2215,7 @@ struct ReferenceSummary: Equatable {
         registering?.cancel()
         evaluating?.cancel()
         records = []
+        selectedRecordID = nil
         lastRecord = nil
         refinement = nil
         refinedRuns = [:]
