@@ -14,7 +14,7 @@ estimates. A final inference stage alone does not qualify a field metric for pro
 - **Status:** Active (specification); sprint 0.5.2.3 contracts, pointwise following equations, local following path, leader choice, following exposure, held-out scoring harness and analytic scenarios implemented in `internal/lidar/l8behaviour/`, following-interaction persistence in `internal/lidar/storage/sqlite/` (see Phases 6A and 6B, and Section 10.3), and the headway report contract with its synthetic oracle in `internal/report/headway/` (Section 10.4); sprint 0.5.2.4 scene headway distribution, its API and its provisional SVG chart on the scene page, and the provisional field run over persisted estimates in `internal/report/headway/fieldrun/` (Section 10.4), which finds pairs on kirk0 and publishes no value because persisted estimates carry no class, heading or extent; the held-out validation run and production emission are gated on annotated references and G-SMO-1
 - **Target platform:** macOS on Apple Silicon (M1+) is the acceptance platform for shipping tailgating/headway metrics to the scenes webpages, matching [lidar-state-estimation-plan](lidar-state-estimation-plan.md). Raspberry Pi is the deployment target but is a v0.6.7 optimisation pass, not a gate on publishing these metrics.
 - **Layers:** L7 Scene, L8 Analytics, L9 Endpoints, storage
-- **Target:** v0.5.3 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.4 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.6.2 transfers headway to backpack capture, and v0.6.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
+- **Target:** v0.5.3 static-sensor headway end to end, as sprints 0.5.2.3 and 0.5.2.4: analytical report oracle, provisional end-to-end report, then a physically validated tailgating report with its distribution on the scenes dashboard. v0.5.4 adds post-encroachment time, passing clearance and the shared behaviour surface. v0.10.2 transfers headway to backpack capture, and v0.10.3 to bike capture, each behind its own mobile evidence gate. Other interactions follow at v1.0+.
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
 - **Depends on:** [lidar-state-estimation-plan](lidar-state-estimation-plan.md) (owns Phases 0 to 5 and Phase 8; this plan owns Phases 6 and 7)
 - **Companion plans:** [lidar-l7-scene-plan](lidar-l7-scene-plan.md), [lidar-test-corpus-plan](lidar-test-corpus-plan.md), [lidar-shape-descriptors-plan](lidar-shape-descriptors-plan.md), [lidar-static-pose-alignment-plan](lidar-static-pose-alignment-plan.md), [lidar-route-capture-plan](lidar-route-capture-plan.md)
@@ -45,7 +45,7 @@ without a named acceptance gate and denominator.
 
 The 0.5.2 metric definitions remain the only headway contract for portable capture. The
 [route plan](lidar-route-capture-plan.md#mobile-following-transfer-gate) adds platform-specific
-clock, ego-pose, deskew, endpoint and identity validation in 0.6.2 for backpack and 0.6.3 for
+clock, ego-pose, deskew, endpoint and identity validation in 0.10.2 for backpack and 0.10.3 for
 bike. Passing static G-GEO-1, G-UNC-1 and G-SMO-1 does not by itself qualify moving recordings;
 unqualified intervals remain suppressed and do not enter the exposure denominator.
 

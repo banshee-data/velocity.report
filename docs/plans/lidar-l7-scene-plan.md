@@ -31,6 +31,13 @@ The persistent static scene is no longer only a plan. It is being built in Gerar
 
 **Open before any of it is published:** Gerardus's launch gates (typed schemas, derivation identities and compatibility fixtures before W4–W7 rows are persisted for release), the W9 evaluation against hand-checked samples, and ADR-0011's rule that nothing following a person over time is published.
 
+**What is left, recalibrated October 26, 2026.** Gerardus's W1–W7 were sized at 14–21 weeks and built as proposals in three days, then took two days of correction on the roofs; a kind takes about a day to build and one to two to correct once measured, and the owner's checking does not compress ([VECTOR-MAP §4.0](https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md#40-where-it-stands-2026-10-26)).
+
+- **Now:** finish Gerardus's buildings (W4) and trees (W7), about 1–1.5 weeks. Vector work then pauses for vehicle state estimation, filtering and tracking ([state-estimation plan](lidar-state-estimation-plan.md), the 05x tracking slots).
+- **Later in Gerardus:** W8 exports (2–3 days, when a consumer needs them) and W9 evaluation (1–2 weeks, bound by hand labels).
+- **In this repository:** the accepted pose written back (`S`, the backlog's Gerardus alignment client section); the v0.6.9 road layer for posted limits, re-scoped onto Gerardus's city streets, painted travel lanes and signs (`M`, was `L`); the v1.0 L7 row narrowed to canonical objects, cross-sensor track fusion and accumulated relations (`L`, was `XL`), which waits on the tracking work above and on a site with a second sensor.
+- **Mobile mapping (SLAM)** is its own series, [010x](../BACKLOG.md#010x-roving-routes-) (v0.10.0–v0.10.4), after v0.9.0: portable timing, the SLAM spike Gerardus runs, then backpack and bike transfer.
+
 ---
 
 ## 1. L7 scene: canonical world model
