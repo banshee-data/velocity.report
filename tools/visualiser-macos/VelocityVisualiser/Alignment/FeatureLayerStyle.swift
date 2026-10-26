@@ -2,10 +2,14 @@
 // How the visualiser draws Gerardus's W4–W7 reference layers, all in the
 // site frame and the debug-line layout ([x, y, z, r, g, b, a] per vertex):
 //
-//   BUILDINGS         each building part's outline, extruded as a wireframe
-//                     from min_height to height, and its roof planes, filled
-//                     translucent (triangles) and outlined, coloured by slope
-//                     or by their part's roof:shape
+//   BUILDINGS         each building part's outline at its base, its wall
+//                     surfaces as the server sends them (closed vertical
+//                     polygons up to the roofline), and its roof planes,
+//                     filled translucent (triangles) and outlined, coloured
+//                     by slope or by their part's roof:shape. Nothing is
+//                     extruded, except an older server's parts, which send
+//                     no wall surfaces: those are extruded as a wireframe
+//                     from min_height to height
 //   LANE_MARKINGS     bright lines on the road, white or yellow
 //   STREET_FURNITURE  poles as a vertical line with a small ring for their
 //                     diameter at each end; signs as short thick segments
@@ -55,21 +59,40 @@ extension ReferenceStyle {
     }
 
     /// Each part's outline at its base (the ground plus min_height, as the
-    /// contract places it), the same ring `partRise` higher, and an upright
-    /// at every vertex: a wireframe prism. A part with no height is its
-    /// outline alone.
-    static func buildingPartVertices(_ parts: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
+    /// contract places it), and its walls.
+    ///
+    /// A server that sends wall surfaces (Gerardus ROOFLINE-WALLS) gives each
+    /// wall as a closed vertical polygon whose top follows the roofline, with
+    /// its z in its vertices: each is drawn as it is, and no part is
+    /// extruded, since a part's height is the top of its roof and its walls
+    /// would stand over the gutter. An older server sends none, and each
+    /// part is drawn as a wireframe prism: the same ring `partRise` higher
+    /// and an upright at every vertex. A part with no height is its outline
+    /// alone.
+    static func buildingPartVertices(
+        _ parts: [Gerardus_Align_V1alpha1_LineFeature],
+        walls: [Gerardus_Align_V1alpha1_LineFeature] = []
+    ) -> [Float] {
         var out = [Float]()
+        let extrude = walls.isEmpty
+        let colour = lineColour(.buildingPart)
         for part in parts {
             let ring = vertices3(part)
             guard ring.count >= 2 else { continue }
-            let colour = lineColour(.buildingPart)
-            let rise = partRise(part)
-            let top = SIMD3<Float>(0, 0, rise)
             appendRing(&out, ring, closed: true, colour: colour)
-            guard rise > 0 else { continue }
+            let rise = partRise(part)
+            guard extrude, rise > 0 else { continue }
+            let top = SIMD3<Float>(0, 0, rise)
             appendRing(&out, ring.map { $0 + top }, closed: true, colour: colour)
             for p in ring { appendLine(&out, p, p + top, colour) }
+        }
+        let wallColour = lineColour(.wallSurface)
+        for wall in walls {
+            var ring = vertices3(wall)
+            // A ring that repeats its first vertex closes itself.
+            if ring.count > 3, ring[0] == ring[ring.count - 1] { ring.removeLast() }
+            guard ring.count >= 2 else { continue }
+            appendRing(&out, ring, closed: true, colour: wallColour)
         }
         return out
     }

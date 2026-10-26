@@ -185,7 +185,7 @@ struct RefinementSummaryTests {
         }
         let kinds: [Gerardus_Align_V1alpha1_FeatureKind] = [
             .road, .path, .kerb, .rail, .building, .sensor, .correction, .facade, .pole, .other,
-            .roofPlane, .buildingPart, .laneMarking, .sign, .tree,
+            .roofPlane, .buildingPart, .laneMarking, .sign, .tree, .wallSurface,
         ]
         var layers = kinds.map(ReferenceStyle.lineColour)
         layers += ReferenceStyle.WallPlaneRole.allCases.map(ReferenceStyle.wallPlaneColour)

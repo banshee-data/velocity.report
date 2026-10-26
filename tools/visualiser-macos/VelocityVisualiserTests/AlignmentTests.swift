@@ -636,6 +636,21 @@ struct BoxesAndWallPlanesStyleTests {
         #expect(all.footprintVertexCount == 0)
     }
 
+    /// A wall whose top follows a gable's roofline has more than four
+    /// vertices, and is drawn closed as it comes.
+    @Test func aRooflineBoxWallDrawsAllItsVertices() {
+        var wall = boxWall(
+            [10, 10, 21, 20, 10, 21, 20, 10, 30, 15, 10, 34, 10, 10, 30], wall: 0, party: false)
+        wall.tags["top"] = "roofline"
+        let v = ReferenceStyle.boxVertices([wall])
+        #expect(v.count == 5 * 2 * 7)
+        let lift = ReferenceStyle.lineLift
+        #expect(point(v, 6) == [15, 10, 34 + lift])
+        // The last segment closes on the first vertex.
+        #expect(point(v, 9) == [10, 10, 21 + lift])
+        #expect(colour(v, 0) == ReferenceStyle.boxWallColour)
+    }
+
     @Test func wallPlanesDecodeApartFromTheObservedFeatures() {
         var g = ReferenceGeometry()
         var facade = Gerardus_Align_V1alpha1_LineFeature()
@@ -1070,6 +1085,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var emptyBoxes = false
     /// Wall planes the observed layer carries; none until Gerardus builds them.
     var wallPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
+    /// Wall surfaces the BUILDINGS layer carries; none from a server older
+    /// than Gerardus's roofline walls.
+    var wallSurfaces: [Gerardus_Align_V1alpha1_LineFeature] = []
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     /// Refuse Register with against_boxes, FAILED_PRECONDITION with this
     /// message, as Gerardus refuses a site with no box walls.
@@ -1178,6 +1196,12 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
                 planes.lines.features = wallPlanes
                 planes.modelID = servedModelID
                 geometry.append(planes)
+            }
+            if layer == .buildings, !wallSurfaces.isEmpty {
+                var walls = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                walls.layer = .buildings
+                walls.lines.features = wallSurfaces
+                geometry.append(walls)
             }
         }
         return geometry

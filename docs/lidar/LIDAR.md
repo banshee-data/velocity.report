@@ -216,8 +216,12 @@ feature's properties. The ground is plain and dark.
 **The 3D view** (three.js) asks for the same layers with `&frame=site`, in site-frame metres
 (`[x east, y north, z up]`; the collection's `frame` member says `"site"`), and for `GET /api/v1/sites/{l16}/ground`, the ground grid, which it
 draws as a mesh through the centres of the cells that have a height (`x0`, `y0` is the south-west
-cell's centre). Boxes are raised by
-`height_m` from their base, wall planes are translucent and coloured by role, surfaces are
+cell's centre). Where the site lists `box_walls`, the 3D view asks for it instead of `boxes`: each
+box wall a vertical polygon with its z, its top on the building's roofline where Gerardus has roof
+planes for it (`top=roofline`) and at the box's height elsewhere (`top=box`), filled translucent as it
+comes and never raised by its `height_m`; party walls are fainter. From a Gerardus that lists no
+box walls, boxes are raised by `height_m` from their base. Wall planes are translucent and coloured
+by role, surfaces are
 translucent fills draped on their own heights, kerbs, centrelines and observed lines sit at their
 z, lanes carry arrows, and a point with a `height_m` (a pole) stands as an upright. Scan points
 come from `GET /api/v1/sites/{l16}/scans?voxel_m=…` (little-endian float32 x, y, z triplets,
@@ -234,14 +238,21 @@ or, from a Gerardus too old to say, positions by the origin) is reported, not dr
 and it refuses a layer name it does not know, so the page asks for each only when
 `GET /api/v1/sites` lists it for the site. Their features carry the tags plus `layer`, `id`, `kind`,
 `model_id` and `state`; kinds are `building_part`, `roof_plane`, `lane_marking`, `pole`, `sign` and
-`tree`. On the 2D map, building parts are outlined and faintly filled by `roof:shape` (each Simple
+`tree`. Beside them, `wall_surfaces` (kind `wall_surface`, Gerardus `docs/plans/ROOFLINE-WALLS.md`)
+holds each building part's walls up to its roofline, each a vertical polygon with its z, tagged
+`part`, `edge`, `role` (`wall`, `gable`, `step` or `party`) and `top`; like `box_walls` it is asked
+for only when listed, and only for the 3D view, since seen from above a wall is a line along its
+foot. On the 2D map, building parts are outlined and faintly filled by `roof:shape` (each Simple
 3D Buildings shape its own colour, grey for none or `unknown`), roof planes filled by `slope_deg`
 (blue flat, yellow at 22.5°, red at 45° and steeper), lane markings white or yellow by `colour`,
 dashed when `pattern` is `dashed` and heavier when it is `double`, poles and signs as dots (a
 vertical segment seen from above), and trees as their crown, a circle of `crown_radius_m` (2 m
 when absent). A click shows the feature's properties, `roof:shape`, `model_id` and `state`
-among them. In 3D, a building part, whose outline lies at its base (the ground plus
-`min_height`), is raised by `height − min_height`; roof planes are triangulated at their z;
+among them. In 3D, a building part's outline lies at its base (the ground plus `min_height`).
+When the site serves `wall_surfaces`, the part is that outline alone and its wall surfaces are
+filled translucent in their own planes, so no wall stands above the gutter: a part's `height` is the
+top of its roof. From a Gerardus without wall surfaces a part is raised by `height − min_height`, as
+before. Roof planes are triangulated at their z;
 markings lie on the road at their own z, area markings filled; poles are cylinders of `diameter_m`
 (0.2 m when absent); signs are small boxes, 0.6 m by 5 cm, over the face; and trees are a trunk
 cylinder of `dbh_m` (0.3 m when absent) up to `crown_base_m` with a translucent crown ellipsoid of

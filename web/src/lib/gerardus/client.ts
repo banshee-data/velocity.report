@@ -17,8 +17,8 @@
  *   The collection says which in its `frame` member (`"wgs84"` or `"site"`);
  *   an unknown layer or frame is a 400. Each feature's properties carry `layer`, `id`, `kind`, its tags, `author`
  *   and `edited_at`; a derived row's also carry `model_id` and `state`. A layer the site's bundle
- *   lacks is absent. The W4–W7 layers (MODEL_LAYERS) are not among the defaults: the viewer asks
- *   for them only when the site lists them.
+ *   lacks is absent. The W4–W7 layers (MODEL_LAYERS) and the wall layers (WALL_LAYERS) are not
+ *   among the defaults: the viewer asks for them only when the site lists them.
  * - `GET /api/v1/sites/{l16}/ground` returns the ground grid,
  *   `{"l16", "x0", "y0", "cell_m", "nx", "ny", "heights": […]}` in the site
  *   frame, (x0, y0) the south-west cell's centre, row-major with y outer and
@@ -67,16 +67,40 @@ export const MODEL_LAYERS = [
 ] as const;
 
 /**
+ * Walls as vertical polygons, for the 3D view (Gerardus
+ * docs/plans/ROOFLINE-WALLS.md): each box wall (`box_walls`), its top on the
+ * building's roofline where it has roof planes (tag `top=roofline`), else at
+ * the box's height, and each building part's wall up to its roofline
+ * (`wall_surfaces`). Their vertices carry their heights, so neither is
+ * extruded. Gerardus leaves them out of its defaults and an older one does
+ * not know them, so the viewer asks for them only when the site lists them,
+ * and only for the 3D view: seen from above, a wall is a line along its foot.
+ */
+export const WALL_LAYERS = ['box_walls', 'wall_surfaces'] as const;
+
+/**
  * Layers taken from OpenStreetMap. The viewer asks for them only after this
  * visit's consent, as it does for OpenStreetMap tiles.
  */
 export const OSM_LAYERS = ['osm', 'intersections'] as const;
 
 export type SiteLayer =
-	(typeof SITE_LAYERS)[number] | (typeof MODEL_LAYERS)[number] | (typeof OSM_LAYERS)[number];
+	| (typeof SITE_LAYERS)[number]
+	| (typeof MODEL_LAYERS)[number]
+	| (typeof WALL_LAYERS)[number]
+	| (typeof OSM_LAYERS)[number];
 
-/** Every layer the viewer knows how to draw, in the order it lists them. */
-export const KNOWN_LAYERS: readonly SiteLayer[] = [...SITE_LAYERS, ...MODEL_LAYERS, ...OSM_LAYERS];
+/**
+ * Every layer the viewer knows how to draw, in the order it lists them, each
+ * wall layer after the layer it replaces in 3D.
+ */
+export const KNOWN_LAYERS: readonly SiteLayer[] = [
+	...SITE_LAYERS,
+	...MODEL_LAYERS,
+	...OSM_LAYERS
+].flatMap((l): SiteLayer[] =>
+	l === 'boxes' ? [l, 'box_walls'] : l === 'building_parts' ? [l, 'wall_surfaces'] : [l]
+);
 
 export function isOsmLayer(layer: string): boolean {
 	return (OSM_LAYERS as readonly string[]).includes(layer);
@@ -86,18 +110,35 @@ export function isModelLayer(layer: string): boolean {
 	return (MODEL_LAYERS as readonly string[]).includes(layer);
 }
 
+export function isWallLayer(layer: string): boolean {
+	return (WALL_LAYERS as readonly string[]).includes(layer);
+}
+
 /**
  * The layers to ask for a site, given the ones Gerardus lists for it: those
  * the viewer knows in its own order, then any others it lists. With no list
  * (a site velocity.report located, or a Gerardus that lists none), every
- * layer the viewer knows except the W4–W7 ones, which a Gerardus without them
- * would refuse.
+ * layer the viewer knows except the W4–W7 and wall ones, which a Gerardus
+ * without them would refuse.
  */
 export function servedLayers(listed: readonly string[]): string[] {
-	if (listed.length === 0) return KNOWN_LAYERS.filter((l) => !isModelLayer(l));
+	if (listed.length === 0) return KNOWN_LAYERS.filter((l) => !isModelLayer(l) && !isWallLayer(l));
 	const known = KNOWN_LAYERS.filter((l) => listed.includes(l));
 	const other = listed.filter((l) => !(KNOWN_LAYERS as readonly string[]).includes(l));
 	return [...known, ...other];
+}
+
+/**
+ * The served layers one view asks for and lists. The 2D map leaves out the
+ * wall layers. The 3D view takes `box_walls` instead of `boxes` when the site
+ * serves it, and an older Gerardus's boxes, which serve no walls, are raised
+ * by their height instead; it takes `wall_surfaces` beside `building_parts`,
+ * which are then drawn as outlines (scene3d).
+ */
+export function viewLayers(served: readonly string[], view: '2d' | '3d'): string[] {
+	if (view === '2d') return served.filter((l) => !isWallLayer(l));
+	const walls = served.includes('box_walls');
+	return served.filter((l) => !(walls && l === 'boxes'));
 }
 
 /** The kinds of street use; operators mark them in the macOS app. */
@@ -117,6 +158,7 @@ export const WALL_ROLES = ['wall', 'popout', 'recess'] as const;
 export const MODEL_KINDS = [
 	'building_part',
 	'roof_plane',
+	'wall_surface',
 	'lane_marking',
 	'pole',
 	'sign',

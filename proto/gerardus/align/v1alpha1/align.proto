@@ -1,6 +1,8 @@
 // Vendored from banshee-data/gerardus; do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: f3beec1 (main, 2026-10-25); includes safe-write contracts from #33.
+// Commit: f3beec1 (main, 2026-10-25), the squash merge of #35 (roofline walls:
+// WALL_SURFACE, roofline box walls, shifted footprints); includes safe-write
+// contracts from #33.
 // To update: copy the upstream file, retain this provenance header,
 // and run make proto-gen-swift.
 
