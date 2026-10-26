@@ -219,7 +219,7 @@ import SwiftUI
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
                         .help(
-                            "Footprints extruded from the 3DEP ground to the roof measured in 3DEP, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
+                            "Footprint walls from the 3DEP ground to the roof measured in 3DEP, or to the roofline where the building has roof planes, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
                         )
                 }
                 Toggle(
@@ -289,10 +289,12 @@ import SwiftUI
         let served = reference.featureLayersServed
         if served.contains(.buildings) {
             Toggle(
-                "Buildings (\(reference.buildingParts) parts, \(reference.roofPlanes) roof planes)",
+                "Buildings (\(reference.buildingParts) parts, \(reference.roofPlanes) roof planes, \(reference.wallSurfaces) walls)",
                 isOn: $session.showBuildings
             ).help(
-                "Building parts extruded from min_height to height, and their roof planes filled by slope or by the part's roof:shape"
+                reference.wallSurfaces > 0
+                    ? "Building parts' outlines, their walls up to the roofline, and their roof planes filled by slope or by the part's roof:shape"
+                    : "Building parts extruded from min_height to height (this server sends no wall surfaces), and their roof planes filled by slope or by the part's roof:shape"
             )
             if session.showBuildings, reference.roofPlanes > 0 {
                 Picker("Roofs by", selection: $session.roofColouring) {

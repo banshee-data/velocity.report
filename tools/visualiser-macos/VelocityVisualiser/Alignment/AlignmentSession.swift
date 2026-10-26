@@ -160,10 +160,12 @@ struct ReferenceSummary: Equatable {
     var kerbs: Int = 0
     var streetLayersServed: Bool = false
     /// The W4–W7 layers the server lists, and what each sent: building
-    /// parts and their roof planes, lane markings, poles and signs, trees.
+    /// parts, their roof planes and wall surfaces, lane markings, poles and
+    /// signs, trees.
     var featureLayersServed: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
     var buildingParts: Int = 0
     var roofPlanes: Int = 0
+    var wallSurfaces: Int = 0
     var laneMarkings: Int = 0
     var poles: Int = 0
     var signs: Int = 0
@@ -1057,6 +1059,7 @@ struct ReferenceSummary: Equatable {
         out.featureLayersServed = Set(Self.featureLayers.filter(availableLayers.contains))
         out.buildingParts = geometry.buildingParts.count
         out.roofPlanes = geometry.roofPlanes.count
+        out.wallSurfaces = geometry.wallSurfaces.count
         out.laneMarkings = geometry.laneMarkings.count
         out.poles = geometry.streetFurniture.filter { $0.kind == .pole }.count
         out.signs = geometry.streetFurniture.filter { $0.kind == .sign }.count
