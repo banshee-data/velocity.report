@@ -8,9 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 26, 2026 - Where the L7 scene stands
+## October 26, 2026 - Where the L7 scene stands and radar FFT evidence
 
 - Recorded in the L7 scene plan what is built of it: static geometry, public priors, provenance and the static half of multi-sensor fusion exist as proposals in Gerardus, from settled backgrounds registered against 3DEP; canonical objects, cross-sensor track fusion and the scene graph are not built, and no L7 feature is stored in this repository yet (#867)
+- {codex/radar-fft-plan} Recorded the OPS243-A FFT exploration, proposed separate spectral evidence and scene-association records, and queued six parsing, replay, component, inspection, association and Pi-qualification items in v0.6.5; the public capture illustrates adjacent speed bins without validating vehicle counts: [report](radar/operations/fft-stream-exploration.md), [contract](../data/structures/RADAR_FFT_FORMAT.md), [plan](plans/radar-fft-parsing-plan.md).
 
 ## October 25, 2026 - The background's length for registration
 
