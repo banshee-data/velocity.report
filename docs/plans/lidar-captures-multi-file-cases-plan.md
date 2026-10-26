@@ -87,12 +87,12 @@ A clip therefore no longer names a file; it names a window over a session.
 For adjacent files `A`, `B` the seam gap is `B.FirstPacket - A.LastPacket`. Three grades, with
 the tolerances the field workflow asked for:
 
-| Grade        | Condition          | Meaning                                  | Replay behaviour                                                 |
+| Grade | Condition | Meaning | Replay behaviour |
 | ------------ | ------------------ | ---------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
-| `seamless`   | `                  | gap                                      | <= 10ms`                                                         | Capture tool rolled the file without dropping a packet | Feed straight through; the in-flight revolution completes normally |
-| `acceptable` | `10ms < gap <= 1s` | A real but tolerable loss                | Feed through, but **discard the revolution straddling the seam** |
-| `broken`     | `gap > 1s`         | Too much missing to call this one stream | Refuse to build a sequence across it                             |
-| `overlap`    | `gap < -10ms`      | Files overlap; duplicate packets         | Refuse; the operator has mis-selected files                      |
+| `seamless` | `                  | gap                                      | <= 10ms` | Capture tool rolled the file without dropping a packet | Feed straight through; the in-flight revolution completes normally |
+| `acceptable` | `10ms < gap <= 1s` | A real but tolerable loss | Feed through, but **discard the revolution straddling the seam** |
+| `broken` | `gap > 1s` | Too much missing to call this one stream | Refuse to build a sequence across it |
+| `overlap` | `gap < -10ms` | Files overlap; duplicate packets | Refuse; the operator has mis-selected files |
 
 The `acceptable` frame-drop rule is the subtle part. A Hesai revolution is assembled by azimuth
 wrap, so feeding two files sequentially across a 400 ms gap does not produce an _error_ — it
