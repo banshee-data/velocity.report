@@ -276,13 +276,13 @@ L7 is also the natural home for two concerns that cannot live in lower layers: *
 
 Single-object kinematics (richer Kalman state vectors) belong at L5: that is a per-track concern. But once prediction needs to account for scene geometry or multi-object interactions, L7 owns it because only L7 holds the accumulated road polygons, kerb boundaries, structure walls, and the set of all canonical objects.
 
-| Scope                                                            | Layer        | Responsibility                                                                                    |
-| ---------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
-| Single-object kinematics (CV, CA, CTRV, IMM)                     | L5 Tracks    | Per-track state estimator; extends the existing Kalman state vector                               |
-| Scene-constrained prediction (road-following, kerb clipping)     | **L7 Scene** | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
-| Multi-object scene relations (shared paths, candidate leaders, region membership) | **L7 Scene** | Exposes geometry and evidence, without becoming the physical-metric authority |
-| Following distance, time gap, passing clearance and PET | **L8 Analytics** | Owns the equations, suppression, error propagation, validation and aggregation |
-| Post-hoc kinematic analysis (braking events, stopping distances) | L8 Analytics | Derived measurements over historical L5/L7 state                                                  |
+| Scope                                                                             | Layer            | Responsibility                                                                                    |
+| --------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| Single-object kinematics (CV, CA, CTRV, IMM)                                      | L5 Tracks        | Per-track state estimator; extends the existing Kalman state vector                               |
+| Scene-constrained prediction (road-following, kerb clipping)                      | **L7 Scene**     | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
+| Multi-object scene relations (shared paths, candidate leaders, region membership) | **L7 Scene**     | Exposes geometry and evidence, without becoming the physical-metric authority                     |
+| Following distance, time gap, passing clearance and PET                           | **L8 Analytics** | Owns the equations, suppression, error propagation, validation and aggregation                    |
+| Post-hoc kinematic analysis (braking events, stopping distances)                  | L8 Analytics     | Derived measurements over historical L5/L7 state                                                  |
 
 The prediction pipeline flows:
 
