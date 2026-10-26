@@ -230,6 +230,18 @@ TicTacTail has no code, no `pkg/` directory and no second consumer. The in-repo 
 
 Kept by: review only. `/plan-review` refuses a plan that proposes `pkg/tictactail` without citing this entry.
 
+### D-36 — Physical-measurement qualification and Gerardus/L7 boundary
+
+Keep frozen L1–L10 layer identities. Gerardus owns the static street model and accepted registration; velocity.report L5 owns physical body estimates, L7 composes registered dynamic scene and spatial relations, and L8 alone owns physical interaction equations, uncertainty propagation, suppression, scoring and aggregation. L7 is neither a second body estimator nor a cross-visit reidentification service. Cross-layer S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams organise 05x qualification. v0.5.3–v0.5.9 targets static qualification; v0.6.0–v0.6.4 is reserved for SLAM/mobile transfer; other features move to 07x or Parked. Passing a release milestone does not waive predeclared physical, coverage and calibration gates. Source: [BACKLOG](BACKLOG.md), [L7 plan](plans/lidar-l7-scene-plan.md), [state-estimation plan](plans/lidar-state-estimation-plan.md).
+
+Kept by: layer-boundary reviews, preserved migration inventory and scientific gate ledgers; CI enforcement is planned.
+
+### D-37 — Priority-first, workstream-last backlog metadata
+
+Outstanding BACKLOG items use the one-line convention `- [#PR] **P0|P1|P2** (#issue) deliverable: [design](path) SIZE WORKSTREAM`, where SIZE is the original backtick-wrapped S/M/L/XL and WORKSTREAM is the final backtick-wrapped S-* tag, after optional maths/frontend annotations. Optional PR precedes priority; issue remains after it. P0 blocks the first qualified static measurement, P1 is next product or operational work, and P2 is research/polish/parked. Do not drop agreed work or alter the historical Complete section. Each slot stays within D-32's twelve-item cap. Source: [BACKLOG](BACKLOG.md).
+
+Kept by: backlog format and release-cap lint (planned); manual migration audit until delivered.
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |
