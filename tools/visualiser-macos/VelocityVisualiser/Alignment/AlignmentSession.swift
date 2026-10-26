@@ -23,7 +23,7 @@
 //                     GetSiteModel → StreamReference per registered layer,
 //                     when the site model moved
 //   Refine site       RefineSite → GetRegistration per scan, for its gates
-//   Accept refinement ReviewRegistration of every scan's j1, in order →
+//   Accept refinement ReviewRegistrations of every scan's j1, atomically →
 //                     ListRegistrationRecords → GetSiteModel → StreamReference
 //
 // The registered layers (REGISTERED_SCANS, OBSERVED, GROUND_MESH) are built
@@ -36,6 +36,7 @@
 
 import Combine
 import Foundation
+import GRPCCore
 import SwiftProtobuf
 import simd
 
@@ -326,6 +327,13 @@ struct ReferenceSummary: Equatable {
     /// Colour the uploaded scan by residual whenever an evaluation has them.
     @Published var showResiduals = true { didSet { pushResiduals() } }
     @Published private(set) var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
+    private var recordHeads: [String: String] = [:]
+    private var pendingReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
+    private var pendingRefinement: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest?
+    private var refinementHeads: [String: String] = [:]
+    @Published private(set) var reviewNeedsReload = false
+    @Published private(set) var conflictingRecords: [Gerardus_Align_V1alpha1_RegistrationRecord] =
+        []
     @Published var reviewer: String = "" {
         didSet { defaults?.set(reviewer, forKey: Self.reviewerKey) }
     }
@@ -1757,6 +1765,11 @@ struct ReferenceSummary: Equatable {
         if pose == nil { reasons.append(Self.noPoseReason) }
         if let busy { reasons.append(Self.busyReason(busy)) }
         if reviewerName.isEmpty { reasons.append(Self.noReviewerReason) }
+        if reviewNeedsReload {
+            reasons.append(
+                "Conflict: read the current records before deciding again. Your pose and note are kept."
+            )
+        }
         return reasons
     }
 
@@ -1820,6 +1833,20 @@ struct ReferenceSummary: Equatable {
         request.registrationID = registration.registrationID
         request.reviewer = reviewerName
         request.note = note
+        let retrying = pendingReview != nil
+        if let pendingReview {
+            request.expectedRecordID = pendingReview.expectedRecordID
+            request.requestID = pendingReview.requestID
+            guard request == pendingReview else {
+                errorMessage =
+                    "The previous decision has an unknown outcome. Retry the unchanged decision or read current records before making a new one."
+                return
+            }
+        } else {
+            request.expectedRecordID = recordHeads[registration.scanID] ?? ""
+            request.requestID = UUID().uuidString
+        }
+        pendingReview = request
         errorMessage = nil
         busy = "Recording the decision"
         defer { busy = nil }
@@ -1827,11 +1854,23 @@ struct ReferenceSummary: Equatable {
         do {
             let record = try await client.reviewRegistration(request)
             lastRecord = record
+            recordHeads[record.scanID] = record.recordID
+            pendingReview = nil
             noteDecided(record)
             rejectReason = ""
             recorded = true
             await loadRecords()
-        } catch { errorMessage = GerardusClientError.describe(error) }
+        } catch {
+            errorMessage = GerardusClientError.describe(error)
+            if let rpc = error as? RPCError, rpc.code == .aborted {
+                reviewNeedsReload = true
+                conflictingRecords =
+                    (try? await client.listRegistrationRecords(l16Token: site?.l16Token ?? ""))
+                    ?? []
+            } else if !retrying && GerardusClientError.isDefiniteRejection(error) {
+                pendingReview = nil
+            }
+        }
         if recorded { await refreshSiteModel(client: client) }
     }
 
@@ -1877,6 +1916,8 @@ struct ReferenceSummary: Equatable {
         refinement = nil
         refinedRuns = [:]
         refinedAccepted = []
+        pendingRefinement = nil
+        refinementHeads = recordHeads
         refinementOverridden = nil
         staleRefinedScanIDs = []
         selectedRefinedScanID = nil
@@ -1907,6 +1948,11 @@ struct ReferenceSummary: Equatable {
         isRefining = false
         refinement = result
         refinedRuns = runs
+        if let heads = runs.values.first(where: { !$0.refinementHeads.isEmpty })?.refinementHeads {
+            // These are the revisions the solve actually read, carried by
+            // its persisted runs. Never substitute heads read after the solve.
+            refinementHeads = heads
+        }
         scheduleRestyle()
     }
 
@@ -2021,11 +2067,8 @@ struct ReferenceSummary: Equatable {
         scheduleRestyle()
     }
 
-    /// Accepts the refinement whole: j1 of every scan's run, in order. Each
-    /// pose was solved against the others, so accepting some would leave the
-    /// rest placed against poses never accepted. Stops at the first refusal:
-    /// Gerardus refuses a j1 whose scan's accepted pose changed since the
-    /// refinement ran, and the way on is to refine again.
+    /// Accepts every j1 in one atomic RPC. A refusal leaves the entire
+    /// refinement unaccepted; a lost response retries the identical batch.
     ///
     /// Busy until the records and the moved site model are read back, so
     /// nothing else starts in between.
@@ -2034,20 +2077,40 @@ struct ReferenceSummary: Equatable {
         errorMessage = nil
         busy = "Recording the refined poses"
         let scans = refinement.scans
-        for (index, refined) in scans.enumerated() {
+        var batch = Gerardus_Align_V1alpha1_ReviewRegistrationsRequest()
+        batch.reviews = scans.map { refined in
             var request = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
             request.registrationID = refined.registrationID
             request.acceptHypothesisID = Self.refinedHypothesisID
             request.reviewer = reviewerName
             request.note = note
-            do {
-                lastRecord = try await client.reviewRegistration(request)
-                refinedAccepted.insert(refined.scanID)
-            } catch {
+            request.expectedRecordID = refinementHeads[refined.scanID] ?? ""
+            return request
+        }
+        let retrying = pendingRefinement != nil
+        if let pendingRefinement {
+            batch.requestID = pendingRefinement.requestID
+            guard batch == pendingRefinement else {
                 errorMessage =
-                    "\(GerardusClientError.describe(error)) (\(index) of \(scans.count) recorded before it; refine again)"
-                break
+                    "Retry the unchanged refinement decision or refine again before changing it."
+                busy = nil
+                return
             }
+        } else {
+            batch.requestID = UUID().uuidString
+        }
+        pendingRefinement = batch
+        do {
+            let accepted = try await client.reviewRegistrations(batch)
+            lastRecord = accepted.last
+            refinedAccepted = Set(scans.map(\.scanID))
+            pendingRefinement = nil
+        } catch {
+            if !retrying && GerardusClientError.isDefiniteRejection(error) {
+                pendingRefinement = nil
+            }
+            errorMessage =
+                "\(GerardusClientError.describe(error)) (no partial acceptance; retry the unchanged batch after a connection failure, or refine again after a conflict)"
         }
         if !refinedAccepted.isEmpty {
             await loadRecords()
@@ -2061,15 +2124,28 @@ struct ReferenceSummary: Equatable {
         guard let client, let site else { return }
         do {
             let listed = try await client.listRegistrationRecords(l16Token: site.l16Token)
+            // Append order chooses heads even if the wall clock moved back.
+            // Timestamp sorting below is for display only.
+            recordHeads = Dictionary(
+                listed.map { ($0.scanID, $0.recordID) }, uniquingKeysWith: { first, _ in first })
             records = listed.sorted { a, b in
                 (a.reviewedAt.seconds, a.reviewedAt.nanos) > (
                     b.reviewedAt.seconds, b.reviewedAt.nanos
                 )
             }
+            pendingReview = nil
+            reviewNeedsReload = false
+            conflictingRecords = []
         } catch { errorMessage = GerardusClientError.describe(error) }
     }
 
     private func clearPlacement() {
+        recordHeads = [:]
+        pendingReview = nil
+        pendingRefinement = nil
+        refinementHeads = [:]
+        reviewNeedsReload = false
+        conflictingRecords = []
         preparedSite = nil
         reference = nil
         geometry = nil

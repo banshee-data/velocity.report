@@ -315,3 +315,32 @@ Fills and bands are triangles on the debug-line pipeline, lifted 0.15 m above th
 
 - The visualiser's client passes on at most about 30 frames a second, so above 3× playback of a 10 Hz capture the N frames are not consecutive; `capture_ref` still names the first and last.
 - `lidar-state-estimation-baseline`'s `siteCalibration` rotates the sensor's +X onto `north_azimuth_deg`. By the measurement above, +Y lies at 180° − N, so +X lies at 270° − N: that transform is wrong too. It is not used here.
+
+## Safe writes and conflicts (2026-10-25)
+
+The vendored alpha contract includes Gerardus #33's safe-write requirements.
+Every decision carries the record the operator read and a request ID. Street
+updates and removals carry their original row IDs; creates have no expected row.
+An unchanged retry after an unknown outcome retains the entire request and its ID, so a lost response
+cannot create a second contribution. Changing an unresolved request is refused
+until the operator reconciles it with a deliberate read.
+
+A conflict keeps the pose, note or street draft in place. The client reads the
+current server state separately and never replaces an expected revision and
+resubmits automatically. Use the records refresh to inspect the current log
+before making a new review decision. Reloading street marks discards the street
+draft explicitly; copy any wanted changes before doing so.
+
+Joint refinement acceptance uses one `ReviewRegistrations` RPC for every j1.
+There is no sequential fallback for an older server. A failed batch accepts no
+partial subset; after a connection failure retry the identical batch, and after
+a stale-head refusal refine again. Reads in the web site viewer remain read-only.
+
+Session tests exercise the real visualiser state/client contracts against a fake
+service, including lost responses, conflicts and atomic batch refusal. They do
+not establish production deployment, storage recovery or physical scan quality.
+
+A definite validation refusal keeps the draft editable and gives a corrected
+intent a new request ID. A transport/internal failure retains the pending ID
+until its outcome is reconciled. Review heads follow the server's append order,
+independently of the timestamps used to display the records.

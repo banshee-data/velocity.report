@@ -1,11 +1,8 @@
-// Vendored from banshee-data/gerardus, do not edit here.
+// Vendored from banshee-data/gerardus; do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 6c98fca11d6eac9561eaa808c3c6a38402dcf513, the W4-W7 contract (BUILDINGS, LANE_MARKINGS,
-// STREET_FURNITURE, TREES), on origin/claude/w4-w7-contract (not merged yet: update this line to
-// the main commit when it is).
-// To update: copy the file from a newer Gerardus commit, change this header,
-// and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
-// closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
+// Commit: f3beec1 (main, 2026-10-25); includes safe-write contracts from #33.
+// To update: copy the upstream file, retain this provenance header,
+// and run make proto-gen-swift.
 
 // Gerardus alignment API
 // Version: v1alpha1 (may break until MVP 0 closes)
@@ -160,6 +157,8 @@ service RegistrationService {
   // hypotheses, accept an operator pose, or reject. Returns the immutable
   // record; a later review of the same scan supersedes it.
   rpc ReviewRegistration(ReviewRegistrationRequest) returns (ReviewRegistrationResponse);
+  // Atomic review of a refinement or several scans in the same site.
+  rpc ReviewRegistrations(ReviewRegistrationsRequest) returns (ReviewRegistrationsResponse);
 
   // Records for a site, newest first, for velocity.report to reconcile
   // against what it stored.
@@ -298,7 +297,10 @@ enum ReferenceLayer {
   REFERENCE_LAYER_UNSPECIFIED = 0;
   REFERENCE_LAYER_AERIAL_POINTS = 1;   // USGS 3DEP points
   REFERENCE_LAYER_OSM = 2;             // OpenStreetMap ways, draped on the 3DEP ground; admins only (see above)
-  REFERENCE_LAYER_FOOTPRINTS = 3;      // DataSF building footprints, draped
+  // DataSF building footprints, draped, each moved by its box's footprint
+  // shift (tags shift_east_m, shift_north_m: the published position is the
+  // served one less the shift; docs/plans/ROOFLINE-WALLS.md §2).
+  REFERENCE_LAYER_FOOTPRINTS = 3;
   REFERENCE_LAYER_INTERSECTIONS = 4;   // candidate intersections with approach bearings, from OSM ways; admins only
   // Accepted scans in the site frame, as ScanPoints. Served only by
   // `serve --serve-scans`, and only to loopback and tailnet peers (ADR-0011).
@@ -310,10 +312,14 @@ enum ReferenceLayer {
   // registered scans.
   REFERENCE_LAYER_GROUND_MESH = 7;
   // DataSF footprints as boxes (docs/plans/SITE-MODEL-SPIKE.md §6.6): each
-  // wall a closed vertical rectangle of kind BUILDING, from the 3DEP ground to
-  // a roof height measured in 3DEP, moved by the site's footprint shift.
-  // Tags: building_id, wall, party, roof_p50_m, roof_p95_m, shift_east_m,
-  // shift_north_m. Public data only.
+  // wall a closed vertical polygon of kind BUILDING, from the 3DEP ground to
+  // a roof height measured in 3DEP, moved by the site's footprint shift. Where
+  // the building has LoD2 roof planes, the wall's top follows their roofline
+  // instead (tag top=roofline; else top=box): no wall stands above the
+  // gutter, and gable ends reach the ridge (docs/plans/ROOFLINE-WALLS.md).
+  // Once the model is derived; registration reads the box walls. Tags: building_id,
+  // wall, party, top, roof_p50_m, roof_p95_m, shift_east_m, shift_north_m.
+  // Public data only.
   REFERENCE_LAYER_BOXES = 8;
   // DataSF street centrelines (Streets, PDDL), draped; retired segments are
   // kept with active=false (docs/plans/CITY-STREETS.md §3.2).
@@ -329,9 +335,11 @@ enum ReferenceLayer {
   // travel lanes and ground surfaces (VECTOR-MAP §4.1, EditStreetUse).
   REFERENCE_LAYER_STREET_USE = 12;
   // LoD2 buildings (W4, docs/plans/BUILDINGS.md): each building part's
-  // outline (BUILDING_PART) and its roof faces (ROOF_PLANE), reconstructed
-  // from 3DEP inside the DataSF footprints and refined by registered scans.
-  // Derived rows (ADR-0012, ADR-0013); the message names the model.
+  // outline (BUILDING_PART), its roof faces (ROOF_PLANE) and its walls up to
+  // the roofline (WALL_SURFACE), reconstructed from 3DEP inside the DataSF
+  // footprints and refined by registered scans. Draw the roof planes and
+  // the wall surfaces; extrude nothing.
+  // Derived rows (ADR-0012, ADR-0015); the message names the model.
   REFERENCE_LAYER_BUILDINGS = 13;
   // Lane markings (W5): a public layer if the City publishes one, and
   // markings traced from scan and 3DEP intensity, as LANE_MARKING lines.
@@ -410,7 +418,8 @@ enum FeatureKind {
   // A roof face of a building part (BUILDINGS): a closed planar polygon with
   // its z. Tags part (the BUILDING_PART's feature_id), slope_deg,
   // azimuth_deg (downslope, degrees clockwise from true north), role
-  // ("roof"; "parapet" for a false front's top).
+  // ("roof"; "parapet" for a false front's top; "lid" for the level top of a
+  // part without faces, such as a bay, so its walls do not stand open).
   FEATURE_KIND_ROOF_PLANE = 17;
   // A building part (BUILDINGS): its outline, closed, at its base (z is
   // min_height above the ground, or the ground). Tags use OSM's Simple 3D
@@ -419,6 +428,10 @@ enum FeatureKind {
   // building:levels) and gms:* keys otherwise (gms:roof_shape=unknown with
   // gms:roof_shape_candidate, gms:roof_shape_confidence, gms:false_front,
   // gms:parapet_height_m, gms:footprint); see BUILDINGS.md's mapping.
+  // roof:height is height less the eave for every shape but flat (0, as OSM
+  // has it; a flat part's walls stop at its roofline). height_m is 0 from
+  // derivation 11: the outline is not for extrusion, its WALL_SURFACEs are
+  // its walls.
   FEATURE_KIND_BUILDING_PART = 18;
   // A painted marking (LANE_MARKINGS) as a polyline on the road, or a closed
   // polygon for an area marking. Tags marking: lane_line, centre_line,
@@ -434,6 +447,17 @@ enum FeatureKind {
   // base. Tags dbh_m, height_m, crown_base_m, crown_radius_m, species, and
   // datasf_id for a Street Tree List match.
   FEATURE_KIND_TREE = 21;
+  // A wall of a building part (BUILDINGS, docs/plans/ROOFLINE-WALLS.md): a
+  // closed vertical polygon whose bottom edge stands on the ground (or at
+  // min_height) and whose top edge follows the roofline. height_m is 0: the
+  // vertices carry their z; never extrude it. Tags part (the BUILDING_PART's
+  // feature_id), gms:footprint, edge (the part ring's edge it stands on, for
+  // wall, gable and party), role ("wall": its top is an eave; "gable": its
+  // top rises to a ridge; "step": inside the part, between two roof faces at
+  // different heights; "party": shared with another part, only what stands
+  // above the lower roof), top ("roofline"; "flat" for a part without roof
+  // faces, whose wall stops at height).
+  FEATURE_KIND_WALL_SURFACE = 22;
 }
 
 message LineFeature {
@@ -625,6 +649,8 @@ message Registration {
   SensorPose initial_pose = 10;
   string server_version = 11;
   google.protobuf.Timestamp created_at = 12;
+  string refinement_id = 21;       // identifies one joint solve
+  map<string, string> refinement_heads = 20; // scan id -> accepted record id; atomic acceptance required
 }
 
 message Progress {
@@ -639,9 +665,6 @@ message TiePoint {
   string label = 3;
 }
 
-// RegistrationRecord is what velocity.report stores against the capture: the
-// accepted pose, where it sits in the world, and the evidence for it. Its
-// JSON form (protojson) is the at-rest boundary artefact of ADR-0006.
 message RegistrationRecord {
   string record_id = 1;             // "gms:<ulid>"
   string registration_id = 2;
@@ -728,6 +751,12 @@ message StreamReferenceRequest {
   // 0: server default (65536). Larger requests are capped at 246720 so
   // worst-case class/intensity encodings fit the default 4 MiB gRPC limit.
   uint32 max_points_per_message = 7;
+  // REFERENCE_LAYER_BOXES (W4b): "outline" (or empty, the default) keeps the
+  // walls on DataSF's roofprints; "adjusted" moves each wall in by its eave
+  // inset, to its wall plane where one measures it. Either way each wall,
+  // once the model is derived, carries inset_m, inset_source (measured,
+  // building, block, none), inset_count and walls (outline or adjusted).
+  string walls = 9;
 }
 
 message StreamReferenceResponse {
@@ -838,14 +867,23 @@ message ReviewRegistrationRequest {
     string accept_hypothesis_id = 2;  // REGISTERED if it passed the gates, else MANUALLY_PLACED
     SensorPose accept_pose = 3;       // an operator pose: MANUALLY_PLACED
     string reject_reason = 4;         // REJECTED
+    string revert_record_id = 9;      // compensate by restoring this scan's historical record
   }
   string reviewer = 5;
   string note = 6;
+  optional string expected_record_id = 7; // required; empty means no previous review
+  string request_id = 8;             // required for single review; stable across retries
 }
 
 message ReviewRegistrationResponse {
   RegistrationRecord record = 1;
 }
+
+message ReviewRegistrationsRequest {
+  string request_id = 1;
+  repeated ReviewRegistrationRequest reviews = 2; // all at one site, one per scan
+}
+message ReviewRegistrationsResponse { repeated RegistrationRecord records = 1; }
 
 message ListRegistrationRecordsRequest {
   string l16_token = 1;
@@ -942,9 +980,11 @@ message StreetUseFeature {
 }
 
 message StreetUseEdit {
+  optional string expected_row_id = 4; // required on update/remove/revert; empty on create
   oneof change {
     StreetUseFeature upsert = 1;    // new when feature_id is empty, else a new version
     string remove_feature_id = 2;
+    string revert_row_id = 3;        // compensate with an immutable historical version
   }
 }
 
@@ -961,9 +1001,13 @@ message EditStreetUseRequest {
   string author = 2;                // required
   string note = 3;
   repeated StreetUseEdit edits = 4;
+  string request_id = 5;             // required, stable across exact retries
 }
 
+message StreetUseProblem { string feature_id = 1; string code = 2; string message = 3; }
+
 message EditStreetUseResponse {
+  repeated StreetUseProblem detailed_problems = 3;
   repeated StreetUseFeature features = 1;  // every current feature after the edit
   repeated string problems = 2;     // validation warnings, by feature id
 }

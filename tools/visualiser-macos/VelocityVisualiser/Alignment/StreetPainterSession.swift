@@ -172,6 +172,11 @@ struct StreetReference: Sendable {
     @Published private(set) var unsupported: String?
     /// Whether the marks are drawn while not painting.
     @Published var showStreetUse = true { didSet { refresh() } }
+    /// Keep the complete intent after a lost response; retries must not create
+    /// another mark or silently adopt newer row preconditions.
+    private var pendingSave: Gerardus_Align_V1alpha1_EditStreetUseRequest?
+    var hasPendingSave: Bool { pendingSave != nil }
+    @Published private(set) var conflictingMarks: [StreetMark] = []
     /// Why the camera pane will not give up the camera now (an orbit is
     /// playing, or the camera is flying); nil when it will. The camera pane
     /// sets it: paint mode and the pane's orbit and flight exclude each
@@ -342,6 +347,8 @@ struct StreetReference: Sendable {
         // The site changed while this was asked.
         guard alignment.site?.l16Token == token else { return }
         if let features {
+            pendingSave = nil
+            conflictingMarks = []
             let read = StreetUseEditing.marks(from: features)
             edit = StreetEditState(base: read.marks)
             skipped = read.skipped
@@ -393,18 +400,44 @@ struct StreetReference: Sendable {
         request.author = author.trimmingCharacters(in: .whitespaces)
         request.note = note.trimmingCharacters(in: .whitespacesAndNewlines)
         request.edits = edits
+        let retrying = pendingSave != nil
+        if let pendingSave {
+            request.requestID = pendingSave.requestID
+            guard request == pendingSave else {
+                errorMessage =
+                    "An earlier save has an unknown outcome. Keep its draft unchanged to retry, or reload the marks before making a new save."
+                return
+            }
+        } else {
+            request.requestID = UUID().uuidString
+        }
+        pendingSave = request
         isSaving = true
         errorMessage = nil
         savedMessage = nil
         var response: Gerardus_Align_V1alpha1_EditStreetUseResponse?
         do { response = try await client.editStreetUse(request) } catch {
-            errorMessage = "Nothing saved: " + GerardusClientError.describe(error)
+            errorMessage = "Draft kept: " + GerardusClientError.describe(error)
+            if let rpc = error as? RPCError, rpc.code == .aborted {
+                // Read current state separately: never overwrite the draft or
+                // automatically retry it against the newly read row IDs.
+                if let latest = try? await client.listStreetUse(l16Token: token) {
+                    conflictingMarks = StreetUseEditing.marks(from: latest).marks
+                }
+                errorMessage =
+                    "Conflict: your draft is kept. Reload marks to discard it and start from the current version."
+            } else if !retrying && GerardusClientError.isDefiniteRejection(error) {
+                // Correct rejected geometry without discarding other drafts.
+                pendingSave = nil
+            }
         }
         isSaving = false
         if let response, loadedToken == token { saved(response, sent: edits.count) }
     }
 
     private func saved(_ response: Gerardus_Align_V1alpha1_EditStreetUseResponse, sent: Int) {
+        pendingSave = nil
+        conflictingMarks = []
         let read = StreetUseEditing.marks(from: response.features)
         edit = StreetEditState(base: read.marks)
         skipped = read.skipped
