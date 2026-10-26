@@ -32,7 +32,7 @@ Settings (⌘,) ▸ **Servers** has a **Gerardus** section, below velocity.repor
 
 - **Saved:** the address is kept in the app's preferences as `alignment.serviceAddress`. An unset preference, and **Use this Mac**, mean `127.0.0.1:50061`.
 - **Changing it:** **Connect** reconnects at once, closes the pane until the new server answers, and drops whatever was placed against the old one.
-- **Status:** the line under the field names the address in use, and says whether Gerardus answered there and, if not, why. The main window's status indicator shows the same beside velocity.report's when the toolbar has room.
+- **Status:** the line under the field names the address in use, and says whether Gerardus answered there and, if not, why. The status inlaid in the top left of the 3D view shows the same under velocity.report's.
 - **Bad addresses:** text that is not a host and port is refused before anything is sent. An address with no Gerardus behind it leaves the alignment controls hidden, and nothing else in the app changes.
 - **Test connection:** asks for `GetServerInfo` on a channel of its own, at the typed address when it parses, with a 3 s timeout, and reports reachable with the round trip in milliseconds, wrong service (`UNIMPLEMENTED`: no Gerardus `SiteService` there), unreachable or no answer. When it answers, **This Gerardus** shows its version and git sha, which Gerardus sends together as `server_version` (`0.1.0+3f2a9c1e0b7d`: the sha is the semver build metadata), and its API version.
 - **Serves registered scans:** shown when `GetServerInfo` lists any layer: yes when it lists `REGISTERED_SCANS`, which Gerardus does only under `serve --serve-scans`. It is the server's setting, read only here; a server that lists no layers says nothing either way, and the line is left out.
@@ -298,7 +298,7 @@ Fills and bands are triangles on the debug-line pipeline, lifted 0.15 m above th
 - The registration's state, gates and hypotheses, and the fit of the pose drawn now; the site model's residuals beside the gates when the fit used the model.
 - Which scan Register uses: the background, or the accumulated frames with their point counts and `capture_ref`.
 - A refinement, in its own column: a verdict, then per scan its state, move, what accepting records and rank, with its gates and scores folded under it, then its scan pairs, folded.
-- The site's records, newest first.
+- The site's records, newest first. Clicking one snaps the drawn pose to where that decision put the sensor (a rejected record has no pose, and cannot be clicked); the row stays highlighted until the pose is moved off it, and Accept then records the pose as manually placed. On placement the newest record with a pose is drawn by default, this capture's own (by `capture_ref`) before any other at the site; **Reset nudges** goes back to the hint.
 
 ## Known limits
 

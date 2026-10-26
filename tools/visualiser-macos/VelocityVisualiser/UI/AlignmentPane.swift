@@ -714,27 +714,37 @@ import SwiftUI
                 Text("None for this site.").font(.caption).foregroundStyle(.secondary)
             }
             ForEach(session.records, id: \.recordID) { record in
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack {
-                        Text(AlignmentFormat.state(record.state)).font(.caption.weight(.semibold))
-                        Spacer()
-                        Text(record.reviewedAt.date.formatted(date: .abbreviated, time: .shortened))
-                            .font(.caption2).foregroundStyle(.secondary)
-                    }
-                    if record.hasSummary {
+                let selected = session.selectedRecordID == record.recordID
+                Button(action: { session.showRecord(record) }) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack {
+                            Text(AlignmentFormat.state(record.state)).font(
+                                .caption.weight(.semibold))
+                            Spacer()
+                            Text(
+                                record.reviewedAt.date.formatted(
+                                    date: .abbreviated, time: .shortened)
+                            ).font(.caption2).foregroundStyle(.secondary)
+                        }
+                        if record.hasSummary {
+                            Text(
+                                String(
+                                    format: "%.1f° · %.6f, %.6f", record.summary.headingDeg,
+                                    record.summary.position.latitudeDeg,
+                                    record.summary.position.longitudeDeg)
+                            ).font(.caption2.monospaced())
+                        }
                         Text(
-                            String(
-                                format: "%.1f° · %.6f, %.6f", record.summary.headingDeg,
-                                record.summary.position.latitudeDeg,
-                                record.summary.position.longitudeDeg)
-                        ).font(.caption2.monospaced())
-                    }
-                    Text(
-                        [record.reviewer, record.note].filter { !$0.isEmpty }.joined(
-                            separator: " · ")
-                    ).font(.caption2).foregroundStyle(.secondary)
-                }.padding(6).background(Color.secondary.opacity(0.08)).clipShape(
-                    RoundedRectangle(cornerRadius: 4))
+                            [record.reviewer, record.note].filter { !$0.isEmpty }.joined(
+                                separator: " · ")
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }.padding(6).frame(maxWidth: .infinity, alignment: .leading).background(
+                        selected ? Color.accentColor.opacity(0.15) : Color.secondary.opacity(0.08)
+                    ).clipShape(RoundedRectangle(cornerRadius: 4)).contentShape(Rectangle())
+                }.buttonStyle(.plain).disabled(!record.hasPose).help(
+                    record.hasPose
+                        ? "Draw the sensor where this decision put it; Accept then records it again"
+                        : "A rejected decision carries no pose")
             }
         }
     }

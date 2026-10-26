@@ -53,6 +53,8 @@ enum ServerStatus: Equatable, Sendable {
 
     /// The longest reason shown beside the dot; the tooltip has the rest.
     static let maxReasonLength = 32
+    /// The longest reason inlaid in the 3D view's frame.
+    static let maxSalientLength = 48
 
     /// velocity.report's connection. A client whose service has not yet
     /// answered (GetCapabilities, or the stream accepted) is still
@@ -80,6 +82,59 @@ enum ServerStatus: Equatable, Sendable {
             let reason = failure.map(shortReason) ?? "no answer"
             return .error(reason.truncated(maxReasonLength))
         }
+    }
+
+    /// The reason, when the status is an error.
+    var errorReason: String? {
+        if case .error(let reason) = self { return reason }
+        return nil
+    }
+
+    /// The part of a failure worth the frame's one line: the innermost
+    /// parenthesised cause when a wrapper has one ("… (Connection
+    /// refused)"), else the text after the last "code:" or "Error:" prefix,
+    /// without a trailing full stop, and no longer than `maxReasonLength`.
+    static func salientReason(_ description: String) -> String {
+        var text = description.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Unwrap "wrapper (cause)." while a cause is there.
+        while true {
+            while text.hasSuffix(".") { text.removeLast() }
+            guard text.hasSuffix(")"), let open = Self.matchingOpen(text) else { break }
+            let inner = text[text.index(after: open)..<text.index(before: text.endIndex)]
+                .trimmingCharacters(in: .whitespaces)
+            guard !inner.isEmpty else { break }
+            text = inner
+        }
+        // Drop a leading label ("unavailable:", "Error:", "Failed:") when
+        // something follows it.
+        while let colon = text.firstIndex(of: ":") {
+            let head = text[..<colon]
+            let tail = text[text.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            guard !head.contains(" ") || head.lowercased().hasPrefix("error"), !tail.isEmpty,
+                head.count <= 24
+            else { break }
+            text = tail
+        }
+        while text.hasSuffix(".") { text.removeLast() }
+        return (text.isEmpty ? description : text).truncated(maxSalientLength)
+    }
+
+    /// The "(" that the text's closing ")" matches, by nesting depth; nil
+    /// when the parentheses do not balance.
+    private static func matchingOpen(_ text: String) -> String.Index? {
+        var depth = 0
+        var index = text.endIndex
+        while index > text.startIndex {
+            index = text.index(before: index)
+            switch text[index] {
+            case ")": depth += 1
+            case "(":
+                depth -= 1
+                if depth == 0 { return index }
+            default: break
+            }
+        }
+        return nil
     }
 
     /// A gRPC failure as its code ("unavailable"), which is what fits beside
