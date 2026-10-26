@@ -7,6 +7,7 @@ import {
 	MODEL_LAYERS,
 	OSM_LAYERS,
 	SITE_LAYERS,
+	WALL_LAYERS,
 	gerardusAddress,
 	getSiteFrameGeojson,
 	getSiteGeojson,
@@ -16,6 +17,7 @@ import {
 	isL16Token,
 	isModelLayer,
 	isOsmLayer,
+	isWallLayer,
 	listSites,
 	frameOf,
 	looksGeographic,
@@ -30,6 +32,7 @@ import {
 	parseSites,
 	rememberGerardusAddress,
 	servedLayers,
+	viewLayers,
 	voxelUsed
 } from './client';
 
@@ -408,7 +411,25 @@ describe('GET the site layers', () => {
 describe('layers', () => {
 	it('keeps the OpenStreetMap layers apart', () => {
 		expect(OSM_LAYERS).toEqual(['osm', 'intersections']);
-		expect(KNOWN_LAYERS).toEqual([...SITE_LAYERS, ...MODEL_LAYERS, ...OSM_LAYERS]);
+		// Each wall layer after the layer it stands in for in 3D.
+		expect(KNOWN_LAYERS).toEqual([
+			'street_use',
+			'footprints',
+			'boxes',
+			'box_walls',
+			'wall_planes',
+			'city_streets',
+			'city_intersections',
+			'kerbs',
+			'observed',
+			'building_parts',
+			'wall_surfaces',
+			'roof_planes',
+			'lane_markings',
+			'street_furniture',
+			'trees',
+			...OSM_LAYERS
+		]);
 		expect(SITE_LAYERS.some(isOsmLayer)).toBe(false);
 		expect(isOsmLayer('intersections')).toBe(true);
 		expect(isOsmLayer('city_intersections')).toBe(false);
@@ -930,6 +951,7 @@ describe('the W4–W7 layers', () => {
 		expect(MODEL_KINDS).toEqual([
 			'building_part',
 			'roof_plane',
+			'wall_surface',
 			'lane_marking',
 			'pole',
 			'sign',
@@ -948,6 +970,44 @@ describe('the W4–W7 layers', () => {
 			['kerbs', 'building_parts', 'roof_planes', 'trees', 'bike_racks']
 		);
 		expect(servedLayers(['kerbs'])).toEqual(['kerbs']);
+	});
+
+	it('asks for the wall layers only when listed, and only for the 3D view', () => {
+		expect(WALL_LAYERS).toEqual(['box_walls', 'wall_surfaces']);
+		expect(WALL_LAYERS.every(isWallLayer)).toBe(true);
+		expect(SITE_LAYERS.some(isWallLayer) || MODEL_LAYERS.some(isWallLayer)).toBe(false);
+		// A Gerardus that lists none is not asked for them.
+		expect(servedLayers([]).some(isWallLayer)).toBe(false);
+		const listed = servedLayers([
+			'boxes',
+			'box_walls',
+			'building_parts',
+			'roof_planes',
+			'wall_surfaces',
+			'kerbs'
+		]);
+		expect(listed).toEqual([
+			'boxes',
+			'box_walls',
+			'kerbs',
+			'building_parts',
+			'wall_surfaces',
+			'roof_planes'
+		]);
+		// The 2D map keeps the boxes and leaves the walls out.
+		expect(viewLayers(listed, '2d')).toEqual(['boxes', 'kerbs', 'building_parts', 'roof_planes']);
+		// The 3D view takes the box walls instead of the boxes, and the
+		// building walls beside the parts.
+		expect(viewLayers(listed, '3d')).toEqual([
+			'box_walls',
+			'kerbs',
+			'building_parts',
+			'wall_surfaces',
+			'roof_planes'
+		]);
+		// An older Gerardus, with no walls: the 3D view raises the boxes.
+		const older = servedLayers(['boxes', 'building_parts', 'roof_planes']);
+		expect(viewLayers(older, '3d')).toEqual(older);
 	});
 
 	it('does not ask for them by default', async () => {

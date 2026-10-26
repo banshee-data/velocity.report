@@ -407,6 +407,71 @@ describe('a site’s layers', () => {
 		expect(boxes.undrawn).toBe(1);
 	});
 
+	// A box wall as Gerardus serves it where the building has roof planes:
+	// its top follows the roofline up a gable to 9 m. height_m is the box's.
+	const rooflineWall = feature(
+		'box_walls',
+		'building',
+		{
+			type: 'Polygon',
+			coordinates: [
+				[
+					[0, 0, 0],
+					[4, 0, 0],
+					[4, 0, 6],
+					[2, 0, 9],
+					[0, 0, 6],
+					[0, 0, 0]
+				]
+			]
+		},
+		{ height_m: '7.5', top: 'roofline', party: 'false' }
+	);
+	const partyWall = feature(
+		'box_walls',
+		'building',
+		{
+			type: 'Polygon',
+			coordinates: [
+				[
+					[4, 0, 0],
+					[4, 4, 0],
+					[4, 4, 6],
+					[4, 0, 6],
+					[4, 0, 0]
+				]
+			]
+		},
+		{ height_m: '7.5', top: 'box', party: 'true' }
+	);
+
+	it('draws box walls as they come, not raised by their height', () => {
+		const [walls] = buildLayerScenes([rooflineWall, partyWall]);
+		expect(walls.layer).toBe('box_walls');
+		expect(walls.undrawn).toBe(0);
+		expect(walls.meshes.map((m) => m.opacity)).toEqual([0.55, 0.2]);
+		expect(walls.meshes.every((m) => m.colour === '#f59e0b' && m.doubleSided)).toBe(true);
+		// The five-sided wall is three triangles, its top at the ridge, not at
+		// its base plus height_m.
+		const gable = walls.meshes[0].mesh;
+		expect(gable.indices.length / 3).toBe(3);
+		const zs = Array.from(gable.positions).filter((_, i) => i % 3 === 2);
+		expect(Math.max(...zs)).toBe(9);
+		// Both outlined: five segments and four.
+		expect(walls.lines[0].positions.length / 6).toBe(5 + 4);
+	});
+
+	it('outlines the boxes beside box walls, and raises them only without', () => {
+		const scenes = buildLayerScenes([box, rooflineWall]);
+		expect(scenes.map((s) => s.layer)).toEqual(['boxes', 'box_walls']);
+		const [boxes] = scenes;
+		expect(boxes.meshes).toHaveLength(0);
+		expect(boxes.undrawn).toBe(0);
+		expect(boxes.lines[0].positions.length).toBe(4 * 6);
+		// Without box walls the same box is raised.
+		expect(buildLayerScenes([box])[0].meshes).toHaveLength(1);
+	});
+
 	it('colours wall planes by role and surfaces by what they are', () => {
 		const [walls] = buildLayerScenes([wall]);
 		expect(walls.meshes[0]).toMatchObject({ colour: '#3b82f6', doubleSided: true });

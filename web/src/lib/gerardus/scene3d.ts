@@ -575,7 +575,20 @@ function heightOf(f: SiteFrameFeature): number {
 	return Number.isFinite(h) && h > 0 ? h : 0;
 }
 
-function addFeature(b: LayerBuilder, f: SiteFrameFeature) {
+/**
+ * Which walls the features carry as vertical polygons. Where they do, nothing
+ * else is raised to stand in for them: a part's height is the top of its
+ * roof, and a box's is 3DEP's roof p95, so either, extruded, stands its walls
+ * over the gutter (Gerardus docs/plans/ROOFLINE-WALLS.md).
+ */
+interface Walls {
+	/** `wall_surfaces`: the building parts are outlines. */
+	parts: boolean;
+	/** `box_walls`: the boxes are outlines. */
+	boxes: boolean;
+}
+
+function addFeature(b: LayerBuilder, f: SiteFrameFeature, walls: Walls) {
 	const colour = featureColour(f);
 	const parts = partsOf(f.geometry);
 	const polygons = polygonsOf(f.geometry);
@@ -584,12 +597,26 @@ function addFeature(b: LayerBuilder, f: SiteFrameFeature) {
 	const height = heightOf(f);
 
 	if (f.layer === 'boxes' && polygons.length > 0) {
+		// The footprint's outline at its base, whether or not it could be raised.
+		b.line(colour, lineSegments(lines, LIFT.line));
+		if (walls.boxes) return;
 		let drawn = false;
 		for (const { outer, holes } of polygons) {
 			drawn = b.mesh(colour, 0.55, false, extrudeBox(outer, height, holes)) || drawn;
 		}
-		// The footprint's outline at its base, whether or not it could be raised.
-		b.line(colour, lineSegments(lines, LIFT.line));
+		if (!drawn) b.undrawn++;
+		return;
+	}
+	// Box walls and building walls stand as they come, each triangulated in
+	// its own plane, whatever their tops do: a gable end rises to its ridge,
+	// and a wall that meets a step is concave. A box wall's height_m is the
+	// box's, and is not added.
+	if ((f.layer === 'box_walls' || f.layer === 'wall_surfaces') && polygons.length > 0) {
+		const opacity = f.layer === 'box_walls' && f.tags.party === 'true' ? 0.2 : 0.55;
+		let drawn = false;
+		for (const { outer } of polygons)
+			drawn = b.mesh(colour, opacity, true, planeMesh(outer)) || drawn;
+		b.line(colour, lineSegments(lines));
 		if (!drawn) b.undrawn++;
 		return;
 	}
@@ -611,7 +638,13 @@ function addFeature(b: LayerBuilder, f: SiteFrameFeature) {
 		if (!drawn) b.undrawn++;
 		return;
 	}
+	if (f.layer === 'building_parts' && polygons.length > 0 && walls.parts) {
+		// The outline at the part's base; its wall surfaces are its walls.
+		b.line(colour, lineSegments(lines));
+		return;
+	}
 	if (f.layer === 'building_parts' && polygons.length > 0) {
+		// An older Gerardus, which sends no wall surfaces.
 		const rise = partRise(f.tags);
 		let drawn = false;
 		for (const { outer, holes } of polygons) {
@@ -669,23 +702,29 @@ function addFeature(b: LayerBuilder, f: SiteFrameFeature) {
 
 /**
  * The 3D view's drawing of each layer the features belong to, in the order
- * the layers first appear: boxes raised by their `height_m`, wall planes and
- * surfaces as translucent fills, parked-car spaces as fills with outlines,
- * lanes with arrows, building parts raised from `min_height` to `height`,
- * roof planes as fills at their z, lane markings on the road, poles as
+ * the layers first appear: box walls and building walls as translucent fills
+ * as they come, boxes and building parts as outlines beside them (or, from
+ * an older Gerardus with no walls, boxes raised by their `height_m` and
+ * parts from `min_height` to `height`), wall planes and surfaces as
+ * translucent fills, parked-car spaces as fills with outlines, lanes with
+ * arrows, roof planes as fills at their z, lane markings on the road, poles as
  * cylinders, signs as small boxes, trees as a trunk and a crown, every other
  * line at its own height, and points as dots (with an upright of `height_m`
  * where one is set).
  */
 export function buildLayerScenes(features: SiteFrameFeature[]): LayerScene[] {
 	const builders = new Map<string, LayerBuilder>();
+	const walls: Walls = {
+		parts: features.some((f) => f.layer === 'wall_surfaces'),
+		boxes: features.some((f) => f.layer === 'box_walls')
+	};
 	for (const f of features) {
 		let b = builders.get(f.layer);
 		if (!b) {
 			b = new LayerBuilder(f.layer);
 			builders.set(f.layer, b);
 		}
-		addFeature(b, f);
+		addFeature(b, f, walls);
 	}
 	return [...builders.values()].map((b) => b.build());
 }

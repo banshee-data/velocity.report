@@ -1,8 +1,9 @@
 /**
  * Gerardus's W4–W7 layers in the site viewer, without WebGL: their 2D styles,
- * the property panel, and the 3D builders (building parts raised from
- * min_height to height, roof planes triangulated at their z, markings on the
- * road, poles as cylinders, signs as boxes, trees as a trunk and a crown).
+ * the property panel, and the 3D builders (building parts as outlines beside
+ * their wall surfaces, or raised from min_height to height when a Gerardus
+ * sends none, roof planes triangulated at their z, markings on the road,
+ * poles as cylinders, signs as boxes, trees as a trunk and a crown).
  */
 import type { SiteFeature, SiteFrameFeature } from './client';
 import { MODEL_LAYERS } from './client';
@@ -345,6 +346,69 @@ describe('building parts', () => {
 		const lines = scene.lines[0].positions;
 		expect(lines.length / 6).toBe(8);
 		expect(zRange(lines)).toEqual([3, 8]);
+	});
+
+	it('are outlines only when wall surfaces arrive, and their walls stop at the roofline', () => {
+		// The bay's height tag says 8 m (the top of its roof): extruded, its
+		// walls would stand over the eave at 7 m.
+		const eave = frame(
+			'wall_surfaces',
+			'wall_surface',
+			{
+				type: 'Polygon',
+				coordinates: [
+					[
+						[0, 0, 3],
+						[4, 0, 3],
+						[4, 0, 7],
+						[0, 0, 7],
+						[0, 0, 3]
+					]
+				]
+			},
+			{ part: 'building_parts/1', edge: '0', role: 'wall', top: 'roofline' }
+		);
+		// The gable end: its top rises to the ridge in the middle.
+		const gable = frame(
+			'wall_surfaces',
+			'wall_surface',
+			{
+				type: 'Polygon',
+				coordinates: [
+					[
+						[4, 0, 3],
+						[4, 4, 3],
+						[4, 4, 7],
+						[4, 2, 8],
+						[4, 0, 7],
+						[4, 0, 3]
+					]
+				]
+			},
+			{ part: 'building_parts/1', edge: '1', role: 'gable', top: 'roofline' }
+		);
+		const scenes = buildLayerScenes([bay, eave, gable]);
+		expect(scenes.map((s) => s.layer)).toEqual(['building_parts', 'wall_surfaces']);
+		const [parts, walls] = scenes;
+		// The part: its base outline, no fill and nothing at its height.
+		expect(parts.meshes).toHaveLength(0);
+		expect(parts.undrawn).toBe(0);
+		expect(parts.lines[0].positions.length / 6).toBe(4);
+		expect(zRange(parts.lines[0].positions)).toEqual([3, 3]);
+		// The walls as they come: a quad and a five-sided gable, filled in their
+		// own planes and outlined.
+		expect(walls.undrawn).toBe(0);
+		expect(walls.meshes).toHaveLength(1);
+		expect(walls.meshes[0]).toMatchObject({
+			colour: LAYER_COLOURS.wall_surfaces,
+			doubleSided: true
+		});
+		const mesh = walls.meshes[0].mesh;
+		expect(mesh.indices.length / 3).toBe(2 + 3);
+		// The eave wall's 4 × 4 m, and the gable's 4 × 4 m with 2 m² above it.
+		expect(area(mesh)).toBeCloseTo(16 + 18, 4);
+		expect(zRange(mesh.positions)).toEqual([3, 8]);
+		expect(walls.lines[0].positions.length / 6).toBe(4 + 5);
 	});
 
 	it('draw a part without a height as its outline, and count it undrawn', () => {
