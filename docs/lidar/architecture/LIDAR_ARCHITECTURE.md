@@ -16,18 +16,18 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## The ten layers
 
-| Layer | Label          | Tier        | Scope                                                           | Go package              | Status         |
-| ----- | -------------- | ----------- | --------------------------------------------------------------- | ----------------------- | -------------- |
-| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                               | `l1packets`             | ✅ Implemented |
-| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports               | `l2frames`              | ✅ Implemented |
-| L3    | **Grid**       | Sensor      | Background/foreground separation state                          | `l3grid`                | ✅ Implemented |
-| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                    | `l4perception`          | ✅ Implemented |
-| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                      | `l5tracks`              | ✅ Implemented |
-| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping              | `l6objects`             | ✅ Implemented |
-| L7    | **Scene**      | Scene       | Registered dynamic scene and spatial relationships; multi-sensor fusion       | `l7scene`               | 💭 Planning    |
-| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring              | `l8analytics`           | ✅ Implemented |
-| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs      | `server`, `l9endpoints` | ✅ Implemented |
-| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline) | –                       | ✅ Implemented |
+| Layer | Label          | Tier        | Scope                                                                   | Go package              | Status         |
+| ----- | -------------- | ----------- | ----------------------------------------------------------------------- | ----------------------- | -------------- |
+| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                                       | `l1packets`             | ✅ Implemented |
+| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports                       | `l2frames`              | ✅ Implemented |
+| L3    | **Grid**       | Sensor      | Background/foreground separation state                                  | `l3grid`                | ✅ Implemented |
+| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                            | `l4perception`          | ✅ Implemented |
+| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                              | `l5tracks`              | ✅ Implemented |
+| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping                      | `l6objects`             | ✅ Implemented |
+| L7    | **Scene**      | Scene       | Registered dynamic scene and spatial relationships; multi-sensor fusion | `l7scene`               | 💭 Planning    |
+| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring                      | `l8analytics`           | ✅ Implemented |
+| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs              | `server`, `l9endpoints` | ✅ Implemented |
+| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline)         | –                       | ✅ Implemented |
 
 ## Segmented concept status chart
 
@@ -520,18 +520,18 @@ This section covers multi-position. Multi-modality (combining different sensor t
 
 The following layer numbers and names are **permanently assigned**. Implementation status will evolve, but the number-to-concept mapping never changes.
 
-| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                           |
-| ------ | ---------- | ------------------------------------ | ------------- | ----------------------------------------------- |
-| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor                |
-| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                        |
-| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                         |
-| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                    |
-| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                   |
-| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                          |
+| Number | Name       | Concept (permanent)                      | Earliest code | Notes                                           |
+| ------ | ---------- | ---------------------------------------- | ------------- | ----------------------------------------------- |
+| L1     | Packets    | Sensor transport, wire-level capture     | v0.1.0        | One instance per physical sensor                |
+| L2     | Frames     | Time-coherent point assembly             | v0.1.0        | Sensor-local coordinates                        |
+| L3     | Grid       | Background/foreground separation         | v0.1.0        | Sensor-local polar grid                         |
+| L4     | Perception | Single-frame geometric primitives        | v0.4.0        | Clusters, ground tiles, OBBs                    |
+| L5     | Tracks     | Multi-frame identity continuity          | v0.4.0        | Kalman + Hungarian per sensor                   |
+| L6     | Objects    | Semantic classification                  | v0.4.0        | Per-track class labels                          |
 | L7     | Scene      | Dynamic scene, context and relationships | Planned       | Gerardus owns static priors; fusion later       |
-| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | `l8analytics/` + `server/`; run comparison, IoU |
-| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `l9endpoints/` gRPC; `server/` REST             |
-| L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release         |
+| L8     | Analytics  | Traffic metrics and evaluation           | v0.4.0        | `l8analytics/` + `server/`; run comparison, IoU |
+| L9     | Endpoints  | Server-side payload shaping              | v0.1.0        | `l9endpoints/` gRPC; `server/` REST             |
+| L10    | Clients    | Downstream renderers                     | v0.1.0        | Web frontend shipped with first release         |
 
 ### Rules for future evolution
 
