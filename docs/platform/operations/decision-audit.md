@@ -80,6 +80,17 @@ preparation. D-18 gained the nearest-rank rule for published aggregate speed per
 in `l6objects`, so it stays Partly drifted. D-28's B10 deferral lapsed and was renewed with a
 trigger (the valid-following record pinned and l8fol0004 reported), so it stays Kept.
 
+## October 26 decisions (D-36 and D-37)
+
+**D-36 — Pending qualification:** layer ownership and the release schedule are now recorded in the
+architecture and backlog. No physical-metric acceptance result is implied: the G-GEO-1,
+G-UNC-1, G-SMO-1, and field reference gates remain unpassed unless their own evidence says
+otherwise. The older audit's milestone evidence is a dated October 20 snapshot.
+
+**D-37 — Kept in the backlog:** outstanding items carry priorities and workstream tags,
+and `make check-backlog-format` verifies the metadata, known vocabulary and twelve-item
+release cap. The completed ledger stays historical. Scientific gate validation remains separate.
+
 ## How the audit runs
 
 At each release, `/release-prep` will re-read every entry against its `Kept by:` line, record the
