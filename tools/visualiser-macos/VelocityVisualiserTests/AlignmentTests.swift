@@ -563,7 +563,9 @@ struct BoxesAndWallPlanesStyleTests {
     private func geometry(_ layers: [Gerardus_Align_V1alpha1_ReferenceLayer]) -> ReferenceGeometry {
         var geometry = ReferenceGeometry()
         for layer in layers {
-            for message in referenceMessages(layer, modelID: "sha256:m") { geometry.append(message) }
+            for message in referenceMessages(layer, modelID: "sha256:m") {
+                geometry.append(message)
+            }
         }
         return geometry
     }
@@ -654,7 +656,8 @@ struct BoxesAndWallPlanesStyleTests {
         var facade = Gerardus_Align_V1alpha1_LineFeature()
         facade.kind = .facade
         facade.xyz = [0, 5, 21, 10, 5, 21]
-        g.append(observed([facade, wallPlane(role: "wall"), wallPlane(role: "recess", offset: -0.4)]))
+        g.append(
+            observed([facade, wallPlane(role: "wall"), wallPlane(role: "recess", offset: -0.4)]))
         #expect(g.observed.map(\.kind) == [.facade])
         #expect(g.wallPlanes.count == 2)
         #expect(g.wallPlaneRoles == [.wall: 1, .recess: 1])
@@ -754,9 +757,7 @@ struct BoxesAndWallPlanesStyleTests {
         var g = ReferenceGeometry()
         for layer in AlignmentSession.bundleLayers + AlignmentSession.listedOnlyLayers
             + AlignmentSession.registeredLayers
-        {
-            for message in referenceMessages(layer, modelID: "sha256:m") { g.append(message) }
-        }
+        { for message in referenceMessages(layer, modelID: "sha256:m") { g.append(message) } }
         var planes = Gerardus_Align_V1alpha1_StreamReferenceResponse()
         planes.layer = .observed
         planes.lines.features = [wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.5)]
@@ -804,8 +805,8 @@ struct AlignmentSiteResolverTests {
 
     @Test func clipWins() {
         let found = AlignmentSiteResolver.resolve(
-            OpenCaptureEvidence(clipID: "98fe9f80", sourcePaths: []),
-            sites: [columbus, elsewhere], filesByCase: [:])
+            OpenCaptureEvidence(clipID: "98fe9f80", sourcePaths: []), sites: [columbus, elsewhere],
+            filesByCase: [:])
         #expect(found?.site == elsewhere && found?.match == .clip)
     }
 
@@ -928,8 +929,10 @@ private func referenceMessages(
         return [
             message {
                 $0.lines.features = [
-                    boxWall([10, 10, 21, 20, 10, 21, 20, 10, 33, 10, 10, 33], wall: 0, party: false),
-                    boxWall([20, 10, 21, 20, 20, 21, 20, 20, 33, 20, 10, 33], wall: 1, party: true),
+                    boxWall(
+                        [10, 10, 21, 20, 10, 21, 20, 10, 33, 10, 10, 33], wall: 0, party: false),
+                    boxWall(
+                        [20, 10, 21, 20, 20, 21, 20, 20, 33, 20, 10, 33], wall: 1, party: true),
                 ]
                 $0.layerComplete = true
             }
@@ -1009,9 +1012,8 @@ private func referenceMessages(
 }
 
 /// One wall of a DataSF box, tagged as Gerardus tags it.
-private func boxWall(
-    _ xyz: [Float], wall: Int, party: Bool
-) -> Gerardus_Align_V1alpha1_LineFeature {
+private func boxWall(_ xyz: [Float], wall: Int, party: Bool) -> Gerardus_Align_V1alpha1_LineFeature
+{
     var feature = Gerardus_Align_V1alpha1_LineFeature()
     feature.featureID = "datasf:ynuv-fyni/1#\(wall)"
     feature.kind = .building
@@ -1020,8 +1022,7 @@ private func boxWall(
     feature.heightM = 12
     feature.tags = [
         "building_id": "1", "wall": "\(wall)", "party": party ? "true" : "false",
-        "roof_p50_m": "12.0", "roof_p95_m": "12.6", "shift_east_m": "0.3",
-        "shift_north_m": "-0.2",
+        "roof_p50_m": "12.0", "roof_p95_m": "12.6", "shift_east_m": "0.3", "shift_north_m": "-0.2",
     ]
     return feature
 }
@@ -1094,6 +1095,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var lastReview: Gerardus_Align_V1alpha1_ReviewRegistrationRequest?
     /// Every ReviewRegistration request, in order.
     var reviews: [Gerardus_Align_V1alpha1_ReviewRegistrationRequest] = []
+    var reviewBatches: [Gerardus_Align_V1alpha1_ReviewRegistrationsRequest] = []
+    var reviewFailure: RPCError?
+    var streetUseFailure: RPCError?
     /// Runs whose review is refused with FAILED_PRECONDITION, as Gerardus
     /// refuses a j1 whose scan's accepted pose changed since RefineSite ran.
     var refusedReviews: Set<String> = []
@@ -1326,6 +1330,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         log("ReviewRegistration")
         lastReview = request
         reviews.append(request)
+        if let reviewFailure { throw reviewFailure }
         if refusedReviews.contains(request.registrationID) {
             throw RPCError(
                 code: .failedPrecondition,
@@ -1351,7 +1356,22 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
         log("ListRegistrationRecords")
-        return records
+        return records.reversed()
+    }
+
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        log("ReviewRegistrations")
+        reviewBatches.append(request)
+        if let reviewFailure { throw reviewFailure }
+        guard !request.reviews.contains(where: { refusedReviews.contains($0.registrationID) })
+        else {
+            throw RPCError(code: .aborted, message: "a refinement dependency changed; refine again")
+        }
+        var accepted: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
+        for review in request.reviews { accepted.append(try await reviewRegistration(review)) }
+        return accepted
     }
 
     func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
@@ -1376,13 +1396,19 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse {
         log("EditStreetUse")
         streetUseEdits.append(request)
+        if let streetUseFailure { throw streetUseFailure }
         guard !request.author.isEmpty else {
             throw RPCError(code: .invalidArgument, message: "author is required")
         }
-        if let refuseStreetUse { throw RPCError(code: .failedPrecondition, message: refuseStreetUse) }
+        if let refuseStreetUse {
+            throw RPCError(code: .failedPrecondition, message: refuseStreetUse)
+        }
         var features = streetUse ?? []
         for edit in request.edits {
             switch edit.change {
+            case .revertRowID:
+                throw RPCError(
+                    code: .unimplemented, message: "server-history undo is outside this fake")
             case .removeFeatureID(let id): features.removeAll { $0.featureID == id }
             case .upsert(var feature):
                 if feature.featureID.isEmpty {
@@ -1403,8 +1429,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
                 } else {
                     features.append(feature)
                 }
-            // The client never reverts a row.
-            case .revertRowID, nil: break
+            case nil: break
             }
         }
         streetUse = features
@@ -1537,8 +1562,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
 
 @MainActor struct AlignmentSessionTests {
     private let site = AlignmentSite(
-        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
-        l13Token: "808580f4",
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
         description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
 
@@ -1659,6 +1683,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         let review = service.lastReview
         #expect(review?.registrationID == "gms:reg")
         #expect(review?.reviewer == "operator")
+        #expect(review?.hasExpectedRecordID == true && review?.expectedRecordID == "")
+        #expect(review?.requestID.isEmpty == false)
         guard case .acceptPose(let accepted) = review?.decision else {
             Issue.record("accept sent no pose")
             return
@@ -1685,6 +1711,61 @@ final class FakeOverlaySink: ReferenceOverlaySink {
             return
         }
         #expect(reason == "reference is another corner")
+    }
+
+    @Test func aLostReviewResponseRetriesItsIDAndPrecondition() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        session.reviewer = "operator"
+        service.reviewFailure = RPCError(code: .unavailable, message: "lost response")
+        await session.accept()
+        #expect(session.lastRecord == nil)
+        service.reviewFailure = nil
+        await session.accept()
+        #expect(service.reviews.count == 2)
+        #expect(service.reviews[0] == service.reviews[1])
+        #expect(!service.reviews[0].requestID.isEmpty)
+    }
+
+    @Test func expectedHeadsFollowAppendOrderEvenIfTheClockMovesBackwards() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        var old = Gerardus_Align_V1alpha1_RegistrationRecord()
+        old.scanID = session.registration!.scanID
+        old.recordID = "old"
+        old.reviewedAt.seconds = 100
+        var head = old
+        head.recordID = "head"
+        head.reviewedAt.seconds = 50
+        service.records = [old, head]
+        await session.loadRecords()
+        session.reviewer = "operator"
+        await session.accept()
+        #expect(service.lastReview?.expectedRecordID == "head")
+    }
+
+    @Test func aStaleReviewKeepsItsPoseAndNoteUntilAnExplicitRead() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        session.reviewer = "operator"
+        session.note = "keep this draft"
+        let pose = session.pose
+        service.reviewFailure = RPCError(code: .aborted, message: "newer head")
+        await session.accept()
+        #expect(session.reviewNeedsReload)
+        #expect(session.note == "keep this draft")
+        #expect(session.pose?.matrix == pose?.matrix)
+        await session.accept()
+        #expect(service.reviews.count == 1)
+        service.reviewFailure = nil
+        await session.loadRecords()
+        #expect(!session.reviewNeedsReload)
+        await session.accept()
+        #expect(service.reviews.count == 2)
+        #expect(service.reviews[0].requestID != service.reviews[1].requestID)
     }
 
     @Test func recordsAreNewestFirst() async {
@@ -1943,8 +2024,7 @@ private func gate(_ name: String, passed: Bool) -> Gerardus_Align_V1alpha1_GateR
 
 @MainActor struct AlignmentRegistrationTests {
     private let site = AlignmentSite(
-        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47",
-        l13Token: "808580f4",
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
         description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
         sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
 
@@ -2945,12 +3025,9 @@ struct TransientBoxTests {
         nan.bboxHeadingRad = .nan
         nan.headingRad = .nan
         let tracks = [
-            movingTrack("moving"),
-            drawn,
-            movingTrack("tentative", state: .tentative),
+            movingTrack("moving"), drawn, movingTrack("tentative", state: .tentative),
             movingTrack("hedge", speed: 0.1, maxSpeed: 0.6),
-            movingTrack("parked since", speed: 0, maxSpeed: 6),
-            movingTrack("no box", length: 0),
+            movingTrack("parked since", speed: 0, maxSpeed: 6), movingTrack("no box", length: 0),
             nan,
         ]
         let boxes = FrameAccumulation.transientBoxes(tracks)
@@ -2968,12 +3045,15 @@ struct TransientBoxTests {
     @Test func theAccumulatorKeepsTheBoxesOfFramesItTakes() {
         var acc = FrameAccumulator(frameCount: 3)
         #expect(acc.add(cloud(classes: [0]), tracks: [movingTrack("a")], frameNumber: 1) == .taken)
-        #expect(acc.add(cloud(classes: [0]), tracks: [movingTrack("a")], frameNumber: 1) == .skipped)
         #expect(
-            acc.add(cloud(classes: [0]), tracks: [movingTrack("a"), movingTrack("b")], frameNumber: 2)
+            acc.add(cloud(classes: [0]), tracks: [movingTrack("a")], frameNumber: 1) == .skipped)
+        #expect(
+            acc.add(
+                cloud(classes: [0]), tracks: [movingTrack("a"), movingTrack("b")], frameNumber: 2)
                 == .taken)
-        guard case .refused = acc.add(
-            cloud(classes: [0], mode: .voxel), tracks: [movingTrack("c")], frameNumber: 3)
+        guard
+            case .refused = acc.add(
+                cloud(classes: [0], mode: .voxel), tracks: [movingTrack("c")], frameNumber: 3)
         else {
             Issue.record("a voxel frame was taken")
             return
@@ -3585,7 +3665,9 @@ final class LockedBox<T>: @unchecked Sendable {
             var run = Gerardus_Align_V1alpha1_Registration()
             run.registrationID = refined.registrationID
             run.state = passed ? .candidate : .failed
-            run.gates = [gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: passed)]
+            run.gates = [
+                gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: passed),
+            ]
             service.runs[run.registrationID] = run
         }
         service.refineResult.scans = results
@@ -3624,6 +3706,9 @@ final class LockedBox<T>: @unchecked Sendable {
 
     @Test func acceptRefinementSendsEveryJointHypothesisThenRestreams() async {
         let (session, service) = await placed()
+        service.runs["gms:refine-a"]?.refinementHeads = [
+            "sha256:a": "head-a", "sha256:b": "head-b",
+        ]
         await session.refine()
         session.reviewer = ""
         #expect(!session.canAcceptRefinement, "a reviewer is required")
@@ -3636,6 +3721,9 @@ final class LockedBox<T>: @unchecked Sendable {
         await session.acceptRefinement()
 
         #expect(service.reviews.map(\.registrationID) == ["gms:refine-a", "gms:refine-b"])
+        #expect(service.reviewBatches.count == 1)
+        #expect(!service.reviewBatches[0].requestID.isEmpty)
+        #expect(service.reviews.map(\.expectedRecordID) == ["head-a", "head-b"])
         for review in service.reviews {
             guard case .acceptHypothesisID(let id) = review.decision else {
                 Issue.record("accept sent no hypothesis")
@@ -3660,11 +3748,27 @@ final class LockedBox<T>: @unchecked Sendable {
         session.reviewer = "operator"
         service.refusedReviews = ["gms:refine-b"]
         await session.acceptRefinement()
-        #expect(session.refinedAccepted == ["sha256:a"])
+        #expect(session.refinedAccepted.isEmpty)
+        #expect(service.records.isEmpty)
+        #expect(service.reviewBatches.count == 1)
         let message = session.errorMessage ?? ""
-        #expect(message.contains("1 of 2 recorded before it"), "\(message)")
+        #expect(message.contains("no partial acceptance"), "\(message)")
         #expect(message.contains("refine again"), "\(message)")
         #expect(session.busy == nil)
+    }
+
+    @Test func aLostBatchResponseRetriesTheIdenticalAtomicRequest() async {
+        let (session, service) = await placed()
+        await session.refine()
+        session.reviewer = "operator"
+        service.reviewFailure = RPCError(code: .unavailable, message: "lost response")
+        await session.acceptRefinement()
+        #expect(session.refinedAccepted.isEmpty)
+        service.reviewFailure = nil
+        await session.acceptRefinement()
+        #expect(service.reviewBatches.count == 2)
+        #expect(service.reviewBatches[0] == service.reviewBatches[1])
+        #expect(session.refinedAccepted == ["sha256:a", "sha256:b"])
     }
 }
 
@@ -3845,7 +3949,6 @@ final class LockedBox<T>: @unchecked Sendable {
     }
 }
 
-
 // MARK: - The refinement column
 
 @MainActor struct RefinementColumnTests {
@@ -3904,7 +4007,10 @@ final class LockedBox<T>: @unchecked Sendable {
         session.openRefinementColumn()
         #expect(session.refinementColumnOpen)
         #expect(session.refinement?.scans.count == 2)
-        #expect(session.refinedRuns["sha256:a"]?.gates.map(\.name) == ["ground_p95_m", "refine_shift_m"])
+        #expect(
+            session.refinedRuns["sha256:a"]?.gates.map(\.name) == [
+                "ground_p95_m", "refine_shift_m",
+            ])
         #expect(session.canAcceptRefinement)
     }
 
@@ -3963,8 +4069,8 @@ final class LockedBox<T>: @unchecked Sendable {
         let (session, service, sink) = await placed {
             $0.availableLayers = Self.withBoxes
             $0.wallPlanes = [
-                wallPlane(role: "wall"), wallPlane(role: "wall"), wallPlane(role: "popout", offset: 0.6),
-                wallPlane(role: "recess", offset: -0.3),
+                wallPlane(role: "wall"), wallPlane(role: "wall"),
+                wallPlane(role: "popout", offset: 0.6), wallPlane(role: "recess", offset: -0.3),
             ]
         }
         #expect(session.errorMessage == nil)

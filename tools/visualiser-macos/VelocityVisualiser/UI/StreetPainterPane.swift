@@ -76,6 +76,10 @@ import SwiftUI
                 ).font(.caption2).foregroundStyle(.orange)
             }
             if let error = painter.errorMessage {
+                if painter.hasPendingSave {
+                    Button("Discard draft and reload") { Task { await painter.load() } }.disabled(
+                        painter.isLoading || painter.isSaving)
+                }
                 Text(error).font(.caption).foregroundStyle(.red).textSelection(.enabled)
             }
         }

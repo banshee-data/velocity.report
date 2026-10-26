@@ -1,11 +1,10 @@
-// Vendored from banshee-data/gerardus, do not edit here.
+// Vendored from banshee-data/gerardus; do not edit here.
 // Source: proto/gerardus/align/v1alpha1/align.proto
-// Commit: 5f565a984f3846e674bfc3387773aa61c8552cd9, roofline walls (WALL_SURFACE, roofline
-// box walls, shifted footprints; banshee-data/gerardus#35), on origin/claude/roofline-walls
-// (not merged yet: update this line to the main commit when it is).
-// To update: copy the file from a newer Gerardus commit, change this header,
-// and run `make proto-gen-swift`. The package may break until Gerardus MVP 0
-// closes; the visualiser client is VelocityVisualiser/gRPC/GerardusClient.swift.
+// Commit: f3beec1 (main, 2026-10-25), the squash merge of #35 (roofline walls:
+// WALL_SURFACE, roofline box walls, shifted footprints); includes safe-write
+// contracts from #33.
+// To update: copy the upstream file, retain this provenance header,
+// and run make proto-gen-swift.
 
 // Gerardus alignment API
 // Version: v1alpha1 (may break until MVP 0 closes)

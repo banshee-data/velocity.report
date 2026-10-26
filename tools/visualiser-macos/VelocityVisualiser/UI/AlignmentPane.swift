@@ -710,7 +710,8 @@ import SwiftUI
                 Spacer()
                 Button(action: { Task { await session.loadRecords() } }) {
                     Image(systemName: "arrow.clockwise")
-                }.buttonStyle(.borderless).help("Read this site's records again")
+                }.buttonStyle(.borderless).disabled(session.busy != nil).help(
+                    "Read this site's records again")
             }
             if session.records.isEmpty {
                 Text("None for this site.").font(.caption).foregroundStyle(.secondary)

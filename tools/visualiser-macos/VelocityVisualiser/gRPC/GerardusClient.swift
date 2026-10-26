@@ -45,6 +45,18 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         if let rpc = error as? RPCError { return "\(rpc.code): \(rpc.message)" }
         return error.localizedDescription
     }
+
+    /// These statuses refuse the mutation. Transport/internal failures have
+    /// an unknown outcome and must retain the original request identity.
+    static func isDefiniteRejection(_ error: Error) -> Bool {
+        guard let rpc = error as? RPCError else { return false }
+        switch rpc.code {
+        case .invalidArgument, .notFound, .alreadyExists, .permissionDenied, .unauthenticated,
+            .failedPrecondition, .unimplemented, .outOfRange:
+            return true
+        default: return false
+        }
+    }
 }
 
 /// The calls the alignment session makes. Abstracted so tests can count them:
@@ -76,6 +88,9 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func reviewRegistration(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord]
     func listRegistrationRecords(
         l16Token: String
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord]
@@ -106,6 +121,11 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 
 /// A client that has no street use answers as a server from before it would.
 @available(macOS 15.0, *) extension AlignmentServiceClient {
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        throw RPCError(code: .unimplemented, message: "Atomic ReviewRegistrations is required")
+    }
     func listStreetUse(l16Token: String) async throws -> [Gerardus_Align_V1alpha1_StreetUseFeature]
     { throw RPCError(code: .unimplemented, message: "ListStreetUse") }
 
@@ -339,6 +359,14 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
         try await registrationService().reviewRegistration(request: ClientRequest(message: request))
             .record
+    }
+
+    func reviewRegistrations(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
+    ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        try await registrationService().reviewRegistrations(
+            request: ClientRequest(message: request)
+        ).records
     }
 
     func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {

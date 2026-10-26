@@ -305,7 +305,7 @@ Fills and bands are triangles on the debug-line pipeline, lifted 0.15 m above th
 ## Known limits
 
 - The street painter is tested against a fake Gerardus, not yet against a server with `FEATURE_KIND_SURFACE`, which is being built alongside it.
-- The W4–W7 layers are tested against a fake Gerardus with the contract's tags (Gerardus `5f565a9`, the roofline walls of banshee-data/gerardus#35), not yet against a server that builds them. Wall surfaces are drawn as outlines, not filled. A sign's face has no facing in the contract, so it is drawn as a thick vertical segment, not a plate.
+- The W4–W7 layers are tested against a fake Gerardus with the contract's tags (Gerardus `f3beec1`, which merged the roofline walls of banshee-data/gerardus#35), not yet against a server that builds them. Wall surfaces are drawn as outlines, not filled. A sign's face has no facing in the contract, so it is drawn as a thick vertical segment, not a plate.
 - A lane's width band and a driveway's span are drawn segment by segment, so their corners show small gaps or overlaps where a line turns.
 
 - OSM building outlines sit about 0.8 m east of the 3DEP points at the measured sites, and named intersections sit 9 to 34 m from the eye-read positions. Both are in the data, not the drawing; align to the 3DEP points.
@@ -317,3 +317,32 @@ Fills and bands are triangles on the debug-line pipeline, lifted 0.15 m above th
 
 - The visualiser's client passes on at most about 30 frames a second, so above 3× playback of a 10 Hz capture the N frames are not consecutive; `capture_ref` still names the first and last.
 - `lidar-state-estimation-baseline`'s `siteCalibration` rotates the sensor's +X onto `north_azimuth_deg`. By the measurement above, +Y lies at 180° − N, so +X lies at 270° − N: that transform is wrong too. It is not used here.
+
+## Safe writes and conflicts (2026-10-25)
+
+The vendored alpha contract includes Gerardus #33's safe-write requirements.
+Every decision carries the record the operator read and a request ID. Street
+updates and removals carry their original row IDs; creates have no expected row.
+An unchanged retry after an unknown outcome retains the entire request and its ID, so a lost response
+cannot create a second contribution. Changing an unresolved request is refused
+until the operator reconciles it with a deliberate read.
+
+A conflict keeps the pose, note or street draft in place. The client reads the
+current server state separately and never replaces an expected revision and
+resubmits automatically. Use the records refresh to inspect the current log
+before making a new review decision. Reloading street marks discards the street
+draft explicitly; copy any wanted changes before doing so.
+
+Joint refinement acceptance uses one `ReviewRegistrations` RPC for every j1.
+There is no sequential fallback for an older server. A failed batch accepts no
+partial subset; after a connection failure retry the identical batch, and after
+a stale-head refusal refine again. Reads in the web site viewer remain read-only.
+
+Session tests exercise the real visualiser state/client contracts against a fake
+service, including lost responses, conflicts and atomic batch refusal. They do
+not establish production deployment, storage recovery or physical scan quality.
+
+A definite validation refusal keeps the draft editable and gives a corrected
+intent a new request ID. A transport/internal failure retains the pending ID
+until its outcome is reconciled. Review heads follow the server's append order,
+independently of the timestamps used to display the records.
