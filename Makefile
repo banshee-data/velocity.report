@@ -2071,13 +2071,7 @@ check-docs-format: ensure-web-cache ## [gated] Check Markdown formatting with th
 	@if command -v pnpm >/dev/null 2>&1; then \
 		echo "Checking Markdown formatting with prettier $$(pnpm --dir $(WEB_DIR) exec prettier --version)..."; \
 		pnpm --dir $(WEB_DIR) exec prettier --ignore-path ../.prettierignore --check '../**/*.md'; status=$$?; \
-		if [ $$status -eq 1 ]; then \
-			echo "Markdown is not prettier-formatted. Run 'make format-docs' and commit the result."; \
-			pnpm --dir $(WEB_DIR) exec prettier --ignore-path ../.prettierignore --write '../docs/BACKLOG.md' '../docs/VISION.md' '../docs/lidar/architecture/LIDAR_ARCHITECTURE.md' '../docs/plans/lidar-l7-scene-plan.md' '../docs/plans/lidar-captures-multi-file-cases-plan.md' '../docs/platform/operations/decision-audit.md' >/dev/null; \
-			for d in docs/BACKLOG.md docs/VISION.md docs/lidar/architecture/LIDAR_ARCHITECTURE.md docs/plans/lidar-l7-scene-plan.md docs/plans/lidar-captures-multi-file-cases-plan.md docs/platform/operations/decision-audit.md; do \
-				echo "FORMAT_DUMP_BEGIN $$d"; base64 -w0 "$$d" | fold -w 4000; echo "FORMAT_DUMP_END $$d"; \
-			done; \
-		fi; \
+		if [ $$status -eq 1 ]; then echo "Markdown is not prettier-formatted. Run 'make format-docs' and commit the result."; fi; \
 		exit $$status; \
 	else \
 		echo "pnpm not found; cannot run the pinned prettier (install pnpm and retry)"; \
