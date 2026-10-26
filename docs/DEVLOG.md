@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 26, 2026 - The visualiser's Gerardus fake refuses what Gerardus refuses
+
+- {claude/gerardus-safe-write-fake} Made the visualiser's fake Gerardus apply Gerardus #33's write rules: a `request_id` of 1–128 printable ASCII applied at most once, with an exact retry given the saved answer; reviews refused without the scan's current `expected_record_id`; and street updates and removals refused without the feature's current `expected_row_id`. The fake also gains a write whose answer is lost after it applies. Added tests that a lost review or save is applied once, that a second decision names the first, and that another reviewer's or author's write since the read is a conflict; two refinement fixtures had relied on the old fake accepting reviews of unknown heads: [guide](ui/visualiser/gerardus-alignment.md)
+
 ## October 25, 2026 - The background's length for registration
 
 - {claude/pose-background-window} Replayed the first 60, 90 and 180 s of the five wrong-peak archive sites and five passing ones, and registered each against 3DEP, by a rule committed before the replays (`pose0002`). No window beats 300 s: the wrong-peak sites alternate between peaks from window to window with point counts within 0.3 %, and ground p95 at a fixed pose moves up to 0.08 m between windows at two passing sites; proposed `pose0003`, registration by agreement across windows: [report](lidar/operations/gerardus-background-window-2026-10.md)

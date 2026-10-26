@@ -340,6 +340,25 @@ Session tests exercise the real visualiser state/client contracts against a fake
 service, including lost responses, conflicts and atomic batch refusal. They do
 not establish production deployment, storage recovery or physical scan quality.
 
+The fake applies the same write rules as Gerardus, so a client that omits a field
+fails its tests as it would fail against the server:
+
+| Request                                             | Gerardus answers      |
+| --------------------------------------------------- | --------------------- |
+| `request_id` empty, over 128 bytes or not printable | `INVALID_ARGUMENT`    |
+| Same `request_id` with the same content             | The saved answer      |
+| Same `request_id` with different content            | `ABORTED`             |
+| Review without `expected_record_id`                 | `FAILED_PRECONDITION` |
+| `expected_record_id` not the scan's latest record   | `ABORTED`             |
+| Street update or removal without `expected_row_id`  | `FAILED_PRECONDITION` |
+| `expected_row_id` not the feature's current row     | `ABORTED`             |
+| Street create with a non-empty `expected_row_id`    | `INVALID_ARGUMENT`    |
+
+The fake keeps only successful writes, as Gerardus does, so a refused request
+can be corrected and sent again. It can also apply a write and then lose the
+answer. The tests use that to check that an unchanged retry adds no second
+record or mark.
+
 A definite validation refusal keeps the draft editable and gives a corrected
 intent a new request ID. A transport/internal failure retains the pending ID
 until its outcome is reconciled. Review heads follow the server's append order,

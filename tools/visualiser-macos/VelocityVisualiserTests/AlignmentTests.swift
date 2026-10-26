@@ -1105,6 +1105,13 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Every UploadScan header, in order.
     var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
     var records: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
+    /// Commit the next review or street-use save, then throw this instead of
+    /// answering, as a response lost after Gerardus applied the request.
+    var lostResponse: RPCError?
+    /// Each applied write's request and answer, by request_id, as Gerardus's
+    /// mutation_results keeps them: an exact retry gets the saved answer and
+    /// applies nothing; the same id with other content is ABORTED.
+    private var mutationResults: [String: (request: Data, response: Data)] = [:]
     let hintPose = levelPose(headingDeg: 35, at: SIMD3(-9.4, -38.5, 23))
 
     private func log(_ name: String) {
@@ -1300,6 +1307,48 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         return response
     }
 
+    /// Gerardus's write gate (src/store.rs `mutation`): a request_id of 1-128
+    /// printable ASCII characters, applied at most once. Only a successful
+    /// write is kept, so a refused one can be corrected under the same id.
+    private func mutation<R: SwiftProtobuf.Message>(
+        _ kind: String, _ requestID: String, _ request: some SwiftProtobuf.Message,
+        apply: () throws -> R
+    ) throws -> R {
+        guard (1...128).contains(requestID.utf8.count),
+            requestID.utf8.allSatisfy({ (0x21...0x7e).contains($0) })
+        else {
+            throw RPCError(
+                code: .invalidArgument,
+                message: "request_id must be 1-128 printable ASCII characters")
+        }
+        let bytes = Data((kind + "\0").utf8) + (try request.serializedData())
+        if let saved = mutationResults[requestID] {
+            guard saved.request == bytes else {
+                throw RPCError(
+                    code: .aborted, message: "request_id was already used with different content")
+            }
+            return try R(serializedBytes: saved.response)
+        }
+        let result = try apply()
+        mutationResults[requestID] = (bytes, try result.serializedData())
+        if let lost = lostResponse {
+            lostResponse = nil
+            throw lost
+        }
+        return result
+    }
+
+    /// The scan a run registered, as Gerardus records it.
+    private func scanID(of registrationID: String) -> String {
+        runs[registrationID]?.scanID
+            ?? (registrationID == "gms:reg" ? lastRegister?.scanID ?? "" : "")
+    }
+
+    /// The scan's latest record by append order; empty before any review.
+    private func head(_ scanID: String) -> String {
+        records.last { $0.scanID == scanID }?.recordID ?? ""
+    }
+
     func reviewRegistration(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest
     ) async throws -> Gerardus_Align_V1alpha1_RegistrationRecord {
@@ -1307,25 +1356,71 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         lastReview = request
         reviews.append(request)
         if let reviewFailure { throw reviewFailure }
-        if refusedReviews.contains(request.registrationID) {
-            throw RPCError(
-                code: .failedPrecondition,
-                message: "the scan's accepted pose has changed since this refinement ran")
+        // Gerardus answers one review as a batch of one under its request_id.
+        var batch = Gerardus_Align_V1alpha1_ReviewRegistrationsRequest()
+        batch.requestID = request.requestID
+        batch.reviews = [request]
+        return try reviewMany(batch, refusal: .failedPrecondition)[0]
+    }
+
+    /// Records the decisions whole or not at all, as Gerardus's review_many
+    /// does: each review names a distinct scan and the head it read, and the
+    /// head must still be current.
+    private func reviewMany(
+        _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest, refusal: RPCError.Code
+    ) throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
+        guard (1...128).contains(request.reviews.count) else {
+            throw RPCError(code: .invalidArgument, message: "review 1-128 scans at one site")
         }
-        var record = Gerardus_Align_V1alpha1_RegistrationRecord()
-        record.recordID = "gms:rec\(records.count)"
-        // The scan the run registered, as Gerardus records it.
-        record.scanID =
-            runs[request.registrationID]?.scanID
-            ?? (request.registrationID == "gms:reg" ? lastRegister?.scanID ?? "" : "")
-        switch request.decision {
-        case .acceptPose: record.state = .manuallyPlaced
-        case .rejectReason: record.state = .rejected
-        default: record.state = .unspecified
+        var scans = Set<String>()
+        for review in request.reviews {
+            guard !review.reviewer.trimmingCharacters(in: .whitespaces).isEmpty else {
+                throw RPCError(code: .invalidArgument, message: "reviewer is required")
+            }
+            guard scans.insert(scanID(of: review.registrationID)).inserted else {
+                throw RPCError(
+                    code: .invalidArgument, message: "reviews must address distinct scans at one site")
+            }
+            guard review.hasExpectedRecordID else {
+                throw RPCError(
+                    code: .failedPrecondition,
+                    message: "expected_record_id is required; read ListRegistrationRecords first")
+            }
         }
-        record.reviewedAt.seconds = Int64(1_000 + records.count)
-        records.append(record)
-        return record
+        let response = try mutation("review", request.requestID, request) {
+            for review in request.reviews {
+                let scan = scanID(of: review.registrationID)
+                let current = head(scan)
+                guard review.expectedRecordID == current else {
+                    throw RPCError(
+                        code: .aborted, message: "scan \(scan): current_record_id=\(current)")
+                }
+            }
+            if request.reviews.contains(where: { refusedReviews.contains($0.registrationID) }) {
+                throw RPCError(
+                    code: refusal,
+                    message: refusal == .aborted
+                        ? "a refinement dependency changed; refine again"
+                        : "the scan's accepted pose has changed since this refinement ran")
+            }
+            var answer = Gerardus_Align_V1alpha1_ReviewRegistrationsResponse()
+            for review in request.reviews {
+                var record = Gerardus_Align_V1alpha1_RegistrationRecord()
+                record.recordID = "gms:rec\(records.count)"
+                record.scanID = scanID(of: review.registrationID)
+                record.supersedesRecordID = head(record.scanID)
+                switch review.decision {
+                case .acceptPose: record.state = .manuallyPlaced
+                case .rejectReason: record.state = .rejected
+                default: record.state = .unspecified
+                }
+                record.reviewedAt.seconds = Int64(1_000 + records.count)
+                records.append(record)
+                answer.records.append(record)
+            }
+            return answer
+        }
+        return response.records
     }
 
     func listRegistrationRecords(
@@ -1340,14 +1435,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
         log("ReviewRegistrations")
         reviewBatches.append(request)
+        reviews.append(contentsOf: request.reviews)
+        lastReview = request.reviews.last
         if let reviewFailure { throw reviewFailure }
-        guard !request.reviews.contains(where: { refusedReviews.contains($0.registrationID) })
-        else {
-            throw RPCError(code: .aborted, message: "a refinement dependency changed; refine again")
-        }
-        var accepted: [Gerardus_Align_V1alpha1_RegistrationRecord] = []
-        for review in request.reviews { accepted.append(try await reviewRegistration(review)) }
-        return accepted
+        return try reviewMany(request, refusal: .aborted)
     }
 
     func getRegistration(id: String) async throws -> Gerardus_Align_V1alpha1_Registration {
@@ -1376,15 +1467,60 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         guard !request.author.isEmpty else {
             throw RPCError(code: .invalidArgument, message: "author is required")
         }
-        if let refuseStreetUse {
-            throw RPCError(code: .failedPrecondition, message: refuseStreetUse)
+        guard !request.edits.isEmpty else {
+            throw RPCError(code: .invalidArgument, message: "there are no edits")
         }
+        return try mutation("street-use", request.requestID, request) {
+            try applyStreetUse(request)
+        }
+    }
+
+    /// Checks the batch's whole read set before applying any of it, as
+    /// Gerardus does (src/street_use.rs `edit_as`): an update or removal
+    /// names the row it read, which must still be the feature's current row;
+    /// a create names none.
+    private func applyStreetUse(
+        _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
+    ) throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse {
         var features = streetUse ?? []
+        var seen = Set<String>()
         for edit in request.edits {
+            let id: String
             switch edit.change {
+            case .upsert(let feature) where feature.featureID.isEmpty:
+                if !edit.expectedRowID.isEmpty {
+                    throw RPCError(
+                        code: .invalidArgument, message: "a create cannot have a previous row")
+                }
+                continue
+            case .upsert(let feature): id = feature.featureID
+            case .removeFeatureID(let removed): id = removed
             case .revertRowID:
                 throw RPCError(
                     code: .unimplemented, message: "server-history undo is outside this fake")
+            case nil: throw RPCError(code: .invalidArgument, message: "an edit needs a change")
+            }
+            guard edit.hasExpectedRowID else {
+                throw RPCError(
+                    code: .failedPrecondition,
+                    message: "expected_row_id is required; reload before editing")
+            }
+            let current = features.first { $0.featureID == id }?.rowID ?? ""
+            guard edit.expectedRowID == current else {
+                throw RPCError(
+                    code: .aborted,
+                    message: "feature \(id): expected \(edit.expectedRowID), current_row_id=\(current)")
+            }
+            guard seen.insert(id).inserted else {
+                throw RPCError(code: .invalidArgument, message: "duplicate edit of \(id)")
+            }
+        }
+        if let refuseStreetUse {
+            throw RPCError(code: .failedPrecondition, message: refuseStreetUse)
+        }
+        for edit in request.edits {
+            switch edit.change {
+            case .revertRowID: break
             case .removeFeatureID(let id): features.removeAll { $0.featureID == id }
             case .upsert(var feature):
                 if feature.featureID.isEmpty {
@@ -1742,6 +1878,121 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         await session.accept()
         #expect(service.reviews.count == 2)
         #expect(service.reviews[0].requestID != service.reviews[1].requestID)
+    }
+
+    @Test func aReviewWhoseAnswerIsLostIsRecordedOnce() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        session.reviewer = "operator"
+        service.lostResponse = RPCError(code: .unavailable, message: "lost after commit")
+        await session.accept()
+        #expect(session.lastRecord == nil)
+        #expect(service.records.count == 1)
+        // The unchanged retry gets Gerardus's saved answer; nothing is added.
+        await session.accept()
+        #expect(session.errorMessage == nil)
+        #expect(service.records.count == 1)
+        #expect(session.lastRecord?.recordID == "gms:rec0")
+    }
+
+    @Test func aSecondDecisionNamesTheFirstAsItsHead() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        session.reviewer = "operator"
+        await session.accept()
+        session.rejectReason = "reference is another corner"
+        await session.reject()
+        #expect(session.errorMessage == nil)
+        #expect(service.reviews.map(\.expectedRecordID) == ["", "gms:rec0"])
+        #expect(service.records.map(\.supersedesRecordID) == ["", "gms:rec0"])
+        #expect(service.reviews[0].requestID != service.reviews[1].requestID)
+    }
+
+    @Test func anotherReviewersDecisionSinceTheReadIsAConflict() async {
+        let (session, service, _) = await placed()
+        session.noteBackground(snapshot(count: 10))
+        await session.register()
+        var theirs = Gerardus_Align_V1alpha1_RegistrationRecord()
+        theirs.scanID = session.registration!.scanID
+        theirs.recordID = "theirs"
+        service.records.append(theirs)
+        session.reviewer = "operator"
+        await session.accept()
+        #expect(session.reviewNeedsReload)
+        #expect(service.records.map(\.recordID) == ["theirs"])
+        #expect(session.conflictingRecords.map(\.recordID) == ["theirs"])
+        await session.loadRecords()
+        await session.accept()
+        #expect(session.errorMessage == nil)
+        #expect(service.lastReview?.expectedRecordID == "theirs")
+        #expect(service.records.count == 2)
+    }
+
+    /// The fake refuses what Gerardus #33 refuses, so a client that leaves a
+    /// field out fails these tests as it would fail against the server.
+    @Test func theFakeRefusesWhatGerardusRefuses() async {
+        let service = FakeAlignmentService()
+        func code(_ body: () async throws -> Void) async -> RPCError.Code? {
+            do {
+                try await body()
+                return nil
+            } catch let error as RPCError { return error.code } catch { return .unknown }
+        }
+        func review(_ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest) async
+            -> RPCError.Code?
+        {
+            await code { _ = try await service.reviewRegistration(request) }
+        }
+        func edit(_ request: Gerardus_Align_V1alpha1_EditStreetUseRequest) async -> RPCError.Code? {
+            await code { _ = try await service.editStreetUse(request) }
+        }
+        var decision = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
+        decision.registrationID = "gms:reg"
+        decision.reviewer = "operator"
+        decision.rejectReason = "wrong corner"
+        var answers: [RPCError.Code?] = []
+        answers.append(await review(decision))  // no expected_record_id
+        decision.expectedRecordID = ""
+        answers.append(await review(decision))  // no request_id
+        decision.requestID = "review-1"
+        answers.append(await review(decision))
+        answers.append(await review(decision))  // the exact retry applies nothing
+        decision.note = "changed"
+        answers.append(await review(decision))  // the same id with other content
+        decision.requestID = "review-2"
+        answers.append(await review(decision))  // the head is no longer empty
+        #expect(answers == [.failedPrecondition, .invalidArgument, nil, nil, .aborted, .aborted])
+        #expect(service.records.count == 1)
+
+        var lane = Gerardus_Align_V1alpha1_StreetUseFeature()
+        lane.featureID = "gms:01LANE"
+        lane.rowID = "row-a"
+        service.streetUse = [lane]
+        var remove = Gerardus_Align_V1alpha1_StreetUseEdit()
+        remove.removeFeatureID = lane.featureID
+        var create = Gerardus_Align_V1alpha1_StreetUseEdit()
+        create.upsert = Gerardus_Align_V1alpha1_StreetUseFeature()
+        create.expectedRowID = "row-a"
+        var request = Gerardus_Align_V1alpha1_EditStreetUseRequest()
+        request.author = "Ada"
+        request.requestID = "street-1"
+        answers = []
+        request.edits = [remove]
+        answers.append(await edit(request))  // no expected_row_id
+        request.edits[0].expectedRowID = "row-old"
+        answers.append(await edit(request))  // not the current row
+        request.edits = [create]
+        answers.append(await edit(request))  // a create with a previous row
+        request.edits = [remove]
+        request.edits[0].expectedRowID = "row-a"
+        request.requestID = ""
+        answers.append(await edit(request))  // no request_id
+        request.requestID = "street-1"
+        answers.append(await edit(request))
+        #expect(answers == [.failedPrecondition, .aborted, .invalidArgument, .invalidArgument, nil])
+        #expect(service.streetUse?.isEmpty == true)
     }
 
     @Test func recordsAreNewestFirst() async {
@@ -3640,6 +3891,7 @@ final class LockedBox<T>: @unchecked Sendable {
             results.append(refined)
             var run = Gerardus_Align_V1alpha1_Registration()
             run.registrationID = refined.registrationID
+            run.scanID = refined.scanID
             run.state = passed ? .candidate : .failed
             run.gates = [
                 gate("ground_p95_m", passed: true), gate("refine_shift_m", passed: passed),
@@ -3685,6 +3937,13 @@ final class LockedBox<T>: @unchecked Sendable {
         service.runs["gms:refine-a"]?.refinementHeads = [
             "sha256:a": "head-a", "sha256:b": "head-b",
         ]
+        // The records the refinement read; Gerardus checks they are still the heads.
+        service.records = [("sha256:a", "head-a"), ("sha256:b", "head-b")].map { scan, id in
+            var record = Gerardus_Align_V1alpha1_RegistrationRecord()
+            record.scanID = scan
+            record.recordID = id
+            return record
+        }
         await session.refine()
         session.reviewer = ""
         #expect(!session.canAcceptRefinement, "a reviewer is required")
