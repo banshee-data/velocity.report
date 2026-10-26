@@ -61,6 +61,18 @@ struct ContentView: View {
                         AlignmentAttributionView(session: appState.alignment).allowsHitTesting(
                             false)
 
+                        // The servers' status, inlaid top left. Status only:
+                        // the app keeps the connection up itself, and a click
+                        // opens Settings ▸ Servers.
+                        VStack {
+                            HStack {
+                                ServerStatusIndicator(
+                                    connection: appState.connection, session: appState.alignment)
+                                Spacer()
+                            }
+                            Spacer()
+                        }.padding(8)
+
                         // Capture Metal view size for label projection
                         GeometryReader { geometry in
                             Color.clear.onAppear {
@@ -635,13 +647,9 @@ struct ToolbarView: View {
 
     var body: some View {
         HStack {
-            // Status only: the app keeps the connection up itself, and a
-            // click opens Settings ▸ Servers.
-            ServerStatusIndicator(connection: appState.connection, session: appState.alignment)
-
+            // The servers' status is inlaid in the 3D view, not here.
             // Run browser button
             if appState.isConnected {
-                Divider().frame(height: 20)
                 Button(action: { appState.showRunBrowser = true }) {
                     Label("Runs", systemImage: "doc.text.magnifyingglass")
                 }.help("Browse analysis runs")
@@ -662,9 +670,10 @@ struct ToolbarView: View {
 
                 Divider().frame(height: 20)
                 LiveToggleView()
+
+                Divider().frame(height: 20)
             }
 
-            Divider().frame(height: 20)
             CameraToolbarButton()
 
             Spacer()

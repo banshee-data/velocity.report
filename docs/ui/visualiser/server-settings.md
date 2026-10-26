@@ -1,6 +1,6 @@
 # Server settings and connection status
 
-Where VelocityVisualiser finds the two servers it talks to, how it keeps its connection to velocity.report up, and what the status indicator at the top left of the main window says.
+Where VelocityVisualiser finds the two servers it talks to, how it keeps its connection to velocity.report up, and what the status indicator inlaid in the top left of the 3D view says.
 
 - **Code:** [ServerSettingsView.swift](../../../tools/visualiser-macos/VelocityVisualiser/UI/ServerSettingsView.swift) (Settings ▸ Servers), [GerardusSettingsView.swift](../../../tools/visualiser-macos/VelocityVisualiser/UI/GerardusSettingsView.swift) (its Gerardus sections), [ServerStatusIndicator.swift](../../../tools/visualiser-macos/VelocityVisualiser/UI/ServerStatusIndicator.swift) (the indicator), [VelocityReportServer.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/VelocityReportServer.swift) (the URL, its parsing and its preference), [ServerConnection.swift](../../../tools/visualiser-macos/VelocityVisualiser/App/ServerConnection.swift) (status, backoff and Test connection)
 - **Tests:** [ServerSettingsTests.swift](../../../tools/visualiser-macos/VelocityVisualiserTests/ServerSettingsTests.swift), [GerardusSettingsTests.swift](../../../tools/visualiser-macos/VelocityVisualiserTests/GerardusSettingsTests.swift)
@@ -42,14 +42,14 @@ Every HTTP client reads the saved URL at each call, so an applied change reaches
 
 ## The status indicator
 
-The top left of the main window shows a dot and a word for velocity.report and, when the toolbar has room, for Gerardus beside it. It is a status indicator, not a control: it cannot connect or disconnect.
+The top left of the 3D view carries a small panel with a dot and a name for velocity.report and, under it, for Gerardus. A healthy server is its dot and its name alone; one in error adds the salient part of what went wrong (the cause inside a wrapper's parentheses, or the text after a `code:` or `Error:` prefix, at most 48 characters). It is a status indicator, not a control: it cannot connect or disconnect.
 
-| State        | Dot    | velocity.report                                                                     | Gerardus                                                                  |
-| ------------ | ------ | ----------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Connected    | green  | The visualiser service answered: `GetCapabilities`, or the frame stream accepted    | `GetServerInfo` answered                                                  |
-| Connecting…  | yellow | An attempt is in flight, or a transport exists but the service has not answered yet | A probe is in flight                                                      |
-| Disconnected | grey   | No connection and no error                                                          | Not asked yet                                                             |
-| Error: …     | red    | The last attempt failed or the stream dropped, with a short reason                  | Asked with no answer, with a short reason (its gRPC code when it has one) |
+| State        | Dot    | velocity.report                                                                     | Gerardus                                      |
+| ------------ | ------ | ----------------------------------------------------------------------------------- | --------------------------------------------- |
+| Connected    | green  | The visualiser service answered: `GetCapabilities`, or the frame stream accepted    | `GetServerInfo` answered                      |
+| Connecting…  | yellow | An attempt is in flight, or a transport exists but the service has not answered yet | A probe is in flight                          |
+| Disconnected | grey   | No connection and no error                                                          | Not asked yet                                 |
+| Error        | red    | The last attempt failed or the stream dropped, with the salient reason              | Asked with no answer, with the salient reason |
 
 The tooltip gives each server's address, its state, its last error in full and, for velocity.report, when the next retry is due. Clicking the indicator opens Settings ▸ Servers.
 

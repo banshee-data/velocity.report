@@ -426,6 +426,36 @@ struct ServerStatusMappingTests {
                 == .error("no answer"))
     }
 
+    @Test func salientReasonsFitTheFrame() {
+        #expect(
+            ServerStatus.salientReason("unavailable: Connection refused") == "Connection refused")
+        #expect(
+            ServerStatus.salientReason("Failed: cannot connect to 127.0.0.1:50051")
+                == "cannot connect to 127.0.0.1:50051")
+        #expect(
+            ServerStatus.salientReason("The operation couldn’t be completed. (Connection refused)")
+                == "Connection refused")
+        #expect(
+            ServerStatus.salientReason("Error: wrapper (inner (deepest cause).)") == "deepest cause"
+        )
+        #expect(ServerStatus.salientReason("no answer.") == "no answer")
+        #expect(ServerStatus.salientReason("  ") == "  ")
+        let long = String(repeating: "x", count: 60)
+        #expect(ServerStatus.salientReason(long) == String(repeating: "x", count: 48) + "…")
+        // Only an error says anything after the name; the full error wins
+        // over the status's truncated reason.
+        #expect(ServerStatusIndicator.frameReason(.connected, lastError: "stale") == nil)
+        #expect(ServerStatusIndicator.frameReason(.connecting, lastError: "stale") == nil)
+        #expect(ServerStatusIndicator.frameReason(.disconnected, lastError: nil) == nil)
+        #expect(
+            ServerStatusIndicator.frameReason(
+                .error("Failed: cannot connect to 127.0.0.1"),
+                lastError: "unavailable: Connection refused") == "Connection refused")
+        #expect(
+            ServerStatusIndicator.frameReason(.error("unavailable"), lastError: nil)
+                == "unavailable")
+    }
+
     @Test func labelsAndColours() {
         #expect(ServerStatus.connected.label == "Connected")
         #expect(ServerStatus.connecting.label == "Connecting…")
