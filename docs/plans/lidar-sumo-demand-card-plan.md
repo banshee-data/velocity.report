@@ -1,9 +1,9 @@
-# SUMO demand card for published surveys (v0.6.10)
+# SUMO demand card for published surveys (v0.7.8)
 
 - **Status:** Parked (D-32): the card publishes with the surveys, which wait on the scene asset move and on which scene data may be public (D-34); revisit when D-34's step 2 is settled or survey publishing is next. Was: Draft. The offline comparison tools in `tools/sumo/` are built
 - **Decisions:** D-18 (nearest-rank percentiles), D-28 (following metric names, which this card does not use), D-32 (planning limits), D-34 (scene assets leave the repository; the export and its privacy test stay)
 - **Layers:** Cross-cutting (scene export, site metadata, offline tooling, survey site)
-- **Target:** v0.6.10 (survey publishing); nothing here ships before the surveys it describes
+- **Target:** v0.7.8 (survey publishing); nothing here ships before the surveys it describes
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns publishing and hosting, [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) owns the export format, [lidar-behaviour-analytics-plan](lidar-behaviour-analytics-plan.md) owns following metrics
 - **Canonical:** [Pipeline ownership](../lidar/architecture/lidar-pipeline-reference.md)
 - **Evidence:** [counting-line headways at Columbus and Broadway](../lidar/operations/sumo-columbus-broadway-headways-2026-10.md)
@@ -46,10 +46,10 @@ useful to traffic researchers is the hardest to reach.
 
 | Area                    | Current state                                                          | Severity | Release view |
 | ----------------------- | ---------------------------------------------------------------------- | -------- | ------------ |
-| Approach geometry       | Inferred by hand from track directions and OSM bearings                | High     | v0.6.10      |
-| Site azimuth            | Operator-read; 18° off at the one site checked                         | High     | v0.6.10      |
-| Lanes and stop line     | Inferred by hand from lateral and stopped-position histograms          | Medium   | v0.6.10      |
-| Split tracks            | 15 of 145 stop-line crossings were duplicates at Columbus and Broadway | Medium   | v0.6.10      |
+| Approach geometry       | Inferred by hand from track directions and OSM bearings                | High     | v0.7.8       |
+| Site azimuth            | Operator-read; 18° off at the one site checked                         | High     | v0.7.8       |
+| Lanes and stop line     | Inferred by hand from lateral and stopped-position histograms          | Medium   | v0.7.8       |
+| Split tracks            | 15 of 145 stop-line crossings were duplicates at Columbus and Broadway | Medium   | v0.7.8       |
 | Signal timing           | Not inferable from one approach; SUMO's guess misses the platoon gaps  | Medium   | Deferred     |
 | Absolute time in export | `header.json` publishes `start_ns`                                     | High     | D-34         |
 | Licence                 | Not declared for the dataset; an OSM-derived network is ODbL           | High     | D-34         |
@@ -152,7 +152,7 @@ metadata, from the method the evidence report used.
 3. Check every site's `north_azimuth_deg` against its matched OSM bearings and flag any off by
    more than 5°.
 
-**Milestone:** v0.6.10
+**Milestone:** v0.7.8
 
 ### Item 2: counting-line crossings in the export
 
@@ -166,7 +166,7 @@ same code and privacy test as the rest of the export (D-34).
 2. Relative time only; length binned; vehicles only.
 3. The export privacy test covers the crossings file.
 
-**Milestone:** v0.6.10
+**Milestone:** v0.7.8
 
 ### Item 3: card generator and scorer
 
@@ -180,7 +180,7 @@ and a pinned OSM snapshot, and `score.py` compares any SUMO run with it.
 3. Emit Tier 2 files only when the owner's D-34 decision allows them.
 4. Test on Columbus and Broadway against the evidence report's figures, then one more junction.
 
-**Milestone:** v0.6.10
+**Milestone:** v0.7.8
 
 ### Item 4: signal timing
 

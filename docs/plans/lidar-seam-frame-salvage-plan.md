@@ -1,8 +1,8 @@
-# LiDAR seam frame salvage (v0.6.8)
+# LiDAR seam frame salvage (v0.7.6)
 
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** LiDAR pipeline (L2 frame assembly, L3 background, L4/L5 perception and tracking)
-- **Target:** v0.6.8; follows the multi-file replay work in
+- **Target:** v0.7.6; follows the multi-file replay work in
   [lidar-captures-multi-file-cases-plan](lidar-captures-multi-file-cases-plan.md) <!-- link-ignore -->
 - **Canonical:** [lidar-pipeline-reference.md](../lidar/architecture/lidar-pipeline-reference.md)
 
@@ -170,7 +170,7 @@ nothing says why.
 3. Count skipped frames per run so the gate is visible rather than silent.
 4. Tests: a partial frame reaches L3 and not L5; a complete one reaches both.
 
-**Milestone:** v0.6.8. Valuable alone — it fixes in-file packet loss, which is more common than
+**Milestone:** v0.7.6. Valuable alone — it fixes in-file packet loss, which is more common than
 lossy joins and today is silently tracked as though whole.
 
 ### Item 2: split at a lossy join instead of discarding
@@ -186,7 +186,7 @@ lossy joins and today is silently tracked as though whole.
    relative to the drop, no frame spans the gap, and the recovered points equal the tail plus
    the head.
 
-**Milestone:** v0.6.8. Depends on item 1; without the gate this hands tracking a holed frame.
+**Milestone:** v0.7.6. Depends on item 1; without the gate this hands tracking a holed frame.
 
 ### Item 3: account for the revolutions inside the gap
 
@@ -198,7 +198,7 @@ lossy joins and today is silently tracked as though whole.
 2. Surface it on the run and in the Captures session view beside the joins figure.
 3. Reconcile expected against observed plus missing in the run summary.
 
-**Milestone:** v0.6.8.
+**Milestone:** v0.7.6.
 
 ### Item 4: stitch complementary partials — deferred, see below
 

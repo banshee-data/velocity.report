@@ -1,6 +1,6 @@
 # Traffic description language and description interface
 
-- **Status:** Proposed; steps 1-2 scheduled at v0.5.4 with behaviour analytics; steps 3-7 have backlog rows at v0.6.0 (VISION phases B and C) and v0.6.1 (phases D and E) from October 20, 2026
+- **Status:** Proposed; steps 1-2 scheduled at v0.5.4 with behaviour analytics; steps 3-7 have backlog rows at v0.7.0 (VISION phases B and C) and v0.7.1 (phases D and E) from October 20, 2026
 - **Canonical:** [traffic-description-language.md](../platform/architecture/traffic-description-language.md)
 
 Defines the Traffic Description Language (TDL) for querying the transit database, and the description interface for browsing and aggregating transit statistics.
@@ -428,7 +428,7 @@ The Raspberry Pi runs a single Go process handling both sensor ingestion and HTT
 
 Steps 1-2 are v0.5.4 (the LiDAR-only transit record and behaviour-label pipeline, defined and
 scheduled alongside PET and passing clearance in the [behaviour analytics plan](lidar-behaviour-analytics-plan.md));
-steps 3-7 have backlog rows at v0.6.0 and v0.6.1, matching VISION's phases B to E, and still wait
+steps 3-7 have backlog rows at v0.7.0 and v0.7.1, matching VISION's phases B to E, and still wait
 on the behaviour metrics they would query being published.
 
 1. **Define the transit schema** (v0.5.4) as a Go struct and SQLite view over `lidar_tracks` and `lidar_track_obs`. Per-transit columns: `max_speed_mph`, `mean_speed_mph`, `direction`, `behaviour_style`, `classification`, `context`. No per-transit percentile columns; p50/p85/p98 are query-time aggregates.

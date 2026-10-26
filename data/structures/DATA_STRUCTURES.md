@@ -15,7 +15,7 @@ velocity.report system. Each format has a dedicated specification file.
 
 ## Proposed formats
 
-- [Radar FFT evidence](RADAR_FFT_FORMAT.md): proposed configuration epochs, spectral frames, gaps, components, and positional associations; implementation is queued for v0.6.5.
+- [Radar FFT evidence](RADAR_FFT_FORMAT.md): proposed configuration epochs, spectral frames, gaps, components, and positional associations; implementation is queued for v0.7.3.
 
 ## Canonical source definitions
 

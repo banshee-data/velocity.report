@@ -78,7 +78,7 @@ remains).
     `capture_sequences`, `capture_periods` and `jobs`.
   - **Routes:** `/api/events` → `/api/radar/readings`, `/api/capabilities` → `/api/sensors`,
     `/api/lidar/scenes` → `/api/lidar/clips`.
-  - **Proto:** `SourceMode` PCAP → CAPTURE (deprecated aliases until v0.6.7), `Track.heading`
+  - **Proto:** `SourceMode` PCAP → CAPTURE (deprecated aliases until v0.7.5), `Track.heading`
     → `yaw`, `CoordinateFrameInfo` → `FrameInfo`, `LabelSet.session_id` → `clip_id`.
   - **CLI and environment:** `pcap-replay` → `replay`, `--lidar-pcap-dir` → `--capture-dir`,
     `LIDAR_EVIDENCE_DIR` → `LIDAR_VRLOG_DIR`.
@@ -133,7 +133,7 @@ remains).
   - `replay-{scene}-{uuid8}` → `runy_`, `reprocess-…` → `runs_`.
   - `scne_` → `clip_`, with the vocabulary plan.
 - **Kind:** stored id format.
-- **Status:** proposed, targeting 0.6.0; no decision record.
+- **Status:** proposed, targeting 0.7.0; no decision record.
 - **Where:** [typed UUID prefixes plan](plans/platform-typed-uuid-prefixes-plan.md),
   [typed UUID prefixes](platform/architecture/typed-uuid-prefixes.md).
 

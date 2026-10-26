@@ -1,8 +1,8 @@
-# Web scene export (v0.6.6)
+# Web scene export (v0.7.4)
 
-- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.6.6 is next, or the owner settles the public scene data at D-34's step 2. Was: Phase 0 and Columbus at Broadway point-cloud overlay delivered; homepage use deferred
+- **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.7.4 is next, or the owner settles the public scene data at D-34's step 2. Was: Phase 0 and Columbus at Broadway point-cloud overlay delivered; homepage use deferred
 - **Layers:** LiDAR pipeline (L9 endpoints), Web frontend, CI
-- **Target:** v0.6.6; publish one real recorded scene on the existing velocity.report Pages site, then generalise
+- **Target:** v0.7.4; publish one real recorded scene on the existing velocity.report Pages site, then generalise
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns ingest, indexing and archive-scale publishing
 - **Canonical:** [VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md) remains the source-of-truth recording format
 
@@ -430,7 +430,7 @@ the existing perception path) and write web scene JSON.
 6. Refuse a source whose frame count disagrees with its capture's rotation
    count; record the source VRLOG SHA-256 in `header.json`.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ### Item 2: Browser reader
 
@@ -447,7 +447,7 @@ the existing perception path) and write web scene JSON.
    `DecompressionStream` is unavailable.
 5. Unit tests against a small committed fixture — not against a large real asset.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ### Item 3: Player and scene page
 
@@ -464,7 +464,7 @@ the existing perception path) and write web scene JSON.
 5. Load background first if present, then tracks over it.
 6. Honour `prefers-reduced-motion`; verify at mobile widths.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ### Item 4: Publish one real scene
 
@@ -486,7 +486,7 @@ the existing perception path) and write web scene JSON.
    resulting asset sizes in
    [reference-capture.md](../lidar/operations/reference-capture.md).
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ### Item 5: Columbus at Broadway point-cloud clip
 
@@ -506,7 +506,7 @@ the tracked trails meet the publication-quality gate.
 6. Verify autoplay, wrap, fade, seeking, reduced motion, mobile loading and
    keyboard operation on the Columbus scene.
 
-**Milestone:** v0.6.6
+**Milestone:** v0.7.4
 
 ## Phasing
 

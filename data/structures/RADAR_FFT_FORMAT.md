@@ -1,7 +1,7 @@
 # Radar FFT evidence contract
 
 - **Status:** Proposed; no FFT recorder, parser, or scene association is implemented.
-- **Target:** v0.6.5
+- **Target:** v0.7.3
 - **Plan:** [Radar FFT parsing and scene evidence](../../docs/plans/radar-fft-parsing-plan.md)
 - **Evidence:** [FFT stream exploration](../../docs/radar/operations/fft-stream-exploration.md)
 

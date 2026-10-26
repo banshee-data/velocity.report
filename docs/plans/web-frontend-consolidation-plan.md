@@ -1,6 +1,6 @@
 # Surface consolidation plan
 
-- **Status:** Phases 1 to 6 (v0.5.2's ECharts retirement) are implemented on branch `claude/echarts-svelte-migration-83fbd5` (#836); see [v0.5.2 delivery](#v052-delivery). Phase 7 remains a v0.7.0 row, moved by the owner on October 20, 2026, so it is not parked. Was: Proposed, then Draft. Revised 2026-09-19 after a route-by-route survey; the phase
+- **Status:** Phases 1 to 6 (v0.5.2's ECharts retirement) are implemented on branch `claude/echarts-svelte-migration-83fbd5` (#836); see [v0.5.2 delivery](#v052-delivery). Phase 7 remains a v0.7.9 row, moved by the owner on October 20, 2026, so it is not parked. Was: Proposed, then Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).
 - **Canonical:** [web-frontend-consolidation.md](../ui/web-frontend-consolidation.md)
@@ -346,7 +346,7 @@ deletions are not held hostage to the expensive rewrite.
 | 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route                      | 2–3 days       | —                          | Done on the branch: `/app/lidar/regions`    |
 | 5     | Sweep, auto-tune and HINT control in Svelte                                       | 2–3 weeks      | Form model, not the charts | Done on the branch: `/app/lidar/sweeps/run` |
 | 6     | Delete `status.html` and `sweep_dashboard.*`                                      | 1 day          | Phases 3 and 5             | Done on the branch                          |
-| 7     | One scene lineage: serve `projectFrame`, delete `buildLiveFrames`                 | 1 week         | Independent; highest value | v0.7.0 row                                  |
+| 7     | One scene lineage: serve `projectFrame`, delete `buildLiveFrames`                 | 1 week         | Independent; highest value | v0.7.9 row                                  |
 
 Phase 5's client layer is half-built already: `web/src/lib/api.ts` has
 `getHINTState` (:1100), `startHINTSweep` (:1110) and `stopHINT` (:1156), tested

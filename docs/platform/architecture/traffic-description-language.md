@@ -1,6 +1,6 @@
 # Traffic description language (TDL)
 
-- **Status:** Scheduled; v0.6.0-v0.6.1
+- **Status:** Scheduled; v0.7.0-v0.7.1
 - **Layers:** L8 Analytics
 
 The Traffic Description Language (TDL) is a natural-language query interface that lets neighbourhood advocates describe traffic questions without writing SQL.

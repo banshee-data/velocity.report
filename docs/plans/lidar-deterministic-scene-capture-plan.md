@@ -3,7 +3,7 @@
 - **Status:** Parked (D-32, October 20, 2026): Milestones 1–2 complete; Milestone 3 is a v0.5.10 row, Milestone 4 is in the survey publishing queue and Milestone 5 is parked with the design system. Revisit when v0.5.10 is the next release
 - **Canonical:** [reference-capture.md](../lidar/operations/reference-capture.md)
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling
-- **Target:** v0.5.2–v0.6.6; staged delivery across milestones 1–5
+- **Target:** v0.5.2–v0.7.4; staged delivery across milestones 1–5
 - **Backlog:** [Release work items](../BACKLOG.md)
 - **Related:** [Trail and uncertainty visualisation](lidar-visualiser-trails-and-uncertainty-visualisation-plan.md), [scene health metrics](lidar-visualiser-performance-and-scene-health-timeline-metrics-plan.md), [offline analysis tooling](lidar-offline-analysis-tooling-plan.md)
 
@@ -34,8 +34,8 @@ this plan’s working copy contains the required prerequisites.
 | 1         | v0.5.2  | Script accepting several coordinate-based views and producing stable stills, with deterministic optional trails |
 | 2         | v0.5.2  | Bullet-time inspection around a frozen target                                                                   |
 | 3         | v0.5.10 | Recorded-frame sequences, contact sheets, and optional animations                                               |
-| 4         | v0.6.6  | Automatic VRLOG export and the Make web export option on the LiDAR Status page's replay form                    |
-| 5         | v0.6.5  | CI artefact comparison and a visual-review integration decision                                                 |
+| 4         | v0.7.4  | Automatic VRLOG export and the Make web export option on the LiDAR Status page's replay form                    |
+| 5         | v0.7.3  | CI artefact comparison and a visual-review integration decision                                                 |
 
 Milestone 1 must be usable by a local or CI agent without waiting for hosted CI
 integration, animation tools, or changes to recording workflows. Milestone 3 is useful review

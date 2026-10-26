@@ -14,4 +14,4 @@ FFT recording and scene association are not implemented.
 
 - [Stream exploration](operations/fft-stream-exploration.md): parser references, public-capture findings, and measurement limits.
 - [Evidence contract](../../data/structures/RADAR_FFT_FORMAT.md): spectra, configuration, gaps, components, and scene associations.
-- [v0.6.5 plan](../plans/radar-fft-parsing-plan.md): six delivery items and acceptance gates.
+- [v0.7.3 plan](../plans/radar-fft-parsing-plan.md): six delivery items and acceptance gates.
