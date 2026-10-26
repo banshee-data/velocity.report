@@ -325,6 +325,15 @@ The seven ECharts retirement rows below are implemented on branch `claude/echart
 - macOS local server Phase 5: integrate local server entry into Server Manager UI; auto-created "Local" entry with process + connection status; depends on server-manager.md Phases 1–2: [design doc](plans/macos-local-server-plan.md) `S`
 - VelocityVisualiser server manager Phases 4–5: connection toast overlay, enhanced status badge, edge-case handling (delete active, reset defaults): [design doc](plans/server-manager.md) `S`
 
+### v0.6.5 - Radar FFT evidence and scene inspection (065)
+
+- FFT typed parser and calibration: classify FFT and I/Q evidence with immutable configuration epochs, validated layouts, and explicit speed/direction calibration; reuse the shared serial classifier: [Item 1](plans/radar-fft-parsing-plan.md#item-1-typed-parser-and-calibration) `M`
+- FFT recording and replay: preserve spectra, acquisition/arrival clocks, source sequences and known gaps in recoverable chunks with a SQLite index and explicit retention: [Item 2](plans/radar-fft-parsing-plan.md#item-2-recording-loss-accounting-and-replay) `M`
+- FFT spectral components: group lobes and track temporal motion candidates with versioned methods, retaining opposing peaks, mixtures and crossings without treating components as vehicle counts: [Item 3](plans/radar-fft-parsing-plan.md#item-3-spectral-components) `M` {math}
+- FFT spectrum and waterfall inspection: show captured values, grouped components, firmware reports, timing, gaps and configuration changes in deterministic local replay: [Item 4](plans/radar-fft-parsing-plan.md#item-4-spectrum-and-waterfall-inspection) `M` {frontend}
+- FFT scene associations: project qualified LiDAR velocities into radar radial speed and display candidate matches, residuals, unresolved coverage and bounded coasting with pose/clock provenance: [Item 5](plans/radar-fft-parsing-plan.md#item-5-scene-associations-and-positional-overlays) `L` {math}
+- FFT Pi 4 qualification: measure transport cadence, loss, timing, resource cost, multi-vehicle separability and association ambiguity against scalar-radar and LiDAR-only baselines, then record the supported-mode decision: [Item 6](plans/radar-fft-parsing-plan.md#item-6-field-qualification-and-release-decision) `M`
+
 ### v0.6.6 - Web scene publishing (066)
 
 - Scene assets out of git and out of the Pi image: the 66 MB under `public_html/src/scenes/*/assets` move to the Hugging Face dataset or Git LFS, the site build fetches them, and the image carries a pointer rather than a copy: [architecture review](plans/platform-architecture-review-plan.md#project-boundaries-what-to-split-out-and-what-to-keep) `S`
