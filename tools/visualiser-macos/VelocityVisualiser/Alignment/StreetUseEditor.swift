@@ -231,12 +231,14 @@ enum StreetUseEditing {
         for mark in base where !mark.featureID.isEmpty && !kept.contains(mark.featureID) {
             var edit = Gerardus_Align_V1alpha1_StreetUseEdit()
             edit.removeFeatureID = mark.featureID
+            edit.expectedRowID = mark.rowID
             edits.append(edit)
         }
         for mark in marks {
             if let before = byID[mark.featureID], same(before, mark) { continue }
             var edit = Gerardus_Align_V1alpha1_StreetUseEdit()
             edit.upsert = feature(of: mark)
+            if let before = byID[mark.featureID] { edit.expectedRowID = before.rowID }
             edits.append(edit)
         }
         return edits

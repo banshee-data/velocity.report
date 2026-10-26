@@ -545,6 +545,7 @@ struct StreetDiffTests {
         let moved = StreetUseEditing.moveVertex(lane, 1, to: SIMD3(12, 0, 21))
         let edits = StreetUseEditing.diff(base: [lane], marks: [moved])
         #expect(edits.count == 1)
+        #expect(edits[0].hasExpectedRowID && edits[0].expectedRowID == lane.rowID)
         guard case .upsert(let feature) = try #require(edits.first?.change) else {
             Issue.record("not an upsert")
             return
@@ -922,6 +923,7 @@ struct StreetStyleTests {
         #expect(request.l16Token == columbus.l16Token)
         #expect(request.author == "Ada")
         #expect(request.note == "west side")
+        #expect(!request.requestID.isEmpty)
         #expect(request.edits.count == 1)
         // What Gerardus answered replaces the marks: its id, its snap.
         let saved = try #require(painter.edit.marks.first)
@@ -960,7 +962,7 @@ struct StreetStyleTests {
     }
 
     @Test func aRefusedSaveKeepsTheChanges() async {
-        let (painter, _, _, _) = await placedPainter {
+        let (painter, _, service, _) = await placedPainter {
             $0.refuseStreetUse = "lane 3 crosses itself"
         }
         painter.setPainting(true)
@@ -970,6 +972,63 @@ struct StreetStyleTests {
         await painter.save(author: "Ada")
         #expect(painter.errorMessage?.contains("lane 3 crosses itself") == true)
         #expect(painter.edit.pendingEdits.count == 1)
+        let rejectedID = service.streetUseEdits[0].requestID
+        service.refuseStreetUse = nil
+        painter.note = "corrected intent"
+        await painter.save(author: "Ada")
+        #expect(!painter.edit.isDirty)
+        #expect(service.streetUseEdits.last?.requestID != rejectedID)
+    }
+
+    @Test func aLostResponseRetriesTheSameStreetIntentAndID() async {
+        let (painter, _, service, _) = await placedPainter()
+        painter.setPainting(true)
+        painter.tool = .driveway
+        click(painter, plan(3, -5))
+        click(painter, plan(7, -5))
+        service.streetUseFailure = RPCError(code: .unavailable, message: "lost response")
+        await painter.save(author: "Ada")
+        #expect(painter.edit.isDirty)
+        service.streetUseFailure = nil
+        await painter.save(author: "Ada")
+        #expect(service.streetUseEdits.count == 2)
+        #expect(service.streetUseEdits[0] == service.streetUseEdits[1])
+        #expect(!painter.edit.isDirty)
+    }
+
+    @Test func aConflictReadsCurrentMarksWithoutReplacingTheDraftOrResubmitting() async {
+        let (painter, _, service, _) = await placedPainter()
+        painter.setPainting(true)
+        painter.tool = .driveway
+        click(painter, plan(3, -5))
+        click(painter, plan(7, -5))
+        let draft = painter.edit.marks
+        service.streetUseFailure = RPCError(code: .aborted, message: "newer row")
+        await painter.save(author: "Ada")
+        #expect(painter.edit.marks == draft)
+        #expect(service.streetUseEdits.count == 1)
+        #expect(painter.errorMessage?.contains("draft is kept") == true)
+        #expect(service.calls.last == "ListStreetUse")
+    }
+
+    @Test func aLaterRefusalCannotResolveAnEarlierUnknownOutcome() async {
+        let (painter, _, service, _) = await placedPainter()
+        painter.setPainting(true)
+        painter.tool = .driveway
+        click(painter, plan(3, -5))
+        click(painter, plan(7, -5))
+        service.streetUseFailure = RPCError(code: .unavailable, message: "lost response")
+        await painter.save(author: "Ada")
+        service.streetUseFailure = RPCError(
+            code: .failedPrecondition, message: "reference temporarily missing")
+        await painter.save(author: "Ada")
+        #expect(painter.hasPendingSave)
+        #expect(service.streetUseEdits[0] == service.streetUseEdits[1])
+        painter.note = "a different intent"
+        service.streetUseFailure = nil
+        await painter.save(author: "Ada")
+        #expect(service.streetUseEdits.count == 2)
+        #expect(painter.edit.isDirty)
     }
 
     @Test func aServerWithoutStreetUseCannotBePainted() async {

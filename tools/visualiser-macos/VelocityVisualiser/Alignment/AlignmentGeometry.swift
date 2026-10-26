@@ -686,7 +686,7 @@ enum ReferenceStyle {
         case .correction: return SIMD4(1.00, 0.70, 0.00, 1.00)
         case .facade: return SIMD4(0.00, 0.90, 1.00, 0.95)
         case .pole: return SIMD4(0.35, 0.45, 1.00, 0.95)
-        case .wallPlane: return wallPlaneColour(.wall)
+        case .wallPlane, .wallSurface: return wallPlaneColour(.wall)
         // A traffic island's outline reads as the kerb it is.
         case .island: return SIMD4(1.00, 0.55, 0.20, 0.95)
         // Operator-marked street use (Gerardus VECTOR-MAP §4.1).
