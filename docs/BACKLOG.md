@@ -1,7 +1,7 @@
 # Backlog
 
 Single source of truth for project-wide work items in velocity.report.
-Tasks use priority after the optional PR and workstream last: optional `[#PR]`, **P0|P1|P2**, optional `(#issue)`, description, `[design](path)`, size `M`, optional annotation, workstream `S-GEO`. <!-- link-ignore -->
+Tasks use priority after the optional PR and workstream last: optional `[#PR]`, **P0|P1|P2**, optional `(#issue)`, description, `[design](plans/lidar-state-estimation-plan.md)`, size `M`, optional annotation, workstream `S-GEO`. <!-- link-ignore -->
 tasks without a design doc fill the other fields.
 Individual docs in `plans/` describe single projects, not priority lists.
 
@@ -15,7 +15,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 **Authority:** BACKLOG.md schedules outstanding work; canonical plans own maths and gate definitions. 05x establishes static physical measurement validity, 06x is exclusively mobile SLAM and portable measurement transfer, and 07x carries deferred operator, platform, radar, publishing and research work. Earlier plan-local version references do not override this schedule.
 
-**One-line format:** optional `[#PR]`, then **P0**, optional `(#issue)`, deliverable and `[design](path)`, size `M`, optional `{math}` or `{frontend}`, and final `S-GEO` workstream. Priority follows the PR; the final workstream follows the design link, original size and any annotation. P0 blocks first qualified static measurement, P1 advances later capabilities, P2 covers research/polish/parked. The original `S/M/L/XL` size notation is unchanged.
+**One-line format:** optional `[#PR]`, then **P0**, optional `(#issue)`, deliverable and `[design](plans/lidar-state-estimation-plan.md)`, size `M`, optional `{math}` or `{frontend}`, and final `S-GEO` workstream. Priority follows the PR; the final workstream follows the design link, original size and any annotation. P0 blocks first qualified static measurement, P1 advances later capabilities, P2 covers research/polish/parked. The original `S/M/L/XL` size notation is unchanged.
 
 **Workstreams:** `S-REF` physical references and held-out evaluation; `S-OBS` observation integrity; `S-GEO` physical state and continuity; `S-UNC` uncertainty and finality; `S-MET` physical interaction metrics; `S-SCENE` L7 scene relationships/Gerardus boundary; `S-EVID` reproducibility and measurement delivery. Other ownership tags: `S-MOBILE`, `S-CLASS`, `S-RADAR`, `S-UI`, `S-PUBLISH`, `S-PLATFORM`. Workstreams cross layers; they do not rename L1–L10.
 
