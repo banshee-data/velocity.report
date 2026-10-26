@@ -1,4 +1,4 @@
-# L7 scene and multi-sensor fusion plan
+# L7 dynamic scene and multi-sensor fusion plan
 
 - **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: 📋 Planned; v1.0. Updated October 25, 2026: the static half of the scene (§1 items 1, 3 and 5) is being built outside this repository, in [Gerardus](https://github.com/banshee-data/gerardus), from settled backgrounds registered against USGS 3DEP; nothing of it is stored in velocity.report yet. See [§ 0](#0-where-implementation-stands-october-25-2026).
 - **Layers:** L7 Scene
@@ -6,10 +6,7 @@
 - **Maths index:** [data/maths/MATHS.md](../../data/maths/MATHS.md)
 - **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 
-This plan covers two related workstreams for the L7 Scene layer:
-
-1. **L7 Scene layer**: design the canonical world model package
-2. **Multi-sensor architecture**: how multiple sensors fuse at L7
+This plan remains the canonical home for **L7 dynamic scene context and relations**. Gerardus owns persistent static site geometry and registration. L5 owns physical body/trajectory estimates; L8 owns physical measurements, suppression, validation and aggregation. The historical architecture below is preserved for reference, but any incompatible local static-map construction, cross-visit reidentification or L7 measurement authority is superseded (D-36).
 
 ---
 
@@ -40,15 +37,28 @@ The persistent static scene is no longer only a plan. It is being built in Gerar
 
 ---
 
+## 0.1 Revised 05x ownership and delivery (D-36)
+
+1. **L7-A, v0.5.4/v0.5.8:** accept an authorised, versioned Gerardus pose and expose static road/kerb/ground context by reference, with pose covariance and derivation identity. An unregistered capture stays explicitly in its sensor frame; it must not silently claim world-frame accuracy.
+2. **L7-B, v0.5.8:** compose qualified L5/L6 episode objects with registered scene geometry and expose versioned relations: shared-path candidates, directed road-region membership, visibility/occlusion and known coverage. The L8 behaviour package continues to own gap/time-gap/PET/clearance equations, uncertainty propagation, opportunity denominators, suppression and qualification. Initial single-sensor following may consume L5 without L7.
+3. **L7-C, after 05x:** multi-position track association, cross-sensor handoff and richer scene graphs require named use cases and held-out fusion evidence, not a prerequisite to first qualified following.
+4. **Truth and correlation:** distinguish directly observed static geometry, external priors, proposed surfaces, measured track evidence and predicted positions. Preserve shared registration/calibration error rather than treating correlated measurements as independent.
+5. **Privacy:** dynamic identity is limited to a continuous observation episode or demonstrable handoff, not cross-visit identification.
+6. **Layer direction:** L4 geometry queries consume injected neutral interfaces; L4/L5 never import L7. L7 cannot mutate L5's authority through an unversioned feedback loop.
+
+The seven S-* measurement workstreams cut across the pipeline; they are not new numbered layers. `BACKLOG.md` is the scheduling authority. The 06x series remains SLAM/mobile (PR #870).
+
+---
+
 ## 1. L7 scene: canonical world model
 
 L7 is the key architectural addition in the ten-layer model. It introduces a **persistent, evidence-accumulated representation of the world** that transcends individual frames, tracks, and sensors.
 
 ### What L7 scene contains
 
-1. **Static geometry**: ground surface polygons, building footprints, walls, fences, vegetation volumes, kerbs. Derived from L4 perception outputs accumulated over many frames. Stored as vector features with hierarchical LOD (0–3). See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
+1. **Static geometry (Gerardus-owned):** ground, kerbs, roads, structures, vegetation and external priors are derived and versioned by Gerardus. L7 references accepted registered context, not a second static map. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md) for the historical design.
 
-2. **Dynamic canonical objects**: long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
+2. **Dynamic episode objects:** L5 supplies the physical body and track; L6 supplies its semantics. L7 may link continuous cross-sensor observations but never owns a second body-size estimate or cross-visit identity.
 
 3. **External priors**: geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject.
 
@@ -72,7 +82,7 @@ The separation ensures L4 remains a fast, stateless, per-frame operation while L
 
 L5 tracks are **ephemeral identity**: they live for the duration of an object's visibility to one sensor. L6 objects are **per-track semantic labels**.
 
-L7 canonical objects are **persistent identity**: a car that drives through the intersection, disappears for 30 seconds, then returns can be re-identified as the same canonical object. When multiple sensors are deployed (future), L7 is where tracks from different sensors merge into a single coherent object trajectory.
+L7 references **episode-scoped physical tracks** from L5. A future multi-sensor deployment may link overlapping observations or an evidenced continuous handoff. A vehicle returning after a disconnected visit is not reidentified.
 
 ### OSM priors service
 
@@ -270,7 +280,8 @@ Single-object kinematics (richer Kalman state vectors) belong at L5: that is a p
 | ---------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
 | Single-object kinematics (CV, CA, CTRV, IMM)                     | L5 Tracks    | Per-track state estimator; extends the existing Kalman state vector                               |
 | Scene-constrained prediction (road-following, kerb clipping)     | **L7 Scene** | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
-| Multi-object interaction (following distance, gap acceptance)    | **L7 Scene** | Requires simultaneous visibility of all canonical objects plus road topology                      |
+| Multi-object scene relations (shared paths, candidate leaders, region membership) | **L7 Scene** | Exposes geometry and evidence, without becoming the physical-metric authority |
+| Following distance, time gap, passing clearance and PET | **L8 Analytics** | Owns the equations, suppression, error propagation, validation and aggregation |
 | Post-hoc kinematic analysis (braking events, stopping distances) | L8 Analytics | Derived measurements over historical L5/L7 state                                                  |
 
 The prediction pipeline flows:
