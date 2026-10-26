@@ -19,7 +19,7 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 **Workstreams:** `S-REF` physical references and held-out evaluation; `S-OBS` observation integrity; `S-GEO` physical state and continuity; `S-UNC` uncertainty and finality; `S-MET` physical interaction metrics; `S-SCENE` L7 scene relationships/Gerardus boundary; `S-EVID` reproducibility and measurement delivery. Other ownership tags: `S-MOBILE`, `S-CLASS`, `S-RADAR`, `S-UI`, `S-PUBLISH`, `S-PLATFORM`. Workstreams cross layers; they do not rename L1–L10.
 
-**Promotion rollups:** G-REF, G-OBS, G-GEO, G-TEMP, G-UNC, G-MET and G-FIELD track pass/fail/insufficient evidence and both measured and unmeasured populations. Existing G-GEO-1, G-UNC-1, G-SMO-1 and G-PER-1 retain their authoritative criteria. The 05x versions are *engineering targets*, not automatic scientific qualification: publish a value only within a proven population and operating envelope, with bias, correlated errors, suppression and coverage explicit.
+**Promotion rollups:** G-REF, G-OBS, G-GEO, G-TEMP, G-UNC, G-MET and G-FIELD track pass/fail/insufficient evidence and both measured and unmeasured populations. Existing G-GEO-1, G-UNC-1, G-SMO-1 and G-PER-1 retain their authoritative criteria. The 05x versions are _engineering targets_, not automatic scientific qualification: publish a value only within a proven population and operating envelope, with bias, correlated errors, suppression and coverage explicit.
 
 **Migration ledger:** all 182 former v0.5.3–v0.5.23 outstanding items are preserved: 75 retained and reallocated to the focused 05x slots, 49 rescheduled into sequential 07x slots, 57 explicitly parked, and one handheld reference instrument moved to 06x; four prior 07x/Parked items pulled forward and three smaller gate-contract items introduced. 07x and 09x slot sizes remain ≤12. Completed history is unchanged.
 
@@ -487,7 +487,6 @@ Land the reference edition and temporal strata before their report consumers in 
 - **P2** LiDAR maths coherence Item 3: define L8 CLEAR MOT metrics and matching rules before MOTA/MOTP integration: [design doc](plans/lidar-maths-coherence-plan.md) `M` `S-MET`
 - **P2** Radar tracker jobs and the command log (vocabulary Item 9, Phase 2): `radar_track_build` jobs, `/api/radar/tracker`, Settings "Radar tracker", `velocity radar tracks build|analyse|delete|migrate`, and every command and reply written to `radar_commands` and `radar_command_log` with a LAN-only log route; after the Phase 1 exit and the one-queue design: [design doc](plans/platform-vocabulary-and-data-model-plan.md) `M` `S-RADAR`
 - **P2** Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M` `S-UI`
-
 
 Agreed work that is not being scheduled, with its reason. A parked group returns to a slot when its trigger occurs.
 
