@@ -93,7 +93,7 @@ enum ServerStatus: Equatable, Sendable {
     /// The part of a failure worth the frame's one line: the innermost
     /// parenthesised cause when a wrapper has one ("… (Connection
     /// refused)"), else the text after the last "code:" or "Error:" prefix,
-    /// without a trailing full stop, and no longer than `maxReasonLength`.
+    /// without a trailing full stop, and no longer than `maxSalientLength`.
     static func salientReason(_ description: String) -> String {
         var text = description.trimmingCharacters(in: .whitespacesAndNewlines)
         // Unwrap "wrapper (cause)." while a cause is there.
