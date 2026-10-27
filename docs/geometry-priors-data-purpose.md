@@ -56,6 +56,18 @@ Attributes stay with geometry. A published record has no material, finish, inter
 construction-method attribute, and a schema that lists properties lists only geometry and its
 measurement context.
 
+## Where this is applied
+
+- File format, evidence status, and the property allow-list:
+  [geometry-prior-service.md](lidar/architecture/geometry-prior-service.md) and
+  [vector-scene-map.md](lidar/architecture/vector-scene-map.md).
+- Published scene assets:
+  [web scene export,
+  section 12](plans/lidar-web-scene-export-plan.md#12-context-travels-with-the-export) and the
+  Hugging Face [dataset card](../tools/s2-archive/huggingface-dataset-README.md).
+- Agent and contributor wording: [AGENTS.md](../AGENTS.md#purpose-of-geometry-and-scene-data), with
+  the decision recorded in [DECISIONS.md](DECISIONS.md).
+
 ## Publication checklist
 
 - [ ] Source and redistribution terms recorded for each input dataset.
