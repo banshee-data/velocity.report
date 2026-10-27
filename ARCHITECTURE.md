@@ -1160,7 +1160,7 @@ and rule-based classification, all tuneable and inspectable end to end.
 | L4    | `l4perception/` | DBSCAN clustering, oriented bounding boxes via PCA, ground-plane removal                     | ✅ Implemented |
 | L5    | `l5tracks/`     | Kalman-filtered multi-object tracking, Hungarian assignment, occlusion coasting              | ✅ Implemented |
 | L6    | `l6objects/`    | Rule-based classification (8 object types), feature extraction                               | ✅ Implemented |
-| L7    | `l7scene/`      | Persistent world model, multi-sensor fusion                                                  | Planned (v1.0) |
+| L7    | `l7scene/`      | Persistent scene geometry, multi-sensor fusion                                               | Planned (v1.0) |
 | L8    | `l8analytics/`  | Run statistics, track labelling, sweep evaluation                                            | ✅ Implemented |
 | L9    | `l9endpoints/`  | gRPC frame streaming, HTTP API, chart rendering                                              | ✅ Implemented |
 | L10   | Clients         | macOS visualiser (Metal), Svelte frontend                                                    | ✅ Implemented |
@@ -1221,7 +1221,7 @@ The versions most relevant to system architecture:
 | v0.6.1  | TDL Description Interface | Transit browser, aggregate statistics dashboard, vector-scene replay, TDL-scoped PDF reports                                                                                      |
 | v0.6.2  | Deployment & Packaging    | Raspberry Pi image pipeline, single `velocity-report` binary, one-line installer, geometry-coherent tracking                                                                      |
 | v0.7.0  | United Frontend           | One scene lineage, recording-period operator workflows, Svelte SVG chart consumption, track labelling UI in Swift                                                                 |
-| v1.0    | Scene Layer               | L7 persistent world model, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                                                                                         |
+| v1.0    | Scene Layer               | L7 persistent scene geometry, multi-sensor fusion (radar + LiDAR cross-sensor track handoff)                                                                                      |
 | v2.0    | ML & Automation           | ML classifier benchmarking, automated hyperparameter search, velocity-coherent foreground extraction                                                                              |
 
 The project ships incrementally.

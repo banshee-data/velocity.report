@@ -24,7 +24,7 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 | L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                    | `l4perception`          | ✅ Implemented |
 | L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                      | `l5tracks`              | ✅ Implemented |
 | L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping              | `l6objects`             | ✅ Implemented |
-| L7    | **Scene**      | Scene       | Persistent canonical world model with multi-sensor fusion       | `l7scene`               | 💭 Planning    |
+| L7    | **Scene**      | Scene       | Persistent canonical scene geometry with multi-sensor fusion    | `l7scene`               | 💭 Planning    |
 | L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring              | `l8analytics`           | ✅ Implemented |
 | L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs      | `server`, `l9endpoints` | ✅ Implemented |
 | L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline) | –                       | ✅ Implemented |
@@ -88,7 +88,7 @@ block.
 
 ### Design rationale for ten layers
 
-L1–L6 cover the single-sensor, single-frame-to-object pipeline that is standard in LiDAR processing literature. L7 introduces the critical missing concept: a **persistent world model** that accumulates evidence across frames, tracks, and sensors. L8–L10 handle what happens _after_ the processing pipeline produces results; analysis, server-side formatting, and client rendering.
+L1–L6 cover the single-sensor, single-frame-to-object pipeline that is standard in LiDAR processing literature. L7 introduces the critical missing concept: **persistent scene geometry** that accumulates evidence across frames, tracks, and sensors. L8–L10 handle what happens _after_ the processing pipeline produces results; analysis, server-side formatting, and client rendering.
 
 The decision to place Scene at L7 (rather than above Analytics) reflects data flow: analytics (L8) needs the scene model to contextualise metrics (e.g. "speed at this road segment"), and endpoints (L9) render both scene geometry and analytics results.
 
@@ -484,7 +484,7 @@ packages define that boundary; the reference driver is not a runtime dependency.
 
 ## L7 scene: architectural role
 
-L7 introduces a **persistent, evidence-accumulated world model** that transcends individual frames, tracks, and sensors. It is the boundary between the per-sensor real-time pipeline (L1–L6) and the consumption layers (L8–L10).
+L7 introduces **persistent, evidence-accumulated scene geometry** that transcends individual frames, tracks, and sensors. It is the boundary between the per-sensor real-time pipeline (L1–L6) and the consumption layers (L8–L10).
 
 **Scope:** Static geometry (ground polygons, structures, volumes), dynamic canonical objects (merged tracks → refined vehicle/pedestrian models), external priors (OSM, GeoJSON), and multi-position sensor fusion into a single coherent scene.
 
@@ -535,7 +535,7 @@ The following layer numbers and names are **permanently assigned**. Implementati
 | L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                    |
 | L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                   |
 | L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                          |
-| L7     | Scene      | Persistent canonical world model     | Planned       | Multi-frame, multi-sensor, priors               |
+| L7     | Scene      | Persistent canonical scene geometry  | Planned       | Multi-frame, multi-sensor, priors               |
 | L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | `l8analytics/` + `server/`; run comparison, IoU |
 | L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `l9endpoints/` gRPC; `server/` REST             |
 | L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release         |
@@ -568,7 +568,7 @@ These capabilities might emerge in the future. They would extend existing layers
 
 #### Multi-position vs multi-modality
 
-The "Multi-sensor architecture" section above describes **multi-position** fusion: spatially separated sensors with different coordinate frames whose independently tracked objects must be merged into a single canonical scene at L7. That concern is settled — only L7 holds the persistent world model, the unified coordinate frame, and the authority to assign canonical object identity across sensors.
+The "Multi-sensor architecture" section above describes **multi-position** fusion: spatially separated sensors with different coordinate frames whose independently tracked objects must be merged into a single canonical scene at L7. That concern is settled — only L7 holds the persistent scene geometry, the unified coordinate frame, and the authority to assign canonical object identity across sensors.
 
 Multi-modality — combining different sensor _types_ (radar + LiDAR) — is a separate, unsettled question. It does not require L7 unless the sensors are also spatially separated. The two concerns are independent:
 
