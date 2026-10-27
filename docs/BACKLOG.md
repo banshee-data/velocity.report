@@ -407,6 +407,9 @@ Land the reference edition and temporal strata before their report consumers in 
 - Deterministic scene capture Milestone 4: automatic stride-1 VRLOG-to-web export and an unchecked Make web export option in the Svelte replay and recording form (the LiDAR Status page, delivered in v0.5.2); finalisation-gated export, local viewer link, and independent export retry: [design doc](plans/lidar-deterministic-scene-capture-plan.md) `M`
 - SUMO demand card: publish a `sumo/` folder beside each survey with counting-line statistics, statistical demand, counting lines, a network recipe and a scorer, so traffic researchers can calibrate simulations against it; per-vehicle crossings only if the owner's D-34 decision allows them: [design doc](plans/lidar-sumo-demand-card-plan.md), [evidence](lidar/operations/sumo-columbus-broadway-headways-2026-10.md) `M`
 
+- Published scene context: carry the background snapshot's own timestamp, the coordinate frame with its units, and a positional-uncertainty and coverage figure into `background.json.gz` and the scene header, then republish the assets. Until it lands, only the Hugging Face card states these: [purpose doc](geometry-priors-data-purpose.md) `M`
+- Geometry wording and publication-checklist check (D-36): a lint that flags avoided wording about structures in scene, prior and dataset docs, and a release step that works the purpose doc's checklist before a scene or dataset release: [purpose doc](geometry-priors-data-purpose.md#publication-checklist) `S`
+
 ### v0.7.9 - United frontend (079)
 
 - (#252) Surface consolidation Phase 7: one scene lineage, serving `projectFrame` and deleting `buildLiveFrames`, with `make scene-assets` byte-identical throughout; Phases 1 to 6 are v0.5.2's ECharts retirement: [design doc](plans/web-frontend-consolidation-plan.md), [review §7](lidar/architecture/lidar-layer-alignment-refactor-review.md) `L`
@@ -495,6 +498,7 @@ Agreed work that is not being scheduled, with its reason. A parked group returns
 
 ### Gerardus alignment client (after Gerardus builds tie points)
 
+- Gerardus contract wording: ask banshee-data/gerardus to describe building parts as derived from public elevation data at their acquisition time, not "reconstructed" or "extruded", and to reconsider "site model", then re-vendor `align.proto` and relabel the visualiser's "Site model" heading to match: [purpose doc](geometry-priors-data-purpose.md) `S`
 - Registration of the 24 archive sites from their eye-read positions (Gerardus MVP 0 step 5): an unattended run on 2026-10-24 under thirteen search-setting arms and with the L3 track guard on and off, scored by the rule in [pose0001](../data/experiments/pose/pose0001.md): [report](lidar/operations/gerardus-static-registration-2026-10.md). The background's window is not the lever ([pose0002](../data/experiments/pose/pose0002.md), [report](lidar/operations/gerardus-background-window-2026-10.md)); registration by agreement across windows is proposed as [pose0003](../data/experiments/pose/pose0003.md). Accepting the candidates in the pane and the pose endpoint below are what remain `S`
 
 - Tie-point placement: pick two or three scan and reference point pairs in the visualiser and solve the pose with Gerardus `SolveTiePoints`; waits on Gerardus building the RPC: [plan](plans/lidar-visualiser-gerardus-alignment-plan.md#item-3-tie-points) `M`
@@ -530,6 +534,7 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 - (#327) AV range image format: dual-return support: [design doc](lidar/architecture/av-range-image-format-alignment.md) `L`
 - Static pose alignment: 7-DOF tracking: [design doc](plans/lidar-static-pose-alignment-plan.md) `L`
 - Online geometry-prior service: opt-in community-maintained geometry priors using canonical S2 L13 data partitions beneath S2 L10 filesystem groups (local-only remains default): [design doc](lidar/architecture/geometry-prior-service.md) `L`
+- Geometry-prior uncertainty estimator (Q3): document how a positional-uncertainty half-width is estimated for polygons exported from the ground-plane and scene-map pipelines, and reconcile the ground-plane tile export's property names with the prior allow-list, so the scene-map export (phase 5h) can emit a valid file: [design doc](lidar/architecture/geometry-prior-service.md) `M`
 - Multi-location aggregate dashboard: cross-site analytics and comparative reporting `L`
 - (#7) Live SQL query view: browser-based SQL query tool; low priority while TailSQL suffices `S`
 - Coverage thresholds: raise codecov thresholds to meaningful levels after coverage improves: [design doc §7.5](ui/design-review-and-improvement.md) `S`
