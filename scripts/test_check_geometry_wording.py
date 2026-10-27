@@ -44,6 +44,7 @@ def test_each_avoided_phrase_is_found_in_prose():
         "A 3D city model of San Francisco.": "3d-building-model",
         "These are construction drawings.": "construction-documents",
         "The building parts are extruded to their height.": "extruded-structure",
+        "Their vertices carry their heights, so neither is\n * extruded.": "extruded-structure",
     }
     for text, rule in cases.items():
         assert rule in rules(text), (text, rules(text))

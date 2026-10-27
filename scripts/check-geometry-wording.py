@@ -85,8 +85,7 @@ PATTERNS: tuple[tuple[str, str, str], ...] = (
     ),
     (
         "extruded-structure",
-        r"\bextrud(?:e|ed|es|ing)\b(?=.{0,40}\b(?:building|part|footprint|wall|box|outline|roof)s?\b)"
-        r"|\b(?:building|part|footprint|wall|box|outline|roof)s?\b.{0,40}\bextrud(?:e|ed|es|ing)\b",
+        r"\bextru(?:de|ded|des|ding|sion|sions)\b",
         "raised to a measured height, an inferred extent",
     ),
 )
