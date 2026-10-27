@@ -13,7 +13,7 @@ remedy, an L3 window or the box stood on the surface. It answers
   changed
 - **Layers:** L3 (the closeness window, the track guard), L4 (the floor), L5 (the published box)
 - **Related:** [beam-wise review, the absorbed height](../../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#2-the-absorbed-height-derivation-section-5),
-  [ground surface read](ground-surface-corpus-read-2026-10.md), [L3 track guard](l3-track-guard-kirk-2026-10.md),
+  [ground0001, where the ground is](../../../data/experiments/ground/ground0001.md), [L3 track guard](l3-track-guard-kirk-2026-10.md),
   [ground0004](../../../data/experiments/ground/ground0004.md)
 
 ## Summary
