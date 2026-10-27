@@ -128,8 +128,8 @@ of the same works; its duplicate mentions use the same keys.
 | ------------------------------------------------------------------------- | ------------------ | ------------------------------------------------- |
 | How the TGSIM trajectory datasets were collected                          | `Ammourah2025`     | [October 19 briefing][oct19], follow-up reading   |
 | Are the speed-crash models applicable for low speeds?                     | `Ambros2025`       | Low-speed speed-change model                      |
-| Crowdsourced enforcement alerts and spot speeds at the alert site         | `Anderson2026`     | [October 26 briefing][oct26], Anderson section    |
 | Heterogeneity of 30 km/h speed interventions                              | `Ambros2026`       | Low-speed speed-change model                      |
+| Crowdsourced enforcement alerts and spot speeds at the alert site         | `Anderson2026`     | [October 26 briefing][oct26], Anderson section    |
 | Speed-limit compliance in San Francisco and Phoenix                       | `Campolettano2025` | Campolettano section                              |
 | Dynamic benchmarks: spatial and temporal alignment                        | `Chen2025`         | Benchmark-alignment family                        |
 | Human followers behind automated leaders                                  | `Chu2026`          | [October 19 briefing][oct19], Chu section         |
@@ -172,6 +172,7 @@ of the same works; its duplicate mentions use the same keys.
 | CCNY sensing and AI/ML final report                                  | `Li2026b`           | PRISA and New York auditing; ROSA P 91974        |
 | Speeding: 2024 Data, DOT HS 813 823                                  | `NHTSASpeeding2026` | Questionnaires section; sources checked          |
 | Reconstructing Sober Driving Baselines                               | `Scanlon2026c`      | Previously reviewed work; weekly sources checked |
+| San Francisco speed safety camera 18-month report                    | `SFMTA2026`         | [October 26 briefing][oct26], SFMTA section      |
 | AAA Foundation attitudes toward speeding                             | `Steinbach2026`     | Previously reviewed work; weekly sources checked |
 | Rise of the machines: automated vehicles and human drivers           | `Teoh2026`          | Teoh section                                     |
 | 2025 Traffic Safety Culture Index                                    | `Zhang2026a`        | Questionnaires section; also weekly briefing     |
