@@ -180,6 +180,9 @@ def _in_code_identifier(line: str, start: int, end: int) -> bool:
 # ── File processing ─────────────────────────────────────────────────────
 
 
+IGNORE_MARKER = "<!-- spelling-ignore -->"
+
+
 def _process_line(line: str) -> str:
     """Return *line* with American spellings replaced in prose positions."""
     result = line
@@ -238,6 +241,11 @@ def process_file(filepath: str, *, fix: bool = False) -> list[tuple[int, str, st
             and not re.match(r"^\s*[-*+>]\s", line)
             and not re.match(r"^\s*\d+\.\s", line)
         ):
+            new_lines.append(line)
+            continue
+
+        # A quoted title keeps its own spelling; the line says so.
+        if IGNORE_MARKER in line:
             new_lines.append(line)
             continue
 

@@ -36,7 +36,9 @@ Canonical reference for the velocity.report system architecture. For the full de
 - **User:** `velocity:velocity`
 - **Network:** Local-first — no cloud transmission of measurements and no
   analytics. Optional OSM/Overpass tile or geometry-prior requests are explicit
-  operator opt-ins and are not required for core operation.
+  operator opt-ins and are not required for core operation. Geometry priors are
+  measured spatial data; see
+  [geometry-priors-data-purpose.md](../../docs/geometry-priors-data-purpose.md).
 
 ## Data Flow
 

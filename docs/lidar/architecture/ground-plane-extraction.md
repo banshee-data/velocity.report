@@ -148,6 +148,7 @@ Global tiles contain aggregate statistics from multiple observation sessions:
 | Mean Z-offset     | Weighted average ground height                      |
 | Session count     | Number of observation sessions contributing         |
 | Last updated      | Timestamp of most recent contribution               |
+| Acquisition range | Earliest and latest observation across the sessions |
 | Confidence        | Combined planarity from all contributing sessions   |
 
 ### WGS84 alignment and S2 partitioning (tier 2)
@@ -564,6 +565,15 @@ Feature `properties` include:
 | `point_count`  | int      | Observation count               |
 | `settled`      | bool     | Whether the tile has converged  |
 
+The collection also carries the interpretation members of the
+[prior file format](geometry-prior-service.md) (§File format specification) in its `metadata`
+object: coordinate reference system, units, vertical reference, acquisition interval, dataset and
+processing versions, and sources with their terms. A tile contributed as a prior takes the
+allow-list's member names, as the prior format's ground-plane mapping sets out. The tiles are
+measured spatial data about the
+road surface at those times, not a survey of the road or a statement of its current condition; see
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
+
 **4. PCD (Point Cloud Data)**: Export tile centres with attributes:
 
 ```
@@ -592,7 +602,7 @@ These exports integrate with the existing `exportFrameToASC` workflow and LidarV
 S2-L13-partitioned storage aggregating WGS84 ground geometry across sessions.
 Each record retains the detailed ground bounds and stores the canonical L13
 CellID/token plus `MeanNormal`, `MeanZOffset`, `SessionCount`,
-`LastUpdatedNanos`, `Confidence`, and `TotalPoints`. L10 is derived with
+`LastUpdatedNanos`, `Confidence`, `TotalPoints`, and the acquisition range. L10 is derived with
 `Parent(10)` for filesystem grouping; it is not calculated independently.
 Implementation must define how ground polygons crossing an L13 boundary are
 split or multi-indexed without inventing a parallel string-bucket scheme.

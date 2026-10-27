@@ -131,6 +131,12 @@ The production pipeline uses four math-heavy layers:
   tail, negative information from the L3 baseline, prior work from Petrovskaya to X-ICP, expected
   shortcomings, side effects, and the revisions made to the plan. Arithmetic checks recorded; no
   implementation or measured result.
+- [Positional uncertainty for exported scene geometry](proposals/20261027-geometry-prior-positional-uncertainty.md):
+  Linear worst-case half-widths for a vertex in a geometry-prior file: one return's range, azimuth
+  and elevation terms, edge sampling, fit residual, simplification, storage and registration,
+  censored heights, the assumptions a file records, and a worked example showing why kerbside
+  corners are not centimetre-level at street range. Answers the prior format's Q3; nothing is
+  computed yet.
 - [Beam-wise background subtraction against L3](proposals/20261011-beamwise-background-subtraction-comparison.md):
   Baumann et al.'s (2026) per-beam CFTA, quantile Gaussian, mixture and MOG2 models and spatial
   filters read against the L3 grid: differences, the learned-versus-imposed window and the

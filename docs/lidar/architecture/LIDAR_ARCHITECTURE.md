@@ -90,7 +90,7 @@ block.
 
 L1–L6 cover the single-sensor, single-frame-to-object pipeline that is standard in LiDAR processing literature. L7 introduces the registered **dynamic scene**: L5 physical tracks are associated with Gerardus's static site model, and spatial relationships are exposed for L8 measurements; cross-sensor fusion may later expand the same boundary. L8–L10 handle what happens _after_ the processing pipeline produces results; analysis, server-side formatting, and client rendering.
 
-The decision to place Scene at L7 (rather than above Analytics) reflects data flow: analytics (L8) needs the scene model to contextualise metrics (e.g. "speed at this road segment"), and endpoints (L9) render both scene geometry and analytics results.
+The decision to place Scene at L7 (rather than above Analytics) reflects data flow: analytics (L8) needs the registered scene to contextualise metrics (e.g. "speed at this road segment"), and endpoints (L9) render both scene geometry and analytics results.
 
 ## Artefact placement in this model
 
@@ -102,7 +102,7 @@ The decision to place Scene at L7 (rather than above Analytics) reflects data fl
 - Per-frame vector geometry extraction → **L4 Perception** (polygon features for ground, structures, volumes; see [vector-scene-map.md](vector-scene-map.md))
 - Tracks → **L5 Tracks**
 - Objects/classes → **L6 Objects**
-- Canonical scene model (accumulated geometry, priors, multi-sensor merge) → **L7 Scene**
+- Canonical scene (registered geometry, priors, multi-sensor merge) → **L7 Scene**
 - OSM priors and external map data → **L7 Scene** (ingested as prior features, refined by observation)
 - Run statistics, comparisons, percentiles → **L8 Analytics**
 - gRPC streams, chart data, dashboard payloads → **L9 Endpoints**
@@ -400,7 +400,7 @@ packages define that boundary; the reference driver is not a runtime dependency.
 | Patchwork (Lim et al., 2021): Ground segmentation (RA-L 2021)                            | Concentric zone model for ground estimation; more robust than our height-band filter but more complex; future upgrade path                         |
 | Jolliffe (2002): **PCA** (Principal Component Analysis)                                  | OBB fitting from eigenvectors of point covariance; standard approach used in our L4 heading estimation                                             |
 
-**Vector scene map (L4 → L7):** Per-frame polygon extraction (ground, structure, volume features) begins at L4 but the accumulated, persistent scene model lives at L7. See [vector-scene-map.md](vector-scene-map.md) for the full specification.
+**Vector scene map (L4 → L7):** Per-frame polygon extraction (ground, structure, volume features) begins at L4 but the accumulated, persistent static geometry is Gerardus's, referenced at L7 (D-36). See [vector-scene-map.md](vector-scene-map.md) for the full specification.
 
 ### L5 tracks: multi-object tracking
 
@@ -484,7 +484,7 @@ packages define that boundary; the reference driver is not a runtime dependency.
 
 ## L7 scene: architectural role
 
-**L7 stays Scene (D-36): its number and meaning are frozen.** Gerardus—not velocity.report—builds and persists registered static roads, kerbs, ground, structures and spatial priors. L7 becomes the **dynamic scene-context and relationship boundary** between sensor-local perception (L1–L6) and measurements (L8).
+**L7 stays Scene (D-36): its number and meaning are frozen.** Gerardus—not velocity.report—derives and persists registered static geometry (roads, kerbs, ground and the surfaces of structures) and spatial priors. L7 becomes the **dynamic scene-context and relationship boundary** between sensor-local perception (L1–L6) and measurements (L8).
 
 - **L4** creates sensor-local observed geometry; it queries static ground through an injected low-level adapter, never by importing L7.
 - **L5** is authoritative for physical body dimensions, pose, velocity, identity, uncertainty and observation/coasting support. There must not be a competing body estimator in L7.
@@ -493,6 +493,14 @@ packages define that boundary; the reference driver is not a runtime dependency.
 - **L8** remains authoritative for following gap, time gap, passing clearance, PET, measurement uncertainty, suppression, validation and aggregation. The existing `l8behaviour` package is not reimplemented in L7.
 
 A dynamic scene object is **episode-scoped** (or associated across a demonstrated continuous sensor handoff), not a vehicle or person identity across disconnected visits. L7 does not own the cross-cutting S-REF, S-OBS, S-GEO, S-UNC or S-EVID programmes.
+
+**What the static geometry is:** the registered reference geometry Gerardus supplies, and any
+relation L7 derives from it, is measured spatial data. Each feature is an observed or inferred
+position, extent or surface at a stated acquisition time, with its source, coordinate system, units
+and uncertainty. It is not a plan, drawing or specification of any structure, carries no materials,
+finishes, interiors or construction methods, and does not assert that unobserved features are
+absent. See
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
 
 **05x scope:** accepted-pose writeback; a small registered-context adapter for relationships required by qualified measurements. Full multi-sensor fusion, generic scene graphs and scene-constrained prediction are deferred. See the [L7 plan](../../plans/lidar-l7-scene-plan.md) and [05x execution rubric](../../BACKLOG.md).
 
@@ -561,7 +569,7 @@ These capabilities might emerge in the future. They would extend existing layers
 
 #### Multi-position vs multi-modality
 
-The "Multi-sensor architecture" section above describes **multi-position** fusion: spatially separated sensors with different coordinate frames whose independently tracked objects must be merged into a single canonical scene at L7. That concern is settled — only L7 holds the persistent world model, the unified coordinate frame, and the authority to assign canonical object identity across sensors.
+The "Multi-sensor architecture" section above describes **multi-position** fusion: spatially separated sensors with different coordinate frames whose independently tracked objects must be merged into a single canonical scene at L7. That concern is settled — only L7 holds the persistent scene geometry, the unified coordinate frame, and the authority to assign canonical object identity across sensors.
 
 Multi-modality — combining different sensor _types_ (radar + LiDAR) — is a separate, unsettled question. It does not require L7 unless the sensors are also spatially separated. The two concerns are independent:
 
@@ -617,7 +625,7 @@ Key unresolved evidence:
 
 ## AV compatibility note
 
-This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
+This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene geometry is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
 
 The layer boundaries are intentionally aligned with common AV pipeline decompositions (sensor → detection → tracking → prediction → planning) but stop before planning/control since velocity.report is an observation system, not a vehicle control system.
 

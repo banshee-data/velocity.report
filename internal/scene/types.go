@@ -70,7 +70,16 @@ type Header struct {
 	SourceVRLOGSHA256 string `json:"source_vrlog_sha256,omitempty"`
 	TuningHash        string `json:"tuning_hash,omitempty"`
 	BuildVersion      string `json:"build_version,omitempty"`
+	BuildGitSHA       string `json:"build_git_sha,omitempty"`
 	GeneratedAt       string `json:"generated_at"`
+
+	// Units, CoordinateRoundingM and Evidence carry the context a reader
+	// needs to interpret the file without this package or a web page: what
+	// every quantity is measured in, the quantum positions and lengths are
+	// rounded to, and how each layer is known.
+	Units               Units    `json:"units"`
+	CoordinateRoundingM float64  `json:"coordinate_rounding_m"`
+	Evidence            Evidence `json:"evidence"`
 
 	// TrailEstimator names the estimate each track's x, y, vx and vy are, as
 	// the persisted estimates name theirs: the estimator, then the stage.
@@ -86,11 +95,52 @@ type Header struct {
 
 // CoordinateFrame is the spatial reference, minus any georeferencing origin.
 // Origin latitude and longitude are deliberately not carried into a published
-// export.
+// export. ReferenceFrame is the axis convention the recorder declares: right-
+// handed with Z up. Until a capture has an accepted registration, X and Y are
+// the sensor's own axes (X right, Y forward), not a measured east and north.
 type CoordinateFrame struct {
 	FrameID        string `json:"frame_id"`
 	ReferenceFrame string `json:"reference_frame"`
 }
+
+// Units names the unit of each kind of quantity a file carries.
+type Units struct {
+	Length string `json:"length"`
+	Speed  string `json:"speed,omitempty"`
+	Angle  string `json:"angle,omitempty"`
+}
+
+// Evidence says how each layer of a file is known, in the evidence vocabulary
+// of the physical reference records (internal/lidar/annotation/physical.go):
+// observed means the sensor returned it; inferred means it follows from
+// returns by a stated step, such as a grid cell's average range or a
+// tracker's estimate. A layer the file does not carry is left empty.
+type Evidence struct {
+	Points  string `json:"points,omitempty"`
+	Tracks  string `json:"tracks,omitempty"`
+	GroundZ string `json:"ground_z,omitempty"`
+}
+
+// Evidence statuses a scene export uses.
+const (
+	EvidenceObserved = "observed"
+	EvidenceInferred = "inferred"
+)
+
+// Interval bounds an acquisition. Times are decimal nanosecond strings for the
+// reason Header.StartNs gives.
+type Interval struct {
+	StartNs string `json:"start_ns"`
+	EndNs   string `json:"end_ns"`
+}
+
+// CoordinateRoundingM is the quantum every exported position and length is
+// rounded to (round2). It is a storage quantum, not a positional uncertainty.
+const CoordinateRoundingM = 0.01
+
+// exportUnits are the units of every scene export: metres, metres per second
+// and radians, as the pipeline measures them.
+var exportUnits = Units{Length: "m", Speed: "m/s", Angle: "rad"}
 
 // ChunkIndex is written to index.json. Chunk start timestamps let a player
 // binary-search to a chunk without fetching any frame data.
@@ -180,15 +230,45 @@ type ManifestPart struct {
 // BackgroundExport is the static scene: one settled snapshot of the street with
 // nothing moving in it. Written as a single file rather than chunks, because a
 // viewer fetches it once and keeps it.
+//
+// Each point is one settled background cell: the cell's average range, placed
+// at the cell's azimuth bin and ring elevation in CoordinateFrame and thinned to
+// VoxelMetres. A point is inferred from the cell's repeated returns, not a
+// single return, and Evidence says so. The points are measured spatial data
+// about the street within AcquiredInterval, not a survey, plan or
+// specification, and a feature the sensor did not see is not asserted absent
+// (docs/geometry-priors-data-purpose.md). GeneratedAt is when the export was
+// written; the snapshot's own timestamp is the replay's clock, not the
+// capture's, and is not used. No positional uncertainty or coverage figure is
+// recorded yet.
 type BackgroundExport struct {
 	Version int    `json:"version"`
 	Site    string `json:"site,omitempty"`
 	Title   string `json:"title,omitempty"`
 
 	// VoxelMetres is the downsampling grid applied before export. Background is
-	// context rather than measurement, so it is thinned harder than a clip.
+	// for viewing rather than measuring from, so it is thinned harder than a
+	// clip.
 	VoxelMetres float64 `json:"voxel_metres"`
 	PointCount  int     `json:"point_count"`
+
+	SensorID        string          `json:"sensor_id,omitempty"`
+	CoordinateFrame CoordinateFrame `json:"coordinate_frame"`
+	Units           Units           `json:"units"`
+	// CoordinateRoundingM is the quantum each coordinate is rounded to.
+	CoordinateRoundingM float64 `json:"coordinate_rounding_m"`
+	// AzimuthBinDeg and Rings describe the grid the cells were binned on. A
+	// point sits at its cell's lower azimuth edge, so its bearing is quantised
+	// to AzimuthBinDeg, and its elevation is its ring's nominal angle.
+	AzimuthBinDeg float64  `json:"azimuth_bin_deg,omitempty"`
+	Rings         int      `json:"rings,omitempty"`
+	Evidence      Evidence `json:"evidence"`
+
+	// AcquiredInterval is the source recording's capture interval: the cells'
+	// returns were gathered within it, whether the grid settled during the
+	// replay or in a settling pass over the capture first. Omitted when the
+	// recording names no interval.
+	AcquiredInterval *Interval `json:"acquired_interval,omitempty"`
 
 	// Bounds let a viewer frame the scene before decoding every point.
 	MinX float64 `json:"min_x"`
@@ -203,9 +283,15 @@ type BackgroundExport struct {
 	GroundZ float64 `json:"ground_z"`
 
 	SourceVRLOGSHA256 string `json:"source_vrlog_sha256,omitempty"`
+	TuningHash        string `json:"tuning_hash,omitempty"`
+	BuildVersion      string `json:"build_version,omitempty"`
+	BuildGitSHA       string `json:"build_git_sha,omitempty"`
 	GeneratedAt       string `json:"generated_at"`
 
-	// Points are [x, y, z, intensity], rounded to 2 dp like every other export.
+	// Points are [x, y, z, times seen], positions rounded to 2 dp like every
+	// other export. Times seen is the cell's running count of returns that
+	// matched its background, drawn down towards a floor by foreground
+	// returns; a viewer uses it where a clip uses intensity.
 	Points [][4]float64 `json:"points"`
 }
 

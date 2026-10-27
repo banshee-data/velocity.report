@@ -330,12 +330,12 @@ func TestExportRefusesThoroughlyMixedTimeDomains(t *testing.T) {
 }
 
 func TestExportHeaderMetadata(t *testing.T) {
-	oldVersion := version.Version
-	version.Version = "0.5.1-vrlog-generator-test"
-	t.Cleanup(func() { version.Version = oldVersion })
+	oldVersion, oldSHA := version.Version, version.GitSHA
+	version.Version, version.GitSHA = "0.5.1-vrlog-generator-test", "abc1234"
+	t.Cleanup(func() { version.Version, version.GitSHA = oldVersion, oldSHA })
 	src := writeVRLOG(t, evenTimestamps(12))
 	// Exporting with a different binary must not rewrite recording provenance.
-	version.Version = "0.5.1-scene-exporter-test"
+	version.Version, version.GitSHA = "0.5.1-scene-exporter-test", "def5678"
 	out := filepath.Join(t.TempDir(), "out")
 	if _, err := Export(Options{
 		VRLOGPath: src, OutDir: out, Stride: 2, Site: "soma1", Title: "SoMa 1",
@@ -363,6 +363,20 @@ func TestExportHeaderMetadata(t *testing.T) {
 	}
 	if h.BuildVersion != "0.5.1-vrlog-generator-test" {
 		t.Errorf("build_version %q, want the binary that generated the VRLOG", h.BuildVersion)
+	}
+	if h.BuildGitSHA != "abc1234" {
+		t.Errorf("build_git_sha %q, want the commit that generated the VRLOG", h.BuildGitSHA)
+	}
+	// The header states its own units, rounding and evidence, so a copied
+	// part can be read without this package.
+	if h.Units != (Units{Length: "m", Speed: "m/s", Angle: "rad"}) {
+		t.Errorf("units %+v, want metres, metres per second and radians", h.Units)
+	}
+	if h.CoordinateRoundingM != 0.01 {
+		t.Errorf("coordinate_rounding_m %v, want 0.01", h.CoordinateRoundingM)
+	}
+	if h.Evidence != (Evidence{Tracks: EvidenceInferred}) {
+		t.Errorf("evidence %+v, want tracks inferred and no point layer", h.Evidence)
 	}
 	if h.DurationSec <= 0 {
 		t.Errorf("duration_sec %.3f, want positive", h.DurationSec)

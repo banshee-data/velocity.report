@@ -259,12 +259,15 @@ records the completed geometry, duration, timing, and diagnostic comparisons. It
 retaining the production medoid tracker: the candidate breaches update cost at all 29 cases and
 geometry at nine, while physical accuracy and Pi performance remain unverified.
 
-The next stage fuses them into a single scene model:
+The next stage fuses them into a single scene:
 cross-sensor track handoff using Mahalanobis-distance gating,
 Bayesian evidence accumulation for persistent geometry,
 and canonical object refinement via streaming statistics.
 A lorry clipping a corner at 35 mph tells a different story to a bicycle at the same speed;
 radar captures the speed regardless, and fusion adds the geometry to tell the two apart.
+Geometry kept about the physical structure around the road is measured spatial data at a stated
+time, not a plan or survey: see
+[geometry priors: data purpose](docs/geometry-priors-data-purpose.md).
 
 The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md) and
 [VISION.md](docs/VISION.md).

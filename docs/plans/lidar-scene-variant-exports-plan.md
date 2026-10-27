@@ -19,6 +19,11 @@ build made each one, is how an arm is shown rather than only scored.
   [Geometry convergence](lidar-tracker-geometry-convergence-plan.md),
   [End-on truck windows](../lidar/operations/end-on-truck-window-spike-2026-10.md)
 
+Each variant is a scene export of the kind a published scene is: measured spatial data about a
+street at one time, with tracks estimated by the variant's config. The context an export must carry
+is in [web scene export §12](lidar-web-scene-export-plan.md#12-context-travels-with-the-export),
+and the purpose is in [Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## What landed, and what this reuses
 
 #720 made a replay's parameters a file someone can name. Everything this plan needs to drive a run
@@ -287,7 +292,7 @@ On the tooling branch, `ai/tools/scene-variant-exports`:
 
 1. Should a set ever be published? Each variant of a 20-minute site is 2 to 4 MB of assets, as
    the published 1st-mission and 3rd-folsom scenes are, and the scene pages serve one recording
-   each.
+   each. A published variant would carry the §12 context and name the config that produced it.
 2. Is `vrlog-compare`'s summary worth keeping in the set, or should the set only ever point at the
    scorers' reports?
 3. Should the batch end by applying the baseline again, so the server is left where it started?

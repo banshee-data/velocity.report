@@ -83,7 +83,8 @@ output). Each **segment** has an identifier, a directed centreline polyline in t
 frame, a corridor half-width, and a list of **successors**. A **transition** names a merge or
 diverge: the segments it joins, the arc-length interval on each over which a vehicle may change
 segment, and the route-distance offsets that put both segments' arc lengths on one axis. Lane
-changes outside a transition are not modelled in the first version.
+changes outside a transition are not modelled in the first version. The file records where its
+author read the lanes in that placement's point cloud; it is not a survey of the road.
 
 Geometry lives in a new neutral package that imports no layer: projection of a point to
 `(segment, s, d, heading error)`, membership with hysteresis, and route distance through the

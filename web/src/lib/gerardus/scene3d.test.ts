@@ -182,7 +182,7 @@ describe('surfaces', () => {
 	});
 });
 
-describe('box extrusion', () => {
+describe('extrudeBox', () => {
 	it('raises the footprint from its base z by its height', () => {
 		const m = extrudeBox(square(2), 3);
 		// Four walls of four vertices each, then the top's four.

@@ -207,6 +207,7 @@ help:
 	@echo "  check-mermaid        Validate Mermaid code fences in Markdown docs"
 	@echo "  check-docs-format    Check Markdown formatting with the pinned prettier"
 	@echo "  check-prose-width    Advisory: report prose lines over 99 columns"
+	@echo "  check-geometry-wording Reject wording that describes measured geometry as models or plans (D-38)"
 	@echo "  config-migrate       Convert a legacy flat tuning JSON to schema v2 (IN=... [OUT=...])"
 	@echo "  config-validate      Validate a schema v2 tuning JSON (TUNING_CONFIG=...)"
 	@echo "  selectors-validate   Validate a segment selector file (SELECTORS=...)"
@@ -1035,6 +1036,8 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_go_coverage.py \
 	scripts/test_check_quarter_blocks.py \
 	scripts/test_check_no_results.py \
+	scripts/test_check_geometry_wording.py \
+	scripts/test_check_british_spelling.py \
 	scripts/test_check_bibliography_budget.py \
 	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \
@@ -2052,7 +2055,7 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene check-backlog-format report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
+.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene check-backlog-format check-geometry-wording report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
 lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results check-experiments
 	@echo "\nAll lint checks passed."
@@ -2087,6 +2090,9 @@ check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail
 check-backlog-format: ## [gated] Validate D-37 priority/workstream format and D-32 release caps
 	@python3 scripts/check-backlog-format.py
 
+check-geometry-wording: ## [gated] Reject wording that describes measured geometry as models, plans or reconstructions (D-38)
+	@python3 scripts/check-geometry-wording.py
+
 report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
 	@python3 scripts/check-plan-canonical-links.py --report
 
@@ -2096,7 +2102,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 

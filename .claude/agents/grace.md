@@ -108,6 +108,7 @@ For project facts, conventions, and technical detail:
 - Radar specs, LIDAR specs, RPi target: see `.github/knowledge/hardware.md`
 - Test confidence, code review standards: see `.github/knowledge/role-technical.md`
 - Security attack surface: see `.github/knowledge/security-surface.md`
+- Geometry, scene and prior data: see `docs/geometry-priors-data-purpose.md`
 
 ## Priority under context pressure
 
