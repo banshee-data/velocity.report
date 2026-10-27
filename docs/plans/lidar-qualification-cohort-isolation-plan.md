@@ -6,6 +6,7 @@
 - **Workstream:** S-PLATFORM (Ops / Pipeline)
 - **Estimate:** M, approximately 4–7 engineering days, subject to loader audit
 - **Backlog:** [v0.5.4](../BACKLOG.md#v054---post-encroachment-time--behaviour-metrics-054)
+- **Canonical:** [point annotation tool](../lidar/operations/point-annotation-tool.md) (the frozen splits this eligibility layer sits above)
 
 ## Purpose
 
