@@ -824,7 +824,7 @@ func TestTheBaselineToolIsInvokedAsTheHarnessInvokesIt(t *testing.T) {
 	h.runner.Executors[jobs.KindStateEstimationBaseline] = Executors[jobs.KindStateEstimationBaseline]
 	req := h.request()
 	req.Kind = jobs.KindStateEstimationBaseline
-	req.Params = json.RawMessage(`{"case": "morg0", "surface_ground": true}`)
+	req.Params = json.RawMessage(`{"case": "morg0", "surface_ground": true, "ground_report": true}`)
 	req.Experiments = []string{"cascade"}
 	rec, _ := h.store.Submit(req, h.runner.now())
 
@@ -846,7 +846,7 @@ func TestTheBaselineToolIsInvokedAsTheHarnessInvokesIt(t *testing.T) {
 	}
 	lines, _ := h.store.LogTail(rec.Attempt.AttemptID, 0)
 	joined := strings.Join(lines, "\n")
-	for _, want := range []string{"-case morg0", "-surface-ground", "-experiment cascade", "-duration 60", "-warmup 10", "-pcap-root " + h.captures} {
+	for _, want := range []string{"-case morg0", "-surface-ground", "-ground-report", "-experiment cascade", "-duration 60", "-warmup 10", "-pcap-root " + h.captures} {
 		if !strings.Contains(joined, want) {
 			t.Errorf("command line lacks %q:\n%s", want, joined)
 		}

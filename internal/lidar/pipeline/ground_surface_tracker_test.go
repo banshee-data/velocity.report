@@ -85,3 +85,45 @@ func TestGroundSurfaceForTrackerLeavesTheClipAlone(t *testing.T) {
 		t.Fatalf("with neither option, %d fits and %d surfaces handed over, want none", fits, len(rec.surfaces))
 	}
 }
+
+// A surface fitted for a report is published and read only: the height band
+// still clips every point, and the tracker is handed nothing.
+func TestGroundSurfaceForReportIsReadNeverApplied(t *testing.T) {
+	road := l3grid.RegionalGroundSurface{CellMetres: 10, Global: l3grid.GroundSurface{C: -1}}
+	fits := 0
+	orig := fitGroundSurface
+	fitGroundSurface = func(*l3grid.BackgroundManager, float64) (l3grid.RegionalGroundSurface, error) {
+		fits++
+		return road, nil
+	}
+	t.Cleanup(func() { fitGroundSurface = orig })
+
+	sensorID := "ground-surface-report-" + t.Name()
+	rec := &surfaceRecorder{}
+	var fit atomic.Pointer[l3grid.RegionalGroundSurface]
+	cfg := &TrackingPipelineConfig{
+		SensorID: sensorID, BackgroundManager: makeTestBgManager(t, sensorID), Tracker: rec,
+		RemoveGround: true, HeightBandFloor: 99, HeightBandCeiling: 100,
+		GroundSurfaceForReport: true, GroundSurfaceFit: &fit,
+	}
+	cb := cfg.NewFrameCallback()
+	now := time.Unix(1_700_000_000, 0)
+	for i := 0; i < 5; i++ {
+		cb(ended(makeStableFrame("seed", now.Add(time.Duration(i)*100*time.Millisecond), 20)))
+	}
+	for i := 0; i < 10; i++ {
+		cb(ended(makeForegroundFrame("fg", now.Add(time.Duration(600+i*100)*time.Millisecond), 20, 5)))
+	}
+	if fit.Load() == nil {
+		t.Fatal("the report's fit was not published")
+	}
+	if fits != 1 {
+		t.Fatalf("the surface was fitted %d times, want once", fits)
+	}
+	if len(rec.surfaces) != 0 {
+		t.Fatal("the report's surface reached the tracker")
+	}
+	if rec.updateCalls != 0 {
+		t.Fatalf("the tracker was updated %d times: the report's surface changed the clip", rec.updateCalls)
+	}
+}

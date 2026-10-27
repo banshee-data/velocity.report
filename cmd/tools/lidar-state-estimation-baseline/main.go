@@ -66,14 +66,17 @@ type caseSummary struct {
 	// RefinementArms is the first run's online-versus-refined comparison when
 	// the fixed_lag_rts experiment ran, identical on the repeat by check.
 	RefinementArms []l8analytics.RefinementArmMetrics `json:"refinement_arms,omitempty"`
-	// Ground surface fields are populated only when -surface-ground was
-	// passed and the background settled in time to fit a P11 ground plane
-	// for this case; omitted otherwise.
+	// Ground surface fields are populated only when -surface-ground or
+	// -ground-report was passed and the background settled in time to fit a
+	// P11 ground plane for this case; omitted otherwise.
 	GroundSurfaceSupport       int     `json:"ground_surface_support,omitempty"`
 	GroundSurfaceGradientMetre float64 `json:"ground_surface_gradient_metre,omitempty"`
 	GroundSurfaceRMSEMetres    float64 `json:"ground_surface_rmse_metres,omitempty"`
 	GroundSurfaceRegionCount   int     `json:"ground_surface_region_count,omitempty"`
 	GroundSurfaceCellMetres    float64 `json:"ground_surface_cell_metres,omitempty"`
+	// GroundReport is the summary of the first run's ground_report.json when
+	// -ground-report was passed (ground0001).
+	GroundReport *groundReportSummary `json:"ground_report,omitempty"`
 	// TimeDomain is the first run's capture-time diagnostics: backward or
 	// duplicate frame timestamps and gaps the tracker clamped. A corpus case
 	// with any of them needs reading before its temporal results are trusted.
@@ -132,6 +135,7 @@ func main() {
 		cpuProfileDir       = flag.String("cpuprofile-dir", "", "empty directory for a pprof CPU profile of each case's repeat replay (<case>.repeat.cpu.pprof); the repeat writes no evidence, so the profile is the pipeline's own cost")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
+		groundReport        = flag.Bool("ground-report", false, "fit the P11 regional surface beside the first run's tracks, read and never applied, and write each case's "+groundReportFile+" (ground0001): the grade and its fall line against the moving tracks' course, the cell planes against the global plane where they go, and each moving track's lowest return against distance")
 		campaignMetrics     = flag.Bool("campaign-metrics", false, "export confirmed intervals and tracker update timing separately from deterministic artifacts")
 		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementMedoidV0), "replay position model: medoid_v0 (production) or obb_centre_v1 (D2 candidate)")
 		caseFilter          = flag.String("case", "", "replay only these corpus case IDs (comma separated); empty replays every case")
@@ -279,7 +283,7 @@ func main() {
 		},
 		outDir: *outDir, observationDBPath: observationDBPath, evidenceDir: *evidenceDir,
 		evidencePerCase: *evidencePerCase, discardEvidence: *discardEvidence, samplePoints: *samplePoints,
-		evidenceProfile: *evidenceProfile, cpuProfileDir: *cpuProfileDir,
+		evidenceProfile: *evidenceProfile, cpuProfileDir: *cpuProfileDir, groundReport: *groundReport,
 		coverage: coverage, splitUses: split.uses, sourceManifest: verifiedSourceManifest, index: index,
 		survey: survey, identity: identity, resume: *resume,
 		prepare: replayeval.PrepareCaptureSequence, replay: replayeval.Run,
@@ -316,6 +320,7 @@ type corpusReplay struct {
 	samplePoints      int
 	evidenceProfile   bool
 	cpuProfileDir     string
+	groundReport      bool
 	coverage          map[string]replayeval.ContinuityCoverage
 	splitUses         map[string]*replayeval.SplitUse
 	sourceManifest    *sourceManifest
@@ -381,6 +386,11 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			first.ObservationMaxSamplePoints = r.samplePoints
 			first.ProfileEvidence = r.evidenceProfile
 		}
+		var ground *groundReporter
+		if r.groundReport {
+			ground = newGroundReporter()
+			first.GroundSurfaceReport, first.TrackerTap = true, ground.observe
+		}
 		fmt.Printf("%s: first run across %d capture(s)\n", selectedCase.ID, len(paths))
 		firstResult, err := r.replay(first)
 		if err != nil {
@@ -400,6 +410,10 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		repeat.ClipID = ""
 		repeat.ObservationCalibration = l4bobserve.Calibration{}
 		repeat.ObservationMaxSamplePoints = 0
+		// The repeat runs without the ground report, so the baseline check
+		// below also shows that fitting and reading the surface changed
+		// nothing.
+		repeat.GroundSurfaceReport, repeat.TrackerTap = false, nil
 		fmt.Printf("%s: repeat run\n", selectedCase.ID)
 		var repeatResult *replayeval.Result
 		err = profiled(cpuProfilePath(r.cpuProfileDir, selectedCase.ID), func() error {
@@ -480,8 +494,19 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			fmt.Printf("%s: ground surface support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm\n",
 				selectedCase.ID, fit.Global.Support, fit.Global.GradientMetre, fit.Global.RMSEMetres,
 				fit.RegionCount, fit.CellMetres)
-		} else if first.UseSurfaceGround {
-			fmt.Printf("%s: -surface-ground set but no ground plane was fit (background did not settle in time)\n", selectedCase.ID)
+		} else if first.UseSurfaceGround || first.GroundSurfaceReport {
+			fmt.Printf("%s: -surface-ground or -ground-report set but no ground plane was fit (background did not settle in time)\n", selectedCase.ID)
+		}
+		if ground != nil {
+			report := ground.report(firstResult.GroundSurfaceFit)
+			if err := writeGroundReport(first.OutDir, report); err != nil {
+				return nil, nil, fmt.Errorf("ground report %s: %w", selectedCase.ID, err)
+			}
+			summary.GroundReport = &report.Summary
+			gs := report.Summary
+			fmt.Printf("%s: ground report moving tracks=%d departure p90=%.3fm max=%.3fm; |slope| p50 sensor %.4f above surface %.4f; classes %v\n",
+				selectedCase.ID, gs.MovingTracks, gs.Departure.P90Metres, gs.Departure.MaxMetres,
+				gs.SlopeSensor.MedianAbs, gs.SlopeSurface.MedianAbs, gs.Classes)
 		}
 		if first.UncertaintyReport {
 			summary.UncertaintyReport = filepath.Join(selectedCase.ID, "first", "uncertainty_calibration.json")

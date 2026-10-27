@@ -1,7 +1,7 @@
 ---
 id: ground0001
 title: "Where the ground is: each site's surface against the sensor's plane, and how far the tracks leave it"
-status: approved
+status: answered
 owner: david
 created: 2026-10-18
 asks:
@@ -19,6 +19,30 @@ arms:
 cases:
   corpus: d2-first-segment
   count: 23
+  sites:
+    - marina-webster-beach
+    - columbus-broadway
+    - ashbury-downey
+    - haight-divisadero
+    - pierce-haight
+    - fulton-divisadero
+    - california-leon-baker
+    - broadway-gough
+    - laguna-eddy
+    - lombard-broderick
+    - marina-broderick
+    - lombard-laguna
+    - columbus-north-point
+    - embarcadero-bay
+    - van-ness-sacramento
+    - embarcadero-broadway
+    - franklin-mcallister
+    - hyde-ofarrell
+    - bush-powell
+    - 1st-mission
+    - embarcadero-bryant
+    - 3rd-folsom
+    - howard-6th
 steps:
   - id: implement
     kind: manual:implement
@@ -29,7 +53,8 @@ steps:
       the confirmed moving tracks' course; the cell planes' height against the global plane at
       the positions tracks cross, p50, p90 and max; and for each confirmed track at 2 m/s or more
       the slope of its cluster's lowest return against along-track distance, in the sensor frame
-      and as height above the surface, pooled per site into the summary.
+      and as height above the surface, pooled per site into the summary. Built as the tool's
+      -ground-report, the kind's ground_report.
   - id: replay
     kind: state_estimation_baseline
     over: [arms, cases]
@@ -39,6 +64,9 @@ steps:
   - id: write
     kind: manual:write
     estimate: { human: 2h }
+actual:
+  wall: 1h38m
+  note: 23 sites one at a time on arrow-worker (2 vCPU) beside its other services, captures over NFS, 2m50s to 5m41s a site; the instrument was built by an agent in about 2h against the 2h estimate
 ---
 
 # ground0001: where the ground is
@@ -85,8 +113,40 @@ applied, so the tracks are the defaults'.
   surface is a body the surface explains; one that does neither, or both, is a merge, a clip
   artefact or a kerb, and is listed.
 
+**Definitions and thresholds, fixed with the instrument (2026-10-26), before the replays.** The
+surface is the one the clip and `box_ground` would use: fitted once, at the first frame the
+background has settled, and published, never applied. A sample is a confirmed track observed in a
+scored frame (no misses), at the track's position, with its associated cluster's lowest return.
+A moving track is one with at least 10 samples, a median speed of 2 m/s or more and 5 m or more of
+travel; its course is its net displacement, and the site's axis the length-weighted axial mean of
+the courses, with its concentration (1 for one flow, near 0 for two equal crossing flows). The
+grade along and across is the global plane's rise per metre along and across each course, median
+over the tracks. The departure (measure 2) is read at every sample of every moving track, one a
+track a frame: the cell's own plane less the global plane where the cell has one, 0 where the
+global plane serves it. The height above the surface is the lowest return less the blended
+surface. A lowest return rises or falls with distance when its least-squares slope is 0.01 m/m or
+more, changes by 0.10 m or more over the track, and is two standard errors or more from zero;
+each moving track is `flat` (neither), `explained` (the sensor frame only), `surface_only` (above
+the surface only) or `both`, and the last two are listed, up to 25 a site. The same tracks are
+also read against the global plane alone (`slope_above_plane`, `plane_classes`), ground0002's
+one-plane control, beside the blended cells: added after the instrument's check replay of
+haight-divisadero showed the cells steeper than the bodies' paths there, before the corpus
+replays, with no threshold changed. The first five-minute
+segment of each site is replayed for 200 s after the 70 s warm-up, as the earlier corpus screens
+did, with no evidence database; the repeat runs without the report, so the tool's repeat check
+also shows it changed nothing.
+
 **What it does not establish.** The ground's true grade: the plane is fitted to the sensor's own
 returns, so a pitched mount and a graded road are one number, which is the number the tracker
 needs and not the one a survey would give. Nothing held out: embarcadero-folsom stays unread.
 Kerbs, driveways and the far side of a crown appear only as cell departures, not as surfaces of
 their own.
+
+**Answer (October 27, 2026).** 19 of the 23 first segments tilt by 1 % or more, to 5.53 % (the 23
+span 0.63 to 5.53 %), so ground0003 does not retire; the planar speed's error is at most 0.15 %. At
+14 sites the fall line is within 30° of square to the traffic, cross-slopes a mount's roll explains
+better than the road. The cell planes depart from the global plane by more than 0.2 m at p90 where
+the traffic goes on 22 sites and by under 0.1 m on none, and they flatten the bodies' lowest
+returns more than one plane at 17. What neither explains is mostly the lowest return's climb with
+range, about 1.7 to 1.9 cm a metre. See the
+[report](../../../docs/lidar/operations/ground-surface-corpus-read-2026-10.md).

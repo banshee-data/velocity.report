@@ -341,7 +341,7 @@ func TestEveryKindHasAToolASummaryAndDefaults(t *testing.T) {
 func TestKindParamsAreChecked(t *testing.T) {
 	good := map[string]string{
 		KindBenchmark:               `{"profile": "detect", "repeats": 5}`,
-		KindStateEstimationBaseline: `{"case": "kirk0", "surface_ground": true, "keep_evidence": false}`,
+		KindStateEstimationBaseline: `{"case": "kirk0", "surface_ground": true, "ground_report": true, "keep_evidence": false}`,
 		KindTrackScorecard:          `{"evidence_job": "job_7", "scoring_start_seconds": 30}`,
 		KindVRLOGRecord:             `{"include_points": true, "settle_first": true}`,
 	}
