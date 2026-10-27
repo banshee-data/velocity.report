@@ -16,18 +16,18 @@ The design draws on established LiDAR/AV processing pipeline literature (see [§
 
 ## The ten layers
 
-| Layer | Label          | Tier        | Scope                                                           | Go package              | Status         |
-| ----- | -------------- | ----------- | --------------------------------------------------------------- | ----------------------- | -------------- |
-| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                               | `l1packets`             | ✅ Implemented |
-| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports               | `l2frames`              | ✅ Implemented |
-| L3    | **Grid**       | Sensor      | Background/foreground separation state                          | `l3grid`                | ✅ Implemented |
-| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                    | `l4perception`          | ✅ Implemented |
-| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                      | `l5tracks`              | ✅ Implemented |
-| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping              | `l6objects`             | ✅ Implemented |
-| L7    | **Scene**      | Scene       | Persistent canonical scene geometry with multi-sensor fusion    | `l7scene`               | 💭 Planning    |
-| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring              | `l8analytics`           | ✅ Implemented |
-| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs      | `server`, `l9endpoints` | ✅ Implemented |
-| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline) | –                       | ✅ Implemented |
+| Layer | Label          | Tier        | Scope                                                                   | Go package              | Status         |
+| ----- | -------------- | ----------- | ----------------------------------------------------------------------- | ----------------------- | -------------- |
+| L1    | **Packets**    | Sensor      | Sensor-wire transport and capture                                       | `l1packets`             | ✅ Implemented |
+| L2    | **Frames**     | Sensor      | Time-coherent frame assembly and geometry exports                       | `l2frames`              | ✅ Implemented |
+| L3    | **Grid**       | Sensor      | Background/foreground separation state                                  | `l3grid`                | ✅ Implemented |
+| L4    | **Perception** | Sensor      | Per-frame object primitives and measurements                            | `l4perception`          | ✅ Implemented |
+| L5    | **Tracks**     | Sensor      | Multi-frame identity and motion continuity                              | `l5tracks`              | ✅ Implemented |
+| L6    | **Objects**    | Sensor      | Semantic object interpretation and dataset mapping                      | `l6objects`             | ✅ Implemented |
+| L7    | **Scene**      | Scene       | Registered dynamic scene and spatial relationships; multi-sensor fusion | `l7scene`               | 💭 Planning    |
+| L8    | **Analytics**  | Consumption | Canonical traffic metrics, run comparison, scoring                      | `l8analytics`           | ✅ Implemented |
+| L9    | **Endpoints**  | Consumption | Server-side payload shaping, gRPC streams, and report APIs              | `server`, `l9endpoints` | ✅ Implemented |
+| L10   | **Clients**    | Consumption | Downstream rendering consumers (Svelte, Swift, Go PDF pipeline)         | –                       | ✅ Implemented |
 
 ## Segmented concept status chart
 
@@ -88,7 +88,7 @@ block.
 
 ### Design rationale for ten layers
 
-L1–L6 cover the single-sensor, single-frame-to-object pipeline that is standard in LiDAR processing literature. L7 introduces the critical missing concept: **persistent scene geometry** that accumulates evidence across frames, tracks, and sensors. L8–L10 handle what happens _after_ the processing pipeline produces results; analysis, server-side formatting, and client rendering.
+L1–L6 cover the single-sensor, single-frame-to-object pipeline that is standard in LiDAR processing literature. L7 introduces the registered **dynamic scene**: L5 physical tracks are associated with Gerardus's static site model, and spatial relationships are exposed for L8 measurements; cross-sensor fusion may later expand the same boundary. L8–L10 handle what happens _after_ the processing pipeline produces results; analysis, server-side formatting, and client rendering.
 
 The decision to place Scene at L7 (rather than above Analytics) reflects data flow: analytics (L8) needs the scene model to contextualise metrics (e.g. "speed at this road segment"), and endpoints (L9) render both scene geometry and analytics results.
 
@@ -484,24 +484,25 @@ packages define that boundary; the reference driver is not a runtime dependency.
 
 ## L7 scene: architectural role
 
-L7 introduces **persistent, evidence-accumulated scene geometry** that transcends individual frames, tracks, and sensors. It is the boundary between the per-sensor real-time pipeline (L1–L6) and the consumption layers (L8–L10).
+**L7 stays Scene (D-36): its number and meaning are frozen.** Gerardus—not velocity.report—builds and persists registered static roads, kerbs, ground, structures and spatial priors. L7 becomes the **dynamic scene-context and relationship boundary** between sensor-local perception (L1–L6) and measurements (L8).
 
-**Scope:** Static geometry (ground polygons, structures, volumes), dynamic canonical objects (merged tracks → refined vehicle/pedestrian models), external priors (OSM, GeoJSON), and multi-position sensor fusion into a single coherent scene.
+- **L4** creates sensor-local observed geometry; it queries static ground through an injected low-level adapter, never by importing L7.
+- **L5** is authoritative for physical body dimensions, pose, velocity, identity, uncertainty and observation/coasting support. There must not be a competing body estimator in L7.
+- **L6** adds per-track semantic interpretation.
+- **L7** combines those physical tracks with versioned, accepted Gerardus site registration and reference geometry. It exposes shared-path candidates, region occupancy, occlusion and coverage relations and, later, bounded multi-sensor handoff. Priors and proposed map features are never silently promoted to measured truth.
+- **L8** remains authoritative for following gap, time gap, passing clearance, PET, measurement uncertainty, suppression, validation and aggregation. The existing `l8behaviour` package is not reimplemented in L7.
 
-**What the static geometry is:** measured spatial data. Each feature is an observed or inferred
+A dynamic scene object is **episode-scoped** (or associated across a demonstrated continuous sensor handoff), not a vehicle or person identity across disconnected visits. L7 does not own the cross-cutting S-REF, S-OBS, S-GEO, S-UNC or S-EVID programmes.
+
+**What the static geometry is:** the registered reference geometry Gerardus supplies, and any
+relation L7 derives from it, is measured spatial data. Each feature is an observed or inferred
 position, extent or surface at a stated acquisition time, with its source, coordinate system, units
 and uncertainty. It is not a plan, drawing or specification of any structure, carries no materials,
 finishes, interiors or construction methods, and does not assert that unobserved features are
 absent. See
 [Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
 
-**Key relationships:**
-
-- L4 produces per-frame observations → L7 accumulates them into persistent geometry
-- L5 tracks are ephemeral (one sensor, one visibility window) → L7 canonical objects are persistent across time and sensors
-- L8 Analytics needs the scene model to contextualise metrics (e.g. "speed on this road segment")
-
-**Design and implementation plan:** See [lidar-l7-scene-plan.md](../../plans/lidar-l7-scene-plan.md). Vector feature specification in [vector-scene-map.md](vector-scene-map.md).
+**05x scope:** accepted-pose writeback; a small registered-context adapter for relationships required by qualified measurements. Full multi-sensor fusion, generic scene graphs and scene-constrained prediction are deferred. See the [L7 plan](../../plans/lidar-l7-scene-plan.md) and [05x execution rubric](../../BACKLOG.md).
 
 ---
 
@@ -527,18 +528,18 @@ This section covers multi-position. Multi-modality (combining different sensor t
 
 The following layer numbers and names are **permanently assigned**. Implementation status will evolve, but the number-to-concept mapping never changes.
 
-| Number | Name       | Concept (permanent)                  | Earliest code | Notes                                           |
-| ------ | ---------- | ------------------------------------ | ------------- | ----------------------------------------------- |
-| L1     | Packets    | Sensor transport, wire-level capture | v0.1.0        | One instance per physical sensor                |
-| L2     | Frames     | Time-coherent point assembly         | v0.1.0        | Sensor-local coordinates                        |
-| L3     | Grid       | Background/foreground separation     | v0.1.0        | Sensor-local polar grid                         |
-| L4     | Perception | Single-frame geometric primitives    | v0.4.0        | Clusters, ground tiles, OBBs                    |
-| L5     | Tracks     | Multi-frame identity continuity      | v0.4.0        | Kalman + Hungarian per sensor                   |
-| L6     | Objects    | Semantic classification              | v0.4.0        | Per-track class labels                          |
-| L7     | Scene      | Persistent canonical scene geometry  | Planned       | Multi-frame, multi-sensor, priors               |
-| L8     | Analytics  | Traffic metrics and evaluation       | v0.4.0        | `l8analytics/` + `server/`; run comparison, IoU |
-| L9     | Endpoints  | Server-side payload shaping          | v0.1.0        | `l9endpoints/` gRPC; `server/` REST             |
-| L10    | Clients    | Downstream renderers                 | v0.1.0        | Web frontend shipped with first release         |
+| Number | Name       | Concept (permanent)                      | Earliest code | Notes                                           |
+| ------ | ---------- | ---------------------------------------- | ------------- | ----------------------------------------------- |
+| L1     | Packets    | Sensor transport, wire-level capture     | v0.1.0        | One instance per physical sensor                |
+| L2     | Frames     | Time-coherent point assembly             | v0.1.0        | Sensor-local coordinates                        |
+| L3     | Grid       | Background/foreground separation         | v0.1.0        | Sensor-local polar grid                         |
+| L4     | Perception | Single-frame geometric primitives        | v0.4.0        | Clusters, ground tiles, OBBs                    |
+| L5     | Tracks     | Multi-frame identity continuity          | v0.4.0        | Kalman + Hungarian per sensor                   |
+| L6     | Objects    | Semantic classification                  | v0.4.0        | Per-track class labels                          |
+| L7     | Scene      | Dynamic scene, context and relationships | Planned       | Gerardus owns static priors; fusion later       |
+| L8     | Analytics  | Traffic metrics and evaluation           | v0.4.0        | `l8analytics/` + `server/`; run comparison, IoU |
+| L9     | Endpoints  | Server-side payload shaping              | v0.1.0        | `l9endpoints/` gRPC; `server/` REST             |
+| L10    | Clients    | Downstream renderers                     | v0.1.0        | Web frontend shipped with first release         |
 
 ### Rules for future evolution
 
