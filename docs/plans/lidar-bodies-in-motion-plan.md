@@ -187,7 +187,7 @@ After a vehicle passes through the sparse zone and produces a confirmed track ag
 3. If $t_2 - t_1 <$ gap threshold **and** $|p_2 - (p_1 + v_1 \cdot (t_2 - t_1))| <$ distance threshold **and** the corridor between $p_1$ and $p_2$ follows a road polygon:
 4. Merge A and B into a single canonical object
 
-This is a batch operation, not real-time, and naturally belongs in L7's accumulated scene model.
+This is a batch operation, not real-time, and naturally belongs in L7's accumulated scene geometry.
 
 ---
 

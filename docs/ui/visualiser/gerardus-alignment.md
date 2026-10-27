@@ -9,6 +9,16 @@ The visualiser's client for the Gerardus alignment service: it draws USGS 3DEP a
 
 Gerardus is a separate service in its own repository. It prepares reference data for a survey site and registers sensor scans against it. The visualiser talks to it directly on a second gRPC channel, beside its channel to velocity.report; velocity.report's Go server is not in the path. The dependency is optional: when no Gerardus server answers, the app shows no alignment control and behaves as it did before.
 
+**What the pane draws.** Measured or derived geometry at each source's acquisition time, in the
+site frame, in metres. The reference bundle names each input's source, version, licence and
+retrieval time (`Site.sources`) and the exact inputs it was prepared from (`bundle_id`). The 3DEP
+points and the accepted scans are measured; footprints, boxes, building parts and roof planes are
+derived from public data and refined by the scans; street-use marks are the operator's reading of
+the street, not a measurement. The fit gates and residuals below say how well a scan sits against
+the reference. None of it is a plan, a land or boundary survey, a structural assessment or a
+specification, and a feature that is not drawn is not asserted absent. See
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
+
 What ships is Gerardus MVP 0's operator loop, without tie points:
 
 - the reference and a pose placed from the hint;
@@ -78,6 +88,10 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
   - **Accept this pose (manually placed)** once the pose has been nudged or snapped off the hypothesis. A snapped pose is recorded with source `ICP`.
 
 ### Against the site model
+
+The site model is Gerardus's name for the site's accepted scans, from which the registered-scan,
+observed-feature and ground layers are built (see below). It holds measured surfaces and positions,
+not a plan of the site.
 
 The **Against site model** switch beside Register sets `RegisterRequest.against_site_model`. It is off by default. On, Gerardus fits the scan against 3DEP plus the site's accepted scans, leaving out the scan being registered (Gerardus `docs/plans/SITE-MODEL-SPIKE.md` §6.3).
 
@@ -246,13 +260,13 @@ Gerardus's W4–W7 layers: LoD2 building parts, their roof planes and their wall
 
 - **Building parts** come as their outline at the part's base: the ground, or `min_height` above it. Their tags stay right for OSM export, so `height` is the top of the roof (the highest roof cell), not the gutter, and the pane does not raise the outline to it when the server sends wall surfaces.
 - **Wall surfaces** (Gerardus `docs/plans/ROOFLINE-WALLS.md`) are each part's walls: closed vertical polygons from the part's base up to its roofline, with their z in their vertices and `height_m` 0. An eave wall (`role=wall`) stops at the gutter, a gable end (`gable`) rises to the ridge, a `step` stands between two roof faces inside a part, and a `party` wall shows only what stands above the neighbouring part's roof. The pane draws each outline as it comes, a little darker than the parts' sand, and counts them in the toggle, **Buildings (N parts, M roof planes, K walls)**.
-- **An older server** sends no wall surfaces. The pane then raises a copy of each part's outline by `height − min_height` (OSM's `height` is measured from the ground) and joins the two with an upright at every vertex, as before. A part with no `height` uses `height_m`; with neither, only the outline is drawn. The toggle's help says which the server sent.
+- **An older server** sends no wall surfaces. The pane then draws a wireframe prism: a copy of each part's outline raised by `height − min_height` (OSM's `height` is measured from the ground), joined to the outline with an upright at every vertex, as before. It is an inferred extent, not observed walls. A part with no `height` uses `height_m`; with neither, only the outline is drawn. The toggle's help says which the server sent.
 - **Roof planes** are closed planar polygons with their z. The pane fills each by ear clipping in the plane it lies in, so a steep face fills as well as a flat one, and outlines it. **Roofs by** switches the colouring between slope and the `roof:shape` of the part named by the plane's `part` tag; it rebuilds the overlay.
 - **Model ids.** BUILDINGS names a model of its own. Only the registered layers' `model_id` is the site model's, so streaming buildings does not change the model the pane compares after a decision. The W4–W7 layers are not streamed again after a decision.
 
 ## Paint mode: the street painter
 
-No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run, so an operator marks them once per site (Gerardus `docs/plans/VECTOR-MAP.md` §4.1). Paint mode is where: it replaces the web Streets page, now the read-only [Site viewer](../../lidar/LIDAR.md#site-viewer) at `/lidar/sites`, and ports that editor's logic (the snap, rows of spaces, a lane's direction, the save diff and Undo).
+No public layer says which stretch of kerb is a driveway, where cars park, or where lanes run, so an operator marks them once per site (Gerardus `docs/plans/VECTOR-MAP.md` §4.1). The marks are the operator's reading of the street, recorded with their author and edit time; they are not measurements. Paint mode is where: it replaces the web Streets page, now the read-only [Site viewer](../../lidar/LIDAR.md#site-viewer) at `/lidar/sites`, and ports that editor's logic (the snap, rows of spaces, a lane's direction, the save diff and Undo).
 
 **Getting there.** Place the sensor from its hint, then press **Paint streets**, in the alignment pane's header or in the main toolbar beside **Align**. It is disabled, with the reason as its tooltip, until a reference is placed, and when the server answers `ListStreetUse` `UNIMPLEMENTED`. The pane's sections give way to the painter's while it paints; pressing it again, closing the pane, choosing another site or losing the server leaves paint mode.
 

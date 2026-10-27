@@ -87,7 +87,8 @@ new L4 interpretation over retained points. Rerunning L3 requires fuller input t
 
 The existing [bodies-in-motion plan](lidar-bodies-in-motion-plan.md) covers richer motion models
 and linking sparse detections. This proposal supplies the durable input and temporal revision
-contract those ideas need. It does not make the planned L7 scene model a prerequisite for L5 work.
+contract those ideas need. It does not make the planned L7 scene geometry a prerequisite for L5
+work.
 
 ```mermaid
 flowchart TD

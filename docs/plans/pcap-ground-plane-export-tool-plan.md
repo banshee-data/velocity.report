@@ -14,11 +14,15 @@
 
 Extend the existing `pcap-analyse` command-line tool to compute and export ground plane geometry from static PCAP captures, with **optional** GPS geo-referencing. This enables:
 
-1. **Road surface reconstruction**: Export accurate road geometry for civil engineering analysis
+1. **Measured road surface**: Export the road surface the sensor observed, as fitted ground tiles with a stated frame, units and fit confidence, for research and engineering analysis
 2. **GIS integration**: Generate geo-referenced ground plane data compatible with mapping tools (GPS additive)
 3. **Offline processing**: Extract ground plane from archived PCAP files without real-time replay
 4. **Quality assurance**: Validate sensor placement and ground plane extraction algorithms
 5. **Global dataset population**: Merge settled tiles into persistent WGS84 ground data partitioned by canonical S2 L13 cells, with L10 for coarse filesystem grouping (GPS additive)
+
+The export is measured spatial data about the road surface at the capture time, not a survey or a
+specification of the road; see
+[Geometry priors: data purpose and interpretation](../geometry-priors-data-purpose.md).
 
 **Sensor-iterative principle:** Ground plane extraction **must work with LiDAR data alone**. GPS flags are strictly optional and only enable geographic export formats and Tier 2 global dataset population. The core extraction pipeline operates in sensor-local coordinates.
 
@@ -497,4 +501,4 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - **Ground plane texture mapping**: Export surface roughness or reflectivity as additional tile properties
 - **Global dataset visualisation**: Web UI for browsing canonical S2 L10/L13 ground partitions
 - **OSM polyline import** (v2): Anchor ground plane tiles to kerb lines, crosswalks, and road edges from OpenStreetMap
-- **OSM write-back** (v2): Propose edits to OSM with more accurate geometry from LiDAR measurements (requires OSM API key)
+- **OSM write-back** (v2): Propose edits to OSM from geometry the LiDAR measured, stated with its uncertainty (requires OSM API key)

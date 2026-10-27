@@ -111,3 +111,8 @@ is made until the operator allows OpenStreetMap requests, a choice this browser 
 withdrawn on the page; what leaves is the typed
 address and the map area, never sensor data. Without them the page still draws the background on a
 blank map, and the coordinates can be typed on the Captures page instead.
+
+The page draws the period's settled background, measured at the capture time, beside third-party
+outlines at their own dates. The fit is a pose estimate for the sensor; neither the outlines nor
+the fit is a survey, plan or specification of the buildings. See
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).

@@ -49,7 +49,7 @@ Plans that feed multiple canonical docs are marked with `†`.
 | `lidar-pipeline-reference.md`                            | EXISTS | `lidar-architecture-graph-plan`                       | Graph becomes asset of this doc       |
 | `lidar-sidecar-overview.md`                              | EXISTS | -                                                     | Already canonical                     |
 | `foreground-tracking.md`                                 | EXISTS | `lidar-bodies-in-motion-plan`                         | Kinematic prediction extends tracking |
-| `vector-scene-map.md`                                    | EXISTS | `lidar-l7-scene-plan`                                 | L7 world model merges                 |
+| `vector-scene-map.md`                                    | EXISTS | `lidar-l7-scene-plan`                                 | L7 scene geometry merges              |
 | `ground-plane-extraction.md`                             | EXISTS | -                                                     | Already canonical                     |
 | `coordinate-flow-audit.md`                               | EXISTS | -                                                     | Already canonical                     |
 | `lidar-background-grid-standards.md`                     | EXISTS | -                                                     | Already canonical                     |

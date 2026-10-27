@@ -469,6 +469,9 @@ projection of observations; band aggregates; the speed-by-distance report chart.
 ### Item 7: survey segment kind and priors hand-off
 
 **Summary:** Detect the tilted walk, tag it, and export it in a form the priors tooling reads.
+The walk is a measurement pass that yields spatial data about what the sensor sees; it is not a
+land or boundary survey (see
+[Geometry priors: data purpose and interpretation](../geometry-priors-data-purpose.md)).
 
 **Steps:**
 
