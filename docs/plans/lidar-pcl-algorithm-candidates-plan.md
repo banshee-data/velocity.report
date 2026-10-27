@@ -41,7 +41,7 @@ work, which is what D-36 and the 05x rubric exist to prevent.
 | Q1       | Fragmentation needs a joining rule, not a descriptor; descriptors wait on a class scorecard and labelled corpus   | [l4clus0005](../../data/experiments/l4clus/l4clus0005.md) | `S-OBS`, G-OBS        | v0.5.4 W3 fix                              |
 | Q2       | A visible hull adds little to following distance over a containment box; bound the gain before building           | [geom0013](../../data/experiments/geom/geom0013.md)       | `S-GEO`, G-GEO, G-MET | v0.5.5 W2, W4; v0.5.8 endpoints            |
 | Q3       | Gerardus's question; PCL offers an observability report and descriptor seeding, not a better aligner              | Recommendations to Gerardus                               | `S-SCENE`             | pose0001's follow-up, in Gerardus          |
-| Q4       | Range-image border classes give extent-end labels, negative information for coasting and veil removal             | [l3bg0027](../../data/experiments/l3bg/l3bg0027.md)       | `S-GEO`, G-TEMP       | v0.5.6 occlusion continuity, reacquisition |
+| Q4       | Range-image border classes give extent-end labels, negative information for coasting and veil removal             | [l3bg0028](../../data/experiments/l3bg/l3bg0028.md)       | `S-GEO`, G-TEMP       | v0.5.6 occlusion continuity, reacquisition |
 
 ## Design / approach
 
@@ -81,9 +81,9 @@ a documented oracle setup.
 3. A short runbook section in the review naming the PCL version, the `pcl_*` tools used, and where
    outputs go.
 
-**Milestone:** first step of ground0006 and l3bg0027; `S`.
+**Milestone:** first step of ground0006 and l3bg0028; `S`.
 
-### Item 2: Q4, border classes on the L3 grid (l3bg0027)
+### Item 2: Q4, border classes on the L3 grid (l3bg0028)
 
 **Summary:** Obstacle, shadow and veil classes per cell, scored as extent-end labels and as
 coasting evidence, replay-only.
@@ -186,18 +186,18 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 ### Complete
 
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
-- [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0027
+- [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
 ### Outstanding
 
 - [ ] Organised PCD export and the pinned oracle (`S`)
-- [ ] l3bg0027 border classes (`M`)
+- [ ] l3bg0028 border classes (`M`)
 - [ ] l4clus0005 joining rule (`M`)
 - [ ] geom0013 hull bound (`S`)
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
 
-- [ ] The review's open rows OQ-01 to OQ-11, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's open rows OQ-01 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

@@ -40,6 +40,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l2frames"
 	"github.com/banshee-data/velocity.report/internal/lidar/l3grid"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
@@ -232,6 +233,12 @@ type Config struct {
 	// BackgroundLeakReport). It reads the published frames and changes
 	// nothing in them.
 	BackgroundLeak bool
+	// FrameTap, when set, is called with every frame the pipeline publishes,
+	// warm-up included (FrameTapFrame.Scored says which): its returns, the
+	// published mask, the confirmed tracks, the fitted surface and the L3 and
+	// L4 settings it ran under. It reads them and changes no estimate and no
+	// hash (l3bg0024's lower-body block).
+	FrameTap func(FrameTapFrame)
 }
 
 // TrackerTapFrame is one tracker update as Config.TrackerTap sees it. The
@@ -1030,6 +1037,23 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	if cfg.BackgroundLeak {
 		leak = newBackgroundLeak(bgMgr)
 		pipeCfg.VisualiserAdapter = &leakAdapter{inner: adapter, tracker: pipeCfg.Tracker, leak: leak}
+	}
+	if cfg.FrameTap != nil {
+		inner := pipeCfg.VisualiserAdapter.(interface {
+			pipeline.VisualiserAdapter
+			AdaptEmptyFrameWithMask(frame *l2frames.LiDARFrame, mask []bool) interface{}
+		})
+		floor := pipeCfg.HeightBandFloor
+		if floor == 0 && pipeCfg.HeightBandCeiling == 0 {
+			floor = l4perception.DefaultHeightBandFilter().FloorHeightM
+		}
+		tap := &frameTapAdapter{inner: inner, tracker: pipeCfg.Tracker, tap: cfg.FrameTap, start: scoreStart,
+			bm: bgMgr, floor: floor}
+		if pipeCfg.GroundSurfaceFit != nil {
+			tap.surface = pipeCfg.GroundSurfaceFit
+		}
+		pipeCfg.VisualiserAdapter = tap
+		pipeCfg.L3MaskObserver = tap.observeL3
 	}
 	pipelineCallback, err := pipeCfg.BuildFrameCallback()
 	if err != nil {
