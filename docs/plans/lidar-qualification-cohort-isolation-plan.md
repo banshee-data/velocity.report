@@ -11,7 +11,7 @@
 
 Protect independent physical-measurement qualification from development leakage across San Francisco's four S2 L10 regions. One populated region supplies existing baseline evidence; the next three are provisionally assigned development, validation and blind qualification roles. Assign specific L10 IDs after site diversity review. S2 cells stratify geography; **site and capture session** are the minimum exclusion units.
 
-Existing contracts are not replaced: `internal/lidar/annotation/split.go` freezes object-disjoint tuning/held-out partitions within annotation packs; `internal/lidar/jobs/manifest.go` records capture provenance; `internal/lidar/dataset/dataset.go` manages published survey manifests. This plan adds a site/capture *eligibility* layer above those contracts.
+Existing contracts are not replaced: `internal/lidar/annotation/split.go` freezes object-disjoint tuning/held-out partitions within annotation packs; `internal/lidar/jobs/manifest.go` records capture provenance; `internal/lidar/dataset/dataset.go` manages published survey manifests. This plan adds a site/capture _eligibility_ layer above those contracts.
 
 ## Contract
 
