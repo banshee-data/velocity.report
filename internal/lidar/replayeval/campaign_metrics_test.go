@@ -16,6 +16,11 @@ type campaignFake struct {
 	l5tracks.TrackerInterface
 	active, confirmed []*l5tracks.TrackedObject
 	calls             int
+	foreground        []int
+}
+
+func (f *campaignFake) RecordFrameStats(foreground, _ int) {
+	f.foreground = append(f.foreground, foreground)
 }
 
 func (f *campaignFake) Update(_ []l5tracks.WorldCluster, _ time.Time) { f.calls++ }
@@ -85,7 +90,7 @@ func TestCampaignMissOnlyExpiryClosesInterval(t *testing.T) {
 }
 
 func TestCampaignWritePropagatesExportFailures(t *testing.T) {
-	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json", "frame_timing.json"} {
+	for _, name := range []string{"confirmed_duration.json", "tracker_timing.json", "frame_timing.json", "dbscan_input.json"} {
 		t.Run(name, func(t *testing.T) {
 			failure := errors.New("disk full")
 			out := t.TempDir()
@@ -122,5 +127,63 @@ func TestCampaignRecordsScoredFramesOnly(t *testing.T) {
 	c.recordFrame(11e9, 0.02)
 	if len(c.frameCosts) != 2 || c.frameCosts[0] != 0.01 || c.frameCosts[1] != 0.02 {
 		t.Fatalf("frame costs %v, want the two scored frames", c.frameCosts)
+	}
+}
+
+// A frame padded past the cap is counted once, with the fraction of it DBSCAN
+// kept; a frame under the cap and a warm-up frame over it are not, and the
+// tracker still sees every frame's statistics.
+func TestCampaignCountsFramesOverTheDBSCANCap(t *testing.T) {
+	fake := &campaignFake{}
+	c := &campaignTracker{TrackerInterface: fake, start: 10e9, inputCap: 8000}
+	for _, f := range []struct {
+		at    int64
+		input int
+	}{{9e9, 20000}, {10e9, 12000}, {11e9, 5000}, {12e9, 16000}, {12.5e9, 10000}} {
+		c.RecordFrameStats(f.input, 0)
+		c.recordFrame(f.at, 0.01)
+	}
+	// A frame with no foreground never calls RecordFrameStats.
+	c.recordFrame(13e9, 0.01)
+	if len(fake.foreground) != 5 {
+		t.Fatalf("the tracker saw %d frames' statistics, want 5", len(fake.foreground))
+	}
+	out := t.TempDir()
+	if err := c.write(defaultRuntime(), out); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(out, "dbscan_input.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var r struct {
+		Cap        int     `json:"cap"`
+		Frames     int     `json:"frames"`
+		Over       int     `json:"frames_over_cap"`
+		Share      float64 `json:"share_over_cap"`
+		KeptMedian float64 `json:"kept_fraction_median"`
+		KeptMin    float64 `json:"kept_fraction_min"`
+		InputMax   float64 `json:"input_points_max"`
+	}
+	if err := json.Unmarshal(data, &r); err != nil {
+		t.Fatal(err)
+	}
+	if r.Cap != 8000 || r.Frames != 5 || r.Over != 3 || math.Abs(r.Share-0.6) > 1e-12 || r.InputMax != 16000 {
+		t.Fatalf("report %+v: want cap 8000, 5 scored frames, 3 over the cap, share 0.6, largest input 16000", r)
+	}
+	// f is 2/3, 1/2 and 4/5 for the three frames over the cap.
+	if math.Abs(r.KeptMin-0.5) > 1e-12 || math.Abs(r.KeptMedian-8000.0/12000) > 1e-12 {
+		t.Fatalf("kept fractions median %v min %v, want 2/3 and 1/2", r.KeptMedian, r.KeptMin)
+	}
+}
+
+// With no frame over the cap the kept fraction is absent, not zero.
+func TestCampaignDBSCANInputWithoutCappedFrames(t *testing.T) {
+	c := &campaignTracker{TrackerInterface: &campaignFake{}, inputCap: 8000}
+	c.RecordFrameStats(100, 0)
+	c.recordFrame(0, 0.01)
+	r := c.inputReport()
+	if r["frames_over_cap"] != 0 || r["kept_fraction_median"] != (*float64)(nil) {
+		t.Fatalf("report %v, want no capped frames and no kept fraction", r)
 	}
 }
