@@ -1037,6 +1037,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_quarter_blocks.py \
 	scripts/test_check_no_results.py \
 	scripts/test_check_geometry_wording.py \
+	scripts/test_check_british_spelling.py \
 	scripts/test_check_bibliography_budget.py \
 	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \

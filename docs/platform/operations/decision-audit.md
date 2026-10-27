@@ -91,6 +91,15 @@ otherwise. The older audit's milestone evidence is a dated October 20 snapshot.
 and `make check-backlog-format` verifies the metadata, known vocabulary and twelve-item
 release cap. The completed ledger stays historical. Scientific gate validation remains separate.
 
+## October 27 decision (D-38)
+
+**D-38 — Kept:** `make check-geometry-wording` exists, runs in `lint-docs` and its own CI
+workflow, and passes. Its exclusions are named in the script, the vendored Gerardus contract among
+them until gerardus#48 lands. Two publication-checklist items are open and scheduled, not drifted:
+the published scene assets predate the context members the exporter now writes (the v0.7.8
+re-export item), and the dataset licence is undeclared (D-34). No positional uncertainty is
+computed yet; the estimator is specified, not implemented.
+
 ## How the audit runs
 
 At each release, `/release-prep` will re-read every entry against its `Kept by:` line, record the
