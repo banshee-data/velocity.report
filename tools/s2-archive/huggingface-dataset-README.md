@@ -238,9 +238,58 @@ point clouds practical to inspect in a browser, but they do not replace the raw
 PCAPNG evidence. When the two serve different questions, use the raw capture as
 the record and the scene as the convenient view.
 
+## What the geometry is
+
+The raw packets, and the scene exports derived from them, are measured spatial
+data: where a LiDAR sensor saw surfaces, at the time it recorded. Buildings,
+trees, poles, parked vehicles, and other stationary features appear only as
+returns from whatever faced the sensor. This is a measurement of observable
+physical conditions, not a plan, drawing, or specification of any structure. It
+does not aim to capture hidden elements, materials, finishes, interiors, or
+methods of construction.
+
+- **When.** Recording dates are in the table above, and the manifest holds each
+  capture's `timestamp`, `timezone`, and `duration_seconds`. Streets change; this
+  describes the recorded interval, not today.
+- **Source and terms.** The project's own sensor recorded every packet, and no
+  outside map, survey, or building data is merged in. Site positions come from
+  an operator-marked field map (see [Geographic identity](#geographic-identity)).
+  Redistribution terms are not yet declared (see [Project](#project)).
+- **Frame and units.** Scene coordinates are metres in a local right-handed
+  frame with the sensor at the origin and Z up. A header's `coordinate_frame`
+  says `ENU`, but the release carries no measured north: X and Y follow the
+  sensor's orientation, not a compass bearing. Nothing is georeferenced, and
+  captures are not registered to each other or to a map.
+- **Observed.** The raw PCAPNG: returns as the sensor reported them, clipped to
+  the site interval. A scene's `clip` points, where it has them, are the returns
+  the pipeline classed as foreground, thinned and rounded to 2 decimal places.
+- **Derived or inferred.** A scene's background layer is a settled background
+  snapshot thinned to one point per 0.25 m cell, with `ground_z` a low
+  percentile of Z. Tracks, boxes, trails, headings, and speeds are the tracker's
+  estimates. The raw capture stays the record.
+- **Accuracy and coverage.** No positional uncertainty is recorded, and the
+  sensor's ranging is not independently validated here. The sensor stood at one
+  spot per site (a tripod nudge aside), so it saw only surfaces facing it:
+  vehicles, trees, and buildings hide what is behind them, returns thin with
+  range, the vertical field of view clips tall façades, and glass, dark, or wet
+  surfaces may return little. A surface missing from the data is not evidence
+  that nothing is there.
+- **Version.** The manifest's `pipeline_version` and `raw_sha256`, and a scene
+  header's `build_version`, `tuning_hash`, and `source_vrlog_sha256`, name the
+  code, tuning, and recording behind each artefact.
+
+Use it for localisation, alignment, change detection, and traffic research. It
+is not a land or boundary survey, a structural assessment, or a plan or
+specification, and it is not an authoritative statement of current site
+conditions. The project's
+[statement of purpose](https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md)
+says the same at more length.
+
 ## Known limits
 
 - The positions are approximate readings from a field map.
+- Geometry has one viewpoint per site and no per-point uncertainty; see
+  [What the geometry is](#what-the-geometry-is).
 - `sensor_model` is not established in the release provenance and remains
   `null`.
 - `pipeline_git_sha` is unknown for the historical splitter runs.
