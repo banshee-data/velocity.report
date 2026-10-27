@@ -231,7 +231,7 @@ The L7 scene graph encodes persistent spatial relationships between features. Th
 
 - **contacts_ground**: predicted base-Z follows the ground polygon's local slope; objects cannot sink below ground
 - **follows_road**: predicted trajectory stays within the accumulated corridor width of the road polygon
-- **bounded_by**: predicted trajectory clips at wall boundaries; probability of wall penetration is zero
+- **bounded_by**: predicted trajectory clips at observed wall spans, where crossing is heavily penalised; inferred or unobserved spans stay soft constraints, since an observed surface does not show that there is no opening
 - **occluded_by**: expected detection probability drops in the occlusion arc; tracker should coast rather than kill
 
 ---

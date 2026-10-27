@@ -132,7 +132,8 @@ published `raw_sha256`, a replay of the extract through libpcap (830 frames, 114
    no located clip.
 3. **Locate each period** with its "Locate on map" link. The Locate page draws the period's
    settled background from above; search the address (after allowing OpenStreetMap requests),
-   drag the sensor and its heading handle until the walls sit on the buildings, press Snap to
+   drag the sensor and its heading handle until the background's wall returns sit on the OSM building outlines (a placement aid, not
+   control), press Snap to
    refine against OSM outlines, and Save. Save makes the period's clip if it has none.
 4. **Publish settings** on `/lidar/clips`: set the dataset id, cut the extract, and set "Replay
    from" to the extract if replays should use it. The extract runs on the capture queue; it

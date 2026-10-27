@@ -127,7 +127,8 @@ for a given pack and seed, and tested against synthetic planes with known noise.
   of the inliers on the 0.5 m column lattice. Splitting into several patches is region growing
   over lattice tiles by normal angle and offset, and is a later step than one good plane.
 - **Walls.** Static returns well above the road are projected to plan. Walls are the line
-  segments that many of them fall on; each is extruded over the height range of its inliers.
+  segments that many of them fall on; each spans the height range of its inliers, an inferred
+  extent.
 - **Poles.** Static clusters that are narrow in plan and tall.
 - **From a selection.** "Fit plane to selection" takes the points an operator has just
   brushed. It is the manual path for a wall the proposer missed, and it reuses the brushes.

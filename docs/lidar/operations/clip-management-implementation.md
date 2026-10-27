@@ -101,7 +101,7 @@ captures and trim, then records the position (`geographic_source` operator) and 
 **Known locations and checks.** "Start from a known location" applies another located clip's
 position and heading (from `GET /api/lidar/clips?located=1`), so a place located once can be applied
 to the other captures there and checked against each one's own background. **Check fit** scores the
-pose drawn now without moving it: the share of wall points within 0.5 m of an outline and their RMS.
+pose drawn now without moving it: the share of returns at wall height within 0.5 m of an outline and their RMS.
 Opened with `?clip=`, the page checks an existing clip against its own window's background
 (`GET /api/lidar/clips/{id}/background`) and saves back to that clip; the Clips page links it as
 "Check alignment on map".

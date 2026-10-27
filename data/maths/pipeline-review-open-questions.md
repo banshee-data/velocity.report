@@ -191,7 +191,8 @@ members should be improving the OpenStreetMap map first and foremost. The
 project's role is to provide tooling that makes it easy to:
 
 1. **Diff** observed geometry (settled tile-plane polygons, kerb lines,
-   building footprints visible to the sensor) against the current state of
+   the facade lines of buildings the sensor saw, which are partial outlines
+   rather than footprints) against the current state of
    OSM for the deployment area.
 2. **Propose edits** that align the community map with what the sensor observed,
    packaged as standard OSM changesets or JOSM-compatible `.osm` files.

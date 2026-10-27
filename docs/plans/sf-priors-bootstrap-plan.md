@@ -36,7 +36,7 @@ attributed source context needs to be stronger before it becomes a service contr
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | USGS 0.25 m aerial baseline            | Use the point cloud plus DEM. A bare-earth DEM alone removes buildings and cannot supply roof geometry.                                                                                                              |
 | Aerial LiDAR is canonical              | Accept as the default geometric anchor, subject to local checks, coverage and acquisition date.                                                                                                                      |
-| Footprints plus fitted roof planes     | Begin with association, heights and simple raised extents. Reliable alignment and roof-point selection come before roof-plane fitting.                                                                             |
+| Footprints plus fitted roof planes     | Begin with association, heights and simple raised extents. Reliable alignment and roof-point selection come before roof-plane fitting.                                                                               |
 | City and OSM corroborate each other    | Track shared lineage. Agreement between copied geometries is not independent survey evidence.                                                                                                                        |
 | Fixed PCAP accumulation adds detail    | Useful after motion correction and registration; repeated frames do not establish permanence.                                                                                                                        |
 | Vehicle tracks demonstrate free space  | Treat as uncertain traversability evidence only. Tracks cannot establish all intervening space as empty; visibility requires ray and occlusion analysis. Keep traffic observations outside public geometry releases. |
@@ -90,7 +90,7 @@ between those outlines, 2023 surfaces and current PCAPs may be real change.
 7. **Derive conservative geometry.** Estimate local ground, select plausible roof returns using
    height, planarity and neighbourhood evidence, and retain rejected/uncertain areas. Never relabel
    all unclassified points as roofs. Publish robust roof-height summaries, coverage and residuals;
-   preserve measured roof edges separately from inferred wall lines and extrusion surfaces.
+   preserve measured roof edges separately from inferred wall lines and raised surfaces.
 8. **Review disagreement.** Classify it as frame error, rigid displacement, local deformation,
    outdated geometry, different physical feature, occlusion or insufficient evidence. Fit a
    correction only to comparable stable geometry, then test withheld features.
@@ -107,12 +107,12 @@ estimate city-wide processing. Cache immutable inputs and rerun only affected de
 
 ### Geometry derivation choices
 
-| Approach                            | Benefit                                                       | Cost or limitation                                                     | Position                                |
-| ----------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------- |
+| Approach                            | Benefit                                                       | Cost or limitation                                                        | Position                                |
+| ----------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------- |
 | Footprints and robust heights       | Cheap, inspectable baseline; readily highlights disagreements | Raised walls are inferred extents; roof overhangs need separate treatment | First release                           |
-| Roof planes and detailed fitting    | Better roof structure and matching surfaces                   | Requires clean roof points and aligned outlines; more failure cases    | Selective second stage                  |
-| Extract all outlines from LiDAR     | Can expose omissions and changed buildings                    | Vegetation, touching roofs and occlusion make identity/topology harder | Generate review candidates              |
-| Fuse ground PCAP detail immediately | Potentially useful façades and kerbs                          | Adds pose, timing, persistence and visibility uncertainty              | Separate evidence layer until validated |
+| Roof planes and detailed fitting    | Finer roof surface shape and matching surfaces                | Requires clean roof points and aligned outlines; more failure cases       | Selective second stage                  |
+| Extract all outlines from LiDAR     | Can expose omissions and changed buildings                    | Vegetation, touching roofs and occlusion make identity/topology harder    | Generate review candidates              |
+| Fuse ground PCAP detail immediately | Potentially useful façades and kerbs                          | Adds pose, timing, persistence and visibility uncertainty                 | Separate evidence layer until validated |
 
 [Roofer's architecture][roofer] requires classified points and aligned footprints and does not
 provide automatic footprint extraction. It is a later roof-plane fitting candidate, not the

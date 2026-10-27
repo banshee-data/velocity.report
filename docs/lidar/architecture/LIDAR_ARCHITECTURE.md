@@ -484,7 +484,7 @@ packages define that boundary; the reference driver is not a runtime dependency.
 
 ## L7 scene: architectural role
 
-**L7 stays Scene (D-36): its number and meaning are frozen.** Gerardus—not velocity.report—builds and persists registered static roads, kerbs, ground, structures and spatial priors. L7 becomes the **dynamic scene-context and relationship boundary** between sensor-local perception (L1–L6) and measurements (L8).
+**L7 stays Scene (D-36): its number and meaning are frozen.** Gerardus—not velocity.report—derives and persists registered static geometry (roads, kerbs, ground and the surfaces of structures) and spatial priors. L7 becomes the **dynamic scene-context and relationship boundary** between sensor-local perception (L1–L6) and measurements (L8).
 
 - **L4** creates sensor-local observed geometry; it queries static ground through an injected low-level adapter, never by importing L7.
 - **L5** is authoritative for physical body dimensions, pose, velocity, identity, uncertainty and observation/coasting support. There must not be a competing body estimator in L7.

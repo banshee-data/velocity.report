@@ -126,14 +126,18 @@ Each ground polygon stores:
 Structures are vertical surfaces observed as reflective returns from building facades, fences, and
 walls. They are represented as measured extents:
 
-- **Footprint polygon**: 2D outline (viewed from above) defining the structure's horizontal extent.
+- **Footprint polygon**: 2D outline (viewed from above) of the horizontal extent observed, or
+  inferred across unseen stretches (§5.5): a lower bound on the structure's extent, not its full
+  footprint.
 - **Vertical plane equation**: For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
 - **Height range**: [Z_min, Z_max] observed extent above ground, capped by sensor visibility.
 
 > **Source:** `StructureFeature` and `WallSegment` structs in [internal/lidar/](../../../internal/lidar) (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
 
-A wall plane fitted to returns is `observed`; a footprint completed across an unseen stretch, such
-as a minimum bounding rectangle, is `inferred` (§5.5). An unseen side, roof, opening or recess is
+A wall plane fitted to returns is `observed` over the stretch its returns cover and `inferred` where
+it is carried across an unseen stretch; a footprint completed across an unseen stretch, such as a
+minimum bounding rectangle, is `inferred` (§5.5). A top the highest ring still hit is an observed
+lower bound. An unseen side, roof, opening or recess is
 missing from the record, and the record does not claim it is missing from the site.
 
 **Why not store full 3D meshes?** The map records what the sensor measured of a structure, not a
@@ -212,12 +216,12 @@ Storing all of this at maximum resolution everywhere is wasteful. Conversely, a 
 
 The vector scene map uses **four levels of detail (LOD 0–3)**, inspired by mapping conventions (zoom levels) and point cloud LOD systems:
 
-| LOD | Label       | Typical Scale | Ground Resolution                              | Structure Resolution                                                | Volume Resolution                 | Use Case                                       |
-| --- | ----------- | ------------- | ---------------------------------------------- | ------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------- |
-| 0   | **Block**   | > 50 m        | Single polygon per road segment                | Building footprint (rectangle)                                      | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context     |
-| 1   | **Street**  | 10–50 m       | Polygon per lane or surface type               | Simplified wall outlines (4–8 vertices)                             | Tree canopy OBBs                  | Street-level navigation, occlusion reasoning   |
-| 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners                        | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
-| 3   | **Detail**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes at the finest corner positions the measurements support | Dense bounding volumes            | Registration features, driveway dip profiles   |
+| LOD | Label       | Typical Scale | Ground Resolution                              | Structure Resolution                                                  | Volume Resolution                 | Use Case                                       |
+| --- | ----------- | ------------- | ---------------------------------------------- | --------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------- |
+| 0   | **Block**   | > 50 m        | Single polygon per road segment                | Building footprint (rectangle)                                        | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context     |
+| 1   | **Street**  | 10–50 m       | Polygon per lane or surface type               | Simplified wall outlines (4–8 vertices)                               | Tree canopy OBBs                  | Street-level navigation, occlusion reasoning   |
+| 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes, each corner with its stated half-width (§5.5) | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
+| 3   | **Detail**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes at the finest corner positions the measurements support   | Dense bounding volumes            | Registration features, driveway dip profiles   |
 
 ### LOD hierarchy as a tree
 
@@ -412,14 +416,14 @@ Every stored feature, not only an exported one, carries what a reader needs to i
 published encoding is in the [prior file format](./geometry-prior-service.md) (§File format
 specification); this table states what the scene map must keep.
 
-| Item                   | Expectation for a stored feature                                                                                                                                                                                                                                      |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Evidence status        | `observed`, `inferred`, `source_data` or `prior_only`. Fitted planes and heights from returns are `observed`; a bounding-rectangle completion is `inferred`; an imported S3DB footprint or height is `source_data`; a configured level-height default is `prior_only` |
-| Source                 | The input the geometry came from: this sensor's session, or a source dataset with its recorded terms                                                                                                                                                                  |
-| Acquisition time       | The instant or interval over which the returns were gathered; `Settled` and last-updated times say when the map changed, not when the surface was seen                                                                                                                |
-| Positional uncertainty | Conservative half-widths for position and for height, from the [positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md). The Douglas-Peucker tolerance (§4.3) is one of its terms                          |
-| Coverage               | The share of the feature's extent supported by returns; an occluded side is a recorded gap, never an absence                                                                                                                                                          |
-| Version                | `scene_map_version` and the processing configuration that produced the feature                                                                                                                                                                                        |
+| Item                   | Expectation for a stored feature                                                                                                                                                                                                                                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Evidence status        | `observed`, `inferred`, `source_data` or `prior_only`. Fitted planes and heights from returns are `observed` over the stretch their returns cover and `inferred` where carried across an unseen one; a bounding-rectangle completion is `inferred`; an imported S3DB footprint or height is `source_data`; a configured level-height default is `prior_only` |
+| Source                 | The input the geometry came from: this sensor's session, or a source dataset with its recorded terms                                                                                                                                                                                                                                                         |
+| Acquisition time       | The instant or interval over which the returns were gathered; `Settled` and last-updated times say when the map changed, not when the surface was seen                                                                                                                                                                                                       |
+| Positional uncertainty | Conservative half-widths for position and for height, from the [positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md). The Douglas-Peucker tolerance (§4.3) is one of its terms                                                                                                                 |
+| Coverage               | The share of the feature's extent supported by returns; an occluded side is a recorded gap, never an absence                                                                                                                                                                                                                                                 |
+| Version                | `scene_map_version` and the processing configuration that produced the feature                                                                                                                                                                                                                                                                               |
 
 None of these members exists in code yet: the feature types are marked "when implemented" and the
 §5.3 columns do not carry them. The specification requires them before any feature is exported or
@@ -539,7 +543,7 @@ This ensures that **every query returns something if any coverage exists**, rega
 
 At the global level (Tier 2, WGS84-aligned and partitioned by canonical S2 L13 cells), the map should be navigable as a coherent simplified representation. S2 supplies the geographic index; it does not replace polygon coordinates or the scene-map LOD hierarchy:
 
-- **Street-level polygons** (LOD 0–1) form a continuous surface with major boundaries visible: road edges, building outlines, vegetation zones.
+- **Street-level polygons** (LOD 0–1) form a continuous surface over the observed area with major boundaries visible: road edges, building outlines, vegetation zones. Unobserved stretches stay recorded coverage gaps (§5.5).
 - **Detail zones** (LOD 2–3) appear as nested refinements visible only when queried at higher LOD.
 
 ### 8.2 Transition strategy
@@ -548,7 +552,7 @@ At the global level (Tier 2, WGS84-aligned and partitioned by canonical S2 L13 c
 
 ```
 Query at LOD 0: Returns ~15 large ground polygons + building footprints + vegetation spheres.
-                 → Coherent block-level view with no gaps.
+                 → Coherent block-level view of the observed area.
 
 Query at LOD 1: Returns ~50 polygons (lanes, simplified walls, tree OBBs).
                  → Street-level view with lane separation visible.
@@ -560,7 +564,7 @@ Query at LOD 3: Returns ~500 polygons (registration reference features, precise 
                  → Finest-detail geometry where available; LOD 2 elsewhere.
 ```
 
-**Gap-free guarantee:** Because parent polygons are preserved, querying at any LOD returns full scene coverage. Finer features subdivide their parents but do not leave gaps. A client can render LOD 0 as the base layer, then overlay LOD 1+ detail where available.
+**Gap-free guarantee:** Because parent polygons are preserved, querying at any LOD returns the observed area without gaps between levels; an area the sensor never saw is a coverage gap at every level. Finer features subdivide their parents but do not leave gaps. A client can render LOD 0 as the base layer, then overlay LOD 1+ detail where available.
 
 ### 8.3 Global-to-Local mapping
 
@@ -655,7 +659,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 - [ ] Local-to-global merge with weighted averaging
 - [ ] OSM S3DB structure-prior provider (Overpass/PBF import + local cache)
 - [ ] S3DB → `StructureFeature` translation (outlines, `building:part=*`, height/roof tags, provenance)
-- [ ] Scan-vs-S3DB delta detection (footprint alignment, height, missing parts)
+- [ ] Scan-vs-S3DB delta detection (footprint alignment, height, parts the scan observed that S3DB lacks; an S3DB part the scan did not see is unconfirmed, not missing)
 - [ ] Export human-review OSM proposal bundles (`.osc`/`.osm`, GeoJSON diff, QA report)
 - [ ] JOSM/iD review workflow docs (manual upload only; no automatic OSM writes)
 - [ ] Stale feature pruning for LOD 2–3
@@ -767,8 +771,9 @@ is **human-reviewed proposals by default** (not autonomous uploads).
 - No automatic OSM uploads from the perception pipeline.
 - Every proposed object change must be reviewable individually.
 - Proposal export should preserve OSM IDs/version numbers and detect edit conflicts.
-- Proposals cover footprint, height and roof form measured from returns, and no other tags. Each
-  states the acquisition time and positional uncertainty of the scan behind it, because a scan shows
+- Proposals cover footprint, height and roof form measured from returns, and no other tags. A top
+  the highest ring still hit is a lower bound (`z_max_censored`) and is never proposed as
+  `height=*`. Each states the acquisition time and positional uncertainty of the scan behind it, because a scan shows
   conditions at that time only.
 - Bulk or repeated scripted edits must follow OSM community guidance for
   automated/mechanical edits before execution.
