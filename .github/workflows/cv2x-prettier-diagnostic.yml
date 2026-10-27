@@ -18,8 +18,6 @@ jobs:
         with:
           node-version: "22"
       - uses: pnpm/action-setup@v4
-        with:
-          version: "12.6.0"
       - name: Install pinned formatter dependencies
         run: pnpm --dir web install --frozen-lockfile
       - name: Format plan and report exact resulting bytes
