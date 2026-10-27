@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -24,14 +25,37 @@ type campaignTracker struct {
 	// which contains its Tracker.Update: the cost a live sensor pays per
 	// frame, against which an update cost is judged.
 	frameCosts []float64
+	// inputCap is the cap DBSCAN clusters under (pipeline.DBSCANInputCap),
+	// and input the size of the current frame's DBSCAN input, from
+	// RecordFrameStats; recordFrame counts it and resets it. inputSizes
+	// holds every scored frame's input and keptFractions f = cap/input for
+	// each scored frame over the cap (l4clus0004).
+	inputCap      int
+	input         int
+	inputSizes    []float64
+	keptFractions []float64
 }
 
-// recordFrame records one frame's pipeline callback time, when the frame
-// starts inside the scored window.
+// recordFrame records one frame's pipeline callback time and its DBSCAN
+// input against the cap, when the frame starts inside the scored window.
 func (c *campaignTracker) recordFrame(frameStartUnixNanos int64, elapsedSeconds float64) {
-	if frameStartUnixNanos >= c.start {
-		c.frameCosts = append(c.frameCosts, elapsedSeconds)
+	input := c.input
+	c.input = 0
+	if frameStartUnixNanos < c.start {
+		return
 	}
+	c.frameCosts = append(c.frameCosts, elapsedSeconds)
+	c.inputSizes = append(c.inputSizes, float64(input))
+	if c.inputCap > 0 && input > c.inputCap {
+		c.keptFractions = append(c.keptFractions, float64(c.inputCap)/float64(input))
+	}
+}
+
+// RecordFrameStats forwards the frame's foreground statistics and keeps the
+// first, the size of DBSCAN's input, for recordFrame.
+func (c *campaignTracker) RecordFrameStats(totalForegroundPoints, clusteredPoints int) {
+	c.TrackerInterface.RecordFrameStats(totalForegroundPoints, clusteredPoints)
+	c.input = totalForegroundPoints
 }
 
 type confirmationInterval struct {
@@ -92,6 +116,27 @@ func (c *campaignTracker) observe(tracks []*l5tracks.TrackedObject, at int64) {
 		}
 	}
 }
+
+// inputReport is each scored frame's DBSCAN input against the cap: how
+// many frames were over it, and the kept fraction among them.
+func (c *campaignTracker) inputReport() map[string]any {
+	over := len(c.keptFractions)
+	var share, keptMedian, keptMin *float64
+	if n := len(c.inputSizes); n > 0 {
+		v := float64(over) / float64(n)
+		share = &v
+	}
+	if over > 0 {
+		m, lo := campaignQuantile(c.keptFractions, .5), slices.Min(c.keptFractions)
+		keptMedian, keptMin = &m, &lo
+	}
+	return map[string]any{"definition": "DBSCAN's input in each scored frame, the foreground after the vertical clip, against l4.dbscan_xy_v1.foreground_max_input_points; a frame over the cap is clustered on a uniform subsample keeping f = cap/input of it",
+		"cap": c.inputCap, "frames": len(c.inputSizes), "frames_over_cap": over, "share_over_cap": share,
+		"kept_fraction_median": keptMedian, "kept_fraction_min": keptMin,
+		"input_points_p50": campaignQuantile(c.inputSizes, .5), "input_points_p99": campaignQuantile(c.inputSizes, .99),
+		"input_points_max": campaignQuantile(c.inputSizes, 1)}
+}
+
 func campaignQuantile(values []float64, q float64) float64 {
 	if len(values) == 0 {
 		return 0
@@ -127,7 +172,7 @@ func (c *campaignTracker) write(runtime replayRuntime, out string) error {
 	duration := map[string]any{"definition": "first confirmed scored frame to last supported observation; complete intervals exclude warmup-born and active-at-end tracks", "complete_count": count, "left_censored_count": left, "right_censored_count": right, "mean_confirmed_duration_seconds": mean, "intervals": intervals}
 	timing := map[string]any{"definition": "wall time inside Tracker.Update only; excludes parsing, clustering, persistence and diagnostic collection", "samples": len(c.costs), "p50_seconds": campaignQuantile(c.costs, .5), "p99_seconds": campaignQuantile(c.costs, .99)}
 	frames := map[string]any{"definition": "wall time of each scored frame's pipeline callback: L3 background, L4 clustering, L5 tracking (Tracker.Update included) and L6 classification, with the replay's recording; excludes PCAP reading and frame assembly", "samples": len(c.frameCosts), "p50_seconds": campaignQuantile(c.frameCosts, .5), "p95_seconds": campaignQuantile(c.frameCosts, .95), "p99_seconds": campaignQuantile(c.frameCosts, .99)}
-	for name, value := range map[string]any{"confirmed_duration.json": duration, "tracker_timing.json": timing, "frame_timing.json": frames} {
+	for name, value := range map[string]any{"confirmed_duration.json": duration, "tracker_timing.json": timing, "frame_timing.json": frames, "dbscan_input.json": c.inputReport()} {
 		b, err := json.MarshalIndent(value, "", "  ")
 		if err != nil {
 			return err
