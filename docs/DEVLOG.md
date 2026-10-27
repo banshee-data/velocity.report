@@ -8,7 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 27, 2026 - Research briefing review: evidence and measurement context
+## October 27, 2026 - Research briefing review and C-V2X receiver feasibility
+
+- {docs/cv2x-receiver-feasibility-research} Documented a research-only, sub-$500 C-V2X roadside receiver feasibility plan: the srsRAN B210/GPSDO demonstration, corrected bladeRF model ranges, HackRF and AG15/AG18/SIM8100 procurement options, GNSS timebase dependency, complete ITS-to-J2735 decode stages, bounded raw-I/Q costs, privacy/legal constraints, six independent research assignments, and evidence gates before any hardware purchase or public-road capture: [plan](plans/platform-cv2x-roadside-receiver-feasibility-plan.md).
 
 - {claude/research-briefing-2026-10-26} Updated the [October 26 briefing](lidar/operations/brief/research-briefing-2026-10-26.md) after primary-report verification, superseding its original press-release-only SFMTA status. Distinguished comparison-site declines from proven spillover, retained the preliminary SafeTREC qualification, separated detector, hardware, and app hypotheses, and replaced the post-installation comparison described as a reversal with controlled research designs. Added a qualified setup warning and recommended optional operator-provided enforcement context separate from metrics. Corrected the reference audit ordering. The original Anderson devlog wording was too strong: 5.19 km/h is the pooled model estimate, not the decline at every site.
 
