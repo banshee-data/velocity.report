@@ -56,7 +56,7 @@ private let roofFaces = [
 /// vertical polygons with their z, height_m 0. The south wall stops at the
 /// eave (31 m); the east gable end rises to the ridge (33 m) in five
 /// vertices. The part's height tag still says 12 (the top of its roof):
-/// extruding it would stand every wall 2 m over the gutter.
+/// raising the outline to it would stand every wall 2 m over the gutter.
 let rooflineWallSurfaces = [
     feature(
         .wallSurface, [0, 0, 21, 10, 0, 21, 10, 0, 31, 0, 0, 31], id: "gms:wall/main-0",
@@ -550,7 +550,7 @@ struct StreetscapeStyleTests {
         #expect(summary.wallSurfaces == 2)
         let overlay = try #require(sink.overlays.last ?? nil)
         // Two base rings (16), the walls (18) and the roof outlines (16),
-        // against an older server's 64 with the parts extruded.
+        // against an older server's 64 with the parts drawn as prisms.
         #expect(overlay.buildingVertexCount == 50)
         #expect(overlay.roofFillVertexCount == 12)
     }

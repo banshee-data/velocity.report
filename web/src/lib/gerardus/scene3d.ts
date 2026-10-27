@@ -578,8 +578,8 @@ function heightOf(f: SiteFrameFeature): number {
 /**
  * Which walls the features carry as vertical polygons. Where they do, nothing
  * else is raised to stand in for them: a part's height is the top of its
- * roof, and a box's is 3DEP's roof p95, so either, extruded, stands its walls
- * over the gutter (Gerardus docs/plans/ROOFLINE-WALLS.md).
+ * roof, and a box's is 3DEP's roof p95, so an outline raised to either stands
+ * its walls over the gutter (Gerardus docs/plans/ROOFLINE-WALLS.md).
  */
 interface Walls {
 	/** `wall_surfaces`: the building parts are outlines. */
