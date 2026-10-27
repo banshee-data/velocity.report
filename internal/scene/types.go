@@ -180,13 +180,24 @@ type ManifestPart struct {
 // BackgroundExport is the static scene: one settled snapshot of the street with
 // nothing moving in it. Written as a single file rather than chunks, because a
 // viewer fetches it once and keeps it.
+//
+// The points are returns the sensor observed, in metres in the source
+// recording's coordinate frame, thinned to VoxelMetres. They are measured
+// spatial data about the street at the time the source recording was made, not
+// a survey, plan or specification, and a feature the sensor did not see is not
+// asserted absent (docs/geometry-priors-data-purpose.md). The recording is
+// identified by SourceVRLOGSHA256 and Version names the schema. GeneratedAt is
+// when the export was written, not when the street was observed: the
+// snapshot's own timestamp, the frame, a positional uncertainty and a coverage
+// figure are not carried into this file yet.
 type BackgroundExport struct {
 	Version int    `json:"version"`
 	Site    string `json:"site,omitempty"`
 	Title   string `json:"title,omitempty"`
 
 	// VoxelMetres is the downsampling grid applied before export. Background is
-	// context rather than measurement, so it is thinned harder than a clip.
+	// for viewing rather than measuring from, so it is thinned harder than a
+	// clip.
 	VoxelMetres float64 `json:"voxel_metres"`
 	PointCount  int     `json:"point_count"`
 

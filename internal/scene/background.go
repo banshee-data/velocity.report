@@ -16,10 +16,10 @@ import (
 
 // DefaultBackgroundVoxel is the downsampling grid for the static scene.
 //
-// Coarser than a clip on purpose: the background exists to tell a viewer where
-// the kerb and the buildings are, not to be measured. A settled snapshot from a
-// Pandar40P carries about 69,000 points, which is more than a browser needs to
-// convey a street.
+// Coarser than a clip on purpose: the background exists to show a viewer where
+// the kerb and the buildings were observed, at a resolution for viewing rather
+// than for measuring from. A settled snapshot from a Pandar40P carries about
+// 69,000 points, which is more than a browser needs to convey a street.
 const DefaultBackgroundVoxel = 0.25
 
 // ExportBackground writes the static scene: one settled background snapshot,
