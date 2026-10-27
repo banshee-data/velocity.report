@@ -371,6 +371,12 @@ type TrackingPipelineConfig struct {
 	// unchanged. Off by default; the replay experiment box_ground sets it.
 	GroundSurfaceForTracker bool
 
+	// GroundSurfaceForReport fits the same surface only to publish it
+	// through GroundSurfaceFit, for a caller that reads it beside the
+	// defaults' tracks (ground0001's ground report): it neither clips by it
+	// nor hands it to the tracker. Off by default.
+	GroundSurfaceForReport bool
+
 	// SurfaceGroundRegionMetres is the per-side size of the grid cells the
 	// surface-ground fit re-fits independently, so a crest, valley, or a
 	// driveway apron meeting the road at a different grade is not forced
@@ -441,6 +447,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	removeGround := cfg.RemoveGround
 	useSurfaceGround := cfg.UseSurfaceGround
 	surfaceForTracker := cfg.GroundSurfaceForTracker
+	surfaceForReport := cfg.GroundSurfaceForReport
 	surfaceGroundFloor := cfg.SurfaceGroundFloor
 	surfaceGroundCeiling := cfg.SurfaceGroundCeiling
 	surfaceGroundRegionMetres := cfg.SurfaceGroundRegionMetres
@@ -839,8 +846,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		filteredPoints := worldPoints
 		var lowerGroundRejected []l4perception.WorldPoint
 		// The surface is fitted once, when the background has settled, for
-		// the clip, the tracker's published box, or both.
-		if ((removeGround && useSurfaceGround) || surfaceForTracker) && groundSurface == nil {
+		// the clip, the tracker's published box, a report, or any of them.
+		if ((removeGround && useSurfaceGround) || surfaceForTracker || surfaceForReport) && groundSurface == nil {
 			surface, err := fitGroundSurface(cfg.BackgroundManager, surfaceGroundRegionMetres)
 			if err == nil {
 				groundSurface = &surface

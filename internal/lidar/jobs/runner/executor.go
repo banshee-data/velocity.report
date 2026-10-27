@@ -175,6 +175,9 @@ func baselineArgs(req jobs.JobRequest, env Env, tuningPath string) ([]string, er
 	if p.SurfaceGround {
 		args = append(args, "-surface-ground")
 	}
+	if p.GroundReport {
+		args = append(args, "-ground-report")
+	}
 	if req.Replay.MeasurementMode != "" {
 		args = append(args, "-measurement-mode", req.Replay.MeasurementMode)
 	}

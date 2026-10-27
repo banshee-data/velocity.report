@@ -87,7 +87,7 @@ is refused rather than ignored.
 | Kind                        | Tool                              | Parameters                                                                                | Summary               |
 | --------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- | --------------------- |
 | `benchmark`                 | `lidar-bench`, in-process         | `profile`, `repeats`                                                                      | `benchmark.json`      |
-| `state_estimation_baseline` | `lidar-state-estimation-baseline` | `case`, `surface_ground`, `keep_evidence`                                                 | `phase0-summary.json` |
+| `state_estimation_baseline` | `lidar-state-estimation-baseline` | `case`, `surface_ground`, `ground_report`, `keep_evidence`                                | `phase0-summary.json` |
 | `track_scorecard`           | `lidar-track-scorecard`           | `evidence_job` (an accepted baseline attempt on the same worker), `scoring_start_seconds` | `scorecard.json`      |
 
 The two tool kinds live on `dd/docs/state-est` today: run them from a commit on that branch.

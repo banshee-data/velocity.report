@@ -173,6 +173,14 @@ func (s RegionalGroundSurface) HeightAt(x, y float64) float64 {
 	return s.Global.HeightAt(x, y)
 }
 
+// RegionAt returns the plane fitted for the cell holding a site-frame
+// position, and whether that cell has one of its own; a cell without one is
+// served by Global.
+func (s RegionalGroundSurface) RegionAt(x, y float64) (GroundSurface, bool) {
+	surface, ok := s.regions[regionKeyFor(x, y, s.CellMetres)]
+	return surface, ok
+}
+
 // BlendedHeightAt is HeightAt without its steps. Each cell's plane is fitted
 // on its own, so neighbouring planes can disagree at their shared edge, and
 // HeightAt steps there by the disagreement: up to 0.4 m on kirk0, where it

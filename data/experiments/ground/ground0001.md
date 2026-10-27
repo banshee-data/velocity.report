@@ -19,6 +19,30 @@ arms:
 cases:
   corpus: d2-first-segment
   count: 23
+  sites:
+    - marina-webster-beach
+    - columbus-broadway
+    - ashbury-downey
+    - haight-divisadero
+    - pierce-haight
+    - fulton-divisadero
+    - california-leon-baker
+    - broadway-gough
+    - laguna-eddy
+    - lombard-broderick
+    - marina-broderick
+    - lombard-laguna
+    - columbus-north-point
+    - embarcadero-bay
+    - van-ness-sacramento
+    - embarcadero-broadway
+    - franklin-mcallister
+    - hyde-ofarrell
+    - bush-powell
+    - 1st-mission
+    - embarcadero-bryant
+    - 3rd-folsom
+    - howard-6th
 steps:
   - id: implement
     kind: manual:implement
@@ -29,7 +53,8 @@ steps:
       the confirmed moving tracks' course; the cell planes' height against the global plane at
       the positions tracks cross, p50, p90 and max; and for each confirmed track at 2 m/s or more
       the slope of its cluster's lowest return against along-track distance, in the sensor frame
-      and as height above the surface, pooled per site into the summary.
+      and as height above the surface, pooled per site into the summary. Built as the tool's
+      -ground-report, the kind's ground_report.
   - id: replay
     kind: state_estimation_baseline
     over: [arms, cases]
@@ -84,6 +109,25 @@ applied, so the tracks are the defaults'.
 - A body whose lowest return rises or falls with distance in the sensor frame but not above the
   surface is a body the surface explains; one that does neither, or both, is a merge, a clip
   artefact or a kerb, and is listed.
+
+**Definitions and thresholds, fixed with the instrument (2026-10-26), before the replays.** The
+surface is the one the clip and `box_ground` would use: fitted once, at the first frame the
+background has settled, and published, never applied. A sample is a confirmed track observed in a
+scored frame (no misses), at the track's position, with its associated cluster's lowest return.
+A moving track is one with at least 10 samples, a median speed of 2 m/s or more and 5 m or more of
+travel; its course is its net displacement, and the site's axis the length-weighted axial mean of
+the courses, with its concentration (1 for one flow, near 0 for two equal crossing flows). The
+grade along and across is the global plane's rise per metre along and across each course, median
+over the tracks. The departure (measure 2) is read at every sample of every moving track, one a
+track a frame: the cell's own plane less the global plane where the cell has one, 0 where the
+global plane serves it. The height above the surface is the lowest return less the blended
+surface. A lowest return rises or falls with distance when its least-squares slope is 0.01 m/m or
+more, changes by 0.10 m or more over the track, and is two standard errors or more from zero;
+each moving track is `flat` (neither), `explained` (the sensor frame only), `surface_only` (above
+the surface only) or `both`, and the last two are listed, up to 25 a site. The first five-minute
+segment of each site is replayed for 200 s after the 70 s warm-up, as the earlier corpus screens
+did, with no evidence database; the repeat runs without the report, so the tool's repeat check
+also shows it changed nothing.
 
 **What it does not establish.** The ground's true grade: the plane is fitted to the sensor's own
 returns, so a pitched mount and a graded road are one number, which is the number the tracker

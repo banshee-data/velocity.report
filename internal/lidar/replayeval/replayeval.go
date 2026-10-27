@@ -187,6 +187,11 @@ type Config struct {
 	// SurfaceGroundRegionMetres is the per-region ground-plane cell size; 0
 	// uses l3grid.DefaultRegionSizeMetres. See TrackingPipelineConfig.
 	SurfaceGroundRegionMetres float64
+	// GroundSurfaceReport fits the same P11 surface once the background
+	// settles and returns it in Result.GroundSurfaceFit, read and never
+	// applied: the clip, the tracker and the parameter hash are those of the
+	// same replay without it (ground0001).
+	GroundSurfaceReport bool
 	// Experiments switches on default-off, Go-level options by name; see
 	// experiments.go. The list is normalised, folded into the parameter hash
 	// and recorded in the run metadata. Empty leaves the replay exactly as
@@ -317,8 +322,9 @@ type Result struct {
 	// refinement_report.json. Nil without the experiment.
 	Refinement *RefinementReport
 	// GroundSurfaceFit is the P11 ground-plane fit reached during this
-	// replay, when Config.UseSurfaceGround was set and the background
-	// settled in time to fit one. Nil otherwise.
+	// replay, when Config.UseSurfaceGround or Config.GroundSurfaceReport was
+	// set, or the box_ground experiment ran, and the background settled in
+	// time to fit one. Nil otherwise.
 	GroundSurfaceFit *l3grid.RegionalGroundSurface
 	// TimeDomain describes the capture-time stream the tracker consumed
 	// across the processed window, warm-up included. It is also written to
@@ -900,6 +906,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		RemoveGround:              tuningCfg.GetRemoveGround(),
 		UseSurfaceGround:          useSurfaceGround,
 		GroundSurfaceForTracker:   hasExperiment(experiments, ExperimentBoxGround),
+		GroundSurfaceForReport:    cfg.GroundSurfaceReport,
 		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
@@ -972,7 +979,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		pipeCfg.ObservationFrameSink = observationFrameSink
 	}
 	var groundSurfaceFit atomic.Pointer[l3grid.RegionalGroundSurface]
-	if useSurfaceGround || pipeCfg.GroundSurfaceForTracker {
+	if useSurfaceGround || pipeCfg.GroundSurfaceForTracker || pipeCfg.GroundSurfaceForReport {
 		pipeCfg.GroundSurfaceFit = &groundSurfaceFit
 	}
 	// The refinement harness observes the tracker's filter record; it is
