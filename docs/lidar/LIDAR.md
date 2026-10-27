@@ -23,6 +23,10 @@ and adoption gates. The
 classical range-image pipeline (RECM ground, JCP boundary vote, curved-voxel clustering, hull and
 calipers outlines) against the same layers, and proposes one spike: a two-directional boundary
 vote on the L3 grid (l3bg0026).
+The [PCL review](operations/pcl-algorithm-review.md) reads the Point Cloud Library against the
+owner's five questions (road and kerbs, descriptors, hulls, static reconstruction, occlusion) and
+proposes four experiments, led by range-image border classes on the L3 grid
+([plan](../plans/lidar-pcl-algorithm-candidates-plan.md)).
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

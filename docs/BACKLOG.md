@@ -489,6 +489,15 @@ Land the reference edition and temporal strata before their report consumers in 
 - **P2** Radar tracker jobs and the command log (vocabulary Item 9, Phase 2): `radar_track_build` jobs, `/api/radar/tracker`, Settings "Radar tracker", `velocity radar tracks build|analyse|delete|migrate`, and every command and reply written to `radar_commands` and `radar_command_log` with a LAN-only log route; after the Phase 1 exit and the one-queue design: [design doc](plans/platform-vocabulary-and-data-model-plan.md) `M` `S-RADAR`
 - **P2** Typed UUID prefixes: migrate all UUID generation to 4-char prefixed format (`trak_`, `runa_`, `runy_`, `runs_`, `scne_`, `eval_`, `regn_`, `labl_`, `swep_`); create `internal/id` package; accept mixed formats in SQLite: [design doc](plans/platform-typed-uuid-prefixes-plan.md) `M` `S-UI`
 
+### PCL review candidates (experiments first; a port displaces a 05x row only after it passes)
+
+- **P2** Organised PCD export with source ordinals for frames and settled backgrounds (`bgasc -format pcd`), and the pinned PCL 1.15.1 oracle setup, shared by the four PCL experiments and the Gerardus upload: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-pinned-oracle) `S` `S-EVID`
+- **P2** Border classes on the L3 grid (l3bg0027): obstacle, shadow and veil cells as extent-end labels, veil removal and coasting evidence, replay-only, scored on kirk0 before the v0.5.6 occlusion continuity values are chosen: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-2-q4-border-classes-on-the-l3-grid-l3bg0027) `M` `S-GEO`
+- **P2** Radius-graph joining rule (l4clus0005): whether kirk0's 20 to 50 m fragments join by a radius graph, and with a height-overlap condition, at the current radius; feeds the v0.5.4 W3 fix: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-3-q1-the-joining-rule-l4clus0005) `M` `S-OBS`
+- **P2** Hull bound (geom0013): the distance from the published box's faces to the visible hull along and across the path on the pilot's poses and pairs, before any hull endpoint source: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-4-q2-the-hull-bound-geom0013) `S` `S-GEO`
+- **P2** Constrained road plane and kerb split (ground0006): perpendicular-plane MSAC and a difference-of-normals kerb split on the settled backgrounds against the regional surface; kerb lines offered to Gerardus: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-5-q0-constrained-ground-and-kerbs-ground0006) `M` `S-OBS`
+- **P2** Registration recommendations to Gerardus: an observability report from the matched normals, descriptor-seeded hypotheses and change maps for repeat surveys, scored by pose0001's rule there: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-6-q3-recommendations-to-gerardus) `S` `S-SCENE`
+
 Agreed work that is not being scheduled, with its reason. A parked group returns to a slot when its trigger occurs.
 
 ### Design system (after the v0.7.9 frontend spec)

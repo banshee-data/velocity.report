@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 27, 2026 - What the Point Cloud Library offers the physical measurement
+
+- {claude/sweet-hawking-b5i6j9} Reviewed PCL 1.15.1 against the owner's five questions and recorded what it offers as an offline oracle and a specification for small Go ports, never a runtime dependency; proposed four experiments with their rules (l3bg0027 border classes on the L3 grid, l4clus0005 radius-graph joining, geom0013 the hull bound, ground0006 a constrained road plane and kerbs) and Parked P2 rows for them and for recommendations to Gerardus
+
 ## October 26, 2026 - Where the L7 scene stands, radar FFT evidence, and a stricter Gerardus fake
 
 - {claude/recalibrate-after-vector-scene} Recalibrated the plans after the vector scene week: Gerardus finishes its buildings and trees (about 1–1.5 weeks), then vehicle state estimation, filtering and tracking come next. Mobile mapping (SLAM) became the 06x series, v0.6.0–v0.6.4 (the SLAM spike, then the route-capture rows that were already 0.6.x), and the static deployment, reporting and publishing slots moved from v0.6.0–v0.6.10 to v0.7.0–v0.7.8, with the united frontend at v0.7.9; the v0.7.7 road layer and the v1.0 L7 row were re-scoped onto what Gerardus builds
