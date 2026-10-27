@@ -90,7 +90,7 @@ block.
 
 L1–L6 cover the single-sensor, single-frame-to-object pipeline that is standard in LiDAR processing literature. L7 introduces the registered **dynamic scene**: L5 physical tracks are associated with Gerardus's static site model, and spatial relationships are exposed for L8 measurements; cross-sensor fusion may later expand the same boundary. L8–L10 handle what happens _after_ the processing pipeline produces results; analysis, server-side formatting, and client rendering.
 
-The decision to place Scene at L7 (rather than above Analytics) reflects data flow: analytics (L8) needs the scene model to contextualise metrics (e.g. "speed at this road segment"), and endpoints (L9) render both scene geometry and analytics results.
+The decision to place Scene at L7 (rather than above Analytics) reflects data flow: analytics (L8) needs the registered scene to contextualise metrics (e.g. "speed at this road segment"), and endpoints (L9) render both scene geometry and analytics results.
 
 ## Artefact placement in this model
 
@@ -102,7 +102,7 @@ The decision to place Scene at L7 (rather than above Analytics) reflects data fl
 - Per-frame vector geometry extraction → **L4 Perception** (polygon features for ground, structures, volumes; see [vector-scene-map.md](vector-scene-map.md))
 - Tracks → **L5 Tracks**
 - Objects/classes → **L6 Objects**
-- Canonical scene model (accumulated geometry, priors, multi-sensor merge) → **L7 Scene**
+- Canonical scene (registered geometry, priors, multi-sensor merge) → **L7 Scene**
 - OSM priors and external map data → **L7 Scene** (ingested as prior features, refined by observation)
 - Run statistics, comparisons, percentiles → **L8 Analytics**
 - gRPC streams, chart data, dashboard payloads → **L9 Endpoints**
@@ -400,7 +400,7 @@ packages define that boundary; the reference driver is not a runtime dependency.
 | Patchwork (Lim et al., 2021): Ground segmentation (RA-L 2021)                            | Concentric zone model for ground estimation; more robust than our height-band filter but more complex; future upgrade path                         |
 | Jolliffe (2002): **PCA** (Principal Component Analysis)                                  | OBB fitting from eigenvectors of point covariance; standard approach used in our L4 heading estimation                                             |
 
-**Vector scene map (L4 → L7):** Per-frame polygon extraction (ground, structure, volume features) begins at L4 but the accumulated, persistent scene model lives at L7. See [vector-scene-map.md](vector-scene-map.md) for the full specification.
+**Vector scene map (L4 → L7):** Per-frame polygon extraction (ground, structure, volume features) begins at L4 but the accumulated, persistent static geometry is Gerardus's, referenced at L7 (D-36). See [vector-scene-map.md](vector-scene-map.md) for the full specification.
 
 ### L5 tracks: multi-object tracking
 
@@ -625,7 +625,7 @@ Key unresolved evidence:
 
 ## AV compatibility note
 
-This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene reconstruction is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
+This ten-layer model keeps traffic monitoring practical while preserving a clean upgrade path. AV taxonomy compatibility remains an **L6 Objects** concern (see [classification-maths.md §11](../../../data/maths/classification-maths.md) for the three-way SemanticKITTI/Waymo/nuScenes mapping). HD-map-style scene geometry is an **L7 Scene** concern. Neither imposes AV-scale complexity on the real-time L1–L5 pipeline.
 
 The layer boundaries are intentionally aligned with common AV pipeline decompositions (sensor → detection → tracking → prediction → planning) but stop before planning/control since velocity.report is an observation system, not a vehicle control system.
 

@@ -65,7 +65,7 @@ Your posture is patient and generous. When you find a mathematical error, treat 
   sensor capture    frame assembly     bg/fg separation    clustering, OBB, PCA
                                        EMA, Welford
        → TRACKS (L5)    → OBJECTS (L6)   → SCENE (L7)     → ANALYTICS (L8)
-         Kalman filter     classification   world model      percentiles, scoring
+         Kalman filter     classification   scene relations  percentiles, scoring
          association       features         fusion (planned)  confidence intervals
               → ENDPOINTS (L9) → CLIENTS (L10)
 ```

@@ -272,7 +272,7 @@ This produces LOD 0–1 ground polygons: large flat regions collapse into single
 
 **Structures:** Construct LOD 0 building footprints from L3 background grid cells classified as static vertical surfaces. Group contiguous vertical cells into rectangular outlines (minimum bounding rectangle). Refine wall segments at LOD 1 by fitting per-edge planes.
 
-**Volumes:** Construct LOD 0 vegetation bounds from clusters of scattered returns that don't fit ground or structure models. Use bounding spheres for LOD 0; refine to OBBs or convex hulls at LOD 1.
+**Volumes:** Construct LOD 0 vegetation bounds from clusters of scattered returns that don't fit ground or structure planes. Use bounding spheres for LOD 0; refine to OBBs or convex hulls at LOD 1.
 
 ### 4.2 Selective refinement (LOD 2–3)
 
@@ -811,7 +811,7 @@ No open questions for the vector scene map core. Design choices (alpha-shape vs 
 - **OpenStreetMap Simple 3D Buildings**: [OSM Wiki: Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_Buildings) (building outlines, parts, and roof tagging model)
 - **OpenStreetMap Automated Edits Guidance**: [OSM Wiki: Automated Edits code of conduct](https://wiki.openstreetmap.org/wiki/Automated_Edits_code_of_conduct) (community process for scripted/mechanical edits)
 - **GeoJSON**: [RFC 7946](https://tools.ietf.org/html/rfc7946) (geographic feature collections)
-- **CityJSON**: [CityJSON 1.1](https://www.cityjson.org/specs/1.1.3/) (3D city model standard)
+- **CityJSON**: [CityJSON 1.1](https://www.cityjson.org/specs/1.1.3/) (CityGML city data in JSON)
 - **GeoPackage**: [OGC GeoPackage](https://www.geopackage.org/) (SQLite-based geodata container)
 - **Douglas-Peucker**: Douglas & Peucker (1973), "Algorithms for the reduction of the number of points required to represent a digitised line"
 - **Alpha Shapes**: Edelsbrunner et al. (1983), "On the Shape of a Set of Points in the Plane"

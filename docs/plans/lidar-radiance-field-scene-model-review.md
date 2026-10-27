@@ -1,4 +1,4 @@
-# Radiance-field scene-model review for the LiDAR pipeline
+# Radiance-field review for the LiDAR pipeline
 
 - **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Review note (decision); v1.0
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks, L7 Scene
@@ -59,7 +59,7 @@ offline use cases the permitted research lane is meant to address.
 
 ## 3. Current pipeline alignment
 
-### 3.1 Where a scene model could plausibly attach
+### 3.1 Where a radiance field could plausibly attach
 
 The frozen ten-layer model
 ([LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md))
@@ -102,7 +102,7 @@ It commits to:
   compressed per 100 m × 100 m scene.
 
 Every problem a radiance field would be invited to solve — persistent
-scene model, occlusion reasoning, multi-frame fusion, multi-sensor
+scene geometry, occlusion reasoning, multi-frame fusion, multi-sensor
 merging, scene-conditioned motion prediction — already has a designed,
 explainable, low-compute classical answer in this plan.
 
@@ -499,7 +499,7 @@ this project.
 8. **Privacy-story risk.** The civic argument for velocity.report is
    "measure velocity, not identity." Any flirtation with radiance
    fields invites the public-perception association with
-   camera-based scene reconstruction even if the project uses only
+   camera-based scene capture even if the project uses only
    LiDAR. The simplest way to keep the privacy story credible is to
    not enter the territory at all.
 

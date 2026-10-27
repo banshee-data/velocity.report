@@ -327,7 +327,11 @@ Quick scan for the most common tone issues:
 - [ ] **Geometry wording:** docs that describe or publish geometry, scene or prior data call it
       measured spatial data and link
       [geometry priors: data purpose](../../../docs/geometry-priors-data-purpose.md) instead of
-      restating it.
+      restating it. `make check-geometry-wording` passes.
+- [ ] **Publication checklist:** if the release publishes scene assets or a dataset, each item
+      of the purpose doc's
+      [publication checklist](../../../docs/geometry-priors-data-purpose.md#publication-checklist)
+      is met or named as open in the release notes.
 
 ### 10. Disk image readiness
 
@@ -369,6 +373,7 @@ Print a summary:
 - Questions resolved:    N (N still open, surfaced to operator)
 - Decisions updated:     N
 - Tone fixes:            N files
+- Geometry wording:      clean / N findings; publication checklist met / N items open
 - Disk image:            Ready / N issues
 
 Next: review changes, then /ship-change

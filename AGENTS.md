@@ -63,6 +63,7 @@ is measured spatial data: observed or inferred positions, extents and surfaces a
 [Geometry priors: data purpose](docs/geometry-priors-data-purpose.md) is canonical for what the
 records describe, the context they carry and the vocabulary to use. Describe such data as measured,
 observed or inferred geometry, and do not add direction for recreating a structure from it.
+`make check-geometry-wording` (part of `make lint-docs`) flags the phrases to avoid.
 
 ## Commands
 

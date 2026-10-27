@@ -259,7 +259,7 @@ records the completed geometry, duration, timing, and diagnostic comparisons. It
 retaining the production medoid tracker: the candidate breaches update cost at all 29 cases and
 geometry at nine, while physical accuracy and Pi performance remain unverified.
 
-The next stage fuses them into a single scene model:
+The next stage fuses them into a single scene:
 cross-sensor track handoff using Mahalanobis-distance gating,
 Bayesian evidence accumulation for persistent geometry,
 and canonical object refinement via streaming statistics.

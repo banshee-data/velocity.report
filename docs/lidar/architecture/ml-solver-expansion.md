@@ -146,7 +146,7 @@ This aligns well with current auto-tune behaviour and suggests extending with:
 
 ---
 
-## 3) Expansion blueprint for velocity report
+## 3) Expansion plan for velocity.report
 
 ### 3.1 Strategic goal
 

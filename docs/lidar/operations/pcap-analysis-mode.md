@@ -282,7 +282,7 @@ Stops PCAP replay and **resets the grid** before returning to live data.
 3. Live objects will be detected against PCAP-built background
 4. Useful for comparing "then vs now" traffic patterns
 
-### Scene reconstruction
+### Clean background for a scene
 
 1. Process PCAP with empty parking lot → builds clean background
 2. Resume live data with grid preserved

@@ -50,7 +50,9 @@ interface copy, dataset cards, and the public site.
 | position, extent, and uncertainty at an acquisition time         | dimensions presented as what to build from        |
 
 Evidence status uses the words of the physical reference records
-(`internal/lidar/annotation/physical.go`): observed, inferred, prior-only, or unknown.
+(`internal/lidar/annotation/physical.go`): observed, inferred, prior-only, or unknown, with
+source data for geometry taken from a third-party dataset. `make check-geometry-wording` finds the
+phrases in the Avoid column in prose, site templates, and code comments and strings.
 
 Attributes stay with geometry. A published record has no material, finish, interior, or
 construction-method attribute, and a schema that lists properties lists only geometry and its
@@ -65,8 +67,14 @@ measurement context.
   [web scene export,
   section 12](plans/lidar-web-scene-export-plan.md#12-context-travels-with-the-export) and the
   Hugging Face [dataset card](../tools/s2-archive/huggingface-dataset-README.md).
+- Positional uncertainty: the
+  [estimator](../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md).
+- Public pages: the survey pages' Data & methods and 3D view notes
+  ([provenance.njk](../public_html/src/_includes/survey/provenance.njk),
+  [scene.njk](../public_html/src/_layouts/scene.njk)).
 - Agent and contributor wording: [AGENTS.md](../AGENTS.md#purpose-of-geometry-and-scene-data), with
-  the decision recorded in [DECISIONS.md](DECISIONS.md).
+  the decision recorded in [DECISIONS.md](DECISIONS.md) (D-38) and the check in
+  `scripts/check-geometry-wording.py`.
 
 ## Publication checklist
 

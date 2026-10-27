@@ -232,7 +232,7 @@ Kept by: review only. `/plan-review` refuses a plan that proposes `pkg/tictactai
 
 ### D-36 — Physical-measurement qualification and Gerardus/L7 boundary
 
-Keep frozen L1–L10 layer identities. Gerardus owns the static street model and accepted registration; velocity.report L5 owns physical body estimates, L7 composes registered dynamic scene and spatial relations, and L8 alone owns physical interaction equations, uncertainty propagation, suppression, scoring and aggregation. L7 is neither a second body estimator nor a cross-visit reidentification service. Cross-layer S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams organise 05x qualification. v0.5.3–v0.5.9 targets static qualification; v0.6.0–v0.6.4 is reserved for SLAM/mobile transfer; other features move to 07x or Parked. Passing a release milestone does not waive predeclared physical, coverage and calibration gates. Source: [BACKLOG](BACKLOG.md), [L7 plan](plans/lidar-l7-scene-plan.md), [state-estimation plan](plans/lidar-state-estimation-plan.md).
+Keep frozen L1–L10 layer identities. Gerardus owns the static street geometry and accepted registration; velocity.report L5 owns physical body estimates, L7 composes registered dynamic scene and spatial relations, and L8 alone owns physical interaction equations, uncertainty propagation, suppression, scoring and aggregation. L7 is neither a second body estimator nor a cross-visit reidentification service. Cross-layer S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams organise 05x qualification. v0.5.3–v0.5.9 targets static qualification; v0.6.0–v0.6.4 is reserved for SLAM/mobile transfer; other features move to 07x or Parked. Passing a release milestone does not waive predeclared physical, coverage and calibration gates. Source: [BACKLOG](BACKLOG.md), [L7 plan](plans/lidar-l7-scene-plan.md), [state-estimation plan](plans/lidar-state-estimation-plan.md).
 
 Kept by: layer-boundary reviews, preserved migration inventory and scientific gate ledgers; CI enforcement is planned.
 
@@ -246,7 +246,7 @@ Kept by: `make check-backlog-format` in `lint-docs` and the preserved-item migra
 
 Geometry, scene and prior data describes observable physical conditions: measured or inferred positions, extents and surfaces of stationary features, at a stated acquisition time, with provenance, coordinate frame, units and uncertainty. It is not a plan, drawing, specification or direction for constructing a structure, and a published record carries no material, finish, interior or construction-method attribute. Documentation, code comments, interface copy, dataset cards and the public site describe it that way, in the vocabulary of the canonical statement. Source: [geometry priors: data purpose](geometry-priors-data-purpose.md).
 
-Kept by: `/docs-release-prep` (its geometry wording check) and `/review-pr`, both review only. The publication checklist is worked through by hand before a scene release; no lint exists for it yet.
+Kept by: `make check-geometry-wording`, in `lint-docs` and its own CI workflow, which rejects the purpose doc's avoided wording in prose, templates, and code comments and strings; `/docs-release-prep` and `/review-pr` for the rest (review only). The publication checklist is worked through by hand before a scene or dataset release (`/docs-release-prep`).
 
 ### Milestone Rationale
 
