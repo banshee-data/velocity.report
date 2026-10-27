@@ -1494,6 +1494,20 @@ section {
   position: relative;
   z-index: 2;
 }
+/* The background is procedural (hero-scene.js), so it says so: a visitor
+ * should not take it for a published measurement. */
+.hero-cloud .hero-scene-note {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  left: 16px;
+  z-index: 2;
+  margin: 0;
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  color: var(--text-mute);
+}
 .hero-cloud .hero-grid {
   display: grid;
   /* Right column slightly wider so the stack image has room to read large. */
