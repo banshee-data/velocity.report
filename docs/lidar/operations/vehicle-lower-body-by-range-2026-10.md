@@ -235,8 +235,8 @@ to 0.82 m, with absorption still 59 and 60 % there.
    [l3bg0027](../../../data/experiments/l3bg/l3bg0027.md)). Most of the absorbed lower body is
    already published as foreground inside the tracked box; clustering it with the track's points,
    or standing the box's base on it, would return the lower body without moving L3's window or its
-   spurious clusters. The spec should read the box's base and height against kirk0's physical
-   references and the corpus's spurious clusters, as this one did.
+   spurious clusters. l3bg0027 reads it with this spec's block and screen; the box's base against
+   kirk0's physical references stays ground0004's comparison.
 2. **Do not look to the window for the rest.** The shipped L3 already has `closeness-2`'s window,
    the 0.42 m it returns and the spurious clusters it costs, and still loses 61 % of the slots
    beyond 20 m to absorption; the window's shape (C1) is not worth a spec until a narrower window
