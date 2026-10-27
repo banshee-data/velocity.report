@@ -231,7 +231,8 @@ to 0.82 m, with absorption still 59 and 60 % there.
 
 ## Recommendations
 
-1. **Give the guard's foreground to L4, as its own spec.** Most of the absorbed lower body is
+1. **Give the guard's foreground to L4, as its own spec** (proposed as
+   [l3bg0027](../../../data/experiments/l3bg/l3bg0027.md)). Most of the absorbed lower body is
    already published as foreground inside the tracked box; clustering it with the track's points,
    or standing the box's base on it, would return the lower body without moving L3's window or its
    spurious clusters. The spec should read the box's base and height against kirk0's physical
