@@ -707,6 +707,12 @@ rounding coordinates or manipulating token strings.
 
 Output is a standard GeoJSON `FeatureCollection` where each feature is a `Polygon` with WGS84 2.5D positions in RFC 7946 axis order. Properties include `s2_l13_token`, `tile_id`, `point_count`, and `session_id`; the canonical S2 token supplies geographic identity while the polygon supplies precise geometry.
 
+The export is measured spatial data: its `metadata` object carries the coordinate reference system,
+units, acquisition interval, versions and source terms described in
+[geometry-prior-service.md](geometry-prior-service.md), and it is read as conditions at those
+times. See
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
+
 ---
 
 **Next Steps:**

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
@@ -16,10 +17,10 @@ import (
 
 // DefaultBackgroundVoxel is the downsampling grid for the static scene.
 //
-// Coarser than a clip on purpose: the background exists to tell a viewer where
-// the kerb and the buildings are, not to be measured. A settled snapshot from a
-// Pandar40P carries about 69,000 points, which is more than a browser needs to
-// convey a street.
+// Coarser than a clip on purpose: the background exists to show a viewer where
+// the kerb and the buildings were observed, at a resolution for viewing rather
+// than for measuring from. A settled snapshot from a Pandar40P carries about
+// 69,000 points, which is more than a browser needs to convey a street.
 const DefaultBackgroundVoxel = 0.25
 
 // ExportBackground writes the static scene: one settled background snapshot,
@@ -50,14 +51,31 @@ func ExportBackground(opts Options) (*Result, error) {
 		return nil, fmt.Errorf("%s: background snapshot has no usable points", opts.VRLOGPath)
 	}
 
+	src := rep.Header()
 	export := BackgroundExport{
 		Version:     FormatVersion,
 		Site:        opts.Site,
 		Title:       opts.Title,
 		VoxelMetres: voxel,
 		PointCount:  len(points),
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Points:      points,
+		SensorID:    src.SensorID,
+		CoordinateFrame: CoordinateFrame{
+			FrameID:        src.CoordinateFrame.FrameID,
+			ReferenceFrame: src.CoordinateFrame.ReferenceFrame,
+		},
+		Units:               Units{Length: exportUnits.Length},
+		CoordinateRoundingM: CoordinateRoundingM,
+		Rings:               snapshot.GridMetadata.Rings,
+		Evidence:            exportEvidence(KindBackground),
+		AcquiredInterval:    captureInterval(src),
+		TuningHash:          src.TuningHash,
+		BuildVersion:        src.BuildVersion,
+		BuildGitSHA:         src.BuildGitSHA,
+		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
+		Points:              points,
+	}
+	if bins := snapshot.GridMetadata.AzimuthBins; bins > 0 {
+		export.AzimuthBinDeg = 360.0 / float64(bins)
 	}
 	fillBounds(&export)
 	if sum, err := sourceFingerprint(opts.VRLOGPath); err == nil {
@@ -73,18 +91,40 @@ func ExportBackground(opts Options) (*Result, error) {
 
 	return &Result{
 		Header: Header{
-			Version:     FormatVersion,
-			Export:      KindBackground,
-			Site:        opts.Site,
-			Title:       opts.Title,
-			FrameCount:  1,
-			GeneratedAt: export.GeneratedAt,
+			Version:             FormatVersion,
+			Export:              KindBackground,
+			Site:                opts.Site,
+			Title:               opts.Title,
+			SensorID:            export.SensorID,
+			FrameCount:          1,
+			CoordinateFrame:     export.CoordinateFrame,
+			SourceVRLOGSHA256:   export.SourceVRLOGSHA256,
+			TuningHash:          export.TuningHash,
+			BuildVersion:        export.BuildVersion,
+			BuildGitSHA:         export.BuildGitSHA,
+			GeneratedAt:         export.GeneratedAt,
+			Units:               export.Units,
+			CoordinateRoundingM: export.CoordinateRoundingM,
+			Evidence:            export.Evidence,
 		},
 		Chunks:       1,
 		BytesOnDisk:  dirBytes(opts.OutDir),
 		SourceFrames: framesRead,
 		PointCount:   len(points),
 	}, nil
+}
+
+// captureInterval is the recording's capture interval, or nil when it names
+// none. The recorder bounds it by sensor rotations only, so a background
+// snapshot's replay-clock timestamp cannot widen it.
+func captureInterval(h recorder.LogHeader) *Interval {
+	if h.StartNs <= 0 || h.EndNs < h.StartNs {
+		return nil
+	}
+	return &Interval{
+		StartNs: strconv.FormatInt(h.StartNs, 10),
+		EndNs:   strconv.FormatInt(h.EndNs, 10),
+	}
 }
 
 // firstSettledBackground returns the first background snapshot whose grid has

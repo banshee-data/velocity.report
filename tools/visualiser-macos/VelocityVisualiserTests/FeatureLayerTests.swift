@@ -37,7 +37,7 @@ private func feature(
 private let mainPart = feature(
     .buildingPart, [0, 0, 21, 10, 0, 21, 10, 10, 21, 0, 10, 21], id: "gms:part/main", closed: true,
     tags: ["height": "12", "roof:shape": "gabled", "roof:height": "2", "roof:direction": "180"])
-/// A bay over a garage: its outline 3 m up, rising to 8 m.
+/// A part raised on min_height: its outline 3 m up, rising to 8 m.
 private let bayPart = feature(
     .buildingPart, [2, -1, 24, 4, -1, 24, 4, 0, 24, 2, 0, 24], id: "gms:part/bay", closed: true,
     tags: ["height": "8", "min_height": "3", "roof:shape": "flat"])
@@ -56,7 +56,7 @@ private let roofFaces = [
 /// vertical polygons with their z, height_m 0. The south wall stops at the
 /// eave (31 m); the east gable end rises to the ridge (33 m) in five
 /// vertices. The part's height tag still says 12 (the top of its roof):
-/// extruding it would stand every wall 2 m over the gutter.
+/// raising the outline to it would stand every wall 2 m above the eave.
 let rooflineWallSurfaces = [
     feature(
         .wallSurface, [0, 0, 21, 10, 0, 21, 10, 0, 31, 0, 0, 31], id: "gms:wall/main-0",
@@ -253,7 +253,7 @@ struct BuildingStyleTests {
         #expect(v.count / 7 == expected)
         let z = Set(points(v).map(\.z))
         // Bases at 21 and 24, the eave at 31, the ridge at 33; never the
-        // bay's extruded top at 29.
+        // bay's raised top at 29.
         let heights: Set<Float> = [21, 24, 31, 33]
         #expect(z == heights)
         let parts = colours(v).prefix(16)
@@ -550,7 +550,7 @@ struct StreetscapeStyleTests {
         #expect(summary.wallSurfaces == 2)
         let overlay = try #require(sink.overlays.last ?? nil)
         // Two base rings (16), the walls (18) and the roof outlines (16),
-        // against an older server's 64 with the parts extruded.
+        // against an older server's 64 with the parts drawn as prisms.
         #expect(overlay.buildingVertexCount == 50)
         #expect(overlay.roofFillVertexCount == 12)
     }

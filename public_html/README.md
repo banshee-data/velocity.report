@@ -71,6 +71,12 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   file name is derived from the site by `tools/s2-archive/capture-names.mjs`, the same rule the
   staging script uses, so `scenes.json` carries it as `capture.raw_path`. A later recording names
   its own file with `raw_path` in its `summary.json`.
+- **What the 3D view shows.** The grey points are the street's static surroundings as the sensor
+  measured them at the recording time: measured spatial data, not a survey, plan or
+  specification. A feature with no points was not observed, which is not the same as absent.
+  `src/_layouts/scene.njk` and `src/_includes/survey/provenance.njk` say so on each site page, and
+  the listing and home page say it once each. Keep that wording consistent with
+  [geometry priors: data purpose](../docs/geometry-priors-data-purpose.md).
 - **Comparing recordings.** A site with two or more recordings gets a recording menu and a
   compare view (`?recording=<id>`, `?compare=<id>,<id>&base=<id>`). Speed compares across radar
   and LiDAR; other measurements are LiDAR only.

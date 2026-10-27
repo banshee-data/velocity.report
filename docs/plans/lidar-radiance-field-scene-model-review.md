@@ -1,4 +1,4 @@
-# Radiance-field scene-model review for the LiDAR pipeline
+# Radiance-field review for the LiDAR pipeline
 
 - **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Review note (decision); v1.0
 - **Layers:** L3 Grid, L4 Perception, L5 Tracks, L7 Scene
@@ -8,6 +8,10 @@
   [vector-scene-map.md](../lidar/architecture/vector-scene-map.md),
   [lidar-l7-scene-plan.md](lidar-l7-scene-plan.md),
   [lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md)
+
+A learned or rendered scene in this note is an inference from LiDAR returns, shown as an advisory
+overlay and never presented as measured geometry of a structure. Measured scene geometry is
+described in [Geometry priors: data purpose](../geometry-priors-data-purpose.md).
 
 ## 1. Summary
 
@@ -26,7 +30,7 @@ preserving privacy, explainability, audit-grade replay, and Raspberry Pi
 compute economics.
 
 A narrow, opt-in, **offline-only** research lane is permitted for
-visualisation and reconstruction QA of recorded sessions. It must produce
+visualisation and rendering QA of recorded sessions. It must produce
 advisory overlays — never metrics, never civic-report content, never
 inputs to any production layer (L4, L5, L6, L7, L8).
 
@@ -55,7 +59,7 @@ offline use cases the permitted research lane is meant to address.
 
 ## 3. Current pipeline alignment
 
-### 3.1 Where a scene model could plausibly attach
+### 3.1 Where a radiance field could plausibly attach
 
 The frozen ten-layer model
 ([LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md))
@@ -75,7 +79,7 @@ fits the architecture. L3/L4/L5 are explicitly stateless or per-track and
 must not depend on a back-end that requires cross-frame training or
 GPU-resident parameter blobs. The
 [L7 plan](lidar-l7-scene-plan.md) already places "persistent
-evidence-accumulated world model" at L7.
+evidence-accumulated scene geometry" at L7.
 
 ### 3.2 What the L7 plan already commits to
 
@@ -98,7 +102,7 @@ It commits to:
   compressed per 100 m × 100 m scene.
 
 Every problem a radiance field would be invited to solve — persistent
-scene model, occlusion reasoning, multi-frame fusion, multi-sensor
+scene geometry, occlusion reasoning, multi-frame fusion, multi-sensor
 merging, scene-conditioned motion prediction — already has a designed,
 explainable, low-compute classical answer in this plan.
 
@@ -226,16 +230,15 @@ We enumerate four integration patterns, in increasing intrusion.
 - **Layer placement:** None. Lives in `tools/` (proposed
   `tools/scene-recon/`), reads VRLOG and PCAP.
 - **Inputs:** Recorded VRLOG bundles, optional background snapshots.
-- **Outputs:** Visualisation-only reconstructions (point density,
-  surface, splat overlay) usable in the macOS visualiser or as
-  rendered preview images for QA.
+- **Outputs:** Visualisation-only renderings of the returns (point density, fitted surface, splat
+  overlay) usable in the macOS visualiser or as rendered preview images for QA.
 - **Storage:** Local cache only; nothing in SQLite; nothing in VRLOG.
-- **Explainability:** Production pipeline unchanged. Reconstruction is
-  labelled as "research overlay" with model version + input range.
-- **Failure modes:** Bad reconstruction. No downstream impact because
+- **Explainability:** Production pipeline unchanged. The rendering is labelled "research overlay,
+  inferred from returns" with model version + input range.
+- **Failure modes:** Bad rendering. No downstream impact because
   no production layer reads from it.
-- **Privacy:** LiDAR-only. No camera ingestion. Reconstructions are
-  geometric (no identifying features by construction).
+- **Privacy:** LiDAR-only. No camera ingestion. Renderings are geometric (no identifying features
+  by construction).
 - **Runtime cost:** Offline; can use desktop GPU if anyone has one.
   Never runs on the Raspberry Pi.
 - **Fits repo boundaries:** Yes. Mirrors existing `tools/` style; no
@@ -496,7 +499,7 @@ this project.
 8. **Privacy-story risk.** The civic argument for velocity.report is
    "measure velocity, not identity." Any flirtation with radiance
    fields invites the public-perception association with
-   camera-based scene reconstruction even if the project uses only
+   camera-based scene capture even if the project uses only
    LiDAR. The simplest way to keep the privacy story credible is to
    not enter the territory at all.
 
@@ -514,13 +517,13 @@ compute.
 | Multi-frame fusion                    | Aggregated training set               | Welford running statistics on canonical object dimensions ([§3.2](lidar-l7-scene-plan.md)); incremental scene-feature evidence.                                                                                                                        |
 | Multi-sensor fusion                   | Joint optimisation across sensors     | Per-sensor L1–L6 pipelines + L7 Mahalanobis-gated cross-sensor association ([§3.3](lidar-l7-scene-plan.md)).                                                                                                                                           |
 | Occlusion reasoning                   | Learned visibility prediction         | Scene graph relations (`occluded_by`) on explicit structure features; per-track coasting in L5; structure footprints from vector scene map.                                                                                                            |
-| Hole filling / completion             | Implicit field interpolation          | LOD fallback in the vector scene map (parent polygon answers when no child polygon covers); OSM S3DB structure priors aligned by Procrustes.                                                                                                           |
+| Hole filling / completion             | Implicit field interpolation          | LOD fallback in the vector scene map (a parent polygon answers where no child polygon covers, marked inferred); OSM S3DB outlines as prior-only features. Neither makes an unobserved area observed                                                    |
 | Static background prior               | Learned scene representation          | Polar EMA background ([background-grid-settling-maths.md](../../data/maths/background-grid-settling-maths.md)) + vector scene map at L7.                                                                                                               |
 | Cross-session scene memory            | Cached weights                        | Planned versioned `vector_scene_snapshots` keyed by snapshot hash (SHA256); deterministic restore. Today, `lidar_bg_regions.grid_hash` (renamed from `scene_hash` in migration 000030) provides the analogous restore path for the L3 background grid. |
-| Visual reconstruction for QA          | NeRF render or Gaussian splat         | Allowed only as **offline research** per architecture A in §5; not in production.                                                                                                                                                                      |
+| Visual rendering for QA               | NeRF render or Gaussian splat         | Allowed only as **offline research** per architecture A in §5; not in production.                                                                                                                                                                      |
 
 The classical path beats the learned path on every column except
-"visual reconstruction for QA", where we accept the use case as an
+"visual rendering for QA", where we accept the use case as an
 offline-only research lane and contain it strictly.
 
 ## 9. Recommendation
@@ -531,7 +534,7 @@ relevant capabilities while preserving every hard property the
 project has committed to.
 
 **Permit a narrow offline research lane (architecture A from §5)** for
-visualisation and reconstruction QA of recorded sessions, with strict
+visualisation and rendering QA of recorded sessions, with strict
 guardrails (§10).
 
 **Do not block** the planned L7 graduation on this decision. L7 should
@@ -556,9 +559,8 @@ If anyone wants to run a radiance-field experiment, it must look
 like this. Otherwise it does not get integrated.
 
 **Smallest useful experiment.** A single offline tool, e.g.
-`tools/scene-recon/`, that reads one VRLOG file, runs a chosen
-reconstruction method on the foreground-removed background points,
-and emits an overlay asset usable in the macOS visualiser.
+`tools/scene-recon/`, that reads one VRLOG file, fits a chosen radiance-field method to the
+foreground-removed background points, and emits an overlay asset usable in the macOS visualiser.
 
 **Inputs (required):** VRLOG path, background snapshot range
 (start/end frame), output path. Optional: model variant, parameter
@@ -567,16 +569,17 @@ set.
 **Inputs (forbidden):** Camera frames. Anything sourced from outside
 the recorded LiDAR.
 
-**Success criteria.** The tool produces a reconstruction artefact
+**Success criteria.** The tool produces an overlay artefact
 that, when overlaid on the visualiser, makes scene context easier to
 interpret during manual QA. Concretely: at least one
 already-difficult-to-debug recorded case becomes easier to debug.
 
 **Failure criteria (any one kills the lane).**
 
-- The reconstruction is used as input to L4, L5, L6, L7, or L8.
+- The rendering is used as input to L4, L5, L6, L7, or L8.
 - Any output appears in a civic PDF report.
 - Any output is described as a measurement rather than a visualisation.
+- Any output is published, exported or described as measured geometry of a structure.
 - The tool requires a hardware accelerator the project cannot ship on
   the Raspberry Pi target.
 - The tool ingests RGB or any other non-LiDAR sensor data.
@@ -593,7 +596,7 @@ CI.
 
 **Comparison with existing L3/L4/L5 outputs.** A "control" overlay
 showing the classical foreground / cluster / track output side-by-side
-with the learned reconstruction. The classical view is always the
+with the learned rendering. The classical view is always the
 labelled baseline.
 
 **Audit artefacts that must be stored.**
@@ -602,13 +605,14 @@ labelled baseline.
 - Parameters (full config).
 - Input frame range.
 - Output overlay (file + content hash).
-- Reconstruction confidence statistics.
+- Rendering confidence statistics, and the label that the overlay is inferred from the returns
+  over the input frame range.
 - Fallback behaviour: what was rendered when the model produced no
   output.
 
-**Visualiser exposure.** The reconstruction is an _overlay_. The
-point cloud, foreground, clusters, and tracks must remain visible
-underneath. No view setting hides the classical pipeline outputs.
+**Visualiser exposure.** The rendering is an _overlay_, labelled as inferred from the returns. The
+point cloud, foreground, clusters, and tracks must remain visible underneath. No view setting hides
+the classical pipeline outputs.
 
 **What must never be hidden behind the model.**
 
@@ -625,16 +629,16 @@ debugging-time questions that the classical pipeline answers poorly
 or not at all. Each use case below has identifiable inputs, outputs,
 and a clear boundary against the measurement pipeline.
 
-| Use case                                                     | Inputs                                                | Outputs                                                             | What it enables                                                                                                                       | What it must not become                                                       |
-| ------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **Sensor-placement QA**                                      | VRLOG from a candidate mount position; site survey    | 3D scene reconstruction of the visible field of view                | Validates that a proposed mount captures the intended traffic corridor before committing to permanent installation.                   | A reason to skip the empirical L3/L4 acceptance tests at the new site.        |
-| **Sparse-return background completion (visualisation)**      | Foreground-removed point cloud accumulated over hours | Surface or splat overlay rendering the implied static scene         | Lets a human inspector see the persistent scene that the polar EMA grid encodes implicitly; useful for sanity-checking grid settling. | Input to L3 foreground gating. The polar EMA stays canonical.                 |
-| **Synthetic viewpoint generation for multi-sensor planning** | VRLOG from sensor A                                   | Rendered "what would a sensor at position B see" preview            | Lets a planner reason about coverage overlap and occlusion before deploying a second sensor.                                          | A substitute for actual measurement at position B.                            |
-| **Sensor pose drift detection**                              | VRLOGs from the same sensor across multiple days      | Reconstruction diff (today vs. last week)                           | Flags sensors that have physically shifted (wind, knock, mount drift). Complements the planned `scene_hash` settling-state restore.   | A trigger for automatic recalibration. Drift detection notifies; humans act.  |
-| **Cluttered-scene context rendering for L4 debug**           | VRLOG window around a confusing L4 cluster            | Rendered local 3D context around the cluster                        | Gives an engineer a visual reference for why DBSCAN cohered or fragmented the cluster.                                                | An override of the classical cluster decision.                                |
-| **Calibration validation (ground tile vs. surface)**         | Settled L4 ground tiles + reconstructed surface       | Overlay showing per-tile residual against the reconstructed surface | Checks tile-fit quality across the scene; spots tiles that have settled to a locally wrong plane.                                     | An automatic tile-replacement mechanism.                                      |
-| **Pre-rendered civic-report illustration assets**            | VRLOG + reconstruction model                          | Static 3D illustration of the deployment site (decorative)          | Helps non-technical readers picture the sensor's coverage in a community-facing report.                                               | A source of measurement claims in the same report. Captioned as illustration. |
-| **Training-data augmentation for the L6 classifier**         | VRLOG of tracked objects                              | Synthetic per-track viewpoint variations                            | Feeds the ML classifier plan's existing training pipeline with more views per object, under that plan's guardrails.                   | A substitute for real labelled data. Must respect the classifier plan's gate. |
+| Use case                                                     | Inputs                                                | Outputs                                                             | What it enables                                                                                                                       | What it must not become                                                                                        |
+| ------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| **Sensor-placement QA**                                      | VRLOG from a candidate mount position; site survey    | Rendered view of the returns in the visible field of view           | Validates that a proposed mount captures the intended traffic corridor before committing to permanent installation.                   | A reason to skip the empirical L3/L4 acceptance tests at the new site.                                         |
+| **Sparse-return background completion (visualisation)**      | Foreground-removed point cloud accumulated over hours | Surface or splat overlay rendering the implied static scene         | Lets a human inspector see the persistent scene that the polar EMA grid encodes implicitly; useful for sanity-checking grid settling. | Input to L3 foreground gating. The polar EMA stays canonical.                                                  |
+| **Synthetic viewpoint generation for multi-sensor planning** | VRLOG from sensor A                                   | Rendered "what would a sensor at position B see" preview            | Lets a planner reason about coverage overlap and occlusion before deploying a second sensor.                                          | A substitute for actual measurement at position B.                                                             |
+| **Sensor pose drift detection**                              | VRLOGs from the same sensor across multiple days      | Rendered difference (today vs. last week)                           | Flags sensors that have physically shifted (wind, knock, mount drift). Complements the planned `scene_hash` settling-state restore.   | A trigger for automatic recalibration. Drift detection notifies; humans act.                                   |
+| **Cluttered-scene context rendering for L4 debug**           | VRLOG window around a confusing L4 cluster            | Rendered local 3D context around the cluster                        | Gives an engineer a visual reference for why DBSCAN cohered or fragmented the cluster.                                                | An override of the classical cluster decision.                                                                 |
+| **Calibration validation (ground tile vs. surface)**         | Settled L4 ground tiles + fitted surface              | Overlay showing per-tile residual against the fitted surface        | Checks tile-fit quality across the scene; spots tiles that have settled to a locally wrong plane.                                     | An automatic tile-replacement mechanism.                                                                       |
+| **Pre-rendered civic-report illustration assets**            | VRLOG + rendering model                               | Static rendering of the returns at the deployment site (decorative) | Helps non-technical readers picture the sensor's coverage in a community-facing report.                                               | A source of measurement claims in the same report, or a plan or survey of the site. Captioned as illustration. |
+| **Training-data augmentation for the L6 classifier**         | VRLOG of tracked objects                              | Synthetic per-track viewpoint variations                            | Feeds the ML classifier plan's existing training pipeline with more views per object, under that plan's guardrails.                   | A substitute for real labelled data. Must respect the classifier plan's gate.                                  |
 
 Each row above terminates in a clear "what it must not become." That
 column is the boundary between the offline research lane and the
@@ -646,14 +650,13 @@ The lane is intentionally narrower than the union of every plausible
 use case for radiance fields elsewhere in industry. Three deliberate
 omissions:
 
-- **No real-time on-device reconstruction.** Even on a future
-  GPU-equipped Pi, real-time reconstruction would compete with the
-  measurement pipeline for the same compute and would tempt anyone
-  to surface the result in user-facing views. See §6.4.
+- **No real-time on-device rendering.** Even on a future GPU-equipped Pi, real-time rendering would
+  compete with the measurement pipeline for the same compute and would tempt anyone to surface the
+  result in user-facing views. See §6.4.
 - **No camera-conditioned variants.** Even for offline use. See §11.
 - **No "advisory feedback" loop into the classical pipeline.** Any
   use case where the learned output influences a classical decision
-  (e.g., "the reconstruction says this is road, so DBSCAN should
+  (e.g., "the rendering says this is road, so DBSCAN should
   cluster more aggressively here") becomes architecture C, not
   architecture A, and is rejected.
 
@@ -673,7 +676,7 @@ A short list of tempting but bad integrations.
   `occluded_by` relations in the L7 plan already handle this with
   explainable parameters.
 - **Let the macOS visualiser default to showing only the learned
-  reconstruction.** Hides the measurement. Always show classical
+  rendering.** Hides the measurement. Always show classical
   output underneath.
 - **Cite a learned-model output in the PDF report.** The report
   cites measurements. ML-derived overlays are visualisation, not

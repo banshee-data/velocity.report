@@ -1,4 +1,4 @@
-# October 22, 2026 — driving-behavior research assessments
+# October 22, 2026 — driving-behaviour research assessments
 
 - **Status:** research review and proposed experiments only. No shipped algorithms, calibrated thresholds, or safety effects claimed.
 

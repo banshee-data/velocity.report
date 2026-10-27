@@ -72,7 +72,7 @@ code switches off. None of that is a Pi figure.
    binned and stay unknown.
 3. The obstacle points become a new cloud, clustered by curved voxels.
 4. For each cluster: the hull, then (disabled) the box fit and vehicle test, then a line-list
-   marker extruded between the cluster's lowest and highest return.
+   marker extruded between the cluster's lowest and highest return. <!-- geometry-wording: ignore -->
 5. Ground, obstacle, unknown and clustered clouds and the JCP image are published for RViz.
 
 Nothing persists between frames. There is no tracker, no background model and no map, so the

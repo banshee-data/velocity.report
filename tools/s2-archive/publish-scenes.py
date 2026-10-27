@@ -66,6 +66,11 @@ The environment the batch expects, in full:
 A scene is built beside the published one and swapped in only when whole, so a
 half-finished export never reaches the site.
 
+The background export is the replay's settled background snapshot, thinned to a
+grid: the street's static surroundings as the sensor measured them from one
+parked position, not a survey or plan of them. What the data is and is not is
+in docs/geometry-priors-data-purpose.md.
+
 Where the packets come from
 ---------------------------
 

@@ -4,6 +4,10 @@
 - **Layers:** L8 Analytics, L9 Endpoints
 - **Canonical:** [performance-and-timeline-metrics.md](../ui/visualiser/performance-and-timeline-metrics.md)
 
+The scene annotation layer below labels regions of what the sensor observed, against recorded
+returns. It is not a survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## Objective
 
 Add a first-class metrics channel to the visualiser so each scene frame can be inspected with:
@@ -29,7 +33,7 @@ Add a first-class metrics channel to the visualiser so each scene frame can be i
 
 The harness compares two representations for the same frame/time window:
 
-- **Centroid-vector scene**: track/cluster-centroid and vector-derived world model.
+- **Centroid-vector scene**: track/cluster-centroid and vector-derived scene geometry.
 - **Grid-world scene**: original grid-based world representation used by the pipeline.
 
 Both are aligned by `frame_id` and `timestamp_ns`, then evaluated against shared point-cloud and bounding-box evidence.
@@ -78,6 +82,11 @@ Minimum label sets:
 Proposed annotation payload:
 
 Proposed annotation payload contains a `scene_id` string, a `regions` array (each with `region_id`, `class` such as `ground_plane` or `wall`, and `geometry`), and a `known_objects` array (each with `object_id`, `class` such as `static_object`, and `geometry`).
+
+The payload holds identity, class and geometry only, plus the recording and capture time the labels
+were drawn against. It carries no material, finish, interior or use attribute, and a loader rejects
+other properties. A region is labelled from the returns in that recording, so a region the sensor
+did not see has no label rather than a label saying it is empty.
 
 ## API design
 

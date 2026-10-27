@@ -266,7 +266,9 @@ re-cut; uploads resume per part.
    the dataset root until the re-cut is accepted, then retired.
 3. Upload per part with a remote digest check; a failed part is retried alone.
 
-**Acceptance:** the dataset card lists parts and states the route privacy rule; a consumer
+**Acceptance:** the dataset card lists parts, states the route privacy rule and says what the
+captures are (measured returns at their capture times, not a survey, plan or specification; see
+[Geometry priors: data purpose and interpretation](../geometry-priors-data-purpose.md)); a consumer
 downloads one part and replays it alone; every published survey has a `rubric_version`.
 
 **Milestone:** v0.7.4

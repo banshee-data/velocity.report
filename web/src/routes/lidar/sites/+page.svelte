@@ -1048,6 +1048,9 @@
 					<span style="color:{LAYER_COLOURS.kerbs}">━━</span> kerb ·
 					<span style="color:{LAYER_COLOURS.city_streets}">━</span> centreline
 				</div>
+				<div class="text-surface-content/50 pt-1">
+					Measured or derived geometry at each source's acquisition time; not a plan or survey.
+				</div>
 			</section>
 		</aside>
 

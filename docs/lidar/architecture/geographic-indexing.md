@@ -3,7 +3,7 @@
 - **Status:** Style guide; normative for how S2 levels, tokens, and displays are used
 - **Scope:** Which S2 levels we use, how tokens are written and displayed, and where each form may appear
 - **Not in scope:** Changes to any existing mechanism. Implementation sequencing and the cross-artefact tagging contract live in [s2-geographic-indexing-plan](../../plans/s2-geographic-indexing-plan.md)
-- **Related:** [Geometry-prior service](geometry-prior-service.md), [ground plane extraction](ground-plane-extraction.md), [GPS ethernet parsing](gps-ethernet-parsing.md)
+- **Related:** [Geometry-prior service](geometry-prior-service.md), [geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md), [ground plane extraction](ground-plane-extraction.md), [GPS ethernet parsing](gps-ethernet-parsing.md)
 - **S2 reference:** [S2 Cells developer guide](https://s2geometry.io/devguide/s2cell_hierarchy)
 
 ## The S2 world over San Francisco
@@ -166,6 +166,11 @@ One L13 cell can contain several roads and intersections, sensors in different
 positions or directions, repeated deployments, and many survey sessions.
 Existing or future identifiers for those entities must remain distinct from
 the S2 CellID.
+
+A cell is also an index, not a statement about coverage or content. A file under a cell holds
+measured spatial data with its own acquisition time and uncertainty (see
+[geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md)); a cell
+with no file means nothing has been published for it, not that nothing stands there.
 
 ## CellID, canonical token, and family display
 

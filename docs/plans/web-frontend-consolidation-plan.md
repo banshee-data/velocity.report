@@ -316,7 +316,7 @@ the prose.
 | ------------------------- | ---------------------------------------------- | ----------------------------------------------------- |
 | Published-scene catalogue | `/api/scenes`, `/app/scene`                    | **`lidar_scenes`** (migration 39, created 2026-09-05) |
 | Replay case               | `/api/lidar/scenes`, `/app/lidar/replay-cases` | `lidar_replay_cases`                                  |
-| L7 world model            | none                                           | none; planned for v1.0                                |
+| L7 scene geometry         | none                                           | none; planned for v1.0                                |
 
 Migration 31 renamed the original `lidar_scenes` to `lidar_replay_cases`, and
 migration 39 then re-used the freed name for the publishing catalogue. So
@@ -459,5 +459,5 @@ first plausible consumer, or the argument for deleting it.
 - Rebuilding the macOS visualiser. It is a consumer of these APIs and its HTTP
   calls constrain the work, but its UI is out of scope.
 - Auth and access control.
-- The L7 scene world model.
+- The L7 scene geometry.
 - Any change to the public scene format or its decimation parameters.

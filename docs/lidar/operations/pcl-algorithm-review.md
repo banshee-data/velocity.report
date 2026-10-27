@@ -135,7 +135,7 @@ any build: it measures, on the pilot's reviewed poses and pairs, how far the box
 hull extreme along and across the path. If that distance is small against the extent error, hulls
 stop here. That is spec [geom0013](../../../data/experiments/geom/geom0013.md).
 
-### Q3. Can static-scene reconstruction make repeat surveys and multi-vantage registration more reliable?
+### Q3. Can measured static-scene geometry make repeat surveys and multi-vantage registration more reliable?
 
 **This is Gerardus's question under D-36, and PCL's main offer is diagnostics, not a better
 aligner.** [pose0001](gerardus-static-registration-2026-10.md) registered 6 of 24 sites; hypothesis
@@ -248,6 +248,61 @@ association: the tracking module is single-object. Classes: the ml module is a t
 model. Pi-ready code. A background model: our polar EMA stays. Physical validation: an oracle's
 output is an independent algorithm, not a reference; the frozen physical references and label0001
 remain the only truth.
+
+## Open questions and how to continue
+
+This run stopped short of its plan twice on usage limits. The table below is what it did not
+reach, written so a later run can take one row, finish it, and record the answer here before
+starting the next. Take rows in order unless the owner reorders them. Each row is sized to fit
+one short run.
+
+### What survives between runs
+
+Committed: this review, the [plan](../../plans/lidar-pcl-algorithm-candidates-plan.md) and the
+four specs. Not committed, and lost when the session ends: the PCL sparse checkout, the header
+digests and the per-class catalogues (registration, tracking and sample consensus, 91 classes;
+keypoints, features and range images, 55; recognition and ml). They are generated research
+notes, not records, so AGENTS.md keeps them out of Git. Regenerate the checkout in a few minutes
+with the command below; regenerate a catalogue only for the module a row needs, never all of them.
+
+```bash
+git clone --depth 1 --branch pcl-1.15.1 --filter=blob:none --sparse \
+  https://github.com/PointCloudLibrary/pcl.git pcl
+cd pcl && git sparse-checkout set --no-cone 'doc/tutorials/content/*.rst' CHANGES.md \
+  '*/include/**' 'registration/src/*.cpp' 'surface/src/*.cpp' 'tools/*.cpp' tools/CMakeLists.txt
+git rev-parse HEAD   # expect 3346843ea6b97697a1577293aa9cdf236b5c7ffb
+```
+
+pcl.readthedocs.io and pointclouds.org did not resolve from the cloud environment; GitHub did.
+Read headers and tutorial sources from the checkout, not over the web.
+
+### Rules for a continuing run
+
+1. Read this section and the plan's checklist first; do not re-scope the five questions, which
+   are answered above.
+2. Take the first open row. Read only the files its "Read" cell names. Spend no agents on rows
+   already answered.
+3. Write the answer into the row's Status cell (answered, with a sentence and a link) and push
+   before taking the next row. A run that stops mid-row leaves the row open and adds one line
+   saying how far it got.
+4. A row that changes a spec's rule edits the spec before any replay, as the experiment
+   discipline requires.
+
+### Open rows
+
+| ID    | Question                                                                                                                                                                                                                          | Why it is open                                                                                            | Read                                                                                                                                                                                 | Done when                                                                                                         | Status |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | ------ |
+| OQ-01 | Do the review's PCL claims survive a skeptic? One refuting pass per question against the headers, then a fix to any claim that fails                                                                                              | The planned adversarial verification never ran; claims were checked by hand for six classes only          | This review; the headers each claim names                                                                                                                                            | Every Q0 to Q4 claim is confirmed or corrected in place                                                           | Open   |
+| OQ-02 | Does PCL's organised code accept a LiDAR grid: width as azimuth bins, height as rings, range as depth, non-uniform elevations? Run `IntegralImageNormalEstimation` and `RangeImageBorderExtractor` on one exported kirk0 frame    | Both assume a camera; the review's Q4 and normal ports rest on the answer                                 | `features/include/pcl/features/integral_image_normal.h`, `range_image_border_extractor.h`, `common/include/pcl/range_image/range_image.h`; plan Item 1                               | One frame's normals and border classes inspected; the l3bg0027 implement note corrected if the camera model fails | Open   |
+| OQ-03 | Segmentation and surface claims at class level: does `RegionGrowing` bound neighbour distance, does `SACSegmentation` reclassify inliers after `setOptimizeCoefficients`, and is `ProgressiveMorphologicalFilter` a true opening? | These modules were read from digests only; the SpatialRust review found all three faults in its analogues | `segmentation/include/pcl/segmentation/{region_growing,sac_segmentation,progressive_morphological_filter}.h` and their `impl/*.hpp`; SpatialRust review items 3 to 5                 | Each answered with the line that shows it; ground0006's oracle note adjusted if membership is stale               | Open   |
+| OQ-04 | Which PCL version and tools does the oracle use? Homebrew and Debian `pcl-tools` versions, and the `pcl_*` tools each spec calls                                                                                                  | Packaging was never verified; the specs name classes, not tools                                           | `tools/CMakeLists.txt` and the heads of the tools the specs need; package indexes                                                                                                    | Plan Item 1 names the install, its version and one tool per oracle step                                           | Open   |
+| OQ-05 | Does l4clus0004's answer change l4clus0005? The cap bites at 10 of 23 sites and the joining oracle reads the capped input                                                                                                         | l4clus0004 was answered the day this review was written                                                   | [l4-subsampled-density-2026-10.md](l4-subsampled-density-2026-10.md); l4clus0005                                                                                                     | l4clus0005 either gains an uncapped arm (`config/experiments/l4-cap100k.json`) or says why not                    | Open   |
+| OQ-06 | Accumulated body-local footprint (Q2): does a planar registration comparator (`TransformationEstimation2D`, `NormalDistributionsTransform2D`) add anything W4's extent work does not?                                             | Named as rank 7 with no spec; overlaps the Parked facet arm B                                             | Geometry convergence plan section 4 and W4 row; facet plan arm B; `registration/include/pcl/registration/ndt_2d.h`                                                                   | A one-paragraph verdict: a spec, a note added to arm B, or dropped                                                | Open   |
+| OQ-07 | Duplicate tracks (Q4): is a support-then-conflict rule (`hv/greedy_verification.h`, `hv/hv_papazov.h`) a useful arm beside l5id0004's overlap end?                                                                                | Listed as rank 12 with no mapping                                                                         | [l5-duplicate-tracks-2026-10.md](l5-duplicate-tracks-2026-10.md); the two headers                                                                                                    | An arm proposed in an l5id spec, or dropped with the reason                                                       | Open   |
+| OQ-08 | Q3 in Gerardus: does Gerardus already report registration observability or seed from descriptors?                                                                                                                                 | Gerardus is a separate repository and was not read                                                        | Gerardus `docs/REGISTRATION-STATUS.md`, its 2026-10-24 registration maths note                                                                                                       | The plan's Item 6 says which recommendations are new to Gerardus                                                  | Open   |
+| OQ-09 | Settled background clean-up before upload: does moving least squares or statistical outlier removal improve pose0001's gates more than the track guard did?                                                                       | Not assessed; the review recommends veil removal only                                                     | [gerardus-static-registration-2026-10.md](gerardus-static-registration-2026-10.md); `surface/include/pcl/surface/mls.h`, `filters/include/pcl/filters/statistical_outlier_removal.h` | Folded into OQ-08's recommendation or dropped                                                                     | Open   |
+| OQ-10 | Q1 classification: which labelled corpus would let ESF and moment-of-inertia descriptors be scored, by class and aspect?                                                                                                          | Blocked on the Parked classification scorecard and corpus rows                                            | Shape descriptors plan Phase 4; classifier training plan Phases 1 and 2                                                                                                              | Recorded as a dependency on those rows, with the minimum per-class counts                                         | Open   |
+| OQ-11 | What did the owner's linked ChatGPT thread add?                                                                                                                                                                                   | chatgpt.com did not resolve from the cloud environment                                                    | The thread, pasted by the owner                                                                                                                                                      | Any new question becomes a row here                                                                               | Open   |
 
 ## Review method and limits
 

@@ -270,6 +270,7 @@ For project facts, conventions, and technical detail, see these canonical source
 - British English, commit format, doc update rules: see `.github/knowledge/coding-standards.md`
 - Radar specs, LIDAR specs, RPi target: see `.github/knowledge/hardware.md`
 - Test confidence levels, code review standards: see `.github/knowledge/role-technical.md`
+- Geometry, scene and prior data: see `docs/geometry-priors-data-purpose.md`
 
 Appius should treat schema changes as civil engineering: data has weight, migrations have blast radius.
 

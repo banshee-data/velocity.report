@@ -12,7 +12,7 @@
 The owner asked whether the Point Cloud Library can improve vehicle state tracking, facet and
 keypoint segmentation, and surface geometry, framed by five questions: road and kerb geometry for
 safety metrics, descriptors against classification error and fragmentation, hulls against boxes for
-clearance and following distance, static reconstruction for repeat surveys and multi-vantage
+clearance and following distance, measured static-scene geometry for repeat surveys and multi-vantage
 registration, and occlusion-aware analysis against track loss. The review answers each from the
 pinned source. This plan turns its shortlist into experiments with rules written now, so that the
 answers arrive as measurements and a port is built only where one pays.
@@ -196,6 +196,8 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] geom0013 hull bound (`S`)
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
+
+- [ ] The review's open rows OQ-01 to OQ-11, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

@@ -243,6 +243,18 @@ _Estimated time: 1–2 hours_
 
 The same hardware supports two deployment modes: a portable rig on your car roof rack, or a fixed mount at home. Pick whichever suits the situation, or build both and move the sensor to whichever street needs attention this month.
 
+#### Potential measurement bias
+
+A visible radar or LiDAR enclosure might be mistaken for speed enforcement or reported on a
+navigation app. That could influence the speeds you measure. This has not been established for
+velocity.report hardware, and the direction, size, and duration of any effect are unknown.
+Radar-detector alerts, visible equipment, and app alerts are separate possibilities.
+
+Record installation and relocation dates, visible changes, and any known nearby enforcement in
+your survey notes. Your first week after installation is not a pre-installation baseline.
+Keep these notes separate from the measurements: do not apply a correction factor or attribute
+a speed change to the enclosure or a nearby camera without a suitable comparison.
+
 #### Deployment option A: car roof rack mount (mobile)
 
 A portable rig that clamps to a standard roof rack. Park on any street, collect data for a few hours or a few days, then drive to the next location. One sensor, many streets.

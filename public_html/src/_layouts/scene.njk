@@ -353,7 +353,8 @@ layout: survey.njk
       </div>
       <p class="sv-note">{{ sceneIntro }}</p>
     <p class="scene-page__privacy" id="scene-about" hidden>
-        Grey points map the street. Coloured boxes and trails are the perception
+        Grey points are the street's static surroundings as the sensor measured them
+        during this recording. Coloured boxes and trails are the perception
         pipeline's current estimate of each road user's position, size, direction and
         speed; they can split or wander while the tracking work continues. LiDAR records
         no images, faces or number plates. The point is to understand traffic, not to
@@ -503,6 +504,7 @@ layout: survey.njk
   <p id="scene-stats" class="scene-transport__stats"></p>
 
       <p class="sv-note sv-evidence-note"><span class="sv-amber" aria-hidden="true">◐</span> Research preview: the tracker still splits some tracks and produces unstable trails.</p>
+      <p class="sv-note">The grey surroundings are what the sensor measured from one parked position at the recording time. They are measured spatial data, not a survey, plan or specification: a feature with no points was not observed, which does not mean it is absent. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">What the data is for</a></p>
     </section>
     {% endif %}
 
@@ -531,6 +533,15 @@ layout: survey.njk
           The speed figures are computed from the same tracks: each vehicle track above
           5 mph counts once, at its highest observed speed.
         </p>
+        {% if view.hasPlayback %}
+        <p>
+          The grey surroundings are one settled snapshot of what stayed still, thinned to
+          a 0.25 m grid. Positions are in metres from the sensor, in a frame set by the
+          sensor's own orientation; north is marked only where it was measured. From one
+          position, vehicles, trees and buildings hide what is behind them and returns
+          thin with distance, so the view holds the surfaces the sensor saw and no more.
+        </p>
+        {% endif %}
       </details>
     </section>
   </div>

@@ -162,6 +162,29 @@ from the first source-file packet when the source capture spans a drive; the
 manifest records the actual indexed start and does not imply that it is the
 start of every contributing raw file.
 
+## Interpreting the geometry
+
+The raw packets and the scene exports are measured spatial data: observed physical conditions
+at the recorded time, not plans or specifications of any structure. The dataset card's "What the
+geometry is" section is the public statement, and
+[geometry priors: data purpose](../../docs/geometry-priors-data-purpose.md) is the canonical one.
+Where its publication checklist is met in this release:
+
+| Item                  | Where                                                                                                                                                                                           |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source and terms      | The project's own sensor; site positions from the operator field map. The card's Project section says the licence is not yet declared                                                           |
+| Frame and units       | A scene header's `coordinate_frame`: metres, sensor at the origin, Z up; `units` in each file from a current build. The manifest carries no measured north and no georeference for the geometry |
+| Acquisition time      | Manifest `timestamp`, `timezone` and `duration_seconds`; a scene header's `start_ns`; a background file's `acquired_interval` from a current build                                              |
+| Observed and inferred | The raw PCAPNG is observed. A scene's background layer, ground height, tracks and trails are derived. The card's section names each, and `evidence` states it in each file from a current build |
+| Accuracy and coverage | The card's section and Known limits; `coordinate_rounding_m` and the background grid from a current build. No per-point or per-feature positional uncertainty is recorded                       |
+| Version               | Manifest `pipeline_version`, `pipeline_git_sha` and `raw_sha256`; a scene header's `build_version`, `tuning_hash` and `source_vrlog_sha256`, with `build_git_sha` from a current build          |
+
+Members marked "from a current build" are absent from this release's exports, which predate them;
+they appear when the scenes are exported again.
+
+A map artefact, when one is published, adds its own rows here. A field that does not exist yet
+is recorded as "not yet recorded", never implied.
+
 ## Relationship to repository S2 guidance
 
 The general repository geographic-indexing guide reserves canonical tokens for
