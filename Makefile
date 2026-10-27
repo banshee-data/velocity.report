@@ -2052,7 +2052,7 @@ format-sql:
 # LINTING (non-mutating, CI-friendly)
 # =============================================================================
 
-.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
+.PHONY: lint lint-go lint-python lint-web lint-docs lint-docs-offline check-docs-offline-links check-mermaid check-docs-format check-prose-width check-plan-hygiene check-backlog-format report-plan-hygiene check-quarter-blocks check-release-hashes update-release-json
 
 lint: lint-go lint-web lint-docs lint-docs-offline check-buildinfo check-no-results check-experiments
 	@echo "\nAll lint checks passed."
@@ -2084,6 +2084,9 @@ check-prose-width: ## Advisory: report prose lines over 99 columns (never fails 
 check-plan-hygiene: ## [gated] Check plan-file canonical-link hygiene (hard-fail)
 	@python3 scripts/check-plan-canonical-links.py --check
 
+check-backlog-format: ## [gated] Validate D-37 priority/workstream format and D-32 release caps
+	@python3 scripts/check-backlog-format.py
+
 report-plan-hygiene: ## Advisory: report plan-file canonical-link hygiene (never fails CI)
 	@python3 scripts/check-plan-canonical-links.py --report
 
@@ -2093,7 +2096,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 

@@ -1,5 +1,7 @@
 # 3D vector scene map: architecture specification
 
+- **Scope correction (D-36, October 26, 2026):** This file retains the historical in-repository static-map design. Gerardus now builds and versions static road/site geometry and accepted pose registration. velocity.report's L7 owns dynamic scene context and relationships, not duplicate static map construction or a body estimator. Construction phases below are not active 05x tasks. See the [L7 plan](../../plans/lidar-l7-scene-plan.md) and [BACKLOG](../../BACKLOG.md).
+
 - **Status:** Proposed
 - **Layers:** L4 Perception (extends `GroundSurface` interface)
 - **Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [LIDAR_ARCHITECTURE.md](./LIDAR_ARCHITECTURE.md)
