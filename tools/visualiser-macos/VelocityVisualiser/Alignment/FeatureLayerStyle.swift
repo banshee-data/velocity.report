@@ -7,9 +7,10 @@
 //                     polygons up to the roofline), and its roof planes,
 //                     filled translucent (triangles) and outlined, coloured
 //                     by slope or by their part's roof:shape. Nothing is
-//                     extruded, except an older server's parts, which send
-//                     no wall surfaces: those are extruded as a wireframe
-//                     from min_height to height
+//                     raised, except an older server's parts, which send
+//                     no wall surfaces: those are drawn as a wireframe
+//                     prism from min_height to height, an inferred extent
+//                     rather than observed walls
 //   LANE_MARKINGS     bright lines on the road, white or yellow
 //   STREET_FURNITURE  poles as a vertical line with a small ring for their
 //                     diameter at each end; signs as short thick segments
@@ -64,7 +65,7 @@ extension ReferenceStyle {
     /// A server that sends wall surfaces (Gerardus ROOFLINE-WALLS) gives each
     /// wall as a closed vertical polygon whose top follows the roofline, with
     /// its z in its vertices: each is drawn as it is, and no part is
-    /// extruded, since a part's height is the top of its roof and its walls
+    /// raised, since a part's height is the top of its roof and its walls
     /// would stand over the gutter. An older server sends none, and each
     /// part is drawn as a wireframe prism: the same ring `partRise` higher
     /// and an upright at every vertex. A part with no height is its outline

@@ -328,7 +328,7 @@ struct ReferenceGeometry: Sendable {
     /// roof planes and their wall surfaces (BUILDINGS), painted markings
     /// (LANE_MARKINGS), poles and signs (STREET_FURNITURE), and trees
     /// (TREES). A server older than Gerardus's roofline walls sends no wall
-    /// surfaces, and its parts are extruded instead.
+    /// surfaces, and its parts are drawn as inferred prisms instead.
     var buildingParts: [Gerardus_Align_V1alpha1_LineFeature] = []
     var roofPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var wallSurfaces: [Gerardus_Align_V1alpha1_LineFeature] = []

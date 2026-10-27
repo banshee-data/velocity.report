@@ -247,7 +247,9 @@ import SwiftUI
                     Text(reference.footprintAttribution).font(.caption2).foregroundStyle(.secondary)
                 }
                 Divider()
-                Text("Site model").font(.subheadline.weight(.semibold))
+                Text("Site model").font(.subheadline.weight(.semibold)).help(
+                    "Registered scans, and features observed or derived from them, at their capture times in the site frame; not a plan or survey"
+                )
                 Toggle(
                     "Registered scans (\(reference.registeredScans), \(reference.registeredPoints.formatted()) points)",
                     isOn: $session.showRegisteredScans)
@@ -293,8 +295,8 @@ import SwiftUI
                 isOn: $session.showBuildings
             ).help(
                 reference.wallSurfaces > 0
-                    ? "Building parts' outlines, their walls up to the roofline, and their roof planes filled by slope or by the part's roof:shape"
-                    : "Building parts extruded from min_height to height (this server sends no wall surfaces), and their roof planes filled by slope or by the part's roof:shape"
+                    ? "Building parts' outlines, their walls up to the roofline, and their roof planes filled by slope or by the part's roof:shape. Observed or derived from public elevation data at the stated time; not a plan or survey"
+                    : "Building parts' outlines drawn as wireframe prisms from min_height to height, an inferred extent (this server sends no wall surfaces), and their roof planes filled by slope or by the part's roof:shape. Observed or derived from public elevation data at the stated time; not a plan or survey"
             )
             if session.showBuildings, reference.roofPlanes > 0 {
                 Picker("Roofs by", selection: $session.roofColouring) {
