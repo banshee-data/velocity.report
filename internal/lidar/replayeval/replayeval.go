@@ -1026,7 +1026,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	var campaign *campaignTracker
 	if cfg.CampaignMetrics {
-		campaign = &campaignTracker{TrackerInterface: tracker, start: scoreStart, left: map[int64]bool{}, intervals: map[int64]*confirmationInterval{}}
+		campaign = &campaignTracker{TrackerInterface: tracker, start: scoreStart, left: map[int64]bool{}, intervals: map[int64]*confirmationInterval{},
+			inputCap: pipeline.DBSCANInputCap(bgMgr.GetParams().ForegroundMaxInputPoints)}
 		pipeCfg.Tracker = campaign
 	}
 	if cfg.TrackerTap != nil {

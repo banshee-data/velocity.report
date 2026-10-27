@@ -1467,6 +1467,49 @@ func TestNoClustersRecordStats(t *testing.T) {
 	}
 }
 
+// A frame whose DBSCAN input is over the cap reports the whole input to the
+// tracker, not the subsample DBSCAN clustered: the campaign metrics count the
+// frame and its kept fraction from it (l4clus0004).
+func TestRecordFrameStatsReportsTheInputBeforeTheCap(t *testing.T) {
+	params := l3grid.BackgroundParams{
+		ClosenessSensitivityMultiplier: 3.0,
+		SafetyMarginMetres:             0.5,
+		BackgroundUpdateFraction:       0.02,
+		NeighbourConfirmationCount:     0,
+		WarmupMinFrames:                0,
+		ForegroundMinClusterPoints:     2,
+		ForegroundDBSCANEps:            2.0,
+		ForegroundMaxInputPoints:       3,
+	}
+	bm := l3grid.NewBackgroundManagerDI("test-cap", 40, 1800, params, nil)
+	for i := range bm.Grid.Cells {
+		bm.Grid.Cells[i].AverageRangeMeters = 10.0
+		bm.Grid.Cells[i].TimesSeenCount = 100
+	}
+	bm.HasSettled = true
+
+	tracker := &mockTrackerCov{}
+	benchmarkMode := &atomic.Bool{}
+	benchmarkMode.Store(true)
+	cfg := &TrackingPipelineConfig{BackgroundManager: bm, Tracker: tracker, BenchmarkMode: benchmarkMode}
+	cb := cfg.NewFrameCallback()
+	cb(clusterFramePrePopulated())
+
+	if tracker.frameStatsCalls == 0 {
+		t.Fatal("RecordFrameStats was not called")
+	}
+	if tracker.lastForeground <= params.ForegroundMaxInputPoints {
+		t.Fatalf("RecordFrameStats got %d foreground points, want the input before the cap of %d",
+			tracker.lastForeground, params.ForegroundMaxInputPoints)
+	}
+	if got := DBSCANInputCap(0); got != 8000 {
+		t.Fatalf("DBSCANInputCap(0) = %d, want the 8000 default", got)
+	}
+	if got := DBSCANInputCap(3); got != 3 {
+		t.Fatalf("DBSCANInputCap(3) = %d, want 3", got)
+	}
+}
+
 // TestNoForegroundReturn covers the early return after StoreForegroundSnapshot
 // when all points match the background distance.
 func TestNoForegroundReturn(t *testing.T) {

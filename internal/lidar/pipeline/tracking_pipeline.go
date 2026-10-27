@@ -416,6 +416,16 @@ type TrackingPipelineConfig struct {
 	DisableTrackPersistence *atomic.Bool
 }
 
+// DBSCANInputCap is the input cap the pipeline clusters under for a
+// configured foreground_max_input_points: the value itself, or 8000 when it
+// is unset.
+func DBSCANInputCap(configured int) int {
+	if configured <= 0 {
+		return 8000
+	}
+	return configured
+}
+
 // BuildFrameCallback is NewFrameCallback for a config whose options come
 // from input: an invalid dwell policy (DwellPolicy.Validate) is refused with
 // an error before anything is applied, where NewFrameCallback panics.
@@ -937,11 +947,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// Cap input points to bound worst-case DBSCAN runtime.
 		// Uses foreground_max_input_points from tuning (default 8000) so
 		// operators can trade detection accuracy for performance at runtime.
-		maxInputPoints := params.ForegroundMaxInputPoints
-		if maxInputPoints <= 0 {
-			maxInputPoints = 8000
-		}
-		dbscanParams.MaxInputPoints = maxInputPoints
+		dbscanParams.MaxInputPoints = DBSCANInputCap(params.ForegroundMaxInputPoints)
 		dbscanParams.ScaleMinPtsWhenSubsampled = cfg.DensityPreservingCap
 
 		// Both calls share one implementation; the traced form only returns the
