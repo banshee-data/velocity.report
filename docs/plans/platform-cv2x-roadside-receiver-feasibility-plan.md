@@ -155,7 +155,7 @@ First pin a tested Git commit, compiler, dependency versions and sample file has
 - ASN.1 package: [usdot-fhwa-stol/j2735_202409](https://github.com/usdot-fhwa-stol/j2735_202409).
 - Inputs: bundled synthetic/sample J2735 UPER hex BSMs; 2016 versus 2024 schema compatibility should be tested.
 - Independent unit fixtures must validate signed longitudinal acceleration scaling, negative values, reserved/unavailable sentinel values, brake bits, time and heading.
-- Keep decoded test payloads that are *synthetic* and hand-authored only. No real vehicle captures in Git.
+- Keep decoded test payloads that are _synthetic_ and hand-authored only. No real vehicle captures in Git.
 
 ### R2: transport blocks into BSMs
 
