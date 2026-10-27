@@ -3,6 +3,7 @@
   <dl class="sv-prov__rows">
     <div><dt>Recorded</dt><dd>{{ rec.when.date }} · {{ rec.when.minutes }} min</dd></div>
     <div><dt>Sensor</dt><dd>{{ sv.sensorTag(rec.sensor, surveys.sensors) }} {% if rec.sensorId %}<code>{{ rec.sensorId }}</code> · {% endif %}no images, faces or plates</dd></div>
+    {% if rec.hasPlayback %}<div><dt>Geometry</dt><dd>Measured by the sensor at the recording time, in metres from the sensor; north only where it was measured. Not a survey, plan or specification. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">How to read it</a></dd></div>{% endif %}
     {% if rec.build %}<div><dt>Pipeline</dt><dd><code>{{ rec.build }}</code></dd></div>{% endif %}
     {% if rec.tuningHash %}<div><dt>Tuning</dt><dd><code title="{{ rec.tuningHash }}">{{ rec.tuningHash | truncate(23, true, "…") }}</code></dd></div>{% endif %}
     {% if rec.sourceSha256 %}<div><dt>Source VRLOG</dt><dd><code title="sha256 {{ rec.sourceSha256 }}">sha256 {{ rec.sourceSha256 | truncate(16, true, "…") }}</code></dd></div>{% endif %}
