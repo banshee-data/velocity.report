@@ -39,6 +39,9 @@ Enforced via `BANNED_KEYS` and `RE_KEY_DATE_SUFFIX` in the metadata checker.
    [data/maths/](../../../data/maths) and proposals in [data/maths/proposals/](../../../data/maths/proposals).
 4. Execution work remains under [docs/plans/](../../plans).
 5. Root keeps only governance/reference docs (`README`, `COVERAGE`, `DEVLOG`).
+6. A doc that describes or publishes geometry, scene or prior data calls it measured spatial data
+   and links [geometry priors: data purpose](../../geometry-priors-data-purpose.md) instead of
+   restating it.
 
 ## Opening paragraph rule
 

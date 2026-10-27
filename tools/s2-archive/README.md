@@ -201,6 +201,14 @@ Identity still comes from `site-index.json`. The corpus supplies the packets
 and the duration; the index supplies the id, the title and the position, which
 is what the scene pages and the map read.
 
+A scene's points are measured spatial data in a frame centred on the sensor, at the recording
+time. Its background layer is a settled, thinned snapshot and its tracks are estimates. Neither is
+a survey, plan or specification of the street, and a feature with no points was not observed,
+which is not the same as absent.
+[Geometry priors: data purpose](../../docs/geometry-priors-data-purpose.md) says what the data is
+for, and the dataset card's "What the geometry is" section carries the interpretation context for
+the published copy.
+
 The server must be running, with its replay directory pointed at the volume
 that holds the corpus:
 

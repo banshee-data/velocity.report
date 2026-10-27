@@ -129,7 +129,9 @@ As of March 10, 2026, the highest-value open questions are:
 3. **Ground-plane maths**
    The current runtime still uses a height-band filter. Which static or replay captures actually demonstrate that tile-plane fitting and vector-scene region selection outperform the simpler baseline enough to justify extra runtime and operational complexity?
 4. **Geometry priors plan review**
-   How should OSM and community geometry priors be diffed, shifted, signed, reviewed, and exported (`.osc`, GeoJSON, synthetic aggregates) so that the workflow is useful without weakening provenance or manual review gates?
+   How should OSM and community geometry priors be diffed, shifted, signed, reviewed, and exported
+   (`.osc`, GeoJSON, synthetic aggregates) so that the workflow is useful without weakening
+   provenance, manual review gates or the distinction between observed and inferred geometry?
 5. **Reflective and static-surface anchors**
    LiDAR intensity is available throughout the pipeline, but it is still unclear whether high-return signs can be turned into reliable static pose anchors, how far the threshold can be relaxed when signs are absent, whether walls, facades, or road geometry provide enough redundant fallback structure without causing false resets under occlusion, and whether a cached runtime signal back into lower layers is worth the architectural cost.
 6. **Velocity coherence**

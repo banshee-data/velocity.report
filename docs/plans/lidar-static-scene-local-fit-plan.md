@@ -12,6 +12,10 @@
   [lidar-review-workflow-plan.md](lidar-review-workflow-plan.md) <!-- link-ignore -->
 - **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 
+The primitives here are fitted to measured returns in the sensor's local frame: spatial data about
+what the sensor observed, not a survey, plan or specification. See
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## Motivation
 
 An annotation pack is one batch of frames cut from one recording, and everything an operator
@@ -28,9 +32,9 @@ different slice of a car at each end of the view. And when a batch looks wrong, 
 cannot tell a nudged sensor from a bad background settle from a genuinely different scene,
 because there is nothing fixed to compare the batch against.
 
-This plan adds that fixed thing: a small per-site model of the static scene made of simple
-vector primitives, fitted to LiDAR points in the sensor's own local frame, carried from batch
-to batch, and used to show each batch's agreement with it. The road comes first, then
+This plan adds that fixed thing: a small per-site record of the static scene's measured geometry,
+as simple vector primitives fitted to LiDAR points in the sensor's own local frame, carried from
+batch to batch, and used to show each batch's agreement with it. The road comes first, then
 buildings, then poles and signs.
 
 ## Current state
@@ -75,7 +79,9 @@ buildings, then poles and signs.
 A **scene** is a revisioned JSON document in the annotation directory, under
 `scenes/<scene_id>/scene.json`, written with the same lock, temporary file and revision rules
 as the sidecar store. It holds primitives and the batches that have been compared with it. It
-is not bound to a pack digest, because it describes the street, not a set of bytes.
+is not bound to a pack digest, because it describes the street, not a set of bytes. Lengths in it
+are metres, and it records the reference batch's recording and capture time, so a primitive reads
+as the street at that time.
 
 Its frame is the sensor frame of the batch it was first fitted from, the **reference batch**.
 No latitude, no S2 cell, no site transform. Two batches from an unmoved sensor share that
@@ -102,7 +108,10 @@ All three are the canonical doc's feature classes at their simplest level of det
 Every primitive carries the annotation model's `ReviewStatus` and `Provenance`, with
 `Algorithm` and `AlgorithmVersion` when a proposer made it. That puts scene primitives in the
 same propose-then-grade workflow as masks: code proposes a road plane, a person accepts,
-adjusts or rejects it, and only a reviewed primitive is used to judge a batch.
+adjusts or rejects it, and only a reviewed primitive is used to judge a batch. A primitive is
+fitted from returns, so it is inferred from what the sensor saw, with its inlier support recorded.
+It holds geometry, review status and provenance and nothing about material, finish, interior or
+use.
 
 ### Fitting
 
@@ -118,7 +127,8 @@ for a given pack and seed, and tested against synthetic planes with known noise.
   of the inliers on the 0.5 m column lattice. Splitting into several patches is region growing
   over lattice tiles by normal angle and offset, and is a later step than one good plane.
 - **Walls.** Static returns well above the road are projected to plan. Walls are the line
-  segments that many of them fall on; each is extruded over the height range of its inliers.
+  segments that many of them fall on; each spans the height range of its inliers, an inferred
+  extent.
 - **Poles.** Static clusters that are narrow in plan and tall.
 - **From a selection.** "Fit plane to selection" takes the points an operator has just
   brushed. It is the manual path for a wall the proposer missed, and it reuses the brushes.
@@ -178,7 +188,7 @@ and Patchwork's concentric-zone ground model (Lim et al., 2021), the last being 
 directly relevant to a spinning sensor over a crowned road. To verify and add: MSAC and
 MLESAC as better-scored consensus; region-growing plane segmentation of point clouds;
 efficient RANSAC for multiple primitive shapes; the linearised point-to-plane ICP step;
-Manhattan-world assumptions for walls; building reconstruction from footprints plus points;
+Manhattan-world assumptions for walls; fitting building planes from footprints plus points;
 and normal distributions transform cells as an alternative residual representation. None of
 these is needed for Item 2.
 
@@ -191,7 +201,8 @@ these is needed for Item 2.
 **Steps:**
 
 1. Go types for scene, primitive (ground patch first) and batch comparison; JSON schema
-   version 1; validation that rejects a non-unit normal or a degenerate outline.
+   version 1; validation that rejects a non-unit normal, a degenerate outline, or a property
+   outside the geometry, review and provenance allow-list.
 2. Store with the sidecar store's lock, atomic write and revision rules; path validation
    through `ResolvePathWithinDirectory`.
 3. Sidecar gains optional `scene_id` and `batch_alignment`; old sidecars still load.
@@ -293,7 +304,8 @@ from a brushed selection.
 ### Deferred
 
 - [ ] Priors as proposals: OSM road axes and building footprints placed in the local frame as
-      unreviewed primitives, tracked by [spatial-priors-service-plan.md](spatial-priors-service-plan.md)
+      unreviewed primitives (geometry only, source terms recorded), tracked by
+      [spatial-priors-service-plan.md](spatial-priors-service-plan.md)
 - [ ] Global registration and georeferencing, tracked by
       [spatial-priors-service-plan.md](spatial-priors-service-plan.md)
 - [ ] Multi-patch meshes beyond planar patches, and volume features (vegetation), tracked by

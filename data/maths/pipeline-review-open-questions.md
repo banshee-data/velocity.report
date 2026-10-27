@@ -191,12 +191,17 @@ members should be improving the OpenStreetMap map first and foremost. The
 project's role is to provide tooling that makes it easy to:
 
 1. **Diff** observed geometry (settled tile-plane polygons, kerb lines,
-   building footprints visible to the sensor) against the current state of
+   the facade lines of buildings the sensor saw, which are partial outlines
+   rather than footprints) against the current state of
    OSM for the deployment area.
-2. **Propose edits** that align the community map with observed ground truth,
+2. **Propose edits** that align the community map with what the sensor observed,
    packaged as standard OSM changesets or JOSM-compatible `.osm` files.
 3. **Quantify misalignment** with translation and rotation offset metrics
    between observed and mapped geometry.
+
+Observed geometry is measured spatial data at its acquisition time (see
+[geometry-priors-data-purpose.md](../../docs/geometry-priors-data-purpose.md)). A diff shows where
+the measurement and the map disagree, not which of them is right.
 
 **OSM-first workflow:**
 
@@ -242,8 +247,9 @@ geometry and OSM priors is computed as a rigid transform:
 
 When an OSM prior exists, the alignment offset tells us how far our
 observations differ from the map. If a street has 80% of buildings present
-at one fixed set of coordinates, we treat the OSM positions as authoritative
-and compute an offset vector to align our observations. The remaining 20%
+at one fixed set of coordinates, we adopt the OSM positions as the alignment
+reference (a choice of frame, not a claim that they are correct) and compute an
+offset vector to align our observations. The remaining 20%
 of unmapped or misaligned features become candidate edits.
 
 **GPS role:** GPS provides an initial translation estimate and takes
@@ -607,8 +613,9 @@ The GPS role is:
    as a diagnostic metric.
 
 **OSM alignment model.** When a street has 80% of buildings present at one
-fixed set of coordinates in OSM, we assume the OSM positions are
-authoritative. Our observations are aligned to the OSM frame using a
+fixed set of coordinates in OSM, we adopt the OSM positions as the alignment
+reference (a choice of frame, not a claim that they are correct). Our
+observations are aligned to the OSM frame using a
 rigid transform (translation + rotation). The remaining 20% of unmapped
 features become candidate edits: we provide the geometry and a suggested
 offset vector, but align gaps to the external reference system to minimise

@@ -122,14 +122,16 @@ When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers at the 
 the toolbar shows **Align**. While connected, the visualiser looks for one every 30 seconds until
 it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and OpenStreetMap ways over the
 capture, places the sensor from its eye-read position and the `north_azimuth_deg` you type, lets you nudge it,
-and records an accepted pose in Gerardus's alignment log. Without a Gerardus server the toolbar
-and the app are unchanged. See
+and records an accepted pose in Gerardus's alignment log. The reference layers (buildings, kerbs,
+poles, trees) are observed or derived geometry at each source's acquisition time, not a plan or a
+survey; see [geometry-priors-data-purpose.md](../../docs/geometry-priors-data-purpose.md). Without
+a Gerardus server the toolbar and the app are unchanged. See
 [gerardus-alignment.md](../../docs/ui/visualiser/gerardus-alignment.md).
 
 ### Painting a site's streets
 
 Once the sensor is placed, **Paint streets** (in the alignment pane's header, or beside **Align**)
-snaps the view to a top-down plan over the site, north up, which pans and zooms but does not turn.
+snaps the view to look straight down on the site, north up, which pans and zooms but does not turn.
 Mark surfaces (carriageway, sidewalk, verge, apron, median), travel lanes, parked-car spaces or a
 row of them along a kerb, and driveways; vertices snap to kerbs, centrelines, box walls and other
 marks within 0.5 m. **Save** sends the changes to Gerardus in one batch under your author name,

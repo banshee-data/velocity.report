@@ -44,6 +44,7 @@ vote on the L3 grid (l3bg0026).
 | SUMO counting lines      | [SUMO headway comparison](operations/sumo-columbus-broadway-headways-2026-10.md)                   |
 | Near-edge frame cost     | [operations/near-edge-frame-cost-2026-10.md](operations/near-edge-frame-cost-2026-10.md)           |
 | macOS visualiser         | [../ui/visualiser/architecture.md](../ui/visualiser/architecture.md)                               |
+| Geometry data purpose    | [../geometry-priors-data-purpose.md](../geometry-priors-data-purpose.md)                           |
 | Backlog                  | [../BACKLOG.md](../BACKLOG.md)                                                                     |
 
 The [October near-edge campaign report](operations/near-edge-campaign-2026-10.md) preserves the
@@ -173,7 +174,9 @@ Rate the measurement quality of a track. Multi-select (comma-separated).
 The [platform vocabulary](../platform/PLATFORM.md#platform-vocabulary) defines capture, evidence, estimate, track, clip,
 label, annotation, site, deployment and survey. A clip is an evaluation or annotation window;
 a run is one processing pass. A label is a person’s class and quality verdict on a track;
-an annotation is a reviewed point mask. Scene denotes physical geometry.
+an annotation is a reviewed point mask. Scene denotes measured spatial data about the physical
+surroundings (see
+[Geometry priors: data purpose and interpretation](../geometry-priors-data-purpose.md)).
 The definitions do not add storage relationships: unified sites, deployment rows, surveys
 and label consolidation remain Phase 2.
 
@@ -194,6 +197,14 @@ only reads. Street use (driveways, parked-car spaces, travel lanes and surfaces)
 macOS app's [Paint mode](../ui/visualiser/gerardus-alignment.md#paint-mode-the-street-painter), which saves it to Gerardus with `EditStreetUse`; the web street editor that came before this page is gone,
 and `/lidar/streets` redirects here, keeping `?site=`. It is the browser's view of W1 in
 Gerardus's vector map plan (`docs/plans/VECTOR-MAP.md` §4.1 in the Gerardus repository).
+
+**What it shows.** Measured or derived geometry at each source's acquisition time: public
+footprints, aerial points and street data, and what Gerardus's accepted scans observed. Observed
+features and wall planes come from the scans; footprints, boxes, box walls, building parts, roof
+planes and wall surfaces are derived from public data; street use is the operator's marking, not a measurement. It is not a plan, a land or
+boundary survey, a structural assessment or a specification, and a feature that is not drawn is not
+asserted absent. See
+[Geometry priors: data purpose and interpretation](../geometry-priors-data-purpose.md).
 
 **Choosing a site.** The picker lists Gerardus's prepared sites from `GET /api/v1/sites`, each with
 its label, its site-frame origin (WGS 84 longitude and latitude at the list's `epoch`, and
@@ -219,9 +230,9 @@ draws as a mesh through the centres of the cells that have a height (`x0`, `y0` 
 cell's centre). Where the site lists `box_walls`, the 3D view asks for it instead of `boxes`: each
 box wall a vertical polygon with its z, its top on the building's roofline where Gerardus has roof
 planes for it (`top=roofline`) and at the box's height elsewhere (`top=box`), filled translucent as it
-comes and never raised by its `height_m`; party walls are fainter. From a Gerardus that lists no
-box walls, boxes are raised by `height_m` from their base. Wall planes are translucent and coloured
-by role, surfaces are
+comes and never raised by its `height_m`; walls on edges another footprint shares are fainter. From a Gerardus that lists no
+box walls, boxes are raised by `height_m` from their base, an inferred extent. Wall planes are
+translucent and coloured by role, surfaces are
 translucent fills draped on their own heights, kerbs, centrelines and observed lines sit at their
 z, lanes carry arrows, and a point with a `height_m` (a pole) stands as an upright. Scan points
 come from `GET /api/v1/sites/{l16}/scans?voxel_m=…` (little-endian float32 x, y, z triplets,
@@ -239,7 +250,8 @@ and it refuses a layer name it does not know, so the page asks for each only whe
 `GET /api/v1/sites` lists it for the site. Their features carry the tags plus `layer`, `id`, `kind`,
 `model_id` and `state`; kinds are `building_part`, `roof_plane`, `lane_marking`, `pole`, `sign` and
 `tree`. Beside them, `wall_surfaces` (kind `wall_surface`, Gerardus `docs/plans/ROOFLINE-WALLS.md`)
-holds each building part's walls up to its roofline, each a vertical polygon with its z, tagged
+holds vertical faces derived along each building part's outline up to its roofline (derived from
+public data, not observed walls), each a vertical polygon with its z, tagged
 `part`, `edge`, `role` (`wall`, `gable`, `step` or `party`) and `top`; like `box_walls` it is asked
 for only when listed, and only for the 3D view, since seen from above a wall is a line along its
 foot. On the 2D map, building parts are outlined and faintly filled by `roof:shape` (each Simple
@@ -250,9 +262,11 @@ vertical segment seen from above), and trees as their crown, a circle of `crown_
 when absent). A click shows the feature's properties, `roof:shape`, `model_id` and `state`
 among them. In 3D, a building part's outline lies at its base (the ground plus `min_height`).
 When the site serves `wall_surfaces`, the part is that outline alone and its wall surfaces are
-filled translucent in their own planes, so no wall stands above the gutter: a part's `height` is the
-top of its roof. From a Gerardus without wall surfaces a part is raised by `height − min_height`, as
-before. Roof planes are triangulated at their z;
+filled translucent in their own planes, so no wall stands above the eave: a part's `height` is the
+top of its roof. From a Gerardus without wall surfaces a part is drawn as a prism raised by
+`height − min_height`, an extent inferred from the part's height tags rather than its roof
+planes, as before. Roof planes are
+triangulated at their z;
 markings lie on the road at their own z, area markings filled; poles are cylinders of `diameter_m`
 (0.2 m when absent); signs are small boxes, 0.6 m by 5 cm, over the face; and trees are a trunk
 cylinder of `dbh_m` (0.3 m when absent) up to `crown_base_m` with a translucent crown ellipsoid of

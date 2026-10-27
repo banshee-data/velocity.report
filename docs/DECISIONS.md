@@ -232,7 +232,7 @@ Kept by: review only. `/plan-review` refuses a plan that proposes `pkg/tictactai
 
 ### D-36 — Physical-measurement qualification and Gerardus/L7 boundary
 
-Keep frozen L1–L10 layer identities. Gerardus owns the static street model and accepted registration; velocity.report L5 owns physical body estimates, L7 composes registered dynamic scene and spatial relations, and L8 alone owns physical interaction equations, uncertainty propagation, suppression, scoring and aggregation. L7 is neither a second body estimator nor a cross-visit reidentification service. Cross-layer S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams organise 05x qualification. v0.5.3–v0.5.9 targets static qualification; v0.6.0–v0.6.4 is reserved for SLAM/mobile transfer; other features move to 07x or Parked. Passing a release milestone does not waive predeclared physical, coverage and calibration gates. Source: [BACKLOG](BACKLOG.md), [L7 plan](plans/lidar-l7-scene-plan.md), [state-estimation plan](plans/lidar-state-estimation-plan.md).
+Keep frozen L1–L10 layer identities. Gerardus owns the static street geometry and accepted registration; velocity.report L5 owns physical body estimates, L7 composes registered dynamic scene and spatial relations, and L8 alone owns physical interaction equations, uncertainty propagation, suppression, scoring and aggregation. L7 is neither a second body estimator nor a cross-visit reidentification service. Cross-layer S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams organise 05x qualification. v0.5.3–v0.5.9 targets static qualification; v0.6.0–v0.6.4 is reserved for SLAM/mobile transfer; other features move to 07x or Parked. Passing a release milestone does not waive predeclared physical, coverage and calibration gates. Source: [BACKLOG](BACKLOG.md), [L7 plan](plans/lidar-l7-scene-plan.md), [state-estimation plan](plans/lidar-state-estimation-plan.md).
 
 Kept by: layer-boundary reviews, preserved migration inventory and scientific gate ledgers; CI enforcement is planned.
 
@@ -241,6 +241,12 @@ Kept by: layer-boundary reviews, preserved migration inventory and scientific ga
 Outstanding BACKLOG items use the one-line convention `- [#PR] **P0|P1|P2** (#issue) deliverable: [design](plans/lidar-state-estimation-plan.md) SIZE WORKSTREAM`, where SIZE is the original backtick-wrapped S/M/L/XL and WORKSTREAM is the final backtick-wrapped S-* tag, after optional maths/frontend annotations. Optional PR precedes priority; issue remains after it. P0 blocks the first qualified static measurement, P1 is next product or operational work, and P2 is research/polish/parked. Do not drop agreed work or alter the historical Complete section. Each slot stays within D-32's twelve-item cap. Source: [BACKLOG](BACKLOG.md).
 
 Kept by: `make check-backlog-format` in `lint-docs` and the preserved-item migration audit.
+
+### D-38 — Geometry, scene and prior data is measured spatial data
+
+Geometry, scene and prior data describes observable physical conditions: measured or inferred positions, extents and surfaces of stationary features, at a stated acquisition time, with provenance, coordinate frame, units and uncertainty. It is not a plan, drawing, specification or direction for constructing a structure, and a published record carries no material, finish, interior or construction-method attribute. Documentation, code comments, interface copy, dataset cards and the public site describe it that way, in the vocabulary of the canonical statement. Source: [geometry priors: data purpose](geometry-priors-data-purpose.md).
+
+Kept by: `make check-geometry-wording`, in `lint-docs` and its own CI workflow, which rejects the purpose doc's avoided wording in prose, templates, and code comments and strings; `/docs-release-prep` and `/review-pr` for the rest (review only). The publication checklist is worked through by hand before a scene or dataset release (`/docs-release-prep`).
 
 ### Milestone Rationale
 
@@ -264,7 +270,7 @@ Milestone assignments live in [BACKLOG.md](BACKLOG.md). This section documents t
 
 2. **Stabilise before expanding.** Each milestone hardens the layer below before building the layer above. v0.5 stabilises internals; v0.6 packages them; v0.7 polishes the interface; v1.0 certifies quality.
 
-3. **Privacy is a feature, not a constraint.** Every milestone must maintain the privacy guarantee. Online features (v2.0) are opt-in and transmit geometry only.
+3. **Privacy is a feature, not a constraint.** Every milestone must maintain the privacy guarantee. Online features (v2.0) are opt-in and send no PII, vehicle data, or raw sensor captures (tenet 1). The files they exchange hold measured geometry only: see [geometry priors: data purpose](geometry-priors-data-purpose.md).
 
 4. **Local-only is the default forever.** The online geometry-prior service (v2.0) enriches the system but is never required. A disconnected Raspberry Pi with local prior files must produce the same quality results.
 

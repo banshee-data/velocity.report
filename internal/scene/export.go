@@ -351,7 +351,11 @@ func Export(opts Options) (*Result, error) {
 		DroppedNonMonotonic: nonMonotonic,
 		TuningHash:          src.TuningHash,
 		BuildVersion:        src.BuildVersion,
+		BuildGitSHA:         src.BuildGitSHA,
 		GeneratedAt:         time.Now().UTC().Format(time.RFC3339),
+		Units:               exportUnits,
+		CoordinateRoundingM: CoordinateRoundingM,
+		Evidence:            exportEvidence(opts.Kind),
 		TrailEstimator:      trailEstimator,
 	}
 	if trail != nil {
@@ -383,6 +387,22 @@ func Export(opts Options) (*Result, error) {
 		Skipped:             skipped,
 		DroppedNonMonotonic: nonMonotonic,
 	}, nil
+}
+
+// exportEvidence says how each layer an export of kind carries is known. A
+// clip's points are the sensor's foreground returns, thinned and rounded but
+// not moved; tracks, boxes and trails are the tracker's estimates; a
+// background's points are grid cells' settled ranges and its ground height a
+// percentile of them.
+func exportEvidence(kind Kind) Evidence {
+	switch kind {
+	case KindClip:
+		return Evidence{Points: EvidenceObserved, Tracks: EvidenceInferred}
+	case KindBackground:
+		return Evidence{Points: EvidenceInferred, GroundZ: EvidenceInferred}
+	default:
+		return Evidence{Tracks: EvidenceInferred}
+	}
 }
 
 // isRotation reports whether a record is a sensor rotation: what the range,

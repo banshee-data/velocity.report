@@ -27,8 +27,9 @@ sweeps rings across surfaces that a level sensor only strikes at fixed elevation
    baseline the priors review names (KISS-ICP class; `Vizzo2023` in
    [references.bib](../../maths/references.bib)), producing one submap per walk.
 4. Accumulate the stand's stabilised background into a comparable point set.
-5. Measure, at a fixed voxel size: occupied voxels by height band, façade completeness against the
-   building footprints from the SF bootstrap sources, kerb edge sharpness, road surface point
+5. Measure, at a fixed voxel size: occupied voxels by height band, façade coverage along the
+   SF bootstrap sources' building footprints (dated source data, a reference outline rather than
+   the full extent), kerb edge sharpness, road surface point
    density within 15 m of the path, and reconstruction residual.
 6. Register the stand's reference pose to each submap and record the transform residual.
 
@@ -53,7 +54,7 @@ sweeps rings across surfaces that a level sensor only strikes at fixed elevation
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Odometry fails on the tilted walk because of short forward rays | Try the 30° setting; report where the tool loses track                                               |
 | Moving traffic contaminates the submap                          | Reconstruct from the walk only; the priors evidence model treats single-pass surfaces as unconfirmed |
-| Aerial reference is thin on façades                             | Use footprints for completeness and the aerial cloud for ground and roofline only                    |
+| Aerial reference is thin on façades                             | Use footprints as the reference outline for coverage, and the aerial cloud for ground and roofline   |
 | Tilt is not repeatable between walks                            | Mast detents; record the measured angle from the ground fit for each walk                            |
 
 ## Outputs

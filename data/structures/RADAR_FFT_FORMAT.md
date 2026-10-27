@@ -139,7 +139,7 @@ radar separately or supply a calibrated rigid radar-to-LiDAR transform.
 | `association_id`, `processing_run_id`                | Identifiers                    | Immutable association derivation                                      |
 | `component_ref`                                      | Evidence reference             | Frame component or bounded component-track interval                   |
 | `lidar_run_id`, `lidar_track_id`, `estimate_version` | Optional identifiers           | Exact positioned estimate being compared                              |
-| `placement_revision`, `scene_model_revision`         | References                     | Radar geometry and external Gerardus model used                       |
+| `placement_revision`, `scene_geometry_revision`      | References                     | Radar geometry and the external Gerardus scene geometry used          |
 | `clock_segment_id`, `comparison_time_ns`             | References                     | Qualified shared comparison instant                                   |
 | `predicted_radial_speed_mps`, `residual_mps`         | Optional numbers               | LiDAR projection and observed-minus-predicted residual                |
 | `state`                                              | Enum                           | Unassigned, candidate, associated, ambiguous, rejected, or predicted  |

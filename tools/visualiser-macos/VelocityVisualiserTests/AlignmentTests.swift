@@ -924,7 +924,7 @@ private func referenceMessages(
         ]
     case .intersections: return [message { $0.layerComplete = true }]
     case .boxes:
-        // The footprint's box: one street wall and one party wall, each a
+        // The footprint's box: one street wall and one on a shared edge, each a
         // closed vertical rectangle from the ground (21 m) to the roof.
         return [
             message {

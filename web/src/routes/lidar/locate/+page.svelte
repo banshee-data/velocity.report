@@ -69,7 +69,7 @@
 	// Height bands, in metres relative to the sensor, which sits about 2.3 m
 	// above the road. Walls are what OSM outlines; the ground shows kerbs.
 	const BANDS = {
-		walls: { label: 'walls (−1.5 to +4 m)', zMin: -1.5, zMax: 4 },
+		walls: { label: 'wall height (−1.5 to +4 m)', zMin: -1.5, zMax: 4 },
 		ground: { label: 'ground (below −1.5 m)', zMin: -Infinity, zMax: -1.5 },
 		all: { label: 'everything', zMin: -Infinity, zMax: Infinity }
 	} as const;
@@ -486,7 +486,7 @@
 
 	/**
 	 * Scores the pose drawn now against the outlines without moving it: the
-	 * share of wall points within 0.5 m of an outline, and their RMS distance.
+	 * share of returns at wall height within 0.5 m of an outline, and their RMS distance.
 	 */
 	async function checkFit() {
 		if (!pose || !xyz || !osmAllowed) return;
@@ -519,7 +519,7 @@
 			const scan = wallScan(pose);
 			const result = icp2d(scan, segments, { east: 0, north: 0 }, { maxDistance: 4 });
 			if (result.inliers < 50) {
-				error = `Snap found only ${result.inliers} wall points near an outline: move the sensor closer by hand first.`;
+				error = `Snap found only ${result.inliers} returns at wall height near an outline: move the sensor closer by hand first.`;
 				lastSnap = result;
 				return;
 			}
@@ -601,7 +601,8 @@
 				<h1 class="text-surface-content text-2xl font-semibold">Locate a static period</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
 					The settled background is what the sensor saw that does not move, drawn from above. Place
-					the sensor, turn it until the walls sit on the buildings, then Snap and Save.
+					the sensor, turn it until the walls sit on the map's building outlines, then Snap and
+					Save.
 				</p>
 			</div>
 			<a
@@ -792,7 +793,7 @@
 						<p class="text-surface-content/60 text-xs">
 							Snap moved {Math.hypot(lastSnap.dEast, lastSnap.dNorth).toFixed(2)} m and {lastSnap.dHeadingDeg.toFixed(
 								2
-							)}°; {lastSnap.inliers} of {lastSnap.total} wall points within reach, RMS {Number.isFinite(
+							)}°; {lastSnap.inliers} of {lastSnap.total} returns at wall height within reach, RMS {Number.isFinite(
 								lastSnap.rms
 							)
 								? `${lastSnap.rms.toFixed(2)} m`
@@ -805,8 +806,8 @@
 								? 'text-emerald-600'
 								: 'text-amber-600'}"
 						>
-							Fit: {Math.round((100 * fit.inliers) / Math.max(1, fit.total))}% of {fit.total} wall points
-							within 0.5 m of an outline, RMS {Number.isFinite(fit.rms)
+							Fit: {Math.round((100 * fit.inliers) / Math.max(1, fit.total))}% of {fit.total} returns
+							at wall height within 0.5 m of an outline, RMS {Number.isFinite(fit.rms)
 								? `${fit.rms.toFixed(2)} m`
 								: '—'}. Trees, parked cars and unmapped walls keep this below 100%; compare it
 							before and after a change.

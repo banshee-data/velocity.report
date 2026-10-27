@@ -6,9 +6,18 @@
 - **Target:** unscheduled; Gerardus MVP 0 sets the order
 - **Canonical:** [gerardus-alignment.md](../ui/visualiser/gerardus-alignment.md)
 
+The reference geometry the pane draws is observed or derived, with its own sources and dates, and
+is not a plan or survey of the site. See
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## Motivation
 
-Every capture's sensor position is eye-read from a field-map photo. Gerardus MVP 0 replaces that with a surveyed world pose for the 24 archive captures in S2 L10 cell 808581, by registering each settled background against USGS 3DEP aerial points and OSM. Gerardus owns the reference data, registration and its alignment log; velocity.report owns the pose on its records and the visualiser bridge (Gerardus ADR-0006, amended by ADR-0007). ADR-0006 expected the bridge's "overlay and pose pane" to land in velocity.report as one small plan. This is that plan.
+Every capture's sensor position is eye-read from a field-map photo. Gerardus MVP 0 replaces that
+with a registered world pose for the 24 archive captures in S2 L10 cell 808581, by registering each
+settled background against USGS 3DEP aerial points and OSM. Gerardus owns the reference data,
+registration and its alignment log; velocity.report owns the pose on its records and the visualiser
+bridge (Gerardus ADR-0006, amended by ADR-0007). ADR-0006 expected the bridge's "overlay and pose
+pane" to land in velocity.report as one small plan. This is that plan.
 
 Without the bridge the operator has no way to see a capture against the reference, and the MVP's manual path, which is the only one until Gerardus builds ICP, cannot run.
 
