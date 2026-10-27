@@ -37,16 +37,16 @@ Not goals: intercepting cellular telematics; reconstructing commuting patterns; 
 
 ## Measurement value and validity
 
-| Field / metric | SAE J2735 BSM source | Validation use | Important caveat |
-| --- | --- | --- | --- |
-| Speed | `coreData.speed` | Compare instantaneous LiDAR speed and differentiated acceleration | Check unavailable/reserved encodings and unit conversion |
-| Longitudinal acceleration | `coreData.accelSet.long` | Peak deceleration, onset, magnitude, duration | Vehicle-reported, possibly filtered or biased; not independent physical ground truth |
-| Lateral acceleration | `coreData.accelSet.lat` | Cornering/turn dynamics | Depends on axes/orientation and quality |
-| Yaw rate | `coreData.accelSet.yaw` | Heading-change comparison | Synchronisation and offset can dominate |
-| Brake status | `coreData.brakes` | Braking-event co-occurrence | Status bits are not deceleration or pedal force; decode enumerations |
-| Heading | `coreData.heading` | Temporary association with a local LiDAR episode | Directional and positional ambiguity |
-| Position | `coreData.lat`, `coreData.long` | Temporary alignment in an authorised test only | Highly identifying when combined with precise time |
-| Temporary message ID | `coreData.id` | At most in-memory same-encounter continuity | Can support tracking; never persist/export |
+| Field / metric            | SAE J2735 BSM source            | Validation use                                                    | Important caveat                                                                     |
+| ------------------------- | ------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Speed                     | `coreData.speed`                | Compare instantaneous LiDAR speed and differentiated acceleration | Check unavailable/reserved encodings and unit conversion                             |
+| Longitudinal acceleration | `coreData.accelSet.long`        | Peak deceleration, onset, magnitude, duration                     | Vehicle-reported, possibly filtered or biased; not independent physical ground truth |
+| Lateral acceleration      | `coreData.accelSet.lat`         | Cornering/turn dynamics                                           | Depends on axes/orientation and quality                                              |
+| Yaw rate                  | `coreData.accelSet.yaw`         | Heading-change comparison                                         | Synchronisation and offset can dominate                                              |
+| Brake status              | `coreData.brakes`               | Braking-event co-occurrence                                       | Status bits are not deceleration or pedal force; decode enumerations                 |
+| Heading                   | `coreData.heading`              | Temporary association with a local LiDAR episode                  | Directional and positional ambiguity                                                 |
+| Position                  | `coreData.lat`, `coreData.long` | Temporary alignment in an authorised test only                    | Highly identifying when combined with precise time                                   |
+| Temporary message ID      | `coreData.id`                   | At most in-memory same-encounter continuity                       | Can support tracking; never persist/export                                           |
 
 The BSM Part I core typically includes the fields above. Optional extensions, certificates and implementations vary. Validate J2735 edition, scaling, unavailable sentinels and coordinate reference in fixtures, not in an ad-hoc parser. Normal BSMs are not expected to broadcast VINs or licence plates; **do not assert their absence from every extended message, upper-layer packet, or arbitrary capture**.
 
@@ -79,11 +79,11 @@ A frequency-accurate **10 MHz reference** disciplines the RF/sample clock. A **1
 
 At 11.52 MS/s complex I/Q, raw payload alone is approximately:
 
-| Representation | Approximate sustained throughput | Approximate hourly volume |
-| --- | ---: | ---: |
-| 8-bit I + 8-bit Q (complex int8) | 23.04 MB/s | 82.94 GB |
-| 16-bit I + 16-bit Q (complex int16) | 46.08 MB/s | 165.89 GB |
-| 20 MS/s complex int8 | 40 MB/s | 144 GB |
+| Representation                      | Approximate sustained throughput | Approximate hourly volume |
+| ----------------------------------- | -------------------------------: | ------------------------: |
+| 8-bit I + 8-bit Q (complex int8)    |                       23.04 MB/s |                  82.94 GB |
+| 16-bit I + 16-bit Q (complex int16) |                       46.08 MB/s |                 165.89 GB |
+| 20 MS/s complex int8                |                          40 MB/s |                    144 GB |
 
 Figures exclude metadata, filesystem overhead and compression and use decimal GB. Clock alignment, CPU utilisation, lost samples, USB transfer errors, format (int8 vs int16), and precise sample-rate conversion must all be measured. A MacBook Pro can process offline captures; **real-time VM USB pass-through is not yet qualified**. Prefer native macOS RF capture with offline decode under ARM Linux (or a proven streaming bridge) if USB scheduling causes loss.
 
@@ -91,46 +91,46 @@ Figures exclude metadata, filesystem overhead and compression and use decimal GB
 
 Indicative one-unit USD amounts below are **not quotes for a tested working decoder**. Vendor pages may change. Mark unsupported prices as TBD. All SDR totals exclude any GPSDO until a viable timing strategy is validated.
 
-| Route | Manufacturer / part number | RF capability and interface | Price evidence | Assessment |
-| --- | --- | --- | --- | --- |
-| Already owned RTL-SDR | RTL2832U, typically R820T/R828D tuner | Too low in frequency and bandwidth | Owned | Reject for direct PC5 |
-| HackRF Pro | Great Scott Gadgets; SparkFun **WRL-29523** | 100 kHz–6 GHz; up to 20 MS/s complex int8; USB; SMA clock input | SparkFun lists **$400**, availability to confirm | Candidate for 10 MHz proof of concept; no known plug-and-play PC5 decoder |
-| HackRF One | Great Scott Gadgets; historical SparkFun **WRL-13001** | 1 MHz–6 GHz; 20 MS/s class; USB; 8-bit | New/used pricing TBD, older design | Candidate only if well-priced and tested |
-| bladeRF 2.0 micro xA4 | Nuand **BRFM-XA4** | 47 MHz–6 GHz; up to 61.44 MS/s, 2x2; USB 3; reference-clock PLL | Nuand **$540** new | Strong candidate if used below cap; total new >$500 |
-| bladeRF 2.0 micro xA9 | Nuand **BRFM-XA9** | Same V2X front-end range, larger FPGA | Nuand **$860** new | Exclude on cost |
-| Original bladeRF x40/x115 | Nuand **BRF-40**, **BRF-115** | 300 MHz–3.8 GHz | Irrelevant | Reject; cannot directly tune 5.9 GHz |
-| USRP B210 + GPSDO | Ettus **B210**, GPSDO **783454-01** (confirm revision) | UHD SDR + integrated GPS discipline | Prior estimated $2,387 + $1,502, requote | Published reproducibility reference, far over cap |
-| Quectel module | **AG15** | Release 14 PC5 Band 47, LGA, host and GNSS interfaces | Written quote and firmware terms needed | Potentially lowest-cost supported modem |
-| Quectel newer module | **AG18** | PC5 product family, details variant-dependent | Written quote needed | Ask whether replacing AG15 for new designs |
-| SIMCom module | **SIM8100** | Historical Qualcomm MDM9150, PC5-only Release 14 LGA | Written quote and firmware needed | Historical/reverse-engineering candidate |
-| Integrated PC5 OBU | Unex **OBU-352UC** | Packaged V2X receiver/OBU + ITS stack and SDK; FAKRA-Z | Written evaluation quote needed | Higher-cost functionality reference |
-| Legacy DSRC | Atheros **AR9280**, Compex **WLE200NX** | 5.9 GHz 802.11p with specific patched Linux drivers; U.FL | Used/retail total potentially <$100, **not validated** | Legacy-only, no C-V2X PC5 |
+| Route                     | Manufacturer / part number                             | RF capability and interface                                     | Price evidence                                         | Assessment                                                                |
+| ------------------------- | ------------------------------------------------------ | --------------------------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------- |
+| Already owned RTL-SDR     | RTL2832U, typically R820T/R828D tuner                  | Too low in frequency and bandwidth                              | Owned                                                  | Reject for direct PC5                                                     |
+| HackRF Pro                | Great Scott Gadgets; SparkFun **WRL-29523**            | 100 kHz–6 GHz; up to 20 MS/s complex int8; USB; SMA clock input | SparkFun lists **$400**, availability to confirm       | Candidate for 10 MHz proof of concept; no known plug-and-play PC5 decoder |
+| HackRF One                | Great Scott Gadgets; historical SparkFun **WRL-13001** | 1 MHz–6 GHz; 20 MS/s class; USB; 8-bit                          | New/used pricing TBD, older design                     | Candidate only if well-priced and tested                                  |
+| bladeRF 2.0 micro xA4     | Nuand **BRFM-XA4**                                     | 47 MHz–6 GHz; up to 61.44 MS/s, 2x2; USB 3; reference-clock PLL | Nuand **$540** new                                     | Strong candidate if used below cap; total new >$500                       |
+| bladeRF 2.0 micro xA9     | Nuand **BRFM-XA9**                                     | Same V2X front-end range, larger FPGA                           | Nuand **$860** new                                     | Exclude on cost                                                           |
+| Original bladeRF x40/x115 | Nuand **BRF-40**, **BRF-115**                          | 300 MHz–3.8 GHz                                                 | Irrelevant                                             | Reject; cannot directly tune 5.9 GHz                                      |
+| USRP B210 + GPSDO         | Ettus **B210**, GPSDO **783454-01** (confirm revision) | UHD SDR + integrated GPS discipline                             | Prior estimated $2,387 + $1,502, requote               | Published reproducibility reference, far over cap                         |
+| Quectel module            | **AG15**                                               | Release 14 PC5 Band 47, LGA, host and GNSS interfaces           | Written quote and firmware terms needed                | Potentially lowest-cost supported modem                                   |
+| Quectel newer module      | **AG18**                                               | PC5 product family, details variant-dependent                   | Written quote needed                                   | Ask whether replacing AG15 for new designs                                |
+| SIMCom module             | **SIM8100**                                            | Historical Qualcomm MDM9150, PC5-only Release 14 LGA            | Written quote and firmware needed                      | Historical/reverse-engineering candidate                                  |
+| Integrated PC5 OBU        | Unex **OBU-352UC**                                     | Packaged V2X receiver/OBU + ITS stack and SDK; FAKRA-Z          | Written evaluation quote needed                        | Higher-cost functionality reference                                       |
+| Legacy DSRC               | Atheros **AR9280**, Compex **WLE200NX**                | 5.9 GHz 802.11p with specific patched Linux drivers; U.FL       | Used/retail total potentially <$100, **not validated** | Legacy-only, no C-V2X PC5                                                 |
 
 **Vendor and implementation sources:** [HackRF Pro](https://hackrf.readthedocs.io/en/latest/hackrf_pro.html), [SparkFun catalogue](https://www.sparkfun.com/iot-wireless/rf.html), [Nuand BRFM-XA4](https://www.nuand.com/product/bladerf-xa4/), [Nuand original radio](https://www.nuand.com/bladeRF-brief.pdf), [Quectel automotive brochure](https://www.quectel.com/content/uploads/2025/03/Quectel_Product_Brochure_V8.3.pdf), [AG15 hardware design](https://forums.quectel.com/uploads/short-url/jMruIlww2pTpuzjwmDiUSEivvWW.pdf), [SIM8100](https://www.simcom.com/product/SIM8100.html), [SIMCom chipset roadmap](https://www.amstron.es/wp-content/uploads/2019/06/AMSTRON-SIMCom-Product-Roadmap_201906.pdf), [Unex OBU-352UC](https://unex.com.tw/en/docs/obu-352-information-sheet/).
 
 ### Candidate bills of materials
 
-| HackRF Pro, SDR research route | Estimate |
-| --- | ---: |
-| WRL-29523 | $400, observed listing |
-| 5.9 GHz 50 ohm antenna (e.g. Taoglas TD.10.5113) | $20–35, estimate |
-| Compatible SMA cable/adapters and short low-loss pigtail | $10–25, estimate |
-| MacBook Pro and Linux VM | Owned |
-| External timing system / receiver changes | TBD, excluded |
-| **Pre-timing subtotal** | **$430–460** |
+| HackRF Pro, SDR research route                           |               Estimate |
+| -------------------------------------------------------- | ---------------------: |
+| WRL-29523                                                | $400, observed listing |
+| 5.9 GHz 50 ohm antenna (e.g. Taoglas TD.10.5113)         |       $20–35, estimate |
+| Compatible SMA cable/adapters and short low-loss pigtail |       $10–25, estimate |
+| MacBook Pro and Linux VM                                 |                  Owned |
+| External timing system / receiver changes                |          TBD, excluded |
+| **Pre-timing subtotal**                                  |           **$430–460** |
 
 A used BRFM-XA4 only beats this if condition, shipping, reference inputs and actual **5.9 GHz reception** are confirmed. The Nuand xA4 ships with a USB 3 cable, but antenna, clock and enclosure choices require a separate bill of materials.
 
-| Bare C-V2X module prototype | Price status |
-| --- | --- |
-| AG15 / AG18 / SIM8100, exact regional SKU and hardware revision | Quote required |
-| Vendor EVB or custom PCB, socket/assembly for LGA | Quote required |
-| Correct power rails, start/reset pins, ESD, USB 2/3 or PCIe host wiring | Design required |
-| 5.9 GHz RF matching, primary/diversity ports, matching coax and antennas | RF review required |
-| GNSS receiver/antenna, time signal, firmware provisioning | Device-specific |
-| SDK/ITS stack licence, firmware image, support entitlement | **Critical unknown** |
-| Board assembly, shipping, tools and measurement access | Quote required |
-| **Total** | **Not established; $50 complete prototype is speculative** |
+| Bare C-V2X module prototype                                              | Price status                                               |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------- |
+| AG15 / AG18 / SIM8100, exact regional SKU and hardware revision          | Quote required                                             |
+| Vendor EVB or custom PCB, socket/assembly for LGA                        | Quote required                                             |
+| Correct power rails, start/reset pins, ESD, USB 2/3 or PCIe host wiring  | Design required                                            |
+| 5.9 GHz RF matching, primary/diversity ports, matching coax and antennas | RF review required                                         |
+| GNSS receiver/antenna, time signal, firmware provisioning                | Device-specific                                            |
+| SDK/ITS stack licence, firmware image, support entitlement               | **Critical unknown**                                       |
+| Board assembly, shipping, tools and measurement access                   | Quote required                                             |
+| **Total**                                                                | **Not established; $50 complete prototype is speculative** |
 
 For repeatable antenna swapping, standardise on **50 ohm SMA-female bulkhead** ports and SMA-male 5.85–5.925 GHz antennas. Verify actual connector sex, U.FL versus MHF4, and FAKRA-Z-to-SMA adapter fit per module. Taoglas **TD.10.5113** is an initial terminal dipole candidate; **TD.59.6H31** is an alternative outdoor/N-type candidate. At 5.9 GHz minimise lossy coax and check gain, VSWR, polarisation, placement, weather sealing, and exposure to strong adjacent-band sources.
 
@@ -237,34 +237,34 @@ After legal and hardware approval, use consented transmissions or an approved re
 
 ## Evidence gates and decision matrix
 
-| Gate | Evidence required | Purchase/release consequence |
-| --- | --- | --- |
-| G0 | Valid USDOT synthetic J2735 BSM into typed SI fields | No hardware needed |
-| G1 | srsRAN bundled sidelink I/Q vector to transport block and PCAP | No hardware needed |
-| G2 | Transport-block-to-J2735 synthetic end-to-end fixture, security envelope accounted for | Defines missing upper layers |
-| G3 | Written modem SDK/EVB quote **or** validated SDR timing + sample format path | Enables at-most-$500 candidate selection |
-| G4 | Known-source live C-V2X BSM extraction with RF/timing and software versions recorded | Proves hardware path, not traffic coverage |
-| G5 | Legal authorisation and privacy design for a specific field trial | Required before observing third-party payloads persistently |
-| G6 | Yield + bias + speed/acceleration comparison against LiDAR | Determines whether product integration is justified |
+| Gate | Evidence required                                                                      | Purchase/release consequence                                |
+| ---- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| G0   | Valid USDOT synthetic J2735 BSM into typed SI fields                                   | No hardware needed                                          |
+| G1   | srsRAN bundled sidelink I/Q vector to transport block and PCAP                         | No hardware needed                                          |
+| G2   | Transport-block-to-J2735 synthetic end-to-end fixture, security envelope accounted for | Defines missing upper layers                                |
+| G3   | Written modem SDK/EVB quote **or** validated SDR timing + sample format path           | Enables at-most-$500 candidate selection                    |
+| G4   | Known-source live C-V2X BSM extraction with RF/timing and software versions recorded   | Proves hardware path, not traffic coverage                  |
+| G5   | Legal authorisation and privacy design for a specific field trial                      | Required before observing third-party payloads persistently |
+| G6   | Yield + bias + speed/acceleration comparison against LiDAR                             | Determines whether product integration is justified         |
 
 A gate report must separate **Demonstrated** (locally reproduced), **Primary documented** (manufacturer/standards), **Third-party demonstrated** (published experiment), **Vendor claimed** (unverified quotation), **Estimated** (cost/volume model), and **Open** (no evidence). Do not promote lower-confidence evidence to implementation claims.
 
 ## Unresolved issues ledger
 
-| ID | Question | Owner | Blocker |
-| --- | --- | --- | --- |
-| U1 | How does the proposed receiver recover GNSS frame epoch/PPS, and can it operate without an RF GPSDO? | A2/A3 | Live decoder |
-| U2 | Does `pssch_ue` at a pinned revision ingest arbitrary int8/int16 I/Q files and handle sample format conversions? | A2/A3 | Low-cost SDR |
-| U3 | Can an AG15/AG18/SIM8100 ship with licensed firmware and receive arbitrary third-party PC5 messages over a documented host API? | A1 | Bare modem |
-| U4 | Is the complete first module EVB plus antennas, power, GNSS and SDK within the cap? | A1/A5 | Budget |
-| U5 | Which IEEE 1609.2/1609.3, WSMP or other ITS layers are necessary for actual BSM parsing? | A4 | End-to-end parser |
-| U6 | Is the 2021 Pacifica a direct V2X transmitter? No affirmative evidence collected; identify verified test source. | A1/A6 | Test design |
-| U7 | What percent of LiDAR passages broadcast usable messages at a chosen site? | A6 | Scientific value |
-| U8 | What permissions, privacy controls and retention restrictions apply to each capture type? | A6 + legal review | Field eligibility |
-| U9 | Does a Linux VM preserve repeatable live streaming/timestamps on the MacBook? | A2/A3 | Host integration |
-| U10 | Are advertised $10–18 module lots genuine, functional, provisionable and purchasable at quantity one? | A1/A5 | <$100 objective |
-| U11 | How to compare acceleration latency and noise when LiDAR observations and BSM report different physical quantities? | A4/A6 | Validation |
-| U12 | Do capture antennas, RF front-end and coverage enable receiver operation without inconsistent false negatives? | A3/A6 | Yield |
+| ID  | Question                                                                                                                        | Owner             | Blocker           |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ----------------- |
+| U1  | How does the proposed receiver recover GNSS frame epoch/PPS, and can it operate without an RF GPSDO?                            | A2/A3             | Live decoder      |
+| U2  | Does `pssch_ue` at a pinned revision ingest arbitrary int8/int16 I/Q files and handle sample format conversions?                | A2/A3             | Low-cost SDR      |
+| U3  | Can an AG15/AG18/SIM8100 ship with licensed firmware and receive arbitrary third-party PC5 messages over a documented host API? | A1                | Bare modem        |
+| U4  | Is the complete first module EVB plus antennas, power, GNSS and SDK within the cap?                                             | A1/A5             | Budget            |
+| U5  | Which IEEE 1609.2/1609.3, WSMP or other ITS layers are necessary for actual BSM parsing?                                        | A4                | End-to-end parser |
+| U6  | Is the 2021 Pacifica a direct V2X transmitter? No affirmative evidence collected; identify verified test source.                | A1/A6             | Test design       |
+| U7  | What percent of LiDAR passages broadcast usable messages at a chosen site?                                                      | A6                | Scientific value  |
+| U8  | What permissions, privacy controls and retention restrictions apply to each capture type?                                       | A6 + legal review | Field eligibility |
+| U9  | Does a Linux VM preserve repeatable live streaming/timestamps on the MacBook?                                                   | A2/A3             | Host integration  |
+| U10 | Are advertised $10–18 module lots genuine, functional, provisionable and purchasable at quantity one?                           | A1/A5             | <$100 objective   |
+| U11 | How to compare acceleration latency and noise when LiDAR observations and BSM report different physical quantities?             | A4/A6             | Validation        |
+| U12 | Do capture antennas, RF front-end and coverage enable receiver operation without inconsistent false negatives?                  | A3/A6             | Yield             |
 
 ## Research ordering and ownership
 
@@ -278,26 +278,26 @@ A gate report must separate **Demonstrated** (locally reproduced), **Primary doc
 
 These references support documented hardware capabilities and public examples. They do not establish the unverified experiments in this plan.
 
-| Source | Claim supported | Evidence class / remaining gap |
-| --- | --- | --- |
-| [srsRAN C-V2X note](https://docs.srsran.com/projects/4g/en/latest/app_notes/source/cv2x/source/index.html) | Release 14 PHY, B210 GPSDO, 5.920 GHz, 11.52 MS/s, known vector and decoded TB | Third-party demonstrated; not J2735 live braking |
-| [srsRAN 4G GitHub](https://github.com/srsran/srsRAN_4G) | Accessible open-source PHY code, AGPL-3.0 | Source available; fresh build not reproduced |
-| [USDOT J2735 decoder](https://github.com/usdot-fhwa-stol/j2735decoder) | Python decoder with BSM/MAP/SPaT fixtures | Primary source; local fixture test pending |
-| [USDOT 2024 ASN.1](https://github.com/usdot-fhwa-stol/j2735_202409) | J2735 edition-specific bindings | Primary source; edition compatibility pending |
-| [USDOT V2X Hub](https://github.com/usdot-fhwa-OPS/V2X-Hub) | Open ITS/application-layer reference | Primary source; suitability pending |
-| [HackRF Pro docs](https://hackrf.readthedocs.io/en/latest/hackrf_pro.html) | Frequency range, 20 MS/s, 8-bit, SMA clock | Manufacturer documented; no PC5 demo |
-| [SparkFun RF catalogue](https://www.sparkfun.com/iot-wireless/rf.html) | WRL-29523 $400 listing | Retail price, stock/total cost dynamic |
-| [Nuand xA4](https://www.nuand.com/product/bladerf-xa4/) | BRFM-XA4 $540 and 47 MHz–6 GHz | Manufacturer documented, no live PC5 demo |
-| [Nuand original bladeRF brief](https://www.nuand.com/bladeRF-brief.pdf) | x40/x115 maximum 3.8 GHz | Manufacturer documented; reject originals |
-| [Quectel automotive brochure](https://www.quectel.com/content/uploads/2025/03/Quectel_Product_Brochure_V8.3.pdf) | AG15/AG18 Band 47, interfaces, dimensions | Manufacturer documented; host API unknown |
-| [Quectel AG15 hardware design](https://forums.quectel.com/uploads/short-url/jMruIlww2pTpuzjwmDiUSEivvWW.pdf) | LGA pads, power and host interfaces | Manufacturer design; firmware not proven |
-| [SIMCom SIM8100](https://www.simcom.com/product/SIM8100.html) | Product and dated hardware-design listing | Manufacturer historical; orderability unknown |
-| [SIMCom roadmap](https://www.amstron.es/wp-content/uploads/2019/06/AMSTRON-SIMCom-Product-Roadmap_201906.pdf) | Historical MDM9150 / PC5-only concept | Historic roadmap, not procurement evidence |
-| [Unex OBU-352UC](https://unex.com.tw/en/docs/obu-352-information-sheet/) | SDK-enabled integrated OBU reference | Manufacturer documented; quote required |
-| [47 CFR 90.350](https://www.law.cornell.edu/cfr/text/47/90.350) | Legacy DSRC cessation by 14 December 2026 | Regulatory text; other legal review pending |
-| [Connected Vehicle Pilot open data](https://data.transportation.gov/stories/s/Connected-Vehicle-Pilot-CVP-Open-Data/hr8h-ufhq/) | Source of external traffic safety messages | Dataset reference; field provenance/rights to inspect |
-| [Project tenets](../../TENETS.md) | Local-first, no identifying vehicle data or tracking | Binding project policy |
-| [Identifiability analysis](../platform/architecture/identifiability-analysis.md) | Site/time anonymity and composition risks | Internal analysis; no safe blanket time rule |
+| Source                                                                                                                          | Claim supported                                                                | Evidence class / remaining gap                        |
+| ------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| [srsRAN C-V2X note](https://docs.srsran.com/projects/4g/en/latest/app_notes/source/cv2x/source/index.html)                      | Release 14 PHY, B210 GPSDO, 5.920 GHz, 11.52 MS/s, known vector and decoded TB | Third-party demonstrated; not J2735 live braking      |
+| [srsRAN 4G GitHub](https://github.com/srsran/srsRAN_4G)                                                                         | Accessible open-source PHY code, AGPL-3.0                                      | Source available; fresh build not reproduced          |
+| [USDOT J2735 decoder](https://github.com/usdot-fhwa-stol/j2735decoder)                                                          | Python decoder with BSM/MAP/SPaT fixtures                                      | Primary source; local fixture test pending            |
+| [USDOT 2024 ASN.1](https://github.com/usdot-fhwa-stol/j2735_202409)                                                             | J2735 edition-specific bindings                                                | Primary source; edition compatibility pending         |
+| [USDOT V2X Hub](https://github.com/usdot-fhwa-OPS/V2X-Hub)                                                                      | Open ITS/application-layer reference                                           | Primary source; suitability pending                   |
+| [HackRF Pro docs](https://hackrf.readthedocs.io/en/latest/hackrf_pro.html)                                                      | Frequency range, 20 MS/s, 8-bit, SMA clock                                     | Manufacturer documented; no PC5 demo                  |
+| [SparkFun RF catalogue](https://www.sparkfun.com/iot-wireless/rf.html)                                                          | WRL-29523 $400 listing                                                         | Retail price, stock/total cost dynamic                |
+| [Nuand xA4](https://www.nuand.com/product/bladerf-xa4/)                                                                         | BRFM-XA4 $540 and 47 MHz–6 GHz                                                 | Manufacturer documented, no live PC5 demo             |
+| [Nuand original bladeRF brief](https://www.nuand.com/bladeRF-brief.pdf)                                                         | x40/x115 maximum 3.8 GHz                                                       | Manufacturer documented; reject originals             |
+| [Quectel automotive brochure](https://www.quectel.com/content/uploads/2025/03/Quectel_Product_Brochure_V8.3.pdf)                | AG15/AG18 Band 47, interfaces, dimensions                                      | Manufacturer documented; host API unknown             |
+| [Quectel AG15 hardware design](https://forums.quectel.com/uploads/short-url/jMruIlww2pTpuzjwmDiUSEivvWW.pdf)                    | LGA pads, power and host interfaces                                            | Manufacturer design; firmware not proven              |
+| [SIMCom SIM8100](https://www.simcom.com/product/SIM8100.html)                                                                   | Product and dated hardware-design listing                                      | Manufacturer historical; orderability unknown         |
+| [SIMCom roadmap](https://www.amstron.es/wp-content/uploads/2019/06/AMSTRON-SIMCom-Product-Roadmap_201906.pdf)                   | Historical MDM9150 / PC5-only concept                                          | Historic roadmap, not procurement evidence            |
+| [Unex OBU-352UC](https://unex.com.tw/en/docs/obu-352-information-sheet/)                                                        | SDK-enabled integrated OBU reference                                           | Manufacturer documented; quote required               |
+| [47 CFR 90.350](https://www.law.cornell.edu/cfr/text/47/90.350)                                                                 | Legacy DSRC cessation by 14 December 2026                                      | Regulatory text; other legal review pending           |
+| [Connected Vehicle Pilot open data](https://data.transportation.gov/stories/s/Connected-Vehicle-Pilot-CVP-Open-Data/hr8h-ufhq/) | Source of external traffic safety messages                                     | Dataset reference; field provenance/rights to inspect |
+| [Project tenets](../../TENETS.md)                                                                                               | Local-first, no identifying vehicle data or tracking                           | Binding project policy                                |
+| [Identifiability analysis](../platform/architecture/identifiability-analysis.md)                                                | Site/time anonymity and composition risks                                      | Internal analysis; no safe blanket time rule          |
 
 ## Checklist
 
