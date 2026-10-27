@@ -1,1 +1,92 @@
-DOCS.md
+```
+      __     _
+     / /  __| |    ___     __      ___
+    / /  / _  |   / _ \   / _|    (_-<
+  _/_/_  \__,_|   \___/   \__|    /__/
+_|"""""|_|"""""|_|"""""|_|"""""|_|"""""|
+"`-o-o-'"`-o-o-'"`-o-o-'"`-o-o-'"`-o-o-'
+```
+
+# /docs
+
+Documentation structure, scope, and naming conventions.
+
+For project-wide numeric constants and default thresholds, see
+[MAGIC_NUMBERS.md](../MAGIC_NUMBERS.md).
+
+## /docs/ root structure
+
+- `/data/` # Stable data references, maths notes, and explorations
+- `/docs/lidar/` # LiDAR pipeline and sensor
+- `/docs/radar/` # Radar sensor processing
+- `/docs/ui/` # Web, mac, PDF clients
+- `/docs/plans/` # Implementation plans, roadmap
+- [C-V2X roadside receiver feasibility](plans/platform-cv2x-roadside-receiver-feasibility-plan.md) # Research-only hardware, decoding, GNSS, legal/privacy and purchase gates
+- `/docs/BACKLOG.md` # Prioritised work queue with versioned milestones (v0.5 → v2.0)
+- `/docs/DECISIONS.md` # Resolved executive decisions register
+- `/docs/VISION.md` # Product vision and backlog alignment guide
+- `/docs/COVERAGE.md` # Test coverage tracking
+- `/docs/DEVLOG.md` # Chronological development notes
+- `/docs/DEBUGGING.md` # Cross-component debugging guide
+- `/docs/SCHEMA_CHANGES.md` # Pending renames and schema changes, with their reasoning
+
+## Scope rules
+
+- Capability docs live under the owning root hub (`lidar`, `radar`).
+  - Architecture and design specifications live under `<hub>/architecture/`.
+  - Operational guides and implementation status live under `<hub>/operations/`.
+- UI/client surface docs for web/mac/pdf live under [docs/ui/](ui).
+- [docs/plans/](plans) contains forward-looking implementation plans and deferred roadmap work only. Completed architecture specs and implementation records belong in their hub folder.
+- Generators for documentation assets live under [tools/](../tools) alongside the other developer tooling, each in its own directory with a README and its committed output under `generated/`. They are tooling, not production code, and must not be imported by the Go server, the web frontend, or the visualiser.
+- Data science and maths references live under `data/`.
+  - Specification-grade structures live under [data/structures/](../data/structures).
+  - Maths foundations live under [data/maths/](../data/maths) with proposals in [data/maths/proposals/](../data/maths/proposals).
+  - Exploratory analyses and revisit-worthy deep dives live under [data/explore/](../data/explore).
+
+## Naming conventions
+
+Default naming is **lowercase-with-hyphens** (`kebab-case`) with a lowercase `.md` extension.
+Documented exceptions apply for canonical `UPPER_CASE.md` files and dated maths proposals.
+
+| Rule                    | Scope                                                      | Example                                                                |
+| ----------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------- |
+| No underscores          | everywhere                                                 | `foreground-tracking.md` not `foreground_tracking.md`                  |
+| No dates in filenames   | general docs                                               | use git history for chronology                                         |
+| UPPER_CASE filenames    | [data/structures/](../data/structures), project-level docs | `VRLOG_FORMAT.md`, [README.md](../README.md), [BACKLOG.md](BACKLOG.md) |
+| Date prefix `YYYYMMDD-` | [data/maths/proposals/](../data/maths/proposals) only      | `20260222-geometry-coherent-tracking.md`                               |
+
+### Path patterns
+
+- [data/structures/](../data/structures): `UPPER_CASE.md` for specification-grade content.
+- [docs/plans/](plans): `<hub>-<area>-<topic>-plan.md` (flat, no subdirectories).
+- [data/maths/proposals/](../data/maths/proposals): `YYYYMMDD-<topic>.md` (date prefix preserved for proposal chronology).
+- `<hub>/architecture/`: `<topic>.md`
+- `<hub>/operations/`: `<topic>.md`
+
+## Document structure
+
+Every doc should open with:
+
+1. **`# Title`**: a clear, descriptive heading.
+2. **Opening paragraph**: one or two sentences explaining what the document covers (the _goal_, _motivation_, or _scope_). This replaces the old `Purpose:` metadata line.
+3. **First `##` section**: use a heading that fits the content: `## Goal`, `## Problem`, `## Summary`, `## Objective`, `## Purpose`, etc.
+
+Optional bold metadata may follow the title for docs that need implementation state:
+
+```
+**Status:** Proposed (February 2026)
+**Related:** [Backlog](BACKLOG.md)
+```
+
+Use `**Status:**` only when the doc tracks implementation progress (plans, architecture specs). Reference docs, maths notes, and READMEs do not need it.
+
+Additional rules:
+
+- `Date:` metadata fields are not allowed: use git history.
+- `Version:` is optional.
+
+Use directory listings for file-level navigation to avoid stale index maintenance.
+
+## Public documentation site
+
+Public-facing docs are in [`public_html/`](../public_html/).
