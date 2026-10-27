@@ -932,8 +932,22 @@ goes; a school-zone schedule gives the shares during active hours.
 ## Open questions
 
 - Does a radar detector alert on the OPS243-A? The report finds 8% of drivers use one (Figure
-  12), and the module transmits inside police K-band. A site with both sensors can test it: the
-  LiDAR's speed profile on the approach, compared between the radar on and off, at the same hours.
+  12), and the module transmits inside police K-band. First test representative detectors.
+  A behavioural test would keep LiDAR measurement and the visible enclosure fixed while
+  randomising or counterbalancing radar on/off periods, checking interference and traffic mix.
+  That tests emissions, not visible hardware or app alerts.
+- Can a visible enclosure influence measured speeds, or be reported as enforcement on a
+  navigation app? These are separate hypotheses. [Anderson (2026)][anderson-jec] reports an
+  association between lower spot speeds and an alert's appearance; it does not establish an
+  effect for a pole-mounted LiDAR enclosure. The [October 26 briefing][rb-1026] (Q1) adds a
+  qualified setup warning and proposes independent pre-installation measurement with matched
+  controls, or repeated presence/absence periods with measurement unchanged. Week 1 versus
+  week 5 is neither a pre-installation baseline nor a reversal. Analyse fixed road positions
+  by lane and direction, not raw sensor range; a dip alone does not identify its cause.
+- Should surveys retain optional operator-provided nearby enforcement context? Recommend the
+  [briefing's Q2 fields][rb-1026]: location, route/direction relevance, distance, installation,
+  warning and citation dates, provenance, and baseline status. Keep notes separate from metrics;
+  no inferred spillover, automatic adjustment, or causal attribution. Implementation is deferred.
 - Does `compliant` join the guard? It would block "compliant" as a label on a passage while leaving
   "compliance" for the `legal` kind's name. Decided by the behaviour plan's owner with the other
   candidate stems.
@@ -1019,6 +1033,7 @@ which the Foundation's site served again, and its state-level estimates were fet
 | [NHTSA, Speeding: 2024 Data][nhtsa-813823]                                    | DOT HS 813 823, July 2026: a speeding-related crash is one where a driver was charged with a speeding offence or an officer recorded racing, too fast for conditions or exceeding the limit; 11,288 fatalities, 29% of the total, 28% of fatal crashes; the primary behind the "nearly 30%" the cited paragraph quotes, and an officer attribution, never a share of passages; read in full                                                                                                                                                                                      | Read                      |
 | [Campolettano, Kusano and Victor 2025, TIP][campolettano-tip]                 | Observed shares above the posted limit on surface streets in San Francisco and Phoenix from a million free-flow traversals seen by a ride-hailing fleet: 33% to 49%, p85 3.6 to 7.2 mph over; a mobile-sensor population and the only observed comparator for Item 3a's shares                                                                                                                                                                                                                                                                                                   | **Confirm**               |
 | [ITE, Setting Speed Limits][ite-ssl]                                          | The 85th percentile describes existing operating behaviour, is one input and does not by itself set the posted speed; the national MUTCD is the 11th Edition with Revision 1, December 2025; the sentence Item 2's percentile paragraph lacks                                                                                                                                                                                                                                                                                                                                    | Read                      |
+| [Anderson 2026, _Journal of Experimental Criminology_][anderson-jec]          | Read in full on October 26, 2026 from the open-access PDF (CC BY 4.0): 9,052 laser spot speeds at 33 Queensland sites before and after a Waze enforcement alert for the measuring car appeared; speed less the limit fell from 1.23 to −3.92 km/h and the share above the limit from 54.8% to 25.8%; an observational association involving app alerts, distinct from radar-detector and visible-hardware hypotheses, read by the [October 26 briefing][rb-1026]                                                                                                                 | Read                      |
 
 [brake]: https://podcasts.apple.com/us/podcast/the-real-reasons-drivers-speed-rebecca-steinbach/id1610029625?i=1000793374806
 [aaafts-speed-pdf]: https://aaafoundation.org/wp-content/uploads/2026/08/202608_AAAFTS-Attitudes-towards-Speeding.pdf
@@ -1038,6 +1053,8 @@ which the Foundation's site served again, and its state-level estimates were fet
 [campolettano-tip]: https://waymo.com/research/potential-safety-benefits-associated-with-speed-limit-compliance-in-san/
 [ite-ssl]: https://www.ite.org/technical-resources/topics/speed-management-for-safety/setting-speed-limits/
 [rb-2026-10]: ../lidar/operations/brief/research-briefing-2025-01-to-2026-10.md
+[rb-1026]: ../lidar/operations/brief/research-briefing-2026-10-26.md
+[anderson-jec]: https://doi.org/10.1007/s11292-026-09785-x
 
 ## Checklist
 
