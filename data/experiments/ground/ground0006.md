@@ -30,8 +30,11 @@ steps:
     estimate: { human: 6h }
     note: >-
       Per site and per 10 m region of RegionalGroundSurface: PCL 1.15.1's SACSegmentation with
-      SACMODEL_PERPENDICULAR_PLANE, axis z, eps 5 degrees, MSAC, threshold 0.05 m, on the lowest
-      returns; then normals at 0.3 and 1.2 m and DifferenceOfNormalsEstimation, cells above a DoN
+      SACMODEL_PERPENDICULAR_PLANE in a gravity-aligned frame, non-zero axis z, eps 5 degrees
+      converted to radians, MSAC, threshold 0.05 m, on the lowest returns. A roof or van floor
+      can pass the angle gate, so the low-return selection remains necessary. Explicitly record
+      whether coefficient optimisation is enabled; if enabled, use the reselected inliers
+      SACSegmentation returns. Then consistently oriented normals at 0.3 and 1.2 m and DifferenceOfNormalsEstimation, cells above a DoN
       magnitude of 0.25 withheld from the fit as kerb candidates, and SACMODEL_LINE on their
       boundary cells. Per region: residual of held-back road returns to each surface (median, MAD,
       95th percentile), the share of kerb candidates within 0.3 m of a Gerardus kerb where the site
