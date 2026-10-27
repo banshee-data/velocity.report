@@ -21,6 +21,7 @@ For project-wide numeric constants and default thresholds, see
 - `/docs/radar/` # Radar sensor processing
 - `/docs/ui/` # Web, mac, PDF clients
 - `/docs/plans/` # Implementation plans, roadmap
+- [C-V2X roadside receiver feasibility](plans/platform-cv2x-roadside-receiver-feasibility-plan.md) # Research-only hardware, decoding, GNSS, legal/privacy and purchase gates
 - `/docs/BACKLOG.md` # Prioritised work queue with versioned milestones (v0.5 → v2.0)
 - `/docs/DECISIONS.md` # Resolved executive decisions register
 - `/docs/VISION.md` # Product vision and backlog alignment guide
