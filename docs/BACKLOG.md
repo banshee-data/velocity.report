@@ -551,7 +551,6 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 - **P2** (#327) AV range image format: dual-return support: [design doc](lidar/architecture/av-range-image-format-alignment.md) `L` `S-PLATFORM`
 - **P2** Static pose alignment: 7-DOF tracking: [design doc](plans/lidar-static-pose-alignment-plan.md) `L` `S-GEO`
 - **P2** Online geometry-prior service: opt-in community-maintained geometry priors using canonical S2 L13 data partitions beneath S2 L10 filesystem groups (local-only remains default): [design doc](lidar/architecture/geometry-prior-service.md) `L` `S-PLATFORM`
-- **P2** Geometry-prior uncertainty estimator (Q3): document how a positional-uncertainty half-width is estimated for polygons exported from the ground-plane and scene-map pipelines, and reconcile the ground-plane tile export's property names with the prior allow-list, so the scene-map export (phase 5h) can emit a valid file: [design doc](lidar/architecture/geometry-prior-service.md) `M` `S-UNC`
 - **P2** Multi-location aggregate dashboard: cross-site analytics and comparative reporting `L` `S-PUBLISH`
 - **P2** (#7) Live SQL query view: browser-based SQL query tool; low priority while TailSQL suffices `S` `S-PLATFORM`
 - **P2** Coverage thresholds: raise codecov thresholds to meaningful levels after coverage improves: [design doc §7.5](ui/design-review-and-improvement.md) `S` `S-UI`
@@ -561,6 +560,7 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 
 ## Complete
 
+- [#873] Geometry-prior uncertainty estimator (Q3): linear worst-case half-widths for exported vertices with the assumptions each file records, censored heights, and the ground-plane export's members mapped to the prior allow-list: [maths](../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md)
 - [#873] Scene export measurement context: every part header states its `units`, `evidence` (observed points, inferred tracks), `coordinate_rounding_m` and `build_git_sha`, and the background file adds its frame, sensor, capture `acquired_interval`, grid bin and build identity, with the first background export tests: [design doc](plans/lidar-web-scene-export-plan.md#12-context-travels-with-the-export)
 - Automatic registration and pose scoring in the alignment pane (Gerardus PR 8): Register streams hypotheses and shows the gates, Accept records a hypothesis (registered when every gate passed) or the operator's pose, the pose is scored once it rests with the scan coloured by residual, and Snap refines it: [hub doc](ui/visualiser/gerardus-alignment.md#registration), [plan](plans/lidar-visualiser-gerardus-alignment-plan.md#item-2-pose-scoring-on-release)
 - [#829] Gerardus alignment client in the visualiser (MVP 0 step 4, manual path): the vendored `gerardus.align.v1alpha1` contract, the 3DEP and OSM reference drawn over a capture through the inverse pose, hint placement, local nudges, and accept or reject recorded in Gerardus's log, hidden when no Gerardus server answers: [hub doc](ui/visualiser/gerardus-alignment.md), [plan](plans/lidar-visualiser-gerardus-alignment-plan.md)

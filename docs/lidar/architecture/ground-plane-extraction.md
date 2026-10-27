@@ -568,7 +568,9 @@ Feature `properties` include:
 The collection also carries the interpretation members of the
 [prior file format](geometry-prior-service.md) (§File format specification) in its `metadata`
 object: coordinate reference system, units, vertical reference, acquisition interval, dataset and
-processing versions, and sources with their terms. The tiles are measured spatial data about the
+processing versions, and sources with their terms. A tile contributed as a prior takes the
+allow-list's member names, as the prior format's ground-plane mapping sets out. The tiles are
+measured spatial data about the
 road surface at those times, not a survey of the road or a statement of its current condition; see
 [Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
 

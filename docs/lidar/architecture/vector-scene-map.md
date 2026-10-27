@@ -212,12 +212,12 @@ Storing all of this at maximum resolution everywhere is wasteful. Conversely, a 
 
 The vector scene map uses **four levels of detail (LOD 0–3)**, inspired by mapping conventions (zoom levels) and point cloud LOD systems:
 
-| LOD | Label       | Typical Scale | Ground Resolution                              | Structure Resolution                         | Volume Resolution                 | Use Case                                       |
-| --- | ----------- | ------------- | ---------------------------------------------- | -------------------------------------------- | --------------------------------- | ---------------------------------------------- |
-| 0   | **Block**   | > 50 m        | Single polygon per road segment                | Building footprint (rectangle)               | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context     |
-| 1   | **Street**  | 10–50 m       | Polygon per lane or surface type               | Simplified wall outlines (4–8 vertices)      | Tree canopy OBBs                  | Street-level navigation, occlusion reasoning   |
-| 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
-| 3   | **Detail**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes with cm-level corner positions   | Dense bounding volumes            | Registration features, driveway dip profiles   |
+| LOD | Label       | Typical Scale | Ground Resolution                              | Structure Resolution                                                | Volume Resolution                 | Use Case                                       |
+| --- | ----------- | ------------- | ---------------------------------------------- | ------------------------------------------------------------------- | --------------------------------- | ---------------------------------------------- |
+| 0   | **Block**   | > 50 m        | Single polygon per road segment                | Building footprint (rectangle)                                      | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context     |
+| 1   | **Street**  | 10–50 m       | Polygon per lane or surface type               | Simplified wall outlines (4–8 vertices)                             | Tree canopy OBBs                  | Street-level navigation, occlusion reasoning   |
+| 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners                        | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
+| 3   | **Detail**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes at the finest corner positions the measurements support | Dense bounding volumes            | Registration features, driveway dip profiles   |
 
 ### LOD hierarchy as a tree
 
@@ -417,7 +417,7 @@ specification); this table states what the scene map must keep.
 | Evidence status        | `observed`, `inferred`, `source_data` or `prior_only`. Fitted planes and heights from returns are `observed`; a bounding-rectangle completion is `inferred`; an imported S3DB footprint or height is `source_data`; a configured level-height default is `prior_only` |
 | Source                 | The input the geometry came from: this sensor's session, or a source dataset with its recorded terms                                                                                                                                                                  |
 | Acquisition time       | The instant or interval over which the returns were gathered; `Settled` and last-updated times say when the map changed, not when the surface was seen                                                                                                                |
-| Positional uncertainty | Conservative half-widths for position and for height. The Douglas-Peucker tolerance (§4.3) is added to the stated value, not left out of it                                                                                                                           |
+| Positional uncertainty | Conservative half-widths for position and for height, from the [positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md). The Douglas-Peucker tolerance (§4.3) is one of its terms                          |
 | Coverage               | The share of the feature's extent supported by returns; an occluded side is a recorded gap, never an absence                                                                                                                                                          |
 | Version                | `scene_map_version` and the processing configuration that produced the feature                                                                                                                                                                                        |
 
@@ -694,19 +694,19 @@ Rationale:
 
 **S3DB import mapping (OSM → vector scene map):**
 
-| OSM construct / tags                                  | Vector scene usage                                                                         | Notes                                           |
-| ----------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| `building=*` outline (way or multipolygon)            | LOD 0 structure footprint prior                                                            | Stores overall footprint + metadata             |
-| `building:part=*` polygons                            | LOD 1 structure sub-features / wall segments                                               | Preferred for per-part heights                  |
-| `type=building` relation (`outline` + `part` members) | Explicit grouping of outline and parts                                                     | Use when present; infer containment otherwise   |
-| `height=*`, `min_height=*`                            | Add heights to an independently established ground Z, then transform into the sensor frame | Relative heights, not absolute altitude         |
-| `building:levels=*`, `building:min_level=*`           | Height fallback priors with lower confidence                                               | Convert with configured level-height heuristics |
-| `roof:shape`, `roof:height`, `roof:levels`, `roof:*`  | Optional roof prior metadata / roof uncertainty envelope                                   | Used to avoid overfitting roof returns as walls |
+| OSM construct / tags                                                            | Vector scene usage                                                                         | Notes                                           |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------- |
+| `building=*` outline (way or multipolygon)                                      | LOD 0 structure footprint prior                                                            | Stores the footprint and its source provenance  |
+| `building:part=*` polygons                                                      | LOD 1 structure sub-features / wall segments                                               | Preferred for per-part heights                  |
+| `type=building` relation (`outline` + `part` members)                           | Explicit grouping of outline and parts                                                     | Use when present; infer containment otherwise   |
+| `height=*`, `min_height=*`                                                      | Add heights to an independently established ground Z, then transform into the sensor frame | Relative heights, not absolute altitude         |
+| `building:levels=*`, `building:min_level=*`, `roof:levels=*`                    | Height fallback priors with lower confidence                                               | Convert with configured level-height heuristics |
+| `roof:shape`, `roof:height`, `roof:direction`, `roof:angle`, `roof:orientation` | Optional roof-form prior / roof uncertainty envelope                                       | Used to avoid overfitting roof returns as walls |
 
 Only the geometry-bearing tags above are read. Tags that describe material, colour, finish,
 interior or construction (for example `building:material`, `roof:material`, `building:colour`) are
-ignored at import. `building:levels` is read only as an input to a height estimate, which is stored
-as `prior_only`; no floor count is kept.
+ignored at import. `building:levels` and `roof:levels` are read only as inputs to a height
+estimate, which is stored as `prior_only`; no floor count is kept.
 
 **Height precedence for priors (high → low confidence):**
 

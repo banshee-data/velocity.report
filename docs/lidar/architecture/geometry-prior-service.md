@@ -118,47 +118,51 @@ Each file is a GeoJSON FeatureCollection (RFC 7946) with a `metadata` object and
 
 **Top-level metadata:**
 
-| Field                | Type   | Required | Notes                                                                                                                                                                                             |
-| -------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema_version`     | string | Yes      | Currently `"1"`                                                                                                                                                                                   |
-| `s2_level`           | int    | Yes      | Canonical fine level; `13`                                                                                                                                                                        |
-| `s2_l13_token`       | string | Yes      | Canonical S2 L13 token                                                                                                                                                                            |
-| `s2_l10_token`       | string | Yes      | Canonical parent token, derived with `Parent(10)`                                                                                                                                                 |
-| `created_at`         | string | Yes      | ISO 8601 timestamp of file creation, not of observation                                                                                                                                           |
-| `contributor_name`   | string | Yes      | Display name                                                                                                                                                                                      |
-| `contributor_email`  | string | No       | For GPG key lookup                                                                                                                                                                                |
-| `gpg_fingerprint`    | string | No       | Fingerprint of signing key                                                                                                                                                                        |
-| `crs`                | string | Yes      | Coordinate reference system of every coordinate: `"EPSG:4326"` (WGS84, longitude then latitude, RFC 7946 axis order), or the named sensor-local frame of a local-only file                        |
-| `units`              | string | Yes      | Unit of every length-valued property: `"metres"`                                                                                                                                                  |
-| `vertical_reference` | string | Yes      | What heights and `z_*` values are measured from: `"local_ground"` or a named vertical datum                                                                                                       |
-| `dataset_version`    | string | Yes      | Version of the dataset this file belongs to; changes when a feature is added, removed or re-measured                                                                                              |
-| `processing_version` | string | Yes      | Version of the export tool and settings that produced the geometry                                                                                                                                |
-| `sources`            | array  | Yes      | One entry per input dataset: `id`, `kind` (`sensor` or `source_data`), `name`, `terms` (licence identifier or statement of the redistribution terms) and `attribution` where the terms require it |
-| `acquired_interval`  | object | No       | `start` and `end` ISO 8601 timestamps bounding every observation in the file, where known; omitted rather than estimated                                                                          |
-| `coverage_notes`     | array  | No       | Known gaps (occlusion, range limit, unobserved sides) as short strings; a gap is not a statement that nothing is there                                                                            |
+| Field                | Type   | Required                               | Notes                                                                                                                                                                                                                                                                                                                       |
+| -------------------- | ------ | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version`     | string | Yes                                    | Currently `"1"`                                                                                                                                                                                                                                                                                                             |
+| `s2_level`           | int    | Yes                                    | Canonical fine level; `13`                                                                                                                                                                                                                                                                                                  |
+| `s2_l13_token`       | string | Yes                                    | Canonical S2 L13 token                                                                                                                                                                                                                                                                                                      |
+| `s2_l10_token`       | string | Yes                                    | Canonical parent token, derived with `Parent(10)`                                                                                                                                                                                                                                                                           |
+| `created_at`         | string | Yes                                    | ISO 8601 timestamp of file creation, not of observation                                                                                                                                                                                                                                                                     |
+| `contributor_name`   | string | Yes                                    | Display name                                                                                                                                                                                                                                                                                                                |
+| `contributor_email`  | string | No                                     | For GPG key lookup                                                                                                                                                                                                                                                                                                          |
+| `gpg_fingerprint`    | string | No                                     | Fingerprint of signing key                                                                                                                                                                                                                                                                                                  |
+| `crs`                | string | Yes                                    | Coordinate reference system of every coordinate: `"EPSG:4326"` (WGS84, longitude then latitude, RFC 7946 axis order), or the named sensor-local frame of a local-only file                                                                                                                                                  |
+| `units`              | string | Yes                                    | Unit of every length-valued property: `"metres"`                                                                                                                                                                                                                                                                            |
+| `vertical_reference` | string | Yes                                    | What heights and `z_*` values are measured from: `"sensor_origin"`, `"local_ground"` or a named vertical datum                                                                                                                                                                                                              |
+| `dataset_version`    | string | Yes                                    | Version of the dataset this file belongs to; changes when a feature is added, removed or re-measured                                                                                                                                                                                                                        |
+| `processing_version` | string | Yes                                    | Version of the export tool and settings that produced the geometry                                                                                                                                                                                                                                                          |
+| `sources`            | array  | Yes                                    | One entry per input dataset: `id`, `kind` (`sensor` or `source_data`), `name`, `terms` (licence identifier or statement of the redistribution terms) and `attribution` where the terms require it                                                                                                                           |
+| `acquired_interval`  | object | No                                     | `start` and `end` ISO 8601 timestamps bounding every observation in the file, where known; omitted rather than estimated                                                                                                                                                                                                    |
+| `coverage_notes`     | array  | No                                     | Known gaps (occlusion, range limit, unobserved sides) as short strings; a gap is not a statement that nothing is there                                                                                                                                                                                                      |
+| `uncertainty`        | object | When any feature states an uncertainty | The estimator and the assumptions behind every half-width in the file: model, range, azimuth and elevation accuracy with their sources, cell spread factor, residual quantile, registration (§5 of the [positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md)) |
 
 **Feature properties (per feature):**
 
-| Field                    | Type   | Required                      | Notes                                                                                                                            |
-| ------------------------ | ------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `class`                  | string | Yes                           | `"ground"`, `"structure"`, or `"volume"`                                                                                         |
-| `confidence`             | real   | Yes                           | 0.0–1.0                                                                                                                          |
-| `updated_at`             | string | Yes                           | ISO 8601 timestamp of the last change to the feature record; observation time is `acquired_at` or `acquired_interval`            |
-| `evidence_status`        | string | Yes                           | `"observed"`, `"inferred"`, `"source_data"` or `"prior_only"` (see §Evidence status)                                             |
-| `source_id`              | string | Yes                           | `id` of the `sources` entry the feature comes from                                                                               |
-| `acquired_at`            | string | Either                        | ISO 8601 instant at which the geometry was observed or, for `source_data`, the date of the source snapshot                       |
-| `acquired_interval`      | object | Either                        | `start` and `end` ISO 8601 timestamps when the observation spanned a period; give this or `acquired_at`                          |
-| `position_uncertainty_m` | real   | For `observed` and `inferred` | Conservative horizontal half-width in metres under the stated assumptions; omitted for `source_data` when the source states none |
-| `vertical_uncertainty_m` | real   | No                            | The same for heights and `z_*` values                                                                                            |
-| `coverage`               | real   | No                            | 0.0–1.0 fraction of the feature's extent directly supported by returns                                                           |
-| `point_count`            | int    | No                            | Source point observations                                                                                                        |
+| Field                    | Type   | Required                      | Notes                                                                                                                                                                                                                                                                    |
+| ------------------------ | ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `class`                  | string | Yes                           | `"ground"`, `"structure"`, or `"volume"`                                                                                                                                                                                                                                 |
+| `confidence`             | real   | Yes                           | 0.0–1.0                                                                                                                                                                                                                                                                  |
+| `updated_at`             | string | Yes                           | ISO 8601 timestamp of the last change to the feature record; observation time is `acquired_at` or `acquired_interval`                                                                                                                                                    |
+| `evidence_status`        | string | Yes                           | `"observed"`, `"inferred"`, `"source_data"` or `"prior_only"` (see §Evidence status)                                                                                                                                                                                     |
+| `source_id`              | string | Yes                           | `id` of the `sources` entry the feature comes from                                                                                                                                                                                                                       |
+| `acquired_at`            | string | Either                        | ISO 8601 instant at which the geometry was observed or, for `source_data`, the date of the source snapshot                                                                                                                                                               |
+| `acquired_interval`      | object | Either                        | `start` and `end` ISO 8601 timestamps when the observation spanned a period; give this or `acquired_at`                                                                                                                                                                  |
+| `position_uncertainty_m` | real   | For `observed` and `inferred` | Conservative horizontal half-width in metres from the [positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md), under the assumptions in `uncertainty`; omitted for `source_data` when the source states none |
+| `vertical_uncertainty_m` | real   | No                            | The same for heights and `z_*` values; omitted when a height is censored (`z_min_censored`, `z_max_censored`)                                                                                                                                                            |
+| `coverage`               | real   | No                            | 0.0–1.0 fraction of the feature's extent directly supported by returns                                                                                                                                                                                                   |
+| `point_count`            | int    | No                            | Source point observations                                                                                                                                                                                                                                                |
 
 Class-specific geometric properties (`plane_normal`, `z_min`, etc.) are limited to the allow-list
 below. Each feature's `geometry` is a GeoJSON Polygon.
 
 An omitted optional member means "not recorded", never "zero" or "none". The format has no place
-for a value an exporter could only guess: until an uncertainty estimator exists (Q3), the exporter
-cannot be completed, and a placeholder is not a substitute.
+for a value an exporter could only guess. The
+[positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md)
+says how the half-widths are bounded; an
+exporter that cannot supply one of its inputs omits the half-width, and the feature then fails the
+requirement rather than carrying a placeholder.
 
 ### Evidence status
 
@@ -195,9 +199,34 @@ implemented.
 | Identity and classification | `id`, `class`, `subclass`, `lod`, `parent_id`                                               |
 | Evidence and provenance     | `evidence_status`, `source_id`, `acquired_at`, `acquired_interval`, `updated_at`            |
 | Uncertainty and quality     | `confidence`, `position_uncertainty_m`, `vertical_uncertainty_m`, `coverage`, `point_count` |
-| Ground geometry             | `plane_normal`, `plane_offset`, `planarity`, `area_m2`                                      |
-| Structure geometry          | `z_min`, `z_max`, `wall_count`                                                              |
+| Ground geometry             | `plane_normal`, `plane_offset`, `planarity`, `curvature_deg`, `area_m2`                     |
+| Structure geometry          | `z_min`, `z_max`, `z_min_censored`, `z_max_censored`, `wall_count`                          |
 | Volume geometry             | `bounding_type`, `dimensions_m`, `orientation_deg`, `point_density`                         |
+
+`plane_normal` and `plane_offset` describe the plane $\mathbf{n}\cdot\mathbf{p} + d = 0$, with
+$d$ = `plane_offset`, in a frame whose origin is the feature's centroid at the
+`vertical_reference` height: local east-north-up in a georeferenced file, the named sensor frame in
+a local one, in `units`. The surface's height at the centroid is then $-d/n_z$. A `z_max` (or
+`z_min`) is censored when the sensor's highest (or lowest) ring still hit the surface, so the true
+edge lies beyond the field of view: the value is the highest (or lowest) observed return, a lower
+(or upper) bound, and `z_max_censored` (or `z_min_censored`) is `true`.
+
+**Ground-plane exports as priors.** The ground-plane tile exports
+([ground-plane-extraction.md](ground-plane-extraction.md) §7 and the
+[PCAP export tool](../../plans/pcap-ground-plane-export-tool-plan.md)) name some members for their
+own use. A tile contributed as a prior is written with the allow-list's names:
+
+| Ground-plane export                                         | Prior member                                                  |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `plane_normal`, or `plane_a`, `plane_b`, `plane_c`          | `plane_normal`, re-expressed in the centroid frame            |
+| `plane_offset` or `plane_d` (in the tool's own frame)       | `plane_offset`, recomputed for the centroid frame             |
+| `z_offset` or `mean_height` (height at the tile centre)     | `plane_offset` $= -n_z \cdot$ height, with the centroid frame |
+| `planarity`, `curvature_deg`, `point_count`, `confidence`   | The same names                                                |
+| `height_std_dev`                                            | An input to $\rho_{95}$ in the estimator, not a member        |
+| `settled`                                                   | Not written: only settled tiles are contributed               |
+| `tile_x`, `tile_y`, `curvature_class`, `settlement_time_ms` | Not written: local grid indices and processing state          |
+| `coordinate_system` (`"Sensor-XY"` or `"WGS84"`)            | `crs` (the named sensor frame, or `"EPSG:4326"`)              |
+| `units`, `vertical_reference`, `capture_start_time`         | `units`, `vertical_reference`, `acquired_interval.start`      |
 
 When a contributor provides a GPG key, the export tool produces a detached signature file submitted alongside the GeoJSON in the same PR:
 
@@ -320,17 +349,12 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 
 **Q2: Spam, abuse screening, and Git repo scalability.** Pull requests work at low volume but have two compounding problems at scale: unbounded Git pack history growth, and an open PR target inviting automated junk. CI schema checks cannot assess geometric plausibility. Sub-questions: what constitutes a valid prior? Is GPG signing sufficient as a spam disincentive? How to revoke or deprecate a bad cell file once distributed via CDN? See §Hosting Options for alternative submission mechanisms.
 
-**Q3: Positional-uncertainty estimator.** `position_uncertainty_m` is a conservative half-width
-under stated assumptions, as in the physical-reference records, but no estimator exists for
-polygons exported from the ground-plane and scene-map pipelines. The scene-map export command
-(phase 5h) cannot produce a valid file until one is documented, with its assumptions recorded in
-`processing_version` or an added metadata member.
-
 ## Resolved design questions
 
-| Decision                     | Resolution                                                            |
-| ---------------------------- | --------------------------------------------------------------------- |
-| PCAP research corpus hosting | Prefer Hugging Face Datasets; evaluate alternatives before committing |
+| Decision                     | Resolution                                                                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PCAP research corpus hosting | Prefer Hugging Face Datasets; evaluate alternatives before committing                                                                                                              |
+| Positional uncertainty (Q3)  | Linear worst-case half-widths with their assumptions recorded: [positional-uncertainty estimator](../../../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md) |
 
 ---
 
