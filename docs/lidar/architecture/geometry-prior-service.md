@@ -8,9 +8,27 @@ Community-maintained supplemental geometry priors: ground surfaces, kerbs, veget
 
 ---
 
+## Purpose and interpretation
+
+Geometry priors are measured spatial data: observed or inferred positions, extents and surfaces of
+stationary features (ground, structures, volumes) at a stated acquisition time, with a stated
+source, coordinate system, units and uncertainty. They describe what was observable and nothing
+more. They are not plans, drawings or specifications, they carry no material, finish, interior or
+construction-method information, and a feature that was not observed is not asserted absent.
+Intended uses are localisation, spatial indexing, alignment and change detection; they are not a
+boundary survey, a structural assessment or an authoritative statement of current site conditions.
+The canonical statement, and the publication checklist that §File format specification implements,
+is [Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
+
+---
+
 ## Design goal
 
-Enable a public file tree of supplemental geometry priors that any velocity.report deployment can optionally fetch, while preserving the local-first, privacy-by-default architecture. No cameras, no PII, no location data transmitted without explicit opt-in. The files contain geometry only: no speed, transit, or vehicle data.
+Enable a public file tree of supplemental geometry priors that any velocity.report deployment can
+optionally fetch, while preserving the local-first, privacy-by-default architecture. No cameras, no
+PII, no location data transmitted without explicit opt-in. The files contain measured geometry and
+its provenance only: no speed, transit, or vehicle data, and no attributes beyond geometry (see
+§Property allow-list).
 
 ---
 
@@ -67,8 +85,8 @@ the family prefix, but selection and copying must still yield `80858-1` or
 
 Contributions are submitted as **pull requests** to a public repository (or file uploads to a community-managed bucket). No accounts or authentication required for read access; write access goes through standard PR review.
 
-- Contributors export their sensor's learned scene map as GeoJSON.
-- A CI validation job checks schema conformance, coordinate bounds, and file placement in the correct grid folder.
+- Contributors export the static geometry their sensor has measured as GeoJSON.
+- A CI validation job checks schema conformance (including the property allow-list and the required provenance members), coordinate bounds, and file placement in the correct grid folder.
 - Merged files become immediately available on the CDN.
 - Contributor identity is a **chosen name** plus an optional email address and GPG key fingerprint (see §File Format Specification). Once merged, **the GeoJSON file is never modified**: CI records signature status separately in the `_trust/` manifest (see §Trust Tiers and Host Routing) so that end users can always verify the original signature against the original file bytes.
 
@@ -100,26 +118,86 @@ Each file is a GeoJSON FeatureCollection (RFC 7946) with a `metadata` object and
 
 **Top-level metadata:**
 
-| Field               | Type   | Required | Notes                                             |
-| ------------------- | ------ | -------- | ------------------------------------------------- |
-| `schema_version`    | string | Yes      | Currently `"1"`                                   |
-| `s2_level`          | int    | Yes      | Canonical fine level; `13`                        |
-| `s2_l13_token`      | string | Yes      | Canonical S2 L13 token                            |
-| `s2_l10_token`      | string | Yes      | Canonical parent token, derived with `Parent(10)` |
-| `created_at`        | string | Yes      | ISO 8601 timestamp                                |
-| `contributor_name`  | string | Yes      | Display name                                      |
-| `contributor_email` | string | No       | For GPG key lookup                                |
-| `gpg_fingerprint`   | string | No       | Fingerprint of signing key                        |
+| Field                | Type   | Required | Notes                                                                                                                                                                                             |
+| -------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema_version`     | string | Yes      | Currently `"1"`                                                                                                                                                                                   |
+| `s2_level`           | int    | Yes      | Canonical fine level; `13`                                                                                                                                                                        |
+| `s2_l13_token`       | string | Yes      | Canonical S2 L13 token                                                                                                                                                                            |
+| `s2_l10_token`       | string | Yes      | Canonical parent token, derived with `Parent(10)`                                                                                                                                                 |
+| `created_at`         | string | Yes      | ISO 8601 timestamp of file creation, not of observation                                                                                                                                           |
+| `contributor_name`   | string | Yes      | Display name                                                                                                                                                                                      |
+| `contributor_email`  | string | No       | For GPG key lookup                                                                                                                                                                                |
+| `gpg_fingerprint`    | string | No       | Fingerprint of signing key                                                                                                                                                                        |
+| `crs`                | string | Yes      | Coordinate reference system of every coordinate: `"EPSG:4326"` (WGS84, longitude then latitude, RFC 7946 axis order), or the named sensor-local frame of a local-only file                        |
+| `units`              | string | Yes      | Unit of every length-valued property: `"metres"`                                                                                                                                                  |
+| `vertical_reference` | string | Yes      | What heights and `z_*` values are measured from: `"local_ground"` or a named vertical datum                                                                                                       |
+| `dataset_version`    | string | Yes      | Version of the dataset this file belongs to; changes when a feature is added, removed or re-measured                                                                                              |
+| `processing_version` | string | Yes      | Version of the export tool and settings that produced the geometry                                                                                                                                |
+| `sources`            | array  | Yes      | One entry per input dataset: `id`, `kind` (`sensor` or `source_data`), `name`, `terms` (licence identifier or statement of the redistribution terms) and `attribution` where the terms require it |
+| `acquired_interval`  | object | No       | `start` and `end` ISO 8601 timestamps bounding every observation in the file, where known; omitted rather than estimated                                                                          |
+| `coverage_notes`     | array  | No       | Known gaps (occlusion, range limit, unobserved sides) as short strings; a gap is not a statement that nothing is there                                                                            |
 
 **Feature properties (per feature):**
 
-| Field        | Type   | Required | Notes                                    |
-| ------------ | ------ | -------- | ---------------------------------------- |
-| `class`      | string | Yes      | `"ground"`, `"structure"`, or `"volume"` |
-| `confidence` | real   | Yes      | 0.0–1.0                                  |
-| `updated_at` | string | Yes      | ISO 8601 timestamp                       |
+| Field                    | Type   | Required                      | Notes                                                                                                                            |
+| ------------------------ | ------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `class`                  | string | Yes                           | `"ground"`, `"structure"`, or `"volume"`                                                                                         |
+| `confidence`             | real   | Yes                           | 0.0–1.0                                                                                                                          |
+| `updated_at`             | string | Yes                           | ISO 8601 timestamp of the last change to the feature record; observation time is `acquired_at` or `acquired_interval`            |
+| `evidence_status`        | string | Yes                           | `"observed"`, `"inferred"`, `"source_data"` or `"prior_only"` (see §Evidence status)                                             |
+| `source_id`              | string | Yes                           | `id` of the `sources` entry the feature comes from                                                                               |
+| `acquired_at`            | string | Either                        | ISO 8601 instant at which the geometry was observed or, for `source_data`, the date of the source snapshot                       |
+| `acquired_interval`      | object | Either                        | `start` and `end` ISO 8601 timestamps when the observation spanned a period; give this or `acquired_at`                          |
+| `position_uncertainty_m` | real   | For `observed` and `inferred` | Conservative horizontal half-width in metres under the stated assumptions; omitted for `source_data` when the source states none |
+| `vertical_uncertainty_m` | real   | No                            | The same for heights and `z_*` values                                                                                            |
+| `coverage`               | real   | No                            | 0.0–1.0 fraction of the feature's extent directly supported by returns                                                           |
+| `point_count`            | int    | No                            | Source point observations                                                                                                        |
 
-Additional class-specific properties (`plane_normal`, `z_min`, etc.) vary by classification. Each feature's `geometry` is a GeoJSON Polygon.
+Class-specific geometric properties (`plane_normal`, `z_min`, etc.) are limited to the allow-list
+below. Each feature's `geometry` is a GeoJSON Polygon.
+
+An omitted optional member means "not recorded", never "zero" or "none". The format has no place
+for a value an exporter could only guess: until an uncertainty estimator exists (Q3), the exporter
+cannot be completed, and a placeholder is not a substitute.
+
+### Evidence status
+
+`evidence_status` says how the geometry is known, in the vocabulary of
+[internal/lidar/annotation/physical.go](../../../internal/lidar/annotation/physical.go). That file
+defines `observed`, `inferred`, `prior_only` and `unknown`; this format adds `source_data` for
+third-party inputs and never exports `unknown` (a component with no known value is omitted).
+
+| Status        | Meaning                                                                                               |
+| ------------- | ----------------------------------------------------------------------------------------------------- |
+| `observed`    | The sensor saw this surface or extent directly, at the stated time, in a named frame                  |
+| `inferred`    | Follows from observed geometry by a stated step (a fitted plane or bounding rectangle across gaps)    |
+| `source_data` | Taken from a third-party dataset with that source's own accuracy and date; not checked by the sensor  |
+| `prior_only`  | A class-level default with no measurement for this feature; evidence about the class, not the feature |
+
+Statuses rank `observed`, `inferred`, `source_data`, `prior_only`, strongest first, and a feature
+carries the weakest status of its parts: an observed footprint with a height taken from
+`source_data` is `source_data`. A partial view stays a lower bound; a plausible outline drawn over
+it does not make the unseen sides observed.
+
+### Property allow-list
+
+A prior file carries geometry and the context needed to interpret it, nothing else. The allow-list
+is exactly the metadata members tabled above plus the feature properties tabled above and below.
+Material, finish, colour, interior layout, floor count and construction-method attributes are not
+part of the format, whatever the source dataset records. CI rejects a file with any metadata member
+or feature property outside the list, and a `subclass` outside the closed vocabulary of
+[vector-scene-map.md](vector-scene-map.md) §2. It rejects rather than strips, because a merged file
+is never modified. The volume property names are proposed here and fixed when the volume export is
+implemented.
+
+| Group                       | Properties                                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------- |
+| Identity and classification | `id`, `class`, `subclass`, `lod`, `parent_id`                                               |
+| Evidence and provenance     | `evidence_status`, `source_id`, `acquired_at`, `acquired_interval`, `updated_at`            |
+| Uncertainty and quality     | `confidence`, `position_uncertainty_m`, `vertical_uncertainty_m`, `coverage`, `point_count` |
+| Ground geometry             | `plane_normal`, `plane_offset`, `planarity`, `area_m2`                                      |
+| Structure geometry          | `z_min`, `z_max`, `wall_count`                                                              |
+| Volume geometry             | `bounding_type`, `dimensions_m`, `orientation_deg`, `point_density`                         |
 
 When a contributor provides a GPG key, the export tool produces a detached signature file submitted alongside the GeoJSON in the same PR:
 
@@ -198,8 +276,8 @@ Individual contribution files are immutable and per-contributor. The practical s
 1. Collect all contributions for each cell.
 2. Spatial deduplication: remove duplicate polygons within tolerance.
 3. Spam/sanity rejection: coordinate bounds check, minimum polygon area, schema validation, implausibility heuristics.
-4. Weighted polygon union: merge overlapping features, weight by contributor confidence and signature status.
-5. Emit synthetic FeatureCollection with `{ "source": "synthetic", "aggregated_at": "...", "contributor_count": N }`.
+4. Weighted polygon union: merge overlapping features, weight by contributor confidence and signature status. A merged feature keeps the weakest `evidence_status` among its parts and the widest `position_uncertainty_m`; its acquisition interval spans the merged observations.
+5. Emit synthetic FeatureCollection with `{ "source": "synthetic", "aggregated_at": "...", "contributor_count": N }`. The aggregate's `sources` lists every contributing input with its recorded terms, and a feature whose source terms do not cover redistribution is left out; `dataset_version` names the aggregation run.
 6. Sign aggregate with project GPG key → publish to served CDN path.
 
 The aggregate file is clearly labelled `source: synthetic` and signed with the **project key** (not a contributor key). Clients that set `require_signed: true` load it because it carries a known-good signature. Individual contributor files remain in the contribution store for transparency and re-aggregation.
@@ -242,6 +320,12 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 
 **Q2: Spam, abuse screening, and Git repo scalability.** Pull requests work at low volume but have two compounding problems at scale: unbounded Git pack history growth, and an open PR target inviting automated junk. CI schema checks cannot assess geometric plausibility. Sub-questions: what constitutes a valid prior? Is GPG signing sufficient as a spam disincentive? How to revoke or deprecate a bad cell file once distributed via CDN? See §Hosting Options for alternative submission mechanisms.
 
+**Q3: Positional-uncertainty estimator.** `position_uncertainty_m` is a conservative half-width
+under stated assumptions, as in the physical-reference records, but no estimator exists for
+polygons exported from the ground-plane and scene-map pipelines. The scene-map export command
+(phase 5h) cannot produce a valid file until one is documented, with its assumptions recorded in
+`processing_version` or an added metadata member.
+
 ## Resolved design questions
 
 | Decision                     | Resolution                                                            |
@@ -254,11 +338,11 @@ These questions should be addressed before the v2.0 contribution pipeline is bui
 
 | Phase  | Milestone | Scope                                                        |
 | ------ | --------- | ------------------------------------------------------------ |
-| **5a** | v1.0      | Define GeoJSON schema for local prior files                  |
+| **5a** | v1.0      | Define GeoJSON schema (provenance, evidence, allow-list)     |
 | **5b** | v1.0      | Implement Prior Loader with file-system backend              |
 | **5c** | v1.0      | Wire `w_prior` weights into ground-plane region scoring      |
 | **5d** | v2.0      | Implement shared WGS84 → L13 and `Parent(10)` S2 utilities   |
-| **5e** | v2.0      | Define canonical L10/L13 folder structure and CI validation  |
+| **5e** | v2.0      | Define canonical L10/L13 layout; CI schema and allow-list    |
 | **5f** | v2.0      | Create public prior repository with contribution guidelines  |
 | **5g** | v2.0      | Add HTTP backend to Prior Loader (static file fetch, opt-in) |
 | **5h** | v2.0      | Add GeoJSON scene-map export command for prior contribution  |

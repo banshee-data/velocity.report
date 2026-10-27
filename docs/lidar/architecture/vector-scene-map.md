@@ -4,7 +4,26 @@
 - **Layers:** L4 Perception (extends `GroundSurface` interface)
 - **Related:** [ground-plane-extraction.md](./ground-plane-extraction.md), [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md), [LIDAR_ARCHITECTURE.md](./LIDAR_ARCHITECTURE.md)
 
-This specification extends the ground-plane tiled-grid model into a polygon-based vector scene map, enabling variable-resolution representation of ground surfaces, buildings, vegetation, and other static scene features.
+This specification extends the ground-plane tiled-grid model into a polygon-based vector scene map,
+enabling variable-resolution representation of the measured extents of ground surfaces, buildings,
+vegetation, and other static scene features.
+
+---
+
+## Purpose and interpretation
+
+The scene map is measured spatial data about the stationary features a sensor can see: ground
+surfaces, vertical planes with a footprint and height extent, and bounding volumes. Each stored
+feature is tied to an acquisition time, a source and a stated uncertainty (§5.5). It supports
+localisation, occlusion reasoning, spatial indexing, alignment and change detection. It is not a
+plan or specification of any structure: it records no hidden elements, materials, finishes,
+interiors or methods of construction, and a wall plane is a surface the sensor saw, not a statement
+about the building behind it. It is not a boundary survey, a structural assessment or an
+authoritative statement of current site conditions, and a feature outside the sensor's view is not
+asserted absent. The canonical statement is
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md); the
+published file format, with its provenance members and property allow-list, is in
+[geometry-prior-service.md](./geometry-prior-service.md).
 
 ---
 
@@ -48,7 +67,7 @@ L1 Packets → L2 Frames → L3 Background Grid → L4 Perception → L5 Tracks 
 ```
 
 - The **ground plane** remains the core height reference for traffic monitoring.
-- The **vector scene map** adds structural context: buildings define occlusion boundaries, vegetation defines clutter zones, refined ground polygons capture kerb geometry.
+- The **vector scene map** adds spatial context: buildings define occlusion boundaries, vegetation defines clutter zones, refined ground polygons capture kerb geometry.
 - The **clustering** system can query the scene map to distinguish "cluster near a known wall" from "cluster in open road".
 
 ---
@@ -102,7 +121,8 @@ Each ground polygon stores:
 
 ### 2.2 Structure features (buildings, walls)
 
-Structures are vertical surfaces observed as reflective returns from building facades, fences, and walls. They are modelled as:
+Structures are vertical surfaces observed as reflective returns from building facades, fences, and
+walls. They are represented as measured extents:
 
 - **Footprint polygon**: 2D outline (viewed from above) defining the structure's horizontal extent.
 - **Vertical plane equation**: For each wall segment, a near-vertical plane fit: normal ≈ (nx, ny, 0) with nz ≈ 0.
@@ -110,15 +130,22 @@ Structures are vertical surfaces observed as reflective returns from building fa
 
 > **Source:** `StructureFeature` and `WallSegment` structs in [internal/lidar/](../../../internal/lidar) (when implemented). Fields: FootprintVertices, per-wall Normal/Offset/Planarity, ZMin/ZMax, PointCount, Confidence, LOD.
 
-**Why not store full 3D meshes?** We don't need photorealistic building models. A few wall planes with corner coordinates capture the coarse structure visible to LiDAR, sufficient for:
+A wall plane fitted to returns is `observed`; a footprint completed across an unseen stretch, such
+as a minimum bounding rectangle, is `inferred` (§5.5). An unseen side, roof, opening or recess is
+missing from the record, and the record does not claim it is missing from the site.
+
+**Why not store full 3D meshes?** The map records what the sensor measured of a structure, not a
+reconstruction of it. A few wall planes with corner coordinates capture the coarse extent visible
+to LiDAR, sufficient for:
 
 - **Occlusion reasoning**: "Is a potential track target behind a known building wall?"
 - **Scene context**: "This cluster is adjacent to a known building facade" (not free-standing).
-- **Map publishing**: Export building outlines as GeoJSON polygons for GIS integration.
+- **Map publishing**: Export building outlines as GeoJSON polygons for GIS integration, each with its evidence status and uncertainty.
 
 ### 2.3 Volume features (vegetation, irregular shapes)
 
-Trees, hedges, and overhanging features don't conform to single planes. They produce diffuse, scattered returns. Model them as **approximate bounding volumes**:
+Trees, hedges, and overhanging features don't conform to single planes. They produce diffuse,
+scattered returns. Represent them as **approximate bounding volumes**:
 
 > **Source:** `VolumeFeature` and `BoundingKind` in [internal/lidar/](../../../internal/lidar) (when implemented). Fields: BoundingType (OBB/ConvexHull/Sphere), Centre, Dimensions, Orientation, HullVertices, PointCount, PointDensity, ApproxVolume, Class (tree/hedge/sign_cluster/awning/unknown), LOD, Confidence.
 
@@ -188,7 +215,7 @@ The vector scene map uses **four levels of detail (LOD 0–3)**, inspired by map
 | 0   | **Block**   | > 50 m        | Single polygon per road segment                | Building footprint (rectangle)               | Vegetation zone (bounding sphere) | Global map overview, neighbourhood context     |
 | 1   | **Street**  | 10–50 m       | Polygon per lane or surface type               | Simplified wall outlines (4–8 vertices)      | Tree canopy OBBs                  | Street-level navigation, occlusion reasoning   |
 | 2   | **Feature** | 2–10 m        | Polygon per surface discontinuity (kerb, ramp) | Individual wall planes with accurate corners | Trimmed convex hulls              | Detailed mapping, GIS export, change detection |
-| 3   | **Survey**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes with cm-level corner positions   | Dense bounding volumes            | Surveyed benchmarks, driveway dip profiles     |
+| 3   | **Detail**  | < 2 m         | Sub-metre polygons at high-accuracy zones      | Wall planes with cm-level corner positions   | Dense bounding volumes            | Registration features, driveway dip profiles   |
 
 ### LOD hierarchy as a tree
 
@@ -207,7 +234,7 @@ LOD 0: Road_Segment_Main_Street
 **Properties of the hierarchy:**
 
 - **LOD 0** always exists for every feature: it provides the coarsest representation.
-- **LOD 1–3** exist **only where measurement accuracy demands refinement** or where an explicit survey has been performed.
+- **LOD 1–3** exist **only where measurement accuracy demands refinement** or where a targeted detail scan has been made.
 - **Parent polygons completely contain their children**: the LOD 0 polygon's boundary encloses all LOD 1 polygons, which in turn enclose LOD 2, etc.
 - **Querying at LOD N returns that level if available, otherwise falls back to the coarsest ancestor.**
 
@@ -254,7 +281,7 @@ LOD 2–3 features exist **only where justified** by one of:
 | **High curvature**       | Adjacent LOD 1 polygons have plane normal difference > 5° | Kerb edges, driveway ramps, speed humps     |
 | **Height discontinuity** | Z-offset jump > 10 cm at polygon boundary                 | Kerb step-ups, loading dock edges           |
 | **High point density**   | > 50 points/m² observed in a region                       | Near-field surfaces close to sensor         |
-| **Explicit survey**      | User or automated survey marks a region for detail        | Driveway dip profile, intersection geometry |
+| **Targeted scan**        | User or automated scan marks a region for detail          | Driveway dip profile, intersection geometry |
 | **OSM anchor import**    | Known geometric feature imported from OpenStreetMap       | Crosswalk boundaries, stop lines            |
 
 **Refinement process:**
@@ -300,7 +327,8 @@ Polygon boundaries are simplified using the Douglas-Peucker algorithm with toler
 | 2   | 0.1 m                     | 8–24                         |
 | 3   | 0.02 m                    | 12–48                        |
 
-This ensures coarse polygons are extremely compact (4–6 vertices for a road block) while survey-grade detail can express sub-decimetre corner accuracy.
+This ensures coarse polygons are extremely compact (4–6 vertices for a road block) while the finest
+LOD can express sub-decimetre corner positions where the measurements support it.
 
 **Compression (storage):**
 
@@ -329,7 +357,7 @@ Compressed sizes assume gzip compression at ~4:1 ratio for tile grids (high redu
 | **Vector LOD 0**            | Ground polygons | ~15           | ~100 bytes       | ~1.5 KB   | ~0.5 KB (3:1)             |
 | **Vector LOD 0–1**          | All polygons    | ~50           | ~120 bytes       | ~6 KB     | ~2 KB (3:1)               |
 | **Vector LOD 0–2**          | All polygons    | ~200          | ~140 bytes       | ~28 KB    | ~9 KB (3:1)               |
-| **Vector LOD 0–3 (survey)** | All polygons    | ~500          | ~180 bytes       | ~90 KB    | ~30 KB (3:1)              |
+| **Vector LOD 0–3 (detail)** | All polygons    | ~500          | ~180 bytes       | ~90 KB    | ~30 KB (3:1)              |
 
 Even at maximum detail (LOD 3 everywhere), the vector representation is **14× more compact** than the uniform tiled grid. In practice, LOD 3 is applied selectively to < 5% of the scene area, yielding typical storage around **10–30 KB compressed** for a full intersection.
 
@@ -346,6 +374,9 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 
 > **Source:** Schema in [internal/db/migrations/](../../../internal/db/migrations) (when implemented). Two tables: `vector_scene_features` (feature_id, parent_id, class, lod, settled, confidence, point_count, last_updated, geometry_blob) and `vector_scene_snapshots` (versioned map states with gzip-compressed gob-encoded features, SHA256 dedup, LOD distribution JSON). Indices on class, lod, and parent_id.
 
+These columns do not yet carry the evidence status, source, acquisition interval or uncertainty of
+§5.5; the schema must add them before features are exported.
+
 ### 5.4 Export formats
 
 | Format           | Use Case                     | Ground                                 | Structures                              | Volumes                               |
@@ -353,9 +384,45 @@ Even at maximum detail (LOD 3 everywhere), the vector representation is **14× m
 | **GeoJSON**      | GIS tools (QGIS, Mapbox)     | Polygon features with plane properties | Polygon features with height properties | Point features with bounding metadata |
 | **GeoPackage**   | Offline GIS with multi-layer | Separate layer per class               | Separate layer per class                | Separate layer per class              |
 | **VTK PolyData** | ParaView / LidarView         | PolyData with cell normals             | PolyData with wall planes               | Glyph data (OBBs as boxes)            |
-| **CityJSON**     | 3D city modelling            | Terrain surface                        | LOD 1–2 building shells                 | Vegetation objects                    |
+| **CityJSON**     | 3D city-data exchange        | Terrain surface                        | LOD 1–2 footprint-and-height extents    | Vegetation bounds                     |
 
-GeoJSON remains the default export, consistent with the ground plane export specification. Structure: one `FeatureCollection` per class, filtered by LOD. Each Feature carries a GeoJSON `Polygon` geometry plus class-specific properties: ground features include `plane_normal`, `plane_offset`, `planarity`, `area_m2`, and `parent_id`; structure features include `z_min`, `z_max`, and `wall_count`. All features carry `id`, `class`, `subclass`, `lod`, and `point_count`. A top-level `metadata` object records `scene_map_version`, `lod_filter`, `coordinate_system`, and `feature_count`.
+GeoJSON remains the default export, consistent with the ground plane export specification.
+Structure: one `FeatureCollection` per class, filtered by LOD. Each Feature carries a GeoJSON
+`Polygon` geometry plus class-specific properties: ground features include `plane_normal`,
+`plane_offset`, `planarity`, `area_m2`, and `parent_id`; structure features include `z_min`,
+`z_max`, and `wall_count`; volume features include `bounding_type`, `dimensions_m`,
+`orientation_deg`, and `point_density`. All features carry `id`, `class`, `subclass`, `lod`, and
+`point_count`, and the evidence, source, acquisition-time and uncertainty properties of §5.5. A
+top-level `metadata` object records `scene_map_version`, `lod_filter`, `feature_count`, and the
+interpretation members of the published prior format (`crs`, `units`, `vertical_reference`,
+`dataset_version`, `processing_version`, `sources`, `acquired_interval`), where `crs` replaces
+`coordinate_system`.
+
+An export carries those properties and no others. The allow-list in
+[geometry-prior-service.md](./geometry-prior-service.md#property-allow-list) applies to every
+format here: geometry and the context needed to read it, with no material, finish, interior or
+construction-method attributes. CityJSON building objects can hold richer attributes than this map
+measures; the export fills only the footprint, height and evidence members.
+
+### 5.5 Provenance, evidence status and uncertainty
+
+Every stored feature, not only an exported one, carries what a reader needs to interpret it. The
+published encoding is in the [prior file format](./geometry-prior-service.md) (§File format
+specification); this table states what the scene map must keep.
+
+| Item                   | Expectation for a stored feature                                                                                                                                                                                                                                      |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Evidence status        | `observed`, `inferred`, `source_data` or `prior_only`. Fitted planes and heights from returns are `observed`; a bounding-rectangle completion is `inferred`; an imported S3DB footprint or height is `source_data`; a configured level-height default is `prior_only` |
+| Source                 | The input the geometry came from: this sensor's session, or a source dataset with its recorded terms                                                                                                                                                                  |
+| Acquisition time       | The instant or interval over which the returns were gathered; `Settled` and last-updated times say when the map changed, not when the surface was seen                                                                                                                |
+| Positional uncertainty | Conservative half-widths for position and for height. The Douglas-Peucker tolerance (§4.3) is added to the stated value, not left out of it                                                                                                                           |
+| Coverage               | The share of the feature's extent supported by returns; an occluded side is a recorded gap, never an absence                                                                                                                                                          |
+| Version                | `scene_map_version` and the processing configuration that produced the feature                                                                                                                                                                                        |
+
+None of these members exists in code yet: the feature types are marked "when implemented" and the
+§5.3 columns do not carry them. The specification requires them before any feature is exported or
+published, and a value the pipeline cannot supply is left out and marked as not recorded rather
+than estimated.
 
 ---
 
@@ -424,7 +491,7 @@ Apply Douglas-Peucker simplification to each polygon boundary with LOD-appropria
 2. **Fit footprint**: Project cluster to XY plane, compute minimum bounding rectangle (or convex hull for complex shapes).
 3. **Fit wall planes**: For each edge of the footprint polygon, collect points near that edge and fit a vertical plane (constrain normal to horizontal ± 15°).
 4. **Estimate height**: Record Z_min and Z_max from contributing points.
-5. **Emit** as `SceneFeature{Class: Structure}` at LOD determined by footprint area.
+5. **Emit** as `SceneFeature{Class: Structure}` at LOD determined by footprint area, with the §5.5 evidence status (`observed` for fitted planes, `inferred` for a rectangle completed across unseen stretches).
 
 ### 6.4 Volume extraction
 
@@ -487,8 +554,8 @@ Query at LOD 1: Returns ~50 polygons (lanes, simplified walls, tree OBBs).
 Query at LOD 2: Returns ~200 polygons (kerb detail, individual wall planes, trimmed hulls).
                  → Feature-level view with kerb edges and discontinuities visible.
 
-Query at LOD 3: Returns ~500 polygons (surveyed benchmarks, precise corners).
-                 → Survey-grade detail where available; LOD 2 elsewhere.
+Query at LOD 3: Returns ~500 polygons (registration reference features, precise corners).
+                 → Finest-detail geometry where available; LOD 2 elsewhere.
 ```
 
 **Gap-free guarantee:** Because parent polygons are preserved, querying at any LOD returns full scene coverage. Finer features subdivide their parents but do not leave gaps. A client can render LOD 0 as the base layer, then overlay LOD 1+ detail where available.
@@ -500,7 +567,7 @@ requests are optional and operator-enabled. If disabled, the local scene map is
 seeded only from local/community files and live observations.
 
 1. If GPS is available and OSM priors are enabled, fetch/cache **OSM Simple 3D Buildings (S3DB)** data for the sensor coverage area (building outlines, `building:part=*`, optional `type=building` relations).
-2. Convert S3DB objects into LOD 0–1 **structure priors** (footprints, height extents, optional roof metadata) with source provenance (`osm_way`, `osm_relation`, timestamp, tag confidence).
+2. Convert S3DB objects into LOD 0–1 **structure priors** (footprints, height extents, optional roof form) labelled `source_data`, with source provenance (`osm_way`, `osm_relation`, timestamp, tag confidence) and the source's recorded terms.
 3. Load local or community GeoJSON priors for **non-OSM geometry** (ground polygons, kerbs, crosswalks, vegetation zones) and any site-specific overrides.
 4. Seed the local scene map with these priors, then let settled Tier 1 ground tiles and observed wall planes validate/refine them.
 5. Create LOD 2–3 refinements where local observations reveal detail not present in the priors.
@@ -567,7 +634,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 - [ ] Volume extraction from persistent L5 tracked objects
 - [ ] OBB and bounding sphere computation
 - [ ] LOD assignment for structures and volumes
-- [ ] GeoJSON export of all three feature classes
+- [ ] GeoJSON export of all three feature classes, with the §5.5 properties and the prior-format allow-list
 
 ### Phase 3: hierarchical LOD and refinement
 
@@ -581,7 +648,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 
 ### Phase 4: multi-session mapping
 
-- [ ] SQLite persistence (`vector_scene_features`, `vector_scene_snapshots`)
+- [ ] SQLite persistence (`vector_scene_features`, `vector_scene_snapshots`), including the §5.5 evidence, source, acquisition and uncertainty columns
 - [ ] Global-to-local prior loading at session startup
 - [ ] Local-to-global merge with weighted averaging
 - [ ] OSM S3DB structure-prior provider (Overpass/PBF import + local cache)
@@ -590,7 +657,7 @@ The `VectorSceneMap` implements `GroundSurface` by delegating height queries to 
 - [ ] Export human-review OSM proposal bundles (`.osc`/`.osm`, GeoJSON diff, QA report)
 - [ ] JOSM/iD review workflow docs (manual upload only; no automatic OSM writes)
 - [ ] Stale feature pruning for LOD 2–3
-- [ ] CityJSON export (3D building shells)
+- [ ] CityJSON export (measured footprint-and-height extents)
 - [ ] Performance profiling on Raspberry Pi 4
 
 ---
@@ -621,7 +688,7 @@ Rationale:
   our refinement work easier to contribute back upstream.
 - The supplemental GeoJSON prior service remains useful for geometry that is
   poorly represented in OSM today (ground surfaces, kerbs, vegetation zones,
-  local survey refinements).
+  local measured refinements).
 
 **S3DB import mapping (OSM → vector scene map):**
 
@@ -633,6 +700,11 @@ Rationale:
 | `height=*`, `min_height=*`                            | Add heights to an independently established ground Z, then transform into the sensor frame | Relative heights, not absolute altitude         |
 | `building:levels=*`, `building:min_level=*`           | Height fallback priors with lower confidence                                               | Convert with configured level-height heuristics |
 | `roof:shape`, `roof:height`, `roof:levels`, `roof:*`  | Optional roof prior metadata / roof uncertainty envelope                                   | Used to avoid overfitting roof returns as walls |
+
+Only the geometry-bearing tags above are read. Tags that describe material, colour, finish,
+interior or construction (for example `building:material`, `roof:material`, `building:colour`) are
+ignored at import. `building:levels` is read only as an input to a height estimate, which is stored
+as `prior_only`; no floor count is kept.
 
 **Height precedence for priors (high → low confidence):**
 
@@ -684,7 +756,7 @@ is **human-reviewed proposals by default** (not autonomous uploads).
 - Propose `building:part=*` splits when a single outline clearly contains
   multiple height regimes or roof forms.
 - Add or refine `roof:shape` / `roof:height` only when confidence is
-  sufficient; otherwise emit a "needs survey/manual review" hint instead of a
+  sufficient; otherwise emit a "needs targeted scan/manual review" hint instead of a
   tag edit.
 - Propose footprint vertex adjustments for persistent facade alignment errors.
 
@@ -693,12 +765,21 @@ is **human-reviewed proposals by default** (not autonomous uploads).
 - No automatic OSM uploads from the perception pipeline.
 - Every proposed object change must be reviewable individually.
 - Proposal export should preserve OSM IDs/version numbers and detect edit conflicts.
+- Proposals cover footprint, height and roof form measured from returns, and no other tags. Each
+  states the acquisition time and positional uncertainty of the scan behind it, because a scan shows
+  conditions at that time only.
 - Bulk or repeated scripted edits must follow OSM community guidance for
   automated/mechanical edits before execution.
 
 ### Supplemental geometry-prior service
 
-Community-maintained static GeoJSON priors (ground, kerbs, vegetation) not well represented in OSM. Local-first with optional static fetch from a public CDN; canonical S2 L13 files beneath S2 L10 filesystem groups; immutable contributor files with optional GPG signatures and a CI-maintained trust manifest. Full architecture, file format specification, trust model, and hosting options: **[geometry-prior-service.md](./geometry-prior-service.md)**. The repository-wide CellID, token, and presentation rules are in **[geographic-indexing.md](./geographic-indexing.md)**.
+Community-maintained static GeoJSON priors (ground, kerbs, vegetation) not well represented in OSM.
+Local-first with optional static fetch from a public CDN; canonical S2 L13 files beneath S2 L10
+filesystem groups; immutable contributor files with optional GPG signatures and a CI-maintained
+trust manifest. Full architecture, file format specification (provenance members, evidence status,
+uncertainty, and the property allow-list), trust model, and hosting options:
+**[geometry-prior-service.md](./geometry-prior-service.md)**. The repository-wide CellID, token,
+and presentation rules are in **[geographic-indexing.md](./geographic-indexing.md)**.
 
 ### Multi-Device fusion
 
@@ -716,6 +797,7 @@ No open questions for the vector scene map core. Design choices (alpha-shape vs 
 
 ### Internal documents
 
+- **Geometry priors: data purpose and interpretation**: [geometry-priors-data-purpose.md](../../geometry-priors-data-purpose.md) (canonical statement of what the data is and how to read it)
 - **Ground Plane Extraction**: [ground-plane-extraction.md](./ground-plane-extraction.md) (tile-based ground model, Tier 1/2 design)
 - **Ground Plane Proposal Maths**: [ground-plane-vector-scene-maths.md](../../../data/maths/proposals/20260221-ground-plane-vector-scene-maths.md) (algorithm trade-offs)
 - **LiDAR Layer Model**: [LIDAR_ARCHITECTURE.md](./LIDAR_ARCHITECTURE.md) (L1–L6 layer definitions)

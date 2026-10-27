@@ -488,6 +488,13 @@ L7 introduces a **persistent, evidence-accumulated world model** that transcends
 
 **Scope:** Static geometry (ground polygons, structures, volumes), dynamic canonical objects (merged tracks → refined vehicle/pedestrian models), external priors (OSM, GeoJSON), and multi-position sensor fusion into a single coherent scene.
 
+**What the static geometry is:** measured spatial data. Each feature is an observed or inferred
+position, extent or surface at a stated acquisition time, with its source, coordinate system, units
+and uncertainty. It is not a plan, drawing or specification of any structure, carries no materials,
+finishes, interiors or construction methods, and does not assert that unobserved features are
+absent. See
+[Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).
+
 **Key relationships:**
 
 - L4 produces per-frame observations → L7 accumulates them into persistent geometry
