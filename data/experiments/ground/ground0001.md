@@ -1,7 +1,7 @@
 ---
 id: ground0001
 title: "Where the ground is: each site's surface against the sensor's plane, and how far the tracks leave it"
-status: approved
+status: answered
 owner: david
 created: 2026-10-18
 asks:
@@ -64,6 +64,9 @@ steps:
   - id: write
     kind: manual:write
     estimate: { human: 2h }
+actual:
+  wall: 1h38m
+  note: 23 sites one at a time on arrow-worker (2 vCPU) beside its other services, captures over NFS, 2m50s to 5m41s a site; the instrument was built by an agent in about 2h against the 2h estimate
 ---
 
 # ground0001: where the ground is
@@ -138,3 +141,11 @@ returns, so a pitched mount and a graded road are one number, which is the numbe
 needs and not the one a survey would give. Nothing held out: embarcadero-folsom stays unread.
 Kerbs, driveways and the far side of a crown appear only as cell departures, not as surfaces of
 their own.
+
+**Answer (October 27, 2026).** 19 of the 23 first segments tilt by 1 % or more (0.63 to 5.53 %),
+so ground0003 does not retire; the planar speed's error is at most 0.15 %. At 14 sites the fall
+line is within 30° of square to the traffic, cross-slopes a mount's roll explains better than the
+road. The cell planes depart from the global plane by more than 0.2 m at p90 where the traffic goes
+on 22 sites and by under 0.1 m on none, and they flatten the bodies' lowest returns more than one
+plane at 17. What neither explains is mostly the lowest return's climb with range, about 1.7 to
+1.9 cm a metre. See the [report](../../../docs/lidar/operations/ground-surface-corpus-read-2026-10.md).

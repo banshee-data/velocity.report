@@ -8,8 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 27, 2026 - Research briefing review: evidence and measurement context
+## October 27, 2026 - Research briefing review, and where the ground is on 23 sites
 
+- {claude/ground0001-surface-read} Read the P11 surface beside the defaults' tracks on the first segments of 23 corpus sites (`ground0001`, `lidar-state-estimation-baseline -ground-report`, fitted and never applied, the tracks byte-equal): 19 sites tilt by 1 % or more, to 5.53 %, often across the traffic as a rolled mount would; the planar speed's error is at most 0.15 %; the cell planes depart from one plane by more than 0.2 m at p90 where the traffic goes on 22 sites and flatten the bodies more than the plane at 17; and the lowest return climbs with range by about 1.8 cm a metre on every surface.
 - {claude/research-briefing-2026-10-26} Updated the [October 26 briefing](lidar/operations/brief/research-briefing-2026-10-26.md) after primary-report verification, superseding its original press-release-only SFMTA status. Distinguished comparison-site declines from proven spillover, retained the preliminary SafeTREC qualification, separated detector, hardware, and app hypotheses, and replaced the post-installation comparison described as a reversal with controlled research designs. Added a qualified setup warning and recommended optional operator-provided enforcement context separate from metrics. Corrected the reference audit ordering. The original Anderson devlog wording was too strong: 5.19 km/h is the pooled model estimate, not the decline at every site.
 
 ## October 26, 2026 - L7 scene, radar FFT evidence, Gerardus checks, and research briefing
