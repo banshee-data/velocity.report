@@ -142,10 +142,11 @@ needs and not the one a survey would give. Nothing held out: embarcadero-folsom 
 Kerbs, driveways and the far side of a crown appear only as cell departures, not as surfaces of
 their own.
 
-**Answer (October 27, 2026).** 19 of the 23 first segments tilt by 1 % or more (0.63 to 5.53 %),
-so ground0003 does not retire; the planar speed's error is at most 0.15 %. At 14 sites the fall
-line is within 30° of square to the traffic, cross-slopes a mount's roll explains better than the
-road. The cell planes depart from the global plane by more than 0.2 m at p90 where the traffic goes
-on 22 sites and by under 0.1 m on none, and they flatten the bodies' lowest returns more than one
-plane at 17. What neither explains is mostly the lowest return's climb with range, about 1.7 to
-1.9 cm a metre. See the [report](../../../docs/lidar/operations/ground-surface-corpus-read-2026-10.md).
+**Answer (October 27, 2026).** 19 of the 23 first segments tilt by 1 % or more, to 5.53 % (the 23
+span 0.63 to 5.53 %), so ground0003 does not retire; the planar speed's error is at most 0.15 %. At
+14 sites the fall line is within 30° of square to the traffic, cross-slopes a mount's roll explains
+better than the road. The cell planes depart from the global plane by more than 0.2 m at p90 where
+the traffic goes on 22 sites and by under 0.1 m on none, and they flatten the bodies' lowest
+returns more than one plane at 17. What neither explains is mostly the lowest return's climb with
+range, about 1.7 to 1.9 cm a metre. See the
+[report](../../../docs/lidar/operations/ground-surface-corpus-read-2026-10.md).
