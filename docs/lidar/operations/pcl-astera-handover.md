@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 source review complete; OQ-02 is the next checkpoint
+- **Status:** OQ-01 and OQ-02 complete; OQ-03 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -435,13 +435,23 @@ the open-question checkpoints, follow the plan's experiment sequence: border cla
 rule, hull bound, and constrained ground. Apply each experiment's stop rule before funding its
 implementation. Publication and execution scope are agreed at those checkpoints.
 
+## Continuation checkpoint
+
+The owner authorised continuation and incremental local commits on
+`codex/pcl-open-question-review`. OQ-01 is saved as `66a0cf558`. The earlier first-run stop and
+no-commit instruction applied to that completed review phase; local commits are now authorised.
+No push has been requested.
+
+OQ-02 is answered by the [one-frame compatibility report](pcl-organised-grid-compatibility.md):
+the native grid fails PCL projection consistency and normal rotation equivariance. The report,
+exporter, parameter set, and C++ harness preserve the method; raw outputs remain local. A
+calibrated adapter or explicit resampling contract is required before the border oracle.
+
 ## Resume point
 
-- **Active row:** OQ-02, not started; OQ-01 complete
-- **Next action:** Verify HEAD and local diff, then prepare OQ-02’s one-frame projection and normals compatibility check; use Q4-01 to Q4-04 as its source constraints
-- **Completed in preparation:** Main refresh, local document reading, ownership split, and this handover
-- **Execution evidence:** Pinned source inspected; no PCL execution, replay, or runtime measurement
-- **Outstanding inputs:** Installed oracle and exported kirk0 frame for OQ-02; Gerardus access for OQ-08; original discussion for OQ-11
-- **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable and not required to read this record
-- **Checkpoint:** Corrections saved locally in the review, plan, and four specs; no commit or push
-- **Return summary:** Claims covered, corrections made, checks run, unresolved evidence, and the exact next claim or row
+- **Active row:** OQ-03, not started; OQ-01 and OQ-02 complete
+- **Next action:** Finish the three segmentation implementation checks in the canonical OQ-03 row; reuse the SAC membership and morphological-opening evidence already recorded under Q0-02 and Q0-05, then check RegionGrowing's neighbour-distance bound
+- **Execution evidence:** One real kirk0 frame, both normal coordinate arms and both border layouts; see the compatibility report for counts, identities, and limits
+- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; a calibrated sensor-to-oracle adapter before l3bg0028
+- **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable and not required to read the records
+- **Checkpoint:** Source review committed; OQ-02 method and findings saved locally for incremental commits; no push

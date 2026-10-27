@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 27, 2026 - Research briefing review, C-V2X receiver feasibility, geometry described as measured spatial data, and what the Point Cloud Library offers
 
+- {codex/pcl-open-question-review} Ran the pinned PCL normals and border extractors on one kirk0 frame: [OQ-02 compatibility report](lidar/operations/pcl-organised-grid-compatibility.md). Direct native-grid use fails projection consistency and rotation equivariance (18,756 normal-validity changes; 12.08° common-cell p95); spherical conversion resamples support. Added a stamped frame exporter, config, and offline C++ harness, with raw outputs kept local and no physical-accuracy or performance claim.
+
 - {codex/pcl-open-question-review} Completed the pinned PCL OQ-01 source review: [25 claim records](lidar/operations/pcl-astera-handover.md#review-record), with corrections to grid geometry, plane and clustering contracts, hull endpoints, and registration diagnostics propagated into four experiment specs. Runtime compatibility and physical gains remain unmeasured.
 
 - {claude/sweet-hawking-b5i6j9} Reviewed PCL 1.15.1 against the owner's five questions and recorded what it offers as an offline oracle and a specification for small Go ports, never a runtime dependency; proposed four experiments with their rules (l3bg0028 border classes on the L3 grid, l4clus0005 radius-graph joining, geom0013 the hull bound, ground0006 a constrained road plane and kerbs) and Parked P2 rows for them and for recommendations to Gerardus

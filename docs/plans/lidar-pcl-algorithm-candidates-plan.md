@@ -89,6 +89,11 @@ a documented oracle setup.
 
 **Milestone:** first step of ground0006 and l3bg0028; `S`.
 
+OQ-02's [one-frame check](../lidar/operations/pcl-organised-grid-compatibility.md) rejects direct
+native-grid use: normal validity changes under coordinate rotation and PCL's base RangeImage
+projection does not match the assigned cells. Item 1 remains open for a calibrated adapter or
+explicit spherical resampling with source membership; the diagnostic exporter is not its completion.
+
 ### Item 2: Q4, border classes on the L3 grid (l3bg0028)
 
 **Summary:** Obstacle, shadow and veil classes per cell, scored as extent-end labels and as
