@@ -102,7 +102,7 @@ const square = (z: number, size = 4): Vec3[] => [
 	[0, 0, z]
 ];
 
-// A bay over a garage: its outline 3 m up, rising to 8 m.
+// A part raised on min_height: its outline 3 m up, rising to 8 m.
 const bay = frame(
 	'building_parts',
 	'building_part',
