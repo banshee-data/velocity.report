@@ -395,7 +395,7 @@ tuning episode as supposedly unseen truth is not.
 | Independently scheduled live L5 worker and backlog isolation                                 | Remaining 0.5.2.2 live increment; the MVP first consumes a closed verified log locally. Required before claiming pause-independent live analysis. |
 | Bounded reassociation, revisable point ownership and shape hypotheses                        | Remaining 0.5.2.2 experiment; promote only if fixed-assignment identity/geometry results require and justify it.                                  |
 | Full live persistence week, rollover, upstream gaps, power-loss and Pi capture qualification | Remaining capture/deployment evidence; no live-default promotion on desktop process-kill tests alone.                                             |
-| Pi estimator throughput optimisation                                                         | v0.6.7; does not block offline Mac correctness.                                                                                                   |
+| Pi estimator throughput optimisation                                                         | v0.7.5; does not block offline Mac correctness.                                                                                                   |
 | Generic ghost trails, future cones and richer diagnostic comparison UI                       | v0.5.5; basic stage/support correctness and the Following distance layer are pulled into this sprint.                                             |
 | PET, passing clearance and other behaviour metrics                                           | v0.5.4 or their existing plans; the optional pair surface-distance diagnostic is not a promoted passing-clearance metric.                         |
 

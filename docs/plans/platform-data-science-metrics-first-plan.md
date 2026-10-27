@@ -1,6 +1,6 @@
 # Metrics-First data science plan
 
-- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.6.9 (safety reporting) and later; revisit when v0.6.9 is next. Was: Proposed (March 2026)
+- **Status:** Parked (D-32, October 20, 2026): its rows are in v0.7.7 (safety reporting) and later; revisit when v0.7.7 is next. Was: Proposed (March 2026)
 - **Canonical:** [data-science-methodology.md](../platform/operations/data-science-methodology.md)
 
 This document defines velocity.report's repo-wide data science stance: the critical path stays transparent, tunable, and replayable, while future classification work remains optional and subordinate to reproducible scorecards.

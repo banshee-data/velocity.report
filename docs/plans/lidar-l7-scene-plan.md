@@ -1,15 +1,52 @@
-# L7 scene and multi-sensor fusion plan
+# L7 dynamic scene and multi-sensor fusion plan
 
-- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: 📋 Planned; v1.0
+- **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: 📋 Planned; v1.0. Updated October 25, 2026: the static half of the scene (§1 items 1, 3 and 5) is being built outside this repository, in [Gerardus](https://github.com/banshee-data/gerardus), from settled backgrounds registered against USGS 3DEP; nothing of it is stored in velocity.report yet. See [§ 0](#0-where-implementation-stands-october-25-2026).
 - **Layers:** L7 Scene
 - **Canonical architecture:** [LIDAR_ARCHITECTURE.md](../lidar/architecture/LIDAR_ARCHITECTURE.md)
 - **Maths index:** [data/maths/MATHS.md](../../data/maths/MATHS.md)
 - **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 
-This plan covers two related workstreams for the L7 Scene layer:
+This plan remains the canonical home for **L7 dynamic scene context and relations**. Gerardus owns persistent static site geometry and registration. L5 owns physical body/trajectory estimates; L8 owns physical measurements, suppression, validation and aggregation. The historical architecture below is preserved for reference, but any incompatible local static-map construction, cross-visit reidentification or L7 measurement authority is superseded (D-36).
 
-1. **L7 Scene layer**: design the canonical world model package
-2. **Multi-sensor architecture**: how multiple sensors fuse at L7
+---
+
+## 0. Where implementation stands (October 25, 2026)
+
+The persistent static scene is no longer only a plan. It is being built in Gerardus, the separate map-priors repository velocity.report decided on ([Gerardus ADR-0006](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0006-boundary-with-velocity-report.md)). Gerardus reads nothing of velocity.report's: the visualiser uploads each settled background (`UploadScan`), Gerardus registers it against USGS 3DEP aerial LiDAR, an operator accepts the pose in the [alignment pane](../ui/visualiser/gerardus-alignment.md), and the accepted scans of a site form its **site model**. Every derived feature is computed from that model and public data, and served back over `gerardus.align.v1alpha1` (gRPC) and read-only GeoJSON. Its plans: [SITE-MODEL-SPIKE](https://github.com/banshee-data/gerardus/blob/main/docs/plans/SITE-MODEL-SPIKE.md), [VECTOR-MAP](https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md) (W1–W9), [BUILDINGS](https://github.com/banshee-data/gerardus/blob/main/docs/plans/BUILDINGS.md) and [ROOFLINE-WALLS](https://github.com/banshee-data/gerardus/blob/main/docs/plans/ROOFLINE-WALLS.md).
+
+| This plan's item                              | Where it stands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Where                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| §1.1 Static geometry                          | **Built as proposals**, from registered settled backgrounds and 3DEP rather than from accumulated L4 output: the ground surface (3DEP grid refined by the scans), facade traces, wall planes with popouts and recesses, kerbs and islands, LoD1 boxes and LoD2 building parts with roof planes and `roof:shape`, wall surfaces up to the roofline, lane markings, poles and signs, and trees (W1–W7). Kirkham–9th, for example: 646 building parts, 2,974 roof planes, 256 measured wall planes. Moving objects are kept out (W3: points inside track boxes, points seen on too few days, parked-car spaces)           | Gerardus `observed_features` rows ([ADR-0012](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0012-street-level-features-from-registered-scans.md), [ADR-0015](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0015-building-parts-and-roof-planes-as-derived-rows.md)) |
+| §1.2 Dynamic canonical objects                | **Not built**, in either repository. L5 tracks and L6 labels stay per-run in velocity.report                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | —                                                                                                                                                                                                                                                                                               |
+| §1.3 External priors                          | **Built, from different sources.** Public-domain first ([ADR-0008](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0008-public-domain-first-osm-for-vectors.md), [ADR-0009](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0009-city-streets-by-default.md)): USGS 3DEP, DataSF footprints, streets, intersections, kerbs and the Street Tree List, SFMTA's signs, meters and signals. OpenStreetMap is for display and comparison only, served to admins, and never shapes a derived feature; S3DB ingestion was not built. See the note under the [OSM priors service](#osm-priors-service) | Gerardus site bundles, one per S2 L16 cell                                                                                                                                                                                                                                                      |
+| §1.4 Multi-sensor merged scene                | **Static half built:** several sensor positions at one site (Kirkham's three) share one site frame, register against 3DEP plus the scans already accepted, and are refined together by `RefineSite`, a small SE(3) pose graph. **Track fusion across sensors is not built** (§ 2 stands)                                                                                                                                                                                                                                                                                                                               | Gerardus `RegisterRequest.against_site_model`, `RefineSite`                                                                                                                                                                                                                                     |
+| §1.5 Uncertainty and provenance               | **Built, in a different shape.** Registration records are append-only, with reviewer, gates and pose covariance; each derived row names the accepted records and `model_id` it came from, its parameters, the derivation version and server version, and its state (`proposed`), and keeps its id across re-derivation. Per-feature log-odds confidence and observation counts (§ 3.1) are not used                                                                                                                                                                                                                    | Gerardus registration log and `observed_features`                                                                                                                                                                                                                                               |
+| § 3.4 Prior-to-observation alignment          | **Built differently:** point-to-plane ICP of each settled background against 3DEP, with ground, facade, rank and seed-agreement gates, instead of Procrustes over prior correspondences. DataSF outlines are moved onto 3DEP by a fitted footprint shift per assessor block, and served shifted. Tie-point placement (`SolveTiePoints`) is not built                                                                                                                                                                                                                                                                   | Gerardus `Register`, `boxes.rs`                                                                                                                                                                                                                                                                 |
+| § 4 Scene-constrained prediction, scene graph | **Not built.** The geometry it would read (kerbs, ground surface, travel lanes marked in the street-use editor) now exists in Gerardus                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | —                                                                                                                                                                                                                                                                                               |
+
+**What velocity.report has today:** the visualiser's alignment pane uploads backgrounds, registers and accepts poses, and draws every Gerardus layer over a capture, extruding nothing ([#863](https://github.com/banshee-data/velocity.report/pull/863)); the web site viewer at `/app/lidar/sites` reads the same layers from Gerardus's GeoJSON. Accepted poses do not yet reach velocity.report's own records (`PUT /api/lidar/sites/{l16}/pose`, [visualiser alignment plan](lidar-visualiser-gerardus-alignment-plan.md)), so `CoordinateFrameInfo` stays the identity, and no L7 feature is stored in this repository.
+
+**Open before any of it is published:** Gerardus's launch gates (typed schemas, derivation identities and compatibility fixtures before W4–W7 rows are persisted for release), the W9 evaluation against hand-checked samples, and ADR-0011's rule that nothing following a person over time is published.
+
+**What is left, recalibrated October 26, 2026.** Gerardus's W1–W7 were sized at 14–21 weeks and built as proposals in three days, then took two days of correction on the roofs; a kind takes about a day to build and one to two to correct once measured, and the owner's checking does not compress ([VECTOR-MAP §4.0](https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md#40-where-it-stands-2026-10-26)).
+
+- **Now:** finish Gerardus's buildings (W4) and trees (W7), about 1–1.5 weeks. Vector work then pauses for vehicle state estimation, filtering and tracking ([state-estimation plan](lidar-state-estimation-plan.md), the 05x tracking slots).
+- **Later in Gerardus:** W8 exports (2–3 days, when a consumer needs them) and W9 evaluation (1–2 weeks, bound by hand labels).
+- **In this repository:** the accepted pose written back (`S`, the backlog's Gerardus alignment client section); the v0.7.7 road layer for posted limits, re-scoped onto Gerardus's city streets, painted travel lanes and signs (`M`, was `L`); the v1.0 L7 row narrowed to canonical objects, cross-sensor track fusion and accumulated relations (`L`, was `XL`), which waits on the tracking work above and on a site with a second sensor.
+- **Mobile mapping (SLAM)** is the [06x series](../BACKLOG.md#06x-roving-routes-) (v0.6.0–v0.6.4), after the 05x tracking work: the SLAM spike Gerardus runs, portable timing, then backpack and bike transfer and route speeds. The static deployment and reporting slots that were 06x are now 07x.
+
+---
+
+## 0.1 Revised 05x ownership and delivery (D-36)
+
+1. **L7-A, v0.5.4/v0.5.8:** accept an authorised, versioned Gerardus pose and expose static road/kerb/ground context by reference, with pose covariance and derivation identity. An unregistered capture stays explicitly in its sensor frame; it must not silently claim world-frame accuracy.
+2. **L7-B, v0.5.8:** compose qualified L5/L6 episode objects with registered scene geometry and expose versioned relations: shared-path candidates, directed road-region membership, visibility/occlusion and known coverage. The L8 behaviour package continues to own gap/time-gap/PET/clearance equations, uncertainty propagation, opportunity denominators, suppression and qualification. Initial single-sensor following may consume L5 without L7.
+3. **L7-C, after 05x:** multi-position track association, cross-sensor handoff and richer scene graphs require named use cases and held-out fusion evidence, not a prerequisite to first qualified following.
+4. **Truth and correlation:** distinguish directly observed static geometry, external priors, proposed surfaces, measured track evidence and predicted positions. Preserve shared registration/calibration error rather than treating correlated measurements as independent.
+5. **Privacy:** dynamic identity is limited to a continuous observation episode or demonstrable handoff, not cross-visit identification.
+6. **Layer direction:** L4 geometry queries consume injected neutral interfaces; L4/L5 never import L7. L7 cannot mutate L5's authority through an unversioned feedback loop.
+
+The seven S-* measurement workstreams cut across the pipeline; they are not new numbered layers. `BACKLOG.md` is the scheduling authority. The 06x series remains SLAM/mobile (PR #870).
 
 ---
 
@@ -19,9 +56,9 @@ L7 is the key architectural addition in the ten-layer model. It introduces a **p
 
 ### What L7 scene contains
 
-1. **Static geometry**: ground surface polygons, building footprints, walls, fences, vegetation volumes, kerbs. Derived from L4 perception outputs accumulated over many frames. Stored as vector features with hierarchical LOD (0–3). See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
+1. **Static geometry (Gerardus-owned):** ground, kerbs, roads, structures, vegetation and external priors are derived and versioned by Gerardus. L7 references accepted registered context, not a second static map. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md) for the historical design.
 
-2. **Dynamic canonical objects**: long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
+2. **Dynamic episode objects:** L5 supplies the physical body and track; L6 supplies its semantics. L7 may link continuous cross-sensor observations but never owns a second body-size estimate or cross-visit identity.
 
 3. **External priors**: geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject.
 
@@ -45,9 +82,11 @@ The separation ensures L4 remains a fast, stateless, per-frame operation while L
 
 L5 tracks are **ephemeral identity**: they live for the duration of an object's visibility to one sensor. L6 objects are **per-track semantic labels**.
 
-L7 canonical objects are **persistent identity**: a car that drives through the intersection, disappears for 30 seconds, then returns can be re-identified as the same canonical object. When multiple sensors are deployed (future), L7 is where tracks from different sensors merge into a single coherent object trajectory.
+L7 references **episode-scoped physical tracks** from L5. A future multi-sensor deployment may link overlapping observations or an evidenced continuous handoff. A vehicle returning after a disconnected visit is not reidentified.
 
 ### OSM priors service
+
+> **As built (October 25, 2026):** this service became Gerardus, with public-domain priors in place of OSM ([§ 0](#0-where-implementation-stands-october-25-2026)). Of the operations below, BOUNDS is the site bundle (an L16 cell and its neighbours); DIFF and SHIFT are the footprint offsets and the per-block footprint shift fitted on 3DEP; MERGE is not done (derived features stay proposals beside the public layers, never merged into them); EXPORT to an OSM changeset is not built, and exports are planned as 3D Tiles, CityJSON and FlatGeobuf ([VECTOR-MAP W8](https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md#4-work-in-order)). The box below is the original design.
 
 The L7 Scene layer is designed to ingest external map priors as initial low-confidence features:
 
@@ -225,6 +264,8 @@ Solved in closed form via SVD of the cross-covariance matrix $H = \sum (p_i - \b
 
 This aligns OSM building outlines and road geometry to the sensor's local coordinate frame without requiring GPS-grade localisation.
 
+As built in Gerardus, the alignment runs the other way: each sensor's settled background is registered by ICP against 3DEP, which is already surveyed, and the public outlines are shifted onto 3DEP; see [§ 0](#0-where-implementation-stands-october-25-2026).
+
 ---
 
 ## 4. Scene-constrained physics and geometric relationships
@@ -235,12 +276,13 @@ L7 is also the natural home for two concerns that cannot live in lower layers: *
 
 Single-object kinematics (richer Kalman state vectors) belong at L5: that is a per-track concern. But once prediction needs to account for scene geometry or multi-object interactions, L7 owns it because only L7 holds the accumulated road polygons, kerb boundaries, structure walls, and the set of all canonical objects.
 
-| Scope                                                            | Layer        | Responsibility                                                                                    |
-| ---------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
-| Single-object kinematics (CV, CA, CTRV, IMM)                     | L5 Tracks    | Per-track state estimator; extends the existing Kalman state vector                               |
-| Scene-constrained prediction (road-following, kerb clipping)     | **L7 Scene** | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
-| Multi-object interaction (following distance, gap acceptance)    | **L7 Scene** | Requires simultaneous visibility of all canonical objects plus road topology                      |
-| Post-hoc kinematic analysis (braking events, stopping distances) | L8 Analytics | Derived measurements over historical L5/L7 state                                                  |
+| Scope                                                                             | Layer            | Responsibility                                                                                    |
+| --------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------- |
+| Single-object kinematics (CV, CA, CTRV, IMM)                                      | L5 Tracks        | Per-track state estimator; extends the existing Kalman state vector                               |
+| Scene-constrained prediction (road-following, kerb clipping)                      | **L7 Scene**     | Clips kinematic trajectory fans to physically plausible corridors defined by accumulated geometry |
+| Multi-object scene relations (shared paths, candidate leaders, region membership) | **L7 Scene**     | Exposes geometry and evidence, without becoming the physical-metric authority                     |
+| Following distance, time gap, passing clearance and PET                           | **L8 Analytics** | Owns the equations, suppression, error propagation, validation and aggregation                    |
+| Post-hoc kinematic analysis (braking events, stopping distances)                  | L8 Analytics     | Derived measurements over historical L5/L7 state                                                  |
 
 The prediction pipeline flows:
 

@@ -13,6 +13,10 @@ velocity.report system. Each format has a dedicated specification file.
 | Surface matrix      | [MATRIX.md](MATRIX.md)                                            | L4–L8   | Backend-computed data vs web/PDF/macOS consumption |
 | SQLite model review | [SCHEMA-REVIEW.md](SCHEMA-REVIEW.md)                              | Storage | Segment, job, and capture relationship risks       |
 
+## Proposed formats
+
+- [Radar FFT evidence](RADAR_FFT_FORMAT.md): proposed configuration epochs, spectral frames, gaps, components, and positional associations; implementation is queued for v0.7.3.
+
 ## Canonical source definitions
 
 These structures are defined in code rather than standalone docs. Links below

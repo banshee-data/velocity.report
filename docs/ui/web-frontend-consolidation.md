@@ -14,7 +14,7 @@ Phases 1 to 6, v0.5.2's ECharts retirement, are implemented on
 branch `claude/echarts-svelte-migration-83fbd5` (#836). The Go-embedded
 dashboards, go-echarts and the 8081 listener are gone; the Svelte LiDAR Status,
 Debug, Regions and Run a Sweep pages under `/app/lidar/` replace them, and every
-LiDAR route is on 8080. Phase 7 is a v0.7.0 row. What landed, the one deviation
+LiDAR route is on 8080. Phase 7 is a v0.7.9 row. What landed, the one deviation
 from the deletion ledger and the known replay-slot issue are in the plan's
 [v0.5.2 delivery](../plans/web-frontend-consolidation-plan.md#v052-delivery).
 
@@ -75,7 +75,7 @@ artefacts only: one decimation path, one artefact, two consumers.
 | 4     | Regions dashboard in Svelte; rename the `/debug/` JSON route | 2–3 days    | Done on the branch                  |
 | 5     | Sweep, auto-tune and HINT control in Svelte                  | 2–3 weeks   | Done on the branch                  |
 | 6     | Delete `status.html` and `sweep_dashboard.*`                 | 1 day       | Done on the branch                  |
-| 7     | One scene lineage                                            | 1 week      | v0.7.0 row                          |
+| 7     | One scene lineage                                            | 1 week      | v0.7.9 row                          |
 
 Phase 5 dominates, but not for the reason the previous revision gave. The eight
 ECharts charts are the visible half; the form model behind them — 26 parameters

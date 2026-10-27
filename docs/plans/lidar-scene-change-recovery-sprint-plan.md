@@ -86,12 +86,12 @@ The [backlog](../BACKLOG.md) schedules independently deliverable slices across t
 | v0.5.7  | S2 cause decision and diagnostic comparisons              |
 | v0.5.8  | S3 default-off recovery candidate                         |
 | v0.5.12 | S5 reserved-case scoring and evidence archive             |
-| v0.6.6  | S4 playback integration and S6 staged survey refresh      |
-| v0.6.7  | S5 target-device gate and S6 promotion decision           |
+| v0.7.4  | S4 playback integration and S6 staged survey refresh      |
+| v0.7.5  | S5 target-device gate and S6 promotion decision           |
 
 These are release placements, not seven separate ten-day sprints. The work-package dependencies
 still apply: schema work can precede diagnosis, while recovery, promotion and public asset refresh
-wait for their evidence gates. Staging in v0.6.6 may precede the Pi gate; publication waits for it.
+wait for their evidence gates. Staging in v0.7.4 may precede the Pi gate; publication waits for it.
 
 ## S1: expose the actual decisions
 

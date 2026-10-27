@@ -1031,6 +1031,71 @@ struct StreetStyleTests {
         #expect(painter.edit.isDirty)
     }
 
+    @Test func aSavedMarkIsMovedAndRemovedAgainstItsCurrentRow() async throws {
+        let (painter, _, service, _) = await placedPainter()
+        painter.setPainting(true)
+        painter.tool = .driveway
+        click(painter, plan(3, -5))
+        click(painter, plan(7, -5))
+        await painter.save(author: "Ada")
+        let created = try #require(painter.edit.marks.first)
+        #expect(service.streetUseEdits[0].edits[0].hasExpectedRowID == false)
+
+        painter.tool = .select
+        click(painter, plan(5, -5))
+        drag(painter, from: plan(7, -5), to: plan(7, -6))
+        await painter.save(author: "Ada")
+        #expect(painter.errorMessage == nil)
+        #expect(service.streetUseEdits[1].edits.map(\.expectedRowID) == [created.rowID])
+        let moved = try #require(painter.edit.marks.first)
+        #expect(moved.rowID != created.rowID)
+
+        click(painter, plan(5, -5.5))
+        painter.deleteSelected()
+        await painter.save(author: "Ada")
+        #expect(painter.errorMessage == nil)
+        #expect(service.streetUseEdits[2].edits.map(\.expectedRowID) == [moved.rowID])
+        #expect(service.streetUse?.isEmpty == true)
+    }
+
+    @Test func anotherAuthorsSaveSinceTheReadIsAConflict() async {
+        var saved = Gerardus_Align_V1alpha1_StreetUseFeature()
+        saved.featureID = "gms:01LANE"
+        saved.rowID = "row-a"
+        saved.kind = .travelLane
+        saved.xyz = [-20, 2.5, 21, 20, 2.5, 21]
+        saved.tags = ["lane_type": "general"]
+        let (painter, _, service, _) = await placedPainter { $0.streetUse = [saved] }
+        painter.setPainting(true)
+        painter.tool = .select
+        click(painter, plan(0, 2.6))
+        drag(painter, from: plan(20, 2.5), to: plan(20, 3.5))
+        service.streetUse?[0].rowID = "row-b"  // someone else saved since the read
+        await painter.save(author: "Ada")
+        #expect(service.streetUseEdits.last?.edits.map(\.expectedRowID) == ["row-a"])
+        #expect(painter.errorMessage?.hasPrefix("Conflict") == true)
+        #expect(painter.edit.isDirty)
+        #expect(painter.conflictingMarks.map(\.rowID) == ["row-b"])
+        #expect(service.streetUse?[0].xyz == saved.xyz)  // nothing applied
+    }
+
+    @Test func aSaveWhoseAnswerIsLostIsAppliedOnce() async {
+        let (painter, _, service, _) = await placedPainter()
+        painter.setPainting(true)
+        painter.tool = .driveway
+        click(painter, plan(3, -5))
+        click(painter, plan(7, -5))
+        service.lostResponse = RPCError(code: .unavailable, message: "lost after commit")
+        await painter.save(author: "Ada")
+        #expect(painter.edit.isDirty)
+        #expect(service.streetUse?.count == 1)
+        // The unchanged retry gets Gerardus's saved answer; no second mark.
+        await painter.save(author: "Ada")
+        #expect(!painter.edit.isDirty)
+        #expect(service.streetUse?.count == 1)
+        #expect(painter.edit.marks.map(\.featureID) == ["gms:01NEW1"])
+    }
+
     @Test func aServerWithoutStreetUseCannotBePainted() async {
         let (painter, _, _, _) = await placedPainter { $0.streetUse = nil }
         #expect(painter.unsupported != nil)

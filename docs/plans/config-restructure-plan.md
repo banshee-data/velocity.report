@@ -823,7 +823,7 @@ Delivered in `dd/config-restructure` (commits `5f3994f`, `51bfab3`).
 | 11   | Add `make config-validate` target: CLI wrapper that loads a JSON file and runs `LoadTuningConfig` validation        | Step 2     | ✅     |
 | 12   | Delete old `TuningConfig` flat struct and all pointer-field helpers                                                 | Step 10    | ✅     |
 
-### Phase 2: essential new variable exposure (v0.6.0) ✅ complete
+### Phase 2: essential new variable exposure (v0.7.0) ✅ complete
 
 Expose the highest-impact hardcoded constants: L1 sensor identity plus L3
 background/foreground parameters. LiDAR network binding and forwarding stay
@@ -838,7 +838,7 @@ of the hot-reload tuning schema on this branch.
 | 15   | Regenerate config files with new L1 and L3 fields                               | Steps 13–14 | ✅          |
 | 16   | Update `config/README.md` with new field documentation                          | Step 15     | ✅          |
 
-### Phase 2B: experiment contract + deterministic config identity (v0.6.x / v0.7.0)
+### Phase 2B: experiment contract + deterministic config identity (v0.6.x / v0.7.9)
 
 Turn the new nested schema into a reproducible **experiment surface**, not just
 a startup file format. This phase creates the bridge from runtime tuning config

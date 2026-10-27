@@ -178,7 +178,7 @@ Kept by: `scripts/verify-static-elf.sh` and the static build CI workflow.
 
 ### D-27 — Capture identity and the capture index's rules
 
-A capture is identified by the SHA-256 of its whole file, computed by the probe: the capture digest of the platform vocabulary plan. The content tag stays the scan's check that a file has not changed. A replay case's session and motion period are notes, never foreign keys, until the vocabulary plan drops them in v0.6.7. The probe keeps its first and last packet in file order and adds the earliest and latest packet and a count of backward clock steps. Migration 58 holds the capture queue's two job kinds until the vocabulary plan's one job queue names every job's subject. The identity and clock statements are the target contract: their implementations, and queue consolidation, follow the vocabulary programme's terminology-only Phase 1 in Phase 2 — [data model review](../data/structures/SCHEMA-REVIEW.md#decisions-on-the-remaining-findings), [vocabulary plan](plans/platform-vocabulary-and-data-model-plan.md)
+A capture is identified by the SHA-256 of its whole file, computed by the probe: the capture digest of the platform vocabulary plan. The content tag stays the scan's check that a file has not changed. A replay case's session and motion period are notes, never foreign keys, until the vocabulary plan drops them in v0.7.5. The probe keeps its first and last packet in file order and adds the earliest and latest packet and a count of backward clock steps. Migration 58 holds the capture queue's two job kinds until the vocabulary plan's one job queue names every job's subject. The identity and clock statements are the target contract: their implementations, and queue consolidation, follow the vocabulary programme's terminology-only Phase 1 in Phase 2 — [data model review](../data/structures/SCHEMA-REVIEW.md#decisions-on-the-remaining-findings), [vocabulary plan](plans/platform-vocabulary-and-data-model-plan.md)
 
 Kept by: migration `000058`'s kind triggers, and the capture identity tests planned with vocabulary P2-A.
 
@@ -229,6 +229,18 @@ Kept by: a planned image staging check that fails when scene assets reach `image
 TicTacTail has no code, no `pkg/` directory and no second consumer. The in-repo `pkg/tictactail` extraction is withdrawn, and the v0.8.0 incubation item moves to the deferred list. A cadenced aggregation engine returns as a plan only when a second consumer exists, under tenet 5. Source: [architecture review, project boundaries](plans/platform-architecture-review-plan.md#project-boundaries-what-to-split-out-and-what-to-keep).
 
 Kept by: review only. `/plan-review` refuses a plan that proposes `pkg/tictactail` without citing this entry.
+
+### D-36 — Physical-measurement qualification and Gerardus/L7 boundary
+
+Keep frozen L1–L10 layer identities. Gerardus owns the static street model and accepted registration; velocity.report L5 owns physical body estimates, L7 composes registered dynamic scene and spatial relations, and L8 alone owns physical interaction equations, uncertainty propagation, suppression, scoring and aggregation. L7 is neither a second body estimator nor a cross-visit reidentification service. Cross-layer S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams organise 05x qualification. v0.5.3–v0.5.9 targets static qualification; v0.6.0–v0.6.4 is reserved for SLAM/mobile transfer; other features move to 07x or Parked. Passing a release milestone does not waive predeclared physical, coverage and calibration gates. Source: [BACKLOG](BACKLOG.md), [L7 plan](plans/lidar-l7-scene-plan.md), [state-estimation plan](plans/lidar-state-estimation-plan.md).
+
+Kept by: layer-boundary reviews, preserved migration inventory and scientific gate ledgers; CI enforcement is planned.
+
+### D-37 — Priority-first, workstream-last backlog metadata
+
+Outstanding BACKLOG items use the one-line convention `- [#PR] **P0|P1|P2** (#issue) deliverable: [design](plans/lidar-state-estimation-plan.md) SIZE WORKSTREAM`, where SIZE is the original backtick-wrapped S/M/L/XL and WORKSTREAM is the final backtick-wrapped S-* tag, after optional maths/frontend annotations. Optional PR precedes priority; issue remains after it. P0 blocks the first qualified static measurement, P1 is next product or operational work, and P2 is research/polish/parked. Do not drop agreed work or alter the historical Complete section. Each slot stays within D-32's twelve-item cap. Source: [BACKLOG](BACKLOG.md).
+
+Kept by: `make check-backlog-format` in `lint-docs` and the preserved-item migration audit.
 
 ### Milestone Rationale
 

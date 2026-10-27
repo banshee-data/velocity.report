@@ -144,7 +144,7 @@ published `raw_sha256`, a replay of the extract through libpcap (830 frames, 114
 
 | #   | Question                                                                                     | Decision                                                                                          |
 | --- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Q1  | Unpark survey publishing for these sites ahead of v0.6.6                                     | Yes, by the owner on October 22, 2026                                                             |
+| Q1  | Unpark survey publishing for these sites ahead of v0.7.4                                     | Yes, by the owner on October 22, 2026                                                             |
 | Q2  | Above 4 GB: two parts on the 300 s grid, or one file as the dataset does today               | One file; the parts rubric waits on the capture export plan                                       |
 | Q3  | Does `kirkham-9th` grow to cover kirk1, or does kirk1 become its own survey at the same site | Its own survey with its own dataset id; kirk0 stays as published with its labels                  |
 | Q4  | soma's motion stretches: a carried scan (a route, V28 opt-in) or a busy scene                | Publish only the static periods; the motion stretches are not exported                            |
