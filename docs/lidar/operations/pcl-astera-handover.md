@@ -454,4 +454,4 @@ calibrated adapter or explicit resampling contract is required before the border
 - **Execution evidence:** One real kirk0 frame, both normal coordinate arms and both border layouts; see the compatibility report for counts, identities, and limits
 - **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; a calibrated sensor-to-oracle adapter before l3bg0028
 - **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable and not required to read the records
-- **Checkpoint:** Source review committed; OQ-02 method and findings saved locally for incremental commits; no push
+- **Checkpoint:** OQ-01 committed as `66a0cf558`; OQ-02 tools and findings committed as `439c190af`, then repeated with stamped provenance; no push

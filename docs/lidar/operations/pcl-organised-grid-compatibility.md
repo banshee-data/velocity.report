@@ -59,7 +59,8 @@ emits an OrganizedNeighbor warning in each run that the input is not from a proj
 For the native RangeImage, the mean distance between assigned cells and PCL-projected pixels
 is 833.434 pixels. Even subtracting the best constant two-dimensional offset leaves an RMS
 residual of 781.657 pixels. Both range-image arms use the LASER_FRAME coordinate transform;
-the failure is not fixed by a global image offset. The spherical arm uses PCL's own z-buffering
+the failure is not fixed by a global image offset. This statistic tests the naive assignment;
+it is not a lower bound after axis relabelling, cyclic azimuth remapping, or calibrated ring mapping. The spherical arm uses PCL's own z-buffering
 and interpolation. Its larger finite population shows why its output cells cannot be joined to
 source returns by array position. Trait counts across these layouts are not accuracy comparisons.
 
@@ -89,7 +90,7 @@ reviewed physical-border or mixed-pixel label.
 - Capture: kirk0, 200,657,872 bytes, SHA-256 `2864ebde38e736b496d33361e9bcdc9246aa5147459ec48aee0f8f11f1f58b9a`, matching the repository's LFS identity.
 - Selected complete frame: `2025-12-05T22:17:24.82685033Z`; 69,253 input returns, 1,800 azimuth bins, 40 native channels.
 - Tuning: `config/experiments/pcl-organised-grid.json`, SHA-256 `b2f64d5e2a0364d76af328eafb2d13647606de539e43ca96737d16d0ca0885d8`; only L3 diagnostics are enabled relative to the starting defaults.
-- Initial exported PCD SHA-256: `115b7b6eb201c67a8e4c2d412f88d2cd8e428efdb923152b7ee306576f976e4f`. This initial file predates the exporter’s build-stamp comment; a stamped repeat is recorded below when available.
+- Initial exported PCD SHA-256: `115b7b6eb201c67a8e4c2d412f88d2cd8e428efdb923152b7ee306576f976e4f`. This initial file predates the exporter’s build-stamp comment; the committed repeat below establishes stamped provenance.
 - Raw evidence is local under `/private/tmp/velocity-pcl-review/`: PCL build, replay output, frame export, per-cell normal/border CSV files, and logs. This temporary location is disposable; this report contains the findings needed to understand the decision.
 
 ## Decision and next work
@@ -109,3 +110,27 @@ This is one-frame software compatibility evidence. It does not establish physica
 coasting improvements, retention safety, held-out behaviour, or M1/Pi timing. No runtime candidate
 or default change follows. The full production PCD exporter remains plan work; this tool is a
 bounded diagnostic with nearest-return selection and a fixed kirk0 window.
+
+## Committed repeat and validation
+
+Repeated the export and both checks from `439c190aff6220d00455a8f24f0213f97ee92ac7`.
+The make-built exporter records version `0.5.1-pre47`, that Git SHA, and build time
+`2026-10-27T23:22:34Z`. The stamped PCD SHA-256 is
+`26d4791adac4a6da6fdb53a73a2272172af08a3f6325846d1cc4c5a2f705fc60`.
+All PCD data rows and all three per-cell CSV outputs are byte-identical to the first run.
+The header differs by the added build provenance. This verifies repeatability of this input
+and harness, not physical correctness.
+
+The exporter tests pass with the pcap tag, including nearest-return identity, missing cells,
+channel/azimuth wrapping, and output-error propagation. The experiment-config tests pass.
+The C++ harness builds against the pinned PCL libraries and passes its formatting check.
+Relative links, documentation formatting, spelling, metadata, geometry wording, and the
+no-results guard pass. The experiment graph was regenerated after the new report dependency.
+
+The repository Go, Python, web, public-site, offline-doc, and macOS test targets passed during
+`make test`. Its final tooling phase encountered a broken pnpm 12.6.0 launcher; installed pnpm
+10 also rejected the existing root lockfile as a multi-document stream. Using the main checkout's
+existing root dependencies and disabling automatic pnpm version switching, the remaining S2
+suite passed all 80 tests. Scene-capture passed all 53 after permitting its local test listener.
+Thus all component suites ran successfully, but the original aggregate command exited with an
+environment/tooling error. No package-manager or lockfile change is part of this work.
