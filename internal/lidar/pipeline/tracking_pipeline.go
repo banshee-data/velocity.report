@@ -365,6 +365,13 @@ type TrackingPipelineConfig struct {
 	SurfaceGroundFloor   float64 // metres above the fitted surface; default 0.2
 	SurfaceGroundCeiling float64 // metres above the fitted surface; default 4.5
 
+	// L3MaskObserver, when set, is handed each published frame's L3
+	// foreground mask just before the frame is published: L3's own
+	// classification, before the track guard gives the returns it holds
+	// inside a tracked object's box the foreground class for clients. It
+	// must treat the mask as read-only. Nil, the default, hands it to nobody.
+	L3MaskObserver func(frame *l2frames.LiDARFrame, mask []bool)
+
 	// GroundSurfaceForTracker fits the same surface for the tracker's
 	// published box (l5tracks.BoxModelConfig.GroundAnchor) and hands it to
 	// the tracker, whether or not UseSurfaceGround clips by it: the clip is
@@ -581,6 +588,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 		var emptyBundle interface{}
 		if maskedEmpty != nil && mask != nil {
+			if cfg.L3MaskObserver != nil {
+				cfg.L3MaskObserver(frame, mask)
+			}
 			emptyBundle = maskedEmpty.AdaptEmptyFrameWithMask(frame, published(mask))
 		} else {
 			emptyBundle = cfg.VisualiserAdapter.AdaptEmptyFrame(frame)
@@ -1171,6 +1181,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			ft.Stage("publish")
 		}
 		if !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher) {
+			if cfg.L3MaskObserver != nil {
+				cfg.L3MaskObserver(frame, mask)
+			}
 			// The published mask: L3's, with the track guard's edge follow
 			// giving each tracked object's background returns its class.
 			publishMask := published(mask)

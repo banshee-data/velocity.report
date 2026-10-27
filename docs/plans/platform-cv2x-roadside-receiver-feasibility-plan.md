@@ -5,6 +5,7 @@ Evaluate whether velocity.report can obtain independent, short-duration vehicle 
 - **Status:** Proposed, research only; no verified live receiver, purchased hardware, or roadside V2X observations
 - **Layers:** External sensor research, L8 behaviour validation, local offline tools; no runtime pipeline or storage contract changes authorised
 - **Target:** Unscheduled feasibility spike; promote to a release only after technical, legal, privacy, and empirical gates pass
+- **Canonical:** [LiDAR pipeline reference](../lidar/architecture/lidar-pipeline-reference.md) (behaviour measurement ownership, which this external reference would validate)
 - **Companion plans:** [behaviour analytics](lidar-behaviour-analytics-plan.md), [state estimation](lidar-state-estimation-plan.md), [metrics-first research](platform-data-science-metrics-first-plan.md)
 - **Related:** [project tenets](../../TENETS.md), [identifiability analysis](../platform/architecture/identifiability-analysis.md), [clock and time domains](lidar-clock-abstraction-and-time-domain-model-plan.md), [radar FFT research](radar-fft-parsing-plan.md), [repository documentation](../README.md)
 

@@ -193,6 +193,6 @@ climbs away from the surface as it recedes, whatever the surface.
 2. **Measure the mount before reading a cross-slope as the road.** A per-site roll and pitch from
    the registered background (pose0001's 3DEP registration gives one) would separate the mount
    from the road; until then ground0003's frame arm should take the fitted plane as the frame.
-3. **Read l3bg0024 against this table.** The lowest return's climb with range is about 1.7 to
+3. **Read [l3bg0024](vehicle-lower-body-by-range-2026-10.md) against this table.** The lowest return's climb with range is about 1.7 to
    1.9 cm a metre on every surface; l3bg0024's ring classes say what takes the lower body, and
    ground0004's held base is the remedy if it is occlusion or dropout.

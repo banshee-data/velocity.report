@@ -29,6 +29,7 @@ import (
 
 	radarassets "github.com/banshee-data/velocity.report"
 	"github.com/banshee-data/velocity.report/internal/config"
+	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
@@ -53,6 +54,9 @@ func main() {
 		requireSet = flag.Bool("require-settled", true, "refuse a capture whose background is unsettled at the scoring boundary")
 		experiment = flag.String("experiment", "", "replay experiments for the pipeline and tracker, comma separated (replayeval names)")
 		tracePath  = flag.String("trace", "", "optional JSONL of moving vehicle tracks (3 m/s or more, 20 frames or more): each frame's members, sampled, and the published and km boxes, for plotting")
+		lowerBodyF = flag.Bool("lower-body", false, "l3bg0024's lower-body block: what the rings that should meet a moving vehicle's lower body returned, by range; needs a surface reader such as -experiment box_ground")
+		evidenceDB = flag.String("evidence-db", "", "optional new SQLite evidence database for the replay (observations and track estimates, identity calibration), for a corpus screen")
+		samplePts  = flag.Int("sample-points", 256, "with -evidence-db, retained sample points per observation (1 to 1024)")
 	)
 	flag.Parse()
 	// The pipeline reads the default tuning document wherever it runs from.
@@ -93,13 +97,18 @@ func main() {
 		_ = sc.rows.Write(rowHeader)
 	}
 
+	var lb *lowerBody
+	if *lowerBodyF {
+		lb = newLowerBody()
+	}
+
 	tmp, err := os.MkdirTemp("", "lidar-box-eval-")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer os.RemoveAll(tmp)
 	started := time.Now()
-	res, err := replayeval.Run(replayeval.Config{
+	cfg := replayeval.Config{
 		PCAPFiles:          strings.Split(*pcaps, ","),
 		OutDir:             tmp,
 		TuningFile:         *tuning,
@@ -112,7 +121,19 @@ func main() {
 		KeepClusterMembers: true,
 		Experiments:        experiments,
 		TrackerTap:         sc.frame,
-	})
+	}
+	if lb != nil {
+		cfg.FrameTap = lb.frame
+	}
+	if *evidenceDB != "" {
+		if *samplePts < 1 || *samplePts > 1024 {
+			log.Fatal("-sample-points must be 1 to 1024")
+		}
+		cfg.ObservationDBPath, cfg.ClipID, cfg.ObservationMaxSamplePoints = *evidenceDB, *caseName, *samplePts
+		cfg.ObservationCalibration = l4bobserve.Calibration{SensorID: cfg.SensorID, FromFrame: "sensor", ToFrame: "site",
+			Transform: [16]float64{1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1}}
+	}
+	res, err := replayeval.Run(cfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -131,6 +152,9 @@ func main() {
 	summary.Tolerance = *tolerance
 	summary.Build = version.Version + " " + version.GitSHA
 	summary.Recording = res.VRLOGPath
+	if lb != nil {
+		summary.LowerBody = lb.summary()
+	}
 	summary.WallSeconds = time.Since(started).Seconds()
 	b, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
@@ -836,6 +860,7 @@ type Summary struct {
 	Variants        map[string]map[string]*Measure `json:"variants"`
 	Duplicates      Duplicates                     `json:"duplicates"`
 	Definitions     map[string]string              `json:"definitions"`
+	LowerBody       *LowerBodySummary              `json:"lower_body,omitempty"`
 }
 
 // Duplicates counts confirmed tracks drawn on one vehicle, from the published
