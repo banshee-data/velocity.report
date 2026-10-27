@@ -5,7 +5,8 @@ import { SCENE_CSS_COLOURS } from "./scene-colours.js";
 // Stationary roadside LiDAR background — v1 aesthetic restored.
 // Static scene baked once (street + buildings + parked cars + trees + lampposts).
 // Tracked road users move through and get corner-bracket bounding boxes with
-// AV-style sprite labels.
+// AV-style sprite labels. The whole scene is synthetic, generated procedurally for
+// illustration: it is not drawn from a recording or from any real place.
 // =============================================================================
 
 const canvas = document.getElementById("hero-scene");

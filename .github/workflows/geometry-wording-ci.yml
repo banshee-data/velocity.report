@@ -1,0 +1,53 @@
+name: 📐 Geometry wording
+
+# Geometry, scene and prior data is measured spatial data (D-38). This gate
+# rejects copy that describes it as a model, plan or reconstruction of a
+# structure. It reads prose, templates, and code comments and strings, so it
+# runs on any of those changing.
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - "**/*.md"
+      - "**/*.njk"
+      - "**/*.html"
+      - "**/*.json"
+      - "**/*.go"
+      - "**/*.swift"
+      - "**/*.ts"
+      - "**/*.js"
+      - "**/*.mjs"
+      - "**/*.py"
+      - "**/*.svelte"
+      - "**/*.proto"
+      - ".github/workflows/geometry-wording-ci.yml"
+      - "Makefile"
+  push:
+    branches: [main]
+    paths:
+      - "**/*.md"
+      - "**/*.njk"
+      - "**/*.go"
+      - "**/*.swift"
+      - "**/*.ts"
+      - "**/*.svelte"
+      - "scripts/check-geometry-wording.py"
+
+concurrency:
+  group: geometry-wording-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wording:
+    name: "📐 Measured-geometry wording"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check geometry wording
+        run: make check-geometry-wording

@@ -355,6 +355,9 @@ import SwiftUI
                 }
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
+                        .help(
+                            "Inferred faces raised from DataSF footprints to heights measured in 3DEP, at those sources' dates; not a plan or survey."
+                        )
                 }
                 Toggle("DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)

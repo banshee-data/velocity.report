@@ -34,7 +34,7 @@ pipeline.
 
 The first qualified LiDAR outcome is a reproducible static-sensor **bumper-to-bumper following-distance** measurement, with observed versus inferred physical endpoints, object identity and trajectory support, uncertainty with declared interval meaning, independently reviewed references, excluded opportunity counts and a documented operating envelope. A plausible body, smooth track or estimator covariance does not establish absolute physical accuracy.
 
-**D-36 ownership:** Gerardus registers and maintains the static street model; L5 owns dynamic physical bodies; L7 assembles scene relations; L8 measures, qualifies and aggregates physical interactions. The S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams drive v0.5.3–v0.5.9. 06x is reserved for SLAM/mobile transfer with independent pose/clock gates. See [BACKLOG.md](BACKLOG.md).
+**D-36 ownership:** Gerardus registers and maintains the static street geometry; L5 owns dynamic physical bodies; L7 assembles scene relations; L8 measures, qualifies and aggregates physical interactions. The S-REF, S-OBS, S-GEO, S-UNC, S-MET, S-SCENE and S-EVID workstreams drive v0.5.3–v0.5.9. 06x is reserved for SLAM/mobile transfer with independent pose/clock gates. See [BACKLOG.md](BACKLOG.md).
 
 ## 2. End-state goal
 

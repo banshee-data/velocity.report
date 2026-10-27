@@ -27,6 +27,8 @@ Writing conventions for velocity.report. The single canonical reference for spel
 Applies to symbols, filenames, comments, documentation, and commit messages.
 
 **Exception:** external dependencies, API names, or standards that require American spelling.
+A quoted title keeps its own spelling: end its line with `<!-- spelling-ignore -->` so
+`scripts/check-british-spelling.py` leaves it alone.
 
 ## Punctuation
 

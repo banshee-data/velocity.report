@@ -31,7 +31,7 @@ Scope: `data/maths/**`, velocity-coherence planning docs, and `internal/lidar/**
 
 To keep foundations stable, split into two independent workstreams with one narrow interface.
 
-### Workstream a: vector-grid foundations (static scene model)
+### Workstream a: vector-grid foundations (static scene geometry)
 
 Owns:
 

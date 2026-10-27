@@ -71,8 +71,8 @@ export const MODEL_LAYERS = [
  * docs/plans/ROOFLINE-WALLS.md): each box wall (`box_walls`), its top on the
  * building's roofline where it has roof planes (tag `top=roofline`), else at
  * the box's height, and each building part's wall up to its roofline
- * (`wall_surfaces`). Their vertices carry their heights, so neither is
- * extruded. Gerardus leaves them out of its defaults and an older one does
+ * (`wall_surfaces`), each inferred up to that height. Their vertices carry
+ * their heights, so neither is raised further. Gerardus leaves them out of its defaults and an older one does
  * not know them, so the viewer asks for them only when the site lists them,
  * and only for the 3D view: seen from above, a wall is a line along its foot.
  */
@@ -187,7 +187,7 @@ export interface SiteFeature<P extends Position = Position> {
 	tags: Record<string, string>;
 	author?: string;
 	editedAt?: string;
-	/** The model a derived row (a building part, a fitted tree) belongs to, and its state. */
+	/** The derivation a derived row (a building part, a fitted tree) came from (`model_id`), and its state. */
 	modelId?: string;
 	state?: string;
 	geometry: Geometry<P>;

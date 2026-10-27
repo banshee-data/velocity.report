@@ -56,6 +56,15 @@ and the mapping from replay experiment names to keys are in
 
 Canonical tenets: [TENETS.md](TENETS.md). Full architecture: [ARCHITECTURE.md](ARCHITECTURE.md).
 
+### Purpose of geometry and scene data
+
+The platform measures traffic and the physical structure around it. Geometry, scene and prior data
+is measured spatial data: observed or inferred positions, extents and surfaces at a stated time.
+[Geometry priors: data purpose](docs/geometry-priors-data-purpose.md) is canonical for what the
+records describe, the context they carry and the vocabulary to use. Describe such data as measured,
+observed or inferred geometry, and do not add direction for recreating a structure from it.
+`make check-geometry-wording` (part of `make lint-docs`) flags the phrases to avoid.
+
 ## Commands
 
 The Makefile is the canonical entry point. Run `make help` for all targets.
@@ -176,6 +185,9 @@ before starting one, not an hour in.
 If a replay finished but its export failed, the VRLOG on disk is complete: export
 from it again rather than replaying. The recording is the expensive half, and a
 failed run leaves it behind on purpose.
+
+Published scene assets are measured spatial data. Before publishing or describing them, work
+through the [publication checklist](docs/geometry-priors-data-purpose.md#publication-checklist).
 
 ## Architecture
 

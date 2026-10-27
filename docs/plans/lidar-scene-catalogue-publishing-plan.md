@@ -6,6 +6,10 @@
 - **Companion plans:** [lidar-web-scene-export-plan](lidar-web-scene-export-plan.md) owns the export format; [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md) owns S2 conventions
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md) for all S2 conventions
 
+Published assets are measured spatial data: sensor returns and tracks at the capture time, not a
+survey, plan or specification. See
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## Motivation
 
 There are 122 GB of Hesai captures on `/Volumes/lidar/lidar/s2/` covering six
@@ -377,6 +381,11 @@ Invariants every export must hold:
   into `header.json`, so an export always names the run it came from.
 - Content-address the output by SHA-256 and register it in
   `lidar_scene_exports`.
+- State the interpretation context with every export: coordinate frame and units, capture start
+  time, which content is observed returns and which is estimated, accuracy and coverage notes,
+  and the licence. The header already carries the frame, start time and provenance; the rest is
+  specified in
+  [web scene export §12](lidar-web-scene-export-plan.md#12-context-travels-with-the-export).
 - Write **no vantages**. They belong to the site, in one `vantages.json`, and a
   per-export copy is a copy that drifts. `velocity scene vantages FILE` checks
   one; the exporter neither reads nor writes them.
@@ -484,6 +493,8 @@ itself is built in Phase 0 and owned by the companion plan.
 4. Pages deploy with a size-delta comment and preview link on every PR.
 5. Verify Pages honours `Range` on `index.db`; fall back to sharded whole-file
    fetch if not.
+6. A repository README that states what the assets are and are not, and carries their licence and
+   attribution.
 
 **Interfaces owned:** repo layout, CI checks, deploy.
 **Depends on:** W3 step 1 (spec) only.
@@ -498,7 +509,8 @@ itself is built in Phase 0 and owned by the companion plan.
 1. Map view over San Francisco with a marker per site, drawn from `index.db`;
    show L10 cell boundaries as context using the existing `tools/s2-hilbert`
    assets.
-2. Site page: background + clip player (30 s, point cloud) and a segment list.
+2. Site page: background + clip player (30 s, point cloud) and a segment list, with a plain line
+   on what the scene is: sensor returns at the capture time, not a survey, plan or specification.
 3. Segment scrubber: the annotated timeline **is** the scrubber — traffic by
    mode diverging from a zero line, peak speed, playhead, keyboard scrubbing —
    with play/pause and rate (1x/4x/8x/16x) either side of it. Frame-accurate
@@ -553,6 +565,7 @@ sensor deployments exist.
 | `pcap-split` writing mode                | W1 entirely                            | Not implemented                                           |
 | Deterministic replay path                | Export invariant                       | Believed sound in analysis mode; unverified at this scale |
 | Pages `Range` support                    | W4 index strategy                      | Assumed, unverified                                       |
+| Licence and attribution for the assets   | W4 README, export headers              | Not yet decided (D-34)                                    |
 
 ## Risks
 

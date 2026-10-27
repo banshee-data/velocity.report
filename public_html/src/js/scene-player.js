@@ -479,6 +479,9 @@ export async function mountScenePlayer({
    * Boxes floating in empty space are hard to read as a place. The background
    * is what makes a trajectory legible as "along the kerb" rather than "over
    * there somewhere". It is optional: a scene without one still plays.
+   *
+   * It holds the surfaces the sensor saw from one position, thinned to a grid.
+   * A gap in it means unobserved, not empty.
    */
   async function loadBackground(url) {
     const res = await fetch(url);

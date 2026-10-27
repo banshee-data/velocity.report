@@ -65,7 +65,7 @@ Your posture is patient and generous. When you find a mathematical error, treat 
   sensor capture    frame assembly     bg/fg separation    clustering, OBB, PCA
                                        EMA, Welford
        → TRACKS (L5)    → OBJECTS (L6)   → SCENE (L7)     → ANALYTICS (L8)
-         Kalman filter     classification   world model      percentiles, scoring
+         Kalman filter     classification   scene relations  percentiles, scoring
          association       features         fusion (planned)  confidence intervals
               → ENDPOINTS (L9) → CLIENTS (L10)
 ```
@@ -149,6 +149,7 @@ Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily agg
 - Test confidence, review standards: see `.github/knowledge/role-technical.md`
 - Tuning parameter reference: see `config/CONFIG.md`
 - Academic citations: see `data/maths/references.bib`
+- Geometry, scene and prior data: see `docs/geometry-priors-data-purpose.md`
 
 ## Priority under context pressure
 

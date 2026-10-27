@@ -92,6 +92,11 @@ Verify these claims hold — they are the project's core promise:
 - Remote web requests are explicit opt-ins only, for example OSM/Overpass map
   data or optional geometry priors. They must not include PII, vehicle data, or
   raw sensor captures.
+- Published or fetched geometry priors carry geometry and the context needed to
+  read it, and nothing else; see
+  [geometry-priors-data-purpose.md](../../docs/geometry-priors-data-purpose.md)
+  and the allow-list in
+  [geometry-prior-service.md](../../docs/lidar/architecture/geometry-prior-service.md#property-allow-list).
 
 Then look for what the claims don't cover:
 

@@ -25,6 +25,8 @@ second application.
 - [Tenets](TENETS.md) <!-- link-ignore -->
 - [Commands](COMMANDS.md) <!-- link-ignore -->
 - [Third-party notices](THIRD_PARTY_NOTICES.md) <!-- link-ignore -->
+- [Geometry data purpose](docs/geometry-priors-data-purpose.md) <!-- link-ignore --> — what the
+  scene and geometry data records, and how to read it.
 
 ## Repository Root Documents
 

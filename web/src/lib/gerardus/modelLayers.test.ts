@@ -102,7 +102,7 @@ const square = (z: number, size = 4): Vec3[] => [
 	[0, 0, z]
 ];
 
-// A bay over a garage: its outline 3 m up, rising to 8 m.
+// A part raised on min_height: its outline 3 m up, rising to 8 m.
 const bay = frame(
 	'building_parts',
 	'building_part',
@@ -329,7 +329,7 @@ describe('building parts', () => {
 		expect(partRise({})).toBe(0);
 	});
 
-	it('extrude the outline at its base, min_height up, to height', () => {
+	it('raise the outline at its base, min_height up, to height', () => {
 		const [scene] = buildLayerScenes([bay]);
 		expect(scene.layer).toBe('building_parts');
 		expect(scene.undrawn).toBe(0);
@@ -349,7 +349,7 @@ describe('building parts', () => {
 	});
 
 	it('are outlines only when wall surfaces arrive, and their walls stop at the roofline', () => {
-		// The bay's height tag says 8 m (the top of its roof): extruded, its
+		// The bay's height tag says 8 m (the top of its roof): raised to it, its
 		// walls would stand over the eave at 7 m.
 		const eave = frame(
 			'wall_surfaces',

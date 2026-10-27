@@ -5,7 +5,8 @@
 // it cannot be carried to the next sample. The space those returns occupied
 // can. A footprint is that space, voxelised, and asking which of another
 // sample's returns fall inside it gives a proposal for the same object there:
-// exact for a building, and for a car one nudge along the road away.
+// in place for a building, which has not moved, and for a car one nudge
+// along the road away.
 
 import Foundation
 import simd

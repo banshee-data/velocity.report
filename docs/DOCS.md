@@ -24,9 +24,10 @@ For project-wide numeric constants and default thresholds, see
 - `/docs/BACKLOG.md` # Prioritised work queue with versioned milestones (v0.5 → v2.0)
 - `/docs/DECISIONS.md` # Resolved executive decisions register
 - `/docs/VISION.md` # Product vision and backlog alignment guide
+- `/docs/geometry-priors-data-purpose.md` # What geometry, scene and prior data describes and how to read it
 - `/docs/COVERAGE.md` # Test coverage tracking
 - `/docs/DEVLOG.md` # Chronological development notes
-- `/docs/DEBUGGING.md` # Cross-component debugging guide
+- `/DEBUGGING.md` # Cross-component debugging guide (repository root)
 - `/docs/SCHEMA_CHANGES.md` # Pending renames and schema changes, with their reasoning
 
 ## Scope rules

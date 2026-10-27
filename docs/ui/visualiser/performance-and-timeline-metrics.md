@@ -26,7 +26,7 @@ First-class metrics channel for the visualiser: per-frame performance and scene 
 
 Compares two representations of the same frame aligned by `frame_id` and `timestamp_ns`:
 
-- **Centroid-vector scene:** track/cluster centroid and vector-derived world model.
+- **Centroid-vector scene:** track/cluster centroid and vector-derived scene geometry.
 - **Grid-world scene:** original grid-based world representation.
 
 ### Comparison outputs

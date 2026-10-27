@@ -14,11 +14,15 @@
 
 Extend the existing `pcap-analyse` command-line tool to compute and export ground plane geometry from static PCAP captures, with **optional** GPS geo-referencing. This enables:
 
-1. **Road surface reconstruction**: Export accurate road geometry for civil engineering analysis
+1. **Measured road surface**: Export the road surface the sensor observed, as fitted ground tiles with a stated frame, units and fit confidence, for research and engineering analysis
 2. **GIS integration**: Generate geo-referenced ground plane data compatible with mapping tools (GPS additive)
 3. **Offline processing**: Extract ground plane from archived PCAP files without real-time replay
 4. **Quality assurance**: Validate sensor placement and ground plane extraction algorithms
 5. **Global dataset population**: Merge settled tiles into persistent WGS84 ground data partitioned by canonical S2 L13 cells, with L10 for coarse filesystem grouping (GPS additive)
+
+The export is measured spatial data about the road surface at the capture time, not a survey or a
+specification of the road; see
+[Geometry priors: data purpose and interpretation](../geometry-priors-data-purpose.md).
 
 **Sensor-iterative principle:** Ground plane extraction **must work with LiDAR data alone**. GPS flags are strictly optional and only enable geographic export formats and Tier 2 global dataset population. The core extraction pipeline operates in sensor-local coordinates.
 
@@ -139,7 +143,10 @@ The ground plane extraction integrates into the existing PCAP analysis pipeline 
 
 **Format**:
 
-A GeoJSON `FeatureCollection` with top-level `metadata` (sensor model, capture timestamp, WGS84 origin, canonical S2 L13 token, tile size, range, confidence threshold, and geometry reference) and one `Feature` per tile. Each feature is a `Polygon` geometry (closed ring of four corners) with properties:
+A GeoJSON `FeatureCollection` with top-level `metadata` (sensor model, capture timestamp, WGS84
+origin, canonical S2 L13 token, tile size, range, confidence threshold, geometry reference, and the
+context members of `ground-plane-meta.json`) and one `Feature` per tile. Each feature is a
+`Polygon` geometry (closed ring of four corners) with properties:
 
 | Property             | Type     | Example               | Notes                               |
 | -------------------- | -------- | --------------------- | ----------------------------------- |
@@ -299,27 +306,40 @@ before implementation.
 
 The metadata file (`ground-plane-meta.json`) records extraction parameters and results:
 
-| Field                   | Type        | Example                   | Notes                                                 |
-| ----------------------- | ----------- | ------------------------- | ----------------------------------------------------- |
-| `extraction_timestamp`  | string      | "2026-01-15T10:45:23Z"    | ISO 8601                                              |
-| `pcap_file`             | string      | "capture-2026-01-15.pcap" | Source PCAP                                           |
-| `sensor_model`          | string      | "Hesai Pandar40P"         | Detected sensor                                       |
-| `coordinate_system`     | string      | "Sensor-XY"               | "WGS84" when GPS available                            |
-| `gps_source`            | string      | "none"                    | "manual" or "pcap" when available                     |
-| `wgs84_origin`          | object/null | null                      | Precise geometry origin when GPS is available         |
-| `s2_l13_token`          | string/null | "80858004"                | Canonical fine partition when GPS is available        |
-| `s2_l10_token`          | string/null | "808581"                  | Canonical parent derived with `Parent(10)`            |
-| `tile_size_m`           | float       | 1.0                       | Grid resolution                                       |
-| `range_max_m`           | float       | 50.0                      | Max range filter                                      |
-| `confidence_min`        | float       | 0.5                       | Min confidence threshold                              |
-| `total_tiles`           | int         | 847                       | Tiles computed                                        |
-| `exported_tiles`        | int         | 791                       | Tiles above threshold                                 |
-| `filtered_tiles`        | int         | 56                        | Tiles below threshold                                 |
-| `processing_time_s`     | float       | 12.4                      | Wall clock time                                       |
-| `formats`               | string[]    | ["csv", "asc"]            | Output formats written                                |
-| `global_dataset_merged` | bool        | false                     | Whether merged into the global S2-partitioned dataset |
+| Field                    | Type        | Example                   | Notes                                                                                                                        |
+| ------------------------ | ----------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `extraction_timestamp`   | string      | "2026-01-15T10:45:23Z"    | ISO 8601                                                                                                                     |
+| `capture_start_time`     | string      | "2026-01-15T10:30:00Z"    | ISO 8601 time of the first packet used: when the surface was observed, not when it was processed                             |
+| `pcap_file`              | string      | "capture-2026-01-15.pcap" | Source PCAP                                                                                                                  |
+| `sensor_model`           | string      | "Hesai Pandar40P"         | Detected sensor                                                                                                              |
+| `coordinate_system`      | string      | "Sensor-XY"               | "WGS84" when GPS available                                                                                                   |
+| `units`                  | string      | "metres"                  | Unit of every length value in every format                                                                                   |
+| `vertical_reference`     | string      | "sensor_origin"           | What heights are measured from: the sensor origin, or a named datum only when the elevation is known                         |
+| `gps_source`             | string      | "none"                    | "manual" or "pcap" when available                                                                                            |
+| `wgs84_origin`           | object/null | null                      | Precise geometry origin when GPS is available                                                                                |
+| `s2_l13_token`           | string/null | "80858004"                | Canonical fine partition when GPS is available                                                                               |
+| `s2_l10_token`           | string/null | "808581"                  | Canonical parent derived with `Parent(10)`                                                                                   |
+| `tile_size_m`            | float       | 1.0                       | Grid resolution                                                                                                              |
+| `range_max_m`            | float       | 50.0                      | Max range filter                                                                                                             |
+| `confidence_min`         | float       | 0.5                       | Min confidence threshold                                                                                                     |
+| `total_tiles`            | int         | 847                       | Tiles computed                                                                                                               |
+| `exported_tiles`         | int         | 791                       | Tiles above threshold                                                                                                        |
+| `filtered_tiles`         | int         | 56                        | Tiles below threshold                                                                                                        |
+| `evidence_status`        | string      | "inferred"                | Tiles are planes fitted to returns; `point_count` and `confidence` give each tile's support                                  |
+| `position_uncertainty_m` | float/null  | null                      | Conservative horizontal half-width; null (not recorded) until an estimator exists                                            |
+| `coverage_notes`         | string[]    | ["no tiles beyond 50 m"]  | Known gaps: range limit, tiles below the threshold, occluded ground. A missing tile is not a statement that nothing is there |
+| `tool_version`           | string      | "0.5.1-pre47 (a1b2c3d)"   | Build version and git sha of the exporter                                                                                    |
+| `processing_time_s`      | float       | 12.4                      | Wall clock time                                                                                                              |
+| `formats`                | string[]    | ["csv", "asc"]            | Output formats written                                                                                                       |
+| `global_dataset_merged`  | bool        | false                     | Whether merged into the global S2-partitioned dataset                                                                        |
 
 When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becomes `"manual"` or `"pcap"`, and `wgs84_origin` is populated.
+
+The per-run exports carry the tile properties above and the context members in this table. A tile
+written to the global S2 dataset (`--s2-dataset-merge`) is written in the
+[prior file format](../lidar/architecture/geometry-prior-service.md), whose property allow-list
+applies: processing properties such as `curvature_class` and `settlement_time_ms` stay in the
+per-run output.
 
 ## Implementation phases
 
@@ -497,4 +517,4 @@ When GPS is available, `coordinate_system` becomes `"WGS84"`, `gps_source` becom
 - **Ground plane texture mapping**: Export surface roughness or reflectivity as additional tile properties
 - **Global dataset visualisation**: Web UI for browsing canonical S2 L10/L13 ground partitions
 - **OSM polyline import** (v2): Anchor ground plane tiles to kerb lines, crosswalks, and road edges from OpenStreetMap
-- **OSM write-back** (v2): Propose edits to OSM with more accurate geometry from LiDAR measurements (requires OSM API key)
+- **OSM write-back** (v2): Propose edits to OSM from geometry the LiDAR measured, stated with its uncertainty (requires OSM API key)

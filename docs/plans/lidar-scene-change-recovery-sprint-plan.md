@@ -10,6 +10,11 @@
 - **Experiment:** [Lombard–Laguna scene-change recovery](../../data/experiments/try/lombard-laguna-scene-change-recovery.md)
 - **Related:** [Static-sensor nudge tolerance](static-sensor-nudge-tolerance-plan.md), [motion/static tuning](motion-static-parameter-tuning-plan.md)
 
+The scene here is the sensor's measured background and the tracks drawn over it. A published survey
+(one deployment's measurement over a period) is spatial data about a street at its capture time,
+not a land survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## Outcome and decision
 
 Prepared on 2026-10-03 from the Lombard–Laguna survey investigation.
@@ -167,10 +172,11 @@ support fields. The [viewer](../../public_html/src/js/scene-player.js) draws all
 with a minimum extent of 0.9 m. Both amplify the apparent certainty of the burst.
 
 Add compatible lifecycle, support, last-observed time, model epoch and scene-quality fields.
-Represent unavailable historical fields as unknown, never fabricated confirmation. Provide a
-review view for tentative/coasted boxes and recovering frames; expose measured dimensions when
-an object is inspected. Keep marker size distinct from measured geometry. A normal-view filter
-may reduce tentative clutter, but evaluation always uses the complete upstream records.
+Represent unavailable historical fields as unknown, never fabricated confirmation, and mark each
+frame's geometry as observed or estimated (coasted, recovering) with its capture time. Provide a
+review view for tentative/coasted boxes and recovering frames; expose measured dimensions when an
+object is inspected. Keep marker size distinct from measured geometry. A normal-view filter may
+reduce tentative clutter, but evaluation always uses the complete upstream records.
 
 Changing box size, hiding tentative tracks, raising hits-to-confirm or adding a minimum-speed
 filter cannot satisfy the recovery gates by themselves. Persistent static clusters can become
