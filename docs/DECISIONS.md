@@ -230,6 +230,12 @@ TicTacTail has no code, no `pkg/` directory and no second consumer. The in-repo 
 
 Kept by: review only. `/plan-review` refuses a plan that proposes `pkg/tictactail` without citing this entry.
 
+### D-36 — Geometry, scene and prior data is measured spatial data
+
+Geometry, scene and prior data describes observable physical conditions: measured or inferred positions, extents and surfaces of stationary features, at a stated acquisition time, with provenance, coordinate frame, units and uncertainty. It is not a plan, drawing, specification or direction for constructing a structure, and a published record carries no material, finish, interior or construction-method attribute. Documentation, code comments, interface copy, dataset cards and the public site describe it that way, in the vocabulary of the canonical statement. Source: [geometry priors: data purpose](geometry-priors-data-purpose.md).
+
+Kept by: `/docs-release-prep` (its geometry wording check) and `/review-pr`, both review only. The publication checklist is worked through by hand before a scene release; no lint exists for it yet.
+
 ### Milestone Rationale
 
 | Milestone | Rationale                                                      |
