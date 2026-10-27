@@ -54,6 +54,12 @@ type lowerBodyAgg struct {
 	heights     []float64
 	slots       int
 	counts      map[string]int
+	// fgDZ and fgDR place the foreground class's returns: height less the
+	// track's lowest return, and horizontal range less the near face.
+	fgDZ, fgDR []float64
+	// held counts slots whose nearest return L3 took as background and the
+	// track guard publishes as foreground.
+	held int
 }
 
 func newLowerBodyAgg() *lowerBodyAgg { return &lowerBodyAgg{counts: map[string]int{}} }
@@ -89,6 +95,12 @@ func lowerBodyVehicle(t *l5tracks.TrackedObject) bool {
 func (lb *lowerBody) frame(f replayeval.FrameTapFrame) {
 	if !f.Scored || f.Frame == nil || len(f.Mask) != len(f.Frame.Points) {
 		return
+	}
+	// The classes are L3's: the track guard's published foreground inside a
+	// tracked box never reached L4, and is counted apart.
+	l3 := f.L3Mask
+	if len(l3) != len(f.Mask) {
+		l3 = f.Mask
 	}
 	var vehicles []*l5tracks.TrackedObject
 	for _, t := range f.Tracks {
@@ -191,11 +203,20 @@ func (lb *lowerBody) frame(f replayeval.FrameTapFrame) {
 				class := lbDropout
 				if i := nearest[c*bins+slot]; i >= 0 {
 					p := &pts[i]
+					if !l3[i] && f.Mask[i] {
+						for _, a := range aggs {
+							a.held++
+						}
+					}
 					switch {
-					case f.Mask[i] && p.Z < f.HeightBandFloor:
+					case l3[i] && p.Z < f.HeightBandFloor:
 						class = lbClipped
-					case f.Mask[i]:
+					case l3[i]:
 						class = lbForeground
+						for _, a := range aggs {
+							a.fgDZ = append(a.fgDZ, p.Z-zLow)
+							a.fgDR = append(a.fgDR, math.Hypot(p.X, p.Y)-tin)
+						}
 					default:
 						rh, w := math.Hypot(p.X, p.Y), window(p.Distance)
 						switch {
@@ -304,13 +325,30 @@ type LowerBodyBin struct {
 	Slots  int                `json:"ring_slots"`
 	Counts map[string]int     `json:"counts"`
 	Shares map[string]float64 `json:"shares"`
+	// ForegroundDZ and ForegroundDR place the foreground class's returns:
+	// their height less the track's lowest return, and their horizontal
+	// range less the near face (p10, p50, p90).
+	ForegroundDZ [3]float64 `json:"foreground_dz_p10_p50_p90,omitempty"`
+	ForegroundDR [3]float64 `json:"foreground_dr_p10_p50_p90,omitempty"`
+	// GuardHeld counts the slots whose nearest return L3 took as background
+	// and the track guard publishes as foreground, and GuardHeldShare their
+	// share of the slots: not a class, since every one is in one of them.
+	GuardHeld      int     `json:"guard_held"`
+	GuardHeldShare float64 `json:"guard_held_share"`
 }
 
 func (a *lowerBodyAgg) bin(from, to float64) LowerBodyBin {
 	out := LowerBodyBin{FromMetres: from, ToMetres: to, TrackFrames: a.trackFrames, Slots: a.slots,
-		Counts: map[string]int{}, Shares: map[string]float64{}}
+		Counts: map[string]int{}, Shares: map[string]float64{}, GuardHeld: a.held}
+	if a.slots > 0 {
+		out.GuardHeldShare = float64(a.held) / float64(a.slots)
+	}
+	q3 := func(v []float64) [3]float64 { return [3]float64{quantile(v, .1), quantile(v, .5), quantile(v, .9)} }
 	if len(a.heights) > 0 {
-		out.LowestAboveSurface = [3]float64{quantile(a.heights, .1), quantile(a.heights, .5), quantile(a.heights, .9)}
+		out.LowestAboveSurface = q3(a.heights)
+	}
+	if len(a.fgDZ) > 0 {
+		out.ForegroundDZ, out.ForegroundDR = q3(a.fgDZ), q3(a.fgDR)
 	}
 	for _, c := range lowerBodyClasses {
 		out.Counts[c] = a.counts[c]
@@ -326,7 +364,8 @@ func (lb *lowerBody) summary() *LowerBodySummary {
 		All: lb.all.bin(0, 0), Far: lb.far.bin(lowerBodyFarMetres, 0), Definitions: map[string]string{
 			"track_frame": "a scored frame of a confirmed track observed in it, moving at 2 m/s or more, whose published box is 3 m long or more",
 			"ring_slot":   "an azimuth slot of the L3 grid inside the box's footprint span, on a ring whose beam meets the footprint's near face above the blended surface and below the track's lowest foreground return",
-			lbAbsorbed:    "the slot's nearest return is background, between the near face less the L3 closeness window (the settled cell's: spread 0) and the far side plus it",
+			lbAbsorbed:    "the slot's nearest return is L3 background (L3's own mask, before the track guard's published foreground), between the near face less the L3 closeness window (the settled cell's: spread 0) and the far side plus it",
+			"guard_held":  "slots whose nearest return L3 took as background and the track guard publishes as foreground inside a tracked box",
 			lbOccluded:    "background, nearer than the near face by more than the window",
 			lbBehind:      "background, beyond the far side by more than the window: the beam passed under or beside the body",
 			lbDropout:     "no return in the slot",

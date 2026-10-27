@@ -33,8 +33,15 @@ func TestFrameTapReadsWithoutChanging(t *testing.T) {
 	var frames, scored, withSurface, badMask int
 	tapped := run("tap", func(f FrameTapFrame) {
 		frames++
-		if len(f.Mask) != len(f.Frame.Points) {
+		if len(f.Mask) != len(f.Frame.Points) || len(f.L3Mask) != len(f.Mask) {
 			badMask++
+		}
+		for i := range f.L3Mask {
+			// The guard only ever adds foreground for clients.
+			if f.L3Mask[i] && !f.Mask[i] {
+				badMask++
+				break
+			}
 		}
 		if f.Scored {
 			scored++

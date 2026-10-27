@@ -1052,6 +1052,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 			tap.surface = pipeCfg.GroundSurfaceFit
 		}
 		pipeCfg.VisualiserAdapter = tap
+		pipeCfg.L3MaskObserver = tap.observeL3
 	}
 	pipelineCallback, err := pipeCfg.BuildFrameCallback()
 	if err != nil {

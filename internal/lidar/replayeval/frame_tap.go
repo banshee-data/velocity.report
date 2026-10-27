@@ -12,17 +12,21 @@ import (
 )
 
 // FrameTapFrame is one published frame as Config.FrameTap sees it: the
-// frame's returns and the published mask over them (true for foreground),
-// the tracker's confirmed tracks after the frame's update, the P11 surface
-// once one is fitted (nil before, and always without a reader of it such as
-// box_ground or surface_ground), and the L3 and L4 settings the frame was
-// classified and clipped under. Everything is the pipeline's own and must be
-// treated as read-only.
+// frame's returns, the published mask over them (true for foreground) and
+// L3's own, the tracker's confirmed tracks after the frame's update, the P11
+// surface once one is fitted (nil before, and always without a reader of it
+// such as box_ground or surface_ground), and the L3 and L4 settings the frame
+// was classified and clipped under. Everything is the pipeline's own and must
+// be treated as read-only.
 type FrameTapFrame struct {
-	At      time.Time
-	Scored  bool
-	Frame   *l2frames.LiDARFrame
-	Mask    []bool
+	At     time.Time
+	Scored bool
+	Frame  *l2frames.LiDARFrame
+	Mask   []bool
+	// L3Mask is L3's classification of the same returns, before the track
+	// guard gives the returns it holds inside a tracked object's box the
+	// foreground class in Mask; it is Mask where the guard changes nothing.
+	L3Mask  []bool
 	Tracks  []*l5tracks.TrackedObject
 	Surface *l3grid.RegionalGroundSurface
 	// Background is the L3 parameters in force, for the closeness window,
@@ -48,6 +52,16 @@ type frameTapAdapter struct {
 	surface *atomic.Pointer[l3grid.RegionalGroundSurface]
 	bm      *l3grid.BackgroundManager
 	floor   float64
+	// l3Frame and l3Mask are the frame the pipeline last handed its L3 mask
+	// for, and that mask.
+	l3Frame *l2frames.LiDARFrame
+	l3Mask  []bool
+}
+
+// observeL3 is the pipeline's L3MaskObserver: it keeps the mask for the
+// frame about to be published.
+func (a *frameTapAdapter) observeL3(frame *l2frames.LiDARFrame, mask []bool) {
+	a.l3Frame, a.l3Mask = frame, mask
 }
 
 func (a *frameTapAdapter) observe(frame *l2frames.LiDARFrame, mask []bool) {
@@ -55,7 +69,10 @@ func (a *frameTapAdapter) observe(frame *l2frames.LiDARFrame, mask []bool) {
 		return
 	}
 	f := FrameTapFrame{At: frame.StartTimestamp, Scored: frame.StartTimestamp.UnixNano() >= a.start,
-		Frame: frame, Mask: mask, HeightBandFloor: a.floor}
+		Frame: frame, Mask: mask, L3Mask: mask, HeightBandFloor: a.floor}
+	if a.l3Frame == frame && len(a.l3Mask) == len(mask) {
+		f.L3Mask = a.l3Mask
+	}
 	if a.tracker != nil {
 		f.Tracks = a.tracker.GetConfirmedTracks()
 	}

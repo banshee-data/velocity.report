@@ -62,7 +62,7 @@ func lowerBodyFrame(t *testing.T) (replayeval.FrameTapFrame, *l5tracks.TrackedOb
 	track := &l5tracks.TrackedObject{TrackID: "car", X: 0, Y: 20, VX: 10, LatestZ: -1.3,
 		OBBLength: 4.5, OBBWidth: 1.8, OBBHeight: 1.5}
 	surface := &l3grid.RegionalGroundSurface{CellMetres: 10, Global: l3grid.GroundSurface{C: -2.3}}
-	return replayeval.FrameTapFrame{At: at, Scored: true, Frame: &l2frames.LiDARFrame{Points: pts}, Mask: mask,
+	return replayeval.FrameTapFrame{At: at, Scored: true, Frame: &l2frames.LiDARFrame{Points: pts}, Mask: mask, L3Mask: mask,
 		Tracks: []*l5tracks.TrackedObject{track}, Surface: surface, AzimuthBins: 1800, HeightBandFloor: -2.8,
 		Background: l3grid.BackgroundParams{ClosenessSensitivityMultiplier: 2, NoiseRelativeFraction: 0.01,
 			SafetyMarginMetres: 0.3}}, track
@@ -139,5 +139,28 @@ func TestRayFootprintAndSpan(t *testing.T) {
 	}
 	if _, _, ok := azimuthSpan(l5tracks.PublishedBox{X: 0, Y: 0.2, Length: 4.5, Width: 1.8}); ok {
 		t.Fatal("a box over the sensor has a span")
+	}
+}
+
+// The classes are L3's: a return the track guard publishes as foreground
+// inside the box, which L3 took as background, is absorbed, and counted as
+// held by the guard.
+func TestLowerBodyReadsL3NotTheGuard(t *testing.T) {
+	f, _ := lowerBodyFrame(t)
+	published := append([]bool(nil), f.Mask...)
+	for i, p := range f.Frame.Points {
+		if p.Channel == 1 && p.Azimuth != 180.1 {
+			published[i] = true
+		}
+	}
+	f.Mask = published
+	lb := newLowerBody()
+	lb.frame(f)
+	b := lb.summary().Bins[2]
+	if b.Counts[lbAbsorbed] == 0 || b.Counts[lbAbsorbed] != b.Counts[lbOccluded] {
+		t.Fatalf("absorbed %d, occluded %d: the guard's foreground was read as L3's", b.Counts[lbAbsorbed], b.Counts[lbOccluded])
+	}
+	if b.GuardHeld != b.Counts[lbAbsorbed] {
+		t.Fatalf("guard held %d, want the %d absorbed slots", b.GuardHeld, b.Counts[lbAbsorbed])
 	}
 }
