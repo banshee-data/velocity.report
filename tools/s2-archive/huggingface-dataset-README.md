@@ -277,6 +277,12 @@ methods of construction.
 - **Version.** The manifest's `pipeline_version` and `raw_sha256`, and a scene
   header's `build_version`, `tuning_hash`, and `source_vrlog_sha256`, name the
   code, tuning, and recording behind each artefact.
+- **In each file.** Scene exports written by a current build also state this
+  context in the files themselves: `units`, `evidence` (which layers are
+  observed and which inferred), `coordinate_rounding_m` and `build_git_sha`,
+  and in a background file the capture's `acquired_interval` and the grid's
+  `azimuth_bin_deg` and `rings`. This release's exports were written before
+  those members existed and do not carry them.
 
 Use it for localisation, alignment, change detection, and traffic research. It
 is not a land or boundary survey, a structural assessment, or a plan or

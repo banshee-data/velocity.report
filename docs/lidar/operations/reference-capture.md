@@ -153,7 +153,10 @@ The assets are measured spatial data from one fixed sensor position: the returns
 over the capture's 662.8 s, in a frame centred on the sensor, and the pipeline's track estimates
 drawn from them. `header.json` records the start time and duration (`start_ns`, `duration_sec`),
 the frame (`coordinate_frame`), the source VRLOG fingerprint, the tuning hash and the build
-version. It does not yet record positional uncertainty or coverage gaps. Surfaces the sensor did
+version. An export from a current build also states its `units`, its `evidence` (points observed,
+tracks inferred) and its `coordinate_rounding_m`, and its background file states the capture's
+`acquired_interval`; the published copy predates those members. No export yet records positional
+uncertainty or coverage gaps. Surfaces the sensor did
 not see are not asserted absent, and the scene is not a survey, plan or specification of the
 street. See
 [Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).

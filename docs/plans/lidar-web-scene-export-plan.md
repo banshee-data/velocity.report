@@ -423,14 +423,17 @@ survey, plan or specification, and a surface the sensor did not see is not asser
 and a copied asset keeps only its files, so the context a reader needs belongs in the files
 themselves.
 
-| Context                    | Carried today                                                                                                                                                                                                                             | Required                                                                                                                                                        |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Coordinate frame and units | Part header `coordinate_frame` (frame and reference frame), with no georeferenced origin by design. Lengths are metres and speeds m/s by convention, stated in no file. The `background` file names no frame                              | State the units in every file; give the `background` file its frame so it reads without the parts                                                               |
-| Acquisition time           | Part header `start_ns` (absolute time of the first retained frame) and `duration_sec`. The `background` file has `generated_at`, the export time, and no capture time                                                                     | The snapshot's own capture time in the `background` file                                                                                                        |
-| Observed or estimated      | `clip` points and `background` points are returns the sensor observed. Boxes and trails are estimates, and `trail_estimator` names which. The `background` ground height (`ground_z`) is an estimate from a low percentile of the returns | Say in each header which members are observed returns and which are estimates                                                                                   |
-| Accuracy and coverage      | Coordinates are rounded to 1 cm. The sensor's stated range accuracy is ±2 cm (§1). The `background` file records `voxel_metres` and `point_count`; a `clip` caps each frame at 1,200 foreground points                                    | A positional uncertainty and a coverage note per file: rounding, voxel size, point caps, and that space the sensor could not see or reach is unknown, not empty |
-| Version and provenance     | Part header `version`, `build_version`, `tuning_hash`, `source_vrlog_sha256`, `generated_at`. The `background` file has `version`, `source_vrlog_sha256` and `generated_at`                                                               | The build version in the `background` file, so the files of one export agree                                                                                    |
-| Source terms               | None declared for the assets                                                                                                                                                                                                              | A licence and attribution statement for the published assets, settled with the public scene data decision (D-34)                                                |
+| Context                    | Carried in the files                                                                                                                                                                                                  | Not yet carried                                          |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Coordinate frame and units | `coordinate_frame` in the part header and the `background` file, with no georeferenced origin by design; X and Y are the sensor's own axes until a registration is accepted. `units`: `m`, `m/s`, `rad`               | A measured north and a georeference                      |
+| Acquisition time           | Part header `start_ns` and `duration_sec`; `background` file `acquired_interval`, the source recording's capture span. `generated_at` is the export time in both                                                      | The narrower span over which each cell settled           |
+| Observed or inferred       | `evidence` in both: a clip's points observed; tracks, the background's cell points and its `ground_z` inferred. `trail_estimator` names the trail's estimator                                                         | A per-point status                                       |
+| Accuracy and coverage      | `coordinate_rounding_m` (0.01 m, a storage quantum, not an uncertainty); the background's `voxel_metres`, `azimuth_bin_deg` and `rings`; a clip caps each frame at 1,200 foreground points. Range accuracy ±2 cm (§1) | Positional uncertainty and coverage gaps                 |
+| Version and provenance     | `version`, `build_version`, `build_git_sha`, `tuning_hash`, `source_vrlog_sha256` and `generated_at` in both                                                                                                          | Nothing                                                  |
+| Source terms               | Nothing                                                                                                                                                                                                               | The licence and attribution statement, once D-34 sets it |
+
+An export written before these members existed lacks them, and the published assets predate them
+until they are re-exported; a reader treats a missing member as not recorded.
 
 The scene page says the same in a plain line beside the player: what it shows is returns the sensor
 saw at the capture time and tracks estimated from them. None of this adds geometry that is not
@@ -539,11 +542,13 @@ the tracked trails meet the publication-quality gate.
 
 **Steps:**
 
-1. Add the units, the observed-or-estimated statement and the accuracy and coverage notes to the
-   part header.
-2. Give the `background` file its capture time, frame and build version.
+1. Add the units, the evidence statuses and the rounding quantum to the part header. Done.
+2. Give the `background` file its capture interval, frame, units, evidence, grid and build
+   identity. Done.
 3. Add the licence and attribution statement once D-34 settles it.
-4. Exporter tests assert the members; the reader tolerates their absence in older exports.
+4. Exporter tests assert the members; the reader tolerates their absence in older exports. Done
+   (`internal/scene/background_test.go`, `TestExportHeaderMetadata`).
+5. Re-export the published assets so they carry the members.
 
 **Milestone:** before any new scene asset is published
 
@@ -589,7 +594,8 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 ### Outstanding
 
 - [ ] Phase 1: the other five sites, once the surveyed coordinates arrive (`M`)
-- [ ] Interpretation context in the part header and the `background` file (§12) (`S`)
+- [x] Interpretation context in the part header and the `background` file (§12) (`S`)
+- [ ] Published assets re-exported with the context members, and the licence once D-34 sets it
 - [ ] Re-export soma1 from the VRLOG so the published assets carry the current exporter's output (`S`)
 - [x] Select and publish one Columbus at Broadway 30-second clip (`M`) (see §11)
 - [x] Render foreground clip points in `scene-player.js` (`M`) (see §11)
