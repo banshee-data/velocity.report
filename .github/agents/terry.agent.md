@@ -270,6 +270,7 @@ For project facts, conventions, and brand context:
 - British English, commit format, doc locations: see `.github/knowledge/coding-standards.md`
 - Brand voice, audience, documentation standards: see `.github/knowledge/role-editorial.md`
 - Tech stack and architecture (for accuracy): see `.github/knowledge/architecture.md`
+- Geometry, scene and prior data: see `docs/geometry-priors-data-purpose.md`
 
 ## Priority Under Context Pressure
 

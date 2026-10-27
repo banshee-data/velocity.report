@@ -55,6 +55,9 @@ processing 70,000 points per frame at 10 Hz with no cloud dependency.
 The two sensors are complementary. Radar provides Doppler-accurate speed.
 LiDAR provides geometry, object identity, and track continuity.
 Fusing them is the [v1.0 goal](docs/plans/lidar-l7-scene-plan.md).
+Geometry kept about the physical structure around the road (background surfaces, scene and prior
+data) is measured spatial data at a stated time, not a plan or survey: see
+[geometry priors: data purpose](docs/geometry-priors-data-purpose.md).
 
 | Component            | Language            | Purpose                                                            |
 | -------------------- | ------------------- | ------------------------------------------------------------------ |

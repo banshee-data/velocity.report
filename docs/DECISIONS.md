@@ -252,7 +252,7 @@ Milestone assignments live in [BACKLOG.md](BACKLOG.md). This section documents t
 
 2. **Stabilise before expanding.** Each milestone hardens the layer below before building the layer above. v0.5 stabilises internals; v0.6 packages them; v0.7 polishes the interface; v1.0 certifies quality.
 
-3. **Privacy is a feature, not a constraint.** Every milestone must maintain the privacy guarantee. Online features (v2.0) are opt-in and transmit geometry only.
+3. **Privacy is a feature, not a constraint.** Every milestone must maintain the privacy guarantee. Online features (v2.0) are opt-in and send no PII, vehicle data, or raw sensor captures (tenet 1). The files they exchange hold measured geometry only: see [geometry priors: data purpose](geometry-priors-data-purpose.md).
 
 4. **Local-only is the default forever.** The online geometry-prior service (v2.0) enriches the system but is never required. A disconnected Raspberry Pi with local prior files must produce the same quality results.
 

@@ -324,6 +324,10 @@ Quick scan for the most common tone issues:
       passive sentences.
 - [ ] **Product name:** `velocity.report` (lowercase v, no spaces).
 - [ ] **British English:** `-ise` not `-ize`, `-our` not `-or`.
+- [ ] **Geometry wording:** docs that describe or publish geometry, scene or prior data call it
+      measured spatial data and link
+      [geometry priors: data purpose](../../../docs/geometry-priors-data-purpose.md) instead of
+      restating it.
 
 ### 10. Disk image readiness
 

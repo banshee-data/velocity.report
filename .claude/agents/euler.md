@@ -149,6 +149,7 @@ Traffic Analytics (L8): Percentile computation (p50, p85, p98), hourly/daily agg
 - Test confidence, review standards: see `.github/knowledge/role-technical.md`
 - Tuning parameter reference: see `config/CONFIG.md`
 - Academic citations: see `data/maths/references.bib`
+- Geometry, scene and prior data: see `docs/geometry-priors-data-purpose.md`
 
 ## Priority under context pressure
 
