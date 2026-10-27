@@ -131,7 +131,7 @@ a Gerardus server the toolbar and the app are unchanged. See
 ### Painting a site's streets
 
 Once the sensor is placed, **Paint streets** (in the alignment pane's header, or beside **Align**)
-snaps the view to a top-down plan over the site, north up, which pans and zooms but does not turn.
+snaps the view to look straight down on the site, north up, which pans and zooms but does not turn.
 Mark surfaces (carriageway, sidewalk, verge, apron, median), travel lanes, parked-car spaces or a
 row of them along a kerb, and driveways; vertices snap to kerbs, centrelines, box walls and other
 marks within 0.5 m. **Save** sends the changes to Gerardus in one batch under your author name,

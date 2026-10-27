@@ -328,7 +328,8 @@ struct ReferenceGeometry: Sendable {
     /// roof planes and their wall surfaces (BUILDINGS), painted markings
     /// (LANE_MARKINGS), poles and signs (STREET_FURNITURE), and trees
     /// (TREES). A server older than Gerardus's roofline walls sends no wall
-    /// surfaces, and its parts are drawn as inferred prisms instead.
+    /// surfaces, and its parts are drawn as prisms inferred from their height
+    /// tags instead of from their roof planes.
     var buildingParts: [Gerardus_Align_V1alpha1_LineFeature] = []
     var roofPlanes: [Gerardus_Align_V1alpha1_LineFeature] = []
     var wallSurfaces: [Gerardus_Align_V1alpha1_LineFeature] = []
@@ -354,7 +355,7 @@ struct ReferenceGeometry: Sendable {
 
     var aerialCount: Int { aerialX.count }
 
-    /// Box walls shared with a neighbour, which nobody sees from the street.
+    /// Box walls on an edge another footprint shares, which no street view sees.
     var partyWallCount: Int { boxes.filter(ReferenceStyle.isPartyWall).count }
 
     /// Wall planes by role.
@@ -526,7 +527,7 @@ struct ReferenceOverlayVertices: Sendable {
     /// Debug-line layout: [x, y, z, r, g, b, a] per vertex, two per segment.
     var osmLines: [Float] = []
     var footprintLines: [Float] = []
-    /// Box walls, party walls fainter.
+    /// Box walls, those on shared edges fainter.
     var boxLines: [Float] = []
     var intersectionLines: [Float] = []
     var observedLines: [Float] = []
@@ -718,8 +719,8 @@ enum ReferenceStyle {
     /// A box wall: a darker, greyer red than the flat footprints' outline,
     /// so the two read apart when both are drawn.
     static let boxWallColour = SIMD4<Float>(0.72, 0.36, 0.33, 0.70)
-    /// A party wall, shared with a neighbour and seen from no street: the
-    /// same red, fainter.
+    /// A box wall on an edge another footprint shares, which no street view
+    /// sees: the same red, fainter.
     static let partyWallColour = SIMD4<Float>(0.72, 0.36, 0.33, 0.25)
 
     /// Tagged `party=true` by Gerardus.

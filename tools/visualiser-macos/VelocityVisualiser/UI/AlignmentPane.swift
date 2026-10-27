@@ -219,7 +219,7 @@ import SwiftUI
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
                         .help(
-                            "Footprint walls from the 3DEP ground to the roof measured in 3DEP, or to the roofline where the building has roof planes, moved by the site's footprint shift. Party walls (\(reference.partyWalls)) are fainter."
+                            "Inferred faces: each DataSF footprint edge raised from the 3DEP ground to the roof height measured in 3DEP, or to the roofline where the building has roof planes, moved by the site's footprint shift. Edges shared with another footprint (\(reference.partyWalls)) are fainter. From public footprint and elevation data at those sources' dates; not a plan or survey."
                         )
                 }
                 Toggle(
@@ -295,8 +295,8 @@ import SwiftUI
                 isOn: $session.showBuildings
             ).help(
                 reference.wallSurfaces > 0
-                    ? "Building parts' outlines, their walls up to the roofline, and their roof planes filled by slope or by the part's roof:shape. Observed or derived from public elevation data at the stated time; not a plan or survey"
-                    : "Building parts' outlines drawn as wireframe prisms from min_height to height, an inferred extent (this server sends no wall surfaces), and their roof planes filled by slope or by the part's roof:shape. Observed or derived from public elevation data at the stated time; not a plan or survey"
+                    ? "Building parts' outlines, their walls inferred up to the roofline, and their roof planes filled by slope or by the part's roof:shape. Derived from 3DEP points within DataSF footprints and refined by registered scans, at those sources' dates; not a plan or survey"
+                    : "Building parts' outlines drawn as wireframe prisms from min_height to height, inferred from their height tags (this server sends no wall surfaces), and their roof planes filled by slope or by the part's roof:shape. Derived from 3DEP points within DataSF footprints and refined by registered scans, at those sources' dates; not a plan or survey"
             )
             if session.showBuildings, reference.roofPlanes > 0 {
                 Picker("Roofs by", selection: $session.roofColouring) {
