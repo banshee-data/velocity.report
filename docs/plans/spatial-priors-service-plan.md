@@ -1,8 +1,8 @@
 # Spatial priors service: experiment and engineering plan
 
-Build a separate, open spatial-priors project that turns heterogeneous scans into
-small, versioned descriptions of persistent places. First demonstrate that these priors
-help a stationary LiDAR recover its pose and learn a useful background; the public
+Build a separate, open spatial-priors project that turns heterogeneous scans into small,
+versioned records of the measured geometry of persistent places. First demonstrate that these
+priors help a stationary LiDAR recover its pose and learn a useful background; the public
 contribution platform follows that evidence.
 
 - **Status:** Parked (D-32, October 20, 2026): a separate project's plan; its rows sit in the backlog's External section; revisit when the project has its own repository. Was: Draft for review
@@ -12,6 +12,11 @@ contribution platform follows that evidence.
 - **Related:** [S2 conventions](../lidar/architecture/geographic-indexing.md),
   [vector scene map](../lidar/architecture/vector-scene-map.md),
   [static pose alignment](../lidar/operations/static-pose-alignment.md)
+
+A prior is measured spatial data about observable physical conditions at stated times, with its
+source, frame, units and uncertainty. It is not a survey, plan or specification, and an unobserved
+feature is not asserted absent. See
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
 
 **Review update:** The user has selected catalogue and priors development together and identified
 existing trip data and 20-minute static captures as the initial corpus. The sequence below remains
@@ -154,19 +159,26 @@ Protobuf is post-MVP if size or cross-language tooling measurements justify it; 
 numbers and test old/new readers when introduced. Compression and fewer features may solve
 the size problem without another encoding.
 
-| Entity           | Required substance                                                                                                                                                                                             |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Observation      | Stable ID; capture/session group; acquisition interval and time basis; footprint; sensor class/model; submitter pseudonym; asset references; source licence and attribution; frame and uncertainty references. |
-| Asset            | Logical role; source URL and mirrors; SHA-256; byte length; media type and format/version; bounds and CRS where applicable; metadata inventory; availability and last check.                                   |
-| Frame            | ID; axes, handedness, units; horizontal and vertical reference; epoch where needed; local origin; transformations and calibration references.                                                                  |
-| Trajectory       | Asset and source frame; clock basis; pose convention; sample fields; sensor/body extrinsic; covariance availability; gaps and time-offset model.                                                               |
-| Alignment        | Source/target frames; rigid transform; covariance; method and parameters; control/check points; overlap, residuals, observability, acceptance reason.                                                          |
-| Processing run   | Input hashes; software/container digest; parameter hash; random seed; transform/grid files; output hashes; timings; warnings and reviewer decisions.                                                           |
-| Evidence element | Spatial support; hit/miss/unknown counts by independent session; view coverage; age; uncertainty; source references; persistence state.                                                                        |
-| Feature          | Version-scoped ID; type; geometry and frame; optional orientation; stability; observation count; first/last seen; covariance; supporting observations.                                                         |
-| Prior release    | Schema version; product type; cell and coverage; frame; immutable assets; processing/input DAG; source licences; quality profile; observation interval; publication time.                                      |
-| Cell summary     | Canonical token and level; current eligible release; last observation; distinct sessions; coverage/density; separate accuracy summaries; contributors and sensor classes.                                      |
-| Sponsorship      | Sponsor display identity; region definition; start/end; funding allocation and disclosure; no geometry-editing permission.                                                                                     |
+| Entity           | Required substance                                                                                                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Observation      | Stable ID; capture/session group; acquisition interval and time basis; footprint; sensor class/model; submitter pseudonym; asset references; source licence and attribution; frame and uncertainty references.                                    |
+| Asset            | Logical role; source URL and mirrors; SHA-256; byte length; media type and format/version; bounds and CRS where applicable; metadata inventory; availability and last check.                                                                      |
+| Frame            | ID; axes, handedness, units; horizontal and vertical reference; epoch where needed; local origin; transformations and calibration references.                                                                                                     |
+| Trajectory       | Asset and source frame; clock basis; pose convention; sample fields; sensor/body extrinsic; covariance availability; gaps and time-offset model.                                                                                                  |
+| Alignment        | Source/target frames; rigid transform; covariance; method and parameters; control/check points; overlap, residuals, observability, acceptance reason.                                                                                             |
+| Processing run   | Input hashes; software/container digest; parameter hash; random seed; transform/grid files; output hashes; timings; warnings and reviewer decisions.                                                                                              |
+| Evidence element | Spatial support; hit/miss/unknown counts by independent session; view coverage; age; uncertainty; source references; persistence state.                                                                                                           |
+| Feature          | Version-scoped ID; type; geometry and frame; evidence status (observed, inferred, source data or prior only); optional orientation; stability; observation count; first/last seen; covariance; supporting observations.                           |
+| Prior release    | Schema and processing versions; product type; cell and coverage; frame and units; immutable assets; processing/input DAG; source licences and terms; quality profile; observation interval; publication time; approved uses and limits statement. |
+| Cell summary     | Canonical token and level; current eligible release; last observation; distinct sessions; coverage/density; separate accuracy summaries; contributors and sensor classes.                                                                         |
+| Sponsorship      | Sponsor display identity; region definition; start/end; funding allocation and disclosure; no geometry-editing permission.                                                                                                                        |
+
+Feature and evidence records are geometric: planes, edges, corners, poles, clusters and ground
+patches, with their evidence, uncertainty and provenance fields. They carry no material, finish,
+interior, use, ownership or construction-method attributes, whatever a source dataset records.
+Published schemas list their properties explicitly, as the
+[geometry-prior service](../lidar/architecture/geometry-prior-service.md#property-allow-list) does,
+and extension namespaces may add measurement or provenance fields only.
 
 Unknown values are explicit null/unknown states, never zero accuracy, epoch zero, or an
 empty string masquerading as a CRS. Schema validation rejects non-finite coordinates,
@@ -220,15 +232,14 @@ local frame, with an explicit transform to the geographic reference. Runtime pro
 right-handed east/north/up frame in metres anchored at a declared geodetic origin, with
 ellipsoidal height identified explicitly.
 
-Orthometric and ellipsoidal height are different. Record the geoid model
-and transformation grids, including versions and hashes. Missing grids,
-ambiguous feet/metres, unknown vertical reference, and out-of-area
-transformations block survey-quality publication. A source with unresolved
-georeferencing may remain a local experiment asset; its guessed position
-must not create verified public coverage. Use
-[PROJ's transformation model](https://proj.org/en/stable/usage/transformation.html),
-preserving the chosen operation and its dependencies. Do not silently
-accept a low-accuracy fallback transformation.
+Orthometric and ellipsoidal height are different. Record the geoid model and transformation grids,
+including versions and hashes. Missing grids, ambiguous feet/metres, unknown vertical reference,
+and out-of-area transformations block publication as globally placed geometry. A source with
+unresolved georeferencing may remain a local experiment asset; its guessed position must not create
+verified public coverage. Use
+[PROJ's transformation model](https://proj.org/en/stable/usage/transformation.html), preserving the
+chosen operation and its dependencies. Do not silently accept a low-accuracy fallback
+transformation.
 
 Separate CRS conversion from georeferencing and registration: converting coordinates does not
 repair an inaccurate GNSS fix, and fitting two scans does not establish global truth. Surveyed
@@ -274,7 +285,7 @@ Preserve the original trajectory and derived corrections separately. MVP uses tr
 for overlap, visibility, pose reconstruction where supported, and scan-quality diagnostics.
 Loop-closure diagnosis, incidence-angle weighting, and spatially varying deformation
 assessment are later improvements. A trajectory is supporting evidence, not independent
-ground truth for its own SLAM reconstruction.
+ground truth for its own SLAM map.
 
 ## 9. S2 hierarchy and boundary rules
 
@@ -459,9 +470,11 @@ describe uncertainty in the product's declared frame.
 
 Feature IDs are stable within a release. Across releases use explicit
 predecessor/split/merge links rather than promise eternal IDs through changed segmentation.
-Plane intersections and corners inherit uncertainty from both surfaces; nearly parallel
-intersections are unsuitable pose anchors. Prior eligibility depends on constraint
-diversity, visibility, and conditioning, not merely feature count.
+A plane fitted to returns is observed; a corner or edge computed from two fitted planes, or an
+extent bridged across a gap, is inferred and labelled so. Plane intersections and corners inherit
+uncertainty from both surfaces; nearly parallel intersections are unsuitable pose anchors. Prior
+eligibility depends on constraint diversity, visibility, and conditioning, not merely feature
+count.
 
 ## 12. Products, catalogue, and interfaces
 
@@ -503,7 +516,8 @@ mutable current pointers and revocations have short lifetimes and ETags. Read ac
 Static equivalents live beneath `cells/{l10}/{l13}/current.json` and
 `releases/{release_id}/manifest.json`; data objects use content hashes. A downloaded bundle
 includes runtime features, frame information, provenance, licence notices, publisher
-verification material, and the selected neighbour snapshot. JSON is the initial wire
+verification material, an interpretation notice (acquisition interval, evidence status and
+limits), and the selected neighbour snapshot. JSON is the initial wire
 representation; no gRPC service is needed.
 
 ## 13. Storage, federation, versioning, and operations

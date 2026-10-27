@@ -12,6 +12,10 @@
   [s2-geographic-indexing-plan](s2-geographic-indexing-plan.md)
 - **Canonical:** [clip-management-implementation](../lidar/operations/clip-management-implementation.md)
 
+The captures are sensor returns at their recording times, and the scenes published from them are
+measured spatial data, not a survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 Sixteen captures from September 2025 to January 2026 have no site, no location and no published
 scene. This plan inventories them, lists the static stretches worth publishing, and records the
 web-UI workflow built for them. The operator locates a static period on the coverage timeline,
@@ -157,6 +161,11 @@ published `raw_sha256`, a replay of the extract through libpcap (830 frames, 114
   moves scene assets out of Git; until it lands, each new scene adds to the repository.
 - **Coordinates.** Item 6 needs a latitude and longitude for every position, and the owner's
   answers on K1 against kirk0, morg's count and clar's count.
+- **Publication context.** Each published scene and dataset entry states what the captures are,
+  their coordinate frame and units, and the dataset's licence and attribution; the export files
+  carry the rest, per
+  [web scene export §12](lidar-web-scene-export-plan.md#12-context-travels-with-the-export).
+  The dataset card's text is not settled in this plan.
 - **The full `build-site-index.py` rebuild** keeps clip entries by code reading; only the
   `--marks-only` path was run with one present, because the full path needs the archive's
   analysis tree.

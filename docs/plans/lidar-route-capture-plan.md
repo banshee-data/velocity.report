@@ -60,7 +60,7 @@ promote a mobile following result.
 - **Fixed radar.** The OPS243 radar path is production-ready and measures per-transit speeds at a fixed site. It is the independent reference a moving rig can be validated against.
 - **Sensor geometry.** The Pandar40P covers +15.2° to -24.6° vertically, with a dense band from +2.4° to -5.7° at about 0.34° ring spacing and gaps of 1° to 6° outside it, per the embedded angle correction table in `internal/lidar/l1packets/parse/sensor_configs/`.
 - **Compute evidence.** The committed perf baselines under `internal/lidar/perf/baseline/` were captured on an M1; there is no Raspberry Pi baseline, and the per-frame budget is 98 ms.
-- **Priors review.** [spatial-priors-service-review.md](spatial-priors-service-review.md) §8 and §9 conclude that moving captures must be reconstructed as metric submaps outside the live pipeline, name KISS-ICP as the LiDAR-only odometry baseline and LIO-SAM class tools once a synchronised IMU exists, and rank that IMU as the highest-value hardware addition.
+- **Priors review.** [spatial-priors-service-review.md](spatial-priors-service-review.md) §8 and §9 conclude that moving captures must be built into metric submaps outside the live pipeline, name KISS-ICP as the LiDAR-only odometry baseline and LIO-SAM class tools once a synchronised IMU exists, and rank that IMU as the highest-value hardware addition.
 - **Hardware supply.** The [LiDAR market watch](../platform/hardware/lidar-market-watch.md) holds the selection rule, current model comparison, and observed offers; its annual archives preserve the research. Used Pandar40P offers are under-budget investigation leads, but the inherited snippet evidence does not establish a verified active offer.
 
 ## Findings
@@ -235,9 +235,10 @@ feature and one rule about crosswalks:
 
 The seed is OpenStreetMap: highway ways for centrelines, junction nodes for intersections, and
 crossing nodes and footways for crosswalks. Corrections are made by hand in GeoJSON, and the
-spatial priors service publishes the corrected model per S2 cell so a rig with no network still
-works from a local file, per tenet four. Segments carry stable identifiers independent of OSM
-way ids, following the identifier rule in the priors plan.
+spatial priors service publishes the corrected road geometry per S2 cell so a rig with no network
+still works from a local file, per tenet four. The seed supplies geometry (centrelines, junction
+and crossing positions), and OSM-derived data keeps its ODbL attribution. Segments carry stable
+identifiers independent of OSM way ids, following the identifier rule in the priors plan.
 
 Every track observation is projected onto the model as a segment or intersection identifier, a
 signed distance along the centreline from the nearest intersection boundary, negative on approach

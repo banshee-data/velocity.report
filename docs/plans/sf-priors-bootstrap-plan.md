@@ -7,6 +7,10 @@
 - **Updated:** 2026-09-13
 - **Scope:** Bootstrap design and editor requirements; no dataset ingestion or implementation
 
+The geometry here is measured and source-derived spatial data about observable conditions at
+stated dates, not a survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## 1. Recommendation
 
 Use the 2023 USGS aerial point cloud as the default geometric reference for SF. Overlay SF city
@@ -26,13 +30,13 @@ records between them. Keep ingestion, registration and release compilation outsi
 ## 2. Review of the attached proposals
 
 The core proposal is credible. The distinction between measured geometry, derived geometry and
-semantic context needs to be stronger before it becomes a service contract.
+attributed source context needs to be stronger before it becomes a service contract.
 
 | Proposal                               | Review and consequence                                                                                                                                                                                               |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | USGS 0.25 m aerial baseline            | Use the point cloud plus DEM. A bare-earth DEM alone removes buildings and cannot supply roof geometry.                                                                                                              |
 | Aerial LiDAR is canonical              | Accept as the default geometric anchor, subject to local checks, coverage and acquisition date.                                                                                                                      |
-| Footprints plus roof reconstruction    | Begin with association, heights and simple volumes. Reliable alignment and roof-point selection come before reconstruction.                                                                                          |
+| Footprints plus fitted roof planes     | Begin with association, heights and simple extruded extents. Reliable alignment and roof-point selection come before roof-plane fitting.                                                                             |
 | City and OSM corroborate each other    | Track shared lineage. Agreement between copied geometries is not independent survey evidence.                                                                                                                        |
 | Fixed PCAP accumulation adds detail    | Useful after motion correction and registration; repeated frames do not establish permanence.                                                                                                                        |
 | Vehicle tracks demonstrate free space  | Treat as uncertain traversability evidence only. Tracks cannot establish all intervening space as empty; visibility requires ray and occlusion analysis. Keep traffic observations outside public geometry releases. |
@@ -93,34 +97,44 @@ between those outlines, 2023 surfaces and current PCAPs may be real change.
 9. **Compile a candidate release.** Produce a source catalogue, inspection cloud, terrain/coverage
    products, attributed vectors, alignment diagnostics and a compact runtime bundle. Keep richer
    meshes optional. Sign/version the accepted manifest and preserve rollback to its predecessor.
+   The manifest states the coordinate reference and units, each source's acquisition date, each
+   feature's evidence status (observed, inferred or source data), coverage gaps, and the release
+   version.
 
 Do not download the entire city merely to discover whether the first site works. Measure bytes,
 wall time, peak memory, scratch space and operator time in the pilot; use those measurements to
 estimate city-wide processing. Cache immutable inputs and rerun only affected dependencies.
 
-### Reconstruction choices
+### Geometry derivation choices
 
-| Approach                                | Benefit                                                       | Cost or limitation                                                     | Position                                |
-| --------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------- |
-| Footprints and robust heights           | Cheap, inspectable baseline; readily highlights disagreements | Extruded walls may be inferred; roof overhangs need separate treatment | First release                           |
-| Roof planes and detailed reconstruction | Better roof structure and matching surfaces                   | Requires clean roof points and aligned outlines; more failure cases    | Selective second stage                  |
-| Extract all outlines from LiDAR         | Can expose omissions and changed buildings                    | Vegetation, touching roofs and occlusion make identity/topology harder | Generate review candidates              |
-| Fuse ground PCAP detail immediately     | Potentially useful façades and kerbs                          | Adds pose, timing, persistence and visibility uncertainty              | Separate evidence layer until validated |
+| Approach                            | Benefit                                                       | Cost or limitation                                                     | Position                                |
+| ----------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------------------------- |
+| Footprints and robust heights       | Cheap, inspectable baseline; readily highlights disagreements | Extruded walls may be inferred; roof overhangs need separate treatment | First release                           |
+| Roof planes and detailed fitting    | Better roof structure and matching surfaces                   | Requires clean roof points and aligned outlines; more failure cases    | Selective second stage                  |
+| Extract all outlines from LiDAR     | Can expose omissions and changed buildings                    | Vegetation, touching roofs and occlusion make identity/topology harder | Generate review candidates              |
+| Fuse ground PCAP detail immediately | Potentially useful façades and kerbs                          | Adds pose, timing, persistence and visibility uncertainty              | Separate evidence layer until validated |
 
 [Roofer's architecture][roofer] requires classified points and aligned footprints and does not
-provide automatic footprint extraction. It is a later reconstruction candidate, not the alignment
-solution. Evaluate its pinned version, licence and output validation before integration.
+provide automatic footprint extraction. It is a later roof-plane fitting candidate, not the
+alignment solution. Evaluate its pinned version, licence and output validation before integration.
 
 ## 4. Source precedence and inheritance
 
-| Property                                      | Default authority                                                     | Exception                                                         |
-| --------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| Geographic placement                          | Accepted aerial baseline in its documented frame                      | Independent control demonstrates a source error                   |
-| Ground and observed roof surfaces             | Valid aerial returns                                                  | Excluded region, poor coverage or reviewed newer measurement      |
-| Wall/ground-contact outline                   | Best supported physical evidence; city/OSM candidates remain labelled | Roof edge alone does not establish wall location                  |
-| Names, uses and identity associations         | Attributed city/OSM fields                                            | Conflicts retained for review; geometry does not decide semantics |
-| Kerbs and façades absent from aerial coverage | Unknown or explicitly inferred initially                              | Accepted ground survey/capture evidence                           |
-| Parcel boundaries                             | Attributed cadastral context                                          | Never automatically snap physical surfaces to lot lines           |
+| Property                                      | Default authority                                                     | Exception                                                        |
+| --------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| Geographic placement                          | Accepted aerial baseline in its documented frame                      | Independent control demonstrates a source error                  |
+| Ground and observed roof surfaces             | Valid aerial returns                                                  | Excluded region, poor coverage or reviewed newer measurement     |
+| Wall/ground-contact outline                   | Best supported physical evidence; city/OSM candidates remain labelled | Roof edge alone does not establish wall location                 |
+| Source identity associations                  | Attributed city/OSM feature IDs                                       | Conflicts retained for review; geometry does not decide identity |
+| Kerbs and façades absent from aerial coverage | Unknown or explicitly inferred initially                              | Accepted ground survey/capture evidence                          |
+| Parcel boundaries                             | Attributed cadastral context                                          | Never automatically snap physical surfaces to lot lines          |
+
+Releases carry geometry, heights, source feature IDs and evidence status only. Names, uses,
+occupancy, materials and other source tags are not imported, whatever the city or OSM record holds.
+Source terms stay with each input: OSM-derived data keeps its ODbL attribution, the city footprints
+keep their catalogue licence, and the USGS and NOAA assets keep their metadata and rights notes.
+The release's rights manifest records them per input; the
+[reference data plan](spatial-priors-reference-data-plan.md) lists each source's terms.
 
 Use two separate systems for inheritance:
 

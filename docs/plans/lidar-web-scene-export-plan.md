@@ -6,6 +6,10 @@
 - **Companion plans:** [lidar-scene-catalogue-publishing-plan](lidar-scene-catalogue-publishing-plan.md) owns ingest, indexing and archive-scale publishing
 - **Canonical:** [VRLOG_FORMAT.md](../../data/structures/VRLOG_FORMAT.md) remains the source-of-truth recording format
 
+An export is measured spatial data about a street at one time, not a survey, plan or specification;
+see [Geometry priors: data purpose](../geometry-priors-data-purpose.md) and
+[§12](#12-context-travels-with-the-export) for what its files must carry.
+
 ## Motivation
 
 A `.vrlog` directory is the single source of truth for what a run analysed and
@@ -411,6 +415,27 @@ Before reconsidering the homepage, validate on a throttled mobile profile. The
 selected clip is 2.20 MiB compressed, so first useful paint, decode time and
 memory must be reported before the synthetic hero is removed.
 
+### 12. Context travels with the export
+
+An export is returns the sensor observed and tracks estimated from them, at one time. It is not a
+survey, plan or specification, and a surface the sensor did not see is not asserted empty (see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md)). A page can change or vanish
+and a copied asset keeps only its files, so the context a reader needs belongs in the files
+themselves.
+
+| Context                    | Carried today                                                                                                                                                                                                                             | Required                                                                                                                                                        |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Coordinate frame and units | Part header `coordinate_frame` (frame and reference frame), with no georeferenced origin by design. Lengths are metres and speeds m/s by convention, stated in no file. The `background` file names no frame                              | State the units in every file; give the `background` file its frame so it reads without the parts                                                               |
+| Acquisition time           | Part header `start_ns` (absolute time of the first retained frame) and `duration_sec`. The `background` file has `generated_at`, the export time, and no capture time                                                                     | The snapshot's own capture time in the `background` file                                                                                                        |
+| Observed or estimated      | `clip` points and `background` points are returns the sensor observed. Boxes and trails are estimates, and `trail_estimator` names which. The `background` ground height (`ground_z`) is an estimate from a low percentile of the returns | Say in each header which members are observed returns and which are estimates                                                                                   |
+| Accuracy and coverage      | Coordinates are rounded to 1 cm. The sensor's stated range accuracy is ±2 cm (§1). The `background` file records `voxel_metres` and `point_count`; a `clip` caps each frame at 1,200 foreground points                                    | A positional uncertainty and a coverage note per file: rounding, voxel size, point caps, and that space the sensor could not see or reach is unknown, not empty |
+| Version and provenance     | Part header `version`, `build_version`, `tuning_hash`, `source_vrlog_sha256`, `generated_at`. The `background` file has `version`, `source_vrlog_sha256` and `generated_at`                                                               | The build version in the `background` file, so the files of one export agree                                                                                    |
+| Source terms               | None declared for the assets                                                                                                                                                                                                              | A licence and attribution statement for the published assets, settled with the public scene data decision (D-34)                                                |
+
+The scene page says the same in a plain line beside the player: what it shows is returns the sensor
+saw at the capture time and tracks estimated from them. None of this adds geometry that is not
+already exported, and the exporter still writes no material, finish, interior or use attribute.
+
 ## Scope
 
 ### Item 1: Export command
@@ -508,6 +533,20 @@ the tracked trails meet the publication-quality gate.
 
 **Milestone:** v0.7.4
 
+### Item 6: Interpretation context in the export files
+
+**Summary:** Carry the context in §12 in the files an export is made of.
+
+**Steps:**
+
+1. Add the units, the observed-or-estimated statement and the accuracy and coverage notes to the
+   part header.
+2. Give the `background` file its capture time, frame and build version.
+3. Add the licence and attribution statement once D-34 settles it.
+4. Exporter tests assert the members; the reader tolerates their absence in older exports.
+
+**Milestone:** before any new scene asset is published
+
 ## Phasing
 
 **Phase 0 — one real scene.** The reference capture,
@@ -550,6 +589,7 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 ### Outstanding
 
 - [ ] Phase 1: the other five sites, once the surveyed coordinates arrive (`M`)
+- [ ] Interpretation context in the part header and the `background` file (§12) (`S`)
 - [ ] Re-export soma1 from the VRLOG so the published assets carry the current exporter's output (`S`)
 - [x] Select and publish one Columbus at Broadway 30-second clip (`M`) (see §11)
 - [x] Render foreground clip points in `scene-player.js` (`M`) (see §11)

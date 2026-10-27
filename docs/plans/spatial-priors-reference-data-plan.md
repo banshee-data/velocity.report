@@ -12,6 +12,10 @@ geographic placement with explicit uncertainty.
   [S2 conventions](../lidar/architecture/geographic-indexing.md)
 - **Scope:** United States sources, with San Francisco/Bay Area as the first worked example
 
+The reference geometry here is measured or source-derived spatial data about observable
+conditions at stated dates. It is not a boundary survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 The regional focus follows the existing capture context, not a decoded GPS location. Source pages
 were checked on September 9, 2026. Public discovery and documentation were inspected; full
 datasets, local coverage, endpoint completeness, and achieved alignment accuracy have not been
@@ -48,12 +52,12 @@ GPS point cannot establish sub-decimetre placement merely by carrying many decim
 Keep four independent records:
 
 1. Original point measurements and sensor calibration.
-2. Local reconstruction and relative scan/trajectory constraints.
+2. Local scene geometry and relative scan/trajectory constraints.
 3. Raw GPS observations, timestamps, receiver quality indicators, and reported uncertainty.
 4. A versioned local-map-to-geographic transform with control evidence and validation results.
 
 Use GPS initially to retrieve candidate reference regions. A new fix must not move an
-accepted prior, change its owner cell, or reshape a settled local reconstruction. When
+accepted prior, change its owner cell, or reshape settled local geometry. When
 location is uncertain, query all intersecting candidate cells, including across L10
 boundaries, with a bounded search budget. An uncertainty footprint is not verified
 coverage and should not earn mapping credit.
@@ -91,6 +95,14 @@ permission to redistribute are different.
 | [Caltrans right-of-way and survey records](https://dot.ca.gov/programs/right-of-way/rw-maps-surveys-records)    | District 4 collection available through Maps on Demand; other districts vary                                                  | Road-adjacent surveys, monument ties, and right-of-way evidence              | Document extraction and interpretation require more work than GIS download; verify date, coordinate basis, and use terms.                       |
 | [USGS NAIP Plus imagery service](https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer) | Public image service; documented free public-domain orthoimagery download route                                               | Visual reference, source identification, coarse independent placement        | Pixel resolution is not positional accuracy. Inspect acquisition-level metadata and roof/ground displacement.                                   |
 | [Overture Maps](https://docs.overturemaps.org/)                                                                 | Open object-store releases, CLI and geographic queries                                                                        | Broad building coverage where local sources are absent                       | Aggregates upstream sources including OSM. Not independent survey control; licences vary by theme/source.                                       |
+
+From building, parcel and OSM inputs a release keeps geometry only: the outline or footprint, a
+height or vertical extent where the source states one, and the source feature ID. Use, occupancy,
+material, owner, name and address attributes are not carried into a release, whatever the source
+records. Source terms stay visible per input: the footprint catalogue lists PDDL, parcel layers
+need their dataset-specific terms confirmed, OSM-derived data keeps its ODbL attribution (section
+8), and USGS 3DEP and NOAA assets keep their own metadata and rights notes in the rights manifest
+(section 6).
 
 Prioritise SF control, public LiDAR, and physical building/road geometry before buying
 parcel records. Use parcel layers immediately for context, while seeking survey-quality
@@ -168,16 +180,16 @@ parent operations and canonical tokens, following the repository convention.
 
 An immutable reference release under `references/{l10}/{release_id}/` contains:
 
-| Component         | Contents                                                                                                                                    |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Manifest          | Canonical L10, footprint/coverage, jurisdictions, release identity, source/asset hashes, schema and previous release.                       |
-| Control inventory | Source ID, physical description, horizontal/vertical coordinates and uncertainty, datum/epoch, validity, recovery state, documentary links. |
-| Geometry layers   | Building/road/parcel references kept separate, with source feature IDs and intended use.                                                    |
-| Surface assets    | Links to clipped COPC, DEM, or imagery assets where rights allow; source acquisition and lineage retained.                                  |
-| Frame operations  | Original/normalised CRS, transformation recipe and grid hashes, units, height treatment, and known limits.                                  |
-| Quality report    | Coverage gaps, source disagreement, date differences, independent checks, and approved uses.                                                |
-| Rights manifest   | Licence/terms snapshot, attribution, redistribution/derivation permission, and restrictions.                                                |
-| Review record     | Steward, independent technical review where needed, acquisition expense, decision reasons, and refresh state.                               |
+| Component         | Contents                                                                                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Manifest          | Canonical L10, footprint/coverage, jurisdictions, release identity, source/asset hashes, schema and previous release.                                                                                                    |
+| Control inventory | Source ID, physical description, horizontal/vertical coordinates and uncertainty, datum/epoch, validity, recovery state, documentary links.                                                                              |
+| Geometry layers   | Building/road/parcel references kept separate, with source feature IDs, intended use, and per feature an evidence status (observed, inferred or source data) and acquisition or snapshot date; geometry attributes only. |
+| Surface assets    | Links to clipped COPC, DEM, or imagery assets where rights allow; source acquisition and lineage retained.                                                                                                               |
+| Frame operations  | Original/normalised CRS, transformation recipe and grid hashes, units, height treatment, and known limits.                                                                                                               |
+| Quality report    | Coverage gaps, source disagreement, date differences, independent checks, approved uses, and the limits statement.                                                                                                       |
+| Rights manifest   | Licence/terms snapshot, attribution, redistribution/derivation permission, and restrictions.                                                                                                                             |
+| Review record     | Steward, independent technical review where needed, acquisition expense, decision reasons, and refresh state.                                                                                                            |
 
 The L10 manifest is small and references detailed assets. Load geometry on demand
 for a deployment's area plus a halo, retaining L13 discovery where useful. Do not

@@ -12,6 +12,10 @@ decisions that determine the project's cost, usefulness, and technical risk.
   [vector scene map](../lidar/architecture/vector-scene-map.md),
   [S2 conventions](../lidar/architecture/geographic-indexing.md)
 
+The geometry discussed here is measured spatial data about observable conditions at stated times,
+not a survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 ## 1. Decisions and recommendation
 
 **SF bootstrap follow-up:** The user selects USGS aerial LiDAR, SF building vectors and OSM as the
@@ -277,11 +281,13 @@ workstation Python does not establish either.
 | Separate accepted source maps                                | Preserves disagreements and reduces early fusion risk             | Consumer/product selection remains necessary                              | First release should support selecting a reference map plus supporting observations. |
 | Immediate multi-source fusion                                | Potential completeness and persistence gains                      | Correlated errors, inconsistent scale, artefacts, and complex uncertainty | Add after single-source baselines; require demonstrated improvement.                 |
 
-[OSM Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_buildings) models building
+[OSM Simple 3D Buildings](https://wiki.openstreetmap.org/wiki/Simple_3D_buildings) records building
 outlines, parts, and height-related attributes. My recommendation to treat these as coarse context
 is an engineering inference: that representation does not itself supply the independent alignment
 and uncertainty evidence required by this service's proposed runtime gates. Keep
-attribution/licence lineage distinct when combining it with measured geometry.
+attribution/licence lineage distinct when combining it with measured geometry. Only outline, part
+geometry and height are taken from it; use, material, roof appearance and other descriptive tags
+are not carried into priors, and OSM-derived data keeps its ODbL attribution.
 
 ## 6. Resource and funding review
 
@@ -349,7 +355,7 @@ evidence that it belongs to the static world.
 | Accumulate the complete stop with no motion correction               | Simple reference for density and sampling gaps                       | Wobble thickens roads/walls and smears kerbs                                   | Diagnostic baseline.                |
 | Select stable intervals and accumulate                               | Avoids much motion distortion with limited processing                | Discards useful views and retains scan-line gaps                               | Conservative baseline.              |
 | Register short submaps, deskew where timing permits, then accumulate | Tests whether small movements fill gaps while keeping surfaces sharp | Estimated pose noise can exceed actual wobble; motion may be weakly observable | Main static-map experiment.         |
-| Independently reconstruct trip odometry/SLAM                         | Larger local map and overlapping views                               | Drift, dynamic objects, and false loop closure                                 | Route-map baseline.                 |
+| Independently build trip odometry/SLAM maps                          | Larger local map and overlapping views                               | Drift, dynamic objects, and false loop closure                                 | Route-map baseline.                 |
 | Jointly optimise trip and stop maps                                  | Potentially improves coverage and local constraints                  | Circular validation and correlated errors                                      | Follow independent map comparisons. |
 
 Estimate small movements from stable structure distributed around the sensor, not the road plane
@@ -365,7 +371,7 @@ capture-clock jumps before selecting deskew. GPS-disciplined timestamps, if pres
 payloads, do not imply recorded GPS positions.
 
 Do not accumulate a wobbling capture into the production polar grid as though each ring/azimuth
-still observes the same world ray. Reconstruct metric 3D submaps outside the live sensing pipeline.
+still observes the same world ray. Build metric 3D submaps outside the live sensing pipeline.
 Separate scan-to-scan alignment from within-scan motion correction, and report the remaining error
 when timing or motion is insufficient. The wobble hypothesis is plausible but remains untested.
 
@@ -465,7 +471,7 @@ field time. An inexpensive module can require more integration work than an inte
 
 | Package                  | Contents                                                                   | Choose when                                                                                  |
 | ------------------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Existing-data research   | Current PCAPs, workstation, LiDAR-only reconstruction, independent review  | Begin immediately; no purchase required to test route/stop agreement.                        |
+| Existing-data research   | Current PCAPs, workstation, LiDAR-only mapping, independent review         | Begin immediately; no purchase required to test route/stop agreement.                        |
 | Better relative geometry | Repeatable mount + synchronised IMU + loss/timing instrumentation          | Wobble or driving distortion dominates; geographic accuracy can remain explicitly uncertain. |
 | Better geographic maps   | Relative-geometry package + raw-logging RTK/PPK GNSS + reference checks    | Combining sites/trips needs defensible global placement.                                     |
 | Easier repeat deployment | Geographic package + dual-antenna heading or an appropriate integrated INS | Operator heading input is undesirable and repeated setup justifies complexity.               |
@@ -489,7 +495,7 @@ the candidate is absent or fails validation. Compare these levels on the same he
 | Controlled rigid alignment | Match distributed physical points to coordinates with declared uncertainty                | More defensible global placement and measurable fit | Reference collection and point selection take time.                                       |
 | Local-only acceptance      | Keep a good local map with uncertain geographic placement                                 | Preserves utility when references are inadequate    | Cannot claim validated global position or exact geographic coverage.                      |
 
-Distinguish three transforms: scan-to-local-map reconstruction,
+Distinguish three transforms: scan-to-local-map registration,
 local-map-to-geographic-reference placement, and a later deployment sensor-to-map alignment. A
 user placing the map geographically does not automatically solve every future sensor pose.
 Record and version each transform separately.

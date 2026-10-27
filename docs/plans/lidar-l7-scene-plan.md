@@ -6,16 +6,34 @@
 - **Maths index:** [data/maths/MATHS.md](../../data/maths/MATHS.md)
 - **Canonical:** [vector-scene-map.md](../lidar/architecture/vector-scene-map.md)
 
+Scene geometry in this plan is measured spatial data about observable physical conditions at the
+time of observation, not a survey, plan or specification; see
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md).
+
 This plan covers two related workstreams for the L7 Scene layer:
 
-1. **L7 Scene layer**: design the canonical world model package
+1. **L7 Scene layer**: design the canonical scene package
 2. **Multi-sensor architecture**: how multiple sensors fuse at L7
 
 ---
 
 ## 0. Where implementation stands (October 25, 2026)
 
-The persistent static scene is no longer only a plan. It is being built in Gerardus, the separate map-priors repository velocity.report decided on ([Gerardus ADR-0006](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0006-boundary-with-velocity-report.md)). Gerardus reads nothing of velocity.report's: the visualiser uploads each settled background (`UploadScan`), Gerardus registers it against USGS 3DEP aerial LiDAR, an operator accepts the pose in the [alignment pane](../ui/visualiser/gerardus-alignment.md), and the accepted scans of a site form its **site model**. Every derived feature is computed from that model and public data, and served back over `gerardus.align.v1alpha1` (gRPC) and read-only GeoJSON. Its plans: [SITE-MODEL-SPIKE](https://github.com/banshee-data/gerardus/blob/main/docs/plans/SITE-MODEL-SPIKE.md), [VECTOR-MAP](https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md) (W1–W9), [BUILDINGS](https://github.com/banshee-data/gerardus/blob/main/docs/plans/BUILDINGS.md) and [ROOFLINE-WALLS](https://github.com/banshee-data/gerardus/blob/main/docs/plans/ROOFLINE-WALLS.md).
+The persistent static scene is no longer only a plan. It is being built in Gerardus, the separate
+map-priors repository velocity.report decided on ([Gerardus ADR-0006][gerardus-adr-0006]). Gerardus
+reads nothing of velocity.report's: the visualiser uploads each settled background (`UploadScan`),
+Gerardus registers it against USGS 3DEP aerial LiDAR, an operator accepts the pose in the
+[alignment pane](../ui/visualiser/gerardus-alignment.md), and the accepted scans of a site form its
+**site model**, a set of registered measurements. Every derived feature is computed from that model
+and public data, and served back over `gerardus.align.v1alpha1` (gRPC) and read-only GeoJSON. Its
+plans: [SITE-MODEL-SPIKE][gerardus-site-model-spike], [VECTOR-MAP][gerardus-vector-map] (W1–W9),
+[BUILDINGS][gerardus-buildings] and [ROOFLINE-WALLS][gerardus-roofline-walls].
+
+[gerardus-adr-0006]: https://github.com/banshee-data/gerardus/blob/main/docs/adr/0006-boundary-with-velocity-report.md
+[gerardus-site-model-spike]: https://github.com/banshee-data/gerardus/blob/main/docs/plans/SITE-MODEL-SPIKE.md
+[gerardus-vector-map]: https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md
+[gerardus-buildings]: https://github.com/banshee-data/gerardus/blob/main/docs/plans/BUILDINGS.md
+[gerardus-roofline-walls]: https://github.com/banshee-data/gerardus/blob/main/docs/plans/ROOFLINE-WALLS.md
 
 | This plan's item                              | Where it stands                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Where                                                                                                                                                                                                                                                                                           |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -29,7 +47,16 @@ The persistent static scene is no longer only a plan. It is being built in Gerar
 
 **What velocity.report has today:** the visualiser's alignment pane uploads backgrounds, registers and accepts poses, and draws every Gerardus layer over a capture, extruding nothing ([#863](https://github.com/banshee-data/velocity.report/pull/863)); the web site viewer at `/app/lidar/sites` reads the same layers from Gerardus's GeoJSON. Accepted poses do not yet reach velocity.report's own records (`PUT /api/lidar/sites/{l16}/pose`, [visualiser alignment plan](lidar-visualiser-gerardus-alignment-plan.md)), so `CoordinateFrameInfo` stays the identity, and no L7 feature is stored in this repository.
 
-**Open before any of it is published:** Gerardus's launch gates (typed schemas, derivation identities and compatibility fixtures before W4–W7 rows are persisted for release), the W9 evaluation against hand-checked samples, and ADR-0011's rule that nothing following a person over time is published.
+**Open before any of it is published:** Gerardus's launch gates (typed schemas, derivation
+identities and compatibility fixtures before W4–W7 rows are persisted for release), the W9
+evaluation against hand-checked samples, and ADR-0011's rule that nothing following a person over
+time is published. Publication also needs the context in
+[Geometry priors: data purpose](../geometry-priors-data-purpose.md#publication-checklist) stated on
+every export (W8's 3D Tiles, CityJSON and FlatGeobuf): coordinate reference and units, acquisition
+interval, evidence status (observed or inferred), uncertainty and coverage gaps, dataset version,
+and source terms. The members and property allow-list are in the
+[prior file format](../lidar/architecture/geometry-prior-service.md#property-allow-list); this plan
+specifies none of the W8 formats, so how each carries them is not settled here.
 
 **What is left, recalibrated October 26, 2026.** Gerardus's W1–W7 were sized at 14–21 weeks and built as proposals in three days, then took two days of correction on the roofs; a kind takes about a day to build and one to two to correct once measured, and the owner's checking does not compress ([VECTOR-MAP §4.0](https://github.com/banshee-data/gerardus/blob/main/docs/plans/VECTOR-MAP.md#40-where-it-stands-2026-10-26)).
 
@@ -40,9 +67,11 @@ The persistent static scene is no longer only a plan. It is being built in Gerar
 
 ---
 
-## 1. L7 scene: canonical world model
+## 1. L7 scene: persistent canonical scene
 
-L7 is the key architectural addition in the ten-layer model. It introduces a **persistent, evidence-accumulated representation of the world** that transcends individual frames, tracks, and sensors.
+L7 is the key architectural addition in the ten-layer model. It introduces a **persistent,
+evidence-accumulated record of the observed scene** that transcends individual frames, tracks, and
+sensors.
 
 ### What L7 scene contains
 
@@ -50,11 +79,11 @@ L7 is the key architectural addition in the ten-layer model. It introduces a **p
 
 2. **Dynamic canonical objects**: long-lived vehicle/pedestrian geometry inferred from merged L5 tracks. A single car observed across 200 frames produces one canonical object with refined dimensions, not 200 per-frame clusters. See [vector-scene-map.md](../lidar/architecture/vector-scene-map.md).
 
-3. **External priors**: geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject.
+3. **External priors**: geometry imported from OpenStreetMap (S3DB building outlines, road axes), community GeoJSON, or manual survey. Priors are treated as low-confidence initial features that observation evidence can validate, refine, or reject. Only geometry is taken from these sources (outlines, parts, heights, centrelines); use, material and other descriptive tags are not, and OSM-derived data keeps its ODbL attribution (see the [reference data plan](spatial-priors-reference-data-plan.md#3-free-or-readily-accessible-sources-worth-using)).
 
-4. **Multi-sensor merged scene**: when multiple sensors observe the same area, L7 fuses their independent L1–L6 pipelines into a single coherent world model (see [§ 2. Multi-sensor architecture](#2-multi-sensor-architecture) below).
+4. **Multi-sensor merged scene**: when multiple sensors observe the same area, L7 fuses their independent L1–L6 pipelines into a single coherent scene (see [§ 2. Multi-sensor architecture](#2-multi-sensor-architecture) below).
 
-5. **Uncertainty and provenance**: every scene feature carries confidence bounds, observation count, source sensor IDs, and edit history. User edits in VelocityVisualiser are tracked separately from automated refinement.
+5. **Uncertainty and provenance**: every scene feature carries confidence bounds, observation count, source sensor IDs, first and last observed times, evidence status (observed, inferred, source data or prior only; [vector scene map §5.5](../lidar/architecture/vector-scene-map.md#55-provenance-evidence-status-and-uncertainty)), and edit history. User edits in VelocityVisualiser are tracked separately from automated refinement.
 
 ### L7 relationship to L4 perception
 
@@ -356,7 +385,7 @@ L7 Scene
 | Bao et al. (2022): HD-map generation survey (`Bao2022HDMap`); Li et al. (2022): HDMapNet (`Li2022HDMap`) | Survey and online map-learning framework, respectively; background for proposed L7 geometry, not validation of our stationary-sensor design |
 | OpenStreetMap Simple 3D Buildings (S3DB), revision `3071724` (`OSMSimple3DBuildings`)                    | Proposed prior schema for building outlines, parts, and relative heights; ingestion remains planned                                         |
 | Pannen et al. (2020): How to Keep HD Maps for Automated Driving Up To Date (ICRA 2020)                   | Map maintenance from live sensor data; directly relevant to our evidence-based refinement of priors                                         |
-| CityJSON specification (v1.1)                                                                            | 3D city model interchange format; our L7 export target for building geometry                                                                |
+| CityJSON specification (v1.1)                                                                            | Interchange format for 3D city geometry; our L7 export target for building geometry                                                         |
 | Hornung et al. (2013): **OctoMap** (doi:10.1007/s10514-012-9321-0)                                       | Probabilistic 3D occupancy mapping; log-odds update model used for scene feature confidence                                                 |
 | Pomerleau et al. (2014): Long-term 3D map maintenance                                                    | Dynamic point removal from accumulated maps; related to our evidence-based scene refinement                                                 |
 | [Radiance-field scene-model review](lidar-radiance-field-scene-model-review.md)                          | Decision note: classical L7 (this plan) supersedes radiance-field-style approaches for the persistent scene model                           |
