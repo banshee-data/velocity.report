@@ -65,17 +65,21 @@ type groundReport struct {
 type groundReportSummary struct {
 	Thresholds groundThresholds `json:"thresholds"`
 	// Surface is the fit, nil when the background never settled to give one.
-	Surface        *groundSurfaceRow `json:"surface,omitempty"`
-	ScoredFrames   int               `json:"scored_frames"`
-	ConfirmedSeen  int               `json:"confirmed_tracks"`
-	MovingTracks   int               `json:"moving_tracks"`
-	MovingSamples  int               `json:"moving_samples"`
-	Course         groundCourse      `json:"course"`
-	Departure      groundDeparture   `json:"departure"`
-	SlopeSensor    groundSlopeStats  `json:"slope_sensor"`
-	SlopeSurface   groundSlopeStats  `json:"slope_above_surface"`
-	Classes        map[string]int    `json:"classes"`
-	ListedTrackIDs []string          `json:"listed_tracks,omitempty"`
+	Surface       *groundSurfaceRow `json:"surface,omitempty"`
+	ScoredFrames  int               `json:"scored_frames"`
+	ConfirmedSeen int               `json:"confirmed_tracks"`
+	MovingTracks  int               `json:"moving_tracks"`
+	MovingSamples int               `json:"moving_samples"`
+	Course        groundCourse      `json:"course"`
+	Departure     groundDeparture   `json:"departure"`
+	SlopeSensor   groundSlopeStats  `json:"slope_sensor"`
+	SlopeSurface  groundSlopeStats  `json:"slope_above_surface"`
+	SlopePlane    groundSlopeStats  `json:"slope_above_plane"`
+	Classes       map[string]int    `json:"classes"`
+	// PlaneClasses classes the same tracks against the global plane alone,
+	// the one-plane control of ground0002, beside Classes' blended cells.
+	PlaneClasses   map[string]int `json:"plane_classes,omitempty"`
+	ListedTrackIDs []string       `json:"listed_tracks,omitempty"`
 }
 
 type groundThresholds struct {
@@ -160,7 +164,12 @@ type groundTrackRow struct {
 	SlopeSensorSE  float64 `json:"slope_sensor_se"`
 	SlopeSurface   float64 `json:"slope_above_surface"`
 	SlopeSurfaceSE float64 `json:"slope_above_surface_se"`
-	Class          string  `json:"class"`
+	// SlopePlane is the slope of the lowest return's height above the global
+	// plane alone, and PlaneClass the class it gives.
+	SlopePlane   float64 `json:"slope_above_plane"`
+	SlopePlaneSE float64 `json:"slope_above_plane_se"`
+	Class        string  `json:"class"`
+	PlaneClass   string  `json:"plane_class,omitempty"`
 }
 
 type groundSample struct {
@@ -218,6 +227,9 @@ func (g *groundReporter) report(surface *l3grid.RegionalGroundSurface) groundRep
 		ConfirmedSeen: len(g.order),
 		Classes:       map[string]int{},
 	}
+	if surface != nil {
+		s.PlaneClasses = map[string]int{}
+	}
 	var a, b float64
 	if surface != nil {
 		gl := surface.Global
@@ -271,10 +283,12 @@ func (g *groundReporter) report(surface *l3grid.RegionalGroundSurface) groundRep
 		}
 		z := make([]float64, len(samples))
 		above := make([]float64, len(samples))
+		abovePlane := make([]float64, len(samples))
 		for i, p := range samples {
 			z[i] = p.z
 			if surface != nil {
 				above[i] = p.z - surface.BlendedHeightAt(p.x, p.y)
+				abovePlane[i] = p.z - surface.Global.HeightAt(p.x, p.y)
 				d := 0.0
 				if plane, ok := surface.RegionAt(p.x, p.y); ok {
 					d = plane.HeightAt(p.x, p.y) - surface.Global.HeightAt(p.x, p.y)
@@ -289,15 +303,10 @@ func (g *groundReporter) report(surface *l3grid.RegionalGroundSurface) groundRep
 		row.Class = groundClassFlat
 		if surface != nil {
 			row.SlopeSurface, row.SlopeSurfaceSE = slopeFit(dist, above)
-			surfaceNotable := notableSlope(row.SlopeSurface, row.SlopeSurfaceSE, length)
-			switch {
-			case sensorNotable && surfaceNotable:
-				row.Class = groundClassBoth
-			case sensorNotable:
-				row.Class = groundClassExplained
-			case surfaceNotable:
-				row.Class = groundClassSurfaceOnly
-			}
+			row.Class = groundClass(sensorNotable, notableSlope(row.SlopeSurface, row.SlopeSurfaceSE, length))
+			row.SlopePlane, row.SlopePlaneSE = slopeFit(dist, abovePlane)
+			row.PlaneClass = groundClass(sensorNotable, notableSlope(row.SlopePlane, row.SlopePlaneSE, length))
+			s.PlaneClasses[row.PlaneClass]++
 		} else if sensorNotable {
 			// Without a surface nothing is explained.
 			row.Class = groundClassBoth
@@ -325,12 +334,14 @@ func (g *groundReporter) report(surface *l3grid.RegionalGroundSurface) groundRep
 	}
 	sensorAbs := make([]float64, len(rows))
 	surfaceAbs := make([]float64, len(rows))
+	planeAbs := make([]float64, len(rows))
 	for i, r := range rows {
-		sensorAbs[i], surfaceAbs[i] = math.Abs(r.SlopeSensor), math.Abs(r.SlopeSurface)
+		sensorAbs[i], surfaceAbs[i], planeAbs[i] = math.Abs(r.SlopeSensor), math.Abs(r.SlopeSurface), math.Abs(r.SlopePlane)
 	}
 	s.SlopeSensor = groundSlopeStats{MedianAbs: percentile(sensorAbs, 50), P90Abs: percentile(sensorAbs, 90)}
 	if surface != nil {
 		s.SlopeSurface = groundSlopeStats{MedianAbs: percentile(surfaceAbs, 50), P90Abs: percentile(surfaceAbs, 90)}
+		s.SlopePlane = groundSlopeStats{MedianAbs: percentile(planeAbs, 50), P90Abs: percentile(planeAbs, 90)}
 	}
 	// A track that rises or falls above the surface is a merge, a clip
 	// artefact or a kerb until read otherwise: list the largest changes.
@@ -359,6 +370,20 @@ func writeGroundReport(dir string, report groundReport) error {
 		return err
 	}
 	return os.WriteFile(filepath.Join(dir, groundReportFile), append(b, '\n'), 0o644)
+}
+
+// groundClass names a moving track's class from whether its lowest return
+// rises or falls in the sensor frame and above a surface.
+func groundClass(sensor, surface bool) string {
+	switch {
+	case sensor && surface:
+		return groundClassBoth
+	case sensor:
+		return groundClassExplained
+	case surface:
+		return groundClassSurfaceOnly
+	}
+	return groundClassFlat
 }
 
 // notableSlope says whether a slope fitted over length metres rises or falls.

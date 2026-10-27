@@ -124,7 +124,11 @@ global plane serves it. The height above the surface is the lowest return less t
 surface. A lowest return rises or falls with distance when its least-squares slope is 0.01 m/m or
 more, changes by 0.10 m or more over the track, and is two standard errors or more from zero;
 each moving track is `flat` (neither), `explained` (the sensor frame only), `surface_only` (above
-the surface only) or `both`, and the last two are listed, up to 25 a site. The first five-minute
+the surface only) or `both`, and the last two are listed, up to 25 a site. The same tracks are
+also read against the global plane alone (`slope_above_plane`, `plane_classes`), ground0002's
+one-plane control, beside the blended cells: added after the instrument's check replay of
+haight-divisadero showed the cells steeper than the bodies' paths there, before the corpus
+replays, with no threshold changed. The first five-minute
 segment of each site is replayed for 200 s after the 70 s warm-up, as the earlier corpus screens
 did, with no evidence database; the repeat runs without the report, so the tool's repeat check
 also shows it changed nothing.

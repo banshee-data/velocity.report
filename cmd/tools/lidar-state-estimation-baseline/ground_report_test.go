@@ -105,6 +105,11 @@ func TestGroundReportSeparatesTheGradeFromTheBody(t *testing.T) {
 	if s.Classes[groundClassExplained] != 1 || s.Classes[groundClassFlat] != 1 || len(s.ListedTrackIDs) != 0 {
 		t.Errorf("classes %v listed %v; want one explained, one flat, none listed", s.Classes, s.ListedTrackIDs)
 	}
+	// With no cells of their own, the plane alone reads the same.
+	near(t, "along slope above the plane", a.SlopePlane, 0, 1e-6)
+	if a.PlaneClass != groundClassExplained || s.PlaneClasses[groundClassExplained] != 1 {
+		t.Errorf("plane class %s, plane classes %v; want the along track explained", a.PlaneClass, s.PlaneClasses)
+	}
 }
 
 // A lowest return that climbs faster than the grade climbs above the surface
@@ -163,6 +168,9 @@ func TestGroundReportReadsTheCellPlanesWhereTheTracksGo(t *testing.T) {
 		t.Fatalf("departure samples = %d, want 100", d.Samples)
 	}
 	near(t, "departure max", d.MaxMetres, 0.3, 1e-6)
+	// The drive follows the cells, so its height above them has no slope.
+	row := g.report(&surface).Tracks[0]
+	near(t, "slope above the cells", row.SlopeSurface, 0, 1e-3)
 	near(t, "departure p50", d.P50Metres, 0, 1e-6)
 	near(t, "own-cell share", d.OwnCellShare, 1, 1e-9)
 }
