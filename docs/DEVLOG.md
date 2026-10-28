@@ -8,7 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 28, 2026 - PCL segmentation contracts and oracle setup
+## October 28, 2026 - PCL segmentation contracts, oracle setup, and joining controls
+
+- {codex/pcl-open-question-review} Closed OQ-05 by amending l4clus0005 before execution: [sampling and joining controls](lidar/operations/pcl-joining-cap-controls.md). Added matched high-cap DBSCAN and graph arms using the existing config, separated frozen-input connectivity from replay feedback, and retained the a0 gates with an additional matched-cap comparison for uncapped graphs; no new campaign ran.
 
 - {codex/pcl-open-question-review} Closed OQ-04 with a [PCL oracle tooling runbook](lidar/operations/pcl-oracle-tooling.md): verified published Homebrew/Debian versions and the local source build, checked stock CLI semantics, and named the custom harness contract for every experiment step. Kept diagnostic availability separate from the campaign tools still to be implemented.
 

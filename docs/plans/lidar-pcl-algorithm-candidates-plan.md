@@ -125,10 +125,17 @@ vertical-overlap condition, at the current radius.
 
 **Steps:**
 
-1. Oracle: PCL `EuclideanClusterExtraction` and `ConditionalEuclideanClustering` on the same
-   foreground DBSCAN receives, membership compared by source ordinal against the reviewed masks.
-2. If paths exist, a replay selector for the conditional radius graph in XY, scored by l4clus0003's
-   rule; if not, the result is handed to the lane-stitching thread.
+1. Oracle: freeze one baseline's post-voxel pre-cap set and its actual capped subset. Compare
+   DBSCAN, PCL EuclideanClusterExtraction, and ConditionalEuclideanClustering on both sets by
+   source ordinal. [OQ-05](../lidar/operations/pcl-joining-cap-controls.md) specifies six arms,
+   the fixed fragmented-instant denominator, and a per-treatment one-third stop gate.
+2. Reuse `config/experiments/l4-cap100k.json` for all three high-cap arms, verifying it never
+   caps warm-up or scoring input. Keep the three default-cap arms and count exposure in both
+   phases. No replay selector is implemented by this design amendment.
+3. Only eligible graph/cap combinations proceed to replay, with both DBSCAN controls. Every
+   candidate meets the original thresholds against a0; uncapped graphs additionally meet them
+   against nocap DBSCAN. Treat end-to-end feedback separately from frozen-input connectivity.
+   A negative result rules out only these fixed-radius treatments on this input.
 
 **Milestone:** reports into the v0.5.4 W3 fix row; `M`.
 
@@ -214,7 +221,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-04: pinned source review, grid compatibility, segmentation contracts, and oracle tooling
+- [x] OQ-01 to OQ-05: source review, compatibility, segmentation contracts, oracle tooling, and sampling controls
 
 ### Outstanding
 
@@ -225,7 +232,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
 
-- [ ] The review's remaining rows OQ-05 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-06 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

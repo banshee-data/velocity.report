@@ -35,6 +35,8 @@ The [segmentation contract checks](operations/pcl-segmentation-contracts.md) rep
 region growth, refined plane membership, and morphological opening on synthetic support.
 The [oracle tooling runbook](operations/pcl-oracle-tooling.md) pins the installation and maps
 stock CLI limitations to explicit campaign harness contracts.
+The [joining-control design](operations/pcl-joining-cap-controls.md) separates cap losses from
+connectivity with six matched arms and a frozen-input oracle.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |
