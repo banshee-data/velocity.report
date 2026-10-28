@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 28, 2026 - PCL segmentation contracts
+
+- {codex/pcl-open-question-review} Closed PCL OQ-03 with pinned implementation evidence and executable synthetic fixtures: [segmentation contracts](lidar/operations/pcl-segmentation-contracts.md). RegionGrowing bridged a 99.9 m gap and admitted remote elevated members despite its residual threshold; SAC reselected refined inliers, and PMF performed both opening passes. Clarified ground0006's membership and held-back population contract without running its site experiment.
+
 ## October 27, 2026 - Research briefing review, C-V2X receiver feasibility, geometry described as measured spatial data, and what the Point Cloud Library offers
 
 - {codex/pcl-open-question-review} Ran the pinned PCL normals and border extractors on one kirk0 frame: [OQ-02 compatibility report](lidar/operations/pcl-organised-grid-compatibility.md). Direct native-grid use fails projection consistency and rotation equivariance (18,756 normal-validity changes; 12.08° common-cell p95); spherical conversion resamples support. Added a stamped frame exporter, config, and offline C++ harness, with raw outputs kept local and no physical-accuracy or performance claim.

@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 and OQ-02 complete; OQ-03 is the next checkpoint
+- **Status:** OQ-01 to OQ-03 complete; OQ-04 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -447,11 +447,17 @@ the native grid fails PCL projection consistency and normal rotation equivarianc
 exporter, parameter set, and C++ harness preserve the method; raw outputs remain local. A
 calibrated adapter or explicit resampling contract is required before the border oracle.
 
+OQ-03 is answered by the [segmentation contract report](pcl-segmentation-contracts.md).
+Pinned source and executable fixtures establish: default RegionGrowing has no spatial distance
+bound and residual failure affects seed eligibility, SAC reselects plane membership after
+refinement, and PMF performs erosion then dilation. ground0006 retains its original experiment
+rule and now makes the fit/held-back index separation explicit. No site campaign ran.
+
 ## Resume point
 
-- **Active row:** OQ-03, not started; OQ-01 and OQ-02 complete
-- **Next action:** Finish the three segmentation implementation checks in the canonical OQ-03 row; reuse the SAC membership and morphological-opening evidence already recorded under Q0-02 and Q0-05, then check RegionGrowing's neighbour-distance bound
-- **Execution evidence:** One real kirk0 frame, both normal coordinate arms and both border layouts; see the compatibility report for counts, identities, and limits
+- **Active row:** OQ-04, not started; OQ-01 to OQ-03 complete
+- **Next action:** Inventory the PCL executables actually required by all four specs against the pinned source, then check Homebrew and Debian package versions and availability. Update plan Item 1 with one executable or explicit custom harness per oracle step. Reuse the external PCL build and two existing harnesses; do not assume a class name has a matching CLI.
+- **Execution evidence:** OQ-02's one kirk0 frame and OQ-03's seven synthetic contract configurations; each linked report states its scope and limits
 - **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; a calibrated sensor-to-oracle adapter before l3bg0028
 - **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable and not required to read the records
-- **Checkpoint:** OQ-01 committed as `66a0cf558`; OQ-02 tools and findings committed as `439c190af`, then repeated with stamped provenance; no push
+- **Checkpoint:** OQ-01 `66a0cf558`; OQ-02 `439c190af` and stamped repeat `4710e5f40`; OQ-03 report, harness, and dependent corrections saved together in this checkpoint commit; no push

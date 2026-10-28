@@ -1,4 +1,4 @@
-# PCL compatibility check
+# PCL compatibility and contract checks
 
 Offline diagnostic for [OQ-02](../../docs/lidar/operations/pcl-organised-grid-compatibility.md).
 PCL is an external source build, never linked into the product. Keep all captures, exports,
@@ -20,3 +20,14 @@ an output prefix outside the checkout. Its stdout contains summaries; the prefix
 per-cell normal and border CSV files. The raw native RangeImage is deliberately inconsistent:
 it tests the proposed direct grid mapping. Only the spherical arm uses PCL's own projection.
 Neither output constitutes physical border truth.
+
+## Segmentation contracts (OQ-03)
+
+Build the `pcl-segmentation-check` target in the same CMake build directory, then run CTest
+with `-R segmentation-contracts -V`. This executable explicitly includes the pinned segmentation
+template implementations and links the existing filters and sample_consensus libraries; the
+segmentation library can remain disabled. It needs no capture, exporter, or tuning config.
+Its fixed hand-authored fixtures assert RegionGrowing distance/seed behaviour, SAC refined
+membership, and the difference between erosion and opening. Parameters and measured summaries
+are recorded in the [OQ-03 report](../../docs/lidar/operations/pcl-segmentation-contracts.md).
+Keep stdout and CTest logs outside the checkout. A failed assertion exits non-zero.

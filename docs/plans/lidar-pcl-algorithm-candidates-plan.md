@@ -152,6 +152,12 @@ backgrounds, against `RegionalGroundSurface`, on the graded sites.
 3. If the surface error near kerbs falls, a replay estimator in `l3grid` behind the slope-aware
    ground block v0.5.4 adds.
 
+[OQ-03's contract check](../lidar/operations/pcl-segmentation-contracts.md) confirms that the
+oracle must use PCL's returned, reselected plane membership and keep held-back points separate.
+Plain RegionGrowing has no default distance bound, and its residual test controls propagation
+rather than membership. PMF opens correctly but does not establish road identity. Neither is
+added as an extra arm; the 23-site comparison remains unrun.
+
 **Milestone:** reports into the v0.5.4 slope-aware ground rows; `M`.
 
 ### Item 6: Q3, recommendations to Gerardus
@@ -200,6 +206,8 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
+- [x] OQ-01 to OQ-03: pinned source review, organised-grid compatibility, and segmentation contracts
+
 ### Outstanding
 
 - [ ] Organised PCD export and the pinned oracle (`S`)
@@ -209,7 +217,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
 
-- [ ] The review's open rows OQ-01 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-04 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

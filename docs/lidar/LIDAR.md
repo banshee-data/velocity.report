@@ -31,6 +31,8 @@ The [Astera handover](operations/pcl-astera-handover.md) scopes the first advers
 assigns follow-up work, and records the evidence needed to close each open question.
 The [one-frame compatibility check](operations/pcl-organised-grid-compatibility.md) rejects
 direct native-grid use and specifies the required projection and normal-neighbourhood adaptation.
+The [segmentation contract checks](operations/pcl-segmentation-contracts.md) reproduce unbounded
+region growth, refined plane membership, and morphological opening on synthetic support.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |
