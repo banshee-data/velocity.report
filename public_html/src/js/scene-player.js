@@ -22,6 +22,7 @@ import {
 } from "./scene-playback.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
 import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
+import { createVectorGroup, loadVectors } from "./scene-vectors.js";
 import {
   resolveFrameSelector,
   validateView,
@@ -704,6 +705,33 @@ export async function mountScenePlayer({
     ? await loadBackground(ui.backgroundURL).catch(() => null)
     : null;
 
+  // Gerardus's street geometry, where the site has an accepted pose: kerbs,
+  // lane markings, walls, poles and trees, already in the sensor's frame. A
+  // scene without the file, or with one that cannot be read, plays as it did,
+  // and its switch stays hidden.
+  let vectorGroup = null;
+  if (ui.vectorsURL) {
+    const collection = await loadVectors(ui.vectorsURL).catch((err) => {
+      console.warn(
+        "Street geometry could not be loaded; continuing without it.",
+        err,
+      );
+      return null;
+    });
+    if (collection) {
+      vectorGroup = createVectorGroup(collection);
+      scene.add(vectorGroup);
+      teardown.onDispose(() =>
+        vectorGroup.traverse((o) => {
+          o.geometry?.dispose();
+          o.material?.dispose();
+        }),
+      );
+    }
+  }
+  const vectorsLabel = ui.vectorsToggle?.closest("label");
+  if (vectorsLabel) vectorsLabel.hidden = !vectorGroup;
+
   let bounds;
   try {
     const first = session.parts[0];
@@ -900,11 +928,13 @@ export async function mountScenePlayer({
     trailsVisible: ui.trailsToggle?.checked ?? true,
     backgroundVisible: ui.backgroundToggle?.checked ?? true,
     gridVisible: ui.gridToggle?.checked ?? true,
+    vectorsVisible: ui.vectorsToggle?.checked ?? true,
     lidarVisible: ui.lidarToggle?.checked ?? true,
     loopOpening: ui.openingLoopToggle?.checked ?? false,
   };
   if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
   grid.visible = state.gridVisible;
+  if (vectorGroup) vectorGroup.visible = state.vectorsVisible;
   const playbackDuration = () =>
     sceneLoopDuration(
       session.duration,
@@ -1171,6 +1201,13 @@ export async function mountScenePlayer({
     on(ui.gridToggle, "change", () => {
       state.gridVisible = ui.gridToggle.checked;
       grid.visible = state.gridVisible;
+      render();
+    });
+  }
+  if (ui.vectorsToggle) {
+    on(ui.vectorsToggle, "change", () => {
+      state.vectorsVisible = ui.vectorsToggle.checked;
+      if (vectorGroup) vectorGroup.visible = state.vectorsVisible;
       render();
     });
   }
