@@ -1,6 +1,6 @@
 # PCL algorithm candidates: experiments before ports (05x research, Parked P2)
 
-- **Status:** Proposed. Four experiment specs written with their rules; nothing built, nothing scheduled into a full 05x slot
+- **Status:** Proposed. Four experiment specs; diagnostic tools built, campaign oracles and runtime ports pending; nothing scheduled into a full 05x slot
 - **Decisions:** D-36 (Gerardus owns static geometry; L5 owns bodies; L8 owns interaction metrics), D-37 (backlog metadata), D-32 (slot caps), D-26 and D-30 (one static Go binary: no C++ runtime dependency), D-28 (rectangle fit and range-adaptive eps context)
 - **Layers:** L3 grid (border classes), L4 perception (joining rule, ground plane), L5 tracks (coasting evidence, extents), offline evaluation; Gerardus recommendations outside this repository
 - **Target:** the experiments run alongside 05x as P2 research; a port enters a 05x slot only by displacing a row there, after its experiment passes
@@ -23,12 +23,13 @@ work, which is what D-36 and the 05x rubric exist to prevent.
 
 ## Current state
 
-- No PCL code, binding or build dependency exists; `ARCHITECTURE` cites PCL's `VoxelGrid` and
-  Euclidean clustering as lineage only.
+- No PCL product dependency exists. The offline `tools/pcl-review` diagnostics use an external
+  pinned source build; `ARCHITECTURE` cites PCL's VoxelGrid and Euclidean clustering as lineage.
 - L2 keeps each return's channel and azimuth and L3's grid is rings by azimuth bins, but L4 receives
   a flat point list; no stage computes normals, curvature or border classes.
 - Exports: settled backgrounds as ASC (`cmd/tools/bgasc`), frames as ASC (`l2frames/export.go`).
-  No PCD writer exists, and ASC carries no organised layout or normals.
+  OQ-02 added a diagnostic PCD frame exporter; the general exporter and background PCD option
+  remain open. ASC carries no organised layout or normals.
 - The evaluators these experiments need exist: `lidar-ground-truth-eval` (W3 retention and
   fragmentation, per-frame HOTA and IDF1, physical references), `lidar-box-eval`, `lidar-near-face-eval`.
   l5id0007's link measure is proposed, not built.
@@ -48,8 +49,8 @@ work, which is what D-36 and the 05x rubric exist to prevent.
 
 **PCL is an oracle, never a dependency.** The experiments target PCL 1.15.1 offline on the Mac,
 using a verified installation or pinned source build against exported frames and backgrounds.
-Package versions and executable coverage remain OQ-04 work. The installed version is recorded in
-each report's provenance. Raw outputs stay in a local `results/` directory per AGENTS.md. A port
+The [OQ-04 runbook](../lidar/operations/pcl-oracle-tooling.md) records package versions, the verified
+source build, and executable coverage. Each report records the build actually used. Raw outputs stay in a local `results/` directory per AGENTS.md. A port
 to Go happens only after a passing experiment, behind a named replay experiment and then a tuning
 key, with the oracle kept as its independent test reference. This is the discipline the
 SpatialRust review set: the reference must not call the candidate's own neighbour search.
@@ -84,8 +85,15 @@ a documented oracle setup.
 1. Writer in `l2frames` beside the ASC export, with a round-trip test against a fixture read by a
    minimal parser.
 2. `bgasc` gains a `-format pcd` option; the replay tools gain a frame-window export.
-3. A short runbook section in the review naming the PCL version, the `pcl_*` tools used, and where
-   outputs go.
+3. Use the [OQ-04 runbook](../lidar/operations/pcl-oracle-tooling.md): PCL 1.15.1 at
+   `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, external Release source build with Eigen 3.4.1.
+   Homebrew lists 1.15.1 revision 8; Debian trixie/bookworm list 1.15.0/1.13.0, respectively.
+   Those packages are not the recorded source installation.
+4. The existing `pcl-grid-check` and `pcl-segmentation-check` are diagnostics. Implement the
+   runbook's named campaign contracts: `pcl-border-oracle` for l3bg0028, `pcl-join-oracle` for
+   l4clus0005, `pcl-hull-oracle` for geom0013, and `pcl-ground-oracle` for the constrained fit,
+   two-scale normals, DoN, and lines. These names are planned targets, not available commands.
+   Stock `pcl_*` tools do not satisfy the complete contracts. Raw outputs stay outside Git.
 
 **Milestone:** first step of ground0006 and l3bg0028; `S`.
 
@@ -206,7 +214,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-03: pinned source review, organised-grid compatibility, and segmentation contracts
+- [x] OQ-01 to OQ-04: pinned source review, grid compatibility, segmentation contracts, and oracle tooling
 
 ### Outstanding
 
@@ -217,7 +225,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
 
-- [ ] The review's remaining rows OQ-04 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-05 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

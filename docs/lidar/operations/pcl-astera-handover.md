@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-03 complete; OQ-04 is the next checkpoint
+- **Status:** OQ-01 to OQ-04 complete; OQ-05 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -440,7 +440,8 @@ implementation. Publication and execution scope are agreed at those checkpoints.
 The owner authorised continuation and incremental local commits on
 `codex/pcl-open-question-review`. OQ-01 is saved as `66a0cf558`. The earlier first-run stop and
 no-commit instruction applied to that completed review phase; local commits are now authorised.
-No push has been requested.
+The owner subsequently authorised OQ-04 and OQ-05, incremental commits, and opening a PR.
+Pushing this review branch and opening a draft PR are now authorised.
 
 OQ-02 is answered by the [one-frame compatibility report](pcl-organised-grid-compatibility.md):
 the native grid fails PCL projection consistency and normal rotation equivariance. The report,
@@ -453,11 +454,15 @@ bound and residual failure affects seed eligibility, SAC reselects plane members
 refinement, and PMF performs erosion then dilation. ground0006 retains its original experiment
 rule and now makes the fit/held-back index separation explicit. No site campaign ran.
 
+OQ-04 is answered by the [oracle tooling runbook](pcl-oracle-tooling.md): package versions
+checked, source installation selected, and each oracle step assigned an existing diagnostic or
+an explicitly planned campaign harness. Item 1 is not declared implemented.
+
 ## Resume point
 
-- **Active row:** OQ-04, not started; OQ-01 to OQ-03 complete
-- **Next action:** Inventory the PCL executables actually required by all four specs against the pinned source, then check Homebrew and Debian package versions and availability. Update plan Item 1 with one executable or explicit custom harness per oracle step. Reuse the external PCL build and two existing harnesses; do not assume a class name has a matching CLI.
-- **Execution evidence:** OQ-02's one kirk0 frame and OQ-03's seven synthetic contract configurations; each linked report states its scope and limits
-- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; a calibrated sensor-to-oracle adapter before l3bg0028
-- **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable and not required to read the records
-- **Checkpoint:** OQ-01 `66a0cf558`; OQ-02 `439c190af` and stamped repeat `4710e5f40`; OQ-03 report, harness, and dependent corrections saved together in this checkpoint commit; no push
+- **Active row:** OQ-05, not started; OQ-01 to OQ-04 complete
+- **Next action:** Reconcile l4clus0004 with l4clus0005; separate cap treatment from joining rule with matching input identities and explicit stopping/acceptance comparisons. Do not treat no net vehicle-count gain as proof that lost samples cannot affect connectivity.
+- **Execution evidence:** OQ-02 one-frame and OQ-03 synthetic checks; OQ-04 package/source inventory and existing-target build/CTest verification, no campaign
+- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028
+- **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable
+- **Checkpoint:** OQ-01 `66a0cf558`; OQ-02 `439c190af` and `4710e5f40`; OQ-03 `5a7d700b7`; OQ-04 saved in this checkpoint commit. OQ-05 and a draft PR are authorised next.

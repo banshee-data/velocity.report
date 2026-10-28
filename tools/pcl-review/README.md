@@ -21,6 +21,9 @@ per-cell normal and border CSV files. The raw native RangeImage is deliberately 
 it tests the proposed direct grid mapping. Only the spherical arm uses PCL's own projection.
 Neither output constitutes physical border truth.
 
+The [oracle tooling runbook](../../docs/lidar/operations/pcl-oracle-tooling.md) records package
+versions, the source-build recipe, and the campaign harnesses still required.
+
 ## Segmentation contracts (OQ-03)
 
 Build the `pcl-segmentation-check` target in the same CMake build directory, then run CTest

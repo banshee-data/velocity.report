@@ -33,6 +33,8 @@ The [one-frame compatibility check](operations/pcl-organised-grid-compatibility.
 direct native-grid use and specifies the required projection and normal-neighbourhood adaptation.
 The [segmentation contract checks](operations/pcl-segmentation-contracts.md) reproduce unbounded
 region growth, refined plane membership, and morphological opening on synthetic support.
+The [oracle tooling runbook](operations/pcl-oracle-tooling.md) pins the installation and maps
+stock CLI limitations to explicit campaign harness contracts.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

@@ -8,7 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 28, 2026 - PCL segmentation contracts
+## October 28, 2026 - PCL segmentation contracts and oracle setup
+
+- {codex/pcl-open-question-review} Closed OQ-04 with a [PCL oracle tooling runbook](lidar/operations/pcl-oracle-tooling.md): verified published Homebrew/Debian versions and the local source build, checked stock CLI semantics, and named the custom harness contract for every experiment step. Kept diagnostic availability separate from the campaign tools still to be implemented.
 
 - {codex/pcl-open-question-review} Closed PCL OQ-03 with pinned implementation evidence and executable synthetic fixtures: [segmentation contracts](lidar/operations/pcl-segmentation-contracts.md). RegionGrowing bridged a 99.9 m gap and admitted remote elevated members despite its residual threshold; SAC reselected refined inliers, and PMF performed both opening passes. Clarified ground0006's membership and held-back population contract without running its site experiment.
 
