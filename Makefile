@@ -1056,6 +1056,7 @@ PYTHON_TEST_PATHS = \
 	scripts/test_update_packaging.py \
 	tools/s2-archive/test_export_static_pcaps.py \
 	tools/s2-archive/test_publish_scenes.py \
+	tools/s2-archive/test_scene_vectors.py \
 	tools/s2-archive/test_export_scene_variants.py \
 	tools/s2-archive/test_replay_speed_sweep.py \
 	tools/s2-archive/test_scene_trail_stats.py \

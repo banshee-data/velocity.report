@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 28, 2026 - Gerardus street geometry in the web scenes
+
+- {claude/scene-street-geometry} Drew Gerardus's street geometry in the web scenes where a site's pose is accepted: `tools/s2-archive/scene-vectors.py` places kerbs, facades, lane markings and crosswalks, measured walls, building walls and roof planes, poles, trees and DataSF street centrelines within 90 m of the sensor in the scene's sensor frame by the inverse of the accepted pose, refuses a pose that does not fit the new background better than the pose moved 2 m or turned 5 degrees, and writes `assets/vectors/vectors.geojson.gz` with each source's terms, the placement and per-feature evidence status; `publish-scenes.py` calls it per scene (`SCENE_VECTORS=auto`), and the scene page shows it under a "Street geometry" switch. Two of the 24 sites have an accepted pose (columbus-broadway, embarcadero-folsom); the other 22 get no file until one is accepted, never the eye-read position.
+
 ## October 27, 2026 - Research briefing review, C-V2X receiver feasibility, geometry described as measured spatial data, what the Point Cloud Library offers, and where the ground is on 23 sites
 
 - {claude/ground0001-surface-read} Read the P11 surface beside the defaults' tracks on the first segments of 23 corpus sites (`ground0001`, `lidar-state-estimation-baseline -ground-report`, fitted and never applied, the tracks byte-equal): 19 sites tilt by 1 % or more, to 5.53 %, often across the traffic as a rolled mount would; the planar speed's error is at most 0.15 %; the cell planes depart from one plane by more than 0.2 m at p90 where the traffic goes on 22 sites and flatten the bodies more than the plane at 17; and the lowest return climbs with range by about 1.8 cm a metre on every surface.

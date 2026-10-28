@@ -63,6 +63,15 @@ The environment the batch expects, in full:
   LIDAR_API_URL=http://localhost:8080/api/lidar
       Optional: direct an isolated worktree run to its own LiDAR server.
 
+  SCENE_VECTORS=auto
+      Gerardus's street geometry in the scene (scene-vectors.py), placed by
+      the site's accepted pose and checked against the new background. "auto"
+      writes it where it can and logs why where it cannot, so a machine with
+      no Gerardus still publishes; "required" fails a scene whose site has an
+      accepted pose when Gerardus cannot be read or the pose fails its check;
+      "off" writes none. A site with no accepted pose has none in any mode.
+      GERARDUS_URL names the server (default http://127.0.0.1:50061).
+
 A scene is built beside the published one and swapped in only when whole, so a
 half-finished export never reaches the site.
 
@@ -95,6 +104,7 @@ to it.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import shutil
@@ -147,6 +157,16 @@ CORPUS_MANIFEST = "manifest.json"
 VELOCITY = os.path.join(REPO, "velocity")
 SCENES = os.path.join(REPO, "public_html", "src", "scenes")
 # Scenes come from the archive index; static-stretches.json is no longer read.
+
+VECTOR_MODES = ("auto", "required", "off")
+VECTORS = os.environ.get("SCENE_VECTORS", "auto")
+
+# scene-vectors.py is named with a hyphen, so it is loaded by path.
+_spec = importlib.util.spec_from_file_location(
+    "scene_vectors", os.path.join(HERE, "scene-vectors.py")
+)
+scene_vectors = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(scene_vectors)
 
 STRIDE = "2"
 TRANSIENT_FRAMES = 400  # 40 s at 10 Hz, dropped at export not at record
@@ -498,13 +518,16 @@ def build_scene(scene):
         log("    " + line.strip())
     export(vrlog, os.path.join(assets, "background"), site, title, kind="background")
     carry_over(vrlog, live, assets, site, title)
+    vectors = scene_vectors.export_scene_vectors(site, title, assets, VECTORS, say=log)
 
     with open(os.path.join(part, "header.json")) as fh:
         duration = float(json.load(fh)["duration_sec"])
     write_assets_manifest(assets, site, title)
     swap_assets(assets, live)
     with open(os.path.join(SCENES, site, ".rebuilt"), "w") as fh:
-        fh.write(f"{SPEED_MODE} {SPEED_RATIO} settle={SETTLE}\n")
+        fh.write(
+            f"{SPEED_MODE} {SPEED_RATIO} settle={SETTLE} vectors={vectors or 'none'}\n"
+        )
     # Regenerate the map and page data now rather than at the end of the batch.
     # A scene that exists but is still listed as unpublished is the same bug to
     # a reader as one that does not exist, and a fourteen-hour batch is a long
@@ -834,6 +857,10 @@ def main():
     problem = trail_problem()
     if problem:
         raise SystemExit(problem)
+    if VECTORS not in VECTOR_MODES:
+        raise SystemExit(
+            f"SCENE_VECTORS={VECTORS!r}: want one of {', '.join(VECTOR_MODES)}"
+        )
     parser = argparse.ArgumentParser(
         description="Publish the web scene assets for the S2 archive sites."
     )

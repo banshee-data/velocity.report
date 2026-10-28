@@ -18,6 +18,7 @@ everything else here produces or feeds it.
 | `build-site-index.py` | Stitches the segment analysis and attaches positions.                              |
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.                        |
 | `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                             |
+| `scene-vectors.py`    | Places Gerardus's street geometry in a scene, where the site's pose is accepted.   |
 | `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.              |
 | `stage-label-sets.py` | Publishes label sets into the dataset, joined to captures by digest.               |
 | `clone-labels.sh`     | Clones one capture's labels from the dataset, for labelling, without the captures. |
@@ -247,6 +248,35 @@ of the capture, where an unsettled recording loses its first 40 s to the
 model's transient. It doubles the replay. The reasoning is in
 `publish-scenes.py`. Override them with `SCENE_SPEED_RATIO`, `SCENE_SETTLE`
 and `SCENE_SPEED_MODE` if an experiment needs different ones.
+
+### Street geometry from Gerardus
+
+Where a site has a pose an operator accepted in Gerardus, a rebuilt scene also
+carries Gerardus's street geometry, `assets/vectors/vectors.geojson.gz`: kerbs
+and facades, lane markings and crosswalks, measured walls, building walls and
+roof planes where the site's bundle has them, poles and trees, and the city's
+street centrelines, within 90 m of the sensor. `scene-vectors.py` places each
+feature in the scene's sensor frame by the inverse of the accepted pose, so the
+scene keeps its frame and gains nothing georeferenced, and checks the pose
+against the new background first: walls and kerbs must lie nearer its points
+at the pose than at the pose moved 2 m or turned 5 degrees. A site with no
+accepted pose gets no file, and the eye-read position is never used in its
+place. The file names each source and its terms and keeps only geometry,
+layer, kind, evidence status, Gerardus's state and the heights a pole or tree
+needs; OpenStreetMap layers are never asked for. The scene page shows it under
+a "Street geometry" switch.
+
+`publish-scenes.py` writes it as it builds each scene (`SCENE_VECTORS=auto`,
+the default; `required` fails a posed scene that cannot have it, `off` skips
+it). It needs Gerardus (`GERARDUS_URL`, default `http://127.0.0.1:50061`) and
+`grpcurl`, which reads the pose with the vendored
+`proto/gerardus/align/v1alpha1/align.proto`. Without them a scene publishes
+without the file. To add or refresh it on published scenes without replaying:
+
+```bash
+python3 tools/s2-archive/scene-vectors.py --status            # which sites have a pose
+python3 tools/s2-archive/scene-vectors.py columbus-broadway   # write one scene's file
+```
 
 ### Replay speed
 

@@ -116,6 +116,9 @@ function loadRecording(
       header && fs.existsSync(path.join(dir, "manifest.json")),
     ),
     hasPointCloud: fs.existsSync(path.join(dir, "clip", "manifest.json")),
+    // Gerardus's street geometry, written only where the site's pose is
+    // accepted (tools/s2-archive/scene-vectors.py).
+    hasVectors: fs.existsSync(path.join(dir, "vectors", "vectors.geojson.gz")),
     speed,
     families: speed ? ["speed"] : [],
   };
