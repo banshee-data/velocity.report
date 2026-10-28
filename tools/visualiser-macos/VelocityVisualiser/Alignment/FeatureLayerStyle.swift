@@ -59,24 +59,57 @@ extension ReferenceStyle {
     /// at every vertex: a wireframe prism. A part with no height is its
     /// outline alone.
     static func buildingPartVertices(_ parts: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
-        var out = [Float]()
+        let edges = buildingPartEdges(parts)
+        return edges.eaves + edges.corners
+    }
+
+    /// The prisms' edges by kind: the eaves are the horizontal outlines at
+    /// the base and the top of a part, the corners the uprights between them.
+    static func buildingPartEdges(
+        _ parts: [Gerardus_Align_V1alpha1_LineFeature]
+    ) -> (eaves: [Float], corners: [Float]) {
+        var eaves = [Float]()
+        var corners = [Float]()
         for part in parts {
             let ring = vertices3(part)
             guard ring.count >= 2 else { continue }
             let colour = lineColour(.buildingPart)
             let rise = partRise(part)
             let top = SIMD3<Float>(0, 0, rise)
-            appendRing(&out, ring, closed: true, colour: colour)
+            appendRing(&eaves, ring, closed: true, colour: colour)
             guard rise > 0 else { continue }
-            appendRing(&out, ring.map { $0 + top }, closed: true, colour: colour)
-            for p in ring { appendLine(&out, p, p + top, colour) }
+            appendRing(&eaves, ring.map { $0 + top }, closed: true, colour: colour)
+            for p in ring { appendLine(&corners, p, p + top, colour) }
+        }
+        return (eaves, corners)
+    }
+
+    /// A face on each wall of each part, base to top, as two triangles an
+    /// edge. Solid in the vertices: the draw applies the walls' opacity. A
+    /// part with no height, or an edge with no length, has none.
+    static func wallFillVertices(_ parts: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
+        var out = [Float]()
+        for part in parts {
+            var ring = vertices3(part)
+            if ring.count > 3, ring[0] == ring[ring.count - 1] { ring.removeLast() }
+            let rise = partRise(part)
+            guard ring.count >= 3, rise > 0 else { continue }
+            let colour = lineColour(.buildingPart)
+            let top = SIMD3<Float>(0, 0, rise)
+            for i in 0..<ring.count {
+                let a = ring[i]
+                let b = ring[(i + 1) % ring.count]
+                guard a != b else { continue }
+                for p in [a, b, b + top, a, b + top, a + top] { append(&out, p, colour) }
+            }
         }
         return out
     }
 
     // MARK: Roof planes
 
-    /// How translucent a roof plane's fill is; its outline is opaque.
+    /// How translucent a roof plane's fill is until the operator says
+    /// otherwise (BuildingStyle.roofs); its outline is opaque.
     static let roofFillAlpha: Float = 0.35
 
     /// A roof plane's colour by slope: 0° blue, 22.5° yellow, 45° and over red.
@@ -119,7 +152,8 @@ extension ReferenceStyle {
         }
     }
 
-    /// Roof planes as translucent triangles and opaque outlines, at their z.
+    /// Roof planes as triangles and outlines, at their z. The fill is solid
+    /// in the vertices: the draw applies the roofs' opacity.
     static func roofPlaneVertices(
         _ planes: [Gerardus_Align_V1alpha1_LineFeature],
         parts: [Gerardus_Align_V1alpha1_LineFeature], colouring: RoofColouring
@@ -133,8 +167,7 @@ extension ReferenceStyle {
             guard ring.count >= 3 else { continue }
             let colour = roofColour(plane, parts: partTags, colouring: colouring)
             appendRing(&lines, ring, closed: true, colour: colour)
-            let fill = SIMD4(colour.x, colour.y, colour.z, roofFillAlpha)
-            for i in triangulate(ring) { append(&fills, ring[i], fill) }
+            for i in triangulate(ring) { append(&fills, ring[i], colour) }
         }
         return (fills, lines)
     }

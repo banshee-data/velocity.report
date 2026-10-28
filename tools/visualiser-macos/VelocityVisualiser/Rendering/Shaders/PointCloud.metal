@@ -18,6 +18,8 @@ struct Uniforms {
     // live view), 1 is the class colour alone, 2 looks the colour up by raw
     // intensity code in the fragment's intensity table. See
     // MetalRenderer.IntensityColouring.
+    // y: the debug lines' fade, 0 (none) to 1 (gone); their alpha is scaled
+    // by 1 - y. Zero everywhere but the building overlay.
     float2 padding;
 };
 
@@ -245,7 +247,7 @@ vertex DebugLineVertexOut debugLineVertex(
 
     DebugLineVertexOut out;
     out.position = uniforms.modelViewProjection * float4(pos, 1.0);
-    out.colour = col;
+    out.colour = float4(col.rgb, col.a * (1.0 - uniforms.padding.y));
 
     return out;
 }

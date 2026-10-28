@@ -534,10 +534,16 @@ struct ReferenceOverlayVertices: Sendable {
     /// each of its intersections.
     var kerbLines: [Float] = []
     var cityStreetLines: [Float] = []
-    /// Building parts as wireframe prisms with their roof planes' outlines;
-    /// the roof planes' fills as triangles in the same layout.
-    var buildingLines: [Float] = []
+    /// Building parts as wireframe prisms, by kind of edge, with their roof
+    /// planes' outlines; the walls' and the roof planes' fills as triangles
+    /// in the same layout. Opacity and thickness are applied when drawn.
+    var eaveLines: [Float] = []
+    var cornerLines: [Float] = []
+    var roofEdgeLines: [Float] = []
+    var wallFills: [Float] = []
     var roofFills: [Float] = []
+    /// Every edge of every building, the kinds together.
+    var buildingLines: [Float] { eaveLines + cornerLines + roofEdgeLines }
     var laneMarkingLines: [Float] = []
     var streetFurnitureLines: [Float] = []
     var treeLines: [Float] = []
@@ -554,7 +560,11 @@ struct ReferenceOverlayVertices: Sendable {
     var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
     var kerbVertexCount: Int { kerbLines.count / 7 }
     var cityStreetVertexCount: Int { cityStreetLines.count / 7 }
-    var buildingVertexCount: Int { buildingLines.count / 7 }
+    var eaveVertexCount: Int { eaveLines.count / 7 }
+    var cornerVertexCount: Int { cornerLines.count / 7 }
+    var roofEdgeVertexCount: Int { roofEdgeLines.count / 7 }
+    var buildingVertexCount: Int { eaveVertexCount + cornerVertexCount + roofEdgeVertexCount }
+    var wallFillVertexCount: Int { wallFills.count / 7 }
     var roofFillVertexCount: Int { roofFills.count / 7 }
     var laneMarkingVertexCount: Int { laneMarkingLines.count / 7 }
     var streetFurnitureVertexCount: Int { streetFurnitureLines.count / 7 }
@@ -698,7 +708,7 @@ enum ReferenceStyle {
         // part's shape's colour (FeatureLayerStyle); this is its colour when
         // it carries neither.
         case .roofPlane: return SIMD4(0.85, 0.50, 0.40, 0.95)
-        case .buildingPart: return SIMD4(0.95, 0.78, 0.55, 0.85)
+        case .buildingPart: return SIMD4(0.95, 0.78, 0.55, 1.00)
         case .laneMarking: return SIMD4(1.00, 0.98, 0.80, 1.00)
         case .sign: return SIMD4(0.95, 0.20, 0.50, 1.00)
         case .tree: return SIMD4(0.55, 0.95, 0.30, 0.90)
@@ -808,7 +818,11 @@ enum ReferenceStyle {
             geometry.cityStreets, intersections: geometry.cityIntersections)
         let roofs = roofPlaneVertices(
             geometry.roofPlanes, parts: geometry.buildingParts, colouring: roofColouring)
-        out.buildingLines = buildingPartVertices(geometry.buildingParts) + roofs.lines
+        let edges = buildingPartEdges(geometry.buildingParts)
+        out.eaveLines = edges.eaves
+        out.cornerLines = edges.corners
+        out.roofEdgeLines = roofs.lines
+        out.wallFills = wallFillVertices(geometry.buildingParts)
         out.roofFills = roofs.fills
         out.laneMarkingLines = laneMarkingVertices(geometry.laneMarkings)
         out.streetFurnitureLines = streetFurnitureVertices(geometry.streetFurniture)

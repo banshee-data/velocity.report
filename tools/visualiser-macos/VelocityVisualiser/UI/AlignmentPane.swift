@@ -302,6 +302,9 @@ import SwiftUI
                     "Slope: flat blue, 22° yellow, 45° and steeper red. Shape: each roof:shape its own colour, grey when unknown"
                 )
             }
+            if session.showBuildings {
+                BuildingAppearanceControls(style: $session.buildingStyle).padding(.leading, 16)
+            }
         }
         if served.contains(.laneMarkings) {
             Toggle("Lane markings (\(reference.laneMarkings))", isOn: $session.showLaneMarkings)
@@ -869,5 +872,62 @@ enum AlignmentFormat {
         case .rejected: return "rejected"
         case .unspecified, .UNRECOGNIZED: return "unknown"
         }
+    }
+}
+
+/// Opacity of the buildings' edges, walls and roofs, each with an Opaque
+/// check, and the thickness of the eaves, corners and intermediate lines,
+/// each a number with its arrows. They change what is drawn at once.
+struct BuildingAppearanceControls: View {
+    @Binding var style: BuildingStyle
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Opacity").font(.caption.weight(.semibold))
+            surface(
+                "Buildings", $style.buildings,
+                help: "The wireframe: eaves, corners and the roof planes' edges")
+            surface(
+                "Walls", $style.walls,
+                help: "A face on each wall of a building part, from its base to its top")
+            surface(
+                "Roofs", $style.roofs,
+                help: "The roof planes' fills; their outlines follow Buildings")
+            Text("Line thickness (px)").font(.caption.weight(.semibold)).padding(.top, 2)
+            width(
+                "Eaves", $style.eavesWidth,
+                help: "The outlines at the base and the top of each building part")
+            width(
+                "Corners", $style.cornersWidth,
+                help: "The uprights at each building part's vertices")
+            width(
+                "Intermediate", $style.intermediateWidth,
+                help: "The roof planes' outlines: ridges, hips and valleys")
+        }.controlSize(.small).font(.caption)
+    }
+
+    private func surface(
+        _ title: String, _ surface: Binding<BuildingStyle.Surface>, help: String
+    ) -> some View {
+        HStack(spacing: 6) {
+            Text(title).frame(width: 62, alignment: .leading)
+            Slider(value: surface.opacity, in: 0...1).disabled(surface.wrappedValue.opaque)
+            Text(
+                surface.wrappedValue.opaque
+                    ? "100%" : "\(Int((surface.wrappedValue.alpha * 100).rounded()))%"
+            ).monospacedDigit().foregroundStyle(.secondary).frame(width: 36, alignment: .trailing)
+            Toggle("Opaque", isOn: surface.opaque).toggleStyle(.checkbox)
+        }.help(help)
+    }
+
+    private func width(_ title: String, _ value: Binding<Int>, help: String) -> some View {
+        Stepper(value: value, in: BuildingStyle.widthRange) {
+            HStack {
+                Text(title)
+                Spacer()
+                Text("\(value.wrappedValue)").monospacedDigit().frame(
+                    minWidth: 16, alignment: .trailing)
+            }
+        }.help(help)
     }
 }

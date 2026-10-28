@@ -218,6 +218,40 @@ struct BuildingStyleTests {
         #expect(ReferenceStyle.partRise(flat) == 4)
     }
 
+    @Test func edgesSplitIntoEavesAndCorners() {
+        let edges = ReferenceStyle.buildingPartEdges([bayPart])
+        // The base ring and the top ring; four uprights.
+        #expect(edges.eaves.count / 7 == 16)
+        #expect(edges.corners.count / 7 == 8)
+        #expect(Set(points(edges.eaves).map(\.z)) == [24, 29])
+        #expect(Set(points(edges.corners).map(\.z)) == [24, 29])
+        // Together they are what buildingPartVertices has always drawn.
+        #expect(
+            ReferenceStyle.buildingPartVertices([bayPart]) == edges.eaves + edges.corners)
+        // A part with no height has eaves, at its outline, and no corners.
+        var flat = bayPart
+        flat.tags = [:]
+        let low = ReferenceStyle.buildingPartEdges([flat])
+        #expect(low.eaves.count / 7 == 8)
+        #expect(low.corners.isEmpty)
+    }
+
+    @Test func eachWallIsAFaceFromBaseToTop() {
+        let walls = ReferenceStyle.wallFillVertices([bayPart])
+        // Four walls, two triangles each.
+        #expect(walls.count / 7 == 24)
+        #expect(Set(points(walls).map(\.z)) == [24, 29])
+        #expect(colours(walls).allSatisfy { $0.w == 1 })
+        // No height, no walls.
+        var flat = bayPart
+        flat.tags = [:]
+        #expect(ReferenceStyle.wallFillVertices([flat]).isEmpty)
+        // A ring that repeats its first point has the same four walls.
+        var closed = bayPart
+        closed.xyz += Array(closed.xyz.prefix(3))
+        #expect(ReferenceStyle.wallFillVertices([closed]).count / 7 == 24)
+    }
+
     @Test func aRoofPlaneIsTriangulatedAtItsZ() {
         let (fills, lines) = ReferenceStyle.roofPlaneVertices(
             roofFaces, parts: [mainPart, bayPart], colouring: .slope)
@@ -225,7 +259,8 @@ struct BuildingStyleTests {
         #expect(fills.count / 7 == 12)
         #expect(lines.count / 7 == 16)
         #expect(Set(points(fills).map(\.z)) == [31, 33])
-        #expect(colours(fills).allSatisfy { $0.w == ReferenceStyle.roofFillAlpha })
+        // Solid in the vertices: the draw applies the roofs' opacity.
+        #expect(colours(fills).allSatisfy { $0.w == 1 })
         #expect(colours(lines).allSatisfy { $0.w == 1 })
     }
 
@@ -360,6 +395,9 @@ struct StreetscapeStyleTests {
         // Two prisms of 24 vertices, and the two faces' outlines.
         #expect(v.buildingVertexCount == 64)
         #expect(v.roofFillVertexCount == 12)
+        #expect(v.eaveVertexCount + v.cornerVertexCount + v.roofEdgeVertexCount == 64)
+        #expect(v.buildingLines.count / 7 == 64)
+        #expect(v.wallFillVertexCount > 0 && v.wallFillVertexCount % 3 == 0)
         #expect(v.laneMarkingVertexCount == 12)
         let n = ReferenceStyle.ringSegments
         let ringed: Int = 2 + 4 * n
@@ -513,5 +551,95 @@ struct StreetscapeStyleTests {
         #expect(session.reference?.laneMarkings == 2)
         #expect(session.featureLayersNote?.hasPrefix("Trees not drawn") == true)
         #expect(session.errorMessage == nil)
+    }
+}
+
+
+// MARK: - Building appearance
+
+struct BuildingAppearanceTests {
+    @Test func opaqueIsSolidWhateverTheOpacitySays() {
+        #expect(BuildingStyle.Surface(opacity: 0.25).alpha == 0.25)
+        #expect(BuildingStyle.Surface(opacity: 0.25, opaque: true).alpha == 1)
+        #expect(BuildingStyle.Surface(opacity: 0).isVisible == false)
+        #expect(BuildingStyle.Surface(opacity: 0, opaque: true).isVisible)
+        // Out of range or not a number is held, not trusted.
+        #expect(BuildingStyle.Surface(opacity: 3).alpha == 1)
+        #expect(BuildingStyle.Surface(opacity: -1).alpha == 0)
+        #expect(BuildingStyle.Surface(opacity: .nan).alpha == 1)
+    }
+
+    @Test func theDefaultsDrawAsBuildingsAlwaysHave() {
+        let style = BuildingStyle()
+        #expect(style.buildings.alpha == 1)
+        #expect(style.walls.isVisible == false)
+        #expect(style.roofs.alpha == ReferenceStyle.roofFillAlpha)
+        let widths: [Int] = [style.eavesWidth, style.cornersWidth, style.intermediateWidth]
+        #expect(widths == [1, 1, 1])
+    }
+
+    @Test func widthsAreHeldToTheirRange() {
+        var style = BuildingStyle()
+        style.eavesWidth = 0
+        style.cornersWidth = 99
+        style.intermediateWidth = 3
+        let held = style.clamped
+        #expect(held.eavesWidth == 1)
+        #expect(held.cornersWidth == 8)
+        #expect(held.intermediateWidth == 3)
+    }
+
+    @Test func theStyleIsKeptBetweenLaunches() throws {
+        let suite = "BuildingStyleTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        #expect(BuildingStyle.saved(in: defaults) == BuildingStyle())
+        var style = BuildingStyle()
+        style.walls = BuildingStyle.Surface(opacity: 0.4)
+        style.roofs.opaque = true
+        style.cornersWidth = 3
+        style.save(in: defaults)
+        #expect(BuildingStyle.saved(in: defaults) == style)
+        // A value that does not decode falls back to the default.
+        defaults.set(Data("not json".utf8), forKey: BuildingStyle.defaultsKey)
+        #expect(BuildingStyle.saved(in: defaults) == BuildingStyle())
+        // A hand-edited width is held to the range.
+        var wide = style
+        wide.eavesWidth = 40
+        wide.save(in: defaults)
+        #expect(BuildingStyle.saved(in: defaults).eavesWidth == 8)
+    }
+
+    @Test func aThickLineIsManyOnePixelCopiesAroundTheOriginal() {
+        #expect(LineThickness.offsets(width: 1) == [SIMD2(0, 0)])
+        let counts = (1...8).map { LineThickness.offsets(width: $0).count }
+        #expect(counts == counts.sorted(), "a thicker line never has fewer copies")
+        #expect(LineThickness.offsets(width: 2).count == 4)
+        #expect(LineThickness.offsets(width: 3).count == 9)
+        for width in 1...8 {
+            let offsets = LineThickness.offsets(width: width)
+            // Centred: the copies balance on the line itself.
+            let sum = offsets.reduce(SIMD2<Float>.zero, +)
+            #expect(abs(sum.x) < 1e-4 && abs(sum.y) < 1e-4)
+            // Within half the width of it, plus the step to the next copy.
+            #expect(offsets.allSatisfy { ($0.x * $0.x + $0.y * $0.y).squareRoot() <= Float(width) / 2 + 0.02 })
+        }
+        // Outside the range it is held, not extended.
+        #expect(LineThickness.offsets(width: 0).count == 1)
+        #expect(LineThickness.offsets(width: 50).count == LineThickness.offsets(width: 8).count)
+    }
+
+    @Test func aPixelIsTwoOverTheDrawableInClipSpace() {
+        let m = LineThickness.clipOffset(SIMD2(1, -2), drawable: SIMD2(1000, 500))
+        #expect(m.columns.3.x == 0.002)
+        #expect(m.columns.3.y == -0.008)
+        #expect(m.columns.0 == SIMD4(1, 0, 0, 0))
+        // A point at w = 2 moves the same distance on screen: clip.xy shifts by ndc * w.
+        let moved = m * SIMD4<Float>(0, 0, 0, 2)
+        #expect(moved.x / moved.w == 0.002)
+        // No drawable yet: no offset.
+        #expect(
+            LineThickness.clipOffset(SIMD2(1, 1), drawable: SIMD2(0, 0))
+                == matrix_identity_float4x4)
     }
 }

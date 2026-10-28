@@ -148,8 +148,18 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var referenceCityStreetVertexCount: Int = 0
     /// The W4–W7 layers: building parts and roof outlines as lines, roof
     /// fills as translucent triangles, lane markings, poles and signs, trees.
-    private var referenceBuildingBuffer: MTLBuffer?
-    private(set) var referenceBuildingVertexCount: Int = 0
+    private var referenceEaveBuffer: MTLBuffer?
+    private(set) var referenceEaveVertexCount: Int = 0
+    private var referenceCornerBuffer: MTLBuffer?
+    private(set) var referenceCornerVertexCount: Int = 0
+    private var referenceRoofEdgeBuffer: MTLBuffer?
+    private(set) var referenceRoofEdgeVertexCount: Int = 0
+    /// Every building edge, the kinds together.
+    var referenceBuildingVertexCount: Int {
+        referenceEaveVertexCount + referenceCornerVertexCount + referenceRoofEdgeVertexCount
+    }
+    private var referenceWallFillBuffer: MTLBuffer?
+    private(set) var referenceWallFillVertexCount: Int = 0
     private var referenceRoofFillBuffer: MTLBuffer?
     private(set) var referenceRoofFillVertexCount: Int = 0
     private var referenceLaneMarkingBuffer: MTLBuffer?
@@ -161,6 +171,11 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private var referencePaletteBuffer: MTLBuffer?
     private(set) var referenceModelMatrix: simd_float4x4 = matrix_identity_float4x4
     private(set) var referenceVisibility = ReferenceVisibility()
+    /// The buildings' opacity and line thickness, applied as they are drawn.
+    private(set) var buildingStyle = BuildingStyle()
+    /// The drawable's size in pixels, as of the last frame: line thickness
+    /// is a number of these.
+    private var drawableSizePixels = SIMD2<Float>(0, 0)
     /// Aerial points are dense; drawn at full size they bury the scan.
     static let referencePointScale: Float = 0.5
     /// The uploaded scan coloured by EvaluatePose's residuals, in the sensor
@@ -519,9 +534,17 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceCityStreetBuffer = buffer(vertices?.cityStreetLines ?? [])
         referenceCityStreetVertexCount =
             referenceCityStreetBuffer == nil ? 0 : vertices?.cityStreetVertexCount ?? 0
-        referenceBuildingBuffer = buffer(vertices?.buildingLines ?? [])
-        referenceBuildingVertexCount =
-            referenceBuildingBuffer == nil ? 0 : vertices?.buildingVertexCount ?? 0
+        referenceEaveBuffer = buffer(vertices?.eaveLines ?? [])
+        referenceEaveVertexCount = referenceEaveBuffer == nil ? 0 : vertices?.eaveVertexCount ?? 0
+        referenceCornerBuffer = buffer(vertices?.cornerLines ?? [])
+        referenceCornerVertexCount =
+            referenceCornerBuffer == nil ? 0 : vertices?.cornerVertexCount ?? 0
+        referenceRoofEdgeBuffer = buffer(vertices?.roofEdgeLines ?? [])
+        referenceRoofEdgeVertexCount =
+            referenceRoofEdgeBuffer == nil ? 0 : vertices?.roofEdgeVertexCount ?? 0
+        referenceWallFillBuffer = buffer(vertices?.wallFills ?? [])
+        referenceWallFillVertexCount =
+            referenceWallFillBuffer == nil ? 0 : vertices?.wallFillVertexCount ?? 0
         referenceRoofFillBuffer = buffer(vertices?.roofFills ?? [])
         referenceRoofFillVertexCount =
             referenceRoofFillBuffer == nil ? 0 : vertices?.roofFillVertexCount ?? 0
@@ -569,6 +592,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func setReferenceVisibility(_ visibility: ReferenceVisibility) {
         guard visibility != referenceVisibility else { return }
         referenceVisibility = visibility
+        view?.needsDisplay = true
+    }
+
+    func setBuildingStyle(_ style: BuildingStyle) {
+        let style = style.clamped
+        guard style != buildingStyle else { return }
+        buildingStyle = style
         view?.needsDisplay = true
     }
 
@@ -742,7 +772,6 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             (shown.intersections, referenceIntersectionBuffer, referenceIntersectionVertexCount),
             (shown.cityStreets, referenceCityStreetBuffer, referenceCityStreetVertexCount),
             (shown.kerbs, referenceKerbBuffer, referenceKerbVertexCount),
-            (shown.buildings, referenceBuildingBuffer, referenceBuildingVertexCount),
             (shown.laneMarkings, referenceLaneMarkingBuffer, referenceLaneMarkingVertexCount),
             (
                 shown.streetFurniture, referenceStreetFurnitureBuffer,
@@ -755,15 +784,43 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
             encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
         }
-        // Roof fills last, so the lines behind a translucent roof still show
-        // through it.
-        if shown.buildings, let fills = referenceRoofFillBuffer, referenceRoofFillVertexCount >= 3 {
+        guard shown.buildings else { return }
+        // The buildings' edges, each kind as thick as asked, as opaque as
+        // asked. Thickness is the same lines drawn again a pixel across.
+        let style = buildingStyle
+        if style.buildings.isVisible {
+            for (buffer, count, width) in [
+                (referenceEaveBuffer, referenceEaveVertexCount, style.eavesWidth),
+                (referenceCornerBuffer, referenceCornerVertexCount, style.cornersWidth),
+                (referenceRoofEdgeBuffer, referenceRoofEdgeVertexCount, style.intermediateWidth),
+            ] {
+                guard let buffer, count > 0 else { continue }
+                encoder.setRenderPipelineState(pipeline)
+                encoder.setVertexBuffer(buffer, offset: 0, index: 0)
+                var lines = reference
+                lines.padding.y = 1 - style.buildings.alpha
+                for offset in LineThickness.offsets(width: width) {
+                    lines.modelViewProjection =
+                        LineThickness.clipOffset(offset, drawable: drawableSizePixels)
+                        * reference.modelViewProjection
+                    encoder.setVertexBytes(&lines, length: MemoryLayout<Uniforms>.stride, index: 1)
+                    encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: count)
+                }
+            }
+        }
+        // Wall faces, then roof fills last, so the lines behind a translucent
+        // face still show through it.
+        for (fills, count, surface) in [
+            (referenceWallFillBuffer, referenceWallFillVertexCount, style.walls),
+            (referenceRoofFillBuffer, referenceRoofFillVertexCount, style.roofs),
+        ] {
+            guard surface.isVisible, let fills, count >= 3 else { continue }
+            var faces = reference
+            faces.padding.y = 1 - surface.alpha
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(fills, offset: 0, index: 0)
-            encoder.setVertexBytes(&reference, length: MemoryLayout<Uniforms>.stride, index: 1)
-            encoder.drawPrimitives(
-                type: .triangle, vertexStart: 0,
-                vertexCount: referenceRoofFillVertexCount - referenceRoofFillVertexCount % 3)
+            encoder.setVertexBytes(&faces, length: MemoryLayout<Uniforms>.stride, index: 1)
+            encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: count - count % 3)
         }
     }
 
@@ -1292,6 +1349,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         camera.aspectRatio = Float(size.width / size.height)
+        drawableSizePixels = SIMD2(Float(size.width), Float(size.height))
     }
 
     func draw(in view: MTKView) {
@@ -1304,6 +1362,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 "boxes=\(boxInstanceCount) clusters=\(clusterInstanceCount) debug=\(showDebug)")
         }
 
+        drawableSizePixels = SIMD2(Float(view.drawableSize.width), Float(view.drawableSize.height))
         guard let drawable = view.currentDrawable,
             let descriptor = view.currentRenderPassDescriptor,
             let commandBuffer = commandQueue.makeCommandBuffer(),

@@ -1441,6 +1441,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?) { overlays.append(vertices) }
     func setReferenceModelMatrix(_ matrix: simd_float4x4) { matrices.append(matrix) }
     func setReferenceVisibility(_ visibility: ReferenceVisibility) { self.visibility = visibility }
+    var buildingStyles: [BuildingStyle] = []
+    func setBuildingStyle(_ style: BuildingStyle) { buildingStyles.append(style) }
     var residuals: [[Float]?] = []
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>]) {
         residuals.append(vertices)
@@ -1852,6 +1854,35 @@ final class FakeOverlaySink: ReferenceOverlaySink {
             AlignmentSession.defaultRecord(list, captureRef: nil, scanID: "")?.recordID == "other")
         #expect(AlignmentSession.defaultRecord([rejected], captureRef: "here", scanID: nil) == nil)
         #expect(AlignmentSession.defaultRecord([], captureRef: nil, scanID: nil) == nil)
+    }
+
+    @Test func buildingStyleReachesTheRendererWithoutRebuildingTheOverlay() async {
+        let (session, _, sink) = await placed()
+        await session.pendingStyling?.value
+        let overlays = sink.overlays.count
+        var style = session.buildingStyle
+        style.walls = BuildingStyle.Surface(opacity: 0.5)
+        style.eavesWidth = 4
+        session.buildingStyle = style
+        #expect(sink.buildingStyles.last == style)
+        // Setting what it already is sends nothing.
+        let sent = sink.buildingStyles.count
+        session.buildingStyle = style
+        #expect(sink.buildingStyles.count == sent)
+        // Nothing was rebuilt for it.
+        await session.pendingStyling?.value
+        #expect(sink.overlays.count == overlays)
+    }
+
+    @Test func buildingStyleIsSavedAndRestored() throws {
+        let suite = "AlignmentSessionTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let first = AlignmentSession(makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: defaults)
+        first.buildingStyle.roofs.opaque = true
+        first.buildingStyle.intermediateWidth = 5
+        let second = AlignmentSession(makeClient: { _ in FakeAlignmentService() }, lookup: nil, defaults: defaults)
+        #expect(second.buildingStyle == first.buildingStyle)
     }
 
     @Test func aNewCaptureDropsTheScanAndRegistration() async {

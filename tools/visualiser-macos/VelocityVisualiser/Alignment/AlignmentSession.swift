@@ -47,6 +47,7 @@ protocol ReferenceOverlaySink: AnyObject {
     func setReferenceOverlay(_ vertices: ReferenceOverlayVertices?)
     func setReferenceModelMatrix(_ matrix: simd_float4x4)
     func setReferenceVisibility(_ visibility: ReferenceVisibility)
+    func setBuildingStyle(_ style: BuildingStyle)
     func setResidualOverlay(_ vertices: [Float]?, palette: [SIMD4<Float>])
     /// Moves the camera to frame a point of the site frame, keeping the
     /// direction it looks in.
@@ -256,6 +257,15 @@ struct ReferenceSummary: Equatable {
     @Published var showLaneMarkings = true { didSet { pushVisibility() } }
     @Published var showStreetFurniture = true { didSet { pushVisibility() } }
     @Published var showTrees = true { didSet { pushVisibility() } }
+    /// The buildings' opacity and line thickness: drawn as they stand, kept
+    /// between launches, and never a reason to rebuild the overlay.
+    @Published var buildingStyle = BuildingStyle() {
+        didSet {
+            guard buildingStyle != oldValue else { return }
+            buildingStyle.save(in: defaults)
+            pushBuildingStyle()
+        }
+    }
     /// How roof planes are coloured: the colours are in the vertices, so a
     /// change rebuilds the overlay.
     @Published var roofColouring: RoofColouring = .slope {
@@ -494,6 +504,7 @@ struct ReferenceSummary: Equatable {
         self.defaults = defaults
         self.serviceAddress = GerardusAddress.saved(in: defaults)
         self.reviewer = Self.savedReviewer(in: defaults)
+        self.buildingStyle = BuildingStyle.saved(in: defaults)
     }
 
     /// The reviewer last typed, else the annotation operator's name, else
@@ -1023,6 +1034,8 @@ struct ReferenceSummary: Equatable {
 
     private func pushVisibility() { sink?.setReferenceVisibility(visibility) }
 
+    private func pushBuildingStyle() { sink?.setBuildingStyle(buildingStyle) }
+
     // MARK: - Reference overlay
 
     /// Scans left out of the registered layer: the open capture's own, by
@@ -1053,6 +1066,7 @@ struct ReferenceSummary: Equatable {
         reference = summary(geometry, vertices: vertices)
         sink?.setReferenceOverlay(vertices)
         pushVisibility()
+        pushBuildingStyle()
     }
 
     /// Rebuilds the overlay in a task, for callers that cannot wait.
