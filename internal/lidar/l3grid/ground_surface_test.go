@@ -147,6 +147,12 @@ func TestFitRegionalGroundSurfaceFallsBackToGlobalForSparseCells(t *testing.T) {
 	if got, want := regional.HeightAt(201, 0), regional.Global.HeightAt(201, 0); got != want {
 		t.Fatalf("HeightAt in the sparse region = %f, want the global fallback %f exactly", got, want)
 	}
+	if plane, ok := regional.RegionAt(2, 2); !ok || math.Abs(plane.HeightAt(2, 2)-(-3.0)) > 1e-6 {
+		t.Fatalf("RegionAt in the well-populated region = %+v, %v; want its own plane at -3.0", plane, ok)
+	}
+	if _, ok := regional.RegionAt(201, 0); ok {
+		t.Fatal("RegionAt in the sparse region reports a plane of its own")
+	}
 }
 
 func TestFitRegionalGroundSurfaceSingleCellMatchesGlobalFit(t *testing.T) {

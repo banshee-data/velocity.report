@@ -75,6 +75,9 @@ type BaselineParams struct {
 	Case string `json:"case"`
 	// SurfaceGround switches the tool's ground surfacing on.
 	SurfaceGround bool `json:"surface_ground,omitempty"`
+	// GroundReport fits the same surface beside the tracks, read and never
+	// applied, and writes each case's ground report (ground0001).
+	GroundReport bool `json:"ground_report,omitempty"`
 	// KeepEvidence keeps the evidence database in the bundle. Large.
 	KeepEvidence bool `json:"keep_evidence,omitempty"`
 }

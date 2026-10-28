@@ -500,6 +500,11 @@ estimated local surface** rather than above the sensor plane. The surface model 
 work, so Phase 1 uses the cheapest sufficient approximation and records the residual grade
 error rather than waiting for the full model.
 
+**Measured on 23 sites (October 27, 2026).** 19 first segments tilt by 1 % or more against the
+sensor's plane, to 5.53 %, so the fixed band sits up to 1.66 m off the fitted plane 30 m along the
+fall line; the cell planes depart from one plane by more than 0.2 m at p90 where the traffic goes
+on 22 sites ([ground surface read](../lidar/operations/ground-surface-corpus-read-2026-10.md)).
+
 ## 3. Evidence: what the measurement actually is
 
 ### 3.1 Method
