@@ -8,7 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 28, 2026 - PCL segmentation contracts, oracle setup, and joining controls
+## October 28, 2026 - PCL contracts, experiment controls, and Gerardus review
+
+- {codex/pcl-open-question-review} Closed OQ-08 against verified Gerardus main `a2c2ac10`: [novelty audit](lidar/operations/pcl-gerardus-registration-gap-review.md). Removed the redundant observability recommendation, retained a conditional descriptor/congruent-set proposal comparison against the existing raster search, and preserved pose0002's negative window result. No Gerardus code, gates, or accepted poses changed; the next checkpoint is OQ-09.
 
 - {codex/pcl-open-question-review} Closed OQ-07 by dropping a standalone Greedy/Papazov duplicate-track arm: [source evidence and counterexamples](lidar/operations/pcl-hypothesis-verification-disposition.md). Static point-support competition supplies neither calibrated visibility nor temporal identity; existing survivor, containment-claim, and visibility experiments retain their scopes. Preserved historical replay results and saved OQ-08 as the next checkpoint.
 

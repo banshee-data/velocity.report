@@ -170,40 +170,44 @@ is small against the extent error, hulls stop here. That is spec
 
 ### Q3. Can measured static-scene geometry make repeat surveys and multi-vantage registration more reliable?
 
-**This is Gerardus's question under D-36, and PCL's main offer is diagnostics, not a better
-aligner.** [pose0001](gerardus-static-registration-2026-10.md) registered 6 of 24 sites;
-hypothesis separation failed at the other 18, and no search setting helped. The report locates the
-fault in how separation compares the best pose with neighbours in its own basin.
+**This is Gerardus's question under D-36.** [pose0001](gerardus-static-registration-2026-10.md)
+produced six CANDIDATE sites out of 24 and accepted no poses; hypothesis separation failed at the
+other 18. That historical result is not a physical-registration success count.
+[OQ-08's source review](pcl-gerardus-registration-gap-review.md) verifies Gerardus main at
+`a2c2ac10`: it already reports matched-geometry eigenvalues, constraint rank, and weak directions,
+and gates candidate acceptance on rank. The original broad observability recommendation is
+therefore redundant.
 
-PCL's registration module returns a transform, a converged flag and a fitness score (the mean of
-squared nearest-neighbour distances). The base Registration API does not supply calibrated pose
-covariance or an observability report. DefaultConvergenceCriteria can accept an iteration limit,
-small transform increments, or small MSE changes; a converged flag does not establish correctness
-or even a small final step. So swapping ICP variants would not answer pose0001. What would help,
-offered to Gerardus as recommendations:
+PCL's base Registration API returns a transform, convergence state and fitness, not calibrated
+pose covariance. DefaultConvergenceCriteria can accept an iteration limit, small increments, or
+small MSE changes. None establishes correctness. Gerardus already goes beyond that API: it
+analyses the undamped point-to-plane matrix with rotations scaled at 10 m, reports weak directions,
+and separately tests rank, separation, and seed agreement. Its formal covariance still needs
+calibration for correlated residuals; its October 24 maths note already identifies that limit.
 
-| Recommendation                                                                                                                                  | PCL source                                                                                           | Why                                                                                                                                                                              |
-| ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Report which pose directions the matched geometry constrains, from the eigenvalues of the point-to-plane normal matrix, before accepting a pose | `CovarianceSampling` (`covariance_sampling.h`, Gelfand et al. 2003)                                  | A long wall leaves translation along it free; separation tests cannot see that, eigenvectors and eigenvalues can expose it; a condition number alone does not name the direction |
-| Seed hypotheses from descriptor matches or congruent point sets instead of the eye-read position                                                | `FPFHEstimation` with `SampleConsensusPrerejective`, or `KFPCSInitialAlignment`                      | Alternative correspondences can propose other basins; their distinctness and correctness still need testing                                                                      |
-| Inspect change after registration, alongside residual and pose uncertainty                                                                      | `OctreePointCloudChangeDetector`, `SegmentDifferences`                                               | Both pose error and scene change produce differences; a change map alone cannot distinguish them                                                                                 |
-| Test veil and isolated-return cleanup before upload, and validate exported normals                                                              | `RangeImageBorderExtractor` veil class, `StatisticalOutlierRemoval`, `IntegralImageNormalEstimation` | ASC carries no normals; mixed pixels at building edges become false surfaces                                                                                                     |
+| Candidate or reference                                     | PCL source                                                                          | Disposition after checking Gerardus                                                                        |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Matched-geometry observability                             | CovarianceSampling                                                                  | Already implemented in Gerardus, including scale and directional labels; no new generic report or PCL port |
+| Initial proposals from descriptors or congruent point sets | FPFHEstimation with SampleConsensusPrerejective, or KFPCSInitialAlignment           | New conditional comparator to the existing raster search, subject to a matched input/compute contract      |
+| Registered change maps alongside residuals and uncertainty | OctreePointCloudChangeDetector, SegmentDifferences                                  | Not closed by OQ-08; differences still cannot establish the cause of change                                |
+| Cleanup and validated normals before upload                | RangeImageBorderExtractor, StatisticalOutlierRemoval, IntegralImageNormalEstimation | OQ-09, preserving the failed native-grid assumption from OQ-02                                             |
 
-CovarianceSampling builds a normal-based geometry matrix and a condition number; applying that
-idea to actual matched points, with meaningful scale and directional interpretation, is additional
-work. KFPCS uses congruent four-point sets, not FPFH descriptors. Neither seeding approach
-guarantees a distinct correct basin. StatisticalOutlierRemoval thresholds mean neighbour distance
-and can remove valid sparse edges. Export cleanup and normals therefore remain candidates.
+CovarianceSampling's condition-number primitive is not a reason to replace diagnostics already
+computed from Gerardus's fitted correspondences. Gerardus searches every heading around the
+position hint, fits multiple raster peaks, and locally perturbs the best fit to measure seed
+agreement. FPFH/prerejective or KFPCS would change the initial proposal mechanism; KFPCS uses
+congruent four-point sets, not descriptors. Its planned mobile Scan Context retrieval is a
+separate loop-closure task. Neither proposal route establishes a correct or distinct basin.
 
-velocity.report's part is the last row: the background it exports and the track guard that keeps
-vehicles out of it. The repository's spatial-priors plan already names Open3D, not PCL, as the
-registration baseline; this review does not change that.
+**Expected gain (hypothesis).** One offline proposal comparator might recover useful basins where
+the current raster search misses them. Compare the same reference coverage, preprocessing,
+proposal budget, ICP, and refusal gates, with independent pose evidence wherever physical
+correctness is claimed. Full rank and repeated local convergence can coexist with a wrong
+repeated-facade match. No gain, new acceptance threshold, or implementation is established here.
 
-**Expected gain (hypothesis).** A matched-geometry observability report could distinguish some
-failures currently labelled "separation failed" from genuinely unconstrained pose directions. The
-affected directions and sites have not been measured; local observability and basin separation
-answer different questions. Descriptor seeding might add passing sites where the eye-read seed is
-far. Both are scored by pose0001's own rule in Gerardus, not here.
+velocity.report owns the exported background and the track guard. [pose0002](gerardus-background-window-2026-10.md)
+adopted no shorter background window; OQ-09 must preserve that result while assessing cleanup.
+The spatial-priors plan's Open3D baseline remains unchanged.
 
 ### Q4. Can occlusion-aware analysis reduce track loss without more false associations?
 
@@ -269,8 +273,8 @@ The plan carries the schedule. This table is the shortlist with each claim's mea
 | 5    | Difference of normals, normal-weighted plane (`don.h`, `sac_model_normal_plane.h`)               | Q0         | Offline kerb split; Gerardus input    | Kerb faces out of the road fit                                     | Residual near kerbs; kerb line against Gerardus    |
 | 6    | Integral-image normals (`integral_image_normal.h`)                                               | Q0, Q1, Q4 | Shared primitive, ported once         | Enables ranks 2, 5 and the crease edges below                      | Per-frame cost on the organised grid               |
 | 7    | Planar registration (`transformation_estimation_2D.h`, `warp_point_rigid_3d.h`, `ndt_2d.h`)      | Q2         | Bounded comparator within facet arm B | Check alignment of identical visible history                       | Facet E2 physical errors, coverage, abstention     |
-| 8    | Observability of a registration (`covariance_sampling.h`)                                        | Q3         | Gerardus recommendation               | Correct refusals at degenerate sites                               | pose0001's rule, in Gerardus                       |
-| 9    | Descriptor seeding (`fpfh.h`, `sample_consensus_prerejective.h`, `ia_kfpcs.h`)                   | Q3         | Gerardus recommendation               | Distinct hypothesis basins                                         | pose0001's rule, in Gerardus                       |
+| 8    | Observability of a registration (`covariance_sampling.h`)                                        | Q3         | Existing in Gerardus                  | Use existing rank and weak directions                              | OQ-08 source audit; no new gain claimed            |
+| 9    | Descriptor seeding (`fpfh.h`, `sample_consensus_prerejective.h`, `ia_kfpcs.h`)                   | Q3         | Conditional Gerardus comparator       | Useful distinct basins beyond raster search                        | Matched-budget pose and refusal comparison         |
 | 10   | Organised crease edges (`organized_edge_detection.h`, `principal_curvatures.h`)                  | Q1, Q2     | Offline facet proposals               | Edge-segment facets for the annotation pilot                       | Operator acceptance of proposed facets             |
 | 11   | ESF and moment-of-inertia descriptors (`esf.h`, `moment_of_inertia_estimation.h`)                | Q1         | Offline, after a class scorecard      | Truck against long car where length is unseen                      | Per-class recall on a labelled corpus              |
 | 12   | Greedy and Papazov hypothesis verification (`hv/greedy_verification.h`, `hv/hv_papazov.h`)       | Q4         | Dropped as a standalone arm           | No distinct temporal evidence contract                             | Reopen only with identity and retention gates      |
@@ -358,7 +362,7 @@ Read headers and tutorial sources from the checkout, not over the web.
 | OQ-05 | Does l4clus0004's answer change l4clus0005? The cap bites at 10 of 23 sites and the joining oracle reads the capped input                                                                                                         | l4clus0004 was answered the day this review was written                                                          | [l4-subsampled-density-2026-10.md](l4-subsampled-density-2026-10.md); l4clus0005                                                                                                     | l4clus0005 either gains an uncapped arm (`config/experiments/l4-cap100k.json`) or says why not                    | Answered: six matched cap/rule arms, frozen-input oracle, and explicit stopping/acceptance comparisons; [design](pcl-joining-cap-controls.md).            |
 | OQ-06 | Accumulated body-local footprint (Q2): does a planar registration comparator (`TransformationEstimation2D`, `NormalDistributionsTransform2D`) add anything W4's extent work does not?                                             | Named as rank 7 with no spec; overlaps the Parked facet arm B                                                    | Geometry convergence plan section 4 and W4 row; facet plan arm B; `registration/include/pcl/registration/ndt_2d.h`                                                                   | A one-paragraph verdict: a spec, a note added to arm B, or dropped                                                | Answered: one bounded comparator within facet arm B; no separate W4 spec. [Disposition and corrected z contract](pcl-planar-registration-disposition.md). |
 | OQ-07 | Duplicate tracks (Q4): is a support-then-conflict rule (`hv/greedy_verification.h`, `hv/hv_papazov.h`) a useful arm beside l5id0004's overlap end?                                                                                | Listed as rank 12 with no mapping                                                                                | [l5-duplicate-tracks-2026-10.md](l5-duplicate-tracks-2026-10.md); the two headers                                                                                                    | An arm proposed in an l5id spec, or dropped with the reason                                                       | Answered: standalone arm dropped; [source evidence, counterexamples, and existing owners](pcl-hypothesis-verification-disposition.md).                    |
-| OQ-08 | Q3 in Gerardus: does Gerardus already report registration observability or seed from descriptors?                                                                                                                                 | Gerardus is a separate repository and was not read                                                               | Gerardus `docs/REGISTRATION-STATUS.md`, its 2026-10-24 registration maths note                                                                                                       | The plan's Item 6 says which recommendations are new to Gerardus                                                  | Open                                                                                                                                                      |
+| OQ-08 | Q3 in Gerardus: does Gerardus already report registration observability or seed from descriptors?                                                                                                                                 | Gerardus is a separate repository and was not read                                                               | Gerardus `docs/REGISTRATION-STATUS.md`, its 2026-10-24 registration maths note                                                                                                       | The plan's Item 6 says which recommendations are new to Gerardus                                                  | Answered: observability already exists; descriptor/congruent-set proposals remain new. [Pinned audit](pcl-gerardus-registration-gap-review.md).           |
 | OQ-09 | Settled background clean-up before upload: does moving least squares or statistical outlier removal improve pose0001's gates more than the track guard did?                                                                       | Not assessed; the review recommends veil removal only                                                            | [gerardus-static-registration-2026-10.md](gerardus-static-registration-2026-10.md); `surface/include/pcl/surface/mls.h`, `filters/include/pcl/filters/statistical_outlier_removal.h` | Folded into OQ-08's recommendation or dropped                                                                     | Open                                                                                                                                                      |
 | OQ-10 | Q1 classification: which labelled corpus would let ESF and moment-of-inertia descriptors be scored, by class and aspect?                                                                                                          | Blocked on the Parked classification scorecard and corpus rows                                                   | Shape descriptors plan Phase 4; classifier training plan Phases 1 and 2                                                                                                              | Recorded as a dependency on those rows, with the minimum per-class counts                                         | Open                                                                                                                                                      |
 | OQ-11 | What did the owner's linked ChatGPT thread add?                                                                                                                                                                                   | chatgpt.com did not resolve from the cloud environment                                                           | The thread, pasted by the owner                                                                                                                                                      | Any new question becomes a row here                                                                               | Open                                                                                                                                                      |
@@ -384,4 +388,5 @@ record their own methods and limits; The [OQ-04 tooling inventory](pcl-oracle-to
 campaign harnesses. [OQ-05](pcl-joining-cap-controls.md) revises the sampling controls before
 execution. [OQ-06](pcl-planar-registration-disposition.md) places planar registration within
 facet arm B and corrects the earlier z-translation claim. [OQ-07](pcl-hypothesis-verification-disposition.md)
-drops the standalone hypothesis-verification arm; OQ-08 onwards remain open.
+drops the standalone hypothesis-verification arm. [OQ-08](pcl-gerardus-registration-gap-review.md)
+removes the redundant observability recommendation and narrows Gerardus follow-up; OQ-09 onwards remain open.

@@ -181,16 +181,28 @@ added as an extra arm; the 23-site comparison remains unrun.
 
 ### Item 6: Q3, recommendations to Gerardus
 
-**Summary:** Offer the observability report, descriptor seeding and change maps to Gerardus, and
-send backgrounds without veil points and with normals.
+**Summary:** [OQ-08](../lidar/operations/pcl-gerardus-registration-gap-review.md) checked Gerardus
+main `a2c2ac10`. Matched-geometry eigenvalues, rank, weak directions, rank gating, and formal
+covariance already exist. Do not request a new generic observability report. The remaining new
+proposal is one offline initial-proposal comparator: FPFH/prerejective matching or KFPCS against
+the current raster search. Planned mobile Scan Context is a different task.
 
 **Steps:**
 
-1. Open the recommendation in Gerardus with the review's Q3 table; Gerardus scores it by pose0001's
-   rule.
-2. The background export change rides Item 1.
+1. Gerardus owns selection and scheduling of that conditional comparator. Freeze scan/reference
+   revisions, preprocessing, coverage and compute budget, distinct-basin handling, and the same
+   ICP/refusal gates before scoring. Preserve pose0001's acceptance discipline and use independent
+   pose evidence for correctness claims. The prepared recommendation is in the OQ-08 report;
+   no external issue or campaign has been opened by this review.
+2. Use the existing diagnostics when assessing the comparator. Local rank does not resolve global
+   aliases; the distinct-alternative concern is already known to Gerardus. Do not change its
+   acceptance thresholds on the strength of extra proposals.
+3. Export cleanup and normals wait for OQ-09 and OQ-02's adapter contract; Item 1 does not yet
+   justify stripping veil-marked returns or supplying calibrated normals. Change-map attribution
+   remains a separate candidate, not a novelty established by OQ-08.
 
-**Milestone:** unscheduled here; Gerardus sets the order; `S` on this side.
+**Milestone:** unscheduled; Gerardus sets the order. This source-audit handoff is complete;
+implementation, campaign design, and promotion remain unapproved here.
 
 ### Item 7: Q1, descriptors, deferred
 
@@ -225,7 +237,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-07: source review, compatibility, contracts, tooling, sampling controls, and registration/duplicate-track dispositions
+- [x] OQ-01 to OQ-08: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, and Gerardus novelty audit
 
 ### Outstanding
 
@@ -234,9 +246,9 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] l4clus0005 joining rule (`M`)
 - [ ] geom0013 hull bound (`S`)
 - [ ] ground0006 constrained ground and kerbs (`M`)
-- [ ] Recommendations opened in Gerardus (`S`)
+- [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)
 
-- [ ] The review's remaining rows OQ-08 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-09 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

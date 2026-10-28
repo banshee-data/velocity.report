@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-07 complete; OQ-08 is the next checkpoint
+- **Status:** OQ-01 to OQ-08 complete; OQ-09 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -324,8 +324,9 @@ CovarianceSampling forms F from scaled-point cross normal and normal, computes F
 eigenvalue ratio. It does not inspect the actual registration correspondences for the proposed
 acceptance gate. A long single wall leaves tangent translations unconstrained; a scalar condition
 number cannot identify which direction failed. The review now requires matched-geometry
-eigenvectors, eigenvalues, and meaningful scaling. OQ-08 must check Gerardus before recommending
-new work.
+eigenvectors, eigenvalues, and meaningful scaling. OQ-08 subsequently confirmed that Gerardus
+already computes scaled matched-geometry eigenvalues and named weak directions; the generic
+recommendation is superseded by its [novelty audit](pcl-gerardus-registration-gap-review.md).
 
 ### Q3-03: Descriptor matching and KFPCS are different seeding routes
 
@@ -336,7 +337,8 @@ KFPCS uses keypoint-based congruent four-point sets and keeps candidates; it is 
 descriptor matching. SampleConsensusPrerejective finds feature correspondences and tests inlier
 fraction/error (impl/sample_consensus_prerejective.hpp lines 243–288). Repeated facades can give
 ambiguous correspondences in either route. The review now names both routes without promising
-distinct correct basins. OQ-08 retains feasibility and novelty.
+distinct correct basins. OQ-08 confirms these initial-proposal routes are absent from the
+inspected Gerardus path; feasibility and benefit still require the bounded comparison.
 
 ### Q3-04: Change detection is not a cause classifier
 
@@ -475,13 +477,19 @@ analytical counterexamples to observed support, visibility, temporal identity, a
 handling. l5id0004/0005's historical results remain unchanged; l5id0006, l5id0011, and l3bg0028
 retain their existing scopes. No hypothesis-verification run or duplicate campaign was performed.
 
+OQ-08 is answered by the [Gerardus novelty audit](pcl-gerardus-registration-gap-review.md).
+Verified main `a2c2ac10` already supplies observability diagnostics and rank gating. Descriptor or
+congruent-set initial proposals remain a conditional comparison to its multipeak raster search;
+mobile Scan Context is a separate plan. Item 6 is narrowed accordingly, with no Gerardus changes,
+external issue, campaign, or pose acceptance.
+
 ## Resume point
 
-- **Active row:** OQ-08, not started; OQ-01 to OQ-07 complete
-- **Next action:** Locate and verify the current Gerardus checkout/revision, then read its `docs/REGISTRATION-STATUS.md` and October 24 registration maths note. Trace actual observability and descriptor-seeding implementations before updating the candidate plan's Item 6 with only recommendations that are new. Read the local registration report's pose0002 resolution first; do not reopen an already answered background-window sweep.
-- **If Gerardus is unavailable:** Record the exact missing access/input and leave OQ-08 open; do not infer its current features from velocity.report's recommendation.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 public 2-D estimator regression; OQ-07 is source analysis and prior-report synthesis only. No registration or duplicate campaign.
-- **Validation:** OQ-06 passed full `make test`, `make lint`, both CTests, documentation links, and the no-results guard. OQ-07 changes documentation only and passed `make lint`, documentation links, source-range checks, and the no-results guard; its staged diff was reviewed.
-- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04
-- **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable
-- **Checkpoint:** Draft PR #882; OQ-05 `60c110533`; OQ-06 `e1349cf87`; OQ-07 saved in this checkpoint commit. The owner authorised these two rows and pushes to the same PR. Stop here; no PR merge is authorised.
+- **Active row:** OQ-09, not started; OQ-01 to OQ-08 complete
+- **Next action:** Read the pose0001 and pose0002 reports, pinned PCL moving least squares and statistical outlier removal implementations, and the current guarded-background export path. Decide whether a bounded cleanup comparison can improve pose0001's gates without removing valid sparse edges or repeating the failed window sweep; fold the justified recommendation into Item 6 or drop it with a reason.
+- **Preserve:** pose0002 adopted no window; OQ-02 disproved direct native-grid camera compatibility; cleanup is not physical truth. OQ-08 does not authorise a new registration campaign or change to Gerardus's gates.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08 are source analysis and prior-report synthesis. No descriptor or cleanup campaign.
+- **Validation:** `make test`, `make lint`, final documentation checks, links, source ranges, and the no-results guard passed; Gerardus tests were inspected, not rerun. Source paths and ranges use frozen main Git objects, not the differing local branch.
+- **Outstanding inputs:** Original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04
+- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. Gerardus remote main was verified through the local GitHub CLI.
+- **Checkpoint:** Draft PR #882; OQ-06 `e1349cf87`; OQ-07 `342211be9`; OQ-08 saved in this checkpoint commit. The owner authorised this row and pushing to the same PR. Stop here; no PR merge is authorised.
