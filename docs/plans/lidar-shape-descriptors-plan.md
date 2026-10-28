@@ -255,6 +255,10 @@ Three consequences, all binding:
 2. Publish the resulting usable envelope per class in the maths note, and set the
    insufficient-points threshold from that measurement rather than from assumption.
 3. Feed the envelope into the scorecard's range stratification.
+4. For ESF/moment comparators, apply the [OQ-10 coverage contract](../lidar/operations/pcl-classification-corpus-requirements.md):
+   100 independent held-out objects per target class/contrast, and 30 per claimed class × aspect ×
+   range cell. Repeated observations measure stability, not sample size. Keep unknown aspect and
+   invalid descriptors visible, and learn fallback thresholds only on development data.
 
 **Milestone:** v0.5.7
 
@@ -262,8 +266,10 @@ Three consequences, all binding:
 
 - Phase 1 gates everything else in this plan and the descriptor portion
   of the classifier plan's candidate ladder.
-- Phase 4 breadth is limited by [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md): one of five
-  scenes captured. A single-site envelope is provisional.
+- Phase 4 needs reviewed coverage, not just captures. The old
+  [five-PCAP proposal](lidar-test-corpus-plan.md) is not the current archive inventory;
+  [OQ-10](../lidar/operations/pcl-classification-corpus-requirements.md) distinguishes the larger
+  unlabelled archive from one locally available kirk0 label set. A single-site envelope is provisional.
 - The classification scorecard in
   [lidar-ml-classifier-training-plan.md](lidar-ml-classifier-training-plan.md)
   Phase 1 is independent of this plan and can proceed in parallel; it

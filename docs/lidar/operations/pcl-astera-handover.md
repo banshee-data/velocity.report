@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-09 complete; OQ-10 is the next checkpoint
+- **Status:** OQ-01 to OQ-10 complete; OQ-11 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -491,13 +491,22 @@ Gerardus's held-out set or lose confidence fields. The guard and pose0002 result
 no cleanup trial ran. Reopening requires reviewed contamination and fixed original evaluation
 support, not merely lower residuals on a filtered cloud.
 
+OQ-10 is answered by the [classification corpus contract](pcl-classification-corpus-requirements.md).
+The local revision 2233 inventory contains 21 reviewed road-user records, not the older F0
+revision's 20; it has no cyclist or motorcyclist records. The comparison remains parked on
+classifier Phases 1–2 and shape Phase 4, with proposed screening floors of 100 independent
+held-out objects per target class/contrast and 30 per claimed class × aspect × range cell.
+Long-car truth, independent aspect, site splits, and additional labels remain explicit inputs.
+Source checks also record ESF scale removal and unbounded degenerate retries, and the default
+moment estimator's point-count dependence. No descriptor campaign or classifier fit ran.
+
 ## Resume point
 
-- **Active row:** OQ-10, not started; OQ-01 to OQ-09 complete
-- **Next action:** Read shape-descriptor Phase 4, classifier training Phases 1/2, and the current labelled-corpus records. Identify the owner dependencies and justify minimum independent-object coverage by class, aspect, and range for scoring ESF and moment-of-inertia descriptors. Count independent objects/site splits rather than repeated frames; retain unavailable labels as an explicit dependency.
-- **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup without running it. The descriptor-seeding comparator, border-label experiment, and classifier descriptor comparison are different questions.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 are source analysis and prior-report synthesis. No descriptor or cleanup campaign.
-- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 changes documentation only; final lint, links, source ranges, arithmetic, and the no-results guard passed; the staged diff was reviewed. Gerardus tests were inspected, not rerun.
-- **Outstanding inputs:** Original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; labelled classification coverage to inventory in OQ-10
-- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. Gerardus main `a2c2ac10` was verified through the local GitHub CLI.
-- **Checkpoint:** Draft PR #882; OQ-07 `342211be9`; OQ-08 `e1db67ddc`; OQ-09 saved in this checkpoint commit. The owner's continuation authorised completion of OQ-08 and OQ-09 and pushes to the same PR. Stop here; no PR merge is authorised.
+- **Active row:** OQ-11, not started; OQ-01 to OQ-10 complete
+- **Next action:** Obtain/read the owner's original linked ChatGPT discussion, compare its arguments with the five questions and OQ-01 to OQ-10 findings, and record any genuinely new question as a row. If the discussion is unavailable, retain that input dependency rather than reconstructing its contents.
+- **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup. OQ-10 defines classification coverage, not descriptor seeding, a training sample size, or an adoption decision. Keep earlier report denominators tied to their label revision.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. No descriptor or cleanup campaign.
+- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 and OQ-10 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
+- **Outstanding inputs:** Original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
+- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
+- **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.

@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 28, 2026 - PCL contracts, experiment controls, and Gerardus review
 
+- {codex/pcl-open-question-review} Closed OQ-10 with [classification corpus requirements](lidar/operations/pcl-classification-corpus-requirements.md): inventoried 21 reviewed road-user records in local label revision 2233, preserved F0's older denominator, and specified 100 independent held-out objects per target class/contrast and 30 per claimed aspect/range cell as screening floors. Recorded PCL descriptor counterexamples, missing labels and site splits, and corrected stale SQLite-only and generated-corpus-in-Git instructions. Classification remains parked; no training or descriptor campaign ran. Saved OQ-11 as the next checkpoint.
+
 - {codex/pcl-open-question-review} Closed OQ-09 by dropping blanket MLS/SOR background cleanup: [source evidence and evaluation confounds](lidar/operations/pcl-background-cleanup-disposition.md). Preserved guard and window results, traced confidence and held-out membership through export/import, and recorded fixed original evaluation support as a condition for reconsideration; no cleanup campaign ran. Saved OQ-10 as the next checkpoint.
 
 - {codex/pcl-open-question-review} Closed OQ-08 against verified Gerardus main `a2c2ac10`: [novelty audit](lidar/operations/pcl-gerardus-registration-gap-review.md). Removed the redundant observability recommendation, retained a conditional descriptor/congruent-set proposal comparison against the existing raster search, and preserved pose0002's negative window result. No Gerardus code, gates, or accepted poses changed; the next checkpoint is OQ-09.

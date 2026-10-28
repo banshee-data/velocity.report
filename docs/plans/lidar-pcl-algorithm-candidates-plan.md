@@ -213,7 +213,13 @@ implementation, campaign design, and promotion remain unapproved here.
 **Summary:** ESF and moment-of-inertia descriptors as offline comparators to the shape-descriptor
 plan's scalars, once a class scorecard and a labelled corpus exist.
 
-**Milestone:** with the Parked classification scorecard and corpus rows; no spec now.
+**Milestone:** with the Parked classification scorecard and corpus rows. The
+[OQ-10 dependency contract](../lidar/operations/pcl-classification-corpus-requirements.md) requires
+100 independent held-out objects per target class/contrast and 30 per claimed class × aspect ×
+range cell, with site-disjoint evaluation, unknown/invalid coverage, and a common downstream
+classifier. These are screening floors, not promotion gates or training-set sizes. The current
+local kirk0 labels lack cyclists, motorcyclists, and reviewed long-car/aspect coverage; no
+comparison is scheduled by this contract.
 
 ## Dependencies
 
@@ -241,7 +247,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-09: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, and cleanup disposition
+- [x] OQ-01 to OQ-10: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, and classification corpus requirements
 
 ### Outstanding
 
@@ -252,7 +258,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)
 
-- [ ] The review's remaining rows OQ-10 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-11 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

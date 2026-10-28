@@ -44,8 +44,8 @@ pointer, defines the scorecard, and sequences the work.
 | Live cascade consumes 11 features; `TrackFeatures` already computes ~20 (elongation, compactness, intensity std, heading variance)                          | `l6objects/features.go`                                        |
 | Ground-truth evaluator scores detection, fragmentation, false positives; `DetectionRateByClass` is detection recall per reference class, not class accuracy | `internal/lidar/adapters/ground_truth.go`                      |
 | No confusion matrix, macro-F1, or calibration measurement exists                                                                                            | No occurrences in `l8analytics/` or `adapters/`                |
-| Labels live only in runtime SQLite (`lidar_run_tracks.user_label`); no versioned corpus artefact                                                            | `internal/db/migrations/`                                      |
-| 1 of 5 planned test PCAPs captured                                                                                                                          | `docs/lidar/operations/test-corpus.md`                         |
+| Runtime track labels and capture-bound label sets exist; a frozen classification feature corpus remains unimplemented                                       | [label sets](../lidar/operations/label-sets.md)                |
+| Five-PCAP proposal predates the larger archive; reviewed classification coverage remains limited                                                            | `docs/lidar/operations/test-corpus.md`                         |
 | No training-data export path; spec parked at v0.8.0                                                                                                         | `unpopulated-data-structures-remediation-plan.md` Phase 5      |
 
 ## Findings
@@ -59,7 +59,7 @@ pointer, defines the scorecard, and sequences the work.
 | Platform reuse          | Plan proposes a parallel Python stack; the Go sweep platform already provides versioning and score decomposition | Medium   | Phase 1 design decision                                        |
 | Proposed language       | Names `tools/ml-training/*.py` in a repo that removed its Python PDF generator                                   | Medium   | Rejected in this rewrite                                       |
 | Feature-set duplication | Restates the feature list in prose instead of referencing `TrackFeatures`                                        | Low      | Fixed in this rewrite                                          |
-| Corpus availability     | Assumes fixed replay packs; 1 of 5 captured, labels unversioned                                                  | Medium   | Phase 2, v0.5.7                                                |
+| Corpus availability     | No frozen classification export; available label-set revisions do not establish multi-class coverage             | Medium   | Phase 2, v0.5.7                                                |
 
 ## Design / approach
 
@@ -142,6 +142,11 @@ evaluation platform.
 5. Record the scorecard definition in `data/maths/classification-maths.md`:
    metric formulae, class set, and the matching rule inherited from
    `computeTemporalIoU`.
+6. Apply the [OQ-10 evaluation contract](../lidar/operations/pcl-classification-corpus-requirements.md):
+   true truck and motorcyclist rows remain present even when the baseline emits neither. Separate
+   detection/matching failures from class errors, count independent objects, retain invalid
+   descriptors and fallthrough, and report paired deltas and per-site/stratum uncertainty.
+   The 100-object class/contrast and 30-object cell floors support coarse screening only.
 
 **Milestone:** v0.5.7
 
@@ -157,11 +162,20 @@ artefact.
    [unpopulated data structures plan](unpopulated-data-structures-remediation-plan.md)
    Phase 5.
 2. Define the corpus artefact: feature vectors plus labels plus provenance
-   (run id, objective version, schema version, labeller source). Geometry and
-   kinematics only — no PII by construction, so the artefact is repository-safe.
-3. Freeze a baseline corpus from the captured kirk0 scene and check it in.
-4. Add a regression test asserting the rule baseline's scorecard against the
-   frozen corpus, so classifier changes surface as scorecard deltas.
+   (run id, objective version, schema version, labeller source, label-set id/revision/digest,
+   capture hash, object correspondence, and split identity). Consume existing capture-bound label
+   sets; do not replace them with predictions or infer independent identity from track IDs.
+3. Freeze a development baseline from kirk0 in the external dataset/output store. Commit the
+   contract, provenance identifiers, and human-readable report here, not generated feature rows,
+   labels, predictions, recordings, or metric dumps. Use hand-authored fixtures for repository tests.
+4. Add a regression test for the scorecard over those fixtures and a reproducible external-corpus
+   check, so classifier changes surface as scorecard deltas.
+5. Before descriptor comparisons, satisfy the [OQ-10 corpus requirements](../lidar/operations/pcl-classification-corpus-requirements.md):
+   100 independent held-out objects per target class/contrast, 30 per claimed class × aspect ×
+   range cell, separate development/validation/test sites, and a reviewed long-car definition.
+   The four primary groups need at least 400 test objects; whole-classifier claims need additional
+   controls. Freeze selection and aggregation before scoring. Missing cells remain unsupported;
+   training size and confirmatory power require separate planning.
 
 **Milestone:** v0.5.7
 
@@ -234,8 +248,9 @@ a separate experiment-tracking service.
   calibration measurement.
 - MOTA/MOTP (gap ID M1) and the L8 analytics maths note share the metric
   substrate with Phase 1; sequence them together to avoid two metric layers.
-- Phase 2 corpus breadth is limited by
-  [lidar-test-corpus-plan.md](lidar-test-corpus-plan.md): 1 of 5 scenes captured.
+- Phase 2 needs the reviewed class/aspect/range coverage in
+  [OQ-10](../lidar/operations/pcl-classification-corpus-requirements.md). The larger archive is
+  not a labelled classifier corpus; the old five-PCAP proposal is not its current inventory.
   Phases 1-2 are valid on one scene; Phase 3 should not conclude on one scene.
 - Labelling throughput from the
   [track labelling plan](lidar-track-labelling-auto-aware-tuning-plan.md)
@@ -273,7 +288,7 @@ a separate experiment-tracking service.
 - [ ] Phase 1: wire metrics into `ScoreComponents`, bump `ObjectiveVersion` (`S`)
 - [ ] Phase 1: scorecard definition recorded in `classification-maths.md` (`S`)
 - [ ] Phase 2: Go training-export path over `TrackFeatures` (`M`)
-- [ ] Phase 2: corpus artefact format and frozen kirk0 baseline (`M`)
+- [ ] Phase 2: corpus format, external frozen kirk0 development baseline, and OQ-10 coverage/split manifest (`M`)
 - [ ] Phase 2: baseline scorecard regression test (`S`)
 - [ ] Phase 3.1: analysis lane setup and test wiring (`S`)
 - [ ] Phase 3.2: corpus loader with fixture round-trip test (`S`)

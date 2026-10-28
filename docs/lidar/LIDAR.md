@@ -45,6 +45,8 @@ The [Gerardus novelty audit](operations/pcl-gerardus-registration-gap-review.md)
 existing observability diagnostics and narrows follow-up to initial proposals.
 The [background-cleanup disposition](operations/pcl-background-cleanup-disposition.md) drops
 blanket MLS/SOR export cleanup and explains why the evaluation points must stay fixed.
+The [classification corpus requirements](operations/pcl-classification-corpus-requirements.md)
+inventory reviewed labels and set independent-object floors for class, aspect, and range screens.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

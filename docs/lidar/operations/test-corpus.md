@@ -11,6 +11,15 @@ Five-PCAP test corpus using the Hesai P40 sensor, covering enough road geometry,
 
 All provisional config defaults were tuned on kirk0: a single capture at one site. The overfitting risk is real: kirk0 may be flat (sloped-road defaults untested), may over-represent one vehicle class, may lack kerbs/junctions/long-range views, and one capture cannot cover wet/dry/wind conditions.
 
+## Relationship to classification coverage
+
+This five-PCAP proposal is not a current archive inventory. The
+[OQ-10 inventory and coverage contract](pcl-classification-corpus-requirements.md) distinguishes
+23 previously replayed sites from the locally available reviewed kirk0 set. The counts below are
+capture/sweep pilot requirements; they do not meet descriptor classification coverage. That
+comparison needs 100 independent held-out objects per target class/contrast and 30 per claimed
+class × aspect × range cell, with separate sites and reviewed identity.
+
 ## Corpus specification
 
 All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually labelled tracks covering car, truck, cyclist, and pedestrian at minimum.
@@ -35,7 +44,7 @@ All captures use the **Hesai P40** sensor. Each site needs ≥ 20 manually label
 - Sensor: Hesai P40 at 10 Hz
 - Duration: ≥ 5 minutes continuous traffic (≥ 3,000 frames)
 - Format: PCAP-NG (`.pcapng`)
-- Storage: Git LFS under [internal/lidar/perf/pcap/](../../../internal/lidar/perf/pcap)
+- Storage: external dataset or ignored local capture store; do not commit raw captures or generated corpus exports to this repository
 - GPS: Record GPS fix alongside capture (for geo-referencing, not pipeline processing)
 
 ### Labelling requirements
