@@ -43,6 +43,8 @@ The [hypothesis-verification disposition](operations/pcl-hypothesis-verification
 drops a separate duplicate-track arm and records its visibility and temporal-identity limits.
 The [Gerardus novelty audit](operations/pcl-gerardus-registration-gap-review.md) confirms its
 existing observability diagnostics and narrows follow-up to initial proposals.
+The [background-cleanup disposition](operations/pcl-background-cleanup-disposition.md) drops
+blanket MLS/SOR export cleanup and explains why the evaluation points must stay fixed.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

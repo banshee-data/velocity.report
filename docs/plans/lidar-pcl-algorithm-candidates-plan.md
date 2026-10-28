@@ -197,9 +197,13 @@ the current raster search. Planned mobile Scan Context is a different task.
 2. Use the existing diagnostics when assessing the comparator. Local rank does not resolve global
    aliases; the distinct-alternative concern is already known to Gerardus. Do not change its
    acceptance thresholds on the strength of extra proposals.
-3. Export cleanup and normals wait for OQ-09 and OQ-02's adapter contract; Item 1 does not yet
-   justify stripping veil-marked returns or supplying calibrated normals. Change-map attribution
-   remains a separate candidate, not a novelty established by OQ-08.
+3. [OQ-09](../lidar/operations/pcl-background-cleanup-disposition.md) drops blanket MLS/SOR
+   export cleanup: there is no measured benefit beyond the guard, and deleting or moving points
+   changes the evaluation population. Keep the guarded export. Reopen only with reviewed
+   contamination and a frozen original evaluation set, preserving confidence and source identity;
+   a comparison of each filtered file's own residual gates is insufficient. This adds no arm or
+   tuning set. l3bg0028's border-label question and normal estimation retain their own contracts,
+   including OQ-02's adapter constraint. Change-map attribution remains separate.
 
 **Milestone:** unscheduled; Gerardus sets the order. This source-audit handoff is complete;
 implementation, campaign design, and promotion remain unapproved here.
@@ -237,7 +241,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-08: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, and Gerardus novelty audit
+- [x] OQ-01 to OQ-09: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, and cleanup disposition
 
 ### Outstanding
 
@@ -248,7 +252,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)
 
-- [ ] The review's remaining rows OQ-09 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-10 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 
@@ -261,3 +265,5 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] PCL's particle filter, dense descriptors, corner keypoints, meshing and GPU modules: set aside in the review, with reasons
 
 - [x] Greedy/Papazov standalone duplicate-track arm: [OQ-07 disposition](../lidar/operations/pcl-hypothesis-verification-disposition.md) records the missing visibility/temporal contract and counterexamples. Existing l5id0006, l5id0011, and l3bg0028 retain their own questions; no retrospective arm is added to l5id0004/0005.
+
+- [x] Blanket MLS/SOR registration-export cleanup: [OQ-09 disposition](../lidar/operations/pcl-background-cleanup-disposition.md) records the missing benefit evidence, sparse-support counterexamples, and fixed-evaluation conditions for reconsideration.

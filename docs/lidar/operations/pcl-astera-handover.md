@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-08 complete; OQ-09 is the next checkpoint
+- **Status:** OQ-01 to OQ-09 complete; OQ-10 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -360,7 +360,8 @@ SOR rejects mean-neighbour-distance outliers using a global mean plus standard-d
 multiplier. A valid isolated edge or sparse distant surface may be removed. Normals require
 estimation, not merely a PCD writer. The plan now states that dependency. pose0001 supplies the
 6/24 and separation findings, not PCL; no improved registration gate or guaranteed rejection
-diagnosis is established. OQ-08/09 own the comparison.
+diagnosis is established. OQ-09 subsequently drops blanket MLS/SOR export cleanup, with
+[fixed-evaluation conditions](pcl-background-cleanup-disposition.md) before reconsideration.
 
 ### Q4-01: RangeImage is spherical, but not the native ring array
 
@@ -483,13 +484,20 @@ congruent-set initial proposals remain a conditional comparison to its multipeak
 mobile Scan Context is a separate plan. Item 6 is narrowed accordingly, with no Gerardus changes,
 external issue, campaign, or pose acceptance.
 
+OQ-09 drops blanket MLS/SOR background cleanup from Item 6. Its
+[source and evaluation record](pcl-background-cleanup-disposition.md) explains why density is
+not temporal contamination, MLS moves points even without upsampling, and filtering can change
+Gerardus's held-out set or lose confidence fields. The guard and pose0002 results are preserved;
+no cleanup trial ran. Reopening requires reviewed contamination and fixed original evaluation
+support, not merely lower residuals on a filtered cloud.
+
 ## Resume point
 
-- **Active row:** OQ-09, not started; OQ-01 to OQ-08 complete
-- **Next action:** Read the pose0001 and pose0002 reports, pinned PCL moving least squares and statistical outlier removal implementations, and the current guarded-background export path. Decide whether a bounded cleanup comparison can improve pose0001's gates without removing valid sparse edges or repeating the failed window sweep; fold the justified recommendation into Item 6 or drop it with a reason.
-- **Preserve:** pose0002 adopted no window; OQ-02 disproved direct native-grid camera compatibility; cleanup is not physical truth. OQ-08 does not authorise a new registration campaign or change to Gerardus's gates.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08 are source analysis and prior-report synthesis. No descriptor or cleanup campaign.
-- **Validation:** `make test`, `make lint`, final documentation checks, links, source ranges, and the no-results guard passed; Gerardus tests were inspected, not rerun. Source paths and ranges use frozen main Git objects, not the differing local branch.
-- **Outstanding inputs:** Original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04
-- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. Gerardus remote main was verified through the local GitHub CLI.
-- **Checkpoint:** Draft PR #882; OQ-06 `e1349cf87`; OQ-07 `342211be9`; OQ-08 saved in this checkpoint commit. The owner authorised this row and pushing to the same PR. Stop here; no PR merge is authorised.
+- **Active row:** OQ-10, not started; OQ-01 to OQ-09 complete
+- **Next action:** Read shape-descriptor Phase 4, classifier training Phases 1/2, and the current labelled-corpus records. Identify the owner dependencies and justify minimum independent-object coverage by class, aspect, and range for scoring ESF and moment-of-inertia descriptors. Count independent objects/site splits rather than repeated frames; retain unavailable labels as an explicit dependency.
+- **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup without running it. The descriptor-seeding comparator, border-label experiment, and classifier descriptor comparison are different questions.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 are source analysis and prior-report synthesis. No descriptor or cleanup campaign.
+- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 changes documentation only; final lint, links, source ranges, arithmetic, and the no-results guard passed; the staged diff was reviewed. Gerardus tests were inspected, not rerun.
+- **Outstanding inputs:** Original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; labelled classification coverage to inventory in OQ-10
+- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. Gerardus main `a2c2ac10` was verified through the local GitHub CLI.
+- **Checkpoint:** Draft PR #882; OQ-07 `342211be9`; OQ-08 `e1db67ddc`; OQ-09 saved in this checkpoint commit. The owner's continuation authorised completion of OQ-08 and OQ-09 and pushes to the same PR. Stop here; no PR merge is authorised.

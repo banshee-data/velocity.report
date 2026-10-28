@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 28, 2026 - PCL contracts, experiment controls, and Gerardus review
 
+- {codex/pcl-open-question-review} Closed OQ-09 by dropping blanket MLS/SOR background cleanup: [source evidence and evaluation confounds](lidar/operations/pcl-background-cleanup-disposition.md). Preserved guard and window results, traced confidence and held-out membership through export/import, and recorded fixed original evaluation support as a condition for reconsideration; no cleanup campaign ran. Saved OQ-10 as the next checkpoint.
+
 - {codex/pcl-open-question-review} Closed OQ-08 against verified Gerardus main `a2c2ac10`: [novelty audit](lidar/operations/pcl-gerardus-registration-gap-review.md). Removed the redundant observability recommendation, retained a conditional descriptor/congruent-set proposal comparison against the existing raster search, and preserved pose0002's negative window result. No Gerardus code, gates, or accepted poses changed; the next checkpoint is OQ-09.
 
 - {codex/pcl-open-question-review} Closed OQ-07 by dropping a standalone Greedy/Papazov duplicate-track arm: [source evidence and counterexamples](lidar/operations/pcl-hypothesis-verification-disposition.md). Static point-support competition supplies neither calibrated visibility nor temporal identity; existing survivor, containment-claim, and visibility experiments retain their scopes. Preserved historical replay results and saved OQ-08 as the next checkpoint.
