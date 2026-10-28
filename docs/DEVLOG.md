@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 28, 2026 - PCL segmentation contracts, oracle setup, and joining controls
 
+- {codex/pcl-open-question-review} Closed OQ-07 by dropping a standalone Greedy/Papazov duplicate-track arm: [source evidence and counterexamples](lidar/operations/pcl-hypothesis-verification-disposition.md). Static point-support competition supplies neither calibrated visibility nor temporal identity; existing survivor, containment-claim, and visibility experiments retain their scopes. Preserved historical replay results and saved OQ-08 as the next checkpoint.
+
 - {codex/pcl-open-question-review} Closed OQ-06 by retaining one bounded PCL comparator inside facet arm B, with W4 still owning censored extent inference. Corrected OQ-01's false z-translation claim after tracing cleared centroids and adding a passing executable regression for two public overloads: [disposition and evidence](lidar/operations/pcl-planar-registration-disposition.md).
 
 - {codex/pcl-open-question-review} Closed OQ-05 by amending l4clus0005 before execution: [sampling and joining controls](lidar/operations/pcl-joining-cap-controls.md). Added matched high-cap DBSCAN and graph arms using the existing config, separated frozen-input connectivity from replay feedback, and retained the a0 gates with an additional matched-cap comparison for uncapped graphs; no new campaign ran.

@@ -225,7 +225,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-06: source review, compatibility, contracts, tooling, sampling controls, and planar registration disposition
+- [x] OQ-01 to OQ-07: source review, compatibility, contracts, tooling, sampling controls, and registration/duplicate-track dispositions
 
 ### Outstanding
 
@@ -236,7 +236,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
 
-- [ ] The review's remaining rows OQ-07 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-08 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 
@@ -247,3 +247,5 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 ### Accepted residuals (no action planned)
 
 - [ ] PCL's particle filter, dense descriptors, corner keypoints, meshing and GPU modules: set aside in the review, with reasons
+
+- [x] Greedy/Papazov standalone duplicate-track arm: [OQ-07 disposition](../lidar/operations/pcl-hypothesis-verification-disposition.md) records the missing visibility/temporal contract and counterexamples. Existing l5id0006, l5id0011, and l3bg0028 retain their own questions; no retrospective arm is added to l5id0004/0005.

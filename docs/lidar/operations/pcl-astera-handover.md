@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-06 complete; OQ-07 is the next checkpoint
+- **Status:** OQ-01 to OQ-07 complete; OQ-08 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -469,11 +469,19 @@ OQ-06 retains one bounded comparator within facet arm B, with no separate W4 wor
 [source and regression record](pcl-planar-registration-disposition.md) corrects OQ-01's false
 z-translation claim. No iterative registration comparator or campaign was implemented.
 
+OQ-07 drops the standalone Greedy/Papazov duplicate-track arm. The
+[disposition](pcl-hypothesis-verification-disposition.md) maps six source claims and four
+analytical counterexamples to observed support, visibility, temporal identity, and survivor
+handling. l5id0004/0005's historical results remain unchanged; l5id0006, l5id0011, and l3bg0028
+retain their existing scopes. No hypothesis-verification run or duplicate campaign was performed.
+
 ## Resume point
 
-- **Active row:** OQ-07, not started; OQ-01 to OQ-06 complete
-- **Next action:** Read pinned Greedy/Papazov hypothesis-verification implementation and map scene support, unsupported model points, and pair conflicts to current duplicate-track evidence. Either justify a distinct l5id arm or drop it with a recorded reason; preserve historical l5id0004/0005 results.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 public 2-D estimator regression; no registration or duplicate campaign
-- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; campaign adapters and harnesses remain unbuilt
+- **Active row:** OQ-08, not started; OQ-01 to OQ-07 complete
+- **Next action:** Locate and verify the current Gerardus checkout/revision, then read its `docs/REGISTRATION-STATUS.md` and October 24 registration maths note. Trace actual observability and descriptor-seeding implementations before updating the candidate plan's Item 6 with only recommendations that are new. Read the local registration report's pose0002 resolution first; do not reopen an already answered background-window sweep.
+- **If Gerardus is unavailable:** Record the exact missing access/input and leave OQ-08 open; do not infer its current features from velocity.report's recommendation.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 public 2-D estimator regression; OQ-07 is source analysis and prior-report synthesis only. No registration or duplicate campaign.
+- **Validation:** OQ-06 passed full `make test`, `make lint`, both CTests, documentation links, and the no-results guard. OQ-07 changes documentation only and passed `make lint`, documentation links, source-range checks, and the no-results guard; its staged diff was reviewed.
+- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04
 - **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable
-- **Checkpoint:** PR #882; OQ-05 `60c110533`; OQ-06 saved in this checkpoint commit. The owner authorised OQ-06/OQ-07 commits and pushes to the same PR; no PR merge is authorised.
+- **Checkpoint:** Draft PR #882; OQ-05 `60c110533`; OQ-06 `e1349cf87`; OQ-07 saved in this checkpoint commit. The owner authorised these two rows and pushes to the same PR. Stop here; no PR merge is authorised.

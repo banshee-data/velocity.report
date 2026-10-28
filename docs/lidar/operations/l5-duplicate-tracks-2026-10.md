@@ -304,3 +304,12 @@ held-out window.
 4. **Give a surviving track's box its history.** When the overlap end keeps a track whose box has
    not converged, the drawn box restarts; the published box could inherit the ended track's
    heading and extent beliefs.
+
+## PCL follow-up disposition
+
+The [OQ-07 source review](pcl-hypothesis-verification-disposition.md) drops a separate
+Greedy/Papazov arm. It distinguishes static shared-point support from this report's temporal
+survivor policy and records counterexamples for split clusters, tied support, occlusion, and
+nearby distinct bodies. This does not alter the trials or their results above. l5id0006's survivor
+work, l5id0011's containment claims, and the labelled held-out identity gate remain their own
+questions; no new PCL replay result is claimed.
