@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-05 complete; OQ-06 is the next checkpoint
+- **Status:** OQ-01 to OQ-06 complete; OQ-07 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -281,14 +281,16 @@ clearance would need a different metric.
 
 ### Q2-03: The three planar registration options are not identical
 
-**Verdict: Corrected.** [Pinned
-implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/impl/transformation_estimation_2D.hpp#L163-L183).
+**Verdict: Corrected again by OQ-06; the original z-translation finding was false.**
+[Pinned implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/impl/transformation_estimation_2D.hpp#L124-L182).
 
-The rotation is yaw-only, but translation uses all three centroid coordinates. A z offset between
-otherwise identical clouds produces z translation. WarpPointRigid3D.setParam
-(warp_point_rigid_3d.h lines 80–103) is tx, ty, rz; NDT2D uses xytheta (impl/ndt_2d.hpp lines
-415–475). The review now requires XY projection or a constrained z contract for
-TransformationEstimation2D. OQ-06 decides whether this comparator earns a place in arm B.
+The earlier pass read the final centroid subtraction without following its inputs. The public
+iterator path sets both centroid z components to zero at lines 139–141, so the returned transform
+has XY translation and yaw, with zero z translation. OQ-06's executable cloud/correspondence tests
+confirm that a 7 m target z offset does not produce z translation. XY matching still requires an
+explicit search contract. WarpPointRigid3D and NDT2D also parameterise planar motion, but their
+objectives are not automatically facet B's robust point-to-plane likelihood. See the
+[OQ-06 disposition](pcl-planar-registration-disposition.md) for the bounded comparator and limits.
 
 ### Q2-04: Visible support cannot recover unseen extent
 
@@ -463,11 +465,15 @@ has six matched cap/rule arms, a frozen-stream oracle, a per-treatment stop gate
 comparisons against a0 and the matched-cap DBSCAN control. The existing high-cap config differs
 from defaults only in the cap. No new campaign ran and the spec remains proposed.
 
+OQ-06 retains one bounded comparator within facet arm B, with no separate W4 workstream. Its
+[source and regression record](pcl-planar-registration-disposition.md) corrects OQ-01's false
+z-translation claim. No iterative registration comparator or campaign was implemented.
+
 ## Resume point
 
-- **Active row:** OQ-06, not started; OQ-01 to OQ-05 complete
-- **Next action:** Read the geometry convergence plan's section 4/W4 and facet plan arm B; decide whether planar registration is a comparator within arm B, a separate justified spec, or removed. Preserve OQ-01's warning that TransformationEstimation2D also translates z unless explicitly constrained/projected.
-- **Execution evidence:** OQ-02 one-frame and OQ-03 synthetic checks; OQ-04 package/source inventory and rebuilt diagnostics; OQ-05 spec/config verification, no campaign
-- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04
+- **Active row:** OQ-07, not started; OQ-01 to OQ-06 complete
+- **Next action:** Read pinned Greedy/Papazov hypothesis-verification implementation and map scene support, unsupported model points, and pair conflicts to current duplicate-track evidence. Either justify a distinct l5id arm or drop it with a recorded reason; preserve historical l5id0004/0005 results.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 public 2-D estimator regression; no registration or duplicate campaign
+- **Outstanding inputs:** Gerardus access for OQ-08; original discussion for OQ-11; campaign adapters and harnesses remain unbuilt
 - **Local source cache:** `/private/tmp/velocity-pcl-review/pcl`, verified pin; disposable
-- **Checkpoint:** OQ-01 `66a0cf558`; OQ-02 `439c190af` and `4710e5f40`; OQ-03 `5a7d700b7`; OQ-04 `7a32b49d4`; main integrated at `8ee3141db`. OQ-05 is saved in this checkpoint commit. The owner authorised pushing and a draft PR for this branch; no merge is authorised.
+- **Checkpoint:** PR #882; OQ-05 `60c110533`; OQ-06 saved in this checkpoint commit. The owner authorised OQ-06/OQ-07 commits and pushes to the same PR; no PR merge is authorised.

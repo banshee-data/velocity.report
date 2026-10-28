@@ -34,3 +34,12 @@ Its fixed hand-authored fixtures assert RegionGrowing distance/seed behaviour, S
 membership, and the difference between erosion and opening. Parameters and measured summaries
 are recorded in the [OQ-03 report](../../docs/lidar/operations/pcl-segmentation-contracts.md).
 Keep stdout and CTest logs outside the checkout. A failed assertion exits non-zero.
+
+## Planar estimator contract (OQ-06)
+
+Build `pcl-registration-check` in the same CMake directory and run CTest with
+`-R registration-contracts -V`. The public whole-cloud and correspondence overloads must return
+zero z translation despite a target z offset. This corrects an earlier source-review error;
+it is not an iterative registration benchmark. It uses registration headers and the existing
+common library, without building the registration library. See the
+[disposition](../../docs/lidar/operations/pcl-planar-registration-disposition.md).

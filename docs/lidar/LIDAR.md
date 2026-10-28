@@ -37,6 +37,8 @@ The [oracle tooling runbook](operations/pcl-oracle-tooling.md) pins the installa
 stock CLI limitations to explicit campaign harness contracts.
 The [joining-control design](operations/pcl-joining-cap-controls.md) separates cap losses from
 connectivity with six matched arms and a frozen-input oracle.
+The [planar registration disposition](operations/pcl-planar-registration-disposition.md) places
+one comparator within facet arm B and corrects the earlier 2-D z-translation claim.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

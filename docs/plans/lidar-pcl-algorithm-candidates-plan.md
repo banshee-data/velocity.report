@@ -155,6 +155,10 @@ across the path, on the pilot's reviewed poses and pairs.
 
 **Milestone:** reports before v0.5.8's endpoint-source row is promoted; `S`.
 
+[OQ-06](../lidar/operations/pcl-planar-registration-disposition.md) keeps accumulated alignment
+as one bounded comparator within facet arm B. It does not extend geom0013's single-observation
+hull bound or replace W4's censored extent estimator; no separate registration spec is added.
+
 ### Item 5: Q0, constrained ground and kerbs (ground0006)
 
 **Summary:** A perpendicular-plane MSAC fit and a difference-of-normals kerb split on settled
@@ -221,7 +225,7 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-05: source review, compatibility, segmentation contracts, oracle tooling, and sampling controls
+- [x] OQ-01 to OQ-06: source review, compatibility, contracts, tooling, sampling controls, and planar registration disposition
 
 ### Outstanding
 
@@ -232,13 +236,13 @@ plan's scalars, once a class scorecard and a labelled corpus exist.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Recommendations opened in Gerardus (`S`)
 
-- [ ] The review's remaining rows OQ-06 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-07 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 
 - [ ] Descriptor comparison (ESF, moment of inertia): waits on the Parked classification scorecard and corpus
 - [ ] Organised normals port: only when two passing experiments need normals
-- [ ] Planar registration comparator for arm B: with the Parked facet registration experiment
+- [ ] Planar registration comparator within facet arm B: OQ-06 contract agreed for the proposed experiment; implementation waits on its gates
 
 ### Accepted residuals (no action planned)
 
