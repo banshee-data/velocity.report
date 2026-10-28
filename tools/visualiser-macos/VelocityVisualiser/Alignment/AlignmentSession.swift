@@ -11,6 +11,11 @@
 //                     StreamReference once per W4–W7 layer the server lists
 //                     (BUILDINGS, LANE_MARKINGS, STREET_FURNITURE, TREES),
 //                     then StreamReference once per registered layer
+//   Site picker       GetSite, to read how current the stored bundle is; builds nothing
+//   Update reference  PrepareSite (refresh false: Gerardus rebuilds a bundle that lacks
+//   data              layers it can now build, from its caches), then the reference again
+//   Regenerate…       after a confirmation, PrepareSite (refresh true: every source
+//                     downloaded and 3DEP cut again), then the reference again
 //   Nudge             nothing on the wire: only the model matrix changes
 //   Accumulate        during a pcap replay, velocity.report's
 //                     POST /api/lidar/replay/full_frames on, then nothing
@@ -241,6 +246,13 @@ struct ReferenceSummary: Equatable {
     @Published var northAzimuthText: String = ""
 
     @Published private(set) var preparedSite: Gerardus_Align_V1alpha1_Site?
+    /// The stored bundle of the chosen site, read with GetSite before any
+    /// placement; nil while none is stored or the server has not answered.
+    @Published private(set) var bundle: Gerardus_Align_V1alpha1_Site?
+    /// Asks the operator to confirm Regenerate; nothing is sent until they do.
+    @Published var confirmingRegenerate = false
+    /// What the last Update or Regenerate did or did not add.
+    @Published private(set) var referenceDataNote: String?
     @Published private(set) var progress: Gerardus_Align_V1alpha1_Progress?
     @Published private(set) var reference: ReferenceSummary?
     @Published var showAerial = true { didSet { pushVisibility() } }
@@ -532,6 +544,7 @@ struct ReferenceSummary: Equatable {
             availability = .available(serverVersion: info.serverVersion)
             probeFailure = nil
             isChecking = false
+            if bundle == nil { Task { await refreshBundle() } }
         } else {
             client = nil
             serverInfo = nil
@@ -654,6 +667,10 @@ struct ReferenceSummary: Equatable {
         northAzimuthText =
             defaults?.string(forKey: Self.northAzimuthKeyPrefix + chosen.l16Token) ?? ""
         clearPlacement()
+        bundle = nil
+        confirmingRegenerate = false
+        referenceDataNote = nil
+        Task { await refreshBundle() }
     }
 
     /// The typed north_azimuth_deg, or nil when the field is empty or
@@ -698,6 +715,7 @@ struct ReferenceSummary: Equatable {
                 [weak self] progress in await self?.show(progress)
             }
             preparedSite = prepared
+            bundle = prepared
 
             busy = "Placing from the hint"
             var request = Gerardus_Align_V1alpha1_PoseFromHintRequest()
@@ -721,21 +739,8 @@ struct ReferenceSummary: Equatable {
             evaluation = nil
             sink?.setResidualOverlay(nil, palette: ResidualStyle.palette)
 
-            busy = "Streaming the reference"
-            var geometry = try await client.streamReference(
-                referenceRequest(l16Token: site.l16Token, centre: start.translation))
-            busy = "Streaming the streets"
-            geometry.merge(
-                await streamStreetLayers(
-                    client: client, l16Token: site.l16Token, centre: start.translation))
-            busy = "Streaming buildings, markings, furniture and trees"
-            geometry.merge(
-                await streamFeatureLayers(
-                    client: client, l16Token: site.l16Token, centre: start.translation))
-            busy = "Streaming the site model"
-            let registered = await streamRegisteredLayers(
+            let (geometry, registered) = try await streamReferenceLayers(
                 client: client, l16Token: site.l16Token, centre: start.translation)
-            geometry.replaceRegistered(with: registered)
             self.geometry = geometry
             referenceCentre = start.translation
             siteModelID = geometry.modelID
@@ -762,6 +767,106 @@ struct ReferenceSummary: Equatable {
     }
 
     private func show(_ progress: Gerardus_Align_V1alpha1_Progress) { self.progress = progress }
+
+    /// The reference around `centre`, layer group by layer group, and the
+    /// registered layers on their own so the caller can read the site model.
+    private func streamReferenceLayers(
+        client: AlignmentServiceClient, l16Token: String, centre: SIMD3<Double>
+    ) async throws -> (geometry: ReferenceGeometry, registered: ReferenceGeometry) {
+        busy = "Streaming the reference"
+        var geometry = try await client.streamReference(
+            referenceRequest(l16Token: l16Token, centre: centre))
+        busy = "Streaming the streets"
+        geometry.merge(await streamStreetLayers(client: client, l16Token: l16Token, centre: centre))
+        busy = "Streaming buildings, markings, furniture and trees"
+        geometry.merge(
+            await streamFeatureLayers(client: client, l16Token: l16Token, centre: centre))
+        busy = "Streaming the site model"
+        let registered = await streamRegisteredLayers(
+            client: client, l16Token: l16Token, centre: centre)
+        geometry.replaceRegistered(with: registered)
+        return (geometry, registered)
+    }
+
+    // MARK: - Reference data
+
+    /// Reads how current the chosen site's stored bundle is. Builds nothing.
+    func refreshBundle() async {
+        guard let client, let site else { return }
+        let found: Gerardus_Align_V1alpha1_Site?
+        do { found = try await client.getSite(l16Token: site.l16Token) } catch {
+            logger.info(
+                "No bundle read for \(site.l16Token): \(GerardusClientError.describe(error))")
+            return
+        }
+        guard self.site == site, busy == nil else { return }
+        bundle = found
+    }
+
+    /// Layers this server builds into a bundle and the stored one lacks.
+    var missingReferenceLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] {
+        guard let bundle else { return [] }
+        return ReferenceDataStatus.missingLayers(bundle: bundle, available: availableLayers)
+    }
+
+    /// The bundle is older than what the server can build.
+    var referenceDataIsOutOfDate: Bool { !missingReferenceLayers.isEmpty }
+
+    /// Update reference data: Gerardus rebuilds a bundle that lacks layers
+    /// it can build now, from the downloads it already holds. Nothing is
+    /// downloaded again and the 3DEP cut is kept.
+    func updateReferenceData() async { await prepareAgain(refresh: false) }
+
+    /// Regenerate…: opens the confirmation. Nothing is sent yet.
+    func requestRegenerate() {
+        guard client != nil, site != nil, bundle != nil, busy == nil else { return }
+        confirmingRegenerate = true
+    }
+
+    func cancelRegenerate() { confirmingRegenerate = false }
+
+    /// Sends `refresh = true`, and only once the operator has confirmed.
+    func confirmRegenerate() async {
+        guard confirmingRegenerate else { return }
+        confirmingRegenerate = false
+        await prepareAgain(refresh: true)
+    }
+
+    private func prepareAgain(refresh: Bool) async {
+        guard let client, let site, busy == nil else { return }
+        errorMessage = nil
+        referenceDataNote = nil
+        let before = Set(missingReferenceLayers)
+        defer {
+            busy = nil
+            progress = nil
+        }
+        do {
+            busy =
+                refresh ? "Regenerating \(site.name)" : "Updating reference data for \(site.name)"
+            let prepared = try await client.prepareSite(
+                l16Token: site.l16Token, label: site.name, refresh: refresh
+            ) { [weak self] progress in await self?.show(progress) }
+            guard self.site == site else { return }
+            bundle = prepared
+            let after = Set(missingReferenceLayers)
+            referenceDataNote = ReferenceDataStatus.outcome(
+                refresh: refresh, before: before, after: after)
+            if preparedSite != nil { preparedSite = prepared }
+            // Drawn already: draw it again from the new bundle at the same place.
+            if let centre = referenceCentre, geometry != nil {
+                let (fresh, registered) = try await streamReferenceLayers(
+                    client: client, l16Token: site.l16Token, centre: centre)
+                guard self.site == site, referenceCentre == centre else { return }
+                geometry = fresh
+                siteModelID = fresh.modelID
+                await restyleReference()
+                busy = "Reading the site model"
+                await readSiteModelScans(
+                    client: client, l16Token: site.l16Token, streamed: registered)
+            }
+        } catch { errorMessage = GerardusClientError.describe(error) }
+    }
 
     /// The bundle's layers, on one call.
     static let bundleLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [

@@ -64,10 +64,16 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 @available(macOS 15.0, *) protocol AlignmentServiceClient: AnyObject, Sendable {
     func connect() async throws -> Gerardus_Align_V1alpha1_GetServerInfoResponse
     func disconnect()
+    /// Builds the site's bundle. With `refresh` false Gerardus answers from
+    /// the stored bundle; with it true it downloads every source again and
+    /// cuts 3DEP again (PrepareSiteRequest.refresh).
     func prepareSite(
-        l16Token: String, label: String,
+        l16Token: String, label: String, refresh: Bool,
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Site
+    /// The stored bundle's description, or nil when none has been prepared
+    /// (NOT_FOUND). Builds nothing.
+    func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site?
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
     ) async throws -> ReferenceGeometry
@@ -121,6 +127,18 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
 
 /// A client that has no street use answers as a server from before it would.
 @available(macOS 15.0, *) extension AlignmentServiceClient {
+    /// Prepare as Place from hint does: the stored bundle when there is one.
+    func prepareSite(
+        l16Token: String, label: String,
+        onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
+    ) async throws -> Gerardus_Align_V1alpha1_Site {
+        try await prepareSite(
+            l16Token: l16Token, label: label, refresh: false, onProgress: onProgress)
+    }
+
+    /// A client that cannot look at a bundle without preparing it reports none.
+    func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site? { nil }
+
     func reviewRegistrations(
         _ request: Gerardus_Align_V1alpha1_ReviewRegistrationsRequest
     ) async throws -> [Gerardus_Align_V1alpha1_RegistrationRecord] {
@@ -231,12 +249,13 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     /// Builds the site's reference bundle, or finds it cached, reporting
     /// progress as it goes. Returns the site from the stream's last message.
     func prepareSite(
-        l16Token: String, label: String,
+        l16Token: String, label: String, refresh: Bool,
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Site {
         var request = Gerardus_Align_V1alpha1_PrepareSiteRequest()
         request.l16Token = l16Token
         request.label = label
+        request.refresh = refresh
         return try await siteService().prepareSite(request: ClientRequest(message: request)) {
             response in
             var site: Gerardus_Align_V1alpha1_Site?
@@ -250,6 +269,14 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
             guard let site else { throw GerardusClientError.incompleteStream("PrepareSite") }
             return site
         }
+    }
+
+    func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site? {
+        var request = Gerardus_Align_V1alpha1_GetSiteRequest()
+        request.l16Token = l16Token
+        do {
+            return try await siteService().getSite(request: ClientRequest(message: request)).site
+        } catch let error as RPCError where error.code == .notFound { return nil }
     }
 
     /// Streams reference geometry in the site frame and gathers it, layer by
