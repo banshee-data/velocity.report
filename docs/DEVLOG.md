@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 29, 2026 - PCL frame-tap and border contracts
+
+- {codex/pcl-open-question-review} Closed OQ-12 with [ten source findings and six counterexamples](lidar/operations/pcl-return-fate-border-contract.md): reused the frame tap for diagnostics, kept lower-body fates separate from PCL border traits and coasting evidence, and placed proposed veil/coast interventions before their L4/lifecycle decisions. Corrected l3bg0028 without changing its numerical gates; preserved l3bg0024 measurements and l3bg0027's held/edge-follow work. Existing lower-body tests passed; no campaign ran. Saved OQ-13 as the next checkpoint.
+
 ## October 28, 2026 - PCL contracts, experiment controls, and Gerardus review
 
 - {codex/pcl-open-question-review} Closed OQ-11 using the owner-supplied shared discussion: [reconciliation](lidar/operations/pcl-original-discussion-reconciliation.md). Mapped the five questions and measurement programme to existing contracts, added OQ-13 for partitioning merged detections, and made the offline oracle cohort dependency explicit. Preserved current priorities and experiment scopes; no campaign ran. Saved OQ-12 as the next checkpoint.

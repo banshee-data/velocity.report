@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-11 complete; OQ-12 is the next checkpoint
+- **Status:** OQ-01 to OQ-12 complete; OQ-13 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -508,13 +508,21 @@ cohort enforcement already have owners under D-36/D-37 and the cohort-isolation 
 PCL question, partitioning a merged detection, is added as OQ-13; it is neither a joining arm nor
 a whole-cluster classifier. The runbook now makes development-data eligibility explicit.
 
+OQ-12 is answered by the [return-fate/border contract](pcl-return-fate-border-contract.md).
+Ten source findings and six analytical counterexamples establish reuse of `replayeval.FrameTap`
+for offline export and diagnostics, not as a mutation point. Lower-body fates exclude coasting
+tracks and do not map to PCL directional border traits. l3bg0028 now requires veil withholding
+before L4 and coast evidence before the lifecycle decision, with missing-ray coverage and
+foreground occluders explicit. Its numerical gates and l3bg0024's historical evidence are intact;
+l3bg0027 still owns the proposed held/edge-follow split. No campaign or runtime code changed.
+
 ## Resume point
 
-- **Active row:** OQ-12, not started; OQ-01 to OQ-11 complete; OQ-13 newly recorded
-- **Next action:** Read `vehicle-lower-body-by-range-2026-10.md`, l3bg0027, and l3bg0028. Trace `internal/lidar/replayeval/frame_tap.go` and its consumers; determine which tap/data can be reused and which fate labels differ from PCL obstacle/shadow/veil traits. Correct l3bg0028's implement note with the reuse decision. OQ-13 follows separately.
+- **Active row:** OQ-13, not started; OQ-01 to OQ-12 complete
+- **Next action:** Read OQ-13 in the review and `pcl-original-discussion-reconciliation.md#oq-13-partitioning-merged-detections`, then the observation-revision plan's association/no-double-counting contracts, W3 near-merge cases, and the existing clustering contracts. Test whether a bounded PCL point-partition proposal adds useful evidence for one merged detection. Require exclusive point ownership, reviewed multi-object membership, false-split/identity/resource controls, or drop the arm with source evidence. Do not turn whole-cluster ESF classification or fragment joining into an implicit split algorithm; do not create a second tracker or campaign at this checkpoint.
 - **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup. OQ-10 defines classification coverage, not descriptor seeding, a training sample size, or an adoption decision. Keep earlier report denominators tied to their label revision.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. No descriptor or cleanup campaign.
-- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09, OQ-10, and OQ-11 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, pinned-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. OQ-12 adds source analysis and existing lower-body/footprint unit-test execution; no new PCL fixture, tap PCAP test, border implementation, or campaign.
+- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 through OQ-12 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, pinned-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-12 passed existing lower-body/footprint unit tests, fresh lint, links, experiment validation, source-range checks, and the no-results guard; the staged diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
 - **Outstanding inputs:** Calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
 - **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
-- **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 reconciliation and OQ-13 follow-up saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.
+- **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 `7ec1a599`; OQ-12 tap reuse/label contracts and the OQ-13 resume point saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.

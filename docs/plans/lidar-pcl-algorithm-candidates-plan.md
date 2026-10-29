@@ -108,8 +108,14 @@ explicit spherical resampling with source membership; the diagnostic exporter is
 
 ### Item 2: Q4, border classes on the L3 grid (l3bg0028)
 
-**Summary:** Obstacle, shadow and veil classes per cell, scored as extent-end labels and as
-coasting evidence, replay-only.
+**Summary:** Directional obstacle, shadow and veil traits per cell, evaluated separately against
+reviewed extent ends and predicted-body visibility, replay-only.
+
+[OQ-12](../lidar/operations/pcl-return-fate-border-contract.md) reuses `replayeval.FrameTap` for
+offline export and diagnostics. Lower-body fates do not supply border labels or a coasting
+population. The publication observer runs too late for same-frame interventions: veil withholding
+belongs before L4 input selection, and coast evidence before the lifecycle decision. Preserve
+unknown coverage and source membership; do not mutate the tap or treat veil as mixed-return truth.
 
 **Steps:**
 
@@ -251,7 +257,7 @@ comparison is scheduled by this contract.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-11: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, classification corpus requirements, and original-discussion reconciliation
+- [x] OQ-01 to OQ-12: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, classification corpus requirements, original-discussion reconciliation, and return-fate/border contracts
 
 ### Outstanding
 
@@ -262,7 +268,7 @@ comparison is scheduled by this contract.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)
 
-- [ ] The review's remaining rows OQ-12 and OQ-13, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining row OQ-13: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

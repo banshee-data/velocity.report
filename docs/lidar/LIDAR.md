@@ -49,6 +49,8 @@ The [classification corpus requirements](operations/pcl-classification-corpus-re
 inventory reviewed labels and set independent-object floors for class, aspect, and range screens.
 The [original-discussion reconciliation](operations/pcl-original-discussion-reconciliation.md)
 maps the supplied conversation to existing owners and records the merged-detection partition question.
+The [return-fate and border contract](operations/pcl-return-fate-border-contract.md) reuses frame
+acquisition while separating diagnostic fates, border traits, and coasting evidence.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |
