@@ -87,3 +87,16 @@ Example *hypothesis*, not empirical result: if 35% of 5,000 observed approaches 
 - **Gate 4:** only after Gate 3, derive spatial braking metrics and validate event timing/location; jerk volatility requires a separate noise-floor and bandwidth validation. No production or public safety inference before the relevant gates.
 
 **Priority change:** this benchmark and physically stable body reference estimation precede the proposed spatial braking heatmap. Registration is already provided by Gerardo; the unresolved work is observation geometry, estimator dynamics and independent validation.
+
+
+## Measurement-bias execution alignment (existing 05x priorities)
+
+This proposal **does not advance CA/IMM, reorder release slots, or introduce a new blocking gate**. Follow [BACKLOG.md](../BACKLOG.md) and the existing state-estimation plan:
+
+1. **v0.5.3, baseline/reference:** On frozen reviewed straight passes, compare observed medoid, current L5 CV state and physical body-center estimate. Plot cross-/along-track discrepancies versus range, aspect and visibility; report false lateral movement and apparent acceleration, reference limitations and missing coverage.
+2. **v0.5.4, observation integrity:** Complete existing foreground retention and L3/L4 fragmentation measurements/fixes before interpreting facet failures as motion-model failures.
+3. **v0.5.5, physical geometry:** Use existing near-edge, heading/extent, containment and geometry-coherent tracking work to reduce viewpoint-dependent body-reference drift. Compare facet-aware and optional PCL-assisted alternatives on identical held-out episodes; select by physical accuracy and coverage, not smoothness.
+4. **v0.5.6–0.5.7, continuity/finality:** Validate association, occlusion, calibrated uncertainty and final physical trajectories without conflating predicted/coasted and observed samples.
+5. **After geometry evidence:** Evaluate CA then CV+CA IMM offline against geometry-corrected CV with identical observations; retain existing deferred production schedule unless measured results justify a separate prioritization decision.
+
+Use existing G-GEO-1/G-UNC-1/G-SMO-1 criteria and reviewed-reference splits rather than inventing thresholds. The phone pilot and later RTK/IMU passes are **supplementary external validation**, not a new dependency that blocks current 05x work. Gerardo registration already exists. Spatial braking and jerk remain research outputs until derivative-specific validation; no production metrics or thresholds are changed here.
