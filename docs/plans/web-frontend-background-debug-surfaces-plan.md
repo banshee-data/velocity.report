@@ -1,5 +1,7 @@
 # Frontend background debug surfaces plan
 
+This plan exposes background settlement and region evidence in the visualiser through independent polar, Cartesian, and region views.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Planning-only (no implementation in this branch)
 - **Layers:** L3 Grid, L9 Endpoints, L10 Clients
 - **Scope:** Swift visualiser debugging outputs for background settlement

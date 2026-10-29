@@ -1,5 +1,7 @@
 # Site/capture qualification cohort isolation
 
+This plan separates development, validation, and blind qualification populations to protect independent physical-measurement evidence from tuning leakage.
+
 - **Status:** Proposed
 - **Target:** v0.5.4
 - **Priority:** P0

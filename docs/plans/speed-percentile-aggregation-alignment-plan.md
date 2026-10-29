@@ -1,5 +1,7 @@
 # Speed percentile aggregation alignment plan
 
+This plan separates per-passage speed summaries from population percentiles and aligns naming and aggregation across the report contracts.
+
 - **Status:** Proposed - design reset documented; implementation and contract rework pending
 - **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
 - **Target:** v0.5.5 alongside provisional headway report aggregation

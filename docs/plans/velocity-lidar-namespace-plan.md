@@ -1,5 +1,8 @@
 # velocity lidar namespace — fold pcap-analyse into the bundled binary
 
+This plan records the CLI integration of the LiDAR PCAP tools into the shared `velocity lidar`
+namespace and the package boundaries behind that integration.
+
 - **Status:** Implemented
 - **Layers:** CLI Tools, L1–L6 (pcap-analyse pipeline)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)

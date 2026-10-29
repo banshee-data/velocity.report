@@ -1,5 +1,7 @@
 # LiDAR lane-constrained fragment stitching plan
 
+This plan evaluates joining track fragments across occlusion using lane and temporal evidence while preserving identity uncertainty.
+
 - **Status:** Active (the owner, October 21, 2026), in the D-32 slot of the parked
   [unpopulated data structures plan](unpopulated-data-structures-remediation-plan.md); five specs
   written as `proposed` (none approved), no code written

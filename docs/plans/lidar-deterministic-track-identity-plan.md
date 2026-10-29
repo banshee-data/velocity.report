@@ -1,5 +1,7 @@
 # LiDAR deterministic track identity plan
 
+This plan makes replay track identity deterministic so independent runs can be compared without confusing identifier drift with numerical changes.
+
 - **Status:** Specification; narrower interim fix already shipped (see 0)
 - **Layers:** L5 Tracks, storage, L9 Endpoints, live ingest
 - **Target:** v0.5.5; sequenced after the narrower evidence-oracle fix, before any tooling depends on track_id for cross-run comparison

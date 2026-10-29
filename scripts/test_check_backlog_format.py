@@ -62,3 +62,27 @@ def test_line_without_priority_is_rejected() -> None:
 - Example item: [plan](plans/test.md) `M` `S-GEO`
 """.strip()
     assert MOD.validate(data) == ["line 2: missing priority directly after optional PR"]
+
+
+def test_milestone_prose_and_wrapped_items_are_rejected() -> None:
+    data = """### v0.5.5 - Geometry
+**Measurement acceptance:** some unstructured requirements.
+- **P0** Valid item: [plan](plans/test.md) `M` `S-GEO`
+  wrapped rationale bypasses the one-line format.
+"""
+    problems = MOD.validate(data)
+    assert len(problems) == 2
+    assert problems[0].startswith("line 2: milestone content must be")
+    assert problems[1].startswith("line 4: milestone content must be")
+
+
+def test_anchors_and_complete_history_are_preserved() -> None:
+    data = """### v0.5.5 - Geometry
+<a id="old-release-anchor"></a>
+<!-- Retained anchor for inbound links. -->
+- **P0** Valid item: [plan](plans/test.md) `M` `S-GEO`
+## Complete
+Historical prose and items without current metadata.
+- Completed item
+"""
+    assert MOD.validate(data) == []

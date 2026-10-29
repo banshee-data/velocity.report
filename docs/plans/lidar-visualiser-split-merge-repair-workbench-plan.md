@@ -1,5 +1,7 @@
 # Design: one-click split/merge repair workbench (feature 3)
 
+This plan defines auditable operator tools for repairing track splits and merges, including suggestions and reversible application.
+
 - **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
 - **Canonical:** [split-merge-repair.md](../ui/visualiser/split-merge-repair.md)

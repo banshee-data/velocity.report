@@ -1,5 +1,7 @@
 # LiDAR captures: multi-file clips
 
+This plan defines capture and replay across rolling PCAP files, separating static replay material from motion segments and preserving continuity evidence.
+
 - **Status:** Complete: all six items delivered in #569; retiring the read-only `pcap_file` projection remains, and drops with its readers in the clip rename (D-31)
 - **Layers:** Cross-cutting (LiDAR L1 ingest, Go API, database, Svelte frontend)
 - **Target:** delivered in #569; the field workflow now produces many 5-minute PCAPs per site visit, and

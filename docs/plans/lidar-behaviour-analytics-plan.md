@@ -264,7 +264,7 @@ applies to more metrics than is comfortable.
 | TTC ≤ **1.5 s**                               | FHWA SSAM ([FHWA-HRT-08-049](https://www.fhwa.dot.gov/publications/research/safety/08049/), [validation report](https://www.fhwa.dot.gov/publications/research/safety/08051/06.cfm))         | Screening simulated vehicle trajectories for candidate conflicts | A definition of unsafe driving                                                 |
 | PET ≤ **5 s**                                 | SSAM default maximum PET, per the software user manual ([FHWA-HRT-08-050](https://www.fhwa.dot.gov/publications/research/safety/08050/)), as its Configuration tab shows for a new case file | Conflict _candidacy_ screening, deliberately generous            | A severity threshold                                                           |
 | PET ≈ **1 to 1.5 s**                          | Traffic-conflict literature, context-dependent                                                                                                                                               | Identifying serious temporal proximity                           | A universal cutoff; thresholds vary substantially by site type and road user   |
-| DRAC > **3 to 3.35 m/s²**                     | Surrogate-safety literature; threshold selection is itself contested ([Zheng and Sayed, 2021](https://www.sciencedirect.com/science/article/abs/pii/S0001457521000828))                      | Flagging a following situation as a conflict                     | A physical limit; maximum available deceleration is much higher on dry asphalt |
+| DRAC > **3 to 3.35 m/s²**                     | Surrogate-safety literature; threshold selection is itself contested ([Fu and Sayed, 2021](https://www.sciencedirect.com/science/article/abs/pii/S0001457521000828))                         | Flagging a following situation as a conflict                     | A physical limit; maximum available deceleration is much higher on dry asphalt |
 | Passing distance **1.5 m**                    | Statute in several EU jurisdictions including Germany and Spain                                                                                                                              | Legal minimum when overtaking a cyclist                          | A research finding                                                             |
 | Passing distance **3 ft (0.914 m)**           | Statute in over half of US states                                                                                                                                                            | Same                                                             | Same                                                                           |
 | Passing distance **1.0 / 1.5 m** speed-tiered | Western Australia: 1 m at ≤60 km/h, 1.5 m above 70 km/h                                                                                                                                      | Same                                                             | Same                                                                           |
@@ -699,7 +699,7 @@ correction. State them wherever the number appears.
 
 The literature flags conflicts around DRAC of 3 to 3.35 m/s², and threshold selection is
 itself an open research question with competing methods
-([Zheng and Sayed, 2021](https://www.sciencedirect.com/science/article/abs/pii/S0001457521000828)).
+([Fu and Sayed, 2021](https://www.sciencedirect.com/science/article/abs/pii/S0001457521000828)).
 Crucially, 3.35 m/s² is comfortably within a passenger car's capability on dry asphalt: it
 resembles highway-design deceleration assumptions, not a physical limit. A DRAC above it means
 the situation required firm braking, not that a crash was imminent. `drac_over_madr` is the
@@ -1671,7 +1671,7 @@ document, that is stated at the point of use.
   2026: the Configuration tab's maximum TTC of 1.5 and maximum PET of 5.0, described as the
   defaults, and the map view's TTC severity bands at 0.5, 1.0 and 1.5 s, the bands of
   `ttc_below_{1.5,1.0,0.5}`.
-- Zheng, L. and Sayed, T., _Comparison of threshold determination methods for the
+- Fu, C. and Sayed, T., _Comparison of threshold determination methods for the
   deceleration rate to avoid a crash (DRAC)-based crash estimation_, Accident Analysis &
   Prevention, 2021. <https://www.sciencedirect.com/science/article/abs/pii/S0001457521000828>
 
@@ -1711,7 +1711,7 @@ document, that is stated at the point of use.
 - Krajewski, R., Bock, J., Kloeker, L. and Eckstein, L., _The highD Dataset_,
   ITSC 2018. <https://arxiv.org/abs/1810.05642>
 - Bock, J., Krajewski, R., Moers, T., Runde, S., Vater, L. and Eckstein, L., _The inD
-  Dataset_, 2019. <https://arxiv.org/abs/1911.07602>
+  Dataset_, IV 2020 (preprint 2019). <https://arxiv.org/abs/1911.07602>
 - Krajewski, R., Moers, T., Bock, J., Vater, L. and Eckstein, L., _The rounD Dataset_,
   ITSC 2020. <https://doi.org/10.1109/ITSC45102.2020.9294728>
 - _openDD: A Large-Scale Roundabout Drone Dataset_, ITSC 2020. <https://arxiv.org/html/2007.08463>

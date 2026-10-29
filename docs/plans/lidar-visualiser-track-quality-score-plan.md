@@ -1,5 +1,7 @@
 # Design: track quality score and reason codes (feature 1)
 
+This plan defines an explainable per-track quality summary and the reasons reviewers need to interpret it.
+
 - **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Layers:** L5 Tracks, L8 Analytics, L9 Endpoints
 - **Canonical:** [track-quality-scoring.md](../ui/visualiser/track-quality-scoring.md)

@@ -1,6 +1,6 @@
 # Paper reference audit
 
-- **Scope:** Paper and research-report references in `docs/lidar/operations/brief/` and `data/`, including proposals, experiment notes, source comments, author-and-year mentions, and named model repositories.
+- **Scope:** Paper and research-report references in `docs/lidar/operations/brief/` and `data/`, including `docs/research/` and `docs/plans/`, proposals, experiment notes, source comments, author-and-year mentions, and named model repositories.
 - **Status:** All identifiable works have BibTeX entries. Two generic post-encroachment-time study mentions remain unresolved.
 - **Bibliography:** [data/maths/references.bib](../../../../data/maths/references.bib).
 
@@ -220,6 +220,73 @@ acceptance alone does not supply a journal volume, page range, or DOI. Publicati
 bibliography follow the primary records: for example, FHWA-HRT-25-007 was published in December
 2024 even though it surfaced in the later briefing. These corrections do not change the
 briefings' historical findings.
+
+## Research and plan citation follow-up
+
+The follow-up audits all eight research notes and 160 non-symlink plan documents, including
+identifier links, reference lists, and author-and-year mentions. The 36 graduated plan aliases also
+pass identifier coverage at their canonical targets. It adds 34 missing works, bringing
+the bibliography to 207 entries. Existing entries cover the remaining identifiable paper mentions;
+for example the human–AV note's related primary study is `Chu2026`, not another entry for its
+review. The two generic PET mentions in the scope-boundary section remain unresolved.
+
+Bibliographic identities were checked against the linked publisher, arXiv, proceedings, author,
+or institutional records. This is an identity audit, not a full-methods review or validation of
+reported effect sizes. The research notes retain their full-text verification questions and
+research-only status. Fu and Sayed's DRAC threshold paper was incorrectly attributed to Zheng and
+Sayed in the behaviour plan; its publisher record supplies the corrected authors. The inD entry
+uses the published 2020 paper and retains its 2019 arXiv identifier in the same entry. Finley2023
+is the March 2023 Task 1 literature review cited by the AAA report, not the separate 2024 final
+report with a fourth author.
+
+| BibTeX key               | Mention that requires the entry                                                                                                 | Identity record                                                                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Concas2026`             | [Approach stability](../../../research/2026-10-29-approach-stability-and-ttc.md)                                                | [Primary record](https://doi.org/10.1016/j.trf.2026.103812)                                                                                          |
+| `Taheri2026`             | [Approach stability](../../../research/2026-10-29-approach-stability-and-ttc.md)                                                | [Primary record](https://doi.org/10.1016/j.aap.2026.108835)                                                                                          |
+| `Nasri2026`              | [DRAC/TTC/PET note](../../../research/2026-10-22/drac-and-conflict-metrics.md)                                                  | [Primary record](https://pubmed.ncbi.nlm.nih.gov/42297506/)                                                                                          |
+| `Luo2026`                | [FutureRisk note](../../../research/2026-10-22/futurerisk.md)                                                                   | [Primary record](https://arxiv.org/abs/2610.17806)                                                                                                   |
+| `Mironenko2026`          | [Human–AV note](../../../research/2026-10-22/human-av-interactions.md)                                                          | [Primary record](https://doi.org/10.1186/s12544-026-00851-z)                                                                                         |
+| `Jin2026`                | [Korean event note](../../../research/2026-10-22/korean-event-taxonomy.md)                                                      | [Primary record](https://www.jkst.or.kr/articles/article/v7xW/)                                                                                      |
+| `Ali2026`                | [Lane-keeping note](../../../research/2026-10-22/lane-keeping-naturalistic.md)                                                  | [Primary record](https://doi.org/10.4271/09-14-01-0022)                                                                                              |
+| `Shaer2026`              | [Minnesota note](../../../research/2026-10-22/minnesota-roadside-thresholds.md)                                                 | [Primary record](https://doi.org/10.1080/19439962.2025.2608002)                                                                                      |
+| `Verster2011`            | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://pmc.ncbi.nlm.nih.gov/articles/PMC3100218/)                                                                                  |
+| `Verster2014`            | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://doi.org/10.1002/hup.2406)                                                                                                   |
+| `Fu2021`                 | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.sciencedirect.com/science/article/pii/S0001457521000828)                                                                |
+| `Richard2020`            | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://pubmed.ncbi.nlm.nih.gov/32563403/)                                                                                          |
+| `Claros2024`             | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.sciencedirect.com/science/article/pii/S1369847824000512)                                                                |
+| `Herrera2020`            | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.sciencedirect.com/science/article/pii/S2590198220300841)                                                                |
+| `Moll2021`               | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.sciencedirect.com/science/article/pii/S0001457521003481)                                                                |
+| `Dingus2016`             | [Crash-data plan](../../../plans/platform-crash-data-integration-plan.md#sources-checked)                                       | [Primary record](https://doi.org/10.1073/pnas.1513271113)                                                                                            |
+| `Krajewski2018`          | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://arxiv.org/abs/1810.05642)                                                                                                   |
+| `Bock2020`               | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://arxiv.org/abs/1911.07602)                                                                                                   |
+| `Krajewski2020`          | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://doi.org/10.1109/ITSC45102.2020.9294728)                                                                                     |
+| `Breuer2020`             | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://arxiv.org/abs/2007.08463)                                                                                                   |
+| `Farahmand2011`          | [Observation-log plan](../../../plans/lidar-cluster-observation-log-and-async-tracking-plan.md)                                 | [Primary record](https://arxiv.org/abs/1104.5286)                                                                                                    |
+| `Cellina2026`            | [Physical-reference plan](../../../plans/lidar-physical-reference-review-plan.md#proposed-external-reference-rtk-probe-vehicle) | [Primary record](https://arxiv.org/abs/2608.26669)                                                                                                   |
+| `Mildenhall2020`         | [Radiance-field review](../../../plans/lidar-radiance-field-scene-model-review.md#external-references)                          | [Primary record](https://www.matthewtancik.com/nerf)                                                                                                 |
+| `Kerbl2023`              | [Radiance-field review](../../../plans/lidar-radiance-field-scene-model-review.md#external-references)                          | [Primary record](https://doi.org/10.1145/3592433)                                                                                                    |
+| `Newcombe2011`           | [Radiance-field review](../../../plans/lidar-radiance-field-scene-model-review.md#external-references)                          | [Primary record](https://www.microsoft.com/en-us/research/publication/kinectfusion-real-time-dense-surface-mapping-tracking/)                        |
+| `Tao2023`                | [Radiance-field review](../../../plans/lidar-radiance-field-scene-model-review.md#external-references)                          | [Primary record](https://arxiv.org/abs/2304.10406)                                                                                                   |
+| `Pumarola2021`           | [Radiance-field review](../../../plans/lidar-radiance-field-scene-model-review.md#external-references)                          | [Primary record](https://openaccess.thecvf.com/content/CVPR2021/html/Pumarola_D-NeRF_Neural_Radiance_Fields_for_Dynamic_Scenes_CVPR_2021_paper.html) |
+| `Behley2018`             | [Radiance-field review](../../../plans/lidar-radiance-field-scene-model-review.md#external-references)                          | [Primary record](https://jbehley.github.io/projects/surfel_mapping/index.html)                                                                       |
+| `FHWASSAM2008Brief`      | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.fhwa.dot.gov/publications/research/safety/08049/)                                                                       |
+| `FHWASSAM2008Manual`     | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.fhwa.dot.gov/publications/research/safety/08050/)                                                                       |
+| `FHWASSAM2008Validation` | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.fhwa.dot.gov/publications/research/safety/08051/)                                                                       |
+| `Dingus2006`             | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://www.nhtsa.gov/sites/nhtsa.gov/files/100carmain.pdf)                                                                         |
+| `NHTSASpeeding2020`      | [Behaviour plan](../../../plans/lidar-behaviour-analytics-plan.md#16-references)                                                | [Primary record](https://rosap.ntl.bts.gov/view/dot/44242/dot_44242_DS1.pdf)                                                                         |
+| `Finley2023`             | [Attitudes plan](../../../plans/platform-speeding-attitudes-and-aggressive-driving-plan.md)                                     | [Primary record](https://www.mdt.mt.gov/other/webdata/external/research/docs/research_proj/tsc/AGGRESSIVE-DRIVING/Task-1.pdf)                        |
+
+**Budget disposition:** raise the speed/conflict section cap from 35 to 50 because the audit
+registers 16 already-cited behaviour, threshold, and intervention works (46 entries total).
+Raise research reports from 20 to 25 to register the distinct SSAM documents, naturalistic-driving
+reports, and cited Finley task report (22 total). No cited work is pruned. The other additions fit
+the existing caps: scene understanding reaches 15/15, standards/datasets 10/10, motion models 5/10,
+and roadside perception 21/25.
+
+`make check-citation-coverage` now checks DOI/arXiv mentions across these directories and their
+explicit References keys. It recognises published/preprint aliases and versioned arXiv URLs;
+author-only identity still requires this audit. The bibliography budget remains advisory by
+default, with its existing strict mode available for this audit.
 
 ## Unresolved mentions and scope boundary
 

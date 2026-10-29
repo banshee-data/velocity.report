@@ -1,5 +1,7 @@
 # LiDAR worker pool and results hub
 
+This plan defines a hub that owns analysis jobs and durable results while workers can join, claim work, and leave independently.
+
 - **Status:** Proposed, September 21, 2026; the single active plan for the job queue from October 20, 2026, with section 12 adding D-30's one-queue design
 - **Decisions:** D-27, D-30
 - **Canonical:** [distributed-sweep.md](../lidar/architecture/distributed-sweep.md)

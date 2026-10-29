@@ -1,5 +1,7 @@
 # Occupancy column grid: a 0.5 m lattice anchored by S2
 
+This plan defines a shared occupancy-column representation for the LiDAR tasks that need vertical evidence at each ground location.
+
 - **Status:** Draft
 - **Layers:** L4 Perception, L7 Scene, L8 Analytics, L10 Clients (macOS visualiser), storage
 - **Target:** v0.5.x. The brushes and the local grid are delivered on the annotation branch (PR #579), where the rest of the annotation tool is; occupancy production follows; physics is v2.0+

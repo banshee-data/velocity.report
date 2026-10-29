@@ -1,5 +1,7 @@
 # LiDAR job queue: implementation map
 
+This plan turns the worker-pool design into an implementation sequence for job state, worker claims, result bundles, APIs, and operator pages.
+
 - **Status:** Superseded (October 20, 2026): retired into the [worker pool plan](lidar-worker-pool-and-results-hub-plan.md#12-one-queue-kinds-in-the-binary-d-30), the single active plan for the job queue under D-30. Items 1 and 2 shipped; the rest is carried there
 - **Layers:** L9 Endpoints (hub API), L10 Clients (dashboard, macOS), offline analysis (worker), platform
 - **Target:** branch `dd/lidar/job-queue`, off `main`. First delivery: submit a job from the dashboard, run it on `swan` or the NAS worker, see its result on the hub. The macOS app keeps its local server for VRLOG generation and annotation until Item 7.

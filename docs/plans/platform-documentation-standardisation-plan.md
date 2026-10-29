@@ -6,7 +6,7 @@
 
 Controlled process to stabilise documentation structure and metadata quality by reconciling branch drift against main, preserving authoritative summaries, and enforcing repeatable review gates.
 
-### Completion checklist
+## Completion checklist
 
 - [x] Contract defined (this document)
 - [x] Metadata format standardised: `- **Key:** value` canonical format enforced across 86+ files
@@ -19,7 +19,7 @@ Controlled process to stabilise documentation structure and metadata quality by 
 - [x] Makefile integration: `lint-docs` (check) and `format-docs` (fix) targets
 - [x] Standard documented: `coding-standards.md` § Documentation Metadata
 - [x] Opening paragraph rule: 58 docs updated with narrative opening paragraphs (DRY audit Strategy C)
-- [ ] Opening paragraph validation gate: no automated checker exists yet
+- [x] Research/plan opening paragraph and heading-hierarchy gate: `make check-doc-structure`; other documentation remains outside this gate's scope
 - [ ] Placeholder/filename-echo detector: §7.3 not implemented
 - [ ] Link integrity gate in CI: §7.1 references `/tmp/check_docs_links.sh` (not permanent)
 - [ ] Main-branch drift reconciliation: §3 not executed

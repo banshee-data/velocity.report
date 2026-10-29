@@ -1,5 +1,7 @@
 # LiDAR offline analysis tooling — parked capabilities
 
+This plan records the retained offline LiDAR tools and the remaining changes around capture inspection, motion statistics, splitting, and evaluation.
+
 - **Status:** Parked (D-32, October 20, 2026): deferred, or planned for v1.0 and later; revisit when its v1.0 or v2.0 slot becomes next. Was: Future work (parked). Not currently built or exposed.
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)
 

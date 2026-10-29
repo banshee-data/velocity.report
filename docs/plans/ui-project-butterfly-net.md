@@ -1,5 +1,7 @@
 # Plan: Velocity Report v2 UI 🦋 Project Butterfly Net
 
+This plan separates traffic-report and pipeline-debugging workflows and develops the corresponding dashboard, sensor, site, and report interfaces.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next
 - **Canonical:** [Velocity Report Butterfly Net](../ui/design/20260511-Velocity_Report_Butterfly_Net.md)
 - **Design sketch:** [`20260511-Velocity_Report_Butterfly_Net.html`](../ui/design/20260511-Velocity_Report_Butterfly_Net.html) (open in browser — standalone, no server needed)
@@ -343,6 +345,12 @@ Period selection sends `recording_period_id` to report API; date range derived s
 - `web/src/routes/(constrained)/reports/+page.svelte` — Concept B workspace
 
 ---
+
+## Open questions
+
+The recommendations in the design-decision section remain proposals. Confirm the recording-period
+configuration model, singleton versus multiple sensors, and badge persistence before treating
+those recommendations as approved implementation choices.
 
 ## Verification
 

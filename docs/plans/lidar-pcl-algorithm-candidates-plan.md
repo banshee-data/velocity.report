@@ -1,5 +1,7 @@
 # PCL algorithm candidates: experiments before ports (05x research, Parked P2)
 
+This plan assesses Point Cloud Library candidates for geometry, descriptors, and tracking against the existing pipeline and physical-reference criteria.
+
 - **Status:** Review and final branch pass complete; implementation proposed. Four experiment specs; diagnostic tools built, campaign oracles and runtime ports pending; nothing scheduled into a full 05x slot
 - **Decisions:** D-36 (Gerardus owns static geometry; L5 owns bodies; L8 owns interaction metrics), D-37 (backlog metadata), D-32 (slot caps), D-26 and D-30 (one static Go binary: no C++ runtime dependency), D-28 (rectangle fit and range-adaptive eps context)
 - **Layers:** L3 grid (border classes), L4 perception (joining rule, ground plane), L5 tracks (coasting evidence, extents), offline evaluation; Gerardus recommendations outside this repository

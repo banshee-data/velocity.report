@@ -1,5 +1,7 @@
 # SUMO demand card for published surveys (v0.7.8)
 
+This plan turns observed traffic-arrival measurements into reproducible demand inputs for SUMO experiments.
+
 - **Status:** Parked (D-32): the card publishes with the surveys, which wait on the scene asset move and on which scene data may be public (D-34); revisit when D-34's step 2 is settled or survey publishing is next. Was: Draft. The offline comparison tools in `tools/sumo/` are built
 - **Decisions:** D-18 (nearest-rank percentiles), D-28 (following metric names, which this card does not use), D-32 (planning limits), D-34 (scene assets leave the repository; the export and its privacy test stay)
 - **Layers:** Cross-cutting (scene export, site metadata, offline tooling, survey site)

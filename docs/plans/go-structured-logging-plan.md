@@ -1,5 +1,7 @@
 # Go logging streams unification plan (v0.6+)
 
+This plan consolidates Go logging into a structured interface with consistent context, severity, and output handling.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** Cross-cutting (Go server, API, database, LiDAR pipeline)
 - **Target:** unscheduled (no backlog item); the LiDAR-package migration landed in #409. Unified logging streams and configuration across the Go codebase
