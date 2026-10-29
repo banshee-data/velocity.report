@@ -105,8 +105,12 @@ screen of 100 independent held-out objects per target class/contrast and 30 per 
 class × aspect × range cell. These are evaluation floors, not a training-size or adoption guarantee.
 Long-car membership, independent yaw, untouched sites, and the class scorecard remain dependencies.
 The [original discussion](pcl-original-discussion-reconciliation.md) also suggests distinguishing
-objects temporarily merged by DBSCAN. That is a point-partition question, now OQ-13, separate
-from joining fragments or assigning one class to a whole cluster.
+objects temporarily merged by DBSCAN. [OQ-13](pcl-merged-detection-partition-disposition.md)
+drops a standalone PCL splitting arm: ESF has no point membership, connectivity/normal regions
+are not instances, and the pinned MinCut uses a foreground-distance prior while ignoring its
+background-point input in the active unary calculation. Bounded point repair stays with the
+observation-revision owner, with exclusive ownership and reviewed merge/false-split cases.
+This does not expand l4clus0005 beyond its joining question.
 
 Earlier kirk0 evidence found that lifting the input cap under CMR recovered returns without
 joining fragments, and lowering the DBSCAN core threshold made more fragments
@@ -383,7 +387,7 @@ Read headers and tutorial sources from the checkout, not over the web.
 | OQ-10 | Q1 classification: which labelled corpus would let ESF and moment-of-inertia descriptors be scored, by class and aspect?                                                                                                          | Blocked on the Parked classification scorecard and corpus rows                                                   | Shape descriptors plan Phase 4; classifier training plan Phases 1 and 2                                                                                                              | Recorded as a dependency on those rows, with the minimum per-class counts                                                                        | Answered: [corpus dependency and count contract](pcl-classification-corpus-requirements.md); comparison remains parked                                    |
 | OQ-11 | What did the owner's linked ChatGPT thread add?                                                                                                                                                                                   | Original review could not access the discussion; owner supplied a readable shared copy during OQ-11              | [Original discussion](https://chatgpt.com/share/6adff4d9-bf44-83e8-a2d9-9993e4c9c469), D-36/D-37, cohort-isolation plan                                                              | Any new question becomes a row here                                                                                                              | Answered: [reconciliation](pcl-original-discussion-reconciliation.md); existing owners mapped and OQ-13 added                                             |
 | OQ-12 | Does l3bg0024's ring-by-ring fate of lower-body returns (absorbed, occluded, dropout, clipped) already give l3bg0028 its occlusion and dropout labels, so the border pass reuses that `FrameTap` instead of a new one?            | l3bg0024 was answered after this review, and main's l3bg0027 (held returns to L4) shares the lower-body question | [vehicle-lower-body-by-range-2026-10.md](vehicle-lower-body-by-range-2026-10.md); l3bg0027; l3bg0028                                                                                 | l3bg0028's implement note names the reused tap, or says why the fate classes differ from border classes                                          | Answered: [tap reuse and distinct label contracts](pcl-return-fate-border-contract.md); l3bg0028 corrected before implementation                          |
-| OQ-13 | Can local geometry or descriptors propose a defensible point partition when DBSCAN merges two physical objects into one detection?                                                                                                | The original discussion suggests this; fragment joining and whole-cluster classification do not specify a split  | [OQ-11 reconciliation](pcl-original-discussion-reconciliation.md#oq-13-partitioning-merged-detections), observation-revision plan, W3 near-merge cases, PCL clustering contracts     | Map a bounded partition arm to the existing owner with exclusive point ownership and false-split/identity gates, or drop it with source evidence | Open                                                                                                                                                      |
+| OQ-13 | Can local geometry or descriptors propose a defensible point partition when DBSCAN merges two physical objects into one detection?                                                                                                | The original discussion suggests this; fragment joining and whole-cluster classification do not specify a split  | [OQ-11 reconciliation](pcl-original-discussion-reconciliation.md#oq-13-partitioning-merged-detections), observation-revision plan, W3 near-merge cases, PCL clustering contracts     | Map a bounded partition arm to the existing owner with exclusive point ownership and false-split/identity gates, or drop it with source evidence | Answered: [standalone PCL split arm dropped](pcl-merged-detection-partition-disposition.md); existing revision owner and reopening contract retained      |
 
 ## Review method and limits
 
@@ -414,4 +418,7 @@ labels and records class/aspect/range count requirements.
 mapped its measurement programme to existing decisions and owners, and added OQ-13 for merged
 point partitions. [OQ-12](pcl-return-fate-border-contract.md) reuses the publication tap for
 diagnostics, distinguishes fates from directional border traits, and names earlier intervention
-stages for l3bg0028. OQ-13 remains open.
+stages for l3bg0028. [OQ-13](pcl-merged-detection-partition-disposition.md) drops a standalone
+PCL splitting arm after checking descriptors, graph/normal segmentation, and MinCut. The existing
+observation-revision owner retains bounded point repair. All thirteen review rows are answered;
+the proposed experiments and their implementation, data, and qualification gates remain separate.

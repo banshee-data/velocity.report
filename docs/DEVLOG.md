@@ -8,7 +8,9 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## October 29, 2026 - PCL frame-tap and border contracts
+## October 29, 2026 - PCL frame-tap, border, and partition contracts
+
+- {codex/pcl-open-question-review} Closed OQ-13 with [eleven source findings and six counterexamples](lidar/operations/pcl-merged-detection-partition-disposition.md): dropped a standalone PCL splitter after tracing ESF, connectivity/normal regions, and MinCut's inactive background-seed calculation. Kept exclusive point repair with the observation-revision owner, preserved l4clus0005's six arms and numerical gates, and documented positive-merge and false-split evidence needed before reconsideration. All thirteen source-review rows were answered; no segmentation run, campaign, or runtime change occurred.
 
 - {codex/pcl-open-question-review} Closed OQ-12 with [ten source findings and six counterexamples](lidar/operations/pcl-return-fate-border-contract.md): reused the frame tap for diagnostics, kept lower-body fates separate from PCL border traits and coasting evidence, and placed proposed veil/coast interventions before their L4/lifecycle decisions. Corrected l3bg0028 without changing its numerical gates; preserved l3bg0024 measurements and l3bg0027's held/edge-follow work. Existing lower-body tests passed; no campaign ran. Saved OQ-13 as the next checkpoint.
 

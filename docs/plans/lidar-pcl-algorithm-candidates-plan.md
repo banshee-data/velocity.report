@@ -19,8 +19,11 @@ each from the pinned source. This plan turns its shortlist into experiments with
 now, so that the answers arrive as measurements and a port is built only where one pays.
 
 [OQ-11](../lidar/operations/pcl-original-discussion-reconciliation.md) reconciles the original
-conversation with current decisions. Its additional merged-detection partition question is
-recorded as OQ-13, not added to l4clus0005 or scheduled as a new experiment.
+conversation with current decisions. [OQ-13](../lidar/operations/pcl-merged-detection-partition-disposition.md)
+drops its additional standalone PCL splitting arm: geometric subsets are not physical instances,
+and the pinned MinCut does not use background-point seeds in its active cost. The existing
+observation-revision plan retains bounded point repair and the conditions for a later proposal.
+No splitting arm is added to l4clus0005 or scheduled as a new experiment.
 
 Without it, PCL ideas would enter the backlog as unmeasured ports competing with P0 qualification
 work, which is what D-36 and the 05x rubric exist to prevent.
@@ -257,7 +260,7 @@ comparison is scheduled by this contract.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-12: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, classification corpus requirements, original-discussion reconciliation, and return-fate/border contracts
+- [x] OQ-01 to OQ-13: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, classification corpus requirements, original-discussion reconciliation, return-fate/border contracts, and merged-detection partition disposition
 
 ### Outstanding
 
@@ -268,7 +271,8 @@ comparison is scheduled by this contract.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)
 
-- [ ] The review's remaining row OQ-13: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+All review rows are answered. These remaining items are proposed implementation and evaluation
+work; closure of a source question does not pass their acceptance gates.
 
 ### Deferred
 
@@ -283,3 +287,5 @@ comparison is scheduled by this contract.
 - [x] Greedy/Papazov standalone duplicate-track arm: [OQ-07 disposition](../lidar/operations/pcl-hypothesis-verification-disposition.md) records the missing visibility/temporal contract and counterexamples. Existing l5id0006, l5id0011, and l3bg0028 retain their own questions; no retrospective arm is added to l5id0004/0005.
 
 - [x] Blanket MLS/SOR registration-export cleanup: [OQ-09 disposition](../lidar/operations/pcl-background-cleanup-disposition.md) records the missing benefit evidence, sparse-support counterexamples, and fixed-evaluation conditions for reconsideration.
+
+- [x] Standalone PCL merged-detection splitting arm: [OQ-13 disposition](../lidar/operations/pcl-merged-detection-partition-disposition.md) keeps point repair with the existing observation-revision owner; reconsider only with specified seeds/predicates, complete membership, positive merges, false-split controls, and bounded identity/resource gates.

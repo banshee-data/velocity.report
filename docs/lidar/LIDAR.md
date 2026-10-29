@@ -51,6 +51,8 @@ The [original-discussion reconciliation](operations/pcl-original-discussion-reco
 maps the supplied conversation to existing owners and records the merged-detection partition question.
 The [return-fate and border contract](operations/pcl-return-fate-border-contract.md) reuses frame
 acquisition while separating diagnostic fates, border traits, and coasting evidence.
+The [merged-detection disposition](operations/pcl-merged-detection-partition-disposition.md) drops
+a standalone PCL splitting arm and records the evidence required by the existing revision owner.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

@@ -106,6 +106,12 @@ The later replay and scoring steps use repository evaluators, not PCL executable
 responsible for reviewed object joins, extent metrics, ground residuals, and coasting outcomes.
 No new runtime port, replay flag implementation, or campaign run is claimed by this inventory.
 
+[OQ-13](pcl-merged-detection-partition-disposition.md) adds no splitter harness. A stock MinCut
+call uses a foreground-distance prior; at the pin its background-point setter does not affect
+the active unary costs. Its two index groups do not establish two objects or exclusive ownership
+across repeated calls. Reconsider a partition harness only under the existing observation-revision
+owner and the report's reviewed-membership, seed, false-split, identity, and resource conditions.
+
 ## Why the stock tools do not fulfil these contracts
 
 The pinned [tools/CMakeLists.txt][tool-targets] declares the nearest available targets. Their

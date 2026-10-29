@@ -318,6 +318,27 @@ Example: frames 100–104 show two cars approaching an overlap; 105–108 contai
 leaving the recorded cluster unchanged. If only a centre and box survived, separating that merged
 cluster geometrically may be impossible. Retaining points makes the repair testable.
 
+### PCL partition proposals (OQ-13)
+
+The [OQ-13 source review](../lidar/operations/pcl-merged-detection-partition-disposition.md)
+drops a standalone PCL splitting arm without changing this plan's bounded repair scope. Global
+ESF signatures carry no point partition; radius/normal regions do not establish instances; the
+pinned MinCut uses XY foreground-distance costs and does not use background-point seeds in its
+active unary function. Its object-versus-rest outputs are not two identified tracks.
+
+A future geometric proposal belongs among this window's alternatives, with no-split and abstain
+outcomes. Preserve the parent observation and an exclusive partition of selected source returns
+into child memberships and an explicit residual set; do not reuse the parent's full evidence for
+both children. Keep complete membership and reduction lineage, since capped samples cannot
+establish that a small second object was absent.
+
+Before adding an arm, require reviewed positive merges and single-body long/articulated/occluded
+controls, seed/predicate provenance, matched temporal support, and frozen numerical false-split,
+identity, retention, and resource gates. The historical W3 kirk0 baseline measured no reviewed
+merges and no near-merge distances; it cannot alone score repair recall. The linked disposition
+specifies the remaining evidence contract. No splitter, new tracker, or release commitment is
+introduced by this source review.
+
 ## 3. Revision window, late data, and finality
 
 Choose the statistical horizon in **capture time**, with a frame-count resource limit. Count

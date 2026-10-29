@@ -106,6 +106,13 @@ is the critical counterexample. Whole-cluster ESF classification alone does not 
 This checkpoint adds the question only; it does not select an algorithm or edit l4clus0005 into a
 splitting experiment.
 
+**Subsequent disposition:** [OQ-13](pcl-merged-detection-partition-disposition.md) answered the
+question by dropping a standalone PCL splitting arm. The pinned graph/descriptor contracts do
+not supply instance identity; MinCut's active unary costs ignore background-point seeds.
+Point-level repair remains with the existing observation-revision owner, subject to the report's
+membership, false-split, identity, and resource conditions. This later answer preserves the
+original discussion's question and adds no experiment.
+
 ## Consequences for the current plan
 
 Retain the four proposed experiments and their priorities. Add the merged-detection question to
