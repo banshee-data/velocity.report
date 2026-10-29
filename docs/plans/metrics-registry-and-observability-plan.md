@@ -1,5 +1,7 @@
 # Metrics registry and observability plan
 
+This plan defines canonical measurement names and their use across storage, APIs, and reports, starting with physical following metrics.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (all layers)
 - **Target:** v0.5.3 contract names and report registration for following metrics; the TDL vocabulary registry (unscheduled) will consume canonical names but does not require the repo-wide sweep to be complete first; broader cross-strata naming enforcement, observability and Prometheus export follow at v0.5.12

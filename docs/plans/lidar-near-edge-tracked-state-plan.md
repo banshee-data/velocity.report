@@ -1,5 +1,7 @@
 # Near-edge tracked state (0.5.2 S2)
 
+This plan defines near-edge physical-state estimation, its experiment contract, and the remaining evidence needed to assess promotion.
+
 - **Status:** S2.0, S2.1, and S2.2 are built; experimental arms remain opt-in and are not promoted. The completed [October campaign](../lidar/operations/near-edge-campaign-2026-10.md) retains production B0: A2 breaches observed update cost at all 29 core/transfer cases and geometry at nine. Diagnostic variants remain mixed. Governed physical validation and an eligible untouched evaluation remain unresolved. Earlier F6/F6s/F7b findings below retain their original builds, metrics, and populations.
 - **Layers:** LiDAR pipeline (L4 members, L5 tracker, L8 adapter, storage, replay tools)
 - **Target:** v0.5.3, Sprint 0.5.2.1; S2 of the [MVP sprint plan](lidar-052-mvp-sprint-plan.md)

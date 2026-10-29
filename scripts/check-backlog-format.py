@@ -19,8 +19,19 @@ SIZE = re.compile(r"`(?:S|M|L|XL)`")
 STREAM = re.compile(r"`(S-[A-Z]+(?:-[A-Z]+)*)`$")
 RELEASE = re.compile(r"^### (v\d+\.\d+\.\d+)\b")
 KNOWN_STREAMS = {
-    "S-REF", "S-OBS", "S-GEO", "S-UNC", "S-MET", "S-SCENE", "S-EVID",
-    "S-MOBILE", "S-CLASS", "S-RADAR", "S-UI", "S-PUBLISH", "S-PLATFORM",
+    "S-REF",
+    "S-OBS",
+    "S-GEO",
+    "S-UNC",
+    "S-MET",
+    "S-SCENE",
+    "S-EVID",
+    "S-MOBILE",
+    "S-CLASS",
+    "S-RADAR",
+    "S-UI",
+    "S-PUBLISH",
+    "S-PLATFORM",
 }
 CAP = 12
 
@@ -38,6 +49,19 @@ def validate(data: str) -> list[str]:
         if found_release:
             release = found_release.group(1)
         if not line.startswith("- "):
+            if (
+                release is not None
+                and line.strip()
+                and not (
+                    line.startswith("#")
+                    or re.fullmatch(r'<a\s+id="[^"]+"></a>', line)
+                    or (line.startswith("<!--") and line.endswith("-->"))
+                )
+            ):
+                problems.append(
+                    f"line {line_number}: milestone content must be a one-line backlog item; "
+                    "move rationale and delivery history to the linked plan"
+                )
             continue
 
         if release is not None:
@@ -45,18 +69,24 @@ def validate(data: str) -> list[str]:
 
         item = ITEM.match(line)
         if item is None:
-            problems.append(f"line {line_number}: missing priority directly after optional PR")
+            problems.append(
+                f"line {line_number}: missing priority directly after optional PR"
+            )
             continue
         remainder = item.group(2)
         stream = STREAM.search(remainder)
         if stream is None:
-            problems.append(f"line {line_number}: final workstream must be backtick S-... token")
+            problems.append(
+                f"line {line_number}: final workstream must be backtick S-... token"
+            )
             continue
         if stream.group(1) not in KNOWN_STREAMS:
             problems.append(f"line {line_number}: unknown workstream {stream.group(1)}")
         sizes = list(SIZE.finditer(remainder[: stream.start()]))
         if not sizes:
-            problems.append(f"line {line_number}: missing original size before workstream")
+            problems.append(
+                f"line {line_number}: missing original size before workstream"
+            )
     for name, count in sorted(counts.items()):
         if count > CAP:
             problems.append(f"{name}: {count} outstanding items, maximum {CAP}")

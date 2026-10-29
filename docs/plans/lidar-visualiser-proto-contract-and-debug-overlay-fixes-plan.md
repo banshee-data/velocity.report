@@ -1,5 +1,7 @@
 # LiDAR visualiser proto contract and debug overlay fixes plan
 
+This plan reconciles the visualiser protobuf contract with the gRPC stream and debug overlays that consume it.
+
 - **Status:** Track field parity ✅, ObjectClass enum ✅, `peak` → `max` rename ✅ (#352), background serialisation ✅; debug overlay serialisation and cluster proto serialisation deferred to v0.5.10
 - **Layers:** L9 Endpoints
 - **Scope:** gRPC/protobuf contract parity for visualiser streaming, debug overlays, and track speed summary fields before `v0.5.0`

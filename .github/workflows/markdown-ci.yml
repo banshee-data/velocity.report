@@ -8,6 +8,13 @@ on:
     types: [opened, reopened, synchronize]
     paths:
       - "**/*.md"
+      - "**/*.bib"
+      - "scripts/check-backlog-format.py"
+      - "scripts/check-citation-coverage.py"
+      - "scripts/check-doc-structure.py"
+      - "scripts/test_check_backlog_format.py"
+      - "scripts/test_check_citation_coverage.py"
+      - "scripts/test_check_doc_structure.py"
       - "scripts/check-relative-links.py"
       - "scripts/check-backtick-paths.py"
       - ".github/workflows/markdown-ci.yml"
@@ -21,6 +28,15 @@ on:
     branches: [main]
     paths:
       - "**/*.md"
+      - "**/*.bib"
+      - "Makefile"
+      - ".github/workflows/markdown-ci.yml"
+      - "scripts/check-backlog-format.py"
+      - "scripts/check-citation-coverage.py"
+      - "scripts/check-doc-structure.py"
+      - "scripts/test_check_backlog_format.py"
+      - "scripts/test_check_citation_coverage.py"
+      - "scripts/test_check_doc_structure.py"
       - "scripts/check-relative-links.py"
       - "scripts/check-backtick-paths.py"
       - ".prettierignore"
@@ -32,6 +48,16 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  doc-contracts:
+    name: "📋 Document contracts"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Check backlog, document structure, and citation coverage
+        run: make check-backlog-format check-doc-structure check-citation-coverage
+
   md-links:
     name: "🔗 Dead links and stale paths"
     runs-on: ubuntu-latest

@@ -62,7 +62,7 @@ Tag all ~80 pending backlog items. Mechanical: read each item, assign 1–2 tags
 
 Add a `- **Domains:**` metadata field to plan document headers:
 
-# My Plan Title
+**Example plan metadata:**
 
 - **Status:** Proposed
 - **Layers:** L4 Perception, L5 Tracks

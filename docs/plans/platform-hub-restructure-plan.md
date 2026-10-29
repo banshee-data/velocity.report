@@ -1,5 +1,7 @@
 # Hub restructure plan
 
+This plan organises substantial documentation into owning hubs and defines how shared platform material is separated from sensor-specific references.
+
 - **Status:** Parked (D-32, October 20, 2026): no backlog row. Revisit when a row is agreed for it
 - **Canonical:** [canonical-plan-graduation.md](../platform/architecture/canonical-plan-graduation.md)
 - **Layers:** Cross-cutting (documentation)

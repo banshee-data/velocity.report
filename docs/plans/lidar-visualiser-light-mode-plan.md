@@ -1,5 +1,7 @@
 # Design: VelocityVisualiser light mode for 3D scene rendering
 
+This plan adds a macOS visualiser light appearance with legible scene colours and consistent system-appearance behaviour.
+
 - **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Canonical:** [light-mode.md](../ui/visualiser/light-mode.md)
 

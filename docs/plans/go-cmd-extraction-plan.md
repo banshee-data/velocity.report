@@ -1,5 +1,7 @@
 # Go cmd/ business logic extraction plan (v0.5.9)
 
+This plan moves testable business logic from CLI commands into internal packages, leaving the commands responsible for argument handling and dispatch.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** Cross-cutting (Go server, LiDAR pipeline, configuration)
 - **Target:** v0.5.9; extract before [internal/cmd/server/radar.go](../../internal/cmd/server/radar.go) grows past 1,500 LOC

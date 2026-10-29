@@ -1,5 +1,7 @@
 # Serve namespace decomposition (v0.5.2)
 
+This plan separates server startup and runtime responsibilities so the server command can be tested through smaller, explicit boundaries.
+
 - **Status:** Superseded (October 20, 2026) by [go-cmd-extraction-plan](go-cmd-extraction-plan.md): one body of work, carried by its backlog row. Was: Draft
 - **Layers:** CLI composition (`internal/cmd/server`), busybox namespace surface
 - **Target:** v0.5.2; `internal/cmd/server/radar.go` sits at 18.24% coverage and is the single largest untested surface in the binary

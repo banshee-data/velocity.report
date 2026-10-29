@@ -1,5 +1,7 @@
 # One review workflow: proposals, grading and reference truth
 
+This plan connects road-user identity, point-mask review, and physical-reference evidence into a coherent operator workflow.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows sit in v0.5.15 (facets) or v0.5.16 (label sets), or it has none; revisit when that slot is next, or a held-out window needs it. Was: Draft
 - **Layers:** L4 Perception, L5 Tracks, L6 Objects, L8 Analytics, L9 Endpoints, L10 Clients (macOS visualiser first), offline analysis
 - **Target:** v0.5.x, after the annotation toolset and the run-track finalisation fix

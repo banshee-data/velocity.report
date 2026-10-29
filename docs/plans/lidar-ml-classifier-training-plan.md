@@ -1,5 +1,7 @@
 # LiDAR classification evaluation harness and optional model training
 
+This plan establishes measured classification accuracy and compares explainable classifier candidates before considering a less interpretable research baseline.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Draft
 - **Layers:** L6 Objects, L8 Analytics, sweep/evaluation platform
 - **Target:** v0.5.7-v2.0; scorecard and corpus contracts follow the headway critical path, and candidate models stay parked at v2.0 until the scorecard exists.

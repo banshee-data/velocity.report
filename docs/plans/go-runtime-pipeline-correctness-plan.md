@@ -1,5 +1,7 @@
 # Go runtime pipeline correctness and cleanup remediation plan
 
+This plan addresses runtime failures in replay, radar derivation, capability reporting, and pipeline lifecycle handling that successful process execution can conceal.
+
 - **Status:** Complete; Phases 1–4 delivered and the rest moved to other plans. Graduates to a symlink in a later PR under the two-PR rule
 - **Layers:** Go server, LiDAR replay/tracking pipeline, radar DB derivation, API capability reporting
 - **Canonical:** [runtime-pipeline-correctness.md](../platform/architecture/runtime-pipeline-correctness.md)

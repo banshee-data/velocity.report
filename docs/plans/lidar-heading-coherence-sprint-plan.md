@@ -112,7 +112,7 @@ pointing 106° away from the direction of travel.
 | [velocity-coherent-foreground-extraction](../../data/maths/proposals/20260220-velocity-coherent-foreground-extraction.md) | Proposal                                                                                         | Not in this sprint. Would give a PCA-independent heading signal                                                                                                                                               |
 | [lidar-state-estimation-plan](lidar-state-estimation-plan.md)                                                             | Draft, this PR                                                                                   | The near-edge measurement work supersedes the medoid. Out of scope for two days, but D1.4's metric is the gate it will be judged on                                                                           |
 
-#### Correction: the aspect-ratio lock threshold runs the other way
+### Correction: the aspect-ratio lock threshold runs the other way
 
 An earlier revision of this plan recommended closing Fix D on the grounds
 that lowering `obb_aspect_ratio_lock_threshold` would increase lock

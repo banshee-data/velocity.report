@@ -1,5 +1,7 @@
 # S2 geographic indexing plan
 
+This plan applies the geographic-indexing conventions to storage, capture provenance, and interfaces without duplicating the normative style guide.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Planned; implementation targeted at v2.0
 - **Canonical:** [geographic-indexing.md](../lidar/architecture/geographic-indexing.md)
 - **Layers:** Storage, filesystem artefacts, clips, run records

@@ -425,6 +425,10 @@ context waits with it.
 
 ## Dependencies
 
+The backlog's safety-reporting slot delivers the reference edition and temporal strata before
+their report consumers. Keep the area-rate table and its area-context consumer blocked together
+until reuse rights are settled; absence of the table does not advance its consumer's release.
+
 - [Posted speed limits](posted-speed-limits-plan.md) for any compliance framing; until then the
   harm paragraph uses the per-request limit and says it was operator-supplied.
 - The merged `sites` table with coordinate provenance, in the

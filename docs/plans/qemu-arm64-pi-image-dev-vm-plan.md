@@ -1,5 +1,7 @@
 # QEMU + Headscale + pi-gen image (arm64 emulation)
 
+This plan defines a QEMU ARM64 development environment that boots the built Raspberry Pi image to test the shipped system.
+
 - **Status:** Superseded (October 20, 2026) by [qemu-headscale-dev-vm-plan](qemu-headscale-dev-vm-plan.md), of which it is a variant. Was: design (variant of qemu-headscale-dev-vm-plan.md)
 - **Owner:** patrickod
 - **Branch:** patrickod/tailscale-acls (anticipated follow-on PR)

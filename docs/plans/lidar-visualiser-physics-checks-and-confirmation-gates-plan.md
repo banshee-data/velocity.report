@@ -1,5 +1,7 @@
 # Design: automatic physics checks and confirmation gates (feature 7)
 
+This plan adds explainable physical-plausibility checks to track review and defines how violations affect manual confirmation.
+
 - **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Layers:** L5 Tracks, L9 Endpoints
 - **Canonical:** [physics-checks.md](../ui/visualiser/physics-checks.md)

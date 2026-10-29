@@ -1,5 +1,7 @@
 # LiDAR maths coherence plan (v0.5.3)
 
+This plan connects the LiDAR maths specifications to their Go implementations so equations, code, and tests can be traced in both directions.
+
 - **Status:** Draft
 - **Layers:** L1 Packets, L2 Frames, L3 Grid, L4 Perception, L5 Tracks, L6 Objects, L8 Analytics
 - **Target:** v0.5.3; the 052 run is maths-led, and the individual paper-gap fixes scheduled for it land on top of a substrate that does not yet exist.

@@ -1,5 +1,7 @@
 # Deterministic scene capture and review harness
 
+This plan provides repeatable recorded-scene images with fixed views, timestamps, and provenance for reviewing point, trail, and box alignment.
+
 - **Status:** Parked (D-32, October 20, 2026): Milestones 1–2 complete; Milestone 3 is a v0.5.10 row, Milestone 4 is in the survey publishing queue and Milestone 5 is parked with the design system. Revisit when v0.5.10 is the next release
 - **Canonical:** [reference-capture.md](../lidar/operations/reference-capture.md)
 - **Layers:** L9 Endpoints, L10 Clients, offline evaluation tooling

@@ -1,5 +1,7 @@
 # Plan title (version scope)
 
+Describe the proposed work and its purpose in one or two sentences before the metadata. Keep release placement in the backlog and include only the sections relevant to the design.
+
 - **Status:** Draft | Proposed | Active | Parked | Complete | Superseded (D-32; a Parked plan gives a one-line reason and a revisit trigger)
 - **Decisions:** the D-NN entries this plan relies on or proposes to supersede (D-32); `/plan-review` refuses a plan that contradicts a decision it does not cite
 - **Layers:** e.g. Cross-cutting (Go server, API, database) | LiDAR pipeline | Web frontend
@@ -62,6 +64,17 @@ External or internal dependencies that gate or sequence this work.
 | Risk | Likelihood | Impact | Mitigation |
 | ---- | ---------- | ------ | ---------- |
 |      |            |        |            |
+
+## Design decisions
+
+Record agreed choices with their source or decision-register entry. Separate implemented facts
+from proposals; omit this section when the plan makes no additional design choices.
+
+## Open questions
+
+List unresolved choices and their trade-offs, or explicitly state that none are recorded. Do not
+invent a resolution; keep answered questions in Design decisions and implementation work in the
+Checklist.
 
 ## Checklist
 

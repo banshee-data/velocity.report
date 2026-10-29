@@ -1,5 +1,8 @@
 # Ground plane export for pcap-analyse tool
 
+This plan defines offline export of measured ground tiles from static LiDAR captures, with
+optional geographic placement and explicit fit confidence.
+
 - **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.7.4 is next, or the owner settles the public scene data at D-34's step 2. Was: Planning
 - **Target:** [internal/lidar/lidarbench](../../internal/lidar/lidarbench)
 - **Canonical:** [pcap-analysis-mode.md](../lidar/operations/pcap-analysis-mode.md)

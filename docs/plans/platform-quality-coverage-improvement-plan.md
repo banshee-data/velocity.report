@@ -1,5 +1,7 @@
 # Coverage improvement plan: 95.5% target
 
+This plan identifies the remaining quality and coverage work and separates testable internal logic from thin command wrappers.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.9 and later, or it has none; revisit when the slot holding its rows becomes next. Was: Proposed
 - **Layers:** Cross-cutting (testing infrastructure)
 - **Goal:** Raise every `internal/`, web, Python, and macOS package/module/file

@@ -1040,6 +1040,9 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_geometry_wording.py \
 	scripts/test_check_british_spelling.py \
 	scripts/test_check_bibliography_budget.py \
+	scripts/test_check_backlog_format.py \
+	scripts/test_check_citation_coverage.py \
+	scripts/test_check_doc_structure.py \
 	scripts/test_lidar_following_windows.py \
 	scripts/test_lidar_jump_candidates.py \
 	scripts/test_list_matrix_fields.py \
@@ -2104,7 +2107,7 @@ check-release-hashes: ## [gated] Validate SHA256 hashes and sizes in release JSO
 update-release-json: ## Update release.json + os-list-velocity.json from GitHub Releases. ARGS='--ci --channel prerelease --validate'
 	@python3 scripts/update-release-json.py $(ARGS)
 
-lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording ## Check Markdown formatting (prettier), Mermaid fences, header metadata (docs/config/data), British English spelling, quarter-block chars, and release hashes
+lint-docs: check-mermaid check-quarter-blocks check-release-hashes check-docs-format check-backlog-format check-geometry-wording check-doc-structure check-citation-coverage ## Check Markdown formatting, document structure, citations, metadata, spelling, and release hashes
 	@python3 scripts/check-doc-header-metadata.py
 	@python3 scripts/check-british-spelling.py
 
@@ -2135,6 +2138,14 @@ test-no-results: ## Exercise the result-directory guard against real Git indexes
 
 check-bibliography: ## Advisory: references.bib sections against their soft caps, and entries nothing cites
 	@python3 scripts/check-bibliography-budget.py
+
+check-doc-structure: ## [gated] Research and plan titles, summaries, metadata, and heading hierarchy
+	@python3 scripts/check-doc-structure.py
+
+check-citation-coverage: ## [gated] Research and plan DOI/arXiv mentions and reference keys resolve in references.bib
+	@python3 scripts/check-citation-coverage.py
+
+.PHONY: check-doc-structure check-citation-coverage
 
 .PHONY: check-no-results test-no-results check-bibliography
 

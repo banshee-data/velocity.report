@@ -1,5 +1,7 @@
 # Background grid and region overlays in recordings and viewers
 
+This plan adds visual evidence for background-region behaviour so operators can inspect settlement, foreground retention, and queued-vehicle failures.
+
 - **Status:** Draft
 - **Layers:** L3 Grid, L9 Endpoints (proto, VRLOG), L10 Clients (macOS visualiser and annotation window first; web as an optional view)
 - **Target:** v0.5.x, built on the annotation branch (PR #579) as part of the same annotation tool, not as a separate change; the overlay is what makes an L3 remedy testable

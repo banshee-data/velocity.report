@@ -1,5 +1,7 @@
 # LiDAR parameter tuning & optimisation
 
+This plan defines systematic parameter experiments against track-quality metrics, with reproducible configuration and evaluation.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Planned
 - **Canonical:** [auto-tuning.md](../lidar/operations/auto-tuning.md)
 

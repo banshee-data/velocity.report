@@ -1,5 +1,7 @@
 # Release-JSON automation and `main` protection
 
+This plan compares ways to update release-asset metadata automatically while preserving branch protection and verifiable asset hashes.
+
 - **Status:** Parked (D-32, October 20, 2026): survey publishing waits on the scene asset move and on which scene data may be public (D-34); revisit when v0.7.4 is next, or the owner settles the public scene data at D-34's step 2. Was: Draft
 - **Layers:** Cross-cutting (CI, branch protection, release workflow)
 - **Target:** after v0.5.3; unblocks single-PR release flow while tightening `main`
@@ -160,7 +162,7 @@ Add a single GitHub App (`velocity-release-bot`, `contents:write`) to the rulese
 - Future admins who want to understand "why can this identity write to main?" have to read the ruleset UI. Worth leaving a `docs/platform/operations/` note if we pick this.
 - Still needs the `web_commit_signoff_required` trailer in commit messages.
 
-**Open questions**
+#### Open questions
 
 - Do we pin the App's installed-workflow allow-list (via the App's permissions UI) to only the release workflow file, to reduce blast radius if another workflow is later added that calls it?
 - Should we rotate the App's private key on a schedule (e.g. quarterly) independent of compromise signals?
@@ -184,7 +186,7 @@ Stop storing `release.json` and `os-list-velocity.json` on `main`. Instead publi
 - Introduces a new source of truth for "what is the current release," which may drift from `main` (e.g. `main` claims `v0.5.3` is in the works while the release-data branch still points at `v0.5.2`). That drift is fine for the site, but it changes how we reason about `main` as the canonical snapshot.
 - For the RPi Imager integration specifically, the asset-URL scheme matters: `os-list-velocity.json` currently lives at a stable path under `image/`, and the fork of `rpi-imager` referenced in `deploy-rpi-imager-fork-plan.md` may already encode that path. Any move has to land in lockstep with the fork.
 
-**Open questions**
+#### Open questions
 
 - Does the Eleventy site's data layer (11ty `_data/`) need a network fetch at build time, or can we ship a tiny pre-build script that downloads the JSON into `_data/` before `eleventy` runs?
 - How does `velocity.report/rpi.json` (the URL RPi Imager hits) get served? Today it's a static file in `public_html/`. If we move the source, do we proxy, redirect, or regenerate at publish?

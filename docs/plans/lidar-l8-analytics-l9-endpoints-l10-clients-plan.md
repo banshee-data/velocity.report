@@ -1,5 +1,7 @@
 # LiDAR L8 analytics / L9 endpoints / L10 clients refactor plan
 
+This plan assigns LiDAR analytics, endpoint shaping, and client responsibilities to their owning layers and sequences the remaining refactor.
+
 - **Status:** Parked (D-32, October 20, 2026): its rows are in v0.5.8 and later, or it has none, and nothing in v0.5.2 to v0.5.7 needs it; revisit when the slot holding its rows becomes next. Was: Revised implementation plan - reviewed against repository state and backlog on 2026-03-12
 - **Layers:** L8 Analytics, L9 Endpoints, L10 Clients
 - **Related:** [L7 Scene plan](lidar-l7-scene-plan.md), [speed percentile aggregation alignment](speed-percentile-aggregation-alignment-plan.md), [schema standardisation 000030–000031](schema-simplification-migration-030-plan.md), [tracks table consolidation](lidar-tracks-table-consolidation-plan.md)

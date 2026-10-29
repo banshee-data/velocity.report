@@ -1,5 +1,7 @@
 # LiDAR pipeline profiles (v0.5.2)
 
+This plan defines explicit pipeline profiles so benchmarks and deployments execute the intended layers and compare equivalent work.
+
 - **Status:** Implemented (v0.5.2) in #566; CI baselines outstanding
 - **Layers:** LiDAR pipeline (L3–L6), tuning config, perf-regression CI
 - **Target:** v0.5.2; the perf gate cannot be re-armed until a baseline can say which workload it measured

@@ -1,5 +1,7 @@
 # LiDAR architecture graph plan
 
+This plan generates a maintainable dependency graph of the LiDAR packages so architectural boundaries can be inspected and checked.
+
 - **Status:** Parked (D-32, October 20, 2026): no backlog row. Revisit when a row is agreed for it
 - **Layers:** All (L1–L10)
 - **Parent:** [L8/L9/L10 refactor plan](lidar-l8-analytics-l9-endpoints-l10-clients-plan.md)

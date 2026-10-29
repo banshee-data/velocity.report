@@ -1,5 +1,7 @@
 # Surface consolidation plan
 
+This plan consolidates LiDAR operator surfaces and scene-data production, recording the delivered dashboard migration and the remaining shared-lineage work.
+
 - **Status:** Phases 1 to 6 (v0.5.2's ECharts retirement) are implemented on branch `claude/echarts-svelte-migration-83fbd5` (#836); see [v0.5.2 delivery](#v052-delivery). Phase 7 remains a v0.7.9 row, moved by the owner on October 20, 2026, so it is not parked. Was: Proposed, then Draft. Revised 2026-09-19 after a route-by-route survey; the phase
   estimates and several factual claims in the previous revision were wrong, and
   the corrections are recorded in [What the 2026-09-19 survey changed](#what-the-2026-09-19-survey-changed).

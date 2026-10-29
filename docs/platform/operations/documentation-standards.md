@@ -59,8 +59,27 @@ Constraints:
 - Must be narrative text, not filename echoes, status labels, or changelog
   fragments.
 
-**Status:** ~40 of ~123 docs still missing a narrative opening paragraph.
-No automated checker exists yet.
+Research notes and plans are checked by `make check-doc-structure`: one title, an opening
+narrative before the first section, canonical Status metadata, and no skipped heading levels.
+Graduated plan symlinks keep their canonical reference document's structure.
+
+## Research and plan sections
+
+Use the [plan template](../../plans/TEMPLATE.md) as a guide, retaining topic-specific sections
+and existing link anchors. Include Design decisions for agreed choices and Open questions for
+unresolved choices; recommendations remain proposals until their approval is recorded. A checklist
+tracks implementation and does not resolve a design question.
+
+Research assessments separate Evidence (or Research reviewed), interpretation, proposed validation,
+and Open questions. Their Status states whether the note is research only. Reference metadata names
+the canonical BibTeX keys; adding a bibliography entry verifies source identity, not its results.
+`make check-citation-coverage` checks DOI/arXiv mentions in all research notes and plans against
+the bibliography and checks their explicit reference keys. Author-only mentions still require the
+[reference audit](../../lidar/operations/brief/reference-audit.md).
+
+The backlog keeps one outstanding outcome per line with priority, size, and workstream. Milestone
+prose, wrapped items, delivery history, and acceptance rationale belong in the linked plan;
+`make check-backlog-format` rejects prose that bypasses that format. Completed history is preserved.
 
 ## Line-Width standard: 100 columns
 

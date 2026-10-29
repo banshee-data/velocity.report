@@ -1,6 +1,7 @@
 # Driving instability, approach stability, and TTC benchmarking (2026-10-29)
 
 - **Status:** Research proposal; no safety thresholds adopted.
+- **References:** `Concas2026`, `Taheri2026`; [canonical bibliography](../../data/maths/references.bib).
 
 This note proposes approach-level measurements and supplementary reference experiments. The
 [behaviour analytics plan](../plans/lidar-behaviour-analytics-plan.md),
@@ -61,7 +62,7 @@ Example _hypothesis_, not empirical result: if 35% of 5,000 observed approaches 
 - **Phase 3: public report design.** Prototype an Approach Stability section alongside speed percentiles, headway/PET and stop compliance; label exploratory findings, confounders, sample size and uncertainty. Avoid unsupported “dangerous intersection” classifications.
 - **Phase 4: intervention validation.** Repeat same-site before/after observations and evaluate whether late braking, approach consistency and conflicts improve under matched conditions.
 
-## Questions to resolve
+## Open questions
 
 - Are LiDAR track lengths and accuracy adequate for jerk at all existing sites? What filter and track-quality gates are required?
 - What exact spatial reference and map alignment will define crosswalk/stop line distances?

@@ -1,5 +1,7 @@
 # Design: priority review queue by uncertainty and impact (feature 8)
 
+This plan orders track review by uncertainty and impact so limited reviewer time addresses the most useful cases first.
+
 - **Status:** Parked (D-32, October 20, 2026): proposed in February and unbuilt, and the annotation window has since covered part of it; revisit when the annotation window settles, or a row that links this plan reaches the next slot. Was: Proposed (February 2026)
 - **Layers:** L9 Endpoints
 - **Canonical:** [priority-review-queue.md](../ui/visualiser/priority-review-queue.md)
