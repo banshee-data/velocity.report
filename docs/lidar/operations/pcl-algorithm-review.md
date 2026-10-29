@@ -1,6 +1,6 @@
 # Point Cloud Library review: tracking, facets, surface and occlusion
 
-- **Status:** OQ-01 to OQ-13 complete, with bounded diagnostic measurements; four experiment specs remain proposed, with no production implementation or campaign result
+- **Status:** OQ-01 to OQ-13 and final branch review complete, with bounded diagnostic measurements; four experiment specs remain proposed, with no production implementation or campaign result
 - **Scope:** PCL's registration, tracking, sample consensus, keypoints, features, range image,
   segmentation, surface, filters, recognition and ml modules, read against velocity.report's L3 to
   L8 and the owner's five questions. Not an audit of PCL's I/O grabbers, visualisation or GPU code.
@@ -342,10 +342,11 @@ remaining implementation prerequisites, use the [resume point](pcl-astera-handov
 ### What survives between runs
 
 Committed: this review, the [plan](../../plans/lidar-pcl-algorithm-candidates-plan.md) and the
-four specs. Not committed, and lost when the session ends: the PCL sparse checkout, the header
-digests and the per-class catalogues (registration, tracking and sample consensus, 91 classes;
-keypoints, features and range images, 55; recognition and ml). They are generated research notes,
-not records, so AGENTS.md keeps them out of Git. Regenerate the checkout in a few minutes with the
+four specs. Not committed: the external PCL checkout, header
+digests and per-class catalogues (registration, tracking and sample consensus, 91 classes;
+keypoints, features and range images, 55; recognition and ml). The current checkout and build cache are outside Git; their locations are recorded in the
+[handover](pcl-astera-handover.md#resume-point). Disposable catalogues are generated notes,
+while findings and provenance are committed reports. If the external checkout is unavailable, recreate it with the
 command below; regenerate a catalogue only for the module a row needs, never all of them.
 
 ```bash

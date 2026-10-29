@@ -5,6 +5,12 @@
 - **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Related:** [review](pcl-algorithm-review.md), [original discussion](pcl-original-discussion-reconciliation.md#oq-13-partitioning-merged-detections), [observation-revision owner](../../plans/lidar-cluster-observation-log-and-async-tracking-plan.md#association-within-the-window), [joining experiment](../../../data/experiments/l4clus/l4clus0005.md)
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Decision
 
 Do not add a standalone PCL experiment for splitting one merged L4 detection into physical
@@ -109,8 +115,8 @@ changes, and no splitter harness is added.
 The reviewed source ranges and local evidence were checked, along with documentation lint, links,
 experiment validation, the unchanged l4clus0005 arms/rules, and the no-results guard. No MinCut
 execution, replay, new benchmark, or physical validation ran. Earlier OQ-03 fixture results remain
-attributed to that checkpoint; the full test suite was last run at OQ-08 and is not repeated for
-this documentation-only change. OQ-01 through OQ-13 are answered; implementation and qualification
+attributed to that checkpoint; at OQ-13, the latest full-suite run was OQ-08 and it was not repeated for that
+documentation-only change. The later final branch pass reran the full suite. OQ-01 through OQ-13 are answered; implementation and qualification
 dependencies remain open work, not unanswered review rows.
 
 [esf]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/include/pcl/features/impl/esf.hpp#L534-L549

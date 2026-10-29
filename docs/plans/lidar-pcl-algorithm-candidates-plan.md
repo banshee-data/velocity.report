@@ -1,6 +1,6 @@
 # PCL algorithm candidates: experiments before ports (05x research, Parked P2)
 
-- **Status:** Proposed. Four experiment specs; diagnostic tools built, campaign oracles and runtime ports pending; nothing scheduled into a full 05x slot
+- **Status:** Review and final branch pass complete; implementation proposed. Four experiment specs; diagnostic tools built, campaign oracles and runtime ports pending; nothing scheduled into a full 05x slot
 - **Decisions:** D-36 (Gerardus owns static geometry; L5 owns bodies; L8 owns interaction metrics), D-37 (backlog metadata), D-32 (slot caps), D-26 and D-30 (one static Go binary: no C++ runtime dependency), D-28 (rectangle fit and range-adaptive eps context)
 - **Layers:** L3 grid (border classes), L4 perception (joining rule, ground plane), L5 tracks (coasting evidence, extents), offline evaluation; Gerardus recommendations outside this repository
 - **Target:** the experiments run alongside 05x as P2 research; a port enters a 05x slot only by displacing a row there, after its experiment passes

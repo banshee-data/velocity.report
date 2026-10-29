@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-13 complete; stopped at the source-review checkpoint
+- **Status:** OQ-01 to OQ-13 and final branch review complete; PR #882 open for review; implementation and experiments await owner selection
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -28,6 +28,9 @@ verified and OQ-13 added and answered. Check current availability rather than in
 from a path in an earlier report. The first-run instructions are retained as the original scope.
 
 ## First run: finish OQ-01
+
+Historical instructions for the completed first run. They do not supersede the
+[current resume point](#resume-point).
 
 Read AGENTS.md and the coding standards, then this document, the canonical review, and the plan's
 checklist. Take OQ-01 first. Inventory the substantive PCL claims under Q0 to Q4, including the
@@ -119,6 +122,9 @@ held-out qualification, or Mac timing for Pi timing. Keep PCL offline and preser
 boundary: Gerardus owns static scene geometry.
 
 ## Review record
+
+This is the OQ-01 evidence record at its stated baseline. References to later OQ work describe
+the sequence at that time; all those questions are now answered in the continuation record.
 
 OQ-01 is complete as a source review. The reviewed checkout was obtained and its HEAD verified at
 `3346843ea6b97697a1577293aa9cdf236b5c7ffb`; the local analysis baseline remains
@@ -430,16 +436,16 @@ is not installed. No compiled PCL test, replay, accuracy measurement, or runtime
 
 ## Return to the implementation agent
 
-After the Astera checkpoint, verify its citations and proposed corrections against the recorded
-revisions. Reconcile the canonical review, plan, and affected specs, preserving unresolved claims.
-Summarise what source inspection established, what needs execution, and any owner decision.
+The source review, citation checks, dependent-document corrections, OQ-02 compatibility run,
+OQ-03/OQ-06 fixtures, and final branch pass are complete. Do not repeat them merely because the
+original first-run instructions remain in this record.
 
-For OQ-02, first verify installation and export availability, then prepare the smallest harness
-that tests the camera assumptions. Do not build a Go port on an untested oracle representation. If
-the one-frame result contradicts the design, revise the experiment before further replay. After
-the open-question checkpoints, follow the plan's experiment sequence: border classes, joining
-rule, hull bound, and constrained ground. Apply each experiment's stop rule before funding its
-implementation. Publication and execution scope are agreed at those checkpoints.
+The next decision is which proposed experiment to fund and schedule. Item 1 still needs a
+calibrated sensor adapter or explicit resampling with source membership, and the OQ-04 campaign
+harnesses remain unbuilt. Border classes, joining, hull bounds, and constrained ground each retain
+their own prerequisite and acceptance gates. Classification also needs its scorecard and reviewed
+corpus; the planar and Gerardus comparators remain conditional on their owner plans. No campaign
+or runtime port is authorised by completing this review.
 
 ## Continuation checkpoint
 
@@ -527,14 +533,14 @@ l4clus0005 retains its six joining arms and numerical rules. No new fixture or c
 
 ## Resume point
 
-- **Active row:** None; OQ-01 to OQ-13 are answered. Stop at this checkpoint.
-- **Next action:** Owner review of the thirteen dispositions and draft PR #882. For a later implementation run, start with the candidate plan's outstanding checklist and OQ-04's named harness contracts; select one existing experiment and verify its input/adapter/label prerequisites before implementing or running it. OQ-13 creates no new arm. The final pass below integrated current main and checked the branch; the PR remains draft and is not merged.
+- **Active row:** None; OQ-01 to OQ-13 and the final branch review are complete. No further source-review run is queued.
+- **Next action:** Owner review of the thirteen dispositions in [PR #882](https://github.com/banshee-data/velocity.report/pull/882), which is open for review. For a later implementation run, start with the candidate plan's outstanding checklist and OQ-04's named harness contracts; select one existing experiment and verify its input/adapter/label prerequisites before implementing or running it. OQ-13 creates no new arm. The final pass below integrated current main and checked the branch; the PR is open for review and is not merged.
 - **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup. OQ-10 defines classification coverage, not descriptor seeding, a training sample size, or an adoption decision. Keep earlier report denominators tied to their label revision.
 - **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. OQ-12 adds source analysis and existing lower-body/footprint unit-test execution; no new PCL fixture, tap PCAP test, border implementation, or campaign. OQ-13 is reviewed-source analysis and prior-report synthesis only.
-- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 through OQ-13 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, reviewed-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-12 passed existing lower-body/footprint unit tests, fresh lint, links, experiment validation, source-range checks, and the no-results guard; the staged diff was reviewed. OQ-13 passed fresh lint, links, experiment validation, reviewed-source range checks, unchanged-arm/rule checks, and the no-results guard; the staged diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
+- **Historical checkpoint validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 through OQ-13 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, reviewed-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-12 passed existing lower-body/footprint unit tests, fresh lint, links, experiment validation, source-range checks, and the no-results guard; the staged diff was reviewed. OQ-13 passed fresh lint, links, experiment validation, reviewed-source range checks, unchanged-arm/rule checks, and the no-results guard; the staged diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
 - **Outstanding inputs:** Calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
 - **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the reviewed PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
-- **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 `7ec1a599`; OQ-12 `d914a4c26`; OQ-13 partition disposition and the completed-review resume point saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.
+- **Saved checkpoints:** PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 `7ec1a599`; OQ-12 `d914a4c26`; OQ-13 partition disposition and the completed-review resume point saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.
 
 ## Final branch pass
 
@@ -572,8 +578,9 @@ spherical-border CSVs to the archived local outputs. The existing OQ-02 measurem
 limitations therefore stand. This repeat is not a new capture, adapter, or campaign. Raw files
 remain outside Git; only the hand-authored failure-fixture recipe is added to the repository.
 
-**Resume:** Review the thirteen dispositions and proposed contracts in draft PR #882. The final
+**Resume:** Review the thirteen dispositions and proposed contracts in PR #882 (open for review). The final
 pass found no remaining change required within this PR's review-and-diagnostic scope. GitHub
 reported no CI checks on the pre-push head; local passes are not a CI result. Keep the calibrated
 adapter, campaign harnesses, and reviewed corpus coverage as explicit implementation prerequisites.
-Do not start an experiment, mark the PR ready, or merge it as part of this checkpoint.
+The PR has since left draft. Experiment execution and merging are separate owner decisions;
+this documentation refresh performs neither.

@@ -5,6 +5,12 @@
 - **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Related:** [review](pcl-algorithm-review.md), [handover](pcl-astera-handover.md), [l3bg0028](../../../data/experiments/l3bg/l3bg0028.md), [lower-body report](vehicle-lower-body-by-range-2026-10.md)
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Decision
 
 Reuse `replayeval.Config.FrameTap` and `FrameTapFrame` for offline frame export and diagnostic
@@ -94,9 +100,9 @@ The existing lower-body and footprint unit tests passed for this checkpoint. Sou
 checked against the frozen local baseline and PCL Git SHA. No new border implementation, sensor
 adapter, replay campaign, PCL fixture, physical measurement, or Pi timing was performed. The
 existing tap's PCAP baseline-equivalence test was inspected, not rerun. Fresh documentation lint,
-links, experiment validation, and the no-results guard cover the contract edits; the full suite
-was last run at OQ-08 and is not repeated for this documentation-only checkpoint.
+links, experiment validation, and the no-results guard cover the contract edits; at OQ-12, the latest full-suite run
+was OQ-08 and it was not repeated for that documentation-only checkpoint. The later final
+branch pass reran the full suite.
 
 The historical l3bg0024 report and its denominators remain intact. l3bg0027 still owns the held
-versus edge-follow split and L4 experiment. OQ-12 closes the reuse/semantics question only. OQ-13,
-the bounded merged-detection partition question, is the next review checkpoint.
+versus edge-follow split and L4 experiment. OQ-12 closes the reuse/semantics question only. OQ-13 subsequently [answered the merged-detection partition question](pcl-merged-detection-partition-disposition.md).

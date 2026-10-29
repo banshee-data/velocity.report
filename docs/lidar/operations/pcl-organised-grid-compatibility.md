@@ -5,6 +5,12 @@
 - **Plan:** [Oracle at the recorded Git SHA and exporter](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-oracle-at-the-recorded-git-sha)
 - **Parameters:** [pcl-organised-grid.json](../../../config/experiments/pcl-organised-grid.json)
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Method and decision rule
 
 Export the first complete scored frame after 20 s of kirk0 using the production replay FrameTap,

@@ -5,6 +5,12 @@
 - **Plan:** [Item 1](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-oracle-at-the-recorded-git-sha)
 - **Tools:** [Offline diagnostics](../../../tools/pcl-review/README.md)
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Installation decision
 
 Keep the oracle at PCL `pcl-1.15.1`, commit
@@ -144,8 +150,8 @@ requires input/output identity tests and the exact spec parameters before a scor
 OQ-04 closes the installation/tool-selection question, not plan Item 1's implementation. Record
 PCL HEAD, clean/modified status, compiler, dependency versions, CMake options, executable hashes,
 input/config hashes, and invoked arguments in every actual experiment report. Keep raw logs,
-PCDs, and labels outside Git. Next is OQ-05's capped/uncapped joining comparison design; no
-experiment rule changes in OQ-04.
+PCDs, and labels outside Git. OQ-05 subsequently [specified the matched sampling controls](pcl-joining-cap-controls.md).
+Campaign implementation remains proposed; OQ-04 itself changed no experiment rule.
 
 [tool-targets]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/tools/CMakeLists.txt#L166-L280
 [cluster]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/tools/cluster_extraction.cpp#L94-L123

@@ -5,6 +5,12 @@
 - **Evidence:** [l4clus0004 report](l4-subsampled-density-2026-10.md)
 - **Plan:** [Joining rule](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-3-q1-the-joining-rule-l4clus0005)
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Decision and its evidence
 
 Add the uncapped control and both uncapped graph arms to l4clus0005. Keep the capped arms.

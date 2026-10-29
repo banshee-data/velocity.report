@@ -6,6 +6,12 @@
 - **Affected spec:** [ground0006](../../../data/experiments/ground/ground0006.md)
 - **Harness:** [segmentation-check.cpp](../../../tools/pcl-review/segmentation-check.cpp)
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Decision
 
 PCL 1.15.1 shares the unbounded-neighbour problem identified in SpatialRust's region grower.

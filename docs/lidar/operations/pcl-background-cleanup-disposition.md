@@ -6,6 +6,12 @@
 - **Gerardus Git SHA:** `a2c2ac10e6497c26d973488e38aba394c93ec345`, main verified during OQ-08
 - **Local baseline:** velocity.report `e1db67ddc`, the OQ-08 checkpoint
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Disposition
 
 Drop moving least squares (MLS) and blanket statistical outlier removal (SOR) as background-export
@@ -117,8 +123,7 @@ test run covers the unchanged code; OQ-09 adds documentation only and passed fin
 source-range checks, counterexample arithmetic, and the no-results guard. No cleanup comparison,
 registration, physical validation, or performance measurement ran, and no raw outputs enter Git.
 
-OQ-10 is next: inspect the classification scorecard and available labelled corpus, then record
-minimum independent-object coverage by class, aspect, and range. Repeated frames from one object
+OQ-10 subsequently [recorded the corpus inventory and coverage requirements](pcl-classification-corpus-requirements.md). Repeated frames from one object
 must not be counted as independent class examples.
 
 [sor]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/filters/include/pcl/filters/impl/statistical_outlier_removal.hpp#L68-L123

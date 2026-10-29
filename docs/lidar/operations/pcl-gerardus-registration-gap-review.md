@@ -6,6 +6,12 @@
 - **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Local baseline:** velocity.report `342211be9448183c278a5cdd64a5a61ac7290501`
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Disposition
 
 Do not ask Gerardus to add a generic observability report: it already computes a weighted
@@ -98,8 +104,8 @@ record. Repository `make test`, `make lint`, final documentation checks, relativ
 the no-results guard passed. The temporary dependency link and generated macOS BuildInfo stamp
 were removed or restored before staging.
 
-OQ-09 is next: decide whether moving least squares or statistical outlier removal merits a
-bounded background-cleanup comparison against the guarded input. Read pose0002 first: none of
+OQ-09 subsequently [dropped blanket MLS/SOR cleanup](pcl-background-cleanup-disposition.md).
+Its disposition preserves pose0002: none of
 60, 90 or 180 s passed its improvement rule against 300 s. That does not prove background content
 is irrelevant. Preserve its result, the remaining facade mismatch, valid sparse-edge support,
 and OQ-02's sensor-model constraint; do not restart the window sweep.

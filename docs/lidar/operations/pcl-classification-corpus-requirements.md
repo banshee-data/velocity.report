@@ -5,6 +5,12 @@
 - **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Local baseline:** velocity.report `b349e0f46`, the OQ-09 checkpoint
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Decision
 
 Keep ESF and moment-of-inertia as offline classification comparators, blocked on the Parked P2
@@ -221,5 +227,6 @@ links. Fresh `make lint` and `make check-no-results` passed. The full suite pass
 was not repeated for the subsequent documentation-only changes. No classifier accuracy, descriptor
 latency, Pi budget, or physical envelope was measured.
 The result closes the dependency question, not the blocked implementation or labelling work.
-Resume with OQ-11 and the owner's original linked discussion; do not start a descriptor campaign
-or silently reinterpret the minimum counts as an adoption decision.
+OQ-11 subsequently [reconciled the original discussion](pcl-original-discussion-reconciliation.md).
+The remaining corpus and implementation dependencies do not authorise a descriptor campaign
+or turn the minimum counts into an adoption decision.

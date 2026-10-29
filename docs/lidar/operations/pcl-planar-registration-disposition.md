@@ -5,6 +5,12 @@
 - **Related:** [Geometry convergence, section 4](../../plans/lidar-tracker-geometry-convergence-plan.md#4-what-is-needed), [PCL review](pcl-algorithm-review.md)
 - **Source:** PCL 1.15.1, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Disposition
 
 Retain one offline planar point-registration comparator within facet E2 arm B, subject to that
@@ -91,7 +97,7 @@ regression and the existing segmentation contract test. Repository `make test`, 
 The macOS test build stamped BuildInfo; its tracked placeholder was restored before the final
 lint pass. Source-link paths/ranges and dependent plan wording were checked. Raw logs remain under `/private/tmp/velocity-pcl-review/`.
 No capture replay, pose comparison, extent gain, or facet promotion was performed for OQ-06.
-OQ-07 next decides whether static hypothesis verification supplies a distinct duplicate-track arm.
+OQ-07 subsequently [dropped the standalone duplicate-track arm](pcl-hypothesis-verification-disposition.md).
 
 [two-d]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/impl/transformation_estimation_2D.hpp#L113-L182
 [warp]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/warp_point_rigid_3d.h#L71-L90

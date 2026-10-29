@@ -5,6 +5,12 @@
 - **Source:** PCL 1.15.1, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`
 - **Local baseline:** `e1349cf87`, following main `94a1fb9d6`
 
+All thirteen review questions and the final branch pass are complete. Source findings and
+validation below describe this report's recorded checkpoint; subsequent full-suite validation
+and remaining implementation prerequisites are recorded in the
+[current handover](pcl-astera-handover.md#resume-point). Closing a review question does not
+complete or authorise its proposed campaign.
+
 ## Disposition
 
 Drop rank 12 as a standalone l5id experiment. GreedyVerification and PapazovHV provide static
@@ -113,8 +119,7 @@ were read at the stated baseline. Repository lint, documentation links, and the 
 passed. The full repository test suite passed for OQ-06 before these documentation-only changes.
 No Greedy/Papazov binary, fixture, replay, or benchmark was run;
 no performance or identity gain is claimed. The review, plan, documentation index, development
-log, and handover carry this disposition. OQ-08 is next: inspect Gerardus before deciding which
-observability and descriptor-seeding recommendations are actually new.
+log, and handover carry this disposition. OQ-08 subsequently [verified existing observability and narrowed descriptor seeding](pcl-gerardus-registration-gap-review.md).
 
 [base-scene]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/recognition/include/pcl/recognition/hv/hypotheses_verification.h#L293-L311
 [greedy-init]: https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/recognition/include/pcl/recognition/impl/hv/greedy_verification.hpp#L57-L103
