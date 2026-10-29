@@ -52,3 +52,38 @@ Example *hypothesis*, not empirical result: if 35% of 5,000 observed approaches 
 - Should initial public release show braking location and speed profiles first, keeping jerk volatility explicitly experimental?
 
 **Recommendation:** prioritize spatial braking profiles and speed distributions over a site-wide volatility index. Keep volatility and TTC severity as separate supporting measurements. This is a research/design PR, not a claim of validated safety thresholds.
+
+
+## Proposed real-world experiment: fixed roadside LiDAR vs instrumented vehicle
+
+**Purpose.** Establish independent, repeatable evidence for vehicle position, heading, speed, acceleration and turning accuracy before publishing spatial braking or jerk. Test whether apparent motion arises from viewpoint-dependent cluster centroids, imperfect physical body estimation, track association, or the constant-velocity motion model. A visually smooth track is not sufficient evidence of accuracy.
+
+**Existing infrastructure.** Reuse the Gerardo server's scene registration; do not build a parallel registration pipeline. Reuse recorded LiDAR/VRLOG observations, L5 tracking, L8 trajectory contracts, replay tooling and the visualizer.
+
+### Phase A — low-cost phone pilot
+
+- Fixed LiDAR at a permitted, safe roadside location; stationary mount and calibration retained throughout. Use a measured test vehicle (length, width, axle/body reference and phone mounting offset). Secure phone to vehicle; log raw GNSS fixes, reported accuracy, GNSS-derived speed if available, timestamps and IMU if available at their native rates. Retain raw records and device model/settings. A phone is a coarse comparator, **not centimeter-level ground truth**.
+- Choose a legal, low-complexity loop with clear sightlines and minimal GNSS obstruction; document route, grade, weather, traffic, LiDAR position and sensor-to-map transform. Do not brake abruptly or perform unsafe maneuvers on public streets; controlled braking only where lawful and safe, preferably on a closed course.
+- Collect repeated passes in both directions: steady speed at several legal speeds; normal acceleration; gentle planned deceleration; left/right turns; passes with near-side versus far-side visibility and partial occlusion. Aim initially for at least five clean repetitions per maneuver and direction, adjusting after observing usable track coverage.
+- Record independent session markers (e.g., stationary start/end, clear pass-by landmarks) to help align streams. Estimate clock offset and drift **without fitting away spatial error**; report timing uncertainty. At 25 mph, 100 ms corresponds to about 1.12 m of travel.
+- Convert GNSS geodetic coordinates into the registered local frame; account for antenna/phone-to-body-center lever arm, especially during turns. Keep LiDAR/GNSS coordinate transforms and clock fitting separate from tracker evaluation; fit them on calibration data, evaluate on held-out passes.
+- Inspect time-aligned overlays and report track detection/association continuity, speed agreement, gross lateral/longitudinal bias, and missing intervals. Phone GNSS is insufficient to certify sub-meter facet geometry or jerk.
+
+### Phase B — independent reference benchmark
+
+- Repeat representative maneuvers with survey-grade RTK GNSS plus IMU (or comparable independently validated reference), logging solution status, covariance, correction age, dropouts, time base and antenna lever arm. Prefer hardware/common GNSS time or validated synchronization. Urban multipath can defeat RTK: exclude or separately report degraded intervals, rather than treating all fixes as ground truth.
+- Establish a stable vehicle reference point (e.g., body center) from measured geometry and antenna mounting; record heading calibration and antenna/IMU alignment. Do not assume the GNSS antenna equals the body center.
+- Use separate calibration and evaluation passes. Compare identical LiDAR observations through: (A) observed-cluster centroid baseline; (B) existing L5 CV tracking; (C) facet-aware body-center measurement with existing CV tracking; (D) optional PCL keypoint/correspondence-assisted geometry; and only then (E) alternative motion models such as CA or IMM with observation geometry held fixed.
+- For each method compute along-track and cross-track position error, heading error when observable, velocity error, false lateral motion and acceleration on constant-speed straight passes, response delay/attenuation on genuine braking/turns, track fragmentation, missed detection, coverage and uncertainty calibration. Report medians, tail percentiles, per-maneuver plots and confidence intervals across passes; never select an estimator solely for smoothness.
+- Specifically plot error against range, aspect angle, and visibility phase (front/side/rear, partial occlusion) to isolate the changing-visible-facet bias. Test whether a facet correction improves accuracy **without** sacrificing maneuver recovery.
+
+### Data artifacts and review gates
+
+- Reproducible run manifest: LiDAR recording hash, vehicle dimensions, sensor calibration and Gerardo registration version, GNSS/IMU logs, clock/transform fitting procedure, estimator commit/config hash, maneuver labels, quality masks and held-out pass IDs.
+- Produce (1) top-down aligned tracks with error vectors; (2) time series of position/speed/acceleration and reference uncertainty; (3) error-vs-aspect plots; (4) comparison table of baselines/variants; (5) failure-case clips or LiDAR replay bookmarks; (6) a short decision memo identifying which error source dominates.
+- **Gate 1:** phone pilot confirms acquisition, replay, clock/coordinate alignment and useful coarse comparisons; it does not certify fine-scale acceleration/jerk.
+- **Gate 2:** RTK/IMU reference quality and lever-arm/clock uncertainty are independently documented, with adequate clean held-out passes.
+- **Gate 3:** facet-aware geometry and motion-model variants beat or meaningfully characterize baselines on independent positional accuracy *and* preserve real maneuver dynamics; track uncertainty and failure cases are reported.
+- **Gate 4:** only after Gate 3, derive spatial braking metrics and validate event timing/location; jerk volatility requires a separate noise-floor and bandwidth validation. No production or public safety inference before the relevant gates.
+
+**Priority change:** this benchmark and physically stable body reference estimation precede the proposed spatial braking heatmap. Registration is already provided by Gerardo; the unresolved work is observation geometry, estimator dynamics and independent validation.
