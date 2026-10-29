@@ -35,6 +35,21 @@ Release, with features, filters, common, search, kdtree, octree, and sample_cons
 I/O, segmentation, surface, and tools are disabled. Enabling a module in CMake is not proof that
 its library was built: record actual target completion and linked libraries for each later tool.
 
+## Development inputs and qualification isolation
+
+As clarified by [OQ-11](pcl-original-discussion-reconciliation.md), exporting frames and inspecting
+oracle outputs is development use. The [cohort-isolation plan](../../plans/lidar-qualification-cohort-isolation-plan.md)
+owns the shared eligibility guard, site/capture assignments, and isolated qualification scoring.
+It is still Proposed; these diagnostics do not implement that guard.
+
+For a local diagnostic, name a known development capture and its digest explicitly; the kirk0
+checks in this review are tuning evidence. Do not claim enforced isolation from the presence of
+an annotation split alone. Before a qualification claim, the campaign must record its authorised
+cohort role, frozen manifest/protocol and input hashes, and prevent qualification inputs or
+feedback entering tuning/export inspection through an unguarded path. Unknown eligibility is not
+permission to inspect a qualification capture. Ordinary production processing and eventual public
+publication retain the separate policy in the cohort plan; predictions are not reference labels.
+
 ## Source-build recipe
 
 The existing verified source/build directories are `/private/tmp/velocity-pcl-review/pcl` and

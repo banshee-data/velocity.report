@@ -18,6 +18,10 @@ multi-vantage registration, and occlusion-aware analysis against track loss. The
 each from the pinned source. This plan turns its shortlist into experiments with rules written
 now, so that the answers arrive as measurements and a port is built only where one pays.
 
+[OQ-11](../lidar/operations/pcl-original-discussion-reconciliation.md) reconciles the original
+conversation with current decisions. Its additional merged-detection partition question is
+recorded as OQ-13, not added to l4clus0005 or scheduled as a new experiment.
+
 Without it, PCL ideas would enter the backlog as unmeasured ports competing with P0 qualification
 work, which is what D-36 and the 05x rubric exist to prevent.
 
@@ -247,7 +251,7 @@ comparison is scheduled by this contract.
 - [x] Source review of PCL 1.15.1 against the five questions: [review](../lidar/operations/pcl-algorithm-review.md)
 - [x] Specs with rules: ground0006, l4clus0005, geom0013, l3bg0028
 
-- [x] OQ-01 to OQ-10: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, and classification corpus requirements
+- [x] OQ-01 to OQ-11: source review, compatibility, contracts, tooling, sampling controls, registration/duplicate-track dispositions, Gerardus novelty audit, cleanup disposition, classification corpus requirements, and original-discussion reconciliation
 
 ### Outstanding
 
@@ -258,7 +262,7 @@ comparison is scheduled by this contract.
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)
 
-- [ ] The review's remaining rows OQ-11 to OQ-12, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
+- [ ] The review's remaining rows OQ-12 and OQ-13, taken one per run: [open questions](../lidar/operations/pcl-algorithm-review.md#open-questions-and-how-to-continue)
 
 ### Deferred
 

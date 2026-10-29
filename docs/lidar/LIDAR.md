@@ -47,6 +47,8 @@ The [background-cleanup disposition](operations/pcl-background-cleanup-dispositi
 blanket MLS/SOR export cleanup and explains why the evaluation points must stay fixed.
 The [classification corpus requirements](operations/pcl-classification-corpus-requirements.md)
 inventory reviewed labels and set independent-object floors for class, aspect, and range screens.
+The [original-discussion reconciliation](operations/pcl-original-discussion-reconciliation.md)
+maps the supplied conversation to existing owners and records the merged-detection partition question.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

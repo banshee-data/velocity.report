@@ -1,6 +1,6 @@
 # PCL open questions: Astera review handover
 
-- **Status:** OQ-01 to OQ-10 complete; OQ-11 is the next checkpoint
+- **Status:** OQ-01 to OQ-11 complete; OQ-12 is the next checkpoint
 - **Scope:** Adversarial source review first, followed by bounded compatibility checks
 - **Baseline:** velocity.report `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9` (main, #881)
 - **Upstream target:** PCL `pcl-1.15.1`, `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, as recorded in the review; verify the checkout before citing it
@@ -65,20 +65,21 @@ authorisation for this local preparation. Save the edited checkpoint locally for
 The canonical table owns question wording, order, and closure conditions. This table assigns work;
 it does not change those conditions. Later runs take one row at a time after the first checkpoint.
 
-| Row   | Astera's contribution                                                                  | Implementation agent's contribution                                                                |
-| ----- | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| OQ-01 | Refuting pass across Q0 to Q4, exact source evidence, and supported corrections        | Verify findings and reconcile dependent documents                                                  |
-| OQ-02 | Camera and spherical geometry assumptions; define decisive compatibility checks        | Minimal organised export and harness; execute and inspect one kirk0 frame                          |
-| OQ-03 | Verify RegionGrowing distance bounds, SAC inlier membership, and morphological opening | Small reproductions where needed; correct ground0006's oracle contract                             |
-| OQ-04 | Review any algorithmic compromise in the available tools                               | Verify package versions, pinning, and actual executables; specify a harness where no tool suffices |
-| OQ-05 | Review how the controls separate lost samples from connectivity                        | Reconcile l4clus0004 and l4clus0005; add an uncapped arm or a supported reason to omit it          |
-| OQ-06 | Decide what planar registration adds beyond W4 and facet arm B                         | Record one disposition: comparator within arm B, separate spec, or removal                         |
-| OQ-07 | Decide whether support-then-conflict adds evidence beyond l5id0004                     | Map the rule to observed returns and prepare a bounded arm if justified                            |
-| OQ-08 | Critique observability and descriptor-seeding recommendations                          | Inspect current Gerardus sources and identify recommendations that are actually new                |
-| OQ-09 | Identify what cleanup could change, and what it cannot repair                          | Compare against guarded backgrounds under pose0001's gates if a new arm is justified               |
-| OQ-10 | Define class, aspect, and range coverage; justify minimum independent-object counts    | Inventory labels, scorecard dependencies, and capture gaps                                         |
-| OQ-11 | Assess additional arguments once the original thread is supplied                       | Reconcile supplied content and retain missing access as an explicit dependency                     |
-| OQ-12 | Check semantic equivalence of return fates and proposed boundary labels                | Trace and reuse replayeval.FrameTap where its contract fits; name missing evidence                 |
+| Row   | Astera's contribution                                                                               | Implementation agent's contribution                                                                |
+| ----- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| OQ-01 | Refuting pass across Q0 to Q4, exact source evidence, and supported corrections                     | Verify findings and reconcile dependent documents                                                  |
+| OQ-02 | Camera and spherical geometry assumptions; define decisive compatibility checks                     | Minimal organised export and harness; execute and inspect one kirk0 frame                          |
+| OQ-03 | Verify RegionGrowing distance bounds, SAC inlier membership, and morphological opening              | Small reproductions where needed; correct ground0006's oracle contract                             |
+| OQ-04 | Review any algorithmic compromise in the available tools                                            | Verify package versions, pinning, and actual executables; specify a harness where no tool suffices |
+| OQ-05 | Review how the controls separate lost samples from connectivity                                     | Reconcile l4clus0004 and l4clus0005; add an uncapped arm or a supported reason to omit it          |
+| OQ-06 | Decide what planar registration adds beyond W4 and facet arm B                                      | Record one disposition: comparator within arm B, separate spec, or removal                         |
+| OQ-07 | Decide whether support-then-conflict adds evidence beyond l5id0004                                  | Map the rule to observed returns and prepare a bounded arm if justified                            |
+| OQ-08 | Critique observability and descriptor-seeding recommendations                                       | Inspect current Gerardus sources and identify recommendations that are actually new                |
+| OQ-09 | Identify what cleanup could change, and what it cannot repair                                       | Compare against guarded backgrounds under pose0001's gates if a new arm is justified               |
+| OQ-10 | Define class, aspect, and range coverage; justify minimum independent-object counts                 | Inventory labels, scorecard dependencies, and capture gaps                                         |
+| OQ-11 | Assess additional arguments in the supplied original discussion                                     | Reconcile source provenance and map existing owners; completed, with OQ-13 recorded                |
+| OQ-12 | Check semantic equivalence of return fates and proposed boundary labels                             | Trace and reuse replayeval.FrameTap where its contract fits; name missing evidence                 |
+| OQ-13 | Test whether local geometry supports splitting a merged detection, with false-split counterexamples | Map a bounded point-partition proposal to the existing observation-revision owner, or drop it      |
 
 Start with the four proposed specs when a finding affects an experiment:
 [l3bg0028](../../../data/experiments/l3bg/l3bg0028.md),
@@ -500,13 +501,20 @@ Long-car truth, independent aspect, site splits, and additional labels remain ex
 Source checks also record ESF scale removal and unbounded degenerate retries, and the default
 moment estimator's point-count dependence. No descriptor campaign or classifier fit ran.
 
+OQ-11 is answered by the [original-discussion reconciliation](pcl-original-discussion-reconciliation.md).
+The owner supplied the shared **Compare PCL Features** discussion, and browser reading recovered
+its earlier technical exchange. Its five questions match Q0–Q4. The measurement programme and
+cohort enforcement already have owners under D-36/D-37 and the cohort-isolation plan. One distinct
+PCL question, partitioning a merged detection, is added as OQ-13; it is neither a joining arm nor
+a whole-cluster classifier. The runbook now makes development-data eligibility explicit.
+
 ## Resume point
 
-- **Active row:** OQ-11, not started; OQ-01 to OQ-10 complete
-- **Next action:** Obtain/read the owner's original linked ChatGPT discussion, compare its arguments with the five questions and OQ-01 to OQ-10 findings, and record any genuinely new question as a row. If the discussion is unavailable, retain that input dependency rather than reconstructing its contents.
+- **Active row:** OQ-12, not started; OQ-01 to OQ-11 complete; OQ-13 newly recorded
+- **Next action:** Read `vehicle-lower-body-by-range-2026-10.md`, l3bg0027, and l3bg0028. Trace `internal/lidar/replayeval/frame_tap.go` and its consumers; determine which tap/data can be reused and which fate labels differ from PCL obstacle/shadow/veil traits. Correct l3bg0028's implement note with the reuse decision. OQ-13 follows separately.
 - **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup. OQ-10 defines classification coverage, not descriptor seeding, a training sample size, or an adoption decision. Keep earlier report denominators tied to their label revision.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. No descriptor or cleanup campaign.
-- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 and OQ-10 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
-- **Outstanding inputs:** Original discussion for OQ-11; calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. No descriptor or cleanup campaign.
+- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09, OQ-10, and OQ-11 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, pinned-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
+- **Outstanding inputs:** Calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
 - **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
-- **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.
+- **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 reconciliation and OQ-13 follow-up saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.

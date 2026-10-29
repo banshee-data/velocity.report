@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 28, 2026 - PCL contracts, experiment controls, and Gerardus review
 
+- {codex/pcl-open-question-review} Closed OQ-11 using the owner-supplied shared discussion: [reconciliation](lidar/operations/pcl-original-discussion-reconciliation.md). Mapped the five questions and measurement programme to existing contracts, added OQ-13 for partitioning merged detections, and made the offline oracle cohort dependency explicit. Preserved current priorities and experiment scopes; no campaign ran. Saved OQ-12 as the next checkpoint.
+
 - {codex/pcl-open-question-review} Closed OQ-10 with [classification corpus requirements](lidar/operations/pcl-classification-corpus-requirements.md): inventoried 21 reviewed road-user records in local label revision 2233, preserved F0's older denominator, and specified 100 independent held-out objects per target class/contrast and 30 per claimed aspect/range cell as screening floors. Recorded PCL descriptor counterexamples, missing labels and site splits, and corrected stale SQLite-only and generated-corpus-in-Git instructions. Classification remains parked; no training or descriptor campaign ran. Saved OQ-11 as the next checkpoint.
 
 - {codex/pcl-open-question-review} Closed OQ-09 by dropping blanket MLS/SOR background cleanup: [source evidence and evaluation confounds](lidar/operations/pcl-background-cleanup-disposition.md). Preserved guard and window results, traced confidence and held-out membership through export/import, and recorded fixed original evaluation support as a condition for reconsideration; no cleanup campaign ran. Saved OQ-10 as the next checkpoint.
