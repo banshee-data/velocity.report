@@ -276,7 +276,8 @@ import SwiftUI
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
-                Toggle("DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
+                Toggle(reference.footprintLabel, isOn: $session.showFootprints)
+                    .help(ReferenceSummary.footprintHelp)
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
                         .help(
@@ -301,7 +302,7 @@ import SwiftUI
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
                 }
-                if (session.showFootprints && reference.footprints > 0)
+                if (session.showFootprints && reference.footprints + reference.aerialOutlines > 0)
                     || (session.showBoxes && reference.boxWalls > 0),
                     !reference.footprintAttribution.isEmpty
                 {
