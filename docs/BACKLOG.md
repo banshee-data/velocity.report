@@ -81,8 +81,7 @@ The seven ECharts retirement rows below are implemented on branch `claude/echart
 
 ### v0.5.5 - Physical body geometry (055)
 
-**Measurement-bias acceptance (existing G-GEO-1 work, no new release gate):** on frozen reviewed tracks, compare stable physical body-center estimates against the medoid/current CV baseline by range, aspect and visible face; quantify false lateral drift and false acceleration without rewarding excessive smoothing. Reuse the Gerardo registration and the existing held-out reference/scoring process; the phone/RTK drive protocol in [PR #888](https://github.com/banshee-data/velocity.report/pull/888) is supplementary evidence, not a prerequisite for starting 05x work.
-
+**Measurement-bias acceptance (existing G-GEO-1 work, no new release gate):** on frozen reviewed tracks, compare stable physical body-centre estimates against the medoid/current CV baseline by range, aspect and visible face; quantify false lateral drift and false acceleration without rewarding excessive smoothing. Reuse the Gerardo registration and the existing held-out reference/scoring process; the [phone/RTK drive protocol](research/2026-10-29-approach-stability-and-ttc.md#proposed-real-world-experiment-fixed-roadside-lidar-vs-instrumented-vehicle) is supplementary evidence, not a prerequisite for starting 05x work.
 
 <a id="v055---estimate-display--data-completeness-055"></a>
 
