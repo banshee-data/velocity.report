@@ -783,6 +783,7 @@ build-mac:
 		-configuration $(MAC_CONFIG) \
 		-derivedDataPath build \
 		build
+	@$(MAKE) fix-buildinfo
 	@echo "✓ Visualiser build complete: $(VISUALISER_BUILD_DIR)/Build/Products/$(MAC_CONFIG)/"
 
 clean-mac:
