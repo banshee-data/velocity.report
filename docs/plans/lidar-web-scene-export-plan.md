@@ -439,6 +439,26 @@ The scene page says the same in a plain line beside the player: what it shows is
 saw at the capture time and tracks estimated from them. None of this adds geometry that is not
 already exported, and the exporter still writes no material, finish, interior or use attribute.
 
+### 13. Gerardus street geometry, where a pose is accepted
+
+A scene whose site has a pose an operator accepted in Gerardus carries Gerardus's street geometry
+beside its background: `assets/vectors/vectors.geojson.gz`, written by
+[`scene-vectors.py`](../../tools/s2-archive/scene-vectors.py) as `publish-scenes.py` builds the
+scene. Each feature is placed in the scene's sensor frame by the inverse of the accepted pose,
+`p_sensor = R^T (p_site - t)`, so the export keeps its frame and gains no georeferenced origin; the
+pose's heading travels in the file's `placement` member, the first measured north a scene file
+carries. The pose is checked against the scene's own settled background before anything is
+written, and a site with no accepted pose gets no file: the eye-read position is metres out
+(pose0001), and a kerb drawn by it would present a guess as a measurement.
+
+The file carries the context of §12 for its own layers: each source and its terms (USGS 3DEP,
+public domain; DataSF, PDDL 1.0; the survey's own scans, terms not yet set by D-34), the CRS as the
+sensor frame, units, the rounding quantum, per feature its evidence status and Gerardus state
+(mostly `proposed`), and the placement check. Properties are limited to geometry, layer, kind, the
+painted marking and pattern of a lane marking, and the heights a pole or tree needs to be drawn.
+OpenStreetMap layers are never requested. The player draws it as thin lines and faint fills under
+the boxes, behind a "Street geometry" switch shown only where the file exists.
+
 ## Scope
 
 ### Item 1: Export command
@@ -596,6 +616,9 @@ roughly **176 sites**. Phase 0 is one site at about 3 MB.
 - [ ] Phase 1: the other five sites, once the surveyed coordinates arrive (`M`)
 - [x] Interpretation context in the part header and the `background` file (§12) (`S`)
 - [ ] Published assets re-exported with the context members, and the licence once D-34 sets it
+- [ ] Gerardus street geometry in every scene (§13): written where the site's pose is accepted
+      (columbus-broadway, embarcadero-folsom on October 28, 2026); the other 22 wait on accepted
+      registrations
 - [ ] Re-export soma1 from the VRLOG so the published assets carry the current exporter's output (`S`)
 - [x] Select and publish one Columbus at Broadway 30-second clip (`M`) (see §11)
 - [x] Render foreground clip points in `scene-player.js` (`M`) (see §11)

@@ -735,6 +735,32 @@ struct BoxesAndWallPlanesStyleTests {
         #expect(ReferenceStyle.wallPlaneVertices([open]).count == 3 * 2 * 7)
     }
 
+    @Test func outlinesFoundIn3DEPAreDrawnAndCountedApartFromDataSF() {
+        var datasf = Gerardus_Align_V1alpha1_LineFeature()
+        datasf.kind = .building
+        datasf.closed = true
+        datasf.xyz = [0, 0, 10, 10, 0, 10, 10, 10, 10]
+        var found = datasf
+        found.featureID = "3dep:sf-b23/8085806ff-1"
+        found.tags["source"] = "3dep"
+        #expect(!ReferenceStyle.isAerialOutline(datasf))
+        #expect(ReferenceStyle.isAerialOutline(found))
+        let v = ReferenceStyle.footprintVertices([datasf, found])
+        // Three segments each, closed.
+        #expect(v.count == 2 * 3 * 2 * 7)
+        #expect(colour(v, 0) == ReferenceStyle.lineColour(.building))
+        #expect(colour(v, 6) == ReferenceStyle.aerialOutlineColour)
+        #expect(ReferenceStyle.aerialOutlineColour != ReferenceStyle.lineColour(.building))
+
+        var summary = ReferenceSummary(
+            aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
+            aerialAttribution: "")
+        summary.footprints = 20
+        #expect(summary.footprintLabel == "DataSF footprints (20)")
+        summary.aerialOutlines = 2
+        #expect(summary.footprintLabel == "Footprints (20 DataSF, 2 from 3DEP)")
+    }
+
     @Test func roleCountsReadForThePane() {
         var summary = ReferenceSummary(
             aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
@@ -1154,11 +1180,26 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
 
     func disconnect() {}
 
+    /// The `refresh` of every PrepareSite request, in order.
+    var prepareRefreshFlags: [Bool] = []
+    /// What GetSite answers; nil is NOT_FOUND. Not logged in `calls`: the
+    /// session reads it on its own when a site is chosen.
+    var storedSite: Gerardus_Align_V1alpha1_Site?
+    /// The layers PrepareSite's bundle holds when it builds (refresh true) and
+    /// when it answers from the stored one (refresh false).
+    var layersAfterRefresh: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.aerialPoints, .osm]
+    var layersAfterPlainPrepare: [Gerardus_Align_V1alpha1_ReferenceLayer]?
+
+    func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site? { storedSite }
+
     func prepareSite(
-        l16Token: String, label: String,
+        l16Token: String, label: String, refresh: Bool,
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Site {
         log("PrepareSite")
+        lock.lock()
+        prepareRefreshFlags.append(refresh)
+        lock.unlock()
         var progress = Gerardus_Align_V1alpha1_Progress()
         progress.stage = "aerial"
         progress.fraction = 1
@@ -1169,6 +1210,13 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         osm.layer = .osm
         osm.attribution = "© OpenStreetMap contributors"
         site.sources = [osm]
+        let layers = refresh ? layersAfterRefresh : (layersAfterPlainPrepare ?? layersAfterRefresh)
+        site.layers = layers.map {
+            var summary = Gerardus_Align_V1alpha1_LayerSummary()
+            summary.layer = $0
+            return summary
+        }
+        storedSite = site
         return site
     }
 
@@ -2726,10 +2774,11 @@ final class HeldAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     }
     func disconnect() { disconnected = true }
     func prepareSite(
-        l16Token: String, label: String,
+        l16Token: String, label: String, refresh: Bool,
         onProgress: @escaping @Sendable (Gerardus_Align_V1alpha1_Progress) async -> Void
     ) async throws -> Gerardus_Align_V1alpha1_Site {
-        try await inner.prepareSite(l16Token: l16Token, label: label, onProgress: onProgress)
+        try await inner.prepareSite(
+            l16Token: l16Token, label: label, refresh: refresh, onProgress: onProgress)
     }
     func streamReference(
         _ request: Gerardus_Align_V1alpha1_StreamReferenceRequest
@@ -4526,5 +4575,211 @@ final class LockedBox<T>: @unchecked Sendable {
         #expect(session.reference?.wallPlanes == 2)
         #expect(sink.overlays.last??.boxVertexCount == 16)
         #expect(sink.overlays.last??.wallPlaneVertexCount == 16)
+    }
+}
+
+// MARK: - Reference data: Update and Regenerate…
+
+@MainActor struct AlignmentReferenceDataTests {
+    private let site = AlignmentSite(
+        clipID: "6451411d-81c3-47f3-a5ff-5ce37b3ab768", l16Token: "808580f47", l13Token: "808580f4",
+        description: "S2 archive: Columbus at Broadway (33.9 min across 7 captures)",
+        sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
+
+    private static let serverLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
+        .aerialPoints, .osm, .footprints, .intersections, .cityStreets, .cityIntersections,
+        .registeredScans, .observed, .groundMesh,
+    ]
+
+    private func bundle(
+        _ layers: [Gerardus_Align_V1alpha1_ReferenceLayer]
+    ) -> Gerardus_Align_V1alpha1_Site {
+        var out = Gerardus_Align_V1alpha1_Site()
+        out.l16Token = "808580f47"
+        out.layers = layers.map {
+            var summary = Gerardus_Align_V1alpha1_LayerSummary()
+            summary.layer = $0
+            return summary
+        }
+        return out
+    }
+
+    /// A session on a server that lists the street and footprint layers, over
+    /// a stored bundle that holds only 3DEP and OSM, with the site chosen.
+    private func chosen(
+        stored layers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.aerialPoints, .osm]
+    ) async -> (AlignmentSession, FakeAlignmentService) {
+        let service = FakeAlignmentService()
+        service.availableLayers = Self.serverLayers
+        service.storedSite = bundle(layers)
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        session.sink = FakeOverlaySink()
+        await session.probe()
+        session.choose(site)
+        await session.refreshBundle()
+        return (session, service)
+    }
+
+    @Test func choosingASiteReadsTheBundleWithoutBuildingOne() async {
+        let (session, service) = await chosen()
+        #expect(session.bundle?.layers.count == 2)
+        #expect(!service.calls.contains("PrepareSite"))
+        #expect(service.prepareRefreshFlags.isEmpty)
+    }
+
+    @Test func noStoredBundleOffersNeitherButton() async {
+        let service = FakeAlignmentService()
+        service.availableLayers = Self.serverLayers
+        let session = AlignmentSession(makeClient: { _ in service }, lookup: nil, defaults: nil)
+        await session.probe()
+        session.choose(site)
+        await session.refreshBundle()
+        #expect(session.bundle == nil)
+        #expect(!session.referenceDataIsOutOfDate)
+        session.requestRegenerate()
+        #expect(!session.confirmingRegenerate)
+    }
+
+    // MARK: Out of date
+
+    @Test func aBundleLackingLayersTheServerListsIsOutOfDate() async {
+        let (session, _) = await chosen()
+        #expect(session.referenceDataIsOutOfDate)
+        #expect(session.missingReferenceLayers == [.footprints, .cityStreets, .cityIntersections])
+    }
+
+    @Test func aBundleWithEveryListedLayerIsCurrent() async {
+        let (session, _) = await chosen(stored: [
+            .aerialPoints, .osm, .footprints, .intersections, .cityStreets, .cityIntersections,
+        ])
+        #expect(!session.referenceDataIsOutOfDate)
+    }
+
+    @Test func aLayerTheServerDoesNotListIsNotMissing() {
+        let held = bundle([.aerialPoints, .osm])
+        #expect(
+            ReferenceDataStatus.missingLayers(bundle: held, available: [.aerialPoints, .osm]) == [])
+        #expect(
+            ReferenceDataStatus.missingLayers(bundle: held, available: [.osm, .footprints])
+                == [.footprints])
+    }
+
+    @Test func kerbsAndTheOtherAlwaysListedLayersAreNotJudged() {
+        // Gerardus lists KERBS, LANE_MARKINGS, STREET_FURNITURE and TREES on
+        // every server, so their absence from a bundle says nothing.
+        let held = bundle([.aerialPoints, .osm, .footprints, .cityStreets, .cityIntersections])
+        #expect(
+            ReferenceDataStatus.missingLayers(
+                bundle: held, available: [.kerbs, .laneMarkings, .streetFurniture, .trees]) == [])
+    }
+
+    // MARK: Request flags
+
+    @Test func updateAsksGerardusToRebuildWithoutRefresh() async {
+        let (session, service) = await chosen()
+        service.layersAfterPlainPrepare = [
+            .aerialPoints, .osm, .footprints, .cityStreets, .cityIntersections,
+        ]
+        await session.updateReferenceData()
+        #expect(service.prepareRefreshFlags == [false])
+        #expect(!session.referenceDataIsOutOfDate)
+        #expect(session.referenceDataNote?.hasPrefix("Added") == true)
+        #expect(session.errorMessage == nil)
+        #expect(session.busy == nil)
+    }
+
+    @Test func updateThatAddsNothingSaysSoAndPointsToRegenerate() async {
+        let (session, service) = await chosen()
+        service.layersAfterPlainPrepare = [.aerialPoints, .osm]
+        await session.updateReferenceData()
+        #expect(service.prepareRefreshFlags == [false])
+        #expect(session.referenceDataIsOutOfDate)
+        #expect(session.referenceDataNote?.contains("still lacks") == true)
+        #expect(session.referenceDataNote?.contains("Regenerate…") == true)
+    }
+
+    @Test func regenerateSendsNothingUntilConfirmed() async {
+        let (session, service) = await chosen()
+        session.requestRegenerate()
+        #expect(session.confirmingRegenerate)
+        #expect(service.prepareRefreshFlags.isEmpty)
+        session.cancelRegenerate()
+        #expect(!session.confirmingRegenerate)
+        // A confirmation nobody asked for does nothing.
+        await session.confirmRegenerate()
+        #expect(service.prepareRefreshFlags.isEmpty)
+    }
+
+    @Test func confirmedRegenerateSendsRefreshTrue() async {
+        let (session, service) = await chosen()
+        session.requestRegenerate()
+        await session.confirmRegenerate()
+        #expect(service.prepareRefreshFlags == [true])
+        #expect(!session.confirmingRegenerate)
+        #expect(session.busy == nil)
+        // One confirmation covers one regeneration.
+        await session.confirmRegenerate()
+        #expect(service.prepareRefreshFlags == [true])
+    }
+
+    @Test func placeFromHintStillPreparesWithoutRefresh() async {
+        let (session, service) = await chosen()
+        await session.placeFromHint()
+        #expect(service.prepareRefreshFlags == [false])
+    }
+
+    @Test func updatingAPlacedSiteDrawsTheReferenceAgain() async {
+        let (session, service) = await chosen()
+        await session.placeFromHint()
+        let streamed = service.references.count
+        let centre = session.pose?.translation
+        await session.updateReferenceData()
+        #expect(service.references.count > streamed)
+        #expect(session.pose?.translation == centre)
+        #expect(session.reference != nil)
+    }
+
+    // MARK: What the pane says
+
+    @Test func freshnessNamesWhenAndWhatEachSourceIs() {
+        var held = bundle([.aerialPoints])
+        var prepared = Google_Protobuf_Timestamp()
+        prepared.seconds = 1_792_000_000
+        held.preparedAt = prepared
+        var footprints = Gerardus_Align_V1alpha1_SourceInfo()
+        footprints.layer = .footprints
+        footprints.version = "data_as_of 2026-09-14"
+        footprints.retrievedAt = prepared
+        var bare = Gerardus_Align_V1alpha1_SourceInfo()
+        bare.layer = .osm
+        held.sources = [footprints, bare]
+        #expect(ReferenceDataStatus.preparedLine(held) == "Bundle prepared 2026-10-14")
+        #expect(
+            ReferenceDataStatus.sourceLines(held) == [
+                "DataSF footprints: data_as_of 2026-09-14, retrieved 2026-10-14",
+                "OpenStreetMap ways: no version recorded",
+            ])
+        #expect(
+            ReferenceDataStatus.preparedLine(bundle([])) == "Bundle prepared (date not recorded)")
+    }
+
+    @Test func theOutOfDateFlagNamesTheMissingLayers() {
+        #expect(
+            ReferenceDataStatus.outOfDateLine(missing: [.footprints, .cityStreets])
+                == "Out of date: this Gerardus can build DataSF footprints, City streets, which the bundle lacks."
+        )
+    }
+
+    @Test func theConfirmationStatesEachConsequenceAndNamesTheSite() {
+        let items = ReferenceDataStatus.regenerateConsequences(siteName: "columbus-broadway")
+        #expect(items.map(\.title) == ["Downloads again", "Cuts 3DEP again", "Ids can change", "Kept"])
+        let text = items.map(\.detail).joined(separator: "\n")
+        #expect(text.contains("columbus-broadway"))
+        for source in ["OpenStreetMap", "footprints", "Street Names", "Street Tree List"] {
+            #expect(text.contains(source))
+        }
+        #expect(text.contains("scene-vectors.py"))
+        #expect(text.contains("gerardus roofer"))
+        #expect(text.contains("sites/<l16>/bundles/"))
     }
 }

@@ -728,6 +728,27 @@ enum ReferenceStyle {
         wall.tags["party"] == "true"
     }
 
+    /// Whether a footprint is an outline Gerardus found in 3DEP where DataSF
+    /// lists no building (`source=3dep`), rather than one of DataSF's.
+    static func isAerialOutline(_ footprint: Gerardus_Align_V1alpha1_LineFeature) -> Bool {
+        footprint.tags["source"] == "3dep"
+    }
+
+    /// Outlines found in 3DEP: violet, apart from DataSF's red footprints,
+    /// since they are inferred from the survey's returns, not listed.
+    static let aerialOutlineColour = SIMD4<Float>(0.70, 0.50, 1.00, 0.90)
+
+    /// The footprints layer: DataSF's in the building colour, the outlines
+    /// found in 3DEP in their own.
+    static func footprintVertices(_ footprints: [Gerardus_Align_V1alpha1_LineFeature]) -> [Float] {
+        var out = [Float]()
+        for f in footprints {
+            appendPolyline(
+                &out, f, colour: isAerialOutline(f) ? aerialOutlineColour : lineColour(f.kind))
+        }
+        return out
+    }
+
     static func boxWallColour(_ wall: Gerardus_Align_V1alpha1_LineFeature) -> SIMD4<Float> {
         isPartyWall(wall) ? partyWallColour : boxWallColour
     }
@@ -802,7 +823,7 @@ enum ReferenceStyle {
         out.palette = scanPalette(
             selectedScanID: emphasis.selectedScanID, order: geometry.scanOrder)
         out.osmLines = lineVertices(geometry.lines)
-        out.footprintLines = lineVertices(geometry.footprints)
+        out.footprintLines = footprintVertices(geometry.footprints)
         out.boxLines = boxVertices(geometry.boxes)
         out.intersectionLines = intersectionVertices(geometry.intersections)
         out.observedLines = observedVertices(geometry.observed, emphasis: emphasis)

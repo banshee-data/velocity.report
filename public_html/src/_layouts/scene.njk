@@ -358,7 +358,12 @@ layout: survey.njk
         pipeline's current estimate of each road user's position, size, direction and
         speed; they can split or wander while the tracking work continues. LiDAR records
         no images, faces or number plates. The point is to understand traffic, not to
-        start collecting people's personal lives by accident.
+        start collecting people's personal lives by accident.{% if view.hasVectors %}
+        Where it is shown, street geometry (thin lines and faint faces) is kerbs, lane
+        markings, walls, roofs, poles and trees as Gerardus measured them from this
+        recording and USGS 3DEP aerial LiDAR, or took them from DataSF, placed by the
+        site's accepted registration. Most are proposals not yet reviewed, and a
+        feature not drawn is not asserted absent.{% endif %}
       </p>
 
   <div class="scene-stage">
@@ -397,6 +402,13 @@ layout: survey.njk
         <span class="scene-switch__track" aria-hidden="true"></span>
         <span>Trails</span>
       </label>
+      {% if view.hasVectors %}
+      <label class="scene-switch">
+        <input type="checkbox" id="scene-vectors" role="switch" checked>
+        <span class="scene-switch__track" aria-hidden="true"></span>
+        <span>Street geometry</span>
+      </label>
+      {% endif %}
       {% if view.hasPointCloud %}
       <label class="scene-switch">
         <input type="checkbox" id="scene-lidar" role="switch" checked>
@@ -607,6 +619,10 @@ layout: survey.njk
       trailsToggle: document.getElementById("scene-trails"),
       backgroundToggle: document.getElementById("scene-background"),
       gridToggle: document.getElementById("scene-grid"),
+      // Present only where the site's pose is accepted; the player hides the
+      // switch again if the file cannot be read.
+      vectorsURL: survey.recording.hasVectors ? `${base}/vectors/vectors.geojson.gz` : null,
+      vectorsToggle: document.getElementById("scene-vectors"),
       openingLoopToggle: hasClip ? document.getElementById("scene-loop-opening") : null,
       flyToggle: document.getElementById("scene-fly"),
       flyTip: document.getElementById("scene-fly-tip"),

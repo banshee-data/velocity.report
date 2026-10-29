@@ -183,8 +183,69 @@ import SwiftUI
                 Button("Place from hint") { Task { await session.placeFromHint() } }.disabled(
                     session.busy != nil
                 ).help("Prepare the site, place the sensor from its hint, and draw the reference")
+                referenceDataSection
+            }
+        }.sheet(isPresented: $session.confirmingRegenerate) { regenerateSheet }
+    }
+
+    /// How current the stored bundle is, and the two ways to refresh it.
+    @ViewBuilder private var referenceDataSection: some View {
+        if let bundle = session.bundle {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(ReferenceDataStatus.preparedLine(bundle)).font(.caption).foregroundStyle(
+                    .secondary)
+                ForEach(Array(ReferenceDataStatus.sourceLines(bundle).enumerated()), id: \.offset) {
+                    _, line in Text(line).font(.caption2).foregroundStyle(.secondary)
+                }
+                if session.referenceDataIsOutOfDate {
+                    Text(ReferenceDataStatus.outOfDateLine(missing: session.missingReferenceLayers))
+                        .font(.caption).foregroundStyle(.orange).fixedSize(
+                            horizontal: false, vertical: true)
+                }
+                if let note = session.referenceDataNote {
+                    Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+                }
+                HStack {
+                    if session.referenceDataIsOutOfDate {
+                        Button("Update reference data") {
+                            Task { await session.updateReferenceData() }
+                        }.disabled(session.busy != nil).help(
+                            "Gerardus adds the layers the bundle lacks from the downloads it already holds. Nothing is downloaded again."
+                        )
+                    }
+                    Button("Regenerate…") { session.requestRegenerate() }.disabled(
+                        session.busy != nil
+                    ).help("Download every source again and cut 3DEP again; asks first")
+                }
             }
         }
+    }
+
+    private var regenerateSheet: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Regenerate \(session.site?.name ?? "this site")?").font(.headline)
+            Text("Gerardus builds the bundle again from every source. This is what it does:").font(
+                .callout)
+            ForEach(
+                ReferenceDataStatus.regenerateConsequences(
+                    siteName: session.site?.name ?? "the site")
+            ) { item in
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title).font(.subheadline.weight(.semibold))
+                    Text(item.detail).font(.callout).foregroundStyle(.secondary).fixedSize(
+                        horizontal: false, vertical: true)
+                }
+            }
+            HStack {
+                Spacer()
+                Button("Cancel", role: .cancel) { session.cancelRegenerate() }.keyboardShortcut(
+                    .cancelAction)
+                Button("Regenerate", role: .destructive) {
+                    Task { await session.confirmRegenerate() }
+                }
+            }
+        }.padding(20).frame(width: 520)
     }
 
     @ViewBuilder private var statusSection: some View {
@@ -215,7 +276,8 @@ import SwiftUI
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
-                Toggle("DataSF footprints (\(reference.footprints))", isOn: $session.showFootprints)
+                Toggle(reference.footprintLabel, isOn: $session.showFootprints)
+                    .help(ReferenceSummary.footprintHelp)
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
                         .help(
@@ -240,7 +302,7 @@ import SwiftUI
                 if session.showAerial, !reference.aerialAttribution.isEmpty {
                     Text(reference.aerialAttribution).font(.caption2).foregroundStyle(.secondary)
                 }
-                if (session.showFootprints && reference.footprints > 0)
+                if (session.showFootprints && reference.footprints + reference.aerialOutlines > 0)
                     || (session.showBoxes && reference.boxWalls > 0),
                     !reference.footprintAttribution.isEmpty
                 {

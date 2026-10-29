@@ -70,6 +70,7 @@ export function surveyView(site, rawLimit) {
     // recording can use them; the page shows them per selected recording.
     hasPlayback: recordings.some((r) => r.hasPlayback),
     hasPointCloud: recordings.some((r) => r.hasPointCloud),
+    hasVectors: recordings.some((r) => r.hasVectors),
     // What the browser needs for the recording switcher and compare view.
     client: {
       id: site.id,
