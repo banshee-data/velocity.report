@@ -14,7 +14,7 @@ boxes do not supply. A useful adaptation would therefore have to define visibili
 body support, temporal continuity, and survivor handling before it could be scored. Those are the
 existing identity and visibility workstreams, not a bounded substitution of this PCL verifier.
 
-This is a scope decision from pinned implementation and existing measurements, not a measured
+This is a scope decision from reviewed implementation and existing measurements, not a measured
 failure of a new PCL arm. Preserve the support-before-conflict principle as a design reference.
 Do not add a spec, replay selector, tuning set, or default change. Reconsider only if a concrete
 residual failure and a sensor-valid evidence model justify a different hypothesis from the
@@ -27,7 +27,7 @@ point, U the number of visible model points with no scene neighbour, and C the d
 complete-model point count. These are different populations; their ratios are not probabilities.
 The scene itself is voxelised before its search tree is built ([base, lines 293–311][base-scene]).
 
-| Claim                                                                         | Pinned implementation                                                                                                                                                                                                                                                                                                                  | Consequence for the proposed track arm                                                                                                                                                         |
+| Claim                                                                         | Reviewed implementation                                                                                                                                                                                                                                                                                                                | Consequence for the proposed track arm                                                                                                                                                         |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Greedy uses visible-model support and unsupported samples                     | [Initialisation, lines 57–103][greedy-init] voxelises each visible model, collects every scene neighbour within the radius, deduplicates E, and counts U                                                                                                                                                                               | Support is proximity to supplied geometry, not a reviewed vehicle identity; U is a missing neighbour, not verified free space                                                                  |
 | Greedy accepts positive support after a penalty, in an initially sorted order | [Header, lines 82–164][greedy-order] sorts by E − regulariser × U; [verify, lines 111–140][greedy-verify] accepts when its mutable good count exceeds regulariser × its mutable bad count. Accepting a hypothesis decrements good information and increments bad information for every hypothesis explaining each of its scene indices | It penalises shared point support; it does not compare track ages, preserve an identity, or re-sort after every acceptance. The scores mix scene and model sampling counts                     |
@@ -108,7 +108,7 @@ historical l5id0004/0005 rules and results rather than adding a retrospective PC
 ## Validation and resume point
 
 Source paths, line ranges, admission inequalities, graph construction, and suppression were
-checked against the clean pinned checkout. Local implementation and experiment records above
+checked against the clean reviewed checkout. Local implementation and experiment records above
 were read at the stated baseline. Repository lint, documentation links, and the no-results guard
 passed. The full repository test suite passed for OQ-06 before these documentation-only changes.
 No Greedy/Papazov binary, fixture, replay, or benchmark was run;

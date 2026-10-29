@@ -187,7 +187,7 @@ available returns, and history horizon. Subsequent physical references are evalu
 
 **OQ-06 disposition: one bounded PCL comparator within B.** The
 [planar registration review](../lidar/operations/pcl-planar-registration-disposition.md) retains
-an offline XY correspondence loop using pinned PCL TransformationEstimation2D as a simpler
+an offline XY correspondence loop using reviewed PCL TransformationEstimation2D as a simpler
 point-to-point comparator. Its public estimator suppresses z translation; configure the search
 in XY explicitly and retain original XYZ/ordinals. It does not reproduce B's robust anisotropic
 point-to-plane objective. Keep B's membership, seed, prior, deskew, history cap, frozen map, and

@@ -2,7 +2,7 @@
 
 - **Status:** Measured compatibility failure on one kirk0 frame; OQ-02 answered
 - **Question:** OQ-02 in the [PCL review](pcl-algorithm-review.md)
-- **Plan:** [Pinned oracle and exporter](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-pinned-oracle)
+- **Plan:** [Oracle at the recorded Git SHA and exporter](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-oracle-at-the-recorded-git-sha)
 - **Parameters:** [pcl-organised-grid.json](../../../config/experiments/pcl-organised-grid.json)
 
 ## Method and decision rule
@@ -13,7 +13,7 @@ and 0.2° azimuth cell; retain its frame ordinal, measured range, elevation, and
 Missing cells carry NaN and ordinal -1. This diagnostic exporter does not replace the planned
 production exporter or assert that one return preserves dual-return provenance.
 
-Run pinned PCL 1.15.1 covariance integral-image normals on that grid, smoothing size 5 with
+Run reviewed PCL 1.15.1 covariance integral-image normals on that grid, smoothing size 5 with
 depth-dependent smoothing disabled. Repeat after a rigid coordinate rotation (x,y,z) to
 (x,-z,y), undoing the rotation on the normals. A Cartesian covariance method with unchanged
 neighbour selection should be rotation-equivariant; changes in valid support or normal angle
@@ -123,7 +123,7 @@ and harness, not physical correctness.
 
 The exporter tests pass with the pcap tag, including nearest-return identity, missing cells,
 channel/azimuth wrapping, and output-error propagation. The experiment-config tests pass.
-The C++ harness builds against the pinned PCL libraries and passes its formatting check.
+The C++ harness builds against the reviewed PCL libraries and passes its formatting check.
 Relative links, documentation formatting, spelling, metadata, geometry wording, and the
 no-results guard pass. The experiment graph was regenerated after the new report dependency.
 

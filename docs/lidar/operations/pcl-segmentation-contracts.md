@@ -1,6 +1,6 @@
 # PCL segmentation contracts: distance, membership, and opening
 
-- **Status:** OQ-03 answered by pinned source and synthetic contract checks
+- **Status:** OQ-03 answered by reviewed source and synthetic contract checks
 - **Review:** [PCL open questions](pcl-algorithm-review.md#open-questions-and-how-to-continue)
 - **Plan:** [Constrained ground and kerbs](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-5-q0-constrained-ground-and-kerbs-ground0006)
 - **Affected spec:** [ground0006](../../../data/experiments/ground/ground0006.md)
@@ -113,14 +113,14 @@ would need support, slope, window, and roof controls; OQ-03 adds no such arm to 
 
 ## Reproduction, provenance, and limits
 
-The harness explicitly includes the three pinned segmentation template bodies and links the
+The harness explicitly includes the three reviewed segmentation template bodies and links the
 existing PCL common, filters, sample_consensus, search, kdtree, and octree libraries. It does not
 need the separately built segmentation library. It is an offline executable with no product
 linkage. Source preparation and CMake variables are in the [tool README](../../../tools/pcl-review/README.md).
 
 - Repository parent: `4710e5f40` on `codex/pcl-open-question-review`; harness and report are saved together in the OQ-03 commit.
 - Harness SHA-256: `ea5a3c8a31e250e8f7b4eb88ca64994d823c2fbb2483ffa72f52c70137377996`.
-- PCL source and build: `/private/tmp/velocity-pcl-review/pcl` and `/private/tmp/velocity-pcl-review/build`; source pin above, no source edits.
+- PCL source and build: `/private/tmp/velocity-pcl-review/pcl` and `/private/tmp/velocity-pcl-review/build`; source Git SHA above, no source edits.
 - Environment: macOS ARM64, Apple clang 17.0.0 (`clang-1700.6.4.2`), Eigen 3.4.1; same external PCL build as [OQ-02](pcl-organised-grid-compatibility.md#findings-and-provenance).
 - Local logs: `/private/tmp/velocity-pcl-review/oq03-build.log` and `/private/tmp/velocity-pcl-review/oq03-ctest.log`. The written results above are sufficient without those disposable logs.
 
@@ -137,7 +137,7 @@ road residuals, vehicle retention, and physical accuracy are not validated here.
 
 ## Checkpoint validation
 
-The pinned source tree is clean; all ten source-link paths and line ranges were verified locally.
+The reviewed source tree is clean; all ten source-link paths and line ranges were verified locally.
 The C++ harness builds and CTest passes all fixture assertions. Clang-format and relative-link
 checks pass. The full `make test` gate passes: Go, Python, web, public site, offline docs,
 macOS, S2 Hilbert, and scene capture. As in OQ-02, the root Node tooling used the existing main

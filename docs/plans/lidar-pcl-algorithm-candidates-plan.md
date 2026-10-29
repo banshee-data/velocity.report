@@ -15,13 +15,13 @@ keypoint segmentation, and surface geometry, framed by five questions: road and 
 safety metrics, descriptors against classification error and fragmentation, hulls against boxes
 for clearance and following distance, measured static-scene geometry for repeat surveys and
 multi-vantage registration, and occlusion-aware analysis against track loss. The review answers
-each from the pinned source. This plan turns its shortlist into experiments with rules written
+each from the reviewed source. This plan turns its shortlist into experiments with rules written
 now, so that the answers arrive as measurements and a port is built only where one pays.
 
 [OQ-11](../lidar/operations/pcl-original-discussion-reconciliation.md) reconciles the original
 conversation with current decisions. [OQ-13](../lidar/operations/pcl-merged-detection-partition-disposition.md)
 drops its additional standalone PCL splitting arm: geometric subsets are not physical instances,
-and the pinned MinCut does not use background-point seeds in its active cost. The existing
+and the reviewed MinCut does not use background-point seeds in its active cost. The existing
 observation-revision plan retains bounded point repair and the conditions for a later proposal.
 No splitting arm is added to l4clus0005 or scheduled as a new experiment.
 
@@ -31,7 +31,7 @@ work, which is what D-36 and the 05x rubric exist to prevent.
 ## Current state
 
 - No PCL product dependency exists. The offline `tools/pcl-review` diagnostics use an external
-  pinned source build; `ARCHITECTURE` cites PCL's VoxelGrid and Euclidean clustering as lineage.
+  reviewed source build; `ARCHITECTURE` cites PCL's VoxelGrid and Euclidean clustering as lineage.
 - L2 keeps each return's channel and azimuth and L3's grid is rings by azimuth bins, but L4 receives
   a flat point list; no stage computes normals, curvature or border classes.
 - Exports: settled backgrounds as ASC (`cmd/tools/bgasc`), frames as ASC (`l2frames/export.go`).
@@ -55,7 +55,7 @@ work, which is what D-36 and the 05x rubric exist to prevent.
 ## Design / approach
 
 **PCL is an oracle, never a dependency.** The experiments target PCL 1.15.1 offline on the Mac,
-using a verified installation or pinned source build against exported frames and backgrounds.
+using a verified installation or reviewed source build against exported frames and backgrounds.
 The [OQ-04 runbook](../lidar/operations/pcl-oracle-tooling.md) records package versions, the verified
 source build, and executable coverage. Each report records the build actually used. Raw outputs stay in a local `results/` directory per AGENTS.md. A port
 to Go happens only after a passing experiment, behind a named replay experiment and then a tuning
@@ -82,7 +82,7 @@ valid covariance input.
 
 ## Scope
 
-### Item 1: PCD export and the pinned oracle
+### Item 1: PCD export and the oracle at the recorded Git SHA
 
 **Summary:** An organised PCD writer for frames and settled backgrounds, with source ordinals, and
 a documented oracle setup.
@@ -264,7 +264,7 @@ comparison is scheduled by this contract.
 
 ### Outstanding
 
-- [ ] Organised PCD export and the pinned oracle (`S`)
+- [ ] Organised PCD export and the oracle at the recorded Git SHA (`S`)
 - [ ] l3bg0028 border classes (`M`)
 - [ ] l4clus0005 joining rule (`M`)
 - [ ] geom0013 hull bound (`S`)

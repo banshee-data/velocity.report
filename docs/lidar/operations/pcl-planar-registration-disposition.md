@@ -85,7 +85,7 @@ Three counterexamples constrain interpretation; these are analytical cases, not 
 
 ## Validation and next checkpoint
 
-The pinned checkout is clean. The new target builds against its headers and existing common
+The reviewed checkout is clean. The new target builds against its headers and existing common
 library, with no registration-library or product dependency. CTest passes the registration
 regression and the existing segmentation contract test. Repository `make test`, `make lint`, `make check-md-links`, and `make check-no-results` pass.
 The macOS test build stamped BuildInfo; its tracked placeholder was restored before the final

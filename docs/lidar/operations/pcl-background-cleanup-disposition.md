@@ -2,8 +2,8 @@
 
 - **Status:** OQ-09 answered; blanket MLS/SOR export cleanup dropped from Item 6
 - **Related:** [Gerardus audit](pcl-gerardus-registration-gap-review.md), [candidate plan](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-6-q3-recommendations-to-gerardus), [pose0001](gerardus-static-registration-2026-10.md), [pose0002](gerardus-background-window-2026-10.md)
-- **PCL pin:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
-- **Gerardus pin:** `a2c2ac10e6497c26d973488e38aba394c93ec345`, main verified during OQ-08
+- **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
+- **Gerardus Git SHA:** `a2c2ac10e6497c26d973488e38aba394c93ec345`, main verified during OQ-08
 - **Local baseline:** velocity.report `e1db67ddc`, the OQ-08 checkpoint
 
 ## Disposition
@@ -49,7 +49,7 @@ relabelled as a cleanup trial or used to rank unrun filters.
 
 ## Claim-level implementation evidence
 
-| Claim                                                               | Pinned source                                                                                                                                                                                                                                                                               | Consequence                                                                                                                                                                                                                    |
+| Claim                                                               | Reviewed source                                                                                                                                                                                                                                                                             | Consequence                                                                                                                                                                                                                    |
 | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | SOR rejects large mean neighbour distances                          | [SOR 68–123][sor] averages Euclidean distances to neighbours other than the query, then rejects above the population mean plus multiplier times sample standard deviation                                                                                                                   | It is a density statistic, not a mixed-return, moving-object, or physical-surface classifier                                                                                                                                   |
 | Restricting query indices does not isolate the neighbour population | [SOR 49–89][sor-search] sets its search input to the complete cloud and searches each selected query in that cloud                                                                                                                                                                          | A fit/held split needs separate search input; setIndices alone still exposes held-out geometry to filter decisions                                                                                                             |
@@ -111,7 +111,7 @@ configuration before running; this checkpoint chooses no values and runs no arm.
 
 ## Validation and next checkpoint
 
-PCL implementation bodies, Gerardus's pinned preparation/scoring path, the local exporter, and
+PCL implementation bodies, Gerardus's reviewed preparation/scoring path, the local exporter, and
 prior reports were inspected. Source paths and line ranges were checked. The OQ-08 full repository
 test run covers the unchanged code; OQ-09 adds documentation only and passed final lint, links,
 source-range checks, counterexample arithmetic, and the no-results guard. No cleanup comparison,

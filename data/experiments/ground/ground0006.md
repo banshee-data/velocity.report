@@ -66,7 +66,7 @@ repository does not keep them (D-36).
 which ground0002 measures; tracks or safety metrics.
 
 **Oracle contract checked.** [OQ-03](../../../docs/lidar/operations/pcl-segmentation-contracts.md)
-confirms that pinned PCL reselects plane inliers after coefficient optimisation. The same check
+confirms that reviewed PCL reselects plane inliers after coefficient optimisation. The same check
 finds that plain RegionGrowing can bridge remote matching-normal patches; its residual threshold
 only stops those points seeding further growth. It is not a substitute for bounded connectivity.
 PMF performs a true opening but can retain elevated flat support without road evidence. Neither

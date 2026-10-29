@@ -2,7 +2,7 @@
 
 - **Status:** OQ-12 answered; l3bg0028 remains proposed
 - **Local baseline:** velocity.report `7ec1a599fddb488c274db1839315bd8d53a29642`
-- **PCL pin:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
+- **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Related:** [review](pcl-algorithm-review.md), [handover](pcl-astera-handover.md), [l3bg0028](../../../data/experiments/l3bg/l3bg0028.md), [lower-body report](vehicle-lower-body-by-range-2026-10.md)
 
 ## Decision
@@ -20,7 +20,7 @@ integration points remain work for l3bg0028; mutating the tap's borrowed data is
 ## Claim-level evidence
 
 Local line ranges below refer to the baseline above. They are implementation evidence, not new
-replay measurements. PCL links refer to the verified pin.
+replay measurements. PCL links refer to the verified Git SHA.
 
 | ID     | Claim tested                                                                    | Verdict and evidence                                                                                                                                                                                                                                                                                                                                                      | Consequence                                                                                                                                                                            |
 | ------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -91,7 +91,7 @@ and frame-time bounds; neither is established here. The OQ-11 development/cohort
 ## Validation and limits
 
 The existing lower-body and footprint unit tests passed for this checkpoint. Source ranges were
-checked against the frozen local baseline and PCL pin. No new border implementation, sensor
+checked against the frozen local baseline and PCL Git SHA. No new border implementation, sensor
 adapter, replay campaign, PCL fixture, physical measurement, or Pi timing was performed. The
 existing tap's PCAP baseline-equivalence test was inspected, not rerun. Fresh documentation lint,
 links, experiment validation, and the no-results guard cover the contract edits; the full suite

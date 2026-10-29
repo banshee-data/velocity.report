@@ -2,7 +2,7 @@
 
 - **Status:** OQ-13 answered; standalone PCL partition arm dropped
 - **Local baseline:** velocity.report `d914a4c26d0bb04a9c2cffd44b0999de252e3207`
-- **PCL pin:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
+- **PCL Git SHA:** `3346843ea6b97697a1577293aa9cdf236b5c7ffb`, 1.15.1
 - **Related:** [review](pcl-algorithm-review.md), [original discussion](pcl-original-discussion-reconciliation.md#oq-13-partitioning-merged-detections), [observation-revision owner](../../plans/lidar-cluster-observation-log-and-async-tracking-plan.md#association-within-the-window), [joining experiment](../../../data/experiments/l4clus/l4clus0005.md)
 
 ## Decision
@@ -11,7 +11,7 @@ Do not add a standalone PCL experiment for splitting one merged L4 detection int
 objects. ESF produces a whole-cloud signature. Radius and normal-based segmentation can propose
 subsets, but their connectivity rules do not establish how many objects are present or which
 track owns each return. The closest additional candidate, `MinCutSegmentation`, supplies an
-object-versus-rest cut with a foreground-distance prior; at this pin its background-point setter
+object-versus-rest cut with a foreground-distance prior; at this Git SHA its background-point setter
 does not affect the active unary calculation. It is not a two-track seed contract.
 
 This is a scope decision, not proof that PCL can never contribute a useful proposal. A conditional
@@ -28,7 +28,7 @@ inventory of all captures or an assertion that kirk0 can never contain a merge.
 
 ## Claim-level source evidence
 
-PCL links are immutable at the pin above. Local ranges refer to the stated baseline. These are
+PCL links are immutable at the Git SHA above. Local ranges refer to the stated baseline. These are
 source findings and prior-report interpretation; no new segmentation execution occurred.
 
 | ID     | Claim tested                                                                | Verdict and evidence                                                                                                                                                                                                                                                                                                                                                                 | Disposition                                                                                                                                                                                              |
@@ -106,7 +106,7 @@ numerical rules, and proposed status remain unchanged. The original-discussion r
 later answer without rewriting its earlier findings. No backlog priority or runtime behaviour
 changes, and no splitter harness is added.
 
-The pinned source ranges and local evidence were checked, along with documentation lint, links,
+The reviewed source ranges and local evidence were checked, along with documentation lint, links,
 experiment validation, the unchanged l4clus0005 arms/rules, and the no-results guard. No MinCut
 execution, replay, new benchmark, or physical validation ran. Earlier OQ-03 fixture results remain
 attributed to that checkpoint; the full test suite was last run at OQ-08 and is not repeated for

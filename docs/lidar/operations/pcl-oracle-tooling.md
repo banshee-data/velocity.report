@@ -2,7 +2,7 @@
 
 - **Status:** OQ-04 answered; experiment harness contracts specified, campaign implementation still open
 - **Review:** [PCL open questions](pcl-algorithm-review.md#open-questions-and-how-to-continue)
-- **Plan:** [Item 1](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-pinned-oracle)
+- **Plan:** [Item 1](../../plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-oracle-at-the-recorded-git-sha)
 - **Tools:** [Offline diagnostics](../../../tools/pcl-review/README.md)
 
 ## Installation decision
@@ -15,11 +15,11 @@ PCL remains an offline reference, never a product dependency.
 
 The public package listings were checked on October 28, 2026 (UTC):
 
-| Distribution                                                                | Published version          | Relevance to this oracle                                                                                                                                                                                                                     |
-| --------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [Homebrew pcl](https://formulae.brew.sh/formula/pcl)                        | 1.15.1, formula revision 8 | Same upstream release number; formula dependencies include Eigen 5.0.1. This is not the recorded unmodified source build with Eigen 3. Do not equate the bottle with the source pin without checking formula changes and repeating fixtures. |
-| [Debian trixie pcl-tools](https://packages.debian.org/trixie/pcl-tools)     | 1.15.0+dfsg-2              | Earlier upstream release and Debian packaging; not this pin.                                                                                                                                                                                 |
-| [Debian bookworm pcl-tools](https://packages.debian.org/bookworm/pcl-tools) | 1.13.0+dfsg-3              | Earlier upstream release; not this pin.                                                                                                                                                                                                      |
+| Distribution                                                                | Published version          | Relevance to this oracle                                                                                                                                                                                                                         |
+| --------------------------------------------------------------------------- | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [Homebrew pcl](https://formulae.brew.sh/formula/pcl)                        | 1.15.1, formula revision 8 | Same upstream release number; formula dependencies include Eigen 5.0.1. This is not the recorded unmodified source build with Eigen 3. Do not equate the bottle with the source Git SHA without checking formula changes and repeating fixtures. |
+| [Debian trixie pcl-tools](https://packages.debian.org/trixie/pcl-tools)     | 1.15.0+dfsg-2              | Earlier upstream release and Debian packaging; not this Git SHA.                                                                                                                                                                                 |
+| [Debian bookworm pcl-tools](https://packages.debian.org/bookworm/pcl-tools) | 1.13.0+dfsg-3              | Earlier upstream release; not this Git SHA.                                                                                                                                                                                                      |
 
 Homebrew's binary inventory and Debian's [trixie ARM64 file list](https://packages.debian.org/trixie/arm64/pcl-tools/filelist)
 include `pcl_cluster_extraction`, `pcl_compute_hull`, `pcl_normal_estimation`,
@@ -54,7 +54,7 @@ publication retain the separate policy in the cohort plan; predictions are not r
 
 The existing verified source/build directories are `/private/tmp/velocity-pcl-review/pcl` and
 `/private/tmp/velocity-pcl-review/build`. They are disposable local evidence. For a fresh build,
-use an external directory, obtain the pinned revision, and verify its HEAD and clean status.
+use an external directory, obtain the reviewed revision, and verify its HEAD and clean status.
 A sparse checkout must contain the selected modules' sources and CMake files, not headers alone.
 The following macOS recipe describes the diagnostic build, with Eigen 3 explicitly selected:
 
@@ -81,7 +81,7 @@ ctest --test-dir /private/tmp/velocity-pcl-review/harness -R segmentation-contra
 ```
 
 This records the working setup; OQ-04 did not reinstall dependencies or rebuild PCL from scratch.
-The two existing harness targets were rebuilt and the contract test rerun. The base PCL pin
+The two existing harness targets were rebuilt and the contract test rerun. The base PCL Git SHA
 requires Eigen 3 at configuration time; the ordinary Homebrew Eigen 5 package is not a drop-in
 substitute for that recipe. A future hull comparator needs surface/Qhull support in a separately
 recorded build, and PCD loading through PCL needs I/O support. Do not silently change the
@@ -107,14 +107,14 @@ responsible for reviewed object joins, extent metrics, ground residuals, and coa
 No new runtime port, replay flag implementation, or campaign run is claimed by this inventory.
 
 [OQ-13](pcl-merged-detection-partition-disposition.md) adds no splitter harness. A stock MinCut
-call uses a foreground-distance prior; at the pin its background-point setter does not affect
+call uses a foreground-distance prior; at the Git SHA its background-point setter does not affect
 the active unary costs. Its two index groups do not establish two objects or exclusive ownership
 across repeated calls. Reconsider a partition harness only under the existing observation-revision
 owner and the report's reviewed-membership, seed, false-split, identity, and resource conditions.
 
 ## Why the stock tools do not fulfil these contracts
 
-The pinned [tools/CMakeLists.txt][tool-targets] declares the nearest available targets. Their
+The reviewed [tools/CMakeLists.txt][tool-targets] declares the nearest available targets. Their
 implementation bodies, rather than names or help text alone, determine suitability:
 
 - [cluster_extraction.cpp, lines 94–123][cluster]: converts to PointXYZ and uses an ordinary
@@ -134,7 +134,7 @@ implementation bodies, rather than names or help text alone, determine suitabili
   morphological ground filters and extracts PointXYZ ground points. PMF is not an arm in
   ground0006. The OQ-03 fixture check is sufficient for its present reference role.
 
-Searching the pinned tools sources found no RangeImageBorderExtractor,
+Searching the reviewed tools sources found no RangeImageBorderExtractor,
 ConditionalEuclideanClustering, or DifferenceOfNormals invocation. Organised-edge/viewer tools
 are not evidence of an interchangeable range-image border oracle. Adding any custom harness
 requires input/output identity tests and the exact spec parameters before a scored run.

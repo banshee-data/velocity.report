@@ -31,12 +31,12 @@ from a path in an earlier report. The first-run instructions are retained as the
 
 Read AGENTS.md and the coding standards, then this document, the canonical review, and the plan's
 checklist. Take OQ-01 first. Inventory the substantive PCL claims under Q0 to Q4, including the
-qualifications and recommendations, and try to refute each against the pinned implementation. Read
+qualifications and recommendations, and try to refute each against the reviewed implementation. Read
 linked repository reports only where needed to check a claim's local premise. Do not regenerate
 catalogues for every PCL module or expand the original five questions.
 
 Use the review's sparse-checkout recipe, but put the checkout outside the repository, for example
-under `/private/tmp/velocity-pcl-review/`. Preserve the pin even if a newer release is available.
+under `/private/tmp/velocity-pcl-review/`. Preserve the Git SHA even if a newer release is available.
 Read template implementation bodies when setters or class comments do not establish behaviour.
 
 Check these assumptions explicitly. They are questions to test, not established defects:
@@ -65,21 +65,21 @@ authorisation for this local preparation. Save the edited checkpoint locally for
 The canonical table owns question wording, order, and closure conditions. This table assigns work;
 it does not change those conditions. Later runs take one row at a time after the first checkpoint.
 
-| Row   | Astera's contribution                                                                               | Implementation agent's contribution                                                                |
-| ----- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| OQ-01 | Refuting pass across Q0 to Q4, exact source evidence, and supported corrections                     | Verify findings and reconcile dependent documents                                                  |
-| OQ-02 | Camera and spherical geometry assumptions; define decisive compatibility checks                     | Minimal organised export and harness; execute and inspect one kirk0 frame                          |
-| OQ-03 | Verify RegionGrowing distance bounds, SAC inlier membership, and morphological opening              | Small reproductions where needed; correct ground0006's oracle contract                             |
-| OQ-04 | Review any algorithmic compromise in the available tools                                            | Verify package versions, pinning, and actual executables; specify a harness where no tool suffices |
-| OQ-05 | Review how the controls separate lost samples from connectivity                                     | Reconcile l4clus0004 and l4clus0005; add an uncapped arm or a supported reason to omit it          |
-| OQ-06 | Decide what planar registration adds beyond W4 and facet arm B                                      | Record one disposition: comparator within arm B, separate spec, or removal                         |
-| OQ-07 | Decide whether support-then-conflict adds evidence beyond l5id0004                                  | Map the rule to observed returns and prepare a bounded arm if justified                            |
-| OQ-08 | Critique observability and descriptor-seeding recommendations                                       | Inspect current Gerardus sources and identify recommendations that are actually new                |
-| OQ-09 | Identify what cleanup could change, and what it cannot repair                                       | Compare against guarded backgrounds under pose0001's gates if a new arm is justified               |
-| OQ-10 | Define class, aspect, and range coverage; justify minimum independent-object counts                 | Inventory labels, scorecard dependencies, and capture gaps                                         |
-| OQ-11 | Assess additional arguments in the supplied original discussion                                     | Reconcile source provenance and map existing owners; completed, with OQ-13 recorded                |
-| OQ-12 | Check semantic equivalence of return fates and proposed boundary labels                             | Trace and reuse replayeval.FrameTap where its contract fits; name missing evidence                 |
-| OQ-13 | Test whether local geometry supports splitting a merged detection, with false-split counterexamples | Map a bounded point-partition proposal to the existing observation-revision owner, or drop it      |
+| Row   | Astera's contribution                                                                               | Implementation agent's contribution                                                                 |
+| ----- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| OQ-01 | Refuting pass across Q0 to Q4, exact source evidence, and supported corrections                     | Verify findings and reconcile dependent documents                                                   |
+| OQ-02 | Camera and spherical geometry assumptions; define decisive compatibility checks                     | Minimal organised export and harness; execute and inspect one kirk0 frame                           |
+| OQ-03 | Verify RegionGrowing distance bounds, SAC inlier membership, and morphological opening              | Small reproductions where needed; correct ground0006's oracle contract                              |
+| OQ-04 | Review any algorithmic compromise in the available tools                                            | Verify package versions, Git SHAs, and actual executables; specify a harness where no tool suffices |
+| OQ-05 | Review how the controls separate lost samples from connectivity                                     | Reconcile l4clus0004 and l4clus0005; add an uncapped arm or a supported reason to omit it           |
+| OQ-06 | Decide what planar registration adds beyond W4 and facet arm B                                      | Record one disposition: comparator within arm B, separate spec, or removal                          |
+| OQ-07 | Decide whether support-then-conflict adds evidence beyond l5id0004                                  | Map the rule to observed returns and prepare a bounded arm if justified                             |
+| OQ-08 | Critique observability and descriptor-seeding recommendations                                       | Inspect current Gerardus sources and identify recommendations that are actually new                 |
+| OQ-09 | Identify what cleanup could change, and what it cannot repair                                       | Compare against guarded backgrounds under pose0001's gates if a new arm is justified                |
+| OQ-10 | Define class, aspect, and range coverage; justify minimum independent-object counts                 | Inventory labels, scorecard dependencies, and capture gaps                                          |
+| OQ-11 | Assess additional arguments in the supplied original discussion                                     | Reconcile source provenance and map existing owners; completed, with OQ-13 recorded                 |
+| OQ-12 | Check semantic equivalence of return fates and proposed boundary labels                             | Trace and reuse replayeval.FrameTap where its contract fits; name missing evidence                  |
+| OQ-13 | Test whether local geometry supports splitting a merged detection, with false-split counterexamples | Map a bounded point-partition proposal to the existing observation-revision owner, or drop it       |
 
 Start with the four proposed specs when a finding affects an experiment:
 [l3bg0028](../../../data/experiments/l3bg/l3bg0028.md),
@@ -105,7 +105,7 @@ each claim, record:
 1. **Claim:** source question, document heading, and the precise statement being tested.
 2. **Verdict:** confirmed, corrected, requires execution, deferred, or dropped.
 3. **Evidence:** revision, file, symbol, and verified line range; for PCL, use a permalink at the
-   pinned commit. For a local premise, name the repository report or implementation.
+   reviewed commit. For a local premise, name the repository report or implementation.
 4. **Counterexample:** the strongest failure case considered and whether the implementation
    handles it. Label inference separately from source behaviour and measured output.
 5. **Impact:** exact review, plan, spec, or implementation contract affected; state any rule
@@ -120,7 +120,7 @@ boundary: Gerardus owns static scene geometry.
 
 ## Review record
 
-OQ-01 is complete as a source review. The pinned checkout was obtained and its HEAD verified at
+OQ-01 is complete as a source review. The reviewed checkout was obtained and its HEAD verified at
 `3346843ea6b97697a1577293aa9cdf236b5c7ffb`; the local analysis baseline remains
 `7e35b3705e1287f9789a8b19df57ed3bb8af6fe9`. No PCL build, exported-frame run, or timing
 measurement was performed. The entries below cover Q0 to Q4; execution-dependent claims are
@@ -133,7 +133,7 @@ algorithm in the secondary ranked/set-aside catalogue.
 
 ### Q0-01: Plane orientation is constrained, road identity is not
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/sample_consensus/include/pcl/sample_consensus/impl/sac_model_perpendicular_plane.hpp#L93-L119).
 
 isModelValid checks the unsigned normal/axis angle only when eps_angle is positive. A horizontal
@@ -143,7 +143,7 @@ implementation agent must test a roof and a wall before the ground oracle is acc
 
 ### Q0-02: MSAC scoring and refined membership
 
-**Verdict: Confirmed with precision.** [Pinned
+**Verdict: Confirmed with precision.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/sample_consensus/include/pcl/sample_consensus/impl/msac.hpp#L89-L118).
 
 The objective sums min(distance, threshold) over points, including outliers. It is not simply an
@@ -154,7 +154,7 @@ closure.
 
 ### Q0-03: Normals and DoN supply candidates, not kerb labels
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/include/pcl/features/impl/don.hpp#L44-L100).
 
 computeFeature takes half the difference of the two supplied normal vectors. Inconsistent
@@ -166,7 +166,7 @@ measured follow-up.
 
 ### Q0-04: Organised regions exist; comparator comments overpromise
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/segmentation/include/pcl/segmentation/ground_plane_comparator.h#L206-L233).
 
 compare checks the desired road normal and adjacent normal agreement, while distance checks are
@@ -178,7 +178,7 @@ review now distinguishes these behaviours. Sensor-grid suitability remains OQ-02
 
 ### Q0-05: Line fits and morphological ground baseline
 
-**Verdict: Confirmed, limited.** [Pinned
+**Verdict: Confirmed, limited.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/sample_consensus/include/pcl/sample_consensus/impl/sac_model_parallel_line.hpp#L91-L115).
 
 The parallel-line model enforces a positive angular tolerance against an axis; neither it nor a
@@ -190,7 +190,7 @@ Keep these as offline candidates; OQ-03 retains its broader checkpoint.
 
 ### Q0-06: Road-error gains and safety consequences
 
-**Verdict: Requires execution.** [Pinned
+**Verdict: Requires execution.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/sample_consensus/include/pcl/sample_consensus/impl/sac_model_perpendicular_plane.hpp#L93-L119).
 
 No plane constraint establishes centimetre gains, unchanged level-site performance, or downstream
@@ -201,7 +201,7 @@ the linked ground0001 and W3 reports, rather than PCL, define today’s baseline
 
 ### Q1-01: Descriptor categories and frame requirements
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/include/pcl/features/impl/vfh.hpp#L95-L190).
 
 VFH uses centroid/normal and pair features without SHOT’s local-frame contract. SHOT is local and
@@ -212,7 +212,7 @@ corpus.
 
 ### Q1-02: ESF and moment-of-inertia dimensions
 
-**Verdict: Confirmed with precision.** [Pinned
+**Verdict: Confirmed with precision.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/include/pcl/features/esf.h#L50-L75).
 
 ESF derives from Feature, not FeatureFromNormals, and outputs ESFSignature640; impl/esf.hpp lines
@@ -224,7 +224,7 @@ established.
 
 ### Q1-03: Radius connectivity has no core-point test
 
-**Verdict: Confirmed, qualified.** [Pinned
+**Verdict: Confirmed, qualified.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/segmentation/include/pcl/segmentation/impl/extract_clusters.hpp#L62-L110).
 
 The seed queue grows through radius neighbours and size limits apply to the completed component.
@@ -235,7 +235,7 @@ a local predicate does not certify object identity.
 
 ### Q1-04: XY oracle needs an explicit representation
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/segmentation/include/pcl/segmentation/impl/conditional_euclidean_clustering.hpp#L56-L68).
 
 The default search is OrganizedNeighbor or KdTree; it is not automatically XY.
@@ -248,7 +248,7 @@ invariance.
 
 ### Q1-05: A failed graph does not rule out L4
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/segmentation/include/pcl/segmentation/impl/extract_clusters.hpp#L77-L100).
 
 The traversal proves connectivity only for the supplied point set and tolerance. Removing a
@@ -259,7 +259,7 @@ acceptance threshold, not a source-derived expected result.
 
 ### Q2-01: Footprints require projection; containment is not tightness
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/surface/include/pcl/surface/convex_hull.h#L145-L163).
 
 ConvexHull accepts dimensions 2 or 3 and otherwise determines dimensionality. A full 3-D body is
@@ -270,7 +270,7 @@ from containment.
 
 ### Q2-02: Concavity cannot improve a retained directional extreme
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/surface/include/pcl/surface/impl/concave_hull.hpp#L398-L477).
 
 Alpha reconstruction filters simplices by radius and retains their vertices; it may omit points or
@@ -283,7 +283,7 @@ clearance would need a different metric.
 ### Q2-03: The three planar registration options are not identical
 
 **Verdict: Corrected again by OQ-06; the original z-translation finding was false.**
-[Pinned implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/impl/transformation_estimation_2D.hpp#L124-L182).
+[Reviewed implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/impl/transformation_estimation_2D.hpp#L124-L182).
 
 The earlier pass read the final centroid subtraction without following its inputs. The public
 iterator path sets both centroid z components to zero at lines 139–141, so the returned transform
@@ -295,7 +295,7 @@ objectives are not automatically facet B's robust point-to-plane likelihood. See
 
 ### Q2-04: Visible support cannot recover unseen extent
 
-**Verdict: Confirmed, gains require execution.** [Pinned
+**Verdict: Confirmed, gains require execution.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/surface/include/pcl/surface/impl/concave_hull.hpp#L398-L477).
 
 Two bodies with identical visible points and different hidden bumpers produce identical visible
@@ -307,7 +307,7 @@ measurement and overlap.
 
 ### Q3-01: Fitness and convergence do not validate a pose
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/impl/default_convergence_criteria.hpp#L49-L140).
 
 hasConverged may return true at the iteration limit when failure_after_max_iter is false, as well
@@ -318,7 +318,7 @@ covariance claim to the base API and corrects convergence semantics.
 
 ### Q3-02: Geometry conditioning needs direction and scale
 
-**Verdict: Confirmed as a recommendation, qualified.** [Pinned
+**Verdict: Confirmed as a recommendation, qualified.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/filters/include/pcl/filters/impl/covariance_sampling.hpp#L98-L126).
 
 CovarianceSampling forms F from scaled-point cross normal and normal, computes FFᵀ, and exposes an
@@ -331,7 +331,7 @@ recommendation is superseded by its [novelty audit](pcl-gerardus-registration-ga
 
 ### Q3-03: Descriptor matching and KFPCS are different seeding routes
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/include/pcl/registration/ia_kfpcs.h#L43-L64).
 
 KFPCS uses keypoint-based congruent four-point sets and keeps candidates; it is not FPFH
@@ -343,7 +343,7 @@ inspected Gerardus path; feasibility and benefit still require the bounded compa
 
 ### Q3-04: Change detection is not a cause classifier
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/octree/include/pcl/octree/octree_pointcloud_changedetector.h#L87-L105).
 
 The octree returns points in new leaves. SegmentDifferences compares nearest-neighbour squared
@@ -354,7 +354,7 @@ nudge from a changed street.
 
 ### Q3-05: Cleanup and normals are conditional export work
 
-**Verdict: Qualified.** [Pinned
+**Verdict: Qualified.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/filters/include/pcl/filters/impl/statistical_outlier_removal.hpp#L76-L125).
 
 SOR rejects mean-neighbour-distance outliers using a global mean plus standard-deviation
@@ -366,7 +366,7 @@ diagnosis is established. OQ-09 subsequently drops blanket MLS/SOR export cleanu
 
 ### Q4-01: RangeImage is spherical, but not the native ring array
 
-**Verdict: Corrected; execution remains open.** [Pinned
+**Verdict: Corrected; execution remains open.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/common/include/pcl/range_image/impl/range_image.hpp#L355-L438).
 
 getImagePoint computes angular coordinates and getImagePointFromAngles scales horizontal angle by
@@ -377,7 +377,7 @@ this source result does not close it.
 
 ### Q4-02: Covariance XYZ and depth control are separate
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/include/pcl/features/impl/integral_image_normal.hpp#L205-L250).
 
 The covariance method forms a matrix from Cartesian XYZ sums. The depth-change map reads point.z
@@ -388,7 +388,7 @@ tested under OQ-02.
 
 ### Q4-03: Border traits are not physical truth or exclusive labels
 
-**Verdict: Corrected.** [Pinned
+**Verdict: Corrected.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/src/range_image_border_extractor.cpp#L399-L460).
 
 The code sets directional obstacle/shadow trait bits and marks intervening cells as veil. It does
@@ -400,7 +400,7 @@ against reviewed returns.
 
 ### Q4-04: Boundary rejection and recognition visibility are camera-specific references
 
-**Verdict: Confirmed with limits.** [Pinned
+**Verdict: Confirmed with limits.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/registration/src/correspondence_rejection_organized_boundary.cpp#L46-L85).
 
 The rejector tests target organisation and counts invalid z or z steps in a window; the header
@@ -411,7 +411,7 @@ adaptation limits.
 
 ### Q4-05: Coasting evidence and cost are proposed work
 
-**Verdict: Requires execution.** [Pinned
+**Verdict: Requires execution.** [Reviewed
 implementation](https://github.com/PointCloudLibrary/pcl/blob/3346843ea6b97697a1577293aa9cdf236b5c7ffb/features/src/range_image_border_extractor.cpp#L101-L145).
 
 PCL computes local surfaces before border scores, then multiple neighbourhood passes. Source
@@ -422,7 +422,7 @@ thresholds remain unchanged; labels, identity gains, and Pi performance are unme
 
 ### Checkpoint validation
 
-Pinned source HEAD and all 25 primary source-link paths and line ranges were checked locally.
+Reviewed source HEAD and all 25 primary source-link paths and line ranges were checked locally.
 The changed documents pass Prettier, relative-link, British spelling, header metadata, geometry
 wording, and diff-whitespace checks. The Git index passes `make check-no-results`. Prettier
 parsed the four experiment files; a separate Python YAML check was unavailable because PyYAML
@@ -455,7 +455,7 @@ exporter, parameter set, and C++ harness preserve the method; raw outputs remain
 calibrated adapter or explicit resampling contract is required before the border oracle.
 
 OQ-03 is answered by the [segmentation contract report](pcl-segmentation-contracts.md).
-Pinned source and executable fixtures establish: default RegionGrowing has no spatial distance
+Reviewed source and executable fixtures establish: default RegionGrowing has no spatial distance
 bound and residual failure affects seed eligibility, SAC reselects plane membership after
 refinement, and PMF performs erosion then dilation. ground0006 retains its original experiment
 rule and now makes the fit/held-back index separation explicit. No site campaign ran.
@@ -530,10 +530,10 @@ l4clus0005 retains its six joining arms and numerical rules. No new fixture or c
 - **Active row:** None; OQ-01 to OQ-13 are answered. Stop at this checkpoint.
 - **Next action:** Owner review of the thirteen dispositions and draft PR #882. For a later implementation run, start with the candidate plan's outstanding checklist and OQ-04's named harness contracts; select one existing experiment and verify its input/adapter/label prerequisites before implementing or running it. OQ-13 creates no new arm. The final pass below integrated current main and checked the branch; the PR remains draft and is not merged.
 - **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup. OQ-10 defines classification coverage, not descriptor seeding, a training sample size, or an adoption decision. Keep earlier report denominators tied to their label revision.
-- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. OQ-12 adds source analysis and existing lower-body/footprint unit-test execution; no new PCL fixture, tap PCAP test, border implementation, or campaign. OQ-13 is pinned-source analysis and prior-report synthesis only.
-- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 through OQ-13 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, pinned-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-12 passed existing lower-body/footprint unit tests, fresh lint, links, experiment validation, source-range checks, and the no-results guard; the staged diff was reviewed. OQ-13 passed fresh lint, links, experiment validation, pinned-source range checks, unchanged-arm/rule checks, and the no-results guard; the staged diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
+- **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. OQ-12 adds source analysis and existing lower-body/footprint unit-test execution; no new PCL fixture, tap PCAP test, border implementation, or campaign. OQ-13 is reviewed-source analysis and prior-report synthesis only.
+- **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 through OQ-13 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, reviewed-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-12 passed existing lower-body/footprint unit tests, fresh lint, links, experiment validation, source-range checks, and the no-results guard; the staged diff was reviewed. OQ-13 passed fresh lint, links, experiment validation, reviewed-source range checks, unchanged-arm/rule checks, and the no-results guard; the staged diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
 - **Outstanding inputs:** Calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
-- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
+- **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the reviewed PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
 - **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 `7ec1a599`; OQ-12 `d914a4c26`; OQ-13 partition disposition and the completed-review resume point saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.
 
 ## Final branch pass
@@ -566,7 +566,7 @@ main checkout's dependencies through a temporary symlink with pnpm package-manag
 and strict version enforcement disabled; no lockfile changed. The symlink and generated macOS
 BuildInfo stamp were removed after validation.
 
-All 78 explicit PCL source-line ranges resolved inside the pinned checkout. Re-running the
+All 78 explicit PCL source-line ranges resolved inside the reviewed checkout. Re-running the
 fixed grid checker on the frozen OQ-02 PCD produced byte-identical normal, native-border, and
 spherical-border CSVs to the archived local outputs. The existing OQ-02 measurements and
 limitations therefore stand. This repeat is not a new capture, adapter, or campaign. Raw files

@@ -7,7 +7,7 @@ per-cell CSV files, and build products outside the checkout.
 Build PCL at `3346843ea6b97697a1577293aa9cdf236b5c7ffb` with Eigen 3 and FLANN. Enable common,
 search, filters, and features and their dependencies; disable applications, examples, tools,
 visualisation, I/O, registration, segmentation, surface, recognition, and tracking. The source
-pin requires Eigen 3: the installed Eigen 5 CMake package does not satisfy its version check.
+Git SHA requires Eigen 3: the installed Eigen 5 CMake package does not satisfy its version check.
 
 Build the exporter with `make build-pcl-frame-export`; `PCL_FRAME_EXPORT_BIN` selects its output
 (default `/tmp/pcl-frame-export`). Pass `-pcap`, `-out`, `-replay-output`, and `-tuning`, with the
@@ -32,7 +32,7 @@ versions, the source-build recipe, and the campaign harnesses still required.
 ## Segmentation contracts (OQ-03)
 
 Build the `pcl-segmentation-check` target in the same CMake build directory, then run CTest
-with `-R segmentation-contracts -V`. This executable explicitly includes the pinned segmentation
+with `-R segmentation-contracts -V`. This executable explicitly includes the reviewed segmentation
 template implementations and links the existing filters and sample_consensus libraries; the
 segmentation library can remain disabled. It needs no capture, exporter, or tuning config.
 Its fixed hand-authored fixtures assert RegionGrowing distance/seed behaviour, SAC refined

@@ -1,4 +1,4 @@
-// Small, hand-authored contract fixtures for pinned PCL; no capture input.
+// Small, hand-authored contract fixtures for reviewed PCL; no capture input.
 #include <algorithm>
 #include <cmath>
 #include <iostream>
