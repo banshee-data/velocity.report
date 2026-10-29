@@ -185,6 +185,18 @@ available returns, and history horizon. Subsequent physical references are evalu
 | D   | Persistent body-local patches and a small graph of rigid geometric relationships                                                                                                                                                                                                                                                      | Tests the full constellation hypothesis against A, B, and C                                                                                       |
 | V   | Shared visibility component: extent-end labels, expected support per face, and a free-space penalty from the L3 range baseline and the frame's nearer returns                                                                                                                                                                         | Applied to every arm in the sparse-tail pass; supplies arm A's truncation flag                                                                    |
 
+**OQ-06 disposition: one bounded PCL comparator within B.** The
+[planar registration review](../lidar/operations/pcl-planar-registration-disposition.md) retains
+an offline XY correspondence loop using reviewed PCL TransformationEstimation2D as a simpler
+point-to-point comparator. Its public estimator suppresses z translation; configure the search
+in XY explicitly and retain original XYZ/ordinals. It does not reproduce B's robust anisotropic
+point-to-plane objective. Keep B's membership, seed, prior, deskew, history cap, frozen map, and
+visibility treatment identical, and disclose residual/weight differences. Freeze matching,
+rejection, overlap, and iteration settings before E2; score physical errors, coverage, abstention,
+and cost under the existing gates. No NDT2D variant or separate experiment is added now.
+W4 retains ownership of censored extents and revisable evidence. This comparator remains subject
+to E1 and E2 funding; a regression fixture is built, but the iterative comparator is not.
+
 Give B and D the same permitted history and information; compare C and D with the same extraction
 settings. Keep the native A input contract, and disclose representation differences. Run a
 matched-input comparison first, then report an equal-memory/compute comparison separately. Do

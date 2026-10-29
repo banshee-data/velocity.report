@@ -27,6 +27,32 @@ The [PCL review](operations/pcl-algorithm-review.md) reads the Point Cloud Libra
 owner's five questions (road and kerbs, descriptors, hulls, static reconstruction, occlusion) and
 proposes four experiments, led by range-image border classes on the L3 grid
 ([plan](../plans/lidar-pcl-algorithm-candidates-plan.md)).
+The [Astera handover](operations/pcl-astera-handover.md) records the completed thirteen-question
+review, final branch checks, and the remaining implementation prerequisites.
+The [one-frame compatibility check](operations/pcl-organised-grid-compatibility.md) rejects
+direct native-grid use and specifies the required projection and normal-neighbourhood adaptation.
+The [segmentation contract checks](operations/pcl-segmentation-contracts.md) reproduce unbounded
+region growth, refined plane membership, and morphological opening on synthetic support.
+The [oracle tooling runbook](operations/pcl-oracle-tooling.md) pins the installation and maps
+stock CLI limitations to explicit campaign harness contracts.
+The [joining-control design](operations/pcl-joining-cap-controls.md) separates cap losses from
+connectivity with six matched arms and a frozen-input oracle.
+The [planar registration disposition](operations/pcl-planar-registration-disposition.md) places
+one comparator within facet arm B and corrects the earlier 2-D z-translation claim.
+The [hypothesis-verification disposition](operations/pcl-hypothesis-verification-disposition.md)
+drops a separate duplicate-track arm and records its visibility and temporal-identity limits.
+The [Gerardus novelty audit](operations/pcl-gerardus-registration-gap-review.md) confirms its
+existing observability diagnostics and narrows follow-up to initial proposals.
+The [background-cleanup disposition](operations/pcl-background-cleanup-disposition.md) drops
+blanket MLS/SOR export cleanup and explains why the evaluation points must stay fixed.
+The [classification corpus requirements](operations/pcl-classification-corpus-requirements.md)
+inventory reviewed labels and set independent-object floors for class, aspect, and range screens.
+The [original-discussion reconciliation](operations/pcl-original-discussion-reconciliation.md)
+maps the supplied conversation to existing owners and records the merged-detection partition question.
+The [return-fate and border contract](operations/pcl-return-fate-border-contract.md) reuses frame
+acquisition while separating diagnostic fates, border traits, and coasting evidence.
+The [merged-detection disposition](operations/pcl-merged-detection-partition-disposition.md) drops
+a standalone PCL splitting arm and records the evidence required by the existing revision owner.
 
 | Topic                    | Document                                                                                           |
 | ------------------------ | -------------------------------------------------------------------------------------------------- |

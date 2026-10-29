@@ -2879,3 +2879,9 @@ api-switch-data-source:
 	else \
 		./scripts/api/lidar/switch_data_source.sh $(SOURCE) $(SENSOR) $(BASE_URL); \
 	fi
+
+PCL_FRAME_EXPORT_BIN ?= /tmp/pcl-frame-export
+
+.PHONY: build-pcl-frame-export
+build-pcl-frame-export: ## Build the offline one-frame PCL compatibility exporter
+	go build -tags=pcap -ldflags "$(LDFLAGS)" -o "$(PCL_FRAME_EXPORT_BIN)" ./cmd/tools/pcl-frame-export

@@ -319,7 +319,10 @@ scored its pairs.
   containment-consistent: a cluster whose window-minimum across-span fits the belief's upper tail
   is one body, however large its area ratio against the running mean; growth admission is the
   first version of that rule. The censored likelihood and the revisable admitted-frame record of
-  §9.2.2 and §9.2.3 are the estimator; they are not changed here.
+  §9.2.2 and §9.2.3 are the estimator; they are not changed here. The
+  [OQ-06 planar registration comparator](../lidar/operations/pcl-planar-registration-disposition.md)
+  belongs within facet arm B, not a separate W4 extent estimator: aligning visible history does
+  not infer an unseen bumper or replace the censored likelihood and evidence revision.
 - **Upstream retention and fragmentation.** Measured on kirk0 by
   [the W3 report](../lidar/operations/w3-retention-fragmentation-kirk0-2026-10.md) (October 13,
   2026): half the labelled returns reach a cluster, and half the instants at 20 to 50 m are

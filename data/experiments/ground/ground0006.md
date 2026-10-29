@@ -30,8 +30,15 @@ steps:
     estimate: { human: 6h }
     note: >-
       Per site and per 10 m region of RegionalGroundSurface: PCL 1.15.1's SACSegmentation with
-      SACMODEL_PERPENDICULAR_PLANE, axis z, eps 5 degrees, MSAC, threshold 0.05 m, on the lowest
-      returns; then normals at 0.3 and 1.2 m and DifferenceOfNormalsEstimation, cells above a DoN
+      SACMODEL_PERPENDICULAR_PLANE in a gravity-aligned frame, non-zero axis z, eps 5 degrees
+      converted to radians, MSAC, threshold 0.05 m, on the lowest returns. A roof or van floor
+      can pass the angle gate, so the low-return selection remains necessary. Explicitly record
+      whether coefficient optimisation is enabled; if enabled, use the reselected inliers
+      SACSegmentation returns, not the initial consensus mask. Check the returned mask against
+      the returned normalised plane at the same strict distance threshold over the supplied fit
+      indices; held-back road points must not enter that fit population. A failed or empty fit is
+      unsupported. Refinement is one fit and one reselection, not iteration to stable membership.
+      Then consistently oriented normals at 0.3 and 1.2 m and DifferenceOfNormalsEstimation, cells above a DoN
       magnitude of 0.25 withheld from the fit as kerb candidates, and SACMODEL_LINE on their
       boundary cells. Per region: residual of held-back road returns to each surface (median, MAD,
       95th percentile), the share of kerb candidates within 0.3 m of a Gerardus kerb where the site
@@ -57,3 +64,10 @@ repository does not keep them (D-36).
 
 **What it does not establish.** Whether the clip it would drive retains more lower-body returns,
 which ground0002 measures; tracks or safety metrics.
+
+**Oracle contract checked.** [OQ-03](../../../docs/lidar/operations/pcl-segmentation-contracts.md)
+confirms that reviewed PCL reselects plane inliers after coefficient optimisation. The same check
+finds that plain RegionGrowing can bridge remote matching-normal patches; its residual threshold
+only stops those points seeding further growth. It is not a substitute for bounded connectivity.
+PMF performs a true opening but can retain elevated flat support without road evidence. Neither
+algorithm is added as an arm here, and this source/fixture check does not satisfy the site rule.
