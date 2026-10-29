@@ -15,17 +15,17 @@ implementation agent owns reproducible checks, repository integration, and measu
 These are roles in this session; this document does not start another agent or select a model.
 
 The baseline was pulled from origin/main and the worktree was clean before this handover was
-written. It is a detached checkout. The preparation adds local documentation changes: preserve
-them when taking over. Check the actual HEAD and diff before editing, and record any source drift.
+written. Preparation used a detached checkout with local documentation changes; the completed
+review is on `codex/pcl-open-question-review`. Preserve any local changes when taking over.
+Check the actual HEAD and diff before editing, and record any source drift.
 The original review's `5d3e2836` baseline describes its earlier analysis, not this handover's
 HEAD.
 
-All OQ-01 to OQ-12 were open at preparation. OQ-01 is now answered in the review record below. PCL
-has not been built or run in this preparation. At preparation there was no verified local PCL
-checkout, package installation, exported organised frame, Gerardus checkout, or original ChatGPT
-thread. The review record now identifies the PCL source obtained during OQ-01; the other inputs
-remain unchecked. Check availability rather than inferring access from a path in an earlier
-report.
+All OQ-01 to OQ-12 were open at preparation, when PCL had not been built or run and there was no
+verified local PCL checkout, package installation, exported organised frame, Gerardus checkout,
+or original ChatGPT thread. The continuation records below identify the inputs subsequently
+verified and OQ-13 added and answered. Check current availability rather than inferring access
+from a path in an earlier report. The first-run instructions are retained as the original scope.
 
 ## First run: finish OQ-01
 
@@ -528,10 +528,52 @@ l4clus0005 retains its six joining arms and numerical rules. No new fixture or c
 ## Resume point
 
 - **Active row:** None; OQ-01 to OQ-13 are answered. Stop at this checkpoint.
-- **Next action:** Owner review of the thirteen dispositions and draft PR #882. For a later implementation run, start with the candidate plan's outstanding checklist and OQ-04's named harness contracts; select one existing experiment and verify its input/adapter/label prerequisites before implementing or running it. OQ-13 creates no new arm. Branch-wide cleanup or merge is not performed by this checkpoint.
+- **Next action:** Owner review of the thirteen dispositions and draft PR #882. For a later implementation run, start with the candidate plan's outstanding checklist and OQ-04's named harness contracts; select one existing experiment and verify its input/adapter/label prerequisites before implementing or running it. OQ-13 creates no new arm. The final pass below integrated current main and checked the branch; the PR remains draft and is not merged.
 - **Preserve:** OQ-08 found existing Gerardus observability; OQ-09 dropped blanket MLS/SOR cleanup. OQ-10 defines classification coverage, not descriptor seeding, a training sample size, or an adoption decision. Keep earlier report denominators tied to their label revision.
 - **Execution evidence:** OQ-02 one-frame check, OQ-03 segmentation fixtures, OQ-06 2-D estimator regression; OQ-07/08/09 source analysis and prior-report synthesis; OQ-10 source analysis, local label inventory, and analytical count requirements. OQ-11 reconciles the supplied discussion and current contracts. OQ-12 adds source analysis and existing lower-body/footprint unit-test execution; no new PCL fixture, tap PCAP test, border implementation, or campaign. OQ-13 is pinned-source analysis and prior-report synthesis only.
 - **Validation:** Full `make test` and `make lint` passed at OQ-08. OQ-09 through OQ-13 change documentation only. OQ-10 passed fresh `make lint`, relative-link checks, source-range and count arithmetic checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-11 passed fresh `make lint`, relative links, pinned-source range and OQ-table checks, and `make check-no-results`; the staged documentation diff was reviewed. OQ-12 passed existing lower-body/footprint unit tests, fresh lint, links, experiment validation, source-range checks, and the no-results guard; the staged diff was reviewed. OQ-13 passed fresh lint, links, experiment validation, pinned-source range checks, unchanged-arm/rule checks, and the no-results guard; the staged diff was reviewed. Full tests were not repeated for these documentation-only changes. No classifier accuracy, physical envelope, or Pi performance is claimed.
 - **Outstanding inputs:** Calibrated sensor-to-oracle adapter before l3bg0028; campaign harnesses from OQ-04; OQ-10 class/aspect/range and site coverage, reviewed long-car definition, scorecard and export contracts.
 - **Local source caches:** `/private/tmp/velocity-pcl-review/pcl` at the pinned PCL revision; `/private/tmp/velocity-pcl-review/gerardus-oq08` holds disposable main source snapshots. OQ-10 read the local dataset under `/Volumes/lidar/lidar/pcaps/sf-street-speeds/labels`; the report carries portable provenance and summary counts, not raw files.
 - **Checkpoint:** Draft PR #882; OQ-08 `e1db67ddc`; OQ-09 `b349e0f46`; OQ-10 `1762c9e13`; OQ-11 `7ec1a599`; OQ-12 `d914a4c26`; OQ-13 partition disposition and the completed-review resume point saved in this checkpoint commit. The owner's continuation authorises commits and pushes to this PR. Stop here; no PR merge is authorised.
+
+## Final branch pass
+
+The owner requested a final pass before submitting PR #882 for review. The pass covered the
+branch's exporter, external C++ diagnostics, configuration, evidence reports, affected specs,
+and continuation instructions. Main `9abd3396ac4b6ca638b104cf05be346cec2d9f20` was integrated as
+`41c1b6e4e`, preserving both development-log histories. No critical security finding was identified;
+these offline tools add no product API, runtime PCL linkage, or production-default change.
+
+Two diagnostic defects were reproduced and corrected:
+
+| Finding                                                   | Reproduction and correction                                                                                                                                                                                                                                                 | Regression evidence                                                                                                                                                                                          |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Rounded azimuth spills into another ring or past the grid | A channel-40 return at `-math.SmallestNonzeroFloat64` with two bins panicked at index 80 of 80. Wrap the computed column modulo the bin count.                                                                                                                              | The new exporter test fails before the fix and passes after it, retaining ring and source identity.                                                                                                          |
+| Missing CSV evidence reported as success                  | The grid checker returned 0 for the frozen frame with an output prefix under a nonexistent directory. Enable stream exceptions, explicitly close each CSV, and return non-zero on failure. Reject malformed/non-ASCII and wholly missing inputs before numerical summaries. | CTest checks output-open failure and three invalid-input cases. The original missing-directory invocation now returns 1. Write/close errors share the checked stream path; disk exhaustion was not injected. |
+
+The exporter now prints its success line only after writing and closing successfully. Stale
+preparation/status prose was made historical, and the classifier plan now distinguishes a
+one-scene export prototype from completing its
+required evaluation corpus.
+
+Validation on the integrated working tree passed: full `make test`, `make lint`,
+`make build-radar-local`, pcap-tagged exporter tests, three external CTests, relative Markdown
+links/backtick paths, experiment validation, and the no-results guard. The full suite included
+362 Python tests, 859 web tests, and 1,684 macOS tests, plus Go, public-site, offline-docs, and
+scene-tool tests. The build reported v0.5.1-pre47 and the pre-commit validation HEAD `dc755aa17`;
+it was a local working-tree build, not a published release artefact. Root Node tests reused the
+main checkout's dependencies through a temporary symlink with pnpm package-manager switching
+and strict version enforcement disabled; no lockfile changed. The symlink and generated macOS
+BuildInfo stamp were removed after validation.
+
+All 78 explicit PCL source-line ranges resolved inside the pinned checkout. Re-running the
+fixed grid checker on the frozen OQ-02 PCD produced byte-identical normal, native-border, and
+spherical-border CSVs to the archived local outputs. The existing OQ-02 measurements and
+limitations therefore stand. This repeat is not a new capture, adapter, or campaign. Raw files
+remain outside Git; only the hand-authored failure-fixture recipe is added to the repository.
+
+**Resume:** Review the thirteen dispositions and proposed contracts in draft PR #882. The final
+pass found no remaining change required within this PR's review-and-diagnostic scope. GitHub
+reported no CI checks on the pre-push head; local passes are not a CI result. Keep the calibrated
+adapter, campaign harnesses, and reviewed corpus coverage as explicit implementation prerequisites.
+Do not start an experiment, mark the PR ready, or merge it as part of this checkpoint.

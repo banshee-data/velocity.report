@@ -21,6 +21,11 @@ per-cell normal and border CSV files. The raw native RangeImage is deliberately 
 it tests the proposed direct grid mapping. Only the spherical arm uses PCL's own projection.
 Neither output constitutes physical border truth.
 
+The checker accepts the exporter's ASCII grid with forty rows, at least five columns, and
+at least one finite retained point. Malformed input or a CSV open/write/close failure exits
+non-zero; discard partial output from a failed invocation. CTest's `grid-failures` check uses
+synthetic files in the external build directory to verify rejected inputs and output failure.
+
 The [oracle tooling runbook](../../docs/lidar/operations/pcl-oracle-tooling.md) records package
 versions, the source-build recipe, and the campaign harnesses still required.
 

@@ -8,9 +8,22 @@
 #include <pcl/features/range_image_border_extractor.h>
 #include <pcl/range_image/range_image.h>
 #include <sstream>
+#include <stdexcept>
 #include <vector>
 
 using Cloud = pcl::PointCloud<pcl::PointXYZ>;
+// A diagnostic is unsuccessful if its evidence cannot be saved, including
+// failures first reported when buffered output is closed.
+std::ofstream openCSV(const std::string &path) {
+  std::ofstream out;
+  out.exceptions(std::ios::failbit | std::ios::badbit);
+  try {
+    out.open(path);
+  } catch (const std::ios_base::failure &) {
+    throw std::runtime_error("cannot open CSV: " + path);
+  }
+  return out;
+}
 pcl::PointCloud<pcl::Normal> normals(Cloud::Ptr cloud) {
   pcl::IntegralImageNormalEstimation<pcl::PointXYZ, pcl::Normal> e;
   e.setNormalEstimationMethod(e.COVARIANCE_MATRIX);
@@ -31,7 +44,7 @@ void borders(pcl::RangeImage &range, const std::string &prefix) {
   pcl::PointCloud<pcl::BorderDescription> out;
   e.compute(out);
   size_t finite = 0, obstacle = 0, shadow = 0, veil = 0;
-  std::ofstream csv(prefix + "-borders.csv");
+  auto csv = openCSV(prefix + "-borders.csv");
   csv << "cell,x,y,z,range,obstacle,shadow,veil\n";
   for (size_t i = 0; i < out.size(); ++i) {
     const auto &p = range[i];
@@ -46,11 +59,12 @@ void borders(pcl::RangeImage &range, const std::string &prefix) {
     csv << i << "," << p.x << "," << p.y << "," << p.z << "," << p.range << ","
         << a << "," << b << "," << c << "\n";
   }
+  csv.close();
   std::cout << prefix << " width=" << range.width << " height=" << range.height
             << " finite=" << finite << " obstacle=" << obstacle
             << " shadow=" << shadow << " veil=" << veil << "\n";
 }
-int main(int argc, char **argv) {
+int run(int argc, char **argv) {
   if (argc != 3) {
     std::cerr << "usage: pcl-grid-check frame.pcd output-prefix\n";
     return 2;
@@ -62,6 +76,7 @@ int main(int argc, char **argv) {
   std::vector<float> ranges;
   std::string line;
   unsigned width = 0, height = 0;
+  bool ascii = false;
   while (std::getline(in, line)) {
     std::istringstream row(line);
     std::string key;
@@ -70,20 +85,37 @@ int main(int argc, char **argv) {
       row >> width;
     if (key == "HEIGHT")
       row >> height;
-    if (key == "DATA")
+    if (key == "DATA") {
+      std::string format;
+      row >> format;
+      ascii = format == "ascii";
       break;
+    }
   }
+  if (!ascii)
+    throw std::runtime_error("expected DATA ascii from pcl-frame-export");
+  size_t retained = 0;
   while (std::getline(in, line)) {
     std::istringstream row(line);
     std::string x, y, z, r;
     if (!(row >> x >> y >> z >> r))
-      continue;
+      throw std::runtime_error("malformed PCD data row");
     cloud->push_back(pcl::PointXYZ(std::stof(x), std::stof(y), std::stof(z)));
     ranges.push_back(std::stof(r));
+    if (std::isfinite(ranges.back())) {
+      const auto &p = cloud->back();
+      if (ranges.back() <= 0 || !std::isfinite(p.x) || !std::isfinite(p.y) ||
+          !std::isfinite(p.z))
+        throw std::runtime_error("invalid retained PCD point");
+      ++retained;
+    }
   }
   // push_back resets dimensions: this exporter has forty native channel rows.
-  if (height != 40 || width == 0 || cloud->size() != size_t(width) * height)
-    return 2;
+  if (height != 40 || width < 5 || cloud->size() != size_t(width) * height)
+    throw std::runtime_error("expected forty rows and at least five columns");
+  if (retained == 0)
+    throw std::runtime_error("no finite retained points");
+  auto csv = openCSV(std::string(argv[2]) + "-normals.csv");
   cloud->height = height;
   cloud->width = width;
   cloud->is_dense = false;
@@ -96,7 +128,6 @@ int main(int argc, char **argv) {
   auto a = normals(cloud), b = normals(rotated);
   size_t na = 0, nb = 0, both = 0, changed = 0;
   std::vector<double> angles;
-  std::ofstream csv(std::string(argv[2]) + "-normals.csv");
   csv << "cell,ax,ay,az,bx,by,bz,angle_degrees\n";
   for (size_t i = 0; i < a.size(); ++i) {
     bool va = valid(a[i]), vb = valid(b[i]);
@@ -116,6 +147,7 @@ int main(int argc, char **argv) {
         << a[i].normal_z << "," << b[i].normal_x << "," << b[i].normal_z << ","
         << -b[i].normal_y << "," << angle << "\n";
   }
+  csv.close();
   std::sort(angles.begin(), angles.end());
   std::cout << "normals native=" << na << " rotated=" << nb
             << " common=" << both << " validity_changed=" << changed;
@@ -163,4 +195,13 @@ int main(int argc, char **argv) {
       *cloud, float(.2 * M_PI / 180), float(2 * M_PI), float(M_PI),
       Eigen::Affine3f::Identity(), pcl::RangeImage::LASER_FRAME, 0, 0, 1);
   borders(spherical, std::string(argv[2]) + "-spherical");
+  return 0;
+}
+int main(int argc, char **argv) {
+  try {
+    return run(argc, argv);
+  } catch (const std::exception &e) {
+    std::cerr << "pcl-grid-check: " << e.what() << "\n";
+    return 1;
+  }
 }

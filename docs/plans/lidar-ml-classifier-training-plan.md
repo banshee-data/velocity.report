@@ -251,7 +251,8 @@ a separate experiment-tracking service.
 - Phase 2 needs the reviewed class/aspect/range coverage in
   [OQ-10](../lidar/operations/pcl-classification-corpus-requirements.md). The larger archive is
   not a labelled classifier corpus; the old five-PCAP proposal is not its current inventory.
-  Phases 1-2 are valid on one scene; Phase 3 should not conclude on one scene.
+  The Phase 1 scorecard and Phase 2 export prototype can start on one development scene;
+  completing the comparison corpus requires the coverage and site splits above.
 - Labelling throughput from the
   [track labelling plan](lidar-track-labelling-auto-aware-tuning-plan.md)
   Phases 1-5, which are complete.

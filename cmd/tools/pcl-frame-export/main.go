@@ -32,7 +32,9 @@ func writeFrame(w io.Writer, points []l2frames.Point, bins int) error {
 		if az < 0 {
 			az += 360
 		}
-		j := (p.Channel-1)*bins + int(az/360*float64(bins))
+		// Adding 360 can round a tiny negative angle up to exactly 360.
+		column := int(az/360*float64(bins)) % bins
+		j := (p.Channel-1)*bins + column
 		if cells[j] < 0 || p.Distance < points[cells[j]].Distance {
 			cells[j] = i
 		}
@@ -76,7 +78,9 @@ func run() error {
 			exportErr = e
 		}
 		saved = exportErr == nil
-		fmt.Printf("exported frame=%s points=%d bins=%d complete=%t\n", f.At.UTC().Format("2006-01-02T15:04:05.999999999Z"), len(f.Frame.Points), f.AzimuthBins, f.Frame.SpinComplete)
+		if saved {
+			fmt.Printf("exported frame=%s points=%d bins=%d complete=%t\n", f.At.UTC().Format("2006-01-02T15:04:05.999999999Z"), len(f.Frame.Points), f.AzimuthBins, f.Frame.SpinComplete)
+		}
 	}})
 	if err != nil {
 		return err

@@ -27,8 +27,8 @@ The [PCL review](operations/pcl-algorithm-review.md) reads the Point Cloud Libra
 owner's five questions (road and kerbs, descriptors, hulls, static reconstruction, occlusion) and
 proposes four experiments, led by range-image border classes on the L3 grid
 ([plan](../plans/lidar-pcl-algorithm-candidates-plan.md)).
-The [Astera handover](operations/pcl-astera-handover.md) scopes the first adversarial pass,
-assigns follow-up work, and records the evidence needed to close each open question.
+The [Astera handover](operations/pcl-astera-handover.md) records the completed thirteen-question
+review, final branch checks, and the remaining implementation prerequisites.
 The [one-frame compatibility check](operations/pcl-organised-grid-compatibility.md) rejects
 direct native-grid use and specifies the required projection and normal-neighbourhood adaptation.
 The [segmentation contract checks](operations/pcl-segmentation-contracts.md) reproduce unbounded

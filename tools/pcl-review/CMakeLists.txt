@@ -22,6 +22,9 @@ target_include_directories(pcl-segmentation-check PRIVATE "${PCL_BUILD_DIR}/incl
 target_link_directories(pcl-segmentation-check PRIVATE "${PCL_BUILD_DIR}/lib")
 target_link_libraries(pcl-segmentation-check PRIVATE Eigen3::Eigen pcl_filters pcl_sample_consensus pcl_search pcl_kdtree pcl_octree pcl_common)
 enable_testing()
+add_test(NAME grid-failures COMMAND ${CMAKE_COMMAND}
+  -DCHECKER=$<TARGET_FILE:pcl-grid-check>
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/grid-failures.cmake)
 add_test(NAME segmentation-contracts COMMAND pcl-segmentation-check)
 
 add_executable(pcl-registration-check registration-check.cpp)

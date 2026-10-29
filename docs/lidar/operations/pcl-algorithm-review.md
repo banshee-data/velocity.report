@@ -1,6 +1,6 @@
 # Point Cloud Library review: tracking, facets, surface and occlusion
 
-- **Status:** Source review complete; four experiment specs proposed, no implementation or measured result
+- **Status:** OQ-01 to OQ-13 complete, with bounded diagnostic measurements; four experiment specs remain proposed, with no production implementation or campaign result
 - **Scope:** PCL's registration, tracking, sample consensus, keypoints, features, range image,
   segmentation, surface, filters, recognition and ml modules, read against velocity.report's L3 to
   L8 and the owner's five questions. Not an audit of PCL's I/O grabbers, visualisation or GPU code.
@@ -334,10 +334,10 @@ physical references and label0001 remain the only truth.
 
 ## Open questions and how to continue
 
-This run stopped short of its plan twice on usage limits. The table below is what it did not
-reach, written so a later run can take one row, finish it, and record the answer here before
-starting the next. Take rows in order unless the owner reorders them. Each row is sized to fit one
-short run.
+The original run stopped short of its plan twice on usage limits. The table preserves the
+questions that were handed over; all thirteen now have answers and linked evidence. The
+continuation rules below describe that completed sequence. For the current checkpoint and
+remaining implementation prerequisites, use the [resume point](pcl-astera-handover.md#resume-point).
 
 ### What survives between runs
 
