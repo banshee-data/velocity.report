@@ -141,7 +141,10 @@ enum AlignmentAcceptance: Equatable {
 struct ReferenceSummary: Equatable {
     var aerialPoints: Int
     var osmFeatures: Int
+    /// DataSF's footprints, and the outlines Gerardus found in 3DEP where
+    /// DataSF lists no building; both come in the footprints layer.
     var footprints: Int = 0
+    var aerialOutlines: Int = 0
     /// Whether the server sent the boxes layer at all, and its walls (party
     /// walls among them).
     var boxesServed: Bool = false
@@ -183,6 +186,17 @@ struct ReferenceSummary: Equatable {
     var osmAttribution: String
     var aerialAttribution: String
     var footprintAttribution: String = ""
+
+    /// The footprints toggle's label: the 3DEP outlines are named apart, so
+    /// they are not read as DataSF's.
+    var footprintLabel: String {
+        aerialOutlines == 0
+            ? "DataSF footprints (\(footprints))"
+            : "Footprints (\(footprints) DataSF, \(aerialOutlines) from 3DEP)"
+    }
+
+    static let footprintHelp =
+        "Red: DataSF's building footprints, 2010 roofprints. Violet: outlines Gerardus found in the 2023 3DEP survey where DataSF lists no building, inferred from tall, smooth returns that do not reach the ground; not a surveyed footprint."
 
     /// The wall planes' counts by role, for the pane: "3 walls · 1 popout".
     /// Roles with none are left out.
@@ -1190,7 +1204,8 @@ struct ReferenceSummary: Equatable {
             intersections: geometry.intersections.count,
             osmAttribution: preparedSite.map { attribution($0, layer: .osm) } ?? "",
             aerialAttribution: preparedSite.map { attribution($0, layer: .aerialPoints) } ?? "")
-        out.footprints = geometry.footprints.count
+        out.aerialOutlines = geometry.footprints.filter(ReferenceStyle.isAerialOutline).count
+        out.footprints = geometry.footprints.count - out.aerialOutlines
         out.footprintAttribution = preparedSite.map { attribution($0, layer: .footprints) } ?? ""
         out.boxesServed = !geometry.boxes.isEmpty || geometry.completeLayers.contains(.boxes)
         out.boxWalls = geometry.boxes.count

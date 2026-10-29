@@ -735,6 +735,32 @@ struct BoxesAndWallPlanesStyleTests {
         #expect(ReferenceStyle.wallPlaneVertices([open]).count == 3 * 2 * 7)
     }
 
+    @Test func outlinesFoundIn3DEPAreDrawnAndCountedApartFromDataSF() {
+        var datasf = Gerardus_Align_V1alpha1_LineFeature()
+        datasf.kind = .building
+        datasf.closed = true
+        datasf.xyz = [0, 0, 10, 10, 0, 10, 10, 10, 10]
+        var found = datasf
+        found.featureID = "3dep:sf-b23/8085806ff-1"
+        found.tags["source"] = "3dep"
+        #expect(!ReferenceStyle.isAerialOutline(datasf))
+        #expect(ReferenceStyle.isAerialOutline(found))
+        let v = ReferenceStyle.footprintVertices([datasf, found])
+        // Three segments each, closed.
+        #expect(v.count == 2 * 3 * 2 * 7)
+        #expect(colour(v, 0) == ReferenceStyle.lineColour(.building))
+        #expect(colour(v, 6) == ReferenceStyle.aerialOutlineColour)
+        #expect(ReferenceStyle.aerialOutlineColour != ReferenceStyle.lineColour(.building))
+
+        var summary = ReferenceSummary(
+            aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
+            aerialAttribution: "")
+        summary.footprints = 20
+        #expect(summary.footprintLabel == "DataSF footprints (20)")
+        summary.aerialOutlines = 2
+        #expect(summary.footprintLabel == "Footprints (20 DataSF, 2 from 3DEP)")
+    }
+
     @Test func roleCountsReadForThePane() {
         var summary = ReferenceSummary(
             aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
