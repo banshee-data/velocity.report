@@ -122,7 +122,11 @@ When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers at the 
 the toolbar shows **Align**. While connected, the visualiser looks for one every 30 seconds until
 it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and OpenStreetMap ways over the
 capture, places the sensor from its eye-read position and the `north_azimuth_deg` you type, lets you nudge it,
-and records an accepted pose in Gerardus's alignment log. The reference layers (buildings, kerbs,
+and records an accepted pose in Gerardus's alignment log. Movement controls stay pinned above the
+scrolling details, with steps up to 10 m and turns up to 30°. A manually snapped pose can be accepted
+directly, without an automatic search on a Gerardus that supports manual placement. Register and
+Snap share a 1–30 m horizontal radius from the current pose, defaulting to 5 m; Snap remains local
+ICP and refuses a refinement beyond that radius. The reference layers (buildings, kerbs,
 poles, trees) are observed or derived geometry at each source's acquisition time, not a plan or a
 survey; see [geometry-priors-data-purpose.md](../../docs/geometry-priors-data-purpose.md). Without
 a Gerardus server the toolbar and the app are unchanged. See

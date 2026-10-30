@@ -75,9 +75,26 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
 | Paint streets         | Locks the camera to a top-down plan view and marks the site's street use; nothing is sent while painting                                                                                                                                                                                                                                                                                                                                                                                                                                             | none                                                                              |
 | Save street use       | Sends every change since the marks were read as one batch, then draws the marks Gerardus answers with and its problems                                                                                                                                                                                                                                                                                                                                                                                                                               | `EditStreetUse`                                                                   |
 
+### Placement controls
+
+**Place from hint**, **Regenerate…** and the **info** icon share one row. The icon opens the stored
+bundle's preparation and source details, any missing-layer warning, and **Update reference data**.
+Regenerate keeps its confirmation sheet.
+
+**Move the reference** stays pinned above the scrolling details, so status messages, pose summaries
+and fit results cannot move the arrow buttons under the pointer. Translation steps are 0.1, 0.5, 2
+and 10 m; turns are 0.2°, 1°, 5° and 30°.
+
 ### Registration
 
-**Register** searches 30 m around the position drawn now, at every heading (the start's heading is not used). It refines the best distinct poses with point-to-plane ICP and gates the best. That takes 10 to 25 s on a real scan, and **Cancel** stops it.
+**Search radius** sets a horizontal distance of 1–30 m from the pose drawn now, defaulting to 5 m.
+Register and Snap share it. **Register** searches within this radius at every heading (the start's
+heading is not used), and never returns a hypothesis outside it. **Snap** refines locally with ICP
+and refuses a result beyond the radius, keeping the drawn pose. Snap does not search every heading.
+These controls require Gerardus to advertise `supports_bounded_placement`; older servers show an
+update notice and keep their legacy search behaviour with the slider disabled.
+
+**Register** refines the best distinct poses with point-to-plane ICP and gates the best. That takes 10 to 25 s on a real scan, and **Cancel** stops it.
 
 - **Hypotheses:** each one appears as it converges. When the run ends the list is ranked, best first, and the best is drawn. Each row gives:
   - its heading and how far it moved from the eye-read position;
@@ -88,6 +105,13 @@ Reaching Gerardus on another machine needs nothing more over Tailscale:
   - **Accept hypothesis N (registered)** for a hypothesis of a run that passed every gate;
   - **(manually placed)** for one that did not;
   - **Accept this pose (manually placed)** once the pose has been nudged or snapped off the hypothesis. A snapped pose is recorded with source `ICP`.
+
+**Accept this pose** is available before Register has run, once a settled background or accumulated
+scan is available and a reviewer is named. Gerardus requires a registration ID for every decision:
+the first acceptance uses `Register(manual_only)` to persist the placement without an automatic
+search, then submits the manual pose. Later acceptances reuse the run; **Reject** still requires an
+existing run. With an older Gerardus, acceptance creates a normal registration while keeping the
+manual pose drawn, then accepts that pose rather than a generated hypothesis.
 
 ### Against the site model
 
@@ -180,7 +204,8 @@ Left out or stale wins over the move. A refinement that reports no pairs leaves 
 
 Accept, Reject and Accept refinement list why they are disabled, in orange text under the button, not only in a tooltip. One line is given per reason:
 
-- **No registration to decide on**, or **no pose drawn** (Accept and Reject);
+- **No pose drawn**, or **no settled background or accumulated scan** (Accept before a run exists);
+- **Reject** remains disabled until a registration exists;
 - **No refinement yet**, **the refinement moved no scan**, **already recorded** (with the count), or **a scan accepted again since the refinement ran** (Accept refinement);
 - **Busy**, naming what is running, for example "Busy re-streaming the site model: wait for it to finish.";
 - **No reviewer name.** Gerardus refuses any decision, a rejection included, without a reviewer.
@@ -214,7 +239,9 @@ The operator types `north_azimuth_deg` from `tools/s2-archive/site-index.json`. 
 
 ## Reference data: how current it is
 
-Below the site picker the pane reads the stored bundle with `GetSite`, which builds nothing, and shows when it was prepared (`Site.prepared_at`) and each source's version and retrieval date (`Site.sources`).
+Below the site picker the pane reads the stored bundle with `GetSite`, which builds nothing. The
+info icon beside **Regenerate…** opens its preparation time (`Site.prepared_at`) and each source's
+version and retrieval date (`Site.sources`).
 
 The bundle is flagged **out of date** when `GetServerInfo` lists a layer the bundle holds no summary for. Only layers the server lists when its builder can make them are judged: footprints, city streets and city intersections. Gerardus lists kerbs, lane markings, street furniture and trees on every server, because they also carry what scans observed, so their absence from a bundle cannot be told from the server's list. Update still adds them whenever it rebuilds.
 

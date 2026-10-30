@@ -2,7 +2,9 @@
 // Source: proto/gerardus/align/v1alpha1/align.proto
 // Commit: f3beec1 (main, 2026-10-25), the squash merge of #35 (roofline walls:
 // WALL_SURFACE, roofline box walls, shifted footprints); includes safe-write
-// contracts from #33.
+// contracts from #33. Bounded placement fields (search_radius_m, manual_only
+// and capability) are vendored from Gerardus commit 2dca171 on
+// codex/manual-alignment-radius.
 // To update: copy the upstream file, retain this provenance header,
 // and run make proto-gen-swift.
 
@@ -573,6 +575,9 @@ message RegistrationOptions {
   float seed_yaw_deg = 3;           // and +/- this in heading; default 30
   float max_correspondence_m = 4;   // default 1.0
   uint64 random_seed = 5;           // makes a run repeatable; default 1
+  // Horizontal search and result radius from initial_pose, 1–30 m.
+  // 0 preserves the server's default (including its environment setting).
+  float search_radius_m = 6;
 }
 
 // One converged pose, with the evidence for it.
@@ -709,6 +714,8 @@ message GetServerInfoResponse {
   // with --street-source osm.
   ReferenceLayer default_streets = 5;
   ReferenceLayer default_intersections = 6;
+  // Supports search_radius_m on Register/EvaluatePose and Register.manual_only.
+  bool supports_bounded_placement = 7;
 }
 
 message PrepareSiteRequest {
@@ -810,6 +817,9 @@ message RegisterRequest {
   // Also fit against the site's DataSF box walls, corrected by the measured
   // wall planes where they exist (docs/plans/SITE-MODEL-SPIKE.md §10 q7).
   bool against_boxes = 6;
+  // Persist initial_pose for an operator decision, without searching or
+  // generating hypotheses. Requires initial_pose; state is MANUALLY_PLACED.
+  bool manual_only = 7;
 }
 
 message RegisterResponse {
@@ -825,6 +835,9 @@ message EvaluatePoseRequest {
   SensorPose pose = 2;
   bool refine = 3;                  // run local ICP from pose first
   bool include_point_residuals = 4;
+  // When refining, refuse a result outside this horizontal radius of pose.
+  // 1–30 m; 0 leaves local ICP unbounded for older clients.
+  float search_radius_m = 5;
 }
 
 message EvaluatePoseResponse {
