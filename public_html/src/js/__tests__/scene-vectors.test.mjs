@@ -4,6 +4,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import * as THREE from "three";
+import { horizonBasis } from "../scene-horizon.js";
 
 import {
   createGroundGroup,
@@ -286,4 +287,40 @@ describe("public trees and buildings", () => {
     assert.equal(Math.max(...ys), 7.5);
     assert.ok(a.fill.indices.length > 0);
   });
+});
+
+test("tree trunk and crown are gravitropic in a tilted sensor frame", () => {
+  const up = [0.2, -0.3, Math.sqrt(0.87)],
+    basis = horizonBasis(up);
+  const base = [4, -3, -2];
+  const top = base.map((v, i) => v + up[i] * 3);
+  const [tree] = vectorLayers({
+    placement: { up_sensor: up },
+    features: [
+      feature(
+        "trees",
+        { type: "LineString", coordinates: [base, top] },
+        { crown_radius_m: 2, crown_base_m: 3, height_m: 11 },
+      ),
+    ],
+  });
+  const start = new THREE.Vector3(...tree.lines.slice(0, 3)),
+    end = new THREE.Vector3(...tree.lines.slice(3, 6));
+  const direction = end.clone().sub(start);
+  assert.ok(
+    direction
+      .clone()
+      .normalize()
+      .dot(new THREE.Vector3(...basis.up)) >
+      1 - 1e-10,
+  );
+  assert.ok(Math.abs(direction.length() - 3) < 1e-6);
+  const heights = [];
+  for (let i = 0; i < tree.fill.positions.length; i += 3)
+    heights.push(
+      basis.toLevel(Array.from(tree.fill.positions.slice(i, i + 3)))[1],
+    );
+  const baseHeight = basis.toLevel([base[0], base[2], -base[1]])[1];
+  assert.ok(Math.abs(Math.min(...heights) - baseHeight - 3) < 1e-6);
+  assert.ok(Math.abs(Math.max(...heights) - baseHeight - 11) < 1e-6);
 });

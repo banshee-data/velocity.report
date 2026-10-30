@@ -1,3 +1,4 @@
+import { sceneFade } from "./scene-fade.js";
 // Gerardus's street geometry in a scene: kerbs, walls, roofs, trees, and registered
 // ground, as Gerardus measured or inferred them, drawn in the
 // scene's own sensor frame.
@@ -13,6 +14,7 @@
 // can be tested under Node without WebGL.
 
 import * as THREE from "three";
+import { horizonBasis } from "./scene-horizon.js";
 import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
 
 /**
@@ -107,9 +109,16 @@ function lifted(p, lift) {
   return lift ? [p[0], p[1], (p[2] ?? 0) + lift] : p;
 }
 
-/** An inferred ellipsoidal crown above the measured trunk, in sensor axes. */
-function treeGeometry(layer, points, props) {
+/** Infer trunk and crown along registered gravity, retaining the measured base. */
+function treeGeometry(destination, points, props, basis) {
   if (!points.length) return;
+  // Construct in the level frame; convert every generated vertex back to the
+  // sensor frame before the shared renderer maps it to three.js axes.
+  points = points.map((p) => {
+    const q = basis.toLevel(toScene(p));
+    return [q[0], q[2], q[1]];
+  });
+  const layer = { segments: [], positions: [], indices: [] };
   const a = points[0],
     b = points[points.length - 1];
   const [base, top] = (a[2] ?? 0) <= (b[2] ?? 0) ? [a, b] : [b, a];
@@ -160,6 +169,14 @@ function treeGeometry(layer, points, props) {
     }
     pushSegments(layer.segments, ring, true);
   }
+  const sensor = (p) => {
+    const q = basis.fromLevel([p[0], p[2], p[1]]);
+    return [q[0], -q[2], q[1]];
+  };
+  const offset = destination.positions.length;
+  destination.segments.push(...layer.segments.map(sensor));
+  destination.positions.push(...layer.positions.map(sensor));
+  destination.indices.push(...layer.indices.map((i) => i + offset));
 }
 
 function polygonsOf(geometry) {
@@ -181,6 +198,7 @@ function linesOf(geometry) {
  */
 export function vectorLayers(collection) {
   const layers = new Map();
+  const basis = horizonBasis(collection?.placement?.up_sensor);
   for (const f of collection?.features ?? []) {
     const props = f.properties ?? {};
     const style = VECTOR_STYLE[props.layer];
@@ -208,7 +226,7 @@ export function vectorLayers(collection) {
     layer.count++;
     const lift = style.lift ?? 0;
     if (props.layer === "trees") {
-      treeGeometry(layer, linesOf(f.geometry)[0] ?? [], props);
+      treeGeometry(layer, linesOf(f.geometry)[0] ?? [], props, basis);
       continue;
     }
 
@@ -265,13 +283,15 @@ export function createVectorGroup(collection) {
       geo.setIndex(new THREE.BufferAttribute(l.fill.indices, 1));
       const mesh = new THREE.Mesh(
         geo,
-        new THREE.MeshBasicMaterial({
-          color: l.style.colour,
-          transparent: true,
-          opacity: l.style.fill,
-          side: THREE.DoubleSide,
-          depthWrite: false,
-        }),
+        sceneFade(
+          new THREE.MeshBasicMaterial({
+            color: l.style.colour,
+            transparent: true,
+            opacity: l.style.fill,
+            side: THREE.DoubleSide,
+            depthWrite: false,
+          }),
+        ),
       );
       mesh.name = `${l.layer}:fill`;
       mesh.renderOrder = -2;
@@ -282,12 +302,14 @@ export function createVectorGroup(collection) {
       geo.setAttribute("position", new THREE.BufferAttribute(l.lines, 3));
       const lines = new THREE.LineSegments(
         geo,
-        new THREE.LineBasicMaterial({
-          color: l.style.colour,
-          transparent: true,
-          opacity: l.style.line,
-          depthWrite: false,
-        }),
+        sceneFade(
+          new THREE.LineBasicMaterial({
+            color: l.style.colour,
+            transparent: true,
+            opacity: l.style.line,
+            depthWrite: false,
+          }),
+        ),
       );
       lines.name = `${l.layer}:lines`;
       lines.renderOrder = -1;
@@ -314,24 +336,28 @@ export function createGroundGroup(collection) {
   geometry.setIndex(ground.indices);
   const mesh = new THREE.Mesh(
     geometry,
-    new THREE.MeshBasicMaterial({
-      color: 0x1c2b32,
-      transparent: true,
-      opacity: 0.12,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    }),
+    sceneFade(
+      new THREE.MeshBasicMaterial({
+        color: 0x1c2b32,
+        transparent: true,
+        opacity: 0.12,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      }),
+    ),
   );
   mesh.renderOrder = -4;
   group.add(mesh);
   const wire = new THREE.LineSegments(
     new THREE.WireframeGeometry(geometry),
-    new THREE.LineBasicMaterial({
-      color: 0x2c4049,
-      transparent: true,
-      opacity: 0.25,
-      depthWrite: false,
-    }),
+    sceneFade(
+      new THREE.LineBasicMaterial({
+        color: 0x2c4049,
+        transparent: true,
+        opacity: 0.25,
+        depthWrite: false,
+      }),
+    ),
   );
   wire.renderOrder = -3;
   group.add(wire);

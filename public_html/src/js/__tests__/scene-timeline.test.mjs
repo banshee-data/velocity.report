@@ -4,7 +4,7 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { createTimelineStrip } from "../scene-timeline.js";
+import { createTimelineStrip, fiveMinuteSpeeds } from "../scene-timeline.js";
 
 /** A canvas stand-in that lets tests fire events and read attributes. */
 function fakeCanvas({ width = 600 } = {}) {
@@ -231,4 +231,57 @@ describe("timeline strip", () => {
       });
     }
   });
+});
+
+test("five-minute speed maxima use time boundaries and retain the last partial interval", () => {
+  assert.deepEqual(
+    fiveMinuteSpeeds(
+      [
+        { t: 0, spd: 12 },
+        { t: 295, spd: 23 },
+        { t: 300, spd: 15 },
+        { t: 595, spd: 19 },
+        { t: 600, spd: 8 },
+        { t: 605, spd: 99 },
+      ],
+      5,
+      605,
+    ),
+    [
+      { start: 0, end: 300, speed: 23 },
+      { start: 300, end: 600, speed: 19 },
+      { start: 600, end: 605, speed: 8 },
+    ],
+  );
+  assert.deepEqual(
+    fiveMinuteSpeeds([{ spd: 3 }, { spd: 10 }, { spd: 5 }], 300, 601).map(
+      (b) => b.speed,
+    ),
+    [3, 10, 5],
+  );
+  assert.deepEqual(fiveMinuteSpeeds([], 5, 0), []);
+});
+test("speed line holds maxima horizontally and steps vertically at five-minute boundaries", () => {
+  const canvas = fakeCanvas({ width: 650 });
+  createTimelineStrip({
+    canvas,
+    summary: {
+      bucket_seconds: 5,
+      buckets: [
+        { t: 0, spd: 10 },
+        { t: 300, spd: 20 },
+        { t: 600, spd: 5 },
+      ],
+    },
+    duration: 650,
+  });
+  const path = canvas.paint.strokes.find((s) => s.colour === "#f2a65a").path;
+  assert.equal(path.length, 6);
+  assert.deepEqual(
+    path.map((p) => p[0]),
+    [0, 300, 300, 600, 600, 650],
+  );
+  for (let i = 0; i < path.length; i += 2)
+    assert.equal(path[i][1], path[i + 1][1]);
+  assert.ok(path[2][1] < path[0][1]);
 });

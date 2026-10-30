@@ -268,8 +268,9 @@ radar captures the speed regardless, and fusion adds the geometry to tell the tw
 Geometry kept about the physical structure around the road is measured spatial data at a stated
 time, not a plan or survey: see
 [geometry priors: data purpose](docs/geometry-priors-data-purpose.md).
-Published 3D survey playback uses registered true vertical and follows ground heights smoothly
-around hills. Building context extends to 180 metres where available. It keeps experimental street furniture
+Published 3D survey playback uses registered true vertical and one planar elliptical flight
+above the hillside. Building context and ground extend to 180 metres where available, fading
+from 150 to 170 metres. It keeps experimental street furniture
 and markings out of the scene, and hides apparent tracks inside building footprints. LiDAR
 background points start hidden; the [scene export guide](tools/s2-archive/README.md#street-geometry-from-gerardus)
 explains the geometry and the limits of this presentation filter.

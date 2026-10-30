@@ -470,13 +470,23 @@ tracked position or drawn centre lies inside a building, and break trails at mas
 segments crossing a building. Courtyards remain open. This presentation filter leaves measured
 survey statistics unchanged and depends on footprint coverage and registration quality.
 
-Version 3 adds `placement.up_sensor` from the accepted pose and
-`building_clip_radius_m` (180 m by default). The ground, other context, and
-placement-check evidence remain bounded by `clip_radius_m` (90 m). The camera
-orbits about true vertical while a cyclic, smoothly interpolated ground profile
-changes its altitude to preserve clearance on hills. Source coordinates and
-recording provenance stay in the sensor frame. The viewer version comes from
-the Makefile; the recording version is labelled separately.
+Version 4 retains `placement.up_sensor` from the accepted pose and
+`building_clip_radius_m`, and adds `ground_clip_radius_m` (both 180 m by default).
+Other context and placement-check evidence remain bounded by `clip_radius_m` (90 m).
+The camera uses true vertical and fits the first harmonic of ground heights around
+its circuit. This is one plane, represented by a single uphill direction and tilt
+angle: its intersection with the horizontal circular footprint is an ellipse in 3D,
+with a horizontal co-axis and no local height oscillations from mesh bumps. Least
+squares approximates consistent clearance; it cannot maintain exact clearance over
+non-planar terrain. Insufficient coverage falls back to a level path. Tree trunks
+and inferred crowns use the same true vertical. Sensor-centred range fade covers
+150–170 m for geometry, tracks, trails, and points, independent of camera depth.
+Source coordinates and recording provenance stay in the sensor frame. The badge
+shows the pipeline version only; Data & methods shows that and the Makefile-owned
+viewer version. Provenance hashes are complete on desktop and may ellipsise on mobile.
+The timeline's speed overlay is the maximum of the source speed buckets per five
+minutes from recording start, drawn as steps (including the last partial interval);
+traffic counts and seeking retain their original fine resolution.
 
 ## Scope
 

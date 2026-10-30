@@ -1364,3 +1364,18 @@ body:has(.sv-shell) {
     height: 240px;
   }
 }
+
+/* Full provenance on desktop; compact hashes remain available in mobile titles. */
+.sv-prov__hash {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .sv-prov__hash {
+    display: block;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

@@ -359,8 +359,8 @@ layout: survey.njk
         speed; they can split or wander while the tracking work continues. LiDAR records
         no images, faces or number plates. The point is to understand traffic, not to
         start collecting people's personal lives by accident.{% if view.hasVectors %}
-        Where it is shown, street geometry (thin lines and faint faces) is kerbs, lane
-        markings, walls, roofs, poles and trees as Gerardus measured them from this
+        Where it is shown, street geometry (thin lines and faint faces) is kerbs, street
+        centrelines, walls, roofs and trees as Gerardus measured or inferred them from this
         recording and USGS 3DEP aerial LiDAR, or took them from DataSF, placed by the
         site's accepted registration. Most are proposals not yet reviewed, and a
         feature not drawn is not asserted absent.{% endif %}
@@ -454,8 +454,8 @@ layout: survey.njk
       </svg>
     </button>
 
-    <p class="scene-stage__build" title="Viewer {{ build.version }}{% if build.gitSHA %} ({{ build.gitSHA }}){% endif %}">
-      viewer <span data-scene-viewer-version>{{ build.version }}</span><span data-scene-generator hidden> · recording <span data-scene-generator-version></span></span>
+    <p class="scene-stage__build" data-scene-generator hidden>
+      pipeline <span data-scene-generator-version></span>
     </p>
 
     <p id="scene-loading" class="scene-stage__overlay">Loading scene…</p>
@@ -507,7 +507,7 @@ layout: survey.njk
   <div class="scene-timeline__key">
     <span class="scene-timeline__axis">Above</span>
     <span><i style="background:var(--scene-vehicle)"></i>Motor vehicles</span>
-    <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Fastest</span>
+    <span><i class="scene-timeline__line" style="background:#f2a65a"></i>Max speed · 5 min</span>
     <span class="scene-timeline__axis">Below</span>
     <span><i style="background:var(--scene-walking)"></i>Walking</span>
     <span><i style="background:var(--scene-cycle)"></i>Cycling</span>

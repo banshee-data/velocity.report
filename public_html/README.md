@@ -89,13 +89,18 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   `survey-page.js` adds the interactive parts.
 
 The 3D playback uses Gerardus's registered ground mesh in place of a flat grid.
-The accepted pose supplies true vertical: the camera orbits in a level frame and
-follows a smooth, periodic ground-height profile, preserving clearance on hills.
-Missing ground cells are interpolated along the orbit; a wholly unobserved orbit
-falls back to a constant height. Building context extends to 180 metres where
-Gerardus has it, while the ground and other context retain their 90-metre radius.
-The scene badge distinguishes the viewer version (the root Makefile's `VERSION`)
-from the recording generator version, whose provenance stays in the recording.
+The accepted pose supplies true vertical for the camera, tree trunks, and foliage.
+Flight fits one plane to the observed ground around its circuit: one uphill direction,
+one inclination, a horizontal co-axis, and an elliptical path in 3D. This approximates
+clearance at the vertices without following individual mesh bumps. Sparse coverage
+falls back to a level path; local clearance can vary where the ground is not planar.
+Building context and ground extend to 180 metres where Gerardus has them; other
+context retains its 90-metre radius. Geometry and points fade by distance from the
+sensor between 150 and 170 metres, independent of the camera's position.
+The scene badge shows only the recording's pipeline version. Data & methods includes
+both pipeline and Makefile-owned viewer versions, plus complete tuning and source
+hashes on desktop (ellipsis is restricted to mobile). The timeline holds each
+five-minute maximum speed as a step, while mode counts retain their fine buckets.
 A version-only Makefile change also triggers the public-site deployment.
 Experimental poles, signs, painted-marking proposals, and registered façade patches are
 excluded, while street centrelines, kerbs, and trees with dark green foliage remain.
