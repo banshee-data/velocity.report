@@ -1,5 +1,5 @@
-// Gerardus's street geometry in a scene: kerbs, lane markings, walls, roofs,
-// poles and trees, as Gerardus measured or inferred them, drawn in the
+// Gerardus's street geometry in a scene: kerbs, walls, roofs, trees, and registered
+// ground, as Gerardus measured or inferred them, drawn in the
 // scene's own sensor frame.
 //
 // tools/s2-archive/scene-vectors.py writes the file, placing each feature by
@@ -21,29 +21,14 @@ import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
  * user. `fill` is the opacity of a polygon's face, `line` of its edges.
  */
 export const VECTOR_STYLE = {
+  trees: { label: "trees", colour: 0x245238, fill: 0.16, line: 0.45 },
   city_streets: { label: "street centrelines", colour: 0x56656e, line: 0.4 },
   footprints: { label: "building footprints", colour: 0x7b8790, line: 0.35 },
-  // Fitted to 3DEP's intensity, so a marking is often a patch rather than a
-  // stripe: outlined, with only a trace of fill, so it does not read as a slab.
-  lane_markings: {
-    label: "lane markings",
-    colour: 0xe9dcae,
-    fill: 0.1,
-    line: 0.38,
-    lift: 0.04,
-  },
   observed: {
-    label: "kerbs and facades",
+    label: "kerbs",
     colour: 0xd3dbe0,
     line: 0.75,
     lift: 0.06,
-  },
-  // Walls the scans measured stand out a little from the ones inferred.
-  wall_planes: {
-    label: "measured walls",
-    colour: 0x9fb1bd,
-    fill: 0.1,
-    line: 0.36,
   },
   box_walls: {
     label: "building walls",
@@ -63,13 +48,7 @@ export const VECTOR_STYLE = {
     fill: 0.05,
     line: 0.14,
   },
-  street_furniture: { label: "poles and signs", colour: 0xd2b77a, line: 0.9 },
-  trees: { label: "trees", colour: 0x8f9c6c, line: 0.4 },
 };
-
-// A tree drawn from too little: Gerardus's own fallbacks (web/src/lib/gerardus).
-const DEFAULT_CROWN_RADIUS_M = 2;
-const CROWN_SEGMENTS = 20;
 
 const toScene = (p) => [toSceneX(p[0]), toSceneY(p[2] ?? 0), toSceneZ(p[1])];
 
@@ -128,29 +107,59 @@ function lifted(p, lift) {
   return lift ? [p[0], p[1], (p[2] ?? 0) + lift] : p;
 }
 
-/** A tree's trunk and a wireframe crown: two upright rings and one level ring. */
-function treeSegments(out, base, top, props) {
-  const r =
-    props.crown_radius_m > 0 ? props.crown_radius_m : DEFAULT_CROWN_RADIUS_M;
+/** An inferred ellipsoidal crown above the measured trunk, in sensor axes. */
+function treeGeometry(layer, points, props) {
+  if (!points.length) return;
+  const a = points[0],
+    b = points[points.length - 1];
+  const [base, top] = (a[2] ?? 0) <= (b[2] ?? 0) ? [a, b] : [b, a];
+  const r = props.crown_radius_m > 0 ? props.crown_radius_m : 2;
   const z0 = base[2] ?? 0;
   const bottom = Number.isFinite(props.crown_base_m)
     ? z0 + props.crown_base_m
-    : (top?.[2] ?? z0);
+    : (top[2] ?? z0);
   const crownTop = Number.isFinite(props.height_m)
     ? z0 + props.height_m
     : bottom + 2 * r;
   const half = Math.max(0.5, (crownTop - bottom) / 2);
   const mid = bottom + half;
-  out.push(base, [base[0], base[1], bottom]);
-  const ring = (f) => {
-    const pts = [];
-    for (let i = 0; i < CROWN_SEGMENTS; i++)
-      pts.push(f((i / CROWN_SEGMENTS) * 2 * Math.PI));
-    pushSegments(out, pts, true);
-  };
-  ring((t) => [base[0] + r * Math.cos(t), base[1] + r * Math.sin(t), mid]);
-  ring((t) => [base[0] + r * Math.cos(t), base[1], mid + half * Math.sin(t)]);
-  ring((t) => [base[0], base[1] + r * Math.cos(t), mid + half * Math.sin(t)]);
+  layer.segments.push(base, [base[0], base[1], bottom]);
+  const start = layer.positions.length;
+  const rows = 10,
+    columns = 20;
+  for (let j = 0; j <= rows; j++) {
+    const latitude = (j / rows) * Math.PI;
+    for (let i = 0; i < columns; i++) {
+      const longitude = (i / columns) * 2 * Math.PI;
+      layer.positions.push([
+        base[0] + r * Math.sin(latitude) * Math.cos(longitude),
+        base[1] + r * Math.sin(latitude) * Math.sin(longitude),
+        mid + half * Math.cos(latitude),
+      ]);
+    }
+  }
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < columns; i++) {
+      const a = start + j * columns + i,
+        b = start + j * columns + ((i + 1) % columns);
+      layer.indices.push(a, a + columns, b, b, a + columns, b + columns);
+    }
+  }
+  // Three restrained crown rings keep its extent legible without a dense wire mesh.
+  for (const plane of [0, 1, 2]) {
+    const ring = [];
+    for (let i = 0; i < columns; i++) {
+      const t = (i / columns) * 2 * Math.PI;
+      ring.push(
+        plane === 0
+          ? [base[0] + r * Math.cos(t), base[1] + r * Math.sin(t), mid]
+          : plane === 1
+            ? [base[0] + r * Math.cos(t), base[1], mid + half * Math.sin(t)]
+            : [base[0], base[1] + r * Math.cos(t), mid + half * Math.sin(t)],
+      );
+    }
+    pushSegments(layer.segments, ring, true);
+  }
 }
 
 function polygonsOf(geometry) {
@@ -176,6 +185,14 @@ export function vectorLayers(collection) {
     const props = f.properties ?? {};
     const style = VECTOR_STYLE[props.layer];
     if (!style || !f.geometry) continue;
+    if (props.layer === "observed" && props.kind === "facade") continue;
+    if (
+      props.layer === "footprints" &&
+      collection.features.some((f) =>
+        ["wall_surfaces", "box_walls"].includes(f.properties?.layer),
+      )
+    )
+      continue;
     let layer = layers.get(props.layer);
     if (!layer) {
       layer = {
@@ -190,17 +207,11 @@ export function vectorLayers(collection) {
     }
     layer.count++;
     const lift = style.lift ?? 0;
-
-    if (props.layer === "trees" || props.layer === "street_furniture") {
-      const pts = linesOf(f.geometry)[0] ?? [];
-      if (pts.length === 0) continue;
-      const [a, b] = [pts[0], pts[pts.length - 1]];
-      const [base, top] = (a[2] ?? 0) <= (b[2] ?? 0) ? [a, b] : [b, a];
-      if (props.layer === "trees")
-        treeSegments(layer.segments, base, top, props);
-      else pushSegments(layer.segments, pts, false);
+    if (props.layer === "trees") {
+      treeGeometry(layer, linesOf(f.geometry)[0] ?? [], props);
       continue;
     }
+
     for (const line of linesOf(f.geometry)) {
       pushSegments(
         layer.segments,
@@ -215,8 +226,7 @@ export function vectorLayers(collection) {
       if (!outer || outer.length < 3) continue;
       pushSegments(layer.segments, outer, true);
       for (const h of holes) pushSegments(layer.segments, h, true);
-      // A crosswalk's polygon is the area its bars cover, not paint: outlined.
-      if (!style.fill || props.marking === "crosswalk") continue;
+      if (!style.fill) continue;
       const start = layer.positions.length;
       const tris = triangulatePolygon(outer, holes);
       for (const p of [outer, ...holes].flat()) layer.positions.push(p);
@@ -287,6 +297,47 @@ export function createVectorGroup(collection) {
   return group;
 }
 
+/** Ground at its registered heights, independent of the street-geometry switch. */
+export function createGroundGroup(collection) {
+  const group = new THREE.Group();
+  group.name = "ground";
+  const ground = collection?.ground;
+  if (!ground?.indices?.length) return group;
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.BufferAttribute(
+      Float32Array.from(ground.positions.flatMap(toScene)),
+      3,
+    ),
+  );
+  geometry.setIndex(ground.indices);
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: 0x1c2b32,
+      transparent: true,
+      opacity: 0.12,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    }),
+  );
+  mesh.renderOrder = -4;
+  group.add(mesh);
+  const wire = new THREE.LineSegments(
+    new THREE.WireframeGeometry(geometry),
+    new THREE.LineBasicMaterial({
+      color: 0x2c4049,
+      transparent: true,
+      opacity: 0.25,
+      depthWrite: false,
+    }),
+  );
+  wire.renderOrder = -3;
+  group.add(wire);
+  return group;
+}
+
 /** Reads a vectors file, gzipped or not; null when the scene has none. */
 export async function loadVectors(url) {
   const res = await fetch(url);
@@ -299,7 +350,10 @@ export async function loadVectors(url) {
       ).text()
     : new TextDecoder().decode(raw);
   const collection = JSON.parse(text);
-  if (!Array.isArray(collection.features) || collection.features.length === 0)
+  if (
+    !Array.isArray(collection.features) ||
+    (collection.features.length === 0 && !collection.ground?.indices?.length)
+  )
     return null;
   return collection;
 }
