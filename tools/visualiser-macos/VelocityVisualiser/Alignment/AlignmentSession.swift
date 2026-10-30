@@ -312,6 +312,20 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var pose: SitePose?
     @Published var translationStepM: Double = 0.5
     @Published var yawStepDeg: Double = 1
+    /// Horizontal radius from the drawn pose, shared by Register and Snap.
+    @Published var searchRadiusM: Double = 5 {
+        didSet {
+            if !searchRadiusM.isFinite {
+                searchRadiusM = 5
+            } else if searchRadiusM < 1 {
+                searchRadiusM = 1
+            } else if searchRadiusM > 30 {
+                searchRadiusM = 30
+            }
+        }
+    }
+
+    var supportsBoundedPlacement: Bool { serverInfo?.supportsBoundedPlacement == true }
 
     @Published private(set) var background: AlignmentBackgroundStatus?
     @Published private(set) var scan: Gerardus_Align_V1alpha1_Scan?
@@ -1424,7 +1438,7 @@ struct ReferenceSummary: Equatable {
     /// Written without a `defer` or an early return inside `do`: in that shape
     /// the test host aborted in swift_task_dealloc ("freed pointer was not the
     /// last allocation") on the Xcode 26 toolchain.
-    func register() async {
+    func register(drawBest: Bool = true) async {
         guard let client, let site, let pose, canRegister else { return }
         // Taken here, as the first version took it, rather than inside
         // `registrationScan`: without it in this frame the test host aborted
@@ -1443,9 +1457,13 @@ struct ReferenceSummary: Equatable {
             busy = "Registering"
             var request = Gerardus_Align_V1alpha1_RegisterRequest()
             request.scanID = uploaded.scanID
-            // The server searches 30 m around this position at every
-            // heading; it does not use the start's heading.
+            // Search around the pose drawn now, at every heading. An
+            // operator acceptance only needs the persisted manual run.
             request.initialPose = posePayload(pose)
+            if supportsBoundedPlacement {
+                request.options.searchRadiusM = Float(searchRadiusM)
+                request.manualOnly = !drawBest
+            }
             request.hint = hint(heading: hintHeadingDeg)
             // Decided once the scan's id is known, so a model holding only
             // this scan is not asked for.
@@ -1468,7 +1486,7 @@ struct ReferenceSummary: Equatable {
             hypotheses = result.hypotheses
             // The best hypothesis is drawn at once; a FAILED run with none
             // leaves the operator's pose, to place by hand.
-            if let best = result.hypotheses.first { showHypothesis(best) }
+            if drawBest, let best = result.hypotheses.first { showHypothesis(best) }
         }
     }
 
@@ -1578,6 +1596,7 @@ struct ReferenceSummary: Equatable {
             request.scanID = uploaded.scanID
             request.pose = posePayload(pose)
             request.refine = refine
+            if refine && supportsBoundedPlacement { request.searchRadiusM = Float(searchRadiusM) }
             request.includePointResiduals = true
             response = try await client.evaluatePose(request)
         } catch { failure = GerardusClientError.describe(error) }
@@ -1966,12 +1985,23 @@ struct ReferenceSummary: Equatable {
 
     var canReview: Bool { reviewBlockers.isEmpty }
 
+    /// Accept can create the required registration without replacing the
+    /// operator's pose. Reject still requires an existing registration.
+    var acceptBlockers: [String] {
+        if registration != nil { return reviewBlockers }
+        var reasons = reviewBlockers.filter { $0 != Self.noRegistrationReason }
+        if !hasScanToRegister {
+            reasons.append("No settled background or accumulated scan to accept.")
+        }
+        return reasons
+    }
+
+    var canAccept: Bool { acceptBlockers.isEmpty }
+
     /// Whether the pane shows its Reviewer field: whenever Accept or Accept
     /// refinement is shown. There is one field for both, so a blank name
     /// is never out of sight while it blocks either.
-    var showsReviewerField: Bool {
-        registration != nil || (refinementColumnOpen && refinement != nil)
-    }
+    var showsReviewerField: Bool { pose != nil || (refinementColumnOpen && refinement != nil) }
 
     /// The reviewer as sent: Gerardus trims it and refuses it blank.
     private var reviewerName: String { reviewer.trimmingCharacters(in: .whitespaces) }
@@ -1990,14 +2020,19 @@ struct ReferenceSummary: Equatable {
     /// (REGISTERED when the run passed its gates, else MANUALLY_PLACED), or
     /// the operator's own pose (MANUALLY_PLACED).
     func accept() async {
-        guard let pose else { return }
+        guard let pose, canAccept else { return }
+        let source = poseSource
+        // ReviewRegistration needs a persisted run, even for an operator's
+        // pose. Make it without drawing any of its hypotheses. A subsequent
+        // retry reuses this run and the unchanged manual decision.
+        if registration == nil { await register(drawBest: false) }
         var decision = Gerardus_Align_V1alpha1_ReviewRegistrationRequest()
         if case .hypothesis = acceptance, let id = selectedHypothesisID {
             decision.acceptHypothesisID = id
         } else {
             decision.acceptPose = pose.proto(
                 siteFrameID: hintFrameIDs.site, sensorFrameID: hintFrameIDs.sensor,
-                source: poseSource == .icp ? .icp : .manual)
+                source: source == .icp ? .icp : .manual)
         }
         await review(decision)
         // TODO(Gerardus MVP step 2): send `lastRecord` to velocity.report with

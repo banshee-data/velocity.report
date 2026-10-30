@@ -43,6 +43,7 @@ import SwiftUI
 @available(macOS 15.0, *) struct AlignmentPane: View {
     @ObservedObject var session: AlignmentSession
     @ObservedObject var painter: StreetPainterSession
+    @State private var showingReferenceInfo = false
     @EnvironmentObject var appState: AppState
 
     var body: some View {
@@ -58,6 +59,10 @@ import SwiftUI
             if painter.isPainting {
                 StreetPainterPane(painter: painter, session: session)
             } else {
+                if session.pose != nil {
+                    nudgeSection.padding()
+                    Divider()
+                }
                 scrollingSections
             }
         }.frame(maxHeight: .infinity).background(Color(nsColor: .controlBackgroundColor)).task(
@@ -74,11 +79,10 @@ import SwiftUI
                 if session.pose != nil {
                     Divider()
                     poseSection
-                    nudgeSection
                     Divider()
                     registrationSection
                 }
-                if session.registration != nil { reviewSection }
+                if session.pose != nil { reviewSection }
                 if session.siteModelScanIDs != nil {
                     Divider()
                     siteModelSection
@@ -180,15 +184,30 @@ import SwiftUI
                 Text(
                     "As in site-index.json; leave empty if unknown. The hint sends 180° − this: the bearing of the sensor's +Y."
                 ).font(.caption2).foregroundStyle(.secondary)
-                Button("Place from hint") { Task { await session.placeFromHint() } }.disabled(
-                    session.busy != nil
-                ).help("Prepare the site, place the sensor from its hint, and draw the reference")
-                referenceDataSection
+                HStack {
+                    Button("Place from hint") { Task { await session.placeFromHint() } }.disabled(
+                        session.busy != nil
+                    ).help(
+                        "Prepare the site, place the sensor from its hint, and draw the reference")
+                    if session.bundle != nil {
+                        Button("Regenerate…") { session.requestRegenerate() }.disabled(
+                            session.busy != nil
+                        ).help("Download every source again and cut 3DEP again; asks first")
+                        Button {
+                            showingReferenceInfo.toggle()
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }.buttonStyle(.borderless).help("Reference data details")
+                            .accessibilityLabel("Reference data details").popover(
+                                isPresented: $showingReferenceInfo
+                            ) { referenceDataSection.padding().frame(width: 360) }
+                    }
+                }
             }
         }.sheet(isPresented: $session.confirmingRegenerate) { regenerateSheet }
     }
 
-    /// How current the stored bundle is, and the two ways to refresh it.
+    /// Reference provenance and the optional update, shown from the info button.
     @ViewBuilder private var referenceDataSection: some View {
         if let bundle = session.bundle {
             VStack(alignment: .leading, spacing: 3) {
@@ -214,9 +233,6 @@ import SwiftUI
                             "Gerardus adds the layers the bundle lacks from the downloads it already holds. Nothing is downloaded again."
                         )
                     }
-                    Button("Regenerate…") { session.requestRegenerate() }.disabled(
-                        session.busy != nil
-                    ).help("Download every source again and cut 3DEP again; asks first")
                 }
             }
         }
@@ -439,11 +455,13 @@ import SwiftUI
                 Text("0.1 m").tag(0.1)
                 Text("0.5 m").tag(0.5)
                 Text("2 m").tag(2.0)
+                Text("10 m").tag(10.0)
             }.pickerStyle(.segmented)
             Picker("Turn", selection: $session.yawStepDeg) {
                 Text("0.2°").tag(0.2)
                 Text("1°").tag(1.0)
                 Text("5°").tag(5.0)
+                Text("30°").tag(30.0)
             }.pickerStyle(.segmented)
             HStack(alignment: .top, spacing: 16) {
                 Grid(horizontalSpacing: 4, verticalSpacing: 4) {
@@ -504,11 +522,25 @@ import SwiftUI
             }
             accumulationView
             HStack {
+                Text("Search radius")
+                Slider(value: $session.searchRadiusM, in: 1...30, step: 1).accessibilityLabel(
+                    "Search radius in metres")
+                Text("\(session.searchRadiusM, specifier: "%.0f") m").monospacedDigit().frame(
+                    width: 38, alignment: .trailing)
+            }.font(.caption).disabled(
+                !session.supportsBoundedPlacement || session.busy != nil || session.isEvaluating
+            ).help("Horizontal distance from the pose drawn now, shared by Register and Snap")
+            if !session.supportsBoundedPlacement {
+                Text(
+                    "Update Gerardus to set the search radius and accept manual poses without a search."
+                ).font(.caption2).foregroundStyle(.secondary)
+            }
+            HStack {
                 Button("Register") { session.startRegistration() }.disabled(!session.canRegister)
                     .help(
                         session.accumulated == nil
-                            ? "Upload the settled background and search 30 m around the pose drawn now, at every heading, for where it fits the reference (10 to 25 s)"
-                            : "Search 30 m around the pose drawn now, at every heading, for where the accumulated frames fit the reference (10 to 25 s)"
+                            ? "Upload the settled background and search around the pose drawn now, at every heading, for where it fits the reference (10 to 25 s)"
+                            : "Search around the pose drawn now, at every heading, for where the accumulated frames fit the reference (10 to 25 s)"
                     )
                 VStack(alignment: .leading, spacing: 2) {
                     Toggle("Against site model", isOn: againstSiteModel).toggleStyle(.switch)
@@ -681,7 +713,9 @@ import SwiftUI
                 Spacer()
                 Button("Snap") { Task { await session.snap() } }.disabled(
                     !session.canRegister || session.isEvaluating
-                ).help("Refine the pose drawn now with local ICP from it")
+                ).help(
+                    "Refine the pose drawn now with local ICP; keep the result within the selected search radius"
+                )
             }
             if let evaluation = session.evaluation {
                 Text(
@@ -726,14 +760,14 @@ import SwiftUI
             Text("Decision").font(.subheadline.weight(.semibold))
             TextField("Note (optional)", text: $session.note)
             Button(acceptTitle) { Task { await session.accept() } }.buttonStyle(.borderedProminent)
-                .disabled(!session.canReview).help(
+                .disabled(!session.canAccept).help(
                     "Record the pose drawn now: a hypothesis as drawn, or your own pose once you move it"
                 )
             HStack {
                 TextField("Why reject?", text: $session.rejectReason)
                 Button("Reject") { Task { await session.reject() } }.disabled(!session.canReview)
             }
-            AlignmentBlockers(reasons: session.reviewBlockers)
+            AlignmentBlockers(reasons: session.acceptBlockers)
             if let record = session.lastRecord {
                 Text("Recorded \(AlignmentFormat.state(record.state)): \(record.recordID)").font(
                     .caption

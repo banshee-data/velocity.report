@@ -1114,6 +1114,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// Wall surfaces the BUILDINGS layer carries; none from a server older
     /// than Gerardus's roofline walls.
     var wallSurfaces: [Gerardus_Align_V1alpha1_LineFeature] = []
+    var supportsBoundedPlacement = true
     var lastRegister: Gerardus_Align_V1alpha1_RegisterRequest?
     /// Refuse Register with against_boxes, FAILED_PRECONDITION with this
     /// message, as Gerardus refuses a site with no box walls.
@@ -1175,6 +1176,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         info.serverVersion = "0.1.0"
         info.apiVersion = "gerardus.align.v1alpha1"
         info.availableLayers = availableLayers
+        info.supportsBoundedPlacement = supportsBoundedPlacement
         return info
     }
 
@@ -1326,6 +1328,14 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_Registration {
         log("Register")
         lastRegister = request
+        if request.manualOnly {
+            var placement = Gerardus_Align_V1alpha1_Registration()
+            placement.registrationID = "gms:reg"
+            placement.scanID = request.scanID
+            placement.initialPose = request.initialPose
+            placement.state = .manuallyPlaced
+            return placement
+        }
         if request.againstBoxes, let refuseAgainstBoxes {
             throw RPCError(code: .failedPrecondition, message: refuseAgainstBoxes)
         }
@@ -1460,7 +1470,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             }
             guard scans.insert(scanID(of: review.registrationID)).inserted else {
                 throw RPCError(
-                    code: .invalidArgument, message: "reviews must address distinct scans at one site")
+                    code: .invalidArgument,
+                    message: "reviews must address distinct scans at one site")
             }
             guard review.hasExpectedRecordID else {
                 throw RPCError(
@@ -1592,7 +1603,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             guard edit.expectedRowID == current else {
                 throw RPCError(
                     code: .aborted,
-                    message: "feature \(id): expected \(edit.expectedRowID), current_row_id=\(current)")
+                    message:
+                        "feature \(id): expected \(edit.expectedRowID), current_row_id=\(current)")
             }
             guard seen.insert(id).inserted else {
                 throw RPCError(code: .invalidArgument, message: "duplicate edit of \(id)")
@@ -2023,9 +2035,9 @@ final class FakeOverlaySink: ReferenceOverlaySink {
                 return nil
             } catch let error as RPCError { return error.code } catch { return .unknown }
         }
-        func review(_ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest) async
-            -> RPCError.Code?
-        {
+        func review(
+            _ request: Gerardus_Align_V1alpha1_ReviewRegistrationRequest
+        ) async -> RPCError.Code? {
             await code { _ = try await service.reviewRegistration(request) }
         }
         func edit(_ request: Gerardus_Align_V1alpha1_EditStreetUseRequest) async -> RPCError.Code? {
@@ -2074,7 +2086,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         answers.append(await edit(request))  // no request_id
         request.requestID = "street-1"
         answers.append(await edit(request))
-        #expect(answers == [.failedPrecondition, .aborted, .invalidArgument, .invalidArgument, nil])
+        #expect(
+            answers == [.failedPrecondition, .aborted, .invalidArgument, .invalidArgument, nil])
         #expect(service.streetUse?.isEmpty == true)
     }
 
@@ -2175,8 +2188,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         let own = record("own", at: 20, eastM: 4, captureRef: "here")
         let list = [rejected, other, own]
         #expect(
-            AlignmentSession.defaultRecord(list, captureRef: "here", scanID: nil)?.recordID
-                == "own")
+            AlignmentSession.defaultRecord(list, captureRef: "here", scanID: nil)?.recordID == "own"
+        )
         #expect(
             AlignmentSession.defaultRecord(list, captureRef: "nowhere", scanID: nil)?.recordID
                 == "other", "no record for this capture: the site's newest")
@@ -2624,6 +2637,96 @@ private func gate(_ name: String, passed: Bool) -> Gerardus_Align_V1alpha1_GateR
             return
         }
         #expect(accepted.source == .icp)
+    }
+
+    @Test func aManualSnapCanBeAcceptedWithoutDrawingRegistrationHypotheses() async {
+        let (session, service, sink) = await placed()
+        await session.snap()
+        let snapped = session.pose!
+        session.reviewer = "operator"
+        #expect(session.registration == nil)
+        #expect(session.showsReviewerField)
+        #expect(session.canAccept)
+        await session.accept()
+        #expect(service.calls.filter { $0 == "Register" }.count == 1)
+        #expect(service.lastRegister?.manualOnly == true)
+        #expect(session.hypotheses.isEmpty)
+        #expect(session.selectedHypothesisID == nil)
+        #expect(session.pose == snapped)
+        #expect(sink.matrices.last == snapped.referenceModelMatrix)
+        guard case .acceptPose(let accepted) = service.lastReview?.decision else {
+            Issue.record("manual snap sent no pose")
+            return
+        }
+        #expect(accepted.source == .icp)
+        #expect(close(SitePose(accepted).matrix, snapped.matrix, 1e-12))
+        // Accepting again uses the same run, without another search.
+        await session.accept()
+        #expect(service.calls.filter { $0 == "Register" }.count == 1)
+    }
+
+    @Test func registerAndSnapSendTheSharedRadiusFromTheCurrentPose() async {
+        let (session, service, _) = await placed()
+        #expect(session.searchRadiusM == 5)
+        session.nudge(x: 1)
+        let start = session.pose!
+        await session.register()
+        #expect(service.lastRegister?.options.searchRadiusM == 5)
+        #expect(close(SitePose(service.lastRegister!.initialPose).matrix, start.matrix, 1e-12))
+        #expect(service.lastRegister?.manualOnly == false)
+        session.searchRadiusM = 1
+        await session.snap()
+        #expect(service.evaluations.last?.searchRadiusM == 1)
+        session.searchRadiusM = 30
+        await session.register()
+        #expect(service.lastRegister?.options.searchRadiusM == 30)
+        session.searchRadiusM = 50
+        #expect(session.searchRadiusM == 30)
+        session.searchRadiusM = .nan
+        #expect(session.searchRadiusM == 5)
+    }
+
+    @Test func olderGerardusKeepsManualPlacementAndUsesLegacyRequests() async {
+        let (session, service, _) = await placed()
+        service.supportsBoundedPlacement = false
+        await session.probe()
+        #expect(!session.supportsBoundedPlacement)
+        await session.snap()
+        #expect(service.evaluations.last?.searchRadiusM == 0)
+        let snapped = session.pose!
+        session.reviewer = "operator"
+        await session.accept()
+        #expect(service.lastRegister?.manualOnly == false)
+        #expect(service.lastRegister?.options.searchRadiusM == 0)
+        #expect(session.pose == snapped)
+        guard case .acceptPose(let accepted) = service.lastReview?.decision else {
+            Issue.record("legacy manual placement sent no pose")
+            return
+        }
+        #expect(close(SitePose(accepted).matrix, snapped.matrix, 1e-12))
+    }
+
+    @Test func manualAcceptWaitsForAReviewerAndSettledScan() async {
+        let (session, service, _) = await placed()
+        session.reviewer = " "
+        #expect(!session.canAccept)
+        await session.accept()
+        #expect(service.lastRegister == nil)
+        session.reviewer = "operator"
+        session.noteBackground(snapshot(count: 300, settled: false))
+        #expect(!session.canAccept)
+        await session.accept()
+        #expect(service.lastRegister == nil)
+    }
+
+    @Test func largeMovementStepsUseTheSelectedDistanceAndAngle() async {
+        let (session, _, _) = await placed()
+        let before = session.pose!
+        session.translationStepM = 10
+        session.yawStepDeg = 30
+        session.nudge(x: 1, yawSteps: 1)
+        let expected = before.nudged(by: PoseNudge(offset: SIMD3(10, 0, 0), yawDeg: 30))
+        #expect(close(session.pose!.matrix, expected.matrix, 1e-12))
     }
 
     @Test func aRunCanBeCancelled() async {
@@ -4460,8 +4563,8 @@ final class LockedBox<T>: @unchecked Sendable {
         #expect(!session.refinementColumnOpen)
         #expect(session.refinement?.scans.map(\.scanID) == ["sha256:a", "sha256:b"])
         #expect(session.refinedRuns.count == 2)
-        // Neither Accept is shown now, so neither is the reviewer.
-        #expect(!session.showsReviewerField)
+        // Manual Accept remains available for the drawn pose.
+        #expect(session.showsReviewerField)
         session.openRefinementColumn()
         #expect(session.refinementColumnOpen)
         #expect(session.refinement?.scans.count == 2)
@@ -4713,8 +4816,9 @@ final class LockedBox<T>: @unchecked Sendable {
         #expect(
             ReferenceDataStatus.missingLayers(bundle: held, available: [.aerialPoints, .osm]) == [])
         #expect(
-            ReferenceDataStatus.missingLayers(bundle: held, available: [.osm, .footprints])
-                == [.footprints])
+            ReferenceDataStatus.missingLayers(bundle: held, available: [.osm, .footprints]) == [
+                .footprints
+            ])
     }
 
     @Test func kerbsAndTheOtherAlwaysListedLayersAreNotJudged() {
@@ -4825,7 +4929,8 @@ final class LockedBox<T>: @unchecked Sendable {
 
     @Test func theConfirmationStatesEachConsequenceAndNamesTheSite() {
         let items = ReferenceDataStatus.regenerateConsequences(siteName: "columbus-broadway")
-        #expect(items.map(\.title) == ["Downloads again", "Cuts 3DEP again", "Ids can change", "Kept"])
+        #expect(
+            items.map(\.title) == ["Downloads again", "Cuts 3DEP again", "Ids can change", "Kept"])
         let text = items.map(\.detail).joined(separator: "\n")
         #expect(text.contains("columbus-broadway"))
         for source in ["OpenStreetMap", "footprints", "Street Names", "Street Tree List"] {
