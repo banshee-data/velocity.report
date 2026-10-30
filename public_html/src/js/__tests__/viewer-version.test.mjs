@@ -14,9 +14,21 @@ test("viewer version comes from the canonical Makefile, independent of old recor
     new URL("../../_layouts/scene.njk", import.meta.url),
     "utf8",
   );
-  assert.match(
-    template,
-    /viewer <span data-scene-viewer-version>\{\{ build.version \}\}/,
+  const provenance = readFileSync(
+    new URL("../../_includes/survey/provenance.njk", import.meta.url),
+    "utf8",
   );
-  assert.match(template, /recording <span data-scene-generator-version>/);
+  assert.match(
+    provenance,
+    /data-scene-viewer-version[^>]*>\{\{ build.version \}\}/,
+  );
+  const badge = template.match(/<p class="scene-stage__build"[\s\S]*?<\/p>/)[0];
+  assert.match(badge, /pipeline <span data-scene-generator-version>/);
+  assert.doesNotMatch(badge, /viewer|build.version/);
+  assert.doesNotMatch(provenance, /truncate/);
+  const speedCard = readFileSync(
+    new URL("../../_includes/survey/family-speed.njk", import.meta.url),
+    "utf8",
+  );
+  assert.doesNotMatch(speedCard, /3D playback/);
 });

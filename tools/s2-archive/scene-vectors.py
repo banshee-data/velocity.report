@@ -74,7 +74,7 @@ SCENES_DATA = os.path.join(REPO, "public_html", "src", "_data", "scenes.json")
 PROTO_DIR = os.path.join(REPO, "proto", "gerardus", "align", "v1alpha1")
 GERARDUS = os.environ.get("GERARDUS_URL", "http://127.0.0.1:50061").rstrip("/")
 RADIUS_M = float(os.environ.get("SCENE_VECTORS_RADIUS_M", "90"))
-VERSION = 3
+VERSION = 4
 BUILDING_LAYERS = {"footprints", "box_walls", "wall_surfaces", "roof_planes"}
 ROUNDING_M = 0.01
 OUT_DIR = "vectors"
@@ -601,7 +601,9 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
 
     try:
         ground = ground_mesh(
-            http_json(f"/api/v1/sites/{l16}/ground", base), into_sensor(pose), radius_m
+            http_json(f"/api/v1/sites/{l16}/ground", base),
+            into_sensor(pose),
+            2 * radius_m,
         )
     except RuntimeError as error:
         # An unprepared site can legitimately have no ground surface.
@@ -663,11 +665,12 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
         "coordinate_rounding_m": ROUNDING_M,
         "clip_radius_m": radius_m,
         "building_clip_radius_m": 2 * radius_m,
+        "ground_clip_radius_m": 2 * radius_m,
         "placement": placement,
         "sources": [sources[s] for s in used if s in sources],
         "layers": counts,
         "coverage_notes": [
-            f"Building context extends to {2 * radius_m:g} m where Gerardus has it; other features and ground extend to {radius_m:g} m.",
+            f"Building context and ground extend to {2 * radius_m:g} m where Gerardus has them; other features extend to {radius_m:g} m.",
             "Most features are Gerardus's proposals (state proposed), derived and not"
             " yet accepted by an operator.",
             "Walls raised to a roofline and tree crowns are inferred past the returns.",

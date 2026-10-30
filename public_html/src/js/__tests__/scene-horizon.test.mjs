@@ -48,7 +48,7 @@ test("true-vertical ground sampling respects slope, triangle boundaries and hole
   const sparse = createGroundSurface({ ...ground, indices: [0, 1, 2] }, basis);
   assert.equal(sparse.heightAt(-100, 100), null);
 });
-test("terrain-following camera keeps clearance and level roll around a complete tilted survey", () => {
+test("planar-flight camera keeps clearance and level roll around a complete tilted survey", () => {
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
   const controller = createSceneCamera({ camera, element: element(), THREE });
   controller.setGeometry({ placement: { up_sensor: upSensor }, ground });
@@ -77,7 +77,7 @@ test("terrain-following camera keeps clearance and level roll around a complete 
   near(ys[0], ys.at(-1));
   controller.dispose();
 });
-test("the flight profile closes with continuous height and vertical speed, including gaps", () => {
+test("the planar flight closes with continuous height and vertical speed, including gaps", () => {
   const profile = groundOrbit(createGroundSurface(ground, basis), {
     radius: 35,
   });
@@ -133,4 +133,44 @@ test("flight resumption can retain the exact camera pose rather than rounded edi
   controller.applyVantage(exact);
   near(camera.position.distanceTo(before), 0);
   controller.dispose();
+});
+
+test("rough terrain produces one planar ellipse with only one inclination", () => {
+  const radius = 40;
+  const profile = groundOrbit(
+    {
+      heightAt: (x, z) =>
+        8 + 0.2 * x - 0.1 * z + 3 * Math.sin(7 * Math.atan2(x, z)),
+    },
+    { radius },
+  );
+  near(profile.centre, 8);
+  near(profile.tilt, Math.atan(Math.hypot(0.2, 0.1)));
+  const [ux, uz] = profile.uphill;
+  // Uphill/downhill vertices and horizontal co-vertices have equal clearance
+  // over the underlying planar grade; higher mesh harmonics never enter flight.
+  for (let i = 0; i <= 360; i++) {
+    const t = (i * Math.PI) / 180,
+      x = radius * Math.sin(t),
+      z = radius * Math.cos(t);
+    near(profile.heightAt(t), 8 + 0.2 * x - 0.1 * z);
+    near(
+      profile.heightAt(t) - profile.centre,
+      Math.tan(profile.tilt) * (ux * x + uz * z),
+    );
+  }
+  const phase = Math.atan2(ux, uz);
+  near(
+    profile.heightAt(phase + Math.PI / 2),
+    profile.heightAt(phase - Math.PI / 2),
+  );
+});
+test("insufficient terrain coverage yields a level path without an arbitrary incline", () => {
+  const profile = groundOrbit(
+    { heightAt: (x, z) => (x === 0 && z === 20 ? 3 : null) },
+    { radius: 20, fallbackHeight: 7 },
+  );
+  near(profile.tilt, 0);
+  near(profile.heightAt(0), 3);
+  near(profile.heightAt(2), 3);
 });

@@ -185,6 +185,13 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Fixed
 
+- Survey flights follow one inclined planar ellipse rather than individual ground bumps;
+  tree trunks and crowns follow registered true vertical. Ground extends to 180 m where
+  available and the scene fades from 150 to 170 m from the sensor.
+- Survey badges show the pipeline version only; Data & methods includes both pipeline and
+  viewer versions and full desktop provenance hashes. Removed the speed-card playback
+  shortcut and changed the timeline speed overlay to five-minute maximum steps.
+
 - Public 3D survey cameras use accepted-registration true vertical, keeping the horizon level
   when the sensor was tilted. Flight altitude follows the hillside smoothly, including across
   the loop boundary. Building context extends to 180 m where available in Gerardus.

@@ -81,59 +81,68 @@ export function createGroundSurface(ground, basis) {
   };
 }
 
-/** A periodic, C1-continuous terrain profile; fill gaps without inventing steps. */
+/**
+ * Fit one plane to observed terrain around the circuit. A horizontal circle
+ * lifted onto this plane is an ellipse in 3D: one horizontal co-axis and one
+ * inclined axis, with a single tilt angle about the horizontal co-axis.
+ * Only the first harmonic is retained, so mesh bumps cannot change the path.
+ */
 export function groundOrbit(
   surface,
   { radius, centerX = 0, centerZ = 0, fallbackHeight = 0, samples = 128 },
 ) {
-  const raw = Array.from({ length: samples }, (_, i) => {
+  const observed = [];
+  for (let i = 0; i < samples; i++) {
     const angle = (2 * Math.PI * i) / samples;
-    return (
-      surface?.heightAt(
-        centerX + radius * Math.sin(angle),
-        centerZ + radius * Math.cos(angle),
-      ) ?? null
-    );
-  });
-  const known = raw
-    .map((h, i) => (h === null ? null : i))
-    .filter((i) => i !== null);
-  const values = raw.slice();
-  if (!known.length) values.fill(fallbackHeight);
-  else
-    for (let k = 0; k < known.length; k++) {
-      const a = known[k],
-        b = known[(k + 1) % known.length];
-      const gap = (b - a + samples) % samples || samples;
-      for (let j = 1; j < gap; j++)
-        values[(a + j) % samples] = raw[a] + ((raw[b] - raw[a]) * j) / gap;
-    }
-  // A narrow symmetric filter removes cell noise while preserving the hill's
-  // rise and fall. The loop closes with matching height and vertical speed.
-  const smooth = values.map(
-    (_, i) =>
-      [1, 4, 6, 4, 1].reduce(
-        (s, w, k) => s + w * values[(i + k - 2 + samples) % samples],
-        0,
-      ) / 16,
+    const x = Math.sin(angle),
+      z = Math.cos(angle);
+    const h = surface?.heightAt(centerX + radius * x, centerZ + radius * z);
+    if (Number.isFinite(h)) observed.push([1, x, z, h]);
+  }
+  // Solve least squares h = centre + a sin(theta) + b cos(theta).
+  // Pivoting rejects insufficient/collinear coverage rather than extrapolating
+  // an arbitrary steep slope from a single observed cell.
+  const matrix = Array.from({ length: 3 }, (_, r) =>
+    Array.from({ length: 4 }, (_, c) =>
+      observed.reduce((sum, p) => sum + p[r] * p[c], 0),
+    ),
   );
+  let fitted = observed.length >= 3;
+  for (let c = 0; c < 3 && fitted; c++) {
+    let pivot = c;
+    for (let r = c + 1; r < 3; r++)
+      if (Math.abs(matrix[r][c]) > Math.abs(matrix[pivot][c])) pivot = r;
+    [matrix[c], matrix[pivot]] = [matrix[pivot], matrix[c]];
+    const d = matrix[c][c];
+    if (Math.abs(d) < samples * 1e-6) {
+      fitted = false;
+      break;
+    }
+    for (let k = c; k < 4; k++) matrix[c][k] /= d;
+    for (let r = 0; r < 3; r++) {
+      if (r === c) continue;
+      const factor = matrix[r][c];
+      for (let k = c; k < 4; k++) matrix[r][k] -= factor * matrix[c][k];
+    }
+  }
+  const [centre, a, b] = fitted
+    ? matrix.map((row) => row[3])
+    : [
+        observed.length
+          ? observed.reduce((s, p) => s + p[3], 0) / observed.length
+          : fallbackHeight,
+        0,
+        0,
+      ];
+  const amplitude = Math.hypot(a, b);
+  const uphill = amplitude > 1e-9 ? [a / amplitude, b / amplitude] : [0, 1];
   return {
-    coverage: known.length / samples,
-    heightAt(angle) {
-      const phase = ((((angle / (2 * Math.PI)) % 1) + 1) % 1) * samples;
-      const i = Math.floor(phase),
-        t = phase - i;
-      const at = (k) => smooth[(k + samples) % samples];
-      const a = at(i - 1),
-        b = at(i),
-        c = at(i + 1),
-        d = at(i + 2);
-      return (
-        b +
-        0.5 *
-          t *
-          (c - a + t * (2 * a - 5 * b + 4 * c - d + t * (3 * (b - c) + d - a)))
-      );
-    },
+    coverage: observed.length / samples,
+    centre,
+    uphill,
+    tilt: radius > 0 ? Math.atan2(amplitude, radius) : 0,
+    heightAt: (angle) =>
+      centre +
+      amplitude * (uphill[0] * Math.sin(angle) + uphill[1] * Math.cos(angle)),
   };
 }

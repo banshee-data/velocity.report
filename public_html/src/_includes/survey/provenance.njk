@@ -6,8 +6,9 @@
     {% if rec.hasPlayback %}<div><dt>Geometry</dt><dd>Measured by the sensor at the recording time, in metres from the sensor; north only where it was measured. Not a survey, plan or specification. <a href="https://github.com/banshee-data/velocity.report/blob/main/docs/geometry-priors-data-purpose.md">How to read it</a></dd></div>{% endif %}
     {% if rec.hasVectors %}<div><dt>Street geometry</dt><dd>From Gerardus, placed in the sensor's frame by the site's accepted registration: fitted to this recording's settled background and to USGS 3DEP aerial LiDAR (public domain, U.S. Geological Survey), with building footprints and street centrelines from DataSF (PDDL 1.0, City and County of San Francisco). Mostly proposals not yet reviewed. <a href="{{ (rec.assetsUrl + "/vectors/vectors.geojson.gz") | url }}">File, with its sources and placement</a></dd></div>{% endif %}
     {% if rec.build %}<div><dt>Pipeline</dt><dd><code>{{ rec.build }}</code></dd></div>{% endif %}
-    {% if rec.tuningHash %}<div><dt>Tuning</dt><dd><code title="{{ rec.tuningHash }}">{{ rec.tuningHash | truncate(23, true, "…") }}</code></dd></div>{% endif %}
-    {% if rec.sourceSha256 %}<div><dt>Source VRLOG</dt><dd><code title="sha256 {{ rec.sourceSha256 }}">sha256 {{ rec.sourceSha256 | truncate(16, true, "…") }}</code></dd></div>{% endif %}
+    <div><dt>Viewer</dt><dd><code data-scene-viewer-version title="{{ build.gitSHA }}">{{ build.version }}</code></dd></div>
+    {% if rec.tuningHash %}<div><dt>Tuning</dt><dd><code class="sv-prov__hash" title="{{ rec.tuningHash }}">{{ rec.tuningHash }}</code></dd></div>{% endif %}
+    {% if rec.sourceSha256 %}<div><dt>Source VRLOG</dt><dd><code class="sv-prov__hash" title="sha256 {{ rec.sourceSha256 }}">sha256 {{ rec.sourceSha256 }}</code></dd></div>{% endif %}
     <div><dt>Definitions</dt><dd>Peak speed per vehicle track; tracks above {{ rec.speed.minimum if rec.speed else 5 }} mph</dd></div>
   </dl>
   <ul class="sv-prov__files">

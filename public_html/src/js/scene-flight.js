@@ -10,7 +10,7 @@
 // setting off again four times a lap, and every one of those is a jolt for
 // whoever is watching. Instead one orbit is fitted to all of them and swept at
 // a constant angular rate: no stops, one continuous turn. The camera follows
-// a smooth ground-height profile in the registered true-horizontal frame. It passes through every vantage's bearing exactly, and through the
+// one fitted plane above the hillside, forming a single tilted ellipse in 3D. It passes through every vantage's bearing exactly, and through the
 // vantage itself as closely as a single circle can — which, for a junction
 // surveyed from four equivalent approaches, is exactly.
 //
@@ -46,8 +46,8 @@ export function flightPath(vantages) {
  * is flown at.
  *
  * A plain mean determines horizontal radius and clearance above the ground.
- * The camera supplies the terrain's elevation, so a hill changes its true
- * altitude smoothly without tilting the orbit's horizon. Where the vantages
+ * The camera fits a single inclined plane to the terrain; height is sinusoidal
+ * around the circuit, while registered true vertical keeps the horizon level. Where the vantages
  * agree, the mean is each of them exactly.
  *
  * The per-vantage offsets are deliberately not carried across. An offset shifts

@@ -26,6 +26,22 @@ export const MODE_COLOURS = {
 
 const SPEED_COLOUR = "#f2a65a";
 
+/** Maximum recorded bucket speed in each recording-relative five-minute interval. */
+export function fiveMinuteSpeeds(buckets, bucketSeconds, duration) {
+  const result = Array.from({ length: Math.ceil(duration / 300) }, (_, i) => ({
+    start: i * 300,
+    end: Math.min(duration, (i + 1) * 300),
+    speed: 0,
+  }));
+  buckets.forEach((b, i) => {
+    const time = Number.isFinite(b.t) ? b.t : i * bucketSeconds;
+    const bin = result[Math.floor(time / 300)];
+    if (bin && time < duration && Number.isFinite(b.spd))
+      bin.speed = Math.max(bin.speed, b.spd);
+  });
+  return result;
+}
+
 /**
  * Renders a timeline summary into a canvas and reports scrub positions.
  *
@@ -71,7 +87,8 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
         Math.max((b.ped ?? 0) + (b.cyc ?? 0), b.veh ?? 0),
       ),
     );
-    const maxSpeed = Math.max(1, ...visibleBuckets.map((b) => b.spd ?? 0));
+    const speeds = fiveMinuteSpeeds(buckets, bucketSeconds, span);
+    const maxSpeed = Math.max(1, ...speeds.map((b) => b.speed));
     const barW = Math.max(1, w / Math.max(visibleBuckets.length, 1));
     // Zero sits in the middle. Vehicles grow upwards; people and bikes grow
     // downwards, so the two halves of a street's traffic can be compared
@@ -108,15 +125,17 @@ export function createTimelineStrip({ canvas, summary, duration, onSeek }) {
       }
     });
 
-    // Peak speed over the vehicle half.
+    // Hold each five-minute maximum through its interval; only vertical steps
+    // join bins, with the final partial interval ending at the recording edge.
     ctx.beginPath();
     ctx.strokeStyle = SPEED_COLOUR;
     ctx.lineWidth = 1.5;
-    visibleBuckets.forEach((b, i) => {
-      const x = i * barW + barW / 2;
-      const y = mid - 3 - ((b.spd ?? 0) / maxSpeed) * (halfH - 4);
+    speeds.forEach((b, i) => {
+      const x = (b.start / span) * w;
+      const y = mid - 3 - (b.speed / maxSpeed) * (halfH - 4);
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
+      ctx.lineTo((b.end / span) * w, y);
     });
     ctx.stroke();
 

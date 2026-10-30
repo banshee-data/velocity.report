@@ -447,7 +447,7 @@ class ContextTest(unittest.TestCase):
                 site_geometry={"features": []},
                 read_background={"points": []},
                 placement_check={"passed": True},
-                http_json=dict(nx=2, ny=2, x0=10, y0=-20, cell_m=1, heights=[20] * 4),
+                http_json=dict(nx=2, ny=2, x0=130, y0=-20, cell_m=1, heights=[20] * 4),
             ).items():
                 stack.enter_context(
                     mock.patch.object(scene_vectors, name, return_value=value)
@@ -461,6 +461,11 @@ class ContextTest(unittest.TestCase):
             )
         self.assertEqual(collection["building_clip_radius_m"], 180)
         self.assertEqual(collection["clip_radius_m"], 90)
+        self.assertEqual(collection["ground_clip_radius_m"], 180)
+        self.assertTrue(collection["ground"]["indices"])
+        self.assertGreater(
+            max(math.hypot(*p[:2]) for p in collection["ground"]["positions"]), 90
+        )
 
 
 class GroundTest(unittest.TestCase):

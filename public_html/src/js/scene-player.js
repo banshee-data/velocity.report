@@ -1,3 +1,4 @@
+import { sceneFade, sceneRangeOpacity } from "./scene-fade.js";
 // Three.js player for velocity.report scene exports.
 //
 // Renders tracked road users as oriented boxes with client-side trails, and
@@ -114,12 +115,14 @@ export function buildRegionRing(region, groundY) {
   const radius = Math.max(0.25, Number(region.radius_m) || 1);
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(radius * 0.92, radius, 48),
-    new THREE.MeshBasicMaterial({
-      color: SCENE_COLOURS.missedRegion ?? 0xc084fc,
-      side: THREE.DoubleSide,
-      transparent: true,
-      opacity: 0.85,
-    }),
+    sceneFade(
+      new THREE.MeshBasicMaterial({
+        color: SCENE_COLOURS.missedRegion ?? 0xc084fc,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.85,
+      }),
+    ),
   );
   // Flat on the ground, lifted clear of it so it is not z-fighting the grid.
   ring.rotation.x = -Math.PI / 2;
@@ -165,19 +168,23 @@ export class TrackVisual {
     const geo = new THREE.BoxGeometry(1, 1, 1);
     this.edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(geo),
-      new THREE.LineBasicMaterial({
-        color: colour,
-        transparent: true,
-        opacity: 0.95,
-      }),
+      sceneFade(
+        new THREE.LineBasicMaterial({
+          color: colour,
+          transparent: true,
+          opacity: 0.95,
+        }),
+      ),
     );
     this.fill = new THREE.Mesh(
       geo,
-      new THREE.MeshBasicMaterial({
-        color: colour,
-        transparent: true,
-        opacity: 0.22,
-      }),
+      sceneFade(
+        new THREE.MeshBasicMaterial({
+          color: colour,
+          transparent: true,
+          opacity: 0.22,
+        }),
+      ),
     );
     scene.add(this.edges);
     scene.add(this.fill);
@@ -190,11 +197,13 @@ export class TrackVisual {
     this.trailGeo.setDrawRange(0, 0);
     this.trail = new THREE.Line(
       this.trailGeo,
-      new THREE.LineBasicMaterial({
-        color: colour,
-        transparent: true,
-        opacity: 0.7,
-      }),
+      sceneFade(
+        new THREE.LineBasicMaterial({
+          color: colour,
+          transparent: true,
+          opacity: 0.7,
+        }),
+      ),
     );
     scene.add(this.trail);
   }
@@ -325,13 +334,15 @@ class PointCloudVisual {
   constructor(scene) {
     this.geometry = new THREE.BufferGeometry();
     this.capacity = 0;
-    this.material = new THREE.PointsMaterial({
-      size: 0.11,
-      vertexColors: true,
-      sizeAttenuation: true,
-      transparent: true,
-      opacity: 1,
-    });
+    this.material = sceneFade(
+      new THREE.PointsMaterial({
+        size: 0.11,
+        vertexColors: true,
+        sizeAttenuation: true,
+        transparent: true,
+        opacity: 1,
+      }),
+    );
     this.baseColour = new THREE.Color(SCENE_COLOURS.primary);
     this.points = new THREE.Points(this.geometry, this.material);
     this.points.visible = false;
@@ -448,7 +459,7 @@ export async function mountScenePlayer({
   teardown.onDispose(() => renderer.dispose());
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, 60, 190);
+  // Materials fade by sensor range (150–170 m), independent of camera depth.
 
   const camera = new THREE.PerspectiveCamera(52, 1, 0.5, 2000);
   // Captured once, before anything can change it, so a capture view that
@@ -460,16 +471,17 @@ export async function mountScenePlayer({
   let groundGroup = new THREE.Group();
   let groundY = 0;
   let buildingMask = createBuildingMask(null);
-  let buildingRadius = 0;
 
   // A ring at the sensor origin gives the viewer a fixed reference point. The
   // sensor is the coordinate origin, mounted above the carriageway.
   const origin = new THREE.Mesh(
     new THREE.RingGeometry(0.7, 0.9, 32),
-    new THREE.MeshBasicMaterial({
-      color: SCENE_COLOURS.primary,
-      side: THREE.DoubleSide,
-    }),
+    sceneFade(
+      new THREE.MeshBasicMaterial({
+        color: SCENE_COLOURS.primary,
+        side: THREE.DoubleSide,
+      }),
+    ),
   );
   origin.rotation.x = -Math.PI / 2;
   scene.add(origin);
@@ -527,11 +539,13 @@ export async function mountScenePlayer({
     geo.setAttribute("color", new THREE.BufferAttribute(colours, 3));
     const cloud = new THREE.Points(
       geo,
-      new THREE.PointsMaterial({
-        size: 0.11,
-        vertexColors: true,
-        sizeAttenuation: true,
-      }),
+      sceneFade(
+        new THREE.PointsMaterial({
+          size: 0.11,
+          vertexColors: true,
+          sizeAttenuation: true,
+        }),
+      ),
     );
     scene.add(cloud);
     backgroundCloud = cloud;
@@ -589,13 +603,6 @@ export async function mountScenePlayer({
 
   function applyBounds(b) {
     groundY = b.groundY;
-    // Fog starts beyond the framed area so it adds depth without dimming the
-    // objects the viewer came to see.
-    scene.fog = new THREE.Fog(
-      SCENE_COLOURS.canvas,
-      Math.max(b.span * 1.8, buildingRadius * 1.3),
-      Math.max(b.span * 5, buildingRadius * 2.5),
-    );
     sceneCamera.frame(b);
     const anchor = sceneCamera.groundPoint,
       up = sceneCamera.upSensor;
@@ -737,8 +744,6 @@ export async function mountScenePlayer({
     });
     if (collection) {
       sceneCamera.setGeometry(collection);
-      buildingRadius =
-        collection.building_clip_radius_m ?? collection.clip_radius_m ?? 0;
       buildingMask = createBuildingMask(collection);
       groundGroup = createGroundGroup(collection);
       scene.add(groundGroup);
@@ -826,6 +831,12 @@ export async function mountScenePlayer({
     for (const [id, el] of labels) {
       const v = visuals.get(id);
       if (!v || !v.edges.visible) {
+        el.style.display = "none";
+        continue;
+      }
+      const opacity = sceneRangeOpacity(v.edges.position.length());
+      el.style.opacity = String(opacity);
+      if (opacity === 0) {
         el.style.display = "none";
         continue;
       }

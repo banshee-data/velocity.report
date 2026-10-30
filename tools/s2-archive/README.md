@@ -258,10 +258,11 @@ Where a site has a pose an operator accepted in Gerardus, a rebuilt scene also
 carries Gerardus's street geometry, `assets/vectors/vectors.geojson.gz`: kerbs,
 building walls and roof planes where the site's bundle has them, building
 footprints, and the city's street centrelines. Building walls, roofs, and footprints
-extend to 180 m where Gerardus has them; street lines, trees, and ground retain
+and ground extend to 180 m where Gerardus has them; street lines and trees retain
 their 90 m radius. The placement check also retains its original 90 m evidence
 range. Trees retain their inferred crown dimensions and appear
-with dark green foliage. Experimental lane markings, poles, signs, and registered
+with dark green foliage. Trunks and crowns follow the registered true vertical,
+with their measured bases retained. Experimental lane markings, poles, signs, and registered
 façade patches are excluded from public exports. The registered patches still
 inform the placement check. `scene-vectors.py` places each
 feature in the scene's sensor frame by the inverse of the accepted pose, so the
