@@ -59,6 +59,10 @@ Geometry kept about the physical structure around the road (background surfaces,
 data) is measured spatial data at a stated time, not a plan or survey: see
 [geometry priors: data purpose](docs/geometry-priors-data-purpose.md).
 
+Gerardus prepares LiDAR references from 3DEP, city datasets and registered scans. OSM geometry is
+excluded from preparation, serving and alignment, including cached legacy layers. Browser map
+backdrops remain separate and require the existing external-request consent.
+
 | Component            | Language            | Purpose                                                            |
 | -------------------- | ------------------- | ------------------------------------------------------------------ |
 | **Go server**        | Go                  | Sensor data collection, SQLite storage, HTTP + gRPC API            |

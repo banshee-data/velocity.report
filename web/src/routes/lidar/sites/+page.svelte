@@ -35,10 +35,8 @@
 		getSiteScans,
 		groupByLayer,
 		isL16Token,
-		isOsmLayer,
 		listSites,
 		OBSERVED_KINDS,
-		OSM_LAYERS,
 		rememberGerardusAddress,
 		SCAN_VOXELS_M,
 		servedLayers,
@@ -106,7 +104,7 @@
 	}
 
 	type Tab = '2d' | '3d';
-	type OsmRequest = { kind: 'tiles' } | { kind: 'layer'; layer: string };
+	type OsmRequest = { kind: 'tiles' };
 
 	const SF = { lat: 37.7749, lon: -122.4194 };
 
@@ -129,8 +127,6 @@
 	let loadError: Error | null = null;
 	let loadAbort: AbortController | null = null;
 	let features: SiteFeature[] = [];
-	let osmFeatures: SiteFeature[] = [];
-	let osmError: string | null = null;
 	let skipped = 0;
 	let origin = SF;
 	let selected: SiteFeature | null = null;
@@ -169,13 +165,12 @@
 	let scene3d: SiteScene3D | null = null;
 
 	$: knownSite = siteOf(siteToken, sites);
-	$: gerardusLayers = viewLayers(siteLayers(knownSite), tab).filter((l) => !isOsmLayer(l));
-	$: osmLayers = siteLayers(knownSite).filter((l) => isOsmLayer(l));
-	$: counts2d = countsOf([...features, ...osmFeatures]);
+	$: gerardusLayers = viewLayers(siteLayers(knownSite), tab);
+	$: counts2d = countsOf(features);
 	$: counts3d = countsOf(frameFeatures);
 	$: counts = tab === '3d' ? counts3d : counts2d;
 
-	$: if (map && L) drawFeatures(features, osmFeatures, visible, selected);
+	$: if (map && L) drawFeatures(features, visible, selected);
 	$: if (map && L) syncTiles(osmAllowed && visible.tiles === true);
 	$: if (tab === '3d') shown3d = true;
 	$: if (tab === '3d' && siteToken && !loading && !loadError && loaded3dFor !== siteToken)
@@ -210,9 +205,6 @@
 	}
 
 	/** Whether an OpenStreetMap layer is wanted: only ever after this visit's consent. */
-	function osmWanted(layer: string): boolean {
-		return osmAllowed && visible[layer] === true;
-	}
 
 	function countsOf(fs: { layer: string }[]): Record<string, number> {
 		const out: Record<string, number> = {};
@@ -307,8 +299,6 @@
 		loading = true;
 		loadError = null;
 		selected = null;
-		osmFeatures = [];
-		osmError = null;
 		// The 3D view's data belongs to the old site: drop it, so it is asked for again.
 		loaded3dFor = null;
 		frameFeatures = [];
@@ -322,7 +312,7 @@
 		try {
 			const { features: fs, skipped: bad } = await getGeojsonOrOlder(
 				token,
-				viewLayers(served, '2d').filter((l) => !isOsmLayer(l)),
+				viewLayers(served, '2d'),
 				site?.source === 'gerardus',
 				abort.signal
 			);
@@ -331,8 +321,6 @@
 			skipped = bad;
 			setOrigin(token, fs);
 			fitSite(fs);
-			const wanted = served.filter((l) => isOsmLayer(l) && osmWanted(l));
-			if (wanted.length > 0) void loadOsm(wanted);
 		} catch (e) {
 			if (e instanceof DOMException && e.name === 'AbortError') return;
 			loadError = e instanceof Error ? e : new Error('Could not load the site.');
@@ -366,22 +354,6 @@
 				layers.filter((l) => !newer.includes(l)),
 				{ signal }
 			);
-		}
-	}
-
-	async function loadOsm(layers: string[]) {
-		// Only ever called once this visit's consent is given.
-		if (!osmAllowed || !siteToken || layers.length === 0) return;
-		const token = siteToken;
-		osmError = null;
-		try {
-			const r = await getSiteGeojson(address, token, layers, { signal: loadAbort?.signal });
-			if (token !== siteToken) return;
-			const kept = osmFeatures.filter((f) => !layers.includes(f.layer));
-			osmFeatures = [...kept, ...r.features];
-		} catch (e) {
-			if (e instanceof DOMException && e.name === 'AbortError') return;
-			osmError = e instanceof Error ? e.message : 'Could not load the OpenStreetMap layers.';
 		}
 	}
 
@@ -421,9 +393,7 @@
 		loading3d = true;
 		error3d = null;
 		groundError = null;
-		const layers = viewLayers(siteLayers(siteOf(token, sites)), '3d').filter(
-			(l) => !isOsmLayer(l) || osmWanted(l)
-		);
+		const layers = viewLayers(siteLayers(siteOf(token, sites)), '3d');
 		const [geo, grid] = await Promise.allSettled([
 			getSiteFrameGeojson(address, token, layers, {
 				signal: abort.signal,
@@ -491,21 +461,17 @@
 	// ---- Layers and OpenStreetMap -------------------------------------------------------
 
 	function isShown(layer: string, shownMap: Record<string, boolean>): boolean {
-		if (layer === 'tiles' || isOsmLayer(layer)) return osmAllowed && shownMap[layer] === true;
+		if (layer === 'tiles') return osmAllowed && shownMap[layer] === true;
 		return shownMap[layer] !== false;
 	}
 
 	function toggle(layer: string) {
 		const on = !isShown(layer, visible);
-		if (on && (layer === 'tiles' || isOsmLayer(layer)) && !osmAllowed) {
-			askingOsm = layer === 'tiles' ? { kind: 'tiles' } : { kind: 'layer', layer };
+		if (on && layer === 'tiles' && !osmAllowed) {
+			askingOsm = { kind: 'tiles' };
 			return;
 		}
 		visible = { ...visible, [layer]: on };
-		if (on && isOsmLayer(layer)) {
-			if (!osmFeatures.some((f) => f.layer === layer)) void loadOsm([layer]);
-			loaded3dFor = null;
-		}
 	}
 
 	function allowOsm() {
@@ -513,12 +479,8 @@
 		osmAllowed = true;
 		askingOsm = null;
 		if (!request) return;
-		const layer = request.kind === 'tiles' ? 'tiles' : request.layer;
+		const layer = 'tiles';
 		visible = { ...visible, [layer]: true };
-		if (request.kind === 'layer') {
-			void loadOsm([request.layer]);
-			loaded3dFor = null;
-		}
 	}
 
 	function syncTiles(on: boolean) {
@@ -558,7 +520,6 @@
 
 	function drawFeatures(
 		fs: SiteFeature[],
-		osm: SiteFeature[],
 		shownMap: Record<string, boolean>,
 		sel: SiteFeature | null
 	) {
@@ -566,7 +527,7 @@
 		const Lf = L;
 		const layer = featureLayer;
 		layer.clearLayers();
-		const drawn = [...fs, ...osm]
+		const drawn = fs
 			.filter((f) => isShown(f.layer, shownMap))
 			.map((f) => ({ f, style: mapStyle(f) }))
 			.sort((a, b) => a.style.rank - b.style.rank);
@@ -856,7 +817,7 @@
 							</li>
 						{/if}
 					</ul>
-					{#if tab === '2d' || osmLayers.length > 0}
+					{#if tab === '2d'}
 						<div class="text-surface-content/60 pt-2 text-xs font-medium">OpenStreetMap</div>
 					{/if}
 					<ul class="space-y-0.5 text-xs">
@@ -872,33 +833,11 @@
 								</label>
 							</li>
 						{/if}
-						{#each osmLayers as layer (layer)}
-							<li>
-								<label class="flex items-center gap-2">
-									<input
-										type="checkbox"
-										checked={isShown(layer, visible)}
-										on:change={() => toggle(layer)}
-									/>
-									<span
-										class="inline-block h-2 w-2 rounded-sm"
-										style="background:{LAYER_COLOURS[layer] ?? '#64748b'}"
-									></span>
-									{layerLabel(layer)}
-									<span class="text-surface-content/40 ml-auto"
-										>{isShown(layer, visible) ? (counts[layer] ?? '—') : 'off'}</span
-									>
-								</label>
-							</li>
-						{/each}
 					</ul>
-					{#if !osmAllowed && (tab === '2d' || osmLayers.length > 0)}
+					{#if !osmAllowed && tab === '2d'}
 						<p class="text-surface-content/40 text-xs">
 							Nothing from OpenStreetMap is asked for until you allow it, once per visit.
 						</p>
-					{/if}
-					{#if osmError}
-						<p class="text-xs text-amber-600">{osmError}</p>
 					{/if}
 				</section>
 			{/if}
@@ -1114,8 +1053,8 @@
 			</div>
 			<div class="space-y-3 text-sm text-neutral-100">
 				<p>
-					This page will request OpenStreetMap raster tiles to draw a backdrop behind the site's
-					layers, and ask Gerardus for the site's OpenStreetMap layers ({OSM_LAYERS.join(' and ')}).
+					This page will request OpenStreetMap raster tiles to draw a backdrop behind the site's map
+					tiles. Gerardus reference geometry is loaded independently of this browser map.
 				</p>
 				<p>The map area may be sent to the tile servers.</p>
 				<p>

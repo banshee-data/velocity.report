@@ -310,21 +310,6 @@ struct ReferenceStyleTests {
         #expect(Array(vertices[last..<(last + 2)]) == [0, 0])
     }
 
-    @Test func approachTicksPointBackAlongTheRoadVehiclesArriveOn() {
-        var node = Gerardus_Align_V1alpha1_Intersection()
-        node.position.x = 10
-        node.position.y = 20
-        var northbound = Gerardus_Align_V1alpha1_Approach()
-        northbound.bearingDeg = 0
-        node.approaches = [northbound]
-        let vertices = ReferenceStyle.intersectionVertices([node])
-        // Two cross segments, then the tick: from the node, 8 m to the south.
-        #expect(vertices.count == 3 * 2 * 7)
-        let tickEnd = Array(vertices[(5 * 7)..<(5 * 7 + 2)])
-        #expect(abs(tickEnd[0] - 10) < 1e-4)
-        #expect(abs(tickEnd[1] - (20 - ReferenceStyle.approachLength)) < 1e-4)
-    }
-
     @Test func intensityScaleIgnoresTheBrightestFew() {
         let intensity =
             Array(repeating: UInt32(100), count: 990) + Array(repeating: 60_000, count: 10)
@@ -429,13 +414,13 @@ struct SiteModelStyleTests {
     }
 
     @Test func eachLineLayerKeepsItsOwnFeatures() {
-        let g = geometry([.osm, .footprints, .observed])
-        #expect(g.lines.map(\.kind) == [.road])
+        let g = geometry([.cityStreets, .footprints, .observed])
+        #expect(g.cityStreets.map(\.kind) == [.road])
         #expect(g.footprints.map(\.kind) == [.building])
         #expect(g.observed.map(\.kind) == [.sensor, .correction, .facade, .pole])
         #expect(g.modelID == "sha256:m")
         let v = ReferenceStyle.vertices(for: g)
-        #expect(v.osmVertexCount == 2)
+        #expect(v.cityStreetVertexCount == 2)
         // The closed outline: three segments.
         #expect(v.footprintVertexCount == 6)
         // Sensor 2 segments, correction 1, facade 4 (foot, top, two
@@ -543,14 +528,14 @@ struct SiteModelStyleTests {
 
     @Test func replacingTheRegisteredLayersKeepsTheBundlesOwn() {
         var g = geometry(
-            [.aerialPoints, .osm, .footprints, .registeredScans, .observed, .groundMesh],
+            [.aerialPoints, .cityStreets, .footprints, .registeredScans, .observed, .groundMesh],
             modelID: "sha256:a")
         g.replaceRegistered(with: geometry([.observed], modelID: "sha256:b"))
-        #expect(g.aerialCount == 2 && g.lines.count == 1 && g.footprints.count == 1)
+        #expect(g.aerialCount == 2 && g.cityStreets.count == 1 && g.footprints.count == 1)
         #expect(g.scans.isEmpty && g.groundMesh.isEmpty)
         #expect(g.observed.count == 4)
         #expect(g.modelID == "sha256:b")
-        #expect(g.completeLayers == [.aerialPoints, .osm, .footprints, .observed])
+        #expect(g.completeLayers == [.aerialPoints, .cityStreets, .footprints, .observed])
     }
 }
 
@@ -594,7 +579,7 @@ struct BoxesAndWallPlanesStyleTests {
         let g = geometry([.footprints, .boxes])
         #expect(g.footprints.count == 1)
         #expect(g.boxes.count == 2)
-        #expect(g.lines.isEmpty && g.observed.isEmpty)
+        #expect(g.cityStreets.isEmpty && g.observed.isEmpty)
         #expect(g.boxes.allSatisfy { $0.kind == .building && $0.closed && $0.xyz.count == 12 })
         #expect(g.boxes.map { $0.tags["wall"] } == ["0", "1"])
         #expect(g.boxes.first?.tags["roof_p50_m"] == "12.0")
@@ -752,9 +737,7 @@ struct BoxesAndWallPlanesStyleTests {
         #expect(colour(v, 6) == ReferenceStyle.aerialOutlineColour)
         #expect(ReferenceStyle.aerialOutlineColour != ReferenceStyle.lineColour(.building))
 
-        var summary = ReferenceSummary(
-            aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
-            aerialAttribution: "")
+        var summary = ReferenceSummary(aerialPoints: 0, aerialAttribution: "")
         summary.footprints = 20
         #expect(summary.footprintLabel == "DataSF footprints (20)")
         summary.aerialOutlines = 2
@@ -762,9 +745,7 @@ struct BoxesAndWallPlanesStyleTests {
     }
 
     @Test func roleCountsReadForThePane() {
-        var summary = ReferenceSummary(
-            aerialPoints: 0, osmFeatures: 0, intersections: 0, osmAttribution: "",
-            aerialAttribution: "")
+        var summary = ReferenceSummary(aerialPoints: 0, aerialAttribution: "")
         #expect(summary.wallPlaneRoleText == "")
         summary.wallPlaneRoles = [.wall: 3, .popout: 1, .recess: 2]
         #expect(summary.wallPlaneRoleText == "3 walls · 1 popout · 2 recesses")
@@ -932,13 +913,6 @@ private func referenceMessages(
                 $0.layerComplete = true
             }
         ]
-    case .osm:
-        return [
-            message {
-                $0.lines.features = [line(.road, [0, 0, 21, 5, 0, 21])]
-                $0.layerComplete = true
-            }
-        ]
     case .footprints:
         var outline = line(.building, [10, 10, 21, 20, 10, 21, 20, 20, 21])
         outline.closed = true
@@ -948,7 +922,6 @@ private func referenceMessages(
                 $0.layerComplete = true
             }
         ]
-    case .intersections: return [message { $0.layerComplete = true }]
     case .boxes:
         // The footprint's box: one street wall and one on a shared edge, each a
         // closed vertical rectangle from the ground (21 m) to the roof.
@@ -1088,7 +1061,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// What GetServerInfo lists: every layer, as a server run with
     /// `serve --serve-scans` would.
     var availableLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
+        .aerialPoints, .footprints, .registeredScans, .observed, .groundMesh,
     ]
     /// Layers StreamReference refuses with PERMISSION_DENIED.
     var refusedLayers: Set<Gerardus_Align_V1alpha1_ReferenceLayer> = []
@@ -1189,7 +1162,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var storedSite: Gerardus_Align_V1alpha1_Site?
     /// The layers PrepareSite's bundle holds when it builds (refresh true) and
     /// when it answers from the stored one (refresh false).
-    var layersAfterRefresh: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.aerialPoints, .osm]
+    var layersAfterRefresh: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.aerialPoints]
     var layersAfterPlainPrepare: [Gerardus_Align_V1alpha1_ReferenceLayer]?
 
     func getSite(l16Token: String) async throws -> Gerardus_Align_V1alpha1_Site? { storedSite }
@@ -1208,10 +1181,6 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         await onProgress(progress)
         var site = Gerardus_Align_V1alpha1_Site()
         site.l16Token = l16Token
-        var osm = Gerardus_Align_V1alpha1_SourceInfo()
-        osm.layer = .osm
-        osm.attribution = "© OpenStreetMap contributors"
-        site.sources = [osm]
         let layers = refresh ? layersAfterRefresh : (layersAfterPlainPrepare ?? layersAfterRefresh)
         site.layers = layers.map {
             var summary = Gerardus_Align_V1alpha1_LayerSummary()
@@ -1819,7 +1788,7 @@ final class FakeOverlaySink: ReferenceOverlaySink {
         #expect(reference?.voxelSizeM == 0)
         #expect(reference?.centre.x == service.hintPose.translation.x)
         #expect(reference?.centre.y == service.hintPose.translation.y)
-        #expect(reference?.layers == [.aerialPoints, .osm, .footprints, .intersections])
+        #expect(reference?.layers == [.aerialPoints, .footprints])
         #expect(
             service.references.dropFirst().map(\.layers) == [
                 [.registeredScans], [.observed], [.groundMesh],
@@ -1828,9 +1797,6 @@ final class FakeOverlaySink: ReferenceOverlaySink {
 
         #expect(sink.overlays.last??.aerialCount == 2)
         #expect(sink.matrices.last == service.hintPose.referenceModelMatrix)
-        #expect(session.osmAttributionVisible == "© OpenStreetMap contributors")
-        session.showOSM = false
-        #expect(session.osmAttributionVisible == nil)
     }
 
     @Test func emptyHeadingSendsNoHeading() async {
@@ -2336,10 +2302,8 @@ final class FakeOverlaySink: ReferenceOverlaySink {
     }
 
     @Test func aServerWithoutTheSiteModelIsAskedForTheBundleOnly() async {
-        let (session, service, _) = await registered {
-            $0.availableLayers = [.aerialPoints, .osm, .intersections]
-        }
-        #expect(service.references.map(\.layers) == [[.aerialPoints, .osm, .intersections]])
+        let (session, service, _) = await registered { $0.availableLayers = [.aerialPoints] }
+        #expect(service.references.map(\.layers) == [[.aerialPoints]])
         #expect(session.reference?.registeredScans == 0)
         #expect(session.registeredLayersNote == nil)
         // Nor is the site model asked about after an accept.
@@ -3144,7 +3108,7 @@ private let columbusSite = AlignmentSite(
 
     @Test func aServerWithoutTheScansLayerDisablesIt() async {
         let (session, service) = await placedSession {
-            $0.availableLayers = [.aerialPoints, .osm, .footprints, .intersections, .observed]
+            $0.availableLayers = [.aerialPoints, .footprints, .observed]
         }
         session.noteBackground(snapshot(count: 10))
         session.againstSiteModel = true
@@ -3223,8 +3187,7 @@ private let columbusSite = AlignmentSite(
 @MainActor struct AgainstBoxesTests {
     /// Every layer the default fake lists, and BOXES.
     private static let withBoxes: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
-        .boxes,
+        .aerialPoints, .footprints, .registeredScans, .observed, .groundMesh, .boxes,
     ]
 
     @Test func theSwitchIsOffByDefaultAndSetsTheRequestField() async {
@@ -4607,8 +4570,7 @@ final class LockedBox<T>: @unchecked Sendable {
 
     /// Every layer the default fake lists, and BOXES.
     private static let withBoxes: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-        .aerialPoints, .osm, .footprints, .intersections, .registeredScans, .observed, .groundMesh,
-        .boxes,
+        .aerialPoints, .footprints, .registeredScans, .observed, .groundMesh, .boxes,
     ]
 
     private func placed(
@@ -4638,8 +4600,8 @@ final class LockedBox<T>: @unchecked Sendable {
         // On the bundle's call, not a call of its own.
         #expect(
             service.references.map(\.layers) == [
-                [.aerialPoints, .osm, .footprints, .intersections, .boxes], [.registeredScans],
-                [.observed], [.groundMesh],
+                [.aerialPoints, .footprints, .boxes], [.registeredScans], [.observed],
+                [.groundMesh],
             ])
         let summary = try #require(session.reference)
         #expect(summary.boxesServed)
@@ -4743,8 +4705,8 @@ final class LockedBox<T>: @unchecked Sendable {
         sensorID: "hesai-pandar40p", latitude: 37.7978, longitude: -122.4065)
 
     private static let serverLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-        .aerialPoints, .osm, .footprints, .intersections, .cityStreets, .cityIntersections,
-        .registeredScans, .observed, .groundMesh,
+        .aerialPoints, .footprints, .cityStreets, .cityIntersections, .registeredScans, .observed,
+        .groundMesh,
     ]
 
     private func bundle(
@@ -4763,7 +4725,7 @@ final class LockedBox<T>: @unchecked Sendable {
     /// A session on a server that lists the street and footprint layers, over
     /// a stored bundle that holds only 3DEP and OSM, with the site chosen.
     private func chosen(
-        stored layers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.aerialPoints, .osm]
+        stored layers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [.aerialPoints]
     ) async -> (AlignmentSession, FakeAlignmentService) {
         let service = FakeAlignmentService()
         service.availableLayers = Self.serverLayers
@@ -4778,7 +4740,7 @@ final class LockedBox<T>: @unchecked Sendable {
 
     @Test func choosingASiteReadsTheBundleWithoutBuildingOne() async {
         let (session, service) = await chosen()
-        #expect(session.bundle?.layers.count == 2)
+        #expect(session.bundle?.layers.count == 1)
         #expect(!service.calls.contains("PrepareSite"))
         #expect(service.prepareRefreshFlags.isEmpty)
     }
@@ -4798,6 +4760,21 @@ final class LockedBox<T>: @unchecked Sendable {
 
     // MARK: Out of date
 
+    @Test func legacyLayerAdvertisementsNeverBecomeReferenceRequests() async {
+        let (session, service) = await chosen()
+        service.availableLayers += [.UNRECOGNIZED(2), .UNRECOGNIZED(4)]
+        await session.probe()
+        await session.placeFromHint()
+        #expect(!service.references.flatMap(\.layers).contains { [2, 4].contains($0.rawValue) })
+        #expect(session.reference?.cityStreets == 1)
+        var legacy = Gerardus_Align_V1alpha1_SourceInfo()
+        legacy.layer = .UNRECOGNIZED(2)
+        legacy.attribution = "historical source"
+        var oldBundle = service.storedSite!
+        oldBundle.sources = [legacy]
+        #expect(ReferenceDataStatus.sourceLines(oldBundle).isEmpty)
+    }
+
     @Test func aBundleLackingLayersTheServerListsIsOutOfDate() async {
         let (session, _) = await chosen()
         #expect(session.referenceDataIsOutOfDate)
@@ -4806,17 +4783,16 @@ final class LockedBox<T>: @unchecked Sendable {
 
     @Test func aBundleWithEveryListedLayerIsCurrent() async {
         let (session, _) = await chosen(stored: [
-            .aerialPoints, .osm, .footprints, .intersections, .cityStreets, .cityIntersections,
+            .aerialPoints, .footprints, .cityStreets, .cityIntersections,
         ])
         #expect(!session.referenceDataIsOutOfDate)
     }
 
     @Test func aLayerTheServerDoesNotListIsNotMissing() {
-        let held = bundle([.aerialPoints, .osm])
+        let held = bundle([.aerialPoints])
+        #expect(ReferenceDataStatus.missingLayers(bundle: held, available: [.aerialPoints]) == [])
         #expect(
-            ReferenceDataStatus.missingLayers(bundle: held, available: [.aerialPoints, .osm]) == [])
-        #expect(
-            ReferenceDataStatus.missingLayers(bundle: held, available: [.osm, .footprints]) == [
+            ReferenceDataStatus.missingLayers(bundle: held, available: [.footprints]) == [
                 .footprints
             ])
     }
@@ -4824,7 +4800,7 @@ final class LockedBox<T>: @unchecked Sendable {
     @Test func kerbsAndTheOtherAlwaysListedLayersAreNotJudged() {
         // Gerardus lists KERBS, LANE_MARKINGS, STREET_FURNITURE and TREES on
         // every server, so their absence from a bundle says nothing.
-        let held = bundle([.aerialPoints, .osm, .footprints, .cityStreets, .cityIntersections])
+        let held = bundle([.aerialPoints, .footprints, .cityStreets, .cityIntersections])
         #expect(
             ReferenceDataStatus.missingLayers(
                 bundle: held, available: [.kerbs, .laneMarkings, .streetFurniture, .trees]) == [])
@@ -4835,7 +4811,7 @@ final class LockedBox<T>: @unchecked Sendable {
     @Test func updateAsksGerardusToRebuildWithoutRefresh() async {
         let (session, service) = await chosen()
         service.layersAfterPlainPrepare = [
-            .aerialPoints, .osm, .footprints, .cityStreets, .cityIntersections,
+            .aerialPoints, .footprints, .cityStreets, .cityIntersections,
         ]
         await session.updateReferenceData()
         #expect(service.prepareRefreshFlags == [false])
@@ -4847,7 +4823,7 @@ final class LockedBox<T>: @unchecked Sendable {
 
     @Test func updateThatAddsNothingSaysSoAndPointsToRegenerate() async {
         let (session, service) = await chosen()
-        service.layersAfterPlainPrepare = [.aerialPoints, .osm]
+        service.layersAfterPlainPrepare = [.aerialPoints]
         await session.updateReferenceData()
         #expect(service.prepareRefreshFlags == [false])
         #expect(session.referenceDataIsOutOfDate)
@@ -4908,13 +4884,13 @@ final class LockedBox<T>: @unchecked Sendable {
         footprints.version = "data_as_of 2026-09-14"
         footprints.retrievedAt = prepared
         var bare = Gerardus_Align_V1alpha1_SourceInfo()
-        bare.layer = .osm
+        bare.layer = .aerialPoints
         held.sources = [footprints, bare]
         #expect(ReferenceDataStatus.preparedLine(held) == "Bundle prepared 2026-10-14")
         #expect(
             ReferenceDataStatus.sourceLines(held) == [
                 "DataSF footprints: data_as_of 2026-09-14, retrieved 2026-10-14",
-                "OpenStreetMap ways: no version recorded",
+                "3DEP points: no version recorded",
             ])
         #expect(
             ReferenceDataStatus.preparedLine(bundle([])) == "Bundle prepared (date not recorded)")
@@ -4933,7 +4909,7 @@ final class LockedBox<T>: @unchecked Sendable {
             items.map(\.title) == ["Downloads again", "Cuts 3DEP again", "Ids can change", "Kept"])
         let text = items.map(\.detail).joined(separator: "\n")
         #expect(text.contains("columbus-broadway"))
-        for source in ["OpenStreetMap", "footprints", "Street Names", "Street Tree List"] {
+        for source in ["footprints", "Street Names", "Street Tree List"] {
             #expect(text.contains(source))
         }
         #expect(text.contains("scene-vectors.py"))

@@ -124,8 +124,6 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// own, coloured by scan from the same palette.
     private var referenceScanBuffer: MTLBuffer?
     private(set) var referenceScanCount: Int = 0
-    private var referenceOSMBuffer: MTLBuffer?
-    private(set) var referenceOSMVertexCount: Int = 0
     private var referenceFootprintBuffer: MTLBuffer?
     private(set) var referenceFootprintVertexCount: Int = 0
     /// DataSF boxes' walls and the observed layer's wall planes: lines, each
@@ -134,8 +132,6 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     private(set) var referenceBoxVertexCount: Int = 0
     private var referenceWallPlaneBuffer: MTLBuffer?
     private(set) var referenceWallPlaneVertexCount: Int = 0
-    private var referenceIntersectionBuffer: MTLBuffer?
-    private(set) var referenceIntersectionVertexCount: Int = 0
     private var referenceObservedBuffer: MTLBuffer?
     private(set) var referenceObservedVertexCount: Int = 0
     private var referenceGroundMeshBuffer: MTLBuffer?
@@ -495,8 +491,6 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceAerialCount = referenceAerialBuffer == nil ? 0 : vertices?.aerialCount ?? 0
         referenceScanBuffer = buffer(vertices?.scans ?? [])
         referenceScanCount = referenceScanBuffer == nil ? 0 : vertices?.scanCount ?? 0
-        referenceOSMBuffer = buffer(vertices?.osmLines ?? [])
-        referenceOSMVertexCount = referenceOSMBuffer == nil ? 0 : vertices?.osmVertexCount ?? 0
         referenceFootprintBuffer = buffer(vertices?.footprintLines ?? [])
         referenceFootprintVertexCount =
             referenceFootprintBuffer == nil ? 0 : vertices?.footprintVertexCount ?? 0
@@ -505,9 +499,6 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         referenceWallPlaneBuffer = buffer(vertices?.wallPlaneLines ?? [])
         referenceWallPlaneVertexCount =
             referenceWallPlaneBuffer == nil ? 0 : vertices?.wallPlaneVertexCount ?? 0
-        referenceIntersectionBuffer = buffer(vertices?.intersectionLines ?? [])
-        referenceIntersectionVertexCount =
-            referenceIntersectionBuffer == nil ? 0 : vertices?.intersectionVertexCount ?? 0
         referenceObservedBuffer = buffer(vertices?.observedLines ?? [])
         referenceObservedVertexCount =
             referenceObservedBuffer == nil ? 0 : vertices?.observedVertexCount ?? 0
@@ -734,12 +725,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         // The ground mesh first, so the lines that lie on it draw over it.
         for (visible, buffer, count) in [
             (shown.groundMesh, referenceGroundMeshBuffer, referenceGroundMeshVertexCount),
-            (shown.osm, referenceOSMBuffer, referenceOSMVertexCount),
             (shown.footprints, referenceFootprintBuffer, referenceFootprintVertexCount),
             (shown.boxes, referenceBoxBuffer, referenceBoxVertexCount),
             (shown.observed, referenceObservedBuffer, referenceObservedVertexCount),
             (shown.wallPlanes, referenceWallPlaneBuffer, referenceWallPlaneVertexCount),
-            (shown.intersections, referenceIntersectionBuffer, referenceIntersectionVertexCount),
             (shown.cityStreets, referenceCityStreetBuffer, referenceCityStreetVertexCount),
             (shown.kerbs, referenceKerbBuffer, referenceKerbVertexCount),
             (shown.buildings, referenceBuildingBuffer, referenceBuildingVertexCount),

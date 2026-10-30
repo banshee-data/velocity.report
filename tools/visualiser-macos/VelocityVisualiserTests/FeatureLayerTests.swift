@@ -158,8 +158,8 @@ struct FeatureLayerDecodingTests {
         #expect(g.laneMarkings.count == 2)
         #expect(g.streetFurniture.map(\.kind) == [.pole, .sign])
         #expect(g.trees.count == 1)
-        // None lands among the OSM ways.
-        #expect(g.lines.isEmpty)
+        // None lands among the city centrelines.
+        #expect(g.cityStreets.isEmpty)
         #expect(g.completeLayers == [.buildings, .laneMarkings, .streetFurniture, .trees])
         // BUILDINGS names a model of its own, which is not the site model.
         #expect(g.modelID.isEmpty)
@@ -215,9 +215,7 @@ struct FeatureLayerDecodingTests {
     @Test func signsTreesAndRoofsAreDrawnWhereTheyAre() {
         for kind: Gerardus_Align_V1alpha1_FeatureKind in [
             .sign, .tree, .roofPlane, .pole, .wallSurface,
-        ] {
-            #expect(ReferenceStyle.lift(kind) == 0)
-        }
+        ] { #expect(ReferenceStyle.lift(kind) == 0) }
         #expect(ReferenceStyle.lift(.laneMarking) == ReferenceStyle.lineLift)
     }
 

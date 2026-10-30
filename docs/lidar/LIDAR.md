@@ -303,9 +303,10 @@ markings lie on the road at their own z, area markings filled; poles are cylinde
 cylinder of `dbh_m` (0.3 m when absent) up to `crown_base_m` with a translucent crown ellipsoid of
 radius `crown_radius_m` from `crown_base_m` to `height_m`. Each layer has its own checkbox.
 
-**OpenStreetMap.** The OpenStreetMap layers (`osm`, `intersections`) and the OpenStreetMap tiles
-behind the 2D map are asked for only after the operator allows it, once per visit, as in the site
-map editor. Without consent the page makes no OpenStreetMap request of any kind.
+**Browser maps.** OpenStreetMap tiles behind the 2D map remain optional and require the existing
+per-visit consent. OSM vector layers (`osm`, `intersections`) are retired: they are not requested
+from Gerardus or drawn as LiDAR references. City streets, kerbs, markings and measured geometry
+remain independent of the browser map.
 
 **Gerardus's address and failures.** The browser calls Gerardus directly; its address is a setting
 on the Settings page (and on this page), kept in this browser, default `http://127.0.0.1:50061`.

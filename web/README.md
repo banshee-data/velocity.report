@@ -64,3 +64,10 @@ pnpm run format
 
 LiDAR evaluation windows are [clips](../docs/lidar/operations/clip-management-implementation.md).
 The API uses `/api/lidar/clips` and `clip_id`; ordered capture rows supply each clip’s paths.
+
+## LiDAR reference geometry and browser maps
+
+Gerardus-backed site views use city, aerial and measured scan geometry. They refuse OSM vector layer
+requests and ignore retired geometry sent by older services. The capture locator keeps manual
+position/heading placement, map tiles and address search; its OSM-outline Snap and Check fit actions
+are removed. Browser map consent and the public scene viewer's cycle map remain.

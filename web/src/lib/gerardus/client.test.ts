@@ -5,7 +5,6 @@ import {
 	KNOWN_LAYERS,
 	MODEL_KINDS,
 	MODEL_LAYERS,
-	OSM_LAYERS,
 	SITE_LAYERS,
 	WALL_LAYERS,
 	gerardusAddress,
@@ -16,7 +15,7 @@ import {
 	groupByLayer,
 	isL16Token,
 	isModelLayer,
-	isOsmLayer,
+	isRetiredLayer,
 	isWallLayer,
 	listSites,
 	frameOf,
@@ -409,8 +408,35 @@ describe('GET the site layers', () => {
 });
 
 describe('layers', () => {
-	it('keeps the OpenStreetMap layers apart', () => {
-		expect(OSM_LAYERS).toEqual(['osm', 'intersections']);
+	it('rejects retired requests before fetching and drops legacy response geometry', async () => {
+		const fetcher = jest.fn();
+		await expect(getSiteGeojson(BASE, SITE, ['osm'], { fetch: fetcher })).rejects.toThrow(
+			'retired'
+		);
+		await expect(
+			getSiteFrameGeojson(BASE, SITE, ['intersections'], { fetch: fetcher })
+		).rejects.toThrow('retired');
+		expect(fetcher).not.toHaveBeenCalled();
+		const geometry = SITE_GEOJSON.features[0].geometry;
+		const collection = {
+			type: 'FeatureCollection',
+			features: ['osm', 'intersections', 'city_streets', 'kerbs', 'lane_markings'].map((layer) => ({
+				type: 'Feature',
+				geometry,
+				properties: { layer, id: layer, kind: 'road' }
+			}))
+		};
+		for (const parsed of [parseCollection(collection), parseSiteFrameCollection(collection)]) {
+			expect(parsed.features.map((f) => f.layer)).toEqual([
+				'city_streets',
+				'kerbs',
+				'lane_markings'
+			]);
+			expect(parsed.skipped).toBe(2);
+		}
+	});
+
+	it('does not offer retired OpenStreetMap geometry', () => {
 		// Each wall layer after the layer it stands in for in 3D.
 		expect(KNOWN_LAYERS).toEqual([
 			'street_use',
@@ -427,12 +453,15 @@ describe('layers', () => {
 			'roof_planes',
 			'lane_markings',
 			'street_furniture',
-			'trees',
-			...OSM_LAYERS
+			'trees'
 		]);
-		expect(SITE_LAYERS.some(isOsmLayer)).toBe(false);
-		expect(isOsmLayer('intersections')).toBe(true);
-		expect(isOsmLayer('city_intersections')).toBe(false);
+		expect(SITE_LAYERS.some(isRetiredLayer)).toBe(false);
+		expect(isRetiredLayer('intersections')).toBe(true);
+		expect(servedLayers(['osm', 'city_streets', 'intersections', 'kerbs'])).toEqual([
+			'city_streets',
+			'kerbs'
+		]);
+		expect(isRetiredLayer('city_intersections')).toBe(false);
 	});
 });
 
@@ -959,12 +988,12 @@ describe('the W4–W7 layers', () => {
 		]);
 		expect(MODEL_LAYERS.every(isModelLayer)).toBe(true);
 		expect(SITE_LAYERS.some(isModelLayer)).toBe(false);
-		expect(MODEL_LAYERS.some(isOsmLayer)).toBe(false);
+		expect(MODEL_LAYERS.some(isRetiredLayer)).toBe(false);
 	});
 
 	it('asks for them only when the site lists them', () => {
 		// No list: every layer but these.
-		expect(servedLayers([])).toEqual([...SITE_LAYERS, ...OSM_LAYERS]);
+		expect(servedLayers([])).toEqual([...SITE_LAYERS]);
 		// Listed, in the viewer's order, with a layer it does not know kept at the end.
 		expect(servedLayers(['trees', 'kerbs', 'roof_planes', 'building_parts', 'bike_racks'])).toEqual(
 			['kerbs', 'building_parts', 'roof_planes', 'trees', 'bike_racks']

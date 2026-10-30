@@ -121,10 +121,11 @@ Object classification tracks road user types: pedestrian, cyclist, car, bus.
 Not people. Not plates.
 
 The measurement data stays on a local device. Reports are generated locally.
-Remote map and prior requests, such as OpenStreetMap tile downloads or Overpass
-lookups, are optional operator actions and must be explicit, disableable, and
+Browser map requests, such as OpenStreetMap tile downloads or Overpass
+lookups for map display, are optional operator actions and must be explicit, disableable, and
 documented. They are not telemetry and must not send PII, vehicle data, or raw
-sensor captures.
+sensor captures. LiDAR reference preparation, registration and snapping use
+3DEP, city datasets and sensor observations; they do not fetch or fit against OSM geometry.
 If personal data reaches a log, a response body, or an export, that is a bug,
 [please report it.](https://github.com/banshee-data/velocity.report/issues)
 

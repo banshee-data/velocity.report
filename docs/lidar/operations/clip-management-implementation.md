@@ -91,28 +91,25 @@ The Locate page draws the period's **settled background** from above:
 `GET /api/lidar/capture/periods/background?period_id=` replays the period's first 90 s into a
 fresh L3 model (the motion pass's parameters, never refreshed) and returns the cells that settled,
 in the sensor frame. The server builds it once per period and keeps the last eight. The operator
-places the sensor by address search or by clicking, drags it and its heading handle (the bearing of
-+Y), and can **Snap**: 2D point-to-segment ICP, in the browser, of the wall band (−1.5 m to +4 m
-about the sensor) against OpenStreetMap building and wall outlines from Overpass. Save calls
+places the sensor by address search or by clicking, then drags it and its heading handle (the bearing
+of +Y). Placement is manual; the OSM-outline Snap path is retired. Save calls
 `POST /api/lidar/capture/periods/clip`, which returns the period's clip or makes one from its
 captures and trim, then records the position (`geographic_source` operator) and the heading as
 `north_azimuth_deg = 180 − heading`, the convention `site-index.json` and the Gerardus pane use.
 
 **Known locations and checks.** "Start from a known location" applies another located clip's
 position and heading (from `GET /api/lidar/clips?located=1`), so a place located once can be applied
-to the other captures there and checked against each one's own background. **Check fit** scores the
-pose drawn now without moving it: the share of returns at wall height within 0.5 m of an outline and their RMS.
+to the other captures there and checked against each one's own background. The background remains a visual reference; the OSM-outline Check fit action is retired.
 Opened with `?clip=`, the page checks an existing clip against its own window's background
 (`GET /api/lidar/clips/{id}/background`) and saves back to that clip; the Clips page links it as
 "Check alignment on map".
 
-Map tiles, the address search (Nominatim) and the outlines (Overpass) are external requests. None
+Map tiles and the address search (Nominatim) are external requests. Neither
 is made until the operator allows OpenStreetMap requests, a choice this browser remembers until it is
 withdrawn on the page; what leaves is the typed
 address and the map area, never sensor data. Without them the page still draws the background on a
 blank map, and the coordinates can be typed on the Captures page instead.
 
-The page draws the period's settled background, measured at the capture time, beside third-party
-outlines at their own dates. The fit is a pose estimate for the sensor; neither the outlines nor
-the fit is a survey, plan or specification of the buildings. See
+The page draws the period's settled background, measured at the capture time, over an optional browser map. The saved pose is the operator's placement;
+it is not a survey, plan or specification of the buildings. See
 [Geometry priors: data purpose and interpretation](../../geometry-priors-data-purpose.md).

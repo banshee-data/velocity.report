@@ -2,7 +2,7 @@
 // gRPC client for the Gerardus alignment service (gerardus.align.v1alpha1).
 //
 // Gerardus (banshee-data/gerardus) prepares reference data for a survey site
-// (USGS 3DEP aerial points, OpenStreetMap ways and intersections) and keeps
+// (USGS 3DEP aerial points, DataSF streets and intersections) and keeps
 // an append-only log of every alignment decision. The visualiser reaches it on
 // a second channel beside its channel to velocity.report; velocity.report's
 // server is not in the path. The contract is vendored at

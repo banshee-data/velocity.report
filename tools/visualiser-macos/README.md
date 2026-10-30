@@ -120,7 +120,7 @@ The full workflow is in
 
 When a Gerardus server (`gerardus serve`, banshee-data/gerardus) answers at the address in Settings (⌘,) ▸ Servers, `127.0.0.1:50061` unless you change it,
 the toolbar shows **Align**. While connected, the visualiser looks for one every 30 seconds until
-it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and OpenStreetMap ways over the
+it answers, so Gerardus can be started after the visualiser. The pane draws USGS 3DEP points and DataSF street geometry over the
 capture, places the sensor from its eye-read position and the `north_azimuth_deg` you type, lets you nudge it,
 and records an accepted pose in Gerardus's alignment log. Movement controls stay pinned above the
 scrolling details, with steps up to 10 m and turns up to 30°. A manually snapped pose can be accepted
@@ -131,6 +131,11 @@ poles, trees) are observed or derived geometry at each source's acquisition time
 survey; see [geometry-priors-data-purpose.md](../../docs/geometry-priors-data-purpose.md). Without
 a Gerardus server the toolbar and the app are unchanged. See
 [gerardus-alignment.md](../../docs/ui/visualiser/gerardus-alignment.md).
+
+The alignment path does not request or render OSM geometry. Kerbs, islands, city streets,
+public marking records and markings observed in LiDAR remain available where their inputs exist.
+Without city centrelines the street painter uses available kerbs and walls plus manual placement;
+it does not fall back to OSM roads. Older service responses containing retired layers are ignored.
 
 ### Painting a site's streets
 
