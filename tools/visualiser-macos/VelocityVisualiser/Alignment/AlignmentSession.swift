@@ -474,6 +474,11 @@ struct ReferenceSummary: Equatable {
     private var poseSource: Gerardus_Align_V1alpha1_PoseSource = .hint
     private var registering: Task<Void, Never>?
     private var evaluating: Task<Void, Never>?
+    /// The EvaluatePose call on the wire, if any. Cancelling a call here does
+    /// not stop it on the server, so the next waits for it: overlapping calls
+    /// each build their 3DEP reference there, and ten at once ran Gerardus on
+    /// arrow out of memory.
+    private var onTheWire: Task<Void, Never>?
     /// Bumped whenever the drawn pose changes, so a late evaluation of an
     /// earlier pose is dropped.
     private var poseGeneration = 0
@@ -1385,6 +1390,7 @@ struct ReferenceSummary: Equatable {
     func captureChanged() {
         registering?.cancel()
         evaluating?.cancel()
+        dropCallOnTheWire()
         latestBackground = nil
         background = nil
         dropAccumulation()
@@ -1535,6 +1541,26 @@ struct ReferenceSummary: Equatable {
     var pendingEvaluation: Task<Void, Never>? { evaluating }
 
     private func evaluate(refine: Bool, generation: Int) async {
+        while let previous = onTheWire { await previous.value }
+        // Cancelled while it waited (a snap supersedes a scheduled score), or
+        // the pose moved, whose own evaluation follows.
+        guard !Task.isCancelled, generation == poseGeneration else { return }
+        // Not cancelled with the task that asked: once sent, it runs to the
+        // end on the server either way, and a late answer is dropped below.
+        let call = Task { await self.send(refine: refine, generation: generation) }
+        onTheWire = call
+        await call.value
+        if onTheWire == call { onTheWire = nil }
+    }
+
+    /// Starting over (another capture or site): the call on the wire is
+    /// cancelled and not waited for, so one that hangs holds up nothing.
+    private func dropCallOnTheWire() {
+        onTheWire?.cancel()
+        onTheWire = nil
+    }
+
+    private func send(refine: Bool, generation: Int) async {
         guard let client, let site, let pose, canRegister else { return }
         let snapshot = latestBackground
         isEvaluating = true
@@ -2334,6 +2360,7 @@ struct ReferenceSummary: Equatable {
         evaluation = nil
         registering?.cancel()
         evaluating?.cancel()
+        dropCallOnTheWire()
         records = []
         selectedRecordID = nil
         lastRecord = nil
