@@ -10,6 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 ## October 29, 2026 - PCL frame-tap, border, and partition contracts
 
+- {claude/visualiser-one-snap-at-a-time} Kept one `EvaluatePose` call on the wire at a time in the alignment pane: a nudge or snap while a call was out cancelled it here but not on the server, so a run of snaps queued ten at once on arrow's Gerardus and the kernel killed it for memory five times on October 29. The next call now waits for the one out, a scored pose the operator has moved past or a score a snap supersedes is not sent, and another capture or site drops the call without waiting (banshee-data/gerardus#60 bounds the server side)
 - {codex/pcl-open-question-review} Refreshed the PCL review and report continuation guidance after all thirteen questions and the final pass completed; recorded PR #882 as open for review, preserved historical source and validation evidence, and separated the remaining proposed implementation from completed review work.
 
 - {codex/pcl-open-question-review} Completed the [final branch pass](lidar/operations/pcl-astera-handover.md#final-branch-pass), integrated current main, and corrected an exporter azimuth-wrap panic and grid-checker false success after CSV output failure. Added regression checks, preserved byte-identical OQ-02 outputs, clarified completed-review and corpus scope, and passed full tests, lint, and the local build. Kept PR #882 draft and the campaign prerequisites explicit.

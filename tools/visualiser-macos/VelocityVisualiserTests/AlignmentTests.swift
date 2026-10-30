@@ -1351,6 +1351,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     private(set) var evaluations: [Gerardus_Align_V1alpha1_EvaluatePoseRequest] = []
     /// Called inside EvaluatePose before it answers.
     var duringEvaluation: (@MainActor (Int) -> Void)?
+    /// EvaluatePose calls answering now, and the most there have been.
+    private(set) var inFlight = 0
+    private(set) var maxInFlight = 0
     /// Where refine moves a pose: this far east, in metres.
     var refineShiftEastM = 1.0
 
@@ -1359,7 +1362,13 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_EvaluatePoseResponse {
         log("EvaluatePose")
         evaluations.append(request)
+        inFlight += 1
+        maxInFlight = max(maxInFlight, inFlight)
+        defer { inFlight -= 1 }
         await duringEvaluation?(evaluations.count)
+        // Answers after a turn of the run loop, as a server does, so calls
+        // that overlap are seen to.
+        await Task.yield()
         var response = Gerardus_Align_V1alpha1_EvaluatePoseResponse()
         response.pose = request.pose
         if request.refine {
@@ -2548,6 +2557,25 @@ private func gate(_ name: String, passed: Bool) -> Gerardus_Align_V1alpha1_GateR
         await session.pendingEvaluation?.value
         #expect(service.evaluations.count == 2)
         #expect(session.evaluation?.summary.headingDeg == 2)
+    }
+
+    @Test func oneEvaluationIsOnTheWireAtATime() async {
+        let (session, service, _) = await placed()
+        var snapping: Task<Void, Never>?
+        // The operator nudges and snaps while the first call is out.
+        service.duringEvaluation = { call in
+            guard call == 1 else { return }
+            session.nudge(x: 1)
+            snapping = Task { await session.snap() }
+        }
+        session.nudge(x: 1)
+        await session.pendingEvaluation?.value
+        await snapping?.value
+        await session.pendingEvaluation?.value
+        #expect(service.maxInFlight == 1)
+        // The first score, then the snap; the score the snap superseded is
+        // never sent.
+        #expect(service.evaluations.map(\.refine) == [false, true])
     }
 
     @Test func snapDrawsTheRefinedPose() async {
