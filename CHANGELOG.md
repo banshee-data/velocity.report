@@ -185,6 +185,12 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Fixed
 
+- Public 3D survey cameras use accepted-registration true vertical, keeping the horizon level
+  when the sensor was tilted. Flight altitude follows the hillside smoothly, including across
+  the loop boundary. Building context extends to 180 m where available in Gerardus.
+- Scene badges show the current viewer version separately from the recording generator version;
+  the previous badge showed the old recording version after a viewer update. Version-only
+  Makefile changes now trigger the public-site deployment.
 - A waiting macOS alignment score or Snap can take over after the previous request completes.
   It no longer spins on a completed task while waiting for the main thread to clear that task.
 - Public 3D survey playback follows the registered ground mesh on hills, masks boxes and trails

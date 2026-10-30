@@ -257,8 +257,10 @@ and `SCENE_SPEED_MODE` if an experiment needs different ones.
 Where a site has a pose an operator accepted in Gerardus, a rebuilt scene also
 carries Gerardus's street geometry, `assets/vectors/vectors.geojson.gz`: kerbs,
 building walls and roof planes where the site's bundle has them, building
-footprints, and the city's street centrelines, within
-90 m of the sensor. Trees retain their inferred crown dimensions and appear
+footprints, and the city's street centrelines. Building walls, roofs, and footprints
+extend to 180 m where Gerardus has them; street lines, trees, and ground retain
+their 90 m radius. The placement check also retains its original 90 m evidence
+range. Trees retain their inferred crown dimensions and appear
 with dark green foliage. Experimental lane markings, poles, signs, and registered
 façade patches are excluded from public exports. The registered patches still
 inform the placement check. `scene-vectors.py` places each
@@ -270,6 +272,14 @@ accepted pose gets no file, and the eye-read position is never used in its
 place. The file names each source and its terms and keeps only geometry,
 layer, kind, evidence status, and Gerardus's state; OpenStreetMap layers are
 never asked for. The scene page shows it under a "Street geometry" switch.
+
+Version 3 carries true vertical in `placement.up_sensor`, the site's vertical
+axis expressed in sensor coordinates by the inverse accepted rotation. The
+camera uses this axis for the horizon, rather than treating the tilted sensor's
+plane or a sloping road as level. Its orbit follows a periodic ground-height
+profile with continuous height and vertical speed at the loop boundary; narrow
+smoothing removes cell noise, and gaps are interpolated between observed orbit
+samples. A wholly unobserved orbit retains a constant height.
 
 The same file carries the site's ground mesh, transformed by the same pose.
 The "Ground" switch draws that mesh at its measured heights, with holes left

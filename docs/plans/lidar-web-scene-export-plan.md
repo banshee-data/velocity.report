@@ -470,6 +470,14 @@ tracked position or drawn centre lies inside a building, and break trails at mas
 segments crossing a building. Courtyards remain open. This presentation filter leaves measured
 survey statistics unchanged and depends on footprint coverage and registration quality.
 
+Version 3 adds `placement.up_sensor` from the accepted pose and
+`building_clip_radius_m` (180 m by default). The ground, other context, and
+placement-check evidence remain bounded by `clip_radius_m` (90 m). The camera
+orbits about true vertical while a cyclic, smoothly interpolated ground profile
+changes its altitude to preserve clearance on hills. Source coordinates and
+recording provenance stay in the sensor frame. The viewer version comes from
+the Makefile; the recording version is labelled separately.
+
 ## Scope
 
 ### Item 1: Export command

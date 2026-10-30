@@ -89,6 +89,14 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   `survey-page.js` adds the interactive parts.
 
 The 3D playback uses Gerardus's registered ground mesh in place of a flat grid.
+The accepted pose supplies true vertical: the camera orbits in a level frame and
+follows a smooth, periodic ground-height profile, preserving clearance on hills.
+Missing ground cells are interpolated along the orbit; a wholly unobserved orbit
+falls back to a constant height. Building context extends to 180 metres where
+Gerardus has it, while the ground and other context retain their 90-metre radius.
+The scene badge distinguishes the viewer version (the root Makefile's `VERSION`)
+from the recording generator version, whose provenance stays in the recording.
+A version-only Makefile change also triggers the public-site deployment.
 Experimental poles, signs, painted-marking proposals, and registered façade patches are
 excluded, while street centrelines, kerbs, and trees with dark green foliage remain.
 Background LiDAR points start hidden. Source

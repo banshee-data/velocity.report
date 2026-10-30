@@ -74,7 +74,8 @@ SCENES_DATA = os.path.join(REPO, "public_html", "src", "_data", "scenes.json")
 PROTO_DIR = os.path.join(REPO, "proto", "gerardus", "align", "v1alpha1")
 GERARDUS = os.environ.get("GERARDUS_URL", "http://127.0.0.1:50061").rstrip("/")
 RADIUS_M = float(os.environ.get("SCENE_VECTORS_RADIUS_M", "90"))
-VERSION = 2
+VERSION = 3
+BUILDING_LAYERS = {"footprints", "box_walls", "wall_surfaces", "roof_planes"}
 ROUNDING_M = 0.01
 OUT_DIR = "vectors"
 OUT_FILE = "vectors.geojson.gz"
@@ -391,7 +392,12 @@ def scene_features(collection, apply, radius_m=RADIUS_M, include_registration=Fa
         ):
             continue
         coordinates = map_coordinates(geometry.get("coordinates", []), apply)
-        if not any(math.hypot(p[0], p[1]) <= radius_m for p in positions(coordinates)):
+        clip = (
+            2 * radius_m
+            if layer in BUILDING_LAYERS and not include_registration
+            else radius_m
+        )
+        if not any(math.hypot(p[0], p[1]) <= clip for p in positions(coordinates)):
             continue
         out = {
             "layer": layer,
@@ -621,6 +627,8 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
         "bundle_id": model.get("bundleId", ""),
         "reviewed_at": record.get("reviewedAt", ""),
         "heading_deg": round(heading_deg(pose), 2),
+        # Site +Z is true vertical; express it in the scene's sensor axes.
+        "up_sensor": [round(v, 10) for v in rotation(pose["rotation"])[2]],
         "check": check,
     }
     placement = {k: v for k, v in placement.items() if v != ""}
@@ -654,11 +662,12 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
         "vertical_reference": "sensor_origin",
         "coordinate_rounding_m": ROUNDING_M,
         "clip_radius_m": radius_m,
+        "building_clip_radius_m": 2 * radius_m,
         "placement": placement,
         "sources": [sources[s] for s in used if s in sources],
         "layers": counts,
         "coverage_notes": [
-            f"Features with no vertex within {radius_m:g} m of the sensor are left out.",
+            f"Building context extends to {2 * radius_m:g} m where Gerardus has it; other features and ground extend to {radius_m:g} m.",
             "Most features are Gerardus's proposals (state proposed), derived and not"
             " yet accepted by an operator.",
             "Walls raised to a roofline and tree crowns are inferred past the returns.",
