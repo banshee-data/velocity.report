@@ -1541,7 +1541,12 @@ struct ReferenceSummary: Equatable {
     var pendingEvaluation: Task<Void, Never>? { evaluating }
 
     private func evaluate(refine: Bool, generation: Int) async {
-        while let previous = onTheWire { await previous.value }
+        while let previous = onTheWire {
+            await previous.value
+            // A completed task need not suspend this waiter. Clear its slot
+            // here too, or we can spin before its owner resumes to clear it.
+            if onTheWire == previous { onTheWire = nil }
+        }
         // Cancelled while it waited (a snap supersedes a scheduled score), or
         // the pose moved, whose own evaluation follows.
         guard !Task.isCancelled, generation == poseGeneration else { return }

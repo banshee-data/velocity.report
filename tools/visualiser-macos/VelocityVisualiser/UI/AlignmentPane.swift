@@ -276,8 +276,8 @@ import SwiftUI
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
-                Toggle(reference.footprintLabel, isOn: $session.showFootprints)
-                    .help(ReferenceSummary.footprintHelp)
+                Toggle(reference.footprintLabel, isOn: $session.showFootprints).help(
+                    ReferenceSummary.footprintHelp)
                 if reference.boxesServed {
                     Toggle("DataSF boxes (\(reference.boxWalls) walls)", isOn: $session.showBoxes)
                         .help(

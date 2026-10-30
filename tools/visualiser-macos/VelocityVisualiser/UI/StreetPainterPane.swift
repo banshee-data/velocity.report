@@ -359,8 +359,8 @@ import SwiftUI
                             "Inferred faces raised from DataSF footprints to heights measured in 3DEP, at those sources' dates; not a plan or survey."
                         )
                 }
-                Toggle(reference.footprintLabel, isOn: $session.showFootprints)
-                    .help(ReferenceSummary.footprintHelp)
+                Toggle(reference.footprintLabel, isOn: $session.showFootprints).help(
+                    ReferenceSummary.footprintHelp)
                 Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
                 Toggle(
                     "Ground mesh (\(reference.groundMeshCells.formatted()) cells)",
