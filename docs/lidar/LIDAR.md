@@ -67,6 +67,7 @@ a standalone PCL splitting arm and records the evidence required by the existing
 | Track labelling          | [operations/track-labelling-ui-implementation.md](operations/track-labelling-ui-implementation.md) |
 | Point annotation         | [operations/point-annotation-tool.md](operations/point-annotation-tool.md)                         |
 | Label sets               | [operations/label-sets.md](operations/label-sets.md)                                               |
+| Site location correction | [Broadway at Franklin](operations/broadway-franklin-location-correction.md)                        |
 | Label set migration      | [operations/annotation-label-set-migration.md](operations/annotation-label-set-migration.md)       |
 | Per-frame evaluation     | [operations/per-frame-evaluation.md](operations/per-frame-evaluation.md)                           |
 | Recording-use guard plan | [../plans/lidar-recording-use-guard-plan.md](../plans/lidar-recording-use-guard-plan.md)           |

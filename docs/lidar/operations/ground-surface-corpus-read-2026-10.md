@@ -110,7 +110,7 @@ absolute metres per metre of travel.
 | marina-webster-beach  | 4.35 % |                 83° |       0.99 |      0.52 % |       4.32 % |        0.16 m | 0.47 m | 2.68 m |            45 |        0.014 |       0.011 |       0.011 |
 | haight-divisadero     | 4.25 % |                  0° |       1.00 |      4.25 % |       0.05 % |        0.58 m | 1.27 m | 2.37 m |            34 |        0.064 |       0.057 |       0.022 |
 | marina-broderick      | 4.24 % |                 89° |       0.94 |      0.11 % |       4.23 % |        0.17 m | 0.41 m | 0.81 m |            89 |        0.011 |       0.009 |       0.012 |
-| broadway-gough        | 4.01 % |                 76° |       0.47 |      1.17 % |       3.83 % |        0.70 m | 1.47 m | 2.88 m |           109 |        0.026 |       0.019 |       0.018 |
+| broadway-franklin     | 4.01 % |                 76° |       0.47 |      1.17 % |       3.83 % |        0.70 m | 1.47 m | 2.88 m |           109 |        0.026 |       0.019 |       0.018 |
 | howard-6th            | 3.43 % |                 88° |       0.84 |      0.25 % |       3.42 % |        0.31 m | 0.87 m | 1.25 m |            69 |        0.018 |       0.013 |       0.016 |
 | columbus-north-point  | 3.41 % |                 86° |       0.77 |      0.38 % |       3.39 % |        0.33 m | 0.73 m | 1.96 m |            60 |        0.018 |       0.013 |       0.011 |
 | franklin-mcallister   | 2.81 % |                 26° |       0.41 |      2.49 % |       1.30 % |        0.14 m | 0.49 m | 1.18 m |           123 |        0.017 |       0.019 |       0.014 |
@@ -187,7 +187,7 @@ climbs away from the surface as it recedes, whatever the surface.
 ## Recommendations
 
 1. **Run ground0002 on the six sites where the plane holds its own as well as the steep ones.**
-   Its cell arms are expected to win on 22 sites, but Haight at Divisadero, Broadway at Gough,
+   Its cell arms are expected to win on 22 sites, but Haight at Divisadero, Broadway at Franklin,
    1st at Mission, Columbus at North Point, Franklin at McAllister and Marina at Webster Beach are
    where a single plane does as well or better, and are the sites that test it.
 2. **Measure the mount before reading a cross-slope as the road.** A per-site roll and pitch from

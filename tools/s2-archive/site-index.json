@@ -199,7 +199,7 @@
     "published_as": "california-leon-baker"
   },
   {
-    "id": "broadway-gough",
+    "id": "broadway-franklin",
     "site": "s06",
     "day": "2026-09-01",
     "start": "2026-09-01T15:10:31.646959-07:00",
@@ -230,14 +230,15 @@
       "s2-1_20260901152858_00033.pcap"
     ],
     "map_mark": "3:05",
-    "where": "Broadway at Gough",
-    "lat": 37.7952,
-    "lon": -122.4269,
+    "where": "Broadway at Franklin",
+    "lat": 37.7955,
+    "lon": -122.4249,
     "position_confidence": "high",
     "pcap_split_build_version": "0.5.1-pre32",
     "grid_azimuth_deg": 359,
     "north_azimuth_deg": 99,
-    "published_as": "broadway-gough"
+    "published_as": "broadway-franklin",
+    "position_note": "Operator-corrected to Broadway at Franklin (37.7955, -122.4249). This point identifies the junction, not a surveyed sensor position. Orientation and the assumed 25 mph limit have not been independently revalidated."
   },
   {
     "id": "laguna-eddy",

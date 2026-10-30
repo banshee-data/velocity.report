@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## October 30, 2026 - Broadway–Franklin location correction
+
+- {codex/fix-broadway-franklin} Corrected archive visit s06 to Broadway at Franklin at `(37.7955, -122.4249)`, moving its L16 site cell to `808580c27`; replaced the incorrect name throughout the corpus, scene export and reports, with one redirect for the old survey URL. Preserved measured results and recorded the missing aerial-source gate for corrected registration: [correction record](lidar/operations/broadway-franklin-location-correction.md).
+
 ## October 29, 2026 - PCL frame-tap, border, and partition contracts
 
 - {claude/visualiser-one-snap-at-a-time} Kept one `EvaluatePose` call on the wire at a time in the alignment pane: a nudge or snap while a call was out cancelled it here but not on the server, so a run of snaps queued ten at once on arrow's Gerardus and the kernel killed it for memory five times on October 29. The next call now waits for the one out, a scored pose the operator has moved past or a score a snap supersedes is not sent, and another capture or site drops the call without waiting (banshee-data/gerardus#60 bounds the server side)

@@ -334,7 +334,10 @@ def mark_fields(mark):
     rewrites exactly these from the marks, so a mark edit never needs the
     archive mounted to reach them.
     """
-    return {**position_fields(mark), **orientation_fields(mark)}
+    fields = {**position_fields(mark), **orientation_fields(mark)}
+    if mark and mark.get("position_note"):
+        fields["position_note"] = mark["position_note"]
+    return fields
 
 
 def position_fields(mark):

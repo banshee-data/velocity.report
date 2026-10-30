@@ -1,5 +1,8 @@
 # S2 archive site index
 
+See the [Broadway at Franklin correction](../../docs/lidar/operations/broadway-franklin-location-correction.md)
+for the corrected junction position and the registration rerun still required.
+
 Every site the sensor was parked at on `/Volumes/lidar/lidar/pcaps/s2`, across the
 three recording days, with the captures each one spans and an approximate
 position.

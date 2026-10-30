@@ -155,7 +155,7 @@ which includes non-vehicle tracks.
 |   10 | marina-broderick      | 13.0 |         65 |             56 |                   4.28 |            33 |             8.8 |                  3.0 |
 |   11 | 3rd-folsom            |  9.6 |         75 |             50 |                   5.17 |            48 |            13.9 |                 10.9 |
 |   12 | 1st-mission           | 15.5 |        102 |             46 |                   2.95 |            33 |            16.4 |                 16.4 |
-|   13 | broadway-gough        |  7.4 |         73 |             42 |                   5.59 |            39 |            17.5 |                 20.5 |
+|   13 | broadway-franklin     |  7.4 |         73 |             42 |                   5.59 |            39 |            17.5 |                 20.5 |
 |   14 | hyde-ofarrell         |  8.5 |         64 |             40 |                   4.70 |            37 |            11.1 |                  7.1 |
 |   15 | marina-webster-beach  |  5.0 |        252 |             24 |                   4.90 |            10 |             6.3 |                 13.5 |
 |   16 | howard-6th            |  6.1 |         59 |             21 |                   3.50 |            19 |             8.4 |                  7.5 |

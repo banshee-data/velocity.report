@@ -534,7 +534,7 @@ from this survey.
 | 1st-mission           |            82 |      33 |      48 |                     0 |              226 |  1,706 |
 | 3rd-folsom            |            90 |      39 |      60 |                     0 |               85 |  1,476 |
 | ashbury-downey        |            55 |      29 |      34 |                     2 |                7 |    382 |
-| broadway-gough        |           189 |      77 |     115 |                     2 |              130 |  1,728 |
+| broadway-franklin     |           189 |      77 |     115 |                     2 |              130 |  1,728 |
 | bush-powell           |            70 |      25 |      41 |                     2 |               83 |  1,219 |
 | california-leon-baker |           192 |      73 |      85 |                     1 |              163 |  1,209 |
 | columbus-broadway     |           124 |      38 |      75 |                     0 |              548 |  2,671 |

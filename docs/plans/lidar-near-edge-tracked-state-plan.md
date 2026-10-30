@@ -758,7 +758,7 @@ on those branches.
   haight-divisadero, to the last digit), by a median of 7 mm lower. The worst are
   fulton-divisadero (0.350 to 0.439 m), laguna-eddy (+37 mm), bush-powell (+34 mm) and
   columbus-north-point (+27 mm); the best are franklin-mcallister (0.232 to 0.187 m),
-  hyde-ofarrell and broadway-gough (−23 and −22 mm). Confirmed tracks and births per confirmation stay within 0.5 % of the tracked arm's. So the rank-one drift the plan named is at most a small
+  hyde-ofarrell and broadway-franklin (−23 and −22 mm). Confirmed tracks and births per confirmation stay within 0.5 % of the tracked arm's. So the rank-one drift the plan named is at most a small
   part of the lateral-entry tail, and T5 is not shown to be worth keeping.
 - **The tracked arm holds on the screen sites.** Against the control its steady p99 is lower on all 19
   sites, by a median of 76 mm (pierce-haight 0.428 to 0.230 m, franklin-mcallister 0.442 to

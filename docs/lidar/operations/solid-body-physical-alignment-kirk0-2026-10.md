@@ -336,7 +336,7 @@ Medians of the per-site change (sites worse / better).
 
 - **All four removes the regression at the median** and keeps the extra fixes: p95 and p99 fall
   slightly, the steady runs and excursions hold. It is not neutral everywhere. Three sites remain
-  clearly worse at p99: haight-divisadero (+0.150 m), broadway-gough (+0.107 m) and howard-6th
+  clearly worse at p99: haight-divisadero (+0.150 m), broadway-franklin (+0.107 m) and howard-6th
   (+0.064 m); seven are better by more than 0.05 m.
 - **Lapses rise with growth admission**, in either combination: pooled over the corpus, 4,707
   for A2, 4,929 with heading and growth and 4,931 with all four, about 23 per 1,000 solid-body rows
@@ -383,7 +383,7 @@ Pooled over the corpus:
 - **No site is more than 0.02 m worse at p99.** The six that are worse are haight-divisadero
   (+0.018 m), marina-webster-beach, pierce-haight, embarcadero-bryant, columbus-broadway and
   fulton-divisadero. Eight are better by more than 0.05 m, ashbury-downey by 0.33 m.
-- **broadway-gough and howard-6th**, plain all four's other two outliers, are now 0.002 and
+- **broadway-franklin and howard-6th**, plain all four's other two outliers, are now 0.002 and
   0.008 m better than A2: the same prior-width refusal was behind them.
 - **p95 is worse at seven sites**, by at most 0.026 m at pierce-haight, whose A2 p95 (0.018 m) is
   the corpus's lowest.

@@ -85,7 +85,7 @@ arm's p50 of the lowest return above the surface.
 | 1st-mission           |         1026 |     53 % |     37 % |     4 % |     0 % |    5 % |        1 % |       50 % |                  1.72 m |        1.22 m |     1.24 m |
 | 3rd-folsom            |          380 |     68 % |     14 % |     8 % |     0 % |    7 % |        2 % |       60 % |                  1.67 m |        1.18 m |     1.20 m |
 | ashbury-downey        |          988 |     54 % |     11 % |     7 % |     0 % |   27 % |        1 % |       39 % |                  1.18 m |        0.71 m |     0.70 m |
-| broadway-gough        |          311 |     61 % |     10 % |     6 % |     8 % |   13 % |        3 % |       53 % |                  0.62 m |        0.62 m |     0.65 m |
+| broadway-franklin     |          311 |     61 % |     10 % |     6 % |     8 % |   13 % |        3 % |       53 % |                  0.62 m |        0.62 m |     0.65 m |
 | bush-powell           |          389 |     77 % |      7 % |     4 % |     0 % |   10 % |        2 % |       63 % |                  1.35 m |        0.56 m |     0.59 m |
 | california-leon-baker |          151 |     62 % |      4 % |     5 % |     5 % |   22 % |        2 % |       43 % |                  1.40 m |        1.04 m |     1.04 m |
 | columbus-broadway     |          608 |     73 % |     14 % |     5 % |     0 % |    6 % |        2 % |       66 % |                  1.26 m |        0.74 m |     0.73 m |
@@ -154,7 +154,7 @@ The screen, per site:
 | 1st-mission           |                                 3.25 |          5.71 |       5.33 |                                 90 |           207 |        206 |
 | 3rd-folsom            |                                 1.58 |          2.54 |       2.55 |                                 74 |           102 |        110 |
 | ashbury-downey        |                                 0.58 |          0.70 |       0.61 |                                 37 |            32 |         34 |
-| broadway-gough        |                                 1.50 |          1.46 |       1.52 |                                 56 |           130 |        123 |
+| broadway-franklin     |                                 1.50 |          1.46 |       1.52 |                                 56 |           130 |        123 |
 | bush-powell           |                                 1.57 |          1.61 |       1.79 |                                 82 |           113 |        121 |
 | california-leon-baker |                                 0.65 |          0.57 |       0.56 |                                 29 |            40 |         38 |
 | columbus-broadway     |                                 2.90 |          4.77 |       4.61 |                                144 |           262 |        248 |

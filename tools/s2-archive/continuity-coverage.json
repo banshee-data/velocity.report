@@ -26,8 +26,8 @@
     "azimuth_centre_deg": 0,
     "azimuth_half_width_deg": 180
   },
-  "broadway-gough": {
-    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case broadway-gough, captures sha256:e07210253ab7f99870e959b4b5328098c1247267fff429661c9530f82b948900, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 188.98 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
+  "broadway-franklin": {
+    "source": "measured by lidar-state-estimation-baseline -survey-coverage (build dev, git 3ee42366c79233f5197a059bc226aa6026f9f666, stamped): case broadway-franklin, captures sha256:e07210253ab7f99870e959b4b5328098c1247267fff429661c9530f82b948900, default replay params sha256:fd35b0b28fc1d941040e4af3e4de5117d616844f85c6df3456dd193521eb237a; max_range_m is the maximum online-estimate range, 188.98 m, rounded up; full circle: the largest arc without an estimate is 2 deg, under the 90 deg that makes a sector",
     "sensor_x_m": 0,
     "sensor_y_m": 0,
     "min_range_m": 0,

@@ -157,7 +157,7 @@ Share of vehicle-sized tracks with a fitted follower path, per site.
 | 1st-mission           |                  124 |     0.51 |           0.49 |                   – |               0.3 / 114.0 |                                       26 |
 | 3rd-folsom            |                   97 |     0.74 |           0.74 |                0.65 |                1.1 / 58.5 |                                       39 |
 | ashbury-downey        |                   31 |     0.94 |           0.97 |                0.94 |               18.1 / 32.0 |                                       23 |
-| broadway-gough        |                   94 |     0.74 |           0.83 |                   – |                0.4 / 34.7 |                                       35 |
+| broadway-franklin     |                   94 |     0.74 |           0.83 |                   – |                0.4 / 34.7 |                                       35 |
 | bush-powell           |                  114 |     0.59 |           0.61 |                   – |                0.8 / 82.0 |                                       35 |
 | california-leon-baker |                   37 |     0.95 |           0.97 |                0.79 |                9.3 / 31.2 |                                       33 |
 | columbus-broadway     |                  157 |     0.41 |           0.60 |                   – |               1.0 / 159.3 |                                       61 |

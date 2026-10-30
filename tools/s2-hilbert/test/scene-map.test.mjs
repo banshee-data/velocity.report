@@ -18,6 +18,13 @@ const UNLOCATED = {
   position: null,
 };
 
+test("Broadway at Franklin has the corrected site cell", () => {
+  const { tokens } = deriveSiteCells({ id: "broadway-franklin", position: { lat: 37.7955, lon: -122.4249 } });
+  assert.equal(tokens.area.token, "808581");
+  assert.equal(tokens.neighbourhood.token, "808580c4");
+  assert.equal(tokens.site.token, "808580c27");
+});
+
 test("derives the same S2 family the Go index derives", () => {
   // These are the tokens internal/lidar/geoindex produced for this position;
   // two independent S2 implementations agreeing is the point of pinning them.

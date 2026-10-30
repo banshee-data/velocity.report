@@ -37,6 +37,12 @@ const at = (iso, durationSec = 1200, id = "scene", title = "scene") => ({
   durationSec,
 });
 
+test("an operator correction uses its supplied position note", () => {
+  const index = [{ ...INDEX[0], position_note: "Operator-corrected junction; sensor position not surveyed." }];
+  const { sites: [site] } = buildSceneSites({ scenes: [at(INDEX[0].start)], index });
+  assert.equal(site.position_note, index[0].position_note);
+});
+
 test("a scene start_ns survives the conversion without losing its clock", () => {
   // The value exceeds 2^53 nanoseconds, which is why the header stores a string.
   assert.equal(
