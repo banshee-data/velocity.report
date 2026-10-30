@@ -454,10 +454,21 @@ written, and a site with no accepted pose gets no file: the eye-read position is
 The file carries the context of §12 for its own layers: each source and its terms (USGS 3DEP,
 public domain; DataSF, PDDL 1.0; the survey's own scans, terms not yet set by D-34), the CRS as the
 sensor frame, units, the rounding quantum, per feature its evidence status and Gerardus state
-(mostly `proposed`), and the placement check. Properties are limited to geometry, layer, kind, the
-painted marking and pattern of a lane marking, and the heights a pole or tree needs to be drawn.
+(mostly `proposed`), and the placement check. Properties are limited to layer, kind, source,
+evidence status, state, and height context for the supported public geometry. Experimental
+markings, poles, signs, and registered façade patches are excluded; street centrelines, kerbs, and trees remain.
+Tree foliage is dark green, with inferred crowns sized from the exported tree dimensions.
+Registered façade patches remain evidence for the placement check, not public geometry.
 OpenStreetMap layers are never requested. The player draws it as thin lines and faint fills under
 the boxes, behind a "Street geometry" switch shown only where the file exists.
+
+Version 2 also carries the registered ground mesh: measured cell heights triangulated without
+bridging empty cells, transformed by the same accepted pose. The player's "Ground" switch replaces
+the former flat grid; absent ground stays absent. Background LiDAR points start hidden. Building
+footprints remain in the export even when walls replace their outlines: they mask boxes whose
+tracked position or drawn centre lies inside a building, and break trails at masked samples or
+segments crossing a building. Courtyards remain open. This presentation filter leaves measured
+survey statistics unchanged and depends on footprint coverage and registration quality.
 
 ## Scope
 

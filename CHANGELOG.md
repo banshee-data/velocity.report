@@ -185,6 +185,12 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Fixed
 
+- A waiting macOS alignment score or Snap can take over after the previous request completes.
+  It no longer spins on a completed task while waiting for the main thread to clear that task.
+- Public 3D survey playback follows the registered ground mesh on hills, masks boxes and trails
+  inside building footprints, and starts with background LiDAR points hidden. Experimental poles,
+  markings, and registered façade patches are omitted; trees have dark green foliage. Refreshed
+  registered geometry for eleven surveys without changing their full recording provenance.
 - Track boxes stand on their base. The L3 track guard and its leak measure took the cluster's
   lowest return as a box's vertical centre, so boxes without a fitted height reached half a vehicle
   below the road and only half its height above it.

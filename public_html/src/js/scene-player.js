@@ -22,13 +22,19 @@ import {
 } from "./scene-playback.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
 import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
-import { createVectorGroup, loadVectors } from "./scene-vectors.js";
+import {
+  createGroundGroup,
+  createVectorGroup,
+  loadVectors,
+} from "./scene-vectors.js";
 import {
   resolveFrameSelector,
   validateView,
   validateCaptureCoordinateFrame,
   applyCapturePose,
 } from "./scene-capture.js";
+
+import { createBuildingMask } from "./scene-buildings.js";
 
 const MPS_TO_MPH = 2.236936;
 
@@ -131,13 +137,22 @@ export function buildRegionRing(region, groundY) {
  * ids are collected — trails are drawn only for tracks visible in the
  * currently-shown frame, not for ones that have since disappeared.
  */
-export function buildTrailHistories(frames, trackIds) {
+export function buildTrailHistories(frames, trackIds, buildingMask = null) {
   const byTrack = new Map();
   for (const id of trackIds) byTrack.set(id, []);
   for (const f of frames) {
     for (const t of f.tr ?? []) {
       const pts = byTrack.get(t.id);
-      if (pts) pts.push(sceneTrailPoint(t));
+      if (!pts) continue;
+      const last = pts.at(-1);
+      if (buildingMask?.hides(t)) {
+        pts.length = 0;
+        continue;
+      }
+      // Scene north is -Z: convert the prior trail point back to sensor XY.
+      if (last && buildingMask?.crosses([last[0], -last[2]], [t.x, t.y]))
+        pts.length = 0;
+      pts.push(sceneTrailPoint(t));
     }
   }
   return byTrack;
@@ -441,23 +456,10 @@ export async function mountScenePlayer({
   // "whatever an earlier view in this recipe happened to set it to."
   const DEFAULT_FOV_DEG = camera.fov;
 
-  const grid = new THREE.GridHelper(160, 32, 0x2c4049, 0x1c2b32);
-  // Turn the grid onto the street.
-  //
-  // The grid is drawn square to the sensor, because that is the coordinate
-  // frame the points arrive in — and a sensor is set down facing whatever the
-  // kerb allowed, not facing down the road. So the squares cut across the
-  // carriageway at whatever angle the tripod happened to sit at, and a viewer
-  // reads that as the street being skewed rather than the grid.
-  //
-  // gridAzimuthDeg is the sensor's zero azimuth measured against this
-  // junction's street grid. Turning the grid by it lines the squares up with
-  // the kerbs. It changes nothing about the data: the points, the tracks and
-  // their headings are all still in the sensor's frame.
-  if (Number.isFinite(ui.gridAzimuthDeg)) {
-    grid.rotation.y = (-ui.gridAzimuthDeg * Math.PI) / 180;
-  }
-  scene.add(grid);
+  // No synthetic flat fallback: absent ground means an unobserved surface.
+  let groundGroup = new THREE.Group();
+  let groundY = 0;
+  let buildingMask = createBuildingMask(null);
 
   // A ring at the sensor origin gives the viewer a fixed reference point. The
   // sensor is the coordinate origin, mounted above the carriageway.
@@ -585,7 +587,7 @@ export async function mountScenePlayer({
   }
 
   function applyBounds(b) {
-    grid.position.set(b.centerX, b.groundY, b.centerZ);
+    groundY = b.groundY;
     origin.position.y = b.groundY + 0.02;
     // Fog starts beyond the framed area so it adds depth without dimming the
     // objects the viewer came to see.
@@ -706,7 +708,7 @@ export async function mountScenePlayer({
     : null;
 
   // Gerardus's street geometry, where the site has an accepted pose: kerbs,
-  // lane markings, walls, poles and trees, already in the sensor's frame. A
+  // streets, walls, and ground, already in the sensor's frame. A
   // scene without the file, or with one that cannot be read, plays as it did,
   // and its switch stays hidden.
   let vectorGroup = null;
@@ -719,6 +721,15 @@ export async function mountScenePlayer({
       return null;
     });
     if (collection) {
+      buildingMask = createBuildingMask(collection);
+      groundGroup = createGroundGroup(collection);
+      scene.add(groundGroup);
+      teardown.onDispose(() =>
+        groundGroup.traverse((o) => {
+          o.geometry?.dispose();
+          o.material?.dispose();
+        }),
+      );
       vectorGroup = createVectorGroup(collection);
       scene.add(vectorGroup);
       teardown.onDispose(() =>
@@ -729,6 +740,8 @@ export async function mountScenePlayer({
       );
     }
   }
+  const groundLabel = ui.gridToggle?.closest("label");
+  if (groundLabel) groundLabel.hidden = groundGroup.children.length === 0;
   const vectorsLabel = ui.vectorsToggle?.closest("label");
   if (vectorsLabel) vectorsLabel.hidden = !vectorGroup;
 
@@ -868,6 +881,7 @@ export async function mountScenePlayer({
 
     const seen = new Set();
     for (const t of frame.tr ?? []) {
+      if (buildingMask.hides(t)) continue;
       seen.add(t.id);
       let v = visuals.get(t.id);
       if (!v) {
@@ -926,14 +940,14 @@ export async function mountScenePlayer({
     // scene's point-cloud overlay silently failed to appear on first load.
     boxesVisible: ui.boxesToggle?.checked ?? true,
     trailsVisible: ui.trailsToggle?.checked ?? true,
-    backgroundVisible: ui.backgroundToggle?.checked ?? true,
+    backgroundVisible: ui.backgroundToggle?.checked ?? false,
     gridVisible: ui.gridToggle?.checked ?? true,
     vectorsVisible: ui.vectorsToggle?.checked ?? true,
     lidarVisible: ui.lidarToggle?.checked ?? true,
     loopOpening: ui.openingLoopToggle?.checked ?? false,
   };
   if (backgroundCloud) backgroundCloud.visible = state.backgroundVisible;
-  grid.visible = state.gridVisible;
+  groundGroup.visible = state.gridVisible;
   if (vectorGroup) vectorGroup.visible = state.vectorsVisible;
   const playbackDuration = () =>
     sceneLoopDuration(
@@ -998,7 +1012,11 @@ export async function mountScenePlayer({
           seconds,
           state.trailHistorySec ?? 5,
         );
-        trailsByTrack = buildTrailHistories(history.frames, trackIds);
+        trailsByTrack = buildTrailHistories(
+          history.frames,
+          trackIds,
+          buildingMask,
+        );
         state.effectiveTrailHistorySec = (history.toUs - history.fromUs) / 1e6;
       }
       const n = renderFrame(
@@ -1200,7 +1218,7 @@ export async function mountScenePlayer({
   if (ui.gridToggle) {
     on(ui.gridToggle, "change", () => {
       state.gridVisible = ui.gridToggle.checked;
-      grid.visible = state.gridVisible;
+      groundGroup.visible = state.gridVisible;
       render();
     });
   }
@@ -1330,7 +1348,7 @@ export async function mountScenePlayer({
         );
         if (vantage) button.textContent = vantage.label;
       }
-      grid.rotation.y = -((angles.grid_azimuth_deg ?? 0) * Math.PI) / 180;
+      // Registered ground is fixed in the data frame; camera hints cannot rotate it.
       northAzimuthDeg = angles.north_azimuth_deg;
       render();
     },
@@ -1444,7 +1462,11 @@ export async function mountScenePlayer({
         us,
         state.trailHistorySec,
       );
-      trailsByTrack = buildTrailHistories(history.frames, trackIds);
+      trailsByTrack = buildTrailHistories(
+        history.frames,
+        trackIds,
+        buildingMask,
+      );
       effectiveTrailHistorySec = (history.toUs - history.fromUs) / 1e6;
     }
     state.effectiveTrailHistorySec = effectiveTrailHistorySec;
@@ -1558,7 +1580,7 @@ export async function mountScenePlayer({
    */
   function groundAt(clientX, clientY) {
     raycaster.setFromCamera(pointerNDC(clientX, clientY), camera);
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -grid.position.y);
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -groundY);
     const hit = new THREE.Vector3();
     if (!raycaster.ray.intersectPlane(plane, hit)) return null;
     return sceneGroundToENU(hit);
@@ -1577,7 +1599,7 @@ export async function mountScenePlayer({
       child.material?.dispose();
     }
     for (const region of regions ?? []) {
-      regionGroup.add(buildRegionRing(region, grid.position.y));
+      regionGroup.add(buildRegionRing(region, groundY));
     }
     render();
   }

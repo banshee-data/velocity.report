@@ -1350,7 +1350,7 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
 
     private(set) var evaluations: [Gerardus_Align_V1alpha1_EvaluatePoseRequest] = []
     /// Called inside EvaluatePose before it answers.
-    var duringEvaluation: (@MainActor (Int) -> Void)?
+    var duringEvaluation: (@MainActor (Int) async -> Void)?
     /// EvaluatePose calls answering now, and the most there have been.
     private(set) var inFlight = 0
     private(set) var maxInFlight = 0
@@ -2576,6 +2576,31 @@ private func gate(_ name: String, passed: Bool) -> Gerardus_Align_V1alpha1_GateR
         // The first score, then the snap; the score the snap superseded is
         // never sent.
         #expect(service.evaluations.map(\.refine) == [false, true])
+    }
+
+    @Test func completedEvaluationHandsTheSlotToWaitingSnaps() async {
+        let (session, service, _) = await placed()
+        var waiting: [Task<Void, Never>] = []
+        var started = 0
+        service.duringEvaluation = { call in
+            guard call == 1 else { return }
+            waiting = (0..<3).map { _ in
+                Task {
+                    started += 1
+                    await session.snap()
+                }
+            }
+            while started < 3 { await Task.yield() }
+        }
+        session.nudge(x: 1)
+        await session.pendingEvaluation?.value
+        for task in waiting { await task.value }
+        #expect(service.maxInFlight == 1)
+        // The first waiting snap refines the pose and supersedes its peers'
+        // old generation, so only one of the three waiting snaps is sent.
+        #expect(service.evaluations.count == 2)
+        #expect(service.inFlight == 0)
+        #expect(!session.isEvaluating)
     }
 
     @Test func snapDrawsTheRefinedPose() async {

@@ -88,6 +88,15 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   both in the Eleventy build and in the browser, so static pages and the compare view match.
   `survey-page.js` adds the interactive parts.
 
+The 3D playback uses Gerardus's registered ground mesh in place of a flat grid.
+Experimental poles, signs, painted-marking proposals, and registered façade patches are
+excluded, while street centrelines, kerbs, and trees with dark green foliage remain.
+Background LiDAR points start hidden. Source
+building footprints mask boxes inside buildings and break trails at their boundaries;
+this presentation filter leaves the survey's aggregate statistics unchanged. Its
+coverage is limited by the available footprints and their accepted registration.
+See the [scene export guide](../tools/s2-archive/README.md#street-geometry-from-gerardus).
+
 ## Deployment
 
 The site automatically deploys to GitHub Pages when changes are pushed to the `gh-pages` branch.

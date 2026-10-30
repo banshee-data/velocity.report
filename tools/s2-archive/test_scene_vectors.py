@@ -88,14 +88,15 @@ class LayersTest(unittest.TestCase):
             "trees",
         ]
         self.assertEqual(
-            scene_vectors.wanted_layers(served), ["wall_surfaces", "trees"]
+            scene_vectors.wanted_layers(served),
+            ["footprints", "wall_surfaces", "trees"],
         )
 
     def test_footprints_stand_in_when_there_are_no_walls(self):
         served = ["footprints", "observed", "lane_markings", "intersections"]
         self.assertEqual(
             scene_vectors.wanted_layers(served),
-            ["footprints", "lane_markings", "observed"],
+            ["footprints", "observed"],
         )
 
 
@@ -160,28 +161,44 @@ class FeaturesTest(unittest.TestCase):
             },
         )
 
-    def test_a_lane_marking_keeps_what_was_painted(self):
+    def test_experimental_layers_are_not_exported(self):
         line = {
             "type": "LineString",
-            "coordinates": [self.site(1, 1, -2.5), self.site(5, 1, -2.5)],
+            "coordinates": [self.site(1, 1, -2), self.site(2, 2, -2)],
         }
-        [f] = self.features(
-            {
-                "features": [
-                    feature(
-                        "lane_markings",
-                        line,
-                        kind="lane_marking",
-                        marking="centre_line",
-                        pattern="double",
-                        contrast="0.4",
-                    )
-                ]
-            }
+        self.assertEqual(
+            self.features(
+                {
+                    "features": [
+                        feature(layer, line)
+                        for layer in ("lane_markings", "street_furniture")
+                    ]
+                }
+            ),
+            [],
         )
-        self.assertEqual(f["properties"]["marking"], "centre_line")
-        self.assertEqual(f["properties"]["pattern"], "double")
-        self.assertNotIn("contrast", f["properties"])
+
+    def test_registered_faces_are_check_only_and_tree_dimensions_are_kept(self):
+        line = {
+            "type": "LineString",
+            "coordinates": [self.site(1, 1, -2), self.site(1, 1, 5)],
+        }
+        collection = {
+            "features": [
+                feature("wall_planes", line),
+                feature("observed", line, kind="facade"),
+                feature(
+                    "trees", line, crown_radius_m="3.5", crown_base_m=2, height_m=10
+                ),
+            ]
+        }
+        [tree] = self.features(collection)
+        self.assertEqual(tree["properties"]["layer"], "trees")
+        self.assertEqual(tree["properties"]["crown_radius_m"], 3.5)
+        checked = scene_vectors.scene_features(
+            collection, scene_vectors.into_sensor(self.pose), include_registration=True
+        )
+        self.assertEqual(len(checked), 3)
 
     def test_gerardus_source_words_become_source_ids(self):
         ring = [
@@ -194,7 +211,7 @@ class FeaturesTest(unittest.TestCase):
             {
                 "features": [
                     feature(
-                        "wall_planes",
+                        "wall_surfaces",
                         {"type": "Polygon", "coordinates": [ring]},
                         source="datasf+registered-scans",
                     )
@@ -244,7 +261,7 @@ class FeaturesTest(unittest.TestCase):
             ]
         }
         layers = [f["properties"]["layer"] for f in self.features(collection)]
-        self.assertEqual(layers, ["city_streets", "lane_markings", "trees"])
+        self.assertEqual(layers, ["city_streets", "trees"])
 
 
 class PlacementCheckTest(unittest.TestCase):
@@ -377,6 +394,28 @@ class WriteTest(unittest.TestCase):
             self.assertEqual(
                 os.listdir(os.path.join(assets, "vectors")), ["vectors.geojson.gz"]
             )
+
+
+class GroundTest(unittest.TestCase):
+    def test_slope_and_pose_are_preserved(self):
+        grid = dict(x0=10, y0=-20, cell_m=1, nx=2, ny=2, heights=[20, 21, 22, 23])
+        mesh = scene_vectors.ground_mesh(grid, scene_vectors.into_sensor(yaw_pose(0)))
+        self.assertEqual(
+            mesh["positions"],
+            [[0.0, 0.0, -3.0], [1.0, 0.0, -2.0], [1.0, 1.0, 0.0], [0.0, 1.0, -1.0]],
+        )
+        self.assertEqual(mesh["indices"], [0, 1, 2, 0, 2, 3])
+
+    def test_holes_and_radius_are_not_bridged(self):
+        grid = dict(x0=0, y0=0, cell_m=1, nx=2, ny=2, heights=[0, None, 0, 0])
+        mesh = scene_vectors.ground_mesh(grid, lambda p: p)
+        self.assertEqual(len(mesh["indices"]), 3)
+        grid["heights"] = [0, None, None, 0]
+        self.assertEqual(scene_vectors.ground_mesh(grid, lambda p: p)["indices"], [])
+        grid["heights"] = [0, 0, 0, 0]
+        self.assertEqual(
+            scene_vectors.ground_mesh(grid, lambda p: p, radius_m=0.1)["indices"], []
+        )
 
 
 if __name__ == "__main__":

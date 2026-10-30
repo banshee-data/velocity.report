@@ -255,19 +255,31 @@ and `SCENE_SPEED_MODE` if an experiment needs different ones.
 ### Street geometry from Gerardus
 
 Where a site has a pose an operator accepted in Gerardus, a rebuilt scene also
-carries Gerardus's street geometry, `assets/vectors/vectors.geojson.gz`: kerbs
-and facades, lane markings and crosswalks, measured walls, building walls and
-roof planes where the site's bundle has them, poles and trees, and the city's
-street centrelines, within 90 m of the sensor. `scene-vectors.py` places each
+carries Gerardus's street geometry, `assets/vectors/vectors.geojson.gz`: kerbs,
+building walls and roof planes where the site's bundle has them, building
+footprints, and the city's street centrelines, within
+90 m of the sensor. Trees retain their inferred crown dimensions and appear
+with dark green foliage. Experimental lane markings, poles, signs, and registered
+façade patches are excluded from public exports. The registered patches still
+inform the placement check. `scene-vectors.py` places each
 feature in the scene's sensor frame by the inverse of the accepted pose, so the
 scene keeps its frame and gains nothing georeferenced, and checks the pose
 against the new background first: walls and kerbs must lie nearer its points
 at the pose than at the pose moved 2 m or turned 5 degrees. A site with no
 accepted pose gets no file, and the eye-read position is never used in its
 place. The file names each source and its terms and keeps only geometry,
-layer, kind, evidence status, Gerardus's state and the heights a pole or tree
-needs; OpenStreetMap layers are never asked for. The scene page shows it under
-a "Street geometry" switch.
+layer, kind, evidence status, and Gerardus's state; OpenStreetMap layers are
+never asked for. The scene page shows it under a "Street geometry" switch.
+
+The same file carries the site's ground mesh, transformed by the same pose.
+The "Ground" switch draws that mesh at its measured heights, with holes left
+open; a scene without ground has no replacement flat grid. LiDAR background
+points start hidden. Building footprints also mask boxes whose tracked position
+or drawn centre lies inside a building. Trails stop at masked samples and at
+segments crossing a footprint; polygon holes remain open courtyards. This is a
+presentation filter against source footprints, not a correction to the tracker
+or to the survey's aggregate statistics. Missing or misregistered footprints
+limit the mask.
 
 `publish-scenes.py` writes it as it builds each scene (`SCENE_VECTORS=auto`,
 the default; `required` fails a posed scene that cannot have it, `off` skips
