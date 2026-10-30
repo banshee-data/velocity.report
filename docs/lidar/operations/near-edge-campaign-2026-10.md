@@ -127,7 +127,7 @@ is reported separately. Core Columbus/Haight timings retain census-I/O contentio
 | 1st-mission           | -11.61 |   -13.49 | -22.66 | none observed          | 67.25x / 41.97x                  |
 | 3rd-folsom            | +24.98 |   +22.91 | -10.05 | body, steady           | 18.95x / 18.60x                  |
 | ashbury-downey        | +23.74 |   -11.00 |  -3.44 | body                   | 44.68x / 31.52x                  |
-| broadway-gough        | -37.06 |   -39.77 | -32.77 | none observed          | 27.19x / 23.58x                  |
+| broadway-franklin     | -37.06 |   -39.77 | -32.77 | none observed          | 27.19x / 23.58x                  |
 | bush-powell           |  +5.66 |    -7.97 |  +0.71 | none observed          | 103.51x / 52.67x                 |
 | california-leon-baker |  -3.82 |    -3.24 | -12.37 | none observed          | 26.22x / 21.11x                  |
 | columbus-broadway     |  -7.14 |    -7.14 | -10.08 | none observed          | 106.66x / 54.70x                 |
@@ -174,7 +174,7 @@ Pierce and Clar matter when interpreting their p99.
 | 1st-mission           | 0.23420 (2,115) / 0.20700 (2,128) | 0.23406 (2,080) / 0.20248 (2,092) | 0.14583 (1,617) / 0.11279 (1,592) |
 | 3rd-folsom            | 0.27751 (3,041) / 0.34683 (2,453) | 0.25617 (3,008) / 0.31484 (2,398) | 0.11729 (1,997) / 0.10550 (1,690) |
 | ashbury-downey        | 0.23300 (1,587) / 0.28830 (1,454) | 0.22055 (1,559) / 0.19629 (1,421) | 0.08974 (952) / 0.08665 (802)     |
-| broadway-gough        | 0.32096 (2,338) / 0.20202 (2,044) | 0.32035 (2,289) / 0.19293 (1,998) | 0.12158 (1,344) / 0.08174 (1,181) |
+| broadway-franklin     | 0.32096 (2,338) / 0.20202 (2,044) | 0.32035 (2,289) / 0.19293 (1,998) | 0.12158 (1,344) / 0.08174 (1,181) |
 | bush-powell           | 0.19761 (1,928) / 0.20879 (1,778) | 0.19606 (1,901) / 0.18044 (1,734) | 0.11502 (1,259) / 0.11583 (1,136) |
 | california-leon-baker | 0.31146 (1,805) / 0.29956 (1,488) | 0.30959 (1,784) / 0.29956 (1,451) | 0.14812 (870) / 0.12980 (696)     |
 | columbus-broadway     | 0.27981 (6,809) / 0.25984 (6,154) | 0.27982 (6,735) / 0.25984 (6,037) | 0.14080 (4,011) / 0.12662 (3,469) |
@@ -217,7 +217,7 @@ counts and duration do not establish identity correctness or recall.
 | 1st-mission           |    5.1919 |    5.1228 |    -1.33 | 1443 / 1471      | 10 / 11      | 10 / 10       |
 | 3rd-folsom            |    3.1350 |    3.0107 |    -3.97 | 1363 / 1407      | 4 / 4        | 5 / 5         |
 | ashbury-downey        |    6.1981 |    5.9174 |    -4.53 | 360 / 374        | 1 / 2        | 5 / 5         |
-| broadway-gough        |    2.7579 |    2.7191 |    -1.41 | 1649 / 1681      | 8 / 7        | 3 / 4         |
+| broadway-franklin     |    2.7579 |    2.7191 |    -1.41 | 1649 / 1681      | 8 / 7        | 3 / 4         |
 | bush-powell           |    3.6669 |    3.6602 |    -0.18 | 1038 / 1041      | 12 / 12      | 7 / 7         |
 | california-leon-baker |    2.4407 |    2.4109 |    -1.22 | 1161 / 1172      | 1 / 1        | 8 / 8         |
 | columbus-broadway     |    3.5549 |    3.4612 |    -2.63 | 2451 / 2500      | 7 / 7        | 8 / 8         |
@@ -355,7 +355,7 @@ establish independent-frame inference, physical accuracy, or population generali
 | 1st-mission           |                    +23.34 | [+7.87, +64.77]       | [-15.21, +17.48]         |
 | 3rd-folsom            |                    +57.43 | [+24.25, +85.95]      | [-7.77, +0.10]           |
 | ashbury-downey        |                    +53.82 | [+29.13, +99.34]      | [-7.53, -1.29]           |
-| broadway-gough        |                     -4.28 | [-10.45, +23.60]      | [-12.73, +10.17]         |
+| broadway-franklin     |                     -4.28 | [-10.45, +23.60]      | [-12.73, +10.17]         |
 | bush-powell           |                    +42.59 | [+9.04, +100.77]      | [-3.20, +2.81]           |
 | california-leon-baker |                    +15.91 | [+5.43, +39.66]       | [-3.85, +1.55]           |
 | columbus-broadway     |                    +59.16 | [+30.63, +85.44]      | [-5.92, +0.97]           |
@@ -397,7 +397,7 @@ Counts describe this corpus and the chosen resampling scheme; they are not a poo
 | Whole tracks    | core     |                15 |                 0 |            8 |
 | Whole tracks    | transfer |                 3 |                 0 |            3 |
 
-Posterior XY proxy p99 is higher for A2 than B0 at 28 of 29 cases; Broadway–Gough is the one
+Posterior XY proxy p99 is higher for A2 than B0 at 28 of 29 cases; Broadway–Franklin is the one
 lower point estimate. The primary interval is wholly above zero at 19 core sites and four transfer
 sessions, with no interval wholly below zero. Several proxy regressions therefore coexist with
 improved observation-geometry summaries. The measures use different positions and eligibility

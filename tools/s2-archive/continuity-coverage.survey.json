@@ -236,9 +236,9 @@
       ]
     }
   },
-  "broadway-gough": {
-    "case_id": "broadway-gough",
-    "declaration_id": "sha256:86a8d5ba7610ad8e1c3f53ba6d991ca34b3a1c9a8600bc5d17336378a35b1c4e",
+  "broadway-franklin": {
+    "case_id": "broadway-franklin",
+    "declaration_id": "sha256:898fa15311a2963b8db9147efb0af347c7756fbb14f4e3395d25f46fc49cc7d1",
     "tool": "lidar-state-estimation-baseline -survey-coverage",
     "build_version": "dev",
     "build_git_sha": "3ee42366c79233f5197a059bc226aa6026f9f666",

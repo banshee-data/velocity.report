@@ -673,23 +673,23 @@
           }
         },
         {
-          "id": "broadway-gough",
-          "title": "Broadway at Gough",
-          "page": "/surveys/broadway-gough/",
+          "id": "broadway-franklin",
+          "title": "Broadway at Franklin",
+          "page": "/surveys/broadway-franklin/",
           "summary": "19 minutes of a static roadside recording.",
           "archive_site": "s06",
           "grid_azimuth_deg": 359,
           "north_azimuth_deg": 99,
           "speed_limit_mph": 25,
           "capture": {
-            "raw_path": "raw/lidar/20260901T1510_80858-0c4_broadway-gough.pcapng"
+            "raw_path": "raw/lidar/20260901T1510_80858-0c4_broadway-franklin.pcapng"
           },
           "position": {
-            "lat": 37.7952,
-            "lon": -122.4269,
+            "lat": 37.7955,
+            "lon": -122.4249,
             "source": "operator"
           },
-          "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+          "position_note": "Operator-corrected to Broadway at Franklin (37.7955, -122.4249). This point identifies the junction, not a surveyed sensor position. Orientation and the assumed 25 mph limit have not been independently revalidated.",
           "position_source": "archive-index",
           "published": true,
           "located": true,
@@ -705,8 +705,8 @@
               "level": 13
             },
             "site": {
-              "token": "808580c25",
-              "display": "80858-0c25",
+              "token": "808580c27",
+              "display": "80858-0c27",
               "level": 16
             }
           },
@@ -770,31 +770,31 @@
               ]
             },
             "site": {
-              "token": "808580c25",
-              "displayToken": "80858-0c25",
-              "cellId": "9260949780811481088",
+              "token": "808580c27",
+              "displayToken": "80858-0c27",
+              "cellId": "9260949781348352000",
               "level": 16,
-              "orientation": 2,
+              "orientation": 1,
               "centre": {
-                "lat": 37.795622545741104,
-                "lng": -122.42619761362725
+                "lat": 37.796058074701385,
+                "lng": -122.42478186526397
               },
               "vertices": [
                 {
-                  "lat": 37.79600016130177,
-                  "lng": -122.42690548064661
-                },
-                {
-                  "lat": 37.79480938416056,
-                  "lng": -122.42690548064661
+                  "lat": 37.79643570068782,
+                  "lng": -122.42548974183295
                 },
                 {
                   "lat": 37.795244918895456,
                   "lng": -122.42548974183295
                 },
                 {
-                  "lat": 37.79643570068782,
-                  "lng": -122.42548974183295
+                  "lat": 37.79568043742968,
+                  "lng": -122.4240739839206
+                },
+                {
+                  "lat": 37.796871223872756,
+                  "lng": -122.4240739839206
                 }
               ]
             }
@@ -3536,24 +3536,24 @@
       }
     },
     {
-      "id": "broadway-gough",
-      "title": "Broadway at Gough",
-      "page": "/surveys/broadway-gough/",
+      "id": "broadway-franklin",
+      "title": "Broadway at Franklin",
+      "page": "/surveys/broadway-franklin/",
       "published": true,
       "archive_site": "s06",
       "summary": "19 minutes of a static roadside recording.",
       "located": true,
       "position": {
-        "lat": 37.7952,
-        "lon": -122.4269,
+        "lat": 37.7955,
+        "lon": -122.4249,
         "source": "operator"
       },
-      "position_note": "Read from the field map (Broadway at Gough), matched to this recording by the clock rather than by hand. Neighbourhood-level: the one scene with an independent check was about 450 m out. Replace with a survey.",
+      "position_note": "Operator-corrected to Broadway at Franklin (37.7955, -122.4249). This point identifies the junction, not a surveyed sensor position. Orientation and the assumed 25 mph limit have not been independently revalidated.",
       "grid_azimuth_deg": 359,
       "north_azimuth_deg": 99,
       "speed_limit_mph": 25,
       "capture": {
-        "raw_path": "raw/lidar/20260901T1510_80858-0c4_broadway-gough.pcapng"
+        "raw_path": "raw/lidar/20260901T1510_80858-0c4_broadway-franklin.pcapng"
       },
       "cells": {
         "area": {
@@ -3567,8 +3567,8 @@
           "level": 13
         },
         "site": {
-          "token": "808580c25",
-          "display": "80858-0c25",
+          "token": "808580c27",
+          "display": "80858-0c27",
           "level": 16
         }
       },

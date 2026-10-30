@@ -52,6 +52,11 @@ of a public place.
 
 ## What is here
 
+The September 1 Broadway at Franklin survey is at WGS 84 `(37.7955, -122.4249)`,
+S2 L16 `808580c27` in L13 `808580c4`. The point is an operator correction,
+not a surveyed sensor position. Raw packets and their SHA-256 remain unchanged;
+historical registration results used an incorrect location hint.
+
 | Measure                   |                           Value |
 | ------------------------- | ------------------------------: |
 | Static LiDAR captures     |                              24 |

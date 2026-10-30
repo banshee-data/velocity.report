@@ -55,6 +55,7 @@ function derivedSummary(scene) {
 }
 
 function derivedNote(site) {
+  if (site.position_note) return site.position_note;
   return (
     `Read from the field map (${site.where}), matched to this recording by the ` +
     "clock rather than by hand. Neighbourhood-level: the one scene with an " +

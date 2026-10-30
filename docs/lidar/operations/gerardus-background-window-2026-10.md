@@ -1,5 +1,10 @@
 # The background's length for registration: 60, 90, 180 and 300 s at the wrong-peak sites
 
+Location correction: this case used an incorrect position hint about 179 m away.
+Its recorded measurements are unchanged; registration at the corrected junction
+requires a new reference bundle and rerun. See the
+[correction record](broadway-franklin-location-correction.md).
+
 In [pose0001](gerardus-static-registration-2026-10.md), five archive sites registered against
 3DEP on a wrong peak from 300 s backgrounds. At one of them, R1's 83 s background of the same
 capture registers with the same code. This report replays the first 60, 90 and 180 s of each
@@ -21,7 +26,7 @@ before any replay.
 - **The wrong-peak sites flip between peaks from window to window.** The exported point count
   changes by about 0.3 % between 60 and 300 s. fulton-divisadero registers at 60 s and fails at 90,
   180 and 300 s. laguna-eddy registers at 60 and 180 s and fails at 90 and 300 s. hyde-ofarrell
-  alternates between two wrong peaks, and broadway-gough is wrong at every window. The coarse
+  alternates between two wrong peaks, and broadway-franklin is wrong at every window. The coarse
   search's best peak at these sites is decided by differences far smaller than the window.
 - **embarcadero-folsom finds R1's pose at every short window**: heading 49.4°, 5.6 m from the hint,
   separation 1.49–1.55. It fails only facade p75, at 0.25–0.33 m against R1's 0.198 m. The 300 s
@@ -37,7 +42,7 @@ before any replay.
 ## Question
 
 Do a shorter background's cells register the five wrong-peak sites (fulton-divisadero,
-broadway-gough, laguna-eddy, hyde-ofarrell, embarcadero-folsom)? Does a shorter window cost the
+broadway-franklin, laguna-eddy, hyde-ofarrell, embarcadero-folsom)? Does a shorter window cost the
 sites that already pass (ashbury-downey, lombard-laguna, columbus-broadway, van-ness-sacramento,
 franklin-mcallister)?
 
@@ -72,10 +77,10 @@ Points is the exported background's point count. "Δ hint" is the best heading l
 | fulton-divisadero   | wrong peak | 90 s   |  70957 | FAILED    |        245.4 | +166.4 |      0.182 |      0.492 |       1.01 |  0.00 | facade_p75, separation, seed_agreement                                 | 4.37, +7.6         |
 | fulton-divisadero   | wrong peak | 180 s  |  71002 | FAILED    |        242.2 | +163.2 |      0.191 |      0.580 |       1.01 |  0.00 | facade_p75, separation, seed_agreement                                 | 5.66, +4.4         |
 | fulton-divisadero   | wrong peak | 300 s  |  71114 | FAILED    |        237.8 | +158.8 |      0.216 |        NaN |       1.00 |  0.25 | ground_p95, separation, seed_agreement                                 | 0.00, +0.0         |
-| broadway-gough      | wrong peak | 60 s   |  70195 | FAILED    |        162.5 |  +81.5 |      0.256 |      0.517 |       1.00 |  0.00 | ground_p95, facade_p75, separation, seed_agreement                     | 40.74, +174.1      |
-| broadway-gough      | wrong peak | 90 s   |  70224 | FAILED    |        347.4 |  -93.6 |      0.222 |      0.391 |       1.09 |  0.65 | ground_p95, facade_p75, separation, seed_agreement                     | 0.15, -1.0         |
-| broadway-gough      | wrong peak | 180 s  |  70258 | FAILED    |        347.3 |  -93.7 |      0.237 |      0.533 |       1.01 |  0.00 | ground_p95, facade_p75, separation, seed_agreement                     | 2.25, -1.1         |
-| broadway-gough      | wrong peak | 300 s  |  70278 | FAILED    |        348.4 |  -92.6 |      0.221 |      0.391 |       1.05 |  0.25 | ground_p95, facade_p75, facade_range_slope, separation, seed_agreement | 0.00, +0.0         |
+| broadway-franklin   | wrong peak | 60 s   |  70195 | FAILED    |        162.5 |  +81.5 |      0.256 |      0.517 |       1.00 |  0.00 | ground_p95, facade_p75, separation, seed_agreement                     | 40.74, +174.1      |
+| broadway-franklin   | wrong peak | 90 s   |  70224 | FAILED    |        347.4 |  -93.6 |      0.222 |      0.391 |       1.09 |  0.65 | ground_p95, facade_p75, separation, seed_agreement                     | 0.15, -1.0         |
+| broadway-franklin   | wrong peak | 180 s  |  70258 | FAILED    |        347.3 |  -93.7 |      0.237 |      0.533 |       1.01 |  0.00 | ground_p95, facade_p75, separation, seed_agreement                     | 2.25, -1.1         |
+| broadway-franklin   | wrong peak | 300 s  |  70278 | FAILED    |        348.4 |  -92.6 |      0.221 |      0.391 |       1.05 |  0.25 | ground_p95, facade_p75, facade_range_slope, separation, seed_agreement | 0.00, +0.0         |
 | laguna-eddy         | wrong peak | 60 s   |  71631 | CANDIDATE |        170.3 |   -0.7 |      0.071 |      0.129 |       1.52 |  1.00 | –                                                                      | 28.66, -40.8       |
 | laguna-eddy         | wrong peak | 90 s   |  71638 | FAILED    |        268.5 |  +97.5 |      0.146 |        NaN |       1.03 |  0.85 | separation                                                             | 23.29, +57.4       |
 | laguna-eddy         | wrong peak | 180 s  |  71658 | CANDIDATE |        170.3 |   -0.7 |      0.086 |      0.133 |       1.56 |  1.00 | –                                                                      | 28.67, -40.8       |

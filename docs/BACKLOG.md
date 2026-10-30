@@ -426,6 +426,8 @@ Deployment, reporting and publishing (October 26, 2026): the slots that were v0.
 
 ## Parked (outside the slot cap)
 
+- **P1** Broadway–Franklin registration correction: restore the indexed 3DEP source, prepare the reference bundle for `808580c27`, and rerun the original registration arms and four background windows from `(37.7955, -122.4249)`; the prior failures used a point about 179 m away and do not qualify the corrected site. Preserve the old evidence and publish the corrected site and dataset identifiers together: [correction record](lidar/operations/broadway-franklin-location-correction.md) `S` `S-REF`
+
 ### Reprioritised from 05x — revisit on gate failure or an identified consumer
 
 - **P2** Encounter-weighted following view (B10): decide whether the scene distribution publishes, beside its time-weighted histogram, one vote per encounter of its minimum or a low quantile, and how that view carries an interval; keep the two apart on every surface. Track the FMCSA Mississippi handheld headway evaluation for its calibration protocol and denominators when it reports: [briefing](lidar/operations/brief/fixed-sensor-research-briefing-2026-10-09.md), [plan B10](plans/lidar-behaviour-analytics-plan.md#13-open-research-questions) `S` {math} B1 is measured ([report](lidar/operations/following-opportunity-corpus-2026-10.md): both parties are observed at almost every site), and the [maths decision review](platform/operations/decision-review-maths-2026-10.md#e-02-q-02) deferred the view again on October 22, 2026: it reopens when the valid-following record is pinned and [l8fol0004](../data/experiments/l8fol/l8fol0004.md) reports, with Euler's statistics review. `S-MET`

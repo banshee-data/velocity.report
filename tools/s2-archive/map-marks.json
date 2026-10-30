@@ -103,16 +103,17 @@
       "speed_limit_mph": 25
     },
     {
-      "id": "broadway-gough",
+      "id": "broadway-franklin",
       "day": "2026-09-01",
       "clock": "3:05",
-      "where": "Broadway at Gough",
-      "lat": 37.7952,
-      "lon": -122.4269,
+      "where": "Broadway at Franklin",
+      "lat": 37.7955,
+      "lon": -122.4249,
       "confidence": "high",
       "grid_azimuth_deg": 359,
       "north_azimuth_deg": 99,
-      "speed_limit_mph": 25
+      "speed_limit_mph": 25,
+      "position_note": "Operator-corrected to Broadway at Franklin (37.7955, -122.4249). This point identifies the junction, not a surveyed sensor position. Orientation and the assumed 25 mph limit have not been independently revalidated."
     },
     {
       "id": "laguna-eddy",

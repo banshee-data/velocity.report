@@ -90,7 +90,7 @@ Valid following seconds, and seconds suppressed for class, per arm.
 | 1st-mission           |          0.3 |         0.4 |        15.4 | 44 / 44 / 9                                         | 12 (1)                                     |
 | 3rd-folsom            |          1.1 |         1.1 |        16.3 | 30 / 30 / 11                                        | 9 (4)                                      |
 | ashbury-downey        |         18.1 |        18.1 |        26.6 | 9 / 9 / 0                                           | 2 (0)                                      |
-| broadway-gough        |          0.4 |         2.4 |        11.9 | 16 / 14 / 0                                         | 12 (5)                                     |
+| broadway-franklin     |          0.4 |         2.4 |        11.9 | 16 / 14 / 0                                         | 12 (5)                                     |
 | bush-powell           |          0.8 |         0.8 |        25.3 | 66 / 66 / 35                                        | 14 (6)                                     |
 | california-leon-baker |          9.3 |         9.3 |        17.4 | 10 / 10 / 0                                         | 3 (2)                                      |
 | columbus-broadway     |          1.0 |         6.6 |        65.6 | 92 / 86 / 14                                        | 22 (13)                                    |

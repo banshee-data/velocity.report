@@ -521,7 +521,7 @@ inputs existed and `label-free-analysis.json` is the record. No stage carries a
   which is the gate ceasing to admit everything once S shrinks, and the metric's
   censoring caveat made visible.
 - **Default config over all 110 segments:** 110 converge (median frame 11, max 704 at
-  `marina-broderick` o0) and 106 stay settled; `broadway-gough` and
+  `marina-broderick` o0) and 106 stay settled; `broadway-franklin` and
   `fulton-divisadero` (o4), `california-leon-baker` and `pierce-haight` (o5) fall out
   for 7-43% of the window. At 300 s the only guardrail that survives on its own terms
   is `neighbour_confirmation_count = 1` (5 of 24 never converge, the rest settled 57%

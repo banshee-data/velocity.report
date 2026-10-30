@@ -16,7 +16,7 @@ thing.
 ## Summary
 
 - **Seven of the 23 placements hold at least one persistent pose change**, from 0.03° to 0.27°:
-  ashbury-downey (three), broadway-gough, embarcadero-bryant (two), haight-divisadero,
+  ashbury-downey (three), broadway-franklin, embarcadero-bryant (two), haight-divisadero,
   lombard-laguna (two, then the pickup), marina-webster-beach (two) and van-ness-sacramento (the
   sensor knocked and adjusted repeatedly for twelve minutes). None appears in any log.
 - **Six corpus cases are scored across one.** In the first segment, the one the L3 corpus screens
@@ -64,7 +64,7 @@ Persistent pose changes (yaw and tilt changes in degrees, translation in centime
 | ashbury-downey       |               655 s | yaw +0.03, tilt +0.09, 0.4 cm | after the first segment's scored window |
 |                      |               805 s | yaw +0.15, tilt +0.06, 0.4 cm | after it                                |
 |                      |             1,135 s | yaw −0.12, 0.1 cm             | after it                                |
-| broadway-gough       |               955 s | yaw −0.03, 0.4 cm             | a later capture                         |
+| broadway-franklin    |               955 s | yaw −0.03, 0.4 cm             | a later capture                         |
 | embarcadero-bryant   |               205 s | yaw +0.13, tilt +0.09, 0.4 cm | **first segment, scored (205 s)**       |
 |                      |    709 to 952 s gap | yaw −0.10, 0.1 cm             | between parts, a later capture          |
 | haight-divisadero    |               415 s | yaw −0.06, 0.8 cm             | **second segment, scored (152 s)**      |

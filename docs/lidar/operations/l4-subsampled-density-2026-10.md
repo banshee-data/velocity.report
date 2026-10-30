@@ -90,7 +90,7 @@ p99 is on arrow-worker, not the Pi. The ten capped sites are those at 1.00 % or 
 | haight-divisadero     |       0.45 % |           0.89 |          0.84 |         9,519 |                  50 |        +4 |      +1 |  1.0 |                  0.84 |      0.86 |    0.84 |         102 ms |    101 ms |  100 ms |
 | marina-webster-beach  |       0.40 % |           0.67 |          0.55 |        14,511 |                  39 |        +1 |      +1 |  1.0 |                  0.85 |      0.85 |    0.85 |          66 ms |     64 ms |   60 ms |
 | ashbury-downey        |       0.00 % |              – |             – |         7,902 |                  36 |        +0 |      +0 |  1.0 |                  0.60 |      0.60 |    0.60 |          78 ms |     79 ms |   77 ms |
-| broadway-gough        |       0.00 % |              – |             – |         5,714 |                 114 |        +1 |      +2 |  1.1 |                  1.49 |      1.50 |    1.51 |          69 ms |     69 ms |   73 ms |
+| broadway-franklin     |       0.00 % |              – |             – |         5,714 |                 114 |        +1 |      +2 |  1.1 |                  1.49 |      1.50 |    1.51 |          69 ms |     69 ms |   73 ms |
 | embarcadero-bay       |       0.00 % |              – |             – |         6,449 |                  95 |        +0 |      +0 |  1.0 |                  1.33 |      1.33 |    1.33 |          76 ms |     79 ms |   76 ms |
 | fulton-divisadero     |       0.00 % |              – |             – |         3,957 |                  88 |        +0 |      +0 |  1.0 |                  1.53 |      1.53 |    1.53 |          66 ms |     66 ms |   67 ms |
 | howard-6th            |       0.00 % |              – |             – |         3,281 |                  77 |        +0 |      +0 |  1.0 |                  1.66 |      1.66 |    1.66 |          59 ms |     58 ms |   58 ms |
@@ -105,7 +105,7 @@ p99 is on arrow-worker, not the Pi. The ten capped sites are those at 1.00 % or 
 | Frame p99 over 1.1 × `a0`                 | 2 (1.12, 1.10)         | 8 (1.32 to 2.66)         |
 
 **The sites under the cap differ too.** At the seven sites with no scored frame over the cap the
-arms still differ by up to two vehicle tracks (Broadway at Gough and Hyde at O'Farrell). No scored
+arms still differ by up to two vehicle tracks (Broadway at Franklin and Hyde at O'Farrell). No scored
 frame there is subsampled under any arm, so the difference enters from the warm-up, whose frames
 the counter does not read. The likely source is the frames clustered before the background
 settles, when most of a frame is foreground; the tracks they leave change the background that

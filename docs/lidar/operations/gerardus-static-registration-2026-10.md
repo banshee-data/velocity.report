@@ -1,5 +1,10 @@
 # Static registration of the 24 archive sites against 3DEP: the outcomes table and the search settings
 
+Location correction: this case used an incorrect position hint about 179 m away.
+Its recorded measurements are unchanged; registration at the corrected junction
+requires a new reference bundle and rerun. See the
+[correction record](broadway-franklin-location-correction.md).
+
 Only one of the 24 archive captures has a registered sensor pose. This report registers all 24
 settled backgrounds against USGS 3DEP through Gerardus from their eye-read positions, under
 thirteen arms that vary the search settings nobody had varied, and under backgrounds made with
@@ -107,7 +112,7 @@ facade gates did not apply.
 | 03  | pierce-haight         | FAILED    |                23.4 |         171.1 |                +2.1 |      0.139 |      0.309 |  0.0023 |    6 |       1.05 |  0.00 | facade_p75_m,hypothesis_separation,seed_agreement                                 |       80 |
 | 04  | fulton-divisadero     | FAILED    |                18.0 |         237.8 |              +158.8 |      0.216 |        nan |     nan |    6 |       1.00 |  0.25 | ground_p95_m,hypothesis_separation,seed_agreement                                 |       69 |
 | 05  | california-leon-baker | FAILED    |                31.2 |          81.4 |                +2.4 |      0.127 |      0.268 | -0.0028 |    6 |       1.20 |  1.00 | facade_p75_m,hypothesis_separation                                                |       68 |
-| 06  | broadway-gough        | FAILED    |                30.2 |         348.4 |               -92.6 |      0.221 |      0.391 |  0.0097 |    6 |       1.05 |  0.25 | ground_p95_m,facade_p75_m,facade_range_slope,hypothesis_separation,seed_agreement |       46 |
+| 06  | broadway-franklin     | FAILED    |                30.2 |         348.4 |               -92.6 |      0.221 |      0.391 |  0.0097 |    6 |       1.05 |  0.25 | ground_p95_m,facade_p75_m,facade_range_slope,hypothesis_separation,seed_agreement |       46 |
 | 07  | laguna-eddy           | FAILED    |                21.8 |         211.1 |               +40.1 |      0.211 |        nan |     nan |    6 |       1.00 |  0.15 | ground_p95_m,hypothesis_separation,seed_agreement                                 |       53 |
 | 08  | lombard-broderick     | FAILED    |                 7.7 |          86.0 |                +3.0 |      0.225 |      0.233 |  0.0024 |    6 |       1.06 |  1.00 | ground_p95_m,facade_p75_m,hypothesis_separation                                   |       45 |
 | 09  | marina-broderick      | FAILED    |                 1.8 |         264.4 |                +6.4 |      0.099 |        nan |     nan |    6 |       1.18 |  1.00 | hypothesis_separation                                                             |       40 |
@@ -139,7 +144,7 @@ Reading the heading column against the failures:
   the gate's 1.25. These look like the right pose that the aerial survey cannot vouch for along
   the street: the maths note's prediction that separation is about 1 + 2.6 g, with g the share of
   points an along-street shift moves, puts them at g of 6 to 9 % against the gate's 10 %.
-- **5 failures have a heading 36° to 173° from the hint**: fulton-divisadero, broadway-gough,
+- **5 failures have a heading 36° to 173° from the hint**: fulton-divisadero, broadway-franklin,
   laguna-eddy, hyde-ofarrell and embarcadero-folsom, with bush-powell at 36°. These are wrong
   peaks: the coarse search's best candidate is not the sensor's place, the seeds disagree (0.00 to
   0.25) and the ground p95 is at or over the gate. embarcadero-folsom was a CANDIDATE in R1 at
@@ -197,11 +202,11 @@ that already passed. `r1bg` registers the two R1 backgrounds exported from the 8
 
 Convergence is the best pose landing within 0.20 m and 0.5° of `base`'s best.
 
-| Arm         | Converged | Did not | Sites that did not (shift m)                                                                                                                                                                  |
-| ----------- | --------: | ------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| perturb-e15 |        16 |       8 | broadway-gough (11.1), bush-powell (0.3), california-leon-baker (26.1), embarcadero-folsom (23.2), fulton-divisadero (3.9), haight-divisadero (26.0), laguna-eddy (2.1), pierce-haight (56.4) |
-| perturb-e25 |        18 |       6 | broadway-gough (4.6), california-leon-baker (60.3), embarcadero-folsom (23.2), haight-divisadero (28.0), hyde-ofarrell (58.0), pierce-haight (73.1)                                           |
-| perturb-n15 |        20 |       4 | broadway-gough (63.9), california-leon-baker (26.1), embarcadero-folsom (23.2), laguna-eddy (32.7)                                                                                            |
+| Arm         | Converged | Did not | Sites that did not (shift m)                                                                                                                                                                     |
+| ----------- | --------: | ------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| perturb-e15 |        16 |       8 | broadway-franklin (11.1), bush-powell (0.3), california-leon-baker (26.1), embarcadero-folsom (23.2), fulton-divisadero (3.9), haight-divisadero (26.0), laguna-eddy (2.1), pierce-haight (56.4) |
+| perturb-e25 |        18 |       6 | broadway-franklin (4.6), california-leon-baker (60.3), embarcadero-folsom (23.2), haight-divisadero (28.0), hyde-ofarrell (58.0), pierce-haight (73.1)                                           |
+| perturb-n15 |        20 |       4 | broadway-franklin (63.9), california-leon-baker (26.1), embarcadero-folsom (23.2), laguna-eddy (32.7)                                                                                            |
 
 The right-looking poses converge from every start: the six CANDIDATEs and the nine separation-only
 failures all return to the same pose from 15 m north, and all but california-leon-baker and
@@ -221,7 +226,7 @@ radius around a right peak, and the wrong-peak sites are wrong from any start.
 | pierce-haight         | FAILED    | FAILED    | 0.10, 0.10        | 0.139 / 0.149       | 0.309 / 0.376       | 1.05 / 1.05         |
 | fulton-divisadero     | FAILED    | FAILED    | 6.83, 6.50        | 0.216 / 0.221       | nan / 0.586         | 1.00 / 1.00         |
 | california-leon-baker | FAILED    | FAILED    | 0.00, 0.00        | 0.127 / 0.107       | 0.268 / 0.237       | 1.20 / 1.20         |
-| broadway-gough        | FAILED    | FAILED    | 0.01, 0.10        | 0.221 / 0.227       | 0.391 / 0.328       | 1.05 / 1.04         |
+| broadway-franklin     | FAILED    | FAILED    | 0.01, 0.10        | 0.221 / 0.227       | 0.391 / 0.328       | 1.05 / 1.04         |
 | laguna-eddy           | FAILED    | FAILED    | 8.63, 12.30       | 0.211 / 0.236       | nan / nan           | 1.00 / 1.00         |
 | lombard-broderick     | FAILED    | FAILED    | 0.04, 0.00        | 0.225 / 0.216       | 0.233 / 0.234       | 1.06 / 1.05         |
 | marina-broderick      | FAILED    | CANDIDATE | 0.00, 0.10        | 0.099 / 0.098       | nan / nan           | 1.18 / 1.27         |
