@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "public_html/**"
+      - "Makefile"
       - ".github/workflows/deploy-gh-pages.yml"
   workflow_dispatch:
 

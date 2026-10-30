@@ -1,9 +1,15 @@
+import {
+  horizonBasis,
+  createGroundSurface,
+  groundOrbit,
+} from "./scene-horizon.js";
+
 // Touch-aware orbit camera for the scene viewer.
 //
 // Written rather than pulled from three.js examples because only the core
 // three module is vendored, and because a roadside scene needs a narrower set
 // of gestures than a general-purpose orbit control: the ground plane is
-// meaningful, so the camera stays above it and always looks at a target on it.
+// meaningful: the camera follows it with positive clearance and a level horizon.
 //
 // Gestures are deliberately explicit. One pointer orbits, Shift with one
 // pointer pans, and two touch points pan while pinching to zoom. Guessing the
@@ -11,7 +17,7 @@
 // cannot get back from.
 
 const MIN_POLAR = 0; // allow a true overhead view
-const MAX_POLAR = Math.PI / 2 - 0.02; // never below the ground plane
+const MAX_POLAR = Math.PI / 2 - 0.02; // positive clearance above the ground profile
 const MIN_DISTANCE = 3;
 
 /**
@@ -154,7 +160,7 @@ export function normaliseVantages(list) {
 }
 
 /**
- * Drives a three.js camera in spherical coordinates around a ground target.
+ * Drives a three.js camera by true-horizontal bearing, radius and ground clearance.
  *
  * @param {object} opts
  * @param {import('three').PerspectiveCamera} opts.camera
@@ -194,6 +200,10 @@ export function createSceneCamera({
   // background or a shifted observed area.
   const home = { x: 0, z: 0, y: 0, span: 100 };
   let vantages = DEFAULT_VANTAGES;
+  let basis = horizonBasis(null);
+  let surface = null;
+  let orbitProfile = null;
+  let orbitKey = "";
 
   function apply() {
     state.polar = Math.min(MAX_POLAR, Math.max(MIN_POLAR, state.polar));
@@ -203,18 +213,40 @@ export function createSceneCamera({
     );
 
     const sinP = Math.sin(state.polar);
-    camera.position.set(
-      target.x + state.distance * sinP * Math.sin(state.azimuth),
-      target.y + state.distance * Math.cos(state.polar),
-      target.z + state.distance * sinP * Math.cos(state.azimuth),
-    );
-    // A ground-plane heading supplies a stable screen-up vector even at the
-    // pole, where the usual world-up vector is parallel to the viewing ray.
-    camera.up?.set(
-      -Math.cos(state.polar) * Math.sin(state.azimuth),
-      sinP,
-      -Math.cos(state.polar) * Math.cos(state.azimuth),
-    );
+    const radius = state.distance * sinP;
+    const centre = basis.toLevel([target.x, target.y, target.z]);
+    const key = [radius, centre[0], centre[2], centre[1]].join(",");
+    if (key !== orbitKey) {
+      orbitProfile = groundOrbit(surface, {
+        radius,
+        centerX: centre[0],
+        centerZ: centre[2],
+        fallbackHeight: centre[1],
+      });
+      orbitKey = key;
+    }
+    const ground = surface ? orbitProfile.heightAt(state.azimuth) : centre[1];
+    const eye = basis.fromLevel([
+      centre[0] + radius * Math.sin(state.azimuth),
+      ground + state.distance * Math.cos(state.polar),
+      centre[2] + radius * Math.cos(state.azimuth),
+    ]);
+    camera.position.set(...eye);
+    // True vertical gives a level horizon at every bearing. At the exact
+    // overhead pole choose the bearing's screen-up direction instead.
+    const direction = eye.map((v, i) => v - [target.x, target.y, target.z][i]);
+    const parallel =
+      Math.hypot(
+        ...direction.map(
+          (v, i) =>
+            v -
+            direction.reduce((s, w, j) => s + w * basis.up[j], 0) * basis.up[i],
+        ),
+      ) < 1e-8;
+    const up = parallel
+      ? basis.fromLevel([-Math.sin(state.azimuth), 0, -Math.cos(state.azimuth)])
+      : basis.up;
+    camera.up?.set(...up);
     camera.lookAt(target);
     onChange?.();
   }
@@ -235,15 +267,15 @@ export function createSceneCamera({
     //
     // The span still comes from the observed area: what to look at and how
     // much of it to fit in are different questions.
-    home.x = 0;
-    home.z = 0;
-    home.y = groundY;
+    const fallback = basis.toLevel([0, groundY, 0])[1];
+    const origin = basis.fromLevel([0, surface?.heightAt(0, 0) ?? fallback, 0]);
+    [home.x, home.y, home.z] = origin;
     home.span = span;
     // centerX and centerZ are accepted and deliberately unused; callers pass
     // the observed bounds and the framing distance below is derived from them.
     void centerX;
     void centerZ;
-    target.set(home.x, groundY, home.z);
+    target.set(home.x, home.y, home.z);
     const fov = deg(camera.fov);
     // Pull back far enough that the span fits the narrower screen axis.
     const fit = span / 2 / Math.tan(fov / 2);
@@ -266,7 +298,18 @@ export function createSceneCamera({
     state.distance = state.baseDistance * (v.zoom || 1);
     // Offsets shift the look-at point across the ground, so a vantage can
     // centre on one approach rather than the middle of the junction.
-    target.set(home.x + (v.offset_x ?? 0), home.y, home.z + (v.offset_y ?? 0));
+    const dx = v.offset_x ?? 0,
+      dz = v.offset_y ?? 0;
+    if (Math.abs(basis.up[1]) > 1e-6) {
+      target.set(
+        home.x + dx,
+        home.y - (basis.up[0] * dx + basis.up[2] * dz) / basis.up[1],
+        home.z + dz,
+      );
+    } else {
+      const offset = basis.fromLevel([dx, 0, dz]);
+      target.set(home.x + offset[0], home.y + offset[1], home.z + offset[2]);
+    }
     apply();
     return v.id ?? null;
   }
@@ -281,8 +324,9 @@ export function createSceneCamera({
    * reader who has framed a useful angle can hand those numbers to whoever
    * edits the scene rather than describing it in prose.
    */
-  function currentVantage() {
-    const round = (n, p = 1) => Math.round(n * 10 ** p) / 10 ** p;
+  function currentVantage({ precise = false } = {}) {
+    const round = (n, p = 1) =>
+      precise ? n : Math.round(n * 10 ** p) / 10 ** p;
     return {
       azimuth_deg: round(((state.azimuth * 180) / Math.PI + 360) % 360),
       polar_deg: round((state.polar * 180) / Math.PI),
@@ -308,8 +352,12 @@ export function createSceneCamera({
     // camera. Both axes are signed so the scene tracks the finger: drag up and
     // the ground goes up the screen, rather than the camera going up and the
     // ground appearing to fall.
-    target.x -= (dx * cosA + dy * sinA) * scale;
-    target.z -= (-dx * sinA + dy * cosA) * scale;
+    const move = basis.fromLevel([
+      -(dx * cosA + dy * sinA) * scale,
+      0,
+      -(-dx * sinA + dy * cosA) * scale,
+    ]);
+    target.set(target.x + move[0], target.y + move[1], target.z + move[2]);
     apply();
   }
 
@@ -438,6 +486,17 @@ export function createSceneCamera({
   apply();
 
   return {
+    setGeometry(collection) {
+      basis = horizonBasis(collection?.placement?.up_sensor);
+      surface = createGroundSurface(collection?.ground, basis);
+      orbitKey = "";
+    },
+    get groundPoint() {
+      return [home.x, home.y, home.z];
+    },
+    get upSensor() {
+      return [basis.up[0], -basis.up[2], basis.up[1]];
+    },
     frame,
     applyPreset,
     applyVantage,

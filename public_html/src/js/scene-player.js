@@ -460,6 +460,7 @@ export async function mountScenePlayer({
   let groundGroup = new THREE.Group();
   let groundY = 0;
   let buildingMask = createBuildingMask(null);
+  let buildingRadius = 0;
 
   // A ring at the sensor origin gives the viewer a fixed reference point. The
   // sensor is the coordinate origin, mounted above the carriageway.
@@ -588,11 +589,23 @@ export async function mountScenePlayer({
 
   function applyBounds(b) {
     groundY = b.groundY;
-    origin.position.y = b.groundY + 0.02;
     // Fog starts beyond the framed area so it adds depth without dimming the
     // objects the viewer came to see.
-    scene.fog = new THREE.Fog(SCENE_COLOURS.canvas, b.span * 1.8, b.span * 5);
+    scene.fog = new THREE.Fog(
+      SCENE_COLOURS.canvas,
+      Math.max(b.span * 1.8, buildingRadius * 1.3),
+      Math.max(b.span * 5, buildingRadius * 2.5),
+    );
     sceneCamera.frame(b);
+    const anchor = sceneCamera.groundPoint,
+      up = sceneCamera.upSensor;
+    const normal = new THREE.Vector3(up[0], up[2], -up[1]);
+    origin.position.set(
+      anchor[0] + normal.x * 0.02,
+      anchor[1] + normal.y * 0.02,
+      anchor[2] + normal.z * 0.02,
+    );
+    origin.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
   }
 
   // Drone state. Declared up here because the camera's own input callback
@@ -600,6 +613,8 @@ export async function mountScenePlayer({
   let flight = null;
   let flying = false;
   let flightSeconds = 0;
+  let takeoff = null;
+  let takeoffSeconds = 0;
   let setFlying = () => {};
 
   // The scene is drawn on demand, not every animation frame, so anything that
@@ -721,6 +736,9 @@ export async function mountScenePlayer({
       return null;
     });
     if (collection) {
+      sceneCamera.setGeometry(collection);
+      buildingRadius =
+        collection.building_clip_radius_m ?? collection.clip_radius_m ?? 0;
       buildingMask = createBuildingMask(collection);
       groundGroup = createGroundGroup(collection);
       scene.add(groundGroup);
@@ -1135,7 +1153,17 @@ export async function mountScenePlayer({
     // recording does.
     if (flying && flight) {
       flightSeconds += wallDt;
-      sceneCamera.applyVantage(flight.sample(flightSeconds));
+      let view = flight.sample(flightSeconds);
+      if (takeoff) {
+        takeoffSeconds += wallDt;
+        const t = Math.min(1, takeoffSeconds / 1.2),
+          blend = t * t * (3 - 2 * t);
+        for (const key of ["polar_deg", "zoom", "offset_x", "offset_y"])
+          view[key] =
+            (takeoff[key] ?? 0) * (1 - blend) + (view[key] ?? 0) * blend;
+        if (t === 1) takeoff = null;
+      }
+      sceneCamera.applyVantage(view);
     }
 
     if (state.playing) {
@@ -1271,7 +1299,9 @@ export async function mountScenePlayer({
     if (next === flying) return;
     flying = next && canFly;
     if (flying) {
-      flightSeconds = flight.phaseFor(sceneCamera.currentVantage().azimuth_deg);
+      takeoff = sceneCamera.currentVantage({ precise: true });
+      takeoffSeconds = 0;
+      flightSeconds = flight.phaseFor(takeoff.azimuth_deg);
       markPreset(null);
     }
     if (ui.flyToggle) ui.flyToggle.setAttribute("aria-checked", String(flying));
@@ -1492,7 +1522,13 @@ export async function mountScenePlayer({
 
     renderFrame(frame, partIndex, pointFrame, pointOpacity, trailsByTrack);
     const appliedFovDeg = viewSpec.fovDeg ?? DEFAULT_FOV_DEG;
-    applyCapturePose(camera, viewSpec.camera, viewSpec.target, appliedFovDeg);
+    applyCapturePose(
+      camera,
+      viewSpec.camera,
+      viewSpec.target,
+      appliedFovDeg,
+      sceneCamera.upSensor,
+    );
     render();
 
     return {

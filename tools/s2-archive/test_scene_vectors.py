@@ -396,6 +396,73 @@ class WriteTest(unittest.TestCase):
             )
 
 
+class ContextTest(unittest.TestCase):
+    def test_building_context_extends_to_twice_the_other_feature_radius(self):
+        geometry = {"type": "LineString", "coordinates": [[150, 0, 0], [155, 0, 0]]}
+        features = scene_vectors.scene_features(
+            {
+                "features": [
+                    feature("city_streets", geometry),
+                    feature("wall_surfaces", geometry),
+                    feature("trees", geometry),
+                ]
+            },
+            lambda p: p,
+        )
+        self.assertEqual(
+            [f["properties"]["layer"] for f in features], ["wall_surfaces"]
+        )
+        self.assertEqual(
+            scene_vectors.scene_features(
+                {"features": [feature("wall_surfaces", geometry)]},
+                lambda p: p,
+                include_registration=True,
+            ),
+            [],
+        )
+        geometry["coordinates"] = [[190, 0, 0], [195, 0, 0]]
+        self.assertEqual(
+            scene_vectors.scene_features(
+                {"features": [feature("wall_surfaces", geometry)]}, lambda p: p
+            ),
+            [],
+        )
+
+    def test_collection_records_true_vertical_and_separate_building_coverage(self):
+        from contextlib import ExitStack
+
+        pose = yaw_pose(0)
+        pose["rotation"] = {
+            "w": math.cos(math.pi / 12),
+            "x": math.sin(math.pi / 12),
+            "y": 0,
+            "z": 0,
+        }
+        with ExitStack() as stack:
+            for name, value in dict(
+                scene_cell=("cell", "Title"),
+                served_layers=[],
+                accepted_scan=({}, {"pose": pose}, {}),
+                site_sources=({}, {}),
+                site_geometry={"features": []},
+                read_background={"points": []},
+                placement_check={"passed": True},
+                http_json=dict(nx=2, ny=2, x0=10, y0=-20, cell_m=1, heights=[20] * 4),
+            ).items():
+                stack.enter_context(
+                    mock.patch.object(scene_vectors, name, return_value=value)
+                )
+            collection = scene_vectors.build_collection("site", "Title", "/unused")
+        up = collection["placement"]["up_sensor"]
+        R = scene_vectors.rotation(pose["rotation"])
+        for r, expected in enumerate([0, 0, 1]):
+            self.assertAlmostEqual(
+                sum(R[r][c] * up[c] for c in range(3)), expected, places=8
+            )
+        self.assertEqual(collection["building_clip_radius_m"], 180)
+        self.assertEqual(collection["clip_radius_m"], 90)
+
+
 class GroundTest(unittest.TestCase):
     def test_slope_and_pose_are_preserved(self):
         grid = dict(x0=10, y0=-20, cell_m=1, nx=2, ny=2, heights=[20, 21, 22, 23])

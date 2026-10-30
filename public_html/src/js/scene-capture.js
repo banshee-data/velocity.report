@@ -193,14 +193,20 @@ export function validateCaptureCoordinateFrame(header) {
  * @param {{x:number,y:number,z:number}} targetEnu
  * @param {number|null} [fovDeg] resolved renderer default when omitted
  */
-export function applyCapturePose(camera, cameraEnu, targetEnu, fovDeg) {
+export function applyCapturePose(
+  camera,
+  cameraEnu,
+  targetEnu,
+  fovDeg,
+  upSensor = [0, 0, 1],
+) {
   camera.position.set(
     toSceneX(cameraEnu.x),
     toSceneY(cameraEnu.z),
     toSceneZ(cameraEnu.y),
   );
   // No roll parameter in the capture recipe: the camera always stays level.
-  camera.up.set(0, 1, 0);
+  camera.up.set(upSensor[0], upSensor[2], -upSensor[1]);
   camera.lookAt(
     toSceneX(targetEnu.x),
     toSceneY(targetEnu.z),

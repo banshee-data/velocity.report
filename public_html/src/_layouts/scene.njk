@@ -454,8 +454,8 @@ layout: survey.njk
       </svg>
     </button>
 
-    <p class="scene-stage__build" data-scene-generator hidden>
-      build <span data-scene-generator-version></span>
+    <p class="scene-stage__build" title="Viewer {{ build.version }}{% if build.gitSHA %} ({{ build.gitSHA }}){% endif %}">
+      viewer <span data-scene-viewer-version>{{ build.version }}</span><span data-scene-generator hidden> · recording <span data-scene-generator-version></span></span>
     </p>
 
     <p id="scene-loading" class="scene-stage__overlay">Loading scene…</p>

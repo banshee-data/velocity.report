@@ -9,8 +9,8 @@
 // stop at. Flying vantage-to-vantage means accelerating, arriving, holding and
 // setting off again four times a lap, and every one of those is a jolt for
 // whoever is watching. Instead one orbit is fitted to all of them and swept at
-// a constant rate: no stops, no easing, no change of elevation, one continuous
-// turn. It passes through every vantage's bearing exactly, and through the
+// a constant angular rate: no stops, one continuous turn. The camera follows
+// a smooth ground-height profile in the registered true-horizontal frame. It passes through every vantage's bearing exactly, and through the
 // vantage itself as closely as a single circle can — which, for a junction
 // surveyed from four equivalent approaches, is exactly.
 //
@@ -45,10 +45,10 @@ export function flightPath(vantages) {
  * Fits one orbit to a set of vantages: the elevation and distance the circle
  * is flown at.
  *
- * A plain mean. Something more elaborate — a curve leaning toward each vantage
- * as it passes — would put back the rising and falling this exists to remove.
- * Where the vantages agree, as four equivalent approaches to a junction do,
- * the mean is each of them exactly.
+ * A plain mean determines horizontal radius and clearance above the ground.
+ * The camera supplies the terrain's elevation, so a hill changes its true
+ * altitude smoothly without tilting the orbit's horizon. Where the vantages
+ * agree, the mean is each of them exactly.
  *
  * The per-vantage offsets are deliberately not carried across. An offset shifts
  * what a single view looks at, to frame one approach from where the sensor
