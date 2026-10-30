@@ -6,7 +6,7 @@ import assert from "node:assert/strict";
 import * as THREE from "three";
 
 import {
-  VECTOR_STYLE,
+  createGroundGroup,
   createVectorGroup,
   loadVectors,
   ringNormal,
@@ -47,7 +47,7 @@ describe("vectorLayers", () => {
   test("outlines a polygon once, without its closing repeat, and fills a filled layer", () => {
     const [l] = vectorLayers({
       features: [
-        feature("lane_markings", { type: "Polygon", coordinates: [square()] }),
+        feature("wall_surfaces", { type: "Polygon", coordinates: [square()] }),
       ],
     });
     // Four edges, two endpoints each, three numbers per endpoint.
@@ -56,31 +56,22 @@ describe("vectorLayers", () => {
     assert.equal(l.fill.indices.length, 2 * 3);
   });
 
-  test("outlines a crosswalk's area without filling it", () => {
-    const [l] = vectorLayers({
-      features: [
-        feature(
-          "lane_markings",
-          { type: "Polygon", coordinates: [square()] },
-          { marking: "crosswalk" },
+  test("omits experimental layers even in old exports, retaining street lines", () => {
+    const geometry = {
+      type: "LineString",
+      coordinates: [
+        [0, 0, 0],
+        [1, 1, 0],
+      ],
+    };
+    assert.deepEqual(
+      vectorLayers({
+        features: ["lane_markings", "street_furniture", "city_streets"].map(
+          (l) => feature(l, geometry),
         ),
-      ],
-    });
-    assert.equal(l.fill, null);
-    assert.equal(l.lines.length, 4 * 2 * 3);
-  });
-
-  test("lifts a lane marking off the road by its layer's lift", () => {
-    const [l] = vectorLayers({
-      features: [
-        feature("lane_markings", {
-          type: "Polygon",
-          coordinates: [square(-2.5)],
-        }),
-      ],
-    });
-    const up = l.fill.positions[1];
-    assert.ok(Math.abs(up - (-2.5 + VECTOR_STYLE.lane_markings.lift)) < 1e-6);
+      }).map((l) => l.layer),
+      ["city_streets"],
+    );
   });
 
   test("triangulates an upright wall in its own plane", () => {
@@ -118,41 +109,11 @@ describe("vectorLayers", () => {
     ];
     const [l] = vectorLayers({
       features: [
-        feature("wall_planes", { type: "Polygon", coordinates: [flat] }),
+        feature("wall_surfaces", { type: "Polygon", coordinates: [flat] }),
       ],
     });
     assert.equal(l.fill, null);
     assert.ok(l.lines.length > 0);
-  });
-
-  test("stands a tree up from its base, whichever end the segment starts at", () => {
-    const props = { crown_radius_m: 3, crown_base_m: 2, height_m: 10 };
-    const tree = (coordinates) =>
-      vectorLayers({
-        features: [
-          feature("trees", { type: "LineString", coordinates }, props),
-        ],
-      })[0];
-    const a = tree([
-      [5, 5, -2.5],
-      [5, 5, 0],
-    ]);
-    const b = tree([
-      [5, 5, 0],
-      [5, 5, -2.5],
-    ]);
-    assert.deepEqual(Array.from(a.lines), Array.from(b.lines));
-    // The trunk runs from the base to the crown's bottom, 2 m up.
-    assert.deepEqual(
-      Array.from(a.lines.slice(0, 6)),
-      [5, -2.5, -5, 5, -0.5, -5],
-    );
-    const ys = [];
-    for (let i = 1; i < a.lines.length; i += 3) ys.push(a.lines[i]);
-    assert.ok(
-      Math.abs(Math.max(...ys) - 7.5) < 1e-5,
-      "the crown reaches height_m",
-    );
   });
 
   test("leaves out layers it has no style for", () => {
@@ -189,11 +150,11 @@ describe("createVectorGroup", () => {
   test("draws fills and lines under the boxes, writing no depth", () => {
     const group = createVectorGroup({
       features: [
-        feature("lane_markings", { type: "Polygon", coordinates: [square()] }),
+        feature("wall_surfaces", { type: "Polygon", coordinates: [square()] }),
       ],
     });
     const names = group.children.map((c) => c.name);
-    assert.deepEqual(names, ["lane_markings:fill", "lane_markings:lines"]);
+    assert.deepEqual(names, ["wall_surfaces:fill", "wall_surfaces:lines"]);
     for (const child of group.children) {
       assert.ok(child.renderOrder < 0);
       assert.equal(child.material.depthWrite, false);
@@ -241,5 +202,88 @@ describe("loadVectors", () => {
     } finally {
       globalThis.fetch = saved;
     }
+  });
+});
+
+describe("registered ground", () => {
+  test("keeps slope and sensor placement, without a synthetic fallback", () => {
+    assert.equal(createGroundGroup(null).children.length, 0);
+    const g = createGroundGroup({
+      ground: {
+        positions: [
+          [10, 20, -3],
+          [11, 20, -2],
+          [10, 21, -3],
+        ],
+        indices: [0, 1, 2],
+      },
+    });
+    assert.deepEqual(
+      Array.from(g.children[0].geometry.attributes.position.array),
+      [10, -3, -20, 11, -2, -20, 10, -3, -21],
+    );
+    assert.deepEqual(g.position.toArray(), [0, 0, 0]);
+    assert.equal(g.children.length, 2);
+  });
+  test("footprints are mask data when full walls are present", () => {
+    const geometry = { type: "Polygon", coordinates: [square()] };
+    assert.deepEqual(
+      vectorLayers({
+        features: [
+          feature("footprints", geometry),
+          feature("wall_surfaces", geometry),
+        ],
+      }).map((l) => l.layer),
+      ["wall_surfaces"],
+    );
+  });
+});
+
+describe("public trees and buildings", () => {
+  test("omits registered facade patches while retaining building context", () => {
+    const geometry = { type: "Polygon", coordinates: [square()] };
+    const layers = vectorLayers({
+      features: [
+        feature("wall_planes", geometry),
+        feature("observed", geometry, { kind: "facade" }),
+        feature("wall_surfaces", geometry),
+      ],
+    });
+    assert.deepEqual(
+      layers.map((l) => l.layer),
+      ["wall_surfaces"],
+    );
+  });
+  test("draws dark green foliage with the measured crown dimensions", () => {
+    const make = (points) =>
+      vectorLayers({
+        features: [
+          feature(
+            "trees",
+            {
+              type: "LineString",
+              coordinates: points,
+            },
+            { crown_radius_m: 3, crown_base_m: 2, height_m: 10 },
+          ),
+        ],
+      })[0];
+    const a = make([
+        [5, 5, -2.5],
+        [5, 5, 0],
+      ]),
+      b = make([
+        [5, 5, 0],
+        [5, 5, -2.5],
+      ]);
+    assert.deepEqual(a.lines, b.lines);
+    assert.deepEqual(a.fill, b.fill);
+    assert.equal(a.style.colour, 0x245238);
+    const ys = [];
+    for (let i = 1; i < a.fill.positions.length; i += 3)
+      ys.push(a.fill.positions[i]);
+    assert.equal(Math.min(...ys), -0.5);
+    assert.equal(Math.max(...ys), 7.5);
+    assert.ok(a.fill.indices.length > 0);
   });
 });

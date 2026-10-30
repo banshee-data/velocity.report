@@ -268,6 +268,10 @@ radar captures the speed regardless, and fusion adds the geometry to tell the tw
 Geometry kept about the physical structure around the road is measured spatial data at a stated
 time, not a plan or survey: see
 [geometry priors: data purpose](docs/geometry-priors-data-purpose.md).
+Published 3D survey playback uses registered ground heights, keeps experimental street furniture
+and markings out of the scene, and hides apparent tracks inside building footprints. LiDAR
+background points start hidden; the [scene export guide](tools/s2-archive/README.md#street-geometry-from-gerardus)
+explains the geometry and the limits of this presentation filter.
 
 The full plan is in [docs/plans/lidar-l7-scene-plan.md](docs/plans/lidar-l7-scene-plan.md) and
 [VISION.md](docs/VISION.md).

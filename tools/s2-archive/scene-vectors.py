@@ -50,7 +50,7 @@ Settings:
       The grpcurl binary, when it is not on PATH.
   SCENE_VECTORS_RADIUS_M=90
       Features with no vertex within this distance of the sensor are left
-      out. The scene's grid is 160 m across.
+      out. Ground cells are clipped to the same radius.
 """
 
 import argparse
@@ -74,7 +74,7 @@ SCENES_DATA = os.path.join(REPO, "public_html", "src", "_data", "scenes.json")
 PROTO_DIR = os.path.join(REPO, "proto", "gerardus", "align", "v1alpha1")
 GERARDUS = os.environ.get("GERARDUS_URL", "http://127.0.0.1:50061").rstrip("/")
 RADIUS_M = float(os.environ.get("SCENE_VECTORS_RADIUS_M", "90"))
-VERSION = 1
+VERSION = 2
 ROUNDING_M = 0.01
 OUT_DIR = "vectors"
 OUT_FILE = "vectors.geojson.gz"
@@ -87,13 +87,11 @@ OUT_FILE = "vectors.geojson.gz"
 LAYERS = {
     "city_streets": ("source_data", ("datasf-streets",)),
     "footprints": ("source_data", ("datasf-footprints",)),
-    "lane_markings": ("observed", ("3dep",)),
     "observed": ("observed", ("scans",)),
     "wall_planes": ("observed", ("scans",)),
     "box_walls": ("inferred", ("datasf-footprints", "3dep")),
     "wall_surfaces": ("inferred", ("datasf-footprints", "3dep")),
     "roof_planes": ("observed", ("3dep",)),
-    "street_furniture": ("observed", ("scans",)),
     "trees": ("inferred", ("scans",)),
 }
 # The kinds kept from the `observed` layer. Its lane markings repeat the
@@ -113,20 +111,8 @@ REFERENCE_SOURCES = {
     "REFERENCE_LAYER_FOOTPRINTS": "datasf-footprints",
     "REFERENCE_LAYER_CITY_STREETS": "datasf-streets",
 }
-# Measurement context a feature may keep, beside its geometry. Heights and
-# sizes the player needs to stand a pole or a tree up; nothing about what a
-# building is made of, used for or called.
-KEPT_PROPERTIES = (
-    "height_m",
-    "diameter_m",
-    "dbh_m",
-    "crown_radius_m",
-    "crown_base_m",
-)
-# Which painted marking a lane marking is (crosswalk, stop_line, arrow, ...)
-# and its pattern (solid, dashed, double): what was painted, not what anything
-# is made of.
-KEPT_WORDS = ("marking", "pattern")
+# Geometry context only; no building names, use, or materials.
+KEPT_PROPERTIES = ("height_m", "diameter_m", "dbh_m", "crown_radius_m", "crown_base_m")
 # The placement check: the pose must place walls and kerbs nearer the scene's
 # background than each of these perturbations does (metres east, north in the
 # sensor frame; degrees about the sensor's vertical).
@@ -220,15 +206,13 @@ def served_layers(l16, base=None):
 def wanted_layers(served):
     """The layers to ask for: the known ones the site serves, one set of walls.
 
-    Building walls raised to the roofline replace the boxes' walls where the
-    site has both, as the site viewer's 3D view does; footprints are drawn
-    only when neither is there, since a wall's foot is its footprint.
+    Building walls raised to the roofline replace the boxes' walls.
+    Footprints remain as mask data even where their outlines are not drawn.
     """
     layers = [layer for layer in LAYERS if layer in served]
     if "wall_surfaces" in layers and "box_walls" in layers:
         layers.remove("box_walls")
-    if "wall_surfaces" in layers or "box_walls" in layers:
-        layers = [layer for layer in layers if layer != "footprints"]
+    # Keep footprints for the player's building-interior mask, even with walls.
     return layers
 
 
@@ -382,7 +366,7 @@ def number(value):
     return v if math.isfinite(v) else None
 
 
-def scene_features(collection, apply, radius_m=RADIUS_M):
+def scene_features(collection, apply, radius_m=RADIUS_M, include_registration=False):
     """The features within radius_m of the sensor, in its frame, properties pared."""
     kept = []
     for feature in collection.get("features", []):
@@ -390,10 +374,21 @@ def scene_features(collection, apply, radius_m=RADIUS_M):
         layer = props.get("layer")
         if layer not in LAYERS:
             continue
+        # Registered facade patches inform the placement check, not public context.
+        if not include_registration and (
+            layer == "wall_planes"
+            or (layer == "observed" and props.get("kind") == "facade")
+        ):
+            continue
         if layer == "observed" and props.get("kind") not in OBSERVED_KINDS:
             continue
         geometry = feature.get("geometry") or {}
-        if geometry.get("type") not in ("LineString", "Polygon", "MultiLineString"):
+        if geometry.get("type") not in (
+            "LineString",
+            "Polygon",
+            "MultiLineString",
+            "MultiPolygon",
+        ):
             continue
         coordinates = map_coordinates(geometry.get("coordinates", []), apply)
         if not any(math.hypot(p[0], p[1]) <= radius_m for p in positions(coordinates)):
@@ -410,9 +405,6 @@ def scene_features(collection, apply, radius_m=RADIUS_M):
             v = number(props.get(key))
             if v is not None:
                 out[key] = round(v, 2)
-        for key in KEPT_WORDS:
-            if isinstance(props.get(key), str) and props[key]:
-                out[key] = props[key]
         kept.append(
             {
                 "type": "Feature",
@@ -532,6 +524,48 @@ def scene_cell(site):
     return None, site
 
 
+def ground_mesh(grid, apply, radius_m=RADIUS_M):
+    """Triangulate measured cells, preserving holes, then place by the accepted pose."""
+    nx, ny = grid["nx"], grid["ny"]
+    heights = grid["heights"]
+    if len(heights) != nx * ny or grid["cell_m"] <= 0:
+        raise RuntimeError("invalid Gerardus ground grid")
+    vertices = {}
+    for j in range(ny):
+        for i in range(nx):
+            h = heights[j * nx + i]
+            if h is None or not math.isfinite(h):
+                continue
+            p = apply(
+                [grid["x0"] + i * grid["cell_m"], grid["y0"] + j * grid["cell_m"], h]
+            )
+            if math.hypot(p[0], p[1]) <= radius_m:
+                vertices[j * nx + i] = [round(v, 2) + 0.0 for v in p]
+    positions_out, indices, used = [], [], {}
+    for j in range(ny - 1):
+        for i in range(nx - 1):
+            quad = [j * nx + i, j * nx + i + 1, (j + 1) * nx + i + 1, (j + 1) * nx + i]
+            present = [k for k in quad if k in vertices]
+            triangles = (
+                [present[:3], [present[0], present[2], present[3]]]
+                if len(present) == 4
+                else [present] if len(present) == 3 else []
+            )
+            for triangle in triangles:
+                for k in triangle:
+                    if k not in used:
+                        used[k] = len(positions_out)
+                        positions_out.append(vertices[k])
+                    indices.append(used[k])
+    return {
+        "positions": positions_out,
+        "indices": indices,
+        "evidence_status": "observed",
+        "source_ids": ["3dep", "scans"],
+        "cell_m": grid["cell_m"],
+    }
+
+
 def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADIUS_M):
     """The scene's vectors, or NoPose when the site has no accepted pose."""
     l16, _ = scene_cell(site)
@@ -549,14 +583,29 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
 
     background_path = os.path.join(assets, "background", "background.json.gz")
     background = read_background(background_path)
-    check = placement_check(features, background.get("points", []))
+    check_features = scene_features(
+        collection, into_sensor(pose), radius_m, include_registration=True
+    )
+    check = placement_check(check_features, background.get("points", []))
     if not check["passed"]:
         raise RuntimeError(
             f"{site}: the pose does not fit this scene's background"
             f" ({check['at_pose']} at the pose, {max(check['moved'].values())} moved)"
         )
 
-    used = sorted({s for f in features for s in f["properties"]["source_ids"]})
+    try:
+        ground = ground_mesh(
+            http_json(f"/api/v1/sites/{l16}/ground", base), into_sensor(pose), radius_m
+        )
+    except RuntimeError as error:
+        # An unprepared site can legitimately have no ground surface.
+        if "HTTP 404" not in str(error):
+            raise
+        ground = None
+    used = sorted(
+        {s for f in features for s in f["properties"]["source_ids"]}
+        | (set(ground["source_ids"]) if ground else set())
+    )
     summary = record.get("summary", {})
     placement = {
         "method": "the inverse of Gerardus's accepted pose for the site's scan:"
@@ -592,7 +641,7 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
         "site": site,
         "title": title,
         "purpose": "Positions and extents of stationary street features (kerbs,"
-        " lane markings, walls, poles, trees) as measured or inferred at the"
+        " walls, trees and ground) as measured or inferred at the"
         " stated times, placed in this survey's sensor frame for context. Not a"
         " survey, plan or specification; a feature not shown is not asserted"
         " absent.",
@@ -613,9 +662,12 @@ def build_collection(site, title, assets, base=None, scan_id=None, radius_m=RADI
             "Most features are Gerardus's proposals (state proposed), derived and not"
             " yet accepted by an operator.",
             "Walls raised to a roofline and tree crowns are inferred past the returns.",
+            "Experimental markings, street furniture, and registered facade patches are omitted.",
+            "Ground triangles stop at missing cells; no flat surface is substituted.",
             "Heights are measured from the sensor's origin, as the scene's are.",
         ],
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ground": ground,
         "features": features,
     }
 
