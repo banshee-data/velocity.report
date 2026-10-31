@@ -308,15 +308,12 @@ struct ReferenceGeometry: Sendable {
     var aerialZ: [Float] = []
     var aerialClass: [UInt32] = []
     var aerialIntensity: [UInt32] = []
-    /// OSM ways.
-    var lines: [Gerardus_Align_V1alpha1_LineFeature] = []
     /// DataSF building footprints, draped.
     var footprints: [Gerardus_Align_V1alpha1_LineFeature] = []
     /// DataSF footprints as boxes (site model spike §6.6): one closed
     /// vertical rectangle per wall, from the 3DEP ground to a roof height
     /// measured in 3DEP.
     var boxes: [Gerardus_Align_V1alpha1_LineFeature] = []
-    var intersections: [Gerardus_Align_V1alpha1_Intersection] = []
     /// The street layers the street painter draws over and snaps to: DataSF
     /// street centrelines (CITY_STREETS), the nodes where three or more meet
     /// (CITY_INTERSECTIONS), and kerb and island lines (KERBS), from DataSF
@@ -379,6 +376,7 @@ struct ReferenceGeometry: Sendable {
     }
 
     mutating func append(_ message: Gerardus_Align_V1alpha1_StreamReferenceResponse) {
+        if case .UNRECOGNIZED = message.layer { return }
         switch message.payload {
         case .points(let block):
             let n = Self.count(block)
@@ -420,13 +418,11 @@ struct ReferenceGeometry: Sendable {
             case .laneMarkings: laneMarkings.append(contentsOf: set.features)
             case .streetFurniture: streetFurniture.append(contentsOf: set.features)
             case .trees: trees.append(contentsOf: set.features)
-            default: lines.append(contentsOf: set.features)
+            default: break
             }
         case .intersections(let set):
             if message.layer == .cityIntersections {
                 cityIntersections.append(contentsOf: set.intersections)
-            } else {
-                intersections.append(contentsOf: set.intersections)
             }
         case .scanPoints(let block): scans.append(block)
         case .groundMesh(let field): groundMesh.append(field)
@@ -447,10 +443,8 @@ struct ReferenceGeometry: Sendable {
         aerialZ.append(contentsOf: other.aerialZ)
         aerialClass.append(contentsOf: other.aerialClass)
         aerialIntensity.append(contentsOf: other.aerialIntensity)
-        lines.append(contentsOf: other.lines)
         footprints.append(contentsOf: other.footprints)
         boxes.append(contentsOf: other.boxes)
-        intersections.append(contentsOf: other.intersections)
         cityStreets.append(contentsOf: other.cityStreets)
         cityIntersections.append(contentsOf: other.cityIntersections)
         kerbs.append(contentsOf: other.kerbs)
@@ -469,7 +463,7 @@ struct ReferenceGeometry: Sendable {
     }
 
     /// Swaps in `other`'s registered layers and model id, keeping the bundle's
-    /// layers (aerial, OSM, footprints, boxes, intersections) as they are.
+    /// layers (aerial, footprints and boxes) as they are.
     mutating func replaceRegistered(with other: ReferenceGeometry) {
         scans = other.scans
         observed = other.observed
@@ -488,10 +482,8 @@ struct ReferenceGeometry: Sendable {
 /// Which reference layers are drawn.
 struct ReferenceVisibility: Equatable, Sendable {
     var aerial = true
-    var osm = true
     var footprints = true
     var boxes = true
-    var intersections = true
     var registeredScans = true
     var observed = true
     var wallPlanes = true
@@ -525,11 +517,9 @@ struct ReferenceOverlayVertices: Sendable {
     /// Registered scans in the point layout, one palette code per scan.
     var scans: [Float] = []
     /// Debug-line layout: [x, y, z, r, g, b, a] per vertex, two per segment.
-    var osmLines: [Float] = []
     var footprintLines: [Float] = []
     /// Box walls, those on shared edges fainter.
     var boxLines: [Float] = []
-    var intersectionLines: [Float] = []
     var observedLines: [Float] = []
     /// Wall planes, coloured by role.
     var wallPlaneLines: [Float] = []
@@ -550,10 +540,8 @@ struct ReferenceOverlayVertices: Sendable {
 
     var aerialCount: Int { aerial.count / 5 }
     var scanCount: Int { scans.count / 5 }
-    var osmVertexCount: Int { osmLines.count / 7 }
     var footprintVertexCount: Int { footprintLines.count / 7 }
     var boxVertexCount: Int { boxLines.count / 7 }
-    var intersectionVertexCount: Int { intersectionLines.count / 7 }
     var observedVertexCount: Int { observedLines.count / 7 }
     var wallPlaneVertexCount: Int { wallPlaneLines.count / 7 }
     var groundMeshVertexCount: Int { groundMeshLines.count / 7 }
@@ -777,19 +765,16 @@ enum ReferenceStyle {
     }
 
     static let intersectionColour = SIMD4<Float>(1.00, 1.00, 1.00, 0.95)
-    /// The City's centrelines: a pale slate, so they read apart from OSM's
-    /// yellow roads when both are drawn.
+    /// The City's centrelines: a pale slate.
     static let cityStreetColour = SIMD4<Float>(0.62, 0.70, 0.82, 0.90)
-    static let approachColour = SIMD4<Float>(0.35, 1.00, 0.95, 0.95)
     /// Faint, so the wireframe reads as a surface under everything else.
     static let groundMeshColour = SIMD4<Float>(0.55, 0.80, 0.60, 0.35)
 
     /// Draped lines lie on the 3DEP ground and would fight its points for
     /// depth, so they are drawn this far above it. Display only.
     static let lineLift: Float = 0.10
-    /// Half the width of an intersection's cross, and an approach tick's length.
+    /// Half the width of a city intersection's cross.
     static let crossHalfSize: Float = 2
-    static let approachLength: Float = 8
 
     /// The lift a kind is drawn with. Sensors, corrections and poles are
     /// placed in the air by the server (a sensor's stalk ends at its origin,
@@ -822,10 +807,8 @@ enum ReferenceStyle {
         out.scans = scanVertices(geometry, hidden: hiddenScanIDs)
         out.palette = scanPalette(
             selectedScanID: emphasis.selectedScanID, order: geometry.scanOrder)
-        out.osmLines = lineVertices(geometry.lines)
         out.footprintLines = footprintVertices(geometry.footprints)
         out.boxLines = boxVertices(geometry.boxes)
-        out.intersectionLines = intersectionVertices(geometry.intersections)
         out.observedLines = observedVertices(geometry.observed, emphasis: emphasis)
         out.wallPlaneLines = wallPlaneVertices(geometry.wallPlanes)
         out.groundMeshLines = groundMeshVertices(
@@ -1079,28 +1062,6 @@ enum ReferenceStyle {
         }
         for i in 0..<(count - 1) { appendSegment(&out, vertex(i), vertex(i + 1), colour) }
         if line.closed { appendSegment(&out, vertex(count - 1), vertex(0), colour) }
-    }
-
-    /// A cross at each intersection, and a tick down each approach: an
-    /// approach's bearing is the direction a vehicle travels on entering, so
-    /// the road it arrives along lies on the opposite bearing.
-    static func intersectionVertices(
-        _ intersections: [Gerardus_Align_V1alpha1_Intersection]
-    ) -> [Float] {
-        var out = [Float]()
-        for node in intersections {
-            let p = SIMD3<Float>(
-                Float(node.position.x), Float(node.position.y), Float(node.position.z) + lineLift)
-            let h = crossHalfSize
-            appendSegment(&out, p - SIMD3(h, 0, 0), p + SIMD3(h, 0, 0), intersectionColour)
-            appendSegment(&out, p - SIMD3(0, h, 0), p + SIMD3(0, h, 0), intersectionColour)
-            for approach in node.approaches {
-                let from = Double(approach.bearingDeg + 180) * .pi / 180
-                let direction = SIMD3<Float>(Float(sin(from)), Float(cos(from)), 0)
-                appendSegment(&out, p, p + direction * approachLength, approachColour)
-            }
-        }
-        return out
     }
 
     private static func appendSegment(

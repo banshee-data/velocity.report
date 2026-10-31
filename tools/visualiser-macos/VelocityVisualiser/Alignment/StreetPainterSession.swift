@@ -45,7 +45,7 @@ protocol StreetPaintSink: AnyObject {
 /// alignment session streamed.
 struct StreetReference: Sendable {
     var kerbs: [StreetGeometry.SnapTarget] = []
-    /// The City's centrelines, or OSM's roads where the City sent none.
+    /// The City's centrelines; absent city data provides no road snap targets.
     var centrelines: [StreetGeometry.SnapTarget] = []
     /// Box walls' feet and footprint outlines.
     var walls: [StreetGeometry.SnapTarget] = []
@@ -58,9 +58,7 @@ struct StreetReference: Sendable {
 
     init(geometry: ReferenceGeometry) {
         kerbs = geometry.kerbs.enumerated().map { Self.target($1, layer: .kerb, index: $0) }
-        let streets =
-            geometry.cityStreets.isEmpty
-            ? geometry.lines.filter { $0.kind == .road } : geometry.cityStreets
+        let streets = geometry.cityStreets
         centrelines = streets.enumerated().map { Self.target($1, layer: .centreline, index: $0) }
         walls = (geometry.boxes + geometry.footprints).enumerated().map {
             Self.target($1, layer: .wall, index: $0)

@@ -50,7 +50,6 @@ describe('the 2D map', () => {
 		expect(mapStyle(f('street_use', 'driveway')).weight).toBe(7);
 		expect(mapStyle(f('street_use', 'other')).weight).toBe(2);
 		expect(mapStyle(f('footprints')).dashArray).toBe('4 3');
-		expect(mapStyle(f('osm')).dashArray).toBe('2 3');
 		expect(mapStyle(f('mystery')).rank).toBe(6);
 	});
 
@@ -65,12 +64,12 @@ describe('the 2D map', () => {
 			f('city_streets'),
 			f('kerbs'),
 			f('observed'),
-			f('street_use', 'travel_lane'),
-			f('osm'),
-			f('intersections')
+			f('street_use', 'travel_lane')
 		].map((x) => mapStyle(x).rank);
 		expect([...order].sort((a, b) => a - b)).toEqual(order);
-		expect(mapStyle(f('city_intersections')).rank).toBe(mapStyle(f('intersections')).rank);
+		expect(mapStyle(f('city_intersections')).rank).toBeGreaterThan(
+			mapStyle(f('city_streets')).rank
+		);
 	});
 
 	it('labels layers, the unknown ones from their names', () => {

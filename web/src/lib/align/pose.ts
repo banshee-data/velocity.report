@@ -78,25 +78,3 @@ export function movePose(pose: Pose, dEast: number, dNorth: number, dHeadingDeg:
 	const moved = fromLocal(pose, { east: dEast, north: dNorth });
 	return { lat: moved.lat, lon: moved.lon, headingDeg: wrapDegrees(pose.headingDeg + dHeadingDeg) };
 }
-
-/**
- * The points of a scan in east/north metres about origin, for a pose, keeping
- * those whose height above the sensor is inside [zMin, zMax].
- */
-export function placeScan(
-	xyz: ArrayLike<number>,
-	pose: Pose,
-	origin: { lat: number; lon: number },
-	zMin = -Infinity,
-	zMax = Infinity
-): EN[] {
-	const at = toLocal(origin, pose.lat, pose.lon);
-	const out: EN[] = [];
-	for (let i = 0; i + 2 < xyz.length; i += 3) {
-		const z = xyz[i + 2];
-		if (z < zMin || z > zMax) continue;
-		const p = sensorToEN(xyz[i], xyz[i + 1], pose.headingDeg);
-		out.push({ east: p.east + at.east, north: p.north + at.north });
-	}
-	return out;
-}

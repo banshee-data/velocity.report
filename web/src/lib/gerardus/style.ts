@@ -19,9 +19,7 @@ export const LAYER_LABEL: Record<string, string> = {
 	wall_surfaces: 'building walls',
 	lane_markings: 'lane markings',
 	street_furniture: 'poles and signs',
-	trees: 'trees',
-	osm: 'OpenStreetMap ways',
-	intersections: 'OpenStreetMap intersections'
+	trees: 'trees'
 };
 
 export function layerLabel(layer: string): string {
@@ -44,9 +42,7 @@ export const LAYER_COLOURS: Record<string, string> = {
 	wall_surfaces: '#c8a27a',
 	lane_markings: '#fef08a',
 	street_furniture: '#60a5fa',
-	trees: '#4ade80',
-	osm: '#7dd3fc',
-	intersections: '#7dd3fc'
+	trees: '#4ade80'
 };
 const OTHER = '#64748b';
 
@@ -253,10 +249,7 @@ export function mapStyle(f: Pick<SiteFeature, 'layer' | 'kind' | 'tags'>): MapSt
 			return { ...base, weight: 2, radius: f.kind === 'sign' ? 3 : 4, rank: 9 };
 		case 'trees':
 			return { ...base, weight: 1, fillOpacity: 0.25, rank: 5 };
-		case 'osm':
-			return { ...base, weight: 1, dashArray: '2 3', opacity: 0.8, rank: 10 };
 		case 'city_intersections':
-		case 'intersections':
 			return { ...base, fillOpacity: 0.2, rank: 11 };
 		default:
 			return base;

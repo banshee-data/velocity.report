@@ -191,8 +191,7 @@ struct RefinementSummaryTests {
         layers += ReferenceStyle.WallPlaneRole.allCases.map(ReferenceStyle.wallPlaneColour)
         layers += [
             ReferenceStyle.boxWallColour, ReferenceStyle.intersectionColour,
-            ReferenceStyle.approachColour, ReferenceStyle.groundMeshColour,
-            ReferenceStyle.treeTrunkColour,
+            ReferenceStyle.groundMeshColour, ReferenceStyle.treeTrunkColour,
         ]
         for state in RefinedScanState.allCases {
             for layer in layers {

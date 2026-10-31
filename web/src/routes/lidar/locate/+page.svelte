@@ -11,11 +11,10 @@
 	 * The period's settled background (what the sensor saw that does not move)
 	 * is drawn from above over OpenStreetMap. The operator finds the place by
 	 * address, drops the sensor there, drags it and turns its heading until the
-	 * walls line up, and lets Snap refine the fit against OSM's building and
-	 * wall outlines with ICP in the browser. Save records the position and the
+	 * walls line up visually. Alignment remains manual. Save records the position and the
 	 * heading on the period's clip, creating the clip if the period has none.
 	 *
-	 * Every OpenStreetMap request — tiles, the address search, the outlines —
+	 * Every OpenStreetMap request — tiles and the address search —
 	 * waits for the operator to allow them. The choice is remembered in this
 	 * browser (lib/align/osmConsent) and can be forgotten from the page. What
 	 * leaves is a typed address or the map area, never sensor data.
@@ -30,21 +29,13 @@
 		setClipLocation,
 		setClipPublishing
 	} from '#lib/api.js';
-	import { icp2d, scoreFit, thin, type FitScore, type IcpResult } from '#lib/align/icp.js';
 	import { osmConsentRemembered, rememberOsmConsent } from '#lib/align/osmConsent.js';
-	import {
-		fetchOutlines,
-		outlineSegments,
-		searchPlaces,
-		type Outline,
-		type Place
-	} from '#lib/align/osm.js';
+	import { searchPlaces, type Place } from '#lib/align/osm.js';
 	import {
 		fromLocal,
 		headingFromNorthAzimuth,
 		movePose,
 		northAzimuthFromHeading,
-		placeScan,
 		sensorToEN,
 		toLocal,
 		wrapDegrees,
@@ -58,7 +49,7 @@
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import 'leaflet/dist/leaflet.css';
-	import type { LayerGroup, Map as LeafletMap, Marker, TileLayer } from 'leaflet';
+	import type { Map as LeafletMap, Marker, TileLayer } from 'leaflet';
 	import { onDestroy, onMount, tick } from 'svelte';
 	import { Button } from 'svelte-ux';
 
@@ -67,7 +58,7 @@
 	let periodId = page.url.searchParams.get('period') ?? '';
 
 	// Height bands, in metres relative to the sensor, which sits about 2.3 m
-	// above the road. Walls are what OSM outlines; the ground shows kerbs.
+	// above the road. Wall and ground bands help manual placement; the ground shows kerbs.
 	const BANDS = {
 		walls: { label: 'wall height (−1.5 to +4 m)', zMin: -1.5, zMax: 4 },
 		ground: { label: 'ground (below −1.5 m)', zMin: -Infinity, zMax: -1.5 },
@@ -75,7 +66,6 @@
 	} as const;
 	type Band = keyof typeof BANDS;
 	const HANDLE_METRES = 20;
-	const OUTLINE_RADIUS = 150;
 
 	let period: MotionPeriod | null = null;
 	let periodClip: PeriodClip | null = null;
@@ -84,8 +74,6 @@
 	// Located clips to start from; the one being edited is left out.
 	let known: LidarClip[] = [];
 	let knownChoice = '';
-	let fit: FitScore | null = null;
-	let checking = false;
 	let xyz: Float32Array | null = null;
 	let frames = 0;
 	let loadingPeriod = true;
@@ -103,10 +91,9 @@
 	let headingMarker: Marker | null = null;
 	// While the operator drags the heading handle it follows the pointer, not the pose.
 	let turning = false;
-	let outlineLayer: LayerGroup | null = null;
 
 	// Consent for OpenStreetMap requests, remembered in this browser.
-	type OsmAction = 'tiles' | 'search' | 'snap' | 'check';
+	type OsmAction = 'tiles' | 'search';
 	let osmAllowed = osmConsentRemembered();
 	let pendingAction: OsmAction | null = null;
 	let tileLayer: TileLayer | null = null;
@@ -114,12 +101,6 @@
 	let query = '';
 	let places: Place[] = [];
 	let searching = false;
-
-	let outlines: Outline[] = [];
-	let outlinesCentre: { lat: number; lon: number } | null = null;
-	let snapping = false;
-	let lastSnap: IcpResult | null = null;
-	let beforeSnap: Pose | null = null;
 
 	let saving = false;
 	let savedClipId: string | null = null;
@@ -204,8 +185,7 @@
 		if (!next) return;
 		pose = next;
 		map?.setView([next.lat, next.lon], Math.max(map.getZoom(), 19));
-		lastSnap = null;
-		fit = null;
+
 		savedMessage = null;
 	}
 
@@ -256,7 +236,6 @@
 		map.on('click', (e) => {
 			if (!pose) placeSensor(e.latlng.lat, e.latlng.lng);
 		});
-		outlineLayer = L.layerGroup().addTo(map);
 		if (pose) syncMarkers(pose);
 	}
 
@@ -291,8 +270,6 @@
 	async function runOsm(action: OsmAction) {
 		if (action === 'tiles') addTiles();
 		else if (action === 'search') await search();
-		else if (action === 'check') await checkFit();
-		else await snap();
 	}
 
 	function addTiles() {
@@ -331,7 +308,7 @@
 		pose = { lat, lon, headingDeg: pose?.headingDeg ?? 0 };
 		// The scan spans a street: below street zoom it is a dot.
 		if (map && map.getZoom() < 18) map.setView([lat, lon], 19);
-		lastSnap = null;
+
 		savedMessage = null;
 	}
 
@@ -356,7 +333,6 @@
 			sensorMarker.on('drag', () => {
 				const at = sensorMarker!.getLatLng();
 				pose = { ...pose!, lat: at.lat, lon: at.lng };
-				lastSnap = null;
 			});
 		} else {
 			sensorMarker.setLatLng([p.lat, p.lon]);
@@ -380,7 +356,6 @@
 					...pose!,
 					headingDeg: wrapDegrees((Math.atan2(v.east, v.north) * 180) / Math.PI)
 				};
-				lastSnap = null;
 			});
 			headingMarker.on('dragend', () => {
 				turning = false;
@@ -394,8 +369,6 @@
 	function nudge(dEast: number, dNorth: number, dHeading: number) {
 		if (!pose) return;
 		pose = movePose(pose, dEast, dNorth, dHeading);
-		lastSnap = null;
-		fit = null;
 	}
 
 	function setHeading(text: string) {
@@ -465,93 +438,6 @@
 		}
 	}
 
-	// ---- Snap -------------------------------------------------------------------
-
-	/** The outlines around the pose, fetched again once it has moved 50 m. */
-	async function ensureOutlines(at: Pose) {
-		if (
-			!outlinesCentre ||
-			Math.hypot(...Object.values(toLocal(outlinesCentre, at.lat, at.lon))) > 50
-		) {
-			outlines = await fetchOutlines(at.lat, at.lon, OUTLINE_RADIUS);
-			outlinesCentre = { lat: at.lat, lon: at.lon };
-			drawOutlines();
-		}
-		return outlineSegments(outlines, at);
-	}
-
-	function wallScan(at: Pose) {
-		return thin(placeScan(xyz!, at, at, BANDS.walls.zMin, BANDS.walls.zMax), 0.25);
-	}
-
-	/**
-	 * Scores the pose drawn now against the outlines without moving it: the
-	 * share of returns at wall height within 0.5 m of an outline, and their RMS distance.
-	 */
-	async function checkFit() {
-		if (!pose || !xyz || !osmAllowed) return;
-		checking = true;
-		error = null;
-		try {
-			const segments = await ensureOutlines(pose);
-			if (segments.length === 0) {
-				error = 'OpenStreetMap has no building or wall outlines here to check against.';
-				return;
-			}
-			fit = scoreFit(wallScan(pose), segments);
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Check failed.';
-		} finally {
-			checking = false;
-		}
-	}
-
-	async function snap() {
-		if (!pose || !xyz || !osmAllowed) return;
-		snapping = true;
-		error = null;
-		try {
-			const segments = await ensureOutlines(pose);
-			if (segments.length === 0) {
-				error = 'OpenStreetMap has no building or wall outlines here to snap to.';
-				return;
-			}
-			const scan = wallScan(pose);
-			const result = icp2d(scan, segments, { east: 0, north: 0 }, { maxDistance: 4 });
-			if (result.inliers < 50) {
-				error = `Snap found only ${result.inliers} returns at wall height near an outline: move the sensor closer by hand first.`;
-				lastSnap = result;
-				return;
-			}
-			beforeSnap = pose;
-			pose = movePose(pose, result.dEast, result.dNorth, result.dHeadingDeg);
-			lastSnap = result;
-			fit = scoreFit(wallScan(pose), segments);
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Snap failed.';
-		} finally {
-			snapping = false;
-		}
-	}
-
-	function undoSnap() {
-		if (beforeSnap) pose = beforeSnap;
-		beforeSnap = null;
-		lastSnap = null;
-		fit = null;
-	}
-
-	function drawOutlines() {
-		if (!L || !outlineLayer) return;
-		outlineLayer.clearLayers();
-		for (const o of outlines) {
-			L.polyline(
-				o.points.map((p) => [p.lat, p.lon] as [number, number]),
-				{ color: o.kind === 'building' ? '#f97316' : '#a855f7', weight: 1.5, opacity: 0.9 }
-			).addTo(outlineLayer);
-		}
-	}
-
 	// ---- Save -------------------------------------------------------------------
 
 	async function save() {
@@ -601,8 +487,8 @@
 				<h1 class="text-surface-content text-2xl font-semibold">Locate a static period</h1>
 				<p class="text-surface-content/60 mt-1 text-sm">
 					The settled background is what the sensor saw that does not move, drawn from above. Place
-					the sensor, turn it until the walls sit on the map's building outlines, then Snap and
-					Save.
+					the sensor, adjust its position and heading, then save. For measured reference alignment,
+					use VelocityVisualiser and Gerardus.
 				</p>
 			</div>
 			<a
@@ -622,8 +508,8 @@
 					<div class="text-xs">{clip.dataset_id || clip.description || ''}</div>
 					<div class="text-xs">
 						{#if clip.location}
-							<span class="text-emerald-600">Located</span>: check the walls against the map, then
-							Check fit or Snap
+							<span class="text-emerald-600">Located</span>: adjust the position and heading
+							manually
 						{:else}
 							Not located yet
 						{/if}
@@ -771,48 +657,6 @@
 					<p class="text-surface-content/50 text-xs">
 						Drag the blue dot to move, the orange dot to turn. Nudges move 25 cm.
 					</p>
-					<div class="flex flex-wrap gap-2">
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={checking || !xyz}
-							on:click={() => requestOsm('check')}>{checking ? 'Checking…' : 'Check fit'}</Button
-						>
-						<Button
-							size="sm"
-							variant="outline"
-							disabled={snapping || !xyz}
-							on:click={() => requestOsm('snap')}
-							>{snapping ? 'Snapping…' : 'Snap to outlines'}</Button
-						>
-						{#if beforeSnap}
-							<Button size="sm" variant="outline" on:click={undoSnap}>Undo snap</Button>
-						{/if}
-					</div>
-					{#if lastSnap}
-						<p class="text-surface-content/60 text-xs">
-							Snap moved {Math.hypot(lastSnap.dEast, lastSnap.dNorth).toFixed(2)} m and {lastSnap.dHeadingDeg.toFixed(
-								2
-							)}°; {lastSnap.inliers} of {lastSnap.total} returns at wall height within reach, RMS {Number.isFinite(
-								lastSnap.rms
-							)
-								? `${lastSnap.rms.toFixed(2)} m`
-								: '—'}.
-						</p>
-					{/if}
-					{#if fit}
-						<p
-							class="text-xs {fit.inliers / Math.max(1, fit.total) >= 0.3
-								? 'text-emerald-600'
-								: 'text-amber-600'}"
-						>
-							Fit: {Math.round((100 * fit.inliers) / Math.max(1, fit.total))}% of {fit.total} returns
-							at wall height within 0.5 m of an outline, RMS {Number.isFinite(fit.rms)
-								? `${fit.rms.toFixed(2)} m`
-								: '—'}. Trees, parked cars and unmapped walls keep this below 100%; compare it
-							before and after a change.
-						</p>
-					{/if}
 					<Button variant="fill" color="primary" disabled={saving} on:click={save}
 						>{saving ? 'Saving…' : 'Save location'}</Button
 					>
@@ -867,7 +711,7 @@
 			<div class="space-y-3 text-sm text-neutral-100">
 				<p>
 					This page will request OpenStreetMap map tiles, search the address you type with
-					Nominatim, and fetch building and wall outlines from Overpass for Snap and Check fit.
+					Nominatim. Map data is a backdrop and is not used to fit or snap LiDAR points.
 				</p>
 				<p>The choice is remembered in this browser until you stop it from the page.</p>
 				<p>The address you type and the map area may be sent to those servers.</p>

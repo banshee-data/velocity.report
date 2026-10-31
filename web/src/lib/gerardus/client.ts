@@ -78,32 +78,21 @@ export const MODEL_LAYERS = [
  */
 export const WALL_LAYERS = ['box_walls', 'wall_surfaces'] as const;
 
-/**
- * Layers taken from OpenStreetMap. The viewer asks for them only after this
- * visit's consent, as it does for OpenStreetMap tiles.
- */
-export const OSM_LAYERS = ['osm', 'intersections'] as const;
-
 export type SiteLayer =
-	| (typeof SITE_LAYERS)[number]
-	| (typeof MODEL_LAYERS)[number]
-	| (typeof WALL_LAYERS)[number]
-	| (typeof OSM_LAYERS)[number];
+	(typeof SITE_LAYERS)[number] | (typeof MODEL_LAYERS)[number] | (typeof WALL_LAYERS)[number];
 
 /**
  * Every layer the viewer knows how to draw, in the order it lists them, each
  * wall layer after the layer it replaces in 3D.
  */
-export const KNOWN_LAYERS: readonly SiteLayer[] = [
-	...SITE_LAYERS,
-	...MODEL_LAYERS,
-	...OSM_LAYERS
-].flatMap((l): SiteLayer[] =>
-	l === 'boxes' ? [l, 'box_walls'] : l === 'building_parts' ? [l, 'wall_surfaces'] : [l]
+export const KNOWN_LAYERS: readonly SiteLayer[] = [...SITE_LAYERS, ...MODEL_LAYERS].flatMap(
+	(l): SiteLayer[] =>
+		l === 'boxes' ? [l, 'box_walls'] : l === 'building_parts' ? [l, 'wall_surfaces'] : [l]
 );
 
-export function isOsmLayer(layer: string): boolean {
-	return (OSM_LAYERS as readonly string[]).includes(layer);
+/** Reject retired geometry from older services; browser maps are independent. */
+export function isRetiredLayer(layer: string): boolean {
+	return layer === 'osm' || layer === 'intersections';
 }
 
 export function isModelLayer(layer: string): boolean {
@@ -124,7 +113,9 @@ export function isWallLayer(layer: string): boolean {
 export function servedLayers(listed: readonly string[]): string[] {
 	if (listed.length === 0) return KNOWN_LAYERS.filter((l) => !isModelLayer(l) && !isWallLayer(l));
 	const known = KNOWN_LAYERS.filter((l) => listed.includes(l));
-	const other = listed.filter((l) => !(KNOWN_LAYERS as readonly string[]).includes(l));
+	const other = listed.filter(
+		(l) => !isRetiredLayer(l) && !(KNOWN_LAYERS as readonly string[]).includes(l)
+	);
 	return [...known, ...other];
 }
 
@@ -458,7 +449,10 @@ export function parseCollection(
 	v: unknown,
 	defaultLayer = ''
 ): { features: SiteFeature[]; skipped: number } {
-	return collect(collectionFeatures(v), (f) => parseFeature(f, defaultLayer));
+	return collect(collectionFeatures(v), (f) => {
+		const parsed = parseFeature(f, defaultLayer);
+		return parsed && !isRetiredLayer(parsed.layer) ? parsed : null;
+	});
 }
 
 /** The features of a site-frame FeatureCollection, those without z left out and counted. */
@@ -466,7 +460,10 @@ export function parseSiteFrameCollection(
 	v: unknown,
 	defaultLayer = ''
 ): { features: SiteFrameFeature[]; skipped: number } {
-	return collect(collectionFeatures(v), (f) => parseSiteFrameFeature(f, defaultLayer));
+	return collect(collectionFeatures(v), (f) => {
+		const parsed = parseSiteFrameFeature(f, defaultLayer);
+		return parsed && !isRetiredLayer(parsed.layer) ? parsed : null;
+	});
 }
 
 /**
@@ -708,6 +705,11 @@ function sitePath(l16: string): string {
 }
 
 function layersQuery(layers: readonly string[], extra: Record<string, string> = {}): string {
+	if (layers.some(isRetiredLayer))
+		throw new GerardusError(
+			'rejected',
+			'OSM reference geometry has been retired; browser maps remain available.'
+		);
 	return new URLSearchParams({ layers: layers.join(','), ...extra })
 		.toString()
 		.replace(/%2C/g, ',');

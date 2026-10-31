@@ -140,7 +140,6 @@ enum AlignmentAcceptance: Equatable {
 /// Counts per reference layer, as drawn.
 struct ReferenceSummary: Equatable {
     var aerialPoints: Int
-    var osmFeatures: Int
     /// DataSF's footprints, and the outlines Gerardus found in 3DEP where
     /// DataSF lists no building; both come in the footprints layer.
     var footprints: Int = 0
@@ -150,7 +149,6 @@ struct ReferenceSummary: Equatable {
     var boxesServed: Bool = false
     var boxWalls: Int = 0
     var partyWalls: Int = 0
-    var intersections: Int
     /// Distinct registered scans, and their points as drawn.
     var registeredScans: Int = 0
     var registeredPoints: Int = 0
@@ -182,8 +180,6 @@ struct ReferenceSummary: Equatable {
     /// The site model the registered layers were built from; empty when no
     /// registered layer named one.
     var modelID: String = ""
-    /// "© OpenStreetMap contributors", shown whenever OSM is visible.
-    var osmAttribution: String
     var aerialAttribution: String
     var footprintAttribution: String = ""
 
@@ -270,10 +266,8 @@ struct ReferenceSummary: Equatable {
     @Published private(set) var progress: Gerardus_Align_V1alpha1_Progress?
     @Published private(set) var reference: ReferenceSummary?
     @Published var showAerial = true { didSet { pushVisibility() } }
-    @Published var showOSM = true { didSet { pushVisibility() } }
     @Published var showFootprints = true { didSet { pushVisibility() } }
     @Published var showBoxes = true { didSet { pushVisibility() } }
-    @Published var showIntersections = true { didSet { pushVisibility() } }
     @Published var showRegisteredScans = true { didSet { pushVisibility() } }
     @Published var showObserved = true { didSet { pushVisibility() } }
     @Published var showWallPlanes = true { didSet { pushVisibility() } }
@@ -424,12 +418,6 @@ struct ReferenceSummary: Equatable {
     var delta: PoseDelta? {
         guard let hintPose, let pose else { return nil }
         return PoseDelta(from: hintPose, to: pose)
-    }
-
-    var osmAttributionVisible: String? {
-        guard showOSM, let reference, reference.osmFeatures > 0, !reference.osmAttribution.isEmpty
-        else { return nil }
-        return reference.osmAttribution
     }
 
     // MARK: - Collaborators
@@ -780,7 +768,7 @@ struct ReferenceSummary: Equatable {
             await restyleReference()
             sink?.setReferenceModelMatrix(start.referenceModelMatrix)
             logger.info(
-                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.lines.count) lines, \(geometry.footprints.count) footprints, \(geometry.boxes.count) box walls, \(geometry.intersections.count) intersections, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.wallPlanes.count) wall planes, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
+                "Reference for \(site.l16Token): \(geometry.aerialCount) points, \(geometry.footprints.count) footprints, \(geometry.boxes.count) box walls, \(geometry.scanOrder.count) registered scans (\(geometry.scanPointCount) points), \(geometry.observed.count) observed features, \(geometry.wallPlanes.count) wall planes, \(geometry.groundMeshCells) ground cells, model \(geometry.modelID)"
             )
 
             busy = "Reading the site model"
@@ -903,7 +891,7 @@ struct ReferenceSummary: Equatable {
 
     /// The bundle's layers, on one call.
     static let bundleLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
-        .aerialPoints, .osm, .footprints, .intersections,
+        .aerialPoints, .footprints,
     ]
     /// Reference layers asked for on the bundle's call only when the server
     /// lists them: a server from before them would refuse a layer it does
@@ -1153,8 +1141,7 @@ struct ReferenceSummary: Equatable {
 
     var visibility: ReferenceVisibility {
         ReferenceVisibility(
-            aerial: showAerial, osm: showOSM, footprints: showFootprints,
-            boxes: showBoxes && showFaces, intersections: showIntersections,
+            aerial: showAerial, footprints: showFootprints, boxes: showBoxes && showFaces,
             registeredScans: showRegisteredScans, observed: showObserved,
             wallPlanes: showWallPlanes && showFaces, groundMesh: showGroundMesh, kerbs: showKerbs,
             cityStreets: showCityStreets, buildings: showBuildings, laneMarkings: showLaneMarkings,
@@ -1219,9 +1206,7 @@ struct ReferenceSummary: Equatable {
             $0 + ReferenceGeometry.count($1.points)
         }
         var out = ReferenceSummary(
-            aerialPoints: geometry.aerialCount, osmFeatures: geometry.lines.count,
-            intersections: geometry.intersections.count,
-            osmAttribution: preparedSite.map { attribution($0, layer: .osm) } ?? "",
+            aerialPoints: geometry.aerialCount,
             aerialAttribution: preparedSite.map { attribution($0, layer: .aerialPoints) } ?? "")
         out.aerialOutlines = geometry.footprints.filter(ReferenceStyle.isAerialOutline).count
         out.footprints = geometry.footprints.count - out.aerialOutlines

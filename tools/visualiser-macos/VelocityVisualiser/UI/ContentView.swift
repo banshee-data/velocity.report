@@ -57,10 +57,6 @@ struct ContentView: View {
                             TrackLabelOverlay(labels: appState.trackLabels).allowsHitTesting(false)
                         }
 
-                        // OSM's attribution, whenever its ways are drawn
-                        AlignmentAttributionView(session: appState.alignment).allowsHitTesting(
-                            false)
-
                         // The servers' status, inlaid top left. Status only:
                         // the app keeps the connection up itself, and a click
                         // opens Settings ▸ Servers.

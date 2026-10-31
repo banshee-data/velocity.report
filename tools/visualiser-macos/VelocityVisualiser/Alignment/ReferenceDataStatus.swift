@@ -31,9 +31,7 @@ enum ReferenceDataStatus {
     static func name(_ layer: Gerardus_Align_V1alpha1_ReferenceLayer) -> String {
         switch layer {
         case .aerialPoints: return "3DEP points"
-        case .osm: return "OpenStreetMap ways"
         case .footprints: return "DataSF footprints"
-        case .intersections: return "OpenStreetMap intersections"
         case .cityStreets: return "City streets"
         case .cityIntersections: return "City intersections"
         case .kerbs: return "Kerbs and islands"
@@ -60,7 +58,7 @@ enum ReferenceDataStatus {
 
     /// One line per source: its version and the date it was retrieved.
     static func sourceLines(_ bundle: Gerardus_Align_V1alpha1_Site) -> [String] {
-        bundle.sources.map { source in
+        bundle.sources.filter { ![2, 4].contains($0.layer.rawValue) }.map { source in
             var parts: [String] = []
             if !source.version.isEmpty { parts.append(source.version) }
             if source.hasRetrievedAt { parts.append("retrieved \(day(source.retrievedAt))") }
@@ -115,7 +113,7 @@ enum ReferenceDataStatus {
             Consequence(
                 title: "Downloads again",
                 detail:
-                    "The public sources for \(siteName)'s L13 cells and their neighbours that this Gerardus is set up for: OpenStreetMap; DataSF building footprints, streets with the Street Names list, and kerbs and islands; SFMTA bike lanes, crosswalks, signs, meters and signals; and the Street Tree List. The DataSF and SFMTA sources cover San Francisco only. The cached downloads under <data>/{osm,footprints,streets,kerbs,lane_markings,street_furniture,trees}/l13, and streets/names.json, are overwritten as each arrives, even if a later step fails. Neighbouring sites share those caches and read the newer downloads the next time they rebuild."
+                    "The public sources for \(siteName)'s L13 cells and their neighbours that this Gerardus is set up for: DataSF building footprints, streets with the Street Names list, and kerbs and islands; SFMTA bike lanes, crosswalks, signs, meters and signals; and the Street Tree List. The DataSF and SFMTA sources cover San Francisco only. The cached downloads under <data>/{footprints,streets,kerbs,lane_markings,street_furniture,trees}/l13, and streets/names.json, are overwritten as each arrives, even if a later step fails. Neighbouring sites share those caches and read the newer downloads the next time they rebuild."
             ),
             Consequence(
                 title: "Cuts 3DEP again",

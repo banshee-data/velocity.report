@@ -21,25 +21,6 @@ import SwiftUI
     }
 }
 
-/// "© OpenStreetMap contributors" over the scene whenever OSM is drawn.
-@available(macOS 15.0, *) struct AlignmentAttributionView: View {
-    @ObservedObject var session: AlignmentSession
-
-    var body: some View {
-        if let attribution = session.osmAttributionVisible {
-            VStack {
-                Spacer()
-                HStack {
-                    Spacer()
-                    Text(attribution).font(.caption2).padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(.black.opacity(0.55)).foregroundStyle(.white.opacity(0.9))
-                        .clipShape(RoundedRectangle(cornerRadius: 4))
-                }
-            }.padding(8)
-        }
-    }
-}
-
 @available(macOS 15.0, *) struct AlignmentPane: View {
     @ObservedObject var session: AlignmentSession
     @ObservedObject var painter: StreetPainterSession
@@ -291,7 +272,6 @@ import SwiftUI
                 Toggle(
                     "3DEP points (\(reference.aerialPoints.formatted()))", isOn: $session.showAerial
                 )
-                Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
                 Toggle(reference.footprintLabel, isOn: $session.showFootprints).help(
                     ReferenceSummary.footprintHelp)
                 if reference.boxesServed {
@@ -300,8 +280,6 @@ import SwiftUI
                             "Inferred faces: each DataSF footprint edge raised from the 3DEP ground to the roof height measured in 3DEP, or to the roofline where the building has roof planes, moved by the site's footprint shift. Edges shared with another footprint (\(reference.partyWalls)) are fainter. From public footprint and elevation data at those sources' dates; not a plan or survey."
                         )
                 }
-                Toggle(
-                    "Intersections (\(reference.intersections))", isOn: $session.showIntersections)
                 if reference.streetLayersServed {
                     Toggle(
                         "City streets (\(reference.cityStreets), \(reference.cityIntersections) intersections)",

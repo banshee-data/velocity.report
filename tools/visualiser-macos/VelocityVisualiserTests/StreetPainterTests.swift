@@ -104,6 +104,27 @@ private let columbus = AlignmentSite(
 // MARK: - Snapping
 
 struct StreetSnapTests {
+    @Test func retiredRoadsCannotBecomeSnapTargetsOrFallbackHeights() {
+        var geometry = ReferenceGeometry()
+        var legacy = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+        legacy.layer = .UNRECOGNIZED(2)
+        var road = Gerardus_Align_V1alpha1_LineFeature()
+        road.kind = .road
+        road.xyz = [-10, 0, 21, 10, 0, 21]
+        legacy.lines.features = [road]
+        legacy.layerComplete = true
+        geometry.append(legacy)
+        let absent = StreetReference(geometry: geometry)
+        #expect(absent.centrelines.isEmpty)
+        #expect(absent.groundZ(at: PlanPoint(0, 0)) == 0)
+        #expect(geometry.completeLayers.isEmpty)
+        legacy.layer = .cityStreets
+        geometry.append(legacy)
+        let city = StreetReference(geometry: geometry)
+        #expect(city.centrelines.count == 1)
+        #expect(city.groundZ(at: PlanPoint(0, 0)) == 21)
+    }
+
     private let kerb = target("kerb", [plan(0, 5), plan(20, 5)])
     private let other = target("mark", [plan(10, 5.3), plan(10, 9)], layer: .mark)
 
@@ -748,7 +769,7 @@ struct StreetStyleTests {
         let vertices = ReferenceStyle.vertices(for: session.referenceGeometry!)
         #expect(vertices.kerbVertexCount == 4)
         #expect(vertices.cityStreetVertexCount == 2 + 4)
-        #expect(session.referenceGeometry?.lines.count == 1)  // OSM's road alone
+        #expect(session.referenceGeometry?.cityStreets.count == 1)  // City centreline
         #expect(service.calls.filter { $0 == "ListStreetUse" }.count == 1)
         #expect(painter.loadedToken == columbus.l16Token)
         #expect(painter.edit.marks.map(\.featureID) == ["gms:01LANE"])

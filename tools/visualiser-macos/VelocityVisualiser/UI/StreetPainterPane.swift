@@ -350,7 +350,7 @@ import SwiftUI
                         isOn: $session.showCityStreets)
                 } else {
                     Text(
-                        "This Gerardus lists no street layers: marks snap to OSM roads and the boxes."
+                        "City street layers are unavailable: use available kerbs, walls and manual placement."
                     ).font(.caption2).foregroundStyle(.secondary)
                 }
                 if reference.boxesServed {
@@ -361,7 +361,6 @@ import SwiftUI
                 }
                 Toggle(reference.footprintLabel, isOn: $session.showFootprints).help(
                     ReferenceSummary.footprintHelp)
-                Toggle("OSM ways (\(reference.osmFeatures))", isOn: $session.showOSM)
                 Toggle(
                     "Ground mesh (\(reference.groundMeshCells.formatted()) cells)",
                     isOn: $session.showGroundMesh)
