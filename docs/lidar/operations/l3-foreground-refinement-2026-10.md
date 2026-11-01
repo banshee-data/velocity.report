@@ -296,8 +296,7 @@ _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 
 
 - **Medoid jitter is now mostly composition.** On long tracks the residual steps with the cluster's
   membership: a vehicle partly occluded loses most of its points in one frame, and the medoid moves
-  along the body by a metre. Over-segmentation and duplicate tracks on one vehicle account for much
-  of the rest. Those are L4 and L5 problems; better masks made them the larger share.
+  along the body by a metre. That is an L4 and L5 problem; better masks made it the larger share.
 - **Recall is lowest at long range and in cells with wide spreads.** Beyond 45 m on howard-6th it
   was 18 % at the stage measured.
 - **Stopped vehicles.** A vehicle that stops is learned by the window as before. Nothing here changes
@@ -328,7 +327,9 @@ _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 
 4. **Remove freeze** if the candidate is adopted. Keep it otherwise: alone, removing it costs pedestrian
    retention, because it holds them against the window.
 5. **Complete kirk0's labels.** Partial labels now score a better detector as worse.
-6. **Next for jitter:** L4 over-segmentation against the track, and duplicate tracks on one vehicle.
+6. **Next for jitter:** the [mean of the cluster's returns](l4-cluster-mean-centre-2026-11.md), measured
+   after this report. Splits and duplicates turned out small: 1 to 6 % of moving track-frames, and 0 to
+   4 pairs a capture.
 
 ## Provenance
 
