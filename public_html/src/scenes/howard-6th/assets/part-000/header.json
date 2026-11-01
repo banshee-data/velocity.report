@@ -14,9 +14,19 @@
     "frame_id": "site/hesai-pandar40p",
     "reference_frame": "ENU"
   },
-  "source_vrlog_sha256": "972f1d2d5b68198d0439a0fef58c300593d374e95a627f5a1644b248d393b5ae",
-  "tuning_hash": "sha256:ade9f1afa5b40adadae0b97fc5c9f70d9ce69ef6fd2a13000a9c0880fcdd2303",
-  "build_version": "0.5.1-pre45",
-  "generated_at": "2026-10-20T13:04:41Z",
+  "source_vrlog_sha256": "6402a02d4722a40acaedc14540a184abee366efa66ebbb97b719e7fc68f9600a",
+  "tuning_hash": "sha256:d948a67f4943536228026af276fac107f60497be7a4f8e2c98962c1717721755",
+  "build_version": "0.5.1-pre50",
+  "build_git_sha": "3b49a1ac797ffa16b9aef96afea45d3ca4b58bcb",
+  "generated_at": "2026-11-01T06:04:33Z",
+  "units": {
+    "length": "m",
+    "speed": "m/s",
+    "angle": "rad"
+  },
+  "coordinate_rounding_m": 0.01,
+  "evidence": {
+    "tracks": "inferred"
+  },
   "trail_estimator": "cv_kf_v1/online"
 }
