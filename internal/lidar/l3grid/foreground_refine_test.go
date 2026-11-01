@@ -13,7 +13,7 @@ func newRefineManager(t *testing.T, rings int, refine bool) *BackgroundManager {
 	t.Helper()
 	params := BackgroundConfigFromActiveTuning(config.MustLoadDefaultConfig()).ToBackgroundParams()
 	params.DisableRegionOverrides = true
-	params.FreezeDurationNanos = 0
+	params.ForegroundRefine = nil
 	bm := NewBackgroundManagerDI("refine", rings, refineAzBins, params, nil)
 	if bm == nil {
 		t.Fatal("NewBackgroundManagerDI returned nil")

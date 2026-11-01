@@ -132,6 +132,10 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			// is absent, as a config without it is.
 			l3.TrackGuard = l3grid.TrackGuardTuningFromParams(params.TrackGuard)
 			l3.ForegroundRefine = l3grid.ForegroundRefineTuningFromParams(params.ForegroundRefine)
+			if r := l3.ForegroundRefine; r != nil {
+				r.EnvelopeAttack = roundTo6(r.EnvelopeAttack)
+				r.EnvelopeRelease = roundTo6(r.EnvelopeRelease)
+			}
 		}
 		if l4 != nil {
 			l4.ForegroundDBSCANEps = roundTo6(float64(params.ForegroundDBSCANEps))

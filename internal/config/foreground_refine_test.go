@@ -42,25 +42,31 @@ func TestForegroundRefineValidate(t *testing.T) {
 	}
 }
 
-// The block is off by being absent, so the defaults' fingerprint does not move
-// with it, and the experiment set that carries it validates.
+// The defaults carry refinement; the block is off by being absent, so a config
+// written before it keeps its fingerprint and its behaviour.
 func TestForegroundRefineBlockIsOptional(t *testing.T) {
-	if got := MustLoadDefaultConfig().L3.ActiveCommon().ForegroundRefine; got != nil {
-		t.Fatalf("the defaults carry refinement on: %+v", got)
+	if MustLoadDefaultConfig().L3.ActiveCommon().ForegroundRefine == nil {
+		t.Fatal("the defaults lost their refinement")
+	}
+	cfg, err := LoadTuningConfig("../../config/experiments/foreground-refine-off.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.L3.ActiveCommon().ForegroundRefine; got != nil {
+		t.Fatalf("the off set carries refinement: %+v", got)
+	}
+}
+
+func TestClusterPositionIsOptionalAndChecked(t *testing.T) {
+	if got := MustLoadDefaultConfig().GetClusterCentre(); got != "mean" {
+		t.Fatalf("the defaults report %q", got)
 	}
 	cfg, err := LoadTuningConfig("../../config/experiments/foreground-refine.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.L3.ActiveCommon().ForegroundRefine == nil {
-		t.Fatal("the experiment set lost its block")
-	}
-}
-
-func TestClusterPositionIsOptionalAndChecked(t *testing.T) {
-	cfg := MustLoadDefaultConfig()
 	if got := cfg.GetClusterCentre(); got != "" {
-		t.Fatalf("the defaults name a centre: %q", got)
+		t.Fatalf("a config without the block names a centre: %q", got)
 	}
 	common := cfg.L4.ActiveCommon()
 	common.ClusterPosition = &L4ClusterPosition{Centre: "mean"}

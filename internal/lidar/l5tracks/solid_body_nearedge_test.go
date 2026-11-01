@@ -35,6 +35,10 @@ func syntheticPassFrames(t *testing.T, pass l4perception.SyntheticPass) []synthe
 	params.Eps = 0.6
 	params.MinPts = 5
 	params.MaxSamplePoints = 512
+	// These tests read the medoid's bias, on the clusters of its time: a face
+	// seen alone is thin enough for the aspect limit to refuse it.
+	params.MeanCentre = false
+	params.MaxClusterAspectRatio = 15
 	var out []syntheticPassFrame
 	for _, f := range l4perception.GenerateSyntheticPass(pass) {
 		points := make([]l4perception.WorldPoint, len(f.Points))

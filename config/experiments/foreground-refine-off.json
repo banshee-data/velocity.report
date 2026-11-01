@@ -39,7 +39,7 @@
         "hold_margin_metres": 0.3,
         "hold_cooldown": "1s",
         "hold_min_speed_mps": 1.0,
-        "edge_follow_cluster": false,
+        "edge_follow_cluster": true,
         "edge_margin_metres": 0.2
       }
     }

@@ -516,6 +516,7 @@ func TestAnalysisFrameBuilderDirectBranches(t *testing.T) {
 		params.NeighbourConfirmationCount = 0
 		params.ForegroundMinClusterPoints = 3
 		params.ForegroundDBSCANEps = 1
+		params.ForegroundRefine = nil
 		if err := fb.bgManager.SetParams(params); err != nil {
 			t.Fatalf("SetParams() error: %v", err)
 		}

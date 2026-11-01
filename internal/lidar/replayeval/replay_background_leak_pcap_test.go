@@ -9,10 +9,12 @@ import (
 	"testing"
 )
 
-// On kirk0 the shipped defaults' track guard publishes none of a confirmed
+// On kirk0 the track guard with edge follow publishes none of a confirmed
 // track's returns as background, where the guard off publishes many; the
 // replay writes the report it returns. Thirty seconds of capture holds
-// enough traffic for both.
+// enough traffic for both. The defaults leave edge follow off since l3bg0029:
+// what it published was mostly the surfaces around a vehicle, and L4 never
+// saw it, so the set before that change stands in for it here.
 func TestBackgroundLeakOnKirk0(t *testing.T) {
 	pcapPath := requireKirk0(t)
 	dir := t.TempDir()
@@ -41,11 +43,11 @@ func TestBackgroundLeakOnKirk0(t *testing.T) {
 		return result.BackgroundLeak
 	}
 	off := run("off", "../../../config/experiments/track-guard-off.json")
-	on := run("defaults", "../../../config/tuning.defaults.json")
+	on := run("edge follow", "../../../config/experiments/foreground-refine-off.json")
 	if off.TrackBoxes == 0 || off.BackgroundInTrackBoxes == 0 {
 		t.Fatalf("guard off: %d box-frames, %d background returns in them; the capture shows no leak to stop", off.TrackBoxes, off.BackgroundInTrackBoxes)
 	}
 	if on.TrackBoxes == 0 || on.BackgroundInTrackBoxes != 0 {
-		t.Fatalf("defaults: %d background returns in %d box-frames, want none", on.BackgroundInTrackBoxes, on.TrackBoxes)
+		t.Fatalf("edge follow: %d background returns in %d box-frames, want none", on.BackgroundInTrackBoxes, on.TrackBoxes)
 	}
 }

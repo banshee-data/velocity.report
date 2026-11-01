@@ -12,9 +12,13 @@ import (
 type MeasurementSource string
 
 const (
-	// MeasurementMedoidV0 is the production position model: the cluster
-	// medoid, as every release before D2 used.
+	// MeasurementMedoidV0 is the cluster medoid, as every release before D2
+	// used. As a tracker mode it also means "the position the cluster reports",
+	// so a cluster reporting its mean comes out as MeasurementClusterMeanV1.
 	MeasurementMedoidV0 MeasurementSource = "medoid_v0"
+	// MeasurementClusterMeanV1 is the mean of the cluster's returns in the
+	// plane, the production position model since l4clus0006.
+	MeasurementClusterMeanV1 MeasurementSource = "cluster_mean_v1"
 	// MeasurementOBBCentreV1 is D2's candidate, opt-in only. Against kirk0's
 	// annotated objects it switched identity more often than the medoid at the
 	// same recall, so it stays off until it beats the medoid on held-out truth.
@@ -95,7 +99,11 @@ func measurementForMode(cluster l4perception.WorldCluster, frameUnixNanos int64,
 		timestamp = frameUnixNanos
 	}
 	if mode != MeasurementOBBCentreV1 {
-		return PositionMeasurement{X: cluster.CentroidX, Y: cluster.CentroidY, UnixNanos: timestamp, Source: MeasurementMedoidV0}
+		source := MeasurementMedoidV0
+		if cluster.MeanCentre {
+			source = MeasurementClusterMeanV1
+		}
+		return PositionMeasurement{X: cluster.CentroidX, Y: cluster.CentroidY, UnixNanos: timestamp, Source: source}
 	}
 	// A malformed or absent OBB fails visibly to the medoid; the candidate
 	// never silently presents a zero-valued box centre.

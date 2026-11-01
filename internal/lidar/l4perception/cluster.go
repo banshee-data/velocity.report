@@ -303,6 +303,7 @@ func DBSCANParamsFromTuning(l4cfg *config.L4DbscanXyV1) DBSCANParams {
 		MaxClusterDiameter:    l4cfg.MaxClusterDiameter,
 		MinClusterDiameter:    l4cfg.MinClusterDiameter,
 		MaxClusterAspectRatio: l4cfg.MaxClusterAspectRatio,
+		MeanCentre:            l4cfg.ClusterPosition != nil && l4cfg.ClusterPosition.Centre == "mean",
 	}
 }
 
@@ -695,6 +696,7 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64, meanCentre bool
 		BoundingBoxLength: bboxLength,
 		BoundingBoxWidth:  bboxWidth,
 		BoundingBoxHeight: bboxHeight,
+		MeanCentre:        meanCentre,
 		PointsCount:       len(points),
 		HeightP95:         float32(heights[p95Idx]),
 		IntensityMean:     float32(sumIntensity / uint64(len(points))),

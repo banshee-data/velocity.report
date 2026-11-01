@@ -7,8 +7,10 @@ per-return decision evidence a window depth cannot.
 
 - **Status:** Measured, November 1, 2026 (experiment
   [l3bg0029](../../../data/experiments/l3bg/l3bg0029.md)). The rule's target and quality clauses pass
-  on five held-out placements; its replay cost clause fails. Defaults are unchanged. The candidate
-  is a parameter set, [foreground-refine.json](../../../config/experiments/foreground-refine.json)
+  on five held-out placements; its replay cost clause fails. [Adopted](#adoption) as the default,
+  with the mean cluster centre, on quality over cost. "Defaults" in this report's tables means the
+  defaults it was measured against, kept as
+  [foreground-refine-off.json](../../../config/experiments/foreground-refine-off.json)
 - **Layers:** L3 background, L4 clustering, L5 coasting, the published mask
 - **Related:** [region levers](l3-region-levers-kirk-2026-10.md),
   [track guard](l3-track-guard-kirk-2026-10.md),
@@ -253,7 +255,7 @@ the Mac; the Pi is unmeasured.
 ### The whole capture
 
 The held-out reads last 200 s, so one run covers a whole placement: lombard-laguna, 40 minutes, with
-[foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json) and an oracle
+the candidate and the mean cluster centre, which are now the defaults, and an oracle
 sampled across the capture. Nothing drifts, and a change in the scene at minute 34 is the clearest
 case for the one-sided decision.
 
@@ -350,10 +352,8 @@ _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 
 
 ## Seeing it
 
-`--config` applies the startup-only keys, so run a server with the parameter set and start a replay
-with `full_frames`. A recording of the window of run `95f63441` under
-[foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json) can be opened in
-the visualiser through `POST /api/lidar/vrlog/load` with its `vrlog_path`.
+A server on the defaults runs the candidate: start a replay with `full_frames`. A recording of the window of run `95f63441` under the candidate and the
+mean, now the defaults, can be opened in the visualiser through `POST /api/lidar/vrlog/load` with its `vrlog_path`.
 `lidar-fg-diag replay` and [render_frames.py](../../../tools/lidar-fg-diag/render_frames.py) draw any
 frame from above, from the side or from one camera.
 
@@ -381,16 +381,46 @@ frame from above, from the side or from one camera.
 - The near envelope and far-run state are not persisted, so a restart relearns them. That cost is
   unmeasured.
 
+## Adoption
+
+On November 1, 2026 the maintainer accepted the motion evidence in place of a complete label set and
+put track quality ahead of replay cost, because most work runs offline on a Mac. The defaults took
+the candidate with the [mean cluster centre](l4-cluster-mean-centre-2026-11.md). This is a decision
+about the failed clause, not a pass: the replay cost stands as measured, and a Pi has not timed it.
+
+- **What moved.** The `foreground_refine` block, `cluster_position` mean, `freeze_duration` 0s,
+  `edge_follow_cluster` false, `foreground_dbscan_eps` 1.0, `foreground_min_cluster_points` 8,
+  `max_cluster_diameter` 20, `max_cluster_aspect_ratio` 60 and `max_misses_confirmed` 25.
+- **The candidate is what shipped.** On kirk0 the new defaults give the same tracking baseline as
+  the candidate, byte for byte, and the same filter record once the position's new name is allowed
+  for. [foreground-refine-off.json](../../../config/experiments/foreground-refine-off.json) gives
+  the earlier defaults' tracking baseline and filter record, byte for byte.
+- **Parameter sets.** Every other set moved with the defaults, so each still differs from them by
+  its own arm. [foreground-refine.json](../../../config/experiments/foreground-refine.json) is now
+  the refinement with the medoid, and `foreground-refine-mean.json` and
+  `track-guard-hold-only.json` went, because each equals the defaults. `l3-pre-consolidation.json`
+  keeps the settings of its time, because the capture gap its test needs comes from them. The files
+  this report measured are in Git at `e9a952f9b`.
+- **Evidence names.** A position from the mean is recorded as `cluster_mean_v1`, at reference point
+  `cluster_mean`. Neither is physical, so no endpoint is projected from it.
+- **Coverage.** kirk0's surveyed declaration moved from 92 m to 89 m, with the p90 of estimate range
+  up from 48.3 m to 55.2 m. The other cases in
+  [continuity-coverage.json](../../../tools/s2-archive/continuity-coverage.json) were not surveyed again.
+
+This changes what published tracks say, so published scenes need a new run. It leaves open what the
+candidate left open: Pi timing (perf0001), labelled precision, the pedestrian retention and
+following-gap regressions, and the solid-body sets, which now inherit these defaults without having
+been measured on them. On the synthetic pass the mean cuts near-edge fixes from at least 20 of 40
+frames to between 14 and 19, so the solid-body tests hold the medoid and the clusters of their time.
+
 ## Recommendations
 
-1. **Decide on adoption.** The candidate passes every quality clause and fails the replay cost clause.
-   Before it can become the default it needs Pi timing (perf0001), a decision to accept motion evidence
-   or a complete label set, and a recapture of the perf baselines.
+1. **Time it on a Pi (perf0001).** The cost clause failed on a Mac. Live operation needs the number.
 2. **Fix the bug regardless.** The L4 filter fix in this change is independent of the candidate.
 3. **Retire edge follow's published box** or restrict it to returns in front of the surface. It costs
    nothing to L4 and is the largest single source of paint on some sites.
-4. **Remove freeze** if the candidate is adopted. Keep it otherwise: alone, removing it costs pedestrian
-   retention, because it holds them against the window.
+4. **Remove freeze** from the code, now the defaults run without it. Alone, removing it cost pedestrian
+   retention, because it held them against the window.
 5. **Complete kirk0's labels.** Partial labels now score a better detector as worse.
 6. **Next for jitter:** the [mean of the cluster's returns](l4-cluster-mean-centre-2026-11.md), measured
    after this report. Splits and duplicates turned out small: 1 to 6 % of moving track-frames, and 0 to
@@ -401,8 +431,8 @@ frame from above, from the side or from one camera.
 - **Code:** branch `claude/vrlog-foreground-extraction-f1a9a3`, from `3b49a1ac7`. Replays and scores at
   `7d2527ea0`; the scoring binaries were built from that tree just before it was committed and are
   stamped `f0d1db883`. The server recording is stamped `7d2527ea0`, version 0.5.1-pre50.
-- **Parameter sets:** [foreground-refine.json](../../../config/experiments/foreground-refine.json),
-  SHA-256 `cb37e11e7d96c1ad…`; defaults `aefcc10ca9ed1e3c…`.
+- **Parameter sets:** `config/experiments/foreground-refine.json` at `e9a952f9b`, SHA-256
+  `cb37e11e7d96c1ad…`; `config/tuning.defaults.json` at `3b49a1ac7`, `aefcc10ca9ed1e3c…`.
 - **Captures:** kirk0 `2864ebde38e736b4…`; `sf-street-speeds/raw/lidar` placements named above, stage
   copies read from the internal disk.
 - **Reference:** pack ad8b9438, `kirk0-reference-tuning-r1.json`, `-ignore-objects obj_788622b5`;

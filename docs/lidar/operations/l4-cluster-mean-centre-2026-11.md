@@ -8,10 +8,10 @@ well and moves less.
 - **Status:** Measured, November 1, 2026. On the defaults alone
   ([l4clus0007](../../../data/experiments/l4clus/l4clus0007.md)) the mean passes its whole rule on three
   held-out placements. On refined foreground ([l4clus0006](../../../data/experiments/l4clus/l4clus0006.md))
-  the target passes and one non-inferiority clause fails by 1.6 points. Nothing moves in the defaults:
-  the arms are parameter sets,
-  [cluster-mean-centre.json](../../../config/experiments/cluster-mean-centre.json) and
-  [foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json)
+  the target passes and one non-inferiority clause fails by 1.6 points. The defaults took the mean
+  with refinement, on quality over cost:
+  [adoption](l3-foreground-refinement-2026-10.md#adoption). The arm on the earlier defaults stays
+  [cluster-mean-centre.json](../../../config/experiments/cluster-mean-centre.json)
 - **Layers:** L4 cluster position, L5 measurement
 - **Related:** [D2 medoid against OBB centre](d2-medoid-obb-current-solver-2026-10.md)
 
@@ -118,16 +118,17 @@ pair find the same objects, so HOTA is a fair reading here, unlike in l3bg0029.
 
 ## Recommendations
 
-1. **Make the mean the default.** It passed its rule, is one key, costs nothing to compute, and does
-   not depend on refinement. It moves the config fingerprint, so the perf baselines need a recapture,
-   and `medoid_v0` needs a new name in the evidence it writes.
-2. **Decide the broken-links clause for the refined arm.** Read by the rule that arm does not pass, and
-   the rule stands. In counts the change is two links in 67, so more capture would settle it cheaply.
+1. **Make the mean the default.** Done: it passed its rule, is one key, costs nothing to compute, and
+   does not depend on refinement. Its position is recorded as `cluster_mean_v1`, at reference point
+   `cluster_mean`, not `medoid_v0`.
+2. **Accept the broken-links clause for the refined arm.** Done, by decision and not by a pass. The arm
+   does not pass its rule, and the rule stands. Asked for the best tracks, the maintainer took the
+   arm's lower jitter and fewer ID switches over two more broken links in 67.
 
 ## Provenance
 
 - **Code:** branch `claude/vrlog-foreground-extraction-f1a9a3`, commit `ff06c1a05`.
-- **Parameter sets:** [foreground-refine.json](../../../config/experiments/foreground-refine.json),
-  [foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json).
+- **Parameter sets:** `foreground-refine.json`, `foreground-refine-mean.json` and
+  `cluster-mean-centre.json` as they stood at `e9a952f9b`.
 - **Reference:** as [l3bg0029](l3-foreground-refinement-2026-10.md#provenance).
 - **Raw output:** `~/vr-scratch/fg-20261031/`, untracked.

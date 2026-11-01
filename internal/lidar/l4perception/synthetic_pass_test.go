@@ -201,7 +201,8 @@ func TestSyntheticDegenerateConfigurationsProduceNothing(t *testing.T) {
 func TestMedoidBiasReproducesTheSectionThreeMechanism(t *testing.T) {
 	pass := DefaultSyntheticPass()
 	frames := GenerateSyntheticPass(pass)
-	clusterer := NewDBSCANClusterer(0.6, 5)
+	params := DefaultDBSCANParams()
+	params.Eps, params.MinPts, params.MeanCentre = 0.6, 5, false
 	halfWidth := pass.Vehicle.Width / 2
 
 	var pinnedToNearFace, total int
@@ -209,7 +210,7 @@ func TestMedoidBiasReproducesTheSectionThreeMechanism(t *testing.T) {
 	first := true
 
 	for _, f := range frames {
-		cluster, ok := largestCluster(clusterer.Cluster(f.Points, pass.SensorID, f.Timestamp))
+		cluster, ok := largestCluster(DBSCAN(f.Points, params))
 		if !ok {
 			continue
 		}

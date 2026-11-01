@@ -538,12 +538,15 @@ const (
 	// view, which nothing establishes, so it moves with visibility and no
 	// endpoint may be projected from it either.
 	ReferenceVisibleOBBCentre
+	// ReferenceClusterMean is the mean of the returns one frame saw. It moves
+	// with visibility, so no endpoint may be projected from it either.
+	ReferenceClusterMean
 	referencePointEnd
 )
 
 var referencePoints = vocabulary[ReferencePoint]{
 	kind:  "reference point",
-	names: []string{"", "body_centre", "near_face_centre", "cluster_medoid", "visible_obb_centre"},
+	names: []string{"", "body_centre", "near_face_centre", "cluster_medoid", "visible_obb_centre", "cluster_mean"},
 }
 
 func (r ReferencePoint) String() string { return referencePoints.name(r) }

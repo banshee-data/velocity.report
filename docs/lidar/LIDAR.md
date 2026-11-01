@@ -123,7 +123,9 @@ them, not traffic during settling; neither of the two [levers](operations/l3-reg
 it suggests beats the retune. [Foreground refinement](operations/l3-foreground-refinement-2026-10.md)
 stops moving that window and adds other evidence: a return beyond the learned surface is background, and
 one in front of it joins connected foreground or a patch new to its cells, which removes painted
-background and whole-vehicle misses on held-out placements at a replay cost that fails its rule. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
+background and whole-vehicle misses on held-out placements. Its replay cost fails its rule, and the
+defaults [took it anyway](operations/l3-foreground-refinement-2026-10.md#adoption), with the mean cluster
+centre, on quality over cost. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
 tracks over a 39-minute capture, and with its [clock at 40 s](operations/l3-dwell-policy-clock-2026-10.md)
 keeps every moving track (its [drift rule](operations/l3-dwell-policy-drift-2026-10.md) barely matters

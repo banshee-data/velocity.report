@@ -12,8 +12,8 @@ objects are.
 - **Related:** [backlog item](../../BACKLOG.md) (v0.5.13, background/foreground separation leaks moving objects), [region override attribution](l3-region-override-attribution-kirk-2026-10.md), Gerardus `docs/plans/SITE-MODEL-SPIKE.md` §11
 - **Parameter sets:** the [defaults](../../../config/tuning.defaults.json) (the guard on);
   [track-guard-off.json](../../../config/experiments/track-guard-off.json) (arm `off`, L3 as it ran
-  before); [track-guard-hold-only.json](../../../config/experiments/track-guard-hold-only.json)
-  (arm `hold`, no edge follow)
+  before); `track-guard-hold-only.json` (arm `hold`, no edge follow), removed when
+  [l3bg0029](../../../data/experiments/l3bg/l3bg0029.md) took edge follow out of the defaults
 
 ## Summary
 

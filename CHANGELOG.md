@@ -63,12 +63,21 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   DMG is the oldest supported. The current app uses the new names. Browser bookmarks
   for `/lidar/replay-cases` redirect to `/lidar/clips` for one release.
 
+- Tracks change: the defaults now run foreground refinement and report each cluster at
+  the mean of its returns. `freeze_duration` is 0s, edge follow is off, DBSCAN uses eps
+  1.0 and 8 minimum points, the cluster size limits are 20 m and an aspect ratio of 60,
+  and confirmed tracks survive 25 misses. Replays cost 5 to 20 % more on a Mac, and a Pi
+  has not been timed. Stored estimates name these positions `cluster_mean_v1` at
+  reference point `cluster_mean`, not `medoid_v0`, and a reader that lists reference
+  points must accept the new token. Published scenes need a new run. To run the earlier
+  defaults, start with `--config config/experiments/foreground-refine-off.json`. Saved
+  tuning files without the new blocks keep their earlier behaviour.
+
 ### Added
 
-- The optional `l3.ema_baseline_v1.foreground_refine` tuning block and the
-  `foreground-refine` parameter set: returns beyond a cell's surface are background,
-  and returns in front of it join connected foreground or a patch new to its cells.
-  Off by default. `lidar-fg-diag` shows the rule that decided each return.
+- The `l3.ema_baseline_v1.foreground_refine` tuning block: returns beyond a cell's
+  surface are background, and returns in front of it join connected foreground or a
+  patch new to its cells. `lidar-fg-diag` shows the rule that decided each return.
 
 - Static periods can be located on a map. The Captures page filters to sessions with a static
   period that has no location, and links each period to a new Locate page that draws its settled

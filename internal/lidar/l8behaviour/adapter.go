@@ -179,6 +179,8 @@ func SampleFromSolidBody(
 		reference = ReferenceClusterMedoid
 	case l5tracks.ReferenceVisibleOBBCentre:
 		reference = ReferenceVisibleOBBCentre
+	case l5tracks.ReferenceClusterMean:
+		reference = ReferenceClusterMean
 	default:
 		return TrajectorySample{}, fmt.Errorf("solid body reference %s has no declared offset to the body centre", body.Reference)
 	}
