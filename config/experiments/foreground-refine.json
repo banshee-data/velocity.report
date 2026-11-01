@@ -59,17 +59,15 @@
         "novel_margin_metres": 0.3,
         "novel_margin_per_metre": 0.005,
         "novel_min_seen": 20,
-        "novel_min_returns": 10,
-        "defer_weak_learning": false,
-        "promoted_learn_share": 0
+        "novel_min_returns": 10
       }
     }
   },
   "l4": {
     "engine": "dbscan_xy_v1",
     "dbscan_xy_v1": {
-      "foreground_dbscan_eps": 0.8,
-      "foreground_min_cluster_points": 5,
+      "foreground_dbscan_eps": 1.0,
+      "foreground_min_cluster_points": 8,
       "foreground_max_input_points": 8000,
       "max_sample_points": 0,
       "height_band_floor": -2.8,
@@ -90,7 +88,7 @@
       "occlusion_cov_inflation": 0.5,
       "hits_to_confirm": 4,
       "max_misses": 3,
-      "max_misses_confirmed": 15,
+      "max_misses_confirmed": 25,
       "max_tracks": 100,
       "max_reasonable_speed_mps": 30,
       "max_position_jump_metres": 5,

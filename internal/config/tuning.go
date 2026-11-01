@@ -122,11 +122,6 @@ type L3ForegroundRefine struct {
 	NovelMinSeen int `json:"novel_min_seen"`
 	// NovelMinReturns is how many novel returns bring a weak patch in.
 	NovelMinReturns int `json:"novel_min_returns"`
-	// DeferWeakLearning teaches a cell a weak return only after the grow pass.
-	DeferWeakLearning bool `json:"defer_weak_learning"`
-	// PromotedLearnShare is the share of the cell's rate a weak return that came
-	// in teaches at, so a stopped object is still absorbed.
-	PromotedLearnShare float64 `json:"promoted_learn_share"`
 }
 
 // L3TrackGuard is the track guard's options, one tuning value per

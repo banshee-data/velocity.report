@@ -85,6 +85,7 @@ func parseRetention(args []string, stderr io.Writer) (*perframeeval.RetentionOpt
 	episodes := fs.String("episodes", "", "comma-separated episode IDs (default: every episode of the split)")
 	allowTuning := fs.Bool("allow-tuning-split", false, "measure a split whose role is not held_out; the output says it is not held out")
 	includeProposed := fs.Bool("include-proposed", false, "also measure proposed (unreviewed) masks; recorded as the reference policy")
+	ignoreObjects := fs.String("ignore-objects", "", "comma-separated object IDs to leave out of scoring, neither missed nor false (a labelled parked car)")
 	ignorePartial := fs.Bool("ignore-partial-masks", false, "treat masks marked partial as uncertifiable rather than measured")
 	position := fs.String("reference-position", string(annotation.PositionFootprintCentre), "where an object's range is taken from: footprint_centre or point_mean")
 	dbPath := fs.String("db", "", "the replay's evidence database (observations.db from -evidence-dir), opened read-only (required)")
@@ -131,6 +132,9 @@ func parseRetention(args []string, stderr io.Writer) (*perframeeval.RetentionOpt
 	}
 	policy.Position = annotation.ReferencePosition(*position)
 	policy.ScorePartialMasks = !*ignorePartial
+	if *ignoreObjects != "" {
+		policy.IgnoreObjects = strings.Split(*ignoreObjects, ",")
+	}
 
 	var episodeIDs []string
 	for _, id := range strings.Split(*episodes, ",") {

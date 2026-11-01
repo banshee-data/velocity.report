@@ -462,10 +462,6 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				// Held: the cell learns nothing from the tracked object.
 			} else if farReturn {
 				bm.refine.farReturn(refine, cell, cellIdx, p.Distance)
-			} else if refine != nil && refine.DeferWeakLearning && bm.refine.weak[i] {
-				// Learned after the grow pass, if it stays background: an
-				// object must not teach the cell its range or its spread.
-				bm.refine.alpha[i] = float32(cellAlpha)
 			} else if cell.TimesSeenCount == 0 {
 				cell.AverageRangeMeters = float32(p.Distance)
 				cell.RangeSpreadMeters = 0.0 // Single point, no spread yet
@@ -477,7 +473,41 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				cell.LockedSpread = 0
 				cell.LockedAtCount = 0
 			} else {
-				cell.learnBackground(p.Distance, cellAlpha, reacqBoost, uint32(lockedThreshold))
+				// Fast re-acquisition: if cell recently saw foreground, use boosted alpha
+				// to quickly re-converge to background after object passes
+				updateAlpha := cellAlpha
+				if cell.RecentForegroundCount > 0 {
+					updateAlpha = math.Min(cellAlpha*reacqBoost, 0.5) // cap at 0.5 to avoid instability
+				}
+
+				oldAvg := float64(cell.AverageRangeMeters)
+				newAvg := (1.0-updateAlpha)*oldAvg + updateAlpha*p.Distance
+				deviation := math.Abs(p.Distance - oldAvg)
+				newSpread := (1.0-updateAlpha)*float64(cell.RangeSpreadMeters) + updateAlpha*deviation
+				cell.AverageRangeMeters = float32(newAvg)
+				cell.RangeSpreadMeters = float32(newSpread)
+				cell.TimesSeenCount++
+
+				// Lock the baseline once we've seen enough observations
+				// This provides a stable reference that doesn't drift during transits
+				lockedThresholdU32 := uint32(lockedThreshold)
+				if cell.LockedAtCount < lockedThresholdU32 && cell.TimesSeenCount >= lockedThresholdU32 {
+					cell.LockedBaseline = cell.AverageRangeMeters
+					cell.LockedSpread = cell.RangeSpreadMeters
+					cell.LockedAtCount = cell.TimesSeenCount
+				} else if cell.LockedAtCount >= lockedThresholdU32 && cell.RecentForegroundCount == 0 {
+					// Only update locked baseline during sustained background periods
+					// (no recent foreground detections)
+					lockAlpha := 0.001 // Very slow update rate for locked baseline
+					cell.LockedBaseline = float32((1.0-lockAlpha)*float64(cell.LockedBaseline) + lockAlpha*p.Distance)
+					lockSpreadDev := math.Abs(p.Distance - float64(cell.LockedBaseline))
+					cell.LockedSpread = float32((1.0-lockAlpha)*float64(cell.LockedSpread) + lockAlpha*lockSpreadDev)
+				}
+
+				// Decay RecentForegroundCount now that we're seeing background again
+				if cell.RecentForegroundCount > 0 {
+					cell.RecentForegroundCount--
+				}
 			}
 			if !readOnly {
 				cell.LastUpdateUnixNanos = nowNanos
@@ -570,9 +600,6 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		grown := bm.refine.grow(g, refine, points, foregroundMask)
 		foregroundCount += int64(grown)
 		backgroundCount -= int64(grown)
-		if refine.DeferWeakLearning {
-			bm.refine.learnWeak(g, points, foregroundMask, readOnlyCell, refine.PromotedLearnShare, reacqBoost, uint32(lockedThreshold), nowNanos)
-		}
 		bm.refine.learnEnvelope(refine, points, foregroundMask, readOnlyCell)
 		if trace != nil && grown > 0 {
 			for i := range trace {

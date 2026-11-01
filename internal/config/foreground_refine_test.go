@@ -31,7 +31,6 @@ func TestForegroundRefineValidate(t *testing.T) {
 		"novel_min_returns":    func(r *L3ForegroundRefine) { r.NovelMinReturns = 0 },
 		"weak_margin_metres":   func(r *L3ForegroundRefine) { r.WeakMarginMetres = -1 },
 		"envelope_attack":      func(r *L3ForegroundRefine) { r.EnvelopeAttack = 2 },
-		"promoted_learn_share": func(r *L3ForegroundRefine) { r.PromotedLearnShare = 1.5 },
 		"grow_tau_per_metre":   func(r *L3ForegroundRefine) { r.GrowTauPerMetre = -0.1 },
 	} {
 		block := refineBlock()

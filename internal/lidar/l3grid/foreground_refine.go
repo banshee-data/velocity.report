@@ -66,13 +66,6 @@ type ForegroundRefineParams struct {
 	NovelMinSeen uint32
 	// NovelMinReturns is how many novel returns bring a weak patch in.
 	NovelMinReturns int
-	// DeferWeakLearning teaches a cell a weak return after the grow pass, at
-	// the cell's rate if it stayed background and at PromotedLearnShare of that
-	// rate, unboosted, if it came in. A passing vehicle then leaves the cell's
-	// average and spread alone, and one that stops is absorbed in about a
-	// minute instead of never.
-	DeferWeakLearning  bool
-	PromotedLearnShare float64
 }
 
 // ForegroundRefineParamsFromTuning is the tuning block's refinement; nil without
@@ -89,7 +82,6 @@ func ForegroundRefineParamsFromTuning(t *config.L3ForegroundRefine) *ForegroundR
 		EnvelopeAttack: float32(t.EnvelopeAttack), EnvelopeRelease: float32(t.EnvelopeRelease),
 		NovelMarginMetres: t.NovelMarginMetres, NovelMarginPerMetre: t.NovelMarginPerMetre,
 		NovelMinSeen: uint32(t.NovelMinSeen), NovelMinReturns: t.NovelMinReturns,
-		DeferWeakLearning: t.DeferWeakLearning, PromotedLearnShare: t.PromotedLearnShare,
 	}
 }
 
@@ -108,7 +100,6 @@ func ForegroundRefineTuningFromParams(p *ForegroundRefineParams) *config.L3Foreg
 		EnvelopeAttack: float64(p.EnvelopeAttack), EnvelopeRelease: float64(p.EnvelopeRelease),
 		NovelMarginMetres: p.NovelMarginMetres, NovelMarginPerMetre: p.NovelMarginPerMetre,
 		NovelMinSeen: int(p.NovelMinSeen), NovelMinReturns: p.NovelMinReturns,
-		DeferWeakLearning: p.DeferWeakLearning, PromotedLearnShare: p.PromotedLearnShare,
 	}
 }
 
@@ -128,10 +119,9 @@ type foregroundRefine struct {
 	farRange     []float32
 
 	frame uint32
-	stamp []uint32  // per cell: the frame that last wrote point
-	point []int32   // per cell: its nearest foreground or weak return
-	cell  []int32   // per return: its cell, or -1
-	alpha []float32 // per weak return: its cell's update fraction
+	stamp []uint32 // per cell: the frame that last wrote point
+	point []int32  // per cell: its nearest foreground or weak return
+	cell  []int32  // per return: its cell, or -1
 	weak  []bool
 	novel []bool
 	seen  []bool
@@ -155,13 +145,11 @@ func (r *foregroundRefine) prepare(cells, points int) {
 	}
 	if cap(r.cell) < points {
 		r.cell = make([]int32, points)
-		r.alpha = make([]float32, points)
 		r.weak = make([]bool, points)
 		r.novel = make([]bool, points)
 		r.seen = make([]bool, points)
 	}
 	r.cell = r.cell[:points]
-	r.alpha = r.alpha[:points]
 	for i := range r.cell {
 		r.cell[i] = -1
 	}
@@ -306,26 +294,6 @@ func (r *foregroundRefine) grow(g *BackgroundGrid, p *ForegroundRefineParams, po
 		}
 	}
 	return grown
-}
-
-// learnWeak teaches the cells the frame's weak returns, once the grow pass has
-// said which are objects.
-func (r *foregroundRefine) learnWeak(g *BackgroundGrid, points []PointPolar, mask []bool, readOnly func(cell int) bool, share, reacqBoost float64, lockedThreshold uint32, nowNanos int64) {
-	for i, c := range r.cell {
-		if c < 0 || !r.weak[i] || readOnly(int(c)) {
-			continue
-		}
-		cell := &g.Cells[c]
-		if mask[i] {
-			if share <= 0 {
-				continue
-			}
-			cell.learnBackground(points[i].Distance, float64(r.alpha[i])*share, 1, lockedThreshold)
-		} else {
-			cell.learnBackground(points[i].Distance, float64(r.alpha[i]), reacqBoost, lockedThreshold)
-		}
-		cell.LastUpdateUnixNanos = nowNanos
-	}
 }
 
 // learnEnvelope moves each cell's near envelope towards what stayed background

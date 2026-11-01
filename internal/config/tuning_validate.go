@@ -283,7 +283,6 @@ func (r *L3ForegroundRefine) Validate() error {
 		{"envelope_release", r.EnvelopeRelease, 1},
 		{"novel_margin_metres", r.NovelMarginMetres, 10},
 		{"novel_margin_per_metre", r.NovelMarginPerMetre, 1},
-		{"promoted_learn_share", r.PromotedLearnShare, 1},
 	} {
 		if math.IsNaN(f.value) || f.value < 0 || f.value > f.high {
 			return fmt.Errorf("%s must be in [0, %g], got %g", f.name, f.high, f.value)

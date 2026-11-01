@@ -3,6 +3,7 @@ package annotation
 import (
 	"fmt"
 	"math"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -78,6 +79,7 @@ type IgnoreReason string
 const (
 	IgnoreUnreviewed          IgnoreReason = "unreviewed"
 	IgnoreNotRoadUser         IgnoreReason = "not_road_user"
+	IgnoreNamedObject         IgnoreReason = "named_object"
 	IgnoreVisibility          IgnoreReason = "visibility"
 	IgnoreUncertainMembership IgnoreReason = "uncertain_membership"
 	IgnoreIncompleteMask      IgnoreReason = "incomplete_mask"
@@ -98,6 +100,9 @@ type ReferencePolicy struct {
 	ScorePartialMasks bool              `json:"score_partial_masks"`
 	// RoadUserClasses is sorted; classes are compared lower-cased.
 	RoadUserClasses []string `json:"road_user_classes"`
+	// IgnoreObjects lists objects to leave out of scoring, neither missed nor
+	// false: a parked car is labelled but is background to a run that is right.
+	IgnoreObjects []string `json:"ignore_objects,omitempty"`
 }
 
 // DefaultReferencePolicy is reviewed-only truth at the footprint centre.
@@ -223,6 +228,8 @@ func BuildReference(p *Pack, s *Sidecar, policy ReferencePolicy) ([]ReferencePoi
 		// First failing condition names the reason; the order is fixed so
 		// the counts are reproducible.
 		switch {
+		case slices.Contains(policy.IgnoreObjects, m.ObjectID):
+			ref.Ignore = IgnoreNamedObject
 		case !policy.admits(obj.Status, m.Status):
 			ref.Ignore = IgnoreUnreviewed
 		case !roadUser[strings.ToLower(strings.TrimSpace(obj.Class))]:
