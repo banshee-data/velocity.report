@@ -127,6 +127,7 @@ type foregroundRefine struct {
 	seen  []bool
 	queue []int32
 	patch []int32
+	found []int32
 }
 
 func (r *foregroundRefine) prepare(cells, points int) {
@@ -221,30 +222,6 @@ func (r *foregroundRefine) grow(g *BackgroundGrid, p *ForegroundRefineParams, po
 			r.point[c] = int32(i)
 		}
 	}
-	// neighbours calls visit for each weak return of the frame in the
-	// neighbourhood of return i, at a similar range.
-	neighbours := func(i int32, visit func(j int32)) {
-		c := int(r.cell[i])
-		ring, bin := c/g.AzimuthBins, c%g.AzimuthBins
-		distance := points[i].Distance
-		tau := p.GrowTauMetres + p.GrowTauPerMetre*distance
-		for dr := -p.GrowRings; dr <= p.GrowRings; dr++ {
-			if ring+dr < 0 || ring+dr >= g.Rings {
-				continue
-			}
-			for db := -p.GrowBins; db <= p.GrowBins; db++ {
-				k := g.Idx(ring+dr, (bin+db+g.AzimuthBins)%g.AzimuthBins)
-				if r.stamp[k] != r.frame {
-					continue
-				}
-				j := r.point[k]
-				if !mask[j] && r.weak[j] && math.Abs(points[j].Distance-distance) <= tau {
-					visit(j)
-				}
-			}
-		}
-	}
-
 	grown := 0
 	r.queue = r.queue[:0]
 	for i, c := range r.cell {
@@ -255,11 +232,13 @@ func (r *foregroundRefine) grow(g *BackgroundGrid, p *ForegroundRefineParams, po
 	for len(r.queue) > 0 {
 		i := r.queue[len(r.queue)-1]
 		r.queue = r.queue[:len(r.queue)-1]
-		neighbours(i, func(j int32) {
-			mask[j] = true
-			grown++
-			r.queue = append(r.queue, j)
-		})
+		for _, j := range r.weakNeighbours(g, p, points, mask, i) {
+			if !mask[j] {
+				mask[j] = true
+				grown++
+				r.queue = append(r.queue, j)
+			}
+		}
 	}
 
 	// A patch with no foreground of its own comes in when enough of it is new
@@ -279,12 +258,12 @@ func (r *foregroundRefine) grow(g *BackgroundGrid, p *ForegroundRefineParams, po
 			if r.novel[i] {
 				novel++
 			}
-			neighbours(i, func(j int32) {
+			for _, j := range r.weakNeighbours(g, p, points, mask, i) {
 				if !r.seen[j] {
 					r.seen[j] = true
 					r.queue = append(r.queue, j)
 				}
-			})
+			}
 		}
 		if novel >= p.NovelMinReturns {
 			for _, i := range r.patch {
@@ -296,12 +275,38 @@ func (r *foregroundRefine) grow(g *BackgroundGrid, p *ForegroundRefineParams, po
 	return grown
 }
 
+// weakNeighbours lists the weak returns in the neighbourhood of return i, at a
+// similar range. The slice is reused by the next call.
+func (r *foregroundRefine) weakNeighbours(g *BackgroundGrid, p *ForegroundRefineParams, points []PointPolar, mask []bool, i int32) []int32 {
+	r.found = r.found[:0]
+	c := int(r.cell[i])
+	ring, bin := c/g.AzimuthBins, c%g.AzimuthBins
+	distance := points[i].Distance
+	tau := p.GrowTauMetres + p.GrowTauPerMetre*distance
+	for dr := -p.GrowRings; dr <= p.GrowRings; dr++ {
+		if ring+dr < 0 || ring+dr >= g.Rings {
+			continue
+		}
+		for db := -p.GrowBins; db <= p.GrowBins; db++ {
+			k := g.Idx(ring+dr, (bin+db+g.AzimuthBins)%g.AzimuthBins)
+			if r.stamp[k] != r.frame {
+				continue
+			}
+			j := r.point[k]
+			if !mask[j] && r.weak[j] && math.Abs(points[j].Distance-distance) <= tau {
+				r.found = append(r.found, j)
+			}
+		}
+	}
+	return r.found
+}
+
 // learnEnvelope moves each cell's near envelope towards what stayed background
 // this frame. Foreground teaches it nothing, and nor does a cell the track guard
-// is holding. attack and release come from p.
-func (r *foregroundRefine) learnEnvelope(p *ForegroundRefineParams, points []PointPolar, mask []bool, held func(cell int) bool) {
+// is holding: heldUntil, nil without the guard, is each cell's end of hold.
+func (r *foregroundRefine) learnEnvelope(p *ForegroundRefineParams, points []PointPolar, mask []bool, heldUntil []int64, nowNanos int64) {
 	for i, c := range r.cell {
-		if c < 0 || mask[i] || held(int(c)) {
+		if c < 0 || mask[i] || (heldUntil != nil && heldUntil[c] > nowNanos) {
 			continue
 		}
 		env := &r.nearEnvelope[c]

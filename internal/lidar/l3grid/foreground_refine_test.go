@@ -295,6 +295,35 @@ func TestForegroundRefine_ResetGridForgetsTheEnvelope(t *testing.T) {
 	}
 }
 
+// The pass runs every frame on a Pi: once its buffers have grown it allocates
+// nothing.
+func TestForegroundRefine_GrowDoesNotAllocate(t *testing.T) {
+	var pts []PointPolar
+	for bin := 10; bin < 30; bin++ {
+		for ch := 2; ch <= 4; ch++ {
+			pts = append(pts, fgPoint(64, ch, bin, 20))
+		}
+	}
+	g, r, mask := growFixture(pts)
+	p := refineParams()
+	frame := func() {
+		r.prepare(len(g.Cells), len(pts))
+		clear(mask)
+		for i := range pts {
+			r.cell[i] = int32(g.Idx(pts[i].Channel-1, azBin(pts[i].Azimuth, 64)))
+			r.weak[i] = true
+			r.novel[i] = i%2 == 0
+		}
+		mask[0] = true
+		r.grow(g, &p, pts, mask)
+		r.learnEnvelope(&p, pts, mask, nil, 0)
+	}
+	frame()
+	if got := testing.AllocsPerRun(20, frame); got != 0 {
+		t.Fatalf("%v allocations a frame", got)
+	}
+}
+
 func TestForegroundRefineTuning_RoundTrips(t *testing.T) {
 	p := refineParams()
 	got := ForegroundRefineParamsFromTuning(ForegroundRefineTuningFromParams(&p))

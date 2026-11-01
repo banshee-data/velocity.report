@@ -596,11 +596,10 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 	// Foreground refinement: weak returns join connected foreground, and what
 	// stays background teaches the near envelope.
 	if refine != nil {
-		readOnlyCell := func(cell int) bool { return guardFrame.on && guardFrame.until[cell] > nowNanos }
 		grown := bm.refine.grow(g, refine, points, foregroundMask)
 		foregroundCount += int64(grown)
 		backgroundCount -= int64(grown)
-		bm.refine.learnEnvelope(refine, points, foregroundMask, readOnlyCell)
+		bm.refine.learnEnvelope(refine, points, foregroundMask, guardFrame.until, nowNanos)
 		if trace != nil && grown > 0 {
 			for i := range trace {
 				if foregroundMask[i] && trace[i].Code >= DecisionBackgroundLocked && trace[i].Code <= DecisionBackgroundSeed {
