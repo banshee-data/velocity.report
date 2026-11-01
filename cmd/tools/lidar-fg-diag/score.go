@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime/pprof"
 	"sort"
 	"strings"
 	"time"
@@ -383,6 +384,7 @@ func runScoreCmd(args []string) error {
 	out := fs.String("json", "", "score JSON")
 	tracksOut := fs.String("tracks", "", "per-track JSON")
 	measurement := fs.String("measurement", "", "L5 measurement source (medoid_v0, obb_centre_v1)")
+	cpuProfile := fs.String("cpuprofile", "", "write a CPU profile of the replay here")
 	fs.Parse(args)
 	oracle, err := loadOracle(*oraclePath)
 	if err != nil {
@@ -530,6 +532,17 @@ func runScoreCmd(args []string) error {
 				}
 			}
 		}
+	}
+	if *cpuProfile != "" {
+		f, err := os.Create(*cpuProfile)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if err := pprof.StartCPUProfile(f); err != nil {
+			return err
+		}
+		defer pprof.StopCPUProfile()
 	}
 	began := time.Now()
 	if _, err := replayeval.Run(cfg); err != nil {

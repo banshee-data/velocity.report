@@ -65,6 +65,11 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Added
 
+- The optional `l3.ema_baseline_v1.foreground_refine` tuning block and the
+  `foreground-refine` parameter set: returns beyond a cell's surface are background,
+  and returns in front of it join connected foreground or a patch new to its cells.
+  Off by default. `lidar-fg-diag` shows the rule that decided each return.
+
 - Static periods can be located on a map. The Captures page filters to sessions with a static
   period that has no location, and links each period to a new Locate page that draws its settled
   background from above. Find the place by address, drag and turn the sensor, and Snap it to

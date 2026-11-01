@@ -8,6 +8,11 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 1, 2026 - Foreground refinement
+
+- {claude/vrlog-foreground-extraction-f1a9a3} Traced the painted background and partial vehicles of full-frame run `95f63441` to three paint sources (a revealed surface behind a vehicle that stood through settling, frozen cells, edge follow) and traffic widening cells' spread; added the optional [foreground refinement](lidar/operations/l3-foreground-refinement-2026-10.md) block, whose held-out read gave recall +0.29, moving-track time ×1.97, structure paint ×0.12 and medoid jitter p90 ×0.81, passing every quality clause and failing the replay cost clause, so the defaults stay as they are.
+- {claude/vrlog-foreground-extraction-f1a9a3} Fixed `max_cluster_diameter`, `min_cluster_diameter` and `max_cluster_aspect_ratio` never reaching L4 from a tuning file, which had discarded whole buses under a limit no parameter set could change; added `lidar-fg-diag`, an L3 decision trace and an L3-free oracle of each capture's persistent surfaces.
+
 ## October 30, 2026 - Survey scenes and Broadway–Franklin location correction
 
 - {codex/remove-osm-lidar} Removed OSM geometry requests, rendering and street-painter fallback from the visualiser, and the web locator's OSM-outline fit/snap path; retained city kerbs, markings, manual placement and browser maps. Synchronized reserved protocol identities with Gerardus and added legacy-response and snap-target checks; see the [implementation plan](plans/lidar-osm-removal-plan.md).

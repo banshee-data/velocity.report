@@ -213,9 +213,9 @@ Example:
 Hot-reloadable parameters:
 
 - L3 engine parameters (`l3.ema_baseline_v1.*`), including the optional
-  `l3.ema_baseline_v1.track_guard` block, which goes on whole. One key of
-  it edits the running block; with the guard off there is no block to edit,
-  so the whole block is required.
+  `l3.ema_baseline_v1.track_guard` and `l3.ema_baseline_v1.foreground_refine`
+  blocks, each of which goes on whole. One key of a block edits the running
+  block; with it off there is no block to edit, so the whole block is required.
 - L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
 - L5 tracker parameters (`l5.cv_kf_v1.*`), including the optional
   `l5.cv_kf_v1.solid_body` and `l5.cv_kf_v1.box_model` blocks. A block is
@@ -493,6 +493,38 @@ duration in [0s, 1m].
 | `hold_min_speed_mps`                           | float64 | Holds only the tracks moving at least this fast, so a static object tracked as one is learned as before. `1.0`.              |
 | `edge_follow_cluster`                          | bool    | Publishes the background returns inside held, observed track and associated cluster boxes as foreground. L4 is not affected. |
 | `edge_margin_metres`                           | float64 | Grows the boxes of `edge_follow_cluster`. `0.2`.                                                                             |
+
+#### Foreground refinement
+
+`l3.ema_baseline_v1.foreground_refine` adds evidence a window depth cannot give to the per-return
+decision. A return beyond the cell's surface is background, and an agreed run of them relearns the
+cell. A background return well in front of the surface is weak: it joins connected foreground, or
+comes in as a patch if enough of it is new to its cells. A config without the block runs refinement
+off, as the shipped defaults do, and keeps its fingerprint. When the block is present, every key is
+required. Schema: [L3ForegroundRefine](../internal/config/tuning.go). Code:
+[foreground_refine.go](../internal/lidar/l3grid/foreground_refine.go). Report:
+[foreground refinement](../docs/lidar/operations/l3-foreground-refinement-2026-10.md).
+[foreground-refine.json](experiments/foreground-refine.json) is the measured set; the values below
+are its.
+
+Rules: counts at least 1 (`grow_rings`, `grow_bins` and `novel_min_seen` at least 0),
+`far_relearn_returns` at most 255, shares and per-metre rates in [0, 1], distances in [0, 10] m.
+
+| Path (under `l3.ema_baseline_v1.foreground_refine.`) | Type    | Notes                                                                                                     |
+| ---------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `far_relearn_returns`                                | int     | Consecutive far returns agreeing on one range that relearn a cell. `10`.                                  |
+| `far_agree_metres`, `far_agree_per_metre`            | float64 | How close two far returns must be: base + rate × range. `0.3`, `0.01`.                                    |
+| `far_relearn_seen`                                   | int     | The observation count a relearned cell restarts from. `50`.                                               |
+| `weak_margin_metres`, `weak_margin_per_metre`        | float64 | How far in front of its surface a background return lies to be weak, with `weak_spreads`. `0.5`, `0.005`. |
+| `weak_spreads`                                       | float64 | Multiples of the cell's spread added to that margin. `2`.                                                 |
+| `weak_spread_cap_metres`                             | float64 | Bounds what a weak return adds to its cell's spread. `0.5`.                                               |
+| `grow_rings`, `grow_bins`                            | int     | The neighbourhood foreground grows through, either side. `2`, `3`.                                        |
+| `grow_tau_metres`, `grow_tau_per_metre`              | float64 | The range similarity it requires: base + rate × range. `0.4`, `0.01`.                                     |
+| `envelope_attack`, `envelope_release`                | float64 | Share of the distance the near envelope moves to a nearer and a farther return. `0.3`, `0.005`.           |
+| `novel_margin_metres`, `novel_margin_per_metre`      | float64 | How far in front of the envelope a weak return lies to be new to its cell. `0.3`, `0.005`.                |
+| `novel_min_seen`                                     | int     | The observations a cell needs before its envelope counts. `20`.                                           |
+| `novel_min_returns`                                  | int     | How many novel returns bring a weak patch in. `10`.                                                       |
+| `support_filter`                                     | bool    | Runs the range-image support filter on the result, at its shipped parameters. `true`.                     |
 
 ### L4
 
