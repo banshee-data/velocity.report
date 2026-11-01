@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 1, 2026 - All 24 survey scenes with registered buildings and ground
+
+- {scenes/ground-buildings-24} Rebuilt all 24 survey scenes from main at `3b49a1ac` (0.5.1-pre50) in analysis mode with the settling pass, each with buildings and a registered ground mesh placed by its accepted Gerardus pose, after rebuilding 23 site bundles on Gerardus `0c2bf37` (`aerial_outlines 3`) with every pose unchanged; every scene passes the exporter's placement check, and on walls within 30 m and 0.5 to 4 m high seven score below the pose moved (pierce-haight, columbus-north-point, embarcadero-broadway, franklin-mcallister, hyde-ofarrell, 3rd-folsom, and embarcadero-folsom on only 12 samples) and two have no such samples (embarcadero-bay, embarcadero-bryant). The vectors files total 45 MB. broadway-franklin and franklin-mcallister come from the corrected corpus, the latter now from all five captures, 1,213 s (#899).
+
 ## October 30, 2026 - Survey scenes and Broadway–Franklin location correction
 
 - {codex/remove-osm-lidar} Removed OSM geometry requests, rendering and street-painter fallback from the visualiser, and the web locator's OSM-outline fit/snap path; retained city kerbs, markings, manual placement and browser maps. Synchronized reserved protocol identities with Gerardus and added legacy-response and snap-target checks; see the [implementation plan](plans/lidar-osm-removal-plan.md).
