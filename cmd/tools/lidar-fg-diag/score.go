@@ -421,6 +421,7 @@ func runScoreCmd(args []string) error {
 	tracksOut := fs.String("tracks", "", "per-track JSON")
 	measurement := fs.String("measurement", "", "L5 measurement source (medoid_v0, obb_centre_v1)")
 	cpuProfile := fs.String("cpuprofile", "", "write a CPU profile of the replay here")
+	series := fs.String("series", "", "per-minute CSV: frames, foreground, structure paint, coherent transient and kept")
 	fs.Parse(args)
 	oracle, err := loadOracle(*oraclePath)
 	if err != nil {
@@ -444,6 +445,7 @@ func runScoreCmd(args []string) error {
 	if *measurement != "" {
 		cfg.MeasurementSourceMode = l5tracks.MeasurementSource(*measurement)
 	}
+	perMinute := map[int]*[5]float64{}
 	logs := map[string]*trackLog{}
 	var trackFrames, splitFrames float64
 	overlapFrames := map[[2]string]int{}
@@ -458,6 +460,13 @@ func runScoreCmd(args []string) error {
 		score.Frames++
 		frameNo++
 		pts := f.Frame.Points
+		minute := int(f.At.Sub(first).Minutes())
+		tally := perMinute[minute]
+		if tally == nil {
+			tally = &[5]float64{}
+			perMinute[minute] = tally
+		}
+		tally[0]++
 		if cap(labels) < len(pts) {
 			labels = make([]uint8, len(pts))
 		}
@@ -484,6 +493,7 @@ func runScoreCmd(args []string) error {
 			}
 			if f.Mask[i] {
 				fg++
+				tally[1]++
 			}
 			if f.L3Mask[i] {
 				l3++
@@ -492,6 +502,7 @@ func runScoreCmd(args []string) error {
 				painted++
 				if c := cellOf(&pts[i]); c >= 0 && onStructure(&oracle[c], float32(pts[i].Distance)) {
 					paintedStructure++
+					tally[2]++
 				}
 			}
 			if labels[i] != labelTransient {
@@ -524,8 +535,10 @@ func runScoreCmd(args []string) error {
 			}
 			confusion[codeIndex(f.Decisions[i])][1]++
 			transient++
+			tally[3]++
 			if f.Mask[i] {
 				kept++
+				tally[4]++
 			}
 			if f.L3Mask[i] {
 				keptL3++
@@ -785,6 +798,23 @@ func runScoreCmd(args []string) error {
 	score.MedianPoints = percentile(points, .5)
 	if possible > 0 {
 		score.ObservedShare = observed / possible
+	}
+	if *series != "" {
+		w, err := os.Create(*series)
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+		fmt.Fprintln(w, "minute,frames,foreground,structure_paint,transient,kept")
+		minutes := make([]int, 0, len(perMinute))
+		for m := range perMinute {
+			minutes = append(minutes, m)
+		}
+		sort.Ints(minutes)
+		for _, m := range minutes {
+			b := perMinute[m]
+			fmt.Fprintf(w, "%d,%.0f,%.0f,%.0f,%.0f,%.0f\n", m, b[0], b[1], b[2], b[3], b[4])
+		}
 	}
 	if *tracksOut != "" {
 		type trackRow struct {

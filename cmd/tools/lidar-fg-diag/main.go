@@ -12,7 +12,8 @@
 // clusters and tracks: track lives, medoid jitter, broken links.
 //
 // Each frame is a little-endian packed record file plus a JSON sidecar. The
-// record layout is in pointRecord below.
+// record layout is in pointRecord below; tools/lidar-fg-diag/render_frames.py
+// draws them.
 package main
 
 import (

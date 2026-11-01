@@ -344,6 +344,7 @@ _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 
   `kirk0-tuning/ground-truth.json` for the track attribution.
 - **Recordings:** run `95f63441` (build `ab787541c`), and its counterpart `0f0d37a9` from a server
   started with `--config config/experiments/foreground-refine.json`, 901 full frames.
-- **Tools:** [lidar-fg-diag](../../../cmd/tools/lidar-fg-diag/main.go): `oracle`, `score`, `replay`, `vrlog`.
+- **Tools:** [lidar-fg-diag](../../../cmd/tools/lidar-fg-diag/main.go): `oracle`, `score`, `replay`, `vrlog`;
+  [render_frames.py](../../../tools/lidar-fg-diag/render_frames.py) draws its dumps.
 - **Raw output:** `~/vr-scratch/fg-20261031/`, untracked: score JSON per arm and case, frame dumps,
   kirk0 evidence, rendered frames.
