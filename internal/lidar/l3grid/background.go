@@ -124,6 +124,10 @@ type BackgroundParams struct {
 	// Go-level and default nil, so the config fingerprint does not move; the
 	// replay experiment support_filter sets it to DefaultSupportFilterParams.
 	SupportFilter *SupportFilterParams
+	// ForegroundRefine, when set, adds the one-sided decision, hysteresis and
+	// novelty rules of foreground_refine.go to the per-return decision. Nil
+	// is off.
+	ForegroundRefine *ForegroundRefineParams
 
 	// TrackGuard, when set, keeps the objects L5 tracks out of the model and
 	// publishes their edges as foreground (track_guard.go): returns inside a
@@ -559,4 +563,44 @@ func (g *BackgroundGrid) effectiveCellParams(cellIdx int, defaultNoiseRel float6
 		alpha = v
 	}
 	return
+}
+
+// learnBackground folds a return classified background into the cell: its
+// average, spread and count at alpha, boosted while the cell is re-acquiring
+// after foreground, and its locked baseline.
+func (cell *BackgroundCell) learnBackground(distance, alpha, reacqBoost float64, lockedThreshold uint32) {
+	// Fast re-acquisition: if cell recently saw foreground, use boosted alpha
+	// to quickly re-converge to background after object passes
+	updateAlpha := alpha
+	if cell.RecentForegroundCount > 0 {
+		updateAlpha = math.Min(alpha*reacqBoost, 0.5) // cap at 0.5 to avoid instability
+	}
+
+	oldAvg := float64(cell.AverageRangeMeters)
+	newAvg := (1.0-updateAlpha)*oldAvg + updateAlpha*distance
+	deviation := math.Abs(distance - oldAvg)
+	newSpread := (1.0-updateAlpha)*float64(cell.RangeSpreadMeters) + updateAlpha*deviation
+	cell.AverageRangeMeters = float32(newAvg)
+	cell.RangeSpreadMeters = float32(newSpread)
+	cell.TimesSeenCount++
+
+	// Lock the baseline once we've seen enough observations
+	// This provides a stable reference that doesn't drift during transits
+	if cell.LockedAtCount < lockedThreshold && cell.TimesSeenCount >= lockedThreshold {
+		cell.LockedBaseline = cell.AverageRangeMeters
+		cell.LockedSpread = cell.RangeSpreadMeters
+		cell.LockedAtCount = cell.TimesSeenCount
+	} else if cell.LockedAtCount >= lockedThreshold && cell.RecentForegroundCount == 0 {
+		// Only update locked baseline during sustained background periods
+		// (no recent foreground detections)
+		lockAlpha := 0.001 // Very slow update rate for locked baseline
+		cell.LockedBaseline = float32((1.0-lockAlpha)*float64(cell.LockedBaseline) + lockAlpha*distance)
+		lockSpreadDev := math.Abs(distance - float64(cell.LockedBaseline))
+		cell.LockedSpread = float32((1.0-lockAlpha)*float64(cell.LockedSpread) + lockAlpha*lockSpreadDev)
+	}
+
+	// Decay RecentForegroundCount now that we're seeing background again
+	if cell.RecentForegroundCount > 0 {
+		cell.RecentForegroundCount--
+	}
 }

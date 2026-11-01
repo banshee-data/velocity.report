@@ -51,6 +51,14 @@ type BackgroundManager struct {
 	// Safe because the pipeline callback runs synchronously on a single goroutine.
 	maskBuf []bool
 
+	// traceOn and trace are the per-return decision trace (decision_trace.go).
+	traceOn atomic.Bool
+	trace   []DecisionRecord
+
+	// refine is foreground refinement's state (foreground_refine.go), used
+	// only when Params.ForegroundRefine is set.
+	refine foregroundRefine
+
 	// supportScratch holds the support filter's per-frame buffers, reused for
 	// the same reason as maskBuf. Only used when Params.SupportFilter is set.
 	supportScratch supportFilterScratch
@@ -558,6 +566,11 @@ func (bm *BackgroundManager) ResetGrid() error {
 	bm.HasSettled = false
 	// A reset grid has held nothing: no cell is cooling down.
 	clear(bm.heldUntil)
+	// Nor has a reset grid an envelope or a run of far returns: left set, a
+	// replay would depend on the source before it.
+	clear(bm.refine.nearEnvelope)
+	clear(bm.refine.farRun)
+	clear(bm.refine.farRange)
 
 	// Count nonzero cells BEFORE reset (Log A: grid reset diagnostics)
 	nonzeroBefore := 0

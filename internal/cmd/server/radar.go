@@ -706,21 +706,24 @@ func Main(args []string) int {
 
 			// Create tracking pipeline callback with all necessary dependencies
 			pipelineConfig = &pipeline.TrackingPipelineConfig{
-				BackgroundManager:   backgroundManager,
-				FgForwarder:         foregroundForwarder,
-				Tracker:             tracker,
-				Classifier:          classifier,
-				KeepClusterMembers:  tuningSolidBodyFullMembers(tuningCfg) || tuningBoxModelMembers(tuningCfg),
-				DB:                  lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
-				SensorID:            lidarSensorID,
-				VisualiserPublisher: visualiserPublisher,
-				VisualiserAdapter:   frameAdapter,
-				LidarViewAdapter:    lidarViewAdapter,
-				MaxFrameRate:        25, // Replay catch-up ceiling; live is never throttled, nor is analysis mode (see ReplayActive, AnalysisModeActive)
-				HeightBandFloor:     tuningCfg.GetHeightBandFloor(),
-				HeightBandCeiling:   tuningCfg.GetHeightBandCeiling(),
-				RemoveGround:        tuningCfg.GetRemoveGround(),
-				Profile:             tuningCfg.Profile(),
+				BackgroundManager:     backgroundManager,
+				FgForwarder:           foregroundForwarder,
+				Tracker:               tracker,
+				Classifier:            classifier,
+				KeepClusterMembers:    tuningSolidBodyFullMembers(tuningCfg) || tuningBoxModelMembers(tuningCfg),
+				DB:                    lidarDB.DB, // Pass underlying sql.DB to avoid import cycle
+				SensorID:              lidarSensorID,
+				VisualiserPublisher:   visualiserPublisher,
+				VisualiserAdapter:     frameAdapter,
+				LidarViewAdapter:      lidarViewAdapter,
+				MaxFrameRate:          25, // Replay catch-up ceiling; live is never throttled, nor is analysis mode (see ReplayActive, AnalysisModeActive)
+				MaxClusterDiameter:    tuningCfg.GetMaxClusterDiameter(),
+				MinClusterDiameter:    tuningCfg.GetMinClusterDiameter(),
+				MaxClusterAspectRatio: tuningCfg.GetMaxClusterAspectRatio(),
+				HeightBandFloor:       tuningCfg.GetHeightBandFloor(),
+				HeightBandCeiling:     tuningCfg.GetHeightBandCeiling(),
+				RemoveGround:          tuningCfg.GetRemoveGround(),
+				Profile:               tuningCfg.Profile(),
 			}
 			// State the profile at startup unconditionally. A pipeline that is
 			// not running L4-L6 looks identical to a broken one from the

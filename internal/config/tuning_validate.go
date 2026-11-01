@@ -235,6 +235,60 @@ func (c *L3Common) Validate() error {
 	if err := c.TrackGuard.Validate(); err != nil {
 		return fmt.Errorf("track_guard: %w", err)
 	}
+	if err := c.ForegroundRefine.Validate(); err != nil {
+		return fmt.Errorf("foreground_refine: %w", err)
+	}
+	return nil
+}
+
+// Validate checks the foreground refinement block: counts of at least one (a
+// zero neighbourhood is allowed), and shares and distances finite and in range.
+// A nil block is refinement off and valid.
+func (r *L3ForegroundRefine) Validate() error {
+	if r == nil {
+		return nil
+	}
+	for _, f := range []struct {
+		name  string
+		value int
+		low   int
+	}{
+		{"far_relearn_returns", r.FarRelearnReturns, 1},
+		{"far_relearn_seen", r.FarRelearnSeen, 1},
+		{"grow_rings", r.GrowRings, 0},
+		{"grow_bins", r.GrowBins, 0},
+		{"novel_min_seen", r.NovelMinSeen, 0},
+		{"novel_min_returns", r.NovelMinReturns, 1},
+	} {
+		if f.value < f.low {
+			return fmt.Errorf("%s must be at least %d, got %d", f.name, f.low, f.value)
+		}
+	}
+	if r.FarRelearnReturns > 255 {
+		return fmt.Errorf("far_relearn_returns must be at most 255, got %d", r.FarRelearnReturns)
+	}
+	for _, f := range []struct {
+		name  string
+		value float64
+		high  float64
+	}{
+		{"far_agree_metres", r.FarAgreeMetres, 10},
+		{"far_agree_per_metre", r.FarAgreePerMetre, 1},
+		{"weak_margin_metres", r.WeakMarginMetres, 10},
+		{"weak_spreads", r.WeakSpreads, 100},
+		{"weak_margin_per_metre", r.WeakMarginPerMetre, 1},
+		{"grow_tau_metres", r.GrowTauMetres, 10},
+		{"grow_tau_per_metre", r.GrowTauPerMetre, 1},
+		{"envelope_attack", r.EnvelopeAttack, 1},
+		{"envelope_release", r.EnvelopeRelease, 1},
+		{"novel_margin_metres", r.NovelMarginMetres, 10},
+		{"novel_margin_per_metre", r.NovelMarginPerMetre, 1},
+		{"promoted_learn_share", r.PromotedLearnShare, 1},
+	} {
+		if math.IsNaN(f.value) || f.value < 0 || f.value > f.high {
+			return fmt.Errorf("%s must be in [0, %g], got %g", f.name, f.high, f.value)
+		}
+	}
 	return nil
 }
 
