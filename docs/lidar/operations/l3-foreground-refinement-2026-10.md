@@ -403,6 +403,18 @@ about the failed clause, not a pass: the replay cost stands as measured, and a P
   this report measured are in Git at `e9a952f9b`.
 - **Evidence names.** A position from the mean is recorded as `cluster_mean_v1`, at reference point
   `cluster_mean`. Neither is physical, so no endpoint is projected from it.
+- **Cost on kirk0.** `lidar-bench`, median of five rounds, is below. On x86 it costs more than the
+  replay times above suggest, and L3 alone costs more than it does on the Mac. No frame passed the
+  98 ms budget on the Mac; the worst took 60.8 ms. The Perf A/B check's bound of 1.10 fails, and that
+  failure is the decision above, not a regression to fix.
+
+  | Host                  | Profile   | Earlier defaults | New defaults | Change |
+  | --------------------- | --------- | ---------------: | -----------: | -----: |
+  | Apple M1 Pro          | `full`    |           11.8 s |       13.8 s |  +17 % |
+  | Apple M1 Pro          | `l3-only` |            6.8 s |        6.9 s |   +1 % |
+  | AMD EPYC 9V45, CI A/B | `full`    |           10.5 s |       14.0 s |  +33 % |
+  | AMD EPYC 9V45, CI A/B | `l3-only` |            6.7 s |        8.1 s |  +20 % |
+
 - **Coverage.** kirk0's surveyed declaration moved from 92 m to 89 m, with the p90 of estimate range
   up from 48.3 m to 55.2 m. The other cases in
   [continuity-coverage.json](../../../tools/s2-archive/continuity-coverage.json) were not surveyed again.
