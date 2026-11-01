@@ -316,6 +316,27 @@ from (−40.6, −12.3) to (−29.1, −21.7) at 1.5 m/s with a 3.6 × 1.3 m box
 at about 5 m/s, and two at a steady 1.4 m/s over 20 m. Those are road users the pack does not hold.
 This is motion evidence, not a label: the count of how many of the 24 are real is not established.
 
+**Physical references.** The following episode's 22 surveyed poses of three vehicles give what none of
+the above can: error against a measured body. Published boxes, defaults → candidate:
+
+| Measure, mean absolute | Defaults | Candidate | Bound |
+| ---------------------- | -------: | --------: | ----: |
+| Centre, m              |     0.92 |      0.52 |  0.94 |
+| Length, m              |     1.62 |      0.96 |  0.27 |
+| Rear end, m            |     1.42 |      0.61 |  0.78 |
+| Front end, m           |     0.47 |      0.71 |  1.21 |
+| Width, m               |     0.11 |      0.27 |  0.24 |
+| Yaw, rad               |    0.016 |     0.051 | 0.067 |
+| Box IoU                |     0.75 |      0.78 |     - |
+| Following gap, m       |     0.25 |      1.20 |  1.74 |
+
+The gain is truck 8e829a06, 9.6 m long. Under the defaults its box is a 4 m cab for samples 491 to 504;
+the candidate has 9.4 m by 502. The loss is the same truck at 495 and 500, where its returning track
+publishes a 2.8 × 1.7 m box before it has grown, which takes two of the eleven gap samples outside
+their bound, one by 5.4 m. So the gap error is two frames, not a shift, but it is a real cost to
+following on this one episode, and width and yaw are worse throughout. Twenty-two poses of three
+vehicles cannot say more.
+
 ![The same frames from the two recordings, from one camera. Left, defaults, with green streaks across the road and walls; right, the candidate, with green only on vehicles.](l3-foreground-refinement-vrlog.png)
 
 _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 s to 12 s._
@@ -332,8 +353,8 @@ _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 
 
 ## What this does not establish
 
-- No physical validation: the oracle is a statistic of the capture, and no measure here says where a
-  vehicle was.
+- Little physical validation: the oracle is a statistic of the capture, and only the 22 poses above say
+  where a vehicle was.
 - Precision is argued from motion, not measured against complete labels. A complete label set for
   even one capture would settle it.
 - kirk0 is development data, and all pedestrian evidence is five objects on that one capture.
