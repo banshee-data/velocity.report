@@ -10,7 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 ## November 1, 2026 - Scene-variant renders of kirk0 on main
 
-- {ai/docs/kirk0-variant-renders} Re-ran October's kirk0 scene-variant renders on main as [geom0014](../data/experiments/geom/geom0014.md), under the defaults and the four solid-body parameter sets at the published replay settings: the shadow drew the defaults' tracks in all 151 frames, the defaults replayed last on the same server drew the same tracks as the defaults replayed first, and A2, alignment and convergence turned the box 0.23° to 0.34° a frame against 0.80° and halved its length spread (0.49 to 0.52 m against 0.97 m). Label-free, so this measures steadiness, not accuracy; see the [report](lidar/operations/scene-variants-kirk0-2026-11.md).
+- Re-ran October's kirk0 scene-variant renders on main as [geom0014](../data/experiments/geom/geom0014.md), under the defaults and the four solid-body parameter sets at the published replay settings: the shadow drew the defaults' tracks in all 151 frames, the defaults replayed last on the same server drew the same tracks as the defaults replayed first, and A2, alignment and convergence turned the box 0.23° to 0.34° a frame against 0.80° and halved its length spread (0.49 to 0.52 m against 0.97 m). Label-free, so this measures steadiness, not accuracy; see the [report](lidar/operations/scene-variants-kirk0-2026-11.md) (#898).
 
 ## October 30, 2026 - Survey scenes and Broadway–Franklin location correction
 
