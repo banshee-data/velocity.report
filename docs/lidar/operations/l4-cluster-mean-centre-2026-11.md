@@ -5,10 +5,12 @@ jitter mostly as composition: a medoid is one return, so it steps between return
 visible surface changes. This run asks whether the mean of the cluster's returns holds identity as
 well and moves less.
 
-- **Status:** Measured, November 1, 2026 (experiment
-  [l4clus0006](../../../data/experiments/l4clus/l4clus0006.md)). The target passes; one non-inferiority
-  clause fails by 1.6 points, so the rule's pass is not met. Nothing moves in the defaults, and the
-  arm stays its own parameter set,
+- **Status:** Measured, November 1, 2026. On the defaults alone
+  ([l4clus0007](../../../data/experiments/l4clus/l4clus0007.md)) the mean passes its whole rule on three
+  held-out placements. On refined foreground ([l4clus0006](../../../data/experiments/l4clus/l4clus0006.md))
+  the target passes and one non-inferiority clause fails by 1.6 points. Nothing moves in the defaults:
+  the arms are parameter sets,
+  [cluster-mean-centre.json](../../../config/experiments/cluster-mean-centre.json) and
   [foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json)
 - **Layers:** L4 cluster position, L5 measurement
 - **Related:** [D2 medoid against OBB centre](d2-medoid-obb-current-solver-2026-10.md)
@@ -22,10 +24,11 @@ well and moves less.
   mean is carried by kirk1 going from 10 to 16.
 - **Identity improves on kirk0's reviewed objects:** ID switches 117 to 87, identity recall 0.697 to
   0.780, false negatives 536 to 502.
-- **It works without refinement too.** On the defaults the mean alone takes kirk0's ID switches from
-  440 to 174 and HOTA from 0.454 to 0.494, at no measured cost in false positives or false negatives,
-  and development-set position jitter down 24 %. The medoid's stated reason, that the mean of a
-  non-convex cluster can fall off the cloud, did not show up as a cost on any capture here.
+- **It works without refinement too, and passes.** On the defaults alone the mean takes kirk0's ID
+  switches from 440 to 174 and HOTA from 0.454 to 0.494, with false positives 1,913 to 1,900 and false
+  negatives 511 to 491. On three held-out placements position jitter falls 27 %, speed jitter 30 %.
+  The medoid's stated reason, that the mean of a non-convex cluster can fall off the cloud, did not
+  show up as a cost on any capture here.
 
 ## Method
 
@@ -80,6 +83,31 @@ Against the defaults on the development set, refinement and the mean together br
 from 0.264 to 0.137 m, p90 from 0.543 to 0.340 m, filtered position jitter from 0.166 to 0.079 m and
 speed jitter from 0.551 to 0.252 m/s, as means over the seven captures.
 
+### On the defaults
+
+[l4clus0007](../../../data/experiments/l4clus/l4clus0007.md), its rule committed before the read: the
+first 200 s of three further placements, the first 30 s not scored. Defaults → defaults with the mean:
+
+| Capture               | Jitter m      | Jitter p90 m  | State jitter m | Speed jitter m/s | Moving track s | Stationary | Broken links |
+| --------------------- | ------------- | ------------- | -------------- | ---------------- | -------------- | ---------- | ------------ |
+| laguna-eddy           | 0.198 → 0.151 | 0.404 → 0.351 | 0.118 → 0.102  | 0.498 → 0.317    | 465 → 407      | 59 → 61    | 7 → 7        |
+| california-leon-baker | 0.217 → 0.137 | 0.351 → 0.244 | 0.104 → 0.085  | 0.444 → 0.306    | 272 → 274      | 21 → 21    | 19 → 15      |
+| fulton-divisadero     | 0.225 → 0.178 | 0.437 → 0.430 | 0.120 → 0.113  | 0.560 → 0.429    | 543 → 540      | 59 → 62    | 33 → 32      |
+
+| Clause                           | Bound             | Result                     | Verdict |
+| -------------------------------- | ----------------- | -------------------------- | ------- |
+| Median position jitter           | −15 %, all three  | −27 %, all three           | Pass    |
+| Track state jitter, speed jitter | −5 % each         | −13 %, −30 %               | Pass    |
+| Moving-track seconds             | at most −5 %      | −4.1 %                     | Pass    |
+| Stationary tracks, broken links  | at most +10 %     | +3 %, −8 %                 | Pass    |
+| p90 position jitter              | no higher         | −15 %                      | Pass    |
+| kirk0 ID switches                | lower             | 440 to 174                 | Pass    |
+| kirk0 HOTA                       | no lower          | 0.454 to 0.494             | Pass    |
+| kirk0 false positives, negatives | at most +3 % each | 1,913 to 1,900; 511 to 491 | Pass    |
+
+Moving-track time at laguna-eddy falls 12 %, the one capture where it moves much. Both arms of this
+pair find the same objects, so HOTA is a fair reading here, unlike in l3bg0029.
+
 ## What this does not establish
 
 - Jitter is a statistic of the reported position, not an error against a surveyed vehicle: a steadier
@@ -90,10 +118,11 @@ speed jitter from 0.551 to 0.252 m/s, as means over the seven captures.
 
 ## Recommendations
 
-1. **Decide the broken-links clause.** Read by the rule the arm does not pass, and the rule stands. In
-   counts the change is two links in 67, so a re-read with more capture would settle it cheaply.
-2. **Try the mean on the defaults under its own rule.** It is a one-key change with the largest gain
-   per line in this work, and it does not depend on refinement.
+1. **Make the mean the default.** It passed its rule, is one key, costs nothing to compute, and does
+   not depend on refinement. It moves the config fingerprint, so the perf baselines need a recapture,
+   and `medoid_v0` needs a new name in the evidence it writes.
+2. **Decide the broken-links clause for the refined arm.** Read by the rule that arm does not pass, and
+   the rule stands. In counts the change is two links in 67, so more capture would settle it cheaply.
 
 ## Provenance
 

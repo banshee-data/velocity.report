@@ -37,8 +37,8 @@ per-return decision evidence a window depth cannot.
   it is new to its cells. Freeze and edge follow are switched off.
 - **Five held-out placements, against the defaults:** coherent moving returns kept 0.62 to 0.91,
   moving-track time ×1.97, median moving-track life ×1.86, structure paint ×0.12, stationary tracks
-  ×0.68, median medoid jitter ×0.87 and p90 ×0.81. Replay time rose 17 to 19 %, which fails the
-  rule's 10 % clause.
+  ×0.68, median medoid jitter ×0.87 and p90 ×0.81. Replay time rose 5 to 20 %, which fails the
+  rule's 10 % clause, mostly because of `eps` 1.0 m on fuller masks.
 - **On kirk0's reviewed objects:** ID switches 440 to 117, identity recall 0.59 to 0.70, truck
   fragmentation 48 % to 21 %, the bus 0.65 to 0.98 of returns clustered. The labelled road users are
   covered by 23 tracks instead of 47, with median life 14.5 s against 6.4 s.
@@ -236,10 +236,38 @@ each, scored from 30 s, with an oracle built per capture from `config/profiles/l
 Embarcadero-bryant is the exception to read: unassociated clusters rise 1.06 to 1.69 and p90 jitter
 rises, on a site where moving-track time more than doubles. It is the worst case in this set.
 
-Replay time is measured serially, three repeats each of kirk0 and embarcadero-bryant: 12.9 to 15.2 s
-and 29.7 to 35.4 s, CPU time +10 %. On embarcadero-bryant L3 takes 2.2 ms more a frame on the M1,
-about half of it refinement and the rest the guard's extra boxes, and DBSCAN 0.8 ms more with more
-foreground. Mean frame time stays well under the 98 ms budget on the Mac; the Pi is unmeasured.
+Replay time, serially, three repeats each with `velocity lidar pcap-replay`, no scorer attached:
+kirk0 12.0 to 13.9 s (+16 %), embarcadero-bryant 25.8 to 31.0 s (+20 %), howard-6th 24.6 to 26.0 s
+(+5 %). CPU time rises 2 to 9 %. Most of it is DBSCAN at `eps` 1.0 m on fuller masks: on kirk0, `eps`
+0.8 m takes the rise from +14 % to +4 %, the support filter costs 2 % and `max_misses_confirmed` 1 %.
+L3 itself adds about 1.1 ms a frame on the M1. Mean frame time stays well under the 98 ms budget on
+the Mac; the Pi is unmeasured.
+
+### The whole capture
+
+The held-out reads last 200 s, so one run covers a whole placement: lombard-laguna, 40 minutes, with
+[foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json) and an oracle
+sampled across the capture. Nothing drifts, and a change in the scene at minute 34 is the clearest
+case for the one-sided decision.
+
+| Measure                | Defaults | Candidate with the mean |
+| ---------------------- | -------: | ----------------------: |
+| Coherent recall        |     0.59 |                    0.88 |
+| Moving tracks          |    2,034 |                   2,244 |
+| Moving-track seconds   |   14,930 |                  26,534 |
+| Median moving life     |    4.7 s |                   8.6 s |
+| p90 moving life        |   10.8 s |                  23.2 s |
+| Stationary tracks      |      933 |                     641 |
+| Position jitter        |  0.288 m |                 0.171 m |
+| Position jitter p90    |  0.562 m |                 0.395 m |
+| Unassociated per frame |     0.75 |                    0.55 |
+
+Structure paint per frame, by minute:
+
+| Minute | 0 | 8 | 16 | 24 | 32 | 34 | 35 | 36 | 37 | 38 |
+| -------- | -: | : | -: | -: | -: | --: | --: | --: | --: | --: |
+| Defaults | 46 | 7 | 12 | 29 | 21 | 743 | 552 | 621 | 587 | 645 |
+| Candidate | 0 | 4 | 9 | 6 | 4 | 6 | 6 | 6 | 4 | 10 |
 
 ## kirk0 labels
 
@@ -309,8 +337,8 @@ _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 
 - Precision is argued from motion, not measured against complete labels. A complete label set for
   even one capture would settle it.
 - kirk0 is development data, and all pedestrian evidence is five objects on that one capture.
-- Held-out placements were 200 s each, in daylight, with no rain. A long-running deployment's
-  envelope and relearning are unmeasured. Nothing in this run lasted more than six minutes.
+- Held-out placements were 200 s each, in daylight, with no rain. The longest run is one 40-minute
+  capture; days of operation, and the envelope and relearning over them, are unmeasured.
 - The first 30 s of each replay is unscored, so the behaviour of a grid in its first seconds is
   outside the held-out numbers, though the recording's 10 s frames show it improved.
 - The near envelope and far-run state are not persisted, so a restart relearns them. That cost is
