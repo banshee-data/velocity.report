@@ -613,7 +613,12 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 	// foreground of a cell without enough similar-range foreground neighbours
 	// becomes background. Output only: every cell above has already been
 	// updated, so a filtered return still counted as a rejection.
-	if sf := g.Params.SupportFilter; sf != nil {
+	sf := g.Params.SupportFilter
+	if sf == nil && refine != nil && refine.SupportFilter {
+		defaults := DefaultSupportFilterParams()
+		sf = &defaults
+	}
+	if sf != nil {
 		flipped := g.applySupportFilter(*sf, &bm.supportScratch, points, foregroundMask)
 		foregroundCount -= int64(flipped)
 		backgroundCount += int64(flipped)

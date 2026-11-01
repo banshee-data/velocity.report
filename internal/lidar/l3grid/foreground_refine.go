@@ -28,6 +28,9 @@ import (
 //     background returns have recently come. A surface's flicker teaches its
 //     cells that range within a few returns; a passing vehicle teaches them
 //     nothing, because foreground never updates the envelope.
+//
+// The support filter can then take back the speckle a tighter mask lets through:
+// lone returns the window would have rejected and nothing supports.
 
 // ForegroundRefineParams configures foreground refinement. Nil in
 // BackgroundParams is off, as every L3 before it ran.
@@ -66,6 +69,9 @@ type ForegroundRefineParams struct {
 	NovelMinSeen uint32
 	// NovelMinReturns is how many novel returns bring a weak patch in.
 	NovelMinReturns int
+	// SupportFilter runs the range-image support filter on the result, at
+	// DefaultSupportFilterParams, unless BackgroundParams.SupportFilter is set.
+	SupportFilter bool
 }
 
 // ForegroundRefineParamsFromTuning is the tuning block's refinement; nil without
@@ -82,6 +88,7 @@ func ForegroundRefineParamsFromTuning(t *config.L3ForegroundRefine) *ForegroundR
 		EnvelopeAttack: float32(t.EnvelopeAttack), EnvelopeRelease: float32(t.EnvelopeRelease),
 		NovelMarginMetres: t.NovelMarginMetres, NovelMarginPerMetre: t.NovelMarginPerMetre,
 		NovelMinSeen: uint32(t.NovelMinSeen), NovelMinReturns: t.NovelMinReturns,
+		SupportFilter: t.SupportFilter,
 	}
 }
 
@@ -100,6 +107,7 @@ func ForegroundRefineTuningFromParams(p *ForegroundRefineParams) *config.L3Foreg
 		EnvelopeAttack: float64(p.EnvelopeAttack), EnvelopeRelease: float64(p.EnvelopeRelease),
 		NovelMarginMetres: p.NovelMarginMetres, NovelMarginPerMetre: p.NovelMarginPerMetre,
 		NovelMinSeen: int(p.NovelMinSeen), NovelMinReturns: p.NovelMinReturns,
+		SupportFilter: p.SupportFilter,
 	}
 }
 

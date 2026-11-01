@@ -122,6 +122,9 @@ type L3ForegroundRefine struct {
 	NovelMinSeen int `json:"novel_min_seen"`
 	// NovelMinReturns is how many novel returns bring a weak patch in.
 	NovelMinReturns int `json:"novel_min_returns"`
+	// SupportFilter runs the range-image support filter on the result, at its
+	// shipped parameters (l3grid.DefaultSupportFilterParams).
+	SupportFilter bool `json:"support_filter"`
 }
 
 // L3TrackGuard is the track guard's options, one tuning value per

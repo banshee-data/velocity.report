@@ -59,7 +59,8 @@
         "novel_margin_metres": 0.3,
         "novel_margin_per_metre": 0.005,
         "novel_min_seen": 20,
-        "novel_min_returns": 10
+        "novel_min_returns": 10,
+        "support_filter": true
       }
     }
   },
