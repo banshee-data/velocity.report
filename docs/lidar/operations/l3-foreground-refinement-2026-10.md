@@ -197,6 +197,13 @@ adds no tracking value because L4 never sees it, and now that the mask is whole 
 | `hits_to_confirm` 3                            | Stationary tracks +68 %                                                          |
 | `obb_centre_v1`                                | Medoid jitter p90 +12 %, broken links +8 %                                       |
 | `overlap_end_*`                                | Stationary tracks +45 %, moving time −10 %                                       |
+| Small novel patches continuing the last frame  | Pedestrian retention +2 points, stationary tracks +18 %                          |
+| Volatile window capped at 1 m or 2 m           | Moving time +15 %, stationary tracks +33 %, structure paint ×1.8                 |
+| `no_region_overrides`                          | Recall 0.93, paint ×1.9, structure paint ×3.3                                    |
+| `region_overrides_cell_tercile`                | Small and mixed: structure paint ×0.86, stationary tracks +6 %                   |
+| `surface_ground`                               | Jitter p90 +28 %                                                                 |
+| Minimum cluster points falling with range      | Median life +5 % at best, no change in noise: not worth a key                    |
+| `eps` 0.9 m                                    | Replay cost +9 % on kirk0, but stationary tracks +18 % and broken links +13 %    |
 | `cascade`, `likelihood_cost`, `dwell_policy`   | No gain on these measures                                                        |
 
 Parameters are flat. Halving or doubling any of the grow, envelope and margin values moved recall by
@@ -340,6 +347,15 @@ vehicles cannot say more.
 ![The same frames from the two recordings, from one camera. Left, defaults, with green streaks across the road and walls; right, the candidate, with green only on vehicles.](l3-foreground-refinement-vrlog.png)
 
 _Run `95f63441` against a server run of the candidate, both read from VRLOG, 10 s to 12 s._
+
+## Seeing it
+
+`--config` applies the startup-only keys, so run a server with the parameter set and start a replay
+with `full_frames`. A recording of the window of run `95f63441` under
+[foreground-refine-mean.json](../../../config/experiments/foreground-refine-mean.json) can be opened in
+the visualiser through `POST /api/lidar/vrlog/load` with its `vrlog_path`.
+`lidar-fg-diag replay` and [render_frames.py](../../../tools/lidar-fg-diag/render_frames.py) draw any
+frame from above, from the side or from one camera.
 
 ## What remains
 
