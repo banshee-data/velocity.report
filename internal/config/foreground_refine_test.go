@@ -56,3 +56,23 @@ func TestForegroundRefineBlockIsOptional(t *testing.T) {
 		t.Fatal("the experiment set lost its block")
 	}
 }
+
+func TestClusterPositionIsOptionalAndChecked(t *testing.T) {
+	cfg := MustLoadDefaultConfig()
+	if got := cfg.GetClusterCentre(); got != "" {
+		t.Fatalf("the defaults name a centre: %q", got)
+	}
+	common := cfg.L4.ActiveCommon()
+	common.ClusterPosition = &L4ClusterPosition{Centre: "mean"}
+	if err := common.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if got := cfg.GetClusterCentre(); got != "mean" {
+		t.Fatalf("centre %q", got)
+	}
+	common.ClusterPosition = &L4ClusterPosition{Centre: "centroid"}
+	if err := common.Validate(); err == nil || !strings.Contains(err.Error(), "cluster_position") {
+		t.Fatalf("an unknown centre: %v", err)
+	}
+	common.ClusterPosition = nil
+}

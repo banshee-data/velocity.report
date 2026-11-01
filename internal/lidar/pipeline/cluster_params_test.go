@@ -13,9 +13,9 @@ func TestClusterParams_TuningReachesTheFilters(t *testing.T) {
 		got.MinClusterDiameter != want.MinClusterDiameter || got.MaxClusterAspectRatio != want.MaxClusterAspectRatio {
 		t.Fatalf("unset: %+v, want the defaults %+v", got, want)
 	}
-	cfg := &TrackingPipelineConfig{MaxClusterDiameter: 20, MinClusterDiameter: 0.1, MaxClusterAspectRatio: 60}
+	cfg := &TrackingPipelineConfig{MaxClusterDiameter: 20, MinClusterDiameter: 0.1, MaxClusterAspectRatio: 60, ClusterCentre: "mean"}
 	got := cfg.clusterParams()
-	if got.MaxClusterDiameter != 20 || got.MinClusterDiameter != 0.1 || got.MaxClusterAspectRatio != 60 {
+	if got.MaxClusterDiameter != 20 || got.MinClusterDiameter != 0.1 || got.MaxClusterAspectRatio != 60 || !got.MeanCentre {
 		t.Fatalf("set: %+v", got)
 	}
 }

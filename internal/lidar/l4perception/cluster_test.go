@@ -283,7 +283,7 @@ func TestComputeClusterMetrics(t *testing.T) {
 		{X: 1, Y: 1, Z: 2, Intensity: 100, Timestamp: now, SensorID: "test"},
 	}
 
-	cluster := computeClusterMetrics(points, 1)
+	cluster := computeClusterMetrics(points, 1, false)
 
 	// Centroid should be (1, 0.75, 0.75)
 	if math.Abs(float64(cluster.CentroidX)-1.0) > 0.01 {
@@ -415,5 +415,18 @@ func TestDBSCANParamsFromTuning_NilConfig(t *testing.T) {
 	params := DBSCANParamsFromTuning(nil)
 	if params != (DBSCANParams{}) {
 		t.Fatalf("expected zero-value params, got %+v", params)
+	}
+}
+
+// The medoid is a return; the mean need not be one.
+func TestComputeClusterMetrics_MeanCentre(t *testing.T) {
+	points := []WorldPoint{{X: 0, Y: 0}, {X: 0.5, Y: 0}, {X: 3, Y: 0}, {X: 4, Y: 0}}
+	medoid := computeClusterMetrics(points, 1, false)
+	if medoid.CentroidX != 3 {
+		t.Fatalf("medoid x %v", medoid.CentroidX)
+	}
+	mean := computeClusterMetrics(points, 1, true)
+	if mean.CentroidX != 1.875 || mean.CentroidY != 0 {
+		t.Fatalf("mean centre (%v, %v)", mean.CentroidX, mean.CentroidY)
 	}
 }

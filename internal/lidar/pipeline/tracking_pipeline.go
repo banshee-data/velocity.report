@@ -348,6 +348,9 @@ type TrackingPipelineConfig struct {
 	MaxClusterDiameter    float64
 	MinClusterDiameter    float64
 	MaxClusterAspectRatio float64
+	// ClusterCentre selects the position a cluster reports: "mean", or the
+	// medoid otherwise.
+	ClusterCentre string
 	// HeightBandFloor is the lower bound (metres) for the vertical height
 	// band filter. Values are in the same frame as the points passed to
 	// FilterVertical — typically sensor frame where Z=0 is the sensor's
@@ -1304,5 +1307,6 @@ func (cfg *TrackingPipelineConfig) clusterParams() l4perception.DBSCANParams {
 	if cfg.MaxClusterAspectRatio > 0 {
 		params.MaxClusterAspectRatio = cfg.MaxClusterAspectRatio
 	}
+	params.MeanCentre = cfg.ClusterCentre == "mean"
 	return params
 }

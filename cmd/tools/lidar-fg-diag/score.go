@@ -227,8 +227,38 @@ type sample struct {
 	t            float64
 	x, y         float32
 	ox, oy       float32
+	sx, sy       float32 // the track's filtered position
+	mx, my       float32 // coordinate median
+	tx, ty       float32 // trimmed mean, middle half of each axis
 	points       int
 	length, wide float32
+}
+
+// robustCentres is the cluster's coordinate median and the trimmed mean of the
+// middle half of each axis, from its members; the medoid without them.
+func robustCentres(c *l5tracks.WorldCluster) (mx, my, tx, ty float32) {
+	n := len(c.Members)
+	if n == 0 {
+		return c.CentroidX, c.CentroidY, c.CentroidX, c.CentroidY
+	}
+	xs, ys := make([]float64, n), make([]float64, n)
+	for i := range c.Members {
+		xs[i], ys[i] = c.Members[i].X, c.Members[i].Y
+	}
+	sort.Float64s(xs)
+	sort.Float64s(ys)
+	trim := func(v []float64) float32 {
+		a, b := len(v)/4, len(v)-len(v)/4
+		if b <= a {
+			return float32(v[len(v)/2])
+		}
+		sum := 0.0
+		for _, x := range v[a:b] {
+			sum += x
+		}
+		return float32(sum / float64(b-a))
+	}
+	return float32(xs[n/2]), float32(ys[n/2]), trim(xs), trim(ys)
 }
 
 type trackLog struct {
@@ -257,10 +287,16 @@ type runScore struct {
 	MovingSeconds      float64 `json:"moving_track_seconds"`
 	MedianMovingLife   float64 `json:"median_moving_life_s"`
 	P90MovingLife      float64 `json:"p90_moving_life_s"`
+	SplitShare         float64 `json:"split_track_frame_share"`
+	DuplicatePairs     int     `json:"duplicate_track_pairs"`
 	JitterNear         float64 `json:"jitter_near_m"`
 	JitterMid          float64 `json:"jitter_mid_m"`
 	JitterFar          float64 `json:"jitter_far_m"`
 	OBBJitterMedian    float64 `json:"obb_jitter_median_m"`
+	StateJitter        float64 `json:"track_state_jitter_m"`
+	SpeedJitter        float64 `json:"track_speed_jitter_mps"`
+	MedianJitter       float64 `json:"median_centre_jitter_m"`
+	TrimmedJitter      float64 `json:"trimmed_centre_jitter_m"`
 	LongTracks         int     `json:"tracks_over_20m"`
 	MedoidJitterMedian float64 `json:"medoid_jitter_median_m"`
 	MedoidJitterP90    float64 `json:"medoid_jitter_p90_m"`
@@ -401,7 +437,7 @@ func runScoreCmd(args []string) error {
 	frameNo := int32(0)
 
 	cfg := replayeval.Config{PCAPFile: *pcap, OutDir: *replayOut, TuningFile: *tuning, SensorID: "hesai-pandar40p", UDPPort: 2369,
-		StartSeconds: *start, WarmupSeconds: *warmup, DurationSeconds: *duration, FrameTapDecisions: true}
+		StartSeconds: *start, WarmupSeconds: *warmup, DurationSeconds: *duration, FrameTapDecisions: true, KeepClusterMembers: true}
 	if *experiment != "" {
 		cfg.Experiments = strings.Split(*experiment, ",")
 	}
@@ -409,6 +445,8 @@ func runScoreCmd(args []string) error {
 		cfg.MeasurementSourceMode = l5tracks.MeasurementSource(*measurement)
 	}
 	logs := map[string]*trackLog{}
+	var trackFrames, splitFrames float64
+	overlapFrames := map[[2]string]int{}
 	var order []*trackLog
 	cfg.FrameTap = func(f replayeval.FrameTapFrame) {
 		if first.IsZero() {
@@ -503,6 +541,40 @@ func runScoreCmd(args []string) error {
 			return
 		}
 		clusters += float64(len(f.Clusters))
+		byID := make(map[string]*l5tracks.TrackedObject, len(f.Tracks))
+		for _, t := range f.Tracks {
+			byID[t.TrackID] = t
+		}
+		var moving []*l5tracks.TrackedObject
+		for _, t := range f.Tracks {
+			if t.TrackState == l5tracks.TrackConfirmed && t.Misses == 0 && t.Speed() >= 1 {
+				moving = append(moving, t)
+			}
+		}
+		for _, t := range moving {
+			b := t.PublishedBox()
+			sin, cos := math.Sincos(float64(b.HeadingRad))
+			in := 0
+			for i := range f.Clusters {
+				dx, dy := float64(f.Clusters[i].CentroidX-b.X), float64(f.Clusters[i].CentroidY-b.Y)
+				if math.Abs(dx*cos+dy*sin) <= float64(b.Length)/2+0.5 && math.Abs(-dx*sin+dy*cos) <= float64(b.Width)/2+0.5 {
+					in++
+				}
+			}
+			trackFrames++
+			if in > 1 {
+				splitFrames++
+			}
+			for _, o := range moving {
+				if o.TrackID <= t.TrackID {
+					continue
+				}
+				dx, dy := float64(o.X-b.X), float64(o.Y-b.Y)
+				if math.Abs(dx*cos+dy*sin) <= float64(b.Length)/2 && math.Abs(-dx*sin+dy*cos) <= float64(b.Width)/2+0.3 {
+					overlapFrames[[2]string{t.TrackID, o.TrackID}]++
+				}
+			}
+		}
 		for i, c := range f.Clusters {
 			id := ""
 			if i < len(f.Associations) {
@@ -522,8 +594,13 @@ func runScoreCmd(args []string) error {
 			if c.OBB != nil {
 				ox, oy = c.OBB.CenterX, c.OBB.CenterY
 			}
-			l.obs = append(l.obs, sample{t: sec, x: c.CentroidX, y: c.CentroidY, ox: ox, oy: oy, points: c.PointsCount,
-				length: c.BoundingBoxLength, wide: c.BoundingBoxWidth})
+			mx, my, tx, ty := robustCentres(&f.Clusters[i])
+			sx, sy := c.CentroidX, c.CentroidY
+			if t := byID[id]; t != nil {
+				sx, sy = t.X, t.Y
+			}
+			l.obs = append(l.obs, sample{t: sec, x: c.CentroidX, y: c.CentroidY, ox: ox, oy: oy, sx: sx, sy: sy, mx: mx, my: my, tx: tx, ty: ty,
+				points: c.PointsCount, length: c.BoundingBoxLength, wide: c.BoundingBoxWidth})
 		}
 		for _, t := range f.Tracks {
 			if t.TrackState == l5tracks.TrackConfirmed {
@@ -573,11 +650,19 @@ func runScoreCmd(args []string) error {
 		}
 		score.Confusion[name] = row
 	}
+	if trackFrames > 0 {
+		score.SplitShare = splitFrames / trackFrames
+	}
+	for _, n := range overlapFrames {
+		if n >= 10 {
+			score.DuplicatePairs++
+		}
+	}
 	score.ClustersPerFrame = clusters / frames
 	score.UnassociatedFrame = unassociated / frames
 
 	score.Tracks = len(order)
-	var lives, jits, cross, lengths, points, near, mid, far, obbs []float64
+	var lives, jits, cross, lengths, points, near, mid, far, obbs, medians, trimmed, states, speedJit []float64
 	type span struct {
 		first, last sample
 	}
@@ -626,6 +711,35 @@ func runScoreCmd(args []string) error {
 			if o, _, ok := jitter(centres); ok {
 				obbs = append(obbs, o)
 			}
+			for i, o := range l.obs {
+				centres[i] = sample{t: o.t, x: o.sx, y: o.sy}
+			}
+			if o, _, ok := jitter(centres); ok {
+				states = append(states, o)
+			}
+			var speeds []float64
+			for i := 1; i+1 < len(l.obs); i++ {
+				a, b, c := l.obs[i-1], l.obs[i], l.obs[i+1]
+				if c.t-a.t > 0.5 {
+					continue
+				}
+				v0 := math.Hypot(float64(b.sx-a.sx), float64(b.sy-a.sy)) / (b.t - a.t)
+				v1 := math.Hypot(float64(c.sx-b.sx), float64(c.sy-b.sy)) / (c.t - b.t)
+				speeds = append(speeds, math.Abs(v1-v0))
+			}
+			speedJit = append(speedJit, percentile(speeds, .5))
+			for i, o := range l.obs {
+				centres[i] = sample{t: o.t, x: o.mx, y: o.my}
+			}
+			if o, _, ok := jitter(centres); ok {
+				medians = append(medians, o)
+			}
+			for i, o := range l.obs {
+				centres[i] = sample{t: o.t, x: o.tx, y: o.ty}
+			}
+			if o, _, ok := jitter(centres); ok {
+				trimmed = append(trimmed, o)
+			}
 		}
 		var d []float64
 		for i := 1; i < len(l.obs); i++ {
@@ -660,6 +774,10 @@ func runScoreCmd(args []string) error {
 	score.JitterMid = percentile(mid, .5)
 	score.JitterFar = percentile(far, .5)
 	score.OBBJitterMedian = percentile(obbs, .5)
+	score.MedianJitter = percentile(medians, .5)
+	score.StateJitter = percentile(states, .5)
+	score.SpeedJitter = percentile(speedJit, .5)
+	score.TrimmedJitter = percentile(trimmed, .5)
 	score.MedoidJitterMedian = percentile(jits, .5)
 	score.MedoidJitterP90 = percentile(jits, .9)
 	score.CrossJitterMedian = percentile(cross, .5)

@@ -372,6 +372,9 @@ func (c *L4Common) Validate() error {
 	if c.MaxSamplePoints < 0 || c.MaxSamplePoints > 1024 {
 		return fmt.Errorf("max_sample_points must be between 0 and 1024, got %d", c.MaxSamplePoints)
 	}
+	if p := c.ClusterPosition; p != nil && p.Centre != "medoid" && p.Centre != "mean" {
+		return fmt.Errorf("cluster_position.centre must be medoid or mean, got %q", p.Centre)
+	}
 	if c.HeightBandFloor > c.HeightBandCeiling {
 		return fmt.Errorf("height_band_floor must be <= height_band_ceiling, got %f > %f", c.HeightBandFloor, c.HeightBandCeiling)
 	}

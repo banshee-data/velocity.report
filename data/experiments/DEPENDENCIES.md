@@ -76,6 +76,7 @@ flowchart TB
     l4clus0003["<b>l4clus0003</b><br/>CMR's minimum cluster size against the…<br/>answered · 10m machine + 1h person (took 2m)<br/>manual: write"]:::answered
     l4clus0004["<b>l4clus0004</b><br/>The subsampled frames: DBSCAN's threshold…<br/>answered · 3h4m machine + 3h30m person (took 7h50m)<br/>manual: implement, write"]:::answered
     l4clus0005["<b>l4clus0005</b><br/>Do kirk0's fragments join by XY radius…<br/>proposed · 36m machine + 14h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
+    l4clus0006["<b>l4clus0006</b><br/>The mean of a cluster's returns in place…<br/>proposed · 8m machine + 2h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_l5est ["l5est: L5 state estimation"]
     l5est0001["<b>l5est0001</b><br/>The trail's noise model: what the…<br/>proposed · 2h30m machine + 5h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
@@ -178,6 +179,7 @@ flowchart TB
   l4clus0002 --> l4clus0004
   l4clus0003 --> l4clus0005
   l4clus0004 --> l4clus0005
+  l3bg0029 --> l4clus0006
   geom0008 --> l5id0001
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
@@ -225,6 +227,7 @@ flowchart TB
 - [l3bg0027](l3bg/l3bg0027.md) The track guard's held returns to L4: the lower body L3 absorbs inside a moving track's box, clustered with the track instead of dropped: proposed, awaiting approval; 1h34m machine + 6h person; after l3bg0024; asks [vehicle-lower-body-by-range-2026-10 #recommendations](../../docs/lidar/operations/vehicle-lower-body-by-range-2026-10.md#recommendations), [l3-track-guard-kirk-2026-10](../../docs/lidar/operations/l3-track-guard-kirk-2026-10.md), [ground0004](../../data/experiments/ground/ground0004.md).
 - [l3bg0028](l3bg/l3bg0028.md) Border classes on the L3 grid: obstacle, shadow and veil cells as extent-end labels and as coasting evidence: proposed, awaiting approval; 33m machine + 11h person; asks [pcl-algorithm-review #q4-can-occlusion-aware-analysis…](../../docs/lidar/operations/pcl-algorithm-review.md#q4-can-occlusion-aware-analysis-reduce-track-loss-without-more-false-associations), [20261008-facet-registration-maths-review](../../data/maths/proposals/20261008-facet-registration-maths-review.md), [pcl-organised-grid-compatibility](../../docs/lidar/operations/pcl-organised-grid-compatibility.md), [pcl-return-fate-border-contract](../../docs/lidar/operations/pcl-return-fate-border-contract.md), [lidar-pcl-algorithm-candidates-plan #item-2-q4-border-classes-on-the…](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md#item-2-q4-border-classes-on-the-l3-grid-l3bg0028).
 - [l4clus0005](l4clus/l4clus0005.md) Do kirk0's fragments join by XY radius graphs when sampling and connectivity are controlled separately?: proposed, awaiting approval; 36m machine + 14h person; after l4clus0003, l4clus0004; asks [pcl-algorithm-review #q1-can-richer-geometric-descrip…](../../docs/lidar/operations/pcl-algorithm-review.md#q1-can-richer-geometric-descriptors-reduce-classification-errors-and-fragmentation), [spatialrust-segmentation-review #proposed-experiments-and-coding…](../../docs/lidar/operations/spatialrust-segmentation-review.md#proposed-experiments-and-coding-sequence), [l4-min-cluster-size-kirk-2026-10](../../docs/lidar/operations/l4-min-cluster-size-kirk-2026-10.md), [pcl-joining-cap-controls](../../docs/lidar/operations/pcl-joining-cap-controls.md).
+- [l4clus0006](l4clus/l4clus0006.md) The mean of a cluster's returns in place of its medoid, on refined foreground: position jitter against identity: proposed, awaiting approval; 8m machine + 2h person; after l3bg0029; asks [l3-foreground-refinement-2026-10 #what-remains](../../docs/lidar/operations/l3-foreground-refinement-2026-10.md#what-remains), [d2-medoid-obb-current-solver-2026-10](../../docs/lidar/operations/d2-medoid-obb-current-solver-2026-10.md).
 - [l5est0001](l5est/l5est0001.md) The trail's noise model: what the filter's process noise does to the published trail, and what it costs: proposed, awaiting approval; 2h30m machine + 5h person; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [adaptive-uncertainty-criteria #evidence-so-far](../../docs/lidar/operations/adaptive-uncertainty-criteria.md#evidence-so-far), [geom0012](../../data/experiments/geom/geom0012.md).
 - [l5est0002](l5est/l5est0002.md) The published trail as the whole-track smoother's estimate, not the online posterior: proposed, awaiting approval; 10h44m machine + 4h person; asks [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [retrospective-refinement-criteria #selection-rule](../../docs/lidar/operations/retrospective-refinement-criteria.md#selection-rule), [lidar-state-estimation-plan #10-retrospective-refinement](../../docs/plans/lidar-state-estimation-plan.md#10-retrospective-refinement).
 - [l5id0006](l5id/l5id0006.md) One vehicle, one track: the survivor's box, and tentative priority with the overlap end: proposed, awaiting approval; 2h24m machine + 4h person; after l5id0005; asks [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [published-box-refinement-2026-10 #the-box-with-one-track-per-vehi…](../../docs/lidar/operations/published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
@@ -299,5 +302,5 @@ flowchart TB
 
 ## Totals
 
-- 35 open experiments: 67h52m machine + 263h person estimated.
+- 36 open experiments: 68h machine + 265h person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.

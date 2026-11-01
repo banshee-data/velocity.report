@@ -181,13 +181,24 @@ type L4Common struct {
 	ForegroundDBSCANEps        float64 `json:"foreground_dbscan_eps"`
 	ForegroundMinClusterPoints int     `json:"foreground_min_cluster_points"`
 	ForegroundMaxInputPoints   int     `json:"foreground_max_input_points"`
-	MaxSamplePoints            int     `json:"max_sample_points"` // 0 disables retained cluster evidence
-	HeightBandFloor            float64 `json:"height_band_floor"`
-	HeightBandCeiling          float64 `json:"height_band_ceiling"`
-	RemoveGround               bool    `json:"remove_ground"`
-	MaxClusterDiameter         float64 `json:"max_cluster_diameter"`
-	MinClusterDiameter         float64 `json:"min_cluster_diameter"`
-	MaxClusterAspectRatio      float64 `json:"max_cluster_aspect_ratio"`
+	// ClusterPosition selects the position a cluster reports. It is a pointer
+	// omitted when nil, so a config without it keeps its fingerprint and
+	// reports the medoid.
+	ClusterPosition       *L4ClusterPosition `json:"cluster_position,omitempty"`
+	MaxSamplePoints       int                `json:"max_sample_points"` // 0 disables retained cluster evidence
+	HeightBandFloor       float64            `json:"height_band_floor"`
+	HeightBandCeiling     float64            `json:"height_band_ceiling"`
+	RemoveGround          bool               `json:"remove_ground"`
+	MaxClusterDiameter    float64            `json:"max_cluster_diameter"`
+	MinClusterDiameter    float64            `json:"min_cluster_diameter"`
+	MaxClusterAspectRatio float64            `json:"max_cluster_aspect_ratio"`
+}
+
+// L4ClusterPosition is the position a cluster reports to the tracker.
+type L4ClusterPosition struct {
+	// Centre is "medoid" or "mean", the mean of the cluster's returns in the
+	// plane.
+	Centre string `json:"centre"`
 }
 
 // L4DbscanXyV1 is the current production L4 engine.

@@ -913,6 +913,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		MaxClusterDiameter:        tuningCfg.GetMaxClusterDiameter(),
 		MinClusterDiameter:        tuningCfg.GetMinClusterDiameter(),
 		MaxClusterAspectRatio:     tuningCfg.GetMaxClusterAspectRatio(),
+		ClusterCentre:             tuningCfg.GetClusterCentre(),
 		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
