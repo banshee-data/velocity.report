@@ -6,8 +6,9 @@ opens unchanged. The set of exports, with a manifest that says exactly which fil
 build made each one, is how an arm is shown rather than only scored.
 
 - **Status:** Tooling built, unit-tested and run end to end against a server on kirk0
-  ([first run](#first-run-against-a-server)); the `geometry-convergence` set itself has not been
-  run, so its windows are unverified
+  ([first run](#first-run-against-a-server)), and again on main as geom0014
+  ([report](../lidar/operations/scene-variants-kirk0-2026-11.md)); the `geometry-convergence` set
+  itself has not been run, so its windows are unverified
 - **Canonical:** [config/CONFIG.md](../../config/CONFIG.md)
 - **Layers:** L9 Endpoints (replay start, configs API), offline tooling, the web scene player
   (read only)
@@ -257,6 +258,13 @@ What it does not establish: anything about the configs' accuracy, which the scor
 anything about the `geometry-convergence` windows, which only a run on their captures can check.
 The raw outputs (the database, the four VRLOGs, the exports, the comparisons and the stills) stayed
 in a scratch directory and are not kept.
+
+The same window was run again on main on November 1, 2026, as
+[geom0014](../../data/experiments/geom/geom0014.md), under the defaults and the four solid-body
+parameter sets ([report](../lidar/operations/scene-variants-kirk0-2026-11.md)). The shadow drew
+the defaults' tracks in every frame, the defaults replayed last on the same server drew the same
+tracks as the defaults replayed first, and the three arms whose solid body drives the track
+turned the box less and halved its length spread.
 
 ## Checklist
 
