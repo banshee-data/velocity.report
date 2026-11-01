@@ -104,6 +104,8 @@ type L3ForegroundRefine struct {
 	WeakMarginMetres   float64 `json:"weak_margin_metres"`
 	WeakSpreads        float64 `json:"weak_spreads"`
 	WeakMarginPerMetre float64 `json:"weak_margin_per_metre"`
+	// WeakSpreadCapMetres bounds what a weak return adds to its cell's spread.
+	WeakSpreadCapMetres float64 `json:"weak_spread_cap_metres"`
 	// GrowRings and GrowBins are the neighbourhood foreground grows through.
 	GrowRings int `json:"grow_rings"`
 	GrowBins  int `json:"grow_bins"`

@@ -483,6 +483,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				oldAvg := float64(cell.AverageRangeMeters)
 				newAvg := (1.0-updateAlpha)*oldAvg + updateAlpha*p.Distance
 				deviation := math.Abs(p.Distance - oldAvg)
+				if refine != nil && bm.refine.weak[i] && deviation > refine.WeakSpreadCapMetres {
+					deviation = refine.WeakSpreadCapMetres
+				}
 				newSpread := (1.0-updateAlpha)*float64(cell.RangeSpreadMeters) + updateAlpha*deviation
 				cell.AverageRangeMeters = float32(newAvg)
 				cell.RangeSpreadMeters = float32(newSpread)

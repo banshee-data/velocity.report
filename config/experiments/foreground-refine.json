@@ -50,6 +50,7 @@
         "weak_margin_metres": 0.5,
         "weak_spreads": 2,
         "weak_margin_per_metre": 0.005,
+        "weak_spread_cap_metres": 0.5,
         "grow_rings": 2,
         "grow_bins": 3,
         "grow_tau_metres": 0.4,

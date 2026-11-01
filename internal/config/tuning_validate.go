@@ -277,6 +277,7 @@ func (r *L3ForegroundRefine) Validate() error {
 		{"weak_margin_metres", r.WeakMarginMetres, 10},
 		{"weak_spreads", r.WeakSpreads, 100},
 		{"weak_margin_per_metre", r.WeakMarginPerMetre, 1},
+		{"weak_spread_cap_metres", r.WeakSpreadCapMetres, 100},
 		{"grow_tau_metres", r.GrowTauMetres, 10},
 		{"grow_tau_per_metre", r.GrowTauPerMetre, 1},
 		{"envelope_attack", r.EnvelopeAttack, 1},

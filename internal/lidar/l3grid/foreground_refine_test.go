@@ -242,6 +242,25 @@ func TestForegroundRefine_ObjectInsideTheWindowComesInWhole(t *testing.T) {
 	}
 }
 
+// A vehicle inside the window must not widen its cells for the next one.
+func TestForegroundRefine_WeakReturnsBarelyWidenTheCell(t *testing.T) {
+	rings := []int{1, 2, 3}
+	surface := refineBlock(rings, 20, 30, 30)
+	vehicle := refineBlock(rings[:1], 20, 21, 29)
+	spreadAfter := func(refine bool) float32 {
+		bm := newRefineManager(t, 3, refine)
+		n := settle(t, bm, surface, 150)
+		for i := 0; i < 5; i++ {
+			maskAt(t, bm, vehicle, n+i)
+		}
+		return bm.Grid.Cells[bm.Grid.Idx(0, 20)].RangeSpreadMeters
+	}
+	plain, refined := spreadAfter(false), spreadAfter(true)
+	if refined >= plain {
+		t.Fatalf("spread %v with refinement, %v without", refined, plain)
+	}
+}
+
 // Flicker at a range the cells keep returning teaches them that range, so it
 // stops being novel.
 func TestForegroundRefine_FlickerTeachesTheEnvelope(t *testing.T) {

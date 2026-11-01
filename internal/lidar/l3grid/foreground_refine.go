@@ -50,6 +50,10 @@ type ForegroundRefineParams struct {
 	WeakMarginMetres   float64
 	WeakSpreads        float64
 	WeakMarginPerMetre float64
+	// WeakSpreadCapMetres bounds what a weak return adds to its cell's spread.
+	// A vehicle the window accepted would otherwise widen the cell for the
+	// next one, metres at a time, at the re-acquisition rate.
+	WeakSpreadCapMetres float64
 	// GrowRings and GrowBins are the neighbourhood foreground grows through, in
 	// rings and azimuth bins either side.
 	GrowRings, GrowBins int
@@ -84,7 +88,8 @@ func ForegroundRefineParamsFromTuning(t *config.L3ForegroundRefine) *ForegroundR
 		FarRelearnReturns: t.FarRelearnReturns, FarAgreeMetres: t.FarAgreeMetres, FarAgreePerMetre: t.FarAgreePerMetre,
 		FarRelearnSeen:   uint32(t.FarRelearnSeen),
 		WeakMarginMetres: t.WeakMarginMetres, WeakSpreads: t.WeakSpreads, WeakMarginPerMetre: t.WeakMarginPerMetre,
-		GrowRings: t.GrowRings, GrowBins: t.GrowBins, GrowTauMetres: t.GrowTauMetres, GrowTauPerMetre: t.GrowTauPerMetre,
+		WeakSpreadCapMetres: t.WeakSpreadCapMetres,
+		GrowRings:           t.GrowRings, GrowBins: t.GrowBins, GrowTauMetres: t.GrowTauMetres, GrowTauPerMetre: t.GrowTauPerMetre,
 		EnvelopeAttack: float32(t.EnvelopeAttack), EnvelopeRelease: float32(t.EnvelopeRelease),
 		NovelMarginMetres: t.NovelMarginMetres, NovelMarginPerMetre: t.NovelMarginPerMetre,
 		NovelMinSeen: uint32(t.NovelMinSeen), NovelMinReturns: t.NovelMinReturns,
@@ -103,7 +108,8 @@ func ForegroundRefineTuningFromParams(p *ForegroundRefineParams) *config.L3Foreg
 		FarRelearnReturns: p.FarRelearnReturns, FarAgreeMetres: p.FarAgreeMetres, FarAgreePerMetre: p.FarAgreePerMetre,
 		FarRelearnSeen:   int(p.FarRelearnSeen),
 		WeakMarginMetres: p.WeakMarginMetres, WeakSpreads: p.WeakSpreads, WeakMarginPerMetre: p.WeakMarginPerMetre,
-		GrowRings: p.GrowRings, GrowBins: p.GrowBins, GrowTauMetres: p.GrowTauMetres, GrowTauPerMetre: p.GrowTauPerMetre,
+		WeakSpreadCapMetres: p.WeakSpreadCapMetres,
+		GrowRings:           p.GrowRings, GrowBins: p.GrowBins, GrowTauMetres: p.GrowTauMetres, GrowTauPerMetre: p.GrowTauPerMetre,
 		EnvelopeAttack: float64(p.EnvelopeAttack), EnvelopeRelease: float64(p.EnvelopeRelease),
 		NovelMarginMetres: p.NovelMarginMetres, NovelMarginPerMetre: p.NovelMarginPerMetre,
 		NovelMinSeen: int(p.NovelMinSeen), NovelMinReturns: p.NovelMinReturns,
