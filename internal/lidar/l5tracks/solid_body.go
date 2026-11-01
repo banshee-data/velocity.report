@@ -382,6 +382,10 @@ const (
 	// view, which nothing here establishes, so it moves with visibility and
 	// is not a physical reference.
 	ReferenceVisibleOBBCentre
+	// ReferenceClusterMean is the mean of the returns this frame saw. Like the
+	// visible box centre it moves with visibility: it is not a physical
+	// reference.
+	ReferenceClusterMean
 )
 
 // String names a reference point for diagnostics and persisted rows.
@@ -395,6 +399,8 @@ func (r ReferencePoint) String() string {
 		return "cluster_medoid"
 	case ReferenceVisibleOBBCentre:
 		return "visible_obb_centre"
+	case ReferenceClusterMean:
+		return "cluster_mean"
 	default:
 		return "unknown"
 	}
@@ -658,7 +664,7 @@ func ParseMotionClass(s string) (MotionClass, error) {
 // ParseReferencePoint reads a reference point written by
 // ReferencePoint.String.
 func ParseReferencePoint(s string) (ReferencePoint, error) {
-	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid, ReferenceVisibleOBBCentre} {
+	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid, ReferenceVisibleOBBCentre, ReferenceClusterMean} {
 		if r.String() == s {
 			return r, nil
 		}

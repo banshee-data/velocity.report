@@ -228,6 +228,10 @@ type DBSCANParams struct {
 	MaxClusterDiameter    float64 // Upper bound (metres) for longest OBB dimension
 	MinClusterDiameter    float64 // Lower bound (metres) for longest OBB dimension
 	MaxClusterAspectRatio float64 // Maximum length/width ratio
+	// MeanCentre reports a cluster's plane position as the mean of its returns
+	// rather than the medoid. The medoid is a real return, so it hops between
+	// returns as a vehicle's visible surface changes; the mean does not.
+	MeanCentre bool
 
 	// MaxInputPoints caps the number of points fed into the core DBSCAN
 	// loop. When the input exceeds this value, uniform random subsampling
@@ -299,6 +303,7 @@ func DBSCANParamsFromTuning(l4cfg *config.L4DbscanXyV1) DBSCANParams {
 		MaxClusterDiameter:    l4cfg.MaxClusterDiameter,
 		MinClusterDiameter:    l4cfg.MinClusterDiameter,
 		MaxClusterAspectRatio: l4cfg.MaxClusterAspectRatio,
+		MeanCentre:            l4cfg.ClusterPosition != nil && l4cfg.ClusterPosition.Centre == "mean",
 	}
 }
 
@@ -543,7 +548,7 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int, params D
 		if len(clusterPoints) == 0 {
 			continue
 		}
-		cluster := computeClusterMetrics(clusterPoints, int64(cid))
+		cluster := computeClusterMetrics(clusterPoints, int64(cid), params.MeanCentre)
 
 		// Reject extreme-size and extreme-aspect clusters to filter out
 		// environmental artefacts (walls, hedges, speckle noise).
@@ -588,8 +593,9 @@ func buildClusters(points []WorldPoint, labels []int, maxClusterID int, params D
 	return clusters
 }
 
-// computeClusterMetrics computes metrics for a cluster of world points.
-func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
+// computeClusterMetrics computes metrics for a cluster of world points. Its
+// plane position is the medoid, or with meanCentre the mean of the points.
+func computeClusterMetrics(points []WorldPoint, clusterID int64, meanCentre bool) WorldCluster {
 	n := float64(len(points))
 
 	// Compute centroid as medoid: the actual cluster point closest to the
@@ -621,6 +627,9 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 	centroidX := float32(points[bestIdx].X)
 	centroidY := float32(points[bestIdx].Y)
 	centroidZ := float32(points[bestIdx].Z)
+	if meanCentre {
+		centroidX, centroidY = float32(meanX), float32(meanY)
+	}
 
 	// Compute bounding box and other stats
 	minX, maxX := points[0].X, points[0].X
@@ -687,6 +696,7 @@ func computeClusterMetrics(points []WorldPoint, clusterID int64) WorldCluster {
 		BoundingBoxLength: bboxLength,
 		BoundingBoxWidth:  bboxWidth,
 		BoundingBoxHeight: bboxHeight,
+		MeanCentre:        meanCentre,
 		PointsCount:       len(points),
 		HeightP95:         float32(heights[p95Idx]),
 		IntensityMean:     float32(sumIntensity / uint64(len(points))),

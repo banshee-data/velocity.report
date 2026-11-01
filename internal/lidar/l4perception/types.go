@@ -88,6 +88,9 @@ type WorldCluster struct {
 	// not a track disposition: L5 may still use the cluster while a later
 	// measurement model accounts for the clipped face.
 	GroundClipped bool
+	// MeanCentre says CentroidX and CentroidY are the mean of the cluster's
+	// returns, where unset they are its medoid.
+	MeanCentre bool `json:",omitempty"`
 
 	// Debug hints matching schema optional fields
 	SensorRingHint  *int     // matches sensor_ring_hint INTEGER

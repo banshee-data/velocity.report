@@ -568,7 +568,7 @@ func onlineSeries(states []SmoothedState) []SmoothedState {
 // coast before deletion has no later evidence, so it is not revised at all.
 func TestCoastedStatesStaySmoothedPredictions(t *testing.T) {
 	gap := func(k int) bool { return (k >= 40 && k < 45) || k >= 70 }
-	tk, arms := runSmootherScene(t, DefaultTrackerConfig(), straightPath, 10, 90, 0.1, 5, gap, comparatorLags...)
+	tk, arms := runSmootherScene(t, DefaultTrackerConfig(), straightPath, 10, 120, 0.1, 5, gap, comparatorLags...)
 	if tk.TimeDomainStats().ExpiredByMisses == 0 {
 		t.Fatal("setup: the trailing gap should expire the track by misses")
 	}

@@ -54,6 +54,9 @@ type BackgroundConfig struct {
 	// TrackGuard keeps tracked objects out of the model (track_guard.go);
 	// nil is off.
 	TrackGuard *TrackGuardParams
+
+	// ForegroundRefine adds the rules of foreground_refine.go; nil is off.
+	ForegroundRefine *ForegroundRefineParams
 }
 
 // DefaultBackgroundConfig returns a BackgroundConfig loaded from the
@@ -123,6 +126,7 @@ func backgroundConfigFromCommon(l3cfg *config.L3Common, l4cfg *config.L4Common) 
 		SettlingMinRegionStability:        float32(l3cfg.SettlingMinRegionStability),
 		SettlingMinConfidence:             float32(l3cfg.SettlingMinConfidence),
 		TrackGuard:                        TrackGuardParamsFromTuning(l3cfg.TrackGuard),
+		ForegroundRefine:                  ForegroundRefineParamsFromTuning(l3cfg.ForegroundRefine),
 
 		ForegroundMinClusterPoints: l4cfg.ForegroundMinClusterPoints,
 		ForegroundDBSCANEps:        float32(l4cfg.ForegroundDBSCANEps),
@@ -234,6 +238,7 @@ func (c *BackgroundConfig) ToBackgroundParams() BackgroundParams {
 		ForegroundDBSCANEps:               c.ForegroundDBSCANEps,
 		ForegroundMaxInputPoints:          c.ForegroundMaxInputPoints,
 		TrackGuard:                        c.TrackGuard.clone(),
+		ForegroundRefine:                  c.ForegroundRefine.clone(),
 	}
 }
 

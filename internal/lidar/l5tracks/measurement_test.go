@@ -146,3 +146,17 @@ func TestInterpretMeasurementFallsBackWithoutValidOBB(t *testing.T) {
 		t.Fatalf("fallback covariance = %+v, want tuned isotropic floor", got.Covariance)
 	}
 }
+
+// A cluster that reports its mean says so: a stored estimate must not name the
+// medoid for a position that never was one. The tracker's mode is unchanged, and
+// the OBB candidate still reads the box.
+func TestClusterReportingItsMeanIsRecordedAsTheMean(t *testing.T) {
+	cluster := l4perception.WorldCluster{CentroidX: 3, CentroidY: 4, MeanCentre: true}
+	m := measurementForCluster(cluster, 100)
+	if m.Source != MeasurementClusterMeanV1 || m.X != 3 || m.Y != 4 {
+		t.Fatalf("measurement %+v", m)
+	}
+	if got, ok := NoiseSourceIndex(m.Source); !ok || got != 0 {
+		t.Fatalf("the mean reads noise row %d, %v; want the medoid's", got, ok)
+	}
+}

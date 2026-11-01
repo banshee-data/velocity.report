@@ -120,7 +120,12 @@ overrides-on retune with the height band floor at road height reaches the recall
 false positives. The [region map](operations/l3-region-tercile-mechanism-2026-10.md) checks why:
 the volatile tercile holds the overrides-off flood, but lanes are there for the surfaces behind
 them, not traffic during settling; neither of the two [levers](operations/l3-region-levers-kirk-2026-10.md)
-it suggests beats the retune. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
+it suggests beats the retune. [Foreground refinement](operations/l3-foreground-refinement-2026-10.md)
+stops moving that window and adds other evidence: a return beyond the learned surface is background, and
+one in front of it joins connected foreground or a patch new to its cells, which removes painted
+background and whole-vehicle misses on held-out placements. Its replay cost fails its rule, and the
+defaults [took it anyway](operations/l3-foreground-refinement-2026-10.md#adoption), with the mean cluster
+centre, on quality over cost. The [dwell policy](operations/l3-dwell-policy-arrival-2026-10.md)
 hands an object stationary for 20 s to the background, which removes the retune's long stationary
 tracks over a 39-minute capture, and with its [clock at 40 s](operations/l3-dwell-policy-clock-2026-10.md)
 keeps every moving track (its [drift rule](operations/l3-dwell-policy-drift-2026-10.md) barely matters

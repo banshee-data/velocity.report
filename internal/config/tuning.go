@@ -80,6 +80,53 @@ type L3Common struct {
 	// keeps its fingerprint and runs with the guard off; the shipped
 	// defaults carry it on.
 	TrackGuard *L3TrackGuard `json:"track_guard,omitempty"`
+	// ForegroundRefine adds evidence a window depth cannot give to the
+	// per-return decision (l3grid.ForegroundRefineParams). It is a pointer
+	// omitted when nil, so a config without it keeps its fingerprint and runs
+	// with refinement off, as the shipped defaults do.
+	ForegroundRefine *L3ForegroundRefine `json:"foreground_refine,omitempty"`
+}
+
+// L3ForegroundRefine is foreground refinement's options, one tuning value per
+// l3grid.ForegroundRefineParams field. Every key is required when the block is
+// present.
+type L3ForegroundRefine struct {
+	// FarRelearnReturns is how many consecutive returns beyond a cell's
+	// surface, agreeing on one range, relearn the cell.
+	FarRelearnReturns int `json:"far_relearn_returns"`
+	// FarAgreeMetres and FarAgreePerMetre set how close two of them must be.
+	FarAgreeMetres   float64 `json:"far_agree_metres"`
+	FarAgreePerMetre float64 `json:"far_agree_per_metre"`
+	// FarRelearnSeen is the observation count a relearned cell restarts from.
+	FarRelearnSeen int `json:"far_relearn_seen"`
+	// WeakMarginMetres, WeakSpreads and WeakMarginPerMetre set how far in front
+	// of its cell's surface a background return lies to be weak.
+	WeakMarginMetres   float64 `json:"weak_margin_metres"`
+	WeakSpreads        float64 `json:"weak_spreads"`
+	WeakMarginPerMetre float64 `json:"weak_margin_per_metre"`
+	// WeakSpreadCapMetres bounds what a weak return adds to its cell's spread.
+	WeakSpreadCapMetres float64 `json:"weak_spread_cap_metres"`
+	// GrowRings and GrowBins are the neighbourhood foreground grows through.
+	GrowRings int `json:"grow_rings"`
+	GrowBins  int `json:"grow_bins"`
+	// GrowTauMetres and GrowTauPerMetre are the range similarity it requires.
+	GrowTauMetres   float64 `json:"grow_tau_metres"`
+	GrowTauPerMetre float64 `json:"grow_tau_per_metre"`
+	// EnvelopeAttack and EnvelopeRelease are the shares of the distance the near
+	// envelope moves towards a background return in front of it and behind it.
+	EnvelopeAttack  float64 `json:"envelope_attack"`
+	EnvelopeRelease float64 `json:"envelope_release"`
+	// NovelMarginMetres and NovelMarginPerMetre set how far in front of the
+	// envelope a weak return lies to be new to its cell.
+	NovelMarginMetres   float64 `json:"novel_margin_metres"`
+	NovelMarginPerMetre float64 `json:"novel_margin_per_metre"`
+	// NovelMinSeen is the observations a cell needs before its envelope counts.
+	NovelMinSeen int `json:"novel_min_seen"`
+	// NovelMinReturns is how many novel returns bring a weak patch in.
+	NovelMinReturns int `json:"novel_min_returns"`
+	// SupportFilter runs the range-image support filter on the result, at its
+	// shipped parameters (l3grid.DefaultSupportFilterParams).
+	SupportFilter bool `json:"support_filter"`
 }
 
 // L3TrackGuard is the track guard's options, one tuning value per
@@ -134,13 +181,24 @@ type L4Common struct {
 	ForegroundDBSCANEps        float64 `json:"foreground_dbscan_eps"`
 	ForegroundMinClusterPoints int     `json:"foreground_min_cluster_points"`
 	ForegroundMaxInputPoints   int     `json:"foreground_max_input_points"`
-	MaxSamplePoints            int     `json:"max_sample_points"` // 0 disables retained cluster evidence
-	HeightBandFloor            float64 `json:"height_band_floor"`
-	HeightBandCeiling          float64 `json:"height_band_ceiling"`
-	RemoveGround               bool    `json:"remove_ground"`
-	MaxClusterDiameter         float64 `json:"max_cluster_diameter"`
-	MinClusterDiameter         float64 `json:"min_cluster_diameter"`
-	MaxClusterAspectRatio      float64 `json:"max_cluster_aspect_ratio"`
+	// ClusterPosition selects the position a cluster reports. It is a pointer
+	// omitted when nil, so a config without it keeps its fingerprint and
+	// reports the medoid.
+	ClusterPosition       *L4ClusterPosition `json:"cluster_position,omitempty"`
+	MaxSamplePoints       int                `json:"max_sample_points"` // 0 disables retained cluster evidence
+	HeightBandFloor       float64            `json:"height_band_floor"`
+	HeightBandCeiling     float64            `json:"height_band_ceiling"`
+	RemoveGround          bool               `json:"remove_ground"`
+	MaxClusterDiameter    float64            `json:"max_cluster_diameter"`
+	MinClusterDiameter    float64            `json:"min_cluster_diameter"`
+	MaxClusterAspectRatio float64            `json:"max_cluster_aspect_ratio"`
+}
+
+// L4ClusterPosition is the position a cluster reports to the tracker.
+type L4ClusterPosition struct {
+	// Centre is "medoid" or "mean", the mean of the cluster's returns in the
+	// plane.
+	Centre string `json:"centre"`
 }
 
 // L4DbscanXyV1 is the current production L4 engine.

@@ -131,6 +131,11 @@ func (ws *Server) runtimeTuningConfigForSource(bm *l3grid.BackgroundManager, sou
 			// The guard reads back as the manager runs it; off, the block
 			// is absent, as a config without it is.
 			l3.TrackGuard = l3grid.TrackGuardTuningFromParams(params.TrackGuard)
+			l3.ForegroundRefine = l3grid.ForegroundRefineTuningFromParams(params.ForegroundRefine)
+			if r := l3.ForegroundRefine; r != nil {
+				r.EnvelopeAttack = roundTo6(r.EnvelopeAttack)
+				r.EnvelopeRelease = roundTo6(r.EnvelopeRelease)
+			}
 		}
 		if l4 != nil {
 			l4.ForegroundDBSCANEps = roundTo6(float64(params.ForegroundDBSCANEps))
@@ -416,6 +421,10 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 		if path == "l3.ema_baseline_v1.track_guard" || strings.HasPrefix(path, "l3.ema_baseline_v1.track_guard.") {
 			// The whole block goes on at once, as the box model's does.
 			params.TrackGuard = l3grid.TrackGuardParamsFromTuning(l3.TrackGuard)
+			return bm.SetParams(params)
+		}
+		if path == "l3.ema_baseline_v1.foreground_refine" || strings.HasPrefix(path, "l3.ema_baseline_v1.foreground_refine.") {
+			params.ForegroundRefine = l3grid.ForegroundRefineParamsFromTuning(l3.ForegroundRefine)
 			return bm.SetParams(params)
 		}
 		switch path {

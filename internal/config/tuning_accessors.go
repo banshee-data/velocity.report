@@ -312,6 +312,14 @@ func (c *TuningConfig) GetHeightBandCeiling() float64 { return c.L4.ActiveCommon
 // GetRemoveGround returns the active L4 ground-removal switch.
 func (c *TuningConfig) GetRemoveGround() bool { return c.L4.ActiveCommon().RemoveGround }
 
+// GetClusterCentre returns the active L4 cluster centre, empty for the medoid.
+func (c *TuningConfig) GetClusterCentre() string {
+	if p := c.L4.ActiveCommon().ClusterPosition; p != nil {
+		return p.Centre
+	}
+	return ""
+}
+
 // GetMaxClusterDiameter returns the active L4 max cluster diameter.
 func (c *TuningConfig) GetMaxClusterDiameter() float64 { return c.L4.ActiveCommon().MaxClusterDiameter }
 

@@ -93,6 +93,11 @@ func NoiseAxisName(axis int) string {
 
 // NoiseSourceIndex returns the table row for a measurement source.
 func NoiseSourceIndex(source MeasurementSource) (int, bool) {
+	// The table has no fit of its own for the mean: it reads the medoid's row,
+	// the other position taken from a cluster's own returns.
+	if source == MeasurementClusterMeanV1 {
+		source = MeasurementMedoidV0
+	}
 	for i, s := range NoiseSources {
 		if s == source {
 			return i, true

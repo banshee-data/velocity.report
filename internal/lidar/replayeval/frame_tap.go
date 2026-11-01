@@ -33,6 +33,9 @@ type FrameTapFrame struct {
 	// and AzimuthBins the L3 grid's azimuth resolution.
 	Background  l3grid.BackgroundParams
 	AzimuthBins int
+	// Decisions is L3's per-return decision trace, when Config.FrameTapDecisions
+	// asked for it: one record per return of Frame, in the L3 input's order.
+	Decisions []l3grid.DecisionRecord
 	// HeightBandFloor is L4's lower clip in sensor Z when the height band
 	// clips, the frame's case without surface_ground.
 	HeightBandFloor float64
@@ -84,6 +87,7 @@ func (a *frameTapAdapter) observe(frame *l2frames.LiDARFrame, mask []bool) {
 		if a.bm.Grid != nil {
 			f.AzimuthBins = a.bm.Grid.AzimuthBins
 		}
+		f.Decisions = a.bm.DecisionTrace()
 	}
 	a.tap(f)
 }

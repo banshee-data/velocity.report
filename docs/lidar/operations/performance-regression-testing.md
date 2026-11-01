@@ -550,7 +550,6 @@ therefore also kept per CPU model, beside the class one:
 | ------------------------------------------- | ------------------------------------------ |
 | `baseline-kirk0-full-ci.json`               | Whichever runner captured it: the fallback |
 | `baseline-kirk0-full-ci-amd-epyc-7763.json` | An AMD EPYC 7763                           |
-| `baseline-kirk0-full-ci-amd-epyc-9v74.json` | An AMD EPYC 9V74                           |
 
 `make test-perf` names the class baseline, and `lidar-bench` compares against the
 per-CPU baseline beside it when there is one for the runner's CPU and it measured the
@@ -583,25 +582,31 @@ measured. Until October 2026 no `-ci` file was committed, so the nightly fell ba
 the frame-budget check alone without failing;
 the first pair was captured on `main` at `0504248c` with nine repeats. #787 moved the
 defaults' L3 and so the fingerprint, and the pair was captured again on `main` at
-`008026cf2`, nine repeats, on an AMD EPYC 7763: full 16,244 ms, l3-only 10,964 ms.
+`008026cf2`, nine repeats, on an AMD EPYC 7763: full 16,244 ms, l3-only 10,964 ms. #901
+moved the defaults to foreground refinement and the mean cluster centre, and the pair
+came from that pull request's capture, five repeats, on an AMD EPYC 7763: full
+23,107 ms, l3-only 14,142 ms. That run's A/B gate failed by decision, at 1.33 of base on
+the full profile and 1.20 on l3-only, on an AMD EPYC 9V45: the cost is
+[recorded with the adoption](l3-foreground-refinement-2026-10.md#adoption). The EPYC 9V74
+files went with the old tuning, and return with the next capture that lands there.
 
 **One `-ci` baseline cannot fit every hosted runner.** Every runner has 4 CPUs, but in
 the 36 captures from October 15 to 19, kirk0's full profile fell into three bands by
 CPU, each with identical work counters within its L3:
 
-| Runner CPU       | Full profile, the L3 before #787 | Full profile, today's defaults | Captures |
-| ---------------- | -------------------------------: | -----------------------------: | -------: |
-| Not yet recorded |                     7.5 to 8.3 s |                              — |        6 |
-| AMD EPYC 9V74    |                   10.2 to 10.9 s |                         13.2 s |    6 + 1 |
-| AMD EPYC 7763    |                   13.0 to 14.4 s |                 16.2 to 16.6 s |   20 + 3 |
+| Runner CPU       | Full profile, the L3 before #787 | Full profile, #787's defaults | Captures |
+| ---------------- | -------------------------------: | ----------------------------: | -------: |
+| Not yet recorded |                     7.5 to 8.3 s |                             — |        6 |
+| AMD EPYC 9V74    |                   10.2 to 10.9 s |                        13.2 s |    6 + 1 |
+| AMD EPYC 7763    |                   13.0 to 14.4 s |                16.2 to 16.6 s |   20 + 3 |
 
 The CPU was recorded for three of them, from #792 on: an EPYC 7763 at 13.2 s on the
-earlier L3, and on today's defaults an EPYC 9V74 at 13.2 s and an EPYC 7763 at 16.2 s
+earlier L3, and on #787's defaults an EPYC 9V74 at 13.2 s and an EPYC 7763 at 16.2 s
 (the committed pair). That the earlier L3's middle band is the 9V74 is inferred from the
-ratio between the two CPUs on today's defaults (0.81), which the bands' ratio matches
+ratio between the two CPUs on #787's defaults (0.81), which the bands' ratio matches
 (0.77).
 
-The EPYC 7763 and 9V74 have their own baselines ([above](#baselines-per-cpu-model)), so
+The EPYC 7763 has its own baselines ([above](#baselines-per-cpu-model)), so
 a nightly run on either is held to its own CPU's at the 50 % threshold. The class pair is
 from the slowest band, which is also the commonest, so a run on a CPU without its own
 baseline never fails for its runner alone; the cost there is a wider blind spot, a change

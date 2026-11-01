@@ -293,6 +293,8 @@ func (t *TrackedObject) PositionReference() ReferencePoint {
 	switch t.LastMeasurementSource {
 	case MeasurementMedoidV0, MeasurementMedoidFallbackV1:
 		return ReferenceClusterMedoid
+	case MeasurementClusterMeanV1:
+		return ReferenceClusterMean
 	case MeasurementOBBCentreV1:
 		return ReferenceVisibleOBBCentre
 	default:
