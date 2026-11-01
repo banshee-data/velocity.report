@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 1, 2026 - Scene-variant renders of kirk0 on main
+
+- {ai/docs/kirk0-variant-renders} Re-ran October's kirk0 scene-variant renders on main as [geom0014](../data/experiments/geom/geom0014.md), under the defaults and the four solid-body parameter sets at the published replay settings: the shadow drew the defaults' tracks in all 151 frames, the defaults replayed last on the same server drew the same tracks as the defaults replayed first, and A2, alignment and convergence turned the box 0.23° to 0.34° a frame against 0.80° and halved its length spread (0.49 to 0.52 m against 0.97 m). Label-free, so this measures steadiness, not accuracy; see the [report](lidar/operations/scene-variants-kirk0-2026-11.md).
+
 ## October 30, 2026 - Survey scenes and Broadway–Franklin location correction
 
 - {codex/remove-osm-lidar} Removed OSM geometry requests, rendering and street-painter fallback from the visualiser, and the web locator's OSM-outline fit/snap path; retained city kerbs, markings, manual placement and browser maps. Synchronized reserved protocol identities with Gerardus and added legacy-response and snap-target checks; see the [implementation plan](plans/lidar-osm-removal-plan.md).
