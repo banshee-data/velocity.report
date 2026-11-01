@@ -39,7 +39,7 @@
         "hold_margin_metres": 0.3,
         "hold_cooldown": "1s",
         "hold_min_speed_mps": 1.0,
-        "edge_follow_cluster": false,
+        "edge_follow_cluster": true,
         "edge_margin_metres": 0.2
       }
     }
@@ -50,6 +50,9 @@
       "foreground_dbscan_eps": 0.8,
       "foreground_min_cluster_points": 5,
       "foreground_max_input_points": 8000,
+      "cluster_position": {
+        "centre": "mean"
+      },
       "max_sample_points": 0,
       "height_band_floor": -2.8,
       "height_band_ceiling": 1.5,

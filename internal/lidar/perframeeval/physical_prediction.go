@@ -44,8 +44,9 @@ type PredictedHeading struct {
 type PredictedBody struct {
 	TrackKey    string `json:"track_key"`
 	TimestampNs int64  `json:"timestamp_ns"`
-	// Reference names the point X and Y are: body_centre, cluster_medoid or
-	// visible_obb_centre. Only a physical reference has a centre.
+	// Reference names the point X and Y are: body_centre, cluster_medoid,
+	// cluster_mean or visible_obb_centre. Only a physical reference has a
+	// centre.
 	Reference string  `json:"reference"`
 	XM        float64 `json:"x_m"`
 	YM        float64 `json:"y_m"`

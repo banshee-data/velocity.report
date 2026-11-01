@@ -300,6 +300,9 @@ func TestOcclusionContinuityScenarios(t *testing.T) {
 // distractor's track. Each must be caught.
 func TestOcclusionScenarioChecksCanFail(t *testing.T) {
 	full := scenarioCaseNamed(t, "full_occlusion")
+	// A shorter coast than the defaults' loses the cyclist behind the occluder.
+	shortCoast := DefaultTrackerConfig()
+	shortCoast.MaxMissesConfirmed = 15
 	cases := []struct {
 		name string
 		cfg  TrackerConfig
@@ -307,7 +310,7 @@ func TestOcclusionScenarioChecksCanFail(t *testing.T) {
 		u    roadUser
 		want []string
 	}{
-		{"shipped tracker", DefaultTrackerConfig(), full, cyclistBody,
+		{"shipped tracker", shortCoast, full, cyclistBody,
 			[]string{"identity not preserved", "occlusion recognised on 0 of"}},
 		{"explanation off", continuityConfig(func(c *OcclusionContinuityConfig) {
 			*c = DefaultOcclusionContinuity()

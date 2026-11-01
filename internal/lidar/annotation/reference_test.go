@@ -178,6 +178,28 @@ func TestReferenceIgnoreMapping(t *testing.T) {
 	}
 }
 
+// A named object leaves scoring without a reason of its own to give.
+func TestReferenceIgnoresNamedObjects(t *testing.T) {
+	p := packOf(t, [][2]float32{{0, 0}, {4, 2}})
+	s := NewSidecar(p)
+	s.Objects = []Object{reviewedObject("parked", "car"), reviewedObject("moving", "car")}
+	s.Masks = []FrameMask{mask("parked", 0, 0), mask("moving", 0, 1)}
+	policy := DefaultReferencePolicy()
+	policy.IgnoreObjects = []string{"parked"}
+	refs, summary, err := BuildReference(p, s, policy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.Scored != 1 || summary.Ignored[IgnoreNamedObject] != 1 {
+		t.Fatalf("summary %+v", summary)
+	}
+	for _, r := range refs {
+		if (r.ObjectID == "parked") != (r.Ignore == IgnoreNamedObject) {
+			t.Fatalf("%s: ignore %q", r.ObjectID, r.Ignore)
+		}
+	}
+}
+
 func TestReferenceOrderAndRefusals(t *testing.T) {
 	p := packOf(t, [][2]float32{{0, 0}, {5, 5}}, [][2]float32{{1, 0}, {6, 5}})
 	s := NewSidecar(p)

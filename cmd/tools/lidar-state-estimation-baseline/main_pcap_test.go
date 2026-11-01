@@ -107,11 +107,13 @@ func TestMainRunsKirk0UnderAFrozenSplit(t *testing.T) {
 	// the closeness 2 since tracks further out, 45.0 m. The track guard keeps
 	// moving vehicles out of the background, so tracks run further: 48.0 m,
 	// and 48.3 m once its boxes stood on their base rather than straddling
-	// it. The p90 differs in its second decimal between arm64 and amd64
-	// (48.04 m and 47.98 m before the box fix), so it is held to 0.1 m
-	// rather than rounded.
-	if math.Round(st.RangeMetres.Max*10)/10 != 91.7 || math.Abs(st.RangeMetres.P90-48.3) > 0.1 || d.MaxRangeMetres != 92 {
-		t.Fatalf("range max %.2f m, p90 %.2f m, declared %g m; the hand-made declaration read 91.7 m (p90 48.3 m) and declared 92 m",
+	// it. Refinement and the larger minimum cluster size of l3bg0029 keep
+	// tracks later on their way out and drop the furthest returns: p90
+	// 55.2 m, maximum 88.5 m. The p90 differs in its second decimal between
+	// arm64 and amd64 (48.04 m and 47.98 m before the box fix), so it is held
+	// to 0.1 m rather than rounded.
+	if math.Round(st.RangeMetres.Max*10)/10 != 88.5 || math.Abs(st.RangeMetres.P90-55.2) > 0.1 || d.MaxRangeMetres != 89 {
+		t.Fatalf("range max %.2f m, p90 %.2f m, declared %g m; the survey read 88.5 m (p90 55.2 m) and declared 89 m",
 			st.RangeMetres.Max, st.RangeMetres.P90, d.MaxRangeMetres)
 	}
 	set, err := replayeval.LoadContinuityCoverageSet(surveyPath)

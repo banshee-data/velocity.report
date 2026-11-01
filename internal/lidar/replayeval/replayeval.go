@@ -244,6 +244,8 @@ type Config struct {
 	// L4 settings it ran under. It reads them and changes no estimate and no
 	// hash (l3bg0024's lower-body block).
 	FrameTap func(FrameTapFrame)
+	// FrameTapDecisions fills FrameTapFrame.Decisions.
+	FrameTapDecisions bool
 }
 
 // TrackerTapFrame is one tracker update as Config.TrackerTap sees it. The
@@ -908,6 +910,10 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		VisualiserPublisher:       pub,
 		VisualiserAdapter:         adapter,
 		DisableTrackPersistence:   disablePersistence,
+		MaxClusterDiameter:        tuningCfg.GetMaxClusterDiameter(),
+		MinClusterDiameter:        tuningCfg.GetMinClusterDiameter(),
+		MaxClusterAspectRatio:     tuningCfg.GetMaxClusterAspectRatio(),
+		ClusterCentre:             tuningCfg.GetClusterCentre(),
 		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
@@ -1056,6 +1062,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}
 		tap := &frameTapAdapter{inner: inner, tracker: pipeCfg.Tracker, tap: cfg.FrameTap, start: scoreStart,
 			bm: bgMgr, floor: floor}
+		bgMgr.SetDecisionTrace(cfg.FrameTapDecisions)
 		if pipeCfg.GroundSurfaceFit != nil {
 			tap.surface = pipeCfg.GroundSurfaceFit
 		}

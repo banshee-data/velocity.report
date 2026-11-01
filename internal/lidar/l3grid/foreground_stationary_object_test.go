@@ -34,7 +34,11 @@ var maskReviewEpoch = time.Date(2026, time.October, 11, 0, 0, 0, 0, time.UTC)
 
 func newMaskReviewManager(t *testing.T, azBins int) *BackgroundManager {
 	t.Helper()
-	cfg := config.MustLoadDefaultConfig()
+	// The review measured the window and the freeze alone, without refinement.
+	cfg, err := config.LoadTuningConfig("../../../config/experiments/foreground-refine-off.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 	params := BackgroundConfigFromActiveTuning(cfg).ToBackgroundParams()
 	params.DisableRegionOverrides = true
 	bm := NewBackgroundManagerDI("mask-review", 1, azBins, params, nil)

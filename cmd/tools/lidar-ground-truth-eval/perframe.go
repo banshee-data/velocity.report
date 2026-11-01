@@ -132,6 +132,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	allowTuning := fs.Bool("allow-tuning-split", false, "score a split whose role is not held_out; the output says it is not held out")
 	includeProposed := fs.Bool("include-proposed", false, "also score proposed (unreviewed) masks as truth; recorded as the reference policy")
 	position := fs.String("reference-position", string(annotation.PositionFootprintCentre), "reference position: footprint_centre or point_mean")
+	ignoreObjects := fs.String("ignore-objects", "", "comma-separated object IDs to leave out of scoring, neither missed nor false (a labelled parked car)")
 	ignorePartial := fs.Bool("ignore-partial-masks", false, "treat masks marked partial as uncertifiable (ignored) rather than scored")
 	gate := fs.String("gate", string(l8analytics.GateFootprint), "association gate: footprint (gate-metres plus half the object's footprint diagonal) or fixed")
 	gateMetres := fs.Float64("gate-metres", 1.0, "fixed gate, or the footprint gate's slack, in metres")
@@ -183,6 +184,9 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	}
 	policy.Position = annotation.ReferencePosition(*position)
 	policy.ScorePartialMasks = !*ignorePartial
+	if *ignoreObjects != "" {
+		policy.IgnoreObjects = strings.Split(*ignoreObjects, ",")
+	}
 	if err := policy.Validate(); err != nil {
 		return nil, usageError(fs, stderr, err)
 	}

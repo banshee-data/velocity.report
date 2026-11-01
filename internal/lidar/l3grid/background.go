@@ -124,6 +124,10 @@ type BackgroundParams struct {
 	// Go-level and default nil, so the config fingerprint does not move; the
 	// replay experiment support_filter sets it to DefaultSupportFilterParams.
 	SupportFilter *SupportFilterParams
+	// ForegroundRefine, when set, adds the one-sided decision, hysteresis and
+	// novelty rules of foreground_refine.go to the per-return decision. Nil
+	// is off.
+	ForegroundRefine *ForegroundRefineParams
 
 	// TrackGuard, when set, keeps the objects L5 tracks out of the model and
 	// publishes their edges as foreground (track_guard.go): returns inside a

@@ -83,7 +83,7 @@ parity between them.
       "warmup_min_frames": 100,
       "post_settle_update_fraction": 0,
       "enable_diagnostics": false,
-      "freeze_duration": "5s",
+      "freeze_duration": "0s",
       "freeze_threshold_multiplier": 3,
       "settling_period": "5m",
       "snapshot_interval": "2h",
@@ -105,24 +105,48 @@ parity between them.
         "hold_margin_metres": 0.3,
         "hold_cooldown": "1s",
         "hold_min_speed_mps": 1.0,
-        "edge_follow_cluster": true,
+        "edge_follow_cluster": false,
         "edge_margin_metres": 0.2
+      },
+      "foreground_refine": {
+        "far_relearn_returns": 10,
+        "far_agree_metres": 0.3,
+        "far_agree_per_metre": 0.01,
+        "far_relearn_seen": 50,
+        "weak_margin_metres": 0.5,
+        "weak_spreads": 2,
+        "weak_margin_per_metre": 0.005,
+        "weak_spread_cap_metres": 0.5,
+        "grow_rings": 2,
+        "grow_bins": 3,
+        "grow_tau_metres": 0.4,
+        "grow_tau_per_metre": 0.01,
+        "envelope_attack": 0.3,
+        "envelope_release": 0.005,
+        "novel_margin_metres": 0.3,
+        "novel_margin_per_metre": 0.005,
+        "novel_min_seen": 20,
+        "novel_min_returns": 10,
+        "support_filter": true
       }
     }
   },
   "l4": {
     "engine": "dbscan_xy_v1",
     "dbscan_xy_v1": {
-      "foreground_dbscan_eps": 0.8,
-      "foreground_min_cluster_points": 5,
+      "foreground_dbscan_eps": 1.0,
+      "foreground_min_cluster_points": 8,
       "foreground_max_input_points": 8000,
+      "cluster_position": {
+        "centre": "mean"
+      },
       "max_sample_points": 0,
       "height_band_floor": -2.8,
       "height_band_ceiling": 1.5,
       "remove_ground": true,
-      "max_cluster_diameter": 12,
+      "max_cluster_diameter": 20,
       "min_cluster_diameter": 0.05,
-      "max_cluster_aspect_ratio": 15
+      "max_cluster_aspect_ratio": 60
     }
   },
   "l5": {
@@ -135,7 +159,7 @@ parity between them.
       "occlusion_cov_inflation": 0.5,
       "hits_to_confirm": 4,
       "max_misses": 3,
-      "max_misses_confirmed": 15,
+      "max_misses_confirmed": 25,
       "max_tracks": 100,
       "max_reasonable_speed_mps": 30,
       "max_position_jump_metres": 5,
@@ -213,9 +237,9 @@ Example:
 Hot-reloadable parameters:
 
 - L3 engine parameters (`l3.ema_baseline_v1.*`), including the optional
-  `l3.ema_baseline_v1.track_guard` block, which goes on whole. One key of
-  it edits the running block; with the guard off there is no block to edit,
-  so the whole block is required.
+  `l3.ema_baseline_v1.track_guard` and `l3.ema_baseline_v1.foreground_refine`
+  blocks, each of which goes on whole. One key of a block edits the running
+  block; with it off there is no block to edit, so the whole block is required.
 - L4 DBSCAN: `foreground_dbscan_eps`, `foreground_min_cluster_points`, `foreground_max_input_points`
 - L5 tracker parameters (`l5.cv_kf_v1.*`), including the optional
   `l5.cv_kf_v1.solid_body` and `l5.cv_kf_v1.box_model` blocks. A block is
@@ -473,7 +497,7 @@ their edges with their class. After each tracker update the pipeline hands L3 th
 confirmed tracks moving at `hold_min_speed_mps` or more; for the next half second, carried by
 each track's velocity, a return inside one of them is classed by its cell as usual but leaves the
 cell unchanged, and so does every return in that cell for `hold_cooldown` after. Under
-`edge_follow_cluster` the published mask (full frames, the streamed foreground) also carries as
+`edge_follow_cluster`, off in the defaults since foreground refinement, the published mask (full frames, the streamed foreground) also carries as
 foreground every background return inside a held box, an observed confirmed track's box, or the
 box of a cluster associated with one; L4's input is L3's own mask. A config without the block runs
 the guard off, as L3 ran before it ([track-guard-off.json](experiments/track-guard-off.json)).
@@ -494,24 +518,57 @@ duration in [0s, 1m].
 | `edge_follow_cluster`                          | bool    | Publishes the background returns inside held, observed track and associated cluster boxes as foreground. L4 is not affected. |
 | `edge_margin_metres`                           | float64 | Grows the boxes of `edge_follow_cluster`. `0.2`.                                                                             |
 
+#### Foreground refinement
+
+`l3.ema_baseline_v1.foreground_refine` adds evidence a window depth cannot give to the per-return
+decision. A return beyond the cell's surface is background, and an agreed run of them relearns the
+cell. A background return well in front of the surface is weak: it joins connected foreground, or
+comes in as a patch if enough of it is new to its cells. On by default. A config without the block
+runs refinement off and keeps its fingerprint
+([foreground-refine-off.json](experiments/foreground-refine-off.json) holds the defaults from before).
+When the block is present, every key is required. Schema: [L3ForegroundRefine](../internal/config/tuning.go). Code:
+[foreground_refine.go](../internal/lidar/l3grid/foreground_refine.go). Report:
+[foreground refinement](../docs/lidar/operations/l3-foreground-refinement-2026-10.md).
+The values below are the defaults'.
+
+Rules: counts at least 1 (`grow_rings`, `grow_bins` and `novel_min_seen` at least 0),
+`far_relearn_returns` at most 255, shares and per-metre rates in [0, 1], distances in [0, 10] m.
+
+| Path (under `l3.ema_baseline_v1.foreground_refine.`) | Type    | Notes                                                                                                     |
+| ---------------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------------- |
+| `far_relearn_returns`                                | int     | Consecutive far returns agreeing on one range that relearn a cell. `10`.                                  |
+| `far_agree_metres`, `far_agree_per_metre`            | float64 | How close two far returns must be: base + rate × range. `0.3`, `0.01`.                                    |
+| `far_relearn_seen`                                   | int     | The observation count a relearned cell restarts from. `50`.                                               |
+| `weak_margin_metres`, `weak_margin_per_metre`        | float64 | How far in front of its surface a background return lies to be weak, with `weak_spreads`. `0.5`, `0.005`. |
+| `weak_spreads`                                       | float64 | Multiples of the cell's spread added to that margin. `2`.                                                 |
+| `weak_spread_cap_metres`                             | float64 | Bounds what a weak return adds to its cell's spread. `0.5`.                                               |
+| `grow_rings`, `grow_bins`                            | int     | The neighbourhood foreground grows through, either side. `2`, `3`.                                        |
+| `grow_tau_metres`, `grow_tau_per_metre`              | float64 | The range similarity it requires: base + rate × range. `0.4`, `0.01`.                                     |
+| `envelope_attack`, `envelope_release`                | float64 | Share of the distance the near envelope moves to a nearer and a farther return. `0.3`, `0.005`.           |
+| `novel_margin_metres`, `novel_margin_per_metre`      | float64 | How far in front of the envelope a weak return lies to be new to its cell. `0.3`, `0.005`.                |
+| `novel_min_seen`                                     | int     | The observations a cell needs before its envelope counts. `20`.                                           |
+| `novel_min_returns`                                  | int     | How many novel returns bring a weak patch in. `10`.                                                       |
+| `support_filter`                                     | bool    | Runs the range-image support filter on the result, at its shipped parameters. `true`.                     |
+
 ### L4
 
 Maths: [clustering-maths.md](../data/maths/clustering-maths.md),
 [ground-plane-maths.md](../data/maths/ground-plane-maths.md)
 
-| Path                                            | Type    | Primary consumer                                                        | Notes                                                                                                          |
-| ----------------------------------------------- | ------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `l4.engine`                                     | string  | [(\*L4Config).ActiveCommon](../internal/config/tuning_accessors.go)     | Active L4 engine.                                                                                              |
-| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | [GetForegroundDBSCANEps](../internal/config/tuning_accessors.go)        | DBSCAN epsilon.                                                                                                |
-| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | [GetForegroundMinClusterPoints](../internal/config/tuning_accessors.go) | DBSCAN min points.                                                                                             |
-| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | [GetForegroundMaxInputPoints](../internal/config/tuning_accessors.go)   | DBSCAN input cap.                                                                                              |
-| `l4.dbscan_xy_v1.max_sample_points`             | int     | [DBSCANParamsFromTuning](../internal/lidar/l4perception/cluster.go)     | Offline replay evidence cap per cluster, 0–1024; default 0 disables retention. Not yet a live runtime setting. |
-| `l4.dbscan_xy_v1.height_band_floor`             | float64 | [GetHeightBandFloor](../internal/config/tuning_accessors.go)            | Lower Z filter bound in sensor frame; the road is near −2.3 m at the deployed ~2.3 m mount                     |
-| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | [GetHeightBandCeiling](../internal/config/tuning_accessors.go)          | Upper Z filter bound.                                                                                          |
-| `l4.dbscan_xy_v1.remove_ground`                 | bool    | [GetRemoveGround](../internal/config/tuning_accessors.go)               | Ground filter master switch.                                                                                   |
-| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | [GetMaxClusterDiameter](../internal/config/tuning_accessors.go)         | Maximum accepted cluster diameter.                                                                             |
-| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | [GetMinClusterDiameter](../internal/config/tuning_accessors.go)         | Minimum accepted cluster diameter.                                                                             |
-| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | [GetMaxClusterAspectRatio](../internal/config/tuning_accessors.go)      | Maximum accepted cluster aspect ratio.                                                                         |
+| Path                                            | Type    | Primary consumer                                                        | Notes                                                                                                              |
+| ----------------------------------------------- | ------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `l4.engine`                                     | string  | [(\*L4Config).ActiveCommon](../internal/config/tuning_accessors.go)     | Active L4 engine.                                                                                                  |
+| `l4.dbscan_xy_v1.foreground_dbscan_eps`         | float64 | [GetForegroundDBSCANEps](../internal/config/tuning_accessors.go)        | DBSCAN epsilon.                                                                                                    |
+| `l4.dbscan_xy_v1.foreground_min_cluster_points` | int     | [GetForegroundMinClusterPoints](../internal/config/tuning_accessors.go) | DBSCAN min points.                                                                                                 |
+| `l4.dbscan_xy_v1.foreground_max_input_points`   | int     | [GetForegroundMaxInputPoints](../internal/config/tuning_accessors.go)   | DBSCAN input cap.                                                                                                  |
+| `l4.dbscan_xy_v1.cluster_position.centre`       | string  | [GetClusterCentre](../internal/config/tuning_accessors.go)              | The position a cluster reports: `mean` of its returns, or `medoid`. A config without the block reports the medoid. |
+| `l4.dbscan_xy_v1.max_sample_points`             | int     | [DBSCANParamsFromTuning](../internal/lidar/l4perception/cluster.go)     | Offline replay evidence cap per cluster, 0–1024; default 0 disables retention. Not yet a live runtime setting.     |
+| `l4.dbscan_xy_v1.height_band_floor`             | float64 | [GetHeightBandFloor](../internal/config/tuning_accessors.go)            | Lower Z filter bound in sensor frame; the road is near −2.3 m at the deployed ~2.3 m mount                         |
+| `l4.dbscan_xy_v1.height_band_ceiling`           | float64 | [GetHeightBandCeiling](../internal/config/tuning_accessors.go)          | Upper Z filter bound.                                                                                              |
+| `l4.dbscan_xy_v1.remove_ground`                 | bool    | [GetRemoveGround](../internal/config/tuning_accessors.go)               | Ground filter master switch.                                                                                       |
+| `l4.dbscan_xy_v1.max_cluster_diameter`          | float64 | [GetMaxClusterDiameter](../internal/config/tuning_accessors.go)         | Maximum accepted cluster diameter.                                                                                 |
+| `l4.dbscan_xy_v1.min_cluster_diameter`          | float64 | [GetMinClusterDiameter](../internal/config/tuning_accessors.go)         | Minimum accepted cluster diameter.                                                                                 |
+| `l4.dbscan_xy_v1.max_cluster_aspect_ratio`      | float64 | [GetMaxClusterAspectRatio](../internal/config/tuning_accessors.go)      | Maximum accepted cluster aspect ratio.                                                                             |
 
 ### L5
 

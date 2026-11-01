@@ -49,7 +49,7 @@ func TestTrackGuardValidate(t *testing.T) {
 
 func TestDefaultsCarryTheTrackGuardOn(t *testing.T) {
 	g := MustLoadDefaultConfig().L3.ActiveCommon().TrackGuard
-	if g == nil || !g.HoldTracks || !g.EdgeFollowCluster || g.HoldCooldown != "1s" ||
+	if g == nil || !g.HoldTracks || g.EdgeFollowCluster || g.HoldCooldown != "1s" ||
 		g.HoldMarginMetres != 0.3 || g.EdgeMarginMetres != 0.2 || g.HoldMinSpeedMps != 1 {
 		t.Fatalf("defaults' track guard %+v", g)
 	}

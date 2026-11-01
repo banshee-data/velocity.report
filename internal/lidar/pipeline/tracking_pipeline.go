@@ -342,6 +342,15 @@ type TrackingPipelineConfig struct {
 	// extracted features and the current classification result.
 	FeatureExportFunc func(trackID string, features l6objects.TrackFeatures, class string, confidence float32)
 
+	// MaxClusterDiameter, MinClusterDiameter and MaxClusterAspectRatio are L4's
+	// cluster size filters from the run's tuning. Zero keeps the default
+	// configuration's value.
+	MaxClusterDiameter    float64
+	MinClusterDiameter    float64
+	MaxClusterAspectRatio float64
+	// ClusterCentre selects the position a cluster reports: "mean", or the
+	// medoid otherwise.
+	ClusterCentre string
 	// HeightBandFloor is the lower bound (metres) for the vertical height
 	// band filter. Values are in the same frame as the points passed to
 	// FilterVertical — typically sensor frame where Z=0 is the sensor's
@@ -531,7 +540,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// Cache the default DBSCAN params once at callback creation time rather
 	// than loading from disk on every frame. The per-frame overrides
 	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
-	defaultDBSCANParams := l4perception.DefaultDBSCANParams()
+	defaultDBSCANParams := cfg.clusterParams()
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 	defaultDBSCANParams.KeepMembers = cfg.KeepClusterMembers
 	if cfg.RangeAdaptiveEps {
@@ -1282,4 +1291,22 @@ func trackObservation(track *l5tracks.TrackedObject, frameUnixNanos int64, frame
 		BoxLength:         track.BoxLength,
 		BoxWidth:          track.BoxWidth,
 	}
+}
+
+// clusterParams is the default DBSCAN configuration with the run's cluster size
+// filters. Those filters are tuning keys, so a run's file must reach them: the
+// default configuration alone would leave a parameter set's values unread.
+func (cfg *TrackingPipelineConfig) clusterParams() l4perception.DBSCANParams {
+	params := l4perception.DefaultDBSCANParams()
+	if cfg.MaxClusterDiameter > 0 {
+		params.MaxClusterDiameter = cfg.MaxClusterDiameter
+	}
+	if cfg.MinClusterDiameter > 0 {
+		params.MinClusterDiameter = cfg.MinClusterDiameter
+	}
+	if cfg.MaxClusterAspectRatio > 0 {
+		params.MaxClusterAspectRatio = cfg.MaxClusterAspectRatio
+	}
+	params.MeanCentre = cfg.ClusterCentre == "mean"
+	return params
 }

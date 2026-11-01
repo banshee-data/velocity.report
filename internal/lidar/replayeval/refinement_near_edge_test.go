@@ -35,7 +35,7 @@ func TestRefinementHarnessFilesRefinedSolidBodiesUnderNearEdgeTracking(t *testin
 	tracker.SetFilterStepObserver(harness)
 
 	params := l4perception.DefaultDBSCANParams()
-	params.Eps, params.MinPts, params.MaxSamplePoints = 0.6, 5, 512
+	params.Eps, params.MinPts, params.MaxSamplePoints, params.MeanCentre = 0.6, 5, 512, false
 	base := time.Unix(1_700_000_000, 0).Sub(time.Unix(0, 0))
 	const faceless = 14
 	for i, f := range l4perception.GenerateSyntheticPass(l4perception.DefaultSyntheticPass()) {

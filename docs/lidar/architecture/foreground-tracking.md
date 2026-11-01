@@ -147,6 +147,15 @@ incrementing during freeze and resetting to 0 on thaw. See
 **Real-time parameter tuning.** POST to `/api/lidar/params` with JSON body;
 changes apply immediately without restart.
 
+### Foreground refinement
+
+The per-return window cannot both admit a variable surface's flicker and reject a road user in front
+of it. The `l3.ema_baseline_v1.foreground_refine` block adds evidence the window does not use: a return
+beyond the learned surface is background, and one in front of it joins connected foreground or comes
+in as a patch that is new to its cells. It is on in the defaults, which also drop the freeze and
+edge follow. Measurements and what is still owed:
+[foreground refinement](../operations/l3-foreground-refinement-2026-10.md#adoption).
+
 ### Known limitations
 
 - **CPU performance.** Foreground processing CPU usage is higher than

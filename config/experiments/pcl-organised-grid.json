@@ -17,7 +17,7 @@
       "warmup_min_frames": 50,
       "post_settle_update_fraction": 0,
       "enable_diagnostics": true,
-      "freeze_duration": "5s",
+      "freeze_duration": "0s",
       "freeze_threshold_multiplier": 3,
       "settling_period": "5m",
       "snapshot_interval": "2h",
@@ -39,24 +39,48 @@
         "hold_margin_metres": 0.3,
         "hold_cooldown": "1s",
         "hold_min_speed_mps": 1.0,
-        "edge_follow_cluster": true,
+        "edge_follow_cluster": false,
         "edge_margin_metres": 0.2
+      },
+      "foreground_refine": {
+        "far_relearn_returns": 10,
+        "far_agree_metres": 0.3,
+        "far_agree_per_metre": 0.01,
+        "far_relearn_seen": 50,
+        "weak_margin_metres": 0.5,
+        "weak_spreads": 2,
+        "weak_margin_per_metre": 0.005,
+        "weak_spread_cap_metres": 0.5,
+        "grow_rings": 2,
+        "grow_bins": 3,
+        "grow_tau_metres": 0.4,
+        "grow_tau_per_metre": 0.01,
+        "envelope_attack": 0.3,
+        "envelope_release": 0.005,
+        "novel_margin_metres": 0.3,
+        "novel_margin_per_metre": 0.005,
+        "novel_min_seen": 20,
+        "novel_min_returns": 10,
+        "support_filter": true
       }
     }
   },
   "l4": {
     "engine": "dbscan_xy_v1",
     "dbscan_xy_v1": {
-      "foreground_dbscan_eps": 0.8,
-      "foreground_min_cluster_points": 5,
+      "foreground_dbscan_eps": 1.0,
+      "foreground_min_cluster_points": 8,
       "foreground_max_input_points": 8000,
+      "cluster_position": {
+        "centre": "mean"
+      },
       "max_sample_points": 0,
       "height_band_floor": -2.8,
       "height_band_ceiling": 1.5,
       "remove_ground": true,
-      "max_cluster_diameter": 12,
+      "max_cluster_diameter": 20,
       "min_cluster_diameter": 0.05,
-      "max_cluster_aspect_ratio": 15
+      "max_cluster_aspect_ratio": 60
     }
   },
   "l5": {
@@ -69,7 +93,7 @@
       "occlusion_cov_inflation": 0.5,
       "hits_to_confirm": 4,
       "max_misses": 3,
-      "max_misses_confirmed": 15,
+      "max_misses_confirmed": 25,
       "max_tracks": 100,
       "max_reasonable_speed_mps": 30,
       "max_position_jump_metres": 5,

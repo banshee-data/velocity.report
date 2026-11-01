@@ -363,8 +363,8 @@ func TestTrackGuardParamsTuningRoundTrip(t *testing.T) {
 	}
 	// The defaults carry the guard on, and ToBackgroundParams copies it.
 	cfg := BackgroundConfigFromActiveTuning(config.MustLoadDefaultConfig())
-	if cfg.TrackGuard == nil || !cfg.TrackGuard.HoldTracks || !cfg.TrackGuard.EdgeFollowCluster {
-		t.Fatalf("defaults' guard %+v, want hold and edge follow on", cfg.TrackGuard)
+	if cfg.TrackGuard == nil || !cfg.TrackGuard.HoldTracks || cfg.TrackGuard.EdgeFollowCluster {
+		t.Fatalf("defaults' guard %+v, want hold on and edge follow off", cfg.TrackGuard)
 	}
 	params := cfg.ToBackgroundParams()
 	if params.TrackGuard == cfg.TrackGuard || *params.TrackGuard != *cfg.TrackGuard {

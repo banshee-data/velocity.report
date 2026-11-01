@@ -212,6 +212,11 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 	// The track guard's boxes for this frame; off unless Params.TrackGuard
 	// holds tracks.
 	guardFrame := bm.beginTrackGuardLocked(n, nowNanos)
+	trace := bm.prepareTrace(n)
+	refine := g.Params.ForegroundRefine
+	if refine != nil {
+		bm.refine.prepare(len(g.Cells), n)
+	}
 
 	// Process each point individually
 	foregroundCount := int64(0)
@@ -223,6 +228,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			// Invalid channel - treat as foreground
 			foregroundMask[i] = true
 			foregroundCount++
+			if trace != nil {
+				trace[i] = DecisionRecord{Code: DecisionInvalidChannel}
+			}
 			continue
 		}
 
@@ -236,6 +244,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 
 		cellIdx := g.Idx(ring, azBin)
 		cell := &g.Cells[cellIdx]
+		if refine != nil {
+			bm.refine.cell[i] = int32(cellIdx)
+		}
 
 		// Track guard: a return inside a confirmed track's box, or in a cell
 		// still cooling down from one, is classed by the cell's model as any
@@ -253,9 +264,24 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		// If frozen, treat as foreground but don't accumulate recFg
 		// The freeze itself is sufficient protection; accumulating recFg during freeze
 		// causes unnecessarily high values (observed 70+) that persist after thaw.
-		if cell.FrozenUntilUnixNanos > nowNanos {
+		frozen := cell.FrozenUntilUnixNanos > nowNanos
+		if frozen && refine != nil && p.Distance-float64(cell.AverageRangeMeters) > ForegroundClosenessWindowMetres(
+			closenessMultiplier, float64(cell.RangeSpreadMeters), cellNoiseRel, p.Distance, safety, WarmupMultiplier(cell.TimesSeenCount)) {
+			frozen = false // beyond the surface: the decision below is one-sided
+		}
+		if frozen {
 			foregroundMask[i] = true
 			foregroundCount++
+			if trace != nil {
+				window := ForegroundClosenessWindowMetres(closenessMultiplier, float64(cell.RangeSpreadMeters),
+					cellNoiseRel, p.Distance, safety, WarmupMultiplier(cell.TimesSeenCount))
+				code := DecisionFrozenDiverges
+				if traceDiff(cell, p.Distance) <= window {
+					code = DecisionFrozenMatches
+				}
+				trace[i] = traceCell(cell, code, window,
+					traceBaseWindow(closenessMultiplier, float64(cell.RangeSpreadMeters), noiseRel, p.Distance, safety))
+			}
 			// Debug: log frozen cell observations to track freeze behavior
 			if enableDiag && g.Params.IsInDebugRange(ring, az) {
 				remainingFreeze := float64(cell.FrozenUntilUnixNanos-nowNanos) / 1e9
@@ -366,6 +392,43 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			cellDiff <= acceptWindow ||
 			(cellNeighbourConfirm > 0 && neighbourConfirmCount >= cellNeighbourConfirm)
 
+		// One-sided decision: a return beyond the surface the cell has learned
+		// is not an object in front of it (foreground_refine.go).
+		farReturn := false
+		if refine != nil {
+			if cell.TimesSeenCount > 0 && p.Distance-float64(cell.AverageRangeMeters) > acceptWindow {
+				farReturn = !isBackgroundLike
+				isBackgroundLike = true
+			} else {
+				bm.refine.farRun[cellIdx] = 0
+			}
+			if isBackgroundLike && cell.TimesSeenCount > 0 {
+				bm.refine.markWeak(refine, cell, cellIdx, i, p.Distance)
+			}
+		}
+
+		// wasBackgroundLike and cellBefore let the trace name the rule that
+		// decided; the deadlock breaker below can still change the decision.
+		wasBackgroundLike := isBackgroundLike
+		var cellBefore DecisionRecord
+		if trace != nil {
+			base := traceBaseWindow(closenessMultiplier, float64(cell.RangeSpreadMeters), noiseRel, p.Distance, safety)
+			code := DecisionForeground
+			switch {
+			case farReturn:
+				code = DecisionBackgroundFar
+			case cellDiff <= base:
+				code = DecisionBackgroundBase
+			case isWithinLockedRange:
+				code = DecisionBackgroundLocked
+			case cellDiff <= acceptWindow:
+				code = DecisionBackgroundWidened
+			case isBackgroundLike:
+				code = DecisionBackgroundNeighbour
+			}
+			cellBefore = traceCell(cell, code, acceptWindow, base)
+		}
+
 		// Deadlock Breaker:
 		// If a cell is persistently classified as foreground (RecentForegroundCount high)
 		// but we have low confidence in our background model (TimesSeenCount at floor),
@@ -397,6 +460,8 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			// Update cell EMA for background points
 			if readOnly {
 				// Held: the cell learns nothing from the tracked object.
+			} else if farReturn {
+				bm.refine.farReturn(refine, cell, cellIdx, p.Distance)
 			} else if cell.TimesSeenCount == 0 {
 				cell.AverageRangeMeters = float32(p.Distance)
 				cell.RangeSpreadMeters = 0.0 // Single point, no spread yet
@@ -418,6 +483,9 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 				oldAvg := float64(cell.AverageRangeMeters)
 				newAvg := (1.0-updateAlpha)*oldAvg + updateAlpha*p.Distance
 				deviation := math.Abs(p.Distance - oldAvg)
+				if refine != nil && bm.refine.weak[i] && deviation > refine.WeakSpreadCapMetres {
+					deviation = refine.WeakSpreadCapMetres
+				}
 				newSpread := (1.0-updateAlpha)*float64(cell.RangeSpreadMeters) + updateAlpha*deviation
 				cell.AverageRangeMeters = float32(newAvg)
 				cell.RangeSpreadMeters = float32(newSpread)
@@ -489,6 +557,19 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 			cell.LastUpdateUnixNanos = nowNanos
 		}
 
+		if trace != nil {
+			cellBefore.Held = readOnly
+			switch {
+			case foregroundMask[i] && !readOnly && cell.FrozenUntilUnixNanos > nowNanos:
+				cellBefore.Code = DecisionForegroundFroze
+			case !foregroundMask[i] && initIfEmpty:
+				cellBefore.Code = DecisionBackgroundSeed
+			case !foregroundMask[i] && !wasBackgroundLike:
+				cellBefore.Code = DecisionBackgroundDeadlock
+			}
+			trace[i] = cellBefore
+		}
+
 		// Debug logging for specific region to investigate trailing foreground
 		if enableDiag && g.Params.IsInDebugRange(ring, az) {
 			tracef("[FG_DEBUG] r=%d az=%.1f dist=%.3f avg=%.3f spread=%.3f diff=%.3f thresh=%.3f seen=%d recFg=%d frozen=%v isBg=%v",
@@ -515,11 +596,32 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 		}
 	}
 
+	// Foreground refinement: weak returns join connected foreground, and what
+	// stays background teaches the near envelope.
+	if refine != nil {
+		grown := bm.refine.grow(g, refine, points, foregroundMask)
+		foregroundCount += int64(grown)
+		backgroundCount -= int64(grown)
+		bm.refine.learnEnvelope(refine, points, foregroundMask, guardFrame.until, nowNanos)
+		if trace != nil && grown > 0 {
+			for i := range trace {
+				if foregroundMask[i] && trace[i].Code >= DecisionBackgroundLocked && trace[i].Code <= DecisionBackgroundSeed {
+					trace[i].Code = DecisionForegroundGrown
+				}
+			}
+		}
+	}
+
 	// Range-image support filter (replay experiment support_filter): the
 	// foreground of a cell without enough similar-range foreground neighbours
 	// becomes background. Output only: every cell above has already been
 	// updated, so a filtered return still counted as a rejection.
-	if sf := g.Params.SupportFilter; sf != nil {
+	sf := g.Params.SupportFilter
+	if sf == nil && refine != nil && refine.SupportFilter {
+		defaults := DefaultSupportFilterParams()
+		sf = &defaults
+	}
+	if sf != nil {
 		flipped := g.applySupportFilter(*sf, &bm.supportScratch, points, foregroundMask)
 		foregroundCount -= int64(flipped)
 		backgroundCount += int64(flipped)

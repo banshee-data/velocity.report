@@ -122,8 +122,8 @@ func TestLoadDefaultsFile(t *testing.T) {
 	if cfg.GetNoiseRelative() <= 0 || cfg.GetNoiseRelative() > 1 {
 		t.Fatalf("GetNoiseRelative out of range: %f", cfg.GetNoiseRelative())
 	}
-	if cfg.GetFreezeDuration() <= 0 {
-		t.Fatalf("GetFreezeDuration must be positive, got %v", cfg.GetFreezeDuration())
+	if cfg.GetFreezeDuration() < 0 {
+		t.Fatalf("GetFreezeDuration must not be negative, got %v", cfg.GetFreezeDuration())
 	}
 	if cfg.GetSettlingPeriod() <= 0 {
 		t.Fatalf("GetSettlingPeriod must be positive, got %v", cfg.GetSettlingPeriod())

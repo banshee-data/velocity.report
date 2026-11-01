@@ -878,7 +878,7 @@ func TestPersistedNamesRoundTripAndRefuseTheUnknown(t *testing.T) {
 			t.Errorf("motion class %s round-tripped to %s, %v", m, got, err)
 		}
 	}
-	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid} {
+	for _, r := range []ReferencePoint{ReferenceUnknown, ReferenceBodyCentre, ReferenceNearFaceCentre, ReferenceClusterMedoid, ReferenceVisibleOBBCentre, ReferenceClusterMean} {
 		if got, err := ParseReferencePoint(r.String()); err != nil || got != r {
 			t.Errorf("reference %s round-tripped to %s, %v", r, got, err)
 		}
@@ -912,6 +912,7 @@ func TestSolidBodyFromTrackNamesTheGeometryItWasFed(t *testing.T) {
 		{"not yet measured", 0, "", ReferenceClusterMedoid},
 		{"medoid", 5, MeasurementMedoidV0, ReferenceClusterMedoid},
 		{"medoid fallback", 5, MeasurementMedoidFallbackV1, ReferenceClusterMedoid},
+		{"cluster mean", 5, MeasurementClusterMeanV1, ReferenceClusterMean},
 		{"visible box centre", 5, MeasurementOBBCentreV1, ReferenceVisibleOBBCentre},
 		{"unrecorded source", 5, "", ReferenceUnknown},
 	} {
