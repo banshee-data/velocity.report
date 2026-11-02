@@ -264,6 +264,14 @@ type DBSCANParams struct {
 	// the replay experiment range_adaptive_eps; nil, the default, clusters
 	// at Eps everywhere exactly as before. It is ignored when Eps <= 0.
 	RangeAdaptive *RangeAdaptiveEps
+	// RadiusGraph clusters by connected components of the XY radius graph at
+	// Eps instead of by density: every point is a core point, and a component
+	// smaller than MinPts is noise (l4clus0005, after PCL's
+	// EuclideanClusterExtraction). RadiusGraphZGap > 0 adds the height
+	// condition of ConditionalEuclideanClustering: two points join only when
+	// their heights differ by at most that many metres. Both default off.
+	RadiusGraph     bool
+	RadiusGraphZGap float64
 }
 
 // effectiveMinPts is the core-point threshold that leaves the density
@@ -357,7 +365,7 @@ func dbscan(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTra
 	// Safety cap: subsample when point count exceeds the threshold to
 	// prevent O(n²) worst-case DBSCAN on unexpectedly dense frames.
 	if params.MaxInputPoints > 0 && len(points) > params.MaxInputPoints {
-		if params.ScaleMinPtsWhenSubsampled {
+		if params.ScaleMinPtsWhenSubsampled && !params.RadiusGraph {
 			params.MinPts = effectiveMinPts(params.MinPts, params.MaxInputPoints, len(points))
 		}
 		diagf("DBSCAN subsampling: input_points=%d capped_points=%d min_pts=%d",
@@ -374,6 +382,11 @@ func dbscan(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTra
 	spatialIndex.Build(points)
 
 	nb := &neighbourhood{si: spatialIndex, points: points, eps: params.Eps}
+	corePts, componentFloor := params.MinPts, 0
+	if params.RadiusGraph {
+		nb.zGap = params.RadiusGraphZGap
+		corePts, componentFloor = 1, params.MinPts
+	}
 	if params.RangeAdaptive != nil && params.Eps > 0 {
 		// The index keeps eps0-wide cells; the adaptive query widens its
 		// search to each point's own tolerance.
@@ -389,13 +402,26 @@ func dbscan(points []WorldPoint, params DBSCANParams) ([]WorldCluster, DBSCANTra
 
 		neighbors := nb.query(i, nil)
 
-		if len(neighbors) < params.MinPts {
+		if len(neighbors) < corePts {
 			labels[i] = -1 // Mark as noise
 			continue
 		}
 
 		clusterID++
-		expandCluster(nb, labels, i, neighbors, clusterID, params.MinPts)
+		expandCluster(nb, labels, i, neighbors, clusterID, corePts)
+	}
+	if componentFloor > 1 {
+		sizes := make([]int, clusterID+1)
+		for _, l := range labels {
+			if l > 0 {
+				sizes[l]++
+			}
+		}
+		for i, l := range labels {
+			if l > 0 && sizes[l] < componentFloor {
+				labels[i] = -1
+			}
+		}
 	}
 
 	clusters := buildClusters(points, labels, clusterID, params)

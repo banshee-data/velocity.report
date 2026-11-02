@@ -132,14 +132,29 @@ type neighbourhood struct {
 	points []WorldPoint
 	eps    float64
 	tol2   []float64
+	// zGap, when positive, keeps only neighbours within this height of the query point.
+	zGap float64
 }
 
 // query returns the indices of points[idx]'s neighbours, written into dst.
 func (n *neighbourhood) query(idx int, dst []int) []int {
+	var out []int
 	if n.tol2 == nil {
-		return n.si.regionQueryInto(n.points, idx, n.eps, dst)
+		out = n.si.regionQueryInto(n.points, idx, n.eps, dst)
+	} else {
+		out = n.si.regionQueryAdaptiveInto(n.points, idx, n.tol2, dst)
 	}
-	return n.si.regionQueryAdaptiveInto(n.points, idx, n.tol2, dst)
+	if n.zGap > 0 {
+		z := n.points[idx].Z
+		kept := out[:0]
+		for _, j := range out {
+			if d := n.points[j].Z - z; d <= n.zGap && d >= -n.zGap {
+				kept = append(kept, j)
+			}
+		}
+		out = kept
+	}
+	return out
 }
 
 // regionQueryAdaptiveInto returns every point whose horizontal distance to

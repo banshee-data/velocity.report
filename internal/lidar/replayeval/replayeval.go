@@ -925,6 +925,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
 		BorderClasses:             hasExperiment(experiments, ExperimentBorderClasses),
+		RadiusGraph:               hasExperiment(experiments, ExperimentRadiusGraphXY) || hasExperiment(experiments, ExperimentRadiusGraphXYOverlap),
+		RadiusGraphOverlap:        hasExperiment(experiments, ExperimentRadiusGraphXYOverlap),
 		Dwell:                     dwell,
 		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,

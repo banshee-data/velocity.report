@@ -323,6 +323,11 @@ type TrackingPipelineConfig struct {
 	// and the tap's mask are unchanged: only the points handed on to clustering differ.
 	BorderClasses bool
 
+	// RadiusGraph clusters by connected components of the XY radius graph (l4clus0005);
+	// RadiusGraphOverlap adds a 0.3 m height condition. Off by default.
+	RadiusGraph        bool
+	RadiusGraphOverlap bool
+
 	// Dwell, when set, runs the dwell policy after each frame's tracking: a
 	// confirmed track stationary for the policy's T (DwellAbsorbAfter unless
 	// DwellPolicy.AbsorbAfter sets another) has its object absorbed into the
@@ -548,6 +553,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	defaultDBSCANParams := cfg.clusterParams()
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 	defaultDBSCANParams.KeepMembers = cfg.KeepClusterMembers
+	defaultDBSCANParams.RadiusGraph = cfg.RadiusGraph
+	if cfg.RadiusGraphOverlap {
+		defaultDBSCANParams.RadiusGraph = true
+		defaultDBSCANParams.RadiusGraphZGap = 0.3
+	}
 	if cfg.RangeAdaptiveEps {
 		// The points reach DBSCAN in the sensor frame (identity pose), so
 		// the default's origin at (0, 0) is the sensor.
