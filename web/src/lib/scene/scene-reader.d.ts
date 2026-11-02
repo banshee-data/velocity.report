@@ -71,6 +71,8 @@ declare module '$scene/scene-reader.js' {
 		constructor(message: string, cause?: unknown);
 	}
 
+	export class ChunkUnavailableError extends SceneError {}
+
 	export class PartReader {
 		constructor(baseURL: string);
 		baseURL: string;
@@ -84,7 +86,12 @@ declare module '$scene/scene-reader.js' {
 		open(): Promise<this>;
 		chunkIndexForOffset(us: number): number;
 		loadChunk(id: number): Promise<SceneFrame[]>;
-		framesInRange(fromUs: number, toUs: number): Promise<SceneFrame[]>;
+		playableFrom(us: number): number | null;
+		framesInRange(
+			fromUs: number,
+			toUs: number,
+			options?: { skipUnavailable?: boolean }
+		): Promise<SceneFrame[]>;
 		frameAtOffsetWithIndex(us: number): Promise<{ frame: SceneFrame; frameIndex: number } | null>;
 		frameAtOffset(us: number): Promise<SceneFrame | null>;
 		frameAtIndex(n: number): Promise<SceneFrame>;
@@ -144,17 +151,20 @@ declare module '$scene/scene-reader.js' {
 		static fromParts(parts: PartReader[], options?: { title?: string }): SceneSession;
 		open(): Promise<this>;
 		locate(seconds: number): { partIndex: number; part: PartReader; us: number };
+		playableFrom(seconds: number): number | null;
 		frameAt(
 			seconds: number
 		): Promise<{ partIndex: number; frame: SceneFrame | null; sceneSeconds: number }>;
 		trailHistory(
 			seconds: number,
-			historySeconds: number
+			historySeconds: number,
+			options?: { skipUnavailable?: boolean }
 		): Promise<{ partIndex: number; frames: SceneFrame[]; fromUs: number; toUs: number }>;
 		trailHistoryForPart(
 			partIndex: number,
 			us: number,
-			historySeconds: number
+			historySeconds: number,
+			options?: { skipUnavailable?: boolean }
 		): Promise<{ partIndex: number; frames: SceneFrame[]; fromUs: number; toUs: number }>;
 	}
 }

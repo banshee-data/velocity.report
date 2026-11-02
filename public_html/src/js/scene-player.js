@@ -8,7 +8,11 @@ import { sceneFade, sceneRangeOpacity } from "./scene-fade.js";
 import { northOverhead, updateCompass } from "./scene-compass.js";
 import { mountSceneDev } from "./scene-dev.js";
 import * as THREE from "../vendor/three/three.module.js";
-import { SceneSession, SceneError } from "./scene-reader.js";
+import {
+  ChunkUnavailableError,
+  SceneSession,
+  SceneError,
+} from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
 import { renderSceneSpeedStats } from "./scene-speed-stats.js";
 import { createTimelineStrip } from "./scene-timeline.js";
@@ -19,6 +23,7 @@ import {
   pointCloudOverlayOpacity,
   sceneGeneratorVersions,
   sceneLoopDuration,
+  sceneSkipTarget,
   sceneSourcesAlign,
 } from "./scene-playback.js";
 import { SCENE_COLOURS } from "./scene-colours.js";
@@ -1019,7 +1024,14 @@ export async function mountScenePlayer({
         if (pointOpacity > 0) {
           // Use the tracked frame's timestamp, not the animation clock. Both
           // exports contain this frame, so the boxes and returns cannot drift.
-          pointFrame = (await pointCloudSession.frameAt(frame.t / 1e6)).frame;
+          try {
+            pointFrame = (await pointCloudSession.frameAt(frame.t / 1e6)).frame;
+          } catch (err) {
+            if (!(err instanceof ChunkUnavailableError)) throw err;
+            // The tracks play on without their overlay.
+            if (ui.gapWarning) ui.gapWarning.hidden = false;
+            pointOpacity = 0;
+          }
         }
         if (
           state.pointCloudLoopingIn &&
@@ -1040,6 +1052,7 @@ export async function mountScenePlayer({
         const history = await session.trailHistory(
           seconds,
           state.trailHistorySec ?? 5,
+          { skipUnavailable: true },
         );
         trailsByTrack = buildTrailHistories(
           history.frames,
@@ -1080,7 +1093,8 @@ export async function mountScenePlayer({
             : "");
       }
     } catch (err) {
-      reportError(err);
+      if (err instanceof ChunkUnavailableError) skipUnavailableChunk();
+      else reportError(err);
     } finally {
       state.pending = false;
       if (state.refreshRequested) {
@@ -1125,6 +1139,24 @@ export async function mountScenePlayer({
       const snapshot = clockSnapshot();
       for (const listener of clockListeners) listener(snapshot);
     }
+  }
+
+  // Playback must not stop on a frame it cannot follow. It moves on to the next
+  // chunk, and past the last one it goes round again, as it does at the end of
+  // a whole recording. The chunks it found missing are not asked for again.
+  function skipUnavailableChunk() {
+    if (ui.gapWarning) ui.gapWarning.hidden = false;
+    const target = sceneSkipTarget(session, state.seconds);
+    if (!target) {
+      reportError(new SceneError("No frames of this survey could be loaded."));
+      return;
+    }
+    // A skip is a jump, as a wrap is: no trail should draw a line across it.
+    resetVisuals();
+    if (target.wrapped) state.pointCloudLoopingIn = state.lidarVisible;
+    state.seconds = target.seconds;
+    state.refreshRequested = true;
+    syncUI();
   }
 
   function reportError(err) {

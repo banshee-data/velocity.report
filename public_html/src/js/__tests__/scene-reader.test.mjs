@@ -7,7 +7,12 @@ import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { gzipSync, gunzipSync } from "node:zlib";
 
-import { PartReader, SceneSession, SceneError } from "../scene-reader.js";
+import {
+  ChunkUnavailableError,
+  PartReader,
+  SceneSession,
+  SceneError,
+} from "../scene-reader.js";
 
 /** 200 ms in microseconds: a stride-2 sample of a ~10 Hz rotation. */
 const STEP_US = 200_000;
@@ -546,6 +551,126 @@ describe("chunk transport", () => {
     const frames = await r.loadChunk(0);
     assert.equal(frames.length, 4);
     assert.equal(frames[0].f, 0);
+  });
+});
+
+describe("a copy of a scene with chunks missing", () => {
+  const chunkURL = (n) =>
+    `https://example.test/p0/frames/chunk_000${n}.ndjson.gz`;
+  const URL0 = "https://example.test/p0/";
+
+  /** Four chunks of four frames, each 0.8 s long, with `missing` absent. */
+  async function open(missing) {
+    const fail = new Set(missing.map(chunkURL));
+    installFetch(
+      { "/p0/": makePart({ chunks: 4, perChunk: 4 }) },
+      {
+        fail,
+        manifest: { site: { title: "t" }, parts: [{ url: "p0/" }] },
+      },
+    );
+    return new SceneSession("https://example.test/manifest.json").open();
+  }
+
+  test("a chunk that cannot be fetched says so in its own error", async () => {
+    const session = await open([1]);
+    await assert.rejects(
+      session.parts[0].loadChunk(1),
+      (err) =>
+        err instanceof ChunkUnavailableError && err instanceof SceneError,
+    );
+  });
+
+  test("a chunk that arrived broken is still an ordinary scene error", async () => {
+    const part = makePart({ chunks: 1, perChunk: 4 });
+    part.files["chunk_0000.ndjson.gz"] = gzipSync("not json\n");
+    installFetch({ "/p0/": part });
+    const r = await new PartReader(URL0).open();
+    await assert.rejects(
+      r.loadChunk(0),
+      (err) =>
+        err instanceof SceneError && !(err instanceof ChunkUnavailableError),
+    );
+  });
+
+  test("a missing chunk is requested once, however often it is asked for", async () => {
+    const session = await open([1]);
+    const part = session.parts[0];
+    const inner = globalThis.fetch;
+    let requests = 0;
+    globalThis.fetch = async (u) => {
+      if (String(u) === chunkURL(1)) requests++;
+      return inner(u);
+    };
+    for (let i = 0; i < 5; i++) {
+      await assert.rejects(part.loadChunk(1), ChunkUnavailableError);
+    }
+    part.prefetchAfter(0);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(requests, 1);
+  });
+
+  test("playback resumes inside the next chunk, not back in the missing one", async () => {
+    const session = await open([1, 2]);
+    await assert.rejects(session.frameAt(0.8), ChunkUnavailableError);
+    await assert.rejects(session.parts[0].loadChunk(2), ChunkUnavailableError);
+
+    const next = session.playableFrom(0.8);
+    const { frame } = await session.frameAt(next);
+    assert.equal(frame.f, 12, "the first frame of the last chunk");
+  });
+
+  test("a position in a chunk that may play is left where it is", async () => {
+    const session = await open([2]);
+    await assert.rejects(session.parts[0].loadChunk(2), ChunkUnavailableError);
+    assert.equal(session.playableFrom(0.5), 0.5);
+  });
+
+  test("nothing ahead is null, and the earlier chunks remain", async () => {
+    const session = await open([2, 3]);
+    const part = session.parts[0];
+    await assert.rejects(part.loadChunk(2), ChunkUnavailableError);
+    await assert.rejects(part.loadChunk(3), ChunkUnavailableError);
+    assert.equal(session.playableFrom(1.7), null);
+    assert.equal(session.playableFrom(0), 0);
+  });
+
+  test("a skip carries on into the next part", async () => {
+    installFetch(
+      {
+        "/p0/": makePart({ chunks: 1, perChunk: 4 }),
+        "/p1/": makePart({ chunks: 1, perChunk: 4 }),
+      },
+      {
+        manifest: {
+          site: { title: "t" },
+          parts: [{ url: "p0/" }, { url: "p1/" }],
+        },
+        fail: new Set([chunkURL(0)]),
+      },
+    );
+    const session = await new SceneSession(
+      "https://example.test/manifest.json",
+    ).open();
+    await assert.rejects(session.parts[0].loadChunk(0), ChunkUnavailableError);
+    assert.equal(session.playableFrom(0.2), session.parts[0].durationSec);
+  });
+
+  test("a trail keeps the frames either side of a gap only when asked", async () => {
+    const session = await open([1]);
+    const fromUs = 3 * STEP_US;
+    const toUs = 8 * STEP_US;
+    await assert.rejects(
+      session.parts[0].framesInRange(fromUs, toUs),
+      ChunkUnavailableError,
+    );
+    const frames = await session.parts[0].framesInRange(fromUs, toUs, {
+      skipUnavailable: true,
+    });
+    assert.deepEqual(
+      frames.map((f) => f.f),
+      [3, 8],
+    );
   });
 });
 
