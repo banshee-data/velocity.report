@@ -7,7 +7,7 @@ import { sceneFade, sceneRangeOpacity } from "./scene-fade.js";
 
 import { northOverhead, updateCompass } from "./scene-compass.js";
 import { mountSceneDev } from "./scene-dev.js";
-import * as THREE from "three";
+import * as THREE from "../vendor/three/three.module.js";
 import { SceneSession, SceneError } from "./scene-reader.js";
 import { createSceneCamera } from "./scene-camera.js";
 import { renderSceneSpeedStats } from "./scene-speed-stats.js";
