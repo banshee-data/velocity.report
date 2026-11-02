@@ -562,13 +562,13 @@ layout: survey.njk
 {# The site list travels in a script block, not an attribute, so a title with
    an apostrophe cannot end the attribute early. #}
 <script type="application/json" id="survey-data">{{ view.client | dump | replace("<", "\\u003c") | safe }}</script>
-<script type="module" src="/js/survey-page.js"></script>
+<script type="module" src="{{ modulesBase }}/js/survey-page.js"></script>
 
 {% if view.hasPlayback %}
 <script type="module">
-  import { mountScenePlayer } from "{{ '/js/scene-player.js' | url }}";
-  import { parseCaptureParams } from "{{ '/js/scene-capture.js' | url }}";
-  import { readSurveyState } from "{{ '/js/survey-page.js' | url }}";
+  import { mountScenePlayer } from "{{ (modulesBase + '/js/scene-player.js') | url }}";
+  import { parseCaptureParams } from "{{ (modulesBase + '/js/scene-capture.js') | url }}";
+  import { readSurveyState } from "{{ (modulesBase + '/js/survey-page.js') | url }}";
 
   // The player shows the selected recording, and stays unloaded while
   // recordings are being compared (the evidence section is hidden then).
