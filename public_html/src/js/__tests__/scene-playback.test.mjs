@@ -6,11 +6,37 @@ import {
   pointCloudOverlayOpacity,
   sceneLoopDuration,
   sceneGeneratorVersions,
+  sceneSkipTarget,
   sceneSourcesAlign,
 } from "../scene-playback.js";
 
 test("scenes autoplay when the page loads", () => {
   assert.equal(autoplayScene(), true);
+});
+
+test("a skip moves on to the next chunk that may play", () => {
+  const session = { playableFrom: (s) => (s === 70 ? 120 : s) };
+  assert.deepEqual(sceneSkipTarget(session, 70), {
+    seconds: 120,
+    wrapped: false,
+  });
+});
+
+test("a skip with nothing ahead goes back to the start", () => {
+  const session = { playableFrom: (s) => (s === 70 ? null : s) };
+  assert.deepEqual(sceneSkipTarget(session, 70), { seconds: 0, wrapped: true });
+});
+
+test("a skip goes back to the first chunk held when the start is missing too", () => {
+  const session = { playableFrom: (s) => (s === 70 ? null : 60) };
+  assert.deepEqual(sceneSkipTarget(session, 70), {
+    seconds: 60,
+    wrapped: true,
+  });
+});
+
+test("a skip with no chunk left at all has nowhere to go", () => {
+  assert.equal(sceneSkipTarget({ playableFrom: () => null }, 70), null);
 });
 
 test("the point cloud fades out over its last five seconds", () => {

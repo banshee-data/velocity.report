@@ -17,12 +17,32 @@
 /** Chunks kept in memory: the one being played plus its neighbours. */
 const CHUNK_CACHE_LIMIT = 3;
 
+/**
+ * How far into a chunk a skip lands. An offset that rounds to just before t0
+ * sits between two chunks, and that resolves to the earlier one: the chunk
+ * being skipped.
+ */
+const SKIP_INTO_CHUNK_US = 1000;
+
 /** Thrown when a scene cannot be loaded or is structurally invalid. */
 export class SceneError extends Error {
   constructor(message, cause) {
     super(message);
     this.name = "SceneError";
     this.cause = cause;
+  }
+}
+
+/**
+ * Thrown when a chunk cannot be fetched. A copy of a scene can lack chunks: a
+ * web archive holds only what it managed to record. A caller that can carry on
+ * without those frames catches this, and any other SceneError still means the
+ * data itself is wrong.
+ */
+export class ChunkUnavailableError extends SceneError {
+  constructor(message, cause) {
+    super(message, cause);
+    this.name = "ChunkUnavailableError";
   }
 }
 
@@ -64,6 +84,7 @@ export class PartReader {
     this.chunks = [];
     this._cache = new Map();
     this._inflight = new Map();
+    this._unavailable = new Map();
   }
 
   async open() {
@@ -154,6 +175,8 @@ export class PartReader {
       return frames;
     }
     if (this._inflight.has(id)) return this._inflight.get(id);
+    // Asked again every animation frame otherwise, one request each time.
+    if (this._unavailable.has(id)) throw this._unavailable.get(id);
 
     const name = `chunk_${String(id).padStart(4, "0")}.ndjson.gz`;
     const url = `${this.baseURL}frames/${name}`;
@@ -163,10 +186,10 @@ export class PartReader {
       try {
         res = await fetch(url);
       } catch (err) {
-        throw new SceneError(`Could not reach ${name}`, err);
+        throw new ChunkUnavailableError(`Could not reach ${name}`, err);
       }
       if (!res.ok) {
-        throw new SceneError(
+        throw new ChunkUnavailableError(
           `${name} returned ${res.status} ${res.statusText}`,
         );
       }
@@ -222,9 +245,34 @@ export class PartReader {
         this._cache.delete(this._cache.keys().next().value);
       }
       return frames;
+    } catch (err) {
+      if (err instanceof ChunkUnavailableError) {
+        this._unavailable.set(id, err);
+      }
+      throw err;
     } finally {
       this._inflight.delete(id);
     }
+  }
+
+  /** Whether offset `us` is in a chunk known to be unavailable. */
+  isUnavailable(us) {
+    return this._unavailable.has(this.chunks[this.chunkIndexForOffset(us)].c);
+  }
+
+  /**
+   * The offset at or after `us` that is not in a chunk known to be unavailable,
+   * or null when no chunk from there on is left to try. A chunk nobody has
+   * asked for yet counts as available.
+   */
+  playableFrom(us) {
+    const first = this.chunkIndexForOffset(us);
+    for (let i = first; i < this.chunks.length; i++) {
+      const chunk = this.chunks[i];
+      if (this._unavailable.has(chunk.c)) continue;
+      return i === first ? us : chunk.t0 + SKIP_INTO_CHUNK_US;
+    }
+    return null;
   }
 
   /**
@@ -257,9 +305,11 @@ export class PartReader {
    * Every frame with `t` in [fromUs, toUs], clamped to this part's own
    * bounds. Used to reconstruct trail history from recorded samples rather
    * than from whichever frames the browser happened to render, so a direct
-   * seek and sequential playback arrive at the same trail.
+   * seek and sequential playback arrive at the same trail. Strict by default,
+   * so a capture cannot lose part of a trail unnoticed; `skipUnavailable`
+   * returns what is left when a chunk in the window cannot be fetched.
    */
-  async framesInRange(fromUs, toUs) {
+  async framesInRange(fromUs, toUs, { skipUnavailable = false } = {}) {
     const from = Math.max(fromUs, this.startUs);
     const to = Math.min(toUs, this.endUs);
     if (to < from) return [];
@@ -267,7 +317,13 @@ export class PartReader {
     const lastChunk = this.chunkIndexForOffset(to);
     const frames = [];
     for (let i = firstChunk; i <= lastChunk; i++) {
-      const chunkFrames = await this.loadChunk(this.chunks[i].c);
+      let chunkFrames;
+      try {
+        chunkFrames = await this.loadChunk(this.chunks[i].c);
+      } catch (err) {
+        if (skipUnavailable && err instanceof ChunkUnavailableError) continue;
+        throw err;
+      }
       for (const f of chunkFrames) {
         if (f.t >= from && f.t <= to) frames.push(f);
       }
@@ -310,7 +366,7 @@ export class PartReader {
   prefetchAfter(us) {
     const idx = this.chunkIndexForOffset(us);
     const next = this.chunks[idx + 1];
-    if (next && !this._cache.has(next.c)) {
+    if (next && !this._cache.has(next.c) && !this._unavailable.has(next.c)) {
       this.loadChunk(next.c).catch(() => {
         /* prefetch is best-effort */
       });
@@ -417,6 +473,28 @@ export class SceneSession {
     return { partIndex, frame, sceneSeconds: seconds };
   }
 
+  /** Whether `seconds` of scene time is in a chunk known to be unavailable. */
+  isUnavailable(seconds) {
+    const { part, us } = this.locate(seconds);
+    return part.isUnavailable(us);
+  }
+
+  /**
+   * The scene time at or after `seconds` that is not in a chunk known to be
+   * unavailable, or null when the rest of the scene is.
+   */
+  playableFrom(seconds) {
+    const { partIndex, us } = this.locate(seconds);
+    for (let i = partIndex; i < this.parts.length; i++) {
+      const part = this.parts[i];
+      const found = part.playableFrom(i === partIndex ? us : part.startUs);
+      if (found !== null) {
+        return this._offsets[i] + (found - part.startUs) / 1e6;
+      }
+    }
+    return null;
+  }
+
   /**
    * The frame at ordinal position `n` across the whole session (all parts, in
    * manifest order). Strict: throws rather than clamping, matching
@@ -453,17 +531,17 @@ export class SceneSession {
    * an offset — capture's frame-index selector, which does not go through
    * locate() — is not forced to round-trip through scene-wide seconds.
    */
-  async trailHistoryForPart(partIndex, us, historySeconds) {
+  async trailHistoryForPart(partIndex, us, historySeconds, options) {
     const part = this.parts[partIndex];
     const requestedFromUs = us - Math.max(0, historySeconds) * 1e6;
     const fromUs = Math.max(part.startUs, requestedFromUs);
-    const frames = await part.framesInRange(fromUs, us);
+    const frames = await part.framesInRange(fromUs, us, options);
     return { partIndex, frames, fromUs, toUs: us };
   }
 
   /** trailHistoryForPart for the part and offset showing at `seconds`. */
-  async trailHistory(seconds, historySeconds) {
+  async trailHistory(seconds, historySeconds, options) {
     const { partIndex, us } = this.locate(seconds);
-    return this.trailHistoryForPart(partIndex, us, historySeconds);
+    return this.trailHistoryForPart(partIndex, us, historySeconds, options);
   }
 }

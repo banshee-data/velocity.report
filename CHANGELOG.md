@@ -208,6 +208,9 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   fetches every scene file so a web archive can save the whole recording. Previously archived
   playback stopped once it reached frames the page save had not fetched. Save Page Now follows
   too few outlinks for a page to link them instead, so the survey page no longer lists each file.
+- Survey playback skips any frames file it cannot fetch and goes back to the start when nothing
+  is left ahead, instead of stopping on an error. A small warning sign above the pipeline
+  version says the copy is incomplete.
 - Survey flights follow one inclined planar ellipse rather than individual ground bumps;
   tree trunks and crowns follow registered true vertical. Ground extends to 180 m where
   available and the scene fades from 150 to 170 m from the sensor.
