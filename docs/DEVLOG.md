@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 2, 2026 - All survey scenes on the refined defaults
+
+- {scenes/refined-defaults-23} Rebuilt the other 23 survey scenes from main at `57e9e9f1` in analysis mode with the settling pass, so all 24 now draw the refined defaults: moving-track time across the 23 rose from 141,625 s to 277,587 s, tracks under 3 s halved from 110,801 to 55,607, and the sites' median position second difference fell from 0.095 to 0.041 m. Vehicle tracks rose from 7,955 to 13,003, mainly because moving tracks once left as `dynamic` now reach `car`, and p85 of peak speed per track rose by a median 0.45 mph as tracks lengthened; limit shares rose more than 5 points at nine sites and the sentence on marina-webster-beach changed. These are observed measurements of what the pipeline drew, not validation against labelled vehicles.
+
 ## November 1, 2026 - Foreground refinement and all 24 survey scenes
 
 - Re-ran October's kirk0 scene-variant renders on main as [geom0014](../data/experiments/geom/geom0014.md), under the defaults and the four solid-body parameter sets at the published replay settings: the shadow drew the defaults' tracks in all 151 frames, the defaults replayed last on the same server drew the same tracks as the defaults replayed first, and A2, alignment and convergence turned the box 0.23° to 0.34° a frame against 0.80° and halved its length spread (0.49 to 0.52 m against 0.97 m). Label-free, so this measures steadiness, not accuracy; see the [report](lidar/operations/scene-variants-kirk0-2026-11.md) (#898).
