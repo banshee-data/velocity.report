@@ -267,8 +267,7 @@ comparison is scheduled by this contract.
 ### Outstanding
 
 - [ ] Organised PCD export and the oracle at the recorded Git SHA (`S`)
-- [ ] l3bg0028 border classes (`M`)
-- [ ] l4clus0005 joining rule (`M`)
+- [x] l3bg0028 border classes and l4clus0005 joining rule: both fail, [report](../lidar/operations/pcl-noise-and-splits-2026-11.md)
 - [ ] geom0013 hull bound (`S`)
 - [ ] ground0006 constrained ground and kerbs (`M`)
 - [ ] Gerardus initial-proposal comparator: owner scheduling and matched campaign design (`S` on this side)

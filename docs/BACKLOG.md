@@ -490,9 +490,8 @@ Deployment, reporting and publishing (October 26, 2026): the slots that were v0.
 
 ### PCL review candidates (experiments first; a port displaces a 05x row only after it passes)
 
+- **P2** Overlap end with tentative priority on label0001: score `body-older-tentative`, the largest split gain measured, on the held-out window, and find out what its added brief tracks are before any further track gate: [report](lidar/operations/pcl-noise-and-splits-2026-11.md) `S` `S-GEO`
 - **P2** Organised PCD export with source ordinals for frames and settled backgrounds (`bgasc -format pcd`), and the reviewed PCL 1.15.1 oracle setup, shared by the four PCL experiments and the Gerardus upload: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-1-pcd-export-and-the-oracle-at-the-recorded-git-sha) `S` `S-EVID`
-- **P2** Border classes on the L3 grid (l3bg0028): obstacle, shadow and veil cells as extent-end labels, veil removal and coasting evidence, replay-only, scored on kirk0 before the v0.5.6 occlusion continuity values are chosen: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-2-q4-border-classes-on-the-l3-grid-l3bg0028) `M` `S-GEO`
-- **P2** Radius-graph joining rule (l4clus0005): whether kirk0's 20 to 50 m fragments join by a radius graph, and with a height-overlap condition, at the current radius; feeds the v0.5.4 W3 fix: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-3-q1-the-joining-rule-l4clus0005) `M` `S-OBS`
 - **P2** Hull bound (geom0013): the distance from the published box's faces to the visible hull along and across the path on the pilot's poses and pairs, before any hull endpoint source: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-4-q2-the-hull-bound-geom0013) `S` `S-GEO`
 - **P2** Constrained road plane and kerb split (ground0006): perpendicular-plane MSAC and a difference-of-normals kerb split on the settled backgrounds against the regional surface; kerb lines offered to Gerardus: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-5-q0-constrained-ground-and-kerbs-ground0006) `M` `S-OBS`
 - **P2** Registration recommendations to Gerardus: an observability report from the matched normals, descriptor-seeded hypotheses and change maps for repeat surveys, scored by pose0001's rule there: [plan](plans/lidar-pcl-algorithm-candidates-plan.md#item-6-q3-recommendations-to-gerardus) `S` `S-SCENE`
@@ -566,6 +565,8 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 
 ## Complete
 
+- Border classes on the L3 grid (l3bg0028): the `veil` arm fails its rule and `coast` was not run: [report](lidar/operations/pcl-noise-and-splits-2026-11.md)
+- Radius-graph joining rule (l4clus0005): every arm fails its rule; the PCL oracle was not run: [report](lidar/operations/pcl-noise-and-splits-2026-11.md)
 - [#873] Geometry wording and publication-checklist check (D-38): `make check-geometry-wording` in `lint-docs` and its own CI workflow, and a publication-checklist step in `/docs-release-prep`: [purpose doc](geometry-priors-data-purpose.md#publication-checklist)
 - [#873] Geometry-prior uncertainty estimator (Q3): linear worst-case half-widths for exported vertices with the assumptions each file records, censored heights, and the ground-plane export's members mapped to the prior allow-list: [maths](../data/maths/proposals/20261027-geometry-prior-positional-uncertainty.md)
 - [#873] Scene export measurement context: every part header states its `units`, `evidence` (observed points, inferred tracks), `coordinate_rounding_m` and `build_git_sha`, and the background file adds its frame, sensor, capture `acquired_interval`, grid bin and build identity, with the first background export tests: [design doc](plans/lidar-web-scene-export-plan.md#12-context-travels-with-the-export)

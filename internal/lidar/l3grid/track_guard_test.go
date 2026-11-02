@@ -314,6 +314,26 @@ func TestFollowBoxesPublishesBackgroundInsideBoxesAsForeground(t *testing.T) {
 	}
 }
 
+func TestMaskWithHeldNeedsNoEdgeFollow(t *testing.T) {
+	bm := newGuardManager(t, holdOnly(0))
+	at := guardFrameTime(100)
+	bm.SetTrackHolds([]GuardBox{guardCarBox()}, at)
+	pts := []PointPolar{guardPoint(5, guardCarMetres), guardPoint(8, guardRoadMetres)}
+	l3, err := bm.ProcessFramePolarWithMaskAt(pts, at)
+	if err != nil {
+		t.Fatal(err)
+	}
+	l3 = append([]bool(nil), l3...)
+	l3[0] = false
+	got := bm.MaskWithHeld(l3, nil)
+	if !got[0] || got[1] || l3[0] {
+		t.Fatalf("with held %v, l3 %v", got, l3)
+	}
+	if pub := bm.PublishedMask(l3, nil); pub[0] {
+		t.Fatal("without edge follow the published mask must not gain the held return")
+	}
+}
+
 func TestPublishedMaskCopiesTheHeldReturnsUnderEdgeFollow(t *testing.T) {
 	off := newGuardManager(t, holdOnly(0))
 	mask := []bool{false, false}

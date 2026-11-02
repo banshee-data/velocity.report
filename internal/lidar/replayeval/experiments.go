@@ -298,38 +298,56 @@ const (
 	// GroundSurfaceForTracker fitting that surface whether or not the clip
 	// reads it. It needs the tuning file's box model and is refused without.
 	ExperimentBoxGround = "box_ground"
+	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
+	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
+	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
+	// return; the published mask and L3's own state are untouched.
+	ExperimentBorderClasses = "border_classes"
+	// ExperimentRadiusGraphXY and ExperimentRadiusGraphXYOverlap: l4perception.DBSCANParams.RadiusGraph,
+	// connected components of the XY radius graph in place of density clustering; the second adds
+	// the 0.3 m height condition (l4clus0005). The overlap form implies the plain one.
+	ExperimentRadiusGraphXY        = "radius_graph_xy"
+	ExperimentRadiusGraphXYOverlap = "radius_graph_xy_overlap"
+	// ExperimentHeldToL4: pipeline HeldToL4, L4's input is L3's foreground plus the returns the
+	// track guard holds this frame (l3bg0027; l3grid.BackgroundManager.MaskWithHeld).
+	// The background model and the published mask are untouched.
+	ExperimentHeldToL4 = "held_to_l4"
 )
 
 var knownExperiments = map[string]bool{
-	ExperimentAdaptiveUncertainty: true,
-	ExperimentLikelihoodCost:      true,
-	ExperimentCascade:             true,
-	ExperimentDensityCap:          true,
-	ExperimentRangeAdaptiveEps:    true,
-	ExperimentFlipRule:            true,
-	ExperimentNoRegionOverrides:   true,
-	ExperimentSupportFilter:       true,
-	ExperimentSettlingHonest:      true,
-	ExperimentDwellPolicy:         true,
-	ExperimentDwellPolicyT40:      true,
-	ExperimentDwellPolicyT60:      true,
-	ExperimentMeasurementTime:     true,
-	ExperimentCaptureGapPredict:   true,
-	ExperimentCoastSupport:        true,
-	ExperimentCoastTimeInflation:  true,
-	ExperimentClassCoastBounds:    true,
-	ExperimentReacquisitionGuard:  true,
-	ExperimentOcclusionContinuity: true,
-	ExperimentContestedRejoin:     true,
-	ExperimentTentativePriority:   true,
-	ExperimentClassIdentity:       true,
-	ExperimentContainmentClaim:    true,
-	ExperimentOverlapEnd1:         true,
-	ExperimentOverlapEnd3:         true,
-	ExperimentOverlapEndBody:      true,
-	ExperimentOverlapEndOlder:     true,
-	ExperimentFixedLagRTS:         true,
-	ExperimentSolidBody:           true,
+	ExperimentAdaptiveUncertainty:  true,
+	ExperimentLikelihoodCost:       true,
+	ExperimentCascade:              true,
+	ExperimentDensityCap:           true,
+	ExperimentBorderClasses:        true,
+	ExperimentHeldToL4:             true,
+	ExperimentRadiusGraphXY:        true,
+	ExperimentRadiusGraphXYOverlap: true,
+	ExperimentRangeAdaptiveEps:     true,
+	ExperimentFlipRule:             true,
+	ExperimentNoRegionOverrides:    true,
+	ExperimentSupportFilter:        true,
+	ExperimentSettlingHonest:       true,
+	ExperimentDwellPolicy:          true,
+	ExperimentDwellPolicyT40:       true,
+	ExperimentDwellPolicyT60:       true,
+	ExperimentMeasurementTime:      true,
+	ExperimentCaptureGapPredict:    true,
+	ExperimentCoastSupport:         true,
+	ExperimentCoastTimeInflation:   true,
+	ExperimentClassCoastBounds:     true,
+	ExperimentReacquisitionGuard:   true,
+	ExperimentOcclusionContinuity:  true,
+	ExperimentContestedRejoin:      true,
+	ExperimentTentativePriority:    true,
+	ExperimentClassIdentity:        true,
+	ExperimentContainmentClaim:     true,
+	ExperimentOverlapEnd1:          true,
+	ExperimentOverlapEnd3:          true,
+	ExperimentOverlapEndBody:       true,
+	ExperimentOverlapEndOlder:      true,
+	ExperimentFixedLagRTS:          true,
+	ExperimentSolidBody:            true,
 
 	ExperimentRegionOverridesVolatileOnly: true,
 	ExperimentRegionOverridesQuietOnly:    true,

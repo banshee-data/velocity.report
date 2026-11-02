@@ -33,6 +33,10 @@ measurement. The second is a radius-graph joining rule with a geometric conditio
 50 m fragments that a density retune did not join. Hulls, descriptors and registration have
 narrower, measurable claims, set out below.
 
+**Measured since (November 2, 2026):** the
+[noise and splits run](pcl-noise-and-splits-2026-11.md) found no PCL-derived candidate passing its
+rule; border classes and radius-graph clustering both fail, and the gains below stay hypotheses.
+
 ## The five questions, answered from the source
 
 Each answer separates what PCL implements (cited by header), what the repository has measured, and

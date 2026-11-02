@@ -375,13 +375,23 @@ func (bm *BackgroundManager) PublishedMask(mask, buf []bool) []bool {
 	if bm == nil || bm.Grid == nil || mask == nil {
 		return mask
 	}
-	g := bm.Grid
-	g.mu.RLock()
-	defer g.mu.RUnlock()
-	guard := g.Params.TrackGuard
+	bm.Grid.mu.RLock()
+	guard := bm.Grid.Params.TrackGuard
+	bm.Grid.mu.RUnlock()
 	if guard == nil || !guard.EdgeFollowCluster {
 		return mask
 	}
+	return bm.MaskWithHeld(mask, buf)
+}
+
+// MaskWithHeld is mask with this frame's held returns set, in buf, whatever the guard's edge
+// follow says; held_to_l4 reads it (l3bg0027). Without held returns it returns a plain copy.
+func (bm *BackgroundManager) MaskWithHeld(mask, buf []bool) []bool {
+	if bm == nil || bm.Grid == nil || mask == nil {
+		return mask
+	}
+	bm.Grid.mu.RLock()
+	defer bm.Grid.mu.RUnlock()
 	buf = append(buf[:0], mask...)
 	if bm.heldAny && len(bm.heldMask) == len(buf) {
 		for i, h := range bm.heldMask {
