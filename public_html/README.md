@@ -87,6 +87,9 @@ From the repository root, `make test-public-html` runs the same suite and `make 
 - **Shared code.** `survey-model.js` (numbers and wording) and `survey-charts.js` (SVG charts) run
   both in the Eleventy build and in the browser, so static pages and the compare view match.
   `survey-page.js` adds the interactive parts.
+- **Module URLs.** The browser modules and three.js are published under
+  `/modules/<content hash>/`, so a page archived on the Wayback Machine keeps the modules it was
+  built with. Templates name them through `modulesBase`, never `/js/`.
 
 The 3D playback uses Gerardus's registered ground mesh in place of a flat grid.
 The accepted pose supplies true vertical for the camera, tree trunks, and foliage.

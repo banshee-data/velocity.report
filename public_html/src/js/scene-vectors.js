@@ -13,7 +13,7 @@ import { sceneFade } from "./scene-fade.js";
 // with it. The geometry is built as plain arrays first (vectorLayers), so it
 // can be tested under Node without WebGL.
 
-import * as THREE from "three";
+import * as THREE from "../vendor/three/three.module.js";
 import { horizonBasis } from "./scene-horizon.js";
 import { toSceneX, toSceneY, toSceneZ } from "./scene-coords.js";
 

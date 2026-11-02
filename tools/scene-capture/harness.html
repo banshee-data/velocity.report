@@ -5,13 +5,10 @@
     <title>scene-capture harness</title>
     <!--
       Same vendoring scheme public_html's Eleventy build uses for the
-      production scene pages (see public_html/.eleventy.js): three.module.js
-      re-exports from the sibling three.core.js by a relative import, so both
-      must be served from the same directory this import map points at.
+      production scene pages (see public_html/.eleventy.js): the scene modules
+      import three.js from ../vendor/three/, and three.module.js re-exports
+      from the sibling three.core.js, so run-capture.mjs serves both there.
     -->
-    <script type="importmap">
-      { "imports": { "three": "/vendor/three/three.module.js" } }
-    </script>
     <style>
       html,
       body {

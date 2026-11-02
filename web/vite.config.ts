@@ -95,22 +95,26 @@ export default defineConfig({
 		})
 	],
 	resolve: {
-		alias: {
+		alias: [
 			// The public scenes' three.js player, imported rather than copied,
 			// so the operator tools and the public site render through the
 			// same modules. Types come from src/lib/scene/scene-reader.d.ts;
 			// see the sveltekit() options above for why the alias is not a
 			// kit alias.
-			$scene: resolve('../public_html/src/js'),
-			// The shared player imports the bare specifier "three". Because it
-			// lives under public_html, Node resolution would look for it in
-			// that directory's node_modules, which the web build has no reason
-			// to have installed: CI builds web on its own, and the build fails
-			// there while passing locally only because a developer happens to
-			// have installed public_html too. Pinning it to web's own declared
-			// copy keeps this build self-contained.
-			three: resolve('node_modules/three')
-		}
+			{ find: '$scene', replacement: resolve('../public_html/src/js') },
+			// The shared player imports three.js by its vendored relative path,
+			// which is a symlink into public_html's node_modules, and the web
+			// build has no reason to have that installed: CI builds web on its
+			// own, and the build fails there while passing locally only because
+			// a developer happens to have installed public_html too. Pinning it
+			// to web's own declared copy keeps this build self-contained.
+			{
+				find: /^(?:\.\.\/)+vendor\/three\/three\.module\.js$/,
+				replacement: resolve('node_modules/three')
+			},
+			// Web's own imports take the same path, so there is one three.js.
+			{ find: 'three', replacement: resolve('node_modules/three') }
+		]
 	},
 	optimizeDeps: {
 		exclude: ['svelte-ux', 'layerchart', '@layerstack/tailwind']
