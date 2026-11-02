@@ -17,4 +17,15 @@
     {% endif %}
     <li><a href="https://github.com/banshee-data/velocity.report"><span><b>Processing source</b><span class="sv-mono sv-small">CODE · velocity.report{% if rec.build %} @ {{ rec.build }}{% endif %}</span></span><span aria-hidden="true">↗</span></a></li>
   </ul>
+  {% if rec.hasPlayback %}
+  {# Plain links, fetched by nobody until followed, so a web archive's outlink
+     capture can reach the frames that playback has not loaded yet. #}
+  <details class="scene-page__provenance">
+    <summary>Scene files · {{ rec.files.length }}</summary>
+    <p>The measured data behind the 3D playback, with one frames file for each minute of the recording. Linked so web archives can keep the whole recording.</p>
+    <ul class="sv-prov__scene-files sv-mono sv-small">
+      {% for file in rec.files %}<li><a href="{{ file | url }}">{{ file | replace(rec.assetsUrl + "/", "") }}</a></li>{% endfor %}
+    </ul>
+  </details>
+  {% endif %}
 </div>

@@ -79,7 +79,7 @@ export function surveyView(site, rawLimit) {
       scale,
       ymax,
       recordings: recordings.map(
-        ({ charts: _c, finding: _f, bands: _b, ...r }) => r,
+        ({ charts: _c, finding: _f, bands: _b, files: _l, ...r }) => r,
       ),
     },
   };
