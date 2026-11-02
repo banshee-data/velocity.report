@@ -3,6 +3,7 @@
 Remove the OSM download and geometry paths from Gerardus and its LiDAR clients while retaining
 city reference data, measured scene geometry and browser maps.
 
+- **Canonical:** [vector scene map](../lidar/architecture/vector-scene-map.md)
 - **Status:** Implemented and locally validated; coordinated release checks remain.
 - **Scope:** Gerardus and VelocityVisualiser, including their shared protocol and the web clients that consume Gerardus geometry.
 - **Preserved:** Browser map tiles, cycle maps and explicitly requested browser map lookups.
