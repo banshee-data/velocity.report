@@ -4,7 +4,7 @@
 Removes the gated tracks and every row naming them from a copy, so the noise screen and the
 per-frame scorer read the result without a replay. The input is never written.
 
-Usage: lidar_track_gate.py IN.db OUT.db --gate g1|g2|g3
+Usage: lidar_track_gate.py IN.db OUT.db --gate g1|g2|g3|g4
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ STATIC_P95_MPS = 0.5
 BRIEF_S = 1.0
 FLICKER_SHARE = 0.5
 FRAME_HZ = 10.0
+VEHICLE_WIDTH_M = 1.5
 QUIET = {"bird", "dynamic", "", None}
 TRACK_TABLES = (
     "lidar_track_observations",
@@ -37,8 +38,10 @@ def p95(values):
     return v[max(0, math.ceil(0.95 * len(v)) - 1)] if v else 0.0
 
 
-def decide(gate, cls, duration, disp, speed95, n_obs):
+def decide(gate, cls, duration, disp, speed95, n_obs, length=0.0, width=0.0):
     """Return whether a gate removes a track. The rule of l6cls0002, nothing else."""
+    if gate == "g4":
+        return length < VEHICLE_WIDTH_M and width < VEHICLE_WIDTH_M and decide("g2", cls, duration, disp, speed95, n_obs)
     near_static = disp < STATIC_DISP_M and speed95 < STATIC_P95_MPS
     quiet = cls in QUIET
     if near_static and quiet:
@@ -54,7 +57,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("src")
     ap.add_argument("dst")
-    ap.add_argument("--gate", required=True, choices=["g1", "g2", "g3"])
+    ap.add_argument("--gate", required=True, choices=["g1", "g2", "g3", "g4"])
     a = ap.parse_args()
     ro = sqlite3.connect(f"file:{a.src}?mode=ro", uri=True)
     obs = {}
@@ -63,15 +66,16 @@ def main():
     ):
         obs.setdefault(tid, []).append((x, y, s))
     gated = []
-    for tid, cls, dur, t0, t1 in ro.execute(
-        "SELECT track_id, object_class, track_duration_secs, start_unix_nanos, end_unix_nanos FROM lidar_tracks"
+    for tid, cls, dur, t0, t1, length, width in ro.execute(
+        "SELECT track_id, object_class, track_duration_secs, start_unix_nanos, end_unix_nanos, "
+        "bounding_box_length_avg, bounding_box_width_avg FROM lidar_tracks"
     ):
         rows = obs.get(tid, [])
         if not rows:
             continue
         duration = dur if dur is not None else ((t1 or t0) - t0) / 1e9
         disp = math.hypot(rows[-1][0] - rows[0][0], rows[-1][1] - rows[0][1])
-        if decide(a.gate, cls, duration, disp, p95([r[2] for r in rows]), len(rows)):
+        if decide(a.gate, cls, duration, disp, p95([r[2] for r in rows]), len(rows), length or 0.0, width or 0.0):
             gated.append(tid)
     ro.close()
     shutil.copyfile(a.src, a.dst)
