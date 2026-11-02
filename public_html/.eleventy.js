@@ -165,6 +165,10 @@ module.exports = async function (eleventyConfig) {
   eleventyConfig.addPassthroughCopy({ "src/css/fonts.css": "css/fonts.css" });
   // three.module.js re-exports from ./three.core.js (a sibling relative import),
   // so both files must be vendored or the browser 404s on three.core.js.
+  // Modules import it by this relative path, not through an import map: the
+  // Wayback Machine does not rewrite import maps, so a mapped root path reaches
+  // it as a classic script and the module fails to parse. src/vendor/three is a
+  // symlink into node_modules, so the same path resolves under Node's tests.
   eleventyConfig.addPassthroughCopy({
     "node_modules/three/build/three.module.js": "vendor/three/three.module.js",
   });

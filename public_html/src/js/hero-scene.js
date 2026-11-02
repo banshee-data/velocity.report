@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import * as THREE from "../vendor/three/three.module.js";
 import { SCENE_CSS_COLOURS } from "./scene-colours.js";
 
 // =============================================================================

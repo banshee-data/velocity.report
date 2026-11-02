@@ -199,6 +199,9 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Fixed
 
+- Survey pages and the homepage scene work when archived on the Wayback Machine. Modules
+  now import the vendored three.js by relative path rather than through an import map, which
+  Wayback playback does not rewrite. Pages archived before this change need capturing again.
 - Survey flights follow one inclined planar ellipse rather than individual ground bumps;
   tree trunks and crowns follow registered true vertical. Ground extends to 180 m where
   available and the scene fades from 150 to 170 m from the sensor.
