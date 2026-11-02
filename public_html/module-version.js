@@ -10,7 +10,7 @@ const path = require("path");
  *
  * @param {string} jsDir directory of the site's modules
  * @param {string} threeVersion version of the vendored three.js
- * @returns {string} ten hex digits, unchanged until a module or three.js is
+ * @returns {string} ten hex digits, the same until a module or three.js changes
  */
 function moduleVersion(jsDir, threeVersion) {
   const hash = crypto.createHash("sha256").update(threeVersion);
