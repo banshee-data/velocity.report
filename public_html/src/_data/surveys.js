@@ -52,6 +52,24 @@ function recordingDirs(scenesDir, siteId) {
   return dirs;
 }
 
+/**
+ * Every file a recording publishes. The player fetches frames as playback
+ * reaches them, so saving a page records only the first few; the page links
+ * each file so an archiver's outlink capture can reach the rest, and a link
+ * costs the page load nothing.
+ */
+function publishedFiles(dir, url) {
+  return fs
+    .readdirSync(dir, { recursive: true })
+    .filter(
+      (file) =>
+        !path.basename(file).startsWith(".") &&
+        fs.statSync(path.join(dir, file)).isFile(),
+    )
+    .sort()
+    .map((file) => `${url}/${file.split(path.sep).join("/")}`);
+}
+
 function startTime(dir, summary, header) {
   const ms = summary
     ? Date.parse(summary.start)
@@ -101,6 +119,7 @@ function loadRecording(
     sourceSha256: header?.source_vrlog_sha256 ?? null,
     generatedAt: header?.generated_at ?? null,
     assetsUrl: url,
+    files: publishedFiles(dir, url),
     // The raw recording in the published dataset, when it has been named.
     raw: model.datasetLinks(dataset?.url, summary?.raw_path ?? rawPath),
     // The processed file the page offers for download, whichever exists.

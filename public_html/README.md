@@ -90,6 +90,9 @@ From the repository root, `make test-public-html` runs the same suite and `make 
 - **Module URLs.** The browser modules and three.js are published under
   `/modules/<content hash>/`, so a page archived on the Wayback Machine keeps the modules it was
   built with. Templates name them through `modulesBase`, never `/js/`.
+- **Archiving a survey.** Playback fetches frames as it reaches them, so a page save records only
+  the first few. Each page links every scene file under Data & methods: tick **Save outlinks** on
+  [Save Page Now](https://web.archive.org/save) to record the whole recording.
 
 The 3D playback uses Gerardus's registered ground mesh in place of a flat grid.
 The accepted pose supplies true vertical for the camera, tree trunks, and foliage.
