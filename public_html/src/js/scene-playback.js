@@ -14,6 +14,18 @@ export function advanceSceneClock(seconds, wallSeconds, rate, duration) {
   };
 }
 
+/**
+ * Where playback goes from an unavailable chunk: the next chunk that may play,
+ * or back to the first one once none is left ahead. Null when no chunk is left
+ * at all, the one case where the player has nothing to show.
+ */
+export function sceneSkipTarget(session, seconds) {
+  const ahead = session.playableFrom(seconds);
+  if (ahead !== null) return { seconds: ahead, wrapped: false };
+  const start = session.playableFrom(0);
+  return start === null ? null : { seconds: start, wrapped: true };
+}
+
 /** Select the boundary used by the playback clock. */
 export function sceneLoopDuration(fullDuration, openingDuration, openingOnly) {
   const full = Math.max(0, fullDuration || 0);

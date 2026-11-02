@@ -22,7 +22,9 @@ test("viewer version comes from the canonical Makefile, independent of old recor
     provenance,
     /data-scene-viewer-version[^>]*>\{\{ build.version \}\}/,
   );
-  const badge = template.match(/<p class="scene-stage__build"[\s\S]*?<\/p>/)[0];
+  const badge = template.match(
+    /<p class="scene-stage__build" data-scene-generator[\s\S]*?<\/p>/,
+  )[0];
   assert.match(badge, /pipeline <span data-scene-generator-version>/);
   assert.doesNotMatch(badge, /viewer|build.version/);
   assert.doesNotMatch(provenance, /truncate/);
