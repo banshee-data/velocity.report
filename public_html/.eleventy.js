@@ -3,6 +3,7 @@ const syntaxHighlight = require("@11ty/eleventy-plugin-syntaxhighlight");
 const markdownIt = require("markdown-it");
 const markdownItAnchor = require("markdown-it-anchor");
 const cheerio = require("cheerio");
+const { moduleVersion } = require("./module-version.js");
 
 function normalisePathPrefix(value) {
   const trimmed = String(value || "").trim();
@@ -133,7 +134,14 @@ module.exports = async function (eleventyConfig) {
   // Copy static files directly to output
   eleventyConfig.addPassthroughCopy({ "src/images": "img" });
   eleventyConfig.addPassthroughCopy({ "src/geo": "img/maps" });
-  eleventyConfig.addPassthroughCopy("src/js");
+  // The modules and three.js sit together under a directory named for their
+  // content, so their relative imports need no rewriting (see module-version.js).
+  const threeVersion = JSON.parse(
+    fs.readFileSync("node_modules/three/package.json", "utf8"),
+  ).version;
+  const modulesDir = `modules/${moduleVersion("src/js", threeVersion)}`;
+  eleventyConfig.addGlobalData("modulesBase", `/${modulesDir}`);
+  eleventyConfig.addPassthroughCopy({ "src/js": `${modulesDir}/js` });
   // Scene assets are exported binaries (gzipped NDJSON frames plus their
   // index), not templates, so they are copied verbatim.
   // Published under /surveys/; the source directory keeps its internal name.
@@ -170,10 +178,10 @@ module.exports = async function (eleventyConfig) {
   // it as a classic script and the module fails to parse. src/vendor/three is a
   // symlink into node_modules, so the same path resolves under Node's tests.
   eleventyConfig.addPassthroughCopy({
-    "node_modules/three/build/three.module.js": "vendor/three/three.module.js",
+    "node_modules/three/build/three.module.js": `${modulesDir}/vendor/three/three.module.js`,
   });
   eleventyConfig.addPassthroughCopy({
-    "node_modules/three/build/three.core.js": "vendor/three/three.core.js",
+    "node_modules/three/build/three.core.js": `${modulesDir}/vendor/three/three.core.js`,
   });
   eleventyConfig.addPassthroughCopy({
     "node_modules/@fontsource/geist/files/geist-latin-400-normal.woff2":
