@@ -318,6 +318,11 @@ type TrackingPipelineConfig struct {
 	// D6). Off by default; see l4perception.DBSCANParams.
 	DensityPreservingCap bool
 
+	// BorderClasses withholds from L4 the foreground returns that carry the veil border
+	// trait (l3bg0028; l3grid.WithholdVeil). Off by default. The published mask, L3's state
+	// and the tap's mask are unchanged: only the points handed on to clustering differ.
+	BorderClasses bool
+
 	// Dwell, when set, runs the dwell policy after each frame's tracking: a
 	// confirmed track stationary for the policy's T (DwellAbsorbAfter unless
 	// DwellPolicy.AbsorbAfter sets another) has its object absorbed into the
@@ -672,7 +677,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			return
 		}
 
-		foregroundPoints := l3grid.ExtractForegroundPoints(polar, mask)
+		extractMask := mask
+		if cfg.BorderClasses {
+			extractMask, _ = l3grid.WithholdVeil(polar, mask, l3grid.DefaultBorderParams())
+		}
+		foregroundPoints := l3grid.ExtractForegroundPoints(polar, extractMask)
 		tap.foreground(draft, cfg.BackgroundManager, mask, len(foregroundPoints))
 		totalPoints := len(polar)
 

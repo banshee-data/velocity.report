@@ -376,7 +376,7 @@ named scale replaces the block's.
 
 The other replay experiments have no config key yet, so a set cannot carry
 them, and the server cannot run them: `adaptive_uncertainty`,
-`likelihood_cost`, `cascade`, `density_cap`, `range_adaptive_eps`,
+`likelihood_cost`, `cascade`, `density_cap`, `border_classes`, `range_adaptive_eps`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,

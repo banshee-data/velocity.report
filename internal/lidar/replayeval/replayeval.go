@@ -924,6 +924,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		SurfaceGroundCeiling:      cfg.SurfaceGroundCeiling,
 		SurfaceGroundRegionMetres: cfg.SurfaceGroundRegionMetres,
 		DensityPreservingCap:      hasExperiment(experiments, ExperimentDensityCap),
+		BorderClasses:             hasExperiment(experiments, ExperimentBorderClasses),
 		Dwell:                     dwell,
 		RangeAdaptiveEps:          hasExperiment(experiments, ExperimentRangeAdaptiveEps),
 		MaxSamplePoints:           maxSamplePoints,

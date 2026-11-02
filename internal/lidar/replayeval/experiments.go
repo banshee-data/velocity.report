@@ -298,6 +298,11 @@ const (
 	// GroundSurfaceForTracker fitting that surface whether or not the clip
 	// reads it. It needs the tuning file's box model and is refused without.
 	ExperimentBoxGround = "box_ground"
+	// ExperimentBorderClasses: pipeline BorderClasses, foreground returns carrying the veil
+	// trait (a mixed return between a nearer and a farther neighbour in the same channel)
+	// withheld from L4 (l3bg0028). A treatment to test, not a claim that a veil bit is a mixed
+	// return; the published mask and L3's own state are untouched.
+	ExperimentBorderClasses = "border_classes"
 )
 
 var knownExperiments = map[string]bool{
@@ -305,6 +310,7 @@ var knownExperiments = map[string]bool{
 	ExperimentLikelihoodCost:      true,
 	ExperimentCascade:             true,
 	ExperimentDensityCap:          true,
+	ExperimentBorderClasses:       true,
 	ExperimentRangeAdaptiveEps:    true,
 	ExperimentFlipRule:            true,
 	ExperimentNoRegionOverrides:   true,
