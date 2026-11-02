@@ -139,6 +139,7 @@ of the same works; its duplicate mentions use the same keys.
 | Young novice driver speed and headway at signalised intersections         | `Howell2026`       | Not adopted list                                  |
 | Medium and tall hood leading edges and pedestrian torso injuries          | `Hu2026`           | Sources checked, IIHS pedestrians row             |
 | Impact speed and pedestrian fatality: systematic review and meta-analysis | `Hussain2019`      | Monfort and Mueller section                       |
+| ADS crash-type composition against police-reported human crashes          | `Jang2026`         | [November 2 briefing][nov02], Jang section        |
 | Alternative explanations for shorter headways behind automated vehicles   | `Jiao2024`         | [October 19 briefing][oct19], follow-up reading   |
 | Injury severity and mean travel speed at the crash site                   | `Kroyer2015`       | [October 19 briefing][oct19], follow-up reading   |
 | Waymo crash types at 56.7 million miles                                   | `Kusano2025`       | Benchmark-alignment family; sources checked       |
@@ -309,5 +310,6 @@ References inside the external papers themselves are outside the audit's scope.
 [weekly]: research-briefing-2026-10-10.md
 [oct19]: research-briefing-2026-10-19.md
 [oct26]: research-briefing-2026-10-26.md
+[nov02]: research-briefing-2026-11-02.md
 [fixed]: fixed-sensor-research-briefing-2026-10-09.md
 [lpv2]: ../lidar-processing-v2-segmentation-review.md
