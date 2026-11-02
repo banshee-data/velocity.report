@@ -762,13 +762,6 @@ body:has(.sv-shell) {
 .sv-shell .scene-page__provenance summary {
   color: var(--text);
 }
-.sv-prov__scene-files {
-  list-style: none;
-  margin: 0.7rem 0 0;
-  padding: 0;
-  columns: 18rem;
-  overflow-wrap: anywhere;
-}
 
 /* --- compare -------------------------------------------------------------- */
 .sv-compare {

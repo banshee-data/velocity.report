@@ -91,8 +91,10 @@ From the repository root, `make test-public-html` runs the same suite and `make 
   `/modules/<content hash>/`, so a page archived on the Wayback Machine keeps the modules it was
   built with. Templates name them through `modulesBase`, never `/js/`.
 - **Archiving a survey.** Playback fetches frames as it reaches them, so a page save records only
-  the first few. Each page links every scene file under Data & methods: tick **Save outlinks** on
-  [Save Page Now](https://web.archive.org/save) to record the whole recording.
+  the first two. On [Save Page Now](https://web.archive.org/save), save the survey page, then its
+  `/surveys/<id>/archive/` page, which fetches every scene file. **Save outlinks** is not enough:
+  one save followed exactly 20 of a page's links. Open the archived copy of the archive page to
+  check it: it fetches the files again and marks any the archive does not hold.
 
 The 3D playback uses Gerardus's registered ground mesh in place of a flat grid.
 The accepted pose supplies true vertical for the camera, tree trunks, and foliage.

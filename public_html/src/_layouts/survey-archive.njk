@@ -1,0 +1,25 @@
+---
+layout: bare.njk
+---
+<style>
+  .archive-file[data-state="fetched"] a { color: var(--bare-muted); }
+  .archive-file[data-state="failed"]::after { content: " · not fetched"; color: #d9534f; }
+  .archive-files { columns: 22rem; overflow-wrap: anywhere; font-size: 0.85rem; }
+</style>
+
+<h1>Archive copy: {{ survey.title }}</h1>
+<p>Save this page to a web archive after saving <a href="{{ ('/surveys/' + survey.id + '/') | url }}">the survey page</a>. The survey page loads its 3D playback a minute at a time, so a save of that page keeps only the start of the recording. Opening this page fetches every file the playback uses, so a save keeps them all.</p>
+<p id="archive-status" role="status">Fetching the files…</p>
+<noscript><p>Fetching the files needs JavaScript. They are all linked below.</p></noscript>
+
+{% for rec in survey.recordings %}{% if rec.hasPlayback %}
+<h2>{{ rec.label }}</h2>
+<ul class="archive-files">
+  {% for file in rec.files %}<li class="archive-file"><a href="{{ file | url }}">{{ file | replace(rec.assetsUrl + "/", "") }}</a></li>{% endfor %}
+</ul>
+{% endif %}{% endfor %}
+
+<script type="module">
+  import { mountArchivePage } from "{{ (modulesBase + '/js/survey-archive.js') | url }}";
+  mountArchivePage(document);
+</script>
