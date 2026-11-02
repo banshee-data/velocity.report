@@ -13,23 +13,39 @@ afterEach(() => {
   globalThis.fetch = origFetch;
 });
 
-const body = () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) });
+/** A response whose body has `chunks` reads, calling `onEnd` at the last. */
+const response = (chunks = 1, onEnd = () => {}) => ({
+  ok: true,
+  body: {
+    getReader: () => ({
+      read: async () => {
+        if (chunks-- > 0) return { done: false, value: new Uint8Array(1) };
+        onEnd();
+        return { done: true };
+      },
+    }),
+  },
+});
 
 test("every file is fetched and read to the end", async () => {
   const read = [];
-  globalThis.fetch = async (url) => ({
-    ok: true,
-    arrayBuffer: async () => {
-      read.push(url);
-      return new ArrayBuffer(0);
-    },
-  });
+  globalThis.fetch = async (url) => response(3, () => read.push(url));
   const urls = ["a", "b", "c", "d", "e", "f", "g", "h"];
   const results = [];
   await fetchAll(urls, (url, fetched) => results.push([url, fetched]), 3);
   assert.deepEqual(read.sort(), urls);
   assert.deepEqual(results.map(([url]) => url).sort(), urls);
   assert.ok(results.every(([, fetched]) => fetched));
+});
+
+test("the browser's cache is bypassed, or the archive would not see the file", async () => {
+  const options = [];
+  globalThis.fetch = async (_url, init) => {
+    options.push(init);
+    return response();
+  };
+  await fetchAll(["a"], () => {});
+  assert.deepEqual(options, [{ cache: "reload" }]);
 });
 
 test("no more than the limit are in flight at once", async () => {
@@ -39,7 +55,7 @@ test("no more than the limit are in flight at once", async () => {
     most = Math.max(most, ++inFlight);
     await new Promise((resolve) => setTimeout(resolve, 1));
     inFlight--;
-    return body();
+    return response();
   };
   await fetchAll(["a", "b", "c", "d", "e", "f", "g"], () => {}, 3);
   assert.equal(most, 3);
@@ -49,7 +65,7 @@ test("a failed file is reported and the rest carry on", async () => {
   globalThis.fetch = async (url) => {
     if (url === "gone") return { ok: false };
     if (url === "unreachable") throw new TypeError("network");
-    return body();
+    return response();
   };
   const results = new Map();
   await fetchAll(["gone", "unreachable", "ok"], (url, fetched) =>

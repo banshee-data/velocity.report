@@ -6,6 +6,12 @@
 /** One at a time would outlast the save; all at once would swamp it. */
 const CONCURRENT_FETCHES = 6;
 
+/** Reads a body to its end. The archive records a response as it is read. */
+async function drain(body) {
+  const reader = body.getReader();
+  while (!(await reader.read()).done);
+}
+
 /** Fetches each URL in full, reporting each as it finishes. Never rejects. */
 export async function fetchAll(urls, onResult, limit = CONCURRENT_FETCHES) {
   const queue = [...urls];
@@ -14,9 +20,9 @@ export async function fetchAll(urls, onResult, limit = CONCURRENT_FETCHES) {
       const url = queue.shift();
       let fetched = false;
       try {
-        const res = await fetch(url);
-        // The archive records a response as it is read, so read all of it.
-        if (res.ok) await res.arrayBuffer();
+        // Past the browser's cache: a file it serves itself is never recorded.
+        const res = await fetch(url, { cache: "reload" });
+        if (res.ok) await drain(res.body);
         fetched = res.ok;
       } catch {
         // Reported as not fetched. One failure should not stop the rest.
@@ -45,8 +51,15 @@ export async function mountArchivePage(root) {
   status.textContent = archiveStatus(done, failed, items.size);
   await fetchAll([...items.keys()], (url, fetched) => {
     done++;
-    if (!fetched) failed++;
-    items.get(url).dataset.state = fetched ? "fetched" : "failed";
+    const item = items.get(url);
+    item.dataset.state = fetched ? "fetched" : "failed";
+    if (!fetched) {
+      failed++;
+      const note = root.createElement("span");
+      note.className = "archive-file__note";
+      note.textContent = " · not fetched";
+      item.append(note);
+    }
     status.textContent = archiveStatus(done, failed, items.size);
   });
 }
