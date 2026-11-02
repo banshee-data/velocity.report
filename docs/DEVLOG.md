@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 2, 2026 - All survey scenes on the refined defaults
+
+- {scenes/refined-defaults-23} Rebuilt the other 23 survey scenes from main at `57e9e9f1` in analysis mode with the settling pass, so all 24 now draw the refined defaults: moving-track time across the 23 rose from 141,625 s to 277,587 s, tracks under 3 s halved from 110,801 to 55,607, and the sites' median position second difference fell from 0.095 to 0.041 m. Vehicle tracks rose from 7,955 to 13,003, mainly because moving tracks once left as `dynamic` now reach `car`, and p85 of peak speed per track rose by a median 0.45 mph as tracks lengthened; limit shares rose more than 5 points at nine sites and the sentence on marina-webster-beach changed. These are observed measurements of what the pipeline drew, not validation against labelled vehicles.
+
 ## November 1, 2026 - Foreground refinement and all 24 survey scenes
 
 - {scenes/embarcadero-folsom-refined} Rebuilt embarcadero-folsom from main at `fdcadb05` in analysis mode with the settling pass, the first scene on the refined defaults: moving-track time doubled (6,690 s to 13,711 s), median moving track life rose from 7.0 s to 9.8 s, vehicle tracks above 5 mph rose from 373 to 667, and the share at 30 mph or more fell from 17.2 % to 10.5 %, a change in what the tracker counts rather than in traffic. The vectors file is unchanged because Gerardus could not be reached; the other 23 scenes still draw the earlier defaults.
