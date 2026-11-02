@@ -86,6 +86,7 @@ declare module '$scene/scene-reader.js' {
 		open(): Promise<this>;
 		chunkIndexForOffset(us: number): number;
 		loadChunk(id: number): Promise<SceneFrame[]>;
+		isUnavailable(us: number): boolean;
 		playableFrom(us: number): number | null;
 		framesInRange(
 			fromUs: number,
@@ -151,6 +152,7 @@ declare module '$scene/scene-reader.js' {
 		static fromParts(parts: PartReader[], options?: { title?: string }): SceneSession;
 		open(): Promise<this>;
 		locate(seconds: number): { partIndex: number; part: PartReader; us: number };
+		isUnavailable(seconds: number): boolean;
 		playableFrom(seconds: number): number | null;
 		frameAt(
 			seconds: number

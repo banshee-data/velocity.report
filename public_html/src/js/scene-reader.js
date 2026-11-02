@@ -255,6 +255,11 @@ export class PartReader {
     }
   }
 
+  /** Whether offset `us` is in a chunk known to be unavailable. */
+  isUnavailable(us) {
+    return this._unavailable.has(this.chunks[this.chunkIndexForOffset(us)].c);
+  }
+
   /**
    * The offset at or after `us` that is not in a chunk known to be unavailable,
    * or null when no chunk from there on is left to try. A chunk nobody has
@@ -466,6 +471,12 @@ export class SceneSession {
     const frame = await part.frameAtOffset(us);
     part.prefetchAfter(us);
     return { partIndex, frame, sceneSeconds: seconds };
+  }
+
+  /** Whether `seconds` of scene time is in a chunk known to be unavailable. */
+  isUnavailable(seconds) {
+    const { part, us } = this.locate(seconds);
+    return part.isUnavailable(us);
   }
 
   /**

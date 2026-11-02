@@ -610,6 +610,15 @@ describe("a copy of a scene with chunks missing", () => {
     assert.equal(requests, 1);
   });
 
+  test("a chunk is known to be unavailable only after it has failed", async () => {
+    const session = await open([1]);
+    assert.equal(session.isUnavailable(1), false);
+    await assert.rejects(session.parts[0].loadChunk(1), ChunkUnavailableError);
+    assert.equal(session.isUnavailable(1), true);
+    assert.equal(session.isUnavailable(0.5), false);
+    assert.equal(session.isUnavailable(2), false);
+  });
+
   test("playback resumes inside the next chunk, not back in the missing one", async () => {
     const session = await open([1, 2]);
     await assert.rejects(session.frameAt(0.8), ChunkUnavailableError);

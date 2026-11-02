@@ -1021,16 +1021,23 @@ export async function mountScenePlayer({
             loopingIn: state.pointCloudLoopingIn,
           },
         );
+        // Use the tracked frame's timestamp, not the animation clock. Both
+        // exports contain this frame, so the boxes and returns cannot drift.
+        const pointSeconds = frame.t / 1e6;
         if (pointOpacity > 0) {
-          // Use the tracked frame's timestamp, not the animation clock. Both
-          // exports contain this frame, so the boxes and returns cannot drift.
           try {
-            pointFrame = (await pointCloudSession.frameAt(frame.t / 1e6)).frame;
+            // Known to be missing, it is not worth failing on every frame.
+            if (!pointCloudSession.isUnavailable(pointSeconds)) {
+              pointFrame = (await pointCloudSession.frameAt(pointSeconds))
+                .frame;
+            }
           } catch (err) {
             if (!(err instanceof ChunkUnavailableError)) throw err;
-            // The tracks play on without their overlay.
-            if (ui.gapWarning) ui.gapWarning.hidden = false;
+          }
+          // The tracks play on without their overlay.
+          if (!pointFrame) {
             pointOpacity = 0;
+            if (ui.gapWarning) ui.gapWarning.hidden = false;
           }
         }
         if (
