@@ -308,6 +308,10 @@ const (
 	// the 0.3 m height condition (l4clus0005). The overlap form implies the plain one.
 	ExperimentRadiusGraphXY        = "radius_graph_xy"
 	ExperimentRadiusGraphXYOverlap = "radius_graph_xy_overlap"
+	// ExperimentHeldToL4: pipeline HeldToL4, L4's input is L3's foreground plus the returns the
+	// track guard holds this frame (l3bg0027; l3grid.BackgroundManager.MaskWithHeld).
+	// The background model and the published mask are untouched.
+	ExperimentHeldToL4 = "held_to_l4"
 )
 
 var knownExperiments = map[string]bool{
@@ -316,6 +320,7 @@ var knownExperiments = map[string]bool{
 	ExperimentCascade:              true,
 	ExperimentDensityCap:           true,
 	ExperimentBorderClasses:        true,
+	ExperimentHeldToL4:             true,
 	ExperimentRadiusGraphXY:        true,
 	ExperimentRadiusGraphXYOverlap: true,
 	ExperimentRangeAdaptiveEps:     true,

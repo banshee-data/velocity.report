@@ -323,6 +323,10 @@ type TrackingPipelineConfig struct {
 	// and the tap's mask are unchanged: only the points handed on to clustering differ.
 	BorderClasses bool
 
+	// HeldToL4 hands L4 the returns the track guard holds this frame as well as L3's
+	// foreground (l3bg0027). Off by default.
+	HeldToL4 bool
+
 	// RadiusGraph clusters by connected components of the XY radius graph (l4clus0005);
 	// RadiusGraphOverlap adds a 0.3 m height condition. Off by default.
 	RadiusGraph        bool
@@ -688,8 +692,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		extractMask := mask
+		if cfg.HeldToL4 {
+			extractMask = cfg.BackgroundManager.MaskWithHeld(mask, nil)
+		}
 		if cfg.BorderClasses {
-			extractMask, _ = l3grid.WithholdVeil(polar, mask, l3grid.DefaultBorderParams())
+			extractMask, _ = l3grid.WithholdVeil(polar, extractMask, l3grid.DefaultBorderParams())
 		}
 		foregroundPoints := l3grid.ExtractForegroundPoints(polar, extractMask)
 		tap.foreground(draft, cfg.BackgroundManager, mask, len(foregroundPoints))
