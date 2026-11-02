@@ -130,6 +130,36 @@ const header = (ns, extra = {}) => ({
 });
 const NS = 1788380476586544330n; // 2026-09-02T20:21Z
 
+// Playback fetches frames as it reaches them, so a page save records only the
+// first few. Archived playback then stopped with "chunk_0002.ndjson.gz returned
+// 404" unless every file was reachable from the page as a link.
+test("a recording links every frames file, outside the page's script data", async () => {
+  const { surveyView } = await import("../survey-view.js");
+  const surveys = await loadSurveys();
+  for (const site of surveys.sites.filter((s) => s.published)) {
+    const rec = site.latest;
+    const dir = rec.assetsUrl.slice("/surveys".length);
+    const index = JSON.parse(
+      fs.readFileSync(
+        new URL(`../../scenes${dir}/part-000/index.json`, import.meta.url),
+        "utf8",
+      ),
+    );
+    const files = new Set(rec.files);
+    assert.ok(files.has(`${rec.assetsUrl}/manifest.json`), site.id);
+    for (const { c } of index.chunks) {
+      const name = `chunk_${String(c).padStart(4, "0")}.ndjson.gz`;
+      assert.ok(
+        files.has(`${rec.assetsUrl}/part-000/frames/${name}`),
+        `${site.id} does not link ${name}`,
+      );
+    }
+    assert.ok(rec.files.every((f) => !f.split("/").at(-1).startsWith(".")));
+    const client = surveyView(site, 25).client.recordings.at(-1);
+    assert.equal(client.files, undefined);
+  }
+});
+
 test("a radar summary, a same-month visit and a same-minute pair are told apart", async () => {
   const root = scratch({
     "x/assets/manifest.json": { version: 1 },

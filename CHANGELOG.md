@@ -63,21 +63,7 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
   DMG is the oldest supported. The current app uses the new names. Browser bookmarks
   for `/lidar/replay-cases` redirect to `/lidar/clips` for one release.
 
-- Tracks change: the defaults now run foreground refinement and report each cluster at
-  the mean of its returns. `freeze_duration` is 0s, edge follow is off, DBSCAN uses eps
-  1.0 and 8 minimum points, the cluster size limits are 20 m and an aspect ratio of 60,
-  and confirmed tracks survive 25 misses. Replays cost 5 to 20 % more on a Mac, and a Pi
-  has not been timed. Stored estimates name these positions `cluster_mean_v1` at
-  reference point `cluster_mean`, not `medoid_v0`, and a reader that lists reference
-  points must accept the new token. Published scenes need a new run. To run the earlier
-  defaults, start with `--config config/experiments/foreground-refine-off.json`. Saved
-  tuning files without the new blocks keep their earlier behaviour.
-
 ### Added
-
-- The `l3.ema_baseline_v1.foreground_refine` tuning block: returns beyond a cell's
-  surface are background, and returns in front of it join connected foreground or a
-  patch new to its cells. `lidar-fg-diag` shows the rule that decided each return.
 
 - Static periods can be located on a map. The Captures page filters to sessions with a static
   period that has no location, and links each period to a new Locate page that draws its settled
@@ -199,30 +185,6 @@ See [Semantic Versioning 2.0.0](https://semver.org/) for detailed guidelines.
 
 ### Fixed
 
-- Survey pages and the homepage scene work when archived on the Wayback Machine. Modules
-  now import the vendored three.js by relative path rather than through an import map, which
-  Wayback playback does not rewrite, and are published under `/modules/<content hash>/` so a
-  new capture cannot run beside modules kept from an earlier one. Pages archived before this
-  change need capturing again.
-- Survey flights follow one inclined planar ellipse rather than individual ground bumps;
-  tree trunks and crowns follow registered true vertical. Ground extends to 180 m where
-  available and the scene fades from 150 to 170 m from the sensor.
-- Survey badges show the pipeline version only; Data & methods includes both pipeline and
-  viewer versions and full desktop provenance hashes. Removed the speed-card playback
-  shortcut and changed the timeline speed overlay to five-minute maximum steps.
-
-- Public 3D survey cameras use accepted-registration true vertical, keeping the horizon level
-  when the sensor was tilted. Flight altitude follows the hillside smoothly, including across
-  the loop boundary. Building context extends to 180 m where available in Gerardus.
-- Scene badges show the current viewer version separately from the recording generator version;
-  the previous badge showed the old recording version after a viewer update. Version-only
-  Makefile changes now trigger the public-site deployment.
-- A waiting macOS alignment score or Snap can take over after the previous request completes.
-  It no longer spins on a completed task while waiting for the main thread to clear that task.
-- Public 3D survey playback follows the registered ground mesh on hills, masks boxes and trails
-  inside building footprints, and starts with background LiDAR points hidden. Experimental poles,
-  markings, and registered façade patches are omitted; trees have dark green foliage. Refreshed
-  registered geometry for eleven surveys without changing their full recording provenance.
 - Track boxes stand on their base. The L3 track guard and its leak measure took the cluster's
   lowest return as a box's vertical centre, so boxes without a fitted height reached half a vehicle
   below the road and only half its height above it.
