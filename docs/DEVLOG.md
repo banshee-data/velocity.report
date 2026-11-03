@@ -442,7 +442,7 @@ older entries stay put, however tempting hindsight may be.
 - Moved to Go 1.27.1 for `tailscale.com` 1.105.0-pre, dropped the removed netmap bit from the IPN bus watch, and held SvelteKit 3 back (#693).
 - Fixed the public_html timeline strip tests, which failed outside a browser, and ran that suite in `make test` and CI (#695).
 - Widened the lidarbench heap-stability bound to 20 % for shared CI runners, and added the tests Codecov found missing in #686 and #688 (#687, #700).
-- {dd/api/tailscale-acls-503} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
+- {patrickod/tailscale-acls} Rebuilt #503's Tailscale capability-grant authorisation on current main: routes outside the gate also refused outsiders, and an unresolved peer got a 503 after a 10-minute grace.
 
 ## October 5, 2026 - Near-edge findings and follow-ups, span selection, raw outputs stay local, a scene-change recovery plan, and the devlog register
 
@@ -553,7 +553,7 @@ older entries stay put, however tempting hindsight may be.
 - Added the physical reference authoring/scoring dependency to Sprint 0.5.2.0. The Annotation window reviews point membership, class, and identity; optional pose storage does not provide a box editor, and the current reference builder uses visible-mask positions. Planned independent keyframe pose/extent references, component bounds and unknown geometry, separate review, and evaluator/inspector comparisons before the operator geometry and following-pair pass (#625).
 - Aligned the annotation guide, dataset plan, state-estimation priorities, and MVP sprint plan with that boundary. Mask review can begin now and provisional integration can continue; completing the mask queue does not close the physical gates. This update changes documentation only and retains the existing acceptance thresholds (#625).
 - Scored the solid body's best remedy, hysteresis with course-aligned faces, once on the held-out case, embarcadero-folsom. It does not reach gate 2: over body-centre frames its lateral p99 is 0.229 m against the point estimate's 0.204 m, where the gate wants half. Within runs on the same faces it is 0.118 m against 0.181 m, and it beats the point estimate in every heading-rate bin, so the turning fix holds on data it was not tuned on. Even that face-stable p99 is above gate 2's 0.102 m. Chose a per-face bias state (T4) as the next remedy, ahead of feeding the tracker (#629).
-- {claude/s2-1-config-engine-docs} Drafted a tuning-config surface for the solid body: one `l5.cv_kf_v1.solid_body` block, nil by default so the fingerprint stands, with experiments as aliases and live parity or refusal. The branch also recorded F1 and F3 in the near-edge plan.
+- Drafted a tuning-config surface for the solid body: one `l5.cv_kf_v1.solid_body` block, nil by default so the fingerprint stands, with experiments as aliases and live parity or refusal. The branch also recorded F1 and F3 in the near-edge plan (#720).
 
 ## September 27, 2026 - Solid bodies, adaptive noise, identity options and the provisional headway field run
 
@@ -983,10 +983,10 @@ older entries stay put, however tempting hindsight may be.
 - Removed `cmd/tools/pcap-analyse` along with track CSV/JSON export, ML training-data export, and SQLite persistence, capturing the removed pieces as self-contained architecture outlines in `docs/plans/lidar-offline-analysis-tooling-plan.md` (#531).
 - Added read-only per-frame settling accessors to `l3grid`, and made frame assembly flush the in-flight frame on close so capture order survives (#531).
 - Bumped the version to `0.5.1-pre26` and rewrote the pcap-analysis and performance-regression-testing docs for the new layout (#531).
-- {claude/strange-colden-a99dc2} Tested and documented the diagonal-Q process-noise gap (K1): the L5 prediction step omits the position-velocity coupling term of the continuous white-noise-acceleration model, underestimating cross-covariance and making the gating ellipse overconfident along the correlation direction.
-- {claude/strange-colden-a99dc2} Added an opt-in Joseph-form covariance update (K2), default off, which stayed roughly 14 times more symmetric than the naive form over 10k adversarial predict and update cycles while remaining positive-definite.
-- {claude/strange-colden-a99dc2} Documented the mean-absolute-deviation versus standard-deviation relationship in the L3 background spread (B1): `RangeSpreadMeters` tracks MAD, so a settled cell observing noise of 0.1 converges to about 0.0798, not 0.1.
-- {claude/strange-colden-a99dc2} Implemented CLEAR MOT (MOTA and MOTP) in `l8analytics` (M1) as pure computation, reusing `l5tracks.HungarianAssign` for per-frame matching. Ground-truth ingestion and endpoint wiring remain follow-ups.
+- Tested and documented the diagonal-Q process-noise gap (K1): the L5 prediction step omits the position-velocity coupling term of the continuous white-noise-acceleration model, underestimating cross-covariance and making the gating ellipse overconfident along the correlation direction (#559).
+- Added an opt-in Joseph-form covariance update (K2), default off, which stayed roughly 14 times more symmetric than the naive form over 10k adversarial predict and update cycles while remaining positive-definite (#559).
+- Documented the mean-absolute-deviation versus standard-deviation relationship in the L3 background spread (B1): `RangeSpreadMeters` tracks MAD, so a settled cell observing noise of 0.1 converges to about 0.0798, not 0.1 (#559).
+- Implemented CLEAR MOT (MOTA and MOTP) in `l8analytics` (M1) as pure computation, reusing `l5tracks.HungarianAssign` for per-frame matching. Ground-truth ingestion and endpoint wiring remain follow-ups (#559).
 
 ## June 19, 2026 - Dependency cleanup
 
@@ -1153,9 +1153,10 @@ older entries stay put, however tempting hindsight may be.
 ## April 28, 2026 - Image build repair & release workflow guardrails
 
 - Fixed the failing image build path and tightened GitHub release creation checks so the workflow verifies tag existence before publishing instead of discovering reality at the most inconvenient moment (#479).
-- Added CodeQL workflow coverage, repaired invalid action SHA pins, and addressed a sanitisation finding while the security tooling was already on the operating table.
+- Addressed a sanitisation finding while the security tooling was already on the operating table (#480).
 - Continued the offline docs follow-up work from PR #480: added embed-stub steps to Go CI, made offline docs linting non-mutating, tracked review follow-ups in the backlog and plan docs, and suppressed stale link-check reports for runtime-resolved hrefs (#480).
 - Kept pushing the report pipeline forward with p98/max reference lines, better histogram and caption layout, balanced long-table rendering, improved TeX spacing, and review-fix passes across Go, TeX, and docs (#481).
+- {dd/ci/add-swift} Added CodeQL workflow coverage and repaired invalid action SHA pins.
 
 ## April 27, 2026 - Deployment docs & packaging model cleanup
 
@@ -1341,7 +1342,7 @@ older entries stay put, however tempting hindsight may be.
 - Refreshed [README.md](README.md) with sample PDF report and visualiser demo images. Added `STYLE.md` with writing conventions and British English guidelines (#443, #444).
 - Added wiring diagrams and YAML configuration for OPS243-A radar sensor (`docs/hw/`) (#445).
 - Updated agent preparedness documentation, added `fix-links` skill, and expanded coding standards with configuration and media guidelines (#443, #447).
-- Added `age-color` terminal script and new Makefile log convenience targets.
+- {dd/py/terminal-colour-age-script} Added `age-color` terminal script and new Makefile log convenience targets.
 
 ## April 5, 2026 - README & ASCII art refresh
 
@@ -1436,10 +1437,10 @@ older entries stay put, however tempting hindsight may be.
 - Tightened Go/API hygiene around JSON tags, dropped-error handling, and build metadata (#421).
 - Added fresh plan docs for binary-size reduction, Go structural hygiene, and the dual-tool Claude/Copilot agent workflow architecture (#421, #432).
 - Released 0.5.0 🌞 "Sunny Southeast": version set across Go/Python/web/macOS with expanded CHANGELOG (#297).
-- {copilot/update-capabilities-check-radar-mode} Refactored the capabilities API to a multi-sensor named-object format, ultimately carried forward in #547 after #430 was superseded: per-sensor named objects in Go handlers and web stores.
-- {copilot/update-capabilities-check-radar-mode} Added smart LiDAR capability polling: the web frontend retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR is present.
-- {copilot/update-capabilities-check-radar-mode} Added a multi-sensor capabilities plan document and marked the response-shape/navigation work complete after implementation; LiDAR ready/error lifecycle wiring remains follow-up work.
-- {copilot/update-capabilities-check-radar-mode} Expanded web test coverage with a multi-sensor `lidarState` derived store test.
+- Refactored the capabilities API to a multi-sensor named-object format, ultimately carried forward in #547 after #430 was superseded: per-sensor named objects in Go handlers and web stores (#547).
+- Added smart LiDAR capability polling: the web frontend retries startup failures, stops polling after a successful radar-only response, and keeps polling when LiDAR is present (#547).
+- Added a multi-sensor capabilities plan document and marked the response-shape/navigation work complete after implementation; LiDAR ready/error lifecycle wiring remains follow-up work (#547).
+- Expanded web test coverage with a multi-sensor `lidarState` derived store test (#547).
 
 ## March 23, 2026 - capabilities gating, stream fix & host upgrade runbook
 
@@ -1650,7 +1651,7 @@ older entries stay put, however tempting hindsight may be.
 - Deprecated ROADMAP.md in favour of [BACKLOG.md](BACKLOG.md) as single source of truth for project-wide work items (#318).
 - Moved `DESIGN.md` to [`docs/ui/DESIGN.md`](ui/DESIGN.md) and updated all cross-references (#319).
 - Reorganised BACKLOG.md milestones: added v0.5.1 for serial port configuration UI, adjusted v0.7/v0.8 item placements (#319).
-- Added 6 missing GitHub issues to BACKLOG.md (#4, #7, #8, #103, #122, #148); fixed #290→#11 reference.
+- Added 6 missing GitHub issues to BACKLOG.md (#4, #7, #8, #103, #122, #148); fixed #290→#11 reference (#319).
 - Updated [vector scene map](lidar/architecture/vector-scene-map.md) architecture: integrated OSM Simple 3D Buildings as structure priors, enhanced geometry prior service design (#319).
 
 ## February 22, 2026 - PCAP performance, OBB heading & region-adaptive parameters
