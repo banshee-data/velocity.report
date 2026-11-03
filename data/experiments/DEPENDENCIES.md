@@ -97,6 +97,7 @@ flowchart TB
     l5id0009["<b>l5id0009</b><br/>Links through a merge: a second placement…<br/>proposed · 12m machine + 24h30m person<br/>manual: implement, capture, review, write"]:::proposed
     l5id0010["<b>l5id0010</b><br/>Fragment links on the frozen held-out…<br/>proposed · 22m machine + 6h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
     l5id0011["<b>l5id0011</b><br/>The likelihood cost with the box's…<br/>approved · 2h8m machine + 6h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::approved
+    l5id0012["<b>l5id0012</b><br/>The overlap end with tentative priority…<br/>answered · 4h32m machine + 1h person (took 4h)<br/>manual: write"]:::answered
   end
   subgraph area_l6cls ["l6cls: L6 classification"]
     l6cls0001["<b>l6cls0001</b><br/>How much following the class gate holds…<br/>answered · 1h9m machine + 1h person (took 30m)<br/>manual: write"]:::answered
@@ -200,6 +201,7 @@ flowchart TB
   label0002 --> l5id0010
   geom0005 --> l5id0011
   label0001 --> l5id0011
+  l5id0006 --> l5id0012
   l8fol0003 --> l6cls0001
   l6cls0002 --> l6cls0003
   l5id0006 --> l6cls0003
@@ -303,6 +305,7 @@ flowchart TB
 - [l5id0004](l5id/l5id0004.md) One vehicle, one track: the overlap end on the body's returns, keeping the older track: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 1h55m, took 1h on m1pro; asked [l5id0003](../../data/experiments/l5id/l5id0003.md).
 - [l5id0005](l5id/l5id0005.md) One vehicle, one track: replicating l5id0004 on the third segments: [report](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md); estimated 40m, took 25m on m1pro; asked [l5id0004](../../data/experiments/l5id/l5id0004.md).
 - [l5id0006](l5id/l5id0006.md) One vehicle, one track: the survivor's box, and tentative priority with the overlap end: [report](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md); estimated 2h24m, took 5h on m1pro; asked [l5-duplicate-tracks-2026-10 #recommendations](../../docs/lidar/operations/l5-duplicate-tracks-2026-10.md#recommendations), [published-box-refinement-2026-10 #the-box-with-one-track-per-vehi…](../../docs/lidar/operations/published-box-refinement-2026-10.md#the-box-with-one-track-per-vehicle), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
+- [l5id0012](l5id/l5id0012.md) The overlap end with tentative priority as the default: what the flip costs across the corpus: [report](../../docs/lidar/operations/overlap-end-default-cost-2026-11.md); estimated 4h32m, took 4h; asked [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations), [l5id0006](../../data/experiments/l5id/l5id0006.md).
 - [l6cls0001](l6cls/l6cls0001.md) How much following the class gate holds back on the corpus, and how much a size-and-motion car rule would release: [report](../../docs/lidar/operations/following-class-release-corpus-2026-10.md); estimated 1h9m, took 30m on m1pro; asked [following-box-endpoints-2026-10 #recommendations](../../docs/lidar/operations/following-box-endpoints-2026-10.md#recommendations).
 - [l6cls0002](l6cls/l6cls0002.md) A track-level quality gate for near-static and brief clutter, scored per site so one busy site cannot carry it: [report](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md); estimated 1h32m, took 3h on m1pro; asked [pcl-algorithm-review #q1-can-richer-geometric-descrip…](../../docs/lidar/operations/pcl-algorithm-review.md#q1-can-richer-geometric-descriptors-reduce-classification-errors-and-fragmentation), [lidar-pcl-algorithm-candidates-plan](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md).
 - [l6cls0003](l6cls/l6cls0003.md) The car-width quality gate on top of the overlap end and tentative priority, read once on unread second segments: [report](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md); estimated 2h56m, took 3h on m1pro; asked [pcl-algorithm-review #q4-can-occlusion-aware-analysis…](../../docs/lidar/operations/pcl-algorithm-review.md#q4-can-occlusion-aware-analysis-reduce-track-loss-without-more-false-associations), [lidar-pcl-algorithm-candidates-plan](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md).
