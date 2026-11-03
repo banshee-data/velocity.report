@@ -13,7 +13,7 @@
       "noise_relative": 0.02,
       "neighbour_confirmation_count": 5,
       "seed_from_first": true,
-      "warmup_duration_nanos": 240000000000,
+      "warmup_duration_nanos": 120000000000,
       "warmup_min_frames": 50,
       "post_settle_update_fraction": 0,
       "enable_diagnostics": false,
