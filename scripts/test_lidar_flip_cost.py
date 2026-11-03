@@ -98,3 +98,38 @@ def test_identical_arms_cost_nothing(tmp_path):
     assert (out["lost"], out["shortened"], out["added"]) == (0, 0, 0)
     assert out["a"] == out["b"]
     assert out["speed_p85_diff_p95_abs"] == 0.0
+
+
+def make_rows(
+    path: Path, tracks: dict[str, list[tuple[float, float, float, float]]]
+) -> str:
+    """A lidar-box-eval -rows CSV with the published variant and one other to be ignored."""
+    cols = ["variant", "track", "t_ns", "class", "speed", "x", "y"]
+    with open(path, "w") as f:
+        f.write(",".join(cols) + "\n")
+        for tid, rows in tracks.items():
+            for t, x, y, v in rows:
+                for variant in ("published", "other"):
+                    f.write(f"{variant},{tid},{int(round(t * S))},car,{v},{x},{y}\n")
+    return str(path)
+
+
+def test_rows_csv_reads_as_the_database(tmp_path):
+    tracks_a = {
+        "kept": drive(0, 5),
+        "lost": drive(0, 5, y=10.0),
+        "parked": park(0, 5, 50.0),
+    }
+    tracks_b = {
+        "kept": drive(0, 5),
+        "blip": drive(30, 30.5, y=40.0),
+        "parked": park(0, 5, 50.0),
+    }
+    from_db = fc.compare(
+        make_db(tmp_path / "a.db", tracks_a), make_db(tmp_path / "b.db", tracks_b)
+    )
+    from_csv = fc.compare(
+        make_rows(tmp_path / "a.csv", tracks_a), make_rows(tmp_path / "b.csv", tracks_b)
+    )
+    assert from_csv == from_db
+    assert from_csv["lost"] == 1 and from_csv["b"]["brief"] == 1

@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """What a default flip costs: one arm's evidence against the defaults' on the same segment.
 
-Reads two evidence databases of one case (the `lidar_tracks` and `lidar_track_observations`
-tables that `lidar-box-eval -evidence-db` and `lidar-state-estimation-baseline -evidence-per-case`
-write), the defaults' (A) and the candidate's (B), and reports the measures l5id0012's rule is
-written on. Definitions are fixed here, before any arm is replayed, and are the same for every
+Reads two replays of one case, the defaults' (A) and the candidate's (B), each either an evidence
+database (the `lidar_tracks` and `lidar_track_observations` tables that `lidar-box-eval
+-evidence-db` and `lidar-state-estimation-baseline -evidence-per-case` write) or a `lidar-box-eval
+-rows` CSV (every scored frame of every confirmed track, the published box's centre and the
+track's speed; a track's duration is then its span within the scored window), and reports the
+measures l5id0012's rule is written on. Definitions are fixed here, before any arm is replayed, and are the same for every
 case and arm:
 
 * track: a row of lidar_tracks (the evidence keeps confirmed tracks only); its rows are its
@@ -25,12 +27,13 @@ case and arm:
 * matched pair: a moving track of A that is not lost, with the B track of best single-track
   coverage. Its speed difference is the B track's p85 row speed less the A track's.
 
-Usage: lidar_flip_cost.py A.db B.db [--json OUT]
+Usage: lidar_flip_cost.py A.db|A.csv B.db|B.csv [--json OUT]
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import math
 import sqlite3
@@ -55,7 +58,27 @@ def pct(values, q):
     return v[k]
 
 
+def load_rows(path):
+    """A lidar-box-eval -rows CSV: the published variant's rows, tracks spanning their rows."""
+    tracks = {}
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            if r["variant"] != "published":
+                continue
+            t = tracks.setdefault(r["track"], {"rows": []})
+            t["rows"].append(
+                (int(r["t_ns"]), float(r["x"]), float(r["y"]), float(r["speed"]))
+            )
+    for t in tracks.values():
+        t["rows"].sort()
+        t["t0"], t["t1"] = t["rows"][0][0], t["rows"][-1][0]
+        t["dur"] = (t["t1"] - t["t0"]) / 1e9
+    return tracks
+
+
 def load(path):
+    if path.endswith(".csv"):
+        return derive(load_rows(path))
     con = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
     tracks = {}
     for tid, t0, t1, dur in con.execute(
@@ -73,6 +96,10 @@ def load(path):
         if tid in tracks:
             tracks[tid]["rows"].append((ts, x, y, spd or 0.0))
     con.close()
+    return derive(tracks)
+
+
+def derive(tracks):
     for t in tracks.values():
         rows = t["rows"]
         t["disp"] = (
