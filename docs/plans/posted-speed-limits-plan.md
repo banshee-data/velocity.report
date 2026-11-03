@@ -7,7 +7,7 @@ limit per site, or per site configuration period, describes the wrong thing.
 - **Status:** Parked (D-32, October 20, 2026): its rows, and the vector scene road layer they wait on, sit in v0.7.7 (safety reporting), moved from v1.0 by the owner on October 20, 2026; revisit when v0.7.7 is next. Was: Proposed; implementation waits for the vector scene map (v1.0)
 - **Canonical:** [3D vector scene map](../lidar/architecture/vector-scene-map.md)
 - **Layers:** Vector scene roadway context, radar and LiDAR speed reports, site configuration
-- **Related:** [Behaviour analytics plan, Section 10.1](lidar-behaviour-analytics-plan.md#101-roadway-context-does-not-exist-yet-including-the-speed-limit), [Speed limit schedules](../radar/architecture/speed-limit-schedules.md), [Cosine correction spec](../radar/architecture/site-config-cosine-correction-spec.md), [Traffic description language plan](data-traffic-description-language-plan.md)
+- **Related:** [Behaviour analytics plan, Section 10.1](lidar-behaviour-analytics-plan.md#101-roadway-context-does-not-exist-yet-including-the-speed-limit), [Speed limit schedules](../radar/architecture/speed-limit-schedules.md), [Cosine correction spec](../radar/architecture/site-config-cosine-correction-spec.md), [Traffic description language plan](data-traffic-description-language-plan.md), [Lane field and proposals](lidar-lane-field-and-lane-proposals-plan.md), [Lane painter](lidar-visualiser-lane-painter-plan.md), [Speed by direction and lane](platform-speed-by-direction-reporting-plan.md) (the lanes this plan waits for, and the reports that use them)
 
 ## Where things stand
 

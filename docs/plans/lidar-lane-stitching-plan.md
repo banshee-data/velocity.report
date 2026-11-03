@@ -15,7 +15,9 @@ This plan evaluates joining track fragments across occlusion using lane and temp
   in shadow until then
 - **Companion plans:** [behaviour analytics §9.2](lidar-behaviour-analytics-plan.md#92-coasting-is-not-observation),
   [deterministic track identity](lidar-deterministic-track-identity-plan.md),
-  [bodies in motion](lidar-bodies-in-motion-plan.md) (its sparse-cluster linking row, L5 with L7)
+  [bodies in motion](lidar-bodies-in-motion-plan.md) (its sparse-cluster linking row, L5 with L7),
+  [lane field and proposals](lidar-lane-field-and-lane-proposals-plan.md) (its lane snapshot is the
+  lane map C2 and C3 ask for, and the street painter its authoring tool)
 - **Canonical:** [Dong2026 review](../lidar/operations/dong2026-lane-stitching-review.md)
 
 ## Motivation
