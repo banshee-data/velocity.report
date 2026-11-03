@@ -29,7 +29,7 @@ func main() {
 	id := flag.Int64("snapshot", 0, "snapshot id; 0 picks by time window")
 	after := flag.Int64("after", 0, "earliest taken_unix_nanos (inclusive)")
 	before := flag.Int64("before", 0, "latest taken_unix_nanos (inclusive); 0 = now")
-	out := flag.String("out", "", "where to write the ASC file (required)")
+	out := flag.String("out", "", "where to write the export, ASC or PCD by -format (required)")
 	limit := flag.Int("limit", 200, "recent snapshots searched when picking by time")
 	format := flag.String("format", "asc", "output format: asc (Gerardus's register --asc) or pcd (ASCII PCD, the same points in the same order)")
 	flag.Parse()
@@ -117,8 +117,8 @@ POINTS %d
 DATA ascii
 `
 
-// ascToPCD rewrites an ASC export as ASCII PCD. Each data line is copied verbatim, so values
-// and order are the ASC file's; comment and blank lines are dropped, and a line without the
+// ascToPCD rewrites an ASC export as ASCII PCD. Each data line is copied with its surrounding
+// whitespace trimmed, so values and order are the ASC file's; comment and blank lines are dropped, and a line without the
 // six columns is refused rather than written short.
 func ascToPCD(src, dst string) error {
 	in, err := os.Open(src)

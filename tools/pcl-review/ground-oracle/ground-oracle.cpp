@@ -212,6 +212,12 @@ int main(int argc, char** argv) {
 
   std::ofstream res(out + "/residuals.csv"), reg(out + "/regions.csv"), lines(out + "/kerb_lines.csv"),
       chk(out + "/fit_check.csv"), cand(out + "/candidates.csv");
+  for (const auto* f : {&res, &reg, &lines, &chk, &cand}) {
+    if (!*f) {
+      std::cerr << "cannot write to " << out << ": the output directory must exist\n";
+      return 1;
+    }
+  }
   cand << std::setprecision(9) << "region_ix,region_iy,ordinal,x,y,z,don,boundary,line_inlier\n";
   res << std::setprecision(9) << "region_ix,region_iy,ordinal,x,y,z,r_regional,r_constrained\n";
   reg << std::setprecision(9)
@@ -355,6 +361,10 @@ int main(int argc, char** argv) {
   }
 
   std::ofstream sum(out + "/summary.txt");
+  if (!sum) {
+    std::cerr << "cannot write " << out << "/summary.txt\n";
+    return 1;
+  }
   sum << "points " << n << "\nheld_back " << (n + kHoldBackEvery - 1) / kHoldBackEvery << "\nfit_points "
       << fitCloud->size() << "\nglobal_a " << global.a << "\nglobal_b " << global.b << "\nglobal_c " << global.c
       << "\nregions " << regional.size() << "\nsupported " << supported << "\nunsupported " << unsupported
@@ -362,6 +372,13 @@ int main(int argc, char** argv) {
       << donFinite << "\nkerb_candidates " << kerbCount << "\noptimise_coefficients 1\nmethod MSAC\neps_deg "
       << kEpsDeg << "\nthreshold_m " << kPlaneThreshold << "\nmax_iterations " << kMaxIterations
       << "\npcl_version " << PCL_VERSION_PRETTY << "\n";
+  for (auto* f : {&res, &reg, &lines, &chk, &cand, &sum}) {
+    f->flush();
+    if (!*f) {
+      std::cerr << "a write to " << out << " failed\n";
+      return 1;
+    }
+  }
   std::cout << argv[1] << ": " << n << " points, " << regional.size() << " regions, " << supported
             << " supported, " << kerbRegions << " with a kerb line, " << kerbCount << " kerb candidates\n";
   return 0;

@@ -60,7 +60,7 @@ must exist first.
 ```bash
 cmake -S tools/pcl-review/ground-oracle -B /tmp/ground-oracle && cmake --build /tmp/ground-oracle
 go run ./cmd/tools/bgasc -db <db> -snapshot <id> -format pcd -out /tmp/site.pcd
-/tmp/ground-oracle/pcl-ground-oracle /tmp/site.pcd /tmp/site-oracle/
+mkdir -p /tmp/site-oracle && /tmp/ground-oracle/pcl-ground-oracle /tmp/site.pcd /tmp/site-oracle
 ```
 
 Every parameter is ground0006's, fixed in the [spec](../../data/experiments/ground/ground0006.md)
