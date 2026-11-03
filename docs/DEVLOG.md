@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 3, 2026 - Registration by agreement across background windows
+
+- {exp/pose0003-window-consensus} Registered 60, 90, 180 and 300 s backgrounds of all 24 archive captures with Gerardus's defaults for [pose0003](../data/experiments/pose/pose0003.md): 17 sites agree across windows to 0.10 m and 0.5° and 6 are registered by agreement, the six pose0001 CANDIDATEs at their pose0001 poses, but none of the five wrong-peak sites is, so the procedure is not adopted; the consensus sits within 0.12 m and 0.2° of the owner's accepted pose at 14 of the 17, and nothing was accepted ([report](lidar/operations/gerardus-window-consensus-2026-10.md)).
+
 ## November 2, 2026 - All survey scenes on the refined defaults, and survey pages on the Wayback Machine
 
 - Ran the weekly research briefing for October 26 to November 2: one source bears on the analytics, Jang's preprint comparing crash-type mix in the federal automated-driving incident files with police-reported crashes, read in full with its figures reproduced; adopted as a method row in the crash-data plan with one open question on crash-type counts in the site crash-context record, and no definition, benchmark or metric changed ([briefing](lidar/operations/brief/research-briefing-2026-11-02.md)) (#908).
