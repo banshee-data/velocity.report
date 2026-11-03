@@ -1,7 +1,7 @@
 ---
 id: ground0006
 title: "A constrained robust road plane and a kerb split on the settled backgrounds, against the regional ground surface"
-status: approved
+status: answered
 owner: david
 created: 2026-10-27
 asks:
@@ -49,6 +49,9 @@ steps:
   - id: write
     kind: manual:write
     estimate: { human: 3h }
+actual:
+  wall: 1h42m
+  note: 24 backgrounds one at a time on arrow-worker (4 vCPU) beside another lane, 156 to 360 s each from the NAS; the oracle 6 to 10 s a site; the oracle was built by an agent in about 1h against the 6h estimate
 ---
 
 # ground0006: a constrained road plane and kerbs
@@ -112,6 +115,12 @@ is fixed now; nothing is changed after a result is seen.
 - _Passing_ proposes the estimator in the report; this run changes no default. The Gerardus
   comparison is descriptive and only where a site has an accepted registration; the kerb lines
   leave this repository only as a description (D-36).
+
+**Answer (2026-11-03).** No. The constrained plane's p95 rises in the kerb regions at Marina
+(0.582 to 1.169 m) and Columbus (0.403 to 0.638 m), and by more than 1 cm in 413 of 566 scored
+regions, so both clauses fail. The lowest quartile holds several surfaces, which MSAC's single
+slab leaves in the tail, and the difference of normals flags 26 to 41 % of a one-return-per-cell
+background. See the [report](../../../docs/lidar/operations/ground-constrained-plane-2026-10.md).
 
 **What it does not establish.** Whether the clip it would drive retains more lower-body returns,
 which ground0002 measures; tracks or safety metrics.

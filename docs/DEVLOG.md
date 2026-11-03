@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 3, 2026 - A constrained road plane against the regional surface
+
+- Ran [ground0006](../data/experiments/ground/ground0006.md) with a new PCL oracle (`tools/pcl-review/ground-oracle`, Debian PCL 1.15.0) and `bgasc -format pcd` on the 23 first-segment backgrounds: perpendicular-plane MSAC on each region's lowest returns raised the held-back road p95 in the kerb regions at Marina (0.582 to 1.169 m) and Columbus (0.403 to 0.638 m) and in 413 of 566 regions by more than 1 cm, so both clauses failed and nothing changed; the difference of normals flagged 26 to 41 % of each background and its kerb lines met the DataSF kerbs barely more often than any background point did ([report](lidar/operations/ground-constrained-plane-2026-10.md)) {exp/ground0006-constrained-plane}.
+
 ## November 2, 2026 - All survey scenes on the refined defaults, and survey pages on the Wayback Machine
 
 - Ran the weekly research briefing for October 26 to November 2: one source bears on the analytics, Jang's preprint comparing crash-type mix in the federal automated-driving incident files with police-reported crashes, read in full with its figures reproduced; adopted as a method row in the crash-data plan with one open question on crash-type counts in the site crash-context record, and no definition, benchmark or metric changed ([briefing](lidar/operations/brief/research-briefing-2026-11-02.md)) (#908).
