@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 3, 2026 - Settling convergence on the corpus
+
+- Logged every settling convergence check of 23 corpus sites up to 120 s under the honest first check ([l3bg0022](../data/experiments/l3bg/l3bg0022.md)): `settling_max_spread_delta` 0.001 is never met, 0.005 converges 3 sites and 0.01 15 before the 30 s ceiling (18 needed, and many at the first moment allowed), because the spread delta holds each site's traffic level rather than falling; on kirk 0.01 costs nothing. No default changed; the delta relative to the mean spread separates sites better and is proposed as [l3bg0030](../data/experiments/l3bg/l3bg0030.md). Added `-settling-trajectory` to `lidar-state-estimation-baseline` and the mean spread to the settling metrics ([report](lidar/operations/settling-convergence-corpus-2026-11.md)) {exp/l3bg0022-convergence}.
+
 ## November 2, 2026 - All survey scenes on the refined defaults, and survey pages on the Wayback Machine
 
 - Ran the weekly research briefing for October 26 to November 2: one source bears on the analytics, Jang's preprint comparing crash-type mix in the federal automated-driving incident files with police-reported crashes, read in full with its figures reproduced; adopted as a method row in the crash-data plan with one open question on crash-type counts in the site crash-context record, and no definition, benchmark or metric changed ([briefing](lidar/operations/brief/research-briefing-2026-11-02.md)) (#908).
