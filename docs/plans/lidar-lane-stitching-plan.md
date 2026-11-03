@@ -81,7 +81,10 @@ consumer may read beside the raw tracks.
 ### The lane map
 
 A per-placement file, hand-authored and committed (it is configuration, like a tuning set, not
-output). Each **segment** has an identifier, a directed centreline polyline in the sensor's world
+output). Once the [lanes from tracks plan](lidar-lane-proposals-from-tracks-plan.md) lands, the
+approved travel lanes in Gerardus, read through the lanes copy of the
+[directional speed reporting plan](platform-directional-speed-reporting-plan.md), can be that file's
+segments; the hand-drawn file stays the fallback and what lane0001 measures. Each **segment** has an identifier, a directed centreline polyline in the sensor's world
 frame, a corridor half-width, and a list of **successors**. A **transition** names a merge or
 diverge: the segments it joins, the arc-length interval on each over which a vehicle may change
 segment, and the route-distance offsets that put both segments' arc lengths on one axis. Lane
