@@ -114,11 +114,9 @@ func (g *BackgroundGrid) evaluateSettlingLocked(frameNumber int) SettlingMetrics
 	// --- Spread delta ---
 	var spreadDelta float64
 	curSpreads := make([]float32, total)
-	for i := range g.Cells {
-		curSpreads[i] = g.Cells[i].RangeSpreadMeters
-	}
 	var sumSpread float64
 	for i := range g.Cells {
+		curSpreads[i] = g.Cells[i].RangeSpreadMeters
 		if g.Cells[i].TimesSeenCount > 0 {
 			sumSpread += float64(curSpreads[i])
 		}
