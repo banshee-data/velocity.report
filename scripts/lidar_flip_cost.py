@@ -204,6 +204,7 @@ def compare(a_path, b_path):
         "speed_p85_diff_median_abs": pct(absdv, 0.5),
         "speed_p85_diff_p95_abs": pct(absdv, 0.95),
         "speed_p85_diff_mean": sum(dv) / len(dv) if dv else 0.0,
+        "speed_p85_diffs": dv,
     }
 
 
