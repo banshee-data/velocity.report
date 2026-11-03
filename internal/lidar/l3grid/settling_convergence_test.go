@@ -80,7 +80,7 @@ func TestNoConvergenceCheckWithoutThresholds(t *testing.T) {
 	bm := NewBackgroundManagerDI("no-thresholds", 4, 8, params, nil)
 
 	bm.Grid.mu.Lock()
-	converged := bm.Grid.settlingConvergedLocked()
+	converged := bm.Grid.settlingConvergedLocked(0)
 	bm.Grid.mu.Unlock()
 
 	if converged {
@@ -99,7 +99,7 @@ func TestConvergenceIsEvaluatedOnAnInterval(t *testing.T) {
 
 	// The first four calls are skipped outright, without evaluating.
 	for i := 1; i < 5; i++ {
-		if bm.Grid.settlingConvergedLocked() {
+		if bm.Grid.settlingConvergedLocked(0) {
 			t.Fatalf("call %d evaluated and reported convergence before the interval elapsed", i)
 		}
 		if bm.Grid.settlingCheckCounter != i {
@@ -108,7 +108,7 @@ func TestConvergenceIsEvaluatedOnAnInterval(t *testing.T) {
 	}
 
 	// The fifth evaluates and resets the counter.
-	bm.Grid.settlingConvergedLocked()
+	bm.Grid.settlingConvergedLocked(0)
 	if bm.Grid.settlingCheckCounter != 0 {
 		t.Errorf("counter = %d after the interval elapsed, want 0", bm.Grid.settlingCheckCounter)
 	}
@@ -121,10 +121,57 @@ func TestAnEmptyGridDoesNotConverge(t *testing.T) {
 	bm := NewBackgroundManagerDI("empty", 4, 8, convergenceParams(), nil)
 
 	bm.Grid.mu.Lock()
-	converged := bm.Grid.settlingConvergedLocked()
+	converged := bm.Grid.settlingConvergedLocked(0)
 	bm.Grid.mu.Unlock()
 
 	if converged {
 		t.Error("an empty grid reported convergence; settling would complete with no background at all")
+	}
+}
+
+// Every evaluation is recorded with its time and its four measures, so a
+// replay can read the convergence trajectory rather than only its verdict
+// (l3bg0022). Checks skipped by the interval are not evaluations and are not
+// recorded; a reset empties the record with the rest of the warm-up state.
+func TestSettlingTrajectoryRecordsEachEvaluation(t *testing.T) {
+	params := convergenceParams()
+	params.SettlingCheckInterval = 2
+	params.SettlingHonestFirstCheck = true
+	bm := NewBackgroundManagerDI("trajectory", 4, 8, params, nil)
+
+	if got := bm.SettlingTrajectory(); len(got) != 0 {
+		t.Fatalf("new grid has %d checks recorded, want none", len(got))
+	}
+	bm.Grid.mu.Lock()
+	for i := 1; i <= 4; i++ {
+		bm.Grid.settlingConvergedLocked(time.Duration(i) * time.Second)
+	}
+	bm.Grid.mu.Unlock()
+
+	got := bm.SettlingTrajectory()
+	if len(got) != 2 {
+		t.Fatalf("recorded %d checks over four calls at interval 2, want 2", len(got))
+	}
+	if got[0].ElapsedSeconds != 2 || got[1].ElapsedSeconds != 4 {
+		t.Errorf("elapsed = %v, %v; want 2, 4", got[0].ElapsedSeconds, got[1].ElapsedSeconds)
+	}
+	if got[0].Measured || !got[1].Measured {
+		t.Errorf("measured = %v, %v; want the first check unmeasured and the second measured", got[0].Measured, got[1].Measured)
+	}
+	if got[0].Converged || got[1].Converged {
+		t.Error("an empty grid's checks were recorded as converged")
+	}
+
+	// The copy is the caller's: changing it leaves the record alone.
+	got[0].ElapsedSeconds = 99
+	if bm.SettlingTrajectory()[0].ElapsedSeconds != 2 {
+		t.Error("SettlingTrajectory returned the grid's own slice")
+	}
+
+	if err := bm.ResetGrid(); err != nil {
+		t.Fatal(err)
+	}
+	if n := len(bm.SettlingTrajectory()); n != 0 {
+		t.Errorf("%d checks survive a reset, want none", n)
 	}
 }
