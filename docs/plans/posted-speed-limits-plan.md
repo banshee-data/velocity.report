@@ -7,7 +7,7 @@ limit per site, or per site configuration period, describes the wrong thing.
 - **Status:** Parked (D-32, October 20, 2026): its rows, and the vector scene road layer they wait on, sit in v0.7.7 (safety reporting), moved from v1.0 by the owner on October 20, 2026; revisit when v0.7.7 is next. Was: Proposed; implementation waits for the vector scene map (v1.0)
 - **Canonical:** [3D vector scene map](../lidar/architecture/vector-scene-map.md)
 - **Layers:** Vector scene roadway context, radar and LiDAR speed reports, site configuration
-- **Related:** [Behaviour analytics plan, Section 10.1](lidar-behaviour-analytics-plan.md#101-roadway-context-does-not-exist-yet-including-the-speed-limit), [Speed limit schedules](../radar/architecture/speed-limit-schedules.md), [Cosine correction spec](../radar/architecture/site-config-cosine-correction-spec.md), [Traffic description language plan](data-traffic-description-language-plan.md)
+- **Related:** [Directional speed reporting plan](platform-directional-speed-reporting-plan.md) (where this model is applied), [Lanes from tracks plan](lidar-lane-proposals-from-tracks-plan.md) (the lanes it hangs on), [Behaviour analytics plan, Section 10.1](lidar-behaviour-analytics-plan.md#101-roadway-context-does-not-exist-yet-including-the-speed-limit), [Speed limit schedules](../radar/architecture/speed-limit-schedules.md), [Cosine correction spec](../radar/architecture/site-config-cosine-correction-spec.md), [Traffic description language plan](data-traffic-description-language-plan.md)
 
 ## Where things stand
 
@@ -73,6 +73,19 @@ records signs as scene features (`TYPE_SIGN`, a Volume `sign_cluster`). Limits a
 - **Unsigned stretches.** Where no sign governs a stretch, the limit is unknown, not inferred. A
   statutory default, such as a built-up area's general limit, can be recorded explicitly, marked
   statutory with its jurisdiction, so a report can tell a posted limit from a default.
+
+## Revision, November 2026: limit segments are Gerardus's travel lanes
+
+The v0.7.7 backlog row said this plan would be revised once a road layer existed to attach limits to. It now does, in Gerardus rather than here, and the model above maps onto it as follows ([Gerardus LANE-PROPOSALS §5.4](https://github.com/banshee-data/gerardus/blob/main/docs/plans/LANE-PROPOSALS.md#54-tags-on-a-travel-lane), [lanes from tracks plan](lidar-lane-proposals-from-tracks-plan.md), [directional speed reporting plan](platform-directional-speed-reporting-plan.md)):
+
+- **A limit segment is a travel lane.** Gerardus's `TRAVEL_LANE` mark is a directed centreline between two intersections with a width and a type. Its `maxspeed` tag is the signed value with its unit inside (`25 mph`, `40 km/h`), never converted; `maxspeed_source` is `sign`, `operator` or `statutory`; `jurisdiction` is an ISO 3166-2 code; a lane without `maxspeed` has an unknown limit. OpenStreetMap is not a source: it is retired in Gerardus and would carry ODbL into a CC0 layer, so the OpenStreetMap `maxspeed` prior in Source above, in Site setup (step 3) and in the open questions below is withdrawn; a limit's sources are a sign, the operator or a statutory default.
+- **A limit change is a split.** Where a sign mid-block changes the limit, the lane is two lanes end to end sharing a vertex, each with its own `maxspeed`; the visualiser's Split action makes them. The arc-length limit changes described above are therefore not stored separately.
+- **Per direction, per lane.** A lane is directed (its vertex order), so every limit is per direction by construction and per lane from the start; the open question below is answered that way. Reporting groups lanes into named directions (street and bearing) and prints a lane's own limit where lanes of one direction differ.
+- **The copy in velocity.report.** `site_lanes` holds each lane's geometry, direction, limit, source and jurisdiction against Gerardus's ids and a `fetched_at`, so a report names the lanes it used. Effective dates stay this plan's: a limit changed on the street is a new lane version in Gerardus, and the copy's history preserves which version a period was reported against.
+- **Radar-only sites** get lanes painted by hand over the city streets in the same editor, no scan needed; the beam footprint's direction mapping and the suppression where the footprint spans a limit change are in the directional plan.
+- **Schedules** (D-16) attach to a lane by its id, and remain a later item. No ground polygons are built here from the ground tiles, as the v0.7.7 row says.
+
+The sections below stand as the model's reasoning; where they say "limit segment", read "travel lane".
 
 ## Applying a limit to a measured speed
 
