@@ -1,7 +1,7 @@
 ---
 id: ground0006
 title: "A constrained robust road plane and a kerb split on the settled backgrounds, against the regional ground surface"
-status: proposed
+status: approved
 owner: david
 created: 2026-10-27
 asks:
@@ -24,7 +24,10 @@ steps:
     kind: state_estimation_baseline
     over: [arms, cases]
     estimate: { each: 2m, worker: m1pro }
-    note: one settled background per site, exported as PCD by bgasc -format pcd
+    note: >-
+      one settled background per site, exported as PCD by bgasc -format pcd: the placement's
+      first 300 s replayed in analysis mode on a scratch server at the defaults, the preserved
+      grid persisted and exported
   - id: oracle
     kind: manual:implement
     estimate: { human: 6h }
@@ -61,6 +64,54 @@ estimator behind v0.5.4's slope-aware ground block if, on Marina and Columbus, t
 of held-back road residuals falls by 2 cm or more in the regions holding a kerb, and no region at
 any site rises by more than 1 cm. Kerb lines are offered to Gerardus whatever the result; this
 repository does not keep them (D-36).
+
+**The rule's reading, fixed at approval (2026-11-03), before any oracle run.** Everything below
+is fixed now; nothing is changed after a result is seen.
+
+- _Sites._ Marina is `marina-webster-beach` and Columbus is `columbus-broadway`, the corpus's
+  marina and columbus cases. The other 21 first-segment sites count for clause 2 only.
+  `embarcadero-folsom` is not read.
+- _Background._ One per site: the placement's first 300 s replayed in analysis mode at the
+  defaults, persisted and exported with `bgasc -format pcd`. At 16 sites this is the first
+  five-minute segment; at the seven 2026-09-01 sites the first segment holds 32 to 262 s of the
+  placement, and the 300 s read on into the next segment, as ground0001's replay did.
+- _Hold-back._ Every fifth exported point by ordinal (ordinal mod 5 = 0) is held back. Both
+  surfaces are fitted from the other four fifths only: `RegionalGroundSurface` is refitted on
+  them with `l3grid`'s method (10 m cells, lower quartile, 3 × median refit, global fallback),
+  ported to the oracle and checked against the Go fit.
+- _Region._ Each 10 m cell that has its own `RegionalGroundSurface` plane.
+- _Lowest returns._ In a region, fit points at or below the region's lower-quartile height
+  (index ⌊(n − 1)/4⌋ of the sorted heights, the regional fit's own selection), less kerb
+  candidates.
+- _Frame._ The sensor frame, axis +z. These captures carry no gravity reference (no IMU), so the
+  5° cone is about the sensor's z; the global planes tilt 0.6 to 5.5 % (at most 3.2°).
+- _Fit._ PCL `SACSegmentation`, `SACMODEL_PERPENDICULAR_PLANE`, `SAC_MSAC`, axis (0, 0, 1),
+  eps 5° in radians, threshold 0.05 m, 1,000 iterations, PCL's fixed seed, coefficient
+  optimisation **enabled**; the returned reselected inliers, checked against the returned
+  normalised plane at strict < 0.05 m over the supplied fit indices. Fewer than 12 fit points, an
+  empty mask or no coefficients is _unsupported_: the estimator keeps the regional plane there
+  (equal residuals), and the count is reported.
+- _Kerb candidates._ Normals at radii 0.3 and 1.2 m on every point, from the fit points as the
+  search surface, flipped towards the sensor origin; `DifferenceOfNormalsEstimation`; a point
+  is a candidate when its DoN magnitude is finite and above 0.25.
+- _Held-back road returns._ Held-back points in the region at or below its lower-quartile height
+  that are not kerb candidates. A region is _scored_ with 20 or more.
+- _Residual._ Vertical: z less the surface's height at (x, y), the regional plane's
+  `HeightAt` and the constrained plane solved for z. Per region: median |r|, MAD of r, and p95
+  of |r| (linear interpolation).
+- _Kerb lines._ Boundary cells are candidates within 0.3 m of a non-candidate point and no more
+  than 0.30 m above the region's lower-quartile height. `SACMODEL_LINE`, RANSAC, threshold
+  0.10 m, 1,000 iterations, optimised; a line is kept with 10 or more inliers, a direction within
+  20° of horizontal and an inlier extent of 2 m or more. A region _holds a kerb_ when it keeps a
+  line.
+- _Clause 1._ At each of Marina and Columbus, the p95 of |r| pooled over the held-back road
+  returns of its scored kerb-holding regions falls by 0.020 m or more (regional less
+  constrained).
+- _Clause 2._ In every scored region of the 23 sites, the constrained p95 is no more than
+  0.010 m above the regional p95.
+- _Passing_ proposes the estimator in the report; this run changes no default. The Gerardus
+  comparison is descriptive and only where a site has an accepted registration; the kerb lines
+  leave this repository only as a description (D-36).
 
 **What it does not establish.** Whether the clip it would drive retains more lower-body returns,
 which ground0002 measures; tracks or safety metrics.
