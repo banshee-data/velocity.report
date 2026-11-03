@@ -358,6 +358,10 @@ type Result struct {
 	// BackgroundLeak is Config.BackgroundLeak's report, over the whole
 	// processed window; nil without it.
 	BackgroundLeak *BackgroundLeakReport
+	// SettlingTrajectory is every convergence evaluation the background made
+	// during its warm-up, in order: when, what it measured, and whether it
+	// converged. Empty when convergence is not armed.
+	SettlingTrajectory []l3grid.SettlingCheck
 }
 
 // recordingPublisher writes each adapted FrameBundle straight to a recorder.
@@ -1367,6 +1371,8 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		Continuity:       continuity,
 		Dwell:            dwellReport,
 		BackgroundLeak:   leakReport,
+
+		SettlingTrajectory: bgMgr.SettlingTrajectory(),
 	}
 	result.Uncertainty, result.UncertaintySamples = uncertainty, uncertaintySamples
 	return result, nil

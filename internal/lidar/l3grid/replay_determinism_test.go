@@ -124,8 +124,8 @@ func TestHonestFirstCheckWaitsForAMeasuredDelta(t *testing.T) {
 		}))
 		bm.Grid.mu.Lock()
 		seedAllCells(bm.Grid)
-		first := bm.Grid.settlingConvergedLocked()
-		second := bm.Grid.settlingConvergedLocked()
+		first := bm.Grid.settlingConvergedLocked(0)
+		second := bm.Grid.settlingConvergedLocked(0)
 		bm.Grid.mu.Unlock()
 
 		assert.Equal(t, !honest, first, "honest=%v: first check", honest)
