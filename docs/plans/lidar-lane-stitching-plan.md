@@ -16,7 +16,7 @@ This plan evaluates joining track fragments across occlusion using lane and temp
 - **Companion plans:** [behaviour analytics §9.2](lidar-behaviour-analytics-plan.md#92-coasting-is-not-observation),
   [deterministic track identity](lidar-deterministic-track-identity-plan.md),
   [bodies in motion](lidar-bodies-in-motion-plan.md) (its sparse-cluster linking row, L5 with L7),
-  [lane field and proposals](lidar-lane-field-and-lane-proposals-plan.md) (its lane snapshot is the
+  [lane snapshot and attribution](lidar-lane-snapshot-and-attribution-plan.md) (its lane snapshot is the
   lane map C2 and C3 ask for, and the street painter its authoring tool)
 - **Canonical:** [Dong2026 review](../lidar/operations/dong2026-lane-stitching-review.md)
 
@@ -82,8 +82,13 @@ consumer may read beside the raw tracks.
 
 ### The lane map
 
-A per-placement file, hand-authored and committed (it is configuration, like a tuning set, not
-output). Each **segment** has an identifier, a directed centreline polyline in the sensor's world
+A per-placement map of directed lanes. It was to be a hand-authored file committed beside the
+tuning sets; under the owner's rule of November 3, 2026 that street data stays out of git (D-39), it
+is instead the travel lanes in Gerardus, drawn or approved in the visualiser's painter and read
+through the [lane snapshot](lidar-lane-snapshot-and-attribution-plan.md), whose `lanegeom` package
+is this plan's neutral geometry (C2). lane0001's drawing is done in the painter the same way.
+
+Each **segment** has an identifier, a directed centreline polyline in the sensor's world
 frame, a corridor half-width, and a list of **successors**. A **transition** names a merge or
 diverge: the segments it joins, the arc-length interval on each over which a vehicle may change
 segment, and the route-distance offsets that put both segments' arc lengths on one axis. Lane

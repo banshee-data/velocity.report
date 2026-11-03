@@ -1,25 +1,29 @@
 # Visualiser lane painter: traffic layer, proposed lanes and limits plan
 
 How the street painter in VelocityVisualiser shows where traffic ran (the lane field, as cumulative
-track centres or box extents, coloured by direction of travel), draws the lanes, sidewalks and
-crossings the server proposes from it with their confidence grade, lets the operator approve, edit or
-dismiss each one, gives every travel lane its own posted limit and splits a lane where the limit
-changes, saves the result to Gerardus, and hands the accepted lanes to velocity.report as the
-snapshot the speed reports read.
+track centres or box extents, coloured by direction of travel), uploads the field to Gerardus,
+draws the travel lanes Gerardus proposes from it with their confidence grade, lets the operator
+approve, edit or reject each one, gives every travel lane its own posted limit with the date it took
+effect and splits a lane where the limit changes, saves the result to Gerardus, and hands the
+accepted lanes to velocity.report as the snapshot the speed reports read.
 
-- **Status:** Proposed; waits on the lane field and proposals endpoints and on the owner's decision
-  on Gerardus ADR-0016 (proposed there). Not Active (D-32)
-- **Decisions:** relies on D-21 (visualiser debug overlay controls), D-32, D-33, D-38 and Gerardus
-  ADR-0006, ADR-0011 and the proposed ADR-0016; makes no new register entry (the companion server
-  plan proposes one)
+- **Status:** Proposed; waits on the lane field route (lanes from tracks phase B) and on Gerardus
+  W10a–c and W1c step 1. Not Active (D-32). Supersedes the paint-mode section (§2) of the
+  [lanes from tracks plan](lidar-lane-proposals-from-tracks-plan.md), reconciled November 3, 2026
+- **Decisions:** relies on D-21 (visualiser debug overlay controls), D-32, D-33, D-38, D-39 and
+  Gerardus ADR-0006, ADR-0011 and ADR-0016 (accepted November 3, 2026: the unified design)
 - **Layers:** macOS visualiser (alignment pane, street painter, Metal overlay); the vendored Gerardus
   proto; velocity.report's HTTP API as a client
-- **Target:** unscheduled; proposed for the v0.7.1 slot with its companions
-- **Companion plans:** [lane field and proposals](lidar-lane-field-and-lane-proposals-plan.md) (what
-  this consumes and writes), [speed by direction and lane](platform-speed-by-direction-reporting-plan.md),
+- **Target:** unscheduled; proposed as the v0.7.19 slot with its companions
+- **Companion plans:** [lanes from tracks](lidar-lane-proposals-from-tracks-plan.md) (the lane field
+  and its route), [lane snapshot and attribution](lidar-lane-snapshot-and-attribution-plan.md) (what
+  Send writes), [speed by direction and lane](platform-speed-by-direction-reporting-plan.md),
   [posted speed limits](posted-speed-limits-plan.md), [visualiser alignment client](lidar-visualiser-gerardus-alignment-plan.md),
   [light mode](lidar-visualiser-light-mode-plan.md), and Gerardus
+  [LANE-PROPOSALS](https://github.com/banshee-data/gerardus/blob/main/docs/plans/LANE-PROPOSALS.md)
+  (W10: fields, proposals, review) and
   [LANES-AND-LIMITS](https://github.com/banshee-data/gerardus/blob/main/docs/plans/LANES-AND-LIMITS.md)
+  (W1c: the limit tags)
 - **Canonical:** [Gerardus alignment pane](../ui/visualiser/gerardus-alignment.md)
 
 What the painter draws is measured or inferred geometry at its acquisition time: the field is
@@ -38,8 +42,8 @@ reports cannot use it.
 The owner's ask is concrete: paint the lanes from where the sensor saw cars and people, see the
 proposals, approve or edit them, see the direction of travel, and give each lane its own limit so
 an intersection signed 25 mph one way and 30 mph the other reports correctly. This plan is the
-visualiser's half of that: the server proposes, Gerardus stores, and this is where the operator
-decides.
+visualiser's half of that: velocity.report counts the traffic, Gerardus proposes and stores, and
+this is where the operator decides.
 
 ## Current state
 
@@ -79,15 +83,15 @@ view behaves as it does today.
 
 ### The traffic layer: cumulative tracks and box extents
 
-| Control         | Does                                                                                                                                                                                                                         |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Window          | Which runs the field reads: the open capture, every capture of this deployment, or a date range. Fetches `GET /api/lidar/sites/{l16}/lane-field` and shows its provenance (runs, tuning fingerprints, digest)                |
-| Show            | Centres (track centres per cell) or Extents (box footprint coverage per cell); the operator's two views of the same field                                                                                                    |
-| Classes         | Vehicles, cycles, people; each a toggle with its track count                                                                                                                                                                 |
-| Colour          | By direction of travel: each direction mode the server found gets a hue from a fixed, light-and-dark-mode-safe set (vehicles), with people and cycles in their own hues; the legend names each direction's bearing and bound |
-| Floor           | Cells under this many distinct tracks are faded (default five, ADR-0011's floor; never below one)                                                                                                                            |
-| Opacity         | Of the quad; the field must never hide the paint or the kerbs under it                                                                                                                                                       |
-| Live (fallback) | When the server has no field for the open capture, accumulate centres and boxes from the stream as it plays, labelled "live, this replay only", using the accumulation pattern; never saved                                  |
+| Control         | Does                                                                                                                                                                                                                                                                                                                                   |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source          | This recording: the open run's field from `GET /api/lidar/runs/{run_id}/lane-field` (lanes from tracks §1). The site: the summed field of every capture uploaded so far, in the site frame, from Gerardus's `GetLaneField`: the cumulative view. The pane names which is shown, with its provenance (captures, track count, field ids) |
+| Show            | Centres (track centres per cell) or Extents (box footprint coverage per cell); the operator's two views of the same field                                                                                                                                                                                                              |
+| Classes         | Vehicles, cycles, people; each a toggle with its track count                                                                                                                                                                                                                                                                           |
+| Colour          | By direction of travel, from the cell's dominant heading bin: each direction gets a hue from a fixed, light-and-dark-mode-safe set (vehicles), with people and cycles in their own hues; the legend names each direction's bearing and bound                                                                                           |
+| Floor           | The field carries no cell under five distinct tracks (ADR-0011); a higher floor fades thinner cells for reading                                                                                                                                                                                                                        |
+| Opacity         | Of the quad; the field must never hide the paint or the kerbs under it                                                                                                                                                                                                                                                                 |
+| Live (fallback) | When the server has no field for the open capture, accumulate centres and boxes from the stream as it plays, labelled "live, this replay only", using the accumulation pattern; never saved                                                                                                                                            |
 
 The quad is one texture per class group in the sensor frame, cell 0.25 m, alpha by the log of the
 count, hue by direction. It is placed by the same model matrix as the reference, so a pose nudge
@@ -97,36 +101,47 @@ traffic is then a pose error made visible, which is a feature.
 Hovering a cell shows its counts per class and direction and its mean speed in the inspector. No
 cell can be clicked through to a track: the field carries none.
 
-### Proposals: shown, approved, edited, dismissed
+**Send lane field.** Uploads the open run's three fields (the whole run and its two halves) to
+Gerardus with the accepted record's id (`UploadLaneField`, chunked like a scan). It is blocked
+without an accepted pose, while a save is pending, and when the server lacks `supports_lane_fields`,
+and it follows the alignment pane's one-long-call-on-the-wire rule. After the upload the summed
+field and the proposals are read again.
 
-Proposals come from `GET /api/lidar/sites/{l16}/lane-proposals` for the loaded field, matched
-against the marks the painter holds (it passes them in the request, so a lane already painted shows
-as confirmed or disagreeing rather than proposed again). They are in the sensor frame and are placed
-into the site frame by the accepted pose before drawing, as the marks are.
+### Proposals: shown, approved, edited, rejected
 
-| Grade or state        | Drawn as                                                                                                        |
-| --------------------- | --------------------------------------------------------------------------------------------------------------- |
-| High                  | A solid proposal line in the direction hue, arrowheads every 8 m, a faint band `width_m` across, a badge "high" |
-| Medium                | The same, dotted, a badge "medium"                                                                              |
-| Confirms a mark       | No new line; the existing mark gains a small check badge with the support count                                 |
-| Disagrees with a mark | The existing mark gains a warning badge and a thin offset line where the data runs                              |
-| Sidewalk, crossing    | A dotted outline polygon in the people hue; a crossing that confirms a W5 crosswalk marking shows a check badge |
-| Selected              | The white band and handles the marks use                                                                        |
+Proposals come from Gerardus's `ListLaneProposals` (Gerardus LANE-PROPOSALS §5.1): the current
+`travel_lane` proposal rows with their tags, each with its lateral profile at every station, and
+`adopted_by` (an authored lane runs along it) and `review` (rejected or reopened) where they exist.
+They are in the site frame and are drawn like the marks.
 
-The pane lists proposals by direction, each with grade, support, lateral spread, half-window
-agreement, suggested type and width, and three actions:
+| Grade or state        | Drawn as                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| High                  | A solid proposal line in the direction hue, arrowheads every 8 m, a faint band `width_m` across, a badge "high"       |
+| Medium                | The same, dotted, a badge "medium"                                                                                    |
+| Adopted               | Faint: an authored lane already runs along it (`adopted_by`)                                                          |
+| Rejected              | Struck through, until reopened                                                                                        |
+| Disagrees with a mark | Gerardus's `lane_against_evidence` problem on the mark: a warning badge where the traffic runs against it             |
+| Crossing tagged       | Where a proposal crosses a band of people (`pedestrian_crossings`), a marker at each station; W5's crosswalk compared |
+| Selected              | The white band and handles the marks use                                                                              |
 
-- **Approve** turns it into a mark with the suggested tags, `gms:source=fitted` and the fit
-  provenance tags the server supplied, and selects it; it is now an ordinary mark the operator can
-  move vertex by vertex, as today. Approving is one undoable change.
+The pane lists proposals by direction, sorted by grade, each with tracks, lateral spread,
+direction agreement, half-window agreement, street, suggested type and width. Selecting one centres
+the view and draws its lateral profiles as thin cross-lines, so the operator sees the ridge the line
+was fitted to. The actions:
+
+- **Approve** adds a new travel-lane mark with the proposal's vertices, `lane_type` and `width_m`,
+  and the tags `proposal=<feature id>` and `confidence=<grade>`, and selects it; it is now an
+  ordinary mark the operator can move vertex by vertex, as today. Approving is one undoable change.
 - **Edit** approves and starts a vertex drag at the clicked vertex.
-- **Dismiss** hides it for this field digest. Dismissals are kept per site in the app's preferences,
-  keyed by the field digest and the proposal's own id, so a dismissed lane does not return until the
-  field changes. Nothing is sent anywhere.
-- **Approve all high** approves every high-grade proposal that matches no mark, as one undoable
-  change, for a site with clean traffic.
+- **Approve all high** approves every unadopted `high` proposal, as one undoable change, for a site
+  with clean traffic.
+- **Reject** calls `ReviewLaneProposal(REJECTED)` with the proposal's row id and a stable request
+  id, through the pending-request discipline the painter's Save uses. The rejection is stored in
+  Gerardus, append-only, and holds across re-derivation until the evidence makes a different lane.
+  **Reopen** reverses it.
 
-A proposal is never saved as a proposal: Gerardus receives marks, and only on Save.
+Approvals reach Gerardus as marks, on Save; rejections are their own call. Gerardus tags the
+proposals an approved lane adopted, so the next read draws them faint.
 
 ### Direction of travel
 
@@ -187,9 +202,10 @@ units: a 25 mph sign is stored as 25 and `mph` (posted-limits plan, "A limit is 
 
 ### Sidewalks and crossings
 
-Pedestrian proposals are approved into `surface=sidewalk` polygons as today's surface tool makes,
-and into `surface=crossing` polygons once Gerardus accepts that value; until then the painter shows
-crossing proposals and their match to W5 crosswalk markings but offers no approval for them.
+Gerardus keeps people's cells out of the carriageway and tags where a lane crosses a band of them
+(`pedestrian_crossings`); proposing sidewalk and crossing surfaces from the pedestrian field is its
+W10f, later. Until then the operator draws `surface=sidewalk` and `surface=crossing` polygons with
+the surface tool, using the people layer as the guide.
 
 ### Save, then send the snapshot
 
@@ -214,19 +230,21 @@ reports on the previous snapshot, and the pane says so with a standing notice un
 
 ### The operator's path, extended
 
-| Step                          | What the pane does                                                                            | Calls                  |
-| ----------------------------- | --------------------------------------------------------------------------------------------- | ---------------------- |
-| Paint streets                 | As today                                                                                      | none                   |
-| Load traffic                  | Fetches the field for the chosen window and draws it under the marks                          | `GET …/lane-field`     |
-| Propose                       | Fetches proposals for that field, matched against the marks held, and lists them by direction | `GET …/lane-proposals` |
-| Approve, edit, dismiss        | Local; marks change as any mark does                                                          | none                   |
-| Set limits, split at signs    | Local                                                                                         | none                   |
-| Save street use               | As today                                                                                      | `EditStreetUse`        |
-| Send lanes to velocity.report | Writes the snapshot with the pose                                                             | `PUT …/lanes`          |
+| Step                          | What the pane does                                                                            | Calls                                        |
+| ----------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| Paint streets                 | As today                                                                                      | none                                         |
+| Load traffic                  | Fetches the run's field and the site's summed field, and draws the chosen one under the marks | `GET …/runs/{id}/lane-field`, `GetLaneField` |
+| Send lane field               | Uploads the run's three fields against the accepted record                                    | `UploadLaneField`                            |
+| Propose                       | Reads Gerardus's proposals with their profiles and lists them by direction                    | `ListLaneProposals`                          |
+| Approve, edit                 | Local; marks change as any mark does                                                          | none                                         |
+| Reject, reopen                | Records the review in Gerardus                                                                | `ReviewLaneProposal`                         |
+| Set limits, split at signs    | Local                                                                                         | none                                         |
+| Save street use               | As today                                                                                      | `EditStreetUse`                              |
+| Send lanes to velocity.report | Writes the snapshot with the pose                                                             | `PUT …/lanes`                                |
 
 ### Keyboard and menus
 
-`T` toggles the traffic layer, `P` the proposals, `A` approves the selected proposal, `D` dismisses
+`T` toggles the traffic layer, `P` the proposals, `A` approves the selected proposal, `R` rejects
 it, and `S` picks the split tool, all only while painting and none shadowing today's keys (Return,
 Escape, Delete). The Edit menu gains the same items with their shortcuts, following
 [menu-layout.md](../ui/visualiser/menu-layout.md).
@@ -236,9 +254,11 @@ Escape, Delete). The Edit menu gains the same items with their shortcuts, follow
 Unit tests in the style of `StreetPainterTests` and `AlignmentTests`, against a fake
 velocity.report API and the fake Gerardus:
 
-- the field texture is built from a synthetic cell list and placed by the model matrix;
-- a proposal is placed into the site frame by the pose and matches a mark within 0.5 m;
-- approve makes a mark with the fit tags; dismiss persists per digest; undo restores;
+- the field texture is built from a synthetic cell list, the run's field placed by the model matrix
+  and the summed field drawn in the site frame;
+- the upload sends three fields with the record id, and is blocked without an accepted pose;
+- approve makes a mark with `proposal` and `confidence`; reject and reopen send the right request
+  with the row id and survive a reload; undo restores;
 - split at a point yields two lanes sharing the vertex with tags copied and the downstream lane's
   limit cleared;
 - prefill takes the city record when present and the statutory default otherwise, never silently;
@@ -248,33 +268,34 @@ velocity.report API and the fake Gerardus:
 
 ## Scope
 
-### Item 1: traffic layer
+### Item 1: traffic layer and field upload
 
-**Summary:** Fetch the field and draw it as cumulative centres or box extents, coloured by
-direction, with class toggles and a floor; a labelled live fallback from the stream.
+**Summary:** Fetch the run's field and the site's summed field and draw either as cumulative centres
+or box extents, coloured by direction, with class toggles; a labelled live fallback from the
+stream; Send lane field.
 
-**Milestone:** v0.7.1 `M`
+**Milestone:** v0.7.19 `M`
 
-### Item 2: proposals and approval
+### Item 2: proposals and review
 
-**Summary:** Fetch, draw and list graded proposals matched against the marks; approve, edit,
-dismiss and approve-all-high as undoable changes.
+**Summary:** Read, draw and list Gerardus's graded proposals with their profiles; approve, edit and
+approve-all-high as undoable changes; reject and reopen through `ReviewLaneProposal`.
 
-**Milestone:** v0.7.1 `M`
+**Milestone:** v0.7.19 `M`
 
 ### Item 3: direction names, limits and split at sign
 
 **Summary:** Bound and direction name per lane, the limit fields with prefill and checks, and the
 split tool, written as Gerardus's tags.
 
-**Milestone:** v0.7.1 `M`
+**Milestone:** v0.7.19 `M`
 
 ### Item 4: send the snapshot
 
 **Summary:** After Save, write the lane snapshot to velocity.report with the pose and show the
 derived directions; standing notice until sent.
 
-**Milestone:** v0.7.1 `S`
+**Milestone:** v0.7.19 `S`
 
 ### Item 5: hub doc and menu layout
 
@@ -285,8 +306,11 @@ what shipped, when it ships (D-33).
 
 ## Dependencies
 
-- The companion server plan's endpoints (field, proposals, snapshot); Item 1's live fallback works
-  without them, nothing else does.
+- The lane field route (lanes from tracks phase B), Gerardus W10a (`UploadLaneField`,
+  `GetLaneField`), W10c (`ListLaneProposals`, `ReviewLaneProposal`), and the snapshot endpoints
+  ([lane snapshot and attribution](lidar-lane-snapshot-and-attribution-plan.md)); Item 1's live
+  fallback works without them, nothing else does. `align.proto` is re-vendored with
+  `make proto-gen-swift` once Gerardus ships them.
 - An accepted pose in the alignment session, which exists today; the pose writeback endpoint for the
   server's agreement check, which is v0.5.5.
 - Gerardus's tag validation and `crossing` surface value, for the limit checks and crossing
@@ -296,37 +320,38 @@ what shipped, when it ships (D-33).
 
 ## Risks
 
-| Risk                                                                             | Likelihood | Impact | Mitigation                                                                                                                                      |
-| -------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| The field hides the reference under it and the operator snaps to the wrong thing | Medium     | Medium | The field is a quad under the marks with an opacity control; snapping never targets the field                                                   |
-| Approve-all puts wrong lanes into Gerardus                                       | Medium     | Medium | Only high-grade, unmatched proposals; one undoable change; marks carry `gms:source=fitted` and support                                          |
-| The statutory prefill is taken as a posted limit                                 | Medium     | Medium | Source is a required field shown on the lane and in the reports; `statutory` prints as a default, not a sign                                    |
-| Pose moves after the snapshot is sent                                            | Medium     | High   | The snapshot names its pose record; the server refuses a snapshot whose pose disagrees with the pose record; re-send after accepting a new pose |
-| Live fallback mistaken for the server's field                                    | Low        | Medium | Labelled "live, this replay only" in the legend and the inspector; never saved                                                                  |
-| Metal texture per class group costs frame time on large sites                    | Low        | Low    | Sparse cells rasterised once per fetch; the texture is bounded by the field's extent                                                            |
+| Risk                                                                             | Likelihood | Impact | Mitigation                                                                                                                                                              |
+| -------------------------------------------------------------------------------- | ---------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The field hides the reference under it and the operator snaps to the wrong thing | Medium     | Medium | The field is a quad under the marks with an opacity control; snapping never targets the field                                                                           |
+| Approve-all puts wrong lanes into Gerardus                                       | Medium     | Medium | Only `high`, unadopted proposals; one undoable change; marks carry `proposal` and `confidence`; Gerardus's `lane_against_evidence` names a lane the traffic contradicts |
+| The statutory prefill is taken as a posted limit                                 | Medium     | Medium | Source is a required field shown on the lane and in the reports; `statutory` prints as a default, not a sign                                                            |
+| Pose moves after the snapshot is sent                                            | Medium     | High   | The snapshot names its pose record; the server refuses a snapshot whose pose disagrees with the pose record; re-send after accepting a new pose                         |
+| Live fallback mistaken for a stored field                                        | Low        | Medium | Labelled "live, this replay only" in the legend and the inspector; never saved                                                                                          |
+| Metal texture per class group costs frame time on large sites                    | Low        | Low    | Sparse cells rasterised once per fetch; the texture is bounded by the field's extent                                                                                    |
 
 ## Design decisions
 
-- **The server proposes, the painter decides.** No fitting runs in Swift except the labelled live
-  fallback; grades and thresholds are the server's, so the web and the painter agree
-  (companion plan, Design decisions).
-- **A proposal becomes an ordinary mark.** Approval is not a separate state in Gerardus; the fit
-  provenance travels as tags (Gerardus ADR-0016, proposed).
+- **Gerardus proposes, the painter decides.** No fitting runs in Swift except the labelled live
+  fallback; proposals, grades and thresholds are Gerardus's, so the web viewer and the painter show
+  the same lanes (Gerardus ADR-0016, accepted November 3, 2026).
+- **A proposal becomes an ordinary mark.** Approval is an authored travel lane naming its proposal;
+  a rejection is an append-only review in Gerardus. Neither changes the proposal row.
 - **Direction stays the vertex order.** No new direction tag beyond the derived `bound` and the
   group's `direction_name`, so today's marks and GeoJSON keep their meaning.
-- **A lane has one limit; split where it changes.** The posted-limits plan's limit segments are
-  lanes, so there is no separate limit-change record to keep in step.
+- **A lane has one limit at a time; split where it changes along the street, version it where it
+  changes over time.** The posted-limits plan's limit segments are lanes, so there is no separate
+  limit-change record to keep in step.
 - **Two writes, Gerardus first.** The snapshot is a copy with provenance, never the source.
-- **Nothing the painter makes is committed.** Marks live in Gerardus, snapshots in velocity.report's
-  database, dismissals in the app's preferences; screenshots for the hub doc come from the render
-  tool's output in the Hugging Face dataset (companion server plan), not from files under `docs/`.
+- **Nothing the painter makes is committed.** Marks and reviews live in Gerardus, snapshots in
+  velocity.report's database; screenshots for the hub doc come from the render
+  tool's output in the Hugging Face dataset ([lane snapshot and attribution](lidar-lane-snapshot-and-attribution-plan.md)), not from files under `docs/`.
 
 ## Open questions
 
-- Should the field be fetched for the deployment by default, or for the open capture? The server
-  plan asks the same; the painter follows its default.
-- Does a dismissed proposal stay dismissed when the field digest changes only because a new run was
-  added? Keyed by digest it returns, which may be right.
+- Should the traffic layer open on the run's field or the site's summed field? The summed field is
+  proposed, since it is what the proposals were read from.
+- Should `medium` proposals be approvable, or only `high`? Both, with the grade copied onto the
+  mark's `confidence` tag (Gerardus LANE-PROPOSALS §10); the owner may narrow it.
 - Where does the direction name live when a group spans lanes drawn on two city street segments
   (an intersection approach drawn across the node)? The first segment's name is the proposal.
 - Is a km/h site expected before the jurisdiction field needs more than a default?
@@ -335,12 +360,12 @@ what shipped, when it ships (D-33).
 
 ### Complete
 
-- [x] Plan written against the painter as built and the companion server plan
+- [x] Plan written against the painter as built; reconciled with the unified design and the lanes from tracks plan's §2 on November 3, 2026
 
 ### Outstanding
 
-- [ ] Item 1: traffic layer, texture, controls, live fallback (`M`)
-- [ ] Item 2: proposals list, drawing, approve, edit, dismiss (`M`)
+- [ ] Item 1: traffic layer, both field sources, texture, controls, live fallback, Send lane field (`M`)
+- [ ] Item 2: proposals list with profiles, approve, edit, approve all high, reject and reopen (`M`)
 - [ ] Item 3: bound, direction names, limit fields, prefill, split at sign (`M`)
 - [ ] Item 4: send the snapshot, pending request, standing notice (`S`)
 - [ ] Item 5: hub doc and menu layout updated at ship (`S`)
