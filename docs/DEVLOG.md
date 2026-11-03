@@ -10,7 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 ## November 3, 2026 - The overlap end's cost as a default
 
-- Measured what making the overlap end with tentative priority the default would cost across the corpus ([l5id0012](../data/experiments/l5id/l5id0012.md)), on the first segment of 23 sites and, held out, the third capture of 22: duplicates fall at every site and kirk0 identity switches go from 90 to 5, but it fails its rule on lost tracks (10 %), shortened tracks, spurious tracks (brief tracks about ninefold) and the tail of speed changes, on both sets; most "lost" tracks are a duplicate's other half more than 2 m from its survivor. No default changed ([report](lidar/operations/overlap-end-default-cost-2026-11.md)) {exp/l5id-overlap-end-default}.
+- {exp/l5id-overlap-end-default} Measured what making the overlap end with tentative priority the default would cost across the corpus ([l5id0012](../data/experiments/l5id/l5id0012.md)), on the first segment of 23 sites and, held out, the third capture of 22: duplicates fall at every site and kirk0 identity switches go from 90 to 5, but it fails its rule on lost tracks (10 %), shortened tracks, spurious tracks (brief tracks about ninefold) and the tail of speed changes, on both sets; most "lost" tracks are a duplicate's other half more than 2 m from its survivor. No default changed ([report](lidar/operations/overlap-end-default-cost-2026-11.md)).
 
 ## November 2, 2026 - All survey scenes on the refined defaults, and survey pages on the Wayback Machine
 

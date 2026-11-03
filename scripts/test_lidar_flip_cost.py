@@ -25,14 +25,14 @@ def make_db(
         "CREATE TABLE lidar_track_observations (track_id TEXT, ts_unix_nanos INTEGER, x REAL, y REAL, speed_mps REAL)"
     )
     for tid, rows in tracks.items():
-        t0, t1 = int(rows[0][0] * S), int(rows[-1][0] * S)
+        t0, t1 = int(round(rows[0][0] * S)), int(round(rows[-1][0] * S))
         con.execute(
             "INSERT INTO lidar_tracks VALUES (?,?,?,?)", (tid, t0, t1, (t1 - t0) / S)
         )
         for t, x, y, v in rows:
             con.execute(
                 "INSERT INTO lidar_track_observations VALUES (?,?,?,?,?)",
-                (tid, int(t * S), x, y, v),
+                (tid, int(round(t * S)), x, y, v),
             )
     con.commit()
     con.close()
