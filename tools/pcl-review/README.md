@@ -48,3 +48,22 @@ zero z translation despite a target z offset. This corrects an earlier source-re
 it is not an iterative registration benchmark. It uses registration headers and the existing
 common library, without building the registration library. See the
 [disposition](../../docs/lidar/operations/pcl-planar-registration-disposition.md).
+
+## Constrained ground and kerbs (ground0006)
+
+`ground-oracle/` is a separate CMake project that links an installed PCL through
+`find_package(PCL)` rather than the reviewed source build; each run's `summary.txt` records the
+version it used. On Debian, `apt-get install libpcl-dev cmake g++` (1.15.0) is enough; the
+project enables C as well as C++ because Debian's PCL configuration loads VTK, whose MPI target
+must exist first.
+
+```bash
+cmake -S tools/pcl-review/ground-oracle -B /tmp/ground-oracle && cmake --build /tmp/ground-oracle
+go run ./cmd/tools/bgasc -db <db> -snapshot <id> -format pcd -out /tmp/site.pcd
+/tmp/ground-oracle/pcl-ground-oracle /tmp/site.pcd /tmp/site-oracle/
+```
+
+Every parameter is ground0006's, fixed in the [spec](../../data/experiments/ground/ground0006.md)
+and in the source; none is a flag. The output directory receives residuals, regions, kerb
+candidates and kerb lines as CSV. Keep it outside the checkout: kerb lines are geometry, which
+this repository does not keep (D-36).
