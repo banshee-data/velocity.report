@@ -21,6 +21,9 @@ type SettlingMetrics struct {
 	RegionStability float64 `json:"region_stability"`
 	// MeanConfidence is the mean TimesSeenCount across all observed cells.
 	MeanConfidence float64 `json:"mean_confidence"`
+	// MeanSpread is the mean RangeSpreadMeters across all observed cells,
+	// the scale a relative spread delta would be read against (l3bg0022).
+	MeanSpread float64 `json:"mean_spread"`
 	// EvaluatedAt is the wall-clock time of this evaluation.
 	EvaluatedAt time.Time `json:"evaluated_at"`
 	// FrameNumber is the logical frame index at evaluation time.
@@ -114,6 +117,16 @@ func (g *BackgroundGrid) evaluateSettlingLocked(frameNumber int) SettlingMetrics
 	for i := range g.Cells {
 		curSpreads[i] = g.Cells[i].RangeSpreadMeters
 	}
+	var sumSpread float64
+	for i := range g.Cells {
+		if g.Cells[i].TimesSeenCount > 0 {
+			sumSpread += float64(curSpreads[i])
+		}
+	}
+	var meanSpread float64
+	if observed > 0 {
+		meanSpread = sumSpread / float64(observed)
+	}
 	if len(g.prevSpreads) == total {
 		var sumDelta float64
 		var deltaCount int
@@ -154,6 +167,7 @@ func (g *BackgroundGrid) evaluateSettlingLocked(frameNumber int) SettlingMetrics
 		SpreadDeltaRate: spreadDelta,
 		RegionStability: regionStability,
 		MeanConfidence:  meanConf,
+		MeanSpread:      meanSpread,
 		EvaluatedAt:     time.Now(),
 		FrameNumber:     frameNumber,
 	}
@@ -333,6 +347,7 @@ type SettlingCheck struct {
 	SpreadDeltaRate float64 `json:"spread_delta_rate"`
 	RegionStability float64 `json:"region_stability"`
 	MeanConfidence  float64 `json:"mean_confidence"`
+	MeanSpread      float64 `json:"mean_spread"`
 }
 
 // maxSettlingChecks bounds the recorded trajectory. At the default interval a
@@ -354,6 +369,7 @@ func (g *BackgroundGrid) recordSettlingCheckLocked(elapsed time.Duration, m Sett
 		SpreadDeltaRate: m.SpreadDeltaRate,
 		RegionStability: m.RegionStability,
 		MeanConfidence:  m.MeanConfidence,
+		MeanSpread:      m.MeanSpread,
 	})
 }
 

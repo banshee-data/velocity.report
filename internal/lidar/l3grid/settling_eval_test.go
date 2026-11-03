@@ -158,6 +158,8 @@ func TestEvaluateSettling_SpreadDeltaRate(t *testing.T) {
 	m2 := bm.EvaluateSettling(2)
 	// Expected delta = (0.02 + 0.02 + 0 + 0) / 4 = 0.01
 	assert.InDelta(t, 0.01, m2.SpreadDeltaRate, 1e-6)
+	// Mean spread over the observed cells: (0.12 + 0.08 + 0.10 + 0.10) / 4.
+	assert.InDelta(t, 0.10, m2.MeanSpread, 1e-6)
 }
 
 func TestEvaluateSettling_RegionStability(t *testing.T) {
