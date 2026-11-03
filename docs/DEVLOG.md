@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 3, 2026 - The overlap end's cost as a default
+
+- Measured what making the overlap end with tentative priority the default would cost across the corpus ([l5id0012](../data/experiments/l5id/l5id0012.md)), on the first segment of 23 sites and, held out, the third capture of 22: duplicates fall at every site and kirk0 identity switches go from 90 to 5, but it fails its rule on lost tracks (10 %), shortened tracks, spurious tracks (brief tracks about ninefold) and the tail of speed changes, on both sets; most "lost" tracks are a duplicate's other half more than 2 m from its survivor. No default changed ([report](lidar/operations/overlap-end-default-cost-2026-11.md)) {exp/l5id-overlap-end-default}.
+
 ## November 2, 2026 - All survey scenes on the refined defaults, and survey pages on the Wayback Machine
 
 - Ran the weekly research briefing for October 26 to November 2: one source bears on the analytics, Jang's preprint comparing crash-type mix in the federal automated-driving incident files with police-reported crashes, read in full with its figures reproduced; adopted as a method row in the crash-data plan with one open question on crash-type counts in the site crash-context record, and no definition, benchmark or metric changed ([briefing](lidar/operations/brief/research-briefing-2026-11-02.md)) (#908).
