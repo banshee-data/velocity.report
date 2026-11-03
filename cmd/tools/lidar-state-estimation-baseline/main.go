@@ -135,6 +135,7 @@ func main() {
 		cpuProfileDir       = flag.String("cpuprofile-dir", "", "empty directory for a pprof CPU profile of each case's repeat replay (<case>.repeat.cpu.pprof); the repeat writes no evidence, so the profile is the pipeline's own cost")
 		surfaceGround       = flag.Bool("surface-ground", false, "enable P11 surface-relative ground clipping")
 		surfaceGroundRegion = flag.Float64("surface-ground-region-metres", 0, "P11 ground-plane region cell size in metres; 0 uses l3grid.DefaultRegionSizeMetres")
+		settlingTrajectory  = flag.Bool("settling-trajectory", false, "write each case's "+settlingTrajectoryFile+": every convergence evaluation of the first run's background warm-up (elapsed time, coverage, spread delta, region stability, mean confidence, decision), checked equal on the repeat (l3bg0022)")
 		groundReport        = flag.Bool("ground-report", false, "fit the P11 regional surface beside the first run's tracks, read and never applied, and write each case's "+groundReportFile+" (ground0001): the grade and its fall line against the moving tracks' course, the cell planes against the global plane where they go, and each moving track's lowest return against distance")
 		campaignMetrics     = flag.Bool("campaign-metrics", false, "export confirmed intervals and tracker update timing separately from deterministic artifacts")
 		measurementMode     = flag.String("measurement-mode", string(l5tracks.MeasurementMedoidV0), "replay position model: medoid_v0 (production) or obb_centre_v1 (D2 candidate)")
@@ -284,7 +285,8 @@ func main() {
 		outDir: *outDir, observationDBPath: observationDBPath, evidenceDir: *evidenceDir,
 		evidencePerCase: *evidencePerCase, discardEvidence: *discardEvidence, samplePoints: *samplePoints,
 		evidenceProfile: *evidenceProfile, cpuProfileDir: *cpuProfileDir, groundReport: *groundReport,
-		coverage: coverage, splitUses: split.uses, sourceManifest: verifiedSourceManifest, index: index,
+		settlingTrajectory: *settlingTrajectory,
+		coverage:           coverage, splitUses: split.uses, sourceManifest: verifiedSourceManifest, index: index,
 		survey: survey, identity: identity, resume: *resume,
 		prepare: replayeval.PrepareCaptureSequence, replay: replayeval.Run,
 	}
@@ -321,15 +323,17 @@ type corpusReplay struct {
 	evidenceProfile   bool
 	cpuProfileDir     string
 	groundReport      bool
-	coverage          map[string]replayeval.ContinuityCoverage
-	splitUses         map[string]*replayeval.SplitUse
-	sourceManifest    *sourceManifest
-	index             map[string]indexEntry
-	survey            surveyFlags
-	identity          caseIdentity
-	resume            bool
-	prepare           func(files []string, udpPort int) (*capseq.Sequence, error)
-	replay            func(replayeval.Config) (*replayeval.Result, error)
+	// settlingTrajectory writes each case's settling_trajectory.json.
+	settlingTrajectory bool
+	coverage           map[string]replayeval.ContinuityCoverage
+	splitUses          map[string]*replayeval.SplitUse
+	sourceManifest     *sourceManifest
+	index              map[string]indexEntry
+	survey             surveyFlags
+	identity           caseIdentity
+	resume             bool
+	prepare            func(files []string, udpPort int) (*capseq.Sequence, error)
+	replay             func(replayeval.Config) (*replayeval.Result, error)
 }
 
 // evidencePath is where a case's first run writes its evidence, or "" when
@@ -446,6 +450,15 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		}
 		// The dwell policy changes the background model, so every absorption
 		// must reproduce, not only the tracks it leaves behind.
+		if r.settlingTrajectory {
+			if !reflect.DeepEqual(firstResult.SettlingTrajectory, repeatResult.SettlingTrajectory) {
+				return nil, nil, fmt.Errorf("settling trajectory differs on repeat for %s", selectedCase.ID)
+			}
+			if err := writeSettlingTrajectory(first.OutDir, firstResult.SettlingTrajectory); err != nil {
+				return nil, nil, fmt.Errorf("settling trajectory %s: %w", selectedCase.ID, err)
+			}
+			fmt.Printf("%s: settling trajectory %d check(s)\n", selectedCase.ID, len(firstResult.SettlingTrajectory))
+		}
 		if !reflect.DeepEqual(firstResult.Dwell, repeatResult.Dwell) {
 			return nil, nil, fmt.Errorf("dwell policy absorptions differ on repeat for %s", selectedCase.ID)
 		}

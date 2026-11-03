@@ -170,7 +170,7 @@ const defaultSettlingCheckInterval = 10
 //
 // The caller must hold g.mu for writing. Returns false when no thresholds are
 // configured, which leaves settling on the frame-count-and-duration rule alone.
-func (g *BackgroundGrid) settlingConvergedLocked() bool {
+func (g *BackgroundGrid) settlingConvergedLocked(elapsed time.Duration) bool {
 	thresholds, ok := g.settlingThresholdsLocked()
 	if !ok {
 		return false
@@ -192,11 +192,13 @@ func (g *BackgroundGrid) settlingConvergedLocked() bool {
 	measured := len(g.prevSpreads) == len(g.Cells)
 	metrics := g.evaluateSettlingLocked(0)
 	if g.Params.SettlingHonestFirstCheck && !measured {
+		g.recordSettlingCheckLocked(elapsed, metrics, measured, false)
 		diagf("[BackgroundManager] Settling not converged for sensor=%s: spread delta not yet measured (first check)",
 			g.SensorID)
 		return false
 	}
 	converged := metrics.IsConverged(thresholds)
+	g.recordSettlingCheckLocked(elapsed, metrics, measured, converged)
 
 	// Report the measurement, not just the verdict. "Still settling" with no
 	// numbers gives an operator nothing to act on, and the criteria are only
@@ -305,7 +307,7 @@ func (bm *BackgroundManager) settlingCompleteLocked(nowNanos int64) bool {
 	// warm-up. The duration is a ceiling for scenes that never converge, not a
 	// toll every scene pays. The frame minimum still applies: convergence
 	// measured over too few frames is not evidence of anything.
-	if framesReady && !durReady && g.settlingConvergedLocked() {
+	if framesReady && !durReady && g.settlingConvergedLocked(elapsed) {
 		diagf("[BackgroundManager] Settling complete for sensor=%s after %v on convergence (ceiling was %v)",
 			g.SensorID, elapsed.Round(time.Millisecond),
 			time.Duration(g.Params.WarmupDurationNanos))
@@ -313,4 +315,57 @@ func (bm *BackgroundManager) settlingCompleteLocked(nowNanos int64) bool {
 	}
 
 	return false
+}
+
+// SettlingCheck is one convergence evaluation made during warm-up: when it was
+// made, what it measured, and what it decided. The sequence of them is the
+// convergence trajectory l3bg0022 reads its thresholds off.
+type SettlingCheck struct {
+	// ElapsedSeconds is the time since the warm-up started, by the frames'
+	// own clock, as the settling decision measures it.
+	ElapsedSeconds float64 `json:"elapsed_seconds"`
+	// Measured is false for a check with no previous spreads to compare
+	// against, whose spread delta reads as zero without being measured.
+	Measured bool `json:"measured"`
+	// Converged is the check's decision under the grid's own thresholds.
+	Converged       bool    `json:"converged"`
+	CoverageRate    float64 `json:"coverage_rate"`
+	SpreadDeltaRate float64 `json:"spread_delta_rate"`
+	RegionStability float64 `json:"region_stability"`
+	MeanConfidence  float64 `json:"mean_confidence"`
+}
+
+// maxSettlingChecks bounds the recorded trajectory. At the default interval a
+// check is about a second apart, so this is over an hour of warm-up, longer
+// than any ceiling a configuration sets.
+const maxSettlingChecks = 4096
+
+// recordSettlingCheckLocked appends one evaluation to the warm-up trajectory.
+// The caller must hold g.mu for writing.
+func (g *BackgroundGrid) recordSettlingCheckLocked(elapsed time.Duration, m SettlingMetrics, measured, converged bool) {
+	if len(g.settlingChecks) >= maxSettlingChecks {
+		return
+	}
+	g.settlingChecks = append(g.settlingChecks, SettlingCheck{
+		ElapsedSeconds:  elapsed.Seconds(),
+		Measured:        measured,
+		Converged:       converged,
+		CoverageRate:    m.CoverageRate,
+		SpreadDeltaRate: m.SpreadDeltaRate,
+		RegionStability: m.RegionStability,
+		MeanConfidence:  m.MeanConfidence,
+	})
+}
+
+// SettlingTrajectory returns a copy of the convergence evaluations made
+// since the grid was created or last reset, in order. It is empty when
+// convergence is not armed, since then no evaluation is made.
+func (bm *BackgroundManager) SettlingTrajectory() []SettlingCheck {
+	if bm == nil || bm.Grid == nil {
+		return nil
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return append([]SettlingCheck(nil), g.settlingChecks...)
 }

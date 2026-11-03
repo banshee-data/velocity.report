@@ -64,7 +64,7 @@ func TestSettlingCheckIntervalDefaultsWhenUnset(t *testing.T) {
 	seedAllCells(bm.Grid)
 
 	// The first call short of the default interval must not evaluate.
-	if bm.Grid.settlingConvergedLocked() {
+	if bm.Grid.settlingConvergedLocked(0) {
 		t.Fatal("converged on the first call despite the default check interval")
 	}
 	if bm.Grid.settlingCheckCounter != 1 {
@@ -73,7 +73,7 @@ func TestSettlingCheckIntervalDefaultsWhenUnset(t *testing.T) {
 
 	// Reaching the default interval evaluates and resets the counter.
 	for i := 1; i < defaultSettlingCheckInterval; i++ {
-		bm.Grid.settlingConvergedLocked()
+		bm.Grid.settlingConvergedLocked(0)
 	}
 	if bm.Grid.settlingCheckCounter != 0 {
 		t.Errorf("check counter = %d after %d calls, want a reset to 0",
