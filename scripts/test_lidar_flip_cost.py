@@ -67,15 +67,16 @@ def test_lost_shortened_added_and_speeds(tmp_path):
             "kept": [
                 (t, x, y, 11.0) for t, x, y, _ in drive(0, 5)
             ],  # p85 speed 1 m/s higher
-            "split-1": drive(10, 12.5, y=-10.0),
-            "split-2": drive(12.6, 16, y=-10.0),
+            "split-1": drive(10, 12, y=-10.0),
+            "split-2": drive(12.1, 14, y=-10.0),
+            "split-3": drive(14.1, 16, y=-10.0),
             "new": drive(20, 25, y=30.0),
             "blip": drive(30, 30.5, y=40.0),
             "parked": park(0, 5, 50.0),
         },
     )
     out = fc.compare(a, b)
-    assert out["a"]["moving"] == 4 and out["b"]["moving"] == 4
+    assert out["a"]["moving"] == 4 and out["b"]["moving"] == 3
     assert out["lost"] == 1  # "lost": nothing in B within 2 m
     assert out["shortened"] == 1  # "split": covered whole, by no single track over half
     assert out["added"] == 1  # "new"
