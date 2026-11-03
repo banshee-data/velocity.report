@@ -103,6 +103,28 @@ direction and limit in force, or why there is none. This plan uses it two ways:
   direction is suppressed with the reason; the deployment records the footprint's limit segment, and
   this plan carries the suppression flag without building the footprint geometry.
 
+### A limit that changes over time
+
+A limit is attributed by the time of each measurement, not by the time the operator entered it.
+Every lane version in the snapshot carries the date its limit took effect (`speed_limit_effective_from`,
+set in the painter, from the sign or the City record), and the snapshots are append-only, so the
+history of each lane's limits is the history of its versions. For a measurement at time `t` the
+attribution picks the version of that lane whose effective date is the latest not after `t`. Three
+cases follow from that rule:
+
+- **The City changes a limit between two surveys.** The operator adds a new version of the same
+  lane with the new value and its effective date; the lane keeps its id, so the two surveys are
+  compared lane for lane, each against the sign that stood. The survey pages say the limit changed
+  (companion plan).
+- **A change is entered late.** A limit that took effect in June and is entered in August carries
+  June's date. A report for June run after the entry uses the new limit; a report run before it
+  carries the snapshot id it read, so the two reports differ for a stated reason.
+- **A period spans the change.** The report splits that direction's figures at the effective
+  date and prints both limits with their dates, as the posted-limits plan requires, and never
+  compares a speed with a limit that was not in force when it was measured.
+
+Every report, API answer and scene export names the snapshot ids it attributed through.
+
 ### Aggregates per direction and per lane
 
 For each period in a report, and for each direction:
@@ -229,7 +251,9 @@ source, lanes as sub-rows.
 1. Data types and the JSON contract; the templates; the layout checked against
    [PDF report design](../ui/PDF_REPORT_DESIGN.md).
 2. Fixtures: two directions with different limits; three directions; a direction masked under five;
-   a statutory limit; a lane split at a sign.
+   a statutory limit; a lane split at a sign; a limit changed between two periods, and within one
+   period so the direction splits at the effective date; a change entered late re-attributing an
+   earlier period.
 
 **Milestone:** v0.7.1 `M`
 
@@ -287,6 +311,10 @@ web field removed.
   fallback.
 - **The radar lands first.** Two directions with limits need no lanes, and prove the data contract
   the LiDAR path then fills.
+- **Limits are attributed by measurement time through lane versions with effective dates**, so a
+  change between surveys is a new version of the same lane, never an edit of history.
+- **Report outputs and re-exported scenes are run outputs, not repository content.** A re-exported
+  scene goes to the dataset (D-34); the only committed material is fixtures with made-up numbers.
 
 ## Open questions
 

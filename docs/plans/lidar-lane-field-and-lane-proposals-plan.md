@@ -236,6 +236,28 @@ The snapshot is also the lane map the stitching plan's C2 and C3 ask for: a dire
 lane with a corridor half-width. The stitching plan's successors and transitions are not in it yet,
 and that plan says where they would go.
 
+#### Limits that change between surveys
+
+A snapshot is a full copy of the lanes current in Gerardus when it was sent, so the union of a
+deployment's snapshots holds every version of every lane this repository has been told about, each
+with its Gerardus row id, its edit time and, from the Gerardus tags, the date its limit took effect
+(`speed_limit_effective_from`) and ended (`speed_limit_effective_to`, optional). The lane's feature
+id is the same across versions when only its tags changed, which is what a limit change is.
+
+For a measurement at time `t`, attribution reads the lane version whose effective date is the
+latest not after `t`, across snapshots, with the latest edit time breaking a tie. A lane absent from
+every snapshot sent after some time is treated as ended at the first such snapshot's send time
+unless a version carries an explicit end. So:
+
+- the City raising a limit between two surveys is one new version of the same lane with its date;
+  both surveys attribute correctly and compare lane for lane;
+- a change entered late re-attributes the earlier period on the next run, and a report pinned to
+  the snapshot ids it read explains the difference;
+- a report period spanning the date splits there (companion reporting plan).
+
+The snapshot's `GET` answers `history=true` with each lane's versions and effective windows, which
+is what the painter's inspector and the survey pages' "limit changed" line read.
+
 ### Attribution
 
 One function, in a neutral package that imports no layer, from a position and heading in the
@@ -250,17 +272,46 @@ lane's tangent, with hysteresis along a track so a vehicle straddling two lanes 
 
 ### API
 
-| Method and path                              | Purpose                                                                                                                                                                                  |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /api/lidar/sites/{l16}/lane-field`      | The field for a deployment and window (`from`, `to`, `runs`), as a sparse cell list with its digest and provenance; cached                                                               |
-| `GET /api/charts/lane-field`                 | The same field as an SVG raster for the web, by class group, coloured by direction, beside `/api/charts/grid`                                                                            |
-| `GET /api/lidar/sites/{l16}/lane-proposals`  | Proposals for a field (`field` digest), optionally matched against marks the client passes                                                                                               |
-| `PUT /api/lidar/sites/{l16}/lanes`           | Writes a snapshot: the Gerardus street-use features as returned by `EditStreetUse`, the pose record and pose, author, request id (idempotent on the request id, as Gerardus's edits are) |
-| `GET /api/lidar/sites/{l16}/lanes`           | The current snapshot, or the one in force at `at`                                                                                                                                        |
-| `GET /api/lidar/sites/{l16}/lanes/attribute` | Attribution of one position, heading and time, for the painter's inspector and for tests                                                                                                 |
+| Method and path                                 | Purpose                                                                                                                                                                                  |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/lidar/sites/{l16}/lane-field`         | The field for a deployment and window (`from`, `to`, `runs`), as a sparse cell list with its digest and provenance; cached                                                               |
+| `GET /api/charts/lane-field`                    | The same field as an SVG raster for the web, by class group, coloured by direction, beside `/api/charts/grid`                                                                            |
+| `GET /api/lidar/sites/{l16}/lane-proposals`     | Proposals for a field (`field` digest), optionally matched against marks the client passes                                                                                               |
+| `PUT /api/lidar/sites/{l16}/lanes`              | Writes a snapshot: the Gerardus street-use features as returned by `EditStreetUse`, the pose record and pose, author, request id (idempotent on the request id, as Gerardus's edits are) |
+| `GET /api/lidar/sites/{l16}/lanes`              | The current snapshot, or the one in force at `at`                                                                                                                                        |
+| `GET /api/lidar/sites/{l16}/lanes?history=true` | Every version of every lane the snapshots hold, with effective windows and Gerardus row ids                                                                                              |
+| `GET /api/lidar/sites/{l16}/lanes/attribute`    | Attribution of one position, heading and time, for the painter's inspector and for tests                                                                                                 |
 
 Requests and responses are JSON in the style of the existing LiDAR API; the field cell list may
 also be served as a compact binary when the visualiser asks for it, as the scans endpoint does.
+
+### What is committed, and what is published
+
+Street data does not live in this repository. The owner's rule, November 3, 2026: nothing drawn
+from a street is committed to git except the survey assets already under `public_html/src/scenes/`,
+which D-34 moves to the Hugging Face dataset; everything else street-shaped belongs in Gerardus,
+in the device's database, or in the dataset.
+
+| Thing                                          | Lives in                                                                                     | Never in                       |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------ |
+| The lane field and its cache                   | the server's data directory, served on request                                               | git; any export                |
+| Proposals                                      | served, not stored                                                                           | anywhere persistent            |
+| Lanes, limits and their versions               | Gerardus (authoritative); the device's SQLite snapshots                                      | git; a committed lane map file |
+| Experiment lane0002's references               | Gerardus marks and the painter, read at run time; the report carries numbers only            | a committed lane file          |
+| Rendered top-down plots of a site              | the Hugging Face dataset, `derived/maps/<capture stem>/`, named in the manifest's `map_path` | `docs/`, `public_html/`, PRs   |
+| Per-direction summaries and lanes for a survey | the scene assets, with the survey, moving to the dataset under D-34                          | a second copy anywhere         |
+
+The stitching plan's lane map "committed beside the placement configuration" is superseded by the
+snapshot: a drawn lane is data about a street and is kept where the other street data is, and
+lane0001's drawing is done in the painter against Gerardus rather than as a file in git.
+
+**The render tool.** `velocity lanes render` draws one PNG per site and window: the lane field
+(vehicle and cycle groups only, people never), the snapshot's lanes with arrowheads, bounds and
+limits, and the kerbs and centrelines from the scene's vectors file, north up, with a scale bar and
+the field's provenance in the margin. `tools/s2-archive` publishes it with the scene into the
+dataset and fills `map_path`. Documents, PRs and hub docs that want a picture of an intersection
+link to the dataset URL. The tool runs from the Makefile like the other publishing steps and refuses
+an output path inside the checkout.
 
 ### Privacy
 
@@ -319,7 +370,8 @@ lane, direction and limit.
 3. The neutral attribution package and its endpoint; membership with hysteresis.
 4. Fixtures from the posted-limits plan: a lane split at a sign; opposite directions with different
    limits; a position outside every corridor; a heading opposed to the lane; a time before any
-   snapshot.
+   snapshot; a limit raised between two snapshots, attributed by measurement time on both sides of
+   its effective date; a late-entered change re-attributing an earlier time.
 
 **Milestone:** v0.7.1 `M`
 
@@ -351,6 +403,20 @@ viewer, so a browser can see what the painter saw.
 2. Lanes from the snapshot drawn with their bound and limit, beside Gerardus's own street use.
 
 **Milestone:** v0.7.9 `S`
+
+### Item 6: rendered intersection plots in the dataset
+
+**Summary:** `velocity lanes render` and its publication beside the scene assets, with `map_path`
+filled, so a picture of a site's lanes, limits and traffic exists without a file in git.
+
+**Steps:**
+
+1. The renderer in Go over the field, the snapshot and the vectors file; a golden-image test on a
+   synthetic site.
+2. The publishing step in `tools/s2-archive`, the manifest field, and a refusal of any output path
+   inside the checkout.
+
+**Milestone:** v0.7.8 `S`
 
 ## Dependencies
 
@@ -388,6 +454,12 @@ viewer, so a browser can see what the painter saw.
   posted-limits plan's arc-length limit changes are not stored separately.
 - **Class grouping is the scene timeline's.** One grouping for the field, the timeline and the
   per-direction summaries, so the public pages and the operator tools count the same populations.
+- **Limits change by version, attributed by measurement time.** A lane version carries the date
+  its limit took effect; the union of append-only snapshots is the history; nothing is edited in
+  place.
+- **Street data is not committed.** Fields, lanes, exports and rendered plots live in Gerardus, the
+  device's database and the Hugging Face dataset; the survey assets are the one exception until
+  D-34 moves them (the owner, November 3, 2026).
 - **Proposed register entry:** "Lanes and limits: Gerardus holds the travel lanes and their posted
   limits as authored street-use marks; velocity.report proposes lanes from its own tracks on the
   sensor host, keeps an append-only snapshot of the accepted lanes per deployment, and attributes
@@ -417,6 +489,7 @@ viewer, so a browser can see what the painter saw.
 - [ ] Item 3: snapshot, attribution and migration (`M`)
 - [ ] Item 4: experiment lane0002 spec, run and report (`S`)
 - [ ] Item 5: web site viewer traffic layer (`S`)
+- [ ] Item 6: render tool and dataset publication (`S`)
 - [ ] DECISIONS.md entry once ADR-0016 is accepted (`S`)
 
 ### Deferred

@@ -41,10 +41,10 @@ directions, each with its own limit, counts, percentiles and histogram. This pla
   percentile strip and the bands above the limit, the posted limit with a "LAW" tag, key numbers
   (`p50`, `p85`, `p98`, `max`), "Chart PNG" and `n` in the footer.
 - **Charts are SVG strings** built at build time and in the browser from one module
-  (`public_html/src/js/survey-charts.js`): `histogramSvg(speed, {limit, scale, ymax, compact, width,
-height})`, `percentileStripSvg`, `percentileRowsSvg`, `sparklineSvg`, with `speedScale` and
-  `shareCeiling` giving a shared axis and ceiling across small multiples. Colours are attributes, so
-  a saved chart keeps them.
+  (`public_html/src/js/survey-charts.js`): `histogramSvg`, `percentileStripSvg`,
+  `percentileRowsSvg` and `sparklineSvg`, with `speedScale` and `shareCeiling` giving a shared axis
+  and ceiling across small multiples; the histogram takes its limit, scale, ceiling and compact
+  variant as options. Colours are attributes, so a saved chart keeps them.
 - **The model** (`public_html/src/js/survey-model.js`): `summariseSpeed(raw)` reads
   `vehicle_speed` (`bucket_size`, `track_count`, `p50`, `p85`, `p98`, `max`, `histogram` of
   `start_mph` and `count`); `validLimit`, `shareAtOrAbove` (exact only when the limit lies on a
@@ -132,12 +132,30 @@ geometry" layer draws them as thin directed lines with arrowheads in their direc
 compass legend names each direction. This is a small addition to `scene-vectors.js` and is drawn
 only where the file has the features; the page claims nothing where it has none.
 
-### Compare view
+### Compare view, and a limit that changed between recordings
 
 The compare view keeps comparing headline summaries across recordings. A per-direction compare
 (eastbound this year against eastbound last year) is a follow-up once two recordings at one site
 carry the same direction ids; the ids are stable because they come from the lane snapshot's
 directions, or from the radar deployment's two.
+
+Each recording carries the limit that was in force while it was recorded, with its effective date,
+because the export attributes by measurement time (companion plan). When two recordings at one site
+show different limits for the same direction, the site page says so in one line under the
+recordings list ("eastbound was signed 25 mph in September 2026 and 30 mph from March 1, 2027"),
+and the compare view draws each recording's bars against its own limit line rather than one. Shares
+above the limit are therefore comparable across a change: each is against the sign that stood.
+
+### Where the data lives
+
+The page reads only files the recording publishes: `timeline.json` or `summary.json`, and the
+vectors file. Those assets sit under `public_html/src/scenes/` today, the one place street data is
+committed, and move to the Hugging Face dataset under D-34's first step (the v0.7.4 item), where the
+site build fetches them. Nothing this plan adds is committed separately: no per-site JSON, no lane
+file, no rendered image. A top-down plot of a site's lanes, limits and traffic, where one exists,
+is the render tool's output published in the dataset (`derived/maps/`, companion plan) and is
+embedded by its dataset URL, never copied into the site tree. The chart tests' fixture is a
+hand-written summary with made-up numbers, not a real site's export.
 
 ### Accessibility and archiving
 
@@ -218,7 +236,13 @@ across directions, and the DESIGN §4.3 amendment.
 ## Design decisions
 
 - **The mirrored form for two directions, a grid for more**, shared with the PDF and the web app
-  (companion plan, Design decisions); the stacked compact form on narrow screens.
+  (companion plan, Design decisions); the stacked compact form on narrow screens. The owner
+  confirmed on November 3, 2026 that both the mirrored and the stacked forms read well; which is
+  the wide-screen default may be switched without reopening this plan.
+- **Each recording keeps the limit that stood while it was recorded**, with its effective date, so
+  a City change between surveys shows as a change, not as a correction to the earlier page.
+- **No street data is committed for this page** beyond the survey assets already under
+  `public_html/src/scenes/`, which D-34 moves to the dataset; renders come from the dataset by URL.
 - **The headline stays.** Directions add to the card; they never replace the single summary a
   reader already knows.
 - **Limits come with the data.** A direction's limit travels in the export with its source; the

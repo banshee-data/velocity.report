@@ -145,13 +145,15 @@ Direction stays what it is: the order of a lane's vertices, drawn with arrowhead
 
 Selecting a travel lane shows a **Limit** section:
 
-| Field        | Values                                                                                                                                                                             |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Value        | The number on the sign; integer                                                                                                                                                    |
-| Unit         | `mph` or `km/h`; defaults to the unit of the last limit entered at this site, else `mph` for a US jurisdiction                                                                     |
-| Source       | `sign` (read from a sign at the site), `city` (the City's speed-limit record), `statutory` (the jurisdiction's default where no sign governs), `operator` (entered without either) |
-| Jurisdiction | ISO 3166-2, default `US-CA`, remembered per site                                                                                                                                   |
-| Note         | Free text, for example "school zone 15 mph when children are present"; schedules themselves are D-16's later item                                                                  |
+| Field          | Values                                                                                                                                                                                                 |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Value          | The number on the sign; integer                                                                                                                                                                        |
+| Unit           | `mph` or `km/h`; defaults to the unit of the last limit entered at this site, else `mph` for a US jurisdiction                                                                                         |
+| Source         | `sign` (read from a sign at the site), `city` (the City's speed-limit record), `statutory` (the jurisdiction's default where no sign governs), `operator` (entered without either)                     |
+| Jurisdiction   | ISO 3166-2, default `US-CA`, remembered per site                                                                                                                                                       |
+| Note           | Free text, for example "school zone 15 mph when children are present"; schedules themselves are D-16's later item                                                                                      |
+| Effective from | The date the limit took effect: the sign's installation or the ordinance date where known, the City record's date when prefilled from it, else the capture's date with a note that it is a lower bound |
+| Effective to   | Optional; set when a limit is known to have ended                                                                                                                                                      |
 
 **Prefill.** When a lane snaps to a city street segment whose Gerardus tags carry a City limit
 (`speed_limit_mph` from SFMTA's record, the Gerardus plan's import), the fields are prefilled with
@@ -160,7 +162,16 @@ jurisdiction's statutory default, 25 mph for `US-CA`, with source `statutory`, s
 silently carries the old per-report default as if it were posted. The operator can always change
 the source to `sign`.
 
-**A lane has one limit.** Where the limit changes along a street, the **Split at sign** tool clicks
+**A limit that changes over time is a new version of the same lane.** Changing a saved lane's limit
+value does not overwrite it: the painter asks for the new effective date, keeps the lane's id and
+geometry, and Save writes a new version; Gerardus keeps every version, and the snapshot carries the
+dates so reports attribute each measurement to the limit that stood at its time (companion plans).
+The previous version's **Effective to** is set to the day before unless the operator says otherwise.
+When Gerardus's City record disagrees with a saved lane (its `lane_limit_disagrees_city` problem,
+raised after a bundle picks up a newer record), the pane shows the City's value and date and offers
+exactly that new version.
+
+**A lane has one limit at a time.** Where the limit changes along a street, the **Split at sign** tool clicks
 a point on a lane and splits it into two lanes sharing that vertex, both keeping the direction, type
 and width; the downstream lane's limit fields open for the new value. Where Gerardus's street
 furniture layer carries a pole with a speed-limit sign code (the Gerardus plan asks it to flag
@@ -306,6 +317,9 @@ what shipped, when it ships (D-33).
 - **A lane has one limit; split where it changes.** The posted-limits plan's limit segments are
   lanes, so there is no separate limit-change record to keep in step.
 - **Two writes, Gerardus first.** The snapshot is a copy with provenance, never the source.
+- **Nothing the painter makes is committed.** Marks live in Gerardus, snapshots in velocity.report's
+  database, dismissals in the app's preferences; screenshots for the hub doc come from the render
+  tool's output in the Hugging Face dataset (companion server plan), not from files under `docs/`.
 
 ## Open questions
 
