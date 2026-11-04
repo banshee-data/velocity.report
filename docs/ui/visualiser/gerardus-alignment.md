@@ -345,6 +345,30 @@ The values offered are those Gerardus's contract lists: `surface` carriageway, s
 
 **Saving.** **Save** sends one `EditStreetUse`: the site, the author (required: Gerardus records who marked each feature, and the button stays off without one), the note, and the difference between the marks as read and as they stand: a remove for each saved mark deleted, then an upsert for each new mark (`feature_id` empty) or changed one. A mark moved and moved back sends nothing, and heights are not compared. The batch is applied whole or not at all; a refusal keeps the unsaved marks and shows Gerardus's message. Gerardus answers with every current mark, snapped within 0.5 m and draped, and these replace the local ones. Its problems (`"<feature id>: message"`) are shown under the mark they name, in the marks list and the selected mark, with a red halo round it in the view; a problem naming no mark is shown under Save. Ids hold colons, so they are matched as prefixes, longest first.
 
+### Traffic: the lane field under the marks
+
+The **Traffic** section, above the tools, draws a lane field under the marks
+([lanes from tracks](../../plans/lidar-lane-proposals-from-tracks-plan.md) §1): what distinct
+tracks did in each 0.25 m cell, counts only, no cell under five tracks. It is measured spatial data,
+where tracked objects were over a stated interval; see
+[Geometry priors: data purpose](../../geometry-priors-data-purpose.md).
+
+| Control         | Does                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source          | **The site**: Gerardus's `GetLaneField`, every capture uploaded so far summed in the site frame. **This recording**: the open run's field from `GET /api/lidar/runs/{run_id}/lane-field`, in the sensor frame, placed by the pose drawn now. **Live**: counted from the stream as it plays, "live, this replay only", never saved, under the same floor of five tracks. The line under it names the source's captures, tracks, cells and field ids |
+| Show            | **Centres** (tracks whose centre was in the cell) or **Extents** (tracks whose box covered the cell's centre)                                                                                                                                                                                                                                                                                                                                      |
+| Classes         | Vehicles, cycles and people, each a checkbox with its cell count                                                                                                                                                                                                                                                                                                                                                                                   |
+| Floor, Opacity  | A floor above five hides thinner cells; opacity is the densest cell's                                                                                                                                                                                                                                                                                                                                                                              |
+| Send lane field | Uploads the open run's three fields (the whole run and its halves) to Gerardus with `UploadLaneField` against the accepted record that places the capture, then reads the site's field again. Off, with the reason, without an accepted pose for this capture, while a street-use save is pending, while Gerardus is busy, or with no run open                                                                                                     |
+
+A cell is a quad on the overlay the marks use, drawn first so the marks lie over it, 0.05 m above
+the ground, only while painting. Its hue is the 45° sector its dominant heading bin falls in, from
+true north (the legend names the sectors held, NNE to NNW), grey where nothing moved at 2 m/s or
+more; cycles are yellow and people violet. Opacity follows the log of the count. A run's field moves
+with the pose, so traffic that misses the kerbs shows a pose error. The section and its site source
+and Send are hidden when the server's `GetServerInfo` says `supports_lane_fields` is false; the
+run's field and the live layer still draw.
+
 ### What the painter draws
 
 | Mark          | Drawn as                                                                                                                     |

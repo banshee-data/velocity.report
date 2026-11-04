@@ -361,10 +361,11 @@ what shipped, when it ships (D-33).
 ### Complete
 
 - [x] Plan written against the painter as built; reconciled with the unified design and the lanes from tracks plan's §2 on November 3, 2026
+- [x] Item 1: traffic layer from both field sources and the live fallback, Centres and Extents, class toggles, floor and opacity, Send lane field against the accepted record, with `align.proto` re-vendored from Gerardus `e9dc3e0`; cells are quads on the marks' overlay rather than a texture (`claude/lane-painter-traffic`)
 
 ### Outstanding
 
-- [ ] Item 1: traffic layer, both field sources, texture, controls, live fallback, Send lane field (`M`)
+- [ ] Item 1 remainder: hovering a cell shows its counts per class and direction and its mean speed in the inspector
 - [ ] Item 2: proposals list with profiles, approve, edit, approve all high, reject and reopen (`M`)
 - [ ] Item 3: bound, direction names, limit fields, prefill, split at sign (`M`)
 - [ ] Item 4: send the snapshot, pending request, standing notice (`S`)
