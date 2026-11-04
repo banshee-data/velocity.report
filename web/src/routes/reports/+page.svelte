@@ -184,12 +184,22 @@
 	// The radar directions of the deployment in force at the period's end, and
 	// the mirrored preview of the By direction section (transits only).
 	let deploymentsFor: number | null = null;
+	// The site the loaded list belongs to: until the new site's arrive, the
+	// last site's limits are not shown against it.
+	let deploymentsSite: number | null = null;
+	$: siteDeployments = deploymentsSite === selectedSiteId ? deployments : [];
 	async function loadDeployments(siteId: number) {
 		try {
 			const list = await listRadarDeployments(siteId);
-			if (deploymentsFor === siteId) deployments = list;
+			if (deploymentsFor === siteId) {
+				deployments = list;
+				deploymentsSite = siteId;
+			}
 		} catch {
-			if (deploymentsFor === siteId) deployments = [];
+			if (deploymentsFor === siteId) {
+				deployments = [];
+				deploymentsSite = siteId;
+			}
 		}
 	}
 	$: if (browser && selectedSiteId != null && selectedSiteId !== deploymentsFor) {
@@ -201,7 +211,7 @@
 	$: directionDeployment =
 		periodEndUnix == null
 			? null
-			: (deployments.find(
+			: (siteDeployments.find(
 					(d) =>
 						d.directions &&
 						d.effective_start_unix <= periodEndUnix &&

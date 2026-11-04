@@ -541,7 +541,6 @@ describe('api', () => {
 					name: 'Site A',
 					location: 'Location A',
 					cosine_error_angle: 5,
-					speed_limit: 35,
 					surveyor: 'John Doe',
 					contact: 'john@example.com',
 					include_map: false,
@@ -1220,7 +1219,6 @@ describe('api', () => {
 				location: 'Test Location',
 				description: 'Test Description',
 				cosine_error_angle: 15,
-				speed_limit: 30,
 				surveyor: 'John Doe',
 				contact: 'john@example.com',
 				address: '123 Main St',
@@ -1229,7 +1227,6 @@ describe('api', () => {
 				map_angle: 45,
 				include_map: true,
 				site_description: 'Site description',
-				speed_limit_note: 'Note',
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-01T00:00:00Z'
 			};
@@ -1263,7 +1260,6 @@ describe('api', () => {
 				name: 'New Site',
 				location: 'New Location',
 				cosine_error_angle: 15,
-				speed_limit: 30,
 				surveyor: 'Jane Doe',
 				contact: 'jane@example.com',
 				include_map: false
@@ -1277,7 +1273,6 @@ describe('api', () => {
 				longitude: null,
 				map_angle: null,
 				site_description: null,
-				speed_limit_note: null,
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-01T00:00:00Z'
 			};
@@ -1343,8 +1338,7 @@ describe('api', () => {
 	describe('updateSite', () => {
 		it('should update an existing site', async () => {
 			const updates = {
-				name: 'Updated Site',
-				speed_limit: 40
+				name: 'Updated Site'
 			};
 			const mockUpdatedSite: Site = {
 				id: 1,
@@ -1352,7 +1346,6 @@ describe('api', () => {
 				location: 'Location',
 				description: null,
 				cosine_error_angle: 15,
-				speed_limit: 40,
 				surveyor: 'John Doe',
 				contact: 'john@example.com',
 				address: null,
@@ -1361,7 +1354,6 @@ describe('api', () => {
 				map_angle: null,
 				include_map: true,
 				site_description: null,
-				speed_limit_note: null,
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-02T00:00:00Z'
 			};
