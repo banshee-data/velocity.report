@@ -28,6 +28,41 @@ type ReportData struct {
 	Granular             []RollupRow  `json:"granular"`
 	CosineCorrectionNote string       `json:"cosine_correction_note"`
 	Charts               ChartRefs    `json:"charts"`
+	// Directions is the By direction section: the headline's transits
+	// grouped by the radar's two directions, each against its own limit.
+	// Empty when the deployment names no directions; the headline numbers
+	// above are the same transits and do not change.
+	Directions     []DirectionData `json:"directions"`
+	DirectionsNote string          `json:"directions_note"`
+}
+
+// DirectionData is one direction of the By direction section.
+type DirectionData struct {
+	Key        string                 `json:"key"`
+	Name       string                 `json:"name"`
+	BearingDeg *float64               `json:"bearing_deg"`
+	Count      int                    `json:"count"`
+	Segments   []DirectionSegmentData `json:"segments"`
+}
+
+// DirectionSegmentData is one direction over the part of the period one
+// limit was in force. Percentiles and shares are null where masked (p98 and
+// max under 50 transits) or where there is no limit or compliance is
+// suppressed.
+type DirectionSegmentData struct {
+	From       string   `json:"from"`
+	To         string   `json:"to"`
+	Limit      string   `json:"limit"`
+	Count      int      `json:"count"`
+	P50        *float64 `json:"p50"`
+	P85        *float64 `json:"p85"`
+	P98        *float64 `json:"p98"`
+	MaxSpeed   *float64 `json:"max_speed"`
+	OverLimit  *float64 `json:"over_limit"`
+	Over5      *float64 `json:"over_5"`
+	Over10     *float64 `json:"over_10"`
+	Over15     *float64 `json:"over_15"`
+	Suppressed string   `json:"suppressed"`
 }
 
 // SiteData carries the human-facing site identity used in the title block,
@@ -126,4 +161,6 @@ type ChartRefs struct {
 	TimeSeriesCompare string `json:"timeseries_compare"`
 	Histogram         string `json:"histogram"`
 	Map               string `json:"map"`
+	// Directions is the mirrored two-direction histogram.
+	Directions string `json:"directions"`
 }

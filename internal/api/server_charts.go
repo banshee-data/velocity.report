@@ -8,8 +8,10 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/report"
 	"github.com/banshee-data/velocity.report/internal/report/chart"
 	"github.com/banshee-data/velocity.report/internal/units"
@@ -127,6 +129,11 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if q.Has("direction") || q.Has("mirror") {
+		s.handleChartDirectionHistogram(w, q, siteID, startUnix, endUnix, displayUnits, bucketSize, histMax, minSpeedMPS, source, paper)
+		return
+	}
+
 	result, err := s.db.RadarObjectRollupRange(
 		startUnix, endUnix, 0, minSpeedMPS,
 		source, parseModelVersion(q),
@@ -154,6 +161,75 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	writeSVG(w, svg)
+}
+
+// handleChartDirectionHistogram serves the histogram of one direction
+// (direction=inbound|outbound) or the mirrored histogram of two
+// (mirror=inbound,outbound), each against its own limit: the same SVG the
+// report's By direction section embeds. Directions are the transits', so
+// the source must be radar_data_transits.
+func (s *Server) handleChartDirectionHistogram(w http.ResponseWriter, q url.Values, siteID int, startUnix, endUnix int64, displayUnits string, bucketSize, histMax, minSpeedMPS float64, source string, paper chart.PaperSize) {
+	if source != "radar_data_transits" {
+		s.writeJSONError(w, http.StatusBadRequest, "'direction' and 'mirror' need source=radar_data_transits: only transits carry a direction")
+		return
+	}
+	var keys []string
+	if q.Has("mirror") {
+		keys = strings.Split(q.Get("mirror"), ",")
+		if len(keys) != 2 {
+			s.writeJSONError(w, http.StatusBadRequest, "'mirror' names two directions, such as inbound,outbound")
+			return
+		}
+	} else {
+		keys = []string{q.Get("direction")}
+	}
+	for _, k := range keys {
+		if k != db.TransitInbound && k != db.TransitOutbound {
+			s.writeJSONError(w, http.StatusBadRequest, "a direction is inbound or outbound")
+			return
+		}
+	}
+	transits, err := s.db.TransitDirections(startUnix, endUnix, siteID, parseModelVersion(q), minSpeedMPS)
+	if err != nil {
+		log.Printf("Chart direction histogram DB error: %v", err)
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to query data")
+		return
+	}
+	set := report.BuildDirections(transits, time.Unix(startUnix, 0).UTC(), time.Unix(endUnix, 0).UTC(), displayUnits, bucketSize, histMax)
+	side := func(key string) chart.MirroredSide {
+		out := chart.MirroredSide{Data: chart.HistogramData{Buckets: map[float64]int64{}, Units: displayUnits, BucketSz: bucketSize, MaxBucket: histMax}, Label: key}
+		for _, d := range set.Directions {
+			if d.Key != key {
+				continue
+			}
+			out.Label = d.Name
+			for _, seg := range d.Segments {
+				for k, n := range seg.Histogram {
+					out.Data.Buckets[k] += n
+				}
+			}
+			if last := d.Segments[len(d.Segments)-1].Limit; last != nil {
+				signUnits := units.MPH
+				if last.Unit == "km/h" {
+					signUnits = units.KPH
+				}
+				out.Limit = units.ConvertSpeed(units.ConvertToMPS(float64(last.Value), signUnits), displayUnits)
+			}
+		}
+		return out
+	}
+	var svg []byte
+	if len(keys) == 2 {
+		svg, err = chart.RenderMirrored(side(keys[0]), side(keys[1]), chart.DefaultHistogramStyle(paper))
+	} else {
+		svg, err = chart.RenderHistogram(side(keys[0]).Data, chart.DefaultHistogramStyle(paper))
+	}
+	if err != nil {
+		log.Printf("Chart direction histogram render error: %v", err)
+		s.writeJSONError(w, http.StatusInternalServerError, "Failed to render chart")
+		return
+	}
 	writeSVG(w, svg)
 }
 

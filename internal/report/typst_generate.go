@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/db"
@@ -171,6 +172,31 @@ func renderTypstCharts(plan runPlan, data loadedData) (typst.ChartRefs, []typst.
 		refs.Histogram = "/charts/histogram.svg"
 	}
 
+	if dirs := data.directions.Directions; len(dirs) == 2 && cfg.HistBucketSize > 0 {
+		side := func(d DirectionSummary) chart.MirroredSide {
+			buckets := map[float64]int64{}
+			for _, seg := range d.Segments {
+				for k, n := range seg.Histogram {
+					buckets[k] += n
+				}
+			}
+			limit := 0.0
+			if last := d.Segments[len(d.Segments)-1].Limit; last != nil {
+				limit = units.ConvertSpeed(units.ConvertToMPS(float64(last.Value), limitUnits(last.Unit)), cfg.Units)
+			}
+			return chart.MirroredSide{
+				Data:  chart.HistogramData{Buckets: buckets, Units: cfg.Units, BucketSz: cfg.HistBucketSize, MaxBucket: cfg.HistMax},
+				Label: d.Name, Limit: limit,
+			}
+		}
+		svg, err := chart.RenderMirrored(side(dirs[0]), side(dirs[1]), chart.DefaultHistogramStyle(plan.paper))
+		if err != nil {
+			return refs, nil, fmt.Errorf("render mirrored histogram: %w", err)
+		}
+		out = append(out, typst.Asset{Name: "charts/directions.svg", Data: svg})
+		refs.Directions = "/charts/directions.svg"
+	}
+
 	if cfg.IncludeMap && len(cfg.MapSVG) > 0 {
 		out = append(out, typst.Asset{Name: "charts/map.svg", Data: cfg.MapSVG})
 		refs.Map = "/charts/map.svg"
@@ -227,6 +253,7 @@ func buildTypstData(plan runPlan, data loadedData, primaryDaily []db.RadarObject
 	}
 
 	rd.CosineCorrectionNote = cosineCorrectionNote(cfg)
+	rd.Directions, rd.DirectionsNote = typstDirections(data.directions, plan.loc)
 
 	if data.compareResult != nil {
 		cr := data.compareResult
@@ -511,4 +538,47 @@ func buildTypstZipFiles(rd typst.ReportData, chartAssets []typst.Asset) (map[str
 	}
 	files["README.md"] = []byte(typstZipReadme)
 	return files, nil
+}
+
+// typstDirections is the By direction section's data: each direction's
+// segments with their limit as signed, and a note of the transits counted
+// in no direction.
+func typstDirections(set DirectionSet, loc *time.Location) ([]typst.DirectionData, string) {
+	out := []typst.DirectionData{}
+	for _, d := range set.Directions {
+		dd := typst.DirectionData{Key: d.Key, Name: d.Name, BearingDeg: d.BearingDeg, Count: d.Count}
+		for _, seg := range d.Segments {
+			dd.Segments = append(dd.Segments, typst.DirectionSegmentData{
+				From: seg.From.In(loc).Format("2006-01-02"), To: seg.To.In(loc).Format("2006-01-02"),
+				Limit: LimitLabel(seg.Limit), Count: seg.Count,
+				P50: seg.P50, P85: seg.P85, P98: seg.P98, MaxSpeed: seg.Max,
+				OverLimit: seg.OverLimit, Over5: seg.Over5, Over10: seg.Over10, Over15: seg.Over15,
+				Suppressed: seg.Suppressed,
+			})
+		}
+		out = append(out, dd)
+	}
+	var parts []string
+	if set.Mixed > 0 {
+		parts = append(parts, fmt.Sprintf("%d transits whose readings disagree in sign (two vehicles merged)", set.Mixed))
+	}
+	if set.Unknown > 0 {
+		parts = append(parts, fmt.Sprintf("%d transits with no direction recorded", set.Unknown))
+	}
+	if set.Masked > 0 {
+		parts = append(parts, fmt.Sprintf("%d transits of a direction with fewer than %d", set.Masked, DirectionMinCount))
+	}
+	note := ""
+	if len(out) > 0 && len(parts) > 0 {
+		note = "Counted in the overall figures but in no direction: " + strings.Join(parts, "; ") + "."
+	}
+	return out, note
+}
+
+// limitUnits is a sign's unit in the units package's names.
+func limitUnits(unit string) string {
+	if unit == "km/h" {
+		return "kph"
+	}
+	return "mph"
 }

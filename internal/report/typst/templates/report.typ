@@ -36,6 +36,8 @@
 
 #detailed-data-flow(data)
 
+#by-direction(data)
+
 // Figures follow the table block in source order. If the chart and map fit
 // together they sit together; otherwise the map naturally moves to the top of
 // the next page instead of being pinned to the bottom.
