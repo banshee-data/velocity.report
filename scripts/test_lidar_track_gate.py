@@ -16,7 +16,9 @@ MOVED = {"disp": 30.0, "speed95": 8.0}
 
 
 def decide(name, cls, duration, motion, n_obs=100, length=0.5, width=0.3):
-    return gate.decide(name, cls, duration, motion["disp"], motion["speed95"], n_obs, length, width)
+    return gate.decide(
+        name, cls, duration, motion["disp"], motion["speed95"], n_obs, length, width
+    )
 
 
 class DecideTest(unittest.TestCase):
@@ -59,24 +61,52 @@ class ApplyTest(unittest.TestCase):
                 "CREATE TABLE lidar_tracks (track_id, object_class, track_duration_secs, start_unix_nanos, "
                 "end_unix_nanos, bounding_box_length_avg, bounding_box_width_avg)"
             )
-            con.execute("CREATE TABLE lidar_track_observations (track_id, ts_unix_nanos, x, y, speed_mps)")
+            con.execute(
+                "CREATE TABLE lidar_track_observations (track_id, ts_unix_nanos, x, y, speed_mps)"
+            )
             con.execute("CREATE TABLE lidar_track_estimates (track_id)")
             con.executemany(
                 "INSERT INTO lidar_tracks VALUES (?,?,?,?,?,?,?)",
-                [("clutter", "bird", 5.0, 0, 5, 0.5, 0.3), ("car", "car", 5.0, 0, 5, 4.5, 1.8)],
+                [
+                    ("clutter", "bird", 5.0, 0, 5, 0.5, 0.3),
+                    ("car", "car", 5.0, 0, 5, 4.5, 1.8),
+                ],
             )
             con.executemany(
                 "INSERT INTO lidar_track_observations VALUES (?,?,?,?,?)",
-                [("clutter", 0, 0, 0, 0.1), ("clutter", 1, 0.2, 0, 0.1), ("car", 0, 0, 0, 8), ("car", 1, 30, 0, 8)],
+                [
+                    ("clutter", 0, 0, 0, 0.1),
+                    ("clutter", 1, 0.2, 0, 0.1),
+                    ("car", 0, 0, 0, 8),
+                    ("car", 1, 30, 0, 8),
+                ],
             )
-            con.executemany("INSERT INTO lidar_track_estimates VALUES (?)", [("clutter",), ("car",)])
+            con.executemany(
+                "INSERT INTO lidar_track_estimates VALUES (?)", [("clutter",), ("car",)]
+            )
             con.commit()
             con.close()
-            subprocess.run([sys.executable, str(SCRIPT), src, dst, "--gate", "g1"], check=True, capture_output=True)
-            for table in ("lidar_tracks", "lidar_track_observations", "lidar_track_estimates"):
-                out = sqlite3.connect(dst).execute(f"SELECT DISTINCT track_id FROM {table}").fetchall()
+            subprocess.run(
+                [sys.executable, str(SCRIPT), src, dst, "--gate", "g1"],
+                check=True,
+                capture_output=True,
+            )
+            for table in (
+                "lidar_tracks",
+                "lidar_track_observations",
+                "lidar_track_estimates",
+            ):
+                out = (
+                    sqlite3.connect(dst)
+                    .execute(f"SELECT DISTINCT track_id FROM {table}")
+                    .fetchall()
+                )
                 self.assertEqual(out, [("car",)], table)
-            kept = sqlite3.connect(src).execute("SELECT COUNT(*) FROM lidar_tracks").fetchone()[0]
+            kept = (
+                sqlite3.connect(src)
+                .execute("SELECT COUNT(*) FROM lidar_tracks")
+                .fetchone()[0]
+            )
             self.assertEqual(kept, 2)
 
 

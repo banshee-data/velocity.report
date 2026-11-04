@@ -56,7 +56,9 @@ def screen(path):
         "FROM lidar_track_observations ORDER BY track_id, ts_unix_nanos"
     ):
         obs.setdefault(tid, []).append((ts, x, y, spd, bl, bw))
-    frames = con.execute("SELECT COUNT(DISTINCT frame_unix_nanos) FROM lidar_observations").fetchone()[0]
+    frames = con.execute(
+        "SELECT COUNT(DISTINCT frame_unix_nanos) FROM lidar_observations"
+    ).fetchone()[0]
     total_obs = con.execute("SELECT COUNT(*) FROM lidar_observations").fetchone()[0]
     con.close()
 
@@ -83,7 +85,9 @@ def screen(path):
         p90 = pct([max(r[4] or 0, r[5] or 0) for r in rows], 0.90)
         if p90 >= VEHICLE_P90_M:
             vehicle += 1
-            vehicle_tracks.append((t0, t1, rows[0][1], rows[0][2], rows[-1][1], rows[-1][2]))
+            vehicle_tracks.append(
+                (t0, t1, rows[0][1], rows[0][2], rows[-1][1], rows[-1][2])
+            )
 
     links = 0
     for a in vehicle_tracks:
@@ -91,7 +95,10 @@ def screen(path):
             if a is b:
                 continue
             gap = (b[0] - a[1]) / 1e9
-            if 0 <= gap <= LINK_GAP_S and math.hypot(b[2] - a[4], b[3] - a[5]) <= LINK_DIST_M:
+            if (
+                0 <= gap <= LINK_GAP_S
+                and math.hypot(b[2] - a[4], b[3] - a[5]) <= LINK_DIST_M
+            ):
                 links += 1
 
     spurious = max(0, total_obs - lasting_obs)
@@ -109,7 +116,9 @@ def screen(path):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("dbs", nargs="+")
     ap.add_argument("--json")
     a = ap.parse_args()
@@ -120,8 +129,15 @@ def main():
     if a.json:
         with open(a.json, "w") as f:
             json.dump(out, f, indent=1, sort_keys=True)
-    cols = ["tracks", "brief_tracks", "lasting_tracks", "near_static_tracks", "vehicle_tracks",
-            "candidate_split_links", "spurious_clusters_per_frame"]
+    cols = [
+        "tracks",
+        "brief_tracks",
+        "lasting_tracks",
+        "near_static_tracks",
+        "vehicle_tracks",
+        "candidate_split_links",
+        "spurious_clusters_per_frame",
+    ]
     print("case".ljust(28) + "".join(c[:14].rjust(15) for c in cols))
     for k, v in sorted(out.items()):
         print(k.ljust(28) + "".join(str(v[c]).rjust(15) for c in cols))
