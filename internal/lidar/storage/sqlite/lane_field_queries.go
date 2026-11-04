@@ -50,8 +50,7 @@ func LaneFieldMeta(run *Run) l8analytics.LaneFieldMeta {
 // lane field. Only tracks the run recorded count, which are those it
 // confirmed; observations are stored only at instants a cluster was
 // associated, so coasted instants are already absent. When the run's frame
-// window is known, observations outside it are dropped, so a track id reused
-// by another run's rows cannot bring them in.
+// window is known, observations outside it are dropped.
 func (s *RunStore) LaneFieldTracks(run *Run) ([]l8analytics.LaneFieldTrack, error) {
 	query := `
 		SELECT r.track_id, COALESCE(r.object_class, ''),
