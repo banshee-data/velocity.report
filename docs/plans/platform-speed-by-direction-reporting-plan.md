@@ -350,14 +350,16 @@ web field removed.
 ### Complete
 
 - [x] Plan written against the posted-limits model and the companion lane plans
+- [x] The sign survives ingest: on a copy of the real database (May to December 2025), `radar_data.speed` holds 2,563,047 positive and 2,428,354 negative readings; on 2025-08-12 (6 h, 164 device objects whose readings were all one sign) `object_inbound` matched positive readings 71 times to 21 and `object_outbound` negative 62 to 10, so positive is approaching (inbound), the OPS243's default. The `radar_data` report source keeps only `speed > min_speed`, so it counts approaching traffic only; transits use the magnitude and count both
+- [x] Item 1: migration 69 (`radar_data_transits.direction`: `inbound`, `outbound`, `mixed` when the minority sign is more than one reading in ten, `unknown`; existing rows read `unknown` until the worker rebuilds them) and `site_config_periods.directions_json` (the two directions' names, bearings, the inbound sign and each one's limits as signed with effective dates), validated, through the existing config-period API (`claude/radar-direction-report`)
+- [x] Item 2: per-direction transit populations by nearest rank, histograms and shares above the limit by 0, 5, 10 and 15 in the sign's unit, split at an effective date inside the period, masked under five and the tails under fifty; `RenderMirrored`; `direction=` and `mirror=` on `/api/charts/histogram` (`claude/radar-direction-report`)
+- [x] Item 3: `directions[]` and the By direction section in the PDF, limits printed as signed with their source, the transits in no direction noted; the headline numbers unchanged (`claude/radar-direction-report`)
+- [x] Item 5: the reports page lists each direction's limit as signed and previews the mirrored chart; the stale `site.speed_limit` and `speed_limit_note` are gone from the web `Site` type (`claude/radar-direction-report`)
 
 ### Outstanding
 
-- [ ] Item 1: radar transit direction and deployment directions (`S`)
-- [ ] Item 2: direction aggregates, mirrored chart, chart endpoint parameters (`M`)
-- [ ] Item 3: By direction report section and fixtures (`M`)
 - [ ] Item 4: LiDAR attribution, scene export directions, privacy test case (`M`)
-- [ ] Item 5: web report view (`S`)
+- [ ] Items 1–3 remainder: the deployment form fields in the web UI (the API takes them); mapping inbound and outbound through a recorded sensor heading (V32) rather than the operator's names; histograms bucketed in the sign's unit when it differs from the display's; a grid of small histograms for more than two directions (LiDAR, Item 4); lane sub-rows; `GET /api/sites/{id}/directions`; the comparison period's directions
 
 ### Deferred
 
