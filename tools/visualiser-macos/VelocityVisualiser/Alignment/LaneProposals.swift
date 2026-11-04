@@ -252,7 +252,7 @@ enum LaneLimits {
                 "Limits here are in more than one unit: \(units.sorted().joined(separator: ", ")).")
         }
         for (i, a) in lanes.enumerated() {
-            for b in lanes[(i + 1)...] {
+            for b in lanes.dropFirst(i + 1) {
                 guard bound(of: a) == bound(of: b), !bound(of: a).isEmpty,
                     (a.tags["street"] ?? "") == (b.tags["street"] ?? ""),
                     let la = a.tags[speedLimit], let lb = b.tags[speedLimit], !la.isEmpty,
