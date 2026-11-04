@@ -94,7 +94,28 @@ LAYERS = {
     "wall_surfaces": ("inferred", ("datasf-footprints", "3dep")),
     "roof_planes": ("observed", ("3dep",)),
     "trees": ("inferred", ("scans",)),
+    # Travel lanes the operator marked in the street painter, many approved
+    # from Gerardus's proposals from the lane field: the lanes velocity.report's
+    # lane snapshot copies, with each lane's limit as signed. Only travel lanes
+    # are kept; parking spaces, driveways and surfaces stay in Gerardus.
+    "street_use": ("inferred", ("operator",)),
 }
+# What a travel lane keeps: its type and width, its direction of travel by
+# bound and name, and its limit as signed with its source and effective
+# dates. The author, edit time and proposal ids are left out.
+LANE_PROPERTIES = (
+    "lane_type",
+    "width_m",
+    "bound",
+    "bearing_deg",
+    "direction_name",
+    "street",
+    "speed_limit",
+    "speed_limit_unit",
+    "speed_limit_source",
+    "speed_limit_effective_from",
+    "speed_limit_effective_to",
+)
 # The kinds kept from the `observed` layer. Its lane markings repeat the
 # lane_markings layer; its sensor and correction marks are about the
 # registration, not the street.
@@ -266,6 +287,14 @@ def site_sources(l16, base=None):
         }
         # An omitted member means not recorded, never empty.
         sources[source_id] = {k: v for k, v in entry.items() if v}
+    sources["operator"] = {
+        "id": "operator",
+        "kind": "operator",
+        "name": "Travel lanes marked by the operator in the street painter, many"
+        " approved from proposals Gerardus read from where vehicles were tracked,"
+        " each with its posted limit as signed",
+        "terms": "not yet set",
+    }
     sources["scans"] = {
         "id": "scans",
         "kind": "sensor",
@@ -383,6 +412,8 @@ def scene_features(collection, apply, radius_m=RADIUS_M, include_registration=Fa
             continue
         if layer == "observed" and props.get("kind") not in OBSERVED_KINDS:
             continue
+        if layer == "street_use" and props.get("kind") != "travel_lane":
+            continue
         geometry = feature.get("geometry") or {}
         if geometry.get("type") not in (
             "LineString",
@@ -411,6 +442,10 @@ def scene_features(collection, apply, radius_m=RADIUS_M, include_registration=Fa
             v = number(props.get(key))
             if v is not None:
                 out[key] = round(v, 2)
+        if layer == "street_use":
+            for key in LANE_PROPERTIES:
+                if props.get(key) not in (None, ""):
+                    out[key] = str(props[key])
         kept.append(
             {
                 "type": "Feature",
