@@ -89,7 +89,7 @@ class LayersTest(unittest.TestCase):
         ]
         self.assertEqual(
             scene_vectors.wanted_layers(served),
-            ["footprints", "wall_surfaces", "trees"],
+            ["footprints", "wall_surfaces", "trees", "street_use"],
         )
 
     def test_footprints_stand_in_when_there_are_no_walls(self):
@@ -158,6 +158,62 @@ class FeaturesTest(unittest.TestCase):
                 "source_ids": ["datasf-footprints", "3dep"],
                 "state": "proposed",
                 "height_m": 8.25,
+            },
+        )
+
+    def test_travel_lanes_keep_their_direction_and_limit_only(self):
+        line = {
+            "type": "LineString",
+            "coordinates": [self.site(1, -2, -2), self.site(30, -2, -2)],
+        }
+        lane = feature(
+            "street_use",
+            line,
+            kind="travel_lane",
+            lane_type="general",
+            width_m="3.2",
+            bound="E",
+            direction_name="Kirkham St eastbound",
+            speed_limit="25",
+            speed_limit_unit="mph",
+            speed_limit_source="sign",
+            speed_limit_effective_from="2026-01-01",
+            author="operator name",
+            edited_at="2026-11-04T00:00:00Z",
+            proposal="gms:p1",
+            row_id="row-1",
+        )
+        space = feature(
+            "street_use",
+            {
+                "type": "Polygon",
+                "coordinates": [
+                    [
+                        self.site(0, 0, -2),
+                        self.site(1, 0, -2),
+                        self.site(1, 1, -2),
+                        self.site(0, 0, -2),
+                    ]
+                ],
+            },
+            kind="parking_space",
+        )
+        [f] = self.features({"features": [lane, space]})
+        self.assertEqual(
+            f["properties"],
+            {
+                "layer": "street_use",
+                "kind": "travel_lane",
+                "evidence_status": "inferred",
+                "source_ids": ["operator"],
+                "lane_type": "general",
+                "width_m": "3.2",
+                "bound": "E",
+                "direction_name": "Kirkham St eastbound",
+                "speed_limit": "25",
+                "speed_limit_unit": "mph",
+                "speed_limit_source": "sign",
+                "speed_limit_effective_from": "2026-01-01",
             },
         )
 
@@ -371,7 +427,7 @@ class SourcesTest(unittest.TestCase):
         }
         with mock.patch.object(scene_vectors, "grpc", return_value=site):
             _, sources = scene_vectors.site_sources("808580f47")
-        self.assertEqual(sorted(sources), ["3dep", "scans"])
+        self.assertEqual(sorted(sources), ["3dep", "operator", "scans"])
         self.assertNotIn("uri", sources["3dep"])
         self.assertNotIn(
             "retrieved_at", sources["3dep"], "an absent member stays absent"

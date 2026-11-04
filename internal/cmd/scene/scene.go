@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strings"
 
+	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	sceneexport "github.com/banshee-data/velocity.report/internal/scene"
 )
 
@@ -65,6 +66,10 @@ func exportMain(args []string) int {
 	fs.IntVar(&opts.MaxPointsPerFrame, "max-points", 0, "Cap foreground points per frame in a clip export (0 = uncapped)")
 	fs.Float64Var(&opts.VoxelMetres, "voxel", sceneexport.DefaultBackgroundVoxel, "Downsampling grid for a background export, in metres")
 	fs.Float64Var(&opts.BucketSeconds, "bucket-seconds", sceneexport.DefaultBucketSeconds, "Timeline summary resolution in seconds")
+	lanesDB := fs.String("lanes-db", "", "Database holding the site's lane snapshots: the vehicle summary's directions are read through its lanes (read only)")
+	lanesSite := fs.String("lanes-site", "", "The site's L16 token in --lanes-db")
+	lanesSensor := fs.String("lanes-sensor", "", "The sensor in --lanes-db (default every sensor at the site)")
+	sensorBearing := fs.Float64("sensor-y-bearing", math.NaN(), "Bearing of the sensor's +Y from true north (the accepted pose), naming the heading fallback's directions by compass")
 	fs.BoolVar(&opts.SmoothedTrail, "smoothed-trail", false, "Write each track's x, y, vx, vy as the whole-track RTS smoother's estimate rather than the filter's online posterior; needs the recording's filter record, which a replay writes beside its chunks")
 	fs.Usage = func() {
 		fmt.Fprint(os.Stderr, usage)
@@ -97,6 +102,32 @@ func exportMain(args []string) int {
 	if opts.SmoothedTrail && opts.Kind == sceneexport.KindBackground {
 		fmt.Fprintln(os.Stderr, "error: --smoothed-trail applies to tracks and clip exports; a background export has no trail")
 		return 2
+	}
+
+	if !math.IsNaN(*sensorBearing) {
+		b := *sensorBearing
+		opts.SensorYBearingDeg = &b
+	}
+	if *lanesDB != "" {
+		if *lanesSite == "" {
+			fmt.Fprintln(os.Stderr, "error: --lanes-db needs --lanes-site")
+			return 2
+		}
+		db, err := sqlite.OpenReadOnly(*lanesDB)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: open %s: %v\n", *lanesDB, err)
+			return 1
+		}
+		history, err := sqlite.NewLaneSnapshotStore(db).History(*lanesSite, *lanesSensor)
+		db.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: lane snapshots: %v\n", err)
+			return 1
+		}
+		if history.Empty() {
+			fmt.Fprintf(os.Stderr, "note: no lane snapshot for %s; directions come from the heading fallback\n", *lanesSite)
+		}
+		opts.Lanes = history
 	}
 
 	export := sceneexport.Export

@@ -324,6 +324,11 @@ type VehicleSpeedSummary struct {
 	P98          *float64             `json:"p98"`
 	Max          float64              `json:"max"`
 	Histogram    []VehicleSpeedBucket `json:"histogram"`
+	// Directions groups the same tracks by direction of travel: from the
+	// site's lane snapshot where Options.Lanes holds one, else the two
+	// opposed modes of car headings. A direction under five tracks is
+	// folded into the figures above and not listed; they are unchanged.
+	Directions []VehicleDirectionSummary `json:"directions"`
 }
 
 // VehicleSpeedBucket is one 5 mph interval, starting at StartMPH.

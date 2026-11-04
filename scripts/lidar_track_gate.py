@@ -41,7 +41,11 @@ def p95(values):
 def decide(gate, cls, duration, disp, speed95, n_obs, length=0.0, width=0.0):
     """Return whether a gate removes a track. The rule of l6cls0002, nothing else."""
     if gate == "g4":
-        return length < VEHICLE_WIDTH_M and width < VEHICLE_WIDTH_M and decide("g2", cls, duration, disp, speed95, n_obs)
+        return (
+            length < VEHICLE_WIDTH_M
+            and width < VEHICLE_WIDTH_M
+            and decide("g2", cls, duration, disp, speed95, n_obs)
+        )
     near_static = disp < STATIC_DISP_M and speed95 < STATIC_P95_MPS
     quiet = cls in QUIET
     if near_static and quiet:
@@ -54,7 +58,9 @@ def decide(gate, cls, duration, disp, speed95, n_obs, length=0.0, width=0.0):
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("src")
     ap.add_argument("dst")
     ap.add_argument("--gate", required=True, choices=["g1", "g2", "g3", "g4"])
@@ -75,16 +81,31 @@ def main():
             continue
         duration = dur if dur is not None else ((t1 or t0) - t0) / 1e9
         disp = math.hypot(rows[-1][0] - rows[0][0], rows[-1][1] - rows[0][1])
-        if decide(a.gate, cls, duration, disp, p95([r[2] for r in rows]), len(rows), length or 0.0, width or 0.0):
+        if decide(
+            a.gate,
+            cls,
+            duration,
+            disp,
+            p95([r[2] for r in rows]),
+            len(rows),
+            length or 0.0,
+            width or 0.0,
+        ):
             gated.append(tid)
     ro.close()
     shutil.copyfile(a.src, a.dst)
     con = sqlite3.connect(a.dst)
-    tables = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    tables = {
+        r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    }
     con.execute("PRAGMA foreign_keys=OFF")
     for t in TRACK_TABLES:
-        if t in tables and any(r[1] == "track_id" for r in con.execute(f"PRAGMA table_info({t})")):
-            con.executemany(f"DELETE FROM {t} WHERE track_id = ?", [(g,) for g in gated])
+        if t in tables and any(
+            r[1] == "track_id" for r in con.execute(f"PRAGMA table_info({t})")
+        ):
+            con.executemany(
+                f"DELETE FROM {t} WHERE track_id = ?", [(g,) for g in gated]
+            )
     con.commit()
     con.close()
     print(f"{a.gate}: removed {len(gated)} tracks")
