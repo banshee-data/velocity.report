@@ -206,8 +206,19 @@
 		deploymentsFor = selectedSiteId;
 		void loadDeployments(selectedSiteId);
 	}
-	$: periodEndUnix = dateRange.to ? new Date(dateRange.to).getTime() / 1000 : null;
+	// The period's last second in the display timezone, as the report reads it.
+	$: periodEndUnix = dateRange.to
+		? Date.parse(isoEndOfDay(dateRange.to, $displayTimezone)) / 1000
+		: null;
 	$: periodEndDay = dateRange.to ? isoDate(dateRange.to) : '';
+	$: coveringDeployment =
+		periodEndUnix == null
+			? null
+			: (siteDeployments.find(
+					(d) =>
+						d.effective_start_unix <= periodEndUnix &&
+						(d.effective_end_unix == null || d.effective_end_unix > periodEndUnix)
+				) ?? null);
 	$: directionDeployment =
 		periodEndUnix == null
 			? null
@@ -711,6 +722,12 @@
 													{direction.name}: {limitLabel(limitOn(direction.limits, periodEndDay))}
 												</div>
 											{/each}
+										{:else if periodEndUnix == null}
+											Choose a period to see the limits in force at its end.
+										{:else if deploymentsSite !== selectedSiteId}
+											Reading this site's deployments…
+										{:else if coveringDeployment == null}
+											The report's limit, operator-supplied; no deployment covers the period's end.
 										{:else}
 											The report's limit, operator-supplied; no directions are set on this
 											deployment.
