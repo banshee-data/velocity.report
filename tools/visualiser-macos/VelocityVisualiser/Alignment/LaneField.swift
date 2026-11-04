@@ -226,11 +226,12 @@ struct VelocityReportLaneField: Codable, Equatable, Sendable {
     /// The cells as upload chunks: no message over Gerardus's 4 MiB, a group
     /// spanning chunks where it must. A cell is at most about 70 bytes on
     /// the wire (four varints, eight more, a float), so 50,000 a chunk stays
-    /// under 4 MiB.
+    /// under 4 MiB. A group whose arrays disagree is left out, as `grid`
+    /// leaves it out, rather than sliced past its end.
     func uploadChunks(cellsPerChunk: Int = 50_000) -> [Gerardus_Align_V1alpha1_LaneFieldCells] {
         let step = max(1, cellsPerChunk)
         var out: [Gerardus_Align_V1alpha1_LaneFieldCells] = []
-        for group in groups {
+        for group in groups where group.cells.isWellFormed {
             let n = group.ix.count
             var start = 0
             while start < n {
@@ -263,38 +264,48 @@ struct VelocityReportLaneField: Codable, Equatable, Sendable {
 }
 
 extension LaneFieldGrid {
-    /// Gerardus's summed field for one class group, in the site frame.
+    /// Gerardus's summed field for each class group, in the site frame, on
+    /// one grid: the first group's cell size (vehicle first) and the lowest
+    /// origin of the groups on it, so every group shifts by a whole number of
+    /// cells and none is clamped onto the grid's edge. A group on a grid of
+    /// another cell size cannot share it and is left out.
     static func site(
         _ responses: [LaneFieldClassGroup: Gerardus_Align_V1alpha1_GetLaneFieldResponse]
     ) -> LaneFieldGrid {
         var g = LaneFieldGrid(source: .site, frame: .site)
-        var origin: SIMD2<Double>?
+        func cellSize(_ r: Gerardus_Align_V1alpha1_GetLaneFieldResponse) -> Double {
+            r.cellM > 0 ? Double(r.cellM) : 0.25
+        }
+        let ordered = LaneFieldClassGroup.allCases.compactMap { cls in
+            responses[cls].map { (cls, $0) }
+        }
+        guard let first = ordered.first else { return g }
+        let cell = cellSize(first.1)
+        let onGrid = ordered.filter { abs(cellSize($0.1) - cell) < 1e-6 }
+        let baseX = onGrid.map { $0.1.origin.x }.min() ?? first.1.origin.x
+        let baseY = onGrid.map { $0.1.origin.y }.min() ?? first.1.origin.y
+        g.cellM = cell
+        g.originX = baseX
+        g.originY = baseY
         var ids = Set<String>()
-        for (cls, r) in responses {
-            let o = SIMD2(r.origin.x, r.origin.y)
-            let cell = r.cellM > 0 ? Double(r.cellM) : 0.25
-            // Groups may come on different grids: shift each onto the first.
-            let base = origin ?? o
-            origin = base
-            g.cellM = cell
+        for (cls, r) in onGrid {
             var cells = LaneFieldCellList(
                 ix: r.cells.ix, iy: r.cells.iy, tracks: r.cells.tracks,
                 boxTracks: r.cells.boxTracks, heading: r.cells.heading,
                 speedSumMps: r.cells.speedSumMps)
             guard cells.isWellFormed else { continue }
-            let dx = Int(((o.x - base.x) / cell).rounded())
-            let dy = Int(((o.y - base.y) / cell).rounded())
+            // Both shifts are at least zero: the base is the lowest origin.
+            let dx = UInt32(max(0, Int(((r.origin.x - baseX) / cell).rounded())))
+            let dy = UInt32(max(0, Int(((r.origin.y - baseY) / cell).rounded())))
             if dx != 0 || dy != 0 {
-                cells.ix = cells.ix.map { UInt32(max(0, Int($0) + dx)) }
-                cells.iy = cells.iy.map { UInt32(max(0, Int($0) + dy)) }
+                cells.ix = cells.ix.map { $0 + dx }
+                cells.iy = cells.iy.map { $0 + dy }
             }
             g.groups[cls] = cells
             g.trackCount = max(g.trackCount, Int(r.trackCount))
             g.captures = max(g.captures, Int(r.captures))
             ids.formUnion(r.fieldIds)
         }
-        g.originX = origin?.x ?? 0
-        g.originY = origin?.y ?? 0
         g.fieldIDs = ids.sorted()
         return g
     }
@@ -322,7 +333,6 @@ struct LaneFieldLiveAccumulator: Sendable {
         var speed: [String: (sum: Double, n: Int)] = [:]
     }
     private var cells: [Key: Cell] = [:]
-    private var seen = Set<String>()
     let cellM: Double
 
     init(cellM: Double = 0.25) { self.cellM = cellM }
@@ -334,7 +344,6 @@ struct LaneFieldLiveAccumulator: Sendable {
         for t in tracks where t.misses == 0 {
             guard let group = LaneFieldClassGroup(classLabel: t.classLabel) else { continue }
             let id = t.trackID
-            seen.insert(id)
             let key = Key(group: group, ix: cellIndex(t.x), iy: cellIndex(t.y))
             var cell = cells[key] ?? Cell()
             cell.tracks.insert(id)

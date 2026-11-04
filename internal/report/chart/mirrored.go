@@ -20,16 +20,12 @@ type MirroredSide struct {
 // own population on one shared ceiling, each with its own limit line and its
 // buckets above that limit shaded darker. Both sides must share units and
 // bucket size.
-func RenderMirrored(up, down MirroredSide, style ChartStyle) ([]byte, error) {
-	if up.Data.Units != down.Data.Units || up.Data.BucketSz != down.Data.BucketSz {
-		return nil, fmt.Errorf("mirrored histogram: both sides need the same units and bucket size")
-	}
-	_, _, upTotal := NormaliseHistogram(up.Data.Buckets)
-	_, _, downTotal := NormaliseHistogram(down.Data.Buckets)
-	if upTotal == 0 && downTotal == 0 {
-		return renderNoData(style), nil
-	}
-	// The shared speed axis: every bucket either side holds.
+// mirroredAxis is the shared speed axis: every bucket from the lowest to the
+// highest either side holds, with none skipped, widened to take in each
+// side's limit, so a bucket's place on the axis is linear in its speed and a
+// limit below or above every populated bucket still has its line.
+func mirroredAxis(up, down MirroredSide) []float64 {
+	bucket := up.Data.BucketSz
 	set := map[float64]bool{}
 	for k := range up.Data.Buckets {
 		set[k] = true
@@ -42,6 +38,38 @@ func RenderMirrored(up, down MirroredSide, style ChartStyle) ([]byte, error) {
 		keys = append(keys, k)
 	}
 	sort.Float64s(keys)
+	if bucket <= 0 || len(keys) == 0 {
+		return keys
+	}
+	lo, hi := keys[0], keys[len(keys)-1]
+	for _, l := range []float64{up.Limit, down.Limit} {
+		if l <= 0 {
+			continue
+		}
+		b := math.Floor(l/bucket) * bucket
+		lo, hi = math.Min(lo, b), math.Max(hi, b)
+	}
+	n := int(math.Round((hi-lo)/bucket)) + 1
+	if n > 1000 {
+		return keys
+	}
+	out := make([]float64, 0, n)
+	for i := 0; i < n; i++ {
+		out = append(out, lo+float64(i)*bucket)
+	}
+	return out
+}
+
+func RenderMirrored(up, down MirroredSide, style ChartStyle) ([]byte, error) {
+	if up.Data.Units != down.Data.Units || up.Data.BucketSz != down.Data.BucketSz {
+		return nil, fmt.Errorf("mirrored histogram: both sides need the same units and bucket size")
+	}
+	_, _, upTotal := NormaliseHistogram(up.Data.Buckets)
+	_, _, downTotal := NormaliseHistogram(down.Data.Buckets)
+	if upTotal == 0 && downTotal == 0 {
+		return renderNoData(style), nil
+	}
+	keys := mirroredAxis(up, down)
 	pct := func(side MirroredSide, total int64, k float64) float64 {
 		if total == 0 {
 			return 0

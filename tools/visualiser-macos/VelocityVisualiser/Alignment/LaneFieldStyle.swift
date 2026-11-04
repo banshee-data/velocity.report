@@ -31,8 +31,8 @@ struct LaneFieldDisplay: Equatable, Sendable {
 }
 
 enum LaneFieldStyle {
-    /// Drawn this far above the ground, under the marks (lifted 0.15 m) and
-    /// over the reference's draped lines (0.10 m).
+    /// Drawn this far above the ground, under both the marks (lifted 0.15 m)
+    /// and the reference's draped lines (0.10 m), so neither is hidden.
     static let lift: Double = 0.05
     /// Eight direction hues, one per 45° sector of site-frame bearing from
     /// true north (0–45°, 45–90°, …), the sectors Gerardus's bins cover,

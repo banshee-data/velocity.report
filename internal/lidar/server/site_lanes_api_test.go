@@ -99,6 +99,7 @@ func TestSiteLanesRefusals(t *testing.T) {
 		{http.MethodPut, "/api/lidar/sites/nowhere/lanes", laneBody("r", "25", "2026-01-01"), http.StatusNotFound},
 		{http.MethodPut, "/api/lidar/sites/808580f47/lanes", []byte(`{"request_id": "r", "surprise": 1}`), http.StatusBadRequest},
 		{http.MethodPut, "/api/lidar/sites/808580f47/lanes", []byte(`{"request_id": "r"}`), http.StatusBadRequest},
+		{http.MethodPut, "/api/lidar/sites/808580f47/lanes", append(laneBody("r2", "25", "2026-01-01"), []byte(` {"request_id": "r3"}`)...), http.StatusBadRequest},
 		{http.MethodGet, "/api/lidar/sites/808580f47/lanes", nil, http.StatusNotFound},
 		{http.MethodGet, "/api/lidar/sites/808580f47/lanes?at=yesterday", nil, http.StatusBadRequest},
 		{http.MethodGet, "/api/lidar/sites/808580f47/lanes/attribute?x=1", nil, http.StatusBadRequest},

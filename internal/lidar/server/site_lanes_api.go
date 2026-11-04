@@ -62,7 +62,11 @@ func (ws *Server) handlePutSiteLanes(w http.ResponseWriter, r *http.Request, l16
 		return
 	}
 	body, err := io.ReadAll(io.LimitReader(r.Body, maxLaneSnapshotBytes+1))
-	if err != nil || len(body) > maxLaneSnapshotBytes {
+	if err != nil {
+		ws.writeJSONError(w, http.StatusBadRequest, "could not read the request body: "+err.Error())
+		return
+	}
+	if len(body) > maxLaneSnapshotBytes {
 		ws.writeJSONError(w, http.StatusRequestEntityTooLarge, "the request is too large")
 		return
 	}
@@ -71,6 +75,11 @@ func (ws *Server) handlePutSiteLanes(w http.ResponseWriter, r *http.Request, l16
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&req); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body: "+err.Error())
+		return
+	}
+	// One object only: anything after it is refused, not ignored.
+	if err := dec.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		ws.writeJSONError(w, http.StatusBadRequest, "invalid JSON body: one object expected")
 		return
 	}
 	snap, repeated, err := sqlite.NewLaneSnapshotStore(ws.db).Put(l16, req, time.Now())

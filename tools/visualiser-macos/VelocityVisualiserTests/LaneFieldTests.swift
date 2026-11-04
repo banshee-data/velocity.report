@@ -76,6 +76,13 @@ struct LaneFieldModelTests {
         #expect(chunks[1].ix == [1] && chunks[1].tracks == [5])
     }
 
+    @Test func aGroupWithArraysThatDisagreeIsNotUploaded() throws {
+        let bad = twoCellFieldJSON.replacingOccurrences(
+            of: "\"heading\":[6,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]", with: "\"heading\":[6,0,0,0,0,0,0,0]")
+        #expect(bad != twoCellFieldJSON)
+        #expect(try decode(bad).uploadChunks(cellsPerChunk: 1).isEmpty)
+    }
+
     @Test func gerardussSummedFieldIsASiteFrameGrid() {
         var r = Gerardus_Align_V1alpha1_GetLaneFieldResponse()
         r.origin.x = -3.875
@@ -98,6 +105,33 @@ struct LaneFieldModelTests {
         #expect(grid.captures == 3 && grid.trackCount == 40)
         #expect(grid.fieldIDs == ["sha256:a", "sha256:b"])
         #expect(grid.centre(0, 0) == SIMD2(-3.875, 4.125))
+    }
+
+    @Test func groupsShareTheLowestOriginAndAnotherCellSizeIsLeftOut() {
+        func response(x: Double, y: Double, cellM: Float) -> Gerardus_Align_V1alpha1_GetLaneFieldResponse {
+            var r = Gerardus_Align_V1alpha1_GetLaneFieldResponse()
+            r.origin.x = x
+            r.origin.y = y
+            r.cellM = cellM
+            r.cells.ix = [0]
+            r.cells.iy = [0]
+            r.cells.tracks = [6]
+            r.cells.boxTracks = [6]
+            r.cells.heading = [6, 0, 0, 0, 0, 0, 0, 0]
+            r.cells.speedSumMps = [30]
+            return r
+        }
+        // The cyclist group starts a metre lower-left of the vehicles': the
+        // vehicles' cell moves up and right, not onto the cyclists'.
+        let grid = LaneFieldGrid.site([
+            .vehicle: response(x: 0, y: 0, cellM: 0.25),
+            .cyclist: response(x: -1, y: -0.5, cellM: 0.25),
+            .pedestrian: response(x: 0, y: 0, cellM: 0.5),
+        ])
+        #expect(grid.originX == -1 && grid.originY == -0.5)
+        #expect(grid.groups[.vehicle]?.ix == [4] && grid.groups[.vehicle]?.iy == [2])
+        #expect(grid.groups[.cyclist]?.ix == [0] && grid.groups[.cyclist]?.iy == [0])
+        #expect(grid.groups[.pedestrian] == nil)
     }
 }
 
@@ -295,6 +329,21 @@ private let trafficSite = AlignmentSite(
         #expect(traffic.message?.contains("3 already there") == true)
         // The site's field is read again after each send.
         #expect(service.calls.filter { $0 == "GetLaneField" }.count >= 6)
+        // The wire is given back.
+        #expect(painter.alignment.busy == nil)
+    }
+
+    @Test func sendWaitsForNoAlignmentCallAndHoldsTheWire() async throws {
+        let (painter, service, _, _) = try await trafficPainter()
+        let traffic = painter.traffic
+        await traffic.load(runID: "run-1")
+        #expect(painter.alignment.claimWire("Registering"))
+        #expect(traffic.sendBlocker(pendingSave: false) != nil)
+        await traffic.send(pendingSave: false)
+        #expect(service.laneFieldUploads.isEmpty)
+        #expect(!painter.alignment.claimWire("Another"))
+        painter.alignment.releaseWire()
+        #expect(traffic.sendBlocker(pendingSave: false) == nil)
     }
 
     @Test func sendIsBlockedWithoutAnAcceptedPose() async throws {

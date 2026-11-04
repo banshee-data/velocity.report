@@ -184,24 +184,45 @@
 	// The radar directions of the deployment in force at the period's end, and
 	// the mirrored preview of the By direction section (transits only).
 	let deploymentsFor: number | null = null;
+	// The site the loaded list belongs to: until the new site's arrive, the
+	// last site's limits are not shown against it.
+	let deploymentsSite: number | null = null;
+	$: siteDeployments = deploymentsSite === selectedSiteId ? deployments : [];
 	async function loadDeployments(siteId: number) {
 		try {
 			const list = await listRadarDeployments(siteId);
-			if (deploymentsFor === siteId) deployments = list;
+			if (deploymentsFor === siteId) {
+				deployments = list;
+				deploymentsSite = siteId;
+			}
 		} catch {
-			if (deploymentsFor === siteId) deployments = [];
+			if (deploymentsFor === siteId) {
+				deployments = [];
+				deploymentsSite = siteId;
+			}
 		}
 	}
 	$: if (browser && selectedSiteId != null && selectedSiteId !== deploymentsFor) {
 		deploymentsFor = selectedSiteId;
 		void loadDeployments(selectedSiteId);
 	}
-	$: periodEndUnix = dateRange.to ? new Date(dateRange.to).getTime() / 1000 : null;
+	// The period's last second in the display timezone, as the report reads it.
+	$: periodEndUnix = dateRange.to
+		? Date.parse(isoEndOfDay(dateRange.to, $displayTimezone)) / 1000
+		: null;
 	$: periodEndDay = dateRange.to ? isoDate(dateRange.to) : '';
+	$: coveringDeployment =
+		periodEndUnix == null
+			? null
+			: (siteDeployments.find(
+					(d) =>
+						d.effective_start_unix <= periodEndUnix &&
+						(d.effective_end_unix == null || d.effective_end_unix > periodEndUnix)
+				) ?? null);
 	$: directionDeployment =
 		periodEndUnix == null
 			? null
-			: (deployments.find(
+			: (siteDeployments.find(
 					(d) =>
 						d.directions &&
 						d.effective_start_unix <= periodEndUnix &&
@@ -701,6 +722,12 @@
 													{direction.name}: {limitLabel(limitOn(direction.limits, periodEndDay))}
 												</div>
 											{/each}
+										{:else if periodEndUnix == null}
+											Choose a period to see the limits in force at its end.
+										{:else if deploymentsSite !== selectedSiteId}
+											Reading this site's deployments…
+										{:else if coveringDeployment == null}
+											The report's limit, operator-supplied; no deployment covers the period's end.
 										{:else}
 											The report's limit, operator-supplied; no directions are set on this
 											deployment.

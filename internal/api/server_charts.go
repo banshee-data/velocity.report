@@ -111,7 +111,7 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	siteID, startUnix, endUnix, displayUnits, _, ok := s.parseChartParams(w, q)
+	siteID, startUnix, endUnix, displayUnits, loc, ok := s.parseChartParams(w, q)
 	if !ok {
 		return
 	}
@@ -130,7 +130,7 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if q.Has("direction") || q.Has("mirror") {
-		s.handleChartDirectionHistogram(w, q, siteID, startUnix, endUnix, displayUnits, bucketSize, histMax, minSpeedMPS, source, paper)
+		s.handleChartDirectionHistogram(w, q, siteID, startUnix, endUnix, loc, displayUnits, bucketSize, histMax, minSpeedMPS, source, paper)
 		return
 	}
 
@@ -168,10 +168,15 @@ func (s *Server) handleChartHistogram(w http.ResponseWriter, r *http.Request) {
 // (direction=inbound|outbound) or the mirrored histogram of two
 // (mirror=inbound,outbound), each against its own limit: the same SVG the
 // report's By direction section embeds. Directions are the transits', so
-// the source must be radar_data_transits.
-func (s *Server) handleChartDirectionHistogram(w http.ResponseWriter, q url.Values, siteID int, startUnix, endUnix int64, displayUnits string, bucketSize, histMax, minSpeedMPS float64, source string, paper chart.PaperSize) {
+// the source must be radar_data_transits. A limit's effective date is a day,
+// so the period is read in the display timezone (tz), as the report reads it.
+func (s *Server) handleChartDirectionHistogram(w http.ResponseWriter, q url.Values, siteID int, startUnix, endUnix int64, loc *time.Location, displayUnits string, bucketSize, histMax, minSpeedMPS float64, source string, paper chart.PaperSize) {
 	if source != "radar_data_transits" {
 		s.writeJSONError(w, http.StatusBadRequest, "'direction' and 'mirror' need source=radar_data_transits: only transits carry a direction")
+		return
+	}
+	if q.Has("mirror") && q.Has("direction") {
+		s.writeJSONError(w, http.StatusBadRequest, "give 'direction' or 'mirror', not both")
 		return
 	}
 	var keys []string
@@ -196,7 +201,7 @@ func (s *Server) handleChartDirectionHistogram(w http.ResponseWriter, q url.Valu
 		s.writeJSONError(w, http.StatusInternalServerError, "Failed to query data")
 		return
 	}
-	set := report.BuildDirections(transits, time.Unix(startUnix, 0).UTC(), time.Unix(endUnix, 0).UTC(), displayUnits, bucketSize, histMax)
+	set := report.BuildDirections(transits, time.Unix(startUnix, 0).In(loc), time.Unix(endUnix, 0).In(loc), displayUnits, bucketSize, histMax)
 	side := func(key string) chart.MirroredSide {
 		out := chart.MirroredSide{Data: chart.HistogramData{Buckets: map[float64]int64{}, Units: displayUnits, BucketSz: bucketSize, MaxBucket: histMax}, Label: key}
 		for _, d := range set.Directions {

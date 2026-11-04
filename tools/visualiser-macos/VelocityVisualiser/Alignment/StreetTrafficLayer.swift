@@ -6,8 +6,9 @@
 //
 // Send lane field uploads the open run's three fields (the whole run and its
 // halves) against the accepted record that places them. It follows the
-// alignment pane's one-long-call-on-the-wire rule: a second send waits for
-// none, it is refused while one is out.
+// alignment pane's one-long-call-on-the-wire rule: it is refused while any
+// call is out, and holds the session's wire while it runs, so no alignment
+// call starts under it.
 
 import Combine
 import Foundation
@@ -193,7 +194,7 @@ enum StreetTrafficError: Error, LocalizedError, Equatable {
     func send(pendingSave: Bool) async {
         guard sendBlocker(pendingSave: pendingSave) == nil, let runID,
             let client = alignment.gerardusClient, let token = alignment.site?.l16Token,
-            let record = alignment.acceptedRecord
+            let record = alignment.acceptedRecord, alignment.claimWire("Sending the lane field")
         else { return }
         isSending = true
         errorMessage = nil
@@ -223,6 +224,7 @@ enum StreetTrafficError: Error, LocalizedError, Equatable {
                 + (repeated > 0 ? ", \(repeated) already there" : "")
         }
         isSending = false
+        alignment.releaseWire()
         await loadSite()
         changed()
     }

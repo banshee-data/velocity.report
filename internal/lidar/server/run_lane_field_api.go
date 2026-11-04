@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
@@ -33,7 +34,7 @@ func (ws *Server) resolveRunVRLOG(stored string) (string, error) {
 // for: no path serves a thinner field than Gerardus receives (ADR-0011).
 func (ws *Server) handleRunLaneField(w http.ResponseWriter, r *http.Request, runID string) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET requests")
+		ws.writeJSONError(w, http.StatusMethodNotAllowed, "this endpoint only accepts GET and HEAD requests")
 		return
 	}
 	q := r.URL.Query()
@@ -66,5 +67,9 @@ func (ws *Server) handleRunLaneField(w http.ResponseWriter, r *http.Request, run
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
+	if r.Method == http.MethodHead {
+		w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		return
+	}
 	_, _ = w.Write(body)
 }
