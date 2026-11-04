@@ -310,3 +310,18 @@ struct LaneLimitCheckTests {
         #expect(p["speed_limit_source"] == "statutory" && p["speed_limit_effective_from"] == "2026-09-02")
     }
 }
+
+struct DottedLineTests {
+    @Test func aZeroGapDrawsASolidLineAndFinishes() {
+        let points: [SIMD3<Double>] = [SIMD3(0, 0, 0), SIMD3(10, 0, 0), SIMD3(10, 5, 0)]
+        let colour = SIMD4<Float>(1, 1, 1, 1)
+        var dotted = StreetPaintStyle.Builder()
+        dotted.dotted(points, dash: 1, gap: 0, colour: colour)
+        var solid = StreetPaintStyle.Builder()
+        solid.polyline(points, closed: false, colour: colour)
+        #expect(dotted.vertices.lines == solid.vertices.lines)
+        var dashed = StreetPaintStyle.Builder()
+        dashed.dotted(points, dash: 1, gap: 1, colour: colour)
+        #expect(!dashed.vertices.lines.isEmpty && dashed.vertices.lines.count < 2 * solid.vertices.lines.count * 8)
+    }
+}

@@ -372,6 +372,11 @@ enum StreetPaintStyle {
             _ points: [SIMD3<Double>], dash: Double, gap: Double, colour: SIMD4<Float>
         ) {
             guard points.count >= 2, dash > 0 else { return }
+            // No gap is a solid line; a gap of zero would never advance.
+            guard gap > 0 else {
+                polyline(points, closed: false, colour: colour)
+                return
+            }
             var on = true
             var left = dash
             for i in 0..<(points.count - 1) {

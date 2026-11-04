@@ -395,4 +395,7 @@ func TestLaneFieldRejectsBadOptions(t *testing.T) {
 	if p, err := ParseLaneFieldPart(""); err != nil || p != LaneFieldPartAll {
 		t.Fatal("empty part must read as all")
 	}
+	if f, err := BuildLaneField(nil, LaneFieldMeta{}, "", DefaultLaneFieldOptions()); err != nil || f.Header.WindowPart != string(LaneFieldPartAll) {
+		t.Fatalf("an empty part builds all: %v %q", err, f.Header.WindowPart)
+	}
 }
