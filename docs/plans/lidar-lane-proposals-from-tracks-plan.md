@@ -2,7 +2,7 @@
 
 Where the cars, cyclists and pedestrians were seen says where the lanes are. This plan sums a run's tracks into a lane field, an aggregate of distinct tracks, box extents and headings per cell that is the only track-derived thing to leave a site; sends it to Gerardus, which proposes travel lanes from it; and gives the macOS visualiser a top-down view of the cumulative tracks and box extents with the proposals drawn over them, graded high or medium, so an operator approves, edits or splits each into the travel lanes that velocity.report's speed reporting then uses per lane and per direction.
 
-- **Status:** Proposed (the owner asked for it on November 3, 2026). D-32 holds twelve bodies of work active, so this plan takes a slot only when the owner parks one or names it; no code is written. Reconciled November 3, 2026 with the unified design (Gerardus ADR-0016, accepted): this plan is canonical for the lane field (§1), its route and CLI, and what crosses to Gerardus (§3). Its paint-mode half (§2) is the [lane painter plan](lidar-visualiser-lane-painter-plan.md), and the lanes copy is the [lane snapshot and attribution plan](lidar-lane-snapshot-and-attribution-plan.md)
+- **Status:** Active: the owner named the v0.7.19 slot on November 3, 2026. Phases A and B are built (the lane field, its route and CLI) and Phase A's real check is [reported](../lidar/operations/lane-field-columbus-broadway-2026-11.md); C, D and E are outstanding. Reconciled November 3, 2026 with the unified design (Gerardus ADR-0016, accepted): this plan is canonical for the lane field (§1), its route and CLI, and what crosses to Gerardus (§3). Its paint-mode half (§2) is the [lane painter plan](lidar-visualiser-lane-painter-plan.md), and the lanes copy is the [lane snapshot and attribution plan](lidar-lane-snapshot-and-attribution-plan.md)
 - **Decisions:** D-32 (planning limits), D-36 (Gerardus owns static street geometry and accepted registration; L8 alone owns aggregation), D-38 (geometry is measured spatial data); Gerardus [ADR-0006](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0006-boundary-with-velocity-report.md) and [ADR-0007](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0007-grpc-interface-to-the-visualiser.md) (the bridge lives here), [ADR-0011](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0011-publish-snapshots-and-aggregates-not-trails.md) (aggregates only, no bin under five tracks), [ADR-0012](https://github.com/banshee-data/gerardus/blob/main/docs/adr/0012-street-level-features-from-registered-scans.md) (proposals)
 - **Layers:** L8 analytics (the lane field), L9 endpoints (one HTTP route and one CLI), L10 macOS visualiser (paint mode), the vendored Gerardus proto
 - **Target:** unscheduled; proposed as the v0.7.19 slot in [BACKLOG.md](../BACKLOG.md#v0719---lanes-from-tracks-and-directional-speeds-0719)
@@ -52,7 +52,7 @@ flowchart LR
 
 A lane field is a raster over the sensor's horizontal plane, cell 0.25 m, in the sensor frame, that says per class group what distinct tracks did in each cell. The contract is fixed in Gerardus's [LANE-PROPOSALS §3](https://github.com/banshee-data/gerardus/blob/main/docs/plans/LANE-PROPOSALS.md#3-the-lane-field); this section is the velocity.report side.
 
-**Inputs.** One run's track observations from the sqlite track store. A track counts when it is a confirmed track with at least ten observed instants (coasted and predicted instants are dropped first, by the continuity support token) and, for the vehicle group, a lifetime maximum speed of at least 2 m/s, so a car parked through the whole run paints no lane. Class groups follow the L6 label: `vehicle` (car, truck, bus, motorcyclist), `cyclist`, `pedestrian`; an unclassified track is left out.
+**Inputs.** One run's track observations from the sqlite track store, or, for an analysis replay, which stores none (`DisableTrackPersistence`), the same instants read from the run's recording: each frame's tracks with no miss, for the tracks the run confirmed, with their final class (`internal/lidar/lanefieldrun`). A track counts when it is a confirmed track with at least ten observed instants (coasted and predicted instants are dropped first, by the continuity support token) and, for the vehicle group, a lifetime maximum speed of at least 2 m/s, so a car parked through the whole run paints no lane. Class groups follow the L6 label: `vehicle` (car, truck, bus, motorcyclist), `cyclist`, `pedestrian`; an unclassified track is left out.
 
 **Channels per cell and class group**, as Gerardus stores them:
 
@@ -143,6 +143,22 @@ Phase A and B need no Gerardus work and no visualiser; C needs Gerardus W10a; D 
 - Should `medium` proposals be approvable, or only `high`? Both, with the grade copied onto the mark's `confidence` tag for the record; the owner may narrow it.
 - Does the web `/app/lidar/sites` page draw the field and proposals read-only? Yes, from Gerardus's GeoJSON and lane-field endpoints, later and not in this plan's steps.
 - Where does the near-side correction belong, here (on the field) or in Gerardus (on the fit)? In Gerardus, so one parameter per class group is set against paint; the field stays what was observed.
+
+## Checklist
+
+### Complete
+
+- [x] Plan written; reconciled with the unified design (Gerardus ADR-0016) on November 3, 2026
+- [x] Phase A: `BuildLaneField` in `internal/lidar/l8analytics/lanefield.go` with the class groups, the speed floors, k = 5 and the three parts, and its unit fixtures (`claude/lane-field-l8`)
+- [x] Phase B: `GET /api/lidar/runs/{run_id}/lane-field?part=…` and `velocity lidar lane-field --run <id> --out <dir>`, both writing `lanefieldrun.Build`'s JSON, from the store's observations or, for an analysis replay, which stores none, from the run's recording; `gerardus upload-lane-field`'s reader and `UploadLaneField` accept the files, checked against Gerardus main at `e9dc3e0` (`claude/lane-field-l8`)
+- [x] Phase A real check on the first 600 s of columbus-broadway: the vehicle ridges sit on the right of travel on Columbus Ave and Broadway in all four directions and the halves agree to the 0.5 m bin ([report](../lidar/operations/lane-field-columbus-broadway-2026-11.md)); no plot, since the render tool is snapshot plan Item 4 (`claude/lane-field-l8`)
+
+### Outstanding
+
+- [ ] Phase B's one-second criterion holds for a run with stored observations only: from a recording the whole field took 3.2 s over HTTP for a 10-minute run
+- [ ] Phase C: the field overlay and the upload ([lane painter](lidar-visualiser-lane-painter-plan.md) Item 1)
+- [ ] Phase D: proposals, review and limits ([lane painter](lidar-visualiser-lane-painter-plan.md) Items 2–3)
+- [ ] Phase E: the real check with the owner
 
 ## Not in scope
 
