@@ -3,6 +3,7 @@
 package lidar
 
 import (
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -24,6 +25,7 @@ const lanesUsage = `velocity lidar lanes — the lane snapshot
 Usage:
   velocity lidar lanes pull --db FILE --site L16 --sensor-id ID --record-id RECORD --pose TX,TY,TZ,QW,QX,QY,QZ
                             [--gerardus URL] [--author NAME]
+  velocity lidar lanes score --site L16 --reference-tag KEY=VALUE [--gerardus URL] [--json]
 
 pull reads the site's street use from Gerardus
 (GET /api/v1/sites/{l16}/geojson?layers=street_use&frame=site) and writes it
@@ -36,6 +38,13 @@ street use again writes nothing.
 Gerardus serves no registration record over HTTP, so the accepted record's
 id and pose are given (the alignment pane shows them).
 
+score is experiment lane0002's (data/experiments/lane/lane0002.md): it reads
+the site's lane proposals and the travel lanes drawn by hand with the
+reference tag, both from Gerardus in the site frame, pairs each proposal with
+the drawn lane it runs nearest, and prints the lateral RMSE, mean offset and
+overlap of each pair, the counts per direction, and the rule's four clauses.
+It reads no track.
+
 Flags:`
 
 // LanesMain runs `velocity lidar lanes`.
@@ -47,6 +56,8 @@ func LanesMain(args []string) int {
 	switch args[0] {
 	case "pull":
 		return lanesPull(args[1:], http.DefaultClient)
+	case "score":
+		return lanesScore(args[1:], http.DefaultClient)
 	default:
 		fmt.Fprintf(os.Stderr, "unknown lanes command %q\n\n%s\n", args[0], lanesUsage)
 		return 2
@@ -154,4 +165,81 @@ func envOr(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func lanesScore(args []string, client *http.Client) int {
+	fs := flag.NewFlagSet("velocity-lidar-lanes-score", flag.ContinueOnError)
+	site := fs.String("site", "", "The site's L16 token")
+	tag := fs.String("reference-tag", "reference=lane0002", "The tag the drawn lanes carry, KEY=VALUE")
+	gerardus := fs.String("gerardus", envOr("GERARDUS_URL", "http://127.0.0.1:50061"), "Gerardus's address")
+	asJSON := fs.Bool("json", false, "Print the score as JSON")
+	if err := fs.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return 0
+		}
+		return 2
+	}
+	key, value, ok := strings.Cut(*tag, "=")
+	if *site == "" || !ok || key == "" {
+		fmt.Fprintln(os.Stderr, "lanes score: --site and --reference-tag KEY=VALUE are required")
+		return 2
+	}
+	read := func(layer string) ([]lanes.Feature, error) {
+		u := strings.TrimRight(*gerardus, "/") + "/api/v1/sites/" + url.PathEscape(*site) + "/geojson?layers=" + layer + "&frame=site"
+		resp, err := client.Get(u)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+		body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("Gerardus answered %d for %s: %.200s", resp.StatusCode, layer, body)
+		}
+		return lanes.FromGeoJSONLayer(body, layer)
+	}
+	proposalFeatures, err := read("lane_proposals")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "lanes score: %v\n", err)
+		return 1
+	}
+	streetUse, err := read("street_use")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "lanes score: %v\n", err)
+		return 1
+	}
+	drawn := lanes.ScoreFeatures(streetUse, key, value, false)
+	proposals := lanes.ScoreFeatures(proposalFeatures, "", "", true)
+	score := lanes.ScoreProposals(proposals, drawn)
+	if *asJSON {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(score)
+		return 0
+	}
+	fmt.Printf("site %s: %d drawn lanes (%s), %d proposals\n", *site, len(drawn), *tag, len(proposals))
+	for _, d := range score.Directions {
+		fmt.Printf("  %-28s drawn %d, high %d, medium %d\n", d.Direction, d.Drawn, d.High, d.Medium)
+	}
+	for _, p := range score.Pairs {
+		fmt.Printf("  %s (%s) -> %s: RMSE %.3f m, mean %+.3f m, overlap %.0f%%, covers %.0f%% of the drawn lane\n",
+			p.ProposalID, p.Grade, p.DrawnID, p.RMSEM, p.MeanOffsetM, 100*p.OverlapShare, 100*p.DrawnCoverage)
+	}
+	for _, id := range score.FalseHigh {
+		fmt.Printf("  %s (high) pairs with no drawn lane\n", id)
+	}
+	verdict := func(ok bool) string {
+		if ok {
+			return "passes"
+		}
+		return "fails"
+	}
+	fmt.Printf("clause 1 (high RMSE < %.2f m): %s\n", lanes.ScoreRMSEMaxM, verdict(score.Clause1RMSE))
+	fmt.Printf("clause 2 (lanes per direction): %s\n", verdict(score.Clause2Count))
+	fmt.Printf("clause 3 (%d of %d drawn lanes found, need %.0f%%): %s\n", score.DrawnFound, score.DrawnTotal, 100*lanes.ScoreFoundShare, verdict(score.Clause3Found))
+	fmt.Printf("clause 4 (no false high): %s\n", verdict(score.Clause4NoFalse))
+	fmt.Printf("lane0002 at %s: %s\n", *site, verdict(score.Passed))
+	return 0
 }

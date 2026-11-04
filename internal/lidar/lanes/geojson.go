@@ -12,7 +12,11 @@ var reservedProperties = map[string]bool{"layer": true, "id": true, "kind": true
 // GET /api/v1/sites/{l16}/geojson?layers=street_use&frame=site: each
 // feature's id, row, kind, author, edit time and tags as properties, and
 // site-frame [x, y, z] coordinates. Features of other layers are skipped.
-func FromGeoJSON(data []byte) ([]Feature, error) {
+func FromGeoJSON(data []byte) ([]Feature, error) { return FromGeoJSONLayer(data, "street_use") }
+
+// FromGeoJSONLayer reads one layer's features from Gerardus's GeoJSON in
+// the same shape: `street_use`, or `lane_proposals` for the proposals.
+func FromGeoJSONLayer(data []byte, layerName string) ([]Feature, error) {
 	var fc struct {
 		Features []struct {
 			ID       string `json:"id"`
@@ -28,7 +32,7 @@ func FromGeoJSON(data []byte) ([]Feature, error) {
 	}
 	out := []Feature{}
 	for i, f := range fc.Features {
-		if layer, _ := f.Properties["layer"].(string); layer != "street_use" {
+		if layer, _ := f.Properties["layer"].(string); layer != layerName {
 			continue
 		}
 		feature := Feature{FeatureID: f.ID, Tags: map[string]string{}}

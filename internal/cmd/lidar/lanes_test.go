@@ -65,3 +65,32 @@ func TestLanesPullWritesASnapshotOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestLanesScoreReadsBothLayersFromGerardus(t *testing.T) {
+	proposals := `{"type":"FeatureCollection","features":[
+	 {"type":"Feature","id":"gms:p1","geometry":{"type":"LineString","coordinates":[[1,-1.7,0],[59,-1.7,0]]},
+	  "properties":{"layer":"lane_proposals","id":"gms:p1","kind":"travel_lane","confidence":"high","street":"KIRKHAM ST","bound":"E"}}]}`
+	drawn := `{"type":"FeatureCollection","features":[
+	 {"type":"Feature","id":"gms:d1","geometry":{"type":"LineString","coordinates":[[0,-1.8,0],[60,-1.8,0]]},
+	  "properties":{"layer":"street_use","id":"gms:d1","kind":"travel_lane","row_id":"r","reference":"lane0002","street":"KIRKHAM ST","bound":"E"}}]}`
+	gerardus := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Query().Get("layers") {
+		case "lane_proposals":
+			_, _ = w.Write([]byte(proposals))
+		case "street_use":
+			_, _ = w.Write([]byte(drawn))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer gerardus.Close()
+	if code := LanesMain([]string{"score", "--site", "808580f47", "--gerardus", gerardus.URL, "--json"}); code != 0 {
+		t.Fatalf("score: exit %d", code)
+	}
+	if code := LanesMain([]string{"score", "--site", "808580f47", "--gerardus", gerardus.URL}); code != 0 {
+		t.Fatalf("score text: exit %d", code)
+	}
+	if code := LanesMain([]string{"score", "--reference-tag", "nokey"}); code != 2 {
+		t.Fatalf("bad flags: exit %d", code)
+	}
+}
