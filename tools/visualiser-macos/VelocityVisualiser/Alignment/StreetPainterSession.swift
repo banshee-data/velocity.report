@@ -214,11 +214,14 @@ struct StreetReference: Sendable {
 
     /// The traffic layer drawn under the marks (lane painter Item 1).
     let traffic: StreetTrafficLayer
+    /// Gerardus's lane proposals and their review (Item 2).
+    let proposals: StreetProposals
 
     init(alignment: AlignmentSession, laneFields: LaneFieldSource = VelocityReportLaneFieldClient())
     {
         self.alignment = alignment
         self.traffic = StreetTrafficLayer(alignment: alignment, source: laneFields)
+        self.proposals = StreetProposals(alignment: alignment)
         alignment.$reference.sink { [weak self] summary in
             self?.referenceChanged(placed: summary != nil)
         }.store(in: &subscriptions)
@@ -229,6 +232,7 @@ struct StreetReference: Sendable {
             self?.setPainting(false)
         }.store(in: &subscriptions)
         traffic.onChange = { [weak self] in self?.refresh() }
+        proposals.onChange = { [weak self] in self?.refresh() }
     }
 
     // MARK: - Paint mode
@@ -366,6 +370,7 @@ struct StreetReference: Sendable {
             edit = StreetEditState(base: read.marks)
             skipped = read.skipped
             loadedToken = token
+            await proposals.load()
             selectedKey = nil
             drawing = []
             problemsByID = [:]
@@ -504,9 +509,10 @@ struct StreetReference: Sendable {
             return
         }
         drawing = []
+        let base = StreetUseTags.tags(for: kind, fields)
         let mark = StreetMark(
             key: newKey(), featureID: "", kind: kind, points: made,
-            tags: StreetUseTags.tags(for: kind, fields))
+            tags: kind == .travelLane ? prefilled(base) : base)
         edit.add(mark)
         selectedKey = mark.key
         savedMessage = nil
@@ -548,6 +554,152 @@ struct StreetReference: Sendable {
     func reverseSelected() {
         guard let key = selectedKey, selected?.kind == .travelLane else { return }
         edit.update(key, StreetUseEditing.reversed)
+        refresh()
+    }
+
+    // MARK: - Proposals, splits and limits (lane painter Items 2 and 3)
+
+    /// The proposal under a view point, within a few points of its line.
+    func proposal(atView p: CGPoint) -> LaneProposalView? {
+        guard proposals.visible, let plan else { return nil }
+        let at = plan.sitePoint(atView: p, size: viewSize)
+        let tolerance = Self.edgeHitPoints * metresPerPoint * 2
+        var best: (LaneProposalView, Double)?
+        for proposal in proposals.proposals {
+            guard
+                let hit = StreetGeometry.insertion(
+                    at: at, into: proposal.plan, closed: false, tolerance: tolerance)
+            else { continue }
+            let d = StreetGeometry.distance(hit.point, at)
+            if best == nil || d < best!.1 { best = (proposal, d) }
+        }
+        return best?.0
+    }
+
+    /// The capture's date for a limit's effective date, a lower bound.
+    var captureDate: String {
+        if let start = traffic.runField?.header.windowStart, start.count >= 10 {
+            return String(start.prefix(10))
+        }
+        return LaneLimits.day(Date())
+    }
+
+    /// A travel lane's tags with the limit prefilled where it has none.
+    private func prefilled(_ tags: [String: String]) -> [String: String] {
+        guard (tags[LaneLimits.speedLimit] ?? "").isEmpty else { return tags }
+        let jurisdiction = tags[LaneLimits.jurisdiction] ?? "US-CA"
+        return tags.merging(
+            LaneLimits.prefill(jurisdiction: jurisdiction, captureDate: captureDate)
+        ) { a, _ in a }
+    }
+
+    private func approvedMark(_ proposal: LaneProposalView) -> StreetMark {
+        StreetMark(
+            key: newKey(), featureID: "", kind: .travelLane, points: proposal.points,
+            tags: prefilled(proposal.approvedTags))
+    }
+
+    /// Approves a proposal: a new travel lane along it, tagged with its id
+    /// and grade, its limit prefilled with the statutory default, selected.
+    /// One undoable change.
+    func approveProposal(_ featureID: String) {
+        guard let proposal = proposals.proposals.first(where: { $0.featureID == featureID }),
+            !proposal.rejected
+        else { return }
+        let mark = approvedMark(proposal)
+        edit.add(mark)
+        selectedKey = mark.key
+        tool = .select
+        savedMessage = nil
+        refresh()
+    }
+
+    /// The proposals Approve all high takes: high, not adopted, not rejected,
+    /// and not already approved in this draft.
+    var approvableHigh: [LaneProposalView] {
+        let drafted = Set(edit.marks.compactMap { $0.tags[LaneLimits.proposal] })
+        return proposals.proposals.filter {
+            $0.isHigh && !$0.isAdopted && !$0.rejected && !drafted.contains($0.featureID)
+        }
+    }
+
+    /// Approves every unadopted high proposal as one undoable change.
+    func approveAllHigh() {
+        let made = approvableHigh.map(approvedMark)
+        guard !made.isEmpty else { return }
+        edit.change(edit.marks + made)
+        selectedKey = nil
+        savedMessage = nil
+        refresh()
+    }
+
+    /// Splits the lane under a view point at that point (Split at sign).
+    private func splitLane(atView p: CGPoint) {
+        guard let plan else { return }
+        let at = plan.sitePoint(atView: p, size: viewSize)
+        let lanes = edit.marks.filter { $0.kind == .travelLane }
+        let tolerance = max(1.0, Self.edgeHitPoints * metresPerPoint * 2)
+        for lane in lanes {
+            guard
+                let (up, down) = StreetUseEditing.split(
+                    lane, at: at, newKey: newKey(), tolerance: tolerance)
+            else { continue }
+            var next = edit.marks
+            guard let i = next.firstIndex(where: { $0.key == lane.key }) else { continue }
+            next[i] = up
+            next.insert(down, at: i + 1)
+            edit.change(next)
+            selectedKey = down.key
+            tool = .select
+            refresh()
+            return
+        }
+    }
+
+    /// The checks shown before Save: by mark key, and for the site.
+    var limitWarnings: (byKey: [String: [String]], general: [String]) {
+        LaneLimits.warnings(marks: edit.marks, base: edit.base)
+    }
+
+    /// Sets the selected lane's limit tags at once, as one undoable change;
+    /// an empty value clears the tag.
+    func setSelectedLimit(_ values: [String: String]) {
+        guard let key = selectedKey, selected?.kind == .travelLane else { return }
+        edit.update(key) { mark in
+            var out = mark
+            for (k, v) in values {
+                let t = v.trimmingCharacters(in: .whitespaces)
+                out.tags[k] = t.isEmpty ? nil : t
+            }
+            return out
+        }
+        refresh()
+    }
+
+    /// The lanes in the selected lane's direction: same street and bound.
+    var selectedDirection: [StreetMark] {
+        guard let lane = selected, lane.kind == .travelLane else { return [] }
+        let bound = LaneLimits.bound(of: lane)
+        let street = lane.tags["street"] ?? ""
+        return edit.marks.filter {
+            $0.kind == .travelLane && LaneLimits.bound(of: $0) == bound
+                && ($0.tags["street"] ?? "") == street
+        }
+    }
+
+    /// Names the selected lane's direction on every lane of it, as one
+    /// undoable change.
+    func setDirectionName(_ name: String) {
+        let keys = Set(selectedDirection.map(\.key))
+        guard !keys.isEmpty else { return }
+        let value = name.trimmingCharacters(in: .whitespaces)
+        edit.change(
+            edit.marks.map { mark in
+                guard keys.contains(mark.key) else { return mark }
+                var out = mark
+                out.tags[LaneLimits.directionName] = value.isEmpty ? nil : value
+                return out
+            })
         refresh()
     }
 
@@ -708,6 +860,11 @@ struct StreetReference: Sendable {
     private func click(at p: CGPoint, clickCount: Int) {
         if tool == .select {
             selectedKey = mark(atView: p)?.key
+            if selectedKey == nil { proposals.selectedID = proposal(atView: p)?.featureID }
+            return
+        }
+        if tool == .split {
+            splitLane(atView: p)
             return
         }
         // The second click of a double-click finishes a polygon or a lane;
@@ -754,7 +911,7 @@ struct StreetReference: Sendable {
         let ended = gesture
         gesture = nil
         guard case .rightPending = ended else { return }
-        if tool != .select {
+        if tool.kind != nil {
             if !drawing.isEmpty { drawing.removeLast() }
         } else if let mark = selected, let index = vertex(of: mark, atView: p) {
             edit.update(mark.key) { StreetUseEditing.removeVertex($0, index) }
@@ -763,7 +920,7 @@ struct StreetReference: Sendable {
     }
 
     func mouseMoved(to p: CGPoint) {
-        guard isPainting, tool != .select else { return }
+        guard isPainting, tool.kind != nil else { return }
         cursor = point(atView: p)
         refresh()
     }
@@ -870,6 +1027,10 @@ struct StreetReference: Sendable {
         }
         scene.painting = isPainting
         scene.metresPerPoint = metresPerPoint
+        if proposals.visible {
+            scene.proposals = proposals.proposals
+            scene.selectedProposalID = proposals.selectedID
+        }
         return scene
     }
 

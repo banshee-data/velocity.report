@@ -37,6 +37,10 @@ import SwiftUI
                 statusSection
                 Divider()
                 StreetTrafficSection(painter: painter, traffic: painter.traffic, session: session)
+                if painter.proposals.serverSupports {
+                    Divider()
+                    StreetProposalsSection(painter: painter, proposals: painter.proposals)
+                }
                 Divider()
                 toolSection
                 if painter.selected != nil {
@@ -135,7 +139,7 @@ import SwiftUI
 
     @ViewBuilder private var toolFields: some View {
         switch painter.tool {
-        case .select: EmptyView()
+        case .select, .split: EmptyView()
         case .surface:
             Picker("Surface", selection: $painter.fields.surface) {
                 ForEach(StreetUseTags.surfaces, id: \.self) { Text($0).tag($0) }
@@ -195,6 +199,14 @@ import SwiftUI
                         .foregroundStyle(.secondary)
                 }
                 Text("\(mark.points.count) vertices").font(.caption2).foregroundStyle(.secondary)
+                if mark.kind == .travelLane {
+                    if let proposal = mark.tags[LaneLimits.proposal] {
+                        Text(
+                            "From proposal \(String(proposal.suffix(10))) (\(mark.tags[LaneLimits.confidence] ?? "?"))"
+                        ).font(.caption2).foregroundStyle(.secondary)
+                    }
+                    LaneLimitSection(painter: painter, lane: mark)
+                }
                 ProblemLines(problems: painter.problems(for: mark))
             }
         }
@@ -289,6 +301,26 @@ import SwiftUI
                     horizontal: false, vertical: true)
             }
             ProblemLines(problems: painter.generalProblems)
+            limitChecks
+        }
+    }
+
+    /// The limit checks before Save: shown, never blocking (Gerardus raises
+    /// the same as problems after it).
+    @ViewBuilder private var limitChecks: some View {
+        let checks = painter.limitWarnings
+        let lanes = checks.byKey.count
+        if lanes > 0 || !checks.general.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                if lanes > 0 {
+                    Text(
+                        "\(lanes) travel lane\(lanes == 1 ? "" : "s") with a limit to check: select one to see why."
+                    ).font(.caption2).foregroundStyle(.orange)
+                }
+                ForEach(checks.general, id: \.self) {
+                    Text($0).font(.caption2).foregroundStyle(.orange)
+                }
+            }
         }
     }
 

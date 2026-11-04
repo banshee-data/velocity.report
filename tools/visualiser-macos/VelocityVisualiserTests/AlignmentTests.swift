@@ -1133,6 +1133,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// What ListLaneProposals answers.
     var laneProposals: [Gerardus_Align_V1alpha1_LaneProposal] = []
     var laneProposalReviews: [Gerardus_Align_V1alpha1_ReviewLaneProposalRequest] = []
+    /// Fail this many ReviewLaneProposal calls with UNAVAILABLE before
+    /// applying one, as a lost connection would.
+    var laneReviewUnavailable = 0
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
     /// Every UploadScan header, in order.
     var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
@@ -1610,6 +1613,10 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     ) async throws -> Gerardus_Align_V1alpha1_ReviewLaneProposalResponse {
         log("ReviewLaneProposal")
         laneProposalReviews.append(request)
+        if laneReviewUnavailable > 0 {
+            laneReviewUnavailable -= 1
+            throw RPCError(code: .unavailable, message: "connection lost")
+        }
         guard let i = laneProposals.firstIndex(where: { $0.featureID == request.featureID }) else {
             throw RPCError(code: .notFound, message: "no proposal \(request.featureID)")
         }

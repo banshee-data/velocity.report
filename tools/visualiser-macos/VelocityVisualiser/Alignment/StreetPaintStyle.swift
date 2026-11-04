@@ -46,6 +46,9 @@ struct StreetPaintScene: Sendable {
     /// Handles and drafts are shown only while painting.
     var painting = false
     var metresPerPoint: Double = 0.05
+    /// Gerardus's lane proposals, drawn under the marks while painting.
+    var proposals: [LaneProposalView] = []
+    var selectedProposalID: String?
 }
 
 /// The painter's tools.
@@ -56,6 +59,8 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
     case space
     case row
     case driveway
+    /// Splits a travel lane where its limit changes along the street.
+    case split
 
     var id: String { rawValue }
 
@@ -67,6 +72,7 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .space: return "Space"
         case .row: return "Row"
         case .driveway: return "Driveway"
+        case .split: return "Split at sign"
         }
     }
 
@@ -78,6 +84,7 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .space: return "parkingsign"
         case .row: return "rectangle.split.3x1"
         case .driveway: return "road.lanes"
+        case .split: return "scissors"
         }
     }
 
@@ -94,13 +101,16 @@ enum StreetPaintTool: String, CaseIterable, Identifiable, Sendable {
         case .row:
             return "Click two points along the kerb: the row runs between them, on the street side."
         case .driveway: return "Click the two ends of the kerb cut."
+        case .split:
+            return
+                "Click a travel lane where its limit changes, at the sign: it becomes two lanes sharing that vertex, and the second's limit is cleared for the new value."
         }
     }
 
     /// The kind a drawing tool makes; nil for Select.
     var kind: StreetUseKind? {
         switch self {
-        case .select: return nil
+        case .select, .split: return nil
         case .surface: return .surface
         case .lane: return .travelLane
         case .space, .row: return .parkingSpace
@@ -180,6 +190,13 @@ enum StreetPaintStyle {
     static func vertices(_ scene: StreetPaintScene) -> StreetOverlayVertices {
         var out = Builder()
         let mpp = max(scene.metresPerPoint, 1e-4)
+        if scene.painting {
+            for proposal in scene.proposals {
+                appendProposal(
+                    &out, proposal, selected: proposal.featureID == scene.selectedProposalID,
+                    mpp: mpp)
+            }
+        }
         // Surfaces first, so lanes, spaces and driveways draw over them.
         let ordered =
             scene.marks.filter { $0.kind == .surface } + scene.marks.filter { $0.kind != .surface }
@@ -231,8 +248,69 @@ enum StreetPaintStyle {
         }
     }
 
+    /// A proposal in its direction's hue: high solid, medium dotted, a faint
+    /// band its width across, arrows every 8 m; adopted faint; rejected
+    /// struck through; selected with its lateral profiles as cross-lines.
+    private static func appendProposal(
+        _ out: inout Builder, _ proposal: LaneProposalView, selected: Bool, mpp: Double
+    ) {
+        let points = proposal.points
+        guard points.count >= 2 else { return }
+        let sector =
+            proposal.bearingDeg.map {
+                Int(
+                    ($0.truncatingRemainder(dividingBy: 360) + 360).truncatingRemainder(
+                        dividingBy: 360) / 45) % 8
+            } ?? 0
+        let rgb = LaneFieldStyle.directionHues[sector]
+        let alpha: Float = proposal.isAdopted ? 0.30 : (proposal.rejected ? 0.45 : 0.95)
+        let colour = SIMD4(rgb.x, rgb.y, rgb.z, alpha)
+        if let width = proposal.widthM {
+            out.band(points, width: width, colour: SIMD4(rgb.x, rgb.y, rgb.z, alpha * 0.14))
+        }
+        if selected { out.band(points, width: selectionPoints * mpp * 2, colour: selection) }
+        if proposal.isHigh {
+            out.polyline(points, closed: false, colour: colour)
+        } else {
+            out.dotted(points, dash: 0.8, gap: 0.8, colour: colour)
+        }
+        let z = points.map(\.z).reduce(0, +) / Double(points.count)
+        for arrow in StreetGeometry.laneArrows(proposal.plan, spacing: arrowSpacingM) {
+            out.chevron(at: SIMD3(arrow.at, z), bearing: arrow.bearing, colour: colour)
+        }
+        if proposal.rejected {
+            for arrow in StreetGeometry.laneArrows(proposal.plan, spacing: arrowSpacingM) {
+                let b = arrow.bearing * .pi / 180
+                let d = SIMD2(sin(b), cos(b))
+                let n = SIMD2(-d.y, d.x)
+                let c = SIMD2(arrow.at.x, arrow.at.y)
+                let a1 = c + 0.9 * (d + n)
+                let a2 = c - 0.9 * (d + n)
+                out.segment(SIMD3(a1, z), SIMD3(a2, z), colour: problem)
+            }
+        }
+        if selected {
+            for profile in proposal.profiles {
+                let b = Double(profile.bearingDeg) * .pi / 180
+                let d = SIMD2(sin(b), cos(b))
+                let left = SIMD2(-d.y, d.x)
+                let c = SIMD2(profile.centre.x, profile.centre.y)
+                let pz = profile.centre.z
+                out.segment(
+                    SIMD3(c - 4 * left, pz), SIMD3(c + 4 * left, pz), colour: SIMD4(1, 1, 1, 0.35))
+                let top = profile.tracks.max() ?? 0
+                guard top > 0, profile.offsetM.count == profile.tracks.count else { continue }
+                let curve = zip(profile.offsetM, profile.tracks).map { o, t -> SIMD3<Double> in
+                    let q = c + Double(o) * left + Double(t / top) * 1.5 * d
+                    return SIMD3(q, pz)
+                }
+                out.polyline(curve, closed: false, colour: SIMD4(1, 1, 1, 0.8))
+            }
+        }
+    }
+
     private static func appendDraft(_ out: inout Builder, _ scene: StreetPaintScene, mpp: Double) {
-        guard scene.tool != .select else { return }
+        guard scene.tool.kind != nil else { return }
         if let row = scene.rowPreview {
             let z = scene.rowPreviewZ
             out.fill(row.ring.map { SIMD3($0, z) }, colour: SIMD4(1, 1, 1, 0.10))
@@ -287,6 +365,34 @@ enum StreetPaintStyle {
             add(a, colour, to: false)
             add(b, colour, to: false)
             add(c, colour, to: false)
+        }
+
+        /// A polyline drawn as dashes `dash` long with `gap` between.
+        mutating func dotted(
+            _ points: [SIMD3<Double>], dash: Double, gap: Double, colour: SIMD4<Float>
+        ) {
+            guard points.count >= 2, dash > 0 else { return }
+            var on = true
+            var left = dash
+            for i in 0..<(points.count - 1) {
+                var a = points[i]
+                let b = points[i + 1]
+                var remaining = simd_distance(a, b)
+                guard remaining > 1e-9 else { continue }
+                let u = (b - a) / remaining
+                while remaining > 1e-9 {
+                    let step = min(left, remaining)
+                    let next = a + step * u
+                    if on { segment(a, next, colour: colour) }
+                    a = next
+                    remaining -= step
+                    left -= step
+                    if left <= 1e-9 {
+                        on.toggle()
+                        left = on ? dash : gap
+                    }
+                }
+            }
         }
 
         mutating func polyline(_ points: [SIMD3<Double>], closed: Bool, colour: SIMD4<Float>) {
