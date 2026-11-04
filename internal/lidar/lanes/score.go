@@ -71,6 +71,22 @@ type Score struct {
 // ScoreFeatures turns GeoJSON features into lanes: proposals (`confidence`
 // high or medium) or drawn travel lanes carrying the reference tag.
 func ScoreFeatures(features []Feature, referenceKey, referenceValue string, proposals bool) []ScoreLane {
+	return scoreFeatures(features, func(f Feature) bool {
+		return referenceKey != "" && f.Tags[referenceKey] == referenceValue
+	}, proposals)
+}
+
+// ScoreDrawnBy turns the travel lanes saved under one author into drawn
+// lanes: the painter writes no free-form tag, so a reference drawing is
+// saved under its own author name. Lanes approved from a proposal (they
+// carry `proposal`) are never a reference.
+func ScoreDrawnBy(features []Feature, author string) []ScoreLane {
+	return scoreFeatures(features, func(f Feature) bool {
+		return author != "" && f.Author == author && f.Tags["proposal"] == ""
+	}, false)
+}
+
+func scoreFeatures(features []Feature, isReference func(Feature) bool, proposals bool) []ScoreLane {
 	var out []ScoreLane
 	for _, f := range features {
 		if f.Kind != KindTravelLane || len(f.XYZ) < 6 {
@@ -80,7 +96,7 @@ func ScoreFeatures(features []Feature, referenceKey, referenceValue string, prop
 		if proposals && grade != "high" && grade != "medium" {
 			continue
 		}
-		if !proposals && (referenceKey == "" || f.Tags[referenceKey] != referenceValue) {
+		if !proposals && !isReference(f) {
 			continue
 		}
 		l := ScoreLane{ID: f.FeatureID, Grade: grade}

@@ -25,7 +25,7 @@ const lanesUsage = `velocity lidar lanes — the lane snapshot
 Usage:
   velocity lidar lanes pull --db FILE --site L16 --sensor-id ID --record-id RECORD --pose TX,TY,TZ,QW,QX,QY,QZ
                             [--gerardus URL] [--author NAME]
-  velocity lidar lanes score --site L16 --reference-tag KEY=VALUE [--gerardus URL] [--json]
+  velocity lidar lanes score --site L16 (--drawn-author NAME | --reference-tag KEY=VALUE) [--gerardus URL] [--json]
 
 pull reads the site's street use from Gerardus
 (GET /api/v1/sites/{l16}/geojson?layers=street_use&frame=site) and writes it
@@ -39,8 +39,9 @@ Gerardus serves no registration record over HTTP, so the accepted record's
 id and pose are given (the alignment pane shows them).
 
 score is experiment lane0002's (data/experiments/lane/lane0002.md): it reads
-the site's lane proposals and the travel lanes drawn by hand with the
-reference tag, both from Gerardus in the site frame, pairs each proposal with
+the site's lane proposals and the travel lanes drawn by hand (saved under
+--drawn-author, or carrying --reference-tag), both from Gerardus in the
+site frame, pairs each proposal with
 the drawn lane it runs nearest, and prints the lateral RMSE, mean offset and
 overlap of each pair, the counts per direction, and the rule's four clauses.
 It reads no track.
@@ -170,7 +171,8 @@ func envOr(key, fallback string) string {
 func lanesScore(args []string, client *http.Client) int {
 	fs := flag.NewFlagSet("velocity-lidar-lanes-score", flag.ContinueOnError)
 	site := fs.String("site", "", "The site's L16 token")
-	tag := fs.String("reference-tag", "reference=lane0002", "The tag the drawn lanes carry, KEY=VALUE")
+	tag := fs.String("reference-tag", "", "The tag the drawn lanes carry, KEY=VALUE")
+	author := fs.String("drawn-author", "", "The author the drawn lanes were saved under (the painter writes no free-form tag); lanes approved from a proposal are left out")
 	gerardus := fs.String("gerardus", envOr("GERARDUS_URL", "http://127.0.0.1:50061"), "Gerardus's address")
 	asJSON := fs.Bool("json", false, "Print the score as JSON")
 	if err := fs.Parse(args); err != nil {
@@ -180,8 +182,8 @@ func lanesScore(args []string, client *http.Client) int {
 		return 2
 	}
 	key, value, ok := strings.Cut(*tag, "=")
-	if *site == "" || !ok || key == "" {
-		fmt.Fprintln(os.Stderr, "lanes score: --site and --reference-tag KEY=VALUE are required")
+	if *site == "" || (*author == "") == (*tag == "") || (*tag != "" && (!ok || key == "")) {
+		fmt.Fprintln(os.Stderr, "lanes score: --site and one of --drawn-author NAME or --reference-tag KEY=VALUE are required")
 		return 2
 	}
 	read := func(layer string) ([]lanes.Feature, error) {
@@ -211,6 +213,11 @@ func lanesScore(args []string, client *http.Client) int {
 		return 1
 	}
 	drawn := lanes.ScoreFeatures(streetUse, key, value, false)
+	reference := *tag
+	if *author != "" {
+		drawn = lanes.ScoreDrawnBy(streetUse, *author)
+		reference = "drawn by " + *author
+	}
 	proposals := lanes.ScoreFeatures(proposalFeatures, "", "", true)
 	score := lanes.ScoreProposals(proposals, drawn)
 	if *asJSON {
@@ -219,7 +226,7 @@ func lanesScore(args []string, client *http.Client) int {
 		_ = enc.Encode(score)
 		return 0
 	}
-	fmt.Printf("site %s: %d drawn lanes (%s), %d proposals\n", *site, len(drawn), *tag, len(proposals))
+	fmt.Printf("site %s: %d drawn lanes (%s), %d proposals\n", *site, len(drawn), reference, len(proposals))
 	for _, d := range score.Directions {
 		fmt.Printf("  %-28s drawn %d, high %d, medium %d\n", d.Direction, d.Drawn, d.High, d.Medium)
 	}

@@ -76,3 +76,19 @@ func TestScoreProposalsAgainstDrawnLanes(t *testing.T) {
 		t.Fatal("a site with no drawing passed")
 	}
 }
+
+func TestScoreDrawnByAuthorLeavesApprovedLanesOut(t *testing.T) {
+	mine := scoreLane("d1", "", 0, -1.8, 60, -1.8, nil)
+	mine.Author = "lane0002"
+	approved := scoreLane("d2", "", 0, -5, 60, -5, map[string]string{"proposal": "gms:p"})
+	approved.Author = "lane0002"
+	other := scoreLane("d3", "", 0, 5, 60, 5, nil)
+	other.Author = "someone"
+	got := ScoreDrawnBy([]Feature{mine, approved, other}, "lane0002")
+	if len(got) != 1 || got[0].ID != "d1" {
+		t.Fatalf("drawn by author: %+v", got)
+	}
+	if len(ScoreDrawnBy([]Feature{mine}, "")) != 0 {
+		t.Fatal("an empty author selected lanes")
+	}
+}
