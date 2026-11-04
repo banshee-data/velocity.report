@@ -49,6 +49,10 @@ export interface HistogramChartRequest {
 	minSpeed?: number;
 	boundaryThreshold?: number;
 	paperSize?: 'a4' | 'letter';
+	/** One radar direction's histogram (transits only). */
+	direction?: RadarDirectionKey;
+	/** Two directions mirrored about the speed axis, such as 'inbound,outbound'. */
+	mirror?: string;
 }
 
 export interface ComparisonChartRequest {
@@ -228,7 +232,9 @@ export function buildHistogramChartPath(request: HistogramChartRequest): string 
 		max: request.max,
 		min_speed: request.minSpeed,
 		boundary_threshold: request.boundaryThreshold,
-		paper_size: request.paperSize
+		paper_size: request.paperSize,
+		direction: request.direction,
+		mirror: request.mirror
 	});
 }
 
@@ -355,8 +361,61 @@ export interface RadarDeployment {
 	is_active: boolean;
 	notes?: string | null;
 	cosine_error_angle: number;
+	/** The radar's two directions on this deployment, with their limits as signed. */
+	directions?: RadarDirections | null;
 	created_at?: string;
 	updated_at?: string;
+}
+
+/** A transit's direction at the sensor (radar_data_transits.direction). */
+export type RadarDirectionKey = 'inbound' | 'outbound';
+
+/** One limit as signed for a direction, in force from its effective date. */
+export interface DirectionLimit {
+	value: number;
+	unit: 'mph' | 'km/h';
+	source: 'sign' | 'city' | 'statutory' | 'operator';
+	jurisdiction?: string;
+	note?: string;
+	effective_from?: string;
+	effective_to?: string;
+}
+
+export interface RadarDirection {
+	key: RadarDirectionKey;
+	name: string;
+	bearing_deg?: number | null;
+	limits?: DirectionLimit[];
+}
+
+/** A radar deployment's directions: which sign is inbound, and each direction. */
+export interface RadarDirections {
+	inbound_sign: 1 | -1;
+	directions: RadarDirection[];
+	footprint_spans_limit_change?: boolean;
+}
+
+/** A limit as the report prints it: "25 mph (sign)", "25 mph (default, no sign recorded)". */
+export function limitLabel(limit: DirectionLimit | undefined): string {
+	if (!limit) return 'no limit recorded';
+	if (limit.source === 'statutory')
+		return `${limit.value} ${limit.unit} (default, no sign recorded)`;
+	if (limit.source === 'operator') return `${limit.value} ${limit.unit} (operator-supplied)`;
+	return `${limit.value} ${limit.unit} (${limit.source})`;
+}
+
+/** The limit in force on a day (YYYY-MM-DD): the latest effective date not after it, not ended. */
+export function limitOn(
+	limits: DirectionLimit[] | undefined,
+	day: string
+): DirectionLimit | undefined {
+	let best: DirectionLimit | undefined;
+	for (const l of limits ?? []) {
+		if (l.effective_from && l.effective_from > day) continue;
+		if (l.effective_to && l.effective_to < day) continue;
+		if (!best || (l.effective_from ?? '') > (best.effective_from ?? '')) best = l;
+	}
+	return best;
 }
 
 export interface TimelineResponse {
@@ -463,8 +522,6 @@ export interface Site {
 	include_map: boolean;
 	site_description?: string | null;
 	cosine_error_angle?: number | null;
-	speed_limit?: number | null;
-	speed_limit_note?: string | null;
 	bbox_ne_lat?: number | null;
 	bbox_ne_lng?: number | null;
 	bbox_sw_lat?: number | null;

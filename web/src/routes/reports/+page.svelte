@@ -8,7 +8,11 @@
 		getConfig,
 		getReport,
 		getSites,
+		limitLabel,
+		limitOn,
+		listRadarDeployments,
 		type Config,
+		type RadarDeployment,
 		type Site,
 		type SiteReport
 	} from '#lib/api.js';
@@ -38,6 +42,7 @@
 	let selectedSiteId: number | null = null;
 	let siteOptions: Array<{ value: number; label: string }> = [];
 	let selectedSite: Site | null = null;
+	let deployments: RadarDeployment[] = [];
 
 	// Default DateRangeField to "last 14 days inclusive" but extend the end-of-
 	// range to "tomorrow local" so data captured this evening (which is stored
@@ -173,6 +178,55 @@
 					minSpeed,
 					boundaryThreshold,
 					paperSize: $paperSize
+				})
+			: '';
+
+	// The radar directions of the deployment in force at the period's end, and
+	// the mirrored preview of the By direction section (transits only).
+	let deploymentsFor: number | null = null;
+	async function loadDeployments(siteId: number) {
+		try {
+			const list = await listRadarDeployments(siteId);
+			if (deploymentsFor === siteId) deployments = list;
+		} catch {
+			if (deploymentsFor === siteId) deployments = [];
+		}
+	}
+	$: if (browser && selectedSiteId != null && selectedSiteId !== deploymentsFor) {
+		deploymentsFor = selectedSiteId;
+		void loadDeployments(selectedSiteId);
+	}
+	$: periodEndUnix = dateRange.to ? new Date(dateRange.to).getTime() / 1000 : null;
+	$: periodEndDay = dateRange.to ? isoDate(dateRange.to) : '';
+	$: directionDeployment =
+		periodEndUnix == null
+			? null
+			: (deployments.find(
+					(d) =>
+						d.directions &&
+						d.effective_start_unix <= periodEndUnix &&
+						(d.effective_end_unix == null || d.effective_end_unix > periodEndUnix)
+				) ?? null);
+	$: reportDirections = directionDeployment?.directions?.directions ?? [];
+	$: reportDirectionsChartUrl =
+		selectedSiteId != null &&
+		dateRange.from &&
+		dateRange.to &&
+		selectedSource === 'radar_data_transits' &&
+		reportDirections.length === 2
+			? buildHistogramChartPath({
+					siteId: selectedSiteId,
+					startDate: isoStartOfDay(dateRange.from, $displayTimezone),
+					endDate: isoEndOfDay(dateRange.to, $displayTimezone),
+					units: $displayUnits,
+					timezone: $displayTimezone,
+					source: selectedSource,
+					bucketSize: DEFAULT_REPORT_HISTOGRAM_BUCKET_SIZE,
+					max: maxSpeedCutoff ?? undefined,
+					minSpeed,
+					boundaryThreshold,
+					paperSize: $paperSize,
+					mirror: 'inbound,outbound'
 				})
 			: '';
 
@@ -639,8 +693,19 @@
 									<dd>{selectedSite.location}</dd>
 								</div>
 								<div>
-									<dt class="text-surface-content font-semibold">Speed Limit</dt>
-									<dd>{selectedSite.speed_limit} {$displayUnits}</dd>
+									<dt class="text-surface-content font-semibold">Speed limit</dt>
+									<dd>
+										{#if reportDirections.length > 0}
+											{#each reportDirections as direction (direction.key)}
+												<div>
+													{direction.name}: {limitLabel(limitOn(direction.limits, periodEndDay))}
+												</div>
+											{/each}
+										{:else}
+											The report's limit, operator-supplied; no directions are set on this
+											deployment.
+										{/if}
+									</dd>
 								</div>
 								<div>
 									<dt class="text-surface-content font-semibold">Surveyor</dt>
@@ -654,12 +719,6 @@
 									<div class="md:col-span-2">
 										<dt class="text-surface-content font-semibold">Site Description</dt>
 										<dd>{selectedSite.site_description}</dd>
-									</div>
-								{/if}
-								{#if selectedSite.speed_limit_note}
-									<div class="md:col-span-2">
-										<dt class="text-surface-content font-semibold">Speed Limit Notes</dt>
-										<dd>{selectedSite.speed_limit_note}</dd>
 									</div>
 								{/if}
 							</dl>
@@ -699,6 +758,18 @@
 											url={reportHistogramChartUrl}
 											label="Preview of the report histogram chart"
 											loadingLabel="Loading histogram preview…"
+											minHeight={250}
+										/>
+									</div>
+								{/if}
+
+								{#if reportDirectionsChartUrl}
+									<div class="space-y-2 rounded border p-3">
+										<h3 class="text-sm font-semibold">By direction</h3>
+										<InlineSvgChart
+											url={reportDirectionsChartUrl}
+											label="Preview of the report's By direction chart: the two directions mirrored about the speed axis"
+											loadingLabel="Loading direction preview…"
 											minHeight={250}
 										/>
 									</div>

@@ -3,6 +3,9 @@ import {
 	buildHeadwayChartPath,
 	buildHistogramChartPath,
 	buildSurveyHeadwayPath,
+	limitLabel,
+	limitOn,
+	type DirectionLimit,
 	buildTimeSeriesChartPath,
 	getSurveyHeadway,
 	createSite,
@@ -328,6 +331,42 @@ describe('api', () => {
 			expect(path).toContain('min_speed=10');
 			expect(path).toContain('boundary_threshold=3');
 			expect(path).toContain('paper_size=a4');
+			expect(path).not.toContain('mirror=');
+		});
+
+		it('asks for two directions mirrored about the speed axis', () => {
+			const path = buildHistogramChartPath({
+				siteId: 7,
+				startDate: '2026-09-01',
+				endDate: '2026-09-30',
+				source: 'radar_data_transits',
+				mirror: 'inbound,outbound'
+			});
+			expect(path).toContain('mirror=inbound%2Coutbound');
+			expect(path).toContain('source=radar_data_transits');
+		});
+	});
+
+	describe('direction limits', () => {
+		const limits: DirectionLimit[] = [
+			{ value: 25, unit: 'mph', source: 'sign', effective_from: '2026-01-01' },
+			{ value: 20, unit: 'mph', source: 'sign', effective_from: '2026-09-15' }
+		];
+		it('takes the limit in force on the day', () => {
+			expect(limitOn(limits, '2026-09-14')?.value).toBe(25);
+			expect(limitOn(limits, '2026-09-15')?.value).toBe(20);
+			expect(limitOn(limits, '2025-12-31')).toBeUndefined();
+			expect(limitOn([{ ...limits[0], effective_to: '2026-06-30' }], '2026-07-01')).toBeUndefined();
+		});
+		it('prints a limit as signed with its source', () => {
+			expect(limitLabel(limits[0])).toBe('25 mph (sign)');
+			expect(limitLabel({ value: 25, unit: 'mph', source: 'statutory' })).toBe(
+				'25 mph (default, no sign recorded)'
+			);
+			expect(limitLabel({ value: 30, unit: 'km/h', source: 'operator' })).toBe(
+				'30 km/h (operator-supplied)'
+			);
+			expect(limitLabel(undefined)).toBe('no limit recorded');
 		});
 	});
 
