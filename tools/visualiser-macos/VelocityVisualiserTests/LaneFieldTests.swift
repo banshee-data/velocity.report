@@ -76,6 +76,13 @@ struct LaneFieldModelTests {
         #expect(chunks[1].ix == [1] && chunks[1].tracks == [5])
     }
 
+    @Test func aGroupWithArraysThatDisagreeIsNotUploaded() throws {
+        let bad = twoCellFieldJSON.replacingOccurrences(
+            of: "\"heading\":[6,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]", with: "\"heading\":[6,0,0,0,0,0,0,0]")
+        #expect(bad != twoCellFieldJSON)
+        #expect(try decode(bad).uploadChunks(cellsPerChunk: 1).isEmpty)
+    }
+
     @Test func gerardussSummedFieldIsASiteFrameGrid() {
         var r = Gerardus_Align_V1alpha1_GetLaneFieldResponse()
         r.origin.x = -3.875

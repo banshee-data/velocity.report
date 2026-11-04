@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
@@ -83,6 +84,12 @@ func TestRunLaneFieldRoute(t *testing.T) {
 	wantBytes, _ := want.JSON()
 	if !bytes.Equal(rec.Body.Bytes(), wantBytes) {
 		t.Fatal("the route's bytes differ from RunLaneField's JSON")
+	}
+
+	// HEAD answers the same headers with no body.
+	head := getLaneField(ws, http.MethodHead, "run-1", "")
+	if head.Code != http.StatusOK || head.Body.Len() != 0 || head.Header().Get("Content-Length") != strconv.Itoa(len(wantBytes)) {
+		t.Fatalf("HEAD: status %d, body %d bytes, length %q", head.Code, head.Body.Len(), head.Header().Get("Content-Length"))
 	}
 
 	for _, part := range []string{"first_half", "second_half", "all"} {
