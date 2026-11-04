@@ -1547,6 +1547,9 @@ private let logger = DevLogger(category: "AppState")
             // The frame tap for Accumulate frames (Gerardus site model spike
             // §6.3); cheap while no accumulation runs.
             alignment.noteFrame(frame)
+            if streets.isPainting, let tracks = frame.tracks?.tracks {
+                streets.traffic.noteFrame(tracks)
+            }
         }
 
         // Apply persistent track filters BEFORE rendering so filtered tracks

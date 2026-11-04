@@ -212,8 +212,13 @@ struct StreetReference: Sendable {
     /// Where the vertex being dragged is now.
     private var dragPoint: SIMD3<Double>?
 
-    init(alignment: AlignmentSession) {
+    /// The traffic layer drawn under the marks (lane painter Item 1).
+    let traffic: StreetTrafficLayer
+
+    init(alignment: AlignmentSession, laneFields: LaneFieldSource = VelocityReportLaneFieldClient())
+    {
         self.alignment = alignment
+        self.traffic = StreetTrafficLayer(alignment: alignment, source: laneFields)
         alignment.$reference.sink { [weak self] summary in
             self?.referenceChanged(placed: summary != nil)
         }.store(in: &subscriptions)
@@ -223,6 +228,7 @@ struct StreetReference: Sendable {
             if case .available = availability { return }
             self?.setPainting(false)
         }.store(in: &subscriptions)
+        traffic.onChange = { [weak self] in self?.refresh() }
     }
 
     // MARK: - Paint mode
@@ -279,7 +285,16 @@ struct StreetReference: Sendable {
 
     private func poseChanged(_ pose: SitePose?) {
         guard isPainting else { return }
-        if let pose { pushCamera(pose: pose) } else { setPainting(false) }
+        if let pose {
+            pushCamera(pose: pose)
+            // The run's field is in the sensor frame and moves with the pose;
+            // the pose is published before the session holds it.
+            if traffic.shown?.frame == .sensor {
+                DispatchQueue.main.async { [weak self] in self?.refresh() }
+            }
+        } else {
+            setPainting(false)
+        }
     }
 
     /// The reference was placed, restyled or cleared. Its street layers and
@@ -858,6 +873,16 @@ struct StreetReference: Sendable {
         return scene
     }
 
+    /// The traffic layer's triangles, drawn first so the marks lie over it.
+    /// Only while painting: outside paint mode the 3D view is unchanged.
+    var trafficFills: [Float] {
+        guard isPainting, let grid = traffic.shown else { return [] }
+        let reference = reference
+        return LaneFieldStyle.fills(
+            grid, display: traffic.display, pose: alignment.pose,
+            groundZ: { reference.groundZ(at: PlanPoint($0.x, $0.y)) })
+    }
+
     /// Rebuilds the overlay and hands it to the renderer.
     func refresh() {
         guard let sink else { return }
@@ -865,7 +890,10 @@ struct StreetReference: Sendable {
             sink.setStreetOverlay(nil)
             return
         }
-        sink.setStreetOverlay(StreetPaintStyle.vertices(scene))
+        var vertices = StreetPaintStyle.vertices(scene)
+        let field = trafficFills
+        if !field.isEmpty { vertices.fills = field + vertices.fills }
+        sink.setStreetOverlay(vertices)
     }
 }
 

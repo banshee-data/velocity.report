@@ -123,6 +123,26 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
     func editStreetUse(
         _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
     ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse
+    /// Stores a lane field (UploadLaneField, ADR-0016): the header, then the
+    /// cells in chunks under 4 MiB, on one client stream.
+    func uploadLaneField(
+        header: Gerardus_Align_V1alpha1_LaneFieldHeader,
+        cells: [Gerardus_Align_V1alpha1_LaneFieldCells]
+    ) async throws -> Gerardus_Align_V1alpha1_UploadLaneFieldResponse
+    /// The site's summed lane field for one class group, in the site frame;
+    /// nil when no field is stored (NOT_FOUND).
+    func getLaneField(
+        l16Token: String, classGroup: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetLaneFieldResponse?
+    /// The site's live lane proposals with their profiles, adoption and
+    /// latest review.
+    func listLaneProposals(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_ListLaneProposalsResponse
+    /// Records a rejection or a reopening of one proposal.
+    func reviewLaneProposal(
+        _ request: Gerardus_Align_V1alpha1_ReviewLaneProposalRequest
+    ) async throws -> Gerardus_Align_V1alpha1_ReviewLaneProposalResponse
 }
 
 /// A client that has no street use answers as a server from before it would.
@@ -151,6 +171,31 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         _ request: Gerardus_Align_V1alpha1_EditStreetUseRequest
     ) async throws -> Gerardus_Align_V1alpha1_EditStreetUseResponse {
         throw RPCError(code: .unimplemented, message: "EditStreetUse")
+    }
+
+    func uploadLaneField(
+        header: Gerardus_Align_V1alpha1_LaneFieldHeader,
+        cells: [Gerardus_Align_V1alpha1_LaneFieldCells]
+    ) async throws -> Gerardus_Align_V1alpha1_UploadLaneFieldResponse {
+        throw RPCError(code: .unimplemented, message: "UploadLaneField")
+    }
+
+    func getLaneField(
+        l16Token: String, classGroup: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetLaneFieldResponse? {
+        throw RPCError(code: .unimplemented, message: "GetLaneField")
+    }
+
+    func listLaneProposals(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_ListLaneProposalsResponse {
+        throw RPCError(code: .unimplemented, message: "ListLaneProposals")
+    }
+
+    func reviewLaneProposal(
+        _ request: Gerardus_Align_V1alpha1_ReviewLaneProposalRequest
+    ) async throws -> Gerardus_Align_V1alpha1_ReviewLaneProposalResponse {
+        throw RPCError(code: .unimplemented, message: "ReviewLaneProposal")
     }
 }
 
@@ -322,12 +367,55 @@ enum GerardusClientError: Error, LocalizedError, Equatable {
         try await siteService().editStreetUse(request: ClientRequest(message: request))
     }
 
+    func getLaneField(
+        l16Token: String, classGroup: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetLaneFieldResponse? {
+        var request = Gerardus_Align_V1alpha1_GetLaneFieldRequest()
+        request.l16Token = l16Token
+        request.classGroup = classGroup
+        do {
+            return try await siteService().getLaneField(request: ClientRequest(message: request))
+        } catch let error as RPCError where error.code == .notFound { return nil }
+    }
+
+    func listLaneProposals(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_ListLaneProposalsResponse {
+        var request = Gerardus_Align_V1alpha1_ListLaneProposalsRequest()
+        request.l16Token = l16Token
+        return try await siteService().listLaneProposals(request: ClientRequest(message: request))
+    }
+
+    func reviewLaneProposal(
+        _ request: Gerardus_Align_V1alpha1_ReviewLaneProposalRequest
+    ) async throws -> Gerardus_Align_V1alpha1_ReviewLaneProposalResponse {
+        try await siteService().reviewLaneProposal(request: ClientRequest(message: request))
+    }
+
     // MARK: - RegistrationService
 
     func poseFromHint(
         _ request: Gerardus_Align_V1alpha1_PoseFromHintRequest
     ) async throws -> Gerardus_Align_V1alpha1_PoseFromHintResponse {
         try await registrationService().poseFromHint(request: ClientRequest(message: request))
+    }
+
+    /// Uploads a lane field: the header first, then each chunk of cells, on
+    /// one client stream, as a scan is.
+    func uploadLaneField(
+        header: Gerardus_Align_V1alpha1_LaneFieldHeader,
+        cells: [Gerardus_Align_V1alpha1_LaneFieldCells]
+    ) async throws -> Gerardus_Align_V1alpha1_UploadLaneFieldResponse {
+        try await registrationService().uploadLaneField(requestProducer: { writer in
+            var first = Gerardus_Align_V1alpha1_UploadLaneFieldRequest()
+            first.header = header
+            try await writer.write(first)
+            for chunk in cells {
+                var part = Gerardus_Align_V1alpha1_UploadLaneFieldRequest()
+                part.cells = chunk
+                try await writer.write(part)
+            }
+        })
     }
 
     /// Uploads a scan: the header first, then each block, on one client stream.

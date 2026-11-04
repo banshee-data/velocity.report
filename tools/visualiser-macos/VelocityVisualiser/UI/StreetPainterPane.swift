@@ -35,6 +35,9 @@ import SwiftUI
         ScrollView(.vertical) {
             VStack(alignment: .leading, spacing: 14) {
                 statusSection
+                Divider()
+                StreetTrafficSection(painter: painter, traffic: painter.traffic, session: session)
+                Divider()
                 toolSection
                 if painter.selected != nil {
                     Divider()
