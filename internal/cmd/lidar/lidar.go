@@ -44,6 +44,8 @@ Commands:
   lane-field      Write a stored run's lane field (counts per 0.25 m cell, no
                   cell under five tracks) as the JSON gerardus upload-lane-field
                   reads
+  lanes           The lane snapshot: pull a site's street use from Gerardus
+                  into an append-only snapshot placed by its accepted pose
 
 Run 'velocity lidar <command> -h' for command flags.`
 
@@ -78,6 +80,8 @@ func Main(args []string) int {
 		return LabelsMain(args[1:])
 	case "lane-field":
 		return LaneFieldMain(args[1:])
+	case "lanes":
+		return LanesMain(args[1:])
 	case "help", "-h", "--help":
 		fmt.Println(namespaceUsage)
 		return 0

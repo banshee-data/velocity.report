@@ -36,6 +36,15 @@ func (ws *Server) handleSiteByToken(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest, "missing l16_token in path")
 		return
 	}
+	// /api/lidar/sites/{l16}/lanes[/attribute]: the lane snapshot.
+	if site, rest, ok := strings.Cut(token, "/"); ok {
+		if rest == "lanes" || strings.HasPrefix(rest, "lanes/") {
+			ws.handleSiteLanes(w, r, site, strings.TrimPrefix(strings.TrimPrefix(rest, "lanes"), "/"))
+			return
+		}
+		ws.writeJSONError(w, http.StatusNotFound, "not found")
+		return
+	}
 
 	switch r.Method {
 	case http.MethodPut:

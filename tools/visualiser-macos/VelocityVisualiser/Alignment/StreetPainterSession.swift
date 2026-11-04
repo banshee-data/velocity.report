@@ -217,9 +217,26 @@ struct StreetReference: Sendable {
     /// Gerardus's lane proposals and their review (Item 2).
     let proposals: StreetProposals
 
-    init(alignment: AlignmentSession, laneFields: LaneFieldSource = VelocityReportLaneFieldClient())
-    {
+    /// velocity.report's lane snapshot route (Item 4).
+    private let snapshots: LaneSnapshotSink
+    /// The features the last save returned, for the snapshot; nil until a
+    /// save in this session.
+    private(set) var savedFeatures: [Gerardus_Align_V1alpha1_StreetUseFeature]?
+    /// A saved state velocity.report has not been sent yet: the standing
+    /// notice until it is.
+    @Published private(set) var snapshotUnsent = false
+    @Published private(set) var isSendingSnapshot = false
+    @Published private(set) var snapshotMessage: String?
+    @Published private(set) var snapshotError: String?
+    /// A snapshot request whose outcome is not known: retried unchanged.
+    private(set) var pendingSnapshot: LaneSnapshotRequest?
+
+    init(
+        alignment: AlignmentSession, laneFields: LaneFieldSource = VelocityReportLaneFieldClient(),
+        snapshots: LaneSnapshotSink = VelocityReportLaneSnapshotClient()
+    ) {
         self.alignment = alignment
+        self.snapshots = snapshots
         self.traffic = StreetTrafficLayer(alignment: alignment, source: laneFields)
         self.proposals = StreetProposals(alignment: alignment)
         alignment.$reference.sink { [weak self] summary in
@@ -455,6 +472,11 @@ struct StreetReference: Sendable {
 
     private func saved(_ response: Gerardus_Align_V1alpha1_EditStreetUseResponse, sent: Int) {
         pendingSave = nil
+        savedFeatures = response.features
+        snapshotUnsent = true
+        pendingSnapshot = nil
+        snapshotMessage = nil
+        snapshotError = nil
         conflictingMarks = []
         let read = StreetUseEditing.marks(from: response.features)
         edit = StreetEditState(base: read.marks)
@@ -472,6 +494,72 @@ struct StreetReference: Sendable {
             + (flagged > 0
                 ? ", with \(flagged) problem\(flagged == 1 ? "" : "s") to look at." : ".")
         refresh()
+    }
+
+    // MARK: - Send lanes to velocity.report (Item 4)
+
+    /// Why the snapshot cannot be sent now; nil when it can.
+    func snapshotBlocker(author: String) -> String? {
+        if savedFeatures == nil {
+            return "Save the street use first: the snapshot is what Gerardus returned."
+        }
+        if isSendingSnapshot { return "Sending." }
+        if author.trimmingCharacters(in: .whitespaces).isEmpty { return "Give an author." }
+        if alignment.acceptedRecord == nil {
+            return
+                "Accept a pose for this capture first: a snapshot without a pose cannot place lanes in the sensor frame."
+        }
+        return nil
+    }
+
+    /// Writes the saved street use to velocity.report as a lane snapshot,
+    /// with the accepted record that places it. A request whose outcome is
+    /// unknown is retried unchanged; a refusal is shown and not retried.
+    func sendSnapshot(author: String) async {
+        guard snapshotBlocker(author: author) == nil, let features = savedFeatures,
+            let record = alignment.acceptedRecord, let token = loadedToken
+        else { return }
+        let request =
+            pendingSnapshot
+            ?? LaneSnapshotRequest(
+                requestID: UUID().uuidString,
+                sensorID: record.sensorID.isEmpty
+                    ? (alignment.site?.sensorID ?? "") : record.sensorID, recordID: record.recordID,
+                pose: LaneSnapshotRequest.pose(record.pose),
+                author: author.trimmingCharacters(in: .whitespaces),
+                gerardusVersion: alignment.serverInfo?.serverVersion ?? "",
+                gerardusAddress: alignment.serviceAddress.description,
+                features: LaneSnapshotRequest.features(features))
+        pendingSnapshot = request
+        isSendingSnapshot = true
+        snapshotError = nil
+        do {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
+            let (status, body) = try await snapshots.putLanes(
+                l16Token: token, body: try encoder.encode(request))
+            if status == 200 || status == 201 {
+                let answer = try JSONDecoder().decode(LaneSnapshotAnswer.self, from: body)
+                pendingSnapshot = nil
+                snapshotUnsent = false
+                let names = answer.directions.map(\.name).joined(separator: ", ")
+                snapshotMessage =
+                    "Snapshot \(answer.snapshotID.suffix(8)) \(answer.repeated ? "already held" : "written"): \(answer.lanes) lane\(answer.lanes == 1 ? "" : "s")"
+                    + (names.isEmpty ? "." : ", directions \(names).")
+            } else {
+                // A refusal is definite: shown with the server's reason, not
+                // retried on its own.
+                pendingSnapshot = nil
+                let reason =
+                    (try? JSONDecoder().decode([String: String].self, from: body))?["error"]
+                    ?? String(decoding: body.prefix(300), as: UTF8.self)
+                snapshotError = "velocity.report refused the snapshot (\(status)): \(reason)"
+            }
+        } catch {
+            snapshotError =
+                "Unknown outcome, the same request will be retried: \(error.localizedDescription)"
+        }
+        isSendingSnapshot = false
     }
 
     /// The last save's problems for a mark.

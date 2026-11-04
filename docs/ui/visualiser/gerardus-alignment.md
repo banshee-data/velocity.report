@@ -416,6 +416,19 @@ limit that changes over time is a new version of the same lane), two lanes of on
 with different limits that share no end vertex, and limits in more than one unit at the site.
 Gerardus's own problems come back after Save as before.
 
+### Send lanes to velocity.report
+
+After a save the pane shows **Send lanes to velocity.report**, with a standing notice that the
+reports still use the previous lanes until it is sent. It writes `PUT /api/lidar/sites/{l16}/lanes`
+with the street-use features exactly as the save returned them, the accepted record's id and pose
+(the snapshot cannot place lanes in the sensor frame without one, so the button is off until a pose
+is accepted), the author, and Gerardus's version and address. velocity.report answers with the
+snapshot's id and the directions it derived, which the pane lists. A request whose outcome is
+unknown is retried unchanged with the same request id; a refusal (an unknown site, a malformed
+request, a reused request id) is shown with the server's reason and not retried. Gerardus is written
+first and is authoritative; the snapshot is velocity.report's append-only copy
+([lane snapshot and attribution](../../plans/lidar-lane-snapshot-and-attribution-plan.md)).
+
 ### What the painter draws
 
 | Mark          | Drawn as                                                                                                                     |
