@@ -226,11 +226,12 @@ struct VelocityReportLaneField: Codable, Equatable, Sendable {
     /// The cells as upload chunks: no message over Gerardus's 4 MiB, a group
     /// spanning chunks where it must. A cell is at most about 70 bytes on
     /// the wire (four varints, eight more, a float), so 50,000 a chunk stays
-    /// under 4 MiB.
+    /// under 4 MiB. A group whose arrays disagree is left out, as `grid`
+    /// leaves it out, rather than sliced past its end.
     func uploadChunks(cellsPerChunk: Int = 50_000) -> [Gerardus_Align_V1alpha1_LaneFieldCells] {
         let step = max(1, cellsPerChunk)
         var out: [Gerardus_Align_V1alpha1_LaneFieldCells] = []
-        for group in groups {
+        for group in groups where group.cells.isWellFormed {
             let n = group.ix.count
             var start = 0
             while start < n {
