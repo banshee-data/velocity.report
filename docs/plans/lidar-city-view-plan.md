@@ -90,47 +90,83 @@ survey relates to the next. The owner wants both clients to give a whole-city vi
 - There is no city-wide export. The city buildings bake (CITY-BUILDINGS) is planned and has not
   been run.
 
-**Poses:** columbus-broadway (and the control site Kirkham) have an accepted pose. Six more sites
-were `CANDIDATE` in the 24-site run and await an operator. The rest are eye-read positions, 3–7 m
-out, with a compass heading (Gerardus `REGISTRATION-STATUS.md`).
+**Poses:** every one of the 24 published scenes has an accepted Gerardus pose. Each scene's
+`assets/vectors/vectors.geojson.gz` names the record in its `placement` block (`record_id`,
+`registration_state`, `pose_source`, `heading_deg`, `up_sensor`, and the 2 m / 5° check it
+passed):
+
+- 6 are `registered`, accepted from a candidate that passed every gate: ashbury-downey,
+  columbus-broadway, columbus-north-point, embarcadero-folsom, laguna-eddy and lombard-laguna.
+- 18 are `manually_placed`: an operator accepted the pose, each from an ICP result
+  (`pose_source: icp`).
+
+The block holds no translation. `scene-vectors.py` reads it from Gerardus at export time
+(`into_sensor`, `tools/s2-archive/scene-vectors.py:307-310`) and does not write it. Gerardus's
+`REGISTRATION-STATUS.md` still describes 2026-10-24 and says none is accepted; it is out of date.
 
 ## Findings
 
 | Area                         | Current state                                      | Severity | Release view         |
 | ---------------------------- | -------------------------------------------------- | -------- | -------------------- |
 | City geometry for clients    | None; Gerardus serves 420 m bundles on demand only | High     | Gerardus companion   |
-| Site placement in the city   | Not in scene files or the stream; poses for 1 site | High     | Static sidecar       |
+| Site placement in the city   | 24 accepted poses; translation not in scene files  | High     | Static sidecar       |
+| Sites read as one network    | Nothing yet says sites were recorded apart         | High     | Separation cues      |
 | Visualiser frame & precision | Sensor frame, Float32 matrices, 500 m far plane    | High     | Renderer change      |
 | Visualiser site switching    | Inferred from file names; state reset in 5 places  | Medium   | `SiteContext`        |
 | Web map                      | 2D markers on a coastline; no streets or buildings | Medium   | New 3D view, 2D kept |
-| Heading for unposed sites    | Typed by hand in the visualiser                    | Low      | Static site index    |
+| Visualiser heading per site  | Typed by hand                                      | Low      | Static site index    |
 
 ## Design / approach
 
 ### What the reader sees
 
-- **Zoomed out:** the whole city. It shows the street grid and buildings drawn simply, and a marker
-  at every site with data. A marker's style shows two things:
-  - what the site has: a published scene, or a capture the connected server can replay;
-  - whether its placement is accepted or approximate.
-- **Zooming in:** buildings and streets gain detail tile by tile. At site range the site's own data
-  loads and plays in place: points, boxes and its scene vectors, inside the city geometry around it.
+- **Zoomed out:** the whole city: the street grid with street names, buildings drawn simply, and a
+  marker at every site with data. A marker shows what the site has (a published scene, or a capture
+  the connected server can replay) and its recording date.
+- **Zooming in:** buildings and streets gain detail tile by tile. Sites in view start playing in
+  place, each inside its own coverage, with the city drawn around them. The site the reader is
+  closest to plays in full: points, boxes and its scene vectors.
 - **Moving between sites:** click another marker, or choose next and previous. The camera rises,
-  crosses the city and comes down at the new site. The previous site's frames are unloaded and the
-  new site's frames load as the camera arrives.
+  crosses the city and comes down at the new site. Sites that leave the view are unloaded.
 
-### One site plays at a time
+### Several sites at once, each kept to itself
 
-Only the site the reader has zoomed into plays. Other sites are markers. Two rules make this the
-default:
+Several sites may play at once (owner, 2026-11-04), and the view should keep working as sites
+become denser. The view must make clear that we are **not tracking traffic between intersections**:
+each site is its own recording, and nothing joins one site's road users to another's. This is how
+the data is made, and it is also the privacy rule that per-object tracks never leave the sensor site
+(Gerardus ADR-0011, SPEC-V1 §1).
 
-- the privacy rule that per-object tracks never leave the sensor site (ADR-0011, SPEC-V1 §1);
-- the frame budget.
+How the view makes that visible:
 
-The web view composes scenes that are already published, so it publishes nothing new. The
-visualiser connects to one stream, as it does today. A city-wide traffic layer (counts and speeds
-per segment, no bin under k = 5) can come later from aggregates. It is not part of this plan. This
-default is open question 1.
+1. **Coverage, not corridors.** A site's points and boxes are drawn only inside its coverage: the
+   sensor's range disc, clipped to the scene's export radius. A faint ring marks its edge. A box
+   fades out as it reaches the ring, and nothing is drawn on the streets between sites.
+2. **Own clock, own date.** Each site plays its own recording on its own clock, labelled with its
+   date and time of day. Sites recorded on different days are never presented as the same moment.
+3. **No identity across sites.** Colour is by class (vehicle, cycle, walking), never by track.
+   There are no trails, arrows or lines from one site to another. Track ids are namespaced by site
+   in both clients, so code cannot join them by accident. A test asserts that no rendered object
+   draws data from two sites.
+4. **Said in words.** The page and the visualiser's city mode carry one line of copy: "Each
+   intersection is recorded on its own. Vehicles are not followed from one intersection to the
+   next."
+
+The web view composes scenes that are already published, so it publishes nothing new. A city-wide
+layer of aggregates (counts and speeds per segment, no bin under k = 5) would also be allowed, but
+it waits on the traffic v1 network and is not part of this plan.
+
+### Scene level of detail
+
+As many sites come into view, playback is simplified by distance so the frame budget holds:
+
+| Range         | What plays                                       | Budget        |
+| ------------- | ------------------------------------------------ | ------------- |
+| Nearest site  | Points, boxes, background and scene vectors      | one site      |
+| Street range  | Boxes and headings only, from the scene's frames | up to 8 sites |
+| District/city | Marker with the site's date; no playback         | every site    |
+
+The limits are starting values, to be measured in Items 3 and 7.
 
 ### Inputs: three kinds of static file, no new endpoints
 
@@ -140,21 +176,24 @@ default is open question 1.
    files. The visualiser reads it from a URL or a directory (the NAS). The web view reads it from
    the scene asset store (D-34).
 2. **Placement sidecar per scene:** `assets/placement.json`, written by
-   `tools/s2-archive/publish-scenes.py`. For a site with an accepted pose it holds:
-   - the Gerardus record id;
-   - the sensor-to-site pose that `scene-vectors.py` already fetches and checks;
+   `tools/s2-archive/publish-scenes.py` from the same accepted record and check as the vectors
+   file. It holds:
+   - the record id and registration state;
+   - the full sensor-to-site pose, rotation and translation, which the vectors file leaves out;
    - the site-to-city transform, computed once in tooling from the site's L16 origin. Clients do no
      geodesy.
 
-   Unposed sites get `state: "approximate"`, from the eye-read position and the heading
-   `(180 − north_azimuth_deg) mod 360` (Gerardus INTERFACE-VISUALISER §3). The scene's own files
-   stay in the sensor frame. The sidecar is the only georeferenced part, so `scene-vectors.py`'s
-   rule still holds for the scene itself.
+   The scene's own files stay in the sensor frame, and the sidecar is the only georeferenced part.
+   `scene-vectors.py`'s rule therefore still holds for the scene itself.
 
 3. **City site index:** `city/sites.json`, written by `generate-scene-map.mjs` beside `scenes.json`.
-   It lists every site's id, title, L10/L13/L16 tokens, scene path and capture names, plus its
-   placement summary: state, record id and sensor-to-city matrix. The web view and the visualiser
-   read the same file. The visualiser no longer needs a typed heading.
+   It lists, for every site:
+   - its id, title and L10/L13/L16 tokens;
+   - its scene path, capture names and recording date;
+   - its placement: record id, state and sensor-to-city matrix.
+
+   The web view and the visualiser read the same file. The visualiser no longer needs a typed
+   heading.
 
 The visualiser's live and replay data still comes from the connected velocity.report server, using
 existing calls:
@@ -192,6 +231,11 @@ exact simplification rules and size budgets.
 | Street   | L16 (~150 m)   | 2 m grid  | Every footprint at full detail with its height       | All, full detail           |
 | Site     | (scene)        | (scene)   | Scene vectors near the sensor; city tiles fade there | Scene vectors              |
 
+**Street names** are drawn as labels from the tiles (owner, 2026-11-04): arterials at L10, all
+named streets at L13 and L16. They are the City's own names (DataSF, PDDL), placed along each
+centreline. Labels are for finding your way around. They are not attributes of any feature, and the
+tiles carry no addresses, building names or parcel numbers.
+
 Client rules:
 
 - Each tile is one mesh per layer, so it costs two or three draw calls.
@@ -200,18 +244,17 @@ Client rules:
 - Within a played site's vector radius (90 m), city buildings fade so that the scene's measured
   walls and roofs are not drawn twice.
 
-### Sites without an accepted pose
+### Placement only from accepted poses
 
-Most sites have no accepted pose. The default is to place them by their eye-read position and
-heading, labelled "approximate placement (eye-read, typically 3–7 m out)", with nearby city
-buildings faded. They get no scene vectors, as today. This presents the placement as what it is and
-not as a measurement. Accepting the six `CANDIDATE` poses improves the view directly. This is open
-question 2.
+All 24 sites have an accepted pose, so every site is placed from its record. A new site appears as
+a marker at its eye-read position, labelled "not yet placed", until a pose is accepted for it. It
+does not play in the city until then, and opens in its own frame as scene pages do today. A guess is
+never drawn as though it were a measured placement.
 
 ### Web specifics
 
-- **Where:** a new `/city/` page. The 2D scene map stays: it is the fallback without WebGL, under
-  reduced motion, and on low-power devices.
+- **Where:** a new `/city/` route (owner, 2026-11-04). The 2D scene map stays: it is the fallback
+  without WebGL, under reduced motion, and on low-power devices.
 - **Reuse:** `scene-reader.js` and `scene-playback.js` for the site's frames, `scene-flight.js` and
   `scene-camera.js` for the transitions, and `scene-vectors.js` for the site's vectors.
 - **Tile loader:** a small loader reads `tileset.json`, selects tiles by screen-space error and
@@ -233,8 +276,11 @@ question 2.
      one of the site's captures with `POST /api/lidar/pcap/start`;
   3. fly the camera to the site;
   4. draw the stream in place by the site's sensor-to-city matrix.
-- **Sites the server cannot play:** they are shown as markers with their published scene's details
-  only.
+- **Other sites in view:** the server plays one replay at a time, so the other sites in view are
+  played from their published scene exports. A Swift reader for the scene format reads them
+  directly from files, at the street-range level of detail (boxes and headings). Live Pis in the
+  field are each a separate server, and the visualiser may hold one stream per live site.
+- **Sites with nothing to play:** markers, with their published scene's details.
 - **Tile reader:** a Swift reader for `tileset.json` plus a minimal `.glb` reader (one JSON chunk
   and one binary chunk, with positions, normals and indices only), feeding Metal buffers directly.
 - **Settings:** one new setting, `cityTiles.location` (URL or directory), next to
@@ -249,8 +295,9 @@ site with data and its placement.
 
 **Steps:**
 
-1. Write `placement.json` in `publish-scenes.py` from the pose `scene-vectors.py` already fetches
-   and checks. Write `approximate` from `site-index.json` where there is no accepted pose.
+1. Write `placement.json` in `publish-scenes.py` from the record and check `scene-vectors.py`
+   already uses, adding the translation. Write it for all 24 scenes. A site without an accepted pose
+   gets `state: "not_placed"` and its eye-read position, for the marker only.
 2. Compute site-to-city in tooling from the L16 origin and the tileset's declared city origin, in
    Double, with a test against Gerardus's GeoJSON origin for one site.
 3. Emit `city/sites.json` from `generate-scene-map.mjs`, with CI regenerating it and failing on any
@@ -273,7 +320,8 @@ site with data and its placement.
 
 ### Item 3: web city view, zoomed out
 
-**Summary:** `/city/` draws the city tiles with level of detail and a marker per site.
+**Summary:** `/city/` draws the city tiles and street names with level of detail, and a marker per
+site.
 
 **Steps:**
 
@@ -281,26 +329,31 @@ site with data and its placement.
    parent-until-loaded.
 2. Add a camera-relative render path and a logarithmic depth buffer, and orbit and zoom from city
    scale to street scale.
-3. Add markers from `city/sites.json`, styled by data kind and placement state, with the 2D map as
-   fallback.
-4. Set and measure a frame and byte budget on a mid-range phone and a laptop. Record the numbers in
+3. Draw the street-name labels from the tiles, with collision avoidance.
+4. Add markers from `city/sites.json`, showing each site's data kind and recording date, with the 2D
+   map as fallback.
+5. Set and measure a frame and byte budget on a mid-range phone and a laptop. Record the numbers in
    the hub doc.
 
 **Milestone:** unscheduled
 
-### Item 4: web, into a site and between sites
+### Item 4: web, sites in place and between sites
 
-**Summary:** Zooming into a marker plays that site's scene in place, and the reader can move to the
-next site with data.
+**Summary:** Sites in view play in place, each inside its own coverage, and the reader can move to
+the next site with data.
 
 **Steps:**
 
-1. Load and play a scene placed by its `placement.json` inside the city tiles, fading city buildings
-   within the vector radius.
-2. Add next/previous and a marker click, with a flight that rises, crosses and descends, unloading
-   the previous scene.
-3. Show the approximate-placement state as text.
-4. Add `/city/#site=<id>` deep links, and link to `/city/` from each scene page.
+1. Load and play scenes placed by their `placement.json` inside the city tiles, fading city
+   buildings within each scene's vector radius.
+2. Apply the scene level of detail: full playback for the nearest site, boxes only at street range,
+   markers beyond.
+3. Add the separation cues: the coverage ring and fade, a per-site clock and date, class colours
+   only, track ids namespaced by site, the one line of copy, and a test that no drawn object mixes
+   two sites.
+4. Add next/previous and a marker click, with a flight that rises, crosses and descends, unloading
+   the sites that leave the view.
+5. Add `/city/#site=<id>` deep links, and link to `/city/` from each scene page.
 
 **Milestone:** unscheduled
 
@@ -338,15 +391,30 @@ tiles.
 
 ### Item 7: visualiser, city mode
 
-**Summary:** The operator sees the city and the sites, flies into one, plays it in place, and moves
-to the next.
+**Summary:** The operator sees the city, its street names and the sites, flies to one, plays it and
+the sites around it in place, and moves to the next.
 
 **Steps:**
 
-1. Add a city camera mode with markers.
+1. Add a city camera mode with markers and street-name labels.
 2. Wire choosing a site to Item 5's switch, and fly to it.
 3. Draw the stream by its sensor-to-city matrix, fading city buildings near the sensor.
-4. Show the approximate-placement state in the status bar.
+4. Add the separation cues from Item 4, shared through the test fixtures.
+
+**Milestone:** unscheduled
+
+### Item 8: visualiser, other sites from published scenes
+
+**Summary:** The sites around the focused one play from their published scene exports, read from
+files, so several sites play at once without new endpoints.
+
+**Steps:**
+
+1. Write a Swift reader for the scene export's manifest, timeline and frames (boxes and headings
+   only), tested against a committed scene fixture.
+2. Play up to the street-range limit of nearby sites, each on its own clock, placed by its
+   `placement.json`.
+3. Hold one stream per live Pi when several live sites are in view, each in its own `SiteContext`.
 
 **Milestone:** unscheduled
 
@@ -354,8 +422,8 @@ to the next.
 
 - Gerardus CITY-VIEW-TILES: the first tile epoch gates Items 3, 6 and 7. Items 1 and 5 can start
   now.
-- Accepted poses: most sites are approximate until an operator accepts the six `CANDIDATE` poses
-  and more (Gerardus M2 and M3).
+- Accepted poses: all 24 published sites have one. A new site needs one before it plays in the city
+  (Gerardus M2 and M3).
 - D-34: where scene assets and tiles are hosted publicly.
 - The visualiser's replay of another site needs a server that holds that site's captures (arrow or
   kirk0 with the NAS). A Pi in the field can only play its own site.
@@ -364,7 +432,9 @@ to the next.
 
 | Risk                                                    | Likelihood | Impact | Mitigation                                                   |
 | ------------------------------------------------------- | ---------- | ------ | ------------------------------------------------------------ |
-| Approximate placements read as measured                 | High       | Medium | Labelled state, faded nearby buildings, no scene vectors     |
+| Readers infer vehicles are followed between sites       | Medium     | High   | Coverage rings, own clocks and dates, class colours, copy    |
+| Several playing sites exceed the frame budget           | Medium     | Medium | Scene level of detail by distance; limits measured           |
+| Unplaced new site drawn as if measured                  | Low        | Medium | Marker only, "not yet placed", until a pose is accepted      |
 | Tile bytes too heavy for phones                         | Medium     | Medium | Three levels, simplification, budget measured in Item 3      |
 | City footprints (2010) disagree with what the scene saw | Medium     | Low    | Fade city buildings near a played scene; dates stated in UI  |
 | Float32 jitter or depth fighting at city scale          | Medium     | Medium | Camera-relative transforms in Double; reversed-Z / log depth |
@@ -379,24 +449,28 @@ Owner, 2026-11-04:
   uses existing calls.
 - Both the visualiser and the web scene exports get the city view.
 - Level of detail and simplification are acceptable to keep it smooth.
+- Several sites may play at once, and the view must keep working as sites become denser. It must
+  make clear that traffic is not tracked between intersections.
+- The web view is a new `/city/` route.
+- Street names are labelled.
+- Placement comes from accepted poses only. All 24 published scenes have one (6 `registered`, 18
+  `manually_placed`).
 
 ## Open questions
 
-1. **Does anything cross site boundaries?** The proposed default is no: one site plays at a time
-   and other sites are markers (ADR-0011). The alternative is to also show a city-wide aggregate
-   layer (counts and speeds per segment, k ≥ 5). That waits on the traffic v1 network, so it is
-   not in this plan either way.
-2. **Approximate placement:** show unposed sites in place, labelled as approximate (proposed), or
-   open them only in their own frame without the city around them.
-3. **Web:** a new `/city/` page beside the 2D map (proposed), or replace the scene map.
-4. **Street names:** the City's names are public (PDDL) and help navigation, but the scene exports
-   carry no names today. Label streets in the city view or not.
+1. **Time alignment across sites:** each site plays its own recording on its own clock (proposed).
+   The alternative aligns sites by time of day, which reads better but suggests a shared moment
+   that never happened.
+2. **The visualiser's other sites:** play them from published scene exports (proposed, Item 8), or
+   only from live servers and leave archived sites as markers.
 
 ## Checklist
 
 ### Complete
 
 - [x] Owner scope: whole-city view in both clients, static tiles, no new endpoints, LOD acceptable
+- [x] Owner answers: several sites at once, kept separate; `/city/` route; street names
+- [x] Accepted poses confirmed for all 24 published scenes, from their vectors files
 
 ### Outstanding
 
@@ -407,6 +481,7 @@ Owner, 2026-11-04:
 - [ ] Item 5: visualiser `SiteContext` and site switching (`M`)
 - [ ] Item 6: visualiser city frame, precision and tile reader (`L`)
 - [ ] Item 7: visualiser city mode (`M`)
+- [ ] Item 8: visualiser, other sites from published scenes (`M`)
 
 ### Deferred
 

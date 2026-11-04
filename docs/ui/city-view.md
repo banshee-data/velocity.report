@@ -15,10 +15,12 @@ and moves to the next site with data while the city stays drawn around it.
 - **City tiles:** the City's building footprints with their 2010 heights, the City's street
   centrelines and 3DEP ground. They are measured spatial data at each source's acquisition time,
   drawn as context for the traffic, at three levels of detail.
-- **Sites:** one marker per site with data. A marker shows whether the site's placement is an
-  accepted Gerardus pose or an approximate eye-read position.
-- **One playing site:** the recording of the site the reader has zoomed into, placed in the city by
-  its placement. Other sites do not play at the same time.
+- **Street names:** the City's own names, as labels for finding your way around.
+- **Sites:** one marker per site with data, with its recording date. A site is placed in the city
+  only by an accepted Gerardus pose. A site without one is a marker labelled "not yet placed".
+- **Playing sites:** sites in view play in place, simplified with distance. Each plays only inside
+  its own coverage, on its own clock and date, coloured by class and never by track. Each
+  intersection is recorded on its own. Vehicles are not followed from one intersection to the next.
 
 None of it is a plan, survey or specification of a street, and a feature that is not drawn is not
 asserted absent. See [Geometry priors: data purpose](../geometry-priors-data-purpose.md).
