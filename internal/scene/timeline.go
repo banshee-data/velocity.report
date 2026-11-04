@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/lanes"
 	"github.com/banshee-data/velocity.report/internal/stats"
 )
 
@@ -41,6 +42,16 @@ type timelineAccumulator struct {
 	buckets       map[int]*bucketTally
 	carTrackMax   map[string]float64
 	maxOffsetUs   int64
+	// cars holds what directions need of each track, in memory only: its
+	// maximum, its mean heading while moving and, with lanes, its instants.
+	cars  map[string]*carTrack
+	isCar map[string]bool
+	// lanes is the site's lane snapshot history; nil or empty falls back to
+	// heading modes. sensorYBearing names those modes by compass.
+	lanes          *lanes.History
+	sensorYBearing *float64
+	firstNs        int64
+	lastNs         int64
 }
 
 type bucketTally struct {
@@ -57,7 +68,45 @@ func newTimelineAccumulator(bucketSeconds float64) *timelineAccumulator {
 		bucketSeconds: bucketSeconds,
 		buckets:       map[int]*bucketTally{},
 		carTrackMax:   map[string]float64{},
+		cars:          map[string]*carTrack{},
+		isCar:         map[string]bool{},
 	}
+}
+
+// observeAt folds one retained frame in with its absolute capture time, for
+// the direction summaries; observe does the rest.
+func (a *timelineAccumulator) observeAt(f Frame, absNs int64) {
+	if a == nil {
+		return
+	}
+	if a.firstNs == 0 || absNs < a.firstNs {
+		a.firstNs = absNs
+	}
+	if absNs > a.lastNs {
+		a.lastNs = absNs
+	}
+	withLanes := !a.lanes.Empty()
+	for _, t := range f.Tracks {
+		c := a.cars[t.ID]
+		if c == nil {
+			c = &carTrack{}
+			a.cars[t.ID] = c
+		}
+		if t.Class == "car" {
+			a.isCar[t.ID] = true
+		}
+		c.maxMPS = math.Max(c.maxMPS, math.Max(t.Speed, t.MaxSpeed))
+		if t.Speed >= headingMovingMPS && (t.VX != 0 || t.VY != 0) {
+			h := math.Atan2(t.VY, t.VX)
+			c.sin += math.Sin(h)
+			c.cos += math.Cos(h)
+			c.moving++
+		}
+		if withLanes {
+			c.instants = append(c.instants, lanes.Instant{TimeNs: absNs, X: t.X, Y: t.Y, VX: t.VX, VY: t.VY, SpeedMps: t.Speed})
+		}
+	}
+	a.observe(f)
 }
 
 // observe folds one retained frame into its bucket.
@@ -143,6 +192,7 @@ func (a *timelineAccumulator) vehicleSpeedSummary() *VehicleSpeedSummary {
 	}
 
 	out := &VehicleSpeedSummary{
+		Directions:   a.directionSummaries(),
 		Units:        "mph",
 		BucketSize:   vehicleSpeedBucketMPH,
 		MinimumSpeed: vehicleMinimumSpeedMPH,

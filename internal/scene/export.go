@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/banshee-data/velocity.report/internal/lidar/lanes"
 	"io"
 	"math"
 	"os"
@@ -79,6 +80,13 @@ type Options struct {
 	// writes beside its chunks; the header then names the trail's
 	// estimator and stage. Off, the trail is the posterior, as before.
 	SmoothedTrail bool
+	// Lanes is the site and sensor's lane snapshot history, for the vehicle
+	// summary's directions; nil uses the heading fallback.
+	Lanes *lanes.History
+	// SensorYBearingDeg is the bearing of the sensor's +Y from true north,
+	// from the accepted pose, so the heading fallback's directions carry
+	// compass names; nil names them A and B.
+	SensorYBearingDeg *float64
 }
 
 // Result reports what an export produced.
@@ -197,6 +205,8 @@ func Export(opts Options) (*Result, error) {
 	// The timeline summary is folded in during this same pass, so annotating
 	// the scrubber costs no extra read of the recording.
 	timeline := newTimelineAccumulator(opts.BucketSeconds)
+	timeline.lanes = opts.Lanes
+	timeline.sensorYBearing = opts.SensorYBearingDeg
 
 	var (
 		retained         int
@@ -229,7 +239,7 @@ func Export(opts Options) (*Result, error) {
 		// Rebase to microseconds from the first retained frame so the value is
 		// exact in a browser.
 		f.TimeUs = (absNs - firstNs) / 1000
-		timeline.observe(f)
+		timeline.observeAt(f, absNs)
 		return w.write(f)
 	}
 
