@@ -158,7 +158,7 @@ Phase A and B need no Gerardus work and no visualiser; C needs Gerardus W10a; D 
 - [ ] Phase B's one-second criterion holds for a run with stored observations only: from a recording the whole field took 3.2 s over HTTP for a 10-minute run
 - [ ] Phase C: the field overlay and the upload ([lane painter](lidar-visualiser-lane-painter-plan.md) Item 1)
 - [ ] Phase D: proposals, review and limits ([lane painter](lidar-visualiser-lane-painter-plan.md) Items 2–3)
-- [ ] Phase E: the real check with the owner
+- [ ] Phase E: the real check with the owner, written as [lane0002](../../data/experiments/lane/lane0002.md); its scorer and report skeleton are ready, the drawing is the owner's
 
 ## Not in scope
 

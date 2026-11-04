@@ -341,7 +341,7 @@ filled, so a picture of a site's lanes, limits and traffic exists without a file
 ### Outstanding
 
 - [ ] Item 1 remainder: the pose agreement check against the pose writeback's record (v0.5.5); `lanes pull` reading the accepted record from Gerardus, which serves none over HTTP (it takes `--record-id` and `--pose` today)
-- [ ] Item 2: experiment lane0002 spec, run and report (`S`)
+- [ ] Item 2: lane0002's run and report, waiting on the owner's drawing and on lane fields uploaded to each site's Gerardus; the spec, `velocity lidar lanes score` and the report skeleton are written (`claude/lane0002-prep`)
 - [ ] Item 3: web site viewer traffic layer (`S`)
 - [ ] Item 4: render tool and dataset publication (`S`)
 
