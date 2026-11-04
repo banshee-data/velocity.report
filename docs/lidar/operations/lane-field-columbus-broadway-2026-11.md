@@ -8,7 +8,7 @@ the ridges sit across the City's Columbus Ave and Broadway centrelines, per dire
 half of the run.
 
 - **Status:** Measured, 2026-11-03, on a Mac; nothing adopted, since nothing is proposed. The field
-  was uploaded to a local Gerardus test server only, not to arrow's
+  was uploaded to a local Gerardus test server only, not to arrow's Gerardus.
 - **Layers:** L8 (`BuildLaneField`), the run route and `velocity lidar lane-field`
 - **Related:** [lanes from tracks](../../plans/lidar-lane-proposals-from-tracks-plan.md),
   [lane painter](../../plans/lidar-visualiser-lane-painter-plan.md),

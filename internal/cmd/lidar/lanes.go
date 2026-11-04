@@ -19,6 +19,10 @@ import (
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
+// lanesHTTPTimeout bounds each call to Gerardus or velocity.report, so a
+// server that stops answering does not hang the command.
+const lanesHTTPTimeout = 60 * time.Second
+
 const lanesUsage = `velocity lidar lanes — the lane snapshot
 
 Usage:
@@ -46,7 +50,7 @@ func LanesMain(args []string) int {
 	}
 	switch args[0] {
 	case "pull":
-		return lanesPull(args[1:], http.DefaultClient)
+		return lanesPull(args[1:], &http.Client{Timeout: lanesHTTPTimeout})
 	default:
 		fmt.Fprintf(os.Stderr, "unknown lanes command %q\n\n%s\n", args[0], lanesUsage)
 		return 2

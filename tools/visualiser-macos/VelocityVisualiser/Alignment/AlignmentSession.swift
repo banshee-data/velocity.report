@@ -382,6 +382,18 @@ struct ReferenceSummary: Equatable {
 
     /// What is running now, for the pane; nil when idle.
     @Published private(set) var busy: String?
+
+    /// Takes the one long call on the wire for work outside the session,
+    /// such as the street painter's Send lane field; false when a call is
+    /// already out. The caller must `releaseWire()` when it finishes.
+    func claimWire(_ what: String) -> Bool {
+        guard busy == nil else { return false }
+        busy = what
+        return true
+    }
+
+    /// Gives back the wire `claimWire` took.
+    func releaseWire() { busy = nil }
     @Published private(set) var errorMessage: String?
     /// The record most recently written, until the pane is told otherwise.
     @Published private(set) var lastRecord: Gerardus_Align_V1alpha1_RegistrationRecord?

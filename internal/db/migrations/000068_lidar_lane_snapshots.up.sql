@@ -25,7 +25,8 @@
 CREATE INDEX idx_lidar_lane_snapshots_site ON lidar_lane_snapshots (l16_token, sensor_id, fetched_at_ns);
 
 -- One row per lane per snapshot: the lane as derived, in both frames with
--- its tags and limit, the limit's effective dates indexed.
+-- its tags and limit, the limit's value, unit and effective dates as generated
+-- columns for queries (not indexed).
    CREATE TABLE lidar_lane_snapshot_lanes (
           snapshot_id TEXT NOT NULL REFERENCES lidar_lane_snapshots (snapshot_id)
         , feature_id TEXT NOT NULL

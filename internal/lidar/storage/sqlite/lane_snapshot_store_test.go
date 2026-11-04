@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -59,8 +60,11 @@ func TestLaneSnapshotsAreAppendOnlyAndIdempotent(t *testing.T) {
 		t.Fatalf("generated columns: %v %d", err, lanesStored)
 	}
 	// Append-only: rows cannot change or go.
-	if _, err := d.Exec(`UPDATE lidar_lane_snapshots SET author = 'x'`); err == nil {
-		t.Fatal("snapshot updated")
+	if _, err := d.Exec(`UPDATE lidar_lane_snapshots SET writer = 'pull'`); err == nil || !strings.Contains(err.Error(), "append-only") {
+		t.Fatalf("snapshot updated: %v", err)
+	}
+	if _, err := d.Exec(`UPDATE lidar_lane_snapshot_lanes SET row_id = 'x'`); err == nil || !strings.Contains(err.Error(), "append-only") {
+		t.Fatalf("lane updated: %v", err)
 	}
 	if _, err := d.Exec(`DELETE FROM lidar_lane_snapshot_lanes`); err == nil {
 		t.Fatal("lanes deleted")
