@@ -701,6 +701,16 @@ func TestHandleVRLogLoad(t *testing.T) {
 			wantInBody:     "does not exist",
 		},
 		{
+			// --lidar-vrlog-dir names a file: the server is misconfigured.
+			name:           "POST with a VRLOG directory that is a file returns service unavailable",
+			method:         http.MethodPost,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, filepath.Join(plainFile, "run.vrlog")),
+			onLoad:         func(path string) (string, error) { return "proto", nil },
+			vrlogSafeDir:   plainFile,
+			expectedStatus: http.StatusServiceUnavailable,
+			wantInBody:     "is not a directory",
+		},
+		{
 			// A recording is a directory; a file is the wrong path, not a
 			// recording that failed to load.
 			name:           "POST with a file instead of a recording returns bad request",

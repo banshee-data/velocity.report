@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
@@ -196,6 +198,17 @@ func TestRunLaneFieldRouteReadsTheRecording(t *testing.T) {
 	laneFieldExec(t, testDB, `INSERT INTO lidar_run_tracks (run_id, track_id, sensor_id, track_state, start_unix_nanos, object_class) VALUES ('gone', 'car-0', 's1', 'confirmed', 0, 'car')`)
 	if rec := getLaneField(ws, http.MethodGet, "gone", ""); rec.Code != http.StatusNotFound {
 		t.Fatalf("a recording that is not there: status %d", rec.Code)
+	}
+	// A directory without header.json is not a recording.
+	if err := os.Mkdir(filepath.Join(safe, "empty.vrlog"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.InsertRun(&sqlite.Run{RunID: "empty", SensorID: "s1", SourceType: "pcap", SourcePath: "/c/a.pcapng", Status: "completed", VRLogPath: filepath.Join(safe, "empty.vrlog")}); err != nil {
+		t.Fatal(err)
+	}
+	laneFieldExec(t, testDB, `INSERT INTO lidar_run_tracks (run_id, track_id, sensor_id, track_state, start_unix_nanos, object_class) VALUES ('empty', 'car-0', 's1', 'confirmed', 0, 'car')`)
+	if rec := getLaneField(ws, http.MethodGet, "empty", ""); rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "has no header.json") {
+		t.Fatalf("a directory without a header: status %d: %s", rec.Code, rec.Body)
 	}
 	unmounted := &Server{db: testDB, vrlogSafeDir: filepath.Join(safe, "not-mounted")}
 	if rec := getLaneField(unmounted, http.MethodGet, "in", ""); rec.Code != http.StatusServiceUnavailable {
