@@ -599,3 +599,51 @@
     [Site Location Map with radar location (circle) and coverage area (red triangle)],
   )
 }
+
+// ─── By direction ────────────────────────────────────────────────────────
+// The overall transits grouped by the radar's two directions, each against
+// the limit signed for it, split where a limit took effect inside the period
+// (docs/plans/platform-speed-by-direction-reporting-plan.md). The overall
+// figures above are the same transits and are unchanged.
+#let fmt-share(value) = if value == none { "--" } else { str(calc.round(value, digits: 1)) + "%" }
+
+#let by-direction(data) = {
+  let dirs = data.at("directions", default: ())
+  if dirs == none or dirs.len() == 0 { return }
+  let units = data.period.units
+  heading(level: 2)[By direction]
+  let body = ()
+  for d in dirs {
+    for seg in d.segments {
+      let period = if d.segments.len() > 1 { [ #seg.from to #seg.to] } else { [] }
+      body.push([#text(weight: "bold")[#d.name]#period])
+      body.push([#seg.limit])
+      body.push(mono-nowrap(fmt-int(seg.count)))
+      body.push(mono-nowrap(fmt-speed-bare(seg.p50)))
+      body.push(mono-nowrap(fmt-speed-bare(seg.p85)))
+      body.push(mono-nowrap(fmt-speed-bare(seg.p98)))
+      body.push(mono-nowrap(fmt-speed-bare(seg.max_speed)))
+      body.push(mono-nowrap(fmt-share(seg.over_limit)))
+      body.push(mono-nowrap(fmt-share(seg.over_5)))
+      body.push(mono-nowrap(fmt-share(seg.over_10)))
+      body.push(mono-nowrap(fmt-share(seg.over_15)))
+    }
+  }
+  data-table(
+    columns: (2.4fr, 2.2fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr),
+    aligns: (left, left, right, right, right, right, right, right, right, right, right),
+    header: (
+      [*Direction*], [*Limit as signed*], [*n*], [*p50*], [*p85*], [*p98*], [*max*],
+      [*> limit*], [*+5*], [*+10*], [*+15*],
+    ),
+    body: body,
+    caption: [Speeds by direction (#units); the last four columns are the shares over the limit and over it by 5, 10 and 15; p98 and max print as -- under 50 transits],
+  )
+  let note = data.at("directions_note", default: "")
+  if note != "" { text(size: 8pt)[#note] }
+  let chart = data.charts.at("directions", default: "")
+  if chart != "" {
+    v(0.45em)
+    figure(image(chart, width: 100%), caption: [Speeds by direction, mirrored about the speed axis, each against its own limit], supplement: [Figure])
+  }
+}

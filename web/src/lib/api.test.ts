@@ -3,6 +3,9 @@ import {
 	buildHeadwayChartPath,
 	buildHistogramChartPath,
 	buildSurveyHeadwayPath,
+	limitLabel,
+	limitOn,
+	type DirectionLimit,
 	buildTimeSeriesChartPath,
 	getSurveyHeadway,
 	createSite,
@@ -328,6 +331,42 @@ describe('api', () => {
 			expect(path).toContain('min_speed=10');
 			expect(path).toContain('boundary_threshold=3');
 			expect(path).toContain('paper_size=a4');
+			expect(path).not.toContain('mirror=');
+		});
+
+		it('asks for two directions mirrored about the speed axis', () => {
+			const path = buildHistogramChartPath({
+				siteId: 7,
+				startDate: '2026-09-01',
+				endDate: '2026-09-30',
+				source: 'radar_data_transits',
+				mirror: 'inbound,outbound'
+			});
+			expect(path).toContain('mirror=inbound%2Coutbound');
+			expect(path).toContain('source=radar_data_transits');
+		});
+	});
+
+	describe('direction limits', () => {
+		const limits: DirectionLimit[] = [
+			{ value: 25, unit: 'mph', source: 'sign', effective_from: '2026-01-01' },
+			{ value: 20, unit: 'mph', source: 'sign', effective_from: '2026-09-15' }
+		];
+		it('takes the limit in force on the day', () => {
+			expect(limitOn(limits, '2026-09-14')?.value).toBe(25);
+			expect(limitOn(limits, '2026-09-15')?.value).toBe(20);
+			expect(limitOn(limits, '2025-12-31')).toBeUndefined();
+			expect(limitOn([{ ...limits[0], effective_to: '2026-06-30' }], '2026-07-01')).toBeUndefined();
+		});
+		it('prints a limit as signed with its source', () => {
+			expect(limitLabel(limits[0])).toBe('25 mph (sign)');
+			expect(limitLabel({ value: 25, unit: 'mph', source: 'statutory' })).toBe(
+				'25 mph (default, no sign recorded)'
+			);
+			expect(limitLabel({ value: 30, unit: 'km/h', source: 'operator' })).toBe(
+				'30 km/h (operator-supplied)'
+			);
+			expect(limitLabel(undefined)).toBe('no limit recorded');
 		});
 	});
 
@@ -502,7 +541,6 @@ describe('api', () => {
 					name: 'Site A',
 					location: 'Location A',
 					cosine_error_angle: 5,
-					speed_limit: 35,
 					surveyor: 'John Doe',
 					contact: 'john@example.com',
 					include_map: false,
@@ -1181,7 +1219,6 @@ describe('api', () => {
 				location: 'Test Location',
 				description: 'Test Description',
 				cosine_error_angle: 15,
-				speed_limit: 30,
 				surveyor: 'John Doe',
 				contact: 'john@example.com',
 				address: '123 Main St',
@@ -1190,7 +1227,6 @@ describe('api', () => {
 				map_angle: 45,
 				include_map: true,
 				site_description: 'Site description',
-				speed_limit_note: 'Note',
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-01T00:00:00Z'
 			};
@@ -1224,7 +1260,6 @@ describe('api', () => {
 				name: 'New Site',
 				location: 'New Location',
 				cosine_error_angle: 15,
-				speed_limit: 30,
 				surveyor: 'Jane Doe',
 				contact: 'jane@example.com',
 				include_map: false
@@ -1238,7 +1273,6 @@ describe('api', () => {
 				longitude: null,
 				map_angle: null,
 				site_description: null,
-				speed_limit_note: null,
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-01T00:00:00Z'
 			};
@@ -1304,8 +1338,7 @@ describe('api', () => {
 	describe('updateSite', () => {
 		it('should update an existing site', async () => {
 			const updates = {
-				name: 'Updated Site',
-				speed_limit: 40
+				name: 'Updated Site'
 			};
 			const mockUpdatedSite: Site = {
 				id: 1,
@@ -1313,7 +1346,6 @@ describe('api', () => {
 				location: 'Location',
 				description: null,
 				cosine_error_angle: 15,
-				speed_limit: 40,
 				surveyor: 'John Doe',
 				contact: 'john@example.com',
 				address: null,
@@ -1322,7 +1354,6 @@ describe('api', () => {
 				map_angle: null,
 				include_map: true,
 				site_description: null,
-				speed_limit_note: null,
 				created_at: '2025-01-01T00:00:00Z',
 				updated_at: '2025-01-02T00:00:00Z'
 			};

@@ -139,6 +139,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			data_id,
 			write_timestamp AS ts,
 			ABS(speed) AS abs_speed,
+			speed,
 			magnitude
 		FROM
 			radar_data
@@ -158,13 +159,16 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 		DataID int64
 		Ts     float64
 		Speed  float64
+		// Signed is the reading as the OPS243 reports it: positive
+		// approaching (inbound), negative receding (outbound).
+		Signed float64
 		Mag    sql.NullFloat64
 	}
 
 	var points []rawPoint
 	for rows.Next() {
 		var p rawPoint
-		if err := rows.Scan(&p.DataID, &p.Ts, &p.Speed, &p.Mag); err != nil {
+		if err := rows.Scan(&p.DataID, &p.Ts, &p.Speed, &p.Signed, &p.Mag); err != nil {
 			return err
 		}
 		points = append(points, p)
@@ -265,10 +269,11 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			transit_min_magnitude,
 			point_count,
 			model_version,
+			direction,
 			created_at,
 			updated_at
 		) VALUES (
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UNIXEPOCH('subsec'), UNIXEPOCH('subsec')
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, UNIXEPOCH('subsec'), UNIXEPOCH('subsec')
 		)
 		ON CONFLICT(transit_key) DO UPDATE SET
 			transit_end_unix = excluded.transit_end_unix,
@@ -278,6 +283,7 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 			transit_min_magnitude = excluded.transit_min_magnitude,
 			point_count = excluded.point_count,
 			model_version = excluded.model_version,
+			direction = excluded.direction,
 			updated_at = UNIXEPOCH('subsec')
 	`)
 	if err != nil {
@@ -335,7 +341,11 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 		sum := sha1.Sum([]byte(keyRaw))
 		transitKey := fmt.Sprintf("%x", sum)
 
-		_, err := upsertStmt.ExecContext(ctx, transitKey, w.ThresholdSeconds*1000, t.Start, t.End, t.MaxSp, t.MinSp, t.MaxMag, t.MinMag, t.Count, w.ModelVersion)
+		signs := make([]float64, len(t.Points))
+		for i, p := range t.Points {
+			signs[i] = p.Signed
+		}
+		_, err := upsertStmt.ExecContext(ctx, transitKey, w.ThresholdSeconds*1000, t.Start, t.End, t.MaxSp, t.MinSp, t.MaxMag, t.MinMag, t.Count, w.ModelVersion, TransitDirection(signs))
 		if err != nil {
 			return err
 		}
@@ -385,6 +395,42 @@ func (w *TransitWorker) RunRange(ctx context.Context, start, end float64) error 
 	}
 
 	return nil
+}
+
+// Transit directions (radar_data_transits.direction).
+const (
+	TransitInbound  = "inbound"
+	TransitOutbound = "outbound"
+	TransitMixed    = "mixed"
+	TransitUnknown  = "unknown"
+)
+
+// TransitDirection is a transit's direction from the signs of its readings:
+// the majority sign, positive inbound (approaching, the OPS243's
+// convention) and negative outbound, or mixed when the signs disagree by
+// more than one reading in ten (two vehicles merged into one transit), or
+// unknown with no signed reading.
+func TransitDirection(signed []float64) string {
+	pos, neg := 0, 0
+	for _, v := range signed {
+		switch {
+		case v > 0:
+			pos++
+		case v < 0:
+			neg++
+		}
+	}
+	total := pos + neg
+	if total == 0 {
+		return TransitUnknown
+	}
+	if 10*min(pos, neg) > total {
+		return TransitMixed
+	}
+	if pos > neg {
+		return TransitInbound
+	}
+	return TransitOutbound
 }
 
 // MigrateModelVersion replaces all transits from oldVersion with the worker's

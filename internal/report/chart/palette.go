@@ -10,6 +10,9 @@ const (
 	ColourCountBar  = "#2d1e2f" // Count bars
 	ColourLowSample = "#f7b32b" // Low-sample period highlight
 	ColourSteelBlue = "#4682b4" // Histogram bars
+	// ColourOrange is a mirrored histogram's second direction, beside the
+	// steel blue of its first: the pair stays apart in greyscale print.
+	ColourOrange = "#c8553d"
 )
 
 // Following-evidence colours (headway report). These are not the percentile

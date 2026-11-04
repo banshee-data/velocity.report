@@ -11,15 +11,19 @@ const maxUnixTime = 32503680000.0 // 3000-01-01T00:00:00Z
 
 // SiteConfigPeriod represents a time-based configuration period for a site.
 type SiteConfigPeriod struct {
-	ID                 int       `json:"id"`
-	SiteID             int       `json:"site_id"`
-	EffectiveStartUnix float64   `json:"effective_start_unix"`
-	EffectiveEndUnix   *float64  `json:"effective_end_unix"`
-	IsActive           bool      `json:"is_active"`
-	Notes              *string   `json:"notes"`
-	CosineErrorAngle   float64   `json:"cosine_error_angle"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 int      `json:"id"`
+	SiteID             int      `json:"site_id"`
+	EffectiveStartUnix float64  `json:"effective_start_unix"`
+	EffectiveEndUnix   *float64 `json:"effective_end_unix"`
+	IsActive           bool     `json:"is_active"`
+	Notes              *string  `json:"notes"`
+	CosineErrorAngle   float64  `json:"cosine_error_angle"`
+	// Directions are the radar's two directions on this deployment: names,
+	// bearings, which sign is inbound, and their limits as signed; nil when
+	// none are set.
+	Directions *RadarDirections `json:"directions,omitempty"`
+	CreatedAt  time.Time        `json:"created_at"`
+	UpdatedAt  time.Time        `json:"updated_at"`
 }
 
 // ListSiteConfigPeriods returns all site config periods, optionally filtered by site.
@@ -27,7 +31,7 @@ func (db *DB) ListSiteConfigPeriods(siteID *int) ([]SiteConfigPeriod, error) {
 	query := `
 		SELECT
 			id, site_id, effective_start_unix, effective_end_unix, is_active,
-			notes, cosine_error_angle, created_at, updated_at
+			notes, cosine_error_angle, directions_json, created_at, updated_at
 		FROM site_config_periods
 	`
 	var args []interface{}
@@ -49,6 +53,7 @@ func (db *DB) ListSiteConfigPeriods(siteID *int) ([]SiteConfigPeriod, error) {
 		var endUnix sql.NullFloat64
 		var isActive int
 		var createdAtUnix, updatedAtUnix float64
+		var directionsJSON sql.NullString
 		if err := rows.Scan(
 			&period.ID,
 			&period.SiteID,
@@ -57,6 +62,7 @@ func (db *DB) ListSiteConfigPeriods(siteID *int) ([]SiteConfigPeriod, error) {
 			&isActive,
 			&period.Notes,
 			&period.CosineErrorAngle,
+			&directionsJSON,
 			&createdAtUnix,
 			&updatedAtUnix,
 		); err != nil {
@@ -67,6 +73,10 @@ func (db *DB) ListSiteConfigPeriods(siteID *int) ([]SiteConfigPeriod, error) {
 			period.EffectiveEndUnix = &value
 		}
 		period.IsActive = isActive == 1
+		var derr error
+		if period.Directions, derr = parseDirectionsColumn(directionsJSON); derr != nil {
+			return nil, derr
+		}
 		period.CreatedAt = time.Unix(int64(createdAtUnix), 0)
 		period.UpdatedAt = time.Unix(int64(updatedAtUnix), 0)
 		periods = append(periods, period)
@@ -83,7 +93,7 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 	query := `
 		SELECT
 			id, site_id, effective_start_unix, effective_end_unix, is_active,
-			notes, cosine_error_angle, created_at, updated_at
+			notes, cosine_error_angle, directions_json, created_at, updated_at
 		FROM site_config_periods
 		WHERE id = ?
 	`
@@ -91,6 +101,7 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 	var endUnix sql.NullFloat64
 	var isActive int
 	var createdAtUnix, updatedAtUnix float64
+	var directionsJSON sql.NullString
 
 	err := db.DB.QueryRow(query, id).Scan(
 		&period.ID,
@@ -100,6 +111,7 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 		&isActive,
 		&period.Notes,
 		&period.CosineErrorAngle,
+		&directionsJSON,
 		&createdAtUnix,
 		&updatedAtUnix,
 	)
@@ -114,6 +126,9 @@ func (db *DB) GetSiteConfigPeriod(id int) (*SiteConfigPeriod, error) {
 		period.EffectiveEndUnix = &value
 	}
 	period.IsActive = isActive == 1
+	if period.Directions, err = parseDirectionsColumn(directionsJSON); err != nil {
+		return nil, err
+	}
 	period.CreatedAt = time.Unix(int64(createdAtUnix), 0)
 	period.UpdatedAt = time.Unix(int64(updatedAtUnix), 0)
 
@@ -125,7 +140,7 @@ func (db *DB) GetActiveSiteConfigPeriod(siteID int) (*SiteConfigPeriod, error) {
 	query := `
 		SELECT
 			id, site_id, effective_start_unix, effective_end_unix, is_active,
-			notes, cosine_error_angle, created_at, updated_at
+			notes, cosine_error_angle, directions_json, created_at, updated_at
 		FROM site_config_periods
 		WHERE site_id = ? AND is_active = 1
 		ORDER BY effective_start_unix DESC
@@ -135,6 +150,7 @@ func (db *DB) GetActiveSiteConfigPeriod(siteID int) (*SiteConfigPeriod, error) {
 	var endUnix sql.NullFloat64
 	var isActive int
 	var createdAtUnix, updatedAtUnix float64
+	var directionsJSON sql.NullString
 
 	err := db.DB.QueryRow(query, siteID).Scan(
 		&period.ID,
@@ -144,6 +160,7 @@ func (db *DB) GetActiveSiteConfigPeriod(siteID int) (*SiteConfigPeriod, error) {
 		&isActive,
 		&period.Notes,
 		&period.CosineErrorAngle,
+		&directionsJSON,
 		&createdAtUnix,
 		&updatedAtUnix,
 	)
@@ -158,6 +175,9 @@ func (db *DB) GetActiveSiteConfigPeriod(siteID int) (*SiteConfigPeriod, error) {
 		period.EffectiveEndUnix = &value
 	}
 	period.IsActive = isActive == 1
+	if period.Directions, err = parseDirectionsColumn(directionsJSON); err != nil {
+		return nil, err
+	}
 	period.CreatedAt = time.Unix(int64(createdAtUnix), 0)
 	period.UpdatedAt = time.Unix(int64(updatedAtUnix), 0)
 
@@ -176,8 +196,8 @@ func (db *DB) CreateSiteConfigPeriod(period *SiteConfigPeriod) error {
 	query := `
 		INSERT INTO site_config_periods (
 			site_id, effective_start_unix, effective_end_unix, is_active,
-			notes, cosine_error_angle
-		) VALUES (?, ?, ?, ?, ?, ?)
+			notes, cosine_error_angle, directions_json
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
 	`
 	isActive := 0
 	if period.IsActive {
@@ -192,6 +212,7 @@ func (db *DB) CreateSiteConfigPeriod(period *SiteConfigPeriod) error {
 		isActive,
 		period.Notes,
 		period.CosineErrorAngle,
+		directionsColumn(period.Directions),
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create site config period: %w", err)
@@ -224,7 +245,8 @@ func (db *DB) UpdateSiteConfigPeriod(period *SiteConfigPeriod) error {
 			effective_end_unix = ?,
 			is_active = ?,
 			notes = ?,
-			cosine_error_angle = ?
+			cosine_error_angle = ?,
+			directions_json = ?
 		WHERE id = ?
 	`
 	isActive := 0
@@ -240,6 +262,7 @@ func (db *DB) UpdateSiteConfigPeriod(period *SiteConfigPeriod) error {
 		isActive,
 		period.Notes,
 		period.CosineErrorAngle,
+		directionsColumn(period.Directions),
 		period.ID,
 	)
 	if err != nil {
@@ -258,6 +281,11 @@ func (db *DB) UpdateSiteConfigPeriod(period *SiteConfigPeriod) error {
 }
 
 func validateSiteConfigPeriod(period *SiteConfigPeriod) error {
+	if period.Directions != nil {
+		if err := period.Directions.Validate(); err != nil {
+			return err
+		}
+	}
 	if period.SiteID == 0 {
 		return fmt.Errorf("site_id is required")
 	}

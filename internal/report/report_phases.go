@@ -78,6 +78,7 @@ type loadedData struct {
 	summaryP98    float64
 	summaryMax    float64
 	totalCount    int
+	directions    DirectionSet
 }
 
 // loadData fetches every statistic the report prints. All of them go through
@@ -135,7 +136,17 @@ func loadData(ctx context.Context, database DB, plan runPlan) (loadedData, error
 		compareResult = cd
 	}
 
+	var directions DirectionSet
+	if dirDB, ok := database.(DirectionDB); ok && cfg.Source == "radar_data_transits" {
+		transits, err := dirDB.TransitDirections(plan.startUnix, plan.endUnix, statsSiteID, cfg.ModelVersion, plan.minSpeedMPS)
+		if err != nil {
+			return loadedData{}, fmt.Errorf("direction query: %w", err)
+		}
+		directions = BuildDirections(transits, plan.startTime, plan.endTime, cfg.Units, cfg.HistBucketSize, cfg.HistMax)
+	}
+
 	data := loadedData{
+		directions:    directions,
 		summaryResult: summaryResult,
 		tsResult:      tsResult,
 		primaryDaily:  primaryDaily,

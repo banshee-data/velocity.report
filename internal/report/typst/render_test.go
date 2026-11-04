@@ -496,3 +496,53 @@ func TestRenderSampleFixtureWithoutHistogramBuckets(t *testing.T) {
 		t.Fatalf("output is not a PDF (first 8 bytes = %q)", buf.Bytes()[:min(8, buf.Len())])
 	}
 }
+
+// The By direction section compiles: two directions, one split at an
+// effective date, masked tails as null, and the mirrored chart.
+func TestRenderSampleFixtureWithDirections(t *testing.T) {
+	requireTypstForSmokeTest(t)
+
+	body, err := os.ReadFile(filepath.Join("testdata", "sample.json"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	var data map[string]any
+	if err := json.Unmarshal(body, &data); err != nil {
+		t.Fatalf("decode fixture: %v", err)
+	}
+	seg := func(from, to, limit string, n int, tail bool) map[string]any {
+		s := map[string]any{"from": from, "to": to, "limit": limit, "count": n, "p50": 24.1, "p85": 29.0,
+			"p98": nil, "max_speed": nil, "over_limit": 38.2, "over_5": 12.0, "over_10": 3.1, "over_15": 0.4, "suppressed": ""}
+		if tail {
+			s["p98"], s["max_speed"] = 34.5, 41.2
+		}
+		return s
+	}
+	data["directions"] = []any{
+		map[string]any{"key": "inbound", "name": "Kirkham St eastbound", "bearing_deg": 90.0, "count": 1204,
+			"segments": []any{seg("2026-09-01", "2026-09-14", "25 mph (sign)", 1100, true), seg("2026-09-15", "2026-09-30", "20 mph (sign)", 104, true)}},
+		map[string]any{"key": "outbound", "name": "Kirkham St westbound", "bearing_deg": nil, "count": 31,
+			"segments": []any{seg("2026-09-01", "2026-09-30", "25 mph (default, no sign recorded)", 31, false)}},
+	}
+	data["directions_note"] = "Counted in the overall figures but in no direction: 3 transits whose readings disagree in sign (two vehicles merged)."
+	charts := data["charts"].(map[string]any)
+	charts["directions"] = "/charts/directions.svg"
+	svg := []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><rect width="100" height="50" fill="white"/></svg>`)
+
+	fontDir, err := filepath.Abs(filepath.Join("..", "chart", "assets"))
+	if err != nil {
+		t.Fatalf("resolve font dir: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := Render(&buf, Options{
+		Data:              data,
+		Assets:            []Asset{{Name: "charts/directions.svg", Data: svg}},
+		FontDir:           fontDir,
+		IgnoreSystemFonts: true,
+	}); err != nil {
+		t.Fatalf("render: %v", err)
+	}
+	if !bytes.HasPrefix(buf.Bytes(), []byte("%PDF-")) {
+		t.Fatal("output is not a PDF")
+	}
+}

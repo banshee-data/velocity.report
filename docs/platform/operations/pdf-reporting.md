@@ -137,9 +137,28 @@ Implemented chart surfaces:
    time gap over time, with unsupported intervals shaded and the review-only
    predicted gap drawn apart; see
    [DESIGN.md §4.4](../../ui/DESIGN.md#44-following-evidence-and-headway-distribution-charts).
+7. **Mirrored histogram** (By direction) — two directions on one speed axis,
+   one up and one down, each with its own limit line (`RenderMirrored`).
 
 Typst consumes these SVG artefacts directly via `#image()`, so no SVG-to-PDF
 conversion pass is needed.
+
+## By direction
+
+A transit report whose deployment names its radar directions (`site_config_periods.directions`:
+each direction's name, bearing, which sign is inbound, and its limits as signed with their
+effective dates) gains a **By direction** section after the detailed tables: each direction's
+count, p50, p85, p98 and max by nearest rank, and the share above its own limit and 10 over it,
+with the limit printed as signed and its source ("25 mph (sign)", "25 mph (default, no sign
+recorded)"). A direction is split where a limit took effect inside the period. A direction with
+fewer than five transits is folded into the overall figures, p98 and max print as "--" below 50,
+and transits whose readings disagree in sign (`mixed`) or carry no direction are counted overall
+and noted. With two directions the section embeds one mirrored histogram (`RenderMirrored`): the
+two share the speed axis, one up and one down, each with its own limit line and its buckets above
+the limit shaded. The overall figures are the same transits and do not change. The web serves the
+same chart at `/api/charts/histogram?mirror=inbound,outbound` (or `direction=` for one), for
+`source=radar_data_transits` only. See the
+[speed by direction plan](../../plans/platform-speed-by-direction-reporting-plan.md).
 
 ## Relationship to earlier plans
 

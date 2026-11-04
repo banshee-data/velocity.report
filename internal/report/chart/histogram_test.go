@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -398,4 +399,39 @@ func parseFloatAttr(t *testing.T, attrs map[string]string, name string) float64 
 		t.Fatalf("parse %s=%q: %v", name, attrs[name], err)
 	}
 	return v
+}
+
+func TestRenderMirroredDrawsBothSidesAndTheirLimits(t *testing.T) {
+	up := MirroredSide{Data: HistogramData{Buckets: map[float64]int64{20: 3, 25: 5, 30: 2}, Units: "mph", BucketSz: 5}, Label: "Kirkham St eastbound", Limit: 25}
+	down := MirroredSide{Data: HistogramData{Buckets: map[float64]int64{25: 4, 30: 6, 35: 1}, Units: "mph", BucketSz: 5}, Label: "Kirkham St westbound", Limit: 30}
+	svg, err := RenderMirrored(up, down, DefaultHistogramStyle(PaperA4))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(svg)
+	for _, want := range []string{"Kirkham St eastbound (n=10)", "Kirkham St westbound (n=11)", "25 mph", "30 mph", ColourSteelBlue, ColourOrange, "stroke-dasharray"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("missing %q", want)
+		}
+	}
+	// Buckets at or above a side's limit are shaded darker.
+	if !strings.Contains(s, `fill-opacity="0.95"`) || !strings.Contains(s, `fill-opacity="0.55"`) {
+		t.Fatal("limit shading")
+	}
+	if _, err := RenderMirrored(up, MirroredSide{Data: HistogramData{Units: "kph", BucketSz: 5}}, DefaultHistogramStyle(PaperA4)); err == nil {
+		t.Fatal("mixed units accepted")
+	}
+	// A limit below every populated bucket still has its line: the axis
+	// widens to take it in, and a gap between buckets is kept, not closed.
+	if got := mirroredAxis(MirroredSide{Data: HistogramData{Buckets: map[float64]int64{30: 1, 45: 2}, BucketSz: 5}, Limit: 25}, MirroredSide{Data: HistogramData{BucketSz: 5}}); !slices.Equal(got, []float64{25, 30, 35, 40, 45}) {
+		t.Fatalf("axis %v", got)
+	}
+	low, _ := RenderMirrored(MirroredSide{Data: HistogramData{Buckets: map[float64]int64{30: 4, 35: 2}, Units: "mph", BucketSz: 5}, Label: "up", Limit: 20}, down, DefaultHistogramStyle(PaperA4))
+	if !strings.Contains(string(low), "20 mph") {
+		t.Fatal("a limit under every bucket lost its line")
+	}
+	empty, _ := RenderMirrored(MirroredSide{Data: HistogramData{Units: "mph", BucketSz: 5}}, MirroredSide{Data: HistogramData{Units: "mph", BucketSz: 5}}, DefaultHistogramStyle(PaperA4))
+	if len(empty) == 0 {
+		t.Fatal("no-data chart")
+	}
 }

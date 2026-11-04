@@ -334,3 +334,52 @@ func TestChartEndpoints_InvalidSource(t *testing.T) {
 		}
 	}
 }
+
+func TestChartEndpoints_HistogramByDirection(t *testing.T) {
+	server, dbInst := setupTestServer(t)
+	defer cleanupTestServer(t, dbInst)
+
+	site := &db.Site{Name: "Direction Site", Location: "l", Surveyor: "s", Contact: "c@example.com"}
+	if err := dbInst.CreateSite(context.Background(), site); err != nil {
+		t.Fatal(err)
+	}
+	cfg := &db.SiteConfigPeriod{SiteID: site.ID, EffectiveStartUnix: 0, IsActive: true, Directions: &db.RadarDirections{InboundSign: 1, Directions: []db.DirectionConfig{
+		{Key: "inbound", Name: "Kirkham St eastbound", Limits: []db.DirectionLimit{{Value: 25, Unit: "mph", Source: "sign"}}},
+		{Key: "outbound", Name: "Kirkham St westbound", Limits: []db.DirectionLimit{{Value: 30, Unit: "mph", Source: "sign"}}},
+	}}}
+	if err := dbInst.CreateSiteConfigPeriod(cfg); err != nil {
+		t.Fatal(err)
+	}
+	base := 1733184000.0
+	for i := 0; i < 20; i++ {
+		dir := "inbound"
+		if i%2 == 1 {
+			dir = "outbound"
+		}
+		if _, err := dbInst.Exec(`INSERT INTO radar_data_transits (transit_key, threshold_ms, transit_start_unix, transit_end_unix, transit_max_speed, point_count, model_version, direction)
+			VALUES (?, 1000, ?, ?, ?, 5, 'hourly-cron', ?)`, fmt.Sprintf("k%d", i), base+float64(i*600), base+float64(i*600)+3, 9+float64(i%5), dir); err != nil {
+			t.Fatal(err)
+		}
+	}
+	get := func(extra string) *httptest.ResponseRecorder {
+		url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph&bucket_size=5&max=70&source=radar_data_transits%s", site.ID, extra)
+		w := httptest.NewRecorder()
+		server.ServeMux().ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil))
+		return w
+	}
+	w := get("&mirror=inbound,outbound")
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Kirkham St eastbound (n=10)") || !strings.Contains(w.Body.String(), "Kirkham St westbound (n=10)") {
+		t.Fatalf("mirror: %d %.300s", w.Code, w.Body.String())
+	}
+	if w := get("&direction=outbound"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "<svg") {
+		t.Fatalf("one direction: %d", w.Code)
+	}
+	for _, bad := range []string{"&mirror=inbound", "&direction=north", "&direction=inbound&source=radar_objects", "&source=radar_data_transits&mirror=inbound,outbound&direction=inbound"} {
+		url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph%s", site.ID, bad)
+		w := httptest.NewRecorder()
+		server.ServeMux().ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil))
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("%s: %d", bad, w.Code)
+		}
+	}
+}
