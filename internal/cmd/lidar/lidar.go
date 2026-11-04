@@ -41,6 +41,9 @@ Commands:
                   files, verify, project, publish, and census packet keys
   observations    Verify, inspect or compare VRLOG 1.x observation containers
                   (written by pcap-replay --observations)
+  lane-field      Write a stored run's lane field (counts per 0.25 m cell, no
+                  cell under five tracks) as the JSON gerardus upload-lane-field
+                  reads
 
 Run 'velocity lidar <command> -h' for command flags.`
 
@@ -73,6 +76,8 @@ func Main(args []string) int {
 		return ObservationsMain(args[1:])
 	case "labels":
 		return LabelsMain(args[1:])
+	case "lane-field":
+		return LaneFieldMain(args[1:])
 	case "help", "-h", "--help":
 		fmt.Println(namespaceUsage)
 		return 0
