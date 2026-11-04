@@ -374,7 +374,7 @@ func TestChartEndpoints_HistogramByDirection(t *testing.T) {
 	if w := get("&direction=outbound"); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "<svg") {
 		t.Fatalf("one direction: %d", w.Code)
 	}
-	for _, bad := range []string{"&mirror=inbound", "&direction=north", "&direction=inbound&source=radar_objects"} {
+	for _, bad := range []string{"&mirror=inbound", "&direction=north", "&direction=inbound&source=radar_objects", "&source=radar_data_transits&mirror=inbound,outbound&direction=inbound"} {
 		url := fmt.Sprintf("/api/charts/histogram?site_id=%d&start=2024-12-03T00:00:00Z&end=2024-12-03T23:59:59Z&tz=UTC&units=mph%s", site.ID, bad)
 		w := httptest.NewRecorder()
 		server.ServeMux().ServeHTTP(w, httptest.NewRequest(http.MethodGet, url, nil))

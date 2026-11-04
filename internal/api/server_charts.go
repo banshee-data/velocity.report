@@ -175,6 +175,10 @@ func (s *Server) handleChartDirectionHistogram(w http.ResponseWriter, q url.Valu
 		s.writeJSONError(w, http.StatusBadRequest, "'direction' and 'mirror' need source=radar_data_transits: only transits carry a direction")
 		return
 	}
+	if q.Has("mirror") && q.Has("direction") {
+		s.writeJSONError(w, http.StatusBadRequest, "give 'direction' or 'mirror', not both")
+		return
+	}
 	var keys []string
 	if q.Has("mirror") {
 		keys = strings.Split(q.Get("mirror"), ",")

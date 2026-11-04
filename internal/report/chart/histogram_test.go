@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -419,6 +420,15 @@ func TestRenderMirroredDrawsBothSidesAndTheirLimits(t *testing.T) {
 	}
 	if _, err := RenderMirrored(up, MirroredSide{Data: HistogramData{Units: "kph", BucketSz: 5}}, DefaultHistogramStyle(PaperA4)); err == nil {
 		t.Fatal("mixed units accepted")
+	}
+	// A limit below every populated bucket still has its line: the axis
+	// widens to take it in, and a gap between buckets is kept, not closed.
+	if got := mirroredAxis(MirroredSide{Data: HistogramData{Buckets: map[float64]int64{30: 1, 45: 2}, BucketSz: 5}, Limit: 25}, MirroredSide{Data: HistogramData{BucketSz: 5}}); !slices.Equal(got, []float64{25, 30, 35, 40, 45}) {
+		t.Fatalf("axis %v", got)
+	}
+	low, _ := RenderMirrored(MirroredSide{Data: HistogramData{Buckets: map[float64]int64{30: 4, 35: 2}, Units: "mph", BucketSz: 5}, Label: "up", Limit: 20}, down, DefaultHistogramStyle(PaperA4))
+	if !strings.Contains(string(low), "20 mph") {
+		t.Fatal("a limit under every bucket lost its line")
 	}
 	empty, _ := RenderMirrored(MirroredSide{Data: HistogramData{Units: "mph", BucketSz: 5}}, MirroredSide{Data: HistogramData{Units: "mph", BucketSz: 5}}, DefaultHistogramStyle(PaperA4))
 	if len(empty) == 0 {
