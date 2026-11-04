@@ -6,10 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints"
+	"github.com/banshee-data/velocity.report/internal/lidar/l9endpoints/recorder"
+	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -72,7 +76,7 @@ func TestRunLaneFieldRoute(t *testing.T) {
 	}
 
 	// The route serves exactly the store's bytes, which the CLI writes too.
-	want, err := sqlite.NewRunStore(ws.db).RunLaneField("run-1", l8analytics.LaneFieldPartAll)
+	want, _, err := lanefieldrun.Build(sqlite.NewRunStore(ws.db), "run-1", l8analytics.LaneFieldPartAll, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,5 +125,61 @@ func TestRunLaneFieldRouteErrors(t *testing.T) {
 	}
 	if len(f.Groups) != 0 || f.Header.SensorID != "s1" || f.Header.CaptureRef == "" {
 		t.Fatalf("empty run field %+v", f)
+	}
+}
+
+// A run that stored no observations is read from its recording, which must
+// lie in the VRLOG directory.
+func TestRunLaneFieldRouteReadsTheRecording(t *testing.T) {
+	testDB, cleanup := setupTestDBWrapped(t)
+	t.Cleanup(cleanup)
+	safe := t.TempDir()
+	inside := filepath.Join(safe, "run.vrlog")
+	outside := filepath.Join(t.TempDir(), "run.vrlog")
+	for _, path := range []string{inside, outside} {
+		rec, err := recorder.NewRecorder(path, "s1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		const t0 = int64(1_788_000_000_000_000_000)
+		for f := 0; f < 100; f++ {
+			ts := t0 + int64(f)*100_000_000
+			var tracks []l9endpoints.Track
+			for i := 0; i < 5; i++ {
+				if j := f - 20*i; j >= 0 && j < 20 {
+					tracks = append(tracks, l9endpoints.Track{TrackID: fmt.Sprintf("car-%d", i), X: 0.1, Y: float32(0.6 * float64(j)), VY: 6, SpeedMps: 6})
+				}
+			}
+			if err := rec.Record(&l9endpoints.FrameBundle{FrameID: uint64(f), TimestampNanos: ts, SensorID: "s1", Tracks: &l9endpoints.TrackSet{TimestampNanos: ts, Tracks: tracks}}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := rec.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := sqlite.NewRunStore(testDB)
+	for id, path := range map[string]string{"in": inside, "out": outside} {
+		if err := store.InsertRun(&sqlite.Run{RunID: id, SensorID: "s1", SourceType: "pcap", SourcePath: "/c/a.pcapng", Status: "completed", VRLogPath: path}); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 5; i++ {
+			laneFieldExec(t, testDB, `INSERT INTO lidar_run_tracks (run_id, track_id, sensor_id, track_state, start_unix_nanos, object_class) VALUES (?, ?, 's1', 'confirmed', 0, 'car')`, id, fmt.Sprintf("car-%d", i))
+		}
+	}
+	ws := &Server{db: testDB, vrlogSafeDir: safe}
+	rec := getLaneField(ws, http.MethodGet, "in", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body)
+	}
+	var f l8analytics.LaneField
+	if err := json.Unmarshal(rec.Body.Bytes(), &f); err != nil {
+		t.Fatal(err)
+	}
+	if f.Header.TrackCount != 5 || f.CellCount() == 0 {
+		t.Fatalf("field from the recording: %+v", f.Header)
+	}
+	if rec := getLaneField(ws, http.MethodGet, "out", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("a recording outside the VRLOG directory: status %d", rec.Code)
 	}
 }

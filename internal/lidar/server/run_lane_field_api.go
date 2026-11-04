@@ -4,14 +4,31 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
+	"github.com/banshee-data/velocity.report/internal/security"
 )
+
+// resolveRunVRLOG holds a run's stored recording path to the VRLOG directory,
+// as replay and the scene export do, and requires the recording's header.
+func (ws *Server) resolveRunVRLOG(stored string) (string, error) {
+	path, err := security.ResolvePathWithinDirectory(stored, ws.vrlogSafeDir)
+	if err != nil {
+		return "", fmt.Errorf("the recording is outside the VRLOG directory")
+	}
+	if _, err := os.Stat(filepath.Join(path, "header.json")); err != nil {
+		return "", fmt.Errorf("the recording is missing")
+	}
+	return path, nil
+}
 
 // handleRunLaneField serves GET /api/lidar/runs/{run_id}/lane-field?part=…:
 // one part of the run's lane field (docs/plans/lidar-lane-proposals-from-tracks-plan.md
-// §1) in the JSON `gerardus upload-lane-field` reads, byte for byte what
+// §1), from its stored observations or else its recording, in the JSON `gerardus upload-lane-field` reads, byte for byte what
 // `velocity lidar lane-field` writes. k is always five and cannot be asked
 // for: no path serves a thinner field than Gerardus receives (ADR-0011).
 func (ws *Server) handleRunLaneField(w http.ResponseWriter, r *http.Request, runID string) {
@@ -29,9 +46,13 @@ func (ws *Server) handleRunLaneField(w http.ResponseWriter, r *http.Request, run
 		ws.writeJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	field, err := sqlite.NewRunStore(ws.db).RunLaneField(runID, part)
+	field, _, err := lanefieldrun.Build(sqlite.NewRunStore(ws.db), runID, part, ws.resolveRunVRLOG)
 	if errors.Is(err, sqlite.ErrNotFound) {
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
+		return
+	}
+	if errors.Is(err, lanefieldrun.ErrNoRecording) {
+		ws.writeJSONError(w, http.StatusNotFound, err.Error())
 		return
 	}
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 
 	coredb "github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
+	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -63,7 +64,7 @@ func TestLaneFieldCLIWritesTheRoutesBytes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		f, err := sqlite.NewRunStore(ro).RunLaneField("run-1", p)
+		f, _, err := lanefieldrun.Build(sqlite.NewRunStore(ro), "run-1", p, nil)
 		if err != nil {
 			t.Fatal(err)
 		}

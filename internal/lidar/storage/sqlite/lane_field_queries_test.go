@@ -66,7 +66,7 @@ func TestRunLaneFieldFromStoredObservations(t *testing.T) {
 	runID := seedLaneFieldRun(t, d.DB)
 	store := NewRunStore(d.DB)
 
-	f, err := store.RunLaneField(runID, l8analytics.LaneFieldPartAll)
+	f, err := runLaneField(store, runID, l8analytics.LaneFieldPartAll)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,11 +91,11 @@ func TestRunLaneFieldFromStoredObservations(t *testing.T) {
 	}
 
 	// The halves are built from the same rows and partition the window.
-	first, err := store.RunLaneField(runID, l8analytics.LaneFieldPartFirstHalf)
+	first, err := runLaneField(store, runID, l8analytics.LaneFieldPartFirstHalf)
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := store.RunLaneField(runID, l8analytics.LaneFieldPartSecondHalf)
+	second, err := runLaneField(store, runID, l8analytics.LaneFieldPartSecondHalf)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +106,7 @@ func TestRunLaneFieldFromStoredObservations(t *testing.T) {
 
 	// Two reads give the same bytes.
 	a, _ := f.JSON()
-	again, _ := store.RunLaneField(runID, l8analytics.LaneFieldPartAll)
+	again, _ := runLaneField(store, runID, l8analytics.LaneFieldPartAll)
 	b, _ := again.JSON()
 	if !bytes.Equal(a, b) {
 		t.Fatal("two reads of one run gave different bytes")
@@ -117,13 +117,13 @@ func TestRunLaneFieldMissingAndEmptyRuns(t *testing.T) {
 	d, cleanup := dbpkg.NewTestDB(t)
 	defer cleanup()
 	store := NewRunStore(d.DB)
-	if _, err := store.RunLaneField("nope", l8analytics.LaneFieldPartAll); !errors.Is(err, ErrNotFound) {
+	if _, err := runLaneField(store, "nope", l8analytics.LaneFieldPartAll); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("missing run: %v, want ErrNotFound", err)
 	}
 	if err := store.InsertRun(&Run{RunID: "empty", SensorID: "s1", SourceType: "live", Status: "completed"}); err != nil {
 		t.Fatal(err)
 	}
-	f, err := store.RunLaneField("empty", l8analytics.LaneFieldPartAll)
+	f, err := runLaneField(store, "empty", l8analytics.LaneFieldPartAll)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,4 +141,18 @@ func TestLaneFieldMetaBuildAndFingerprint(t *testing.T) {
 	if m := LaneFieldMeta(&Run{RunID: "r", SensorID: "s", BuildVersion: "v1"}); m.PipelineBuild != "v1" {
 		t.Fatalf("meta %+v", m)
 	}
+}
+
+// runLaneField builds a part from the store's observations, as
+// lanefieldrun.Build does when they exist.
+func runLaneField(store *RunStore, runID string, part l8analytics.LaneFieldPart) (l8analytics.LaneField, error) {
+	run, err := store.GetRun(runID)
+	if err != nil {
+		return l8analytics.LaneField{}, err
+	}
+	tracks, err := store.LaneFieldTracks(run)
+	if err != nil {
+		return l8analytics.LaneField{}, err
+	}
+	return l8analytics.BuildLaneField(tracks, LaneFieldMeta(run), part, l8analytics.DefaultLaneFieldOptions())
 }

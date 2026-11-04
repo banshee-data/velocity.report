@@ -9,25 +9,6 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 )
 
-// RunLaneField is one part of a stored run's lane field
-// (docs/plans/lidar-lane-proposals-from-tracks-plan.md §1), from the run's
-// track observations, with the plan's thresholds and k = 5 always. The
-// HTTP route and `velocity lidar lane-field` both call this and write the
-// result's JSON, so the two give the same bytes. It returns ErrNotFound when
-// the run does not exist; a run with no observations gives an empty field
-// with its header.
-func (s *RunStore) RunLaneField(runID string, part l8analytics.LaneFieldPart) (l8analytics.LaneField, error) {
-	run, err := s.GetRun(runID)
-	if err != nil {
-		return l8analytics.LaneField{}, err
-	}
-	tracks, err := s.LaneFieldTracks(run)
-	if err != nil {
-		return l8analytics.LaneField{}, err
-	}
-	return l8analytics.BuildLaneField(tracks, LaneFieldMeta(run), part, l8analytics.DefaultLaneFieldOptions())
-}
-
 // LaneFieldMeta is the header a run's lane field carries. The site token and
 // the registration record are left empty: a run does not know them, and
 // `gerardus upload-lane-field` takes them as flags.
@@ -127,4 +108,23 @@ func (s *RunStore) LaneFieldTracks(run *Run) ([]l8analytics.LaneFieldTrack, erro
 		return nil, fmt.Errorf("iterate lane field observations: %w", err)
 	}
 	return out, nil
+}
+
+// RunTrackClasses maps each track the run recorded to its L6 class, empty
+// when it had none.
+func (s *RunStore) RunTrackClasses(runID string) (map[string]string, error) {
+	rows, err := s.db.Query(`SELECT track_id, COALESCE(object_class, '') FROM lidar_run_tracks WHERE run_id = ?`, runID)
+	if err != nil {
+		return nil, fmt.Errorf("track classes of run %s: %w", runID, err)
+	}
+	defer rows.Close()
+	out := map[string]string{}
+	for rows.Next() {
+		var id, class string
+		if err := rows.Scan(&id, &class); err != nil {
+			return nil, fmt.Errorf("scan track class: %w", err)
+		}
+		out[id] = class
+	}
+	return out, rows.Err()
 }
