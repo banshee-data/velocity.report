@@ -243,8 +243,10 @@ func BuildLaneField(tracks []LaneFieldTrack, meta LaneFieldMeta, part LaneFieldP
 	if opts.CellM <= 0 || opts.K < 1 || opts.MinInstants < 1 {
 		return LaneField{}, fmt.Errorf("lane field options need a cell size, k and a minimum instant count")
 	}
-	if _, err := ParseLaneFieldPart(string(part)); err != nil || part == "" {
-		return LaneField{}, fmt.Errorf("lane field part %q is not one of all, first_half, second_half", part)
+	// An empty part is all, as ParseLaneFieldPart reads it.
+	part, err := ParseLaneFieldPart(string(part))
+	if err != nil {
+		return LaneField{}, fmt.Errorf("lane field %w", err)
 	}
 
 	// Tracks in id order, each with its instants in time order, so float
