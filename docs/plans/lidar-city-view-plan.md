@@ -453,23 +453,23 @@ Owner, 2026-11-04:
   make clear that traffic is not tracked between intersections.
 - The web view is a new `/city/` route.
 - Street names are labelled.
+- Each site plays its own recording on its own clock. Sites are not aligned by time of day,
+  which would suggest a shared moment that never happened.
+- The visualiser plays archived nearby sites from their published scene exports (Item 8).
 - Placement comes from accepted poses only. All 24 published scenes have one (6 `registered`, 18
   `manually_placed`).
 
 ## Open questions
 
-1. **Time alignment across sites:** each site plays its own recording on its own clock (proposed).
-   The alternative aligns sites by time of day, which reads better but suggests a shared moment
-   that never happened.
-2. **The visualiser's other sites:** play them from published scene exports (proposed, Item 8), or
-   only from live servers and leave archived sites as markers.
+None recorded. The owner settled the last two on 2026-11-04 (see Design decisions).
 
 ## Checklist
 
 ### Complete
 
 - [x] Owner scope: whole-city view in both clients, static tiles, no new endpoints, LOD acceptable
-- [x] Owner answers: several sites at once, kept separate; `/city/` route; street names
+- [x] Owner answers: several sites at once, kept separate; `/city/` route; street names; own
+      clocks; nearby sites from scene files
 - [x] Accepted poses confirmed for all 24 published scenes, from their vectors files
 
 ### Outstanding
