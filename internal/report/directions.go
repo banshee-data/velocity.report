@@ -104,7 +104,7 @@ func BuildDirections(transits []db.DirectionalTransit, start, end time.Time, dis
 		var order []string
 		speeds := map[string][]float64{}
 		for _, t := range list {
-			at := time.Unix(0, int64(t.StartUnix*1e9)).UTC()
+			at := time.Unix(0, int64(t.StartUnix*1e9)).In(start.Location())
 			c := t.Directions.Config(dirKey)
 			limit := LimitAt(c.Limits, at)
 			k := limitKey(limit)
@@ -130,12 +130,12 @@ func BuildDirections(transits []db.DirectionalTransit, start, end time.Time, dis
 		sort.SliceStable(order, func(i, j int) bool { return segments[order[i]].From.Before(segments[order[j]].From) })
 		for i, k := range order {
 			seg := segments[k]
-			seg.From = maxTime(start, limitStart(seg.Limit))
+			seg.From = maxTime(start, limitStart(seg.Limit, start.Location()))
 			if i == 0 {
 				seg.From = start
 			}
 			if i+1 < len(order) {
-				seg.To = maxTime(start, limitStart(segments[order[i+1]].Limit))
+				seg.To = maxTime(start, limitStart(segments[order[i+1]].Limit, start.Location()))
 			} else {
 				seg.To = end
 			}
@@ -155,11 +155,11 @@ func LimitAt(limits []db.DirectionLimit, t time.Time) *db.DirectionLimit {
 	var bestFrom time.Time
 	for i := range limits {
 		l := &limits[i]
-		from := day(l.EffectiveFrom)
+		from := day(l.EffectiveFrom, t.Location())
 		if !from.IsZero() && from.After(t) {
 			continue
 		}
-		if to := day(l.EffectiveTo); !to.IsZero() && !t.Before(to.AddDate(0, 0, 1)) {
+		if to := day(l.EffectiveTo, t.Location()); !to.IsZero() && !t.Before(to.AddDate(0, 0, 1)) {
 			continue
 		}
 		if best == nil || from.After(bestFrom) {
@@ -238,19 +238,21 @@ func limitKey(l *db.DirectionLimit) string {
 	return fmt.Sprintf("%d|%s|%s|%s", l.Value, l.Unit, l.Source, l.EffectiveFrom)
 }
 
-func limitStart(l *db.DirectionLimit) time.Time {
+func limitStart(l *db.DirectionLimit, loc *time.Location) time.Time {
 	if l == nil {
 		return time.Time{}
 	}
-	return day(l.EffectiveFrom)
+	return day(l.EffectiveFrom, loc)
 }
 
-func day(s string) time.Time {
-	t, err := time.Parse("2006-01-02", s)
+// day reads an effective date as the start of that day in loc: a sign put
+// up on the 15th is in force from local midnight, not UTC midnight.
+func day(s string, loc *time.Location) time.Time {
+	t, err := time.ParseInLocation("2006-01-02", s, loc)
 	if err != nil {
 		return time.Time{}
 	}
-	return t.UTC()
+	return t
 }
 
 func maxTime(a, b time.Time) time.Time {

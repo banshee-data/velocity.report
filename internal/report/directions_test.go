@@ -111,6 +111,31 @@ func TestALimitChangedInsideThePeriodSplitsTheDirection(t *testing.T) {
 	}
 }
 
+// An effective date is a local day: in Los Angeles a transit at 20:00 on
+// the 14th is under the old limit, though it is the 15th in UTC.
+func TestALimitTakesEffectAtLocalMidnight(t *testing.T) {
+	la, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Skip(err)
+	}
+	limits := []db.DirectionLimit{sign(25, "2026-01-01"), sign(20, "2026-09-15")}
+	evening := time.Date(2026, 9, 14, 20, 0, 0, 0, la)
+	if l := LimitAt(limits, evening); l == nil || l.Value != 25 {
+		t.Fatalf("local evening of the 14th: %+v", l)
+	}
+	if l := LimitAt(limits, evening.UTC()); l == nil || l.Value != 20 {
+		t.Fatalf("the same instant read in UTC: %+v", l)
+	}
+	d := deployment(limits, nil)
+	start := time.Date(2026, 9, 1, 0, 0, 0, 0, la)
+	end := time.Date(2026, 9, 30, 23, 59, 59, 0, la)
+	all := append(transits("inbound", d, evening.Add(-3*time.Hour), repeat(22, 30)...), transits("inbound", d, time.Date(2026, 9, 16, 9, 0, 0, 0, la), repeat(22, 30)...)...)
+	segs := BuildDirections(all, start, end, "mph", 5, 70).Directions[0].Segments
+	if len(segs) != 2 || segs[0].Limit.Value != 25 || segs[0].Count != 30 || !segs[1].From.Equal(time.Date(2026, 9, 15, 0, 0, 0, 0, la)) {
+		t.Fatalf("segments %+v", segs)
+	}
+}
+
 func TestLimitsStatutoryOperatorEndedAndSuppressed(t *testing.T) {
 	stat := db.DirectionLimit{Value: 25, Unit: "mph", Source: "statutory"}
 	if LimitLabel(&stat) != "25 mph (default, no sign recorded)" || LimitLabel(&db.DirectionLimit{Value: 30, Unit: "km/h", Source: "operator"}) != "30 km/h (operator-supplied)" || LimitLabel(nil) != "no limit recorded" {

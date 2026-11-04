@@ -624,18 +624,20 @@
       body.push(mono-nowrap(fmt-speed-bare(seg.p98)))
       body.push(mono-nowrap(fmt-speed-bare(seg.max_speed)))
       body.push(mono-nowrap(fmt-share(seg.over_limit)))
+      body.push(mono-nowrap(fmt-share(seg.over_5)))
       body.push(mono-nowrap(fmt-share(seg.over_10)))
+      body.push(mono-nowrap(fmt-share(seg.over_15)))
     }
   }
   data-table(
-    columns: (2.6fr, 2.4fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.9fr, 0.9fr),
-    aligns: (left, left, right, right, right, right, right, right, right),
+    columns: (2.4fr, 2.2fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr, 0.8fr),
+    aligns: (left, left, right, right, right, right, right, right, right, right, right),
     header: (
       [*Direction*], [*Limit as signed*], [*n*], [*p50*], [*p85*], [*p98*], [*max*],
-      [*> limit*], [*> limit + 10*],
+      [*> limit*], [*+5*], [*+10*], [*+15*],
     ),
     body: body,
-    caption: [Speeds by direction (#units); p98 and max print as -- under 50 transits],
+    caption: [Speeds by direction (#units); the last four columns are the shares over the limit and over it by 5, 10 and 15; p98 and max print as -- under 50 transits],
   )
   let note = data.at("directions_note", default: "")
   if note != "" { text(size: 8pt)[#note] }
