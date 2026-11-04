@@ -136,6 +136,7 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}`                      | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`      | `DELETE /api/lidar/runs/{id}`                   | ✅  | ✅  | -   |
 | Runs           | `run_track_api.go`      | `GET /api/lidar/runs/{id}/tracks`               | ✅  | ✅  | ✅  |
+| Runs           | `run_lane_field_api.go` | `GET /api/lidar/runs/{id}/lane-field`           | ✅  | -   | ✅  |
 | Runs           | `run_track_api.go`      | `GET/DEL /api/lidar/runs/{id}/tracks/{tid}`     | ✅  | ✅  | ✅  |
 | Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/label`   | ✅  | -   | ✅  |
 | Runs           | `run_track_api.go`      | `PUT /api/lidar/runs/{id}/tracks/{tid}/flags`   | ✅  | -   | -   |
@@ -182,6 +183,9 @@ persistence, **Web** the Svelte UI on `:8080`, and **Mac** the Metal visualiser 
 | Segments       | `segments_api.go`       | `POST /api/lidar/segments/{id}/case`            | ✅  | ✅  | -   |
 | Segments       | `segment_clip_api.go`   | `POST /api/lidar/clips/{id}/clip`               | ✅  | ✅  | -   |
 | Annotations    | `segment_packs_api.go`  | `GET /api/lidar/annotations/packs`              | -   | ✅  | -   |
+| Sites          | `site_lanes_api.go`     | `PUT /api/lidar/sites/{l16}/lanes`              | ✅  | -   | ✅  |
+| Sites          | `site_lanes_api.go`     | `GET /api/lidar/sites/{l16}/lanes`              | ✅  | -   | -   |
+| Sites          | `site_lanes_api.go`     | `GET /api/lidar/sites/{l16}/lanes/attribute`    | ✅  | -   | -   |
 
 **Playback row notes.** No web code calls any `/api/lidar/playback/*` or
 `/api/lidar/vrlog/*` endpoint; those rows previously carried Web ✅ marks that
@@ -227,6 +231,8 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_clips`                    | ✅  | ✅  | Replay-case browser and Mac labelling                  |
 | LiDAR  | `lidar_clip_evaluations`         | ✅  | -   | Replay evaluation and compare UI                       |
 | LiDAR  | `lidar_clip_extracts`            | ✅  | -   | A clip's standalone extract and its capture_export job |
+| LiDAR  | `lidar_lane_snapshots`           | -   | ✅  | Append-only lane snapshots; written by the painter     |
+| LiDAR  | `lidar_lane_snapshot_lanes`      | -   | ✅  | A snapshot's lanes with their limits, for attribution  |
 | LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                          |
 | LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)             |
 | LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                    |
@@ -449,6 +455,26 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_clip_extracts`            | `sidecar_json`                      | TEXT          | ✅  | -   | -   |
 | `lidar_clip_extracts`            | `created_at_ns`                     | INTEGER       | ✅  | -   | -   |
 | `lidar_clip_extracts`            | `completed_at_ns`                   | INTEGER       | ✅  | -   | -   |
+| `lidar_lane_snapshots`           | `snapshot_id`                       | TEXT PK       | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `l16_token`                         | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `sensor_id`                         | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `writer`                            | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `request_id`                        | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `record_id`                         | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `features_digest`                   | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `fetched_at_ns`                     | INTEGER       | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `supersedes`                        | TEXT FK       | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `snapshot_json`                     | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshots`           | `request_json`                      | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `snapshot_id`                       | TEXT FK       | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `feature_id`                        | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `row_id`                            | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `lane_json`                         | TEXT          | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `speed_limit`                       | INTEGER GEN   | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `speed_limit_unit`                  | TEXT GEN      | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `effective_from`                    | TEXT GEN      | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `effective_to`                      | TEXT GEN      | ✅  | -   | ✅  |
+| `lidar_lane_snapshot_lanes`      | `direction_id`                      | TEXT GEN      | ✅  | -   | ✅  |
 | `lidar_tuning_sweeps`            | `id`                                | INTEGER PK    | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `sweep_id`                          | TEXT UNIQUE   | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
@@ -1190,9 +1216,9 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | Category                | Total | DB  | Web | Mac |
 | ----------------------- | ----- | --- | --- | --- |
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
-| HTTP endpoints (LiDAR)  | 111   | 68  | 92  | 12  |
+| HTTP endpoints (LiDAR)  | 115   | 72  | 92  | 14  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 45    | -   | 35  | 6   |
+| DB tables               | 47    | -   | 35  | 8   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |
