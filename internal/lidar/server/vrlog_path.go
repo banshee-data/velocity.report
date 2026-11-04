@@ -58,13 +58,20 @@ func (ws *Server) checkVRLogPath(path string) (string, error) {
 		return "", &vrlogPathError{http.StatusBadRequest, fmt.Sprintf(
 			"the recording %s is outside the VRLOG directory %s: %v", path, dir, err)}
 	}
-	if _, err := os.Stat(canonical); err != nil {
+	info, err := os.Stat(canonical)
+	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", &vrlogPathError{http.StatusNotFound, fmt.Sprintf(
 				"the recording %s does not exist (resolved to %s in %s)", path, canonical, dir)}
 		}
 		return "", &vrlogPathError{http.StatusServiceUnavailable, fmt.Sprintf(
 			"the recording %s cannot be read: %v", canonical, err)}
+	}
+	if !info.IsDir() {
+		// A recording is a directory (header.json and its chunks, or an
+		// observation container's manifest); a file here is the wrong path.
+		return "", &vrlogPathError{http.StatusBadRequest, fmt.Sprintf(
+			"the recording %s is a file, not a VRLOG recording directory", canonical)}
 	}
 	return canonical, nil
 }
@@ -74,7 +81,11 @@ func (ws *Server) checkVRLogPath(path string) (string, error) {
 // first replay is refused.
 func (ws *Server) warnIfVRLogDirUnreadable() {
 	dir := ws.vrlogDir()
-	if _, err := os.Stat(dir); err != nil {
+	info, err := os.Stat(dir)
+	switch {
+	case err != nil:
 		opsf("VRLOG directory %s cannot be read (%v): VRLOG replays and lane fields from recordings will fail until it can be (is its volume mounted?)", dir, err)
+	case !info.IsDir():
+		opsf("VRLOG directory %s is not a directory: VRLOG replays and lane fields from recordings will fail until --lidar-vrlog-dir names one", dir)
 	}
 }

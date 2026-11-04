@@ -53,6 +53,11 @@ func (ws *Server) handleRunLaneField(w http.ResponseWriter, r *http.Request, run
 		ws.writeJSONError(w, http.StatusNotFound, "run not found")
 		return
 	}
+	var pathErr *vrlogPathError
+	if errors.As(err, &pathErr) {
+		ws.writeJSONError(w, pathErr.Status, err.Error())
+		return
+	}
 	if errors.Is(err, lanefieldrun.ErrNoRecording) {
 		ws.writeJSONError(w, http.StatusNotFound, err.Error())
 		return

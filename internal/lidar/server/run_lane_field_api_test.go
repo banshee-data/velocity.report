@@ -186,7 +186,19 @@ func TestRunLaneFieldRouteReadsTheRecording(t *testing.T) {
 	if f.Header.TrackCount != 5 || f.CellCount() == 0 {
 		t.Fatalf("field from the recording: %+v", f.Header)
 	}
-	if rec := getLaneField(ws, http.MethodGet, "out", ""); rec.Code != http.StatusNotFound {
+	// A refused recording answers with the VRLOG check's own status.
+	if rec := getLaneField(ws, http.MethodGet, "out", ""); rec.Code != http.StatusBadRequest {
 		t.Fatalf("a recording outside the VRLOG directory: status %d", rec.Code)
+	}
+	if err := store.InsertRun(&sqlite.Run{RunID: "gone", SensorID: "s1", SourceType: "pcap", SourcePath: "/c/a.pcapng", Status: "completed", VRLogPath: filepath.Join(safe, "gone.vrlog")}); err != nil {
+		t.Fatal(err)
+	}
+	laneFieldExec(t, testDB, `INSERT INTO lidar_run_tracks (run_id, track_id, sensor_id, track_state, start_unix_nanos, object_class) VALUES ('gone', 'car-0', 's1', 'confirmed', 0, 'car')`)
+	if rec := getLaneField(ws, http.MethodGet, "gone", ""); rec.Code != http.StatusNotFound {
+		t.Fatalf("a recording that is not there: status %d", rec.Code)
+	}
+	unmounted := &Server{db: testDB, vrlogSafeDir: filepath.Join(safe, "not-mounted")}
+	if rec := getLaneField(unmounted, http.MethodGet, "in", ""); rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("an unreadable VRLOG directory: status %d: %s", rec.Code, rec.Body)
 	}
 }

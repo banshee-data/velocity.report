@@ -600,6 +600,10 @@ func TestHandleVRLogLoad(t *testing.T) {
 		t.Fatal(err)
 	}
 	missingDir := filepath.Join(safeDir, "not-mounted")
+	plainFile := filepath.Join(safeDir, "notes.txt")
+	if err := os.WriteFile(plainFile, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	outsideDir := resolveSymlinks(t, t.TempDir())
 	symlinkEscape := filepath.Join(safeDir, "escape")
@@ -697,6 +701,17 @@ func TestHandleVRLogLoad(t *testing.T) {
 			wantInBody:     "does not exist",
 		},
 		{
+			// A recording is a directory; a file is the wrong path, not a
+			// recording that failed to load.
+			name:           "POST with a file instead of a recording returns bad request",
+			method:         http.MethodPost,
+			body:           fmt.Sprintf(`{"vrlog_path": %q}`, plainFile),
+			onLoad:         func(path string) (string, error) { return "proto", nil },
+			vrlogSafeDir:   safeDir,
+			expectedStatus: http.StatusBadRequest,
+			wantInBody:     "not a VRLOG recording directory",
+		},
+		{
 			name:           "POST with no run_id or vrlog_path returns bad request",
 			method:         http.MethodPost,
 			body:           `{}`,
@@ -775,6 +790,17 @@ func TestHandleVRLogLoadLogsWhyItRefused(t *testing.T) {
 	ws.warnIfVRLogDirUnreadable()
 	if !strings.Contains(ops.String(), "VRLOG directory "+missing+" cannot be read") {
 		t.Errorf("no startup warning:\n%s", ops.String())
+	}
+
+	// And when --lidar-vrlog-dir names a file.
+	file := filepath.Join(t.TempDir(), "vrlog")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ops.Reset()
+	(&Server{vrlogSafeDir: file}).warnIfVRLogDirUnreadable()
+	if !strings.Contains(ops.String(), "VRLOG directory "+file+" is not a directory") {
+		t.Errorf("no startup warning for a file:\n%s", ops.String())
 	}
 }
 
