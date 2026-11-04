@@ -34,11 +34,12 @@ proposal's lateral RMSE against its paired drawn lane under 0.30 m; per directio
 each run's three lane fields sent to the site's Gerardus against its accepted record.
 
 **Drawing.** The owner draws every travel lane he can see in the painter with Proposals and Traffic
-off, from the reference, the kerbs and the background only, tagged `reference=lane0002`, and
+off, from the reference, the kerbs and the background only, saved under the author name
+`lane0002`, and
 records the minutes each site took.
 
-**Scoring.** `velocity lidar lanes score --gerardus <url> --site <l16> --reference-tag
-reference=lane0002`: each proposal is paired with the drawn lane within 45° of its bearing whose
+**Scoring.** `velocity lidar lanes score --gerardus <url> --site <l16> --drawn-author
+lane0002`: each proposal is paired with the drawn lane within 45° of its bearing whose
 centreline it runs nearest; the lateral offset is sampled every metre of the proposal that projects
 inside the drawn lane.
 
