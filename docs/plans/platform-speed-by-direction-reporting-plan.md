@@ -355,10 +355,11 @@ web field removed.
 - [x] Item 2: per-direction transit populations by nearest rank, histograms and shares above the limit by 0, 5, 10 and 15 in the sign's unit, split at an effective date inside the period, masked under five and the tails under fifty; `RenderMirrored`; `direction=` and `mirror=` on `/api/charts/histogram` (`claude/radar-direction-report`)
 - [x] Item 3: `directions[]` and the By direction section in the PDF, limits printed as signed with their source, the transits in no direction noted; the headline numbers unchanged (`claude/radar-direction-report`)
 - [x] Item 5: the reports page lists each direction's limit as signed and previews the mirrored chart; the stale `site.speed_limit` and `speed_limit_note` are gone from the web `Site` type (`claude/radar-direction-report`)
+- [x] Item 4: `vehicle_speed.directions[]` in `timeline.json`, from the lane snapshot through `AttributeTrack` (`velocity scene export --lanes-db --lanes-site`) or the heading fallback (two opposed modes holding a fifth of the tracks each, tracks over 60° off both left out, compass-named with `--sensor-y-bearing`); the travel lanes with their limits in the vectors file; the privacy case that a direction summary carries no track id or per-track speed (`claude/scene-directions`)
 
 ### Outstanding
 
-- [ ] Item 4: LiDAR attribution, scene export directions, privacy test case (`M`)
+- [ ] Item 4 remainder: `publish-scenes.py` passing `--lanes-db`, `--lanes-site` and the pose's bearing to `velocity scene export`; the server's run scene export reading the run's site snapshot; LiDAR tracks in the PDF report, which has no LiDAR source path yet; a re-export of one published scene for the survey plan to build against
 - [ ] Items 1–3 remainder: the deployment form fields in the web UI (the API takes them); mapping inbound and outbound through a recorded sensor heading (V32) rather than the operator's names; histograms bucketed in the sign's unit when it differs from the display's; a grid of small histograms for more than two directions (LiDAR, Item 4); lane sub-rows; `GET /api/sites/{id}/directions`; the comparison period's directions
 
 ### Deferred

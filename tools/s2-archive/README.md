@@ -274,6 +274,25 @@ place. The file names each source and its terms and keeps only geometry,
 layer, kind, evidence status, and Gerardus's state; OpenStreetMap layers are
 never asked for. The scene page shows it under a "Street geometry" switch.
 
+The file also carries the site's travel lanes (`layer` `street_use`, `kind`
+`travel_lane`, source `operator`): the lanes the operator marked or approved in
+the street painter, the ones velocity.report's lane snapshot copies, each with
+its type, width, bound, direction name, street and posted limit as signed with
+its source and effective dates. Parking spaces, driveways and surfaces stay in
+Gerardus, and a lane's author, edit time and proposal id are left out.
+
+`timeline.json`'s `vehicle_speed.directions[]` groups the summary's car
+tracks by direction of travel, each with its track count, percentiles and
+5 mph histogram: from the site's lane snapshot when `velocity scene export` is
+given `--lanes-db` and `--lanes-site` (`source` `lanes`, each direction with
+the limit in force at the scene's middle), else from the two opposed modes of
+car headings (`source` `heading`, named by compass with `--sensor-y-bearing`,
+else A and B, with no limit). A direction with fewer than five tracks is
+folded into the headline and not listed, p98 and max are null under fifty,
+and no track id or per-track speed is written. `publish-scenes.py` passes
+neither flag yet, so published scenes carry the heading fallback until a site
+has lanes.
+
 Version 3 carries true vertical in `placement.up_sensor`, the site's vertical
 axis expressed in sensor coordinates by the inverse accepted rotation. The
 camera uses this axis for the horizon, rather than treating the tilted sensor's
