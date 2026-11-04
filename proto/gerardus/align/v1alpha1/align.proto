@@ -1,5 +1,5 @@
 // Vendored from banshee-data/gerardus.
-// Source commit: 09bf510f076152918f8f62a064f485d1c696a028.
+// Source commit: e9dc3e06674070e5a7042d1b7cbf251c69db1190.
 // Retired OSM layer identities are reserved and must not be reused.
 // Regenerate with make proto-gen-swift after synchronising this contract.
 
@@ -96,8 +96,29 @@ service SiteService {
   // lane across a kerb, a space in a lane, a driveway off any kerb, two
   // surfaces overlapping, a lane off the carriageway) come back as warnings
   // and do not block the edit. A SURFACE without a known surface tag is
-  // refused. Rows are append-only.
+  // refused. Rows are append-only. A TRAVEL_LANE's posted-limit tags are
+  // validated (speed_limit with its unit, source, jurisdiction and effective
+  // dates; docs/plans/LANES-AND-LIMITS.md §3.1), and Gerardus fills street,
+  // cnn, bearing_deg and bound from its geometry; limit and direction
+  // problems come back as warnings.
   rpc EditStreetUse(EditStreetUseRequest) returns (EditStreetUseResponse);
+
+  // The site's lane fields summed in the site frame, one class group at a
+  // time: the newest whole-run field of each capture, each placed by the
+  // current pose of the scan its record accepted (LANE-PROPOSALS §3, §4.1).
+  rpc GetLaneField(GetLaneFieldRequest) returns (GetLaneFieldResponse);
+
+  // The travel lanes proposed from the site's lane fields, graded high or
+  // medium, each with its lateral profiles, the authored lane that adopted
+  // it and its latest review (LANE-PROPOSALS §4, §5.1). Derives them first
+  // when the fields, the bundle or the derivation changed.
+  rpc ListLaneProposals(ListLaneProposalsRequest) returns (ListLaneProposalsResponse);
+
+  // Rejects a proposal, or reopens a rejected one: an append-only review
+  // under INTERFACE-EDITS' contract (request_id, expected_row_id). An
+  // approval is not a review: it is a TRAVEL_LANE saved with EditStreetUse
+  // and tagged proposal=<feature_id>.
+  rpc ReviewLaneProposal(ReviewLaneProposalRequest) returns (ReviewLaneProposalResponse);
 }
 
 // RegistrationService registers a sensor scan against a site and records the
@@ -107,6 +128,13 @@ service RegistrationService {
   // Content-addressed: the same header and points give the same scan_id, and
   // a repeat upload stores nothing new.
   rpc UploadScan(stream UploadScanRequest) returns (UploadScanResponse);
+
+  // Uploads a lane field: velocity.report's aggregate of one run's tracks
+  // in the sensor frame, one header, then cells by class group. No cell may
+  // hold fewer than k = 5 distinct tracks (ADR-0011), and the header names
+  // the accepted registration record that places it. Content-addressed: the
+  // same header and cells give the same field_id, and a repeat stores nothing.
+  rpc UploadLaneField(stream UploadLaneFieldRequest) returns (UploadLaneFieldResponse);
 
   // Converts an approximate position and heading (velocity.report's
   // eye-read site position and north azimuth) into a pose in the site frame,
@@ -702,6 +730,12 @@ message GetServerInfoResponse {
   ReferenceLayer default_intersections = 6;
   // Supports search_radius_m on Register/EvaluatePose and Register.manual_only.
   bool supports_bounded_placement = 7;
+  // Supports UploadLaneField, GetLaneField, ListLaneProposals and
+  // ReviewLaneProposal (ADR-0016).
+  bool supports_lane_fields = 8;
+  // The street-use rules the server applies; 0 on an older server, which
+  // passes limit tags through unchecked. 1: LANES-AND-LIMITS §3.1–3.3.
+  uint32 street_use_rules_version = 9;
 }
 
 message PrepareSiteRequest {
@@ -914,6 +948,26 @@ message GetSiteModelResponse {
   string model_id = 1;
   string bundle_id = 2;
   repeated ModelScan scans = 3;
+  DerivedBuildStatus derived_build = 4; // background geometry build; absent on older servers
+}
+
+// Source preparation and derived geometry have separate readiness. A READY
+// status is for these exact inputs; a parking mask can change model_id here
+// without changing the registered-scan model_id above. No old layer is served
+// as if it belonged to newer inputs.
+message DerivedBuildStatus {
+  enum State {
+    STATE_UNSPECIFIED = 0; // no build queued in this server process
+    QUEUED = 1;
+    BUILDING = 2;
+    READY = 3;
+    FAILED = 4;
+    STALE = 5;
+  }
+  State state = 1;
+  string bundle_id = 2;
+  string model_id = 3;
+  string error = 4;
 }
 
 message RefineSiteRequest {
@@ -1010,4 +1064,144 @@ message EditStreetUseResponse {
   repeated StreetUseProblem detailed_problems = 3;
   repeated StreetUseFeature features = 1;  // every current feature after the edit
   repeated string problems = 2;     // validation warnings, by feature id
+}
+
+// A lane field (docs/plans/LANE-PROPOSALS.md §3): what distinct tracks did in
+// each 0.25 m cell of the sensor's horizontal plane over one run, or one half
+// of it, per class group. Counts only: no track, track id or per-object
+// sample (ADR-0011).
+message LaneFieldHeader {
+  string l16_token = 1;
+  string sensor_id = 2;              // the sensor frame is "sensor/<sensor_id>"
+  string record_id = 3;              // the accepted registration record that places the field
+  string capture_ref = 4;            // velocity.report's capture or run id
+  google.protobuf.Timestamp window_start = 5;
+  google.protobuf.Timestamp window_end = 6;
+  string window_part = 7;            // "all", "first_half", "second_half"
+  float cell_m = 8;                  // 0.25
+  Vector3 origin = 9;                // sensor frame, south-west cell centre; z unused
+  uint32 nx = 10;
+  uint32 ny = 11;
+  uint32 k = 12;                     // 5 or more: no cell under this many distinct tracks
+  string pipeline_build = 13;        // velocity.report build_version and git sha
+  string tuning_fingerprint = 14;
+  uint32 track_count = 15;           // distinct tracks that contributed, all groups
+}
+
+// One class group's cells, sparse, as parallel arrays.
+message LaneFieldCells {
+  string class_group = 1;            // "vehicle", "cyclist", "pedestrian"
+  repeated uint32 ix = 2 [packed = true];
+  repeated uint32 iy = 3 [packed = true];
+  repeated uint32 tracks = 4 [packed = true];      // distinct tracks whose centre fell in the cell, observed instants
+  repeated uint32 box_tracks = 5 [packed = true];  // distinct tracks whose box covered the cell's centre
+  // 8 per cell: distinct tracks by heading, 45° bins clockwise from the
+  // frame's +Y (the sensor's in an upload, true north in GetLaneField),
+  // counted only while moving at 2 m/s or more.
+  repeated uint32 heading = 6 [packed = true];
+  repeated float speed_sum_mps = 7 [packed = true]; // sum of each counted track's mean speed in the cell
+}
+
+message LaneFieldCellSet {
+  repeated LaneFieldCells groups = 1;
+}
+
+message UploadLaneFieldRequest {
+  oneof part {
+    LaneFieldHeader header = 1;     // first message only
+    LaneFieldCells cells = 2;       // then any number; a group may span several
+  }
+}
+
+message UploadLaneFieldResponse {
+  string field_id = 1;              // "sha256:<hex>" over the header and cells
+  uint32 cells = 2;
+  bool already_stored = 3;
+}
+
+message GetLaneFieldRequest {
+  string l16_token = 1;
+  string class_group = 2;           // "vehicle" when empty
+}
+
+message GetLaneFieldResponse {
+  Vector3 origin = 1;               // site frame, south-west cell centre
+  float cell_m = 2;
+  uint32 nx = 3;
+  uint32 ny = 4;
+  LaneFieldCells cells = 5;         // ix, iy from origin; heading bins clockwise from true north
+  repeated string field_ids = 6;    // the fields summed
+  uint32 captures = 7;
+  uint32 track_count = 8;
+}
+
+// The evidence a proposal was read from at one station: the smoothed
+// density of distinct vehicle tracks across the lane.
+message LateralProfile {
+  float station_m = 1;              // arc length along the proposal
+  Vector3 centre = 2;               // site frame
+  float bearing_deg = 3;            // direction of travel there, clockwise from true north
+  repeated float offset_m = 4 [packed = true];  // across the lane, positive to the left of travel
+  repeated float tracks = 5 [packed = true];    // smoothed distinct-track density at each offset
+}
+
+message LateralProfileSet {
+  repeated LateralProfile profiles = 1;
+}
+
+enum LaneProposalDecision {
+  LANE_PROPOSAL_DECISION_UNSPECIFIED = 0;
+  LANE_PROPOSAL_DECISION_REJECTED = 1;
+  LANE_PROPOSAL_DECISION_REOPENED = 2;
+}
+
+message LaneProposalReview {
+  string review_id = 1;             // "gms:<ulid>"
+  string feature_id = 2;            // the proposal reviewed
+  string proposal_row_id = 3;       // the proposal row the reviewer read
+  LaneProposalDecision decision = 4;
+  string author = 5;
+  string note = 6;
+  google.protobuf.Timestamp reviewed_at = 7;
+  string supersedes_review_id = 8;
+}
+
+// A proposed travel lane (ADR-0016): an ADR-0012 row whose id is kept across
+// re-derivation. Its line is a TRAVEL_LANE in the site frame, in the
+// direction of travel, with tags source=lane_field, confidence (high,
+// medium), lane_type, width_m, tracks, stations, spread_m, agreement,
+// windows_agree_m, bearing_deg, bound, street, cnn, marking_edges,
+// turning_cells, pedestrian_crossings and fields.
+message LaneProposal {
+  string feature_id = 1;
+  string row_id = 2;
+  LineFeature line = 3;
+  repeated LateralProfile profiles = 4;
+  string adopted_by = 5;            // the authored travel lane running along it, if any
+  LaneProposalReview review = 6;    // the latest review, if any
+}
+
+message ListLaneProposalsRequest {
+  string l16_token = 1;
+}
+
+message ListLaneProposalsResponse {
+  repeated LaneProposal proposals = 1;
+  string model_id = 2;              // the lane model they were derived for
+  repeated string field_ids = 3;
+}
+
+message ReviewLaneProposalRequest {
+  string l16_token = 1;
+  string feature_id = 2;
+  LaneProposalDecision decision = 3;
+  string author = 4;                // required
+  string note = 5;
+  string request_id = 6;            // required, stable across exact retries
+  optional string expected_row_id = 7; // required: the proposal row the reviewer read
+}
+
+message ReviewLaneProposalResponse {
+  LaneProposalReview review = 1;
+  LaneProposal proposal = 2;
 }

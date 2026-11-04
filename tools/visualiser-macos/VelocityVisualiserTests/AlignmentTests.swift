@@ -1119,6 +1119,20 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     /// it cannot apply whole.
     var refuseStreetUse: String?
     private var streetUseCounter = 0
+    /// GetServerInfo's supports_lane_fields and street_use_rules_version.
+    var supportsLaneFields = false
+    var streetUseRulesVersion: UInt32 = 0
+    /// Every UploadLaneField, as its header and chunks; a repeat of stored
+    /// content answers already_stored, as Gerardus's content addressing does.
+    var laneFieldUploads: [(Gerardus_Align_V1alpha1_LaneFieldHeader, [Gerardus_Align_V1alpha1_LaneFieldCells])] = []
+    private var storedLaneFields = Set<Data>()
+    /// Refuse UploadLaneField with this status.
+    var laneFieldFailure: RPCError?
+    /// What GetLaneField answers per class group; absent is NOT_FOUND.
+    var siteLaneFields: [String: Gerardus_Align_V1alpha1_GetLaneFieldResponse] = [:]
+    /// What ListLaneProposals answers.
+    var laneProposals: [Gerardus_Align_V1alpha1_LaneProposal] = []
+    var laneProposalReviews: [Gerardus_Align_V1alpha1_ReviewLaneProposalRequest] = []
     var uploadedBlocks: [Gerardus_Align_V1alpha1_PointBlock] = []
     /// Every UploadScan header, in order.
     var uploadedHeaders: [Gerardus_Align_V1alpha1_ScanHeader] = []
@@ -1150,6 +1164,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         info.apiVersion = "gerardus.align.v1alpha1"
         info.availableLayers = availableLayers
         info.supportsBoundedPlacement = supportsBoundedPlacement
+        info.supportsLaneFields = supportsLaneFields
+        info.streetUseRulesVersion = streetUseRulesVersion
         return info
     }
 
@@ -1536,6 +1552,87 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         return try mutation("street-use", request.requestID, request) {
             try applyStreetUse(request)
         }
+    }
+
+    func uploadLaneField(
+        header: Gerardus_Align_V1alpha1_LaneFieldHeader,
+        cells: [Gerardus_Align_V1alpha1_LaneFieldCells]
+    ) async throws -> Gerardus_Align_V1alpha1_UploadLaneFieldResponse {
+        log("UploadLaneField")
+        laneFieldUploads.append((header, cells))
+        if let laneFieldFailure { throw laneFieldFailure }
+        guard header.k >= 5, !header.recordID.isEmpty else {
+            throw RPCError(code: .invalidArgument, message: "header")
+        }
+        // The content without its chunking: the field's groups merged.
+        var merged: [String: Gerardus_Align_V1alpha1_LaneFieldCells] = [:]
+        var order: [String] = []
+        for c in cells {
+            if merged[c.classGroup] == nil { order.append(c.classGroup) }
+            var m = merged[c.classGroup] ?? Gerardus_Align_V1alpha1_LaneFieldCells()
+            m.classGroup = c.classGroup
+            m.ix += c.ix
+            m.iy += c.iy
+            m.tracks += c.tracks
+            m.boxTracks += c.boxTracks
+            m.heading += c.heading
+            m.speedSumMps += c.speedSumMps
+            merged[c.classGroup] = m
+        }
+        var key = try header.serializedData()
+        for g in order { key += try merged[g]!.serializedData() }
+        var r = Gerardus_Align_V1alpha1_UploadLaneFieldResponse()
+        r.fieldID = "sha256:\(storedLaneFields.count)-\(header.windowPart)"
+        r.cells = UInt32(cells.reduce(0) { $0 + $1.ix.count })
+        r.alreadyStored = !storedLaneFields.insert(key).inserted
+        return r
+    }
+
+    func getLaneField(
+        l16Token: String, classGroup: String
+    ) async throws -> Gerardus_Align_V1alpha1_GetLaneFieldResponse? {
+        log("GetLaneField")
+        return siteLaneFields[classGroup]
+    }
+
+    func listLaneProposals(
+        l16Token: String
+    ) async throws -> Gerardus_Align_V1alpha1_ListLaneProposalsResponse {
+        log("ListLaneProposals")
+        guard supportsLaneFields else { throw RPCError(code: .unimplemented, message: "ListLaneProposals") }
+        var r = Gerardus_Align_V1alpha1_ListLaneProposalsResponse()
+        r.proposals = laneProposals
+        return r
+    }
+
+    func reviewLaneProposal(
+        _ request: Gerardus_Align_V1alpha1_ReviewLaneProposalRequest
+    ) async throws -> Gerardus_Align_V1alpha1_ReviewLaneProposalResponse {
+        log("ReviewLaneProposal")
+        laneProposalReviews.append(request)
+        guard let i = laneProposals.firstIndex(where: { $0.featureID == request.featureID }) else {
+            throw RPCError(code: .notFound, message: "no proposal \(request.featureID)")
+        }
+        guard request.expectedRowID == laneProposals[i].rowID else {
+            throw RPCError(code: .aborted, message: "the proposal has moved on")
+        }
+        let rejected = laneProposals[i].hasReview && laneProposals[i].review.decision == .rejected
+        if request.decision == .rejected && rejected || request.decision == .reopened && !rejected {
+            throw RPCError(code: .failedPrecondition, message: "nothing to change")
+        }
+        var review = Gerardus_Align_V1alpha1_LaneProposalReview()
+        review.reviewID = "gms:review\(laneProposalReviews.count)"
+        review.featureID = request.featureID
+        review.proposalRowID = request.expectedRowID
+        review.decision = request.decision
+        review.author = request.author
+        laneProposals[i].review = review
+        var r = Gerardus_Align_V1alpha1_ReviewLaneProposalResponse()
+        r.review = review
+        var proposal = laneProposals[i]
+        proposal.profiles = []
+        r.proposal = proposal
+        return r
     }
 
     /// Checks the batch's whole read set before applying any of it, as

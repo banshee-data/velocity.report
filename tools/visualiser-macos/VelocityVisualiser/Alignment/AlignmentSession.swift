@@ -1109,6 +1109,31 @@ struct ReferenceSummary: Equatable {
     /// The record drawn by default once a site's records are read on
     /// placement: the newest with a pose for this capture, else the newest
     /// with a pose at the site. Nil when none has one.
+    /// The accepted record (REGISTERED or MANUALLY_PLACED) that places the
+    /// open capture: the newest record of its scan or capture, if accepted.
+    /// What a lane field is uploaded against.
+    var acceptedRecord: Gerardus_Align_V1alpha1_RegistrationRecord? {
+        Self.acceptedRecord(
+            records, heads: recordHeads, captureRef: loadedRunCaptureRef ?? site?.clipID,
+            scanID: scan?.scanID)
+    }
+
+    /// The head of the open capture's scan (its newest record in append
+    /// order), when that head accepts a pose; a later rejection of the same
+    /// scan leaves none.
+    nonisolated static func acceptedRecord(
+        _ records: [Gerardus_Align_V1alpha1_RegistrationRecord], heads: [String: String],
+        captureRef: String?, scanID: String?
+    ) -> Gerardus_Align_V1alpha1_RegistrationRecord? {
+        records.first { record in
+            let own =
+                (captureRef.map { !$0.isEmpty && record.captureRef == $0 } ?? false)
+                || (scanID.map { !$0.isEmpty && record.scanID == $0 } ?? false)
+            guard own, heads[record.scanID] == record.recordID, record.hasPose else { return false }
+            return record.state == .registered || record.state == .manuallyPlaced
+        }
+    }
+
     nonisolated static func defaultRecord(
         _ records: [Gerardus_Align_V1alpha1_RegistrationRecord], captureRef: String?,
         scanID: String?
