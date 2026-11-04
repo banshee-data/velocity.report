@@ -375,7 +375,7 @@ func NewServer(config Config) *Server {
 	listenerConfig := config.UDPListenerConfig
 	vrlogSafeDir := config.VRLogSafeDir
 	if vrlogSafeDir == "" {
-		vrlogSafeDir = "/var/lib/velocity-report"
+		vrlogSafeDir = defaultVRLogDir
 	}
 	if absDir, err := filepath.Abs(vrlogSafeDir); err == nil {
 		vrlogSafeDir = absDir
@@ -476,6 +476,7 @@ func NewServer(config Config) *Server {
 		ws.runManager = sqlite.NewRunManager(config.DB, config.SensorID)
 		sqlite.RegisterRunManager(config.SensorID, ws.runManager)
 	}
+	ws.warnIfVRLogDirUnreadable()
 
 	return ws
 }
@@ -498,6 +499,9 @@ func cloneTuningConfig(cfg *cfgpkg.TuningConfig) *cfgpkg.TuningConfig {
 }
 
 func (ws *Server) writeJSONError(w http.ResponseWriter, status int, msg string) {
+	// Every refusal the API sends is in the debug log with its reason; the
+	// request log shows only the status.
+	diagf("HTTP %d: %s", status, msg)
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(map[string]string{"error": msg})
 }

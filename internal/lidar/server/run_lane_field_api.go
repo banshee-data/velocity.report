@@ -11,18 +11,19 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/lanefieldrun"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // resolveRunVRLOG holds a run's stored recording path to the VRLOG directory,
 // as replay and the scene export do, and requires the recording's header.
 func (ws *Server) resolveRunVRLOG(stored string) (string, error) {
-	path, err := security.ResolvePathWithinDirectory(stored, ws.vrlogSafeDir)
+	path, err := ws.checkVRLogPath(stored)
 	if err != nil {
-		return "", fmt.Errorf("the recording is outside the VRLOG directory")
+		diagf("lane field: recording %s refused: %v", stored, err)
+		return "", err
 	}
 	if _, err := os.Stat(filepath.Join(path, "header.json")); err != nil {
-		return "", fmt.Errorf("the recording is missing")
+		diagf("lane field: recording %s has no header.json: %v", path, err)
+		return "", fmt.Errorf("the recording %s has no header.json", path)
 	}
 	return path, nil
 }
