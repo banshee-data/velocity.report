@@ -562,6 +562,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `radar_data_transits`            | `transit_min_magnitude`             | BIGINT        | ✅  | -   | -   |
 | `radar_data_transits`            | `point_count`                       | INTEGER       | ✅  | -   | -   |
 | `radar_data_transits`            | `model_version`                     | TEXT          | ✅  | ✅  | -   |
+| `radar_data_transits`            | `direction`                         | TEXT          | ✅  | ✅  | -   |
 | `radar_data_transits`            | `created_at`                        | DOUBLE        | ✅  | -   | -   |
 | `radar_data_transits`            | `updated_at`                        | DOUBLE        | ✅  | -   | -   |
 | `radar_transit_links`            | `link_id`                           | INTEGER PK    | ✅  | -   | -   |
@@ -602,6 +603,7 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `site_config_periods`            | `is_active`                         | INTEGER       | ✅  | ✅  | -   |
 | `site_config_periods`            | `notes`                             | TEXT          | ✅  | ✅  | -   |
 | `site_config_periods`            | `cosine_error_angle`                | DOUBLE        | ✅  | ✅  | -   |
+| `site_config_periods`            | `directions_json`                   | TEXT          | ✅  | ✅  | -   |
 | `site_config_periods`            | `created_at`                        | DOUBLE        | ✅  | ✅  | -   |
 | `site_config_periods`            | `updated_at`                        | DOUBLE        | ✅  | ✅  | -   |
 | `site_reports`                   | `id`                                | INTEGER PK    | ✅  | ✅  | -   |

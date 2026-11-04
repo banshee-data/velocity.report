@@ -948,6 +948,7 @@
         , model_version TEXT
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , direction TEXT NOT NULL DEFAULT 'unknown' CHECK (direction IN ('inbound', 'outbound', 'mixed', 'unknown'))
           );
 
    CREATE TABLE radar_objects (
@@ -1066,6 +1067,10 @@
         , cosine_error_angle DOUBLE NOT NULL DEFAULT 0
         , created_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
         , updated_at DOUBLE DEFAULT (UNIXEPOCH('subsec'))
+        , directions_json TEXT CHECK (
+          directions_json IS NULL
+       OR JSON_VALID(directions_json)
+          )
         , CHECK (is_active IN (0, 1))
         , CHECK (
           effective_end_unix IS NULL
@@ -1614,6 +1619,7 @@ END;
         , "is_active"
         , "notes"
         , "cosine_error_angle"
+        , "directions_json"
           )
    VALUES (
           1
@@ -1623,4 +1629,5 @@ END;
         , 1
         , 'Sample configuration: the cosine error angle is a guess. Measure yours and replace it.'
         , 0.5
+        , NULL
           );
