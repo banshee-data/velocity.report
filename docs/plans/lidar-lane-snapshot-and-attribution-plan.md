@@ -6,8 +6,8 @@ reported speed to the lane, direction and limit in force when it was measured, c
 lane proposals against lanes drawn without seeing them, and keeps every piece of street data out of
 git: in Gerardus, in the device's database, or in the Hugging Face dataset.
 
-- **Status:** Proposed; waits on the accepted pose writeback (v0.5.5) for the pose agreement check,
-  and on Gerardus W10c and W1c step 1 for the lanes it copies. Not Active (D-32)
+- **Status:** Active in the v0.7.19 slot: Item 1 (the snapshot, `lanes pull`, `lanegeom` and
+  attribution) is built; the pose agreement check waits on the accepted pose writeback (v0.5.5)
 - **Decisions:** relies on D-18 (nearest-rank percentiles), D-32, D-33, D-36 (Gerardus owns the
   static street geometry; L8 alone owns aggregation and scoring), D-38 (geometry is measured spatial
   data), D-39 (lanes and limits, recorded with this plan) and Gerardus ADR-0006, ADR-0011 and
@@ -336,10 +336,11 @@ filled, so a picture of a site's lanes, limits and traffic exists without a file
 ### Complete
 
 - [x] Plan written; reconciled with the unified design (Gerardus ADR-0016) on November 3, 2026
+- [x] Item 1: migration 68 (`lidar_lane_snapshots`, `lidar_lane_snapshot_lanes`, append-only by trigger, the limit's value, unit and effective dates as generated columns); `PUT`, `GET`, `?at=`, `?history=true` and `/lanes/attribute` on `/api/lidar/sites/{l16}/lanes`, idempotent on the request id; `velocity lidar lanes pull`; the neutral `internal/lidar/lanegeom` (projection, membership with hysteresis, route distance); `internal/lidar/lanes` with the version in force by measurement time, directions by street and bearing, `Attribute` and `AttributeTrack`; the posted-limits fixtures (`claude/lane-snapshot-attribution`)
 
 ### Outstanding
 
-- [ ] Item 1: snapshot, `lanes pull`, `lanegeom`, attribution and migration (`M`)
+- [ ] Item 1 remainder: the pose agreement check against the pose writeback's record (v0.5.5); `lanes pull` reading the accepted record from Gerardus, which serves none over HTTP (it takes `--record-id` and `--pose` today)
 - [ ] Item 2: experiment lane0002 spec, run and report (`S`)
 - [ ] Item 3: web site viewer traffic layer (`S`)
 - [ ] Item 4: render tool and dataset publication (`S`)
