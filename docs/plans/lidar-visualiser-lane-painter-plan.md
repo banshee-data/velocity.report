@@ -362,12 +362,13 @@ what shipped, when it ships (D-33).
 
 - [x] Plan written against the painter as built; reconciled with the unified design and the lanes from tracks plan's §2 on November 3, 2026
 - [x] Item 1: traffic layer from both field sources and the live fallback, Centres and Extents, class toggles, floor and opacity, Send lane field against the accepted record, with `align.proto` re-vendored from Gerardus `e9dc3e0`; cells are quads on the marks' overlay rather than a texture (`claude/lane-painter-traffic`)
+- [x] Items 2 and 3: proposals drawn and listed with their profiles, Approve, Approve all high, Reject and Reopen through `ReviewLaneProposal` with the row id and a stable request id, Split at sign, the bound and a direction name per lane, the limit row with the statutory prefill and the checks before Save (`claude/lane-painter-proposals`)
 
 ### Outstanding
 
+- [ ] Item 2 remainder: Edit (approve and start a vertex drag at the clicked vertex), the crossing markers from `pedestrian_crossings`, and the `T`, `P`, `A`, `R` and `S` keys with their Edit menu items
+- [ ] Item 3 remainder: the City prefill and the offered split at a sign pole, which wait on Gerardus's speed-limit import and sign-code flag; the warning against a city street's `oneway`, which Gerardus raises as `lane_against_oneway` after Save
 - [ ] Item 1 remainder: hovering a cell shows its counts per class and direction and its mean speed in the inspector
-- [ ] Item 2: proposals list with profiles, approve, edit, approve all high, reject and reopen (`M`)
-- [ ] Item 3: bound, direction names, limit fields, prefill, split at sign (`M`)
 - [ ] Item 4: send the snapshot, pending request, standing notice (`S`)
 - [ ] Item 5: hub doc and menu layout updated at ship (`S`)
 

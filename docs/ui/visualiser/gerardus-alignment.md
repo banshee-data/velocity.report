@@ -328,14 +328,15 @@ No public layer says which stretch of kerb is a driveway, where cars park, or wh
 
 **Tools.**
 
-| Tool     | How                                                                                                                                                                     | Tags                                |
-| -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| Surface  | Click the corners; Return or a double-click finishes. A closed polygon (`FEATURE_KIND_SURFACE`)                                                                         | `surface`                           |
-| Lane     | Click along the lane in its direction of travel; Return or a double-click finishes. **Reverse** turns a selected lane round                                             | `lane_type`, `width_m`              |
-| Space    | Click the corners; Return or a double-click finishes                                                                                                                    | `space_type`, `count`, `time_limit` |
-| Row      | Click two points along the kerb: `count` equal spaces run between them, **Depth** deep, on the side towards the nearest centreline; **Away from the street** flips them | `space_type`, `count`, `time_limit` |
-| Driveway | Click the two ends of the kerb cut                                                                                                                                      | none                                |
-| Select   | Click a mark to select it and edit its tags. Drag a vertex to move it; drag (or click) an edge to add one; right-click a vertex to remove it. Delete removes the mark   | as above                            |
+| Tool          | How                                                                                                                                                                                                                | Tags                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Surface       | Click the corners; Return or a double-click finishes. A closed polygon (`FEATURE_KIND_SURFACE`)                                                                                                                    | `surface`                           |
+| Lane          | Click along the lane in its direction of travel; Return or a double-click finishes. **Reverse** turns a selected lane round                                                                                        | `lane_type`, `width_m`              |
+| Space         | Click the corners; Return or a double-click finishes                                                                                                                                                               | `space_type`, `count`, `time_limit` |
+| Row           | Click two points along the kerb: `count` equal spaces run between them, **Depth** deep, on the side towards the nearest centreline; **Away from the street** flips them                                            | `space_type`, `count`, `time_limit` |
+| Driveway      | Click the two ends of the kerb cut                                                                                                                                                                                 | none                                |
+| Split at sign | Click a travel lane where its limit changes: two lanes share that vertex, keeping direction, type and width; the first keeps the lane's id, the second is new with its limit cleared but for unit and jurisdiction | as the lane                         |
+| Select        | Click a mark to select it and edit its tags. Drag a vertex to move it; drag (or click) an edge to add one; right-click a vertex to remove it. Delete removes the mark                                              | as above                            |
 
 The values offered are those Gerardus's contract lists: `surface` carriageway, sidewalk, verge, apron, median; `lane_type` general, bus, bike, turn; `space_type` metered, permit, loading, disabled, free. A vertex is never removed below what its kind needs (three for a polygon, two for a line), and a driveway stays one span.
 
@@ -368,6 +369,52 @@ more; cycles are yellow and people violet. Opacity follows the log of the count.
 with the pose, so traffic that misses the kerbs shows a pose error. The section and its site source
 and Send are hidden when the server's `GetServerInfo` says `supports_lane_fields` is false; the
 run's field and the live layer still draw.
+
+### Proposals: approve, reject, reopen
+
+The **Proposals** section, under Traffic and shown only when the server takes lane fields, lists
+Gerardus's proposed travel lanes (`ListLaneProposals`, read with the marks) by bound, high before
+medium, each with its street, tracks, spread, agreement and half-window agreement. They are
+inferences from the summed field; a mark made from one is the operator's reading. In the view a
+high proposal is a solid line and a medium one dotted, in its direction's hue with arrowheads every
+8 m over a faint band its width across; an adopted one (`adopted_by`) is faint and a rejected one
+struck through. Selecting one, in the list or by clicking it, draws its lateral profiles as
+cross-lines with the density curve read from them.
+
+- **Approve** adds a new travel lane along it with its `lane_type` and `width_m`, `proposal=<feature
+id>`, `confidence=<grade>` and the limit prefilled (below), selected; it is then an ordinary mark.
+  One undoable change. A rejected proposal cannot be approved until reopened.
+- **Approve all high** approves every high proposal not adopted, not rejected and not already
+  approved in the draft, as one undoable change.
+- **Reject** and **Reopen** send `ReviewLaneProposal` with the author, the proposal's `row_id` as
+  listed and a request id kept until the outcome is known: an answer lost in transit is retried
+  with the same id, a stale row (`ABORTED`) reads the proposals again and says so, and a refusal
+  (`FAILED_PRECONDITION`, `NOT_FOUND`) is shown and dropped. The review is Gerardus's, append-only;
+  Undo does not take it back, Reopen does.
+
+Approved lanes reach Gerardus on Save, which then tags the proposal adopted.
+
+### Limits and directions per lane
+
+A selected travel lane shows its **Direction** (the bound from Gerardus after a save, else from its
+vertices, and the street Gerardus snapped it to) and a **direction name** that **Name** writes as
+`direction_name` on every lane of the same street and bound, as one change. Its **Limit** row
+writes Gerardus's tags: `speed_limit` (a whole number), `speed_limit_unit` (`mph` or `km/h`),
+`speed_limit_source` (`sign`, `city`, `statutory`, `operator`), `speed_limit_jurisdiction` (ISO
+3166-2), `speed_limit_effective_from` and `_to` (`YYYY-MM-DD`) and `speed_limit_note`.
+
+Every new travel lane, drawn or approved, is prefilled with the jurisdiction's statutory default
+where it has no limit: 25 mph for `US-CA`, source `statutory`, in force from the capture's date
+(the open run's first frame, else today) with a note that it is a lower bound and not a sign.
+Gerardus has no City speed-limit record yet, so there is no `city` prefill. The source is printed
+on the lane, so a default never reads as a posted limit.
+
+**Checks before Save** are shown, never blocking: a limit Gerardus would refuse (not a whole number
+above 0, over 90 mph or 150 km/h, a unit or source missing or unknown, a bad jurisdiction or date,
+an end before the start), a lane with no limit, a changed limit without a new effective date (a
+limit that changes over time is a new version of the same lane), two lanes of one street and bound
+with different limits that share no end vertex, and limits in more than one unit at the site.
+Gerardus's own problems come back after Save as before.
 
 ### What the painter draws
 
