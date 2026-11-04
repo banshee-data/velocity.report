@@ -186,7 +186,15 @@ class RunTrackLabelAPIClient {
 
         guard let httpResponse = response as? HTTPURLResponse,
             (200...299).contains(httpResponse.statusCode)
-        else { throw APIError.requestFailed(response) }
+        else {
+            // The server says why it refused ("the VRLOG directory … cannot
+            // be read: is the volume it is on mounted?"); keep that rather
+            // than only the status.
+            if let http = response as? HTTPURLResponse, let message = APIError.serverMessage(data) {
+                throw APIError.server(status: http.statusCode, message: message)
+            }
+            throw APIError.requestFailed(response)
+        }
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
@@ -246,9 +254,20 @@ class RunTrackLabelAPIClient {
     enum APIError: Error, LocalizedError {
         case requestFailed(URLResponse)
         case decodingFailed(Error)
+        /// A refusal with the server's own reason, from its {"error": …} body.
+        case server(status: Int, message: String)
+
+        /// The `error` of a JSON error body, if the body is one.
+        static func serverMessage(_ data: Data) -> String? {
+            guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                let message = object["error"] as? String, !message.isEmpty
+            else { return nil }
+            return message
+        }
 
         var errorDescription: String? {
             switch self {
+            case .server(let status, let message): return "\(message) (HTTP \(status))"
             case .requestFailed(let response):
                 if let http = response as? HTTPURLResponse {
                     return "Request failed with status \(http.statusCode)"

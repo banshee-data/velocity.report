@@ -150,6 +150,7 @@ func TestHandleVRLogLoadStopsLiveListener(t *testing.T) {
 	}
 	ws.setLiveListenerRunning(true)
 
+	mustMkdirRecording(t, filepath.Join(tmp, "run-abc"))
 	body := `{"vrlog_path":"` + filepath.Join(tmp, "run-abc") + `"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/vrlog/load", strings.NewReader(body))
 	w := httptest.NewRecorder()

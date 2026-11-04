@@ -79,7 +79,9 @@ func Tracks(store *sqlite.RunStore, run *sqlite.Run, resolve ResolveVRLOG) ([]l8
 	}
 	path, err := resolve(run.VRLogPath)
 	if err != nil {
-		return nil, SourceVRLOG, fmt.Errorf("%w: %v", ErrNoRecording, err)
+		// Wrap both, so a caller can still read the resolver's own error
+		// (the server's HTTP status) with errors.As.
+		return nil, SourceVRLOG, fmt.Errorf("%w: %w", ErrNoRecording, err)
 	}
 	classes, err := store.RunTrackClasses(run.RunID)
 	if err != nil {

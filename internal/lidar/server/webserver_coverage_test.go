@@ -2314,10 +2314,20 @@ func TestCov3_HandleVRLogLoad_WithRunID_EmptyVRLogPath(t *testing.T) {
 	}
 }
 
+// mustMkdirRecording makes a recording's directory: the load checks it is
+// there before the loader is called.
+func mustMkdirRecording(t *testing.T, path string) {
+	t.Helper()
+	if err := os.MkdirAll(path, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestCov3_HandleVRLogLoad_WithRunID_Success(t *testing.T) {
 	ws := setupCov3Server(t)
 	safeDir := resolveSymlinks(t, t.TempDir())
 	vrlogPath := filepath.Join(safeDir, "test.vrlog")
+	mustMkdirRecording(t, vrlogPath)
 	loadedPath := ""
 	ws.onVRLogLoad = func(p string) (string, error) { loadedPath = p; return "proto", nil }
 	ws.vrlogSafeDir = safeDir
@@ -2381,6 +2391,7 @@ func TestCov3_HandleVRLogLoad_WithPath_Success(t *testing.T) {
 		t.Fatalf("MkdirAll(): %v", err)
 	}
 	vrlogPath := filepath.Join(safeDir, "data", "test.vrlog")
+	mustMkdirRecording(t, vrlogPath)
 	loadedPath := ""
 	ws := &Server{
 		onVRLogLoad:  func(p string) (string, error) { loadedPath = p; return "proto", nil },
@@ -2402,6 +2413,7 @@ func TestCov3_HandleVRLogLoad_WithPath_Success(t *testing.T) {
 func TestCov3_HandleVRLogLoad_LoadError(t *testing.T) {
 	safeDir := resolveSymlinks(t, t.TempDir())
 	vrlogPath := filepath.Join(safeDir, "test.vrlog")
+	mustMkdirRecording(t, vrlogPath)
 	ws := &Server{
 		onVRLogLoad:  func(string) (string, error) { return "", fmt.Errorf("load failed") },
 		vrlogSafeDir: safeDir,

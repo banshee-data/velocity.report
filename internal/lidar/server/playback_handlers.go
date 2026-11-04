@@ -6,12 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
-	"github.com/banshee-data/velocity.report/internal/security"
 )
 
 // handlePCAPStart switches the data source to PCAP replay and starts ingestion.
@@ -541,62 +539,57 @@ func (ws *Server) handleVRLogLoad(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var vrlogPath string
+	// refuse logs why a load was refused, with what was asked for, to the
+	// debug log, and answers the caller with the same message.
+	refuse := func(status int, msg string) {
+		diagf("VRLOG load refused (%d): %s [run_id=%q vrlog_path=%q stored_path=%q vrlog_dir=%q]",
+			status, msg, body.RunID, body.VRLogPath, vrlogPath, ws.vrlogDir())
+		if status >= http.StatusInternalServerError {
+			opsf("VRLOG load failed: %s", msg)
+		}
+		ws.writeJSONError(w, status, msg)
+	}
 
 	// If run_id is provided, look up the vrlog_path from the database
 	if body.RunID != "" {
 		if ws.db == nil {
-			ws.writeJSONError(w, http.StatusInternalServerError, "database is not configured: check server startup includes --db-path")
+			refuse(http.StatusInternalServerError, "database is not configured: check server startup includes --db-path")
 			return
 		}
 		store := sqlite.NewRunStore(ws.db)
 		run, err := store.GetRun(body.RunID)
 		if err != nil {
-			ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("run not found: %v", err))
+			refuse(http.StatusNotFound, fmt.Sprintf("run %s not found: %v", body.RunID, err))
 			return
 		}
 		if run.VRLogPath == "" {
-			ws.writeJSONError(w, http.StatusBadRequest, "run does not have a VRLOG path")
+			refuse(http.StatusBadRequest, fmt.Sprintf("run %s has no VRLOG recording", body.RunID))
 			return
 		}
 		vrlogPath = run.VRLogPath
 	} else if body.VRLogPath != "" {
 		vrlogPath = body.VRLogPath
 	} else {
-		ws.writeJSONError(w, http.StatusBadRequest, "provide either run_id or vrlog_path")
+		refuse(http.StatusBadRequest, "provide either run_id or vrlog_path")
 		return
 	}
 
-	// Path validation to prevent directory traversal and restrict to data directory
-	baseVRLogDir := ws.vrlogSafeDir
-	if baseVRLogDir == "" {
-		// Default to /var/lib/velocity-report if not configured
-		baseVRLogDir = "/var/lib/velocity-report"
-	}
-	cleanedPath := filepath.Clean(vrlogPath)
-
-	if !filepath.IsAbs(cleanedPath) {
-		ws.writeJSONError(w, http.StatusBadRequest, "vrlog_path must be an absolute path")
-		return
-	}
-
-	// security.ResolvePathWithinDirectory follows symlinks before checking the
-	// safe-directory boundary, unlike a plain string-prefix check: a symlink
-	// planted inside baseVRLogDir that points outside it would pass a prefix
-	// check on the literal path string while still resolving elsewhere on
-	// disk. The canonical path it returns is what gets loaded and stored below,
-	// not the original string, so validating the resolved target and then
-	// acting on a different unresolved path can't reopen the same gap.
-	canonicalPath, err := security.ResolvePathWithinDirectory(cleanedPath, baseVRLogDir)
+	canonicalPath, err := ws.checkVRLogPath(vrlogPath)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusBadRequest, fmt.Sprintf("vrlog_path must be within the allowed directory: %v", err))
+		var pe *vrlogPathError
+		if errors.As(err, &pe) {
+			refuse(pe.Status, pe.Msg)
+		} else {
+			refuse(http.StatusBadRequest, err.Error())
+		}
 		return
 	}
-
+	diagf("VRLOG load: run_id=%q path=%s (resolved from %s)", body.RunID, canonicalPath, vrlogPath)
 	vrlogPath = canonicalPath
 
 	frameEncoding, err := ws.onVRLogLoad(vrlogPath)
 	if err != nil {
-		ws.writeJSONError(w, http.StatusInternalServerError, fmt.Sprintf("could not load VRLOG: %v", err))
+		refuse(http.StatusInternalServerError, fmt.Sprintf("could not load VRLOG %s: %v", vrlogPath, err))
 		return
 	}
 	if frameEncoding == "" {

@@ -583,6 +583,26 @@ final class RunTrackLabelAPIClientHTTPTests: XCTestCase {
         }
     }
 
+    func testLoadVRLogCarriesTheServersReason() async throws {
+        let client = makeMockRunTrackClient()
+
+        MockURLProtocol.requestHandler = { request in
+            let response = HTTPURLResponse(
+                url: request.url!, statusCode: 503, httpVersion: nil, headerFields: nil)!
+            let body = #"{"error":"the VRLOG directory /Volumes/lidar/vrlog cannot be read: is the volume it is on mounted?"}"#
+            return (response, body.data(using: .utf8)!)
+        }
+
+        do {
+            _ = try await client.loadVRLog(runID: "run-001")
+            XCTFail("Expected a server error")
+        } catch let error as RunTrackLabelAPIClient.APIError {
+            let text = error.errorDescription ?? ""
+            XCTAssertTrue(text.contains("is the volume it is on mounted"), text)
+            XCTAssertTrue(text.contains("503"), text)
+        }
+    }
+
     // MARK: - stopVRLog
 
     func testStopVRLogSuccess() async throws {
