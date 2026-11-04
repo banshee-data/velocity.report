@@ -302,6 +302,40 @@ import SwiftUI
             }
             ProblemLines(problems: painter.generalProblems)
             limitChecks
+            snapshotRow
+        }
+    }
+
+    /// Send lanes to velocity.report, after a save, with a standing notice
+    /// until it is sent.
+    @ViewBuilder private var snapshotRow: some View {
+        let blocker = painter.snapshotBlocker(author: author)
+        if painter.snapshotUnsent || painter.snapshotMessage != nil || painter.snapshotError != nil
+        {
+            VStack(alignment: .leading, spacing: 4) {
+                if painter.snapshotUnsent {
+                    Text(
+                        "Saved in Gerardus but not sent to velocity.report: its reports still use the previous lanes."
+                    ).font(.caption2).foregroundStyle(.orange).fixedSize(
+                        horizontal: false, vertical: true)
+                }
+                HStack {
+                    Button("Send lanes to velocity.report") {
+                        Task { await painter.sendSnapshot(author: author) }
+                    }.disabled(blocker != nil || !painter.snapshotUnsent).help(
+                        blocker
+                            ?? "Write the saved lanes, with the accepted pose, as velocity.report's lane snapshot"
+                    )
+                    if painter.isSendingSnapshot { ProgressView().controlSize(.small) }
+                }
+                if let message = painter.snapshotMessage {
+                    Text(message).font(.caption2).foregroundStyle(.green).fixedSize(
+                        horizontal: false, vertical: true)
+                }
+                if let error = painter.snapshotError {
+                    Text(error).font(.caption2).foregroundStyle(.red).textSelection(.enabled)
+                }
+            }
         }
     }
 
