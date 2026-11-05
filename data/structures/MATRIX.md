@@ -236,6 +236,8 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_data_uses`                | ✅  | -   | Append-only eligibility ledger; labelling workspace    |
 | LiDAR  | `lidar_workflow_items`           | ✅  | -   | Labelling workspace workflow state per item and layer  |
 | LiDAR  | `lidar_workflow_events`          | ✅  | -   | Append-only history of workflow items                  |
+| LiDAR  | `lidar_plan_bindings`            | ✅  | -   | The window each labelling plan is run on               |
+| LiDAR  | `lidar_plan_binding_events`      | -   | -   | Append-only history of plan bindings                   |
 | LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                          |
 | LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)             |
 | LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                    |
@@ -276,7 +278,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 654 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 666 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -528,6 +530,18 @@ The current schema has 654 fields, including generated fields. Newly added rows 
 | `lidar_workflow_events`          | `source_revision`                   | TEXT          | ✅  | ✅  | -   |
 | `lidar_workflow_events`          | `updated_by`                        | TEXT          | ✅  | ✅  | -   |
 | `lidar_workflow_events`          | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
+| `lidar_plan_bindings`            | `plan_id`                           | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_plan_bindings`            | `item_key`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_plan_bindings`            | `note`                              | TEXT          | ✅  | ✅  | -   |
+| `lidar_plan_bindings`            | `revision`                          | INTEGER       | ✅  | ✅  | -   |
+| `lidar_plan_bindings`            | `bound_by`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_plan_bindings`            | `bound_at_ns`                       | INTEGER       | ✅  | ✅  | -   |
+| `lidar_plan_binding_events`      | `plan_id`                           | TEXT PK       | ✅  | -   | -   |
+| `lidar_plan_binding_events`      | `revision`                          | INTEGER PK    | ✅  | -   | -   |
+| `lidar_plan_binding_events`      | `item_key`                          | TEXT          | ✅  | -   | -   |
+| `lidar_plan_binding_events`      | `note`                              | TEXT          | ✅  | -   | -   |
+| `lidar_plan_binding_events`      | `bound_by`                          | TEXT          | ✅  | -   | -   |
+| `lidar_plan_binding_events`      | `bound_at_ns`                       | INTEGER       | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `id`                                | INTEGER PK    | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `sweep_id`                          | TEXT UNIQUE   | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
@@ -1273,7 +1287,7 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
 | HTTP endpoints (LiDAR)  | 115   | 72  | 92  | 14  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 50    | -   | 38  | 8   |
+| DB tables               | 52    | -   | 39  | 8   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |

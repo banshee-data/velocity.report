@@ -17,6 +17,44 @@ evaluation or diagnostics.
   `internal/lidar/server/workspace_api.go`, `internal/lidar/server/eligibility_api.go`,
   `web/src/routes/lidar/labelling/+page.svelte`
 
+![Expected labelling work: each plan on its window, and what to open](labelling-workspace-0-expected-work.jpg)
+
+## Expected work
+
+The page opens on the labelling plans the repository expects, `data/experiments/label/*.md`
+(label0001 masks and review, label0002 physical references and following, label0003 spans first).
+A plan says what is to be done on one window; it is never evidence that labelling happened.
+
+Each plan is **bound** to the window it is run on (the item's key, kept in `lidar_plan_bindings`,
+revision-checked, with its history). Every step's status is then read from that window's stores:
+
+| Step        | Done when                                                                                                                                                                                                         |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `select`    | The window has a recorded selection that meets the plan (drawn by the random finder, in the held-out role, for a plan "by lot"), and its pack is cut. A tuning selection is blocked: it can never become held out |
+| `spans`     | Road users are recorded and the operator has marked the spans layer done (the window's total is not recorded)                                                                                                     |
+| `propose`   | Every frame inside every span has a mask and the operator has marked masks done                                                                                                                                   |
+| `review`    | Every object and every mask is reviewed                                                                                                                                                                           |
+| `fit`       | Every reviewed object has a reviewed body in one of the window's packs, with no stale record                                                                                                                      |
+| `following` | Every following record is reviewed and the operator has marked following done                                                                                                                                     |
+| `freeze`    | A split pins the current label-set revision with the plan's role (held out), and for label0002 the physical references; a split pinning an older revision is in progress                                          |
+
+A step no store records is shown as not tracked. A plan that depends on another (label0002 on
+label0001) is blocked until that one is done. The card's **Next** is the first step not done, and
+where it is done: here, in the macOS annotation window, or on the command line. label0001 and
+label0003 are one window, so both are bound to the same item.
+
+### What to open in VelocityVisualiser
+
+Every bound plan and every item says exactly what to load:
+
+1. **Annotation → Open Annotation Window** (⇧⌘A).
+2. **Open Annotation Pack…** (⌘O) and choose the pack folder the page shows, with a copy button. A
+   label set's views are runs of the same capture and show the same labels; any will do.
+3. To follow the frames in the main window, replay the run's recording (the VRLOG path shown).
+4. Save in the window, then **Refresh** the page: progress is read from what was saved.
+
+An item with no pack yet says so: queue the clip's pack on the Segments page.
+
 ![Protection status and progress by layer](labelling-workspace-1-overview.jpg)
 
 ## Data and sources of truth

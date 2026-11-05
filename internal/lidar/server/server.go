@@ -151,6 +151,9 @@ type Server struct {
 	// clipFilesForTest replaces the clip lookup a HINT request's guard
 	// makes, in tests that have no database.
 	clipFilesForTest func(clipID string) ([]string, error)
+	// plansRoot is the repository root the labelling plans are read from
+	// (data/experiments/label); empty is the working directory.
+	plansRoot string
 
 	// segmentSelectors is the catalogue the segments API ranks with. Nil
 	// reads the default one: the repository's file, or the binary's copy.

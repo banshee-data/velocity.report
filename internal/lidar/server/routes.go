@@ -240,6 +240,7 @@ func (ws *Server) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/lidar/workspace", ws.handleWorkspace)
 	mux.HandleFunc("/api/lidar/workspace/item", ws.handleWorkspaceItem)
 	mux.HandleFunc("/api/lidar/workspace/workflow", ws.handleWorkspaceWorkflow)
+	mux.HandleFunc("/api/lidar/workspace/plan-binding", ws.handlePlanBinding)
 	mux.HandleFunc(compatibility.AliasRoute("/api/annotations/splits", "/api/lidar/annotations/splits"), ws.handleSplits)
 
 	// Site API routes (canonical pose for a located site, e.g. a surveyed

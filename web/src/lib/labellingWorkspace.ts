@@ -79,6 +79,8 @@ export type WorkspacePack = {
 	selection_role?: string;
 	pcap_basename?: string;
 	samples?: number;
+	abs_dir?: string;
+	vrlog?: string;
 	physical?: PhysicalProgress;
 	error?: string;
 };
@@ -173,6 +175,40 @@ export type Plan = {
 	error?: string;
 };
 
+export type StepProgress = {
+	id: string;
+	kind: string;
+	status: 'done' | 'in_progress' | 'not_started' | 'blocked' | 'untracked';
+	detail: string;
+	next?: string;
+	where: string;
+	counts: Count[];
+	note?: string;
+};
+
+export type PlanBinding = {
+	plan_id: string;
+	item_key: string;
+	note: string;
+	revision: number;
+	bound_by: string;
+	bound_at_ns: string;
+};
+
+export type PlanProgress = Plan & {
+	binding?: PlanBinding;
+	bound_title?: string;
+	bound_stage?: string;
+	bound_error?: string;
+	waiting_on: string[];
+	progress: StepProgress[];
+	steps_done: number;
+	next: string;
+	where: string;
+};
+
+export type PlanCandidate = { key: string; title: string; stage: string; why: string };
+
 export type WorkspaceResponse = {
 	generated_at_ns: string;
 	sources: Record<string, SourceState>;
@@ -197,7 +233,8 @@ export type WorkspaceResponse = {
 	total: number;
 	limit: number;
 	offset: number;
-	plans: { available: boolean; error?: string; plans: Plan[] };
+	plans: { available: boolean; error?: string; plans: PlanProgress[] };
+	candidates: PlanCandidate[];
 	facets: Record<string, string[]>;
 };
 
@@ -217,6 +254,7 @@ export type ObjectSpan = {
 };
 
 export type WorkspaceDetail = {
+	plans: PlanProgress[];
 	row: WorkspaceRow;
 	restricted: boolean;
 	objects: ObjectSpan[];
@@ -534,4 +572,85 @@ export function previewProblems(preview: FreezePreview): string[] {
 		...(preview.facet_problems ?? []),
 		...(preview.refusal ? [preview.refusal] : [])
 	];
+}
+
+const STEP_STATUS: Record<string, { mark: string; text: string }> = {
+	done: { mark: '✓', text: 'Done' },
+	in_progress: { mark: '●', text: 'In progress' },
+	not_started: { mark: '○', text: 'Not started' },
+	blocked: { mark: '!', text: 'Blocked' },
+	untracked: { mark: '?', text: 'Not tracked' }
+};
+
+/** A step status as a mark and a word. */
+export function stepStatus(status: string): { mark: string; text: string } {
+	return STEP_STATUS[status] ?? { mark: '?', text: status };
+}
+
+/** "1 of 3 steps done", from the stores. */
+export function planSummary(plan: PlanProgress): string {
+	return `${plan.steps_done} of ${plan.progress.length} steps done`;
+}
+
+/** The first outstanding task of a row that is not blocked, else the first. */
+export function nextTask(row: WorkspaceRow): Task | undefined {
+	return row.tasks.find((t) => !t.blocked) ?? row.tasks[0];
+}
+
+/** Bind a plan to a row (or unbind it with an empty key) against the binding loaded. */
+export function bindPlan(
+	planID: string,
+	itemKey: string,
+	baseRevision: number,
+	actor: string
+): Promise<PlanBinding> {
+	return request('/api/lidar/workspace/plan-binding', {
+		method: 'PUT',
+		headers: writeHeaders(actor),
+		body: JSON.stringify({
+			plan_id: planID,
+			item_key: itemKey,
+			note: '',
+			bound_by: actor,
+			base_revision: baseRevision
+		})
+	});
+}
+
+export type Handoff =
+	| { kind: 'none'; reason: string }
+	| {
+			kind: 'pack';
+			packs: { handle: string; path: string; vrlog?: string; run: string }[];
+			shared: boolean;
+	  };
+
+/**
+ * What to open in VelocityVisualiser for a row: its packs' directories (any
+ * of a label set's views shows the same labels), or why there is none yet.
+ */
+export function handoff(row: WorkspaceRow): Handoff {
+	if (row.protected)
+		return { kind: 'none', reason: 'Blind qualification data is not opened from here.' };
+	const packs = row.packs
+		.filter((p) => p.abs_dir && !p.error)
+		.map((p) => ({
+			handle: p.handle,
+			path: p.abs_dir as string,
+			vrlog: p.vrlog || undefined,
+			run: p.run
+		}));
+	if (packs.length)
+		return { kind: 'pack', packs, shared: packs.length > 1 && Boolean(row.label_set) };
+	if (row.segments.some((s) => s.pack_missing))
+		return {
+			kind: 'none',
+			reason: 'The pack the database names is not on disk: queue it again on the Segments page.'
+		};
+	if (row.segments.length)
+		return {
+			kind: 'none',
+			reason: "No pack yet: queue the clip's pack on the Segments page, then refresh."
+		};
+	return { kind: 'none', reason: 'No readable pack.' };
 }

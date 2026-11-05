@@ -78,17 +78,21 @@ type workspaceSegment struct {
 }
 
 type workspacePack struct {
-	Handle     string                      `json:"handle"`
-	PackDigest string                      `json:"pack_digest"`
-	DatasetID  string                      `json:"dataset_id"`
-	Run        string                      `json:"run"`
-	SegmentID  string                      `json:"segment_id,omitempty"`
-	Role       string                      `json:"selection_role,omitempty"`
-	PCAP       string                      `json:"pcap_basename,omitempty"`
-	Samples    int                         `json:"samples"`
-	BuildSHA   string                      `json:"build_git_sha,omitempty"`
-	Physical   *labelwork.PhysicalProgress `json:"physical,omitempty"`
-	Error      string                      `json:"error,omitempty"`
+	Handle     string `json:"handle"`
+	PackDigest string `json:"pack_digest"`
+	DatasetID  string `json:"dataset_id"`
+	Run        string `json:"run"`
+	SegmentID  string `json:"segment_id,omitempty"`
+	Role       string `json:"selection_role,omitempty"`
+	PCAP       string `json:"pcap_basename,omitempty"`
+	Samples    int    `json:"samples"`
+	// AbsDir is the pack's directory on the server's disk, and VRLOG the
+	// recording it was cut from: what VelocityVisualiser opens.
+	AbsDir   string                      `json:"abs_dir,omitempty"`
+	VRLOG    string                      `json:"vrlog,omitempty"`
+	BuildSHA string                      `json:"build_git_sha,omitempty"`
+	Physical *labelwork.PhysicalProgress `json:"physical,omitempty"`
+	Error    string                      `json:"error,omitempty"`
 }
 
 type workspaceLabelSet struct {
@@ -169,8 +173,11 @@ type workspaceResponse struct {
 	Total         int                    `json:"total"`
 	Limit         int                    `json:"limit"`
 	Offset        int                    `json:"offset"`
-	Plans         labelwork.Plans        `json:"plans"`
-	Facets        map[string][]string    `json:"facets"`
+	Plans         workspacePlans         `json:"plans"`
+	// Candidates are the rows a plan could be bound to: windows selected by
+	// lot for held-out use first, then every label set and pack.
+	Candidates []planCandidate     `json:"candidates"`
+	Facets     map[string][]string `json:"facets"`
 }
 
 type workspaceSplit struct {
@@ -242,7 +249,8 @@ func (ws *Server) buildWorkspace(now time.Time) ([]workspaceRow, map[string]sour
 			r = rowFor("pack:"+handle, "pack", handle)
 		}
 		pk := workspacePack{Handle: handle, PackDigest: l.PackDigest, DatasetID: l.DatasetID, Run: packRun(handle),
-			SegmentID: l.SegmentID, Role: l.Role, PCAP: l.Source.PCAPBasename, Samples: l.SampleCount, BuildSHA: l.Source.BuildGitSHA, Error: l.Error}
+			SegmentID: l.SegmentID, Role: l.Role, PCAP: l.Source.PCAPBasename, Samples: l.SampleCount, BuildSHA: l.Source.BuildGitSHA, Error: l.Error,
+			AbsDir: l.PackDir, VRLOG: l.Source.VRLOGPath}
 		if l.Error != "" && r.Error == "" {
 			r.Error = l.Error
 		}
@@ -327,7 +335,7 @@ func (ws *Server) buildWorkspace(now time.Time) ([]workspaceRow, map[string]sour
 				continue
 			}
 			ref := labelwork.FrozenRef{Name: sp.name, SplitDigest: sp.split.SplitDigest, Revision: sp.split.Revision,
-				PackDigest: fp.PackDigest, PinnedRevision: fp.SidecarRevision, Roles: []string{}}
+				PackDigest: fp.PackDigest, PinnedRevision: fp.SidecarRevision, Roles: []string{}, PhysicalPinned: fp.Physical != nil}
 			for _, o := range fp.Objects {
 				ref.Roles = appendUnique(ref.Roles, string(roles[o.Partition]))
 			}
@@ -611,7 +619,7 @@ func stageAndFlags(r *workspaceRow) {
 func redactRow(r *workspaceRow) {
 	r.Title = "Protected qualification item"
 	for i := range r.Packs {
-		r.Packs[i] = workspacePack{Handle: "(protected)", PackDigest: r.Packs[i].PackDigest}
+		r.Packs[i] = workspacePack{Handle: "(protected)", PackDigest: r.Packs[i].PackDigest, Run: ""}
 	}
 	for i := range r.Segments {
 		sg := r.Segments[i]
@@ -848,7 +856,7 @@ func (ws *Server) handleWorkspace(w http.ResponseWriter, r *http.Request) {
 		resp.Facets["runs"] = append(resp.Facets["runs"], run)
 	}
 	sort.Strings(resp.Facets["runs"])
-	resp.Plans = labelwork.ReadPlans(".")
+	resp.Plans, resp.Candidates = ws.planProgress(rows)
 	sources["plans"] = sourceState{Available: resp.Plans.Available, Error: resp.Plans.Error}
 	ws.writeJSON(w, http.StatusOK, resp)
 }
@@ -988,15 +996,16 @@ func readJournal(dir string) ([]journalEntry, error) {
 }
 
 type workspaceDetail struct {
-	Row        workspaceRow           `json:"row"`
-	Restricted bool                   `json:"restricted"`
-	Objects    []labelwork.ObjectSpan `json:"objects"`
-	Journal    []journalEntry         `json:"journal"`
-	JournalErr string                 `json:"journal_error,omitempty"`
-	History    []labelwork.Item       `json:"workflow_history"`
-	Layers     []string               `json:"layers"`
-	States     []string               `json:"states"`
-	TBDReasons []string               `json:"tbd_reasons"`
+	Plans      []labelwork.PlanProgress `json:"plans"`
+	Row        workspaceRow             `json:"row"`
+	Restricted bool                     `json:"restricted"`
+	Objects    []labelwork.ObjectSpan   `json:"objects"`
+	Journal    []journalEntry           `json:"journal"`
+	JournalErr string                   `json:"journal_error,omitempty"`
+	History    []labelwork.Item         `json:"workflow_history"`
+	Layers     []string                 `json:"layers"`
+	States     []string                 `json:"states"`
+	TBDReasons []string                 `json:"tbd_reasons"`
 }
 
 func (ws *Server) handleWorkspaceItem(w http.ResponseWriter, r *http.Request) {
@@ -1016,7 +1025,7 @@ func (ws *Server) handleWorkspaceItem(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusNotFound, fmt.Sprintf("no workspace item %q", key))
 		return
 	}
-	d := workspaceDetail{Row: *row, Restricted: row.Protected, Objects: []labelwork.ObjectSpan{}, Journal: []journalEntry{},
+	d := workspaceDetail{Plans: []labelwork.PlanProgress{}, Row: *row, Restricted: row.Protected, Objects: []labelwork.ObjectSpan{}, Journal: []journalEntry{},
 		History: []labelwork.Item{}, Layers: labelwork.Layers, States: labelwork.States, TBDReasons: labelwork.TBDReasons}
 	if !row.Protected {
 		if row.spans != nil {
@@ -1028,6 +1037,12 @@ func (ws *Server) handleWorkspaceItem(w http.ResponseWriter, r *http.Request) {
 			} else {
 				d.Journal = j
 			}
+		}
+	}
+	plans, _ := ws.planProgress(rows)
+	for _, p := range plans.Plans {
+		if p.Binding != nil && p.Binding.ItemKey == key {
+			d.Plans = append(d.Plans, p)
 		}
 	}
 	if st := ws.workflowStore(); st != nil {

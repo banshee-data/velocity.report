@@ -40,6 +40,8 @@ type FrozenRef struct {
 	// HeadMoved: the label set has been edited since the freeze. The split
 	// keeps scoring its pinned revision, which is historical now.
 	HeadMoved bool `json:"head_moved"`
+	// PhysicalPinned: the split pins the pack's physical references.
+	PhysicalPinned bool `json:"physical_pinned"`
 }
 
 // PackFacts is one pack of a row.

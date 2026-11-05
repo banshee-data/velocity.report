@@ -432,3 +432,47 @@ func TestWorkspacePagesServerSide(t *testing.T) {
 		t.Fatalf("page size is capped: %v", resp["limit"])
 	}
 }
+
+// A plan is bound to a window, its steps are read from that window's stores,
+// and the pack the visualiser opens is named by its path; a stale binding is
+// refused.
+func TestWorkspacePlansFollowTheirBoundWindow(t *testing.T) {
+	e := newWorkspaceEnv(t)
+	p := fx.Pack(t, e.root, fx.PackOptions{Capture: "efolsom", Run: "run-a", PCAPBasename: "efolsom.pcapng", Status: annotation.StatusProposed})
+	srv, _ := e.server("", func(ws *Server) { ws.plansRoot = filepath.Join("..", "..", "..") })
+	_, resp, _ := call(t, http.MethodGet, srv.URL+"/api/lidar/workspace", nil)
+	row := rowsOf(t, resp)[0]
+	if row["packs"].([]any)[0].(map[string]any)["abs_dir"] != p.Dir {
+		t.Fatalf("the pack's path for VelocityVisualiser: %+v", row["packs"])
+	}
+	plans := resp["plans"].(map[string]any)
+	if plans["available"] != true || len(resp["candidates"].([]any)) != 1 {
+		t.Fatalf("%+v %+v", plans, resp["candidates"])
+	}
+	bind := map[string]any{"plan_id": "label0003", "item_key": row["key"], "bound_by": "ana", "base_revision": 0}
+	if status, out, _ := call(t, http.MethodPut, srv.URL+"/api/lidar/workspace/plan-binding", bind); status != 200 {
+		t.Fatal(status, out)
+	}
+	if status, _, _ := call(t, http.MethodPut, srv.URL+"/api/lidar/workspace/plan-binding", bind); status != http.StatusConflict {
+		t.Fatalf("stale binding: %d", status)
+	}
+	_, resp, _ = call(t, http.MethodGet, srv.URL+"/api/lidar/workspace", nil)
+	var l3 map[string]any
+	for _, pl := range resp["plans"].(map[string]any)["plans"].([]any) {
+		if pl.(map[string]any)["id"] == "label0003" {
+			l3 = pl.(map[string]any)
+		}
+	}
+	steps := l3["progress"].([]any)
+	sel, spans := steps[0].(map[string]any), steps[1].(map[string]any)
+	if sel["status"] != "blocked" || !strings.Contains(sel["detail"].(string), "no recorded selection") {
+		t.Fatalf("a pack without a recorded draw: %+v", sel)
+	}
+	if spans["status"] != "in_progress" || l3["binding"].(map[string]any)["item_key"] != row["key"] {
+		t.Fatalf("%+v", l3)
+	}
+	_, detail, _ := call(t, http.MethodGet, srv.URL+"/api/lidar/workspace/item?key="+row["key"].(string), nil)
+	if len(detail["plans"].([]any)) != 1 {
+		t.Fatalf("the item shows the plan run on it: %+v", detail["plans"])
+	}
+}

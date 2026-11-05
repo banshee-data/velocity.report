@@ -157,3 +157,40 @@ CREATE TRIGGER lidar_workflow_events_append_only_delete BEFORE DELETE ON lidar_w
    SELECT RAISE (ABORT, 'workflow events are append-only');
 
 END;
+
+-- Which window, by workspace item key, each labelling plan in
+-- data/experiments/label is run on. A plan's step progress is derived from
+-- the bound item's stores; the binding is the operator's statement and is
+-- revision-checked. An empty item_key unbinds.
+   CREATE TABLE lidar_plan_bindings (
+          plan_id TEXT PRIMARY KEY
+        , item_key TEXT NOT NULL
+        , note TEXT NOT NULL DEFAULT ''
+        , revision INTEGER NOT NULL
+        , bound_by TEXT NOT NULL
+        , bound_at_ns INTEGER NOT NULL
+        , CHECK (plan_id != '')
+        , CHECK (revision >= 1)
+          );
+
+-- Every saved revision of a plan binding. Append-only.
+   CREATE TABLE lidar_plan_binding_events (
+          plan_id TEXT NOT NULL
+        , revision INTEGER NOT NULL
+        , item_key TEXT NOT NULL
+        , note TEXT NOT NULL
+        , bound_by TEXT NOT NULL
+        , bound_at_ns INTEGER NOT NULL
+        , PRIMARY KEY (plan_id, revision)
+          );
+
+CREATE TRIGGER lidar_plan_binding_events_append_only_update BEFORE
+   UPDATE ON lidar_plan_binding_events BEGIN
+   SELECT RAISE (ABORT, 'plan binding events are append-only');
+
+END;
+
+CREATE TRIGGER lidar_plan_binding_events_append_only_delete BEFORE DELETE ON lidar_plan_binding_events BEGIN
+   SELECT RAISE (ABORT, 'plan binding events are append-only');
+
+END;

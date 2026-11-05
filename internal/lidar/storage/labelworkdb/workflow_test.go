@@ -78,3 +78,35 @@ func TestTBDNeedsAReason(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// A plan binding is revision-checked and keeps its history.
+func TestPlanBindings(t *testing.T) {
+	d, err := db.NewDB(filepath.Join(t.TempDir(), "p.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer d.Close()
+	b := labelworkdb.PlanBindings{DB: d.DB}
+	pb, err := b.Put(labelwork.PlanBinding{PlanID: "label0003", ItemKey: "label-set:x", BoundBy: "ana"}, 0)
+	if err != nil || pb.Revision != 1 {
+		t.Fatal(err, pb)
+	}
+	if _, err := b.Put(labelwork.PlanBinding{PlanID: "label0003", ItemKey: "label-set:y", BoundBy: "bo"}, 0); !errors.Is(err, labelwork.ErrStale) {
+		t.Fatal(err)
+	}
+	if _, err := b.Put(labelwork.PlanBinding{PlanID: "Label 3", BoundBy: "bo"}, 0); !errors.Is(err, labelwork.ErrInvalid) {
+		t.Fatal(err)
+	}
+	if _, err := b.Put(labelwork.PlanBinding{PlanID: "label0003", ItemKey: "", BoundBy: "bo"}, 1); err != nil {
+		t.Fatal(err)
+	}
+	all, err := b.All()
+	if err != nil || all["label0003"].ItemKey != "" || all["label0003"].Revision != 2 {
+		t.Fatal(err, all)
+	}
+	var n int
+	d.DB.QueryRow(`SELECT COUNT(*) FROM lidar_plan_binding_events`).Scan(&n)
+	if n != 2 {
+		t.Fatal(n)
+	}
+}

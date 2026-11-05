@@ -319,6 +319,27 @@
         , CHECK (param_set_type IN ('requested', 'effective', 'legacy'))
           );
 
+   CREATE TABLE lidar_plan_binding_events (
+          plan_id TEXT NOT NULL
+        , revision INTEGER NOT NULL
+        , item_key TEXT NOT NULL
+        , note TEXT NOT NULL
+        , bound_by TEXT NOT NULL
+        , bound_at_ns INTEGER NOT NULL
+        , PRIMARY KEY (plan_id, revision)
+          );
+
+   CREATE TABLE lidar_plan_bindings (
+          plan_id TEXT PRIMARY KEY
+        , item_key TEXT NOT NULL
+        , note TEXT NOT NULL DEFAULT ''
+        , revision INTEGER NOT NULL
+        , bound_by TEXT NOT NULL
+        , bound_at_ns INTEGER NOT NULL
+        , CHECK (plan_id != '')
+        , CHECK (revision >= 1)
+          );
+
    CREATE TABLE lidar_run_configs (
           run_config_id TEXT PRIMARY KEY
         , config_hash TEXT NOT NULL UNIQUE
@@ -1697,6 +1718,17 @@ END;
 
 CREATE TRIGGER lidar_workflow_events_append_only_delete BEFORE DELETE ON lidar_workflow_events BEGIN
    SELECT RAISE (ABORT, 'workflow events are append-only');
+
+END;
+
+CREATE TRIGGER lidar_plan_binding_events_append_only_update BEFORE
+   UPDATE ON lidar_plan_binding_events BEGIN
+   SELECT RAISE (ABORT, 'plan binding events are append-only');
+
+END;
+
+CREATE TRIGGER lidar_plan_binding_events_append_only_delete BEFORE DELETE ON lidar_plan_binding_events BEGIN
+   SELECT RAISE (ABORT, 'plan binding events are append-only');
 
 END;
 

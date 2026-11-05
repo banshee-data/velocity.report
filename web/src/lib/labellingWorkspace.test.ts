@@ -1,4 +1,10 @@
 import {
+	bindPlan,
+	handoff,
+	nextTask,
+	planSummary,
+	stepStatus,
+	type PlanProgress,
 	cohortText,
 	flagText,
 	freezeSplit,
@@ -217,5 +223,87 @@ describe('labellingWorkspace', () => {
 		await expect(
 			reviewObject(row({ label_set: undefined }), 'a', 'reviewed', 'ana')
 		).rejects.toThrow('no label set');
+	});
+
+	it('says what to open in VelocityVisualiser, or why nothing yet', () => {
+		const views = row({
+			packs: [
+				{
+					handle: 'k/a/views/run-a',
+					pack_digest: 'a',
+					dataset_id: 'd',
+					run: 'run-a',
+					abs_dir: '/p/a',
+					vrlog: '/v/a'
+				},
+				{
+					handle: 'k/a/views/run-b',
+					pack_digest: 'b',
+					dataset_id: 'd',
+					run: 'run-b',
+					abs_dir: '/p/b'
+				}
+			]
+		});
+		const h = handoff(views);
+		expect(h).toMatchObject({ kind: 'pack', shared: true });
+		if (h.kind === 'pack') expect(h.packs.map((p) => p.path)).toEqual(['/p/a', '/p/b']);
+		expect(handoff(row({ protected: true }))).toMatchObject({ kind: 'none' });
+		const segment = {
+			segment_id: 's',
+			clip_id: 'c',
+			role: 'held_out',
+			finder: 'random',
+			held_out_eligible: true,
+			capture: 'x',
+			window_start_ns: '0',
+			window_end_ns: '0'
+		};
+		expect(handoff(row({ packs: [], segments: [segment] }))).toMatchObject({
+			kind: 'none',
+			reason: expect.stringContaining('queue the clip')
+		});
+		expect(
+			handoff(row({ packs: [], segments: [{ ...segment, pack_missing: true }] }))
+		).toMatchObject({
+			reason: expect.stringContaining('not on disk')
+		});
+	});
+
+	it('summarises a plan from its steps, and names the next unblocked task', () => {
+		const plan = {
+			steps_done: 1,
+			progress: [{ status: 'done' }, { status: 'in_progress' }, { status: 'not_started' }]
+		} as PlanProgress;
+		expect(planSummary(plan)).toBe('1 of 3 steps done');
+		expect(stepStatus('blocked')).toEqual({ mark: '!', text: 'Blocked' });
+		expect(stepStatus('odd').text).toBe('odd');
+		const blocked = {
+			layer: 'purpose',
+			action: 'assign',
+			blocked: true
+		} as WorkspaceRow['tasks'][number];
+		const open = {
+			layer: 'spans',
+			action: 'record',
+			blocked: false
+		} as WorkspaceRow['tasks'][number];
+		expect(nextTask(row({ tasks: [blocked, open] }))?.action).toBe('record');
+		expect(nextTask(row({ tasks: [blocked] }))?.action).toBe('assign');
+		expect(nextTask(row())).toBeUndefined();
+	});
+
+	it('binds a plan against the revision loaded', async () => {
+		const fetchFn = mockFetch(200, { revision: 2 });
+		await bindPlan('label0003', 'label-set:abc', 1, 'ana');
+		const [url, init] = fetchFn.mock.calls[0];
+		expect(url).toBe('/api/lidar/workspace/plan-binding');
+		expect(JSON.parse(init.body)).toEqual({
+			plan_id: 'label0003',
+			item_key: 'label-set:abc',
+			note: '',
+			bound_by: 'ana',
+			base_revision: 1
+		});
 	});
 });

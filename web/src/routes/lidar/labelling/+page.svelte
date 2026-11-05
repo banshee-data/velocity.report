@@ -41,8 +41,14 @@
 		type WorkspaceDetail,
 		type WorkspaceFilter,
 		type WorkspaceResponse,
-		type WorkspaceRow
+		type WorkspaceRow,
+		bindPlan,
+		nextTask,
+		planSummary,
+		stepStatus,
+		type PlanProgress
 	} from '#lib/labellingWorkspace.js';
+	import VisualiserHandoff from '#lib/components/lidar/VisualiserHandoff.svelte';
 	import { tracksQuery } from '#lib/lidarLinks.js';
 	import { onMount, tick } from 'svelte';
 	import { Button } from 'svelte-ux';
@@ -240,6 +246,41 @@
 		}
 	}
 
+	// The window chosen for each unbound plan's Bind button.
+	let bindChoice: Record<string, string> = {};
+
+	async function bind(plan: PlanProgress, itemKey: string) {
+		if (!needActor()) {
+			loadError = actionError;
+			return;
+		}
+		try {
+			await bindPlan(plan.id, itemKey, plan.binding?.revision ?? 0, actor);
+			await load();
+		} catch (cause) {
+			loadError =
+				cause instanceof WorkspaceError && cause.status === 409
+					? "Someone changed this plan's binding after you loaded it. Reloaded: check it and bind again."
+					: cause instanceof Error
+						? cause.message
+						: 'Could not bind the plan.';
+			if (cause instanceof WorkspaceError && cause.status === 409) await load();
+		}
+	}
+
+	function stepClass(status: string): string {
+		switch (status) {
+			case 'done':
+				return 'bg-green-600';
+			case 'in_progress':
+				return 'bg-sky-500';
+			case 'blocked':
+				return 'bg-amber-500';
+			default:
+				return 'bg-surface-300';
+		}
+	}
+
 	function applyFilter() {
 		filter = { ...filter, offset: 0 };
 		void load();
@@ -357,6 +398,26 @@
 					</p>
 				{/if}
 				{#if row.error}<p class="text-red-700">Unavailable: {row.error}</p>{/if}
+
+				<VisualiserHandoff {row} />
+
+				{#if detail.plans.length}
+					<div>
+						<h3 class="font-medium">Plans run on this window</h3>
+						{#each detail.plans as plan (plan.id)}
+							<p class="mt-1">
+								<span class="font-mono">{plan.id}</span>: {planSummary(plan)}. <b>Next:</b>
+								{plan.next}
+							</p>
+							<ul class="ml-5 text-xs">
+								{#each plan.progress as step (step.id)}<li>
+										{stepStatus(step.status).mark}
+										{step.id}: {step.detail}
+									</li>{/each}
+							</ul>
+						{/each}
+					</div>
+				{/if}
 
 				<!-- Lineage. -->
 				<div>
@@ -693,18 +754,151 @@
 		{/if}
 
 		{#if data}
+			<!-- Expected work: the labelling plans, each on the window it is bound to. -->
+			<section aria-label="Expected labelling work" class="space-y-3">
+				<div>
+					<h2 class="text-surface-content text-lg font-semibold">Expected labelling work</h2>
+					<p class="text-surface-content/60 text-sm">
+						The labelling plans in data/experiments/label. Bind each to the window it is run on;
+						every step's status is then read from that window's label set, references and splits. A
+						plan is never evidence that anything was labelled.
+					</p>
+				</div>
+				{#if !data.plans.available}<p class="text-surface-content/60 text-sm">
+						{data.plans.error}
+					</p>{/if}
+				{#each data.plans.plans as plan (plan.id)}
+					{@const boundRow = data.items.find((r) => r.key === plan.binding?.item_key)}
+					<article class="border-surface-content/10 bg-surface-100 rounded-lg border p-4 text-sm">
+						<div class="flex flex-wrap items-start justify-between gap-2">
+							<div>
+								<h3 class="font-semibold">
+									<span class="font-mono">{plan.id}</span> — {plan.title}
+								</h3>
+								<p class="text-surface-content/60 text-xs">
+									Spec {plan.status} · {plan.path}{#if plan.depends_on.length}
+										· after {plan.depends_on.join(', ')}{/if}
+								</p>
+							</div>
+							<div class="text-right">
+								<p class="font-medium">{planSummary(plan)}</p>
+								<div class="mt-1 flex w-48 gap-0.5" role="img" aria-label={planSummary(plan)}>
+									{#each plan.progress as step (step.id)}
+										<div
+											class="h-2 flex-1 rounded {stepClass(step.status)}"
+											title="{step.id}: {stepStatus(step.status).text}"
+										></div>
+									{/each}
+								</div>
+							</div>
+						</div>
+
+						<div class="mt-2">
+							{#if plan.binding?.item_key}
+								<p>
+									Runs on
+									<button
+										class="text-primary hover:underline"
+										on:click={() => openItem(plan.binding?.item_key ?? '')}
+										>{plan.bound_title || plan.binding.item_key}</button
+									>{plan.bound_stage ? ` (${stageText(plan.bound_stage)})` : ''}, bound by {plan
+										.binding.bound_by}.
+									<button
+										class="text-surface-content/60 ml-2 text-xs underline"
+										on:click={() => bind(plan, '')}>Unbind</button
+									>
+								</p>
+								{#if plan.bound_error}<p class="text-red-700">{plan.bound_error}</p>{/if}
+							{:else}
+								<div class="flex flex-wrap items-end gap-2">
+									<p class="text-amber-800">No window is bound to this plan yet.</p>
+									<select
+										class="border-surface-300 bg-surface-100 rounded border px-2 py-1 text-xs"
+										bind:value={bindChoice[plan.id]}
+									>
+										<option value="">Choose the window it runs on…</option>
+										{#each data.candidates as c (c.key)}<option value={c.key}
+												>{c.title} — {c.why} ({stageText(c.stage)})</option
+											>{/each}
+									</select>
+									<Button
+										size="sm"
+										disabled={!bindChoice[plan.id]}
+										on:click={() => bind(plan, bindChoice[plan.id])}>Bind</Button
+									>
+								</div>
+							{/if}
+							{#if plan.waiting_on.length}
+								<p class="text-amber-800">Waits on {plan.waiting_on.join(', ')}.</p>
+							{/if}
+						</div>
+
+						<p class="mt-3 rounded bg-white/60 px-3 py-2 dark:bg-black/20">
+							<b>Next:</b>
+							{plan.next}
+							<span class="text-surface-content/60 text-xs">· {whereText(plan.where)}</span>
+						</p>
+
+						<ol class="mt-3 space-y-2">
+							{#each plan.progress as step, i (step.id)}
+								{@const spec = plan.steps[i]}
+								<li class="flex gap-2">
+									<span
+										class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs text-white {stepClass(
+											step.status
+										)}"
+										title={stepStatus(step.status).text}>{stepStatus(step.status).mark}</span
+									>
+									<div>
+										<p>
+											<span class="font-medium">{step.id}</span>
+											<span class="text-surface-content/60 text-xs"
+												>{stepStatus(step.status).text}{#if spec?.human_estimate}
+													· about {spec.human_estimate}
+													of a person's time{/if}</span
+											>
+										</p>
+										{#if step.detail}<p class="text-surface-content/80">{step.detail}</p>{/if}
+										{#each step.counts as count (count.name)}
+											<p class="text-surface-content/70 text-xs">{countText(count)}</p>
+										{/each}
+										{#if step.next && step.status !== 'done'}<p class="text-xs">
+												Next: {step.next}
+											</p>{/if}
+										{#if spec?.note}<details class="text-surface-content/60 text-xs">
+												<summary>What the plan asks</summary>{spec.note}
+											</details>{/if}
+									</div>
+								</li>
+							{/each}
+						</ol>
+						{#if boundRow}
+							<div class="mt-3"><VisualiserHandoff row={boundRow} compact /></div>
+						{:else if plan.binding?.item_key}
+							<p class="text-surface-content/60 mt-3 text-xs">
+								The bound window is not on this page of the inventory: open it for what to load.
+							</p>
+						{/if}
+					</article>
+				{/each}
+			</section>
+
 			<!-- Protection: what the guard enforces and what is still missing. -->
-			<section
+			<details
 				aria-label="Held-out protection"
 				class="rounded-lg border p-4 text-sm {data.eligibility.protection_complete
 					? 'border-green-300 bg-green-50 text-green-950'
 					: 'border-amber-300 bg-amber-50 text-amber-950'}"
 			>
-				<h2 class="text-base font-semibold">
+				<summary class="cursor-pointer text-base font-semibold">
 					{data.eligibility.protection_complete
 						? 'Held-out protection is complete'
-						: 'Held-out protection is incomplete'}
-				</h2>
+						: `Held-out protection is incomplete: ${data.eligibility.gaps.length} gaps`}
+					<span class="text-xs font-normal opacity-80"
+						>· {data.eligibility.purposes.filter((p) => !p.available).length} of {data.eligibility
+							.purposes.length} purposes unavailable</span
+					>
+				</summary>
 				<p class="mt-1">
 					Cohort manifest: {data.eligibility.manifest.state}{#if data.eligibility.manifest.digest}
 						({shortDigest(data.eligibility.manifest.digest)}, revision {data.eligibility.manifest
@@ -738,7 +932,7 @@
 					The server decides eligibility at every guarded entry point before a sample loads. This
 					page only reports it.
 				</p>
-			</section>
+			</details>
 
 			{#each unavailable as [name, state] (name)}
 				<p role="alert" class="rounded bg-red-50 px-4 py-2 text-sm text-red-700">
@@ -923,7 +1117,9 @@
 								class="p-3 font-medium">Cohort / roles</th
 							><th class="p-3 font-medium">Objects reviewed</th><th class="p-3 font-medium"
 								>Masks reviewed</th
-							><th class="p-3 font-medium">Evaluation</th><th class="p-3 font-medium">Flags</th></tr
+							><th class="p-3 font-medium">Evaluation</th><th class="p-3 font-medium">Next</th><th
+								class="p-3 font-medium">Flags</th
+							></tr
 						></thead
 					>
 					<tbody>
@@ -955,6 +1151,12 @@
 									>{masks ? countText(masks.counts[0]) : row.error ? 'Unknown' : '—'}</td
 								>
 								<td class="p-3">{evaluationText(row)}</td>
+								<td class="p-3 text-xs"
+									>{#if nextTask(row)}{nextTask(row)?.action}<span
+											class="text-surface-content/60 block"
+											>{whereText(nextTask(row)?.where ?? '')}</span
+										>{:else}Nothing outstanding{/if}</td
+								>
 								<td class="p-3"
 									>{#each row.flags as f (f)}<span
 											class="bg-surface-200 mr-1 mb-1 inline-block rounded px-1.5 py-0.5 text-xs"
@@ -1028,31 +1230,6 @@
 						<li class="text-surface-content/60">Nothing outstanding for these filters.</li>
 					{/each}
 				</ul>
-			</section>
-
-			<!-- Plans: planned work, not evidence. -->
-			<section aria-label="Labelling plans" class="space-y-2 text-sm">
-				<h2 class="text-surface-content text-lg font-semibold">Labelling plans</h2>
-				<p class="text-surface-content/60">
-					What the specs say is to be done. A plan is never evidence that labelling has occurred;
-					progress above comes from the stores alone.
-				</p>
-				{#if !data.plans.available}<p class="text-surface-content/60">{data.plans.error}</p>{/if}
-				{#each data.plans.plans as plan (plan.id)}
-					<details class="border-surface-content/10 bg-surface-100 rounded border p-3">
-						<summary
-							><span class="font-mono">{plan.id}</span> — {plan.title} ({plan.status}){#if plan.depends_on.length};
-								after {plan.depends_on.join(', ')}{/if}</summary
-						>
-						<ol class="mt-2 list-decimal space-y-1 pl-5">
-							{#each plan.steps as step (step.id)}<li>
-									<span class="font-medium">{step.id}</span> ({step.kind}{#if step.human_estimate}, {step.human_estimate}
-										of a person's time{/if}): {step.note}
-								</li>{/each}
-						</ol>
-						<p class="text-surface-content/60 mt-1 text-xs">{plan.path}</p>
-					</details>
-				{/each}
 			</section>
 		{/if}
 
