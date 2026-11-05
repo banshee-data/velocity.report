@@ -83,7 +83,8 @@ function colourFor(cls) {
  * and a currently-rendered box use identical placement math.
  */
 export function sceneTrailPoint(t) {
-  return [toSceneX(t.x), toSceneY(t.z) + 0.05, toSceneZ(t.y)];
+  const [x, y] = trailAnchor(t);
+  return [toSceneX(x), toSceneY(t.z) + 0.05, toSceneZ(y)];
 }
 
 /**
@@ -158,13 +159,114 @@ export function buildTrailHistories(frames, trackIds, buildingMask = null) {
         continue;
       }
       // Scene north is -Z: convert the prior trail point back to sensor XY.
-      if (last && buildingMask?.crosses([last[0], -last[2]], [t.x, t.y]))
+      if (last && buildingMask?.crosses([last[0], -last[2]], trailAnchor(t)))
         pts.length = 0;
       pts.push(sceneTrailPoint(t));
     }
   }
   return byTrack;
 }
+
+/** Use a complete published centre, or fall back to the recorded position. */
+function trailAnchor(t) {
+  return Number.isFinite(t.bx) && Number.isFinite(t.by)
+    ? [t.bx, t.by]
+    : [t.x, t.y];
+}
+
+export function trailStyle(a, b) {
+  const predicted = new Set([
+    "coasted",
+    "occluded_inferred",
+    "missed_unknown",
+    "out_of_fov",
+  ]);
+  if (predicted.has(a.support) || predicted.has(b.support)) return "predicted";
+  if (a.support !== "observed" || b.support !== "observed") return "unknown";
+  if (b.estimate_stage === "final") return "final";
+  if (b.estimate_stage === "provisional") return "provisional";
+  return "observed";
+}
+
+/**
+ * Reconstruct edges from capture time on every seek. Missing samples, capture
+ * gaps, estimate revisions, source changes and anchor changes never get joined.
+ * A new estimate replaces older revisions rather than splicing their geometry.
+ */
+export function buildTrailSegments(
+  frames,
+  trackIds,
+  buildingMask = null,
+  maxGapUs = 500000,
+) {
+  const histories = new Map(trackIds.map((id) => [id, []]));
+  const previous = new Map();
+  for (let index = 0; index < frames.length; index++) {
+    const frame = frames[index];
+    const seen = new Set();
+    for (const t of frame.tr ?? []) {
+      const segments = histories.get(t.id);
+      if (!segments) continue;
+      // Conflicting duplicate IDs cannot identify a unique sample.
+      if (seen.has(t.id)) {
+        segments.length = 0;
+        previous.delete(t.id);
+        continue;
+      }
+      seen.add(t.id);
+      const point = sceneTrailPoint(t);
+      if (
+        !Number.isFinite(frame.t) ||
+        !point.every(Number.isFinite) ||
+        buildingMask?.hides(t)
+      ) {
+        segments.length = 0;
+        previous.delete(t.id);
+        continue;
+      }
+      const anchor =
+        t.anchor ??
+        (Number.isFinite(t.bx) && Number.isFinite(t.by)
+          ? "published_box_center"
+          : "position");
+      const key = JSON.stringify([
+        t.source_id ?? "",
+        t.estimate_stage ?? "",
+        t.estimate_revision ?? "",
+        anchor,
+      ]);
+      const prior = previous.get(t.id);
+      if (prior && (prior.key !== key || frame.t <= prior.time))
+        segments.length = 0;
+      if (
+        prior &&
+        prior.key === key &&
+        prior.index === index - 1 &&
+        frame.t > prior.time &&
+        frame.t - prior.time <= maxGapUs &&
+        !buildingMask?.crosses(trailAnchor(prior.track), trailAnchor(t))
+      ) {
+        segments.push({
+          style: trailStyle(prior.track, t),
+          points: [prior.point, point],
+        });
+      }
+      // Bound memory even for imported histories with unreasonable sample rates.
+      if (segments.length > TRAIL_MAX_POINTS)
+        segments.splice(0, segments.length - TRAIL_MAX_POINTS);
+      previous.set(t.id, { track: t, point, time: frame.t, index, key });
+    }
+  }
+  return histories;
+}
+
+const TRAIL_STYLES = {
+  observed: null,
+  provisional: 0x38bdf8,
+  final: 0xc084fc,
+  predicted: 0xf59e0b,
+  unknown: 0x94a3b8,
+};
 
 /** One rendered track: a box, its edges, and a trail line. */
 export class TrackVisual {
@@ -194,6 +296,8 @@ export class TrackVisual {
     scene.add(this.edges);
     scene.add(this.fill);
 
+    this.segmentLines = new Map();
+    this.segmentMode = false;
     this.trailPoints = [];
     this.trailCapacity = 0;
     this.boxesVisible = true;
@@ -227,14 +331,16 @@ export class TrackVisual {
     this.edges.material.color.setHex(colour);
     this.fill.material.color.setHex(colour);
     this.trail.material.color.setHex(colour);
+    this.segmentLines.get("observed")?.material.color.setHex(colour);
   }
 
   /** Positions the box and its edges. Trail placement is separate: see setTrail. */
   update(t) {
     // The box model publishes the box's own centre (bx, by), which is not
     // the tracked position; without it the box is drawn at the track.
-    const x = toSceneX(t.bx ?? t.x);
-    const z = toSceneZ(t.by ?? t.y);
+    const [anchorX, anchorY] = trailAnchor(t);
+    const x = toSceneX(anchorX);
+    const z = toSceneZ(anchorY);
 
     const l = Math.max(t.l || 0, MIN_BOX_EXTENT);
     const w = Math.max(t.w || 0, MIN_BOX_EXTENT);
@@ -277,6 +383,7 @@ export class TrackVisual {
    * same path, so none of them can drift from the others.
    */
   setTrail(points) {
+    this.segmentMode = false;
     const capped =
       points.length > TRAIL_MAX_POINTS
         ? points.slice(points.length - TRAIL_MAX_POINTS)
@@ -294,16 +401,60 @@ export class TrackVisual {
     this._syncTrailVisibility();
   }
 
+  /** Batch disconnected edges by support; line pairs cannot bridge a gap. */
+  setTrailSegments(segments) {
+    this.segmentMode = true;
+    for (const [style, colour] of Object.entries(TRAIL_STYLES)) {
+      const points = segments
+        .filter((s) => s.style === style)
+        .flatMap((s) => s.points);
+      let line = this.segmentLines.get(style);
+      if (!line && points.length) {
+        const dashed = style === "predicted" || style === "unknown";
+        const material = dashed
+          ? new THREE.LineDashedMaterial({ dashSize: 0.35, gapSize: 0.2 })
+          : new THREE.LineBasicMaterial();
+        material.color.setHex(colour ?? this.colour);
+        material.transparent = true;
+        material.opacity = 0.7;
+        line = new THREE.LineSegments(
+          new THREE.BufferGeometry(),
+          sceneFade(material),
+        );
+        this.segmentLines.set(style, line);
+        this.trail.parent?.add(line);
+      }
+      if (!line) continue;
+      const capacity = line.geometry.attributes.position?.count ?? 0;
+      if (capacity < points.length) {
+        line.geometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(new Float32Array(points.length * 3), 3),
+        );
+      }
+      const attr = line.geometry.attributes.position;
+      points.forEach((p, i) => attr.setXYZ(i, ...p));
+      if (attr) attr.needsUpdate = true;
+      line.geometry.setDrawRange(0, points.length);
+      if (line.material.isLineDashedMaterial && points.length)
+        line.computeLineDistances();
+    }
+    this._syncTrailVisibility();
+  }
+
   hide() {
     this.edges.visible = false;
     this.fill.visible = false;
     this.trail.visible = false;
+    for (const line of this.segmentLines.values()) line.visible = false;
   }
 
   setOpacity(opacity) {
     this.edges.material.opacity = 0.95 * opacity;
     this.fill.material.opacity = 0.22 * opacity;
     this.trail.material.opacity = 0.7 * opacity;
+    for (const line of this.segmentLines.values())
+      line.material.opacity = 0.7 * opacity;
   }
 
   /** Boxes off hides the trail too, without discarding the trails preference. */
@@ -322,11 +473,26 @@ export class TrackVisual {
 
   _syncTrailVisibility() {
     this.trail.visible =
-      this.boxesVisible && this.trailsVisible && this.trailPoints.length > 1;
+      !this.segmentMode &&
+      this.boxesVisible &&
+      this.trailsVisible &&
+      this.trailPoints.length > 1;
+    for (const line of this.segmentLines.values()) {
+      line.visible =
+        this.segmentMode &&
+        this.boxesVisible &&
+        this.trailsVisible &&
+        line.geometry.drawRange.count > 1;
+    }
   }
 
   dispose(scene) {
-    for (const o of [this.edges, this.fill, this.trail]) {
+    for (const o of [
+      this.edges,
+      this.fill,
+      this.trail,
+      ...this.segmentLines.values(),
+    ]) {
       scene.remove(o);
       o.geometry.dispose();
       o.material.dispose();
@@ -928,7 +1094,7 @@ export async function mountScenePlayer({
       v.setOpacity(1);
       v.setVisible(state.boxesVisible);
       v.setTrailVisible(state.trailsVisible);
-      v.setTrail(trailsByTrack?.get(t.id) ?? []);
+      v.setTrailSegments(trailsByTrack?.get(t.id) ?? []);
 
       // Only vehicles are labelled. A number over every pedestrian would bury
       // the scene, and speed is the thing a street asks about cars.
@@ -1061,7 +1227,7 @@ export async function mountScenePlayer({
           state.trailHistorySec ?? 5,
           { skipUnavailable: true },
         );
-        trailsByTrack = buildTrailHistories(
+        trailsByTrack = buildTrailSegments(
           history.frames,
           trackIds,
           buildingMask,
@@ -1278,6 +1444,8 @@ export async function mountScenePlayer({
     });
   }
   if (ui.trailsToggle) {
+    ui.trailsToggle.title =
+      "Trails: solid = observed; amber dashes = predicted; grey dashes = unrecorded support; cyan = provisional; purple = final";
     on(ui.trailsToggle, "change", () => {
       state.trailsVisible = ui.trailsToggle.checked;
       for (const visual of visuals.values()) {
@@ -1542,7 +1710,7 @@ export async function mountScenePlayer({
         us,
         state.trailHistorySec,
       );
-      trailsByTrack = buildTrailHistories(
+      trailsByTrack = buildTrailSegments(
         history.frames,
         trackIds,
         buildingMask,

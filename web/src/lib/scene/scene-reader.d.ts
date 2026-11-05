@@ -19,6 +19,12 @@ declare module '$scene/scene-reader.js' {
 	}
 
 	export interface SceneTrack {
+		/** Missing support/stage/revision remain unknown for legacy scenes. */
+		support?: string;
+		estimate_stage?: string;
+		estimate_revision?: string;
+		source_id?: string;
+		anchor?: string;
 		id: string;
 		x: number;
 		y: number;

@@ -1707,3 +1707,39 @@ func TestTrackAPI_ObservationsCarryThePublishedBox(t *testing.T) {
 	}
 	check("track observations", boxes)
 }
+
+func TestTrackHistorySupportContract(t *testing.T) {
+	api := &TrackAPI{}
+	const ns int64 = 1789552800123456789
+	track := &l5tracks.TrackedObject{History: []l5tracks.TrackPoint{
+		{X: 1, Y: 2, Timestamp: ns, Support: l5tracks.SupportObserved},
+		{X: 2, Y: 3, Timestamp: ns + 1, Support: l5tracks.SupportCoasted},
+		{X: 3, Y: 4, Timestamp: ns + 2},
+	}}
+	response := api.trackToResponse(track)
+	for i, support := range []string{"observed", "coasted", ""} {
+		point := response.History[i]
+		if point.Support != support || point.Anchor != "filter_state" {
+			t.Fatalf("point %d: %+v", i, point)
+		}
+	}
+	data, err := json.Marshal(response.History[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"timestamp_ns":"1789552800123456789"`) {
+		t.Fatalf("exact timestamp lost: %s", data)
+	}
+}
+
+func TestObservationTrailProvenance(t *testing.T) {
+	obs := &sqlite.TrackObservation{TSUnixNanos: 123456789123456789}
+	if observationSupport(obs) != "" || observationFrameTimestamp(obs) != "123456789123456789" {
+		t.Fatal("legacy provenance was invented")
+	}
+	obs.MeasurementSource = "medoid_v0"
+	obs.FrameUnixNanos = 123456789100000000
+	if observationSupport(obs) != "observed" || observationFrameTimestamp(obs) != "123456789100000000" {
+		t.Fatal("recorded provenance lost")
+	}
+}

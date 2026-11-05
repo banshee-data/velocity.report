@@ -8,6 +8,11 @@ is the immediate measurement-inspection slice, with basic stage, support and see
 - **Layers:** L9 Endpoints, L10 Clients
 - **Canonical:** [trails-and-uncertainty.md](../ui/visualiser/trails-and-uncertainty.md)
 
+The [cloud HTTP/web implementation](../lidar/operations/trail-support-cloud-2026-11.md)
+aligns the shared scene player with published box centres, preserves exact rotation timestamps
+and separates supported edges and estimate revisions. Native gRPC/Swift publication and visual
+acceptance remain open.
+
 ## Objective
 
 **Current priority:** 0.5.2 requires stage/support/anchor correctness for following-distance review;
