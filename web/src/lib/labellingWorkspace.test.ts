@@ -1,4 +1,13 @@
 import {
+	cohortText,
+	flagText,
+	freezeSplit,
+	loadItem,
+	previewFreeze,
+	shortDigest,
+	tbdText,
+	whereText,
+	workflowFor,
 	countFraction,
 	countText,
 	evaluationText,
@@ -167,5 +176,46 @@ describe('labellingWorkspace', () => {
 		const failure = loadWorkspace({}).catch((e) => e);
 		await expect(failure).resolves.toBeInstanceOf(WorkspaceError);
 		await expect(failure).resolves.toMatchObject({ status: 500, message: 'disk unreadable' });
+	});
+
+	it('names flags, places, TBD reasons and cohorts, passing unknown values through', () => {
+		expect(flagText('stale_revision')).toBe('Stale revision');
+		expect(whereText('native')).toBe('macOS annotation window');
+		expect(tbdText('unassigned_purpose')).toBe('Purpose unassigned');
+		expect(cohortText('unassigned')).toBe('Unassigned (TBD)');
+		for (const fn of [flagText, whereText, tbdText, cohortText, stageText])
+			expect(fn('novel')).toBe('novel');
+		expect(shortDigest('sha256:0123456789abcdef')).toBe('01234567');
+		expect(shortDigest(undefined)).toBe('');
+	});
+
+	it("finds a row's workflow item by layer", () => {
+		const item = { layer: 'spans', state: 'tbd' } as WorkspaceRow['workflow'][number];
+		expect(workflowFor(row({ workflow: [item] }), 'spans')).toBe(item);
+		expect(workflowFor(row(), 'masks')).toBeUndefined();
+	});
+
+	it('requests an item, a preview and a freeze at the canonical endpoints', async () => {
+		const fetchFn = mockFetch(200, { would_freeze: true });
+		await loadItem('label-set:a b');
+		await previewFreeze({ d: 1 });
+		await freezeSplit({ d: 1 }, 'ana', 'x-r1.json');
+		const urls = fetchFn.mock.calls.map((c) => c[0]);
+		expect(urls).toEqual([
+			'/api/lidar/workspace/item?key=label-set%3Aa+b',
+			'/api/lidar/annotations/split/preview',
+			'/api/lidar/annotations/split/freeze'
+		]);
+		expect(JSON.parse(fetchFn.mock.calls[2][1].body)).toEqual({
+			draft: { d: 1 },
+			author: 'ana',
+			output: 'x-r1.json'
+		});
+	});
+
+	it('refuses an object review for a row with no label set', async () => {
+		await expect(
+			reviewObject(row({ label_set: undefined }), 'a', 'reviewed', 'ana')
+		).rejects.toThrow('no label set');
 	});
 });

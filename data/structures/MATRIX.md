@@ -233,6 +233,9 @@ via `RunBrowserState`.
 | LiDAR  | `lidar_clip_extracts`            | ✅  | -   | A clip's standalone extract and its capture_export job |
 | LiDAR  | `lidar_lane_snapshots`           | -   | ✅  | Append-only lane snapshots; written by the painter     |
 | LiDAR  | `lidar_lane_snapshot_lanes`      | -   | ✅  | A snapshot's lanes with their limits, for attribution  |
+| LiDAR  | `lidar_data_uses`                | ✅  | -   | Append-only eligibility ledger; labelling workspace    |
+| LiDAR  | `lidar_workflow_items`           | ✅  | -   | Labelling workspace workflow state per item and layer  |
+| LiDAR  | `lidar_workflow_events`          | ✅  | -   | Append-only history of workflow items                  |
 | LiDAR  | `lidar_tuning_sweeps`            | ✅  | -   | Sweep history                                          |
 | LiDAR  | `lidar_bg_snapshot`              | ✅  | 🔶  | Grid visualisation (derived sent via gRPC)             |
 | LiDAR  | `lidar_bg_regions`               | ✅  | -   | Settling evaluation                                    |
@@ -273,7 +276,7 @@ via `RunBrowserState`.
 
 ## 5. Database fields: all columns
 
-The current schema has 604 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
+The current schema has 654 fields, including generated fields. Newly added rows use `?` where consumer tracing remains open. DB ✅ confirms the schema field; the data model review identifies write and constraint risks.
 
 | Table                            | Column                              | Type          | DB  | Web | Mac |
 | -------------------------------- | ----------------------------------- | ------------- | --- | --- | --- |
@@ -475,6 +478,56 @@ The current schema has 604 fields, including generated fields. Newly added rows 
 | `lidar_lane_snapshot_lanes`      | `effective_from`                    | TEXT GEN      | ✅  | -   | ✅  |
 | `lidar_lane_snapshot_lanes`      | `effective_to`                      | TEXT GEN      | ✅  | -   | ✅  |
 | `lidar_lane_snapshot_lanes`      | `direction_id`                      | TEXT GEN      | ✅  | -   | ✅  |
+| `lidar_data_uses`                | `use_id`                            | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `request_id`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `recorded_at_ns`                    | INTEGER       | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `purpose`                           | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `measure`                           | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `decision`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `held_out_score`                    | INTEGER       | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `source_kind`                       | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `capture_sha256`                    | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `capture_basename`                  | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `interval_start_ns`                 | INTEGER       | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `interval_end_ns`                   | INTEGER       | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `cohort`                            | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `site_id`                           | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `experiment`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `run_id`                            | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `actor`                             | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `entry_point`                       | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `build_version`                     | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `build_git_sha`                     | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `config_digest`                     | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `policy_digest`                     | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `split_digest`                      | TEXT          | ✅  | ✅  | -   |
+| `lidar_data_uses`                | `reasons_json`                      | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `item_key`                          | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `layer`                             | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `state`                             | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `assignee`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `reviewer`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `blocker`                           | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `tbd_reason`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `note`                              | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `source_revision`                   | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `revision`                          | INTEGER       | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `updated_by`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
+| `lidar_workflow_items`           | `created_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `item_key`                          | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `layer`                             | TEXT PK       | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `revision`                          | INTEGER PK    | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `state`                             | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `assignee`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `reviewer`                          | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `blocker`                           | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `tbd_reason`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `note`                              | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `source_revision`                   | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `updated_by`                        | TEXT          | ✅  | ✅  | -   |
+| `lidar_workflow_events`          | `updated_at_ns`                     | INTEGER       | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `id`                                | INTEGER PK    | ✅  | -   | -   |
 | `lidar_tuning_sweeps`            | `sweep_id`                          | TEXT UNIQUE   | ✅  | ✅  | -   |
 | `lidar_tuning_sweeps`            | `sensor_id`                         | TEXT          | ✅  | ✅  | -   |
@@ -1220,7 +1273,7 @@ them, and the regions JSON moved to `GET /api/lidar/background/regions`
 | HTTP endpoints (radar)  | 19    | 16  | 19  | 0   |
 | HTTP endpoints (LiDAR)  | 115   | 72  | 92  | 14  |
 | gRPC methods            | 9     | 0   | 0   | 9   |
-| DB tables               | 47    | -   | 35  | 8   |
+| DB tables               | 50    | -   | 38  | 8   |
 | Pipeline stages         | 13    | 5   | 5   | 2   |
 | Tuning parameter groups | 3     | 3   | 3   | 0   |
 | cmd/ entry points       | 15    | -   | -   | -   |
