@@ -721,6 +721,7 @@ func Main(args []string) int {
 				MinClusterDiameter:    tuningCfg.GetMinClusterDiameter(),
 				MaxClusterAspectRatio: tuningCfg.GetMaxClusterAspectRatio(),
 				ClusterCentre:         tuningCfg.GetClusterCentre(),
+				FragmentJoin:          tuningCfg.GetFragmentJoin(),
 				HeightBandFloor:       tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:     tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:          tuningCfg.GetRemoveGround(),

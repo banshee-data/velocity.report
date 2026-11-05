@@ -24,3 +24,5 @@ require registered specs, merge cases, and checked-in parameter sets before repl
 [LiDAR-Processing-V2 review](../../../docs/lidar/operations/lidar-processing-v2-segmentation-review.md)
 adds curved-voxel connectivity (connected components over spherical bins, no density core) as a
 third arm of that comparison once the path question is answered; it is not a spec of its own.
+
+The [motion-supported joining candidate](l4clus0008.md) follows the failed threshold and fixed-radius alternatives, with explicit ownership, membership and merge gates.

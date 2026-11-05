@@ -178,9 +178,12 @@ type L4Config struct {
 
 // L4Common contains fields shared by all L4 engines.
 type L4Common struct {
-	ForegroundDBSCANEps        float64 `json:"foreground_dbscan_eps"`
-	ForegroundMinClusterPoints int     `json:"foreground_min_cluster_points"`
-	ForegroundMaxInputPoints   int     `json:"foreground_max_input_points"`
+	// FragmentJoin is an opt-in motion-supported joining candidate. Omitted
+	// configurations retain their existing fingerprint and clustering.
+	FragmentJoin               *L4FragmentJoin `json:"fragment_join,omitempty"`
+	ForegroundDBSCANEps        float64         `json:"foreground_dbscan_eps"`
+	ForegroundMinClusterPoints int             `json:"foreground_min_cluster_points"`
+	ForegroundMaxInputPoints   int             `json:"foreground_max_input_points"`
 	// ClusterPosition selects the position a cluster reports. It is a pointer
 	// omitted when nil, so a config without it keeps its fingerprint and
 	// reports the medoid.
@@ -192,6 +195,17 @@ type L4Common struct {
 	MaxClusterDiameter    float64            `json:"max_cluster_diameter"`
 	MinClusterDiameter    float64            `json:"min_cluster_diameter"`
 	MaxClusterAspectRatio float64            `json:"max_cluster_aspect_ratio"`
+}
+
+// L4FragmentJoin bounds the evidence a prior body may lend to joining two
+// current clusters. It never supplies a missing return or an observation.
+type L4FragmentJoin struct {
+	Enabled                 bool    `json:"enabled"`
+	MaxGapMetres            float64 `json:"max_gap_metres"`
+	MarginMetres            float64 `json:"margin_metres"`
+	MaxAgeSecs              float64 `json:"max_age_secs"`
+	MinSpeedMps             float64 `json:"min_speed_mps"`
+	MaxPositionStddevMetres float64 `json:"max_position_stddev_metres"`
 }
 
 // L4ClusterPosition is the position a cluster reports to the tracker.

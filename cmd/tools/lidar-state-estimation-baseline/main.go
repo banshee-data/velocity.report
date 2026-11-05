@@ -51,14 +51,15 @@ type indexEntry struct {
 }
 
 type caseSummary struct {
-	ID                    string  `json:"id"`
-	Captures              int     `json:"captures"`
-	DurationSeconds       float64 `json:"duration_seconds"`
-	FirstRunFrames        int     `json:"first_run_frames"`
-	RepeatRunFrames       int     `json:"repeat_run_frames"`
-	BaselineEqual         bool    `json:"baseline_equal"`
-	ObservationSourceID   string  `json:"observation_source_id,omitempty"`
-	MeasurementSourceMode string  `json:"measurement_source_mode"`
+	FragmentJoin          *pipeline.FragmentJoinStats `json:"fragment_join,omitempty"`
+	ID                    string                      `json:"id"`
+	Captures              int                         `json:"captures"`
+	DurationSeconds       float64                     `json:"duration_seconds"`
+	FirstRunFrames        int                         `json:"first_run_frames"`
+	RepeatRunFrames       int                         `json:"repeat_run_frames"`
+	BaselineEqual         bool                        `json:"baseline_equal"`
+	ObservationSourceID   string                      `json:"observation_source_id,omitempty"`
+	MeasurementSourceMode string                      `json:"measurement_source_mode"`
 	// Experiments is the sorted list of default-off options this case ran
 	// with. Always present, empty for a shipped-behaviour replay, so a
 	// summary can never be read without knowing which it was.
@@ -472,7 +473,8 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			})
 		}
 		summary := caseSummary{
-			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: first.DurationSeconds,
+			FragmentJoin: firstResult.FragmentJoin,
+			ID:           selectedCase.ID, Captures: len(paths), DurationSeconds: first.DurationSeconds,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),

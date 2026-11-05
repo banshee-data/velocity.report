@@ -350,6 +350,13 @@ type TrackingPipelineConfig struct {
 	// l4perception.RangeAdaptiveEps.
 	RangeAdaptiveEps bool
 
+	// FragmentJoin is a default-off motion-supported joining experiment. It
+	// uses the previous observed body's prediction, before current association.
+	FragmentJoin *config.L4FragmentJoin
+	// OnFragmentJoin is an optional offline counter hook, called only when
+	// the joining experiment runs. It does not control the partition.
+	OnFragmentJoin func(componentsJoined int)
+
 	// FeatureExportFunc, when non-nil, is called for every confirmed track
 	// after classification. This hook allows exporting feature vectors for
 	// ML training data collection. The callback receives the track's
@@ -555,6 +562,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// than loading from disk on every frame. The per-frame overrides
 	// (Eps, MinPts, MaxInputPoints) from BackgroundParams still apply.
 	defaultDBSCANParams := cfg.clusterParams()
+	var fragmentJoin config.L4FragmentJoin
+	if cfg.FragmentJoin != nil {
+		fragmentJoin = *cfg.FragmentJoin
+	}
 	defaultDBSCANParams.MaxSamplePoints = cfg.MaxSamplePoints
 	defaultDBSCANParams.KeepMembers = cfg.KeepClusterMembers
 	defaultDBSCANParams.RadiusGraph = cfg.RadiusGraph
@@ -996,10 +1007,18 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// labels DBSCAN already computed, so the tap cannot change the clusters.
 		var clusters []l4perception.WorldCluster
 		var trace l4perception.DBSCANTrace
-		if draft != nil {
+		if draft != nil || fragmentJoin.Enabled {
 			clusters, trace = l4perception.DBSCANWithTrace(filteredPoints, dbscanParams)
 		} else {
 			clusters = l4perception.DBSCAN(filteredPoints, dbscanParams)
+		}
+		if fragmentJoin.Enabled && profile.RunsLayer(5) && !isNilInterface(cfg.Tracker) {
+			hints := motionFragmentHints(cfg.Tracker.GetConfirmedTracks(), frame.StartTimestamp, fragmentJoin)
+			var joined int
+			clusters, trace, joined = l4perception.JoinMotionFragments(clusters, trace, dbscanParams, hints, fragmentJoin.MaxGapMetres, fragmentJoin.MarginMetres)
+			if cfg.OnFragmentJoin != nil {
+				cfg.OnFragmentJoin(joined)
+			}
 		}
 		if len(lowerGroundRejected) > 0 {
 			l4perception.MarkGroundClipped(clusters, lowerGroundRejected)

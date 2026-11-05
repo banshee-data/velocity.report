@@ -300,6 +300,7 @@ type SplitUse struct {
 
 // Result summarises a completed replay.
 type Result struct {
+	FragmentJoin        *pipeline.FragmentJoinStats
 	VRLOGPath           string
 	FramesRead          int
 	FramesEmpty         int
@@ -918,6 +919,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		MinClusterDiameter:        tuningCfg.GetMinClusterDiameter(),
 		MaxClusterAspectRatio:     tuningCfg.GetMaxClusterAspectRatio(),
 		ClusterCentre:             tuningCfg.GetClusterCentre(),
+		FragmentJoin:              tuningCfg.GetFragmentJoin(),
 		HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
@@ -944,6 +946,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	}
 	if frameEvidenceSink != nil {
 		pipeCfg.FrameEvidenceSink = frameEvidenceSink
+	}
+	var fragmentJoinStats *pipeline.FragmentJoinStats
+	if j := tuningCfg.GetFragmentJoin(); j != nil && j.Enabled {
+		fragmentJoinStats = &pipeline.FragmentJoinStats{}
+		pipeCfg.OnFragmentJoin = fragmentJoinStats.Observe
 	}
 	var observationFrameSink *strictObservationFrameSink
 	var observationLog *vrlog.Writer
@@ -1343,6 +1350,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		}
 	}
 	result := &Result{
+		FragmentJoin:        fragmentJoinStats,
 		VRLOGPath:           filepath.Clean(cfg.OutDir),
 		FramesRead:          frameCount,
 		FramesEmpty:         pub.emptyFrames,
