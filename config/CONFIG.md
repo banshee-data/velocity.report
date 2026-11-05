@@ -716,3 +716,25 @@ tracker mapping; replay aliases add the same options, while a contradictory
 frame count refuses. These are experimental settings, not a promoted default
 or new runtime-parameter API. Use the registered `identity-body-older.json`
 and `identity-body-older-tentative.json` sets for [l5id0013](../data/experiments/l5id/l5id0013.md).
+
+## Default-off association cost and containment claim
+
+`l5.cv_kf_v1.association` optionally holds `likelihood_cost` and
+`containment_claim`; both keys are required when the block is present. Omitted,
+the default assignment and tuning fingerprint are unchanged. The likelihood
+cost adds `ln|S|` to the squared Mahalanobis cost. The containment claim refuses
+a confirmed body's pairing only when its predicted box cannot hold 98 % of the
+cluster returns and another eligible bidder can claim the cluster. If all
+bidders fail, it refuses none, avoiding a new birth caused by this rule alone.
+
+A claim requires `solid_body.enabled`, `full_members` and `containment`.
+Likelihood cost is refused with `near_edge_tracking`, whose A2 gate does not carry
+the likelihood noise model; mixing a tuning file and replay aliases cannot bypass
+that refusal.
+Startup and offline replay share the mapping. Existing `likelihood_cost` and
+`containment_claim` replay aliases add the same options; full-membership input
+can come from the tuning block. These settings are experimental, with no new
+runtime-parameter API. The four `association-*.json` parameter sets reproduce
+[l5id0011](../data/experiments/l5id/l5id0011.md); the
+[comparison report](../docs/lidar/operations/l5-likelihood-containment-2026-10.md)
+records the evidence and remaining qualification gates.

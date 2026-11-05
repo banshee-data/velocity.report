@@ -10,6 +10,8 @@ older entries stay put, however tempting hindsight may be.
 
 ## November 5, 2026 - Tracker continuity and evidence
 
+- {codex/association-cost-containment} Registered reproducible S3 likelihood/containment arms with startup/replay parity, kept containment claims bounded to competing bidders with full membership, and separated the cloud screen from full acceptance: [report](lidar/operations/l5-likelihood-containment-2026-10.md).
+
 - Added checked-in overlap/tentative identity parameter sets with replay alias parity and a labelled acceptance component that wrote each clause and refused tuning, unfrozen or unreviewed evidence; kept promotion pending the independent reviewed window: [report](lidar/operations/reacquisition-cloud-acceptance-2026-11.md) (#929).
 - Advanced L5 on empty and unavailable frames, preserved unknown support for missing processing, published predicted/expired state and retained capture-time expiry; recorded synthetic and kirk0 replay checks in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md) (#928).
 - Added a default-off W3 candidate joining current components only inside one recent, well-constrained moving-vehicle footprint, preserving complete processed membership, noise and original components on ambiguity or failed shape checks; wired startup/replay and recorded synthetic, lineage and cloud evidence separately from qualification: [report](lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md) (#930).

@@ -18,6 +18,9 @@ The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-va
 
 ## Quick links
 
+The [S3 likelihood/containment comparison](operations/l5-likelihood-containment-2026-10.md)
+records reproducible association arms and separates cloud development evidence from qualification.
+
 The [SpatialRust segmentation review](operations/spatialrust-segmentation-review.md) compares
 implemented upstream algorithms with our L3/L4 pipeline and proposes experiments, coding slices,
 and adoption gates. The

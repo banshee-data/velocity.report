@@ -84,6 +84,8 @@ choosing what to label are the cheapest to save.
 
 ### Progress after #614
 
+The [S3 cloud comparison](../lidar/operations/l5-likelihood-containment-2026-10.md) registers likelihood/containment arms; corpus and reviewed held-out identity acceptance remain open.
+
 #614 landed four slices behind default-off options. None changes the default replay, and none
 passes a gate. Read each row as "the machinery exists; the evidence does not".
 

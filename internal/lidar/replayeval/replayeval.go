@@ -1405,7 +1405,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig := l5tracks.TrackerConfigFromTuning(l5)
 	trackerConfig.MeasurementSourceMode = mode
 	trackerConfig.AdaptiveMeasurementNoise = hasExperiment(experiments, ExperimentAdaptiveUncertainty)
-	trackerConfig.LikelihoodAssociationCost = hasExperiment(experiments, ExperimentLikelihoodCost)
+	trackerConfig.LikelihoodAssociationCost = trackerConfig.LikelihoodAssociationCost || hasExperiment(experiments, ExperimentLikelihoodCost)
 	trackerConfig.CascadedAssociation = hasExperiment(experiments, ExperimentCascade)
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
@@ -1510,16 +1510,19 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 			"replay experiments %q qualify the solid body without %s, so there is no solid body for them to change",
 			experiments, ExperimentSolidBody)
 	}
-	if hasExperiment(experiments, ExperimentContainmentClaim) {
+	if trackerConfig.ContainmentClaim || hasExperiment(experiments, ExperimentContainmentClaim) {
 		// The claim changes which track takes a cluster, so the returns it
 		// judges must reach the tracker on every replay, the determinism
 		// repeat included, which keeps no evidence sample: the full members
 		// do, as near_edge_track requires for the same reason.
-		if !trackerConfig.SolidBody.Enabled || !trackerConfig.SolidBody.Containment || !hasExperiment(experiments, ExperimentSolidBodyFullMembers) {
+		if !trackerConfig.SolidBody.Enabled || !trackerConfig.SolidBody.Containment || !solidBodyFullMembers(l5, experiments) {
 			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s reads the contained box on the cluster's full members, so it needs %s, %s and %s, and %q lacks one",
 				ExperimentContainmentClaim, ExperimentSolidBody, ExperimentSolidBodyContainment, ExperimentSolidBodyFullMembers, experiments)
 		}
 		trackerConfig.ContainmentClaim = true
+	}
+	if trackerConfig.NearEdgeTracking && trackerConfig.LikelihoodAssociationCost {
+		return l5tracks.TrackerConfig{}, fmt.Errorf("%s does not combine with %s: the A2 gate does not carry its noise model", ExperimentNearEdgeTrack, ExperimentLikelihoodCost)
 	}
 	return trackerConfig, nil
 }

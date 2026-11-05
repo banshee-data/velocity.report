@@ -15,3 +15,5 @@ Fragment stitching across an occlusion, along drawn lane segments, is l5id0007 t
 [lane stitching plan](../../../docs/plans/lidar-lane-stitching-plan.md).
 
 The [current-default reacquisition refresh](l5id0013.md) registers reproducible overlap/tentative arms and an explicit labelled held-out acceptance component.
+
+The [S3 likelihood/containment comparison](l5id0011.md) has checked-in parameter sets and a [cloud report](../../../docs/lidar/operations/l5-likelihood-containment-2026-10.md).
