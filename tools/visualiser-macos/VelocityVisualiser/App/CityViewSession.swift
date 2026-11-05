@@ -35,7 +35,16 @@ import Foundation
     @Published var siteClocks: [String: String] = [:]
 
     /// The index file the sites were read from, for finding their scenes.
-    var indexURL: URL? { Self.url(for: sitesLocation).map(CitySiteIndex.indexURL(for:)) }
+    var indexURL: URL? { sitesURL.map(CitySiteIndex.indexURL(for:)) }
+    /// The location the index was last read from: the chosen folder, or
+    /// the typed path or URL.
+    private(set) var sitesURL: URL?
+    private var tilesSetting: CityLocationSetting {
+        CityLocationSetting(key: Self.tilesLocationKey, defaults: defaults)
+    }
+    private var sitesSetting: CityLocationSetting {
+        CityLocationSetting(key: Self.sitesLocationKey, defaults: defaults)
+    }
 
     @Published private(set) var sitesLocation: String
     @Published private(set) var index: CitySiteIndex?
@@ -59,29 +68,38 @@ import Foundation
         tilesLocation = defaults?.string(forKey: Self.tilesLocationKey) ?? ""
     }
 
-    /// Saves a new tiles location and reads its tileset.
+    /// Saves a typed tiles location and reads its tileset.
     func useTilesLocation(_ text: String) async {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        tilesLocation = trimmed
-        if trimmed.isEmpty {
-            defaults?.removeObject(forKey: Self.tilesLocationKey)
-        } else {
-            defaults?.set(trimmed, forKey: Self.tilesLocationKey)
+        tilesSetting.setTyped(text)
+        tilesLocation = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        await loadTileset()
+    }
+
+    /// Saves a folder or file chosen in the open panel, with the bookmark
+    /// the sandbox needs to read it, and reads its tileset.
+    func chooseTilesLocation(_ url: URL) async {
+        do { try tilesSetting.setChosen(url) } catch {
+            setTileset(nil, url: nil, error: error.localizedDescription)
+            return
         }
+        tilesLocation = url.path
         await loadTileset()
     }
 
     /// Reads the tileset from the saved location; without one, no tiles.
     func loadTileset() async {
-        guard let location = Self.url(for: tilesLocation) else {
+        guard let location = tilesSetting.open(typed: tilesLocation) else {
             setTileset(nil, url: nil, error: nil)
             return
         }
         do {
+            try CityLocationAccess.checkReadable(location)
             let url = try CityTileSource.tilesetURL(for: location)
             let read = try CityTileset.decode(await StaticFiles.read(url))
             setTileset(read, url: url, error: nil)
-        } catch { setTileset(nil, url: nil, error: error.localizedDescription) }
+        } catch {
+            setTileset(nil, url: nil, error: CityLocationAccess.describe(error, at: location))
+        }
     }
 
     func setTileset(_ next: CityTileset?, url: URL?, error: String?) {
@@ -116,44 +134,48 @@ import Foundation
         onCityMode?(next)
     }
 
-    /// A typed path or URL as a location: `~` expanded, a bare path a file URL.
-    nonisolated static func url(for text: String) -> URL? {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        if let url = URL(string: trimmed), let scheme = url.scheme?.lowercased(),
-            ["http", "https", "file"].contains(scheme)
-        {
-            return url
-        }
-        return URL(fileURLWithPath: (trimmed as NSString).expandingTildeInPath)
+    /// A typed path or URL as a location: `~` is the user's real home, not
+    /// the sandbox's container; a bare path is a file URL.
+    nonisolated static func url(for text: String) -> URL? { CityLocationSetting.url(for: text) }
+
+    /// Saves a typed location and reads the index from it.
+    func useSitesLocation(_ text: String) async {
+        sitesSetting.setTyped(text)
+        sitesLocation = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        await loadIndex()
     }
 
-    /// Saves a new location and reads the index from it.
-    func useSitesLocation(_ text: String) async {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        sitesLocation = trimmed
-        if trimmed.isEmpty {
-            defaults?.removeObject(forKey: Self.sitesLocationKey)
-        } else {
-            defaults?.set(trimmed, forKey: Self.sitesLocationKey)
+    /// Saves a folder or file chosen in the open panel, with its bookmark,
+    /// and reads the index from it.
+    func chooseSitesLocation(_ url: URL) async {
+        do { try sitesSetting.setChosen(url) } catch {
+            setIndex(nil, error: error.localizedDescription)
+            return
         }
+        sitesLocation = url.path
         await loadIndex()
     }
 
     /// Reads the index from the saved location; without one there is no
     /// index and the visualiser works as it did before the city view.
     func loadIndex() async {
-        guard let url = Self.url(for: sitesLocation) else {
+        sitesURL = sitesSetting.open(typed: sitesLocation)
+        guard let url = sitesURL else {
             setIndex(nil, error: nil)
             return
         }
         isLoading = true
         do {
+            try CityLocationAccess.checkReadable(url)
             let read = try await CitySiteIndex.load(from: url)
             setIndex(read, error: nil)
+        } catch let error as CityLocationAccess.AccessError {
+            setIndex(nil, error: error.localizedDescription)
         } catch {
+            let shown = url.isFileURL ? url.path : url.absoluteString
             setIndex(
-                nil, error: "No site index at \(url.absoluteString): \(error.localizedDescription)")
+                nil,
+                error: "No site index at \(shown): \(CityLocationAccess.describe(error, at: url))")
         }
         isLoading = false
     }

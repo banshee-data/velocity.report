@@ -264,7 +264,9 @@ struct ScenePlacement: Sendable, Equatable {
 /// Reads a static file from disk or over http(s).
 enum StaticFiles {
     static func read(_ url: URL, session: URLSession = APISession.shared) async throws -> Data {
-        if url.isFileURL { return try Data(contentsOf: url) }
+        if url.isFileURL {
+            return try SecurityScopedLocations.shared.reading(url) { try Data(contentsOf: url) }
+        }
         var request = URLRequest(url: url)
         request.timeoutInterval = 15
         let (data, response) = try await session.data(for: request)

@@ -3,7 +3,27 @@
 // (lidar-city-view-plan Item 5). The picker lists `city/sites.json`;
 // choosing a site, or Previous and Next, switches the main view to it.
 
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
+
+/// The open panel for a city location: a folder, or a JSON file.
+@MainActor enum CityLocationPanel {
+    static func choose(title: String, message: String, current: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.title = title
+        panel.message = message
+        panel.prompt = "Choose"
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = true
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.folder, .json]
+        if let url = CityLocationSetting.url(for: current), url.isFileURL {
+            panel.directoryURL = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
+        }
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+}
 
 /// What a site's row says: its title, its date, and "not yet placed" for a
 /// site without an accepted pose.
@@ -71,6 +91,16 @@ enum CitySiteText {
                 prompt: Text("Epoch folder, city-tiles folder, tileset.json or URL")
             ).onSubmit { Task { await city.useTilesLocation(tilesText) } }
             HStack {
+                Button("Choose…") {
+                    guard
+                        let url = CityLocationPanel.choose(
+                            title: "City tiles",
+                            message:
+                                "Choose Gerardus's city-tiles folder or one of its epoch folders.",
+                            current: tilesText)
+                    else { return }
+                    Task { await city.chooseTilesLocation(url) }
+                }.help("Choose the tiles folder, so the app may read it")
                 Button("Read tiles") { Task { await city.useTilesLocation(tilesText) } }
                 Spacer()
                 Text(city.tilesStatus).font(.caption).foregroundStyle(
@@ -81,6 +111,17 @@ enum CitySiteText {
                 prompt: Text("Folder, sites.json or URL of the published scenes")
             ).onSubmit { Task { await city.useSitesLocation(locationText) } }
             HStack {
+                Button("Choose…") {
+                    guard
+                        let url = CityLocationPanel.choose(
+                            title: "Site index",
+                            message:
+                                "Choose the folder that holds city/sites.json and the published "
+                                + "scenes.", current: locationText)
+                    else { return }
+                    Task { await city.chooseSitesLocation(url) }
+                }.help("Choose the published scenes' folder, so the app may read it").disabled(
+                    city.isLoading)
                 Button("Read") { Task { await city.useSitesLocation(locationText) } }.disabled(
                     city.isLoading)
                 if city.isLoading { ProgressView().controlSize(.small) }
@@ -113,12 +154,17 @@ enum CitySiteText {
                     + "\(CityViewSession.sitesLocationKey). The tiles are Gerardus's city tiles; "
                     + "over SMB, name the epoch folder, as the current link does not resolve. "
                     + "The index is city/sites.json beside the published scenes; it names each "
-                    + "site's captures, heading and placement."
+                    + "site's captures, heading and placement. Use Choose… for a folder on this "
+                    + "Mac or a mounted share: the app may read only what it is given. Choose "
+                    + "the folder rather than its JSON file, so the tiles and scenes beside it "
+                    + "can be read too. An http(s) URL may be typed."
             ).font(.caption).foregroundStyle(.secondary)
         }.onAppear {
             locationText = city.sitesLocation
             tilesText = city.tilesLocation
-        }
+        }.onChange(of: city.sitesLocation) { _, next in locationText = next }.onChange(
+            of: city.tilesLocation
+        ) { _, next in tilesText = next }
     }
 
     private var status: String {
@@ -130,8 +176,14 @@ enum CitySiteText {
 }
 
 /// The toolbar's City switch: the camera over the city, with the sites.
+/// Shown before the city view is set up too: then it opens Settings ▸
+/// Servers, where the tiles and the site index are chosen.
 @available(macOS 15.0, *) struct CityModeToolbarButton: View {
     @ObservedObject var city: CityViewSession
+    @Environment(\.openSettings) private var openSettings
+
+    static let setUpHelp =
+        "Set up the city view: choose the city tiles and the site index in Settings ▸ Servers"
 
     var body: some View {
         if city.canShowCity {
@@ -139,6 +191,13 @@ enum CitySiteText {
                 Label("City", systemImage: "building.2")
             }.toggleStyle(.button).help(
                 "Show the city: its streets, its buildings and every site with data")
+        } else {
+            Button {
+                SettingsTab.select(.servers)
+                openSettings()
+            } label: {
+                Label("City", systemImage: "building.2")
+            }.help(Self.setUpHelp).foregroundStyle(.secondary)
         }
     }
 }
