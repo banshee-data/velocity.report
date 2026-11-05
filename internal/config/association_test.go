@@ -36,6 +36,10 @@ func TestAssociationClaimRequiresContainedFullMembers(t *testing.T) {
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("likelihood cost bypassed the near-edge noise-model refusal")
 	}
+	cfg.L5.CvKfV1.SolidBody.Enabled = false
+	if err := cfg.Validate(); err == nil || !strings.Contains(err.Error(), "solid_body:") {
+		t.Fatalf("disabled body should report its own validation error: %v", err)
+	}
 }
 
 func TestAssociationConfigRoundTripAndDefaultOmission(t *testing.T) {

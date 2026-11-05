@@ -157,8 +157,9 @@ The full Go suite, native Makefile build, Go vet/lint, documentation lint,
 experiment registry and config-order checks passed. Focused tests cover actual
 file/alias/live parity, required inputs, round-trip fingerprints and mixed-option
 refusals. The native executable reported its correct version and commit stamp.
-The final cardinality counterexample is tested separately; subsequent edits to
-the measured implementation are comments and documentation only.
+The final cardinality counterexample is tested separately. The measured
+association algorithm is unchanged by the subsequent documentation, test and
+invalid-input diagnostic fixes.
 
 All four repeats are exact. First-plus-repeat wall times were 85.901, 83.818,
 86.185 and 86.759 s; separate box runs were 28.620, 27.963, 28.475 and 29.831 s.
