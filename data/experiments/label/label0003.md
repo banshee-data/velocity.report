@@ -21,7 +21,7 @@ steps:
   - id: spans
     kind: manual:label
     estimate: { human: 2h }
-    gate: { reviewed_fraction: 1.0 }
+    gate: { labelled_fraction: 1.0 }
     note: >-
       every road user's first and last frame, its class, and whether it is the same vehicle as
       another span (one record per vehicle, as kirk1's reference 60a4774c holds 49 road users);
