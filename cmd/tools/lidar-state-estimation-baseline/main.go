@@ -440,6 +440,9 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		if !bytes.Equal(firstBaseline, repeatBaseline) {
 			return nil, nil, fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID)
 		}
+		if !reflect.DeepEqual(firstResult.FragmentJoin, repeatResult.FragmentJoin) {
+			return nil, nil, fmt.Errorf("fragment joining differs on repeat for %s", selectedCase.ID)
+		}
 		// Every refinement horizon must reproduce too. Persistence is on for
 		// the first run only, which must not change a single figure.
 		var refinementArms []l8analytics.RefinementArmMetrics

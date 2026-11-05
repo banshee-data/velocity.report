@@ -68,6 +68,8 @@ func TestMotionJoinWiringKeepsObservationMembershipCoherent(t *testing.T) {
 				P: [16]float32{.01, 0, 0, 0, 0, .01, 0, 0, 0, 0, .01, 0, 0, 0, 0, .01}}
 			cfg.Tracker = &mockTrackerCov{confirmedTracks: []*l5tracks.TrackedObject{track}}
 			cfg.FragmentJoin = &config.L4FragmentJoin{Enabled: enabled, MaxGapMetres: 2, MarginMetres: .15, MaxAgeSecs: .2, MinSpeedMps: 2, MaxPositionStddevMetres: .75}
+			stats := &FragmentJoinStats{}
+			cfg.OnFragmentJoin = stats.Observe
 			capture := &clusterCapture{}
 			cfg.VisualiserAdapter = capture
 			cfg.VisualiserPublisher = discardPublisher{}
@@ -93,6 +95,12 @@ func TestMotionJoinWiringKeepsObservationMembershipCoherent(t *testing.T) {
 			members := 0
 			for _, c := range last.Clusters {
 				members += len(c.Members)
+			}
+			if enabled && (stats.Frames != 1 || stats.FramesWithJoins != 1 || stats.ComponentsJoined != 1) {
+				t.Fatalf("joining counters: %+v", stats)
+			}
+			if !enabled && stats.Frames != 0 {
+				t.Fatal("disabled joining emitted a counter")
 			}
 			if members != 24 || len(sink.failures) != 0 {
 				t.Fatalf("membership=%d failures=%v", members, sink.failures)
