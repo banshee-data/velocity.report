@@ -3,7 +3,7 @@
 This note evaluates a newly surfaced causal-validation framework for roadside driving-behaviour research. It distinguishes accurate observation from predictive association and from evidence that changing the observable changes crash outcomes.
 
 - **Status:** Research assessment only. No safety threshold, per-driver verdict, metric promotion or pipeline change.
-- **References:** `Wu2026CrashSurrogate` (new), `Nasri2026` (existing context); [canonical bibliography](../../data/maths/references.bib).
+- **References:** `Wu2026` (new), `Nasri2026` (existing context); [canonical bibliography](../../data/maths/references.bib).
 - **Canonical:** [behaviour analytics plan](../plans/lidar-behaviour-analytics-plan.md), [state-estimation plan](../plans/lidar-state-estimation-plan.md), [crash-data context plan](../plans/platform-crash-data-integration-plan.md) and [backlog](../BACKLOG.md).
 
 ## Meaningful addition — Wu and Flannagan (2026)
