@@ -112,6 +112,39 @@ func TestHandleDataSourceReportsReplayPasses(t *testing.T) {
 	assertField(t, decodeDataSource(t, ws), "replay_pass", "recording")
 }
 
+// TestHandleLidarStatusReportsReplayActive verifies /api/lidar/status says
+// whether a replay holds the slot. The Status page gates Start on it: a VRLOG
+// replay leaves pcap_in_progress false, and a parked finished VRLOG replay
+// keeps data_source "vrlog" with the slot free.
+func TestHandleLidarStatusReportsReplayActive(t *testing.T) {
+	ws := &Server{sensorID: "test-sensor", state: newPipelineState()}
+	status := func() map[string]interface{} {
+		req := httptest.NewRequest(http.MethodGet, "/api/lidar/status", nil)
+		w := httptest.NewRecorder()
+		ws.handleLidarStatus(w, req)
+		var resp map[string]interface{}
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("decode status: %v", err)
+		}
+		return resp
+	}
+
+	assertField(t, status(), "replay_active", false)
+
+	ws.mutateState("test: VRLOG replay running", func(s *PipelineState) {
+		s.Source = SourceModeVRLog
+		s.ReplayActive = true
+	})
+	resp := status()
+	assertField(t, resp, "replay_active", true)
+	assertField(t, resp, "pcap_in_progress", false)
+
+	ws.mutateState("test: VRLOG replay parked", func(s *PipelineState) { s.ReplayActive = false })
+	resp = status()
+	assertField(t, resp, "replay_active", false)
+	assertField(t, resp, "data_source", "vrlog")
+}
+
 // TestHandleLidarStatusRendersPCAPAnalysisMode covers the HTML status page,
 // whose mode switch had no case for the analysis state and so rendered
 // "Live UDP" while the pipeline sat on a preserved PCAP grid.
