@@ -30,7 +30,7 @@ The first claim is a **prerequisite for** the other two, but passing it is not e
 
 ## Existing complementary evidence (not newly published)
 
-[Nasri et al. (2026), _Journal of Safety Research_](https://doi.org/10.1016/j.jsr.2026.04.008), reviewed in [the October 22 DRAC/TTC/PET note](2026-10-22/drac-and-conflict-metrics.md), analyzed **54.8 million one-second trajectory samples at 139 signalized intersections in Tucson**, linked to five years of police-reported crashes. DRAC was the strongest of the tested surrogate predictors across their model classes. In negative-binomial models, 1,000 additional _critical DRAC events_ were associated with about **5–10% higher expected counts** of selected crash types. TTC contributed less; PET had little value at their one-second sampling resolution.
+[Nasri et al. (2026), _Journal of Safety Research_](https://doi.org/10.1016/j.jsr.2026.04.008), reviewed in [the October 22 DRAC/TTC/PET note](2026-10-22/drac-and-conflict-metrics.md), analysed **54.8 million one-second trajectory samples at 139 signalized intersections in Tucson**, linked to five years of police-reported crashes. DRAC was the strongest of the tested surrogate predictors across their model classes. In negative-binomial models, 1,000 additional _critical DRAC events_ were associated with about **5–10% higher expected counts** of selected crash types. TTC contributed less; PET had little value at their one-second sampling resolution.
 
 This is **observational crash-count association, not causal mediation validation**. DRAC denotes a _required_ deceleration to avoid a modeled collision under declared assumptions; it must not be relabeled as a measured hard-braking maneuver. The effect size is specific to the authors' event definitions, observation density, crash outcomes, model and study network; it is not a portable threshold for a 10 Hz nominal / lower effective-rate roadside LiDAR survey. Cross-study event rates cannot be compared without compatible exposure and sampling.
 
@@ -38,7 +38,7 @@ This is **observational crash-count association, not causal mediation validation
 
 - Report interpretable measurements: approach speed distribution, braking-onset and peak-deceleration locations, qualified event counts per **eligible observed passage/opportunity**, missingness and confidence bounds. Keep the physical reference point, longitudinal axis and map registration version explicit.
 - Continue the geometry-first work: foreground retention, stable body-center/facet measurement, identity continuity, held-out position and motion accuracy, then qualified derivatives. Smoothing or constant-velocity predictions cannot turn systematic measurement bias into valid braking.
-- Keep **measurement language** distinct from **safety claims**. A braking hot spot can justify investigating sightlines, crossings, signal timing, congestion, turning behavior or conflicting movements; it is not a stand-alone finding of dangerous design.
+- Keep **measurement language** distinct from **safety claims**. A braking hot spot can justify investigating sightlines, crossings, signal timing, congestion, turning behaviour or conflicting movements; it is not a stand-alone finding of dangerous design.
 - Preserve crash-surrogate and conflict distributions separately. Do not invent a universal threshold for acceleration, jerk, hard braking, TTC, PET or DRAC, and do not publish an aggregate “aggressive driver” or “danger score.”
 - Before/after survey reports may describe changes in observed braking, location and exposure. They must not state that crashes were prevented or causal risk fell without external outcome evidence and a study design that supports such inference.
 - Apply [the crash-data plan's existing scope boundary](../plans/platform-crash-data-integration-plan.md): neither a site crash rate nor a site-level surrogate-to-crash calibration is established by the fixed sensor.
@@ -56,7 +56,7 @@ If triggered, design a falsifiable study:
 5. **Only then test mediation:** specify and justify the causal assumptions, estimate uncertainty in the mediated effect, search for direct/unmediated effects, and check scenarios where the event rate improves while crash severity, conflicts or other outcomes worsen.
 6. **Record failed claims:** report insufficient power, missing crash data, incompatible exposure or untestable assumptions as **not validated**, rather than converting exploratory associations into a public risk verdict.
 
-No new field collection, crash database import or production metric is authorized by this note. Existing 05x physical measurement and 07x behavior schedules remain unchanged.
+No new field collection, crash database import or production metric is authorized by this note. Existing 05x physical measurement and 07x behaviour schedules remain unchanged.
 
 ## Open questions
 

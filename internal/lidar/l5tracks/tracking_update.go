@@ -23,7 +23,7 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 			a := track.solidBody.pending.applied
 			shiftHistory(track, a.shiftX, a.shiftY)
 			measurement = t.recordTrackedNearEdgeResidual(track, predicted, cluster, measurement)
-			t.recordUpdate(track, cluster, measurement)
+			t.recordUpdate(track, cluster, measurement, nowNanos)
 			return
 		}
 	}
@@ -115,13 +115,13 @@ func (t *Tracker) update(track *TrackedObject, cluster WorldCluster, nowNanos in
 
 	// Clamp velocity magnitude after update (task 2.3).
 	t.clampVelocity(track)
-	t.recordUpdate(track, cluster, measurement)
+	t.recordUpdate(track, cluster, measurement, nowNanos)
 }
 
 // recordUpdate does an associated frame's bookkeeping once the filter's state
 // is final: timestamps, aggregated features, history, speed statistics and
 // the heading decision.
-func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measurement PositionMeasurement) {
+func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measurement PositionMeasurement, frameNanos int64) {
 	// Update timestamp
 	track.LastMeasurementSource = measurement.Source
 	track.LastMeasurementUnixNanos = measurement.UnixNanos
@@ -170,10 +170,11 @@ func (t *Tracker) recordUpdate(track *TrackedObject, cluster WorldCluster, measu
 		// trail point, which may be coasted (see lengthAnchor).
 		anchor, hasAnchor := lengthAnchor(track.History)
 		track.History = append(track.History, TrackPoint{
-			X:         track.X,
-			Y:         track.Y,
-			Timestamp: measurement.UnixNanos,
-			Support:   SupportObserved,
+			X:              track.X,
+			Y:              track.Y,
+			Timestamp:      measurement.UnixNanos,
+			FrameUnixNanos: frameNanos,
+			Support:        SupportObserved,
 		})
 		if hasAnchor {
 			dx := track.X - anchor.X

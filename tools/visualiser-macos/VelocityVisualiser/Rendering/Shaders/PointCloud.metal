@@ -205,29 +205,24 @@ fragment float4 boxFragment(BoxVertexOut in [[stage_in]]) {
 
 struct TrailVertexOut {
     float4 position [[position]];
-    float alpha;
+    float4 colour;
 };
 
 vertex TrailVertexOut trailVertex(
     uint vid [[vertex_id]],
-    constant float4 *vertices [[buffer(0)]],
+    constant float *vertices [[buffer(0)]],
     constant Uniforms &uniforms [[buffer(1)]]
 ) {
-    float4 vert = vertices[vid];
-    float3 pos = vert.xyz;
-    float alpha = vert.w;
-
+    uint base = vid * 7;
+    float3 pos = float3(vertices[base], vertices[base + 1], vertices[base + 2]);
     TrailVertexOut out;
     out.position = uniforms.modelViewProjection * float4(pos, 1.0);
-    out.alpha = alpha;
-
+    out.colour = float4(vertices[base + 3], vertices[base + 4], vertices[base + 5], vertices[base + 6]);
     return out;
 }
 
 fragment float4 trailFragment(TrailVertexOut in [[stage_in]]) {
-    // Trail colour with fade
-    float3 colour = float3(0.2, 0.8, 0.3); // green
-    return float4(colour, in.alpha);
+    return in.colour;
 }
 
 // MARK: - Debug Line Shaders (M5/M6)

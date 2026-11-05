@@ -328,7 +328,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     var trailVertices: MTLBuffer?
     var trailVertexCount: Int = 0
-    var trailSegments: [(start: Int, count: Int)] = []  // Each trail's range in the buffer
+    var trailSegments: [(start: Int, count: Int)] = []  // Ranges of disconnected line-pair vertices
 
     // M5: Heading arrow vertices (rendered as lines showing OBB heading direction)
     var headingArrowVertices: MTLBuffer?
@@ -1007,7 +1007,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         )
         defer {
             trace.end(
-                "boxes=\(boxInstanceCount) clusters=\(clusterInstanceCount) trails=\(trailSegments.count)"
+                "boxes=\(boxInstanceCount) clusters=\(clusterInstanceCount) trailEdges=\(trailVertexCount / 2)"
             )
         }
 
@@ -1031,7 +1031,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         if let clusters = frame.clusters { updateClusterInstances(clusters) }
 
         // Update trails
-        if let tracks = frame.tracks { updateTrailBuffer(tracks) }
+        updateTrailBuffer(frame.tracks ?? TrackSet())
 
         // M5: Update heading arrows from tracks + clusters
         updateHeadingArrows(tracks: frame.tracks, clusters: frame.clusters)
@@ -1280,34 +1280,29 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     }
 
     private func updateTrailBuffer(_ trackSet: TrackSet) {
-        // Trail vertices: [x, y, z, alpha] per vertex
-        var vertices = [Float]()
-        var segments: [(start: Int, count: Int)] = []
-
-        for trail in trackSet.trails {
-            // Skip filtered-out tracks
-            if hiddenTrackIDs.contains(trail.trackID) { continue }
-            let pointCount = trail.points.count
-            guard pointCount >= 2 else { continue }
-
-            let segmentStart = vertices.count / 4  // Start index for this trail
-
-            for (i, point) in trail.points.enumerated() {
-                let alpha = Float(i) / Float(pointCount - 1)  // fade from 0 to 1
-                vertices.append(point.x)
-                vertices.append(point.y)
-                vertices.append(0.1)  // slight Z offset
-                vertices.append(alpha)
+        // One pair per edge; neither absent samples nor support styles can
+        // create a connecting strip. The helper also bounds imported history.
+        let visibleIDs = Set(
+            trackSet.tracks.filter { $0.state != .deleted && !hiddenTrackIDs.contains($0.trackID) }
+                .map { $0.trackID })
+        let edges = TrailGeometry.edges(
+            trails: trackSet.trails, visibleIDs: visibleIDs,
+            timestampNanos: trackSet.timestampNanos)
+        var vertices: [Float] = []
+        vertices.reserveCapacity(edges.count * 14)
+        for edge in edges {
+            let colour = edge.style.colour
+            for point in [edge.start, edge.end] {
+                vertices.append(contentsOf: [point.x, point.y, point.z, colour.x, colour.y, colour.z, edge.alpha])
             }
-
-            segments.append((start: segmentStart, count: pointCount))
         }
+        let segments = vertices.isEmpty ? [] : [(start: 0, count: vertices.count / 7)]
 
         if !vertices.isEmpty {
             let bufferSize = vertices.count * MemoryLayout<Float>.stride
             trailVertices = device.makeBuffer(
                 bytes: vertices, length: bufferSize, options: .storageModeShared)
-            trailVertexCount = vertices.count / 4
+            trailVertexCount = vertices.count / 7
             trailSegments = segments
         } else {
             trailVertexCount = 0
@@ -1656,7 +1651,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         drawNearbySites(encoder: encoder)
 
-        // Draw trails (each trail as a separate lineStrip)
+        // Draw disconnected trail edges with support/stage colours.
         if showTrails, let pipeline = trailPipeline, let vertices = trailVertices,
             !trailSegments.isEmpty
         {
@@ -1664,10 +1659,10 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             encoder.setVertexBuffer(vertices, offset: 0, index: 0)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
 
-            // Draw each trail as a separate line strip
+            // Independent vertex pairs preserve gaps and dash geometry.
             for segment in trailSegments {
                 encoder.drawPrimitives(
-                    type: .lineStrip, vertexStart: segment.start, vertexCount: segment.count)
+                    type: .line, vertexStart: segment.start, vertexCount: segment.count)
             }
         }
 

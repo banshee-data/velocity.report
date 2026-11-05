@@ -62,6 +62,26 @@ const (
 	SustainedLockFrames = 5
 )
 
+// TrailAnchor identifies the display point without allocating per-sample tokens.
+type TrailAnchor uint8
+
+const (
+	TrailAnchorUnrecorded TrailAnchor = iota
+	TrailAnchorFilterState
+	TrailAnchorPublishedBox
+)
+
+func (a TrailAnchor) String() string {
+	switch a {
+	case TrailAnchorFilterState:
+		return "filter_state"
+	case TrailAnchorPublishedBox:
+		return "published_box_center"
+	default:
+		return ""
+	}
+}
+
 // TrackPoint represents a single point in a track's history.
 type TrackPoint struct {
 	X         float32
@@ -72,6 +92,11 @@ type TrackPoint struct {
 	// hypothesis alike. Zero for points not produced by the live tracker,
 	// such as history restored from storage. See continuity.go.
 	Support ObservationSupport
+	// Display geometry is captured after the published box update. X/Y above
+	// remain filter history for metrics; never replace them with a box centre.
+	FrameUnixNanos               int64
+	DisplayX, DisplayY, DisplayZ float32
+	DisplayAnchor                TrailAnchor
 }
 
 // TrackedObject represents a single tracked object in the tracker.
@@ -632,6 +657,7 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 	for clusterIdx, trackID := range associations {
 		if track := t.Tracks[trackID]; trackID != "" && track != nil && track.TrackState != TrackDeleted {
 			t.updateBox(track, &clusters[clusterIdx], nowNanos)
+			stampTrailDisplay(track, nowNanos)
 		}
 	}
 
@@ -702,11 +728,13 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 			distFromOrigin := track.X*track.X + track.Y*track.Y
 			if distFromOrigin > 0.01 { // > 0.1m squared
 				track.History = append(track.History, TrackPoint{
-					X:         track.X,
-					Y:         track.Y,
-					Timestamp: nowNanos,
-					Support:   support,
+					X:              track.X,
+					Y:              track.Y,
+					Timestamp:      nowNanos,
+					FrameUnixNanos: nowNanos,
+					Support:        support,
 				})
+				stampTrailDisplay(track, nowNanos)
 				if len(track.History) > t.Config.MaxTrackHistoryLength {
 					track.History = track.History[len(track.History)-t.Config.MaxTrackHistoryLength:]
 				}
@@ -834,10 +862,11 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		TrackDurationSecs: 0,
 
 		History: []TrackPoint{{
-			X:         measurement.X,
-			Y:         measurement.Y,
-			Timestamp: measurement.UnixNanos,
-			Support:   SupportObserved,
+			X:              measurement.X,
+			Y:              measurement.Y,
+			Timestamp:      measurement.UnixNanos,
+			FrameUnixNanos: nowNanos,
+			Support:        SupportObserved,
 		}},
 		LastClusterID: cluster.ClusterID,
 
@@ -864,6 +893,7 @@ func (t *Tracker) initTrack(cluster WorldCluster, nowNanos int64) *TrackedObject
 		t.seedSolidBody(track, cluster)
 	}
 	t.updateBox(track, &cluster, nowNanos)
+	stampTrailDisplay(track, nowNanos)
 	t.TracksCreated++
 	t.continuity.TracksBorn++
 	t.recordSupport(track, SupportObserved)
@@ -992,4 +1022,26 @@ func (t *Tracker) predictToMeasurement(track *TrackedObject, cluster WorldCluste
 	}
 	t.predictSpan(track, dt)
 	track.StateUnixNanos = measurement.UnixNanos
+}
+
+// stampTrailDisplay snapshots the geometry actually published at this state
+// instant. Only this frame's point is eligible: an origin-suppressed update
+// must not rewrite an older sample or manufacture a historical box centre.
+func stampTrailDisplay(track *TrackedObject, frameNanos int64) {
+	if len(track.History) == 0 {
+		return
+	}
+	point := &track.History[len(track.History)-1]
+	if point.FrameUnixNanos != frameNanos || point.X != track.X || point.Y != track.Y {
+		return
+	}
+	point.DisplayX, point.DisplayY, point.DisplayZ = track.X, track.Y, track.LatestZ
+	point.DisplayAnchor = TrailAnchorFilterState
+	if track.BoxLength > 0 {
+		point.DisplayX, point.DisplayY = track.BoxX, track.BoxY
+		point.DisplayAnchor = TrailAnchorPublishedBox
+		if track.BoxHeight > 0 {
+			point.DisplayZ = track.BoxZ
+		}
+	}
 }
