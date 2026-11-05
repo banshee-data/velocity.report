@@ -271,3 +271,9 @@ make proto-gen-swift
 - [UI docs](../../docs/ui/)
 - [API contract](../../docs/ui/visualiser/api-contracts.md)
 - [Architecture](../../docs/ui/visualiser/architecture.md)
+
+Native trails preserve capture-time display anchors and distinguish observations, predicted
+support and unrecorded legacy history. Gaps and estimate changes cannot create connecting
+strips. `make test-mac-trails` checks the pure geometry without an app host or Metal device;
+see the [native trail contract](../../docs/lidar/operations/native-trail-support-cloud-2026-11.md)
+for the wire fields, styles and remaining physical/visual acceptance work.

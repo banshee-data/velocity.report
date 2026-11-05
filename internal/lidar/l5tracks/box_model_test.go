@@ -714,3 +714,76 @@ func TestBoxModelYieldFramesLetsAHeldLengthGiveWay(t *testing.T) {
 		t.Fatalf("the vehicle floor was lost in the yield: %.2f m", b.Length)
 	}
 }
+
+func TestTrailDisplaySnapshotDoesNotChangeFilterHistory(t *testing.T) {
+	tr := &TrackedObject{X: 10, Y: 20, LatestZ: -2, History: []TrackPoint{{X: 10, Y: 20, Timestamp: 99, FrameUnixNanos: 100, Support: SupportObserved}}}
+	stampTrailDisplay(tr, 100)
+	p := tr.History[0]
+	if p.X != 10 || p.Y != 20 || p.Timestamp != 99 || p.DisplayX != 10 || p.DisplayY != 20 || p.DisplayZ != -2 || p.DisplayAnchor != TrailAnchorFilterState {
+		t.Fatalf("filter snapshot: %+v", p)
+	}
+	tr.BoxLength = 4
+	tr.BoxX = 12
+	tr.BoxY = 21
+	tr.BoxZ = -1
+	tr.BoxHeight = 2
+	stampTrailDisplay(tr, 100)
+	p = tr.History[0]
+	if p.X != 10 || p.Y != 20 || p.Timestamp != 99 || p.DisplayX != 12 || p.DisplayY != 21 || p.DisplayZ != -1 || p.DisplayAnchor != TrailAnchorPublishedBox {
+		t.Fatalf("published snapshot: %+v", p)
+	}
+	before := p
+	tr.BoxX = 999
+	stampTrailDisplay(tr, 101)
+	if tr.History[0] != before {
+		t.Fatal("later frame rewrote historical geometry")
+	}
+	tr.X = 0
+	stampTrailDisplay(tr, 100)
+	if tr.History[0] != before {
+		t.Fatal("origin-suppressed update rewrote historical geometry")
+	}
+	stampTrailDisplay(&TrackedObject{}, 100)
+	for anchor, token := range map[TrailAnchor]string{TrailAnchorUnrecorded: "", TrailAnchorFilterState: "filter_state", TrailAnchorPublishedBox: "published_box_center", TrailAnchor(255): ""} {
+		if anchor.String() != token {
+			t.Fatalf("anchor %d: %q", anchor, anchor.String())
+		}
+	}
+}
+
+func TestTrackerSnapshotsObservedCoastedAndBirthAnchors(t *testing.T) {
+	cfg := DefaultTrackerConfig()
+	cfg.HitsToConfirm = 1
+	cfg.MeasurementTimePrediction = true
+	tk := NewTracker(cfg)
+	at := time.Unix(1700000000, 0)
+	cluster := l4perception.WorldCluster{ClusterID: 1, SensorID: "trail", CentroidX: 10, CentroidY: 20, BoundingBoxLength: 4, BoundingBoxWidth: 2, BoundingBoxHeight: 1.5, PointsCount: 20}
+	for i := 0; i < 3; i++ {
+		when := at.Add(time.Duration(i) * 100 * time.Millisecond)
+		cluster.TSUnixNanos = when.UnixNano() + 500000
+		clusters := []l4perception.WorldCluster{cluster}
+		if i == 2 {
+			clusters = nil
+		}
+		tk.Update(clusters, when)
+		active := tk.GetActiveTracks()
+		if len(active) != 1 {
+			t.Fatalf("active tracks=%d", len(active))
+		}
+		p := active[0].History[len(active[0].History)-1]
+		wantAnchor, wantX, wantY := TrailAnchorFilterState, active[0].X, active[0].Y
+		if active[0].BoxLength > 0 {
+			wantAnchor, wantX, wantY = TrailAnchorPublishedBox, active[0].BoxX, active[0].BoxY
+		}
+		if p.FrameUnixNanos != when.UnixNano() || p.DisplayAnchor != wantAnchor || p.DisplayX != wantX || p.DisplayY != wantY {
+			t.Fatalf("frame %d: %+v", i, p)
+		}
+		want := SupportObserved
+		if i == 2 {
+			want = SupportCoasted
+		}
+		if p.Support != want {
+			t.Fatalf("frame %d support=%s", i, p.Support)
+		}
+	}
+}

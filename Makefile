@@ -1572,6 +1572,15 @@ test-docs-offline-cov: ensure-python-tools
 	@$(VENV_PYTHON) -m coverage report --fail-under=98 scripts/verify-embedded-docs-server.py
 
 # Run macOS visualiser tests (XCTest)
+.PHONY: test-mac-trails
+test-mac-trails: ## Test native trail geometry without a GPU or app host
+	@command -v swiftc >/dev/null 2>&1 || { echo "swiftc is required"; exit 1; }
+	@set -eu; task_tmp=$$(mktemp -d); \
+	trap 'rm -f "$$task_tmp/trail-tests"; rmdir "$$task_tmp"' EXIT; \
+	swiftc -O tools/visualiser-macos/VelocityVisualiser/Models/TrackTrail.swift \
+		tools/visualiser-macos/scripts/TrailGeometrySmoke.swift -o "$$task_tmp/trail-tests"; \
+	"$$task_tmp/trail-tests"
+
 test-mac:
 	@echo "Running macOS visualiser tests..."
 	@if [ "$$(uname)" != "Darwin" ]; then \
@@ -2026,6 +2035,13 @@ format-web:
 			echo "pnpm/npx not found; skipping public_html src formatting"; \
 		fi; \
 	fi
+
+.PHONY: lint-mac
+lint-mac: ## Check the native source and tests with the repository Swift format
+	@command -v swift-format >/dev/null 2>&1 || { echo "swift-format is required"; exit 1; }
+	@swift-format lint --configuration $(MAC_DIR)/.swift-format --recursive \
+		$(MAC_DIR)/VelocityVisualiser $(MAC_DIR)/VelocityVisualiserTests \
+		$(MAC_DIR)/scripts/TrailGeometrySmoke.swift
 
 format-mac:
 	@echo "Formatting macOS Swift code (swift-format)..."

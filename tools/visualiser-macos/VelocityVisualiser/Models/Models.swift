@@ -311,17 +311,6 @@ struct Track {
     var boxCentreY: Float { bboxCenterValid ? bboxCenterY : y }
 }
 
-struct TrackPoint {
-    var x: Float = 0
-    var y: Float = 0
-    var timestampNanos: Int64 = 0
-}
-
-struct TrackTrail {
-    var trackID: String = ""
-    var points: [TrackPoint] = []
-}
-
 struct TrackSet {
     var frameID: UInt64 = 0
     var timestampNanos: Int64 = 0

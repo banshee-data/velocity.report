@@ -69,6 +69,7 @@ export interface Track {
 		y: number;
 		timestamp: string;
 		timestamp_ns?: string;
+		frame_timestamp_ns?: string;
 		support?: string;
 		anchor?: string;
 	}[];
