@@ -41,6 +41,8 @@ The [joining-control design](operations/pcl-joining-cap-controls.md) separates c
 connectivity with six matched arms and a frozen-input oracle.
 The [planar registration disposition](operations/pcl-planar-registration-disposition.md) places
 one comparator within facet arm B and corrects the earlier 2-D z-translation claim.
+The [current-default reacquisition screen](operations/reacquisition-cloud-acceptance-2026-11.md)
+records reproducible identity candidates, their duplicate/noise tradeoff and the labelled held-out acceptance component.
 The [hypothesis-verification disposition](operations/pcl-hypothesis-verification-disposition.md)
 drops a separate duplicate-track arm and records its visibility and temporal-identity limits.
 The [Gerardus novelty audit](operations/pcl-gerardus-registration-gap-review.md) confirms its

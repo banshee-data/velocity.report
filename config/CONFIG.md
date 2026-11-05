@@ -693,3 +693,14 @@ negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1. `rectangle_
 | `pipeline.flush_interval`   | string | [GetFlushInterval](../internal/config/tuning_accessors.go)   | Background snapshot cadence.                                                     |
 | `pipeline.background_flush` | bool   | [GetBackgroundFlush](../internal/config/tuning_accessors.go) | Background snapshot master switch.                                               |
 | `pipeline.frame_budget_ms`  | float  | [GetFrameBudgetMs](../internal/config/profile.go)            | Per-frame wall-clock ceiling; frames beyond it count as over budget. Default 98. |
+
+## Default-off identity acceptance options
+
+The optional `l5.cv_kf_v1.identity` block holds `tentative_priority`,
+`overlap_end_frames`, `overlap_end_on_body` and `overlap_end_keep_older`.
+Absent, defaults and their fingerprint stay unchanged. Body/older qualifiers
+require a positive frame count. The offline tools and startup use the same
+tracker mapping; replay aliases add the same options, while a contradictory
+frame count refuses. These are experimental settings, not a promoted default
+or new runtime-parameter API. Use the registered `identity-body-older.json`
+and `identity-body-older-tentative.json` sets for [l5id0013](../data/experiments/l5id/l5id0013.md).
