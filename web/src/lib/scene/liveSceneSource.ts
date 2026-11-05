@@ -13,8 +13,22 @@ import type { SceneChunk, SceneFrame, SceneHeader, SceneTrack } from '$scene/sce
 import { PartReader, SceneSession } from '$scene/scene-reader.js';
 import type { RunTrack, TrackObservation } from '#lib/types/lidar.js';
 
-/** Microseconds in one millisecond, named so the conversions read plainly. */
-const US_PER_MS = 1000;
+/** Read exact API timestamps; older servers retain RFC3339 nanoseconds. */
+function captureNanos(observation: TrackObservation): bigint | null {
+	const exact = observation.frame_timestamp_ns ?? observation.timestamp_ns;
+	if (exact !== undefined) {
+		if (!/^-?\d{1,19}$/.test(exact)) return null;
+		const ns = BigInt(exact);
+		return ns >= -(1n << 63n) && ns < 1n << 63n ? ns : null;
+	}
+	const match = /^(.*T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})$/.exec(
+		observation.timestamp
+	);
+	if (!match) return null;
+	const ms = Date.parse(`${match[1]}${match[3]}`);
+	if (!Number.isFinite(ms)) return null;
+	return BigInt(ms) * 1000000n + BigInt((match[2] ?? '').padEnd(9, '0'));
+}
 
 export interface LiveFrameBuildResult {
 	frames: SceneFrame[];
@@ -62,38 +76,37 @@ export function buildLiveFrames(
 	}
 
 	let skipped = 0;
-	const byTimestamp = new Map<number, TrackObservation[]>();
+	const byTimestamp = new Map<bigint, TrackObservation[]>();
 	for (const observation of observations) {
-		const ms = Date.parse(observation.timestamp);
-		if (!Number.isFinite(ms)) {
+		const ns = captureNanos(observation);
+		if (ns === null) {
 			// A row we cannot place in time cannot be drawn in time either.
 			skipped += 1;
 			continue;
 		}
-		const bucket = byTimestamp.get(ms);
+		const bucket = byTimestamp.get(ns);
 		if (bucket) bucket.push(observation);
-		else byTimestamp.set(ms, [observation]);
+		else byTimestamp.set(ns, [observation]);
 	}
 
-	const timestamps = [...byTimestamp.keys()].sort((a, b) => a - b);
+	const timestamps = [...byTimestamp.keys()].sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
 	if (timestamps.length === 0) {
 		return { frames: [], startNs: '0', skipped };
 	}
 
-	const firstMs = timestamps[0];
-	const frames: SceneFrame[] = timestamps.map((ms, index) => ({
+	const firstNs = timestamps[0];
+	const frames: SceneFrame[] = timestamps.map((ns, index) => ({
 		f: index,
-		t: Math.round((ms - firstMs) * US_PER_MS),
-		tr: (byTimestamp.get(ms) ?? []).map((observation) =>
+		t: Number(ns - firstNs) / 1000,
+		tr: (byTimestamp.get(ns) ?? []).map((observation) =>
 			toSceneTrack(observation, classByTrack, peakSpeed)
 		)
 	}));
 
 	return {
 		frames,
-		// Milliseconds to nanoseconds, kept as a string for the same reason
-		// the export does: the value is past float precision.
-		startNs: `${firstMs}000000`,
+		// Absolute nanoseconds remain decimal text across the JSON boundary.
+		startNs: firstNs.toString(),
 		skipped
 	};
 }
@@ -107,6 +120,8 @@ function toSceneTrack(
 	const box = observation.box;
 	return {
 		id: observation.track_id,
+		support: observation.support ?? '',
+		anchor: box ? 'published_box_center' : 'observation',
 		x: observation.position.x,
 		y: observation.position.y,
 		z: observation.position.z,

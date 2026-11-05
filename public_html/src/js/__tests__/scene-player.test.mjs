@@ -8,6 +8,7 @@ import * as THREE from "three";
 
 import {
   TrackVisual,
+  buildTrailSegments,
   buildRegionRing,
   createTeardown,
   buildTrailHistories,
@@ -347,5 +348,162 @@ describe("createTeardown", () => {
       console.warn = warn;
     }
     assert.deepEqual(ran, ["visuals", "renderer"]);
+  });
+});
+
+describe("capture-time trail segments", () => {
+  const track = (x, extra = {}) => ({
+    id: "a",
+    x,
+    y: 2,
+    z: 0,
+    support: "observed",
+    ...extra,
+  });
+  const frame = (t, tr) => ({ t, tr });
+  test("uses the same complete published centre as the box", () => {
+    assert.deepEqual(sceneTrailPoint(track(1, { bx: 7, by: 8 })), [
+      7,
+      toSceneY(0) + 0.05,
+      -8,
+    ]);
+    assert.deepEqual(
+      sceneTrailPoint(track(1, { bx: 7 })),
+      sceneTrailPoint(track(1)),
+    );
+  });
+  test("breaks at missing tracks, capture gaps and backwards time", () => {
+    for (const middle of [
+      frame(100000, []),
+      frame(900000, [track(2)]),
+      frame(-1, [track(2)]),
+    ]) {
+      const frames = [frame(0, [track(1)]), middle, frame(2000000, [track(3)])];
+      assert.equal(buildTrailSegments(frames, ["a"]).get("a").length, 0);
+    }
+  });
+  test("replaces older geometry on revision, stage, source and anchor changes", () => {
+    for (const change of [
+      { estimate_revision: "2" },
+      { estimate_stage: "final" },
+      { source_id: "replay-2" },
+      { bx: 5, by: 6 },
+    ]) {
+      const frames = [
+        frame(0, [track(0)]),
+        frame(1, [track(1)]),
+        frame(2, [track(2, change)]),
+        frame(3, [track(3, change)]),
+      ];
+      const edges = buildTrailSegments(frames, ["a"]).get("a");
+      assert.equal(edges.length, 1);
+      assert.deepEqual(edges[0].points[0], sceneTrailPoint(track(2, change)));
+    }
+  });
+  test("labels predicted, legacy, provisional and final edges without inventing support", () => {
+    for (const [extra, style] of [
+      [{ support: "coasted" }, "predicted"],
+      [{ support: "" }, "unknown"],
+      [{ estimate_stage: "final" }, "final"],
+      [{ estimate_stage: "provisional" }, "provisional"],
+      [{}, "observed"],
+    ]) {
+      const edges = buildTrailSegments(
+        [frame(0, [track(0, extra)]), frame(1, [track(1, extra)])],
+        ["a"],
+      ).get("a");
+      assert.equal(edges[0].style, style);
+    }
+  });
+  test("seeking reconstructs identical geometry and excludes absent IDs", () => {
+    const frames = [
+      frame(0, [track(0)]),
+      frame(1, [track(1)]),
+      frame(2, [track(2)]),
+    ];
+    const sequential = frames.map((_, i) =>
+      buildTrailSegments(frames.slice(0, i + 1), ["a"]).get("a"),
+    );
+    assert.deepEqual(
+      buildTrailSegments(frames, ["a"]).get("a"),
+      sequential.at(-1),
+    );
+    assert.equal(buildTrailSegments(frames, []).size, 0);
+  });
+  test("invalid points and duplicate samples clear ambiguous geometry", () => {
+    for (const tr of [[track(NaN)], [track(1), track(2)]]) {
+      assert.deepEqual(
+        buildTrailSegments([frame(0, [track(0)]), frame(1, tr)], ["a"]).get(
+          "a",
+        ),
+        [],
+      );
+    }
+  });
+  test("mask crossings use published anchors and cannot bridge hidden geometry", () => {
+    let anchors;
+    const mask = {
+      hides: () => false,
+      crosses: (a, b) => {
+        anchors = [a, b];
+        return true;
+      },
+    };
+    const edges = buildTrailSegments(
+      [
+        frame(0, [track(0, { bx: 3, by: 4 })]),
+        frame(1, [track(1, { bx: 5, by: 6 })]),
+      ],
+      ["a"],
+      mask,
+    ).get("a");
+    assert.deepEqual(anchors, [
+      [3, 4],
+      [5, 6],
+    ]);
+    assert.equal(edges.length, 0);
+  });
+  test("renders disconnected styled edges, respects toggles and disposes objects", () => {
+    const scene = new THREE.Scene();
+    const visual = new TrackVisual(scene, 0x123456);
+    const segments = [
+      {
+        style: "predicted",
+        points: [
+          [0, 0, 0],
+          [1, 0, 0],
+        ],
+      },
+      {
+        style: "observed",
+        points: [
+          [3, 0, 0],
+          [4, 0, 0],
+        ],
+      },
+    ];
+    visual.setTrailSegments(segments);
+    const predicted = visual.segmentLines.get("predicted");
+    assert.ok(predicted.material.isLineDashedMaterial);
+    assert.equal(predicted.geometry.drawRange.count, 2);
+    assert.equal(visual.trail.visible, false);
+    visual.setTrailVisible(false);
+    assert.equal(predicted.visible, false);
+    visual.setTrailVisible(true);
+    assert.equal(predicted.visible, true);
+    visual.setVisible(false);
+    assert.equal(predicted.visible, false);
+    visual.setVisible(true);
+    visual.setOpacity(0.5);
+    assert.equal(predicted.material.opacity, 0.35);
+    visual.setColour(0xabcdef);
+    assert.equal(
+      visual.segmentLines.get("observed").material.color.getHex(),
+      0xabcdef,
+    );
+    visual.setTrailSegments([]);
+    assert.equal(predicted.visible, false);
+    visual.dispose(scene);
+    assert.equal(scene.children.length, 0);
   });
 });

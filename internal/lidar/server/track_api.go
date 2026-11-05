@@ -266,8 +266,11 @@ func (api *TrackAPI) handleListObservations(w http.ResponseWriter, r *http.Reque
 		posX, posY := toDisplayFrame(obs.X, obs.Y)
 		velX, velY := toDisplayFrame(obs.VelocityX, obs.VelocityY)
 		response.Observations = append(response.Observations, ObservationResponse{
-			TrackID:   obs.TrackID,
-			Timestamp: time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
+			TrackID:          obs.TrackID,
+			Timestamp:        time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
+			TimestampNS:      strconv.FormatInt(obs.TSUnixNanos, 10),
+			Support:          observationSupport(obs),
+			FrameTimestampNS: observationFrameTimestamp(obs),
 			Position: Position{
 				X: posX,
 				Y: posY,
@@ -529,12 +532,15 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 	}
 
 	type ObsResponse struct {
-		Timestamp   string   `json:"timestamp"`
-		Position    Position `json:"position"`
-		Velocity    Velocity `json:"velocity"`
-		SpeedMps    float32  `json:"speed_mps"`
-		HeadingRad  float32  `json:"heading_rad"`
-		BoundingBox struct {
+		FrameTimestampNS string   `json:"frame_timestamp_ns"`
+		TimestampNS      string   `json:"timestamp_ns"`
+		Support          string   `json:"support"`
+		Timestamp        string   `json:"timestamp"`
+		Position         Position `json:"position"`
+		Velocity         Velocity `json:"velocity"`
+		SpeedMps         float32  `json:"speed_mps"`
+		HeadingRad       float32  `json:"heading_rad"`
+		BoundingBox      struct {
 			Length float32 `json:"length"`
 			Width  float32 `json:"width"`
 			Height float32 `json:"height"`
@@ -563,7 +569,10 @@ func (api *TrackAPI) handleTrackObservations(w http.ResponseWriter, r *http.Requ
 		heading := headingFromVelocity(velX, velY)
 
 		response.Observations = append(response.Observations, ObsResponse{
-			Timestamp: time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
+			Timestamp:        time.Unix(0, obs.TSUnixNanos).UTC().Format(time.RFC3339Nano),
+			TimestampNS:      strconv.FormatInt(obs.TSUnixNanos, 10),
+			Support:          observationSupport(obs),
+			FrameTimestampNS: observationFrameTimestamp(obs),
 			Position: Position{
 				X: posX,
 				Y: posY,

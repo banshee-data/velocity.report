@@ -71,3 +71,10 @@ Gerardus-backed site views use city, aerial and measured scan geometry. They ref
 requests and ignore retired geometry sent by older services. The capture locator keeps manual
 position/heading placement, map tiles and address search; its OSM-outline Snap and Check fit actions
 are removed. Browser map consent and the public scene viewer's cycle map remain.
+
+The shared LiDAR scene player anchors trails to the published box centre and reconstructs separate
+edges from capture time on every seek. Observed edges are solid; predicted edges are amber dashes
+and unrecorded support is grey dashes. Explicit provisional/final estimates use cyan/purple, and
+revisions never share a segment. The
+[cloud validation report](../docs/lidar/operations/trail-support-cloud-2026-11.md) records the HTTP
+contract and the native-client follow-up.
