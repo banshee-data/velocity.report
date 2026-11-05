@@ -12,6 +12,7 @@ flowchart TB
   classDef retired fill:#fafafa,stroke:#d4d4d8,color:#71717a
   subgraph area_figure ["figure: Published figures and their confidence"]
     figure0001["<b>figure0001</b><br/>How much the survey's figures move with…<br/>proposed · 46m machine + 4h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::proposed
+    figure0002["<b>figure0002</b><br/>Track speed against kirk0's reviewed…<br/>proposed · 8m machine + 2h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
   end
   subgraph area_geom ["geom: Solid-body geometry"]
     geom0001["<b>geom0001</b><br/>The geometry convergence candidate on…<br/>answered · 2h4m machine + 3h person (took 3h)<br/>manual: write"]:::answered
@@ -141,6 +142,7 @@ flowchart TB
     pose0002["<b>pose0002</b><br/>The background's length: do short windows…<br/>answered · 40m machine + 2h30m person (took 25m)<br/>manual: implement, write"]:::answered
     pose0003["<b>pose0003</b><br/>Register from several windows and accept…<br/>answered · 1h9m machine + 2h30m person (took 5h45m)<br/>manual: implement, write"]:::answered
   end
+  l5id0015 --> figure0002
   geom0001 --> geom0002
   geom0003 --> geom0004
   geom0005 --> geom0006
@@ -238,6 +240,7 @@ flowchart TB
 ## Open experiments
 
 - [figure0001](figure/figure0001.md) How much the survey's figures move with the pipeline: vehicle count, p85 and p98 by site under every archived arm: proposed, awaiting approval; 46m machine + 4h person; asks [experiment-review-2026-11-05 #e-confidence-in-the-outputs](../../docs/lidar/operations/experiment-review-2026-11-05.md#e-confidence-in-the-outputs).
+- [figure0002](figure/figure0002.md) Track speed against kirk0's reviewed physical references: the first independent check on a speed the platform reports: proposed, awaiting approval; 8m machine + 2h person; after l5id0015; asks [experiment-review-2026-11-05 #e-confidence-in-the-outputs](../../docs/lidar/operations/experiment-review-2026-11-05.md#e-confidence-in-the-outputs).
 - [geom0002](geom/geom0002.md) The low-speed label and the ambiguous row, rescreened on the young-track axis: proposed, awaiting approval; 1h2m machine + 26h person; after geom0001; asks [geometry-convergence-heldout-2026-10 #recommendations](../../docs/lidar/operations/geometry-convergence-heldout-2026-10.md#recommendations), [lidar-tracker-geometry-convergence-plan #checklist](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#checklist).
 - [geom0012](geom/geom0012.md) Three centres a frame: the tracked position, the cluster and the published box, against each other and the references: proposed, awaiting approval; 5h3m machine + 6h person; asks [state-estimation-e1-lateral-error #verdict](../../docs/lidar/operations/state-estimation-e1-lateral-error.md#verdict), [d2-medoid-obb-current-solver-2026-10 #answer](../../docs/lidar/operations/d2-medoid-obb-current-solver-2026-10.md#answer), [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [geometry-convergence-criteria](../../docs/lidar/operations/geometry-convergence-criteria.md).
 - [geom0013](geom/geom0013.md) How far the published box's faces sit from the visible hull: the bound on what a hull could add to gaps and clearance: proposed, awaiting approval; 4m machine + 6h person; asks [pcl-algorithm-review #q2-can-per-track-hulls-improve-…](../../docs/lidar/operations/pcl-algorithm-review.md#q2-can-per-track-hulls-improve-clearance-and-following-distance-over-boxes), [lidar-pcl-algorithm-candidates-plan #item-4-q2-the-hull-bound-geom00…](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md#item-4-q2-the-hull-bound-geom0013), [physical-reference-pilot-kirk0-2026-10](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md).
@@ -346,5 +349,5 @@ flowchart TB
 
 ## Totals
 
-- 37 open experiments: 69h34m machine + 250h40m person estimated.
+- 38 open experiments: 69h42m machine + 252h40m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
