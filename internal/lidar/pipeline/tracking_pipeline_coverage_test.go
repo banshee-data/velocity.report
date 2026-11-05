@@ -1546,8 +1546,8 @@ func TestNoForegroundReturn(t *testing.T) {
 	}
 	cb(frame)
 
-	if tracker.updateCalls > 0 {
-		t.Error("tracker should not be called when no foreground is detected")
+	if tracker.updateCalls != 1 {
+		t.Error("an empty foreground must advance the tracker exactly once")
 	}
 }
 

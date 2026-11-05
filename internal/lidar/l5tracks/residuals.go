@@ -70,9 +70,9 @@ func (t *Tracker) BeginTrackingBaseline() {
 }
 
 // RecordBaselineEmptyFrame records an emitted frame with no usable detections.
-// It does not change the existing lifecycle policy (the pipeline currently
-// publishes such frames without updating tracks). Caller must not also Update
-// or AdvanceMisses for the same frame.
+// It is for legacy callers that skip the lifecycle update. The pipeline now
+// advances empty frames through Update or UpdateGap instead. Caller must not
+// also Update, UpdateGap or AdvanceMisses for the same frame.
 func (t *Tracker) RecordBaselineEmptyFrame() {
 	t.mu.Lock()
 	defer t.mu.Unlock()

@@ -152,6 +152,14 @@ it does not remove uncertain-track bidding bias. Propagate capture gaps, out-of-
 empty frames explicitly, without adding repeated observations. Pin the common sample time for
 each pair: measurement-time tracking must not join two differently timed states as simultaneous.
 
+The empty-frame lifecycle now runs L5 at each delivered frame's capture time,
+including empty L2 frames and no-foreground, ground-only and noise-only exits.
+Unavailable processing (including replay throttling) uses `missed_unknown` support;
+observed empty detection sets use the configured absence policy. Both advance
+prediction, coast age, misses and expiry without adding an observation. Empty
+visualiser/VRLOG frames retain the resulting track state. Reduced-depth profiles
+still stop before L5. See the [cloud lifecycle validation](../lidar/operations/empty-frame-lifecycle-cloud-validation.md).
+
 ### S4: finality and recovery for the offline MVP
 
 Start with a bounded local reader of a closed, verified observation log on the Mac. This provides

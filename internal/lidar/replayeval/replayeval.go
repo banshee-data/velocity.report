@@ -281,6 +281,17 @@ func (t *tapTracker) Update(clusters []l5tracks.WorldCluster, at time.Time) {
 		Associations: t.GetLastAssociations(), Tracks: t.GetActiveTracks()})
 }
 
+// UpdateGap preserves the unavailable-input contract through the offline
+// instrumentation wrapper instead of silently treating a gap as observed empty.
+func (t *tapTracker) UpdateGap(at time.Time) {
+	if gap, ok := t.TrackerInterface.(interface{ UpdateGap(time.Time) }); ok {
+		gap.UpdateGap(at)
+	} else {
+		t.TrackerInterface.Update(nil, at)
+	}
+	t.tap(TrackerTapFrame{At: at, Scored: at.UnixNano() >= t.start, Tracks: t.GetActiveTracks()})
+}
+
 func (t *tapTracker) AdvanceMisses(at time.Time) {
 	t.TrackerInterface.AdvanceMisses(at)
 	t.tap(TrackerTapFrame{At: at, Scored: at.UnixNano() >= t.start, Tracks: t.GetActiveTracks()})

@@ -8,6 +8,10 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
+## November 5, 2026 - Tracker lifecycle
+
+- {codex/empty-frame-lifecycle} Advanced L5 on empty and unavailable frames, preserve unknown support for missing processing, publish predicted/expired state and retain capture-time expiry. Synthetic and kirk0 replay checks are recorded in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md).
+
 ## November 4, 2026 - The lane field
 
 - {claude/vrlog-load-diagnostics} Made a refused VRLOG load say why: every LiDAR API error now goes to the debug log with its message, a VRLOG load refusal logs the run, the stored and requested paths and the VRLOG directory, and its status names the cause (503 when the VRLOG directory cannot be read, as when its volume is not mounted; 404 for a recording that is not there; 400 for a path outside the directory or a file rather than a recording directory), and the run lane-field route answers with the same statuses. The server warns at startup when `--lidar-vrlog-dir` cannot be read, and the visualiser shows the server's reason rather than only the status. Every load had answered a bare 400 because `/Volumes/lidar`, which holds the VRLOG directory, was not mounted (#927).
