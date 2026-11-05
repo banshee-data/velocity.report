@@ -19,6 +19,7 @@ labelled clauses #929 and #930 could not read.
   [l5id0014](../../../data/experiments/l5id/l5id0014.md) (kirk0 only),
   [l3bg0030](../../../data/experiments/l3bg/l3bg0030.md) (kirk0 only),
   [figure0002](../../../data/experiments/figure/figure0002.md),
+  [l5est0003](../../../data/experiments/l5est/l5est0003.md),
   [l4clus0008](../../../data/experiments/l4clus/l4clus0008.md) and
   [l5id0013](../../../data/experiments/l5id/l5id0013.md) (their labelled clauses)
 - **Layers:** L3 settling, L4 input cap and joining, L5 identity, the per-frame evaluator
@@ -64,6 +65,10 @@ labelled clauses #929 and #930 could not read.
   and the noise screen's near-static rule all read that column; the published survey percentiles
   do not. The row now carries the instant speed. With it, the car's filter speed is within its
   bound and the two trucks' read 0.77 and 0.86 m/s (about 12 %) low: the filter lags them.
+- **A looser velocity process noise is an identity lever (l5est0003).** It did not end the
+  filter's lag on kirk0's trucks, its question; but doubling `process_noise_vel` took kirk0's
+  switches from 90 to 43, with HOTA and IDF1 gains that keep their sign over the bootstrap.
+  Proposed as l5est0004 for the corpus and the held-out window.
 - **The relative settling criterion does not settle kirk0.** kirk0's spread delta over its mean
   spread never falls under 0.075 before the ceiling (lowest 0.076 at 27.9 s, median 0.104), so the
   ratio arm settles at 30 s, as the honest absolute one does, and scores the same. A quiet scene
@@ -300,6 +305,37 @@ published percentiles read, can only be as fast as that filter. Three slow vehic
 say nothing about a population's p85; the radar capture the review recommends is the check that
 would.
 
+## l5est0003: the filter's velocity on kirk0's trucks
+
+**The rule** (committed before the replays): an arm passes when both trucks' mean filter speed over
+their spans is within its reference bound and the car's stays within; non-inferior when the
+bootstrap's 5th percentile of the HOTA and IDF1 deltas is above −0.02, the switches' 95th
+percentile under +10, and brief tracks rise by no more than 3. Against `a0` at `d71b7b7` (the
+observation speed fixed):
+
+| Arm      | `process_noise_vel` | Truck 1 (6.48 ± 0.55) | Car 8 (4.50 ± 0.43) | Truck 2 (7.15 ± 0.40) |   HOTA |   IDF1 | Switches | Fragmentations | Brief tracks | Max-speed p85, p98 (m/s) |
+| -------- | ------------------: | --------------------: | ------------------: | --------------------: | -----: | -----: | -------: | -------------: | -----------: | -----------------------: |
+| `a0`     |                 0.2 |          5.71 (−0.77) |        4.21 (−0.29) |          6.29 (−0.86) | 0.4284 | 0.4728 |       90 |             46 |           12 |               7.06, 8.83 |
+| `vel-x2` |                 0.4 |          5.88 (−0.60) |        4.22 (−0.28) |          6.41 (−0.74) | 0.4319 | 0.4825 |       43 |             36 |           11 |               7.15, 8.96 |
+| `vel-x4` |                 0.8 |          6.01 (−0.47) |        4.22 (−0.28) |          6.48 (−0.67) | 0.4325 | 0.4896 |       24 |             35 |           11 |               7.09, 8.96 |
+
+| Paired bootstrap against `a0` | Δ HOTA, 5th / 50th / 95th   | Δ IDF1, 5th / 50th / 95th   | Δ switches      | Δ fragmentations |
+| ----------------------------- | --------------------------- | --------------------------- | --------------- | ---------------- |
+| `vel-x2`                      | +0.0002 / +0.0092 / +0.0216 | +0.0001 / +0.0194 / +0.0418 | −135 / −45 / +6 | −34 / −10 / +6   |
+| `vel-x4`                      | −0.0011 / +0.0091 / +0.0216 | +0.0002 / +0.0270 / +0.0604 | −188 / −64 / +4 | −38 / −11 / +3   |
+
+**Against the rule.** Neither arm passes the target: truck 1 comes within its bound at ×4, truck 2
+stays 0.67 m/s low against 0.40. Both meet the non-inferiority clauses. The filter's lag on a long
+accelerating body is not mostly its velocity process noise.
+
+**What it found instead.** Doubling the velocity process noise halves kirk0's identity switches
+and lifts HOTA and IDF1 by gains that keep their sign over the bootstrap, the only labelled
+identity gain this run besides the overlap end's switches and the join's IDF1. The moving count
+rises from 38 to 41 and the maximum-speed percentiles by 0.03 to 0.14 m/s. It was found by
+looking, on the tuning capture, so it is proposed as
+[l5est0004](../../../data/experiments/l5est/l5est0004.md) with its corpus and held-out rule written
+now, not adopted.
+
 ## What this run does not establish
 
 - Anything held out. kirk0 is a tuning split; every figure here is a screen, and the bootstrap's
@@ -345,5 +381,7 @@ would.
 6. **Review the observation speed fix before it merges**, and decide whether rows already in
    deployed databases are rewritten from their velocity: the lane field and the live view read
    them as the instant speed.
-7. **The owner decides two bars**: l4clus0008's and the radius graph's five points at 20 to 35 m,
+7. **Run l5est0004 on the corpus next** to the overlap end's rescoring: a one-key change that
+   halves kirk0's switches is cheaper to adopt than any identity option, if the corpus agrees.
+8. **The owner decides two bars**: l4clus0008's and the radius graph's five points at 20 to 35 m,
    where the defaults hold 6.5 % on this reconstruction.
