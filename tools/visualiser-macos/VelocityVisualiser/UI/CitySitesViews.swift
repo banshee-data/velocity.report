@@ -61,10 +61,21 @@ enum CitySiteText {
 @available(macOS 15.0, *) struct CitySettingsView: View {
     @ObservedObject var city: CityViewSession
     @State private var locationText = ""
+    @State private var tilesText = ""
     @State private var liveTexts: [String: String] = [:]
 
     var body: some View {
         Section {
+            TextField(
+                "City tiles", text: $tilesText,
+                prompt: Text("Epoch folder, city-tiles folder, tileset.json or URL")
+            ).onSubmit { Task { await city.useTilesLocation(tilesText) } }
+            HStack {
+                Button("Read tiles") { Task { await city.useTilesLocation(tilesText) } }
+                Spacer()
+                Text(city.tilesStatus).font(.caption).foregroundStyle(
+                    city.tilesError == nil ? Color.secondary : Color.red)
+            }
             TextField(
                 "Site index", text: $locationText,
                 prompt: Text("Folder, sites.json or URL of the published scenes")
@@ -98,10 +109,16 @@ enum CitySiteText {
             Text("City view")
         } footer: {
             Text(
-                "Kept as \(CityViewSession.sitesLocationKey). The index is city/sites.json beside "
-                    + "the published scenes; it names each site's captures, heading and placement."
+                "Kept as \(CityViewSession.tilesLocationKey) and "
+                    + "\(CityViewSession.sitesLocationKey). The tiles are Gerardus's city tiles; "
+                    + "over SMB, name the epoch folder, as the current link does not resolve. "
+                    + "The index is city/sites.json beside the published scenes; it names each "
+                    + "site's captures, heading and placement."
             ).font(.caption).foregroundStyle(.secondary)
-        }.onAppear { locationText = city.sitesLocation }
+        }.onAppear {
+            locationText = city.sitesLocation
+            tilesText = city.tilesLocation
+        }
     }
 
     private var status: String {

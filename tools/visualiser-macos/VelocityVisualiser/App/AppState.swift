@@ -181,6 +181,13 @@ private let logger = DevLogger(category: "AppState")
     @Published var showAssociation: Bool = false  // M6: Association lines
     @Published var showResiduals: Bool = false  // M6: Residual vectors
     @Published var showGrid: Bool = true  // Ground reference grid
+    /// Gerardus's city tiles around a placed site.
+    @Published var showCityTiles: Bool = true {
+        didSet {
+            renderer?.showCityTiles = showCityTiles
+            renderer?.view?.needsDisplay = true
+        }
+    }
     /// The faces (W toggle): the DataSF box walls, from public footprints and
     /// 3DEP, and the site model's wall planes. Off hides both, whatever the
     /// alignment pane's own toggles say.
@@ -383,6 +390,8 @@ private let logger = DevLogger(category: "AppState")
     /// Register the renderer to receive frame updates directly
     func registerRenderer(_ renderer: MetalRenderer) {
         self.renderer = renderer
+        renderer.cityTiles.setTileset(city.tileset, url: city.tilesetURL)
+        renderer.showCityTiles = showCityTiles
         alignment.sink = renderer
         streets.sink = renderer
         camera.sink = renderer
@@ -557,7 +566,16 @@ private let logger = DevLogger(category: "AppState")
         }
         city.currentSiteID = { [weak self] in self?.siteContext.site?.id }
         city.onIndex = { [weak self] index in self?.alignment.siteIndex = index }
-        if !Self.isRunningUnderXCTest { Task { await city.loadIndex() } }
+        city.onTileset = { [weak self] tileset, url in
+            self?.renderer?.cityTiles.setTileset(tileset, url: url)
+            self?.renderer?.view?.needsDisplay = true
+        }
+        if !Self.isRunningUnderXCTest {
+            Task {
+                await city.loadIndex()
+                await city.loadTileset()
+            }
+        }
 
         camera.selectedObjectCentre = { [weak self] in
             guard let track = self?.selectedTrackData else { return nil }
