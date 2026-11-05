@@ -454,3 +454,12 @@ W2's result as the facet plan itself asks.
 - [x] The published box, what the visualiser and the scene assets draw, built on the same two observations outside the solid body ([report](../lidar/operations/published-box-rotation-2026-10.md), geom0005): the `box_model` block draws the rectangle-fit axis labelled and steered by the course, extents and a centre that hold every return, and a turn rate bounded by κ·v + ω₀, with the tracks unchanged; on 15 held-out corpus sites no vehicle frame leaves a return outside it (96 % do today) and the axis is 1.6° from the direction of travel at the median (13.0° today); default-on waits on the Pi timing and the perf baselines
 - [x] The published box model in the defaults ([report](../lidar/operations/published-box-refinement-2026-10.md), geom0006 and geom0007): course lead, rate-weighted course, displacement labels, the minimum-area axis, a longer extent memory and a tall-body length floor each failed their pre-registered rules and stay off; the box model is better under the L3 retune; trucks are short because two tracks share their close pass. Pi timing still owed.
 - [x] An exclusive published box (geom0008): stopping the unseen part at the next cluster's returns failed its rule; the overlap that remains is two tracks on one cluster, an identity question for the tracker ([report](../lidar/operations/published-box-refinement-2026-10.md#geom0008-an-exclusive-box)).
+
+## W3 cloud joining candidate
+
+The [motion-supported joining screen](../lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md)
+implements a bounded, default-off follow-up to the failed density and connectivity
+arms. Recent observed vehicle priors may support a current membership join;
+ambiguous ownership and shape failures preserve the original partition. Synthetic
+correctness and unlabelled replay counts cannot close W3, G-GEO-1, the reviewed
+merge/identity gates or the target-hardware cost requirement.
