@@ -1,0 +1,170 @@
+{
+  "version": 1,
+  "export": "placement",
+  "site": "hyde-ofarrell",
+  "state": "placed",
+  "purpose": "Where this scene's sensor frame sits in its site frame and in the city frame of Gerardus's city tiles, from the pose an operator accepted for the site's scan. Placement and provenance only; the scene's own files stay in the sensor frame.",
+  "record": {
+    "record_id": "gms:01M680DBY7PV1RD7FVESY922EM",
+    "registration_state": "manually_placed",
+    "pose_source": "icp",
+    "model_id": "sha256:609a38665b04085bc554d1dba4e0bf32a9525943aa49a41c2439fa4277eecd72",
+    "bundle_id": "sha256:27ef5a20432e25b3feba669e85f4dcdc74aab3e4cfde5fcf5c340c2f35614149",
+    "reviewed_at": "2026-10-31T03:35:19.751698661Z",
+    "check": {
+      "method": "share of wall and kerb edge samples with a settled-background point in the same or a neighbouring 0.25 m voxel, at the pose and at the pose moved 2 m or turned 5 degrees; the pose passes when it scores highest, on 50 samples or more",
+      "samples": 8000,
+      "at_pose": 0.011,
+      "moved": {
+        "+2m_e+0m_n+0deg": 0.003,
+        "-2m_e+0m_n+0deg": 0.003,
+        "+0m_e+2m_n+0deg": 0.009,
+        "+0m_e-2m_n+0deg": 0.01,
+        "+0m_e+0m_n+5deg": 0.004,
+        "+0m_e+0m_n-5deg": 0.004
+      },
+      "passed": true
+    }
+  },
+  "frames": {
+    "sensor": {
+      "frame_id": "sensor/hesai-pandar40p",
+      "axes": "the scene's own frame: origin at the sensor, Z up"
+    },
+    "site": {
+      "frame_id": "site/808580911",
+      "l16": "808580911",
+      "origin": {
+        "lat_deg": 37.7855707878,
+        "lon_deg": -122.4162869741,
+        "navd88_m": 0.0
+      },
+      "horizontal_datum": "NAD83(2011)",
+      "vertical_datum": "NAVD88",
+      "axes": "east-north-up at the centre of the S2 L16 cell, metres, Z up"
+    },
+    "city": {
+      "format": "gerardus-city-tiles-1",
+      "origin": {
+        "lat_deg": 37.76,
+        "lon_deg": -122.44,
+        "navd88_m": 0.0
+      },
+      "horizontal_datum": "NAD83(2011)",
+      "vertical_datum": "NAVD88",
+      "navd88_zero_ellipsoidal_m": -32.2,
+      "axes": "east-north-up at the origin, metres, Z up; NAVD88 heights taken as ellipsoidal, so z falls away by the earth's curvature from the origin"
+    }
+  },
+  "matrix_layout": "4x4, row-major, metres: p_out = M[0:3][0:3] * p_in + M[0:3][3]; the last row is [0, 0, 0, 1]",
+  "sensor_to_site": {
+    "rotation_wxyz": [
+      0.10549360321,
+      0.001349140089,
+      0.050913449202,
+      -0.993114847434
+    ],
+    "translation_m": [
+      -6.4609,
+      -5.1165,
+      35.0663
+    ],
+    "matrix": [
+      [
+        -0.977738559006,
+        0.209671906065,
+        0.008062384309,
+        -6.4609
+      ],
+      [
+        -0.209397148564,
+        -0.972557840744,
+        -0.101410455972,
+        -5.1165
+      ],
+      [
+        -0.013421788524,
+        -0.100841153375,
+        0.994812001023,
+        35.0663
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "site_to_city": {
+    "matrix": [
+      [
+        0.999999914356,
+        -0.000253581702,
+        0.000327085616,
+        2088.8233
+      ],
+      [
+        0.0002534357,
+        0.999999868277,
+        0.000446335873,
+        2838.4221
+      ],
+      [
+        -0.000327198755,
+        -0.00044625294,
+        0.9999998469,
+        -0.9751
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "sensor_to_city": {
+    "matrix": [
+      [
+        -0.977689766056,
+        0.20988552729,
+        0.00841348815,
+        2082.3751
+      ],
+      [
+        -0.209650905464,
+        -0.972549583314,
+        -0.100964379035,
+        2833.3196
+      ],
+      [
+        -0.013008427537,
+        -0.100475735527,
+        0.994854465429,
+        34.0956
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "heading_deg": 167.83,
+  "up_sensor": [
+    -0.0134217885,
+    -0.1008411534,
+    0.994812001
+  ],
+  "marker": {
+    "source": "accepted_pose",
+    "city_enu_m": [
+      2082.375,
+      2833.32,
+      34.096
+    ]
+  },
+  "generated_by": "tools/s2-archive/scene-vectors.py"
+}

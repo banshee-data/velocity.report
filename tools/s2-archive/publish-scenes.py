@@ -72,6 +72,13 @@ The environment the batch expects, in full:
       "off" writes none. A site with no accepted pose has none in any mode.
       GERARDUS_URL names the server (default http://127.0.0.1:50061).
 
+      Every scene also gets assets/placement.json, from the record and check
+      the vectors were placed by: the sensor-to-site pose, and the site-to-city
+      and sensor-to-city transforms into the frame of Gerardus's city tiles.
+      A scene without checked vectors is "not_placed", with its eye-read
+      position for a marker only. To write the sidecars of published scenes
+      without replaying: scene-vectors.py --placement.
+
 A scene is built beside the published one and swapped in only when whole, so a
 half-finished export never reaches the site.
 
@@ -519,6 +526,9 @@ def build_scene(scene):
     export(vrlog, os.path.join(assets, "background"), site, title, kind="background")
     carry_over(vrlog, live, assets, site, title)
     vectors = scene_vectors.export_scene_vectors(site, title, assets, VECTORS, say=log)
+    # Every scene gets a placement sidecar, from the record and check the
+    # vectors were just placed by; a scene without them is not_placed.
+    placement = scene_vectors.export_scene_placement(site, assets, VECTORS, say=log)
 
     with open(os.path.join(part, "header.json")) as fh:
         duration = float(json.load(fh)["duration_sec"])
@@ -526,7 +536,8 @@ def build_scene(scene):
     swap_assets(assets, live)
     with open(os.path.join(SCENES, site, ".rebuilt"), "w") as fh:
         fh.write(
-            f"{SPEED_MODE} {SPEED_RATIO} settle={SETTLE} vectors={vectors or 'none'}\n"
+            f"{SPEED_MODE} {SPEED_RATIO} settle={SETTLE} vectors={vectors or 'none'}"
+            f" placement={placement}\n"
         )
     # Regenerate the map and page data now rather than at the end of the batch.
     # A scene that exists but is still listed as unpublished is the same bug to

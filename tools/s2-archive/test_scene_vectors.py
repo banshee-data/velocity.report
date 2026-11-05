@@ -546,5 +546,256 @@ class GroundTest(unittest.TestCase):
         )
 
 
+# =============================================================================
+# THE PLACEMENT SIDECAR
+# =============================================================================
+
+SCENES_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(HERE)), "public_html", "src", "scenes"
+)
+
+# The export privacy case for the sidecar (D-34, Gerardus ADR-0011): placement
+# and provenance only. Every key a sidecar may hold, at any depth; a new key
+# is a decision to review here, not something a refactor adds quietly.
+PLACEMENT_KEYS = {
+    # top level
+    "version",
+    "export",
+    "site",
+    "state",
+    "purpose",
+    "reason",
+    "record",
+    "frames",
+    "matrix_layout",
+    "sensor_to_site",
+    "site_to_city",
+    "sensor_to_city",
+    "heading_deg",
+    "up_sensor",
+    "marker",
+    "generated_by",
+    # record and its check
+    "record_id",
+    "registration_state",
+    "pose_source",
+    "model_id",
+    "bundle_id",
+    "reviewed_at",
+    "sigma_horizontal_m",
+    "sigma_heading_deg",
+    "check",
+    "method",
+    "samples",
+    "at_pose",
+    "moved",
+    "passed",
+    # frames
+    "sensor",
+    "city",
+    "frame_id",
+    "axes",
+    "l16",
+    "origin",
+    "lat_deg",
+    "lon_deg",
+    "navd88_m",
+    "horizontal_datum",
+    "vertical_datum",
+    "format",
+    "navd88_zero_ellipsoidal_m",
+    # transforms and marker
+    "rotation_wxyz",
+    "translation_m",
+    "matrix",
+    "source",
+    "note",
+    "city_enu_m",
+}
+# Words that would mean a track, a person or a place's address got in.
+FORBIDDEN = ("track", "trail", "speed", "address", "label", "street", "name", "owner")
+
+
+def placement_keys(value, where="", out=None):
+    out = [] if out is None else out
+    if isinstance(value, dict):
+        for k, v in value.items():
+            # The check's perturbation names are data, not schema.
+            if where.endswith(".moved"):
+                continue
+            out.append((f"{where}.{k}", k))
+            placement_keys(v, f"{where}.{k}", out)
+    elif isinstance(value, list):
+        for v in value:
+            placement_keys(v, where, out)
+    return out
+
+
+def assert_placement_only(test, placement):
+    for path, key in placement_keys(placement):
+        test.assertIn(key, PLACEMENT_KEYS, f"placement carries {path}")
+        for word in FORBIDDEN:
+            test.assertNotIn(word, key.lower(), f"placement carries {path}")
+
+
+def vectors_block(record_id="gms:01TEST", heading=90.0, passed=True):
+    return {
+        "record_id": record_id,
+        "registration_state": "manually_placed",
+        "pose_source": "icp",
+        "model_id": "sha256:model",
+        "bundle_id": "sha256:bundle",
+        "reviewed_at": "2026-10-22T01:33:50Z",
+        "heading_deg": heading,
+        "sigma_horizontal_m": 0.01,
+        "check": {
+            "samples": 900,
+            "at_pose": 0.05,
+            "moved": {"+2m_e+0m_n+0deg": 0.01},
+            "passed": passed,
+        },
+    }
+
+
+ENTRY = {
+    "id": "columbus-broadway",
+    "title": "Columbus at Broadway",
+    "position": {"lat": 37.7978, "lon": -122.4065, "source": "operator"},
+    "cells": {"site": {"token": "808580f47", "level": 16}},
+}
+
+
+class PlacementTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.assets = self.tmp.name
+        self.addCleanup(self.tmp.cleanup)
+
+    def write_vectors(self, block):
+        scene_vectors.write_collection(
+            {"placement": block, "features": []}, self.assets
+        )
+
+    def build(self, scan_pose=None, entry=ENTRY, record_id="gms:01TEST"):
+        pose = scan_pose or yaw_pose(0.0)
+        scan = {"recordId": record_id, "pose": pose}
+        with mock.patch.object(
+            scene_vectors, "site_entry", return_value=entry
+        ), mock.patch.object(
+            scene_vectors, "accepted_scan", return_value=({}, scan, {})
+        ) as asked:
+            placement = scene_vectors.build_placement("columbus-broadway", self.assets)
+        return placement, asked
+
+    def test_a_checked_pose_is_placed_through_the_site_into_the_city(self):
+        # yaw 0 puts sensor +Y at true north: heading 0.
+        self.write_vectors(vectors_block(heading=0.0))
+        placement, asked = self.build()
+        self.assertEqual(asked.call_args.kwargs["record_id"], "gms:01TEST")
+        self.assertEqual(placement["state"], "placed")
+        self.assertEqual(
+            placement["sensor_to_site"]["translation_m"], [10.0, -20.0, 23.0]
+        )
+        s2c = scene_vectors.city_frame.site_to_city("808580f47")
+        want = scene_vectors.city_frame.apply(s2c, [10.0, -20.0, 23.0])
+        got = [row[3] for row in placement["sensor_to_city"]["matrix"][:3]]
+        for g, w in zip(got, want):
+            self.assertAlmostEqual(g, w, places=4)
+        self.assertEqual(placement["marker"]["city_enu_m"], [round(v, 3) for v in got])
+        self.assertEqual(placement["record"]["check"]["passed"], True)
+        assert_placement_only(self, placement)
+
+    def test_the_matrices_compose(self):
+        self.write_vectors(
+            vectors_block(heading=round(scene_vectors.heading_deg(yaw_pose(37.0)), 2))
+        )
+        placement, _ = self.build(yaw_pose(37.0))
+        a = placement["site_to_city"]["matrix"]
+        b = placement["sensor_to_site"]["matrix"]
+        c = placement["sensor_to_city"]["matrix"]
+        product = scene_vectors.city_frame.compose(a, b)
+        for i in range(4):
+            for j in range(4):
+                self.assertAlmostEqual(product[i][j], c[i][j], places=3)
+
+    def test_a_heading_that_disagrees_with_the_vectors_is_refused(self):
+        self.write_vectors(vectors_block(heading=45.0))
+        with self.assertRaises(RuntimeError):
+            self.build()
+
+    def test_a_zero_or_missing_pose_is_refused_not_raised_raw(self):
+        self.write_vectors(vectors_block(heading=None))
+        zero = dict(yaw_pose(0.0), rotation={"w": 0.0, "x": 0.0, "y": 0.0, "z": 0.0})
+        no_translation = {k: v for k, v in yaw_pose(0.0).items() if k != "translationM"}
+        for pose in (zero, no_translation):
+            with self.assertRaises(RuntimeError):
+                self.build(pose)
+
+    def test_no_vectors_is_not_placed_with_an_eye_read_marker(self):
+        placement, asked = self.build()
+        asked.assert_not_called()
+        self.assertEqual(placement["state"], "not_placed")
+        self.assertEqual(placement["marker"]["source"], "eye_read")
+        self.assertNotIn("sensor_to_city", placement)
+        assert_placement_only(self, placement)
+
+    def test_a_failed_check_is_not_placed(self):
+        self.write_vectors(vectors_block(passed=False))
+        placement, asked = self.build()
+        asked.assert_not_called()
+        self.assertEqual(placement["state"], "not_placed")
+
+    def test_an_unlocated_scene_has_no_marker(self):
+        placement, _ = self.build(
+            entry={"id": "soma1", "position": None, "cells": None}
+        )
+        self.assertEqual(placement["state"], "not_placed")
+        self.assertIsNone(placement["marker"])
+
+    def test_unreachable_gerardus_fails_only_when_required(self):
+        self.write_vectors(vectors_block())
+        error = scene_vectors.Unreachable("refused")
+        with mock.patch.object(
+            scene_vectors, "site_entry", return_value=ENTRY
+        ), mock.patch.object(scene_vectors, "accepted_scan", side_effect=error):
+            state = scene_vectors.export_scene_placement(
+                "columbus-broadway", self.assets, "auto", say=lambda m: None
+            )
+            self.assertEqual(state, "not_placed")
+            with self.assertRaises(scene_vectors.Unreachable):
+                scene_vectors.export_scene_placement(
+                    "columbus-broadway", self.assets, "required", say=lambda m: None
+                )
+        with open(os.path.join(self.assets, "placement.json")) as fh:
+            self.assertNotIn("refused", fh.read())
+
+
+class PublishedPlacementTest(unittest.TestCase):
+    """Every committed sidecar: placement and provenance, and agreeing with its vectors."""
+
+    def test_every_scene_has_a_sidecar_that_holds_only_placement(self):
+        found = 0
+        for site in sorted(os.listdir(SCENES_DIR)):
+            assets = os.path.join(SCENES_DIR, site, "assets")
+            if not os.path.exists(os.path.join(assets, "manifest.json")):
+                continue
+            found += 1
+            path = os.path.join(assets, "placement.json")
+            self.assertTrue(os.path.exists(path), f"{site} has no placement.json")
+            with open(path) as fh:
+                placement = json.load(fh)
+            self.assertEqual(placement["site"], site)
+            assert_placement_only(self, placement)
+            vectors = scene_vectors.vectors_placement(assets)
+            if placement["state"] == "placed":
+                self.assertEqual(
+                    placement["record"]["record_id"], vectors["record_id"], site
+                )
+                self.assertEqual(placement["record"]["check"], vectors["check"], site)
+            else:
+                self.assertIsNone(vectors, f"{site} has vectors but is not placed")
+        self.assertGreater(found, 0)
+
+
 if __name__ == "__main__":
     unittest.main()
