@@ -128,3 +128,88 @@ enum CitySiteText {
         return "\(city.sites.count) sites, \(placed) placed"
     }
 }
+
+/// The toolbar's City switch: the camera over the city, with the sites.
+@available(macOS 15.0, *) struct CityModeToolbarButton: View {
+    @ObservedObject var city: CityViewSession
+
+    var body: some View {
+        if city.canShowCity {
+            Toggle(isOn: Binding(get: { city.isCityMode }, set: { city.setCityMode($0) })) {
+                Label("City", systemImage: "building.2")
+            }.toggleStyle(.button).help(
+                "Show the city: its streets, its buildings and every site with data")
+        }
+    }
+}
+
+/// City mode's markers, street names and line of copy, over the 3D view.
+@available(macOS 15.0, *) struct CityOverlayView: View {
+    @ObservedObject var city: CityViewSession
+    /// The playing site's clock, from the stream's timestamp.
+    var clock: String?
+
+    var body: some View {
+        if city.isCityMode {
+            ZStack(alignment: .topLeading) {
+                ForEach(city.overlay.streets) { label in
+                    Text(label.name).font(.system(size: label.arterial ? 11 : 9.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(label.arterial ? 0.85 : 0.65)).shadow(
+                            color: .black, radius: 1.5
+                        ).fixedSize().rotationEffect(.degrees(label.angleDeg)).position(
+                            label.screen
+                        ).allowsHitTesting(false)
+                }
+                ForEach(city.overlay.markers) { marker in
+                    Button {
+                        guard let site = city.index?.site(id: marker.id) else { return }
+                        Task { await city.select(site) }
+                    } label: {
+                        CityMarkerLabel(marker: marker, clock: marker.focused ? clock : nil)
+                    }.buttonStyle(.plain).fixedSize().position(
+                        x: marker.screen.x, y: marker.screen.y - 14
+                    ).help(
+                        marker.placed
+                            ? "Switch to \(marker.title) and fly there"
+                            : "Not yet placed: \(marker.title) has no accepted pose")
+                }
+                VStack {
+                    Spacer()
+                    Text(SeparationCopy.line).font(.caption).foregroundStyle(.secondary).padding(
+                        .horizontal, 10
+                    ).padding(.vertical, 5).background(.ultraThinMaterial, in: Capsule()).padding(
+                        .bottom, 10)
+                }.frame(maxWidth: .infinity).allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+struct CityMarkerLabel: View {
+    let marker: CityMarker
+    let clock: String?
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(marker.title).font(.system(size: 11, weight: marker.focused ? .bold : .semibold))
+            Text(subtitle).font(.system(size: 9.5)).foregroundStyle(.secondary)
+        }.padding(.horizontal, 6).padding(.vertical, 3).background(
+            RoundedRectangle(cornerRadius: 5).fill(
+                marker.focused ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.55))
+        ).overlay(
+            RoundedRectangle(cornerRadius: 5).stroke(
+                marker.placed ? Color.white.opacity(0.5) : Color.orange.opacity(0.8),
+                style: StrokeStyle(lineWidth: 1, dash: marker.placed ? [] : [3, 2]))
+        ).foregroundStyle(.white)
+    }
+
+    /// Its own date, and the playing site's own clock: sites recorded on
+    /// different days are never shown as one moment.
+    private var subtitle: String {
+        var parts = [String]()
+        if !marker.date.isEmpty { parts.append(marker.date) }
+        if let clock { parts.append(clock) }
+        if !marker.placed { parts.append("not yet placed") }
+        return parts.joined(separator: " · ")
+    }
+}

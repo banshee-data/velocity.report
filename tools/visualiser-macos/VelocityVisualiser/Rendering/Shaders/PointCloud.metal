@@ -17,7 +17,8 @@ struct Uniforms {
     // x: point colouring mode. 0 modulates the class colour by intensity (the
     // live view), 1 is the class colour alone, 2 looks the colour up by raw
     // intensity code in the fragment's intensity table. See
-    // MetalRenderer.IntensityColouring.
+    // MetalRenderer.IntensityColouring. y: in city mode, the site's coverage
+    // radius in metres; points beyond it are not drawn (0: off).
     float2 padding;
 };
 
@@ -51,6 +52,11 @@ vertex PointVertexOut pointVertex(
 
     PointVertexOut out;
     out.position = clipPos;
+    // City mode: nothing of a site is drawn beyond its coverage (padding.y,
+    // metres from the sensor; 0 turns it off). A negative depth is clipped.
+    if (uniforms.padding.y > 0.0 && length(pos.xy) > uniforms.padding.y) {
+        out.position = float4(0.0, 0.0, -2.0, 1.0);
+    }
 
     // Size attenuation based on distance
     float dist = length(viewPos.xyz);

@@ -24,6 +24,13 @@ import Foundation
     /// Called with each tileset read, for the renderer.
     var onTileset: ((CityTileset?, URL?) -> Void)?
 
+    /// City mode: the camera over the city tiles, with the sites as markers.
+    @Published private(set) var isCityMode = false
+    /// The markers and street names over the view, from the renderer.
+    @Published var overlay = CityOverlay()
+    /// Turns city mode on or off in the renderer; AppState's.
+    var onCityMode: ((Bool) -> Void)?
+
     @Published private(set) var sitesLocation: String
     @Published private(set) var index: CitySiteIndex?
     @Published private(set) var loadError: String?
@@ -88,6 +95,17 @@ import Foundation
     }
 
     var sites: [CitySite] { index?.sites ?? [] }
+
+    /// City mode needs tiles to draw or sites to mark.
+    var canShowCity: Bool { tileset != nil || !sites.isEmpty }
+
+    func setCityMode(_ on: Bool) {
+        let next = on && canShowCity
+        guard next != isCityMode else { return }
+        isCityMode = next
+        if !next { overlay = CityOverlay() }
+        onCityMode?(next)
+    }
 
     /// A typed path or URL as a location: `~` expanded, a bare path a file URL.
     nonisolated static func url(for text: String) -> URL? {

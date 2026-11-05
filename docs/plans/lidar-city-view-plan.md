@@ -325,6 +325,20 @@ City view) takes an epoch directory, a `city-tiles` directory (its `current`, el
 epoch, as over SMB the link does not resolve), a `tileset.json`, or a URL. `CityTilesTests.swift`
 reads the shared fixture `testdata/city-view/tiles/`, Gerardus's own.
 
+**As built (Item 7):** the toolbar's **City** switch puts the renderer's world in the city frame:
+the origin follows the camera, the tiles are placed as they are, and the stream is drawn by its
+site's sensor-to-city (a site without an accepted pose draws nothing in the city). Markers (one
+per site with a place, its title, its own date and, for the site playing, its own clock; "not
+yet placed" for an eye-read marker) and the tiles' street names (arterials first, thinned so none
+overlaps, turned along the street and kept upright) are laid over the view in SwiftUI. Clicking a
+marker, or Previous and Next, switches site through Item 5 and flies the camera there: it rises by
+half the distance across, at most 4 km, and comes down 160 m south-west of the sensor and 120 m
+up. The city's buildings fade within the scene's 90 m vector radius of the sensor. The
+separation cues: the stream's points and boxes are drawn only inside a 120 m coverage, its boxes
+fading over the last 15 % with a ring at the edge, coloured by class only (`ClassColour`), and the
+line of copy at the foot of the view. `CityMode.swift` holds the flight, coverage, colours and
+overlay layout; `CityModeTests.swift` tests them against the shared fixtures.
+
 ## Scope
 
 ### Item 1: placement sidecar and city site index
@@ -530,12 +544,12 @@ None recorded. The owner settled the last two on 2026-11-04 (see Design decision
       PR 71) (`L`)
 - [x] Item 5: visualiser `SiteContext` and site switching (`M`)
 - [x] Item 6: visualiser city frame, precision and tile reader (`L`)
+- [x] Item 7: visualiser city mode (`M`)
 
 ### Outstanding
 
 - [ ] Item 3: web city view, zoomed out (`M`)
 - [ ] Item 4: web, into a site and between sites (`M`)
-- [ ] Item 7: visualiser city mode (`M`)
 - [ ] Item 8: visualiser, other sites from published scenes (`M`)
 
 ### Deferred
