@@ -663,6 +663,7 @@ struct ToolbarView: View {
 
                 AlignmentToolbarButton(session: appState.alignment)
                 StreetPaintToolbarButton(painter: appState.streets, session: appState.alignment)
+                SitePickerToolbar(city: appState.city)
 
                 Divider().frame(height: 20)
                 LiveToggleView()

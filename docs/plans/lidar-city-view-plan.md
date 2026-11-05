@@ -284,8 +284,26 @@ never drawn as though it were a measured placement.
 - **Sites with nothing to play:** markers, with their published scene's details.
 - **Tile reader:** a Swift reader for `tileset.json` plus a minimal `.glb` reader (one JSON chunk
   and one binary chunk, with positions, normals and indices only), feeding Metal buffers directly.
-- **Settings:** one new setting, `cityTiles.location` (URL or directory), next to
-  `alignment.serviceAddress`.
+- **Settings:** `cityTiles.location` (URL or directory) for the tiles, and `citySites.location`
+  for the site index, next to `alignment.serviceAddress`. The index is published with the scenes
+  and the tiles by Gerardus, so the two are kept apart rather than one derived from the other.
+  A site with its own Pi in the field has its live server kept on the Mac
+  (`cityView.liveServer.<site id>`), never in a published file.
+
+**As built (Item 5):** `SiteContext` (`App/SiteContext.swift`) holds the site and its tracks; a
+switch makes a new one, and the renderer (`leaveSite`: stream, background cache, reference,
+residuals, street marks), `AlignmentSession` (`leaveSite`: placement, reference, scans, records,
+refinement) and, through the alignment's reference, `StreetPainterSession` drop the old site's
+state. The annotation window takes the site id from it for its map-marks line. The toolbar's site
+picker lists `city/sites.json` with Previous and Next; a switch matches the site's captures (else
+its L16 cell) against `GET /api/lidar/clip-locations` and the clip's files, and replays the ones
+the index names with `POST /api/lidar/pcap/start`. The alignment pane resolves the open capture
+from the index before file names, and takes the heading from it. Tests in
+`SiteContextTests.swift` switch away and back and check that no track, background, reference or
+street mark survives. The fixtures in `testdata/city-view/` are three entries of Item 1's
+`city/sites.json`, one scene's `placement.json` and Gerardus's tile fixture. The index's
+`heading_deg` (the bearing of the sensor's +Y) is the hint heading; the pane shows it as the
+north azimuth it would have typed, 180° − heading.
 
 ## Scope
 
@@ -479,12 +497,12 @@ None recorded. The owner settled the last two on 2026-11-04 (see Design decision
 - [x] Item 2: Gerardus city tiles, first epoch `20261105T200804Z`, baked on arrow on 2026-11-05
       into `/mnt/results/gerardus/city-tiles/`: 8,428 tiles, 277 MB gzip (banshee-data/gerardus
       PR 71) (`L`)
+- [x] Item 5: visualiser `SiteContext` and site switching (`M`)
 
 ### Outstanding
 
 - [ ] Item 3: web city view, zoomed out (`M`)
 - [ ] Item 4: web, into a site and between sites (`M`)
-- [ ] Item 5: visualiser `SiteContext` and site switching (`M`)
 - [ ] Item 6: visualiser city frame, precision and tile reader (`L`)
 - [ ] Item 7: visualiser city mode (`M`)
 - [ ] Item 8: visualiser, other sites from published scenes (`M`)

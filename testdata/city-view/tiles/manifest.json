@@ -1,0 +1,213 @@
+{
+  "attribution": "City and County of San Francisco (DataSF, PDDL-1.0); U.S. Geological Survey 3DEP (public domain)",
+  "build": {
+    "built_at": "2026-11-04T00:00:00Z",
+    "version": "fixture"
+  },
+  "cells_l13": [
+    "8085805c",
+    "808580f4"
+  ],
+  "data_purpose": "These tiles are measured spatial data, each part at its own acquisition time: footprint outlines as the City and County of San Francisco published them; building heights from the City's 2010 aerial lidar (hgt_median_m above gnd_min_m); street centrelines as of the cache's retrieval date; ground from USGS 3DEP's survey. They give context for traffic data and are not a survey, plan or specification of any street or building. A building missing from a tile is not asserted absent. Street names are display labels for finding your way around, not attributes of a feature. Positions are NAD83(2011); WGS 84 differs from it by about 1-1.5 m in San Francisco.",
+  "epoch": "fixture",
+  "ept_depth": 7,
+  "extras_profile": {
+    "labels": "per tile in the glTF's extras.labels: {name, anchor_enu_m [east, north, up] from the tile origin, bearing_deg of the street at the anchor in [0, 180), class (DataSF classcode)}; L10 arterials (classcode 1-3) once per name, L13 once per named street, L16 once per named block face",
+    "meshes": "at most three meshes per tile, one primitive each: ground (triangles), buildings (triangles), streets (lines); positions and indices only, no normals and no materials. Building corners are shared by walls and roofs, so shade buildings flat (face normals from the triangle, e.g. three.js flatShading or screen-space derivatives); the ground is a shared-vertex grid that smooth normals suit. Triangles wind counter-clockwise seen from outside"
+  },
+  "format": "gerardus-city-tiles-1",
+  "frame": {
+    "axes": "city frame: east-north-up at the origin, metres, Z up. NAVD88 heights are taken as ellipsoidal at the origin, so z is NAVD88 height less the earth's curvature (d^2 / 2R) away from the origin",
+    "gltf_axes": "tile vertices are Float32 metres from the tile's origin (the centre of its S2 cell) in glTF's Y-up axes: glTF (x, y, z) = city (east, up, -north); 3D Tiles turns them Z-up",
+    "horizontal_datum": "NAD83(2011)",
+    "navd88_zero_ellipsoidal_m": -32.2,
+    "not_clipped": "a footprint or street belongs to the tile its centroid falls in and is not cut at the cell edge",
+    "not_shifted": "footprints are where the City places them, about 1-1.5 m from where 3DEP sees the walls; no per-site shift is baked",
+    "origin": {
+      "lat_deg": 37.76,
+      "lon_deg": -122.44,
+      "navd88_m": 0.0
+    },
+    "root_transform": "city frame to ECEF (GRS80) with NAVD88 zero at an ellipsoidal height of about -32.2 m (GEOID18, approximate to 0.3 m until Gerardus has a geoid grid)",
+    "tile_transforms": "each tile's transform is a translation from its parent's origin; extras.origin_city_enu_m gives every tile's origin from the city origin, for clients that skip ECEF",
+    "vertical_datum": "NAVD88",
+    "wgs84_note": "WGS 84 (ITRF) positions differ from NAD83(2011) by about 1-1.5 m in San Francisco"
+  },
+  "levels": [
+    {
+      "bytes": 7328,
+      "cap_gzip_bytes": 2097152,
+      "geometric_error": 50.0,
+      "ground_fill_m": 200.0,
+      "ground_m": 50.0,
+      "gzip_bytes": 3968,
+      "largest": "l10/808581.glb",
+      "largest_gzip_bytes": 3968,
+      "level": 10,
+      "min_footprint_area_m2": 100.0,
+      "simplify_m": 10.0,
+      "tiles": 1
+    },
+    {
+      "bytes": 32816,
+      "cap_gzip_bytes": 1048576,
+      "geometric_error": 10.0,
+      "ground_fill_m": 100.0,
+      "ground_m": 10.0,
+      "gzip_bytes": 18799,
+      "largest": "l13/8085805c.glb",
+      "largest_gzip_bytes": 16130,
+      "level": 13,
+      "min_footprint_area_m2": 25.0,
+      "simplify_m": 1.0,
+      "tiles": 2
+    },
+    {
+      "bytes": 131916,
+      "cap_gzip_bytes": 262144,
+      "geometric_error": 0.0,
+      "ground_fill_m": 40.0,
+      "ground_m": 4.0,
+      "gzip_bytes": 72701,
+      "largest": "l16/8085805c1.glb",
+      "largest_gzip_bytes": 16173,
+      "level": 16,
+      "min_footprint_area_m2": 0.0,
+      "simplify_m": 0.0,
+      "tiles": 16
+    }
+  ],
+  "licence": "CC0-1.0",
+  "product": "city view",
+  "sources": [
+    {
+      "attribution": "",
+      "layer": "REFERENCE_LAYER_FOOTPRINTS",
+      "licence": "PDDL-1.0",
+      "name": "Footprints",
+      "retrieved": "",
+      "uri": "",
+      "version": "fixture"
+    },
+    {
+      "attribution": "",
+      "layer": "REFERENCE_LAYER_CITY_STREETS",
+      "licence": "PDDL-1.0",
+      "name": "CityStreets",
+      "retrieved": "",
+      "uri": "",
+      "version": "fixture"
+    },
+    {
+      "attribution": "",
+      "layer": "REFERENCE_LAYER_AERIAL_POINTS",
+      "licence": "public-domain",
+      "name": "AerialPoints",
+      "retrieved": "",
+      "uri": "",
+      "version": "fixture"
+    }
+  ],
+  "tiles": {
+    "l10/808581.glb": {
+      "bytes": 7328,
+      "gzip_bytes": 3968,
+      "sha256": "sha256:b26500ebb493f35f0d3de615b59e8effba7cbdc93d078ac3b45a02b3235a0f2e"
+    },
+    "l13/8085805c.glb": {
+      "bytes": 28756,
+      "gzip_bytes": 16130,
+      "sha256": "sha256:416a284d6d23c71a53efbbf1d4b39e7a35175dfa9fb8f3599e70ef684a120967"
+    },
+    "l13/808580f4.glb": {
+      "bytes": 4060,
+      "gzip_bytes": 2669,
+      "sha256": "sha256:56b636fe4d389a7171bb217fb3d57fff7792531ddba3e667f35f7022d391ed02"
+    },
+    "l16/808580593.glb": {
+      "bytes": 4340,
+      "gzip_bytes": 2291,
+      "sha256": "sha256:7e8b3f8c2141f478c3a051aead0d2fc71770326e7d2771738bad8de66974bbd3"
+    },
+    "l16/808580595.glb": {
+      "bytes": 27084,
+      "gzip_bytes": 14347,
+      "sha256": "sha256:db57921ee26a14cf454d1b2fe044d312112115c9f2d61f041320ef06ef5332f9"
+    },
+    "l16/808580597.glb": {
+      "bytes": 4476,
+      "gzip_bytes": 2525,
+      "sha256": "sha256:95416bde3bfb8a35731665fae5639d97b71995056c4a186b90d7af2e87c73b69"
+    },
+    "l16/8085805b9.glb": {
+      "bytes": 1176,
+      "gzip_bytes": 709,
+      "sha256": "sha256:a645b46811efe6921469e2ebcfb65feccdd400e7def46dfa335463fcb205126d"
+    },
+    "l16/8085805bd.glb": {
+      "bytes": 1620,
+      "gzip_bytes": 977,
+      "sha256": "sha256:04a7c6dba35f8c2a9d54bbc91e16f5a469e3bad10b328fbd1e46f532bba0ae12"
+    },
+    "l16/8085805bf.glb": {
+      "bytes": 22584,
+      "gzip_bytes": 12527,
+      "sha256": "sha256:736fffe2b6846e62dbd6ac0ff4a0321bc24cdfa6511aec8e6c18f7f7d4cec581"
+    },
+    "l16/8085805c1.glb": {
+      "bytes": 29496,
+      "gzip_bytes": 16173,
+      "sha256": "sha256:5c52e4414977a8433fb19e08680e2ce6797c3f45fc14ca932a03281c5bbdb4e9"
+    },
+    "l16/8085805c3.glb": {
+      "bytes": 4256,
+      "gzip_bytes": 2423,
+      "sha256": "sha256:cb62c1911a20df656214f7ee2d8a3179b0eb426cea1b41b5886c0c1ea1f26036"
+    },
+    "l16/8085805c7.glb": {
+      "bytes": 4700,
+      "gzip_bytes": 2474,
+      "sha256": "sha256:1c53f1404dfe76e3041cf554350f6554d3cbab5e5f7ed820c36c3bb1f9c9498d"
+    },
+    "l16/8085805e9.glb": {
+      "bytes": 1552,
+      "gzip_bytes": 938,
+      "sha256": "sha256:2764eac1382409d7e59e34471cb43cc656d6d0404da3a0228e83eb2a0236108d"
+    },
+    "l16/8085805eb.glb": {
+      "bytes": 20300,
+      "gzip_bytes": 10784,
+      "sha256": "sha256:eb594cc65db17177f72bc8a64cb393e873893199c461320919e21c1db1ac1003"
+    },
+    "l16/8085805ed.glb": {
+      "bytes": 1092,
+      "gzip_bytes": 658,
+      "sha256": "sha256:fd13cedfe069a3f44fbfa4bee9b051e8057b39ca1c941a7ee2f18ce72d4ffe89"
+    },
+    "l16/808580f15.glb": {
+      "bytes": 1240,
+      "gzip_bytes": 875,
+      "sha256": "sha256:0c6743d30ed074cbafd120d9b4d111d81dd000baee5a1fcccf8d7697679353f1"
+    },
+    "l16/808580f3f.glb": {
+      "bytes": 1240,
+      "gzip_bytes": 864,
+      "sha256": "sha256:e68b814276329f8b9fc9563db2c06a4b18ad8f81c5beafd4d58b9b50e0ff170f"
+    },
+    "l16/808580f41.glb": {
+      "bytes": 3572,
+      "gzip_bytes": 2245,
+      "sha256": "sha256:696574fa7d8719a017825878f9c6ba719776bab72a8a47fa1a4dc75fc56a086d"
+    },
+    "l16/808580f6b.glb": {
+      "bytes": 3188,
+      "gzip_bytes": 1891,
+      "sha256": "sha256:f53578722d1de4524b22050fe4567773f1e2123aafe386c558d3db6bfbbe8ab1"
+    }
+  },
+  "totals": {
+    "cap_gzip_bytes": 314572800,
+    "gzip_bytes": 95468,
+    "tiles": 19
+  }
+}
