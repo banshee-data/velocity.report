@@ -13,18 +13,27 @@ import (
 // surfaceRecorder is a tracker that records every ground surface it is handed.
 type surfaceRecorder struct {
 	mockTrackerCov
-	surfaces []l4perception.HeightSurface
+	surfaces         []l4perception.HeightSurface
+	detectionUpdates int
 }
 
 func (r *surfaceRecorder) SetGroundSurface(s l4perception.HeightSurface) {
 	r.surfaces = append(r.surfaces, s)
 }
 
+func (r *surfaceRecorder) Update(clusters []l4perception.WorldCluster, ts time.Time) {
+	r.mockTrackerCov.Update(clusters, ts)
+	if len(clusters) > 0 {
+		r.detectionUpdates++
+	}
+}
+
 // The surface fitted for the tracker's box must not change the clip, and the
 // clip's surface must not reach the tracker unless the box asked for it. The
 // fixture's points are at z = 0 and the stand-in road a metre below them, so
 // the surface clip keeps every point while a height band at 99 m removes them
-// all: whether the tracker is updated says which clip ran.
+// all: whether detections reach the tracker says which clip ran. Empty
+// frames still advance its lifecycle.
 func TestGroundSurfaceForTrackerLeavesTheClipAlone(t *testing.T) {
 	road := l3grid.RegionalGroundSurface{CellMetres: 10, Global: l3grid.GroundSurface{C: -1}}
 	fits := 0
@@ -65,7 +74,7 @@ func TestGroundSurfaceForTrackerLeavesTheClipAlone(t *testing.T) {
 	if fitted == nil {
 		t.Fatal("the fit was not published for the caller")
 	}
-	if rec.updateCalls != 0 {
+	if rec.updateCalls != 15 || rec.detectionUpdates != 0 {
 		t.Fatalf("the tracker was updated %d times: the surface fitted for the box changed the clip", rec.updateCalls)
 	}
 	if fits != 1 {
@@ -76,7 +85,7 @@ func TestGroundSurfaceForTrackerLeavesTheClipAlone(t *testing.T) {
 	if len(rec.surfaces) != 0 {
 		t.Fatal("the clip's surface reached a tracker whose box did not ask for it")
 	}
-	if rec.updateCalls == 0 {
+	if rec.detectionUpdates == 0 {
 		t.Fatal("the surface clip did not run: every point went to the height band")
 	}
 
@@ -123,7 +132,7 @@ func TestGroundSurfaceForReportIsReadNeverApplied(t *testing.T) {
 	if len(rec.surfaces) != 0 {
 		t.Fatal("the report's surface reached the tracker")
 	}
-	if rec.updateCalls != 0 {
+	if rec.updateCalls != 15 || rec.detectionUpdates != 0 {
 		t.Fatalf("the tracker was updated %d times: the report's surface changed the clip", rec.updateCalls)
 	}
 }
