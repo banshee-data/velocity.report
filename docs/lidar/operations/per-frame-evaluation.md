@@ -446,3 +446,18 @@ candidate twin.
 - **Results from before the exact solver.** Tracker runs recorded before `l5tracks.HungarianAssign`
   became exact (gap analysis H1) used a solver that could take a costlier assignment when clusters
   outnumbered tracks or a gated pair was forced. Score them only against runs from the same build.
+
+## Labelled identity acceptance component
+
+Add `-identity-gate` to a paired `perframe` run to apply l5id0004's reviewed
+identity limits: at least 98 % of baseline matches, HOTA and IDF1 no lower than
+baseline minus 0.005, no more switches, and fragmentations at most 1.1 times
+baseline plus 1. JSON includes `identity_acceptance` and Markdown names each
+clause. The tool writes those outputs before returning 3 on a failed or
+insufficient comparison. Only a non-empty, frozen held-out reference scored
+under reviewed-only policy can pass; tuning scores remain diagnostic.
+
+This is one acceptance component. It does not establish corpus duplicate/coverage,
+W5 geometry, timing or physical accuracy, and does not change any tracker default.
+The [cloud acceptance report](reacquisition-cloud-acceptance-2026-11.md) records
+which evidence was available and what remains.

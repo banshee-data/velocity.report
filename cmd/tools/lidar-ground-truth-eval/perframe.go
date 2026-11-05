@@ -62,6 +62,7 @@ func (a armFlags) check() error {
 // perFrameRequest is one parsed perframe command line: the comparison to run
 // and where its outputs go.
 type perFrameRequest struct {
+	identityGate                      bool
 	cfg                               perframeeval.Config
 	jsonPath, markdownPath, bundleDir string
 }
@@ -83,6 +84,10 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
+	if req.identityGate {
+		gate := perframeeval.AssessIdentity(*c)
+		c.IdentityAcceptance = &gate
+	}
 	payload, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		fmt.Fprintf(stderr, "error: encode comparison: %v\n", err)
@@ -115,6 +120,10 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 			req.bundleDir, c.Physical.Reference.PhysicalRevision, c.Physical.Reference.PhysicalRevisionDigest)
 	}
 	printPerFrameSummary(stderr, c)
+	if c.IdentityAcceptance != nil && c.IdentityAcceptance.Verdict != "pass" {
+		fmt.Fprintf(stderr, "identity acceptance: %s (%s)\n", c.IdentityAcceptance.Verdict, c.IdentityAcceptance.Reason)
+		return 3
+	}
 	return 0
 }
 
@@ -129,6 +138,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	manifestPath := fs.String("split-manifest", "", "object-disjoint split manifest JSON: a frozen split, or a version 1 manifest (required)")
 	split := fs.String("split", "", "split to score (required)")
 	episodes := fs.String("episodes", "", "comma-separated episode IDs (default: every episode of the split)")
+	identityGate := fs.Bool("identity-gate", false, "apply l5id0004's labelled per-frame acceptance component; requires frozen reviewed held-out truth to pass; writes results before returning 3 on failure or insufficient evidence")
 	allowTuning := fs.Bool("allow-tuning-split", false, "score a split whose role is not held_out; the output says it is not held out")
 	includeProposed := fs.Bool("include-proposed", false, "also score proposed (unreviewed) masks as truth; recorded as the reference policy")
 	position := fs.String("reference-position", string(annotation.PositionFootprintCentre), "reference position: footprint_centre or point_mean")
@@ -238,7 +248,7 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	if *bundleDir != "" && cfg.Physical == nil {
 		return nil, usageError(fs, stderr, fmt.Errorf("-physical-bundle-dir needs -physical-reference"))
 	}
-	return &perFrameRequest{cfg: cfg, jsonPath: *jsonPath, markdownPath: *markdownPath, bundleDir: *bundleDir}, 0
+	return &perFrameRequest{identityGate: *identityGate, cfg: cfg, jsonPath: *jsonPath, markdownPath: *markdownPath, bundleDir: *bundleDir}, 0
 }
 
 // printPerFrameSummary writes the operator's one-screen summary.
