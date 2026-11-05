@@ -311,21 +311,65 @@ private let logger = DevLogger(category: "AppState")
         let headingDeg: Float
     }
 
+    /// The site being shown, which owns its tracks, background, reference
+    /// and street marks. Replaced, never reused, by `switchSite`.
+    @Published private(set) var siteContext = SiteContext()
+
+    /// Replaces the site context: every holder of per-site state leaves the
+    /// old site, and the new context starts empty. The stream itself is the
+    /// caller's to restart.
+    func enterSite(_ next: SiteContext, alignmentSite: AlignmentSite? = nil) {
+        clearAll()
+        prepareForNewReplay()
+        currentRunID = nil
+        runBrowserState.selectedRunID = nil
+        renderer?.leaveSite(for: next)
+        alignment.leaveSite(for: next)
+        siteContext = next
+        if let site = next.site { alignment.enterCitySite(site, clip: alignmentSite) }
+    }
+
+    /// Where the operator's per-site preferences (live servers) are kept;
+    /// nil under XCTest.
+    var siteDefaults: UserDefaults? { serverDefaults }
+    /// Replaces velocity.report's replay calls, for tests.
+    var siteReplayServiceOverride: SiteReplayService?
+
     /// Ring buffer of recent samples per track (keyed by trackID).
-    private(set) var trackHistory: [String: [TrackSample]] = [:]
+    private(set) var trackHistory: [String: [TrackSample]] {
+        get { siteContext.tracks.history }
+        _modify { yield &siteContext.tracks.history }
+        set { siteContext.tracks.history = newValue }
+    }
     /// Persistent all-time max speed per track (survives ring-buffer eviction).
-    private(set) var trackMaxSpeed: [String: Float] = [:]
+    private(set) var trackMaxSpeed: [String: Float] {
+        get { siteContext.tracks.maxSpeed }
+        _modify { yield &siteContext.tracks.maxSpeed }
+        set { siteContext.tracks.maxSpeed = newValue }
+    }
     /// Persistent all-time max hits per track across the current session/replay.
-    private(set) var trackMaxHits: [String: Int] = [:]
+    private(set) var trackMaxHits: [String: Int] {
+        get { siteContext.tracks.maxHits }
+        _modify { yield &siteContext.tracks.maxHits }
+        set { siteContext.tracks.maxHits = newValue }
+    }
     private static let maxHistorySamples = 120  // ~12 s at 10 Hz
 
     /// Accumulated tracks across all frames in the current session/replay.
     /// Tracks persist in this dictionary even after they leave the sensor's field of view,
     /// ensuring the track list does not lose entries when a track goes out of frame.
-    /// Cleared on disconnect, new replay, or clearAll.
-    private(set) var allSeenTracks: [String: Track] = [:]
+    /// Cleared on disconnect, new replay, clearAll, or a site switch.
+    private(set) var allSeenTracks: [String: Track] {
+        get { siteContext.tracks.allSeen }
+        _modify { yield &siteContext.tracks.allSeen }
+        set { siteContext.tracks.allSeen = newValue }
+    }
     /// Track IDs present in the most recent frame (for in-view indicators).
-    private(set) var inViewTrackIDs: Set<String> = []
+    private(set) var inViewTrackIDs: Set<String> {
+        get { siteContext.tracks.inView }
+        _modify { yield &siteContext.tracks.inView }
+        set { siteContext.tracks.inView = newValue }
+    }
 
     // MARK: - Renderer
 
@@ -452,6 +496,11 @@ private let logger = DevLogger(category: "AppState")
 
     /// The camera pane's orbit, flight and viewpoints.
     let camera: CameraControlSession
+
+    // MARK: - City view
+
+    /// The city site index and the switch between its sites.
+    let city: CityViewSession
     /// Closing the pane stops its orbit (putting the camera back) and its
     /// flight.
     @Published var showCameraPane: Bool = false { didSet { camera.isPaneOpen = showCameraPane } }
@@ -479,6 +528,7 @@ private let logger = DevLogger(category: "AppState")
         camera = CameraControlSession(
             alignment: alignment, painter: streets,
             defaults: Self.isRunningUnderXCTest ? nil : .standard)
+        city = CityViewSession(defaults: Self.isRunningUnderXCTest ? nil : .standard)
         alignmentAvailability = alignment.$availability.sink { [weak self] availability in
             if case .available = availability { return }
             self?.showAlignmentPane = false
@@ -500,6 +550,14 @@ private let logger = DevLogger(category: "AppState")
                 }
             }
         }
+
+        city.switcher = { [weak self] site in
+            guard let self else { throw CancellationError() }
+            return try await self.switchSite(to: site)
+        }
+        city.currentSiteID = { [weak self] in self?.siteContext.site?.id }
+        city.onIndex = { [weak self] index in self?.alignment.siteIndex = index }
+        if !Self.isRunningUnderXCTest { Task { await city.loadIndex() } }
 
         camera.selectedObjectCentre = { [weak self] in
             guard let track = self?.selectedTrackData else { return nil }

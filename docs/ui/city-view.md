@@ -1,6 +1,8 @@
 # City view
 
-- **Status:** Design, not built. This page describes the intended behaviour; nothing here ships yet.
+- **Status:** Design, partly built. In the visualiser, switching between the sites of
+  `city/sites.json` ships (toolbar site picker; Settings ▸ Servers ▸ City view). The city map
+  itself does not yet.
 - **Plan:** [lidar-city-view-plan.md](../plans/lidar-city-view-plan.md) (the work and its order)
 - **Companion:** Gerardus
   [CITY-VIEW-TILES](https://github.com/banshee-data/gerardus/blob/main/docs/plans/CITY-VIEW-TILES.md)

@@ -1563,6 +1563,33 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         _lastTracks = nil
     }
 
+    /// The site whose geometry the renderer holds; "" before one is chosen.
+    private(set) var siteID = ""
+
+    /// A site switch: drops everything drawn for the site being left (its
+    /// stream, its background cache, its reference geometry, residuals and
+    /// street marks) so none of it is drawn at the next site. The camera and
+    /// the display settings are the operator's and stay.
+    func leaveSite(for next: SiteContext) {
+        clearTransientData()
+        setReferenceOverlay(nil)
+        setReferenceModelMatrix(matrix_identity_float4x4)
+        setResidualOverlay(nil, palette: [])
+        setStreetOverlay(nil)
+        setOverlayBoxes([])
+        if cameraHolder == .plan { exitPlanView() }
+        siteID = next.siteID
+    }
+
+    /// Whether anything of a site is still held: for the switch tests.
+    var holdsSiteGeometry: Bool {
+        pointCount > 0 || boxInstanceCount > 0 || trailVertexCount > 0
+            || (compositeRenderer?.getStats().total ?? 0) > 0 || referenceAerialCount > 0
+            || referenceFootprintVertexCount > 0 || referenceBuildingVertexCount > 0
+            || referenceCityStreetVertexCount > 0 || referenceGroundMeshVertexCount > 0
+            || residualPointCount > 0 || streetFillVertexCount > 0 || streetLineVertexCount > 0
+    }
+
     /// M3.5: Get background cache status for UI display.
     func getCacheStatus() -> String {
         compositeRenderer?.cacheStatus ?? "Not using split streaming"

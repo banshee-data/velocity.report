@@ -573,6 +573,12 @@ struct MainViewLink: View {
     }
 
     var body: some View {
+        followControls.onReceive(appState.$siteContext) { context in
+            if session.siteID != context.siteID { session.siteID = context.siteID }
+        }
+    }
+
+    private var followControls: some View {
         VStack(alignment: .leading, spacing: 4) {
             Toggle("Follow the main view", isOn: $session.syncWithMainView).font(.caption).help(
                 "Stepping here seeks the main view to the same frame, and moving the main view "

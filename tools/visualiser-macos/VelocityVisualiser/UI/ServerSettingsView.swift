@@ -72,6 +72,7 @@ enum VelocityReportSettings {
         Form {
             VelocityReportSettingsView(appState: appState, connection: connection)
             GerardusSettingsView(session: session)
+            CitySettingsView(city: appState.city)
         }.formStyle(.grouped)
     }
 }
