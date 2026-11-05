@@ -167,6 +167,9 @@ type RegionalGroundSurface struct {
 // HeightAt returns the expected ground height at a site-frame position: the
 // local region's plane if one was fitted, otherwise Global's.
 func (s RegionalGroundSurface) HeightAt(x, y float64) float64 {
+	if s.CellMetres <= 0 {
+		return s.Global.HeightAt(x, y)
+	}
 	if surface, ok := s.regions[regionKeyFor(x, y, s.CellMetres)]; ok {
 		return surface.HeightAt(x, y)
 	}
@@ -177,6 +180,9 @@ func (s RegionalGroundSurface) HeightAt(x, y float64) float64 {
 // position, and whether that cell has one of its own; a cell without one is
 // served by Global.
 func (s RegionalGroundSurface) RegionAt(x, y float64) (GroundSurface, bool) {
+	if s.CellMetres <= 0 {
+		return GroundSurface{}, false
+	}
 	surface, ok := s.regions[regionKeyFor(x, y, s.CellMetres)]
 	return surface, ok
 }
@@ -278,4 +284,16 @@ func FitRegionalGroundSurfaceFromBackground(manager *BackgroundManager, cellMetr
 		return RegionalGroundSurface{}, fmt.Errorf("settled background has no ring elevations")
 	}
 	return FitRegionalGroundSurface(manager.ToASCPoints(), cellMetres)
+}
+
+// GroundSurfaceVersion returns the fit input's revision and settling state.
+// Unlike ChangesSinceSnapshot, persistence cannot rewind this revision.
+func (bm *BackgroundManager) GroundSurfaceVersion() (uint64, bool) {
+	if bm == nil || bm.Grid == nil {
+		return 0, false
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.surfaceRevision, g.SettlingComplete
 }

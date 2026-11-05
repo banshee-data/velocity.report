@@ -726,6 +726,7 @@ func Main(args []string) int {
 				HeightBandFloor:           tuningCfg.GetHeightBandFloor(),
 				HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 				RemoveGround:              tuningCfg.GetRemoveGround(),
+				SurfaceGround:             tuningCfg.GetSurfaceGround(),
 				Profile:                   tuningCfg.Profile(),
 			}
 			// State the profile at startup unconditionally. A pipeline that is
@@ -1021,6 +1022,7 @@ func Main(args []string) int {
 		// dashboard checkbox can enable/disable trace logging at runtime.
 		if pipelineConfig != nil {
 			pipelineConfig.KeepClusterMembersRuntime = lidarServer.ClusterMembersFlag()
+			pipelineConfig.SurfaceGroundRuntime = lidarServer.SurfaceGroundFlag()
 			pipelineConfig.BenchmarkMode = lidarServer.BenchmarkMode()
 			pipelineConfig.DisableTrackPersistence = lidarServer.DisableTrackPersistenceFlag()
 			pipelineConfig.ReplayActive = lidarServer.ReplayActiveFlag()

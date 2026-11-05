@@ -114,7 +114,13 @@ var IsNilInterface = isNilInterface
 // fitGroundSurface fits the regional ground surface from the settled
 // background. It is a variable so a test can stand in a surface without
 // settling a grid with ring elevations; nothing else replaces it.
-var fitGroundSurface = l3grid.FitRegionalGroundSurfaceFromBackground
+var fitGroundSurface = func(manager *l3grid.BackgroundManager, cellMetres float64) (l3grid.RegionalGroundSurface, error) {
+	if cellMetres == 0 {
+		global, err := l3grid.FitGroundSurfaceFromBackground(manager)
+		return l3grid.RegionalGroundSurface{Global: global}, err
+	}
+	return l3grid.FitRegionalGroundSurfaceFromBackground(manager, cellMetres)
+}
 
 // heapBytes returns the current heap allocation in bytes.
 func heapBytes() uint64 {
@@ -400,7 +406,11 @@ type TrackingPipelineConfig struct {
 	// UseSurfaceGround changes lower clipping from an absolute sensor Z band to
 	// height above a plane fitted from settled L3 background. It remains opt-in
 	// until the Phase 0 corpus supplies real-site timing and geometry evidence.
-	UseSurfaceGround     bool
+	UseSurfaceGround bool
+	// SurfaceGround is the tuning file's immutable initial snapshot.
+	// SurfaceGroundRuntime, when wired, atomically replaces the entire block.
+	SurfaceGround        *config.L4SurfaceGround
+	SurfaceGroundRuntime *atomic.Pointer[config.L4SurfaceGround]
 	SurfaceGroundFloor   float64 // metres above the fitted surface; default 0.2
 	SurfaceGroundCeiling float64 // metres above the fitted surface; default 4.5
 
@@ -566,6 +576,88 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	var logGroundDisabledOnce sync.Once
 	var logSurfaceGroundFallbackOnce sync.Once
 	var groundSurface *l3grid.RegionalGroundSurface
+	var groundSurfaceGrid *l3grid.BackgroundGrid
+	var surfaceVersion uint64
+	var surfaceFitAt time.Time
+	var surfaceAttemptAt time.Time
+	var fittedCellMetres float64
+	explicitSurfaceGround := false
+	initialSurfaceUse, initialSurfaceFloor, initialSurfaceCeiling, initialSurfaceCell := useSurfaceGround, surfaceGroundFloor, surfaceGroundCeiling, surfaceGroundRegionMetres
+	var surfaceInitial *config.L4SurfaceGround
+	if cfg.SurfaceGround != nil {
+		copy := *cfg.SurfaceGround
+		surfaceInitial = &copy
+	}
+	refreshSurface := func(at time.Time) {
+		settings := surfaceInitial
+		if cfg.SurfaceGroundRuntime != nil {
+			settings = cfg.SurfaceGroundRuntime.Load()
+		}
+		useSurfaceGround = initialSurfaceUse
+		surfaceGroundFloor, surfaceGroundCeiling, surfaceGroundRegionMetres = initialSurfaceFloor, initialSurfaceCeiling, initialSurfaceCell
+		explicitSurfaceGround = settings != nil && settings.Enabled
+		if settings != nil {
+			useSurfaceGround = settings.Enabled
+			if settings.Enabled {
+				surfaceGroundFloor, surfaceGroundCeiling, surfaceGroundRegionMetres = settings.FloorMetres, settings.CeilingMetres, settings.CellMetres
+			}
+		}
+		needed := profile.RunsLayer(4) && ((removeGround && useSurfaceGround) || surfaceForTracker || surfaceForReport)
+		clearSurface := func() {
+			groundSurface = nil
+			if cfg.GroundSurfaceFit != nil {
+				cfg.GroundSurfaceFit.Store(nil)
+			}
+			if surfaceForTracker && !isNilInterface(cfg.Tracker) {
+				cfg.Tracker.SetGroundSurface(nil)
+			}
+		}
+		if !needed {
+			surfaceAttemptAt = time.Time{}
+			if groundSurface != nil {
+				clearSurface()
+			}
+			return
+		}
+		version, settled := cfg.BackgroundManager.GroundSurfaceVersion()
+		if !settled {
+			if groundSurface != nil {
+				clearSurface()
+			}
+			surfaceAttemptAt = time.Time{}
+			return
+		}
+		if groundSurface != nil && groundSurfaceGrid != cfg.BackgroundManager.Grid {
+			clearSurface()
+			surfaceAttemptAt = time.Time{}
+		}
+		changed := version != surfaceVersion && (at.Before(surfaceFitAt) || at.Sub(surfaceFitAt) >= time.Second)
+		if groundSurface != nil && !changed && fittedCellMetres == surfaceGroundRegionMetres {
+			return
+		}
+		if groundSurface == nil && !surfaceAttemptAt.IsZero() && !at.Before(surfaceAttemptAt) && at.Sub(surfaceAttemptAt) < time.Second && fittedCellMetres == surfaceGroundRegionMetres {
+			return
+		}
+		surfaceAttemptAt, fittedCellMetres = at, surfaceGroundRegionMetres
+		surface, err := fitGroundSurface(cfg.BackgroundManager, surfaceGroundRegionMetres)
+		if err != nil {
+			// A changed background must not keep publishing an obsolete model.
+			if groundSurface != nil {
+				clearSurface()
+			}
+			logSurfaceGroundFallbackOnce.Do(func() { diagf("Surface-ground fit waiting for settled background: %v", err) })
+			return
+		}
+		groundSurface, groundSurfaceGrid = &surface, cfg.BackgroundManager.Grid
+		tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm revision=%d", surface.Global.Support, surface.Global.GradientMetre, surface.Global.RMSEMetres, surface.RegionCount, surface.CellMetres, version)
+		surfaceVersion, surfaceFitAt, fittedCellMetres = version, at, surfaceGroundRegionMetres
+		if cfg.GroundSurfaceFit != nil {
+			cfg.GroundSurfaceFit.Store(groundSurface)
+		}
+		if surfaceForTracker && !isNilInterface(cfg.Tracker) {
+			cfg.Tracker.SetGroundSurface(l3grid.BlendedSurface{Surface: groundSurface})
+		}
+	}
 
 	// Cache the default DBSCAN params once at callback creation time rather
 	// than loading from disk on every frame. The per-frame overrides
@@ -688,6 +780,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 
 		if len(frame.Points) == 0 {
+			refreshSurface(frame.StartTimestamp)
 			publishEmptyFrame(frame, nil, draft, true)
 			return
 		}
@@ -732,6 +825,8 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			publishEmptyFrame(frame, nil, draft, true)
 			return
 		}
+
+		refreshSurface(frame.StartTimestamp)
 
 		extractMask := mask
 		if cfg.HeldToL4 {
@@ -936,35 +1031,13 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// plane, and the road is at approximately −2.3 m for the deployed ~2.3 m mount.
 		filteredPoints := worldPoints
 		var lowerGroundRejected []l4perception.WorldPoint
-		// The surface is fitted once, when the background has settled, for
-		// the clip, the tracker's published box, a report, or any of them.
-		if ((removeGround && useSurfaceGround) || surfaceForTracker || surfaceForReport) && groundSurface == nil {
-			surface, err := fitGroundSurface(cfg.BackgroundManager, surfaceGroundRegionMetres)
-			if err == nil {
-				groundSurface = &surface
-				if cfg.GroundSurfaceFit != nil {
-					cfg.GroundSurfaceFit.Store(&surface)
-				}
-				if surfaceForTracker && cfg.Tracker != nil {
-					// The box reads the blended surface: the clip's
-					// per-cell planes step at cell edges, which a base
-					// stood on them would draw as a hop.
-					cfg.Tracker.SetGroundSurface(l3grid.BlendedSurface{Surface: groundSurface})
-				}
-				tracef("Ground surface: support=%d gradient=%.4f rmse=%.3fm regions=%d cell=%.1fm",
-					surface.Global.Support, surface.Global.GradientMetre, surface.Global.RMSEMetres,
-					surface.RegionCount, surface.CellMetres)
-			} else {
-				logSurfaceGroundFallbackOnce.Do(func() { diagf("Surface-ground fit waiting for settled background: %v", err) })
-			}
-		}
 		if removeGround {
 			if useSurfaceGround && groundSurface != nil {
 				floor, ceiling := surfaceGroundFloor, surfaceGroundCeiling
-				if floor == 0 {
+				if floor == 0 && !explicitSurfaceGround {
 					floor = .2
 				}
-				if ceiling == 0 {
+				if ceiling == 0 && !explicitSurfaceGround {
 					ceiling = 4.5
 				}
 				filteredPoints, lowerGroundRejected = (l4perception.SurfaceHeightFilter{Surface: *groundSurface, Floor: floor, Ceiling: ceiling}).Filter(worldPoints)

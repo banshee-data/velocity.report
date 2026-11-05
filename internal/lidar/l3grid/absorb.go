@@ -115,6 +115,9 @@ func (bm *BackgroundManager) AbsorbReturns(points []PointPolar, now time.Time) i
 		c.LastUpdateUnixNanos = nowNanos
 	}
 	g.ChangesSinceSnapshot += len(folds)
+	if len(folds) > 0 {
+		g.surfaceRevision++
+	}
 	return len(folds)
 }
 

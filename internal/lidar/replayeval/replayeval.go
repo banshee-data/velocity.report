@@ -916,7 +916,11 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 	disablePersistence := &atomic.Bool{}
 	disablePersistence.Store(true)
 	stateObservationModelID := stateObservationModelFor(experiments, tuningNearEdge(tuningCfg), cfg.MeasurementSourceMode)
-	useSurfaceGround := cfg.UseSurfaceGround || hasExperiment(experiments, ExperimentSurfaceGround)
+	surfaceSettings, err := surfaceGroundFor(cfg, tuningCfg, experiments)
+	if err != nil {
+		return nil, err
+	}
+	useSurfaceGround := surfaceSettings != nil && surfaceSettings.Enabled
 
 	pipeCfg := &pipeline.TrackingPipelineConfig{
 		BackgroundManager:         bgMgr,
@@ -936,6 +940,7 @@ func run(cfg Config, runtime replayRuntime) (*Result, error) {
 		HeightBandCeiling:         tuningCfg.GetHeightBandCeiling(),
 		RemoveGround:              tuningCfg.GetRemoveGround(),
 		UseSurfaceGround:          useSurfaceGround,
+		SurfaceGround:             surfaceSettings,
 		GroundSurfaceForTracker:   hasExperiment(experiments, ExperimentBoxGround),
 		GroundSurfaceForReport:    cfg.GroundSurfaceReport,
 		SurfaceGroundFloor:        cfg.SurfaceGroundFloor,
@@ -1833,4 +1838,45 @@ func validateObservationIdentity(cfg Config) error {
 		return fmt.Errorf("observation calibration sensor %q does not match replay sensor %q", cal.SensorID, cfg.SensorID)
 	}
 	return nil
+}
+
+// surfaceGroundFor resolves a single reproducible setting. Named arms carry
+// exact defaults; files and flags may agree but cannot silently override it.
+func surfaceGroundFor(cfg Config, tuning *config.TuningConfig, experiments []string) (*config.L4SurfaceGround, error) {
+	var requested *config.L4SurfaceGround
+	for _, arm := range []struct {
+		name string
+		cell float64
+	}{{ExperimentSurfaceGround, 10}, {ExperimentSurfaceGroundGlobal, 0}, {ExperimentSurfaceGround5m, 5}} {
+		if hasExperiment(experiments, arm.name) {
+			if requested != nil {
+				return nil, fmt.Errorf("surface-ground replay aliases are mutually exclusive")
+			}
+			requested = &config.L4SurfaceGround{Enabled: true, FloorMetres: .2, CeilingMetres: 4.5, CellMetres: arm.cell}
+		}
+	}
+	if cfg.UseSurfaceGround {
+		flags := config.L4SurfaceGround{Enabled: true, FloorMetres: cfg.SurfaceGroundFloor, CeilingMetres: cfg.SurfaceGroundCeiling, CellMetres: cfg.SurfaceGroundRegionMetres}
+		if flags.FloorMetres == 0 {
+			flags.FloorMetres = .2
+		}
+		if flags.CeilingMetres == 0 {
+			flags.CeilingMetres = 4.5
+		}
+		if requested != nil && *requested != flags {
+			return nil, fmt.Errorf("surface-ground flags conflict with replay alias")
+		}
+		requested = &flags
+	}
+	block := tuning.GetSurfaceGround()
+	if requested != nil {
+		if block != nil && *block != *requested {
+			return nil, fmt.Errorf("surface-ground tuning conflicts with replay alias or flags")
+		}
+		block = requested
+	}
+	if err := block.Validate(); err != nil {
+		return nil, fmt.Errorf("surface-ground: %w", err)
+	}
+	return block, nil
 }
