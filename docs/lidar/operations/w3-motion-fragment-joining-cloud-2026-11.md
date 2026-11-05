@@ -105,6 +105,11 @@ host, a separated 2,048-by-4,096-return benchmark took 1.014 ms with the grid
 against 6.759 ms with the all-pairs scan (200 ms benchmark duration). The grid
 allocated 389 KB per call against zero for the scan; dense neighbouring cells can
 still require many comparisons. This microbenchmark is not a G12 or Pi result.
+A stamped `c510f15f` replay pair after the grid change, without writing another
+evidence database, completed in 52.5 s: its baseline was byte-identical to the
+original candidate and its 39 joined components in 39 of 773 frames were
+unchanged. First/repeat baselines also matched. This verification executable was
+SHA-256 `97e42588d77d9a29f5949eba95e2511831a99f5e187b756c87908399dd1db890`.
 
 Baseline tuning SHA-256:
 `9ad7377fa5d356ba5f9d8756d48721708071da3295702350c835110b38b41675`.
