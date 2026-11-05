@@ -152,7 +152,11 @@ return: L3 under the shipped grid, the input cap, DBSCAN noise and the height ba
 Lifting the [input cap](operations/l4-dbscan-input-cap-2026-10.md) recovers the returns but joins
 no fragments. The [October 18 experiment review](operations/experiment-review-2026-10-18.md) reads all of
 this for the following-distance metric: what each line established, the next week's experiments
-and labelling, and the one labelled window three adoptions wait on.
+and labelling, and the one labelled window three adoptions wait on. The
+[November 5 experiment review](operations/experiment-review-2026-11-05.md) reads the PCL round,
+which changed no default, for tracking stability, noise and confidence in the published figures:
+which failures were the candidates' and which the measures', an error budget for stability, and
+eight experiments that mostly rescore archived evidence rather than replay.
 
 ## Terminology
 
