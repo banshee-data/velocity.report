@@ -44,7 +44,7 @@ const maxGapPredictionSteps = 1200
 // change a track. Gaps are unclamped capture-time intervals between
 // consecutive Update calls, in seconds.
 type TimeDomainStats struct {
-	// Frames counts Update calls; AdvancedFrames counts AdvanceMisses calls,
+	// Frames counts Update and UpdateGap calls; AdvancedFrames counts AdvanceMisses calls,
 	// which age tracks without predicting them.
 	Frames         int64 `json:"frames"`
 	AdvancedFrames int64 `json:"advanced_frames"`

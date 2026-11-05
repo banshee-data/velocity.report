@@ -6,6 +6,8 @@ status, and literature alignment all live in
 [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md). This
 file is just the index — start there for any layer detail.
 
+The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-validation.md) records capture-time prediction, support and expiry through empty and unavailable frames.
+
 ## Folder structure
 
 | Folder             | Scope                                                                  |
