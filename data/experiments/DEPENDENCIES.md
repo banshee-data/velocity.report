@@ -13,6 +13,7 @@ flowchart TB
   subgraph area_figure ["figure: Published figures and their confidence"]
     figure0001["<b>figure0001</b><br/>How much the survey's figures move with…<br/>proposed · 46m machine + 4h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::proposed
     figure0002["<b>figure0002</b><br/>Track speed against kirk0's reviewed…<br/>answered · 8m machine + 2h person (took 45m)<br/>manual: implement, write"]:::answered
+    figure0003["<b>figure0003</b><br/>The interval on a survey's figures: how…<br/>proposed · 1h9m machine + 5h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::proposed
   end
   subgraph area_geom ["geom: Solid-body geometry"]
     geom0001["<b>geom0001</b><br/>The geometry convergence candidate on…<br/>answered · 2h4m machine + 3h person (took 3h)<br/>manual: write"]:::answered
@@ -147,6 +148,7 @@ flowchart TB
     pose0003["<b>pose0003</b><br/>Register from several windows and accept…<br/>answered · 1h9m machine + 2h30m person (took 5h45m)<br/>manual: implement, write"]:::answered
   end
   l5id0015 --> figure0002
+  figure0001 --> figure0003
   geom0001 --> geom0002
   geom0003 --> geom0004
   geom0005 --> geom0006
@@ -248,6 +250,7 @@ flowchart TB
 ## Open experiments
 
 - [figure0001](figure/figure0001.md) How much the survey's figures move with the pipeline: vehicle count, p85 and p98 by site under every archived arm: proposed, awaiting approval; 46m machine + 4h person; asks [experiment-review-2026-11-05 #e-confidence-in-the-outputs](../../docs/lidar/operations/experiment-review-2026-11-05.md#e-confidence-in-the-outputs).
+- [figure0003](figure/figure0003.md) The interval on a survey's figures: how wide p85 and p98 are at a segment's track count, and whether a second segment of the same site falls inside it: waiting on a dependency; 1h9m machine + 5h person; after figure0001; asks [2026-11-05-wayve-learned-safety-series #proposed-experiments](../../docs/research/2026-11-05-wayve-learned-safety-series.md#proposed-experiments), [lidar-behaviour-analytics-plan #13-open-research-questions](../../docs/plans/lidar-behaviour-analytics-plan.md#13-open-research-questions).
 - [geom0002](geom/geom0002.md) The low-speed label and the ambiguous row, rescreened on the young-track axis: proposed, awaiting approval; 1h2m machine + 26h person; after geom0001; asks [geometry-convergence-heldout-2026-10 #recommendations](../../docs/lidar/operations/geometry-convergence-heldout-2026-10.md#recommendations), [lidar-tracker-geometry-convergence-plan #checklist](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#checklist).
 - [geom0012](geom/geom0012.md) Three centres a frame: the tracked position, the cluster and the published box, against each other and the references: proposed, awaiting approval; 5h3m machine + 6h person; asks [state-estimation-e1-lateral-error #verdict](../../docs/lidar/operations/state-estimation-e1-lateral-error.md#verdict), [d2-medoid-obb-current-solver-2026-10 #answer](../../docs/lidar/operations/d2-medoid-obb-current-solver-2026-10.md#answer), [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [geometry-convergence-criteria](../../docs/lidar/operations/geometry-convergence-criteria.md).
 - [geom0013](geom/geom0013.md) How far the published box's faces sit from the visible hull: the bound on what a hull could add to gaps and clearance: proposed, awaiting approval; 4m machine + 6h person; asks [pcl-algorithm-review #q2-can-per-track-hulls-improve-…](../../docs/lidar/operations/pcl-algorithm-review.md#q2-can-per-track-hulls-improve-clearance-and-following-distance-over-boxes), [lidar-pcl-algorithm-candidates-plan #item-4-q2-the-hull-bound-geom00…](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md#item-4-q2-the-hull-bound-geom0013), [physical-reference-pilot-kirk0-2026-10](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md).
@@ -361,5 +364,5 @@ flowchart TB
 
 ## Totals
 
-- 38 open experiments: 72h12m machine + 251h40m person estimated.
+- 39 open experiments: 73h21m machine + 256h40m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.
