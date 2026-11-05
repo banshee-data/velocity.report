@@ -334,6 +334,19 @@ private let logger = DevLogger(category: "AppState")
         alignment.leaveSite(for: next)
         siteContext = next
         if let site = next.site { alignment.enterCitySite(site, clip: alignmentSite) }
+        // In city mode the camera flies to the site.
+        if let renderer, renderer.isCityMode, let at = next.site?.sensorCityPosition {
+            renderer.fly(to: at)
+        }
+    }
+
+    /// City mode on or off: the renderer's world becomes the city's, and the
+    /// street painter, which works in the site's plan view, stops.
+    func cityModeChanged(_ on: Bool) {
+        if on { streets.setPainting(false) }
+        let centre = city.tileset.map { $0.root.cityCentre }
+        renderer?.setCityMode(on, overview: centre)
+        reprojectLabels()
     }
 
     /// Where the operator's per-site preferences (live servers) are kept;
@@ -392,6 +405,11 @@ private let logger = DevLogger(category: "AppState")
         self.renderer = renderer
         renderer.cityTiles.setTileset(city.tileset, url: city.tilesetURL)
         renderer.showCityTiles = showCityTiles
+        renderer.citySites = city.sites
+        renderer.onCityOverlay = { [weak self] overlay in
+            // Published from the draw: hand it to SwiftUI on the next turn.
+            DispatchQueue.main.async { self?.city.overlay = overlay }
+        }
         alignment.sink = renderer
         streets.sink = renderer
         camera.sink = renderer
@@ -565,7 +583,11 @@ private let logger = DevLogger(category: "AppState")
             return try await self.switchSite(to: site)
         }
         city.currentSiteID = { [weak self] in self?.siteContext.site?.id }
-        city.onIndex = { [weak self] index in self?.alignment.siteIndex = index }
+        city.onIndex = { [weak self] index in
+            self?.alignment.siteIndex = index
+            self?.renderer?.citySites = index?.sites ?? []
+        }
+        city.onCityMode = { [weak self] on in self?.cityModeChanged(on) }
         city.onTileset = { [weak self] tileset, url in
             self?.renderer?.cityTiles.setTileset(tileset, url: url)
             self?.renderer?.view?.needsDisplay = true

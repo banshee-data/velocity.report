@@ -95,6 +95,36 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     /// twice: centre, then inner and outer radii.
     var cityFade: (centre: SIMD3<Double>, inner: Float, outer: Float)?
 
+    /// Where the stream's sensor frame sits in the world frame: identity in
+    /// the sensor's own frame, the site's sensor-to-city in city mode.
+    var streamWorldFromSensor = matrix_identity_double4x4 { didSet { view?.needsDisplay = true } }
+    /// In city mode, the stream is drawn only inside its site's coverage,
+    /// its boxes fading at the edge and coloured by class.
+    var streamCoverage: SiteCoverage? {
+        didSet { if streamCoverage != oldValue { coverageRing = nil } }
+    }
+    private var coverageRing: MTLBuffer?
+    private var coverageRingCount = 0
+
+    /// The stream's model matrix in the local frame.
+    var streamModel: simd_float4x4 { origin.model(streamWorldFromSensor) }
+
+    /// Draws the coverage ring of the site playing, on its ground.
+    private func drawCoverageRing(encoder: MTLRenderCommandEncoder) {
+        guard let coverage = streamCoverage, let pipeline = linePipeline else { return }
+        if coverageRing == nil {
+            let ring = coverage.ring(groundZ: SiteCoverage.groundZ)
+            coverageRing = device.makeBuffer(
+                bytes: ring, length: ring.count * 4, options: .storageModeShared)
+            coverageRingCount = ring.count / 7
+        }
+        guard let ring = coverageRing else { return }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setVertexBuffer(ring, offset: 0, index: 0)
+        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+        encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: coverageRingCount)
+    }
+
     /// Places the city tiles in the renderer's world frame; nil hides them.
     func placeCityTiles(worldFromCity: simd_double4x4?) {
         cityTilesPlaced = worldFromCity != nil
@@ -1022,6 +1052,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         for track in trackSet.tracks {
             // Skip filtered-out tracks
             if hiddenTrackIDs.contains(track.trackID) { continue }
+            // Nothing of a site is drawn beyond its coverage.
+            if let coverage = streamCoverage,
+                simd_length(SIMD2(track.boxCentreX, track.boxCentreY)) >= coverage.radius
+            {
+                continue
+            }
             // Build transform matrix
             // Dimensions use per-frame cluster (DBSCAN) OBB dimensions from proto
             // fields 18-20 (bbox_length / bbox_width / bbox_height).
@@ -1052,6 +1088,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 instances.append(1.0)  // g
                 instances.append(1.0)  // b
                 instances.append(track.alpha)  // alpha (supports fade-out)
+            } else if let coverage = streamCoverage {
+                // City mode: class colours only, faded at the coverage edge.
+                let colour = ClassColour.colour(for: track.classLabel)
+                let distance = simd_length(SIMD2(track.boxCentreX, track.boxCentreY))
+                instances.append(colour.x)
+                instances.append(colour.y)
+                instances.append(colour.z)
+                instances.append(track.alpha * coverage.opacity(atDistance: distance))
             } else if showHeadingSource {
                 // Debug: colour by heading source to diagnose angular drift
                 let colour = track.headingSource.colour
@@ -1409,8 +1453,13 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         recentreOriginIfNeeded()
         // Update uniforms
-        uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix
-        uniforms.modelView = camera.viewMatrix
+        // The stream is drawn in its sensor's frame, placed in the world by
+        // `streamWorldFromSensor`: identity in the sensor's own frame, the
+        // site's sensor-to-city in city mode.
+        let stream = streamModel
+        uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix * stream
+        uniforms.modelView = camera.viewMatrix * stream
+        uniforms.padding.y = streamCoverage?.radius ?? 0
         uniforms.pointSize = pointSize
         uniforms.time = Float(CACurrentMediaTime() - startTime)
         uniforms.padding.x = intensityColouring.rawValue
@@ -1419,9 +1468,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // The city first: opaque context for everything drawn over it.
         drawCityTiles(encoder: encoder, viewportHeight: Double(view.drawableSize.height))
+        publishCityOverlay(size: view.bounds.size)
+
+        drawCoverageRing(encoder: encoder)
 
         // Draw ground grid first (behind everything)
-        if showGrid, let pipeline = linePipeline, let gridBuf = gridVertices, gridVertexCount > 0 {
+        if showGrid, streamCoverage == nil, let pipeline = linePipeline, let gridBuf = gridVertices,
+            gridVertexCount > 0
+        {
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(gridBuf, offset: 0, index: 0)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
@@ -1692,9 +1746,157 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         setOverlayBoxes([])
         if cameraHolder == .plan { exitPlanView() }
         siteID = next.siteID
-        // In a placed site's own frame the city is drawn around its sensor.
-        placeCityTiles(worldFromCity: next.site?.sensorToCity?.inverse)
-        cityFade = next.site?.sensorCityPosition.map { ($0, 60, 90) }
+        currentSite = next.site
+        applySitePlacement()
+    }
+
+    // MARK: - City mode
+
+    /// The site the stream is from, for placing it.
+    private(set) var currentSite: CitySite?
+    /// City mode: the world frame is the city's, the origin follows the
+    /// camera, and the stream is drawn by its site's sensor-to-city.
+    private(set) var isCityMode = false
+    /// The camera in the site's own frame when city mode began.
+    private var cameraBeforeCity: Camera?
+    /// The index's sites, for the markers.
+    var citySites: [CitySite] = [] { didSet { view?.needsDisplay = true } }
+    /// What city mode lays over the view, each frame it changes.
+    var onCityOverlay: ((CityOverlay) -> Void)?
+    private var lastOverlay = CityOverlay()
+    private var flight: (path: CityFlight, start: CFTimeInterval)?
+    private var flightTimer: Timer?
+
+    /// Places the stream and the city for the current site and mode.
+    private func applySitePlacement() {
+        let site = currentSite
+        if isCityMode {
+            placeCityTiles(worldFromCity: matrix_identity_double4x4)
+            if let sensorToCity = site?.sensorToCity {
+                streamWorldFromSensor = sensorToCity
+                streamCoverage = .standard
+            } else {
+                // A site without an accepted pose is never drawn as placed.
+                streamWorldFromSensor = matrix_identity_double4x4
+                streamCoverage = .hidden
+            }
+        } else {
+            // In a placed site's own frame the city is drawn around its sensor.
+            placeCityTiles(worldFromCity: site?.sensorToCity?.inverse)
+            streamWorldFromSensor = matrix_identity_double4x4
+            streamCoverage = nil
+        }
+        cityFade = site?.sensorCityPosition.map { ($0, 60, SiteCoverage.vectorRadiusM) }
+    }
+
+    /// Enters or leaves city mode. The world frame changes, so the camera is
+    /// put over the current site (or the city's middle), or back to the
+    /// sensor's default view.
+    func setCityMode(_ on: Bool, overview centre: SIMD3<Double>? = nil) {
+        guard on != isCityMode else { return }
+        cancelFlight()
+        if cameraHolder == .plan { exitPlanView() }
+        isCityMode = on
+        recentresOrigin = on
+        applySitePlacement()
+        if on {
+            cameraBeforeCity = camera
+            let focus = currentSite?.sensorCityPosition ?? centre ?? .zero
+            origin.anchor = focus.rounded(.toNearestOrEven)
+            let offset =
+                currentSite?.isPlaced == true
+                ? CityFlight.arrivalOffset : SIMD3<Double>(0, -4_000, 7_000)
+            camera.target = origin.local(focus)
+            camera.position = origin.local(focus + offset)
+            camera.up = SIMD3(0, 0, 1)
+        } else {
+            origin.anchor = .zero
+            onCityOverlay?(CityOverlay())
+            lastOverlay = CityOverlay()
+            // The site's own frame again: the view the operator had there.
+            if let kept = cameraBeforeCity { camera = kept }
+            cameraBeforeCity = nil
+        }
+        view?.needsDisplay = true
+    }
+
+    /// Flies the camera to look at `target` (world frame) from `eyeOffset`.
+    func fly(to target: SIMD3<Double>, eyeOffset: SIMD3<Double> = CityFlight.arrivalOffset) {
+        let path = CityFlight(
+            fromTarget: origin.world(camera.target), fromEye: origin.world(camera.position),
+            toTarget: target, toEyeOffset: eyeOffset)
+        flight = (path, CACurrentMediaTime())
+        flightTimer?.invalidate()
+        flightTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) {
+            [weak self] _ in self?.advanceFlight(now: CACurrentMediaTime())
+        }
+    }
+
+    var isFlying: Bool { flight != nil }
+
+    /// Moves the camera along the flight to `now`; ends it at the end.
+    func advanceFlight(now: CFTimeInterval) {
+        guard let flight else { return }
+        let t = (now - flight.start) / flight.path.duration
+        let at = flight.path.at(t)
+        camera.target = origin.local(at.target)
+        camera.position = origin.local(at.eye)
+        recentreOriginIfNeeded()
+        view?.needsDisplay = true
+        if t >= 1 { cancelFlight() }
+    }
+
+    func cancelFlight() {
+        flight = nil
+        flightTimer?.invalidate()
+        flightTimer = nil
+    }
+
+    /// The markers and street names over the view, for a view of `size`
+    /// points.
+    func cityOverlay(size: CGSize) -> CityOverlay {
+        guard isCityMode, size.width > 0, size.height > 0 else { return CityOverlay() }
+        let vp = camera.projectionMatrix * camera.viewMatrix
+        var overlay = CityOverlay()
+        for site in citySites {
+            guard let at = site.sensorCityPosition ?? site.markerCityENU,
+                let screen = CityOverlayLayout.project(
+                    origin.local(at), viewProjection: vp, size: size)
+            else { continue }
+            overlay.markers.append(
+                CityMarker(
+                    id: site.id, title: site.title, date: site.recordedOn ?? "", clock: nil,
+                    placed: site.isPlaced, focused: site.id == currentSite?.id, screen: screen))
+        }
+        var streets = [ScreenStreetLabel]()
+        for tile in cityTiles.drawable(cityTiles.lastSelection) {
+            for (i, label) in tile.labels.enumerated() {
+                let anchor = tile.origin + SIMD3<Double>(label.anchor)
+                let b = Double(label.bearingDeg) * .pi / 180
+                let along = anchor + SIMD3(sin(b), cos(b), 0) * 10
+                guard
+                    let a = CityOverlayLayout.project(
+                        origin.local(anchor), viewProjection: vp, size: size, margin: 0),
+                    let c = CityOverlayLayout.project(
+                        origin.local(along), viewProjection: vp, size: size, margin: 400)
+                else { continue }
+                let arterial = ["1", "2", "3"].contains(label.streetClass)
+                streets.append(
+                    ScreenStreetLabel(
+                        id: "\(tile.id)#\(i)", name: label.name, screen: a,
+                        angleDeg: CityOverlayLayout.angle(from: a, to: c), arterial: arterial))
+            }
+        }
+        overlay.streets = CityOverlayLayout.thin(streets)
+        return overlay
+    }
+
+    private func publishCityOverlay(size: CGSize) {
+        guard isCityMode, let onCityOverlay else { return }
+        let overlay = cityOverlay(size: size)
+        guard overlay != lastOverlay else { return }
+        lastOverlay = overlay
+        onCityOverlay(overlay)
     }
 
     /// Whether anything of a site is still held: for the switch tests.
@@ -1717,7 +1919,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func hitTestTrack(at point: CGPoint, viewSize: CGSize) -> String? {
         guard let tracks = _lastTracks, !tracks.isEmpty else { return nil }
 
-        let mvp = camera.projectionMatrix * camera.viewMatrix
+        let mvp = camera.projectionMatrix * camera.viewMatrix * streamModel
         let halfWidth = Float(viewSize.width) * 0.5
         let halfHeight = Float(viewSize.height) * 0.5
 
@@ -1840,7 +2042,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func projectTrackLabels(viewSize: CGSize) -> [TrackScreenLabel] {
         guard let tracks = _lastTracks, !tracks.isEmpty else { return [] }
 
-        let mvp = camera.projectionMatrix * camera.viewMatrix
+        let mvp = camera.projectionMatrix * camera.viewMatrix * streamModel
         let halfWidth = Float(viewSize.width) * 0.5
         let halfHeight = Float(viewSize.height) * 0.5
 
