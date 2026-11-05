@@ -8,7 +8,7 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## November 05, 2026 - Tracker lifecycle
+## November 5, 2026 - Tracker lifecycle
 
 - {codex/empty-frame-lifecycle} Advanced L5 on empty and unavailable frames, preserve unknown support for missing processing, publish predicted/expired state and retain capture-time expiry. Synthetic and kirk0 replay checks are recorded in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md).
 

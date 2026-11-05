@@ -630,9 +630,6 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 				}
 			}
 		}
-		if baseline, ok := cfg.Tracker.(interface{ RecordBaselineEmptyFrame() }); ok && !isNilInterface(baseline) {
-			baseline.RecordBaselineEmptyFrame()
-		}
 		if !hasVisualiser {
 			return
 		}

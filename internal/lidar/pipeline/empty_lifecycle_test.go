@@ -35,6 +35,7 @@ func TestEmptyFrameLifecycleAcrossEarlyReturns(t *testing.T) {
 		t.Run(kind, func(t *testing.T) {
 			tk, id, last := seededLifecycleTracker(t)
 			before := tk.GetTrack(id)
+			tk.BeginTrackingBaseline()
 			cfg := &TrackingPipelineConfig{SensorID: "empty-" + t.Name(), Tracker: tk}
 			if kind != "missing-model" && kind != "zero-points" {
 				cfg.BackgroundManager = makeTestBgManager(t, cfg.SensorID)
@@ -64,6 +65,14 @@ func TestEmptyFrameLifecycleAcrossEarlyReturns(t *testing.T) {
 				}
 				cb(frame)
 				got := tk.GetTrack(id)
+				missed, matched := 0, 0
+				for _, band := range tk.GetWindowBaseline().Association {
+					missed += band.Missed
+					matched += band.Matched
+				}
+				if missed != i || matched != 0 {
+					t.Fatalf("empty frame counted association opportunities more than once: missed=%d matched=%d", missed, matched)
+				}
 				if got.ObservationCount != before.ObservationCount || got.LastObservedUnixNanos != before.LastObservedUnixNanos {
 					t.Fatal("empty frame invented an observation")
 				}
@@ -90,8 +99,12 @@ func TestEmptyLifecycleHonoursPipelineDepth(t *testing.T) {
 	for _, profile := range []config.Profile{config.ProfileL3Only, config.ProfileDetect} {
 		t.Run(string(profile), func(t *testing.T) {
 			tk, id, last := seededLifecycleTracker(t)
+			tk.BeginTrackingBaseline()
 			cfg := &TrackingPipelineConfig{Tracker: tk, Profile: profile}
 			cfg.NewFrameCallback()(&l2frames.LiDARFrame{StartTimestamp: last.Add(time.Second)})
+			if len(tk.GetWindowBaseline().Association) != 0 {
+				t.Fatal("disabled L5 counted an association opportunity")
+			}
 			if got := tk.GetTrack(id); got.Misses != 0 || got.StateUnixNanos != last.UnixNano() {
 				t.Fatal("a profile without L5 advanced the tracker")
 			}

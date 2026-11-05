@@ -31,7 +31,7 @@ Synthetic regression cases cover zero points, missing model, no foreground,
 ground-only output and noise-only clustering. A confirmed track moving at 2 m/s
 advances 0.2 m for each 100 ms empty frame, keeps its observation count and
 last-observed timestamp, and expires on the fourth miss under a four-miss budget.
-Reduced-depth profile tests leave the supplied tracker untouched.
+Reduced-depth profile tests leave the supplied tracker untouched. Baseline association opportunities are counted exactly once per empty or terminal-miss frame; the legacy empty-frame baseline hook is not called after L5 advances.
 
 The acquisition-time case predicts a 5 m/s track from 1.09 s to an empty frame
 at 1.20 s: 0.55 m. Duplicate and backward capture timestamps do not reverse its
