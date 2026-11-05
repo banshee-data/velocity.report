@@ -324,27 +324,48 @@ No public layer says which stretch of kerb is a driveway, where cars park, or wh
 
 **The plan view.** The camera snaps to an orthographic view looking straight down the site frame, north up and east to the right, centred over the sensor. It pans (drag empty ground, or right-drag) and zooms (scroll or pinch, about the pointer), and does not turn: the renderer refuses orbiting, its own pan and zoom, and the arrow keys while the plan view holds the camera. Leaving paint mode puts back the camera the operator had. The camera is built in the site frame and carried into the sensor frame by the reference's own model matrix, so a pixel maps to one site (east, north) at any height, and a click lands on the ground under it: the ground mesh's height there, else the nearest kerb's or street's height within 60 m, else 0. Gerardus drapes every vertex again on save, so these heights are only for drawing.
 
-**Under the marks.** The pane's layers toggles for kerbs and islands, the City's streets and intersections, the DataSF boxes and footprints, the ground mesh, registered scans and 3DEP points. The marks themselves are the site's street use (`STREET_USE`), read with `ListStreetUse` rather than streamed, because the painter needs each mark's id, author and row. **Show the marks outside paint mode** keeps them drawn in the 3D view.
+**Under the marks.** The pane's layers toggles for kerbs and islands, the City's streets and intersections, the DataSF boxes and footprints, lane markings and signs and poles (when the server lists those layers; without lane markings a line says so), the ground mesh, registered scans and 3DEP points. The marks themselves are the site's street use (`STREET_USE`), read with `ListStreetUse` rather than streamed, because the painter needs each mark's id, author and row. **Show the marks outside paint mode** keeps them drawn in the 3D view.
 
 **Tools.**
 
-| Tool          | How                                                                                                                                                                                                                | Tags                                |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
-| Surface       | Click the corners; Return or a double-click finishes. A closed polygon (`FEATURE_KIND_SURFACE`)                                                                                                                    | `surface`                           |
-| Lane          | Click along the lane in its direction of travel; Return or a double-click finishes. **Reverse** turns a selected lane round                                                                                        | `lane_type`, `width_m`              |
-| Space         | Click the corners; Return or a double-click finishes                                                                                                                                                               | `space_type`, `count`, `time_limit` |
-| Row           | Click two points along the kerb: `count` equal spaces run between them, **Depth** deep, on the side towards the nearest centreline; **Away from the street** flips them                                            | `space_type`, `count`, `time_limit` |
-| Driveway      | Click the two ends of the kerb cut                                                                                                                                                                                 | none                                |
-| Split at sign | Click a travel lane where its limit changes: two lanes share that vertex, keeping direction, type and width; the first keeps the lane's id, the second is new with its limit cleared but for unit and jurisdiction | as the lane                         |
-| Select        | Click a mark to select it and edit its tags. Drag a vertex to move it; drag (or click) an edge to add one; right-click a vertex to remove it. Delete removes the mark                                              | as above                            |
+| Tool          | How                                                                                                                                                                                                                                                                                                                                              | Tags                                |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------- |
+| Surface       | Click the corners; Return or a double-click finishes. A closed polygon (`FEATURE_KIND_SURFACE`)                                                                                                                                                                                                                                                  | `surface`                           |
+| Lane          | Click along the lane in its direction of travel; Return or a double-click finishes. **Reverse** turns a selected lane round                                                                                                                                                                                                                      | `lane_type`, `width_m`              |
+| Space         | Click the corners; Return or a double-click finishes                                                                                                                                                                                                                                                                                             | `space_type`, `count`, `time_limit` |
+| Row           | Click two points along the kerb: `count` equal spaces run between them, **Depth** deep, on the side towards the nearest centreline; **Away from the street** flips them                                                                                                                                                                          | `space_type`, `count`, `time_limit` |
+| Driveway      | Click the two ends of the kerb cut                                                                                                                                                                                                                                                                                                               | none                                |
+| Split at sign | Click a travel lane where its limit changes: it is cut at the sign when one stands within 5 m of the click (the point on the lane nearest the sign), else where you click. Two lanes share that vertex, keeping direction, type and width; the first keeps the lane's id, the second is new with its limit cleared but for unit and jurisdiction | as the lane                         |
+| Select        | Click a mark to select it and edit its tags. Drag a vertex to move it; drag (or click) an edge to add one; right-click a vertex to remove it. Delete removes the mark                                                                                                                                                                            | as above                            |
 
 The values offered are those Gerardus's contract lists: `surface` carriageway, sidewalk, verge, apron, median; `lane_type` general, bus, bike, turn; `space_type` metered, permit, loading, disabled, free. A vertex is never removed below what its kind needs (three for a polygon, two for a line), and a driveway stays one span.
 
-**Snapping.** While drawing, the cursor shows where the next vertex will go: a green ring when it snapped, a white cross when not. A vertex snaps, as a preview, to a vertex within 0.5 m of a kerb, a city centreline, a box wall's foot or footprint, or another mark; otherwise to the nearest point along one of their edges within 0.5 m. A vertex is preferred to a nearer edge, so marks meet end to end. A mark being moved does not snap to itself.
+**Snapping.** While drawing, the cursor shows where the next vertex will go: a green ring when it snapped, a white cross when not. A vertex snaps, as a preview, to a vertex within 0.5 m of a kerb, a city centreline, a box wall's foot or footprint, or another mark; otherwise to the nearest point along one of their edges within 0.5 m. A vertex is preferred to a nearer edge, so marks meet end to end. A mark being moved does not snap to itself. Painted markings are targets too, but only where the paint is: the public rows Gerardus places on a centreline or at an intersection (`position` tagged) are not. A travel lane is its centreline, so its vertices do not snap onto paint: a lane vertex within 0.75 m of the midline between two near-parallel lane, centre or edge lines (within 15°) that are a lane's width apart (2.4–4.5 m) goes onto that midline, unless it meets another mark's vertex. The markings are traced from intensity, today 3DEP's alone, so they show the paint at the survey's flight date.
 
 **Keys.** Return finishes a mark; Escape cancels it, or clears the selection; Delete or Backspace takes back the last vertex placed, or deletes the selected mark; a right-click while drawing takes back the last vertex. Edit ▸ Undo and Redo (⌘Z, ⇧⌘Z) step through the unsaved changes, and while drawing Undo takes back a vertex. **Revert** drops every unsaved change.
 
 **Saving.** **Save** sends one `EditStreetUse`: the site, the author (required: Gerardus records who marked each feature, and the button stays off without one), the note, and the difference between the marks as read and as they stand: a remove for each saved mark deleted, then an upsert for each new mark (`feature_id` empty) or changed one. A mark moved and moved back sends nothing, and heights are not compared. The batch is applied whole or not at all; a refusal keeps the unsaved marks and shows Gerardus's message. Gerardus answers with every current mark, snapped within 0.5 m and draped, and these replace the local ones. Its problems (`"<feature id>: message"`) are shown under the mark they name, in the marks list and the selected mark, with a red halo round it in the view; a problem naming no mark is shown under Save. Ids hold colons, so they are matched as prefixes, longest first.
+
+### From traffic to lanes: the steps
+
+The **From traffic to lanes** section, at the top of the painter, lists the steps from a recording
+to lanes velocity.report reports by, each done, next or waiting, with what the next one needs:
+
+1. **Accept a pose** for the capture: leave Paint streets, Register, then Accept in Decision. The
+   field and the lanes are placed by it.
+2. **Open a run.** A field belongs to a run; Live is counted on screen and never sent. When the
+   server is replaying a VRLOG and no run is open here (a replay started from the web, or before
+   the app restarted), the step names the run whose recording it is, matched by the replayed path
+   against the latest runs (or by the recording's directory name when only one run has it), and
+   **Open run** loads it as the run browser does; the replay starts again.
+3. **This run's field**, read from velocity.report, with **Read again**.
+4. **Send lane field** (hidden when Gerardus takes no lane fields): done once Gerardus sums a
+   capture at the site.
+5. **Proposals**: how many are high and medium. With none, it says what the busiest vehicle cell
+   of the site's field holds against Gerardus's grades (10 distinct vehicle tracks along 60% of a
+   lane for medium, 30 along 80% for high): a short capture proposes nothing, and the fields of
+   more recordings add up.
+6. **Approve and save**, and 7. **Send lanes to velocity.report**.
 
 ### Traffic: the lane field under the marks
 
@@ -360,7 +381,7 @@ where tracked objects were over a stated interval; see
 | Show            | **Centres** (tracks whose centre was in the cell) or **Extents** (tracks whose box covered the cell's centre)                                                                                                                                                                                                                                                                                                                                      |
 | Classes         | Vehicles, cycles and people, each a checkbox with its cell count                                                                                                                                                                                                                                                                                                                                                                                   |
 | Floor, Opacity  | A floor above five hides thinner cells; opacity is the densest cell's                                                                                                                                                                                                                                                                                                                                                                              |
-| Send lane field | Uploads the open run's three fields (the whole run and its halves) to Gerardus with `UploadLaneField` against the accepted record that places the capture, then reads the site's field again. Off, with the reason, without an accepted pose for this capture, while a street-use save is pending, while Gerardus is busy, or with no run open                                                                                                     |
+| Send lane field | Uploads the open run's three fields (the whole run and its halves) to Gerardus with `UploadLaneField` against the accepted record that places the capture, then reads the site's field and the proposals again. Off, with the reason in a line under it, without an accepted pose for this capture, while a street-use save is pending, while Gerardus is busy, or with no run open                                                                |
 
 A cell is a quad on the overlay the marks use, drawn first so the marks lie over it, 0.05 m above
 the ground, only while painting. Its hue is the 45° sector its dominant heading bin falls in, from
@@ -369,6 +390,9 @@ more; cycles are yellow and people violet. Opacity follows the log of the count.
 with the pose, so traffic that misses the kerbs shows a pose error. The section and its site source
 and Send are hidden when the server's `GetServerInfo` says `supports_lane_fields` is false; the
 run's field and the live layer still draw.
+
+The run's field and the site's are read when the section opens and again whenever the open run or
+the site changes; ↻ reads them again on demand.
 
 ### Proposals: approve, reject, reopen
 
