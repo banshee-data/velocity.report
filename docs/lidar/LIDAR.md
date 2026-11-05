@@ -110,7 +110,9 @@ points. Its [end-on truck window spike](operations/end-on-truck-window-spike-202
 counts the second capture that plan needs: 33 clean windows in the corpus, an archive 6.7
 times its size, and a selection rule in place of a search. The
 [containment corpus screen](operations/solid-body-containment-corpus-2026-10.md) scores the
-plan's first observation model, the box held to its points, on kirk0 and the 23 sites. The
+plan's first observation model, the box held to its points, on kirk0 and the 23 sites. The [assignment-cardinality safeguard](operations/containment-cardinality-guard-cloud-2026-11.md)
+preserves global matching size during claim filtering; its guarded arms improve the unguarded
+claims on kirk0 but still fail the local duplicate/HOTA screen and remain off. The
 [rectangle heading screen](operations/solid-body-rectangle-heading-2026-10.md) scores the
 second, the heading observed from each frame's rectangle fit. The
 [held-out replication](operations/geometry-convergence-heldout-2026-10.md) replays the

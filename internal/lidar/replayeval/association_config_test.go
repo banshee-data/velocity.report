@@ -76,3 +76,20 @@ func TestAssociationTuningCannotBypassNearEdgeRefusal(t *testing.T) {
 		}
 	}
 }
+
+func TestAssociationGuardFilesMatchStartupAndReplay(t *testing.T) {
+	for _, name := range []string{"association-containment-claim-guard.json", "association-likelihood-claim-guard.json"} {
+		cfg, err := config.LoadTuningConfig(filepath.Join("..", "..", "..", "config", "experiments", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		live := l5tracks.TrackerConfigFromTuning(cfg.L5.CvKfV1)
+		replay, err := trackerConfigFor(cfg.L5.CvKfV1, "", nil, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !live.ContainmentClaimCardinalityGuard || !replay.ContainmentClaimCardinalityGuard || !live.ContainmentClaim || !replay.ContainmentClaim || live.LikelihoodAssociationCost != replay.LikelihoodAssociationCost {
+			t.Fatalf("startup/replay guard mismatch: %+v %+v", live, replay)
+		}
+	}
+}

@@ -719,6 +719,13 @@ and `identity-body-older-tentative.json` sets for [l5id0013](../data/experiments
 
 ## Default-off association cost and containment claim
 
+The optional nested `cardinality_guard` block requires its `enabled` key. When enabled with
+`containment_claim`, proposed refusals are applied only if maximum assignment cardinality is
+preserved; otherwise the original matrix is restored. This changes neither originally allowed
+costs nor gating, and is not a global no-birth guarantee for the tracker lifecycle. It is absent
+by default and keeps existing parameter fingerprints unchanged. The two guarded parameter sets
+and [l5id0018](../data/experiments/l5id/l5id0018.md) isolate this safeguard from the original claim.
+
 `l5.cv_kf_v1.association` optionally holds `likelihood_cost` and
 `containment_claim`; both keys are required when the block is present. Omitted,
 the default assignment and tuning fingerprint are unchanged. The likelihood

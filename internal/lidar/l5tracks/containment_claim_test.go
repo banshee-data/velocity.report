@@ -1,6 +1,8 @@
 package l5tracks
 
 import (
+	"math"
+	"math/rand"
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l4perception"
@@ -177,4 +179,124 @@ func TestContainmentClaimCountsOnlyAdmittedBidders(t *testing.T) {
 	if n := tk.ContinuityStats().ContainmentClaimRefusals; n != 0 {
 		t.Fatalf("%d refusals counted against a gated-out rival", n)
 	}
+}
+
+func TestContainmentClaimCardinalityGuardRestoresGlobalCounterexample(t *testing.T) {
+	cfg := claimConfig()
+	cfg.ContainmentClaimCardinalityGuard = true
+	tk, fresh, coast, cluster := claimScene(t, cfg, 1, 10, 0)
+	costs := [][]float32{{.1, 1}, {forbid, .2}}
+	tk.applyContainmentClaim(costs, []WorldCluster{cluster, cluster}, []int{0, 1}, []string{coast, fresh})
+	if pairs, _ := bruteAssignment(costs); pairs != 2 || costs[0][0] != .1 {
+		t.Fatalf("guard lost original matching: %v", costs)
+	}
+	stats := tk.ContinuityStats()
+	if stats.ContainmentClaimRefusals != 0 || stats.ContainmentClaimGuardFallbacks != 1 {
+		t.Fatalf("restored edges counted as refusals: %+v", stats)
+	}
+}
+
+func TestContainmentClaimCardinalityGuardKeepsUsefulRefusals(t *testing.T) {
+	cfg := claimConfig()
+	cfg.ContainmentClaimCardinalityGuard = true
+	tk, fresh, coast, cluster := claimScene(t, cfg, 1, 10, 0)
+	costs := [][]float32{{.1, 1}}
+	tk.applyContainmentClaim(costs, []WorldCluster{cluster}, []int{0}, []string{coast, fresh})
+	if costs[0][0] != forbid || costs[0][1] != 1 {
+		t.Fatalf("useful refusal not retained: %v", costs)
+	}
+	stats := tk.ContinuityStats()
+	if stats.ContainmentClaimRefusals != 1 || stats.ContainmentClaimGuardFallbacks != 0 {
+		t.Fatalf("incorrect accepted refusal counters: %+v", stats)
+	}
+}
+
+// Enumerate all sparse four-by-two graphs, with two distinct admitted costs.
+// An independent brute-force assignment oracle checks maximum cardinality,
+// including graphs with no complete matching and extra clusters (birth risk).
+func TestContainmentClaimCardinalityGuardSparseGraphs(t *testing.T) {
+	cfg := claimConfig()
+	cfg.ContainmentClaimCardinalityGuard = true
+	tk, fresh, coast, cluster := claimScene(t, cfg, 1, 10, 0)
+	values := []float32{forbid, .1, 1}
+	for n := 1; n <= 4; n++ {
+		clusters := make([]WorldCluster, n)
+		indices := make([]int, n)
+		for i := range clusters {
+			clusters[i] = cluster
+			indices[i] = i
+		}
+		cases := 1
+		for i := 0; i < 2*n; i++ {
+			cases *= len(values)
+		}
+		for code := 0; code < cases; code++ {
+			original := make([][]float32, n)
+			costs := make([][]float32, n)
+			remaining := code
+			for i := range costs {
+				original[i] = make([]float32, 2)
+				for j := range original[i] {
+					original[i][j] = values[remaining%len(values)]
+					remaining /= len(values)
+				}
+				costs[i] = append([]float32(nil), original[i]...)
+			}
+			before, _ := bruteAssignment(original)
+			tk.applyContainmentClaim(costs, clusters, indices, []string{coast, fresh})
+			after, _ := bruteAssignment(costs)
+			if after != before {
+				t.Fatalf("cardinality %d -> %d: %v -> %v", before, after, original, costs)
+			}
+			for i := range costs {
+				for j, v := range costs[i] {
+					if v != original[i][j] && v != forbid {
+						t.Fatalf("original cost changed: %v -> %v", original, costs)
+					}
+				}
+			}
+		}
+	}
+}
+
+func TestContainmentClaimCardinalityGuardRectangularNonFiniteAndRepeat(t *testing.T) {
+	cfg := claimConfig()
+	cfg.ContainmentClaimCardinalityGuard = true
+	tk, fresh, coast, cluster := claimScene(t, cfg, 1, 10, 0)
+	rng := rand.New(rand.NewSource(180018))
+	for trial := 0; trial < 1000; trial++ {
+		n := 1 + rng.Intn(4)
+		original := randomCostMatrix(rng, n, 3, trial%4)
+		clusters := make([]WorldCluster, n)
+		indices := make([]int, n)
+		for i := range clusters {
+			clusters[i] = cluster
+			indices[i] = i
+		}
+		before, _ := bruteAssignment(original)
+		var first [][]float32
+		for repeat := 0; repeat < 2; repeat++ {
+			costs := make([][]float32, n)
+			for i := range costs {
+				costs[i] = append([]float32(nil), original[i]...)
+			}
+			tk.applyContainmentClaim(costs, clusters, indices, []string{coast, fresh, "unconfirmed-bidder"})
+			after, _ := bruteAssignment(costs)
+			if before != after {
+				t.Fatalf("trial %d: matching size %d -> %d", trial, before, after)
+			}
+			for i := range costs {
+				for j, v := range costs[i] {
+					if math.Float32bits(v) != math.Float32bits(original[i][j]) && v != forbid {
+						t.Fatal("modified admitted cost or original forbidden edge")
+					}
+					if repeat == 1 && math.Float32bits(v) != math.Float32bits(first[i][j]) {
+						t.Fatal("guard was not repeatable")
+					}
+				}
+			}
+			first = costs
+		}
+	}
+	tk.applyContainmentClaim(nil, nil, nil, nil)
 }

@@ -330,11 +330,17 @@ type L5Identity struct {
 	OverlapEndKeepOlder bool `json:"overlap_end_keep_older"`
 }
 
+// L5CardinalityGuard opts into restoring claim refusals that reduce matching size.
+type L5CardinalityGuard struct {
+	Enabled bool `json:"enabled"`
+}
+
 // L5Association makes the S3 comparison reproducible from a tuning file.
 // ContainmentClaim also requires the contained solid body's full membership.
 type L5Association struct {
-	LikelihoodCost   bool `json:"likelihood_cost"`
-	ContainmentClaim bool `json:"containment_claim"`
+	CardinalityGuard *L5CardinalityGuard `json:"cardinality_guard,omitempty"`
+	LikelihoodCost   bool                `json:"likelihood_cost"`
+	ContainmentClaim bool                `json:"containment_claim"`
 }
 
 // L5BoxModel is the published box model's options, one tuning value per

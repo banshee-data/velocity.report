@@ -111,6 +111,7 @@ flowchart TB
     l5id0015["<b>l5id0015</b><br/>How wide are kirk0's identity figures? A…<br/>answered · 18m machine + 3h person (took 1h30m)<br/>manual: implement, write"]:::answered
     l5id0016["<b>l5id0016</b><br/>The overlap end's lost, shortened and…<br/>proposed · 23m machine + 4h person<br/>manual: implement, write<br/>needs tooling: corpus_screen"]:::proposed
     l5id0017["<b>l5id0017</b><br/>Do the overlap end and a looser velocity…<br/>answered · 12m machine + 30m person (took 15m)<br/>manual: write"]:::answered
+    l5id0018["<b>l5id0018</b><br/>Does preserving assignment cardinality…<br/>answered · 35m machine + 2h30m person (took 14m)<br/>manual: implement, write"]:::answered
   end
   subgraph area_l6cls ["l6cls: L6 classification"]
     l6cls0001["<b>l6cls0001</b><br/>How much following the class gate holds…<br/>answered · 1h9m machine + 1h person (took 30m)<br/>manual: write"]:::answered
@@ -227,6 +228,7 @@ flowchart TB
   l5id0016 --> l5id0014
   l5id0012 --> l5id0016
   l5est0003 --> l5id0017
+  l5id0011 --> l5id0018
   l8fol0003 --> l6cls0001
   l6cls0002 --> l6cls0003
   l5id0006 --> l6cls0003
@@ -345,6 +347,7 @@ flowchart TB
 - [l5id0012](l5id/l5id0012.md) The overlap end with tentative priority as the default: what the flip costs across the corpus: [report](../../docs/lidar/operations/overlap-end-default-cost-2026-11.md); estimated 4h32m, took 4h; asked [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations), [l5id0006](../../data/experiments/l5id/l5id0006.md).
 - [l5id0015](l5id/l5id0015.md) How wide are kirk0's identity figures? A bootstrap over the reviewed objects, and which of the round's deltas stand: [report](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md); estimated 18m, took 1h30m; asked [experiment-review-2026-11-05 #a-were-the-failures-real-or-did…](../../docs/lidar/operations/experiment-review-2026-11-05.md#a-were-the-failures-real-or-did-the-rules-fail).
 - [l5id0017](l5id/l5id0017.md) Do the overlap end and a looser velocity noise remove the same identity errors on kirk0, or different ones?: [report](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md); estimated 12m, took 15m; asked [cloud-run-kirk0-labelled-2026-11 #l5est0003-the-filters-velocity-…](../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md#l5est0003-the-filters-velocity-on-kirk0s-trucks).
+- [l5id0018](l5id/l5id0018.md) Does preserving assignment cardinality make the containment claim useful without extra births?: [report](../../docs/lidar/operations/containment-cardinality-guard-cloud-2026-11.md); estimated 35m, took 14m; asked [l5-likelihood-containment-2026-10 #recommendations](../../docs/lidar/operations/l5-likelihood-containment-2026-10.md#recommendations).
 - [l6cls0001](l6cls/l6cls0001.md) How much following the class gate holds back on the corpus, and how much a size-and-motion car rule would release: [report](../../docs/lidar/operations/following-class-release-corpus-2026-10.md); estimated 1h9m, took 30m on m1pro; asked [following-box-endpoints-2026-10 #recommendations](../../docs/lidar/operations/following-box-endpoints-2026-10.md#recommendations).
 - [l6cls0002](l6cls/l6cls0002.md) A track-level quality gate for near-static and brief clutter, scored per site so one busy site cannot carry it: [report](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md); estimated 1h32m, took 3h on m1pro; asked [pcl-algorithm-review #q1-can-richer-geometric-descrip…](../../docs/lidar/operations/pcl-algorithm-review.md#q1-can-richer-geometric-descriptors-reduce-classification-errors-and-fragmentation), [lidar-pcl-algorithm-candidates-plan](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md).
 - [l6cls0003](l6cls/l6cls0003.md) The car-width quality gate on top of the overlap end and tentative priority, read once on unread second segments: [report](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md); estimated 2h56m, took 3h on m1pro; asked [pcl-algorithm-review #q4-can-occlusion-aware-analysis…](../../docs/lidar/operations/pcl-algorithm-review.md#q4-can-occlusion-aware-analysis-reduce-track-loss-without-more-false-associations), [lidar-pcl-algorithm-candidates-plan](../../docs/plans/lidar-pcl-algorithm-candidates-plan.md).
