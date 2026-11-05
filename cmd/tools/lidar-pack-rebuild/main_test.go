@@ -31,7 +31,7 @@ func TestSampleReturnsAddsWindowStarts(t *testing.T) {
 }
 
 func TestEncodeSampleLaysOutAsThePack(t *testing.T) {
-	pts := map[uint64]point{7: {1, 2, 3, 40}, 9: {4, 5, 6, 50}}
+	pts := map[uint64]point{7: {1, 2, 3, 40, true}, 9: {4, 5, 6, 50, true}, 8: {}}
 	b, missing := encodeSample([]uint64{7, 9}, pts)
 	if missing != 0 || len(b) != 2*14 {
 		t.Fatalf("%d bytes, %d missing", len(b), missing)
@@ -63,5 +63,17 @@ func TestRewriteManifestRecomputesThePackDigest(t *testing.T) {
 	}
 	if note := m["coverage_note"].(string); !strings.HasPrefix(note, "full file; RECONSTRUCTED") {
 		t.Fatalf("coverage note %q", note)
+	}
+}
+
+func TestNeededReturnsIsTheSamplesReturns(t *testing.T) {
+	need := neededReturns([][]uint64{{3, 401}, {402}})
+	if len(need) != 3 {
+		t.Fatalf("%d needed returns, want 3", len(need))
+	}
+	for _, r := range []uint64{3, 401, 402} {
+		if p, ok := need[r]; !ok || p.ok {
+			t.Fatalf("return %d: present %v, decoded %v; want present and not yet decoded", r, ok, p.ok)
+		}
 	}
 }

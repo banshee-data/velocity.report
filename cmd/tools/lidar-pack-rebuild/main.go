@@ -89,21 +89,12 @@ func run(pcap, labelsDir, packDir string, port int, out io.Writer) error {
 	}
 	domain := "fg-" + digest[7:19]
 
-	// The packet table, and every return decoded.
-	parser := newParser()
+	// Pass 1: the packet table alone, so the label set can be opened and the
+	// returns the pack holds known before anything is decoded.
 	var table []byte
-	points := map[uint64]point{}
 	ordinal := 0
 	if _, err := labelset.ScanCapture(pcap, port, func(p labelset.Packet) error {
 		table = binary.LittleEndian.AppendUint64(table, uint64(p.Key))
-		ps, err := parser.ParsePacket(p.Payload)
-		if err == nil {
-			for _, q := range ps {
-				x, y, z := l2frames.SphericalToCartesian(q.Distance, q.Azimuth, q.Elevation)
-				r := uint64(ordinal)*perPacket + uint64(q.BlockID)*channels + uint64(q.Channel-1)
-				points[r] = point{float32(x), float32(y), float32(z), q.Intensity}
-			}
-		}
 		ordinal++
 		return nil
 	}); err != nil {
@@ -132,6 +123,15 @@ func run(pcap, labelsDir, packDir string, port int, out io.Writer) error {
 	if err != nil {
 		return err
 	}
+
+	// Pass 2: decode only the packets that hold a needed return, and keep
+	// only those returns: a whole capture's returns would not fit a small
+	// host (kirk0 alone decodes to 57 million).
+	points := neededReturns(perSample)
+	if err := decodeNeeded(pcap, port, points); err != nil {
+		return err
+	}
+
 	var returnsBin, pointsBin []byte
 	missing := 0
 	for i, rets := range perSample {
@@ -177,6 +177,7 @@ func run(pcap, labelsDir, packDir string, port int, out io.Writer) error {
 type point struct {
 	x, y, z float32
 	in      uint8
+	ok      bool // decoded; a needed return the capture never yielded stays false
 }
 
 func newParser() *parse.Pandar40PParser {
@@ -185,6 +186,48 @@ func newParser() *parse.Pandar40PParser {
 		panic(err)
 	}
 	return parse.NewPandar40PParser(*cfg)
+}
+
+// neededReturns is the set of return numbers the samples hold, each mapped to
+// a point not yet decoded (ok false until decodeNeeded fills it).
+func neededReturns(perSample [][]uint64) map[uint64]point {
+	need := make(map[uint64]point)
+	for _, rets := range perSample {
+		for _, r := range rets {
+			need[r] = point{}
+		}
+	}
+	return need
+}
+
+// decodeNeeded scans the capture once more and decodes only the packets that
+// hold a needed return, filling each needed return's point.
+func decodeNeeded(pcap string, port int, need map[uint64]point) error {
+	packets := make(map[uint64]bool, len(need)/8+1)
+	for r := range need {
+		packets[r/perPacket] = true
+	}
+	parser := newParser()
+	ordinal := uint64(0)
+	_, err := labelset.ScanCapture(pcap, port, func(p labelset.Packet) error {
+		defer func() { ordinal++ }()
+		if !packets[ordinal] {
+			return nil
+		}
+		ps, err := parser.ParsePacket(p.Payload)
+		if err != nil {
+			return nil
+		}
+		for _, q := range ps {
+			r := ordinal*perPacket + uint64(q.BlockID)*channels + uint64(q.Channel-1)
+			if _, ok := need[r]; ok {
+				x, y, z := l2frames.SphericalToCartesian(q.Distance, q.Azimuth, q.Elevation)
+				need[r] = point{float32(x), float32(y), float32(z), q.Intensity, true}
+			}
+		}
+		return nil
+	})
+	return err
 }
 
 // sampleReturns gives each sample, by window id, the return numbers its
@@ -225,8 +268,8 @@ func encodeSample(rets []uint64, points map[uint64]point) ([]byte, int) {
 	missing := 0
 	ps := make([]point, n)
 	for i, r := range rets {
-		p, ok := points[r]
-		if !ok {
+		p := points[r]
+		if !p.ok {
 			missing++
 		}
 		ps[i] = p
