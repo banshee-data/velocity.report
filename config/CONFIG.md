@@ -725,7 +725,8 @@ the default assignment and tuning fingerprint are unchanged. The likelihood
 cost adds `ln|S|` to the squared Mahalanobis cost. The containment claim refuses
 a confirmed body's pairing only when its predicted box cannot hold 98 % of the
 cluster returns and another eligible bidder can claim the cluster. If all
-bidders fail, it refuses none, avoiding a new birth caused by this rule alone.
+bidders fail, it refuses none. This local guard does not preserve the global
+assignment cardinality: multiple clusters can need the same remaining bidder.
 
 A claim requires `solid_body.enabled`, `full_members` and `containment`.
 Likelihood cost is refused with `near_edge_tracking`, whose A2 gate does not carry

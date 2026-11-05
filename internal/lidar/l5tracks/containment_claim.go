@@ -10,8 +10,9 @@ package l5tracks
 // holds less than containmentClaimLevel of a cluster's points is not
 // allowed that cluster when another bidder's box holds it, or when another
 // bidder is not subject to the test. Where every bidder fails, nothing is
-// refused: the rule only chooses between claimants and never leaves a
-// cluster to seed a new track that a track would otherwise have taken.
+// refused. This preserves a bidder in each row, but not the cardinality of
+// the global assignment: multiple clusters may need the same remaining track.
+// The rule can therefore leave clusters unmatched and cause new births.
 
 // containmentClaimLevel is G5's containment level: a box holds a cluster
 // when at least this share of the cluster's points lie inside it.

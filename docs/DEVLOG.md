@@ -10,7 +10,7 @@ older entries stay put, however tempting hindsight may be.
 
 ## November 5, 2026 - Tracker continuity and evidence
 
-- {codex/association-cost-containment} Registered reproducible S3 likelihood/containment arms with startup/replay parity, kept containment claims bounded to competing bidders with full membership, and separated the cloud screen from full acceptance: [report](lidar/operations/l5-likelihood-containment-2026-10.md).
+- {codex/association-cost-containment} Registered reproducible S3 likelihood/containment arms with startup/replay parity, kept containment claims bounded to competing bidders with full membership, and measured a repeatable kirk0 trade-off: likelihood reduced the duplicate rate by 18 %, both claim arms increased it by over 72 %, and a counterexample disproved the global no-birth guarantee; kept all candidates off and full acceptance open: [report](lidar/operations/l5-likelihood-containment-2026-10.md).
 
 - Added checked-in overlap/tentative identity parameter sets with replay alias parity and a labelled acceptance component that wrote each clause and refused tuning, unfrozen or unreviewed evidence; kept promotion pending the independent reviewed window: [report](lidar/operations/reacquisition-cloud-acceptance-2026-11.md) (#929).
 - Advanced L5 on empty and unavailable frames, preserved unknown support for missing processing, published predicted/expired state and retained capture-time expiry; recorded synthetic and kirk0 replay checks in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md) (#928).
