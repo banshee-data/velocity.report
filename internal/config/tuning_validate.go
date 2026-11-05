@@ -360,6 +360,13 @@ func (c *L3EmaTrackAssistV2) Validate() error {
 
 // Validate validates common L4 fields.
 func (c *L4Common) Validate() error {
+	if j := c.FragmentJoin; j != nil {
+		if !(j.MaxGapMetres > 0 && j.MaxGapMetres <= 2) || !(j.MarginMetres >= 0 && j.MarginMetres <= .15) ||
+			!(j.MaxAgeSecs > 0 && j.MaxAgeSecs <= .2) || !(j.MinSpeedMps >= 2) ||
+			!(j.MaxPositionStddevMetres > 0 && j.MaxPositionStddevMetres <= .75) {
+			return fmt.Errorf("fragment_join requires gap (0,2] m, margin [0,0.15] m, age (0,0.2] s, minimum speed >=2 m/s and position stddev (0,0.75] m")
+		}
+	}
 	if c.ForegroundDBSCANEps <= 0 {
 		return fmt.Errorf("foreground_dbscan_eps must be positive, got %f", c.ForegroundDBSCANEps)
 	}
@@ -478,6 +485,14 @@ func (c *L5Common) Validate() error {
 	}
 	if c.AssociationExtentCostWeight < 0 {
 		return fmt.Errorf("association_extent_cost_weight must be non-negative, got %f", c.AssociationExtentCostWeight)
+	}
+	if id := c.Identity; id != nil {
+		if id.OverlapEndFrames < 0 {
+			return fmt.Errorf("identity.overlap_end_frames must be non-negative")
+		}
+		if id.OverlapEndFrames == 0 && (id.OverlapEndOnBody || id.OverlapEndKeepOlder) {
+			return fmt.Errorf("identity overlap qualifiers require overlap_end_frames > 0")
+		}
 	}
 	if c.MinAssociableExtentMetres < 0 {
 		return fmt.Errorf("min_associable_extent_metres must be non-negative, got %f", c.MinAssociableExtentMetres)

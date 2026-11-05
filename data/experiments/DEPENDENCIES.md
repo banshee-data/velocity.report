@@ -80,6 +80,7 @@ flowchart TB
     l4clus0005["<b>l4clus0005</b><br/>Do kirk0's fragments join by XY radius…<br/>answered · 36m machine + 14h person (took 3h)<br/>manual: implement, write"]:::answered
     l4clus0006["<b>l4clus0006</b><br/>The mean of a cluster's returns in place…<br/>answered · 8m machine + 2h person (took 45m)<br/>manual: implement, write"]:::answered
     l4clus0007["<b>l4clus0007</b><br/>The mean of a cluster's returns on the…<br/>answered · 8m machine + 30m person (took 20m)<br/>manual: write"]:::answered
+    l4clus0008["<b>l4clus0008</b><br/>Bounded motion-supported joining of…<br/>approved · 14m machine + 5h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::approved
   end
   subgraph area_l5est ["l5est: L5 state estimation"]
     l5est0001["<b>l5est0001</b><br/>The trail's noise model: what the…<br/>proposed · 2h30m machine + 5h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::proposed
@@ -98,6 +99,7 @@ flowchart TB
     l5id0010["<b>l5id0010</b><br/>Fragment links on the frozen held-out…<br/>proposed · 22m machine + 6h person<br/>manual: implement, write<br/>needs tooling: ground_truth_eval"]:::proposed
     l5id0011["<b>l5id0011</b><br/>The likelihood cost with the box's…<br/>approved · 2h8m machine + 6h person<br/>manual: implement, write<br/>needs tooling: box_eval, ground_truth_eval"]:::approved
     l5id0012["<b>l5id0012</b><br/>The overlap end with tentative priority…<br/>answered · 4h32m machine + 1h person (took 4h)<br/>manual: write"]:::answered
+    l5id0013["<b>l5id0013</b><br/>Reacquisition acceptance on the current…<br/>approved · 21m machine + 4h person<br/>manual: implement, review, write<br/>needs tooling: ground_truth_eval"]:::approved
   end
   subgraph area_l6cls ["l6cls: L6 classification"]
     l6cls0001["<b>l6cls0001</b><br/>How much following the class gate holds…<br/>answered · 1h9m machine + 1h person (took 30m)<br/>manual: write"]:::answered
@@ -188,6 +190,7 @@ flowchart TB
   l4clus0003 --> l4clus0005
   l4clus0004 --> l4clus0005
   l3bg0029 --> l4clus0006
+  l4clus0003 --> l4clus0008
   geom0008 --> l5id0001
   l5id0001 --> l5id0002
   l5id0002 --> l5id0003
@@ -203,6 +206,7 @@ flowchart TB
   geom0005 --> l5id0011
   label0001 --> l5id0011
   l5id0006 --> l5id0012
+  l5id0006 --> l5id0013
   l8fol0003 --> l6cls0001
   l6cls0002 --> l6cls0003
   l5id0006 --> l6cls0003
@@ -234,6 +238,7 @@ flowchart TB
 - [l3bg0009](l3bg/l3bg0009.md) Stage B for the overrides-on retune, on a held-out labelled window: waiting on a dependency; 25m machine + 4h person; after l3bg0008, l3bg0015, l3bg0016, label0001, perf0001; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [l3-region-override-attribution-kirk-2026-10 #8-recommendations](../../docs/lidar/operations/l3-region-override-attribution-kirk-2026-10.md#8-recommendations).
 - [l3bg0026](l3bg/l3bg0026.md) A boundary vote on the L3 grid: the dilated foreground edge decided by 3-D distance to its neighbours, in both directions, scored on W3 retention against false foreground: proposed, awaiting approval; 4h6m machine + 5h30m person; asks [lidar-processing-v2-segmentation-review #refine-the-boundary-not-the-win…](../../docs/lidar/operations/lidar-processing-v2-segmentation-review.md#refine-the-boundary-not-the-window), [w3-return-fate-stage-b-kirk0-2026-10](../../docs/lidar/operations/w3-return-fate-stage-b-kirk0-2026-10.md), [lidar-tracker-geometry-convergence-plan #43-what-they-expose](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#43-what-they-expose).
 - [l3bg0030](l3bg/l3bg0030.md) A convergence criterion relative to the scene's spread: does the background settle by it, and at what cost: proposed, awaiting approval; 1h36m machine + 4h person; after l3bg0022; asks [settling-convergence-corpus-2026-11 #recommendations](../../docs/lidar/operations/settling-convergence-corpus-2026-11.md#recommendations).
+- [l4clus0008](l4clus/l4clus0008.md) Bounded motion-supported joining of vehicle fragments: ready, but a step needs tooling; 14m machine + 5h person; after l4clus0003; asks [BACKLOG](../../docs/BACKLOG.md), [spatialrust-segmentation-review #proposed-experiments-and-coding…](../../docs/lidar/operations/spatialrust-segmentation-review.md#proposed-experiments-and-coding-sequence).
 - [l5est0001](l5est/l5est0001.md) The trail's noise model: what the filter's process noise does to the published trail, and what it costs: proposed, awaiting approval; 2h30m machine + 5h person; asks [lidar-state-estimation-plan #54-what-is-in-the-state-and-wha…](../../docs/plans/lidar-state-estimation-plan.md#54-what-is-in-the-state-and-what-is-not), [adaptive-uncertainty-criteria #evidence-so-far](../../docs/lidar/operations/adaptive-uncertainty-criteria.md#evidence-so-far), [geom0012](../../data/experiments/geom/geom0012.md).
 - [l5est0002](l5est/l5est0002.md) The published trail as the whole-track smoother's estimate, not the online posterior: proposed, awaiting approval; 10h44m machine + 4h person; asks [lidar-web-scene-export-plan](../../docs/plans/lidar-web-scene-export-plan.md), [retrospective-refinement-criteria #selection-rule](../../docs/lidar/operations/retrospective-refinement-criteria.md#selection-rule), [lidar-state-estimation-plan #10-retrospective-refinement](../../docs/plans/lidar-state-estimation-plan.md#10-retrospective-refinement).
 - [l5id0007](l5id/l5id0007.md) Fragment endpoints on kirk: how many links truth holds, and what the gaps are made of: proposed, awaiting approval; 14m machine + 6h person; asks [dong2026-lane-stitching-review #recommendation-and-limits](../../docs/lidar/operations/dong2026-lane-stitching-review.md#recommendation-and-limits), [lidar-lane-stitching-plan #scope-and-sequence](../../docs/plans/lidar-lane-stitching-plan.md#scope-and-sequence), [research-briefing-2025-01-to-2026-10 #fragment-stitching-dong-et-al-2…](../../docs/lidar/operations/brief/research-briefing-2025-01-to-2026-10.md#fragment-stitching-dong-et-al-2026-and-luo-et-al-2025).
@@ -241,6 +246,7 @@ flowchart TB
 - [l5id0009](l5id/l5id0009.md) Links through a merge: a second placement drawn, its links graded in the time-distance view: waiting on a dependency; 12m machine + 24h30m person; after l5id0008; asks [dong2026-lane-stitching-review #lane-and-merge-workflow](../../docs/lidar/operations/dong2026-lane-stitching-review.md#lane-and-merge-workflow), [lidar-lane-stitching-plan #review-view](../../docs/plans/lidar-lane-stitching-plan.md#review-view).
 - [l5id0010](l5id/l5id0010.md) Fragment links on the frozen held-out window, and what counts and following read from them: waiting on a dependency; 22m machine + 6h person; after l5id0009, label0001, label0002; asks [lidar-lane-stitching-plan #output-and-consumers](../../docs/plans/lidar-lane-stitching-plan.md#output-and-consumers), [lidar-lane-stitching-plan #acceptance-rules-proposed](../../docs/plans/lidar-lane-stitching-plan.md#acceptance-rules-proposed), [lidar-behaviour-analytics-plan #92-coasting-is-not-observation](../../docs/plans/lidar-behaviour-analytics-plan.md#92-coasting-is-not-observation).
 - [l5id0011](l5id/l5id0011.md) The likelihood cost with the box's containment as an input: who may claim a cluster, on held-out identity: waiting on a dependency; 2h8m machine + 6h person; after geom0005, label0001; asks [paper-implementation-gap-analysis #computed-s3](../../data/maths/paper-implementation-gap-analysis.md#computed-s3), [decision-review-maths-2026-10 #e-05-q-05](../../docs/platform/operations/decision-review-maths-2026-10.md#e-05-q-05), [BACKLOG](../../docs/BACKLOG.md).
+- [l5id0013](l5id/l5id0013.md) Reacquisition acceptance on the current mean-centre defaults: ready, but a step needs tooling; 21m machine + 4h person; after l5id0006; asks [BACKLOG](../../docs/BACKLOG.md), [pcl-noise-and-splits-2026-11 #recommendations](../../docs/lidar/operations/pcl-noise-and-splits-2026-11.md#recommendations).
 - [l8fol0004](l8fol/l8fol0004.md) The following limits, predeclared on kirk0's pairs, and a scorer that reads the leader truth: ready, but a step needs tooling; 6m machine + 12h person; asks [lidar-physical-reference-review-plan #scoring-and-inspection](../../docs/plans/lidar-physical-reference-review-plan.md#scoring-and-inspection), [0.5.2-sprint-review #r6-the-held-out-gap-scorer-is-a…](../../docs/lidar/operations/0.5.2-sprint-review.md#r6-the-held-out-gap-scorer-is-a-component-not-a-complete-promotion-gate), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [geometry-convergence-criteria #criteria](../../docs/lidar/operations/geometry-convergence-criteria.md#criteria), [physical-reference-pilot-kirk0-2026-10 #recommendations](../../docs/lidar/operations/physical-reference-pilot-kirk0-2026-10.md#recommendations).
 - [l8fol0005](l8fol/l8fol0005.md) The first held-out following score, on the labelled window's pairs: waiting on a dependency; 18m machine + 3h person; after l8fol0004, label0002; asks [lidar-behaviour-analytics-plan #104-first-headway-report](../../docs/plans/lidar-behaviour-analytics-plan.md#104-first-headway-report), [lidar-052-mvp-sprint-plan #evidence-and-promotion-ledger](../../docs/plans/lidar-052-mvp-sprint-plan.md#evidence-and-promotion-ledger), [experiment-review-2026-10-18 #the-next-seven-days](../../docs/lidar/operations/experiment-review-2026-10-18.md#the-next-seven-days).
 - [label0001](label/label0001.md) A labelled, frozen held-out window at embarcadero-folsom: proposed, awaiting approval; 8h15m person; asks [20261011-beamwise-background-subtraction-review #7-a-decision-rule-that-can-be-p…](../../data/maths/proposals/20261011-beamwise-background-subtraction-review.md#7-a-decision-rule-that-can-be-pre-registered), [lidar-tracker-geometry-convergence-plan #6-work-to-scope-and-schedule](../../docs/plans/lidar-tracker-geometry-convergence-plan.md#6-work-to-scope-and-schedule).
@@ -320,5 +326,5 @@ flowchart TB
 
 ## Totals
 
-- 30 open experiments: 61h28m machine + 222h10m person estimated.
+- 32 open experiments: 62h3m machine + 231h10m person estimated.
 - Longest chain of open work, machine and person time together: lane0001 → l5id0008 → l5id0009 → l5id0010, 69h57m.

@@ -8,10 +8,12 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## November 5, 2026 - Tracker lifecycle and steps to lanes in the painter
+## November 5, 2026 - Tracker continuity, evidence and steps to lanes in the painter
 
 - {claude/painter-steps-and-markings} Made the street painter say how to get from a recording to lanes: a **From traffic to lanes** section lists the steps (accept a pose, open a run, its field, send, proposals, save, send lanes) as done, next or waiting with what the next needs, names the run a VRLOG replay belongs to when none is open and opens it, and, when Gerardus proposes nothing, says what the busiest vehicle cell holds against the 10- and 30-track grades. The run's and the site's fields are now read when the painter opens and whenever the run or site changes (they had been read only on ↻, so Send lane field said no run was open), Send's reason shows under it, and a send reads the proposals again. Paint mode draws lane markings and signs under the marks; other marks snap to the paint, a lane's vertex goes midway between two near-parallel lines a lane's width apart, and Split at sign cuts at a sign within 5 m of the click (#932).
-- {codex/empty-frame-lifecycle} Advanced L5 on empty and unavailable frames, preserve unknown support for missing processing, publish predicted/expired state and retain capture-time expiry. Synthetic and kirk0 replay checks are recorded in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md).
+- Added checked-in overlap/tentative identity parameter sets with replay alias parity and a labelled acceptance component that wrote each clause and refused tuning, unfrozen or unreviewed evidence; kept promotion pending the independent reviewed window: [report](lidar/operations/reacquisition-cloud-acceptance-2026-11.md) (#929).
+- Advanced L5 on empty and unavailable frames, preserved unknown support for missing processing, published predicted/expired state and retained capture-time expiry; recorded synthetic and kirk0 replay checks in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md) (#928).
+- Added a default-off W3 candidate joining current components only inside one recent, well-constrained moving-vehicle footprint, preserving complete processed membership, noise and original components on ambiguity or failed shape checks; wired startup/replay and recorded synthetic, lineage and cloud evidence separately from qualification: [report](lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md) (#930).
 
 ## November 4, 2026 - The lane field
 

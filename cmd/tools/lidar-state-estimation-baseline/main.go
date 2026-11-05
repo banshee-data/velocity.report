@@ -51,14 +51,15 @@ type indexEntry struct {
 }
 
 type caseSummary struct {
-	ID                    string  `json:"id"`
-	Captures              int     `json:"captures"`
-	DurationSeconds       float64 `json:"duration_seconds"`
-	FirstRunFrames        int     `json:"first_run_frames"`
-	RepeatRunFrames       int     `json:"repeat_run_frames"`
-	BaselineEqual         bool    `json:"baseline_equal"`
-	ObservationSourceID   string  `json:"observation_source_id,omitempty"`
-	MeasurementSourceMode string  `json:"measurement_source_mode"`
+	FragmentJoin          *pipeline.FragmentJoinStats `json:"fragment_join,omitempty"`
+	ID                    string                      `json:"id"`
+	Captures              int                         `json:"captures"`
+	DurationSeconds       float64                     `json:"duration_seconds"`
+	FirstRunFrames        int                         `json:"first_run_frames"`
+	RepeatRunFrames       int                         `json:"repeat_run_frames"`
+	BaselineEqual         bool                        `json:"baseline_equal"`
+	ObservationSourceID   string                      `json:"observation_source_id,omitempty"`
+	MeasurementSourceMode string                      `json:"measurement_source_mode"`
 	// Experiments is the sorted list of default-off options this case ran
 	// with. Always present, empty for a shipped-behaviour replay, so a
 	// summary can never be read without knowing which it was.
@@ -439,6 +440,9 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 		if !bytes.Equal(firstBaseline, repeatBaseline) {
 			return nil, nil, fmt.Errorf("baseline differs on repeat for %s", selectedCase.ID)
 		}
+		if !reflect.DeepEqual(firstResult.FragmentJoin, repeatResult.FragmentJoin) {
+			return nil, nil, fmt.Errorf("fragment joining differs on repeat for %s", selectedCase.ID)
+		}
 		// Every refinement horizon must reproduce too. Persistence is on for
 		// the first run only, which must not change a single figure.
 		var refinementArms []l8analytics.RefinementArmMetrics
@@ -472,7 +476,8 @@ func (r corpusReplay) run(cases []resolvedCorpusCase) ([]caseSummary, []uncertai
 			})
 		}
 		summary := caseSummary{
-			ID: selectedCase.ID, Captures: len(paths), DurationSeconds: first.DurationSeconds,
+			FragmentJoin: firstResult.FragmentJoin,
+			ID:           selectedCase.ID, Captures: len(paths), DurationSeconds: first.DurationSeconds,
 			FirstRunFrames: firstResult.FramesRecorded, RepeatRunFrames: repeatResult.FramesRecorded,
 			BaselineEqual: true, ObservationSourceID: firstResult.ObservationSourceID,
 			MeasurementSourceMode: string(first.MeasurementSourceMode),
