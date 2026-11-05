@@ -705,3 +705,14 @@ Startup and the offline tools carry these settings; they are not a new runtime
 parameter API. Detection-only and L3-only profiles do not borrow L5 priors.
 See the [cloud screen](../docs/lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md)
 for the rule, member lineage and remaining acceptance gates.
+
+## Default-off identity acceptance options
+
+The optional `l5.cv_kf_v1.identity` block holds `tentative_priority`,
+`overlap_end_frames`, `overlap_end_on_body` and `overlap_end_keep_older`.
+Absent, defaults and their fingerprint stay unchanged. Body/older qualifiers
+require a positive frame count. The offline tools and startup use the same
+tracker mapping; replay aliases add the same options, while a contradictory
+frame count refuses. These are experimental settings, not a promoted default
+or new runtime-parameter API. Use the registered `identity-body-older.json`
+and `identity-body-older-tentative.json` sets for [l5id0013](../data/experiments/l5id/l5id0013.md).

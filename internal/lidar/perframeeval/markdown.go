@@ -67,6 +67,16 @@ func RenderMarkdown(c Comparison) string {
 		writeClass(&b, *c.Class)
 	}
 
+	if g := c.IdentityAcceptance; g != nil {
+		fmt.Fprintf(&b, "\n## Labelled identity acceptance component\n\nVerdict: **%s**. This does not qualify the corpus, geometry or timing gates.\n\n", g.Verdict)
+		b.WriteString("| Clause | Candidate | Bound | Pass |\n| --- | ---: | ---: | --- |\n")
+		for _, clause := range g.Clauses {
+			fmt.Fprintf(&b, "| %s | %.6g | %.6g | %v |\n", clause.Name, clause.Value, clause.Bound, clause.Pass)
+		}
+		if g.Reason != "" {
+			fmt.Fprintf(&b, "\n%s\n", g.Reason)
+		}
+	}
 	b.WriteString("\n## Caveats\n\n")
 	for _, cv := range c.Caveats {
 		fmt.Fprintf(&b, "- %s\n", cv)

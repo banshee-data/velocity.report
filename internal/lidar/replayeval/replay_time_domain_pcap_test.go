@@ -26,19 +26,10 @@ func kirk0MovingWindow(t *testing.T, outDir string) Config {
 	}
 }
 
-// kirk0GapWindow is the established kirk0 window, 20 s of warm-up from the
-// start of the capture so the background is settled, scored over 20-28 s.
-// With that background, kirk0 has several runs of frames with no clusters
-// between 21 and 27 s, the longest about 2 s. The pipeline does not call the
-// tracker on such a frame, so the tracker sees each run as a single
-// capture-time gap beyond max_predict_dt: the case the clamp, the gap option
-// and capture-time coast age exist for. Warmed from a later start the same
-// seconds carry noise clusters and no gap, which is why this window starts at
-// zero.
-// kirk0GapWindow is 8 s of kirk0 in which the tracker sees a capture-time gap
-// longer than max_predict_dt, which the time-domain options need. It runs the
-// L3 the defaults carried before l3bg0025: under the closeness 2 since, every
-// frame of the window has foreground, so the gap this test exercises is gone.
+// kirk0GapWindow is the established warm-up and scoring window on the old
+// L3 configuration. It includes runs with no detections: these used to skip
+// L5 and appear as artificial capture gaps. Empty-frame lifecycle processing
+// must keep those intervals at the sensor's regular cadence instead.
 func kirk0GapWindow(t *testing.T, outDir string) Config {
 	return Config{
 		PCAPFile: requireKirk0(t), OutDir: outDir, SensorID: "test-replay", UDPPort: 2369,
@@ -159,8 +150,8 @@ func TestTimeDomainExperimentsOnKirk0(t *testing.T) {
 			t.Fatalf("%s: manifest has no time_domain block", a.name)
 		}
 		hashes[a.name] = manifest.Params
-		if a.name == "default" && res.TimeDomain.ClampedGaps == 0 {
-			t.Fatalf("the gap window produced no capture-time gap beyond max_predict_dt: %+v", res.TimeDomain)
+		if res.TimeDomain.ClampedGaps != 0 || res.TimeDomain.MaxGapSecs > 0.2 {
+			t.Fatalf("empty frames became artificial capture gaps: %+v", res.TimeDomain)
 		}
 		t.Logf("%s: time domain %+v", a.name, res.TimeDomain)
 		t.Logf("%s: tracking baseline\n%s", a.name, baselines[a.name])
@@ -169,8 +160,28 @@ func TestTimeDomainExperimentsOnKirk0(t *testing.T) {
 		if hashes[a.name] == hashes["default"] {
 			t.Errorf("%s: parameter hash equals the default's; the arm is not identifiable", a.name)
 		}
+		if a.name == "capture_gap_predict" {
+			if !bytes.Equal(baselines[a.name], baselines["default"]) || fingerprints[a.name] != fingerprints["default"] {
+				t.Error("capture-gap prediction changed a stream with no capture gaps")
+			}
+			continue
+		}
 		if bytes.Equal(baselines[a.name], baselines["default"]) && fingerprints[a.name] == fingerprints["default"] {
 			t.Errorf("%s: the recording is identical to the default; the option did not reach the tracker", a.name)
 		}
 	}
+	// Repeating the same empty-frame lifecycle must reproduce both states and
+	// their support history; random public track IDs are canonicalised above.
+	repeat := kirk0GapWindow(t, filepath.Join(dir, "repeat"))
+	if _, err := Run(repeat); err != nil {
+		t.Fatal(err)
+	}
+	frames, _ := trackFingerprint(t, repeat.OutDir)
+	if got := strings.Join(frames, "\n"); got != fingerprints["default"] {
+		t.Fatal("empty-frame lifecycle changed on identical replay")
+	}
+	if !bytes.Equal(readBaseline(t, repeat.OutDir), baselines["default"]) {
+		t.Fatal("empty-frame accounting changed on identical replay")
+	}
+
 }

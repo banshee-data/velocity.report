@@ -244,22 +244,25 @@ type L5Config struct {
 
 // L5Common contains fields shared by all L5 engines.
 type L5Common struct {
-	GatingDistanceSquared       float64 `json:"gating_distance_squared"`
-	ProcessNoisePos             float64 `json:"process_noise_pos"`
-	ProcessNoiseVel             float64 `json:"process_noise_vel"`
-	MeasurementNoise            float64 `json:"measurement_noise"`
-	OcclusionCovInflation       float64 `json:"occlusion_cov_inflation"`
-	HitsToConfirm               int     `json:"hits_to_confirm"`
-	MaxMisses                   int     `json:"max_misses"`
-	MaxMissesConfirmed          int     `json:"max_misses_confirmed"`
-	MaxTracks                   int     `json:"max_tracks"`
-	MaxReasonableSpeedMps       float64 `json:"max_reasonable_speed_mps"`
-	MaxPositionJumpMetres       float64 `json:"max_position_jump_metres"`
-	MaxPredictDt                float64 `json:"max_predict_dt"`
-	MaxCovarianceDiag           float64 `json:"max_covariance_diag"`
-	MinPointsForPCA             int     `json:"min_points_for_pca"`
-	OBBHeadingSmoothingAlpha    float64 `json:"obb_heading_smoothing_alpha"`
-	OBBAspectRatioLockThreshold float64 `json:"obb_aspect_ratio_lock_threshold"`
+	// Identity holds default-off overlap/reacquisition experiments. An absent
+	// block preserves the production configuration and its fingerprint.
+	Identity                    *L5Identity `json:"identity,omitempty"`
+	GatingDistanceSquared       float64     `json:"gating_distance_squared"`
+	ProcessNoisePos             float64     `json:"process_noise_pos"`
+	ProcessNoiseVel             float64     `json:"process_noise_vel"`
+	MeasurementNoise            float64     `json:"measurement_noise"`
+	OcclusionCovInflation       float64     `json:"occlusion_cov_inflation"`
+	HitsToConfirm               int         `json:"hits_to_confirm"`
+	MaxMisses                   int         `json:"max_misses"`
+	MaxMissesConfirmed          int         `json:"max_misses_confirmed"`
+	MaxTracks                   int         `json:"max_tracks"`
+	MaxReasonableSpeedMps       float64     `json:"max_reasonable_speed_mps"`
+	MaxPositionJumpMetres       float64     `json:"max_position_jump_metres"`
+	MaxPredictDt                float64     `json:"max_predict_dt"`
+	MaxCovarianceDiag           float64     `json:"max_covariance_diag"`
+	MinPointsForPCA             int         `json:"min_points_for_pca"`
+	OBBHeadingSmoothingAlpha    float64     `json:"obb_heading_smoothing_alpha"`
+	OBBAspectRatioLockThreshold float64     `json:"obb_aspect_ratio_lock_threshold"`
 	// OBBHeadingLockMaxRejections releases the heading lock after this many
 	// consecutive Guard 3 rejections. Guard 3 compares each measurement against
 	// the smoothed heading, so once that has drifted outside the rejection band
@@ -301,6 +304,15 @@ type L5Common struct {
 	// SolidBody it is a pointer omitted when nil, so every config written
 	// before it existed keeps its fingerprint and the legacy box.
 	BoxModel *L5BoxModel `json:"box_model,omitempty"`
+}
+
+// L5Identity makes the identity experiments reproducible from a tuning file.
+// These options do not qualify themselves for production by being configured.
+type L5Identity struct {
+	TentativePriority   bool `json:"tentative_priority"`
+	OverlapEndFrames    int  `json:"overlap_end_frames"`
+	OverlapEndOnBody    bool `json:"overlap_end_on_body"`
+	OverlapEndKeepOlder bool `json:"overlap_end_keep_older"`
 }
 
 // L5BoxModel is the published box model's options, one tuning value per

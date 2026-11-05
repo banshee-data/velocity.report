@@ -6,6 +6,8 @@ status, and literature alignment all live in
 [architecture/LIDAR_ARCHITECTURE.md](architecture/LIDAR_ARCHITECTURE.md). This
 file is just the index — start there for any layer detail.
 
+The [empty-frame lifecycle validation](operations/empty-frame-lifecycle-cloud-validation.md) records capture-time prediction, support and expiry through empty and unavailable frames.
+
 ## Folder structure
 
 | Folder             | Scope                                                                  |
@@ -41,6 +43,8 @@ The [joining-control design](operations/pcl-joining-cap-controls.md) separates c
 connectivity with six matched arms and a frozen-input oracle.
 The [planar registration disposition](operations/pcl-planar-registration-disposition.md) places
 one comparator within facet arm B and corrects the earlier 2-D z-translation claim.
+The [current-default reacquisition screen](operations/reacquisition-cloud-acceptance-2026-11.md)
+records reproducible identity candidates, their duplicate/noise tradeoff and the labelled held-out acceptance component.
 The [hypothesis-verification disposition](operations/pcl-hypothesis-verification-disposition.md)
 drops a separate duplicate-track arm and records its visibility and temporal-identity limits.
 The [Gerardus novelty audit](operations/pcl-gerardus-registration-gap-review.md) confirms its

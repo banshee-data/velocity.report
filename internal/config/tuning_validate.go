@@ -486,6 +486,14 @@ func (c *L5Common) Validate() error {
 	if c.AssociationExtentCostWeight < 0 {
 		return fmt.Errorf("association_extent_cost_weight must be non-negative, got %f", c.AssociationExtentCostWeight)
 	}
+	if id := c.Identity; id != nil {
+		if id.OverlapEndFrames < 0 {
+			return fmt.Errorf("identity.overlap_end_frames must be non-negative")
+		}
+		if id.OverlapEndFrames == 0 && (id.OverlapEndOnBody || id.OverlapEndKeepOlder) {
+			return fmt.Errorf("identity overlap qualifiers require overlap_end_frames > 0")
+		}
+	}
 	if c.MinAssociableExtentMetres < 0 {
 		return fmt.Errorf("min_associable_extent_metres must be non-negative, got %f", c.MinAssociableExtentMetres)
 	}

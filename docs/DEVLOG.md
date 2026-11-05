@@ -8,9 +8,11 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## November 5, 2026 - Bounded fragment joining
+## November 5, 2026 - Tracker continuity and evidence
 
-- {codex/w3-fragment-joining} Added a default-off W3 candidate joining current components only inside one recent, well-constrained moving-vehicle footprint, preserving complete processed membership, noise and original components on ambiguity or failed shape checks; wired startup/replay and recorded synthetic, lineage and cloud evidence separately from qualification: [report](lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md).
+- Added checked-in overlap/tentative identity parameter sets with replay alias parity and a labelled acceptance component that wrote each clause and refused tuning, unfrozen or unreviewed evidence; kept promotion pending the independent reviewed window: [report](lidar/operations/reacquisition-cloud-acceptance-2026-11.md) (#929).
+- Advanced L5 on empty and unavailable frames, preserved unknown support for missing processing, published predicted/expired state and retained capture-time expiry; recorded synthetic and kirk0 replay checks in the [validation report](lidar/operations/empty-frame-lifecycle-cloud-validation.md) (#928).
+- Added a default-off W3 candidate joining current components only inside one recent, well-constrained moving-vehicle footprint, preserving complete processed membership, noise and original components on ambiguity or failed shape checks; wired startup/replay and recorded synthetic, lineage and cloud evidence separately from qualification: [report](lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md) (#930).
 
 ## November 4, 2026 - The lane field
 

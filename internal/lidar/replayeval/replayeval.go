@@ -281,6 +281,17 @@ func (t *tapTracker) Update(clusters []l5tracks.WorldCluster, at time.Time) {
 		Associations: t.GetLastAssociations(), Tracks: t.GetActiveTracks()})
 }
 
+// UpdateGap preserves the unavailable-input contract through the offline
+// instrumentation wrapper instead of silently treating a gap as observed empty.
+func (t *tapTracker) UpdateGap(at time.Time) {
+	if gap, ok := t.TrackerInterface.(interface{ UpdateGap(time.Time) }); ok {
+		gap.UpdateGap(at)
+	} else {
+		t.TrackerInterface.Update(nil, at)
+	}
+	t.tap(TrackerTapFrame{At: at, Scored: at.UnixNano() >= t.start, Tracks: t.GetActiveTracks()})
+}
+
 func (t *tapTracker) AdvanceMisses(at time.Time) {
 	t.TrackerInterface.AdvanceMisses(at)
 	t.tap(TrackerTapFrame{At: at, Scored: at.UnixNano() >= t.start, Tracks: t.GetActiveTracks()})
@@ -1399,22 +1410,27 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	trackerConfig.OBBHeadingFlipRule = hasExperiment(experiments, ExperimentFlipRule)
 	trackerConfig.MeasurementTimePrediction = hasExperiment(experiments, ExperimentMeasurementTime)
 	trackerConfig.CaptureGapPrediction = hasExperiment(experiments, ExperimentCaptureGapPredict)
-	trackerConfig.TentativePriority = hasExperiment(experiments, ExperimentTentativePriority)
+	trackerConfig.TentativePriority = trackerConfig.TentativePriority || hasExperiment(experiments, ExperimentTentativePriority)
 	trackerConfig.ClassIdentity = hasExperiment(experiments, ExperimentClassIdentity)
 	overlapEnd, err := overlapEndFramesFor(experiments)
 	if err != nil {
 		return l5tracks.TrackerConfig{}, err
 	}
-	trackerConfig.OverlapEndFrames = overlapEnd
+	if overlapEnd != 0 {
+		if trackerConfig.OverlapEndFrames != 0 && trackerConfig.OverlapEndFrames != overlapEnd {
+			return l5tracks.TrackerConfig{}, fmt.Errorf("overlap-end replay alias conflicts with tuning identity.overlap_end_frames (tuning=%d, alias=%d)", trackerConfig.OverlapEndFrames, overlapEnd)
+		}
+		trackerConfig.OverlapEndFrames = overlapEnd
+	}
 	if hasExperiment(experiments, ExperimentBoxGround) {
 		if !trackerConfig.BoxModel.Enabled {
 			return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiment %s stands the box model's box on the ground, and the tuning file's box model is off", ExperimentBoxGround)
 		}
 		trackerConfig.BoxModel.GroundAnchor = true
 	}
-	trackerConfig.OverlapEndOnBody = hasExperiment(experiments, ExperimentOverlapEndBody)
-	trackerConfig.OverlapEndKeepOlder = hasExperiment(experiments, ExperimentOverlapEndOlder)
-	if overlapEnd == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {
+	trackerConfig.OverlapEndOnBody = trackerConfig.OverlapEndOnBody || hasExperiment(experiments, ExperimentOverlapEndBody)
+	trackerConfig.OverlapEndKeepOlder = trackerConfig.OverlapEndKeepOlder || hasExperiment(experiments, ExperimentOverlapEndOlder)
+	if trackerConfig.OverlapEndFrames == 0 && (trackerConfig.OverlapEndOnBody || trackerConfig.OverlapEndKeepOlder) {
 		return l5tracks.TrackerConfig{}, fmt.Errorf("replay experiments %q qualify the overlap end without it; name overlap_end_1 or overlap_end_3", experiments)
 	}
 	oc, err := occlusionContinuityFor(experiments, coverage)
