@@ -4,6 +4,11 @@
 - **Spec:** [l4clus0008](../../../data/experiments/l4clus/l4clus0008.md)
 - **Layers:** L4 Perception, pipeline with prior L5 snapshots
 
+**Update (2026-11-05, later).** The W3 rule was read on a kirk0 pack rebuilt in the cloud: the
+join takes 20 to 35 m fragmented instants from 6.5 % to 5.7 %, 0.8 of the 5 points required, and
+fails its target with every other clause held. See
+[kirk0's labels in a cloud run](cloud-run-kirk0-labelled-2026-11.md#the-labelled-clauses-929-and-930-could-not-read).
+
 ## Question and implementation
 
 Can a recent, well-constrained moving body's predicted footprint support joining

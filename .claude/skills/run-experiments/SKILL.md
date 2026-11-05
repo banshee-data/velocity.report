@@ -77,6 +77,28 @@ hf download banshee-data/sf-street-speeds --repo-type dataset \
 # kirk0 is 20251205T1417_80858-75c_kirkham-9th
 ```
 
+**kirk0's labels in the cloud.** The dataset's JSON and NDJSON files download from huggingface.co,
+but its `.bin` files are served from a CDN the cloud network policy refuses, and `hf download`
+fails on them. Fetch the label set's and the pack's text files with `curl` from
+`https://huggingface.co/datasets/banshee-data/sf-street-speeds/resolve/main/labels/<stem>/...`
+(the label set `kirk0-reference`: `labels.json`, `windows.json`, `domains.json`, `objects.json`,
+`masks/` and `domain-returns/`; the pack `ad8b9438-…-v2`: `manifest.json`, `samples.json`,
+`physical-references.json`, `label-set-link.json`), then rebuild the binaries:
+
+```bash
+go run ./cmd/tools/lidar-pack-rebuild -pcap internal/lidar/perf/pcap/kirk0.pcapng \
+  -labels "$SCRATCH/labels/kirk0-reference" -pack "$SCRATCH/labels/<pack>-v2"
+```
+
+It checks the packet table and the returns against the pack manifest's digests and fails on a
+mismatch; the points are decoded by the current parser, so their digest differs from the published
+pack's, and the manifest says the pack is reconstructed. Draft the split with
+`lidar-annotation-split-draft -from-seconds 6 -split kirk0-tuning`, ignore `obj_788622b5`, and give
+`retention` `-min-domain-share 0.3`: on 2026-11-05 the reconstruction reproduced the published
+`a0` HOTA to 0.0001, its switches and fragmentations exactly, and its retention by band within a
+point ([cloud run report](../../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md)).
+Say in each report that the pack was reconstructed.
+
 Cut five-minute segments from a placement with `cmd/tools/pcap-split` when the question is scored
 on segments. A cloud host has no Pi, no NAS and no labels beyond kirk0's: choose
 questions that kirk0 and a few placements can answer, and say in the report which corpus stood in.
