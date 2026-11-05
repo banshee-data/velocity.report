@@ -27,6 +27,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var boxPipeline: MTLRenderPipelineState?
     var trailPipeline: MTLRenderPipelineState?
     var linePipeline: MTLRenderPipelineState?  // M6: Debug overlay lines
+    /// The city tiles' triangles (flat shaded) and street lines.
+    private(set) var cityTrianglePipeline: MTLRenderPipelineState?
+    private(set) var cityLinePipeline: MTLRenderPipelineState?
 
     // Depth stencil
     var depthStencilState: MTLDepthStencilState?
@@ -68,6 +71,90 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // MARK: - Camera
 
     var camera = Camera()
+    /// The local frame the camera and every placed drawable are drawn in:
+    /// camera-relative rendering (RenderOrigin.swift).
+    private(set) var origin = RenderOrigin()
+    /// Whether the origin follows the camera. Off in a site's sensor frame,
+    /// which draws as it always has; on in city mode.
+    var recentresOrigin = false
+
+    // MARK: - City tiles
+
+    /// Gerardus's city tiles, drawn by screen-space error.
+    private(set) lazy var cityTiles: CityTileLayer = {
+        let layer = CityTileLayer(device: device)
+        layer.onTileLoaded = { [weak self] in self?.view?.needsDisplay = true }
+        return layer
+    }()
+    var showCityTiles = true
+    /// Whether the tiles can be drawn now: a tileset, and a frame they can be
+    /// placed in (a placed site's, or the city's own).
+    private(set) var cityTilesPlaced = false
+    /// Within this disc of the sensor, in the city frame, the city's
+    /// buildings fade so the scene's own measured geometry is not drawn
+    /// twice: centre, then inner and outer radii.
+    var cityFade: (centre: SIMD3<Double>, inner: Float, outer: Float)?
+
+    /// Places the city tiles in the renderer's world frame; nil hides them.
+    func placeCityTiles(worldFromCity: simd_double4x4?) {
+        cityTilesPlaced = worldFromCity != nil
+        cityTiles.worldFromCity = worldFromCity ?? matrix_identity_double4x4
+        view?.needsDisplay = true
+    }
+
+    /// Moves the local frame so `world` is its origin, keeping the camera
+    /// where it is in the world.
+    func setOrigin(anchor world: SIMD3<Double>) {
+        let shift = SIMD3<Float>(world - origin.anchor)
+        origin.anchor = world
+        camera.position -= shift
+        camera.target -= shift
+        if var saved = savedCamera {
+            saved.position -= shift
+            saved.target -= shift
+            savedCamera = saved
+        }
+    }
+
+    /// Recentres the local frame on the camera's target when it has strayed.
+    func recentreOriginIfNeeded() {
+        guard recentresOrigin, let shift = origin.recentre(target: camera.target) else { return }
+        camera.position -= shift
+        camera.target -= shift
+        if var saved = savedCamera {
+            saved.position -= shift
+            saved.target -= shift
+            savedCamera = saved
+        }
+    }
+
+    /// The tile view for the current camera, in the city frame.
+    func cityTileView(viewportHeight: Double) -> TileView {
+        let cityFromWorld = cityTiles.worldFromCity.inverse
+        let eyeWorld = origin.world(camera.position)
+        let eye4 = cityFromWorld * SIMD4(eyeWorld, 1)
+        let clip =
+            simd_double4x4(camera.projectionMatrix * camera.viewMatrix)
+            * simd_double4x4(origin.model(cityTiles.worldFromCity))
+        let frustum = Frustum(clip: clip)
+        return TileView(
+            eye: SIMD3(eye4.x, eye4.y, eye4.z), viewportHeight: max(viewportHeight, 1),
+            fovY: Double(camera.fov) * .pi / 180, maximumError: cityTiles.maximumError,
+            inFrustum: { centre, radius in frustum.contains(sphere: centre, radius: radius) })
+    }
+
+    private func drawCityTiles(encoder: MTLRenderCommandEncoder, viewportHeight: Double) {
+        guard showCityTiles, cityTilesPlaced, cityTiles.tileset != nil,
+            let triangles = cityTrianglePipeline, let lines = cityLinePipeline
+        else { return }
+        let selection = cityTiles.select(view: cityTileView(viewportHeight: viewportHeight))
+        let fade = cityFade.map { SIMD4<Float>(0, 0, $0.inner, $0.outer) }
+        cityTiles.draw(
+            encoder: encoder, triangles: triangles, lines: lines, origin: origin,
+            view: camera.viewMatrix, projection: camera.projectionMatrix, selection: selection,
+            fade: fade, fadeCity: cityFade?.centre)
+        encoder.setDepthStencilState(depthStencilState)
+    }
 
     // Camera control state
     private var isDragging = false
@@ -256,6 +343,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         metalView.delegate = self
         metalView.colorPixelFormat = .bgra8Unorm
         metalView.depthStencilPixelFormat = .depth32Float
+        metalView.clearDepth = Camera.clearDepth
         metalView.clearColor = backgroundColor
 
         // Build pipelines
@@ -385,6 +473,25 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             { print("Failed to create trail pipeline: \(error)") }
         }
 
+        // City tiles: one pipeline for triangles and lines, blended so the
+        // fade near a played site shows what is behind it.
+        if let vertexFunc = library.makeFunction(name: "cityTileVertex"),
+            let fragmentFunc = library.makeFunction(name: "cityTileFragment")
+        {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunc
+            descriptor.fragmentFunction = fragmentFunc
+            descriptor.colorAttachments[0].pixelFormat = metalView.colorPixelFormat
+            descriptor.depthAttachmentPixelFormat = metalView.depthStencilPixelFormat
+            descriptor.colorAttachments[0].isBlendingEnabled = true
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            do {
+                cityTrianglePipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+                cityLinePipeline = cityTrianglePipeline
+            } catch { print("Failed to create city tile pipeline: \(error)") }
+        }
+
         // M6: Debug line pipeline (uses debugLine shaders for coloured lines)
         if let vertexFunc = library.makeFunction(name: "debugLineVertex"),
             let fragmentFunc = library.makeFunction(name: "debugLineFragment")
@@ -409,10 +516,11 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     private func buildDepthStencil() {
         let descriptor = MTLDepthStencilDescriptor()
-        descriptor.depthCompareFunction = .less
+        // Reversed depth (Camera.ndcNear is 1): nearer is greater.
+        descriptor.depthCompareFunction = .greater
         descriptor.isDepthWriteEnabled = true
         depthStencilState = device.makeDepthStencilState(descriptor: descriptor)
-        descriptor.depthCompareFunction = .lessEqual
+        descriptor.depthCompareFunction = .greaterEqual
         residualDepthState = device.makeDepthStencilState(descriptor: descriptor)
         descriptor.depthCompareFunction = .always
         descriptor.isDepthWriteEnabled = false
@@ -1299,6 +1407,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         else { return }
 
+        recentreOriginIfNeeded()
         // Update uniforms
         uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix
         uniforms.modelView = camera.viewMatrix
@@ -1307,6 +1416,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         uniforms.padding.x = intensityColouring.rawValue
 
         encoder.setDepthStencilState(depthStencilState)
+
+        // The city first: opaque context for everything drawn over it.
+        drawCityTiles(encoder: encoder, viewportHeight: Double(view.drawableSize.height))
 
         // Draw ground grid first (behind everything)
         if showGrid, let pipeline = linePipeline, let gridBuf = gridVertices, gridVertexCount > 0 {
@@ -1499,7 +1611,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // Move camera toward/away from target
         var offset = camera.position - camera.target
-        let newDistance = max(1.0, min(500.0, length(offset) * zoomFactor))
+        let newDistance = max(
+            Camera.minDistance, min(Camera.maxDistance, length(offset) * zoomFactor))
         offset = normalize(offset) * newDistance
         camera.position = camera.target + offset
     }
@@ -1579,6 +1692,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         setOverlayBoxes([])
         if cameraHolder == .plan { exitPlanView() }
         siteID = next.siteID
+        // In a placed site's own frame the city is drawn around its sensor.
+        placeCityTiles(worldFromCity: next.site?.sensorToCity?.inverse)
+        cityFade = next.site?.sensorCityPosition.map { ($0, 60, 90) }
     }
 
     /// Whether anything of a site is still held: for the switch tests.
@@ -1836,24 +1952,54 @@ struct Camera: Equatable {
 
     var fov: Float = 60.0  // degrees
     var aspectRatio: Float = 1.0
+    /// The clip planes an orthographic view uses. A perspective view sets
+    /// its own from how far the eye is from what it looks at (`clipPlanes`),
+    /// so a 12 km view of the city and a 5 m view of a kerb share one
+    /// renderer.
     var nearPlane: Float = 0.1
     var farPlane: Float = 500.0
 
     var projection: Projection = .perspective
 
+    /// The furthest the eye may stand from its target: the whole city.
+    static let maxDistance: Float = 60_000
+    static let minDistance: Float = 1
+
+    /// Depth runs reversed: the near plane is 1 and the far plane 0, cleared
+    /// to 0 and tested with `.greater`, so a Float32 depth buffer keeps its
+    /// precision across the whole range rather than spending it near the eye.
+    static let ndcNear: Float = 1
+    static let ndcFar: Float = 0
+    static let clearDepth: Double = 0
+
     var viewMatrix: simd_float4x4 { simd_float4x4(lookAt: target, from: position, up: up) }
 
+    /// The clip planes in use: dynamic for perspective, the stored ones for
+    /// orthographic.
+    var clipPlanes: (near: Float, far: Float) {
+        switch projection {
+        case .perspective:
+            let d = simd_length(position - target)
+            let distance = d.isFinite ? d : 30
+            let near = min(max(distance * 0.002, 0.02), 20)
+            let far = max(600, distance * 40 + 3_000)
+            return (near, far)
+        case .orthographic: return (nearPlane, farPlane)
+        }
+    }
+
     var projectionMatrix: simd_float4x4 {
+        let planes = clipPlanes
         switch projection {
         case .perspective:
             return simd_float4x4(
-                perspectiveFov: fov * .pi / 180, aspectRatio: aspectRatio, near: nearPlane,
-                far: farPlane)
+                perspectiveFov: fov * .pi / 180, aspectRatio: aspectRatio, near: planes.near,
+                far: planes.far)
         case .orthographic(let halfHeight):
             let h = max(halfHeight, 0.01)
             let w = h * max(aspectRatio, 0.01)
             return simd_float4x4(
-                orthographicWidth: w * 2, height: h * 2, near: nearPlane, far: farPlane)
+                orthographicWidth: w * 2, height: h * 2, near: planes.near, far: planes.far)
         }
     }
 
@@ -1912,29 +2058,31 @@ extension simd_float4x4 {
             ))
     }
 
-    /// Right-handed orthographic projection matching the perspective
-    /// initialiser's depth convention, so both can share one pipeline.
+    /// Right-handed orthographic projection with reversed depth, matching
+    /// the perspective initialiser: the near plane maps to 1, the far to 0.
     init(orthographicWidth width: Float, height: Float, near: Float, far: Float) {
         let x = 2 / width
         let y = 2 / height
-        let z = 1 / (near - far)
+        let z = 1 / (far - near)
 
         self.init(
             columns: (
                 simd_float4(x, 0, 0, 0), simd_float4(0, y, 0, 0), simd_float4(0, 0, z, 0),
-                simd_float4(0, 0, z * near, 1)
+                simd_float4(0, 0, far * z, 1)
             ))
     }
 
+    /// Right-handed perspective projection with reversed depth: a point on
+    /// the near plane has depth 1, one on the far plane 0.
     init(perspectiveFov fovRadians: Float, aspectRatio: Float, near: Float, far: Float) {
         let y = 1 / tan(fovRadians * 0.5)
         let x = y / aspectRatio
-        let z = far / (near - far)
+        let z = near / (far - near)
 
         self.init(
             columns: (
                 simd_float4(x, 0, 0, 0), simd_float4(0, y, 0, 0), simd_float4(0, 0, z, -1),
-                simd_float4(0, 0, z * near, 0)
+                simd_float4(0, 0, far * z, 0)
             ))
     }
 }

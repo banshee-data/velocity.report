@@ -237,7 +237,38 @@ struct MatrixExtensionTests {
         #expect(matrix.columns.2.w == -1.0)  // Perspective divide
         #expect(matrix.columns.0.x > 0)  // Positive X scale
         #expect(matrix.columns.1.y > 0)  // Positive Y scale
-        #expect(matrix.columns.2.z < 0)  // Negative Z (depth mapping)
+        #expect(matrix.columns.2.z > 0)  // Reversed depth: nearer is greater
+        // The near plane maps to depth 1 and the far plane to 0.
+        func depth(_ z: Float) -> Float {
+            let clip = matrix * SIMD4<Float>(0, 0, -z, 1)
+            return clip.z / clip.w
+        }
+        #expect(abs(depth(near) - Camera.ndcNear) < 1e-5)
+        #expect(abs(depth(far) - Camera.ndcFar) < 1e-5)
+        #expect(depth(1) > depth(50))
+    }
+
+    @Test func orthographicDepthIsReversedToo() {
+        let m = simd_float4x4(orthographicWidth: 10, height: 10, near: 1, far: 21)
+        #expect(abs((m * SIMD4<Float>(0, 0, -1, 1)).z - 1) < 1e-6)
+        #expect(abs((m * SIMD4<Float>(0, 0, -21, 1)).z) < 1e-6)
+    }
+
+    @Test func perspectiveClipPlanesFollowTheDistance() {
+        var camera = Camera()
+        camera.target = .zero
+        camera.position = SIMD3(0, -5, 0)
+        let close = camera.clipPlanes
+        camera.position = SIMD3(0, -12_000, 4_000)
+        let city = camera.clipPlanes
+        #expect(close.near < 0.1 && close.far >= 600)
+        // A 12 km view reaches past the whole city.
+        #expect(city.far > 20_000 && city.near > close.near)
+        // Orthographic keeps the planes it is given.
+        camera.projection = .orthographic(halfHeight: 10)
+        camera.nearPlane = 0.5
+        camera.farPlane = 40
+        #expect(camera.clipPlanes == (0.5, 40))
     }
 
     @Test func perspectiveMatrixAspectRatioEffect() throws {
@@ -627,7 +658,9 @@ final class MetalRendererCameraControlTests: XCTestCase {
         for _ in 0..<100 { renderer.handleZoom(delta: -10.0) }
 
         let distance = simd.length(renderer.camera.position - renderer.camera.target)
-        XCTAssertLessThanOrEqual(distance, 500.0, "Distance should not exceed maximum")
+        XCTAssertLessThanOrEqual(
+            distance, Camera.maxDistance + 1, "Distance should not exceed maximum")
+        XCTAssertGreaterThan(distance, 10_000, "the whole city fits in view")
     }
 
     func testHandleMouseDragOrbit() throws {

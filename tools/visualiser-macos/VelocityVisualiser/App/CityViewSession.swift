@@ -13,6 +13,17 @@ import Foundation
     /// `alignment.serviceAddress`.
     static let sitesLocationKey = "citySites.location"
 
+    /// Where Gerardus's city tiles are read from: an epoch directory, the
+    /// `city-tiles` directory, a `tileset.json`, or an http(s) URL.
+    static let tilesLocationKey = "cityTiles.location"
+
+    @Published private(set) var tilesLocation: String
+    @Published private(set) var tileset: CityTileset?
+    @Published private(set) var tilesetURL: URL?
+    @Published private(set) var tilesError: String?
+    /// Called with each tileset read, for the renderer.
+    var onTileset: ((CityTileset?, URL?) -> Void)?
+
     @Published private(set) var sitesLocation: String
     @Published private(set) var index: CitySiteIndex?
     @Published private(set) var loadError: String?
@@ -32,6 +43,48 @@ import Foundation
     init(defaults: UserDefaults?) {
         self.defaults = defaults
         sitesLocation = defaults?.string(forKey: Self.sitesLocationKey) ?? ""
+        tilesLocation = defaults?.string(forKey: Self.tilesLocationKey) ?? ""
+    }
+
+    /// Saves a new tiles location and reads its tileset.
+    func useTilesLocation(_ text: String) async {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        tilesLocation = trimmed
+        if trimmed.isEmpty {
+            defaults?.removeObject(forKey: Self.tilesLocationKey)
+        } else {
+            defaults?.set(trimmed, forKey: Self.tilesLocationKey)
+        }
+        await loadTileset()
+    }
+
+    /// Reads the tileset from the saved location; without one, no tiles.
+    func loadTileset() async {
+        guard let location = Self.url(for: tilesLocation) else {
+            setTileset(nil, url: nil, error: nil)
+            return
+        }
+        do {
+            let url = try CityTileSource.tilesetURL(for: location)
+            let read = try CityTileset.decode(await StaticFiles.read(url))
+            setTileset(read, url: url, error: nil)
+        } catch { setTileset(nil, url: nil, error: error.localizedDescription) }
+    }
+
+    func setTileset(_ next: CityTileset?, url: URL?, error: String?) {
+        tileset = next
+        tilesetURL = url
+        tilesError = error
+        onTileset?(next, url)
+    }
+
+    /// What Settings says about the tiles.
+    var tilesStatus: String {
+        if let tilesError { return tilesError }
+        guard let tileset else { return "No tiles read" }
+        let tiles = tileset.root.all.filter(\.hasContent)
+        let epoch = tileset.tilesetVersion.map { " · epoch \($0)" } ?? ""
+        return "\(tiles.count) tiles\(epoch)"
     }
 
     var sites: [CitySite] { index?.sites ?? [] }

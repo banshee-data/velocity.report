@@ -283,7 +283,8 @@ never drawn as though it were a measured placement.
   field are each a separate server, and the visualiser may hold one stream per live site.
 - **Sites with nothing to play:** markers, with their published scene's details.
 - **Tile reader:** a Swift reader for `tileset.json` plus a minimal `.glb` reader (one JSON chunk
-  and one binary chunk, with positions, normals and indices only), feeding Metal buffers directly.
+  and one binary chunk, with positions and indices only; no normals, Item 2), feeding Metal
+  buffers directly.
 - **Settings:** `cityTiles.location` (URL or directory) for the tiles, and `citySites.location`
   for the site index, next to `alignment.serviceAddress`. The index is published with the scenes
   and the tiles by Gerardus, so the two are kept apart rather than one derived from the other.
@@ -304,6 +305,25 @@ street mark survives. The fixtures in `testdata/city-view/` are three entries of
 `city/sites.json`, one scene's `placement.json` and Gerardus's tile fixture. The index's
 `heading_deg` (the bearing of the sensor's +Y) is the hint heading; the pane shows it as the
 north azimuth it would have typed, 180° − heading.
+
+**As built (Item 6):** `RenderOrigin` (`Rendering/RenderOrigin.swift`) keeps every placed
+drawable's offset in Double and draws in a local frame anchored near the camera; each draw's model
+matrix is (offset − anchor) in Double, then Float32, and in city mode the anchor follows the
+camera (recentred past 1 km, whole metres). A site's sensor frame never recentres and draws as
+before. Depth is reversed (near 1, far 0, cleared to 0, `.greater`) for both projections, a
+perspective view sets its clip planes from the eye's distance to its target (near 0.02–20 m, far
+at least 600 m and 40 × the distance + 3 km), and zoom runs from 1 m to 60 km: the 500 m far plane
+and zoom clamp are gone. `City/CityTileset.swift` and `City/GLBReader.swift` read the tiles to the
+profile above (Y-up turned to Z-up; `uint8`, `uint16` or `uint32` indices; gzip on disk
+unwrapped). `City/TileSelection.swift` selects by screen-space error (16 px), REPLACE refinement
+with a loading tile's parent drawn in its place and frustum culling, and keeps loaded tiles in a
+256 MB LRU cache that never evicts a tile drawn now. `Rendering/CityTileLayer.swift` and
+`Shaders/CityTiles.metal` draw each tile's ground, buildings (flat shaded from `dfdx`/`dfdy`) and
+streets: three draw calls a tile. Until city mode (Item 7), the tiles are drawn around a placed
+site's sensor by the inverse of its sensor-to-city. `cityTiles.location` (Settings ▸ Servers ▸
+City view) takes an epoch directory, a `city-tiles` directory (its `current`, else its newest
+epoch, as over SMB the link does not resolve), a `tileset.json`, or a URL. `CityTilesTests.swift`
+reads the shared fixture `testdata/city-view/tiles/`, Gerardus's own.
 
 ## Scope
 
@@ -334,6 +354,17 @@ site with data and its placement.
 
 1. Track the Gerardus CITY-VIEW-TILES plan to its first published epoch.
 2. Agree the city origin and the `.glb` profile with that plan before Items 3 and 6 start.
+   Agreed as built (Gerardus PR 71, CITY-VIEW-TILES §3 and §8; `gerardus-city-tiles-1`): the city
+   origin is lat 37.76, lon −122.44, NAVD88 0. Each `.glb` has at most three meshes of one
+   primitive each, `ground` and `buildings` (triangles) and `streets` (lines), with POSITION and
+   indices only: **no normals and no materials**. Clients shade buildings flat from each
+   triangle's own normal (screen-space derivatives in Metal, `flatShading` in three.js); the
+   ground is a shared-vertex grid. Vertices are glTF Y-up, glTF (x, y, z) = city (east, up,
+   −north), Float32 metres from the tile's origin, and triangles wind counter-clockwise seen from
+   outside. Tile transforms are translations from the parent tile's origin, and every tile also
+   gives its own origin in city ENU metres in `extras.origin_city_enu_m`, which clients use
+   instead of the root's ECEF transform. Street-name labels are in each tile's
+   `extras.labels`.
 
 **Milestone:** unscheduled
 
@@ -498,12 +529,12 @@ None recorded. The owner settled the last two on 2026-11-04 (see Design decision
       into `/mnt/results/gerardus/city-tiles/`: 8,428 tiles, 277 MB gzip (banshee-data/gerardus
       PR 71) (`L`)
 - [x] Item 5: visualiser `SiteContext` and site switching (`M`)
+- [x] Item 6: visualiser city frame, precision and tile reader (`L`)
 
 ### Outstanding
 
 - [ ] Item 3: web city view, zoomed out (`M`)
 - [ ] Item 4: web, into a site and between sites (`M`)
-- [ ] Item 6: visualiser city frame, precision and tile reader (`L`)
 - [ ] Item 7: visualiser city mode (`M`)
 - [ ] Item 8: visualiser, other sites from published scenes (`M`)
 

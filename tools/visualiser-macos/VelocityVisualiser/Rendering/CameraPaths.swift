@@ -484,7 +484,9 @@ enum CameraRay {
             guard abs(q.w) > 1e-9 else { return nil }
             return SIMD3(q.x, q.y, q.z) / q.w
         }
-        guard let near = unproject(0), let far = unproject(1) else { return nil }
+        guard let near = unproject(Camera.ndcNear), let far = unproject(Camera.ndcFar) else {
+            return nil
+        }
         let d = far - near
         guard simd_length(d) > 1e-9 else { return nil }
         return (near, simd_normalize(d))

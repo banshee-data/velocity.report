@@ -212,6 +212,11 @@ struct AppCommands: Commands {
             ).keyboardShortcut("g", modifiers: [])
 
             Toggle(
+                "City Tiles",
+                isOn: Binding(get: { appState.showCityTiles }, set: { appState.showCityTiles = $0 })
+            )
+
+            Toggle(
                 "Labels",
                 isOn: Binding(
                     get: { appState.showTrackLabels }, set: { appState.showTrackLabels = $0 })

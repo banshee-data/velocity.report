@@ -2,7 +2,8 @@
 
 - **Status:** Design, partly built. The [placement files](#placement-files) are built (plan
   Item 1). In the visualiser, switching between the sites of `city/sites.json` ships (toolbar site
-  picker; Settings ▸ Servers ▸ City view); the city map itself does not yet.
+  picker; Settings ▸ Servers ▸ City view), and so does drawing Gerardus's city tiles around a
+  placed site (`cityTiles.location`).
 - **Plan:** [lidar-city-view-plan.md](../plans/lidar-city-view-plan.md) (the work and its order)
 - **Companion:** Gerardus
   [CITY-VIEW-TILES](https://github.com/banshee-data/gerardus/blob/main/docs/plans/CITY-VIEW-TILES.md)
