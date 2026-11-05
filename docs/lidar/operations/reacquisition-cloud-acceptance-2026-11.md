@@ -31,8 +31,64 @@ Missing labels or frozen splits are insufficient evidence, not a zero-error scor
 The independently reviewed label0001 held-out window is a separate prerequisite;
 public kirk0 tuning masks must not be relabelled as independent held-out truth.
 
-Replays and measured results are recorded below when available. No default is
-changed based on label-free or tuning-only evidence.
+No default is changed based on label-free or tuning-only evidence.
+
+## Current-default kirk0 screen
+
+All three arms replayed whole kirk0 from six seconds of warm-up, with
+`-require-settled=false` to reproduce the established development window. The
+corpus tool verified identical baseline repeats for every arm. Each recording
+held 771 scored frames; the diagnostic frame clock counted 773 updates, maximum
+interval 0.10409 s and no backward, duplicate or clamped intervals. These
+numbers come from base main plus this PR, before the separate empty-frame PR.
+
+| Measure                                           |     a0 | body-older | body-older-tentative |
+| ------------------------------------------------- | -----: | ---------: | -------------------: |
+| Published vehicle tracks, at least five frames    |     44 |         39 |                   37 |
+| Duplicate pairs, at least five overlapping frames |     10 |          3 |                    4 |
+| Duplicate pairs per 100 published vehicle tracks  | 22.727 |      7.692 |               10.811 |
+| Overlapping pair-frames                           |    452 |        107 |                   98 |
+| Observed vehicle frames                           |  4,523 |      4,491 |                4,563 |
+| Brief confirmed tracks, under 1 s                 |     12 |         29 |                   18 |
+| Near-static lasting tracks                        |      6 |          7 |                    6 |
+| Approximate spurious clusters per observed frame  | 0.6947 |     0.9250 |               0.8176 |
+
+The duplicate figures use the existing `lidar-box-eval -variants none` definition,
+including coasting boxes; observed vehicle frames count only matched rows.
+The noise screen uses `scripts/lidar_noise_screen.py` on observed evidence,
+with its distinct lasting-track definition. Do not compare its vehicle counts
+with the published five-frame denominator. Raw overlap is a proxy, not proof
+that a pair is the same physical road user.
+
+Against a0, body-older lowered duplicate pairs per hundred by 66.2 % while
+observed vehicle frames fell 0.71 %. Adding tentative priority lowered that
+duplicate measure by 52.4 % against a0 and raised observed vehicle frames 0.88 %.
+It produced fewer brief tracks than body-older (18 versus 29), but more than a0
+(12). Its duplicate rate was 3.119 per hundred above body-older on kirk0: the
+old pooled-corpus non-inferiority finding cannot simply be carried forward to
+this build from one capture. This screen does not decide l5id0006's pooled rule.
+
+Labelled HOTA, IDF1, switches and fragmentation were **not scored**: the complete
+reviewed pack and frozen split were unavailable. The labelled acceptance
+component therefore has **insufficient evidence**. Neither physical identity
+accuracy nor safe promotion follows from fewer overlapping boxes.
+
+## Commands and frozen execution
+
+The Makefile stamped both replay and duplicate-count tools from
+`56fb96248ea19578cdebc1998207582f78574951`, Go 1.27.1 on Linux amd64.
+The primary run used `lidar-state-estimation-baseline` with the committed
+`kirk0-corpus.json` and `kirk0-index.json` testdata, one arm's tuning path,
+`-warmup 6 -require-settled=false -sample-points 1024`, an immutable source
+manifest and a separate evidence database. Its first/repeat baseline bytes
+agreed for every arm. Executable SHA-256:
+`b4c80755c231ccd7d61f14798cc4fce7d5c47ebe4aa1557795aec82c7e165253`.
+
+A single `lidar-box-eval -pcap kirk0.pcapng -warmup 6 -variants none` replay per
+arm supplied the duplicate counts. Whole primary first/repeat runs took 90.1,
+84.4 and 82.9 s; duplicate-count runs took 26.8, 42.9 and 51.9 s. They ran
+alongside other cloud work and are provenance, not quiet-host performance
+comparisons or Pi timing gates.
 
 ## Provenance and limits
 
