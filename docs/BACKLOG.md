@@ -579,7 +579,7 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 
 ## Complete
 
-- Empty-frame lifecycle (S3): delivered frames with empty or unavailable detections now advance prediction, support and expiry at capture time, and publish coasted state without fabricated observations; clock, profile, early-exit and pcap repeat checks: [validation](lidar/operations/empty-frame-lifecycle-cloud-validation.md).
+- [#928] Empty-frame lifecycle (S3): delivered frames with empty or unavailable detections now advance prediction, support and expiry at capture time, and publish coasted state without fabricated observations; clock, profile, early-exit and pcap repeat checks: [validation](lidar/operations/empty-frame-lifecycle-cloud-validation.md).
 
 - Border classes on the L3 grid (l3bg0028): the `veil` arm fails its rule and `coast` was not run: [report](lidar/operations/pcl-noise-and-splits-2026-11.md)
 - Radius-graph joining rule (l4clus0005): every arm fails its rule; the PCL oracle was not run: [report](lidar/operations/pcl-noise-and-splits-2026-11.md)

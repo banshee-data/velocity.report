@@ -48,6 +48,12 @@ the regression now requires those artificial gaps to stay absent. The
 continuous stream, while `measurement_time` remains distinguishable. An
 identical replay checks canonicalised tracks, trails and baseline accounting.
 
+The validation commands passed: `make lint`, `make test-go`,
+`make build-radar-local`, pcap-enabled pipeline/L5/L9 tests and the repeated
+kirk0 time-domain test. The 386 Python tests passed with `TMPDIR=/var/tmp`
+outside the sandbox; ordinary sandbox runs expose two unrelated archive-path
+assumptions caused by synthetic Git ancestors.
+
 ## Provenance and limits
 
 Base: `1ec1ccea5947ec8f72d155b337ed86d066f342c4` (current main at implementation).
