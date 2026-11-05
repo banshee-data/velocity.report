@@ -84,6 +84,11 @@ func TestAssociationCardinalityGuardOptionalAndRequiresClaim(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	var incomplete TuningConfig
+	missing := strings.Replace(string(data), `"cardinality_guard":{"enabled":true}`, `"cardinality_guard":{}`, 1)
+	if err := json.Unmarshal([]byte(missing), &incomplete); err == nil || !strings.Contains(err.Error(), "enabled") {
+		t.Fatalf("missing enabled key accepted: %v", err)
+	}
 	var back TuningConfig
 	if err := json.Unmarshal(data, &back); err != nil {
 		t.Fatal(err)
