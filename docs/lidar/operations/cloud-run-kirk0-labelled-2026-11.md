@@ -18,6 +18,7 @@ labelled clauses #929 and #930 could not read.
   [l4clus0009](../../../data/experiments/l4clus/l4clus0009.md),
   [l5id0014](../../../data/experiments/l5id/l5id0014.md) (kirk0 only),
   [l3bg0030](../../../data/experiments/l3bg/l3bg0030.md) (kirk0 only),
+  [figure0002](../../../data/experiments/figure/figure0002.md),
   [l4clus0008](../../../data/experiments/l4clus/l4clus0008.md) and
   [l5id0013](../../../data/experiments/l5id/l5id0013.md) (their labelled clauses)
 - **Layers:** L3 settling, L4 input cap and joining, L5 identity, the per-frame evaluator
@@ -55,6 +56,14 @@ labelled clauses #929 and #930 could not read.
   tuning clauses.** The join takes 20 to 35 m fragmented instants from 6.5 % to 5.7 % against the
   5 points required, with every other clause held. `body-older-tentative` passes l5id0004's limits
   on kirk0; `body-older` misses IDF1 by 0.0007.
+- **A speed defect, found by the first independent speed check (figure0002).** Every
+  `lidar_track_observations` row's `speed_mps` held the track's running mean speed since birth,
+  not its speed at the frame. Over the spans of kirk0's three reviewed vehicles the rows read 0.38
+  to 0.72 of the reference speeds, while the tracks' own displacement matched the references to
+  within 0.42 m/s. The lane field's speeds and vehicle filter, the web live view's speed and peak
+  and the noise screen's near-static rule all read that column; the published survey percentiles
+  do not. The row now carries the instant speed. With it, the car's filter speed is within its
+  bound and the two trucks' read 0.77 and 0.86 m/s (about 12 %) low: the filter lags them.
 - **The relative settling criterion does not settle kirk0.** kirk0's spread delta over its mean
   spread never falls under 0.075 before the ceiling (lowest 0.076 at 27.9 s, median 0.104), so the
   ratio arm settles at 30 s, as the honest absolute one does, and scores the same. A quiet scene
@@ -232,6 +241,49 @@ residential scene whose cells are tight, so a small delta is a large share of th
 0.084, so kirk0 sits above every corpus site, which the held-out read should weigh: the ratio may
 leave the quietest scenes waiting out the ceiling.
 
+## figure0002: track speed against the physical references
+
+**The rule** (committed before any speed was read): for each of kirk0's three referenced vehicles,
+the anchor kind with the most reviewed, independent keyframes, differenced over its span, is the
+reference speed, with the sum of the two position bounds over the span as its bound; the matched
+track's mean row speed and its displacement speed over the span are compared with it. A
+measurement; it decides no default.
+
+| Vehicle                 | Anchor, keyframes, span | Reference (m/s) | Row speed, as it was | Row speed, fixed (the filter's) | Displacement speed |
+| ----------------------- | ----------------------- | --------------: | -------------------: | ------------------------------: | -----------------: |
+| `obj_35c661db`, truck 1 | rear face, 9, 3.0 s     |     6.48 ± 0.55 |         2.49 (−3.98) |                    5.71 (−0.77) |       6.39 (−0.09) |
+| `obj_8c728991`, car 8   | body centre, 7, 1.8 s   |     4.50 ± 0.43 |         3.26 (−1.24) |                    4.21 (−0.29) |       4.28 (−0.22) |
+| `obj_8e829a06`, truck 2 | front face, 6, 1.8 s    |     7.15 ± 0.40 |         3.53 (−3.62) |                    6.29 (−0.86) |       6.73 (−0.42) |
+
+Errors in brackets; within the bound only where under the reference's ± figure. `a0` and
+`body-older-tentative` match the same three tracks and agree to 0.01 m/s, except truck 2's row
+speed under the identity arm (2.88 as it was, 6.28 fixed).
+
+**What the as-was column held.** `trackObservation` in `internal/lidar/pipeline` wrote
+`track.AvgSpeedMps`, the running mean since the track's birth, while its comment says the row
+records per-frame values, not running averages, and while the same row carries the instant
+velocity. A track born at rest reads a fraction of its speed for most of its pass. The fix, in this
+run, writes `track.Speed()`, the magnitude of the row's own velocity; a replay at `d71b7b7`
+confirms the rows then read the "fixed" column above and that tracking is unchanged (HOTA 0.4284,
+90 switches, 46 fragmentations). Rows already in a database keep the old meaning.
+
+**What read it.** The lane field (`l8analytics.BuildLaneField`, #919): each vehicle's lifetime
+maximum (its 2 m/s vehicle filter), each cell's mean speed and the heading gate. The web app's live
+scene (`liveSceneSource.ts`): the speed shown and the peak kept. The evidence scripts:
+`lidar_noise_screen.py`'s near-static rule (p95 of the row speed under 0.5 m/s), whose kirk0 count
+falls from 6 to 3 with the instant speed, so the November gates' near-static counts, read from
+evidence databases, rested on the running mean; and `lidar_track_gate.py`. `lidar-box-eval`'s rows
+compute the instant speed themselves, so l5id0012's speed clause is unaffected; the scene export's
+published p85 and p98 read each track's `MaxSpeedMps`, the maximum of the instant speed, and are
+unaffected.
+
+**What the filter's speed says.** Fixed, the car's speed is within its bound; the trucks' are 12 %
+low over spans where their positions move at the reference speed, so the filter lags them, as an
+accelerating long body pulled by a moving cluster centre would. A track's maximum speed, which the
+published percentiles read, can only be as fast as that filter. Three slow vehicles of one capture
+say nothing about a population's p85; the radar capture the review recommends is the check that
+would.
+
 ## What this run does not establish
 
 - Anything held out. kirk0 is a tuning split; every figure here is a screen, and the bootstrap's
@@ -274,5 +326,8 @@ leave the quietest scenes waiting out the ceiling.
 5. **Do not schedule the birth gate's corpus read for its own sake.** On kirk0 it changes nothing;
    run it beside l5id0016's rescoring, which says whether the corpus's brief tracks are the kind
    it can remove.
-6. **The owner decides two bars**: l4clus0008's and the radius graph's five points at 20 to 35 m,
+6. **Review the observation speed fix before it merges**, and decide whether rows already in
+   deployed databases are rewritten from their velocity: the lane field and the live view read
+   them as the instant speed.
+7. **The owner decides two bars**: l4clus0008's and the radius graph's five points at 20 to 35 m,
    where the defaults hold 6.5 % on this reconstruction.

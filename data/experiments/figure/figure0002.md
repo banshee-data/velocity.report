@@ -1,7 +1,7 @@
 ---
 id: figure0002
 title: "Track speed against kirk0's reviewed physical references: the first independent check on a speed the platform reports"
-status: proposed
+status: answered
 owner: david
 created: 2026-11-05
 asks:
@@ -40,6 +40,10 @@ steps:
   - id: write
     kind: manual:write
     estimate: { human: 1h }
+report: docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md
+actual:
+  wall: 45m
+  note: a Claude Code cloud container, on the reconstructed kirk0 pack and existing replays
 ---
 
 # figure0002: track speed against kirk0's physical references
@@ -84,3 +88,10 @@ tracker but not of the sensor. A span of under two seconds has a wide bound.
 
 **What it does not establish.** Speeds above kirk0's slow traffic; the p85 or p98 of a population;
 anything off kirk0.
+
+**Answer (2026-11-05).** The rows' speed was the track's running mean, not the instant speed: over
+the three spans it read 0.38 to 0.72 of the reference speeds (2.49, 3.26 and 3.53 m/s against
+6.48, 4.50 and 7.15), while each track's displacement speed matched its reference within 0.42 m/s.
+The row now records the instant speed; with it the car is within its bound and the two trucks read
+0.77 and 0.86 m/s low. See the
+[report](../../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md#figure0002-track-speed-against-the-physical-references).
