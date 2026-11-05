@@ -160,12 +160,20 @@ func Bootstrap(ref *Reference, arms [2]Hypothesis, score ScoreOptions, opts Boot
 	return res, nil
 }
 
-// referenceObjects is every object with a series in some episode, sorted.
+// referenceObjects is every object with a scored point in some episode,
+// sorted. A series whose every point is ignored (an object outside the
+// split, or one the policy leaves out, such as a parked car) is truth for
+// nothing: it is never drawn.
 func referenceObjects(ref *Reference) []string {
 	seen := map[string]bool{}
 	for _, ep := range ref.Episodes {
 		for _, s := range ep.Series {
-			seen[s.ID] = true
+			for _, p := range s.Points {
+				if !p.Ignore {
+					seen[s.ID] = true
+					break
+				}
+			}
 		}
 	}
 	out := make([]string, 0, len(seen))

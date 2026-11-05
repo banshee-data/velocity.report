@@ -22,6 +22,13 @@ func bsReference() *Reference {
 	}{{"a", 0}, {"b", 20}} {
 		ep.Series = append(ep.Series, bsTrack(o.id, o.y, 0, 9))
 	}
+	// An object every point of which is ignored, as the parked car is: never
+	// drawn.
+	parked := bsTrack("parked", 40, 0, 9)
+	for i := range parked.Points {
+		parked.Points[i].Ignore = true
+	}
+	ep.Series = append(ep.Series, parked)
 	return &Reference{Episodes: []EpisodeReference{ep}}
 }
 
