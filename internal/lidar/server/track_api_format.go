@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
@@ -44,9 +45,12 @@ type TrackResponse struct {
 
 // TrackPointResponse represents a point in a track's history.
 type TrackPointResponse struct {
-	X         float32 `json:"x"`
-	Y         float32 `json:"y"`
-	Timestamp string  `json:"timestamp"`
+	X           float32 `json:"x"`
+	Y           float32 `json:"y"`
+	Timestamp   string  `json:"timestamp"`
+	TimestampNS string  `json:"timestamp_ns"`
+	Support     string  `json:"support"`
+	Anchor      string  `json:"anchor"`
 }
 
 // Position represents a 3D position in world coordinates.
@@ -109,13 +113,16 @@ type ObservationsListResponse struct {
 
 // ObservationResponse represents a raw observation for overlaying foreground objects.
 type ObservationResponse struct {
-	TrackID     string   `json:"track_id"`
-	Timestamp   string   `json:"timestamp"`
-	Position    Position `json:"position"`
-	Velocity    Velocity `json:"velocity"`
-	SpeedMps    float32  `json:"speed_mps"`
-	HeadingRad  float32  `json:"heading_rad"`
-	BoundingBox struct {
+	FrameTimestampNS string   `json:"frame_timestamp_ns"`
+	TimestampNS      string   `json:"timestamp_ns"`
+	Support          string   `json:"support"`
+	TrackID          string   `json:"track_id"`
+	Timestamp        string   `json:"timestamp"`
+	Position         Position `json:"position"`
+	Velocity         Velocity `json:"velocity"`
+	SpeedMps         float32  `json:"speed_mps"`
+	HeadingRad       float32  `json:"heading_rad"`
+	BoundingBox      struct {
 		Length float32 `json:"length"`
 		Width  float32 `json:"width"`
 		Height float32 `json:"height"`
@@ -214,9 +221,12 @@ func (api *TrackAPI) trackToResponse(track *l5tracks.TrackedObject) TrackRespons
 	for _, p := range track.History {
 		hx, hy := toDisplayFrame(p.X, p.Y)
 		history = append(history, TrackPointResponse{
-			X:         hx,
-			Y:         hy,
-			Timestamp: time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
+			X:           hx,
+			Y:           hy,
+			Timestamp:   time.Unix(0, p.Timestamp).UTC().Format(time.RFC3339Nano),
+			TimestampNS: strconv.FormatInt(p.Timestamp, 10),
+			Support:     p.Support.String(),
+			Anchor:      "filter_state",
 		})
 	}
 
@@ -274,4 +284,21 @@ func bboxFromTrack(track *l5tracks.TrackedObject) BBox {
 		h = track.BoundingBoxHeightAvg
 	}
 	return BBox{Length: l, Width: w, Height: h}
+}
+
+// observationSupport leaves pre-provenance rows unrecorded. Modern rows are
+// persisted only on associated frames and carry their measurement source.
+func observationSupport(obs *sqlite.TrackObservation) string {
+	if obs.MeasurementSource == "" {
+		return ""
+	}
+	return "observed"
+}
+
+func observationFrameTimestamp(obs *sqlite.TrackObservation) string {
+	ns := obs.FrameUnixNanos
+	if ns == 0 {
+		ns = obs.TSUnixNanos
+	}
+	return strconv.FormatInt(ns, 10)
 }

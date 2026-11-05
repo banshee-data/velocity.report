@@ -68,6 +68,9 @@ export interface Track {
 		x: number;
 		y: number;
 		timestamp: string;
+		timestamp_ns?: string;
+		support?: string;
+		anchor?: string;
 	}[];
 }
 
@@ -75,6 +78,12 @@ export interface Track {
  * TrackObservation represents a single observation of a tracked object.
  */
 export interface TrackObservation {
+	/** Exact capture nanoseconds, encoded as decimal text to preserve precision. */
+	timestamp_ns?: string;
+	/** Sensor rotation time; may differ from cluster acquisition timestamp_ns. */
+	frame_timestamp_ns?: string;
+	/** Empty or absent means unrecorded, never inferred as observed. */
+	support?: string;
 	/** Track identifier this observation belongs to */
 	track_id: string;
 	/** ISO 8601 timestamp of this observation */

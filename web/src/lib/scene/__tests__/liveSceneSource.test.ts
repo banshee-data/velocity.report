@@ -309,3 +309,56 @@ describe('createLiveSceneSession', () => {
 		expect(skippedObservations).toBe(1);
 	});
 });
+
+describe('exact capture timestamps', () => {
+	it('does not merge rotations within one millisecond, including older servers', () => {
+		for (const exact of [false, true]) {
+			const rows = ['2026-09-16T10:00:00.123456788Z', '2026-09-16T10:00:00.123456789Z'].map(
+				(iso, i) =>
+					observation(
+						'a',
+						iso,
+						exact ? { timestamp_ns: (1789552800123456788n + BigInt(i)).toString() } : {}
+					)
+			);
+			const built = buildLiveFrames(rows.reverse());
+			expect(built.frames).toHaveLength(2);
+			expect(built.startNs).toBe('1789552800123456788');
+			expect(built.frames[1].t).toBe(0.001);
+		}
+	});
+	it('refuses malformed exact timestamps instead of falling back silently', () => {
+		for (const timestamp_ns of ['1.1', '9223372036854775808', 'invalid']) {
+			expect(
+				buildLiveFrames([observation('a', '2026-09-16T10:00:00Z', { timestamp_ns })]).skipped
+			).toBe(1);
+		}
+	});
+	it('retains support and published-anchor identity without inventing legacy support', () => {
+		const built = buildLiveFrames([
+			observation('a', '2026-09-16T10:00:00Z', {
+				support: 'observed',
+				box: { x: 9, y: 10, heading_rad: 0, length: 4, width: 2 }
+			}),
+			observation('b', '2026-09-16T10:00:00Z')
+		]);
+		expect(built.frames[0].tr?.[0]).toMatchObject({
+			support: 'observed',
+			anchor: 'published_box_center',
+			bx: 9,
+			by: 10
+		});
+		expect(built.frames[0].tr?.[1]).toMatchObject({ support: '', anchor: 'observation' });
+	});
+});
+
+it('groups tracks by sensor rotation while preserving sub-millisecond frame precision', () => {
+	const built = buildLiveFrames([
+		observation('a', '2026-09-16T10:00:00Z', { timestamp_ns: '1001', frame_timestamp_ns: '1000' }),
+		observation('b', '2026-09-16T10:00:00Z', { timestamp_ns: '1002', frame_timestamp_ns: '1000' }),
+		observation('a', '2026-09-16T10:00:00Z', { timestamp_ns: '1101', frame_timestamp_ns: '1100' })
+	]);
+	expect(built.frames).toHaveLength(2);
+	expect(built.frames[0].tr).toHaveLength(2);
+	expect(built.frames[1].t).toBe(0.1);
+});

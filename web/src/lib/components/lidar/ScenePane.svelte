@@ -217,7 +217,12 @@
 			<input bind:this={boxesToggle} type="checkbox" checked /> Boxes
 		</label>
 		<label class="scene-pane__toggle">
-			<input bind:this={trailsToggle} type="checkbox" checked /> Trails
+			<input
+				bind:this={trailsToggle}
+				type="checkbox"
+				checked
+				title="Trails: solid = observed; amber dashes = predicted; grey dashes = unrecorded support; cyan = provisional; purple = final"
+			/> Trails
 		</label>
 		<label class="scene-pane__toggle">
 			<input bind:this={gridToggle} type="checkbox" checked /> Grid
