@@ -48,7 +48,7 @@ This is **observational crash-count association, not causal mediation validation
 If triggered, design a falsifiable study:
 
 1. **Predeclare the estimand:** one intervention, target crash type/severity, observation population, follow-up period and a specific surrogate definition (threshold, event window, spatial bin, eligible exposure). Do not choose the definition by maximizing retrospective correlation.
-2. **Draw a causal graph:** include exposure and demand, entry speed, traffic mix, congestion, signal phase, geometry, weather, enforcement, site selection and time trends; identify unmeasured confounding and post-treatment adjustment hazards. Separate intervention-induced changes in opportunity from changed behavior.
+2. **Draw a causal graph:** include exposure and demand, entry speed, traffic mix, congestion, signal phase, geometry, weather, enforcement, site selection and time trends; identify unmeasured confounding and post-treatment adjustment hazards. Separate intervention-induced changes in opportunity from changed behaviour.
 3. **Quantify measurement fidelity:** held-out trajectory errors, false braking on true steady passes, effective sample intervals, quality masks, sensitivity to derivative bandwidth and multi-pass/session dependence.
 4. **Test prediction on genuinely held-out sites/time:** calibration, predictive error, crash-type specificity, between-city transportability, and uncertainty/suppression; distinguish association from causal identification.
 5. **Only then test mediation:** specify and justify the causal assumptions, estimate uncertainty in the mediated effect, search for direct/unmediated effects, and check scenarios where the event rate improves while crash severity, conflicts or other outcomes worsen.
