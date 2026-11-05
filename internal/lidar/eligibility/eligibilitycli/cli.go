@@ -1,7 +1,8 @@
-package eligibility
+// Package eligibilitycli gives an offline tool the eligibility guard's flags
+// and records its decisions in the same use ledger as the server.
+package eligibilitycli
 
 import (
-	"database/sql"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,8 +10,8 @@ import (
 	"os/user"
 	"path/filepath"
 
-	// The ledger database is the server's SQLite file.
-	_ "modernc.org/sqlite"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/labelworkdb"
 )
 
 // CLIFlags are the eligibility flags an offline tool registers, so a
@@ -49,29 +50,22 @@ func RegisterFlags(fs *flag.FlagSet) *CLIFlags {
 
 // Authorize decides and records a tool's request before it reads a sample.
 // The tool names the purpose; the caller never chooses it from input.
-func (f *CLIFlags) Authorize(tool string, req Request) (Decision, error) {
-	cfg := Config{ManifestPath: *f.Manifest}
+func (f *CLIFlags) Authorize(tool string, req eligibility.Request) (eligibility.Decision, error) {
+	cfg := eligibility.Config{ManifestPath: *f.Manifest}
 	if *f.AnnotationRoot != "" {
 		cfg.SplitsDir = filepath.Join(*f.AnnotationRoot, "splits")
 	}
 	if *f.LedgerDB != "" {
-		if _, err := os.Stat(*f.LedgerDB); err != nil {
-			return Decision{}, fmt.Errorf("%w: -eligibility-db: %v", ErrNotEligible, err)
-		}
-		db, err := sql.Open("sqlite", *f.LedgerDB)
+		ledger, closeLedger, err := labelworkdb.OpenUseLedger(*f.LedgerDB)
 		if err != nil {
-			return Decision{}, fmt.Errorf("%w: -eligibility-db: %v", ErrNotEligible, err)
+			return eligibility.Decision{}, fmt.Errorf("%w: -eligibility-db: %v", eligibility.ErrNotEligible, err)
 		}
-		defer db.Close()
-		var n int
-		if err := db.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'lidar_data_uses'`).Scan(&n); err != nil || n == 0 {
-			return Decision{}, fmt.Errorf("%w: -eligibility-db %s has no lidar_data_uses table: start the server on it once to migrate it", ErrNotEligible, *f.LedgerDB)
-		}
-		cfg.Ledger = SQLLedger{DB: db}
+		defer closeLedger()
+		cfg.Ledger = ledger
 	}
-	measures, err := ParseMeasures(*f.Measures)
+	measures, err := eligibility.ParseMeasures(*f.Measures)
 	if err != nil {
-		return Decision{}, fmt.Errorf("%w: %v", ErrNotEligible, err)
+		return eligibility.Decision{}, fmt.Errorf("%w: %v", eligibility.ErrNotEligible, err)
 	}
 	req.Measures = measures
 	req.EntryPoint = tool
@@ -83,9 +77,9 @@ func (f *CLIFlags) Authorize(tool string, req Request) (Decision, error) {
 	}
 	host, _ := os.Hostname()
 	req.Actor = fmt.Sprintf("cli:%s@%s", req.Actor, host)
-	d, err := New(cfg).Authorize(req)
-	if err != nil && !errors.Is(err, ErrNotEligible) {
-		return d, fmt.Errorf("%w: %v", ErrNotEligible, err)
+	d, err := eligibility.New(cfg).Authorize(req)
+	if err != nil && !errors.Is(err, eligibility.ErrNotEligible) {
+		return d, fmt.Errorf("%w: %v", eligibility.ErrNotEligible, err)
 	}
 	return d, err
 }

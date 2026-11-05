@@ -24,7 +24,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/capseq"
-	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
@@ -149,7 +149,7 @@ func main() {
 		splitPath           = flag.String("split-manifest", "", "frozen split (velocity lidar annotation-split freeze) giving every selected case a role; recorded in the summary and in each replay manifest")
 		heldOut             = flag.Bool("held-out", false, "declare the run a held-out score: every selected case must be held out in -split-manifest; without it no held-out case may run")
 		survey              surveyFlags
-		guard               = eligibility.RegisterFlags(flag.CommandLine)
+		guard               = eligibilitycli.RegisterFlags(flag.CommandLine)
 	)
 	flag.StringVar(&survey.setPath, "survey-coverage", "", "measure each case's continuity coverage from its first run's online estimates and add it to this declaration set (created if absent), with the statistics in <set>.survey.json beside it; needs an evidence output and the default replay")
 	flag.Float64Var(&survey.percentile, "survey-percentile", replayeval.DefaultCoverageRangePercentile, "percentile of the online-estimate horizontal range declared as max_range_m, rounded up to a whole metre; 100 is the maximum")

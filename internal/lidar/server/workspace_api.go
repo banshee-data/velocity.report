@@ -17,6 +17,7 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation/labelset"
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
 	"github.com/banshee-data/velocity.report/internal/lidar/labelwork"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/labelworkdb"
 )
 
 // The labelling workspace: what captures, segments, clips, runs, packs, label
@@ -177,11 +178,11 @@ type workspaceSplit struct {
 	split *annotation.FrozenSplit
 }
 
-func (ws *Server) workflowStore() *labelwork.Store {
+func (ws *Server) workflowStore() *labelworkdb.WorkflowStore {
 	if ws.db == nil {
 		return nil
 	}
-	return &labelwork.Store{DB: ws.db.DB}
+	return &labelworkdb.WorkflowStore{DB: ws.db.DB}
 }
 
 // buildWorkspace assembles every row. Each source is read once, bounded.

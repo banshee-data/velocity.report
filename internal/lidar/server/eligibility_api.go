@@ -11,6 +11,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/labelworkdb"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 	"github.com/banshee-data/velocity.report/internal/version"
 )
@@ -66,7 +67,7 @@ func (ws *Server) eligibilityService() *eligibility.Service {
 			cfg.ExtraHashes = ws.labelSetCaptureHashes
 		}
 		if ws.db != nil {
-			cfg.Ledger = eligibility.SQLLedger{DB: ws.db.DB}
+			cfg.Ledger = labelworkdb.UseLedger{DB: ws.db.DB}
 		}
 		ws.eligibility = eligibility.New(cfg)
 	})
@@ -223,7 +224,7 @@ func (ws *Server) handleEligibilityStatus(w http.ResponseWriter, r *http.Request
 	svc := ws.eligibilityService()
 	resp := eligibilityStatusResponse{Status: svc.Status(), Coverage: eligibilityCoverage, Exposure: []eligibility.ExposureSummary{}}
 	if ws.db != nil {
-		summary, err := eligibility.SQLLedger{DB: ws.db.DB}.Summary()
+		summary, err := labelworkdb.UseLedger{DB: ws.db.DB}.Summary()
 		if err != nil {
 			resp.ExposureError = err.Error()
 		} else {
@@ -288,7 +289,7 @@ func (ws *Server) handleEligibilityUses(w http.ResponseWriter, r *http.Request) 
 	q := r.URL.Query()
 	limit, _ := strconv.Atoi(q.Get("limit"))
 	offset, _ := strconv.Atoi(q.Get("offset"))
-	uses, total, err := eligibility.SQLLedger{DB: ws.db.DB}.List(eligibility.UseQuery{
+	uses, total, err := labelworkdb.UseLedger{DB: ws.db.DB}.List(eligibility.UseQuery{
 		CaptureSHA256: q.Get("capture"), Decision: q.Get("decision"), Limit: limit, Offset: offset,
 	})
 	if err != nil {

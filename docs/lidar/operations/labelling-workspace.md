@@ -12,7 +12,8 @@ evaluation or diagnostics.
   controls and several evaluators remain [outstanding](#outstanding-prerequisites)
 - **Plan:** [qualification cohort isolation](../../plans/lidar-qualification-cohort-isolation-plan.md)
   (in progress, not complete)
-- **Code:** `internal/lidar/eligibility`, `internal/lidar/labelwork`,
+- **Code:** `internal/lidar/eligibility` (with `eligibilitycli`), `internal/lidar/labelwork`,
+  `internal/lidar/storage/labelworkdb` (the tables),
   `internal/lidar/server/workspace_api.go`, `internal/lidar/server/eligibility_api.go`,
   `web/src/routes/lidar/labelling/+page.svelte`
 

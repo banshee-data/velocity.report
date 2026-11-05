@@ -11,13 +11,14 @@ import (
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
 	fx "github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitytest"
+	"github.com/banshee-data/velocity.report/internal/lidar/storage/labelworkdb"
 )
 
 type env struct {
 	t        *testing.T
 	root     string // annotation root; splits/ beneath it
 	captures string
-	ledger   eligibility.SQLLedger
+	ledger   labelworkdb.UseLedger
 	manifest string
 	extra    map[string][]string
 	access   eligibility.AccessControl
@@ -31,7 +32,7 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { d.Close() })
-	e := &env{t: t, root: filepath.Join(dir, "annotation"), captures: filepath.Join(dir, "captures"), ledger: eligibility.SQLLedger{DB: d.DB}}
+	e := &env{t: t, root: filepath.Join(dir, "annotation"), captures: filepath.Join(dir, "captures"), ledger: labelworkdb.UseLedger{DB: d.DB}}
 	for _, p := range []string{e.root, e.captures} {
 		if err := os.MkdirAll(p, 0o755); err != nil {
 			t.Fatal(err)

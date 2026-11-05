@@ -21,6 +21,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/l4bobserve"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
@@ -48,7 +49,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	coverageFile := fs.String("continuity-coverage", "", "sensor coverage declaration (JSON) for the experiments that classify absences")
 	splitPath := fs.String("split-manifest", "", "frozen split giving -case a role; recorded in the replay manifest (needs -case)")
 	heldOut := fs.Bool("held-out", false, "declare the replay a held-out score: -case must be held out in -split-manifest")
-	guard := eligibility.RegisterFlags(fs)
+	guard := eligibilitycli.RegisterFlags(fs)
 	fs.Usage = func() {
 		fmt.Fprintf(stderr, "Usage: lidar-refinement-eval -pcap FILE -out DIR [-evidence-db DB -case ID] [flags]\n\n")
 		fmt.Fprintf(stderr, "Replays a capture once and compares the online estimate with fixed-assignment RTS at\n")

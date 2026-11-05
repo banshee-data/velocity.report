@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/banshee-data/velocity.report/internal/db"
-	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	fx "github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitytest"
 )
 
@@ -39,13 +39,13 @@ func TestCorpusRunIsGuardedBeforeCapturesLoad(t *testing.T) {
 	path, sha := fx.Capture(t, dir, "kirk0.pcapng", "synthetic kirk0")
 	cases := []resolvedCorpusCase{{paths: []string{path}}}
 	empty := ""
-	none := &eligibility.CLIFlags{Manifest: &empty, AnnotationRoot: &empty, LedgerDB: &empty, Actor: &empty, Measures: &empty}
+	none := &eligibilitycli.CLIFlags{Manifest: &empty, AnnotationRoot: &empty, LedgerDB: &empty, Actor: &empty, Measures: &empty}
 	if err := (corpusSplitUse{}).authorize(none, cases, "", ""); err == nil {
 		t.Fatal("no manifest: refused")
 	}
 	flags := developmentGuard(t, dir, sha)
 	manifest, root, ledger, actor := flags[1], flags[3], flags[5], flags[7]
-	guard := &eligibility.CLIFlags{Manifest: &manifest, AnnotationRoot: &root, LedgerDB: &ledger, Actor: &actor, Measures: &empty}
+	guard := &eligibilitycli.CLIFlags{Manifest: &manifest, AnnotationRoot: &root, LedgerDB: &ledger, Actor: &actor, Measures: &empty}
 	if err := (corpusSplitUse{}).authorize(guard, cases, "", ""); err != nil {
 		t.Fatalf("a development capture: %v", err)
 	}

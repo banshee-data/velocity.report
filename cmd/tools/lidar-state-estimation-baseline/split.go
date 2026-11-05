@@ -5,6 +5,7 @@ import (
 
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitycli"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
 
@@ -85,7 +86,7 @@ func (u corpusSplitUse) checkCaptures(cases []resolvedCorpusCase) error {
 // evaluation, or a held-out score under the split. A split binds a run given
 // it; the guard also refuses what any other frozen split or the cohort
 // manifest protects, given a split or not.
-func (u corpusSplitUse) authorize(guard *eligibility.CLIFlags, cases []resolvedCorpusCase, experiments, tuning string) error {
+func (u corpusSplitUse) authorize(guard *eligibilitycli.CLIFlags, cases []resolvedCorpusCase, experiments, tuning string) error {
 	req := eligibility.Request{Purpose: eligibility.PurposeDevelopmentEvaluation, Experiment: experiments, ConfigDigest: tuning}
 	if u.record != nil {
 		req.SplitDigest, req.HeldOutScore = u.record.Digest, u.record.HeldOut
