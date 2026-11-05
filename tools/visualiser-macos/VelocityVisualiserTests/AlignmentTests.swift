@@ -1058,6 +1058,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var lastHint: Gerardus_Align_V1alpha1_PoseFromHintRequest?
     /// Every StreamReference request, in order.
     var references: [Gerardus_Align_V1alpha1_StreamReferenceRequest] = []
+    /// Features served with a layer, after its canned ones.
+    var extraFeatures:
+        [Gerardus_Align_V1alpha1_ReferenceLayer: [Gerardus_Align_V1alpha1_LineFeature]] = [:]
     /// What GetServerInfo lists: every layer, as a server run with
     /// `serve --serve-scans` would.
     var availableLayers: [Gerardus_Align_V1alpha1_ReferenceLayer] = [
@@ -1234,6 +1237,13 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
             }
             for message in referenceMessages(layer, modelID: servedModelID) {
                 geometry.append(message)
+            }
+            if let extra = extraFeatures[layer] {
+                var more = Gerardus_Align_V1alpha1_StreamReferenceResponse()
+                more.layer = layer
+                more.lines.features = extra
+                more.layerComplete = true
+                geometry.append(more)
             }
             if layer == .observed, !wallPlanes.isEmpty {
                 var planes = Gerardus_Align_V1alpha1_StreamReferenceResponse()

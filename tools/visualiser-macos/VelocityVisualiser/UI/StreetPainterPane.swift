@@ -36,6 +36,10 @@ import SwiftUI
             VStack(alignment: .leading, spacing: 14) {
                 statusSection
                 Divider()
+                LaneStepsSection(
+                    painter: painter, traffic: painter.traffic, proposals: painter.proposals,
+                    session: session)
+                Divider()
                 StreetTrafficSection(painter: painter, traffic: painter.traffic, session: session)
                 if painter.proposals.serverSupports {
                     Divider()
@@ -430,6 +434,22 @@ import SwiftUI
                 }
                 Toggle(reference.footprintLabel, isOn: $session.showFootprints).help(
                     ReferenceSummary.footprintHelp)
+                if reference.featureLayersServed.contains(.laneMarkings) {
+                    Toggle(
+                        "Lane markings (\(reference.laneMarkings))", isOn: $session.showLaneMarkings
+                    ).help(
+                        "Paint Gerardus traced from intensity (3DEP's, at its flight date), and the public bike lanes and crosswalks. A lane's vertex goes midway between two lines a lane's width apart; other marks snap to the paint."
+                    )
+                } else {
+                    Text("This Gerardus serves no lane markings to paint along.").font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if reference.featureLayersServed.contains(.streetFurniture) {
+                    Toggle(
+                        "Signs and poles (\(reference.signs) signs, \(reference.poles) poles)",
+                        isOn: $session.showStreetFurniture
+                    ).help("Split at sign cuts a lane where a sign within 5 m of the click stands.")
+                }
                 Toggle(
                     "Ground mesh (\(reference.groundMeshCells.formatted()) cells)",
                     isOn: $session.showGroundMesh)
