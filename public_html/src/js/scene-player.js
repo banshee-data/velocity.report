@@ -174,14 +174,16 @@ function trailAnchor(t) {
     : [t.x, t.y];
 }
 
+const PREDICTED_SUPPORT = new Set([
+  "coasted",
+  "occluded_inferred",
+  "missed_unknown",
+  "out_of_fov",
+]);
+
 export function trailStyle(a, b) {
-  const predicted = new Set([
-    "coasted",
-    "occluded_inferred",
-    "missed_unknown",
-    "out_of_fov",
-  ]);
-  if (predicted.has(a.support) || predicted.has(b.support)) return "predicted";
+  if (PREDICTED_SUPPORT.has(a.support) || PREDICTED_SUPPORT.has(b.support))
+    return "predicted";
   if (a.support !== "observed" || b.support !== "observed") return "unknown";
   if (b.estimate_stage === "final") return "final";
   if (b.estimate_stage === "provisional") return "provisional";

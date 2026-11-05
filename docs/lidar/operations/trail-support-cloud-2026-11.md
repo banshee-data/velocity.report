@@ -52,7 +52,7 @@ through the real reader rather than a second timeline implementation.
 
 The shared public scene suite passed all 297 tests. The live-adapter suite passed all 24
 tests, Svelte checking reported zero errors and warnings, and targeted ESLint and documentation
-lint passed.
+lint passed. The full HTTP server suite and production web build also passed.
 
 This is engineering validation, not evidence of improved physical tracking accuracy or a
 qualified visual result. gRPC/protobuf/Swift support publication, macOS rendering and Xcode
