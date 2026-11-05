@@ -42,7 +42,6 @@ reviewed geometry/identity score and Pi frame-time evidence remain outstanding.
 The engineering tests use synthetic backgrounds and capture timestamps; they do
 not validate a physical mounting calibration or cross-site recall.
 
-
 ## Engineering verification
 
 The full Go suite and Go/documentation lint passed on Linux with Go 1.27.1.
