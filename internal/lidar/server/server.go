@@ -117,6 +117,8 @@ type Server struct {
 	// by the pipeline every frame (KeepClusterMembersRuntime) so a config
 	// applied at runtime hands the tracker the members it asks for.
 	clusterMembers atomic.Bool
+	// Immutable surface-clip settings shared with the frame callback.
+	surfaceGround atomic.Pointer[cfgpkg.L4SurfaceGround]
 
 	// Track API for tracking endpoints
 	trackAPI *TrackAPI
@@ -461,6 +463,9 @@ func NewServer(config Config) *Server {
 	}
 
 	ws.clusterMembers.Store(tuningFullMembers(config.TuningConfig))
+	if config.TuningConfig != nil {
+		ws.surfaceGround.Store(config.TuningConfig.GetSurfaceGround())
+	}
 
 	// Initialize DataSourceManager - use provided one or create RealDataSourceManager
 	if config.DataSourceManager != nil {

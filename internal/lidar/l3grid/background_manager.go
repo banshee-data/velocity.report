@@ -102,6 +102,7 @@ func (bm *BackgroundManager) SetParams(p BackgroundParams) error {
 	g := bm.Grid
 	g.mu.Lock()
 	g.Params = p
+	g.surfaceRevision++
 	g.mu.Unlock()
 	return nil
 }
@@ -577,6 +578,7 @@ func (bm *BackgroundManager) ResetGrid() error {
 	g := bm.Grid
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.surfaceRevision++
 
 	// Reset BackgroundManager timing state
 	bm.StartTime = time.Time{} // Reset to zero value
@@ -770,7 +772,10 @@ func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {
 		return fmt.Errorf("background manager or grid nil")
 	}
 	if elevations == nil {
+		bm.Grid.mu.Lock()
 		bm.Grid.RingElevations = nil
+		bm.Grid.surfaceRevision++
+		bm.Grid.mu.Unlock()
 		return nil
 	}
 	if len(elevations) != bm.Grid.Rings {
@@ -780,6 +785,7 @@ func (bm *BackgroundManager) SetRingElevations(elevations []float64) error {
 	bm.Grid.mu.Lock()
 	bm.Grid.RingElevations = make([]float64, len(elevations))
 	copy(bm.Grid.RingElevations, elevations)
+	bm.Grid.surfaceRevision++
 	bm.Grid.mu.Unlock()
 	return nil
 }
@@ -1125,6 +1131,7 @@ func (bm *BackgroundManager) ProcessFramePolar(points []PointPolar) {
 			// (this is conservative to avoid noisy snapshots)
 			// We store a simple change counter increment when update happened
 			g.ChangesSinceSnapshot++
+			g.surfaceRevision++
 
 			// update per-range acceptance metrics
 			// find bucket index for observationMean

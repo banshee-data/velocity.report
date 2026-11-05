@@ -388,7 +388,10 @@ type BackgroundGrid struct {
 	Manager              *BackgroundManager
 	LastSnapshotTime     time.Time
 	ChangesSinceSnapshot int
-	SnapshotID           *int64 // tracks last persisted snapshot_id from schema
+	// surfaceRevision is monotonic across persistence/reset and conservatively
+	// versions updates which can affect a ground fit. Guarded by mu.
+	surfaceRevision uint64
+	SnapshotID      *int64 // tracks last persisted snapshot_id from schema
 
 	// Performance tracking for system_events table integration
 	LastProcessingTimeUs  int64

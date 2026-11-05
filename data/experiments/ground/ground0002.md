@@ -19,14 +19,11 @@ arms:
   - name: floor-road
     tuning: config/experiments/height-floor-road.json
   - name: surface
-    tuning: config/tuning.defaults.json
-    replay: [surface_ground]
+    tuning: config/experiments/surface-ground-10m.json
   - name: surface-global
-    tuning: config/tuning.defaults.json
-    replay: [surface_ground_global]
+    tuning: config/experiments/surface-ground-global.json
   - name: surface-5m
-    tuning: config/tuning.defaults.json
-    replay: [surface_ground_5m]
+    tuning: config/experiments/surface-ground-5m.json
 cases:
   corpus: d2-first-segment
   count: 23
@@ -138,3 +135,7 @@ change in tall vehicles' extents between `a0` and the surface arms may be the ce
 **What it does not establish.** Anything held out: the second segments and embarcadero-folsom
 are unread. The ground's truth: the surface is the sensor's own returns. A live refit when the
 settled background changes, which the implement step leaves to the backlog item.
+
+## Implementation progress
+
+The [default-off live/configuration wiring](../../../docs/lidar/operations/ground-surface-live-cloud-2026-11.md) implements the block, runtime updates and capture-time background refits. The named 10 m, global and 5 m settings have registered parameter files. This is engineering validation only; the declared screen, cost and promotion gates remain outstanding.

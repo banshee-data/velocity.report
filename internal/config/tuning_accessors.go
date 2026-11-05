@@ -312,6 +312,15 @@ func (c *TuningConfig) GetHeightBandCeiling() float64 { return c.L4.ActiveCommon
 // GetRemoveGround returns the active L4 ground-removal switch.
 func (c *TuningConfig) GetRemoveGround() bool { return c.L4.ActiveCommon().RemoveGround }
 
+// GetSurfaceGround returns an independent snapshot for a running callback.
+func (c *TuningConfig) GetSurfaceGround() *L4SurfaceGround {
+	if s := c.L4.ActiveCommon().SurfaceGround; s != nil {
+		copy := *s
+		return &copy
+	}
+	return nil
+}
+
 // GetFragmentJoin returns a copy so a running callback cannot mutate tuning.
 func (c *TuningConfig) GetFragmentJoin() *L4FragmentJoin {
 	if j := c.L4.ActiveCommon().FragmentJoin; j != nil {
