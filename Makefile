@@ -1065,6 +1065,7 @@ PYTHON_TEST_PATHS = \
 	tools/s2-archive/test_export_static_pcaps.py \
 	tools/s2-archive/test_publish_scenes.py \
 	tools/s2-archive/test_scene_vectors.py \
+	tools/s2-archive/test_city_frame.py \
 	tools/s2-archive/test_export_scene_variants.py \
 	tools/s2-archive/test_replay_speed_sweep.py \
 	tools/s2-archive/test_scene_trail_stats.py \
@@ -2390,7 +2391,7 @@ render-scene-data: install-s2-hilbert
 # Regenerate them and fail on any difference, so a hand edit — which the next
 # render would silently revert — is caught at review rather than after it.
 SCENE_DATA_OUTPUTS = tools/s2-archive/site-index.json public_html/src/_data/scenes.json \
-	public_html/src/_includes/scene-map.svg public_html/src/scenes
+	public_html/src/_includes/scene-map.svg public_html/src/city/sites.json public_html/src/scenes
 
 check-scene-data: render-scene-data
 	@if [ -n "$$(git status --porcelain -- $(SCENE_DATA_OUTPUTS))" ]; then \

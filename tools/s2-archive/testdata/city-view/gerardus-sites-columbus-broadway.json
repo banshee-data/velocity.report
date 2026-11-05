@@ -1,0 +1,32 @@
+{
+  "comment": [
+    "Gerardus (serve on arrow-worker), 2026-11-05, site columbus-broadway (808580f47).",
+    "sites: GET /api/v1/sites, layers dropped: the site frame's origin in WGS 84 (ITRF2014) at the epoch,",
+    "where frame=site GeoJSON [0, 0, 0] lies. kerb_vertex: the first vertex of the first kerbs feature",
+    "from GET /api/v1/sites/808580f47/geojson?layers=kerbs, with frame=site and as served in WGS 84",
+    "([lon, lat, NAVD88 height]). Nothing else edited."
+  ],
+  "epoch": 2026.8456,
+  "sites": [
+    {
+      "height_m": 0.0,
+      "l16": "808580f47",
+      "label": "",
+      "lat": 37.7981472902,
+      "lon": -122.4063932285
+    }
+  ],
+  "kerb_vertex": {
+    "feature_id": "datasf:emxt-b6yg/5173",
+    "site_m": [
+      -100.0862,
+      270.7432,
+      34.5845
+    ],
+    "wgs84": [
+      -122.4075296656,
+      37.80058656,
+      34.591
+    ]
+  }
+}

@@ -22,6 +22,7 @@ everything else here produces or feeds it.
 | `deployments.py`      | Reconstructs recording blocks from capture filenames alone.                        |
 | `publish-scenes.py`   | Rebuilds the web scene assets from the trimmed corpus.                             |
 | `scene-vectors.py`    | Places Gerardus's street geometry in a scene, where the site's pose is accepted.   |
+| `city_frame.py`       | The city frame of Gerardus's city tiles, and each site's transform into it.        |
 | `verify-corpus.py`    | Checks the trimmed corpus against the sizes and digests it published.              |
 | `stage-label-sets.py` | Publishes label sets into the dataset, joined to captures by digest.               |
 | `clone-labels.sh`     | Clones one capture's labels from the dataset, for labelling, without the captures. |
@@ -321,6 +322,25 @@ without the file. To add or refresh it on published scenes without replaying:
 ```bash
 python3 tools/s2-archive/scene-vectors.py --status            # which sites have a pose
 python3 tools/s2-archive/scene-vectors.py columbus-broadway   # write one scene's file
+```
+
+### Placement in the city
+
+Every scene also carries `assets/placement.json`, the only georeferenced file
+it has. `publish-scenes.py` writes it after the vectors, from the record and
+check they were placed by: the sensor-to-site pose (rotation and translation,
+which the vectors file leaves out), and the site-to-city and sensor-to-city
+transforms into the frame Gerardus's city tiles are drawn in. `city_frame.py`
+computes those in double precision from the site's S2 L16 centre and the
+tiles' fixed origin; clients multiply matrices and do no geodesy. A scene
+without checked vectors is `not_placed`, with its eye-read position as a
+marker only. `make render-scene-data` copies each sidecar into
+`public_html/src/city/sites.json`, the city site index. The format of both is
+in [the city view page](../../docs/ui/city-view.md#placement-files). To write
+the sidecars of published scenes without replaying (fetches the pose only):
+
+```bash
+GERARDUS_URL=http://arrow-worker:50061 python3 tools/s2-archive/scene-vectors.py --placement
 ```
 
 ### Replay speed
