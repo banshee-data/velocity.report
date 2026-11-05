@@ -193,7 +193,9 @@ func frameBundleToProto(frame *FrameBundle, req *pb.StreamRequest) *pb.FrameBund
 				pbPoints[j] = &pb.TrackPoint{
 					X:           p.X,
 					Y:           p.Y,
-					TimestampNs: p.TimestampNanos,
+					TimestampNs: p.TimestampNanos, FrameTimestampNs: p.FrameTimestampNanos,
+					Z: p.Z, Support: p.Support, EstimateStage: p.EstimateStage,
+					ReferenceAnchor: p.ReferenceAnchor, RevisionId: p.RevisionID, SourceId: p.SourceID,
 				}
 			}
 			pbTrails[i] = &pb.TrackTrail{

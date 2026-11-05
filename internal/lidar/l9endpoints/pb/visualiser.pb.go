@@ -1592,12 +1592,21 @@ func (x *Track) GetBboxCenterValid() bool {
 }
 
 type TrackPoint struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	X             float32                `protobuf:"fixed32,1,opt,name=x,proto3" json:"x,omitempty"`
-	Y             float32                `protobuf:"fixed32,2,opt,name=y,proto3" json:"y,omitempty"`
-	TimestampNs   int64                  `protobuf:"varint,3,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	X           float32                `protobuf:"fixed32,1,opt,name=x,proto3" json:"x,omitempty"`
+	Y           float32                `protobuf:"fixed32,2,opt,name=y,proto3" json:"y,omitempty"`
+	TimestampNs int64                  `protobuf:"varint,3,opt,name=timestamp_ns,json=timestampNs,proto3" json:"timestamp_ns,omitempty"`
+	// Empty metadata means unrecorded. Never infer observed or final from it.
+	Support         string  `protobuf:"bytes,4,opt,name=support,proto3" json:"support,omitempty"`
+	EstimateStage   string  `protobuf:"bytes,5,opt,name=estimate_stage,json=estimateStage,proto3" json:"estimate_stage,omitempty"`
+	ReferenceAnchor string  `protobuf:"bytes,6,opt,name=reference_anchor,json=referenceAnchor,proto3" json:"reference_anchor,omitempty"`
+	Z               float32 `protobuf:"fixed32,7,opt,name=z,proto3" json:"z,omitempty"` // box base at this sample, when the anchor is recorded
+	RevisionId      string  `protobuf:"bytes,8,opt,name=revision_id,json=revisionId,proto3" json:"revision_id,omitempty"`
+	SourceId        string  `protobuf:"bytes,9,opt,name=source_id,json=sourceId,proto3" json:"source_id,omitempty"`
+	// Frame time for display geometry; timestamp_ns remains acquisition time.
+	FrameTimestampNs int64 `protobuf:"varint,10,opt,name=frame_timestamp_ns,json=frameTimestampNs,proto3" json:"frame_timestamp_ns,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *TrackPoint) Reset() {
@@ -1647,6 +1656,55 @@ func (x *TrackPoint) GetY() float32 {
 func (x *TrackPoint) GetTimestampNs() int64 {
 	if x != nil {
 		return x.TimestampNs
+	}
+	return 0
+}
+
+func (x *TrackPoint) GetSupport() string {
+	if x != nil {
+		return x.Support
+	}
+	return ""
+}
+
+func (x *TrackPoint) GetEstimateStage() string {
+	if x != nil {
+		return x.EstimateStage
+	}
+	return ""
+}
+
+func (x *TrackPoint) GetReferenceAnchor() string {
+	if x != nil {
+		return x.ReferenceAnchor
+	}
+	return ""
+}
+
+func (x *TrackPoint) GetZ() float32 {
+	if x != nil {
+		return x.Z
+	}
+	return 0
+}
+
+func (x *TrackPoint) GetRevisionId() string {
+	if x != nil {
+		return x.RevisionId
+	}
+	return ""
+}
+
+func (x *TrackPoint) GetSourceId() string {
+	if x != nil {
+		return x.SourceId
+	}
+	return ""
+}
+
+func (x *TrackPoint) GetFrameTimestampNs() int64 {
+	if x != nil {
+		return x.FrameTimestampNs
 	}
 	return 0
 }
@@ -3483,12 +3541,21 @@ const file_visualiser_proto_rawDesc = "" +
 	"\x0eheading_source\x18# \x01(\x05R\rheadingSource\x12\"\n" +
 	"\rbbox_center_x\x18$ \x01(\x02R\vbboxCenterX\x12\"\n" +
 	"\rbbox_center_y\x18% \x01(\x02R\vbboxCenterY\x12*\n" +
-	"\x11bbox_center_valid\x18& \x01(\bR\x0fbboxCenterValid\"K\n" +
+	"\x11bbox_center_valid\x18& \x01(\bR\x0fbboxCenterValid\"\xb1\x02\n" +
 	"\n" +
 	"TrackPoint\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x02R\x01x\x12\f\n" +
 	"\x01y\x18\x02 \x01(\x02R\x01y\x12!\n" +
-	"\ftimestamp_ns\x18\x03 \x01(\x03R\vtimestampNs\"c\n" +
+	"\ftimestamp_ns\x18\x03 \x01(\x03R\vtimestampNs\x12\x18\n" +
+	"\asupport\x18\x04 \x01(\tR\asupport\x12%\n" +
+	"\x0eestimate_stage\x18\x05 \x01(\tR\restimateStage\x12)\n" +
+	"\x10reference_anchor\x18\x06 \x01(\tR\x0freferenceAnchor\x12\f\n" +
+	"\x01z\x18\a \x01(\x02R\x01z\x12\x1f\n" +
+	"\vrevision_id\x18\b \x01(\tR\n" +
+	"revisionId\x12\x1b\n" +
+	"\tsource_id\x18\t \x01(\tR\bsourceId\x12,\n" +
+	"\x12frame_timestamp_ns\x18\n" +
+	" \x01(\x03R\x10frameTimestampNs\"c\n" +
 	"\n" +
 	"TrackTrail\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12:\n" +

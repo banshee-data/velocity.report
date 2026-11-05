@@ -1712,7 +1712,7 @@ func TestTrackHistorySupportContract(t *testing.T) {
 	api := &TrackAPI{}
 	const ns int64 = 1789552800123456789
 	track := &l5tracks.TrackedObject{History: []l5tracks.TrackPoint{
-		{X: 1, Y: 2, Timestamp: ns, Support: l5tracks.SupportObserved},
+		{X: 1, Y: 2, Timestamp: ns, FrameUnixNanos: ns + 5, Support: l5tracks.SupportObserved},
 		{X: 2, Y: 3, Timestamp: ns + 1, Support: l5tracks.SupportCoasted},
 		{X: 3, Y: 4, Timestamp: ns + 2},
 	}}
@@ -1722,6 +1722,9 @@ func TestTrackHistorySupportContract(t *testing.T) {
 		if point.Support != support || point.Anchor != "filter_state" {
 			t.Fatalf("point %d: %+v", i, point)
 		}
+	}
+	if response.History[0].FrameTimestampNS != "1789552800123456794" || response.History[1].FrameTimestampNS != "" {
+		t.Fatal("state time lost or legacy state time invented")
 	}
 	data, err := json.Marshal(response.History[0])
 	if err != nil {

@@ -10,8 +10,9 @@ is the immediate measurement-inspection slice, with basic stage, support and see
 
 The [cloud HTTP/web implementation](../lidar/operations/trail-support-cloud-2026-11.md)
 aligns the shared scene player with published box centres, preserves exact rotation timestamps
-and separates supported edges and estimate revisions. Native gRPC/Swift publication and visual
-acceptance remain open.
+and separates supported edges and estimate revisions. The [native continuation](../lidar/operations/native-trail-support-cloud-2026-11.md) carries
+recorded display anchors and support through gRPC/Swift and segments the renderer. Persisted
+provisional/final trajectory selection and physical/visual acceptance remain open.
 
 ## Objective
 
