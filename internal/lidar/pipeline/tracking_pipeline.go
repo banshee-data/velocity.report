@@ -1338,7 +1338,12 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 // averages) so each observation faithfully records the cluster shape at this
 // instant; the averaged values are stored on the track record itself for
 // classification and reporting. It also records the published box, which the
-// web app's live view draws in place of the OBB when it is present.
+// web app's live view draws in place of the OBB when it is present. Its speed
+// is the filter's at this instant, |(VX, VY)|, as its velocity is: the
+// running mean is the track record's avg_speed_mps. The row carried the
+// running mean until figure0002 found it read a third to a half of a truck's
+// reference speed, and the lane field and the live view read it as the speed
+// at the instant.
 func trackObservation(track *l5tracks.TrackedObject, frameUnixNanos int64, frameID string) *sqlite.TrackObservation {
 	return &sqlite.TrackObservation{
 		TrackID:           track.TrackID,
@@ -1351,7 +1356,7 @@ func trackObservation(track *l5tracks.TrackedObject, frameUnixNanos int64, frame
 		Z:                 track.LatestZ,
 		VelocityX:         track.VX,
 		VelocityY:         track.VY,
-		SpeedMps:          track.AvgSpeedMps,
+		SpeedMps:          track.Speed(),
 		HeadingRad:        track.OBBHeadingRad,
 		BoundingBoxLength: track.OBBLength,
 		BoundingBoxWidth:  track.OBBWidth,
