@@ -21,6 +21,7 @@ import {
 	MAINTENANCE_ACTIONS,
 	resumeAutoTune,
 	replayFieldsForClip,
+	replayRunning,
 	resumeLive,
 	runMaintenance,
 	startAutoTune,
@@ -232,6 +233,14 @@ describe('replay', () => {
 		expect(lastCall()[0]).toBe('/api/lidar/replay/stop?sensor_id=s');
 		await resumeLive('s');
 		expect(lastCall()[0]).toBe('/api/lidar/pcap/resume_live?sensor_id=s');
+	});
+
+	it('counts a VRLOG replay as running, though it leaves pcap_in_progress false', () => {
+		expect(replayRunning({ data_source: 'vrlog', pcap_in_progress: false })).toBe(true);
+		expect(replayRunning({ data_source: 'capture', pcap_in_progress: true })).toBe(true);
+		expect(replayRunning({ data_source: 'live', pcap_in_progress: false })).toBe(false);
+		expect(replayRunning({ data_source: 'capture_analysis', pcap_in_progress: false })).toBe(false);
+		expect(replayRunning(null)).toBe(false);
 	});
 });
 

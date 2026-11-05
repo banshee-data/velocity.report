@@ -287,6 +287,18 @@ export function stopReplay(sensorId: string): Promise<unknown> {
 	});
 }
 
+/**
+ * Whether a replay holds the pipeline. A PCAP replay sets pcap_in_progress; a
+ * VRLOG replay does not, and shows only as data_source "vrlog". The server
+ * refuses a new replay while either runs.
+ */
+export function replayRunning(
+	status: Pick<LidarStatus, 'data_source' | 'pcap_in_progress'> | null | undefined
+): boolean {
+	if (!status) return false;
+	return status.pcap_in_progress || status.data_source === 'vrlog';
+}
+
 export function resumeLive(sensorId: string): Promise<unknown> {
 	return request('/lidar/pcap/resume_live', 'resume live data', {
 		method: 'POST',
