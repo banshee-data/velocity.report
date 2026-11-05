@@ -171,6 +171,18 @@ func (a *FrameAdapter) AdaptEmptyFrame(frame *l2frames.LiDARFrame) interface{} {
 	return bundle
 }
 
+// AdaptEmptyFrameWithTracks retains the tracker's current predicted/support
+// state and recently expired identities on a frame with no detections. The
+// empty frame's point/recording policy is unchanged; track state is evidence
+// about prediction, not an additional observation.
+func (a *FrameAdapter) AdaptEmptyFrameWithTracks(frame *l2frames.LiDARFrame, mask []bool, tracker l5tracks.TrackerInterface) interface{} {
+	bundle := a.AdaptEmptyFrameWithMask(frame, mask).(*FrameBundle)
+	if tracker != nil {
+		bundle.Tracks = a.adaptTracks(tracker, frame.StartTimestamp)
+	}
+	return bundle
+}
+
 // AdaptEmptyFrameWithMask is AdaptEmptyFrame for a frame whose foreground
 // mask is known. Outside full-frames mode it is exactly AdaptEmptyFrame. In
 // it, the frame keeps its whole classified cloud for clients, since a frame

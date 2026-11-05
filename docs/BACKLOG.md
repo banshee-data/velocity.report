@@ -98,7 +98,6 @@ Individual docs in `plans/` describe single projects, not priority lists.
 
 <a id="v056---visualiser-stream--replay-stability-056"></a>
 
-- **P0** Empty-frame lifecycle (S3): advance prediction, support, coast age and expiry over explicit empty/gap records without inventing observations; pin synchronisation when measurement-time updates are enabled. Validate clock discontinuities and sustained empty intervals: [sprint plan](plans/lidar-052-mvp-sprint-plan.md#s1s3-the-smallest-physical-state-model) `M` `S-GEO`
 - **P0** Survey track evidence contract: export lifecycle, support, last-observed time and scene/model quality with explicit unknowns for legacy recordings; keep measured box geometry separate from minimum display size: [scene-change sprint](plans/lidar-scene-change-recovery-sprint-plan.md) `M` {frontend} `S-EVID`
 - **P0** Trail correctness: align box anchors and trail timestamps; distinguish observed, coasted, provisional and final segments. Test expiry, reacquisition, seek and revised-history display without inventing observed points: [design doc](plans/lidar-visualiser-trails-and-uncertainty-visualisation-plan.md) `M` `S-GEO`
 - **P0** Deterministic track identity: derive `track_id` from `(site_id, sensor_id, frame_unix_nanos, cluster_id)` instead of a random UUID, so it stays reproducible across replays of identical input and safe against collision across tracker resets and multi-site corpora alike. Requires threading a per-deployment identity into both the live and replay pipeline configs first: [design doc](plans/lidar-deterministic-track-identity-plan.md) `M` `S-GEO`
@@ -579,6 +578,8 @@ Rows for the vehicle encyclopedia and scene vehicle identification, which their 
 - **P2** CAN-bus speed as a probe-vehicle reference: a probe vehicle's own speed from its CAN bus, parked by D-28 in the motion-capture plan; returns when a probe-vehicle reference needs it beside the RTK probe (D-29): [motion-capture plan](plans/lidar-motion-capture-architecture-plan.md) `M` `S-EVID`
 
 ## Complete
+
+- [#928] Empty-frame lifecycle (S3): delivered frames with empty or unavailable detections now advance prediction, support and expiry at capture time, and publish coasted state without fabricated observations; clock, profile, early-exit and pcap repeat checks: [validation](lidar/operations/empty-frame-lifecycle-cloud-validation.md).
 
 - Border classes on the L3 grid (l3bg0028): the `veil` arm fails its rule and `coast` was not run: [report](lidar/operations/pcl-noise-and-splits-2026-11.md)
 - Radius-graph joining rule (l4clus0005): every arm fails its rule; the PCL oracle was not run: [report](lidar/operations/pcl-noise-and-splits-2026-11.md)

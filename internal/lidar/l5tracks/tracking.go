@@ -471,6 +471,18 @@ func NewTracker(config TrackerConfig) *Tracker {
 // timestamp is the frame's capture time, never the host's wall clock: it is
 // the only source of elapsed time the estimator has. See time_domain.go.
 func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
+	t.updateFrame(clusters, timestamp, false)
+}
+
+// UpdateGap advances the estimator over an explicit unavailable frame. Unlike
+// an observed empty detection set, a gap cannot explain an absence as an exit
+// or occlusion. Predictions, support, coast age and expiry still advance in
+// capture time, without adding an observation.
+func (t *Tracker) UpdateGap(timestamp time.Time) {
+	t.updateFrame(nil, timestamp, true)
+}
+
+func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap bool) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	t.frameClusters = clusters
@@ -642,6 +654,9 @@ func (t *Tracker) Update(clusters []WorldCluster, timestamp time.Time) {
 				track.MaxOcclusionFrames = track.Misses
 			}
 			support := t.supportForAbsence(track, clusters)
+			if gap {
+				support = SupportMissedUnknown
+			}
 			t.recordSupport(track, support)
 
 			// Inflate covariance during occlusion so the gating

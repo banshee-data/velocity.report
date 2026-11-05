@@ -82,6 +82,12 @@ type maskedEmptyFrameAdapter interface {
 	AdaptEmptyFrameWithMask(frame *l2frames.LiDARFrame, mask []bool) interface{}
 }
 
+// trackedEmptyFrameAdapter preserves predicted and expired track state even
+// when a frame has no detections. No cluster or observation is invented.
+type trackedEmptyFrameAdapter interface {
+	AdaptEmptyFrameWithTracks(frame *l2frames.LiDARFrame, mask []bool, tracker l5tracks.TrackerInterface) interface{}
+}
+
 // LidarViewAdapter interface forwards FrameBundle to UDP (LidarView format).
 type LidarViewAdapter interface {
 	PublishFrameBundle(bundle interface{}, foregroundPoints []l2frames.PointPolar)
@@ -595,6 +601,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 	// a background is best accumulated from.
 	hasVisualiser := !isNilInterface(cfg.VisualiserAdapter) && !isNilInterface(cfg.VisualiserPublisher)
 	maskedEmpty, _ := cfg.VisualiserAdapter.(maskedEmptyFrameAdapter)
+	trackedEmpty, _ := cfg.VisualiserAdapter.(trackedEmptyFrameAdapter)
 	// published is the mask as clients get it: under the track guard's edge
 	// follow, the returns L3 held inside a tracked object's box are
 	// foreground (l3grid.BackgroundManager.PublishedMask). It is a copy then,
@@ -607,15 +614,35 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		}
 		return out
 	}
-	publishEmptyFrame := func(frame *l2frames.LiDARFrame, mask []bool) {
-		if baseline, ok := cfg.Tracker.(interface{ RecordBaselineEmptyFrame() }); ok && !isNilInterface(baseline) {
-			baseline.RecordBaselineEmptyFrame()
+	publishEmptyFrame := func(frame *l2frames.LiDARFrame, mask []bool, draft *l4bobserve.FrameDraft, gap bool) {
+		if profile.RunsLayer(5) && !isNilInterface(cfg.Tracker) {
+			// Evidence precedes the state it advances, including on early exits.
+			// The deferred finish is idempotent.
+			tap.finish(draft)
+			if gapTracker, ok := cfg.Tracker.(interface{ UpdateGap(time.Time) }); gap && ok {
+				gapTracker.UpdateGap(frame.StartTimestamp)
+			} else {
+				cfg.Tracker.Update(nil, frame.StartTimestamp)
+			}
+			if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
+				for _, track := range cfg.Tracker.GetConfirmedTracks() {
+					runManager.RecordTrack(track)
+				}
+			}
 		}
 		if !hasVisualiser {
 			return
 		}
 		var emptyBundle interface{}
-		if maskedEmpty != nil && mask != nil {
+		if trackedEmpty != nil && profile.RunsLayer(5) && !isNilInterface(cfg.Tracker) {
+			if mask != nil && cfg.L3MaskObserver != nil {
+				cfg.L3MaskObserver(frame, mask)
+			}
+			if mask != nil {
+				mask = published(mask)
+			}
+			emptyBundle = trackedEmpty.AdaptEmptyFrameWithTracks(frame, mask, cfg.Tracker)
+		} else if maskedEmpty != nil && mask != nil {
 			if cfg.L3MaskObserver != nil {
 				cfg.L3MaskObserver(frame, mask)
 			}
@@ -637,10 +664,6 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		if draft != nil {
 			defer tap.finish(draft)
 		}
-		if len(frame.Points) == 0 {
-			return
-		}
-
 		// Count the rotation here, before any stage can return early. A frame
 		// is one sensor rotation whether or not it yields clusters, so an
 		// empty street must still advance the count; otherwise the run record
@@ -648,6 +671,11 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		// two can never be reconciled.
 		if runManager := getRunManager(); runManager != nil && runManager.IsRunActive() {
 			runManager.RecordFrame(frame.StartTimestamp.UnixNano())
+		}
+
+		if len(frame.Points) == 0 {
+			publishEmptyFrame(frame, nil, draft, true)
+			return
 		}
 
 		// Route frame completion to trace log to keep main log quiet during normal runs.
@@ -661,7 +689,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 
 		if cfg.BackgroundManager == nil {
 			draft.Fail(l4bobserve.StageL3Foreground, "no background model configured")
-			publishEmptyFrame(frame, nil)
+			publishEmptyFrame(frame, nil, draft, true)
 			return
 		}
 
@@ -687,7 +715,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if draft != nil {
 				draft.Fail(l4bobserve.StageL3Foreground, fmt.Sprintf("foreground mask unavailable: %v", err))
 			}
-			publishEmptyFrame(frame, nil)
+			publishEmptyFrame(frame, nil, draft, true)
 			return
 		}
 
@@ -733,9 +761,9 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 		l3grid.StoreForegroundSnapshot(sensorID, frame.StartTimestamp, foregroundPoints, backgroundPolar, totalPoints, len(foregroundPoints))
 
 		if len(foregroundPoints) == 0 {
-			// No foreground detected — still record an empty frame for
-			// deterministic 1:1 PCAP-to-VRLOG mapping.
-			publishEmptyFrame(frame, mask)
+			// An observed empty detection set still advances prediction,
+			// support and expiry, and produces one recorded frame.
+			publishEmptyFrame(frame, mask, draft, false)
 			return
 		}
 
@@ -752,16 +780,10 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if count%50 == 0 {
 				diagf("[Pipeline] Throttled %d frames (max %.0f fps)", count, maxFrameRate)
 			}
-			// Do NOT advance miss counters during throttle.
-			// PCAP catch-up floods frames faster than real-time;
-			// advancing misses would kill tentative tracks
-			// (max_misses=3) within ~300 ms. Live input never reaches
-			// this path now that the throttle is gated on ReplayActive,
-			// so track ageing on live data runs at the configured rate.
-			//
-			// Still record the frame for deterministic VRLOG mapping.
+			// Missing processing is explicit unknown support. Advance in capture
+			// time just as live input does, without fabricating detections.
 			draft.Suppress(l4bobserve.StageL4Transform, "replay frame-rate throttle")
-			publishEmptyFrame(frame, mask)
+			publishEmptyFrame(frame, mask, draft, true)
 			return
 		}
 		// Kept current even when the throttle is inactive, so a replay
@@ -880,7 +902,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
-			publishEmptyFrame(frame, mask)
+			publishEmptyFrame(frame, mask, draft, false)
 			return
 		}
 
@@ -956,7 +978,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
-			publishEmptyFrame(frame, mask)
+			publishEmptyFrame(frame, mask, draft, false)
 			return
 		}
 
@@ -1015,7 +1037,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), 0, 0)
 			}
-			publishEmptyFrame(frame, mask)
+			publishEmptyFrame(frame, mask, draft, false)
 			return
 		}
 
@@ -1067,7 +1089,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
-			publishEmptyFrame(frame, mask)
+			publishEmptyFrame(frame, mask, draft, false)
 			return
 		}
 
@@ -1080,7 +1102,7 @@ func (cfg *TrackingPipelineConfig) NewFrameCallback() func(*l2frames.LiDARFrame)
 			if emitTiming != nil {
 				emitTiming(len(foregroundPoints), len(clusters), 0)
 			}
-			publishEmptyFrame(frame, mask)
+			publishEmptyFrame(frame, mask, draft, false)
 			return
 		}
 
