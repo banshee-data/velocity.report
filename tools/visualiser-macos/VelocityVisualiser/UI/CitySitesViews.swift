@@ -165,7 +165,9 @@ enum CitySiteText {
                         guard let site = city.index?.site(id: marker.id) else { return }
                         Task { await city.select(site) }
                     } label: {
-                        CityMarkerLabel(marker: marker, clock: marker.focused ? clock : nil)
+                        CityMarkerLabel(
+                            marker: marker,
+                            clock: marker.focused ? clock : city.siteClocks[marker.id])
                     }.buttonStyle(.plain).fixedSize().position(
                         x: marker.screen.x, y: marker.screen.y - 14
                     ).help(

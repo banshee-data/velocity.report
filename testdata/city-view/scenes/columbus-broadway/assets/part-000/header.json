@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "export": "clip",
+  "site": "columbus-broadway",
+  "title": "Columbus at Broadway",
+  "sensor_id": "hesai-pandar40p",
+  "frame_count": 20,
+  "start_ns": "1788380436986210330",
+  "duration_sec": 11.10028,
+  "frame_stride": 1,
+  "chunk_encoding": "gzip",
+  "chunk_seconds": 10,
+  "coordinate_frame": {
+    "frame_id": "site/hesai-pandar40p",
+    "reference_frame": "ENU"
+  },
+  "source_vrlog_sha256": "3d29487560727a5e38893908108c4d52ff2b4c21fc875a8bf18b551f8bf6edf4",
+  "tuning_hash": "sha256:c927ea3afe40a1be0fb1812083763d05a37269c7bfe6fe1098f91866fdec570d",
+  "build_version": "0.5.1-pre50",
+  "build_git_sha": "57e9e9f1a3d5e6c43b36371aafbdcc6c4099cefb",
+  "generated_at": "2026-11-02T00:34:23Z",
+  "units": {
+    "length": "m",
+    "speed": "m/s",
+    "angle": "rad"
+  },
+  "coordinate_rounding_m": 0.01,
+  "evidence": {
+    "points": "observed",
+    "tracks": "inferred"
+  },
+  "trail_estimator": "cv_kf_v1/online",
+  "fixture_note": "Trimmed for tests: the first ten frames of each of the clip's first two chunks, without points."
+}

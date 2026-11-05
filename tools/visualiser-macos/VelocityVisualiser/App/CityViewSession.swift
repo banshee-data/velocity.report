@@ -30,6 +30,12 @@ import Foundation
     @Published var overlay = CityOverlay()
     /// Turns city mode on or off in the renderer; AppState's.
     var onCityMode: ((Bool) -> Void)?
+    /// Each nearby site's own clock, for its marker: its recording's time
+    /// of day at the frame it shows.
+    @Published var siteClocks: [String: String] = [:]
+
+    /// The index file the sites were read from, for finding their scenes.
+    var indexURL: URL? { Self.url(for: sitesLocation).map(CitySiteIndex.indexURL(for:)) }
 
     @Published private(set) var sitesLocation: String
     @Published private(set) var index: CitySiteIndex?
@@ -103,7 +109,10 @@ import Foundation
         let next = on && canShowCity
         guard next != isCityMode else { return }
         isCityMode = next
-        if !next { overlay = CityOverlay() }
+        if !next {
+            overlay = CityOverlay()
+            siteClocks = [:]
+        }
         onCityMode?(next)
     }
 
