@@ -870,7 +870,7 @@ private let ownScanID = "sha256:scan"
 /// shaped as SITE-MODEL-SPIKE.md §6 describes them: two accepted scans (the
 /// open capture's own and another), a sensor, a correction, a facade trace
 /// and a pole, and a small ground heightfield near the hint pose.
-private func referenceMessages(
+func referenceMessages(
     _ layer: Gerardus_Align_V1alpha1_ReferenceLayer, modelID: String
 ) -> [Gerardus_Align_V1alpha1_StreamReferenceResponse] {
     func message(
@@ -1127,7 +1127,8 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
     var streetUseRulesVersion: UInt32 = 0
     /// Every UploadLaneField, as its header and chunks; a repeat of stored
     /// content answers already_stored, as Gerardus's content addressing does.
-    var laneFieldUploads: [(Gerardus_Align_V1alpha1_LaneFieldHeader, [Gerardus_Align_V1alpha1_LaneFieldCells])] = []
+    var laneFieldUploads:
+        [(Gerardus_Align_V1alpha1_LaneFieldHeader, [Gerardus_Align_V1alpha1_LaneFieldCells])] = []
     private var storedLaneFields = Set<Data>()
     /// Refuse UploadLaneField with this status.
     var laneFieldFailure: RPCError?
@@ -1612,7 +1613,9 @@ final class FakeAlignmentService: AlignmentServiceClient, @unchecked Sendable {
         l16Token: String
     ) async throws -> Gerardus_Align_V1alpha1_ListLaneProposalsResponse {
         log("ListLaneProposals")
-        guard supportsLaneFields else { throw RPCError(code: .unimplemented, message: "ListLaneProposals") }
+        guard supportsLaneFields else {
+            throw RPCError(code: .unimplemented, message: "ListLaneProposals")
+        }
         var r = Gerardus_Align_V1alpha1_ListLaneProposalsResponse()
         r.proposals = laneProposals
         return r

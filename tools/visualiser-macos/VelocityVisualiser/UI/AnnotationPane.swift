@@ -929,9 +929,11 @@ struct AnnotationPane: View {
                     "Copies the map-marks.json line. That file owns this angle; this is a "
                         + "working value until it is recorded there.")
             }
-            TextField("Site id for the copied line", text: $mapMarksSiteID).font(.caption2)
-                .textFieldStyle(.roundedBorder).help(
-                    "A pack records the sensor and the run, not which junction it stood at")
+            TextField(
+                session.siteID.isEmpty ? "Site id for the copied line" : session.siteID,
+                text: $mapMarksSiteID
+            ).font(.caption2).textFieldStyle(.roundedBorder).help(
+                "A pack records the sensor and the run, not which junction it stood at")
 
             Toggle("Show grid with other tools", isOn: $session.showColumnGrid).font(.caption)
         }

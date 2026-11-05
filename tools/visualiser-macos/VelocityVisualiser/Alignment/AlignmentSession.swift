@@ -671,26 +671,82 @@ struct ReferenceSummary: Equatable {
             errorMessage = "velocity.report has no site list: \(error.localizedDescription)"
             return
         }
+        // A site the city view switched to is the site; the capture it
+        // started is that site's.
+        if citySite != nil { return }
         let evidence = await lookup.openCaptureEvidence(runID: runID)
-        var found = AlignmentSiteResolver.resolve(evidence, sites: sites, filesByCase: [:])
+        var found = AlignmentSiteResolver.resolve(
+            evidence, sites: sites, filesByCase: [:], index: siteIndex)
         if found == nil, !evidence.sourcePaths.isEmpty {
             var files = [String: [String]]()
             for site in sites {
                 files[site.clipID] = (try? await lookup.captureFiles(clipID: site.clipID)) ?? []
             }
-            found = AlignmentSiteResolver.resolve(evidence, sites: sites, filesByCase: files)
+            found = AlignmentSiteResolver.resolve(
+                evidence, sites: sites, filesByCase: files, index: siteIndex)
         }
         if let found {
             if found.site != site { select(found.site) }
             siteMatch = found.match
+            // The index's heading, unless the operator typed one.
+            if northAzimuthText.isEmpty,
+                let azimuth = siteIndex?.site(l16Token: found.site.l16Token)?.northAzimuthDeg
+            {
+                northAzimuthText = Self.formatAzimuth(azimuth)
+            }
         } else if site == nil {
             siteMatch = .none
         }
     }
 
+    // MARK: - City sites
+
+    /// The city site index, when one is loaded: it resolves the open
+    /// capture's site and gives each site's heading.
+    var siteIndex: CitySiteIndex?
+    /// The city site the visualiser switched to; nil when the site was
+    /// inferred or chosen in the pane.
+    @Published private(set) var citySite: CitySite?
+
+    /// A site switch: everything held for the old site goes, placement,
+    /// reference, scans, records and refinement, so nothing of it is drawn
+    /// or registered at the next. The street painter follows the reference
+    /// being cleared.
+    func leaveSite(for next: SiteContext) {
+        captureChanged()
+        clearPlacement()
+        site = nil
+        siteMatch = .none
+        citySite = nil
+        bundle = nil
+        confirmingRegenerate = false
+        referenceDataNote = nil
+        northAzimuthText = ""
+    }
+
+    /// Enters a city site: the pane's site becomes it, with the heading the
+    /// index carries rather than one typed by hand.
+    func enterCitySite(_ city: CitySite, clip: AlignmentSite?) {
+        citySite = city
+        let chosen = AlignmentSite(city: city, clip: clip)
+        if chosen != site { select(chosen) }
+        siteMatch = .siteIndex
+        if let azimuth = city.northAzimuthDeg { northAzimuthText = Self.formatAzimuth(azimuth) }
+    }
+
+    /// To the hundredth, without trailing zeros: "35", "36.46".
+    nonisolated static func formatAzimuth(_ degrees: Double) -> String {
+        let rounded = (degrees * 100).rounded() / 100
+        if rounded == rounded.rounded() { return String(Int(rounded)) }
+        var text = String(format: "%.2f", locale: Locale(identifier: "en_US_POSIX"), rounded)
+        while text.hasSuffix("0") { text.removeLast() }
+        return text
+    }
+
     /// The operator picks the site from the list.
     func choose(_ chosen: AlignmentSite) {
         guard chosen != site else { return }
+        citySite = nil
         select(chosen)
         siteMatch = .chosen
     }

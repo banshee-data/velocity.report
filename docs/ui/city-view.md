@@ -1,7 +1,11 @@
 # City view
 
-- **Status:** Design. The [placement files](#placement-files) are built (plan Item 1); the views
-  that read them are not.
+- **Status:** Design, partly built. The [placement files](#placement-files) are built (plan
+  Item 1). In the visualiser, switching between the sites of `city/sites.json` ships (toolbar site
+  picker; Settings ▸ Servers ▸ City view), and so does its city mode: the toolbar's City switch
+  draws Gerardus's city tiles (`cityTiles.location`) with every site's marker and the street
+  names, flies to the site chosen, and plays the sites around it from their published scenes,
+  each on its own clock.
 - **Plan:** [lidar-city-view-plan.md](../plans/lidar-city-view-plan.md) (the work and its order)
 - **Companion:** Gerardus
   [CITY-VIEW-TILES](https://github.com/banshee-data/gerardus/blob/main/docs/plans/CITY-VIEW-TILES.md)

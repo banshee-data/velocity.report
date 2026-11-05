@@ -27,6 +27,9 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     var boxPipeline: MTLRenderPipelineState?
     var trailPipeline: MTLRenderPipelineState?
     var linePipeline: MTLRenderPipelineState?  // M6: Debug overlay lines
+    /// The city tiles' triangles (flat shaded) and street lines.
+    private(set) var cityTrianglePipeline: MTLRenderPipelineState?
+    private(set) var cityLinePipeline: MTLRenderPipelineState?
 
     // Depth stencil
     var depthStencilState: MTLDepthStencilState?
@@ -68,6 +71,222 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     // MARK: - Camera
 
     var camera = Camera()
+    /// The local frame the camera and every placed drawable are drawn in:
+    /// camera-relative rendering (RenderOrigin.swift).
+    private(set) var origin = RenderOrigin()
+    /// Whether the origin follows the camera. Off in a site's sensor frame,
+    /// which draws as it always has; on in city mode.
+    var recentresOrigin = false
+
+    // MARK: - City tiles
+
+    /// Gerardus's city tiles, drawn by screen-space error.
+    private(set) lazy var cityTiles: CityTileLayer = {
+        let layer = CityTileLayer(device: device)
+        layer.onTileLoaded = { [weak self] in self?.view?.needsDisplay = true }
+        return layer
+    }()
+    var showCityTiles = true
+    /// Whether the tiles can be drawn now: a tileset, and a frame they can be
+    /// placed in (a placed site's, or the city's own).
+    private(set) var cityTilesPlaced = false
+    /// Within this disc of the sensor, in the city frame, the city's
+    /// buildings fade so the scene's own measured geometry is not drawn
+    /// twice: centre, then inner and outer radii.
+    var cityFade: (centre: SIMD3<Double>, inner: Float, outer: Float)?
+
+    /// Where the stream's sensor frame sits in the world frame: identity in
+    /// the sensor's own frame, the site's sensor-to-city in city mode.
+    var streamWorldFromSensor = matrix_identity_double4x4 { didSet { view?.needsDisplay = true } }
+    /// In city mode, the stream is drawn only inside its site's coverage,
+    /// its boxes fading at the edge and coloured by class.
+    var streamCoverage: SiteCoverage? {
+        didSet { if streamCoverage != oldValue { coverageRing = nil } }
+    }
+    private var coverageRing: MTLBuffer?
+    private var coverageRingCount = 0
+
+    /// The stream's model matrix in the local frame.
+    var streamModel: simd_float4x4 { origin.model(streamWorldFromSensor) }
+
+    /// Draws the coverage ring of the site playing, on its ground.
+    private func drawCoverageRing(encoder: MTLRenderCommandEncoder) {
+        guard let coverage = streamCoverage, let pipeline = linePipeline else { return }
+        if coverageRing == nil {
+            let ring = coverage.ring(groundZ: SiteCoverage.groundZ)
+            coverageRing = device.makeBuffer(
+                bytes: ring, length: ring.count * 4, options: .storageModeShared)
+            coverageRingCount = ring.count / 7
+        }
+        guard let ring = coverageRing else { return }
+        encoder.setRenderPipelineState(pipeline)
+        encoder.setVertexBuffer(ring, offset: 0, index: 0)
+        encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
+        encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: coverageRingCount)
+    }
+
+    // MARK: - Nearby sites (Item 8)
+
+    /// One nearby site's boxes, heading lines and coverage ring, drawn by
+    /// its own sensor-to-city. Nothing in one is from another site.
+    struct NearbyDrawable {
+        let siteID: String
+        let worldFromSensor: simd_double4x4
+        let boxIDs: [String]
+        let boxes: MTLBuffer?
+        let boxCount: Int
+        let lines: MTLBuffer?
+        let lineVertexCount: Int
+    }
+    private(set) var nearby: [NearbyDrawable] = []
+
+    /// Box instances for the city view: class colour, faded to the
+    /// coverage edge, none beyond it. 16 floats of transform, 4 of colour.
+    static func cityBoxInstances(_ boxes: [SceneBox], coverage: SiteCoverage) -> [Float] {
+        var out = [Float]()
+        for b in boxes {
+            let distance = simd_length(SIMD2(b.x, b.y))
+            let alpha = coverage.opacity(atDistance: distance)
+            guard alpha > 0 else { continue }
+            let transform =
+                simd_float4x4(translation: SIMD3(b.x, b.y, b.z))
+                * simd_float4x4(rotationZ: b.boxHeading)
+                * simd_float4x4(
+                    diagonal: SIMD4(max(b.length, 0.1), max(b.width, 0.1), max(b.height, 0.1), 1))
+            for col in 0..<4 { for row in 0..<4 { out.append(transform[col][row]) } }
+            let c = ClassColour.colour(for: b.classLabel)
+            out += [c.x, c.y, c.z, alpha]
+        }
+        return out
+    }
+
+    /// A heading line per moving box, from its centre forward, plus the
+    /// site's coverage ring: line vertices of x, y, z, r, g, b, a.
+    static func cityHeadingLines(_ boxes: [SceneBox], coverage: SiteCoverage) -> [Float] {
+        var out = [Float]()
+        for b in boxes where b.speed > 0.5 {
+            let alpha = coverage.opacity(atDistance: simd_length(SIMD2(b.x, b.y)))
+            guard alpha > 0 else { continue }
+            let c = ClassColour.colour(for: b.classLabel)
+            let reach = b.length / 2 + 1.5
+            out += [b.x, b.y, b.z, c.x, c.y, c.z, alpha]
+            out += [
+                b.x + cos(b.heading) * reach, b.y + sin(b.heading) * reach, b.z, c.x, c.y, c.z,
+                alpha,
+            ]
+        }
+        return out + coverage.ring(groundZ: SiteCoverage.groundZ)
+    }
+
+    /// Replaces the nearby sites drawn.
+    func setNearbySites(_ frames: [NearbySiteFrame]) {
+        func buffer(_ floats: [Float]) -> MTLBuffer? {
+            floats.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: floats, length: floats.count * 4, options: .storageModeShared)
+        }
+        nearby = frames.map { frame in
+            let instances = Self.cityBoxInstances(frame.boxes, coverage: .standard)
+            let lines = Self.cityHeadingLines(frame.boxes, coverage: .standard)
+            return NearbyDrawable(
+                siteID: frame.siteID, worldFromSensor: frame.worldFromSensor,
+                boxIDs: frame.boxes.map(\.id), boxes: buffer(instances),
+                boxCount: instances.count / 20, lines: buffer(lines),
+                lineVertexCount: lines.count / 7)
+        }
+        view?.needsDisplay = true
+    }
+
+    private func drawNearbySites(encoder: MTLRenderCommandEncoder) {
+        guard isCityMode, !nearby.isEmpty, let boxPipeline, let linePipeline,
+            let boxVerts = boxVertices
+        else { return }
+        for site in nearby {
+            var u = Self.uniforms(
+                Uniforms(
+                    modelViewProjection: camera.projectionMatrix * camera.viewMatrix,
+                    modelView: camera.viewMatrix, pointSize: pointSize, time: uniforms.time,
+                    padding: .zero), model: origin.model(site.worldFromSensor))
+            if let boxes = site.boxes, site.boxCount > 0 {
+                encoder.setRenderPipelineState(boxPipeline)
+                encoder.setVertexBuffer(boxVerts, offset: 0, index: 0)
+                encoder.setVertexBuffer(boxes, offset: 0, index: 1)
+                encoder.setVertexBytes(&u, length: MemoryLayout<Uniforms>.stride, index: 2)
+                encoder.drawPrimitives(
+                    type: .line, vertexStart: 0, vertexCount: boxVertexCount,
+                    instanceCount: site.boxCount)
+            }
+            if let lines = site.lines, site.lineVertexCount > 0 {
+                encoder.setRenderPipelineState(linePipeline)
+                encoder.setVertexBuffer(lines, offset: 0, index: 0)
+                encoder.setVertexBytes(&u, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.drawPrimitives(
+                    type: .line, vertexStart: 0, vertexCount: site.lineVertexCount)
+            }
+        }
+    }
+
+    /// Places the city tiles in the renderer's world frame; nil hides them.
+    func placeCityTiles(worldFromCity: simd_double4x4?) {
+        cityTilesPlaced = worldFromCity != nil
+        cityTiles.worldFromCity = worldFromCity ?? matrix_identity_double4x4
+        view?.needsDisplay = true
+    }
+
+    /// Moves the local frame so `world` is its origin, keeping the camera
+    /// where it is in the world.
+    func setOrigin(anchor world: SIMD3<Double>) {
+        let shift = SIMD3<Float>(world - origin.anchor)
+        origin.anchor = world
+        camera.position -= shift
+        camera.target -= shift
+        if var saved = savedCamera {
+            saved.position -= shift
+            saved.target -= shift
+            savedCamera = saved
+        }
+    }
+
+    /// Recentres the local frame on the camera's target when it has strayed.
+    func recentreOriginIfNeeded() {
+        guard recentresOrigin, let shift = origin.recentre(target: camera.target) else { return }
+        camera.position -= shift
+        camera.target -= shift
+        if var saved = savedCamera {
+            saved.position -= shift
+            saved.target -= shift
+            savedCamera = saved
+        }
+    }
+
+    /// The tile view for the current camera, in the city frame.
+    func cityTileView(viewportHeight: Double) -> TileView {
+        let cityFromWorld = cityTiles.worldFromCity.inverse
+        let eyeWorld = origin.world(camera.position)
+        let eye4 = cityFromWorld * SIMD4(eyeWorld, 1)
+        let clip =
+            simd_double4x4(camera.projectionMatrix * camera.viewMatrix)
+            * simd_double4x4(origin.model(cityTiles.worldFromCity))
+        let frustum = Frustum(clip: clip)
+        return TileView(
+            eye: SIMD3(eye4.x, eye4.y, eye4.z), viewportHeight: max(viewportHeight, 1),
+            fovY: Double(camera.fov) * .pi / 180, maximumError: cityTiles.maximumError,
+            inFrustum: { centre, radius in frustum.contains(sphere: centre, radius: radius) })
+    }
+
+    private func drawCityTiles(encoder: MTLRenderCommandEncoder, viewportHeight: Double) {
+        guard showCityTiles, cityTilesPlaced, cityTiles.tileset != nil,
+            let triangles = cityTrianglePipeline, let lines = cityLinePipeline
+        else { return }
+        let selection = cityTiles.select(view: cityTileView(viewportHeight: viewportHeight))
+        let fade = cityFade.map { SIMD4<Float>(0, 0, $0.inner, $0.outer) }
+        cityTiles.draw(
+            encoder: encoder, triangles: triangles, lines: lines, origin: origin,
+            view: camera.viewMatrix, projection: camera.projectionMatrix, selection: selection,
+            fade: fade, fadeCity: cityFade?.centre)
+        encoder.setDepthStencilState(depthStencilState)
+    }
 
     // Camera control state
     private var isDragging = false
@@ -256,6 +475,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         metalView.delegate = self
         metalView.colorPixelFormat = .bgra8Unorm
         metalView.depthStencilPixelFormat = .depth32Float
+        metalView.clearDepth = Camera.clearDepth
         metalView.clearColor = backgroundColor
 
         // Build pipelines
@@ -385,6 +605,25 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             { print("Failed to create trail pipeline: \(error)") }
         }
 
+        // City tiles: one pipeline for triangles and lines, blended so the
+        // fade near a played site shows what is behind it.
+        if let vertexFunc = library.makeFunction(name: "cityTileVertex"),
+            let fragmentFunc = library.makeFunction(name: "cityTileFragment")
+        {
+            let descriptor = MTLRenderPipelineDescriptor()
+            descriptor.vertexFunction = vertexFunc
+            descriptor.fragmentFunction = fragmentFunc
+            descriptor.colorAttachments[0].pixelFormat = metalView.colorPixelFormat
+            descriptor.depthAttachmentPixelFormat = metalView.depthStencilPixelFormat
+            descriptor.colorAttachments[0].isBlendingEnabled = true
+            descriptor.colorAttachments[0].sourceRGBBlendFactor = .sourceAlpha
+            descriptor.colorAttachments[0].destinationRGBBlendFactor = .oneMinusSourceAlpha
+            do {
+                cityTrianglePipeline = try device.makeRenderPipelineState(descriptor: descriptor)
+                cityLinePipeline = cityTrianglePipeline
+            } catch { print("Failed to create city tile pipeline: \(error)") }
+        }
+
         // M6: Debug line pipeline (uses debugLine shaders for coloured lines)
         if let vertexFunc = library.makeFunction(name: "debugLineVertex"),
             let fragmentFunc = library.makeFunction(name: "debugLineFragment")
@@ -409,10 +648,11 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
     private func buildDepthStencil() {
         let descriptor = MTLDepthStencilDescriptor()
-        descriptor.depthCompareFunction = .less
+        // Reversed depth (Camera.ndcNear is 1): nearer is greater.
+        descriptor.depthCompareFunction = .greater
         descriptor.isDepthWriteEnabled = true
         depthStencilState = device.makeDepthStencilState(descriptor: descriptor)
-        descriptor.depthCompareFunction = .lessEqual
+        descriptor.depthCompareFunction = .greaterEqual
         residualDepthState = device.makeDepthStencilState(descriptor: descriptor)
         descriptor.depthCompareFunction = .always
         descriptor.isDepthWriteEnabled = false
@@ -914,6 +1154,12 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         for track in trackSet.tracks {
             // Skip filtered-out tracks
             if hiddenTrackIDs.contains(track.trackID) { continue }
+            // Nothing of a site is drawn beyond its coverage.
+            if let coverage = streamCoverage,
+                simd_length(SIMD2(track.boxCentreX, track.boxCentreY)) >= coverage.radius
+            {
+                continue
+            }
             // Build transform matrix
             // Dimensions use per-frame cluster (DBSCAN) OBB dimensions from proto
             // fields 18-20 (bbox_length / bbox_width / bbox_height).
@@ -944,6 +1190,14 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 instances.append(1.0)  // g
                 instances.append(1.0)  // b
                 instances.append(track.alpha)  // alpha (supports fade-out)
+            } else if let coverage = streamCoverage {
+                // City mode: class colours only, faded at the coverage edge.
+                let colour = ClassColour.colour(for: track.classLabel)
+                let distance = simd_length(SIMD2(track.boxCentreX, track.boxCentreY))
+                instances.append(colour.x)
+                instances.append(colour.y)
+                instances.append(colour.z)
+                instances.append(track.alpha * coverage.opacity(atDistance: distance))
             } else if showHeadingSource {
                 // Debug: colour by heading source to diagnose angular drift
                 let colour = track.headingSource.colour
@@ -1299,17 +1553,31 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: descriptor)
         else { return }
 
+        recentreOriginIfNeeded()
         // Update uniforms
-        uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix
-        uniforms.modelView = camera.viewMatrix
+        // The stream is drawn in its sensor's frame, placed in the world by
+        // `streamWorldFromSensor`: identity in the sensor's own frame, the
+        // site's sensor-to-city in city mode.
+        let stream = streamModel
+        uniforms.modelViewProjection = camera.projectionMatrix * camera.viewMatrix * stream
+        uniforms.modelView = camera.viewMatrix * stream
+        uniforms.padding.y = streamCoverage?.radius ?? 0
         uniforms.pointSize = pointSize
         uniforms.time = Float(CACurrentMediaTime() - startTime)
         uniforms.padding.x = intensityColouring.rawValue
 
         encoder.setDepthStencilState(depthStencilState)
 
+        // The city first: opaque context for everything drawn over it.
+        drawCityTiles(encoder: encoder, viewportHeight: Double(view.drawableSize.height))
+        publishCityOverlay(size: view.bounds.size)
+
+        drawCoverageRing(encoder: encoder)
+
         // Draw ground grid first (behind everything)
-        if showGrid, let pipeline = linePipeline, let gridBuf = gridVertices, gridVertexCount > 0 {
+        if showGrid, streamCoverage == nil, let pipeline = linePipeline, let gridBuf = gridVertices,
+            gridVertexCount > 0
+        {
             encoder.setRenderPipelineState(pipeline)
             encoder.setVertexBuffer(gridBuf, offset: 0, index: 0)
             encoder.setVertexBytes(&uniforms, length: MemoryLayout<Uniforms>.stride, index: 1)
@@ -1384,6 +1652,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 type: .line, vertexStart: 0, vertexCount: boxVertexCount,
                 instanceCount: overlayBoxes.count)
         }
+
+        drawNearbySites(encoder: encoder)
 
         // Draw trails (each trail as a separate lineStrip)
         if showTrails, let pipeline = trailPipeline, let vertices = trailVertices,
@@ -1499,7 +1769,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
 
         // Move camera toward/away from target
         var offset = camera.position - camera.target
-        let newDistance = max(1.0, min(500.0, length(offset) * zoomFactor))
+        let newDistance = max(
+            Camera.minDistance, min(Camera.maxDistance, length(offset) * zoomFactor))
         offset = normalize(offset) * newDistance
         camera.position = camera.target + offset
     }
@@ -1563,6 +1834,185 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         _lastTracks = nil
     }
 
+    /// The site whose geometry the renderer holds; "" before one is chosen.
+    private(set) var siteID = ""
+
+    /// A site switch: drops everything drawn for the site being left (its
+    /// stream, its background cache, its reference geometry, residuals and
+    /// street marks) so none of it is drawn at the next site. The camera and
+    /// the display settings are the operator's and stay.
+    func leaveSite(for next: SiteContext) {
+        clearTransientData()
+        setReferenceOverlay(nil)
+        setReferenceModelMatrix(matrix_identity_float4x4)
+        setResidualOverlay(nil, palette: [])
+        setStreetOverlay(nil)
+        setOverlayBoxes([])
+        if cameraHolder == .plan { exitPlanView() }
+        siteID = next.siteID
+        currentSite = next.site
+        applySitePlacement()
+    }
+
+    // MARK: - City mode
+
+    /// The site the stream is from, for placing it.
+    private(set) var currentSite: CitySite?
+    /// City mode: the world frame is the city's, the origin follows the
+    /// camera, and the stream is drawn by its site's sensor-to-city.
+    private(set) var isCityMode = false
+    /// The camera in the site's own frame when city mode began.
+    private var cameraBeforeCity: Camera?
+    /// The index's sites, for the markers.
+    var citySites: [CitySite] = [] { didSet { view?.needsDisplay = true } }
+    /// What city mode lays over the view, each frame it changes.
+    var onCityOverlay: ((CityOverlay) -> Void)?
+    private var lastOverlay = CityOverlay()
+    private var flight: (path: CityFlight, start: CFTimeInterval)?
+    private var flightTimer: Timer?
+
+    /// Places the stream and the city for the current site and mode.
+    private func applySitePlacement() {
+        let site = currentSite
+        if isCityMode {
+            placeCityTiles(worldFromCity: matrix_identity_double4x4)
+            if let sensorToCity = site?.sensorToCity {
+                streamWorldFromSensor = sensorToCity
+                streamCoverage = .standard
+            } else {
+                // A site without an accepted pose is never drawn as placed.
+                streamWorldFromSensor = matrix_identity_double4x4
+                streamCoverage = .hidden
+            }
+        } else {
+            // In a placed site's own frame the city is drawn around its sensor.
+            placeCityTiles(worldFromCity: site?.sensorToCity?.inverse)
+            streamWorldFromSensor = matrix_identity_double4x4
+            streamCoverage = nil
+        }
+        cityFade = site?.sensorCityPosition.map { ($0, 60, SiteCoverage.vectorRadiusM) }
+    }
+
+    /// Enters or leaves city mode. The world frame changes, so the camera is
+    /// put over the current site (or the city's middle), or back to the
+    /// sensor's default view.
+    func setCityMode(_ on: Bool, overview centre: SIMD3<Double>? = nil) {
+        guard on != isCityMode else { return }
+        cancelFlight()
+        if cameraHolder == .plan { exitPlanView() }
+        isCityMode = on
+        recentresOrigin = on
+        applySitePlacement()
+        if on {
+            cameraBeforeCity = camera
+            let focus = currentSite?.sensorCityPosition ?? centre ?? .zero
+            origin.anchor = focus.rounded(.toNearestOrEven)
+            let offset =
+                currentSite?.isPlaced == true
+                ? CityFlight.arrivalOffset : SIMD3<Double>(0, -4_000, 7_000)
+            camera.target = origin.local(focus)
+            camera.position = origin.local(focus + offset)
+            camera.up = SIMD3(0, 0, 1)
+        } else {
+            origin.anchor = .zero
+            nearby = []
+            onCityOverlay?(CityOverlay())
+            lastOverlay = CityOverlay()
+            // The site's own frame again: the view the operator had there.
+            if let kept = cameraBeforeCity { camera = kept }
+            cameraBeforeCity = nil
+        }
+        view?.needsDisplay = true
+    }
+
+    /// Flies the camera to look at `target` (world frame) from `eyeOffset`.
+    func fly(to target: SIMD3<Double>, eyeOffset: SIMD3<Double> = CityFlight.arrivalOffset) {
+        let path = CityFlight(
+            fromTarget: origin.world(camera.target), fromEye: origin.world(camera.position),
+            toTarget: target, toEyeOffset: eyeOffset)
+        flight = (path, CACurrentMediaTime())
+        flightTimer?.invalidate()
+        flightTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) {
+            [weak self] _ in self?.advanceFlight(now: CACurrentMediaTime())
+        }
+    }
+
+    var isFlying: Bool { flight != nil }
+
+    /// Moves the camera along the flight to `now`; ends it at the end.
+    func advanceFlight(now: CFTimeInterval) {
+        guard let flight else { return }
+        let t = (now - flight.start) / flight.path.duration
+        let at = flight.path.at(t)
+        camera.target = origin.local(at.target)
+        camera.position = origin.local(at.eye)
+        recentreOriginIfNeeded()
+        view?.needsDisplay = true
+        if t >= 1 { cancelFlight() }
+    }
+
+    func cancelFlight() {
+        flight = nil
+        flightTimer?.invalidate()
+        flightTimer = nil
+    }
+
+    /// The markers and street names over the view, for a view of `size`
+    /// points.
+    func cityOverlay(size: CGSize) -> CityOverlay {
+        guard isCityMode, size.width > 0, size.height > 0 else { return CityOverlay() }
+        let vp = camera.projectionMatrix * camera.viewMatrix
+        var overlay = CityOverlay()
+        for site in citySites {
+            guard let at = site.sensorCityPosition ?? site.markerCityENU,
+                let screen = CityOverlayLayout.project(
+                    origin.local(at), viewProjection: vp, size: size)
+            else { continue }
+            overlay.markers.append(
+                CityMarker(
+                    id: site.id, title: site.title, date: site.recordedOn ?? "", clock: nil,
+                    placed: site.isPlaced, focused: site.id == currentSite?.id, screen: screen))
+        }
+        var streets = [ScreenStreetLabel]()
+        for tile in cityTiles.drawable(cityTiles.lastSelection) {
+            for (i, label) in tile.labels.enumerated() {
+                let anchor = tile.origin + SIMD3<Double>(label.anchor)
+                let b = Double(label.bearingDeg) * .pi / 180
+                let along = anchor + SIMD3(sin(b), cos(b), 0) * 10
+                guard
+                    let a = CityOverlayLayout.project(
+                        origin.local(anchor), viewProjection: vp, size: size, margin: 0),
+                    let c = CityOverlayLayout.project(
+                        origin.local(along), viewProjection: vp, size: size, margin: 400)
+                else { continue }
+                let arterial = ["1", "2", "3"].contains(label.streetClass)
+                streets.append(
+                    ScreenStreetLabel(
+                        id: "\(tile.id)#\(i)", name: label.name, screen: a,
+                        angleDeg: CityOverlayLayout.angle(from: a, to: c), arterial: arterial))
+            }
+        }
+        overlay.streets = CityOverlayLayout.thin(streets)
+        return overlay
+    }
+
+    private func publishCityOverlay(size: CGSize) {
+        guard isCityMode, let onCityOverlay else { return }
+        let overlay = cityOverlay(size: size)
+        guard overlay != lastOverlay else { return }
+        lastOverlay = overlay
+        onCityOverlay(overlay)
+    }
+
+    /// Whether anything of a site is still held: for the switch tests.
+    var holdsSiteGeometry: Bool {
+        pointCount > 0 || boxInstanceCount > 0 || trailVertexCount > 0
+            || (compositeRenderer?.getStats().total ?? 0) > 0 || referenceAerialCount > 0
+            || referenceFootprintVertexCount > 0 || referenceBuildingVertexCount > 0
+            || referenceCityStreetVertexCount > 0 || referenceGroundMeshVertexCount > 0
+            || residualPointCount > 0 || streetFillVertexCount > 0 || streetLineVertexCount > 0
+    }
+
     /// M3.5: Get background cache status for UI display.
     func getCacheStatus() -> String {
         compositeRenderer?.cacheStatus ?? "Not using split streaming"
@@ -1574,7 +2024,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func hitTestTrack(at point: CGPoint, viewSize: CGSize) -> String? {
         guard let tracks = _lastTracks, !tracks.isEmpty else { return nil }
 
-        let mvp = camera.projectionMatrix * camera.viewMatrix
+        let mvp = camera.projectionMatrix * camera.viewMatrix * streamModel
         let halfWidth = Float(viewSize.width) * 0.5
         let halfHeight = Float(viewSize.height) * 0.5
 
@@ -1697,7 +2147,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
     func projectTrackLabels(viewSize: CGSize) -> [TrackScreenLabel] {
         guard let tracks = _lastTracks, !tracks.isEmpty else { return [] }
 
-        let mvp = camera.projectionMatrix * camera.viewMatrix
+        let mvp = camera.projectionMatrix * camera.viewMatrix * streamModel
         let halfWidth = Float(viewSize.width) * 0.5
         let halfHeight = Float(viewSize.height) * 0.5
 
@@ -1809,24 +2259,54 @@ struct Camera: Equatable {
 
     var fov: Float = 60.0  // degrees
     var aspectRatio: Float = 1.0
+    /// The clip planes an orthographic view uses. A perspective view sets
+    /// its own from how far the eye is from what it looks at (`clipPlanes`),
+    /// so a 12 km view of the city and a 5 m view of a kerb share one
+    /// renderer.
     var nearPlane: Float = 0.1
     var farPlane: Float = 500.0
 
     var projection: Projection = .perspective
 
+    /// The furthest the eye may stand from its target: the whole city.
+    static let maxDistance: Float = 60_000
+    static let minDistance: Float = 1
+
+    /// Depth runs reversed: the near plane is 1 and the far plane 0, cleared
+    /// to 0 and tested with `.greater`, so a Float32 depth buffer keeps its
+    /// precision across the whole range rather than spending it near the eye.
+    static let ndcNear: Float = 1
+    static let ndcFar: Float = 0
+    static let clearDepth: Double = 0
+
     var viewMatrix: simd_float4x4 { simd_float4x4(lookAt: target, from: position, up: up) }
 
+    /// The clip planes in use: dynamic for perspective, the stored ones for
+    /// orthographic.
+    var clipPlanes: (near: Float, far: Float) {
+        switch projection {
+        case .perspective:
+            let d = simd_length(position - target)
+            let distance = d.isFinite ? d : 30
+            let near = min(max(distance * 0.002, 0.02), 20)
+            let far = max(600, distance * 40 + 3_000)
+            return (near, far)
+        case .orthographic: return (nearPlane, farPlane)
+        }
+    }
+
     var projectionMatrix: simd_float4x4 {
+        let planes = clipPlanes
         switch projection {
         case .perspective:
             return simd_float4x4(
-                perspectiveFov: fov * .pi / 180, aspectRatio: aspectRatio, near: nearPlane,
-                far: farPlane)
+                perspectiveFov: fov * .pi / 180, aspectRatio: aspectRatio, near: planes.near,
+                far: planes.far)
         case .orthographic(let halfHeight):
             let h = max(halfHeight, 0.01)
             let w = h * max(aspectRatio, 0.01)
             return simd_float4x4(
-                orthographicWidth: w * 2, height: h * 2, near: nearPlane, far: farPlane)
+                orthographicWidth: w * 2, height: h * 2, near: planes.near, far: planes.far)
         }
     }
 
@@ -1885,29 +2365,31 @@ extension simd_float4x4 {
             ))
     }
 
-    /// Right-handed orthographic projection matching the perspective
-    /// initialiser's depth convention, so both can share one pipeline.
+    /// Right-handed orthographic projection with reversed depth, matching
+    /// the perspective initialiser: the near plane maps to 1, the far to 0.
     init(orthographicWidth width: Float, height: Float, near: Float, far: Float) {
         let x = 2 / width
         let y = 2 / height
-        let z = 1 / (near - far)
+        let z = 1 / (far - near)
 
         self.init(
             columns: (
                 simd_float4(x, 0, 0, 0), simd_float4(0, y, 0, 0), simd_float4(0, 0, z, 0),
-                simd_float4(0, 0, z * near, 1)
+                simd_float4(0, 0, far * z, 1)
             ))
     }
 
+    /// Right-handed perspective projection with reversed depth: a point on
+    /// the near plane has depth 1, one on the far plane 0.
     init(perspectiveFov fovRadians: Float, aspectRatio: Float, near: Float, far: Float) {
         let y = 1 / tan(fovRadians * 0.5)
         let x = y / aspectRatio
-        let z = far / (near - far)
+        let z = near / (far - near)
 
         self.init(
             columns: (
                 simd_float4(x, 0, 0, 0), simd_float4(0, y, 0, 0), simd_float4(0, 0, z, -1),
-                simd_float4(0, 0, z * near, 0)
+                simd_float4(0, 0, far * z, 0)
             ))
     }
 }

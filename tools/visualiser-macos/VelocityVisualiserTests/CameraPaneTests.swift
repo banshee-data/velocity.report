@@ -743,7 +743,9 @@ struct CameraPanePersistenceTests {
         #expect(s.pick(at: pixel(centre + SIMD3(-12, 3, 0)), viewSize: size))
         #expect(s.picking == nil)
         #expect(near(s.settings.orbit.radiusA, 30, 0.05))
-        #expect(near(s.settings.orbit.headingDeg, 0, 0.1))
+        // 0° and 360° are one heading.
+        let heading = s.settings.orbit.headingDeg
+        #expect(near(min(heading, 360 - heading), 0, 0.1))
         #expect(near(s.settings.orbit.radiusB, 12, 0.05))
         #expect(s.measured?.source == "picked points")
         // Not picking, a click is not the pane's.

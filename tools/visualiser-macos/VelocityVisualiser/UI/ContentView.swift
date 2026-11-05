@@ -52,6 +52,11 @@ struct ContentView: View {
                                 appState.camera.cameraMoved()
                             }, paintInput: appState.streets, cameraInput: appState.camera)
 
+                        CityOverlayView(
+                            city: appState.city,
+                            clock: CityOverlayLayout.clock(
+                                timestampNanos: appState.currentTimestamp))
+
                         // Track label overlay (SwiftUI text positioned over 3D tracks)
                         if appState.showTrackLabels {
                             TrackLabelOverlay(labels: appState.trackLabels).allowsHitTesting(false)
@@ -663,6 +668,8 @@ struct ToolbarView: View {
 
                 AlignmentToolbarButton(session: appState.alignment)
                 StreetPaintToolbarButton(painter: appState.streets, session: appState.alignment)
+                SitePickerToolbar(city: appState.city)
+                CityModeToolbarButton(city: appState.city)
 
                 Divider().frame(height: 20)
                 LiveToggleView()

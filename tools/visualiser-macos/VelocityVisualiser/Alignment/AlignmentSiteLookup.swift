@@ -8,8 +8,10 @@
 //   GET /api/lidar/data_source         what the server is replaying now
 //   GET /api/lidar/clips/{case_id}    a case's capture files
 //
-// The heading is not here: no velocity.report API serves site-index.json's
-// north_azimuth_deg, so the operator types it into the pane.
+// The city site index (`city/sites.json`, CitySites.swift) is read first
+// when the visualiser has one: it names each site's captures and carries
+// its north_azimuth_deg, so the heading comes from it. Without the index
+// the site is still inferred from file names and the heading is typed.
 
 import Foundation
 
@@ -54,6 +56,9 @@ struct OpenCaptureEvidence: Equatable, Sendable {
 /// How the site was found, for the pane to say.
 enum AlignmentSiteMatch: Equatable, Sendable {
     case clip
+    /// The city site index names the open capture, or the site was chosen
+    /// from it.
+    case siteIndex
     case captureFile
     case captureName
     case chosen
@@ -62,6 +67,7 @@ enum AlignmentSiteMatch: Equatable, Sendable {
     var explanation: String {
         switch self {
         case .clip: return "The run names this clip."
+        case .siteIndex: return "The city site index names this site."
         case .captureFile: return "The capture is one of this case's files."
         case .captureName: return "The capture's name gives this site's cell."
         case .chosen: return "Chosen by hand."
@@ -72,15 +78,26 @@ enum AlignmentSiteMatch: Equatable, Sendable {
 
 enum AlignmentSiteResolver {
     /// Finds the site for the open capture, trying the strongest evidence
-    /// first. `filesByCase` holds each case's capture paths when they were
+    /// first: the run's clip, then the city site index's captures, then the
+    /// server's capture files, then the capture's name. `filesByCase` holds each case's capture paths when they were
     /// fetched; without them the file match is skipped.
     static func resolve(
-        _ evidence: OpenCaptureEvidence, sites: [AlignmentSite], filesByCase: [String: [String]]
+        _ evidence: OpenCaptureEvidence, sites: [AlignmentSite], filesByCase: [String: [String]],
+        index: CitySiteIndex? = nil
     ) -> (site: AlignmentSite, match: AlignmentSiteMatch)? {
         if let caseID = evidence.clipID, !caseID.isEmpty,
             let site = sites.first(where: { $0.clipID == caseID })
         {
             return (site, .clip)
+        }
+        if let index {
+            for path in evidence.sourcePaths where !path.isEmpty {
+                if let city = index.site(capturePath: path),
+                    let site = sites.first(where: { $0.l16Token == city.cells.l16 })
+                {
+                    return (site, .siteIndex)
+                }
+            }
         }
 
         for path in evidence.sourcePaths where !path.isEmpty {
@@ -241,5 +258,20 @@ struct AlignmentSiteLookupClient {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode(T.self, from: data)
+    }
+}
+
+extension AlignmentSite {
+    /// A city site as the alignment pane's site: the server's clip when it
+    /// holds one, else the index's own cells and eye-read position.
+    init(city: CitySite, clip: AlignmentSite?) {
+        if let clip {
+            self = clip
+            return
+        }
+        self.init(
+            clipID: "city:" + city.id, l16Token: city.cells.l16, l13Token: city.cells.l13,
+            description: city.title, sensorID: "", latitude: city.latitude ?? 0,
+            longitude: city.longitude ?? 0)
     }
 }

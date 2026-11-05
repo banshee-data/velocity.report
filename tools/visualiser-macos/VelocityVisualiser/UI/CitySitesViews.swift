@@ -1,0 +1,217 @@
+// CitySitesViews.swift
+// The toolbar's site picker and Settings ▸ Servers' City view section
+// (lidar-city-view-plan Item 5). The picker lists `city/sites.json`;
+// choosing a site, or Previous and Next, switches the main view to it.
+
+import SwiftUI
+
+/// What a site's row says: its title, its date, and "not yet placed" for a
+/// site without an accepted pose.
+enum CitySiteText {
+    static func row(_ site: CitySite) -> String {
+        var parts = [site.title]
+        if let recorded = site.recordedOn, !recorded.isEmpty { parts.append(recorded) }
+        if !site.isPlaced { parts.append("not yet placed") }
+        return parts.joined(separator: " · ")
+    }
+}
+
+@available(macOS 15.0, *) struct SitePickerToolbar: View {
+    @ObservedObject var city: CityViewSession
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        if !city.sites.isEmpty {
+            Divider().frame(height: 20)
+            HStack(spacing: 4) {
+                Button(action: { Task { await city.step(-1) } }) {
+                    Image(systemName: "chevron.left")
+                }.help("Previous site").disabled(city.switchingTo != nil)
+                Menu {
+                    ForEach(city.sites) { site in
+                        Button(CitySiteText.row(site)) { Task { await city.select(site) } }
+                    }
+                    if appState.siteContext.site != nil {
+                        Divider()
+                        Button("No site: show what the server streams") { appState.leaveCitySite() }
+                    }
+                } label: {
+                    Label(menuTitle, systemImage: "mappin.and.ellipse")
+                }.frame(maxWidth: 220).help(menuHelp)
+                Button(action: { Task { await city.step(1) } }) {
+                    Image(systemName: "chevron.right")
+                }.help("Next site").disabled(city.switchingTo != nil)
+            }
+        }
+    }
+
+    private var menuTitle: String {
+        if let id = city.switchingTo { return "Opening \(city.index?.site(id: id)?.title ?? id)…" }
+        return appState.siteContext.site?.title ?? "Sites"
+    }
+
+    private var menuHelp: String {
+        if let error = city.switchError { return error }
+        return "Switch the main view to another site the connected server can play"
+    }
+}
+
+/// Settings ▸ Servers ▸ City view: where the site index is, and the live
+/// server of any site with a Pi in the field.
+@available(macOS 15.0, *) struct CitySettingsView: View {
+    @ObservedObject var city: CityViewSession
+    @State private var locationText = ""
+    @State private var tilesText = ""
+    @State private var liveTexts: [String: String] = [:]
+
+    var body: some View {
+        Section {
+            TextField(
+                "City tiles", text: $tilesText,
+                prompt: Text("Epoch folder, city-tiles folder, tileset.json or URL")
+            ).onSubmit { Task { await city.useTilesLocation(tilesText) } }
+            HStack {
+                Button("Read tiles") { Task { await city.useTilesLocation(tilesText) } }
+                Spacer()
+                Text(city.tilesStatus).font(.caption).foregroundStyle(
+                    city.tilesError == nil ? Color.secondary : Color.red)
+            }
+            TextField(
+                "Site index", text: $locationText,
+                prompt: Text("Folder, sites.json or URL of the published scenes")
+            ).onSubmit { Task { await city.useSitesLocation(locationText) } }
+            HStack {
+                Button("Read") { Task { await city.useSitesLocation(locationText) } }.disabled(
+                    city.isLoading)
+                if city.isLoading { ProgressView().controlSize(.small) }
+                Spacer()
+                Text(status).font(.caption).foregroundStyle(
+                    city.loadError == nil ? Color.secondary : Color.red)
+            }
+            if !city.sites.isEmpty {
+                DisclosureGroup("Live servers") {
+                    Text(
+                        "A site with its own Pi in the field is attached to instead of replayed. "
+                            + "Its address stays on this Mac."
+                    ).font(.caption).foregroundStyle(.secondary)
+                    ForEach(city.sites) { site in
+                        TextField(
+                            site.title,
+                            text: Binding(
+                                get: { liveTexts[site.id] ?? city.liveServerText(for: site.id) },
+                                set: { liveTexts[site.id] = $0 }),
+                            prompt: Text("http://pi.local:8080")
+                        ).onSubmit { city.setLiveServer(liveTexts[site.id] ?? "", for: site.id) }
+                    }
+                }
+            }
+        } header: {
+            Text("City view")
+        } footer: {
+            Text(
+                "Kept as \(CityViewSession.tilesLocationKey) and "
+                    + "\(CityViewSession.sitesLocationKey). The tiles are Gerardus's city tiles; "
+                    + "over SMB, name the epoch folder, as the current link does not resolve. "
+                    + "The index is city/sites.json beside the published scenes; it names each "
+                    + "site's captures, heading and placement."
+            ).font(.caption).foregroundStyle(.secondary)
+        }.onAppear {
+            locationText = city.sitesLocation
+            tilesText = city.tilesLocation
+        }
+    }
+
+    private var status: String {
+        if let error = city.loadError { return error }
+        if city.index == nil { return "No index read" }
+        let placed = city.sites.filter(\.isPlaced).count
+        return "\(city.sites.count) sites, \(placed) placed"
+    }
+}
+
+/// The toolbar's City switch: the camera over the city, with the sites.
+@available(macOS 15.0, *) struct CityModeToolbarButton: View {
+    @ObservedObject var city: CityViewSession
+
+    var body: some View {
+        if city.canShowCity {
+            Toggle(isOn: Binding(get: { city.isCityMode }, set: { city.setCityMode($0) })) {
+                Label("City", systemImage: "building.2")
+            }.toggleStyle(.button).help(
+                "Show the city: its streets, its buildings and every site with data")
+        }
+    }
+}
+
+/// City mode's markers, street names and line of copy, over the 3D view.
+@available(macOS 15.0, *) struct CityOverlayView: View {
+    @ObservedObject var city: CityViewSession
+    /// The playing site's clock, from the stream's timestamp.
+    var clock: String?
+
+    var body: some View {
+        if city.isCityMode {
+            ZStack(alignment: .topLeading) {
+                ForEach(city.overlay.streets) { label in
+                    Text(label.name).font(.system(size: label.arterial ? 11 : 9.5, weight: .medium))
+                        .foregroundStyle(Color.white.opacity(label.arterial ? 0.85 : 0.65)).shadow(
+                            color: .black, radius: 1.5
+                        ).fixedSize().rotationEffect(.degrees(label.angleDeg)).position(
+                            label.screen
+                        ).allowsHitTesting(false)
+                }
+                ForEach(city.overlay.markers) { marker in
+                    Button {
+                        guard let site = city.index?.site(id: marker.id) else { return }
+                        Task { await city.select(site) }
+                    } label: {
+                        CityMarkerLabel(
+                            marker: marker,
+                            clock: marker.focused ? clock : city.siteClocks[marker.id])
+                    }.buttonStyle(.plain).fixedSize().position(
+                        x: marker.screen.x, y: marker.screen.y - 14
+                    ).help(
+                        marker.placed
+                            ? "Switch to \(marker.title) and fly there"
+                            : "Not yet placed: \(marker.title) has no accepted pose")
+                }
+                VStack {
+                    Spacer()
+                    Text(SeparationCopy.line).font(.caption).foregroundStyle(.secondary).padding(
+                        .horizontal, 10
+                    ).padding(.vertical, 5).background(.ultraThinMaterial, in: Capsule()).padding(
+                        .bottom, 10)
+                }.frame(maxWidth: .infinity).allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+struct CityMarkerLabel: View {
+    let marker: CityMarker
+    let clock: String?
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(marker.title).font(.system(size: 11, weight: marker.focused ? .bold : .semibold))
+            Text(subtitle).font(.system(size: 9.5)).foregroundStyle(.secondary)
+        }.padding(.horizontal, 6).padding(.vertical, 3).background(
+            RoundedRectangle(cornerRadius: 5).fill(
+                marker.focused ? Color.accentColor.opacity(0.35) : Color.black.opacity(0.55))
+        ).overlay(
+            RoundedRectangle(cornerRadius: 5).stroke(
+                marker.placed ? Color.white.opacity(0.5) : Color.orange.opacity(0.8),
+                style: StrokeStyle(lineWidth: 1, dash: marker.placed ? [] : [3, 2]))
+        ).foregroundStyle(.white)
+    }
+
+    /// Its own date, and the playing site's own clock: sites recorded on
+    /// different days are never shown as one moment.
+    private var subtitle: String {
+        var parts = [String]()
+        if !marker.date.isEmpty { parts.append(marker.date) }
+        if let clock { parts.append(clock) }
+        if !marker.placed { parts.append("not yet placed") }
+        return parts.joined(separator: " · ")
+    }
+}

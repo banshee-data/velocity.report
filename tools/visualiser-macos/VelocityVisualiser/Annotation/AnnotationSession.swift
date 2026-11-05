@@ -734,13 +734,18 @@ enum AnnotationWorkMode: String, CaseIterable, Equatable {
             dividingBy: 360)
     }
 
+    /// The site the main view is at, from its SiteContext; "" when the main
+    /// view has no city site. Fills the map-marks line's id when none is typed.
+    @Published var siteID = ""
+
     /// The one line to paste into map-marks.json, where the value belongs.
     ///
     /// The site id is the operator's to supply: a pack records the sensor, the
     /// capture and the run, and nothing that says which junction it stood at.
     /// Until one does, this cannot be looked up and must be told.
     func mapMarksLine(siteID: String) -> String {
-        let id = siteID.trimmingCharacters(in: .whitespacesAndNewlines)
+        var id = siteID.trimmingCharacters(in: .whitespacesAndNewlines)
+        if id.isEmpty { id = self.siteID }
         let rounded = (gridAzimuthDeg * 10).rounded() / 10
         // A fixed locale, because the line is read by a machine: a decimal
         // comma is valid in half of Europe and invalid in every JSON parser.

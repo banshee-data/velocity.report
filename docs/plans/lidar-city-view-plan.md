@@ -283,9 +283,77 @@ never drawn as though it were a measured placement.
   field are each a separate server, and the visualiser may hold one stream per live site.
 - **Sites with nothing to play:** markers, with their published scene's details.
 - **Tile reader:** a Swift reader for `tileset.json` plus a minimal `.glb` reader (one JSON chunk
-  and one binary chunk, with positions, normals and indices only), feeding Metal buffers directly.
-- **Settings:** one new setting, `cityTiles.location` (URL or directory), next to
-  `alignment.serviceAddress`.
+  and one binary chunk, with positions and indices only; no normals, Item 2), feeding Metal
+  buffers directly.
+- **Settings:** `cityTiles.location` (URL or directory) for the tiles, and `citySites.location`
+  for the site index, next to `alignment.serviceAddress`. The index is published with the scenes
+  and the tiles by Gerardus, so the two are kept apart rather than one derived from the other.
+  A site with its own Pi in the field has its live server kept on the Mac
+  (`cityView.liveServer.<site id>`), never in a published file.
+
+**As built (Item 5):** `SiteContext` (`App/SiteContext.swift`) holds the site and its tracks; a
+switch makes a new one, and the renderer (`leaveSite`: stream, background cache, reference,
+residuals, street marks), `AlignmentSession` (`leaveSite`: placement, reference, scans, records,
+refinement) and, through the alignment's reference, `StreetPainterSession` drop the old site's
+state. The annotation window takes the site id from it for its map-marks line. The toolbar's site
+picker lists `city/sites.json` with Previous and Next; a switch matches the site's captures (else
+its L16 cell) against `GET /api/lidar/clip-locations` and the clip's files, and replays the ones
+the index names with `POST /api/lidar/pcap/start`. The alignment pane resolves the open capture
+from the index before file names, and takes the heading from it. Tests in
+`SiteContextTests.swift` switch away and back and check that no track, background, reference or
+street mark survives. The fixtures in `testdata/city-view/` are three entries of Item 1's
+`city/sites.json`, one scene's `placement.json` and Gerardus's tile fixture. The index's
+`heading_deg` (the bearing of the sensor's +Y) is the hint heading; the pane shows it as the
+north azimuth it would have typed, 180° − heading.
+
+**As built (Item 6):** `RenderOrigin` (`Rendering/RenderOrigin.swift`) keeps every placed
+drawable's offset in Double and draws in a local frame anchored near the camera; each draw's model
+matrix is (offset − anchor) in Double, then Float32, and in city mode the anchor follows the
+camera (recentred past 1 km, whole metres). A site's sensor frame never recentres and draws as
+before. Depth is reversed (near 1, far 0, cleared to 0, `.greater`) for both projections, a
+perspective view sets its clip planes from the eye's distance to its target (near 0.02–20 m, far
+at least 600 m and 40 × the distance + 3 km), and zoom runs from 1 m to 60 km: the 500 m far plane
+and zoom clamp are gone. `City/CityTileset.swift` and `City/GLBReader.swift` read the tiles to the
+profile above (Y-up turned to Z-up; `uint8`, `uint16` or `uint32` indices; gzip on disk
+unwrapped). `City/TileSelection.swift` selects by screen-space error (16 px), REPLACE refinement
+with a loading tile's parent drawn in its place and frustum culling, and keeps loaded tiles in a
+256 MB LRU cache that never evicts a tile drawn now. `Rendering/CityTileLayer.swift` and
+`Shaders/CityTiles.metal` draw each tile's ground, buildings (flat shaded from `dfdx`/`dfdy`) and
+streets: three draw calls a tile. Until city mode (Item 7), the tiles are drawn around a placed
+site's sensor by the inverse of its sensor-to-city. `cityTiles.location` (Settings ▸ Servers ▸
+City view) takes an epoch directory, a `city-tiles` directory (its `current`, else its newest
+epoch, as over SMB the link does not resolve), a `tileset.json`, or a URL. `CityTilesTests.swift`
+reads the shared fixture `testdata/city-view/tiles/`, Gerardus's own.
+
+**As built (Item 7):** the toolbar's **City** switch puts the renderer's world in the city frame:
+the origin follows the camera, the tiles are placed as they are, and the stream is drawn by its
+site's sensor-to-city (a site without an accepted pose draws nothing in the city). Markers (one
+per site with a place, its title, its own date and, for the site playing, its own clock; "not
+yet placed" for an eye-read marker) and the tiles' street names (arterials first, thinned so none
+overlaps, turned along the street and kept upright) are laid over the view in SwiftUI. Clicking a
+marker, or Previous and Next, switches site through Item 5 and flies the camera there: it rises by
+half the distance across, at most 4 km, and comes down 160 m south-west of the sensor and 120 m
+up. The city's buildings fade within the scene's 90 m vector radius of the sensor. The
+separation cues: the stream's points and boxes are drawn only inside a 120 m coverage, its boxes
+fading over the last 15 % with a ring at the edge, coloured by class only (`ClassColour`), and the
+line of copy at the foot of the view. `CityMode.swift` holds the flight, coverage, colours and
+overlay layout; `CityModeTests.swift` tests them against the shared fixtures.
+
+**As built (Item 8):** `City/SceneExport.swift` reads a scene export's `manifest.json`, each
+part's `header.json`, `index.json` and `timeline.json`, and its gzipped NDJSON chunks, keeping
+boxes and headings and skipping points; chunks are cached three at a time and a chunk that cannot
+be read is not asked for again. In city mode `NearbySites` (`App/NearbySites.swift`) plays up to
+eight placed sites within 1.5 km of the camera's target, besides the focused one, nearest first.
+Each opens its published scene, found from the site index's location by the index's
+`scene.assets` path (or `scenes/<id>/assets/` in a source checkout), and plays it on its own
+looping clock started when it came into view; its marker shows its own recording time of day.
+Each is drawn by its own sensor-to-city inside its own coverage ring, boxes class-coloured with a
+heading line, and its box ids are namespaced by site. A site with a live server kept for it is
+streamed from that Pi instead, one `VisualiserClient` per Pi, each with its own `SiteContext`.
+`SceneExportTests.swift` reads `testdata/city-view/scenes/columbus-broadway/assets/`, a trimmed
+copy of that scene's published clip, and checks that no drawn object holds two sites' boxes. The
+street-range limit (8) and range (1.5 km) are starting values, not yet measured against a frame
+budget.
 
 ## Scope
 
@@ -316,6 +384,17 @@ site with data and its placement.
 
 1. Track the Gerardus CITY-VIEW-TILES plan to its first published epoch.
 2. Agree the city origin and the `.glb` profile with that plan before Items 3 and 6 start.
+   Agreed as built (Gerardus PR 71, CITY-VIEW-TILES §3 and §8; `gerardus-city-tiles-1`): the city
+   origin is lat 37.76, lon −122.44, NAVD88 0. Each `.glb` has at most three meshes of one
+   primitive each, `ground` and `buildings` (triangles) and `streets` (lines), with POSITION and
+   indices only: **no normals and no materials**. Clients shade buildings flat from each
+   triangle's own normal (screen-space derivatives in Metal, `flatShading` in three.js); the
+   ground is a shared-vertex grid. Vertices are glTF Y-up, glTF (x, y, z) = city (east, up,
+   −north), Float32 metres from the tile's origin, and triangles wind counter-clockwise seen from
+   outside. Tile transforms are translations from the parent tile's origin, and every tile also
+   gives its own origin in city ENU metres in `extras.origin_city_enu_m`, which clients use
+   instead of the root's ECEF transform. Street-name labels are in each tile's
+   `extras.labels`.
 
 **Milestone:** unscheduled
 
@@ -479,15 +558,15 @@ None recorded. The owner settled the last two on 2026-11-04 (see Design decision
 - [x] Item 2: Gerardus city tiles, first epoch `20261105T200804Z`, baked on arrow on 2026-11-05
       into `/mnt/results/gerardus/city-tiles/`: 8,428 tiles, 277 MB gzip (banshee-data/gerardus
       PR 71) (`L`)
+- [x] Item 5: visualiser `SiteContext` and site switching (`M`)
+- [x] Item 6: visualiser city frame, precision and tile reader (`L`)
+- [x] Item 7: visualiser city mode (`M`)
+- [x] Item 8: visualiser, other sites from published scenes (`M`)
 
 ### Outstanding
 
 - [ ] Item 3: web city view, zoomed out (`M`)
 - [ ] Item 4: web, into a site and between sites (`M`)
-- [ ] Item 5: visualiser `SiteContext` and site switching (`M`)
-- [ ] Item 6: visualiser city frame, precision and tile reader (`L`)
-- [ ] Item 7: visualiser city mode (`M`)
-- [ ] Item 8: visualiser, other sites from published scenes (`M`)
 
 ### Deferred
 
