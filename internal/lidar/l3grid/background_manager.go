@@ -200,6 +200,23 @@ func (bm *BackgroundManager) RegionStoreUse() (restore, persist bool) {
 	return !bm.noRegionRestore.Load(), !bm.noRegionPersist.Load()
 }
 
+// SetSettlingRelativeSpreadRatio judges the spread delta against ratio times
+// the mean spread (replay experiment settling_relative_0075). See
+// BackgroundParams.SettlingRelativeSpreadRatio.
+func (bm *BackgroundManager) SetSettlingRelativeSpreadRatio(ratio float64) error {
+	if bm == nil || bm.Grid == nil {
+		return fmt.Errorf("background manager or grid nil")
+	}
+	if ratio < 0 {
+		return fmt.Errorf("settling relative spread ratio %g is negative", ratio)
+	}
+	g := bm.Grid
+	g.mu.Lock()
+	g.Params.SettlingRelativeSpreadRatio = ratio
+	g.mu.Unlock()
+	return nil
+}
+
 // SetSettlingHonestFirstCheck makes the first convergence check after a reset
 // fail on its unmeasured spread delta (replay experiment settling_honest). See
 // BackgroundParams.SettlingHonestFirstCheck.

@@ -231,7 +231,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -593,7 +593,8 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 	}
 	background := map[string]bool{ExperimentNoRegionOverrides: true, ExperimentRegionOverridesVolatileOnly: true,
 		ExperimentRegionOverridesQuietOnly: true, ExperimentSupportFilter: true, ExperimentRegionOverridesCellTercile: true,
-		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true, ExperimentSettlingHonest: true}
+		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true, ExperimentSettlingHonest: true,
+		ExperimentSettlingRelative0075: true}
 	var wantBackground []string
 	for _, name := range KnownExperiments() {
 		if IsBackgroundExperiment(name) != background[name] {
@@ -729,6 +730,28 @@ func TestSettlingHonestExperiment(t *testing.T) {
 	}
 	if !bm.GetParams().SettlingHonestFirstCheck {
 		t.Error("settling_honest did not set SettlingHonestFirstCheck")
+	}
+}
+
+// settling_relative_0075 is a background experiment that sets the ratio
+// l3bg0030 fixed.
+func TestSettlingRelativeExperiment(t *testing.T) {
+	names, err := NormaliseExperiments([]string{ExperimentSettlingRelative0075})
+	if err != nil {
+		t.Fatalf("NormaliseExperiments: %v", err)
+	}
+	if !IsBackgroundExperiment(ExperimentSettlingRelative0075) {
+		t.Error("settling_relative_0075 should be a background experiment")
+	}
+	bm := l3grid.NewBackgroundManagerDI("settling-relative", 2, 4, l3grid.BackgroundParams{}, nil)
+	if bm.GetParams().SettlingRelativeSpreadRatio != 0 {
+		t.Fatal("the default judges the absolute delta")
+	}
+	if err := ApplyBackgroundExperiments(bm, names); err != nil {
+		t.Fatalf("ApplyBackgroundExperiments: %v", err)
+	}
+	if got := bm.GetParams().SettlingRelativeSpreadRatio; got != 0.075 {
+		t.Errorf("settling_relative_0075 set the ratio to %v", got)
 	}
 }
 

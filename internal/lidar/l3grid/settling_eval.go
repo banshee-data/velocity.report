@@ -209,6 +209,7 @@ func (g *BackgroundGrid) settlingConvergedLocked(elapsed time.Duration) bool {
 			g.SensorID)
 		return false
 	}
+	thresholds = relativeThresholds(thresholds, metrics, g.Params.SettlingRelativeSpreadRatio)
 	converged := metrics.IsConverged(thresholds)
 	g.recordSettlingCheckLocked(elapsed, metrics, measured, converged)
 
@@ -220,6 +221,16 @@ func (g *BackgroundGrid) settlingConvergedLocked(elapsed time.Duration) bool {
 			g.SensorID, unmetCriteria(metrics, thresholds))
 	}
 	return converged
+}
+
+// relativeThresholds replaces the absolute spread-delta threshold with ratio
+// times the check's mean spread when ratio is positive, and returns the
+// thresholds unchanged otherwise.
+func relativeThresholds(t SettlingThresholds, m SettlingMetrics, ratio float64) SettlingThresholds {
+	if ratio > 0 {
+		t.MaxSpreadDelta = ratio * m.MeanSpread
+	}
+	return t
 }
 
 // unmetCriteria names the thresholds a measurement has not reached, with the

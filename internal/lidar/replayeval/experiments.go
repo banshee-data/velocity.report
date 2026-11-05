@@ -78,6 +78,11 @@ const (
 	// the first convergence check after a reset failing on its unmeasured
 	// spread delta instead of passing on it (l3bg0021).
 	ExperimentSettlingHonest = "settling_honest"
+	// ExperimentSettlingRelative0075:
+	// l3grid.BackgroundParams.SettlingRelativeSpreadRatio at 0.075, the ratio
+	// l3bg0030 fixed from l3bg0022's trajectories: the spread delta is judged
+	// against 7.5 % of the mean spread rather than the absolute threshold.
+	ExperimentSettlingRelative0075 = "settling_relative_0075"
 	// ExperimentDwellPolicy: pipeline.TrackingPipelineConfig.Dwell, the
 	// beam-wise review's dwell policy (Section 5.1): a confirmed track that
 	// has stood still for pipeline.DwellAbsorbAfter has its object's returns
@@ -334,6 +339,7 @@ var knownExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:    true,
 	ExperimentSupportFilter:        true,
 	ExperimentSettlingHonest:       true,
+	ExperimentSettlingRelative0075: true,
 	ExperimentDwellPolicy:          true,
 	ExperimentDwellPolicyT40:       true,
 	ExperimentDwellPolicyT60:       true,
@@ -446,6 +452,7 @@ var backgroundExperiments = map[string]bool{
 	ExperimentVolatileWindowCap2m:         true,
 	ExperimentSupportFilter:               true,
 	ExperimentSettlingHonest:              true,
+	ExperimentSettlingRelative0075:        true,
 }
 
 // IsBackgroundExperiment reports whether an experiment acts on the L3
@@ -612,6 +619,11 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 	if hasExperiment(experiments, ExperimentSettlingHonest) {
 		if err := bgMgr.SetSettlingHonestFirstCheck(true); err != nil {
 			return fmt.Errorf("apply %s: %w", ExperimentSettlingHonest, err)
+		}
+	}
+	if hasExperiment(experiments, ExperimentSettlingRelative0075) {
+		if err := bgMgr.SetSettlingRelativeSpreadRatio(0.075); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentSettlingRelative0075, err)
 		}
 	}
 	return nil
