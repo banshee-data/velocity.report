@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -231,7 +231,7 @@ func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 		ExperimentHeldToL4, ExperimentLikelihoodCost, ExperimentMeasurementTime, ExperimentNearEdgeTrack, ExperimentNearEdgeTrackA1,
 		ExperimentNoRegionOverrides,
 		ExperimentOcclusionContinuity, ExperimentOverlapEnd1, ExperimentOverlapEnd3, ExperimentOverlapEndBody,
-		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSolidBody, ExperimentSolidBodyContainment,
+		ExperimentOverlapEndOlder, ExperimentRadiusGraphXY, ExperimentRadiusGraphXYOverlap, ExperimentRangeAdaptiveEps, ExperimentReacquisitionGuard, ExperimentRegionOverridesCellTercile, ExperimentRegionOverridesQuietOnly, ExperimentRegionOverridesVolatileOnly, ExperimentSettlingHonest, ExperimentSettlingRelative0075, ExperimentSolidBody, ExperimentSolidBodyContainment,
 		ExperimentSolidBodyCourseFaces,
 		ExperimentSolidBodyCourseHeading, ExperimentSolidBodyEndFaceCentring,
 		ExperimentSolidBodyEndFaceCentringOpenPrior, ExperimentSolidBodyExtentGrowth,
@@ -593,7 +593,8 @@ func TestApplyBackgroundExperimentsReachTheirOwnSwitch(t *testing.T) {
 	}
 	background := map[string]bool{ExperimentNoRegionOverrides: true, ExperimentRegionOverridesVolatileOnly: true,
 		ExperimentRegionOverridesQuietOnly: true, ExperimentSupportFilter: true, ExperimentRegionOverridesCellTercile: true,
-		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true, ExperimentSettlingHonest: true}
+		ExperimentVolatileWindowCap1m: true, ExperimentVolatileWindowCap2m: true, ExperimentSettlingHonest: true,
+		ExperimentSettlingRelative0075: true}
 	var wantBackground []string
 	for _, name := range KnownExperiments() {
 		if IsBackgroundExperiment(name) != background[name] {
@@ -687,6 +688,29 @@ func TestOverlapEndSettingsAreExclusive(t *testing.T) {
 	}
 }
 
+// birth_gate_body reads the overlap end's on-body test: refused without it,
+// and with it reaches TrackerConfig.BirthGateOnBody.
+func TestBirthGateNeedsTheOnBodyTest(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentBirthGateBody}, nil); err == nil {
+		t.Fatal("birth_gate_body was accepted without overlap_end_body")
+	}
+	got, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEndBody, ExperimentBirthGateBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.BirthGateOnBody || !got.OverlapEndOnBody {
+		t.Fatalf("birth gate: gate %v body %v", got.BirthGateOnBody, got.OverlapEndOnBody)
+	}
+	off, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEndBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.BirthGateOnBody {
+		t.Fatal("the birth gate is on without its name")
+	}
+}
+
 // settling_honest is a background experiment, so lidar-bench accepts it, and
 // it sets the first-check semantics on the manager it is applied to.
 func TestSettlingHonestExperiment(t *testing.T) {
@@ -706,6 +730,28 @@ func TestSettlingHonestExperiment(t *testing.T) {
 	}
 	if !bm.GetParams().SettlingHonestFirstCheck {
 		t.Error("settling_honest did not set SettlingHonestFirstCheck")
+	}
+}
+
+// settling_relative_0075 is a background experiment that sets the ratio
+// l3bg0030 fixed.
+func TestSettlingRelativeExperiment(t *testing.T) {
+	names, err := NormaliseExperiments([]string{ExperimentSettlingRelative0075})
+	if err != nil {
+		t.Fatalf("NormaliseExperiments: %v", err)
+	}
+	if !IsBackgroundExperiment(ExperimentSettlingRelative0075) {
+		t.Error("settling_relative_0075 should be a background experiment")
+	}
+	bm := l3grid.NewBackgroundManagerDI("settling-relative", 2, 4, l3grid.BackgroundParams{}, nil)
+	if bm.GetParams().SettlingRelativeSpreadRatio != 0 {
+		t.Fatal("the default judges the absolute delta")
+	}
+	if err := ApplyBackgroundExperiments(bm, names); err != nil {
+		t.Fatalf("ApplyBackgroundExperiments: %v", err)
+	}
+	if got := bm.GetParams().SettlingRelativeSpreadRatio; got != 0.075 {
+		t.Errorf("settling_relative_0075 set the ratio to %v", got)
 	}
 }
 

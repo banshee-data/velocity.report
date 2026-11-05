@@ -299,6 +299,9 @@ func (t *Tracker) deleteExpired(track *TrackedObject, nowNanos int64, reason Exp
 	case ExpiryOverlapped:
 		diagf("Track deleted: coasting on a live track's box: track_id=%s previous_state=%s overlap_frames=%d misses=%d",
 			track.TrackID, prevState, track.overlapCoasts, track.Misses)
+	case ExpiryBirthGated:
+		diagf("Track deleted: born inside a live track's body: track_id=%s previous_state=%s gated_frames=%d",
+			track.TrackID, prevState, track.birthGated)
 	case ExpiryAbsorbed:
 		diagf("Track deleted: absorbed into the background: track_id=%s previous_state=%s stationary=%.1fs x=%.2f y=%.2f",
 			track.TrackID, prevState, track.StationaryFor(nowNanos).Seconds(), track.X, track.Y)

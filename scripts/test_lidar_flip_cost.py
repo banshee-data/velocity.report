@@ -134,3 +134,157 @@ def test_rows_csv_reads_as_the_database(tmp_path):
     )
     assert from_csv == from_db
     assert from_csv["lost"] == 1 and from_csv["b"]["brief"] == 1
+
+
+def make_box_rows(path: Path, tracks: dict[str, list[tuple]]) -> str:
+    """Rows with the published box: (seconds, x, y, speed, length, width), heading along +x."""
+    cols = [
+        "variant",
+        "track",
+        "t_ns",
+        "class",
+        "speed",
+        "x",
+        "y",
+        "psi_deg",
+        "length",
+        "width",
+    ]
+    with open(path, "w") as f:
+        f.write(",".join(cols) + "\n")
+        for tid, rows in tracks.items():
+            for t, x, y, v, length, width in rows:
+                f.write(
+                    f"published,{tid},{int(round(t * S))},bus,{v},{x},{y},0,{length},{width}\n"
+                )
+    return str(path)
+
+
+def boxed(rows, length, width, dx=0.0):
+    return [(t, x + dx, y, v, length, width) for t, x, y, v in rows]
+
+
+def test_footprint_match_keeps_the_rear_of_a_long_vehicle(tmp_path):
+    # A: a bus carried as two tracks 6 m apart, front and rear. B: one track at the
+    # front, its drawn box 12 m long. The point match loses the rear; the footprint
+    # match does not.
+    bus = drive(0, 5)
+    a = make_box_rows(
+        tmp_path / "a.csv",
+        {"front": boxed(bus, 4.0, 2.5), "rear": boxed(bus, 4.0, 2.5, dx=-6.0)},
+    )
+    b = make_box_rows(tmp_path / "b.csv", {"bus": boxed(bus, 12.0, 2.5, dx=-3.0)})
+    point = fc.compare(a, b, "point")
+    foot = fc.compare(a, b, "footprint")
+    assert point["lost"] >= 1
+    assert foot["lost"] == 0 and foot["matched"] == 2
+
+
+def test_footprint_match_spares_a_neighbour(tmp_path):
+    # A car in the next lane, 3.5 m across, is not covered by a box on this lane.
+    a = make_box_rows(tmp_path / "a.csv", {"car": boxed(drive(0, 5, y=3.5), 4.5, 1.8)})
+    b = make_box_rows(tmp_path / "b.csv", {"other": boxed(drive(0, 5), 4.5, 1.8)})
+    assert fc.compare(a, b, "footprint")["lost"] == 1
+
+
+def test_brief_origin_classes(tmp_path):
+    long = boxed(drive(0, 5), 12.0, 2.5)
+    b = make_box_rows(
+        tmp_path / "b.csv",
+        {
+            "bus": long,
+            # ended at 2.0 s on the bus's body, and re-born 0.3 s later 1 m from where it ended
+            "ended": boxed(drive(1.0, 2.0), 4.0, 2.5),
+            "reborn": boxed(drive(2.3, 2.8), 4.0, 2.5, dx=-2.0),
+            # a piece on the body with nothing ended near its start
+            "piece": boxed(drive(4.0, 4.5), 1.0, 1.0, dx=-3.0),
+            # a blip far away
+            "blip": boxed(drive(1.0, 1.5, y=40.0), 1.0, 1.0),
+        },
+    )
+    a = make_box_rows(tmp_path / "a.csv", {"bus": long})
+    assert fc.compare(a, b)["brief_origin"] == {"re-birth": 1, "split": 1, "other": 1}
+
+
+def test_speed_tail_by_age(tmp_path):
+    a = make_db(tmp_path / "a.db", {"car": drive(0, 6)})
+    # B's track starts 2 s into the car and reads 1 m/s fast.
+    b = make_db(
+        tmp_path / "b.db", {"car": [(t, x, y, 11.0) for t, x, y, _ in drive(0, 6)]}
+    )
+    out = fc.compare(a, b)
+    tail = out["speed_tail_by_age"]
+    assert (
+        tail["under_1s"]["pairs"] == 1
+        and abs(tail["under_1s"]["median_abs"] - 1.0) < 1e-9
+    )
+    assert tail["3s_or_more"]["pairs"] == 0
+
+
+def test_database_rows_meet_on_their_frame_time(tmp_path):
+    """Replay evidence stamps each row with its cluster's own time; two tracks in one frame
+    share only frame_unix_nanos. Coverage must meet on the frame."""
+
+    def db(path, offset_ns):
+        con = sqlite3.connect(path)
+        con.execute(
+            "CREATE TABLE lidar_tracks (track_id TEXT, start_unix_nanos INTEGER, end_unix_nanos INTEGER, track_duration_secs REAL)"
+        )
+        con.execute(
+            "CREATE TABLE lidar_track_observations (track_id TEXT, ts_unix_nanos INTEGER, frame_unix_nanos INTEGER, x REAL, y REAL, speed_mps REAL)"
+        )
+        rows = drive(0, 5)
+        t0, t1 = int(rows[0][0] * S), int(rows[-1][0] * S)
+        con.execute("INSERT INTO lidar_tracks VALUES ('car',?,?,?)", (t0, t1, 5.0))
+        for t, x, y, v in rows:
+            frame = int(round(t * S))
+            con.execute(
+                "INSERT INTO lidar_track_observations VALUES ('car',?,?,?,?,?)",
+                (frame + offset_ns, frame, x, y, v),
+            )
+        con.commit()
+        con.close()
+        return str(path)
+
+    out = fc.compare(db(tmp_path / "a.db", 3_000_000), db(tmp_path / "b.db", 7_000_000))
+    assert out["lost"] == 0 and out["matched"] == 1
+
+
+def test_ages_and_endings_read_the_rows_frame_times(tmp_path):
+    """On evidence databases the track table's start and end are cluster acquisition times;
+    ages and re-births must read the rows' frame times, which the arms share."""
+
+    def db(path, tracks, skew_ns):
+        con = sqlite3.connect(path)
+        con.execute(
+            "CREATE TABLE lidar_tracks (track_id TEXT, start_unix_nanos INTEGER, end_unix_nanos INTEGER, track_duration_secs REAL)"
+        )
+        con.execute(
+            "CREATE TABLE lidar_track_observations (track_id TEXT, ts_unix_nanos INTEGER, frame_unix_nanos INTEGER, x REAL, y REAL, speed_mps REAL)"
+        )
+        for tid, rows in tracks.items():
+            frames = [int(round(t * S)) for t, *_ in rows]
+            # the table's times a cluster later than each frame, as acquisition times are
+            con.execute(
+                "INSERT INTO lidar_tracks VALUES (?,?,?,?)",
+                (
+                    tid,
+                    frames[0] + skew_ns,
+                    frames[-1] + skew_ns,
+                    (frames[-1] - frames[0]) / S,
+                ),
+            )
+            for (t, x, y, v), f in zip(rows, frames):
+                con.execute(
+                    "INSERT INTO lidar_track_observations VALUES (?,?,?,?,?,?)",
+                    (tid, f + skew_ns, f, x, y, v),
+                )
+        con.commit()
+        con.close()
+        return str(path)
+
+    a = db(tmp_path / "a.db", {"car": drive(0, 6)}, 60_000_000)
+    b = db(tmp_path / "b.db", {"car": drive(0, 6)}, 60_000_000)
+    tail = fc.compare(a, b)["speed_tail_by_age"]
+    # B's track is matched from its own first frame: age zero, not -0.06 s
+    assert tail["under_1s"]["pairs"] == 1

@@ -196,9 +196,13 @@ const (
 	// ExpiryOverlapped: a coasting track's drawn box lay on a live confirmed
 	// track's (TrackerConfig.OverlapEndFrames): a duplicate of it.
 	ExpiryOverlapped
+	// ExpiryBirthGated: a tentative track lay inside a live confirmed
+	// track's observed returns for MaxMisses frames
+	// (TrackerConfig.BirthGateOnBody): a duplicate that never confirmed.
+	ExpiryBirthGated
 )
 
-var expiryTokens = [...]string{"", "misses", "coast_age", "missed_unknown", "occluded_inferred", "out_of_fov", "non_finite", "absorbed", "overlapped"}
+var expiryTokens = [...]string{"", "misses", "coast_age", "missed_unknown", "occluded_inferred", "out_of_fov", "non_finite", "absorbed", "overlapped", "birth_gated"}
 
 // String returns the expiry token, or "" for ExpiryNone.
 func (r ExpiryReason) String() string {
@@ -941,6 +945,9 @@ type ExpiryCounts struct {
 	// Overlapped is omitted at zero for the same reason: only
 	// TrackerConfig.OverlapEndFrames ends a track with it.
 	Overlapped int64 `json:"overlapped,omitempty"`
+	// BirthGated is omitted at zero: only TrackerConfig.BirthGateOnBody
+	// ends a track with it.
+	BirthGated int64 `json:"birth_gated,omitempty"`
 }
 
 func (c *ExpiryCounts) observe(r ExpiryReason) {
@@ -961,6 +968,8 @@ func (c *ExpiryCounts) observe(r ExpiryReason) {
 		c.Absorbed++
 	case ExpiryOverlapped:
 		c.Overlapped++
+	case ExpiryBirthGated:
+		c.BirthGated++
 	}
 }
 

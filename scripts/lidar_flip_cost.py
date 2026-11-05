@@ -27,7 +27,25 @@ case and arm:
 * matched pair: a moving track of A that is not lost, with the B track of best single-track
   coverage. Its speed difference is the B track's p85 row speed less the A track's.
 
-Usage: lidar_flip_cost.py A.db|A.csv B.db|B.csv [--json OUT]
+`--match footprint` (l5id0016, fixed before any row is read again) replaces the 2.0 m point test:
+a row is covered when some row of the other arm at the same frame has a drawn footprint (its box
+heading, length and width, each extent grown by 0.25 m, as `overlap_end_body` grows a live body)
+that contains the row's centre, or whose footprint and the row's overlap by half the smaller's
+area or more. The overlap is estimated on a 9 by 9 grid of points over the smaller footprint. A
+row without a box falls back to the point test. Everything downstream is unchanged.
+
+The report also carries, whatever the match:
+
+* brief_origin: each brief B track is a re-birth when another B track's last row lies within
+  1.0 s before its first row and within 3.0 m of it, and the brief track's rows lie inside a
+  lasting B track's grown footprint on half or more of its frames; a split when it is not a
+  re-birth but its rows lie inside a lasting B track's grown footprint on half or more of its
+  frames; other otherwise. Rows carry no expiry reason, so "ended" is any ending, not only the
+  overlap end's.
+* speed_tail_by_age: the matched pairs' |p85 difference| binned by the B track's age at the first
+  frame both share: under 1 s, 1 to 3 s, 3 s or more; the count, median and p95 of each bin.
+
+Usage: lidar_flip_cost.py A.db|A.csv B.db|B.csv [--match point|footprint] [--json OUT]
 """
 
 from __future__ import annotations
@@ -47,6 +65,10 @@ MOVING_DISP_M = 5.0
 MOVING_P50_MPS = 1.0
 MATCH_M = 2.0
 COVER_SHARE = 0.5
+FOOTPRINT_MARGIN_M = 0.25
+REBIRTH_S = 1.0
+REBIRTH_M = 3.0
+GRID = 9
 
 
 def pct(values, q):
@@ -67,7 +89,13 @@ def load_rows(path):
                 continue
             t = tracks.setdefault(r["track"], {"rows": []})
             t["rows"].append(
-                (int(r["t_ns"]), float(r["x"]), float(r["y"]), float(r["speed"]))
+                (
+                    int(r["t_ns"]),
+                    float(r["x"]),
+                    float(r["y"]),
+                    float(r["speed"]),
+                    csv_box(r),
+                )
             )
     for t in tracks.values():
         t["rows"].sort()
@@ -90,13 +118,94 @@ def load(path):
             "dur": dur if dur is not None else (t1 - t0) / 1e9,
             "rows": [],
         }
-    for tid, ts, x, y, spd in con.execute(
-        "SELECT track_id, ts_unix_nanos, x, y, speed_mps FROM lidar_track_observations ORDER BY track_id, ts_unix_nanos"
+    cols = {r[1] for r in con.execute("PRAGMA table_info(lidar_track_observations)")}
+    box_cols = {"box_x", "box_y", "box_heading_rad", "box_length", "box_width"}
+    extra = (
+        ", box_x, box_y, box_heading_rad, box_length, box_width"
+        if box_cols <= cols
+        else ""
+    )
+    # Each row's ts_unix_nanos is its own cluster's acquisition time, so rows
+    # of two tracks in one frame differ in it; frame_unix_nanos is the frame
+    # they share, the time a rows CSV carries. Older evidence lacks it.
+    stamp = "frame_unix_nanos" if "frame_unix_nanos" in cols else "ts_unix_nanos"
+    for row in con.execute(
+        "SELECT track_id, "
+        + stamp
+        + ", x, y, speed_mps"
+        + extra
+        + " FROM lidar_track_observations ORDER BY track_id, "
+        + stamp
     ):
+        tid, ts, x, y, spd = row[:5]
+        box = None
+        if extra and None not in row[5:10] and row[8] > 0 and row[9] > 0:
+            box = tuple(float(v) for v in row[5:10])
         if tid in tracks:
-            tracks[tid]["rows"].append((ts, x, y, spd or 0.0))
+            tracks[tid]["rows"].append((ts, x, y, spd or 0.0, box))
     con.close()
     return derive(tracks)
+
+
+def csv_box(r):
+    """A rows CSV row's drawn box: its centre (x, y), heading and extents, or None."""
+    try:
+        length, width = float(r.get("length") or 0), float(r.get("width") or 0)
+        psi = math.radians(float(r.get("psi_deg") or 0))
+    except ValueError:
+        return None
+    if length <= 0 or width <= 0:
+        return None
+    return (float(r["x"]), float(r["y"]), psi, length, width)
+
+
+def inside(box, x, y, margin=FOOTPRINT_MARGIN_M):
+    """Whether (x, y) lies in the box grown by margin on each side."""
+    bx, by, psi, length, width = box
+    c, s = math.cos(psi), math.sin(psi)
+    dx, dy = x - bx, y - by
+    return (
+        abs(dx * c + dy * s) <= length / 2 + margin
+        and abs(-dx * s + dy * c) <= width / 2 + margin
+    )
+
+
+def grid(box):
+    """GRID x GRID points spread over the box."""
+    bx, by, psi, length, width = box
+    c, s = math.cos(psi), math.sin(psi)
+    out = []
+    for i in range(GRID):
+        a = (i + 0.5) / GRID - 0.5
+        for j in range(GRID):
+            n = (j + 0.5) / GRID - 0.5
+            u, v = a * length, n * width
+            out.append((bx + u * c - v * s, by + u * s + v * c))
+    return out
+
+
+def footprints_meet(p, q):
+    """Grown footprints overlap by half the smaller's area or more (grid estimate)."""
+
+    def grown(b):
+        m = 2 * FOOTPRINT_MARGIN_M
+        return (b[0], b[1], b[2], b[3] + m, b[4] + m)
+
+    gp, gq = grown(p), grown(q)
+    small, big = (gp, gq) if gp[3] * gp[4] <= gq[3] * gq[4] else (gq, gp)
+    pts = grid(small)
+    return sum(inside(big, x, y, 0.0) for x, y in pts) * 2 >= len(pts)
+
+
+def covers(row, other, match):
+    """Whether other (a by_time entry) covers row under the match."""
+    _, x, y, _, box = row
+    _, ox, oy, obox = other
+    if match == "footprint" and obox is not None:
+        if inside(obox, x, y):
+            return True
+        return box is not None and footprints_meet(box, obox)
+    return math.hypot(ox - x, oy - y) <= MATCH_M
 
 
 def derive(tracks):
@@ -131,26 +240,26 @@ def derive(tracks):
 
 
 def by_time(tracks):
-    """Frame time -> [(track id, x, y)]."""
+    """Frame time -> [(track id, x, y, box)]."""
     idx = {}
     for tid, t in tracks.items():
-        for ts, x, y, _ in t["rows"]:
-            idx.setdefault(ts, []).append((tid, x, y))
+        for ts, x, y, _, box in t["rows"]:
+            idx.setdefault(ts, []).append((tid, x, y, box))
     return idx
 
 
-def coverage(track, other_idx):
+def coverage(track, other_idx, match="point"):
     """(share of rows covered by any other track, best single-track share, best track id)."""
     rows = track["rows"]
     if not rows:
         return 0.0, 0.0, None
     any_hits = 0
     per = {}
-    for ts, x, y, _ in rows:
+    for row in rows:
         hit = set()
-        for oid, ox, oy in other_idx.get(ts, ()):
-            if math.hypot(ox - x, oy - y) <= MATCH_M:
-                hit.add(oid)
+        for other in other_idx.get(row[0], ()):
+            if covers(row, other, match):
+                hit.add(other[0])
         if hit:
             any_hits += 1
         for oid in hit:
@@ -175,26 +284,85 @@ def summary(tracks):
     }
 
 
-def compare(a_path, b_path):
+def brief_origin(tracks):
+    """Each brief track of one arm: re-birth, split or other (see the docstring)."""
+    idx = by_time(tracks)
+    ends = [
+        # The last row's time, as the brief track's first row is read: the
+        # track table's end is a cluster's acquisition time, not a frame's.
+        (t["rows"][-1][0], t["rows"][-1][1], t["rows"][-1][2], tid)
+        for tid, t in tracks.items()
+        if t["rows"]
+    ]
+    out = {"re-birth": 0, "split": 0, "other": 0}
+    for tid, t in tracks.items():
+        if not t["brief"] or not t["rows"]:
+            continue
+        on = 0
+        for ts, x, y, _, _ in t["rows"]:
+            if any(
+                o[0] != tid
+                and o[3] is not None
+                and tracks[o[0]]["lasting"]
+                and inside(o[3], x, y)
+                for o in idx.get(ts, ())
+            ):
+                on += 1
+        on_body = on * 2 >= len(t["rows"])
+        t0, x0, y0 = t["rows"][0][0], t["rows"][0][1], t["rows"][0][2]
+        after_end = any(
+            oid != tid
+            and 0 <= t0 - e <= REBIRTH_S * 1e9
+            and math.hypot(ex - x0, ey - y0) <= REBIRTH_M
+            for e, ex, ey, oid in ends
+        )
+        out[
+            "re-birth" if on_body and after_end else "split" if on_body else "other"
+        ] += 1
+    return out
+
+
+def compare(a_path, b_path, match="point"):
     a, b = load(a_path), load(b_path)
     ai, bi = by_time(a), by_time(b)
     lost = shortened = 0
     dv = []
+    ages = []
     for t in a.values():
         if not t["moving"]:
             continue
-        share, best, bid = coverage(t, bi)
+        share, best, bid = coverage(t, bi, match)
         if share < COVER_SHARE:
             lost += 1
             continue
         if best < COVER_SHARE:
             shortened += 1
         dv.append(b[bid]["p85"] - t["p85"])
+        # Ages on the rows' own times, the frame times both arms share: the
+        # track table's start is the first cluster's acquisition time.
+        b_first = b[bid]["rows"][0][0]
+        common = sorted({r[0] for r in t["rows"]} & {r[0] for r in b[bid]["rows"]})
+        ages.append(((common[0] if common else b_first) - b_first) / 1e9)
     added = sum(
-        1 for t in b.values() if t["moving"] and coverage(t, ai)[0] < COVER_SHARE
+        1 for t in b.values() if t["moving"] and coverage(t, ai, match)[0] < COVER_SHARE
     )
     absdv = [abs(x) for x in dv]
+    tail = {}
+    for name, lo, hi in (
+        ("under_1s", 0.0, 1.0),
+        ("1_to_3s", 1.0, 3.0),
+        ("3s_or_more", 3.0, math.inf),
+    ):
+        vals = [d for d, age in zip(absdv, ages) if lo <= age < hi]
+        tail[name] = {
+            "pairs": len(vals),
+            "median_abs": pct(vals, 0.5),
+            "p95_abs": pct(vals, 0.95),
+        }
     return {
+        "match": match,
+        "brief_origin": brief_origin(b),
+        "speed_tail_by_age": tail,
         "a": summary(a),
         "b": summary(b),
         "lost": lost,
@@ -214,9 +382,10 @@ def main():
     )
     ap.add_argument("a_db")
     ap.add_argument("b_db")
+    ap.add_argument("--match", choices=("point", "footprint"), default="point")
     ap.add_argument("--json")
     args = ap.parse_args()
-    out = compare(args.a_db, args.b_db)
+    out = compare(args.a_db, args.b_db, args.match)
     text = json.dumps(out, indent=1, sort_keys=True)
     if args.json:
         with open(args.json, "w") as f:

@@ -1044,8 +1044,11 @@ PYTHON_TEST_PATHS = \
 	scripts/test_check_citation_coverage.py \
 	scripts/test_check_doc_structure.py \
 	scripts/test_lidar_following_windows.py \
+	scripts/test_lidar_clutter_origin.py \
+	scripts/test_lidar_figure_sensitivity.py \
 	scripts/test_lidar_flip_cost.py \
 	scripts/test_lidar_jump_candidates.py \
+	scripts/test_lidar_reference_speed.py \
 	scripts/test_list_matrix_fields.py \
 	scripts/test_loc_coverage_chart.py \
 	scripts/test_order_schema_tables.py \

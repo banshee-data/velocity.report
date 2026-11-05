@@ -65,6 +65,10 @@ type perFrameRequest struct {
 	identityGate                      bool
 	cfg                               perframeeval.Config
 	jsonPath, markdownPath, bundleDir string
+	// bootstrap, when Draws > 0, also draws the split's objects with
+	// replacement and writes the spread to bootstrapPath (l5id0015).
+	bootstrap     perframeeval.BootstrapOptions
+	bootstrapPath string
 }
 
 func runPerFrame(args []string, stdout, stderr io.Writer) int {
@@ -120,6 +124,31 @@ func runPerFrame(args []string, stdout, stderr io.Writer) int {
 			req.bundleDir, c.Physical.Reference.PhysicalRevision, c.Physical.Reference.PhysicalRevisionDigest)
 	}
 	printPerFrameSummary(stderr, c)
+	if req.bootstrap.Draws > 0 {
+		bs, err := perframeeval.RunBootstrap(req.cfg, req.bootstrap)
+		if err != nil {
+			fmt.Fprintf(stderr, "error: bootstrap: %v\n", err)
+			return 1
+		}
+		out, err := json.MarshalIndent(bs, "", "  ")
+		if err != nil {
+			fmt.Fprintf(stderr, "error: encode bootstrap: %v\n", err)
+			return 1
+		}
+		if err := os.WriteFile(req.bootstrapPath, append(out, '\n'), 0o644); err != nil {
+			fmt.Fprintf(stderr, "error: write %s: %v\n", req.bootstrapPath, err)
+			return 1
+		}
+		for _, arm := range []perframeeval.BootstrapArm{bs.A, bs.B} {
+			fmt.Fprintf(stderr, "bootstrap %s (%d draws): HOTA %.4f [%.4f, %.4f]  IDF1 %.4f [%.4f, %.4f]  IDSW %d [%.0f, %.0f]\n",
+				arm.Label, bs.Options.Draws, arm.Point.HOTA, arm.Spread.HOTA.P5, arm.Spread.HOTA.P95,
+				arm.Point.IDF1, arm.Spread.IDF1.P5, arm.Spread.IDF1.P95,
+				arm.Point.IDSwitches, arm.Spread.IDSwitches.P5, arm.Spread.IDSwitches.P95)
+		}
+		fmt.Fprintf(stderr, "bootstrap delta B-A: HOTA [%.4f, %.4f]  IDF1 [%.4f, %.4f]  IDSW [%.0f, %.0f]  FM [%.0f, %.0f]\n",
+			bs.Delta.HOTA.P5, bs.Delta.HOTA.P95, bs.Delta.IDF1.P5, bs.Delta.IDF1.P95,
+			bs.Delta.IDSwitches.P5, bs.Delta.IDSwitches.P95, bs.Delta.Fragmentations.P5, bs.Delta.Fragmentations.P95)
+	}
 	if c.IdentityAcceptance != nil && c.IdentityAcceptance.Verdict != "pass" {
 		fmt.Fprintf(stderr, "identity acceptance: %s (%s)\n", c.IdentityAcceptance.Verdict, c.IdentityAcceptance.Reason)
 		return 3
@@ -154,6 +183,9 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	bundleDir := fs.String("physical-bundle-dir", "", "write a verification bundle of the physical scoring to this new or empty directory: pinned inputs, options and outputs (needs -physical-reference; check it with verify-bundle)")
 	class := fs.Bool("class", false, "also report each arm's class measure (JSON key class): the class the following gate reads from the tracks matched to each reviewed object, per frame and at the track's end; needs the arms' solid-body rows (replay -experiment solid_body)")
 	jsonPath := fs.String("json", "", "comparison JSON path (default: stdout)")
+	bootstrapDraws := fs.Int("bootstrap", 0, "also draw the split's reviewed objects with replacement this many times, score both arms on each draw (the same draws for both), and report percentiles and the paired delta; needs -bootstrap-json")
+	bootstrapSeed := fs.Int64("bootstrap-seed", 1, "seed for -bootstrap's draws; the same seed gives the same draws")
+	bootstrapPath := fs.String("bootstrap-json", "", "where -bootstrap writes its result")
 	markdownPath := fs.String("markdown", "", "comparison Markdown path (optional)")
 	armA := registerArm(fs, "a", "A")
 	armB := registerArm(fs, "b", "B")
@@ -248,7 +280,14 @@ func parsePerFrame(args []string, stderr io.Writer) (*perFrameRequest, int) {
 	if *bundleDir != "" && cfg.Physical == nil {
 		return nil, usageError(fs, stderr, fmt.Errorf("-physical-bundle-dir needs -physical-reference"))
 	}
-	return &perFrameRequest{identityGate: *identityGate, cfg: cfg, jsonPath: *jsonPath, markdownPath: *markdownPath, bundleDir: *bundleDir}, 0
+	if *bootstrapDraws < 0 {
+		return nil, usageError(fs, stderr, fmt.Errorf("-bootstrap %d: want a positive number of draws", *bootstrapDraws))
+	}
+	if (*bootstrapDraws > 0) != (*bootstrapPath != "") {
+		return nil, usageError(fs, stderr, fmt.Errorf("-bootstrap and -bootstrap-json go together"))
+	}
+	return &perFrameRequest{identityGate: *identityGate, cfg: cfg, jsonPath: *jsonPath, markdownPath: *markdownPath, bundleDir: *bundleDir,
+		bootstrap: perframeeval.BootstrapOptions{Draws: *bootstrapDraws, Seed: *bootstrapSeed}, bootstrapPath: *bootstrapPath}, 0
 }
 
 // printPerFrameSummary writes the operator's one-screen summary.

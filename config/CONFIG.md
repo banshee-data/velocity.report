@@ -380,14 +380,14 @@ them, and the server cannot run them: `adaptive_uncertainty`,
 `flip_rule`, `no_region_overrides`, `region_overrides_volatile_only`,
 `region_overrides_quiet_only`, `region_overrides_cell_tercile`,
 `volatile_window_cap_1m`, `volatile_window_cap_2m`, `support_filter`,
-`settling_honest`, `dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
+`settling_honest`, `settling_relative_0075`, `dwell_policy`, `dwell_policy_t40`, `dwell_policy_t60`,
 `dwell_policy_t40_drift2m`, `dwell_policy_t40_median`, `measurement_time`,
 `capture_gap_predict`, `coast_support`, `coast_time_inflation`,
 `class_coast_bounds`, `reacquisition_guard`, `occlusion_continuity`,
 `contested_rejoin` (with the reacquisition guard it needs), `tentative_priority`,
 `class_identity`, `containment_claim` (which needs `solid_body`,
 `solid_body_containment` and `solid_body_full_members`), `overlap_end_1`, `overlap_end_3` (one of the two), its qualifiers
-`overlap_end_body` and `overlap_end_older`, `fixed_lag_rts`, `surface_ground` (the
+`overlap_end_body` and `overlap_end_older`, `birth_gate_body` (which needs `overlap_end_body`), `fixed_lag_rts`, `surface_ground` (the
 replay tools' surface-ground flags by name) and `box_ground` (which needs the box model). An arm that uses one runs through the offline replay tools,
 and its report names the experiment beside the set. `velocity lidar pcap-replay --experiment`
 takes the same names and combination rules as `lidar-state-estimation-baseline -experiment`,
@@ -400,8 +400,8 @@ has recorded beside its VRLOG since October 2026 (`filter_record.ndjson.gz`); th
 header names the trail's estimator and stage.
 
 The L3 background experiments among them (`no_region_overrides`, the
-`region_overrides_*` and `volatile_window_cap_*` names, `support_filter` and
-`settling_honest`) also run in `lidar-bench -experiment`. A replay names at most one of
+`region_overrides_*` and `volatile_window_cap_*` names, `support_filter`,
+`settling_honest` and `settling_relative_0075`) also run in `lidar-bench -experiment`. A replay names at most one of
 `no_region_overrides` and the two scopes, and at most one window cap. It may
 not name `region_overrides_cell_tercile` with `no_region_overrides`, or a
 window cap with `no_region_overrides` or `region_overrides_quiet_only`: under

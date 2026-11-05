@@ -17,3 +17,13 @@ Fragment stitching across an occlusion, along drawn lane segments, is l5id0007 t
 The [current-default reacquisition refresh](l5id0013.md) registers reproducible overlap/tentative arms and an explicit labelled held-out acceptance component.
 
 The [S3 likelihood/containment comparison](l5id0011.md) has checked-in parameter sets and a [cloud report](../../../docs/lidar/operations/l5-likelihood-containment-2026-10.md).
+
+## The kirk0 anchor
+
+l5id0015 (2026-11-05) bootstrapped the defaults on kirk0's tuning split (19 scored objects, the
+pack reconstructed by `lidar-pack-rebuild`, main `9f13d2a`). Full comparison: HOTA 0.4284, IDF1
+0.4728, 90 switches, 46 fragmentations. Half-widths of the 5th to 95th percentile interval over
+2,000 draws of the objects: HOTA 0.063, IDF1 0.057, switches 119. A kirk0 clause bound tighter
+than these cannot be told from the sample; state each kirk0 bound against them, and record the
+`a0` figures a run reads beside these, finding the cause before reading a candidate when they
+differ. [Report](../../../docs/lidar/operations/cloud-run-kirk0-labelled-2026-11.md).

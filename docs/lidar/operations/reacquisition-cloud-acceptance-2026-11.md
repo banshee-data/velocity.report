@@ -4,6 +4,11 @@
 - **Spec:** [l5id0013](../../../data/experiments/l5id/l5id0013.md)
 - **Scope:** Default-off identity candidates and the labelled per-frame gate component
 
+**Update (2026-11-05, later).** The labelled tuning clauses this report left open were read on a
+kirk0 pack rebuilt in the cloud: `body-older-tentative` passes l5id0004's limits against `a0` and
+`body-older` fails on IDF1 by 0.0007. The held-out step still waits on label0001. See
+[kirk0's labels in a cloud run](cloud-run-kirk0-labelled-2026-11.md#the-labelled-clauses-929-and-930-could-not-read).
+
 ## Implementation
 
 The optional `l5.cv_kf_v1.identity` block carries tentative priority and overlap

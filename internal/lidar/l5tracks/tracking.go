@@ -186,6 +186,9 @@ type TrackedObject struct {
 	// overlapCoasts counts this coast's frames whose drawn box lay on a
 	// live confirmed track's (TrackerConfig.OverlapEndFrames).
 	overlapCoasts int
+	// birthGated counts the frames a tentative track's update lay inside a
+	// live confirmed body (TrackerConfig.BirthGateOnBody).
+	birthGated int
 
 	// Extent beliefs: revisable lower-bound estimates of the object's body
 	// dimensions, built from confidently assigned observations only. They are
@@ -549,6 +552,13 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 	// Step 3: Update matched tracks
 	matchedTracks := make(map[string]bool)
 	newlyConfirmed := 0
+	// The live bodies a tentative track may not be born inside: the
+	// confirmed tracks matched this frame, measured before any update or
+	// promotion, so the test reads the same bodies whatever the order.
+	var birthBodies []drawnRect
+	if t.Config.BirthGateOnBody {
+		birthBodies = t.liveConfirmedBodies(clusters, associations)
+	}
 	for clusterIdx, trackID := range associations {
 		if trackID != "" {
 			track := t.Tracks[trackID]
@@ -557,6 +567,12 @@ func (t *Tracker) updateFrame(clusters []WorldCluster, timestamp time.Time, gap 
 			t.attachNearEdgePair(track, clusterIdx)
 			if !t.updateMatched(track, clusters[clusterIdx], nowNanos) {
 				continue
+			}
+			if t.Config.BirthGateOnBody && track.TrackState == TrackTentative {
+				if t.birthGate(track, birthBodies, nowNanos) {
+					deletedThisFrame++
+					continue
+				}
 			}
 
 			// Promote tentative → confirmed

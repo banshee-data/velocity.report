@@ -39,10 +39,18 @@ type BackgroundParams struct {
 	// delta under the threshold or the warm-up ceiling. Go-level and default
 	// false, so the config fingerprint does not move (replay experiment
 	// settling_honest, l3bg0021).
-	SettlingHonestFirstCheck   bool
-	PostSettleUpdateFraction   float32 // optional lower alpha after settle for stability
-	ForegroundMinClusterPoints int     // min points for a cluster to be forwarded/considered
-	ForegroundDBSCANEps        float32 // clustering radius for foreground gating
+	SettlingHonestFirstCheck bool
+	// SettlingRelativeSpreadRatio, when positive, judges the spread delta
+	// against this share of the observed cells' mean spread at the same
+	// check, in place of the absolute SettlingMaxSpreadDelta: a busy scene
+	// holds a larger delta by traffic alone, which an absolute threshold
+	// reads as never settling (l3bg0022). Go-level and zero by default, so
+	// the config fingerprint does not move (replay experiment
+	// settling_relative_0075, l3bg0030).
+	SettlingRelativeSpreadRatio float64
+	PostSettleUpdateFraction    float32 // optional lower alpha after settle for stability
+	ForegroundMinClusterPoints  int     // min points for a cluster to be forwarded/considered
+	ForegroundDBSCANEps         float32 // clustering radius for foreground gating
 	// ForegroundMaxInputPoints caps the number of points fed into the core DBSCAN
 	// loop. When the input exceeds this value, uniform random subsampling is
 	// applied to keep runtime bounded. If this value is zero or negative, a

@@ -78,6 +78,11 @@ const (
 	// the first convergence check after a reset failing on its unmeasured
 	// spread delta instead of passing on it (l3bg0021).
 	ExperimentSettlingHonest = "settling_honest"
+	// ExperimentSettlingRelative0075:
+	// l3grid.BackgroundParams.SettlingRelativeSpreadRatio at 0.075, the ratio
+	// l3bg0030 fixed from l3bg0022's trajectories: the spread delta is judged
+	// against 7.5 % of the mean spread rather than the absolute threshold.
+	ExperimentSettlingRelative0075 = "settling_relative_0075"
 	// ExperimentDwellPolicy: pipeline.TrackingPipelineConfig.Dwell, the
 	// beam-wise review's dwell policy (Section 5.1): a confirmed track that
 	// has stood still for pipeline.DwellAbsorbAfter has its object's returns
@@ -163,6 +168,12 @@ const (
 	// and are refused without it: the on-body test, and ending the younger.
 	ExperimentOverlapEndBody  = "overlap_end_body"
 	ExperimentOverlapEndOlder = "overlap_end_older"
+	// ExperimentBirthGateBody is TrackerConfig.BirthGateOnBody: a tentative
+	// track inside a live confirmed track's observed returns does not
+	// confirm, and ends after MaxMisses such frames (experiment l5id0014). It
+	// reads the overlap end's on-body test and is refused without
+	// overlap_end_body.
+	ExperimentBirthGateBody = "birth_gate_body"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -328,6 +339,7 @@ var knownExperiments = map[string]bool{
 	ExperimentNoRegionOverrides:    true,
 	ExperimentSupportFilter:        true,
 	ExperimentSettlingHonest:       true,
+	ExperimentSettlingRelative0075: true,
 	ExperimentDwellPolicy:          true,
 	ExperimentDwellPolicyT40:       true,
 	ExperimentDwellPolicyT60:       true,
@@ -346,6 +358,7 @@ var knownExperiments = map[string]bool{
 	ExperimentOverlapEnd3:          true,
 	ExperimentOverlapEndBody:       true,
 	ExperimentOverlapEndOlder:      true,
+	ExperimentBirthGateBody:        true,
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 
@@ -439,6 +452,7 @@ var backgroundExperiments = map[string]bool{
 	ExperimentVolatileWindowCap2m:         true,
 	ExperimentSupportFilter:               true,
 	ExperimentSettlingHonest:              true,
+	ExperimentSettlingRelative0075:        true,
 }
 
 // IsBackgroundExperiment reports whether an experiment acts on the L3
@@ -605,6 +619,11 @@ func ApplyBackgroundExperiments(bgMgr *l3grid.BackgroundManager, experiments []s
 	if hasExperiment(experiments, ExperimentSettlingHonest) {
 		if err := bgMgr.SetSettlingHonestFirstCheck(true); err != nil {
 			return fmt.Errorf("apply %s: %w", ExperimentSettlingHonest, err)
+		}
+	}
+	if hasExperiment(experiments, ExperimentSettlingRelative0075) {
+		if err := bgMgr.SetSettlingRelativeSpreadRatio(0.075); err != nil {
+			return fmt.Errorf("apply %s: %w", ExperimentSettlingRelative0075, err)
 		}
 	}
 	return nil

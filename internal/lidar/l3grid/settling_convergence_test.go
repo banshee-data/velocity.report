@@ -175,3 +175,48 @@ func TestSettlingTrajectoryRecordsEachEvaluation(t *testing.T) {
 		t.Errorf("%d checks survive a reset, want none", n)
 	}
 }
+
+// A relative ratio judges the spread delta against a share of the mean
+// spread, so a busy scene whose delta sits above the absolute threshold by
+// traffic alone can still settle, while the other criteria still bind
+// (l3bg0030).
+func TestRelativeThresholdsJudgeTheDeltaAgainstTheMeanSpread(t *testing.T) {
+	bm := NewBackgroundManagerDI("relative-thresholds", 4, 8, convergenceParams(), nil)
+	thresholds, armed := bm.Grid.settlingThresholdsLocked()
+	if !armed {
+		t.Fatal("setup: convergence is not armed")
+	}
+	busy := SettlingMetrics{CoverageRate: 0.95, SpreadDeltaRate: 0.01, RegionStability: 1, MeanConfidence: 60, MeanSpread: 0.2}
+	if busy.IsConverged(relativeThresholds(thresholds, busy, 0)) {
+		t.Fatal("ratio off: a delta of 0.01 passed the absolute 0.001")
+	}
+	if !busy.IsConverged(relativeThresholds(thresholds, busy, 0.075)) {
+		t.Fatal("ratio 0.075 of a 0.2 m mean spread is 0.015; a delta of 0.01 should pass")
+	}
+	unsettled := busy
+	unsettled.SpreadDeltaRate = 0.02
+	if unsettled.IsConverged(relativeThresholds(thresholds, unsettled, 0.075)) {
+		t.Fatal("a delta of 0.02 passed a relative threshold of 0.015")
+	}
+	sparse := busy
+	sparse.CoverageRate = 0.5
+	if sparse.IsConverged(relativeThresholds(thresholds, sparse, 0.075)) {
+		t.Fatal("the relative ratio let a grid under its coverage criterion settle")
+	}
+	if got := relativeThresholds(thresholds, busy, 0); got != thresholds {
+		t.Fatalf("ratio off changed the thresholds: %+v", got)
+	}
+}
+
+func TestSetSettlingRelativeSpreadRatio(t *testing.T) {
+	bm := NewBackgroundManagerDI("relative", 4, 8, convergenceParams(), nil)
+	if err := bm.SetSettlingRelativeSpreadRatio(0.075); err != nil {
+		t.Fatal(err)
+	}
+	if bm.Grid.Params.SettlingRelativeSpreadRatio != 0.075 {
+		t.Fatalf("ratio %v", bm.Grid.Params.SettlingRelativeSpreadRatio)
+	}
+	if err := bm.SetSettlingRelativeSpreadRatio(-1); err == nil {
+		t.Fatal("a negative ratio was accepted")
+	}
+}
