@@ -219,3 +219,32 @@ def test_speed_tail_by_age(tmp_path):
         and abs(tail["under_1s"]["median_abs"] - 1.0) < 1e-9
     )
     assert tail["3s_or_more"]["pairs"] == 0
+
+
+def test_database_rows_meet_on_their_frame_time(tmp_path):
+    """Replay evidence stamps each row with its cluster's own time; two tracks in one frame
+    share only frame_unix_nanos. Coverage must meet on the frame."""
+
+    def db(path, offset_ns):
+        con = sqlite3.connect(path)
+        con.execute(
+            "CREATE TABLE lidar_tracks (track_id TEXT, start_unix_nanos INTEGER, end_unix_nanos INTEGER, track_duration_secs REAL)"
+        )
+        con.execute(
+            "CREATE TABLE lidar_track_observations (track_id TEXT, ts_unix_nanos INTEGER, frame_unix_nanos INTEGER, x REAL, y REAL, speed_mps REAL)"
+        )
+        rows = drive(0, 5)
+        t0, t1 = int(rows[0][0] * S), int(rows[-1][0] * S)
+        con.execute("INSERT INTO lidar_tracks VALUES ('car',?,?,?)", (t0, t1, 5.0))
+        for t, x, y, v in rows:
+            frame = int(round(t * S))
+            con.execute(
+                "INSERT INTO lidar_track_observations VALUES ('car',?,?,?,?,?)",
+                (frame + offset_ns, frame, x, y, v),
+            )
+        con.commit()
+        con.close()
+        return str(path)
+
+    out = fc.compare(db(tmp_path / "a.db", 3_000_000), db(tmp_path / "b.db", 7_000_000))
+    assert out["lost"] == 0 and out["matched"] == 1

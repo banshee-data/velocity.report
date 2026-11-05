@@ -125,10 +125,17 @@ def load(path):
         if box_cols <= cols
         else ""
     )
+    # Each row's ts_unix_nanos is its own cluster's acquisition time, so rows
+    # of two tracks in one frame differ in it; frame_unix_nanos is the frame
+    # they share, the time a rows CSV carries. Older evidence lacks it.
+    stamp = "frame_unix_nanos" if "frame_unix_nanos" in cols else "ts_unix_nanos"
     for row in con.execute(
-        "SELECT track_id, ts_unix_nanos, x, y, speed_mps"
+        "SELECT track_id, "
+        + stamp
+        + ", x, y, speed_mps"
         + extra
-        + " FROM lidar_track_observations ORDER BY track_id, ts_unix_nanos"
+        + " FROM lidar_track_observations ORDER BY track_id, "
+        + stamp
     ):
         tid, ts, x, y, spd = row[:5]
         box = None
