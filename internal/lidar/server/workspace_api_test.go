@@ -414,3 +414,21 @@ func TestWorkspaceRedactsQualificationItems(t *testing.T) {
 		t.Fatalf("%d %+v", status, out)
 	}
 }
+
+// The inventory is paged by the server: a page holds what it asks for and
+// says how many match.
+func TestWorkspacePagesServerSide(t *testing.T) {
+	e := newWorkspaceEnv(t)
+	for _, c := range []string{"a", "b", "c"} {
+		fx.Pack(t, e.root, fx.PackOptions{Capture: c, Run: "run-a", PCAPBasename: c + ".pcapng"})
+	}
+	srv, _ := e.server("")
+	_, resp, _ := call(t, http.MethodGet, srv.URL+"/api/lidar/workspace?limit=1&offset=1", nil)
+	if resp["total"] != float64(3) || len(rowsOf(t, resp)) != 1 || resp["offset"] != float64(1) {
+		t.Fatalf("%+v", resp)
+	}
+	_, resp, _ = call(t, http.MethodGet, srv.URL+"/api/lidar/workspace?limit=1000", nil)
+	if resp["limit"] != float64(maxWorkspacePage) {
+		t.Fatalf("page size is capped: %v", resp["limit"])
+	}
+}

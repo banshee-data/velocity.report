@@ -318,6 +318,14 @@ func (s *Service) Check(req Request) Decision {
 	return s.decide(req, s.readPolicy())
 }
 
+// Checker reads the policy once and decides many requests against it,
+// unrecorded: what an inventory of many items needs, so the manifest and
+// every split file are read once per page rather than once per item.
+func (s *Service) Checker() func(Request) Decision {
+	p := s.readPolicy()
+	return func(req Request) Decision { return s.decide(req, p) }
+}
+
 // Authorize decides and records the decision, allowed or refused, before
 // the caller loads a sample. It returns ErrNotEligible (wrapped with every
 // blocking reason) for a refusal, and refuses when the record cannot be

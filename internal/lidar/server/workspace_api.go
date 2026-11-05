@@ -358,14 +358,14 @@ func (ws *Server) buildWorkspace(now time.Time) ([]workspaceRow, map[string]sour
 	} else {
 		sources["workflow"] = sourceState{Error: "no database: workflow notes, assignments and blockers cannot be kept"}
 	}
-	svc := ws.eligibilityService()
+	check := ws.eligibilityService().Checker()
 	out := make([]workspaceRow, 0, len(order))
 	for _, key := range order {
 		r := rows[key]
 		if w := workflow[key]; w != nil {
 			r.Workflow = w
 		}
-		ws.decideRow(svc, r)
+		decideRow(check, r)
 		facts := labelwork.RowFacts{SourceRevision: rowRevision(r), Progress: r.Progress, HasLabelSet: r.LabelSet != nil,
 			Cohort: r.Cohort, Protected: r.Protected, Frozen: r.Splits}
 		if r.LabelSet != nil {
@@ -464,7 +464,7 @@ func rowRevision(r *workspaceRow) string {
 // the split that holds it out, else a development evaluation. The captures
 // are named by the hashes label sets verified; a capture known only by name
 // has no identity and is refused.
-func (ws *Server) decideRow(svc *eligibility.Service, r *workspaceRow) {
+func decideRow(check func(eligibility.Request) eligibility.Decision, r *workspaceRow) {
 	var inputs []eligibility.Input
 	for _, c := range r.Captures {
 		id := eligibility.Identity{Kind: eligibility.KindCapture, Basename: c.Basename, SHA256: c.SHA256}
@@ -485,7 +485,7 @@ func (ws *Server) decideRow(svc *eligibility.Service, r *workspaceRow) {
 			req.HeldOutScore, req.SplitDigest = true, sp.SplitDigest
 		}
 	}
-	d := svc.Check(req)
+	d := check(req)
 	r.Eval = &workspaceEligibility{Purpose: req.Purpose, HeldOutScore: req.HeldOutScore, SplitDigest: req.SplitDigest, Allowed: d.Allowed, Reasons: []string{}}
 	for _, reason := range d.Reasons {
 		if reason.Blocking {
