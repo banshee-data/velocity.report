@@ -301,7 +301,9 @@ const (
 	// names any other option (ground0002 to ground0005). The tools' own
 	// surface-ground flags set the same field; the name also folds the
 	// option into the parameter hash, which the flags do not.
-	ExperimentSurfaceGround = "surface_ground"
+	ExperimentSurfaceGround       = "surface_ground"
+	ExperimentSurfaceGroundGlobal = "surface_ground_global"
+	ExperimentSurfaceGround5m     = "surface_ground_5m"
 	// ExperimentBoxGround: l5tracks.BoxModelConfig.GroundAnchor, the
 	// published box's base at the fitted surface's height under its centre
 	// and its height a held belief in the body's top above it
@@ -395,6 +397,8 @@ var knownExperiments = map[string]bool{
 	ExperimentNearEdgeTrack:                     true,
 	ExperimentNearEdgeTrackA1:                   true,
 	ExperimentSurfaceGround:                     true,
+	ExperimentSurfaceGroundGlobal:               true,
+	ExperimentSurfaceGround5m:                   true,
 	ExperimentBoxGround:                         true,
 }
 

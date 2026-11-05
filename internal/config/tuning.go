@@ -178,6 +178,9 @@ type L4Config struct {
 
 // L4Common contains fields shared by all L4 engines.
 type L4Common struct {
+	// SurfaceGround opts into P11 clipping relative to the settled background.
+	// Absent, the height band and the legacy fingerprint are unchanged.
+	SurfaceGround *L4SurfaceGround `json:"surface_ground,omitempty"`
 	// FragmentJoin is an opt-in motion-supported joining candidate. Omitted
 	// configurations retain their existing fingerprint and clustering.
 	FragmentJoin               *L4FragmentJoin `json:"fragment_join,omitempty"`
@@ -195,6 +198,15 @@ type L4Common struct {
 	MaxClusterDiameter    float64            `json:"max_cluster_diameter"`
 	MinClusterDiameter    float64            `json:"min_cluster_diameter"`
 	MaxClusterAspectRatio float64            `json:"max_cluster_aspect_ratio"`
+}
+
+// L4SurfaceGround describes the surface-relative clip. CellMetres zero uses
+// one global plane; positive sizes use regional planes.
+type L4SurfaceGround struct {
+	Enabled       bool    `json:"enabled"`
+	FloorMetres   float64 `json:"floor_metres"`
+	CeilingMetres float64 `json:"ceiling_metres"`
+	CellMetres    float64 `json:"cell_metres"`
 }
 
 // L4FragmentJoin bounds the evidence a prior body may lend to joining two

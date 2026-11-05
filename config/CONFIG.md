@@ -739,3 +739,31 @@ runtime-parameter API. The four `association-*.json` parameter sets reproduce
 [l5id0011](../data/experiments/l5id/l5id0011.md); the
 [comparison report](../docs/lidar/operations/l5-likelihood-containment-2026-10.md)
 records the evidence and remaining qualification gates.
+
+## Default-off surface-relative ground clipping
+
+The optional `l4.dbscan_xy_v1.surface_ground` block carries `enabled`,
+`floor_metres`, `ceiling_metres` and `cell_metres`; all four keys are required
+when the block is present. Bounds must be finite, with
+`0 <= floor_metres < ceiling_metres` and `cell_metres >= 0`. Zero cell size
+selects one global plane; a zero floor is an explicit valid value.
+
+Absent, the existing height band and default fingerprint are unchanged.
+`remove_ground` remains the master switch. Startup and offline replay share the
+block. Runtime tuning accepts the complete block and its four nested paths;
+publish a complete block before editing its fields. Updates validate together
+and the callback reads one immutable atomic snapshot per frame.
+
+`surface_ground`, `surface_ground_global` and `surface_ground_5m` replay aliases
+select respectively 10 m, global and 5 m cells, all with floor 0.2 m and ceiling
+4.5 m. A tuning file or legacy flags must agree with a named arm; contradictory
+combinations refuse rather than overriding the recorded arm. The three
+`surface-ground-*.json` files are registered development parameter sets.
+
+The fit follows the settled background's monotonic revision. Changes coalesce
+to at most one fit per capture-time second, including failed-fit retries.
+A reset or missing settled support invalidates the old surface; the absolute
+height band applies until a fit succeeds. Changing the region size or enabling
+again creates a new fit; capture-time rewinds do not pin a future cached fit.
+See [engineering validation](../docs/lidar/operations/ground-surface-live-cloud-2026-11.md).
+This is not default promotion; corpus/physical scoring and Pi cost remain open.

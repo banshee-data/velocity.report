@@ -279,3 +279,15 @@ func FitRegionalGroundSurfaceFromBackground(manager *BackgroundManager, cellMetr
 	}
 	return FitRegionalGroundSurface(manager.ToASCPoints(), cellMetres)
 }
+
+// GroundSurfaceVersion returns the fit input's revision and settling state.
+// Unlike ChangesSinceSnapshot, persistence cannot rewind this revision.
+func (bm *BackgroundManager) GroundSurfaceVersion() (uint64, bool) {
+	if bm == nil || bm.Grid == nil {
+		return 0, false
+	}
+	g := bm.Grid
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.surfaceRevision, g.SettlingComplete
+}
