@@ -55,6 +55,7 @@ func AssessIdentity(c Comparison) IdentityGate {
 		}
 	}
 	if g.Verdict == "fail" {
+		g.Reason = "one or more predeclared labelled identity limits failed"
 		return g
 	}
 	if !c.Reference.HeldOut || c.Reference.SplitRole != annotation.SplitRoleHeldOut || c.Reference.SplitDigest == "" || c.Reference.SplitRevision <= 0 || c.Reference.Digest == "" || c.Reference.Policy.Status != annotation.ReferenceReviewedOnly {
