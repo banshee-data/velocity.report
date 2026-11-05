@@ -101,7 +101,8 @@ passed):
   (`pose_source: icp`).
 
 The block holds no translation. `scene-vectors.py` reads it from Gerardus at export time
-(`into_sensor`, `tools/s2-archive/scene-vectors.py:307-310`) and does not write it. Gerardus's
+(`into_sensor`) and does not write it into the vectors. Since Item 1 each scene's
+`assets/placement.json` carries the full pose and the transform into the city frame. Gerardus's
 `REGISTRATION-STATUS.md` still describes 2026-10-24 and says none is accepted; it is out of date.
 
 ## Findings
@@ -438,8 +439,8 @@ files, so several sites play at once without new endpoints.
 
 ## Dependencies
 
-- Gerardus CITY-VIEW-TILES: the first tile epoch gates Items 3, 6 and 7. Items 1 and 5 can start
-  now.
+- Gerardus CITY-VIEW-TILES: the first tile epoch gates Items 3, 6 and 7. It was baked on
+  2026-11-05 (Item 2), and Item 1 is done, so Items 3 to 8 can start.
 - Accepted poses: all 24 published sites have one. A new site needs one before it plays in the city
   (Gerardus M2 and M3).
 - D-34: where scene assets and tiles are hosted publicly.
@@ -489,12 +490,17 @@ None recorded. The owner settled the last two on 2026-11-04 (see Design decision
 - [x] Owner answers: several sites at once, kept separate; `/city/` route; street names; own
       clocks; nearby sites from scene files
 - [x] Accepted poses confirmed for all 24 published scenes, from their vectors files
+- [x] Item 1: placement sidecar and `city/sites.json`: 24 scenes `placed`, soma1 `not_placed`
+      (unlocated); site-to-city in `tools/s2-archive/city_frame.py`, held to Gerardus's tile
+      origins and one site's GeoJSON to the millimetre; format in
+      [city-view.md](../ui/city-view.md#placement-files) (`M`)
+- [x] Item 2: Gerardus city tiles, first epoch `20261105T200804Z`, baked on arrow on 2026-11-05
+      into `/mnt/results/gerardus/city-tiles/`: 8,428 tiles, 277 MB gzip (banshee-data/gerardus
+      PR 71) (`L`)
 - [x] Item 5: visualiser `SiteContext` and site switching (`M`)
 
 ### Outstanding
 
-- [ ] Item 1: placement sidecar and `city/sites.json` (`M`)
-- [ ] Item 2: Gerardus city tiles, first epoch (tracked in Gerardus) (`L`)
 - [ ] Item 3: web city view, zoomed out (`M`)
 - [ ] Item 4: web, into a site and between sites (`M`)
 - [ ] Item 6: visualiser city frame, precision and tile reader (`L`)

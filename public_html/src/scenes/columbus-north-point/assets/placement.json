@@ -1,0 +1,172 @@
+{
+  "version": 1,
+  "export": "placement",
+  "site": "columbus-north-point",
+  "state": "placed",
+  "purpose": "Where this scene's sensor frame sits in its site frame and in the city frame of Gerardus's city tiles, from the pose an operator accepted for the site's scan. Placement and provenance only; the scene's own files stay in the sensor frame.",
+  "record": {
+    "record_id": "gms:01M678THXY2V5KK866E61J4353",
+    "registration_state": "registered",
+    "pose_source": "icp",
+    "model_id": "sha256:49be8fd46b0b7d483fa7d5e44d03ff042969a4389d25ac0268b467a54ac7c762",
+    "bundle_id": "sha256:f06297274e2e50001b8da6f786120813f68df50b103861a8d43bd6a3ea7cba01",
+    "reviewed_at": "2026-10-30T20:43:06.046081825Z",
+    "sigma_horizontal_m": 0.007,
+    "sigma_heading_deg": 0.007,
+    "check": {
+      "method": "share of wall and kerb edge samples with a settled-background point in the same or a neighbouring 0.25 m voxel, at the pose and at the pose moved 2 m or turned 5 degrees; the pose passes when it scores highest, on 50 samples or more",
+      "samples": 8000,
+      "at_pose": 0.018,
+      "moved": {
+        "+2m_e+0m_n+0deg": 0.008,
+        "-2m_e+0m_n+0deg": 0.007,
+        "+0m_e+2m_n+0deg": 0.013,
+        "+0m_e-2m_n+0deg": 0.014,
+        "+0m_e+0m_n+5deg": 0.008,
+        "+0m_e+0m_n-5deg": 0.01
+      },
+      "passed": true
+    }
+  },
+  "frames": {
+    "sensor": {
+      "frame_id": "sensor/hesai-pandar40p",
+      "axes": "the scene's own frame: origin at the sensor, Z up"
+    },
+    "site": {
+      "frame_id": "site/808580e3f",
+      "l16": "808580e3f",
+      "origin": {
+        "lat_deg": 37.8065706467,
+        "lon_deg": -122.417702837,
+        "navd88_m": 0.0
+      },
+      "horizontal_datum": "NAD83(2011)",
+      "vertical_datum": "NAVD88",
+      "axes": "east-north-up at the centre of the S2 L16 cell, metres, Z up"
+    },
+    "city": {
+      "format": "gerardus-city-tiles-1",
+      "origin": {
+        "lat_deg": 37.76,
+        "lon_deg": -122.44,
+        "navd88_m": 0.0
+      },
+      "horizontal_datum": "NAD83(2011)",
+      "vertical_datum": "NAVD88",
+      "navd88_zero_ellipsoidal_m": -32.2,
+      "axes": "east-north-up at the origin, metres, Z up; NAVD88 heights taken as ellipsoidal, so z falls away by the earth's curvature from the origin"
+    }
+  },
+  "matrix_layout": "4x4, row-major, metres: p_out = M[0:3][0:3] * p_in + M[0:3][3]; the last row is [0, 0, 0, 1]",
+  "sensor_to_site": {
+    "rotation_wxyz": [
+      0.398796389949,
+      -0.046919859453,
+      -0.027146114097,
+      -0.915435991559
+    ],
+    "translation_m": [
+      -33.157,
+      -78.8349,
+      9.7338
+    ],
+    "matrix": [
+      [
+        -0.677519932305,
+        0.732692521043,
+        0.064252711518,
+        -33.157
+      ],
+      [
+        -0.72759775361,
+        -0.680449055706,
+        0.087124000885,
+        -78.8349
+      ],
+      [
+        0.10755580073,
+        0.012278118617,
+        0.994123230557,
+        9.7338
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "site_to_city": {
+    "matrix": [
+      [
+        0.999999924278,
+        -0.000238553495,
+        0.000307468499,
+        1963.5474
+      ],
+      [
+        0.000238303503,
+        0.999999641245,
+        0.000812847666,
+        5169.2203
+      ],
+      [
+        -0.000307662296,
+        -0.000812774334,
+        0.999999622371,
+        -2.4028
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "sensor_to_city": {
+    "matrix": [
+      [
+        -0.677313239993,
+        0.732858564197,
+        0.064537584495,
+        1930.4122
+      ],
+      [
+        -0.727671521473,
+        -0.680264228157,
+        0.087947352022,
+        5090.3854
+      ],
+      [
+        0.108355580232,
+        0.012605743645,
+        0.994032274858,
+        7.4053
+      ],
+      [
+        0.0,
+        0.0,
+        0.0,
+        1.0
+      ]
+    ]
+  },
+  "heading_deg": 132.88,
+  "up_sensor": [
+    0.1075558007,
+    0.0122781186,
+    0.9941232306
+  ],
+  "marker": {
+    "source": "accepted_pose",
+    "city_enu_m": [
+      1930.412,
+      5090.385,
+      7.405
+    ]
+  },
+  "generated_by": "tools/s2-archive/scene-vectors.py"
+}

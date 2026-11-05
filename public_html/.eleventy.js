@@ -161,6 +161,9 @@ module.exports = async function (eleventyConfig) {
       [`src/scenes/${entry.name}/recordings`]: `surveys/${entry.name}/recordings`,
     });
   }
+  // The city site index (tools/s2-hilbert/generate-scene-map.mjs), read by the
+  // city views; static data, copied verbatim.
+  eleventyConfig.addPassthroughCopy({ "src/city/sites.json": "city/sites.json" });
   eleventyConfig.addPassthroughCopy({ "src/design": "design" });
 
   // Homepage uses a pure CSS file (not processed by Tailwind) — pass it through

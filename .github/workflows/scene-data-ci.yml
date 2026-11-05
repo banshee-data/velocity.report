@@ -12,6 +12,7 @@ on:
       - "public_html/scene-overrides.json"
       - "public_html/src/_data/scenes.json"
       - "public_html/src/_includes/scene-map.svg"
+      - "public_html/src/city/**"
       - "public_html/src/scenes/**"
       - "package.json"
       - "pnpm-lock.yaml"

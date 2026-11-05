@@ -8,8 +8,10 @@
  * once — in tools/s2-archive/map-marks.json, or as an override for a scene the
  * archive does not cover — moves the marker, the cell and the token together.
  *
- * Two files come out: the page data (src/_data/scenes.json) and the map SVG.
- * Nothing else is written, so nothing else can drift. The scene pages are
+ * Three files come out: the page data (src/_data/scenes.json), the map SVG,
+ * and the city site index (src/city/sites.json) the city views read, which
+ * adds each scene's placement sidecar to the page data's sites. Nothing else
+ * is written, so nothing else can drift. The scene pages are
  * paginated from the page data (src/scenes/survey-pages.11ty.js), and the
  * scene records are held in memory between the steps rather than checked in
  * as a second copy of what scenes.json already carries.
@@ -32,6 +34,7 @@ import {
   unpublishedSites,
 } from "./scene-sites.mjs";
 import { DATASET_REPO, DATASET_URL } from "../s2-archive/capture-names.mjs";
+import { buildCitySites } from "./city-sites.mjs";
 
 const TOOL_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TOOL_DIRECTORY, "..", "..");
@@ -59,6 +62,46 @@ const SVG_OUTPUT = path.join(
   "_includes",
   "scene-map.svg",
 );
+const CITY_OUTPUT = path.join(
+  REPO_ROOT,
+  "public_html",
+  "src",
+  "city",
+  "sites.json",
+);
+
+/**
+ * Each published scene's placement sidecar and recording start, by site id.
+ * A scene directory is named for its site (reconcileSceneDirectories keeps it
+ * so), and the sidecar names the site it was written for, so the two are
+ * checked against each other rather than trusted.
+ */
+async function readPlacements(sites) {
+  const placements = new Map();
+  const startsMs = new Map();
+  for (const site of sites) {
+    if (!site.published) continue;
+    const assets = path.join(SCENES_DIR, site.id, "assets");
+    try {
+      const sidecar = JSON.parse(
+        await readFile(path.join(assets, "placement.json"), "utf8"),
+      );
+      if (sidecar.site !== site.id) {
+        throw new Error(
+          `${site.id}/assets/placement.json was written for ${sidecar.site}`,
+        );
+      }
+      placements.set(site.id, sidecar);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+    const header = JSON.parse(
+      await readFile(path.join(assets, "part-000", "header.json"), "utf8"),
+    );
+    startsMs.set(site.id, sceneStartMs(header));
+  }
+  return { placements, startsMs };
+}
 
 /**
  * Move a published scene to the directory its site now names.
@@ -276,12 +319,19 @@ export async function generateSceneMap() {
     })),
   };
 
+  const city = buildCitySites({
+    sites: data.sites,
+    ...(await readPlacements(data.sites)),
+  });
+
   await mkdir(path.dirname(DATA_OUTPUT), { recursive: true });
   await mkdir(path.dirname(SVG_OUTPUT), { recursive: true });
+  await mkdir(path.dirname(CITY_OUTPUT), { recursive: true });
   await writeFile(DATA_OUTPUT, `${JSON.stringify(data, null, 2)}\n`, "utf8");
   await writeFile(SVG_OUTPUT, `${svg}\n`, "utf8");
+  await writeFile(CITY_OUTPUT, `${JSON.stringify(city, null, 2)}\n`, "utf8");
 
-  return { written: [DATA_OUTPUT, SVG_OUTPUT], model };
+  return { written: [DATA_OUTPUT, SVG_OUTPUT, CITY_OUTPUT], model };
 }
 
 if (
