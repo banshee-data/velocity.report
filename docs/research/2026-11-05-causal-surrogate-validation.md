@@ -6,31 +6,33 @@ This note evaluates a newly surfaced causal-validation framework for roadside dr
 - **References:** `Wu2026` (new), `Nasri2026` (existing context); [canonical bibliography](../../data/maths/references.bib).
 - **Canonical:** [behaviour analytics plan](../plans/lidar-behaviour-analytics-plan.md), [state-estimation plan](../plans/lidar-state-estimation-plan.md), [crash-data context plan](../plans/platform-crash-data-integration-plan.md) and [backlog](../BACKLOG.md).
 
-## Meaningful addition — Wu and Flannagan (2026)
+## Evidence
 
-Kun-Feng (Ken) Wu and Carol Flannagan, *Accident Analysis & Prevention*, **“Validating crash surrogates: a causal graphical framework and a SHRP2 case study of hard braking”**, [DOI: 10.1016/j.aap.2026.108773](https://doi.org/10.1016/j.aap.2026.108773), [PubMed 42858486](https://pubmed.ncbi.nlm.nih.gov/42858486/). Published online October 10, 2026; indexed as volume 239, article 108773 (January 2027 issue).
+### Wu and Flannagan (2026)
 
-The authors propose a three-part procedure for validating a candidate *causal* crash surrogate: (1) justify the causal-identification assumptions for the surrogate–crash relationship; (2) estimate how much of an intervention's effect on crashes the surrogate captures; and (3) assess the surrogate paradox and comparability/transportability. Their worked example uses SHRP2 naturalistic-driving data and tests hard braking as a candidate surrogate for **rear-end crashes**.
+Kun-Feng (Ken) Wu and Carol Flannagan, _Accident Analysis & Prevention_, **“Validating crash surrogates: a causal graphical framework and a SHRP2 case study of hard braking”**, [DOI: 10.1016/j.aap.2026.108773](https://doi.org/10.1016/j.aap.2026.108773), [PubMed 42858486](https://pubmed.ncbi.nlm.nih.gov/42858486/). Published online October 10, 2026; indexed as volume 239, article 108773 (January 2027 issue).
+
+The authors propose a three-part procedure for validating a candidate _causal_ crash surrogate: (1) justify the causal-identification assumptions for the surrogate–crash relationship; (2) estimate how much of an intervention's effect on crashes the surrogate captures; and (3) assess the surrogate paradox and comparability/transportability. Their worked example uses SHRP2 naturalistic-driving data and tests hard braking as a candidate surrogate for **rear-end crashes**.
 
 **Evidence boundary:** the indexed abstract describes the method and example, not a universal hard-braking threshold or a quantified finding that hard braking is causally valid. This assessment does not reproduce the full paper's model or infer a numerical effect. A study of rear-end crash surrogacy does not establish the same relation for pedestrian or cyclist conflicts, fatal crashes, or every intersection geometry.
 
-A causally valid surrogate is specific to the intervention, target outcome and population. A reduction in the measured surrogate alone does not establish that an intervention prevented crashes. The *surrogate paradox* is the possibility that the surrogate improves while the desired crash outcome fails to improve or becomes worse, including because effects bypass the surrogate.
+A causally valid surrogate is specific to the intervention, target outcome and population. A reduction in the measured surrogate alone does not establish that an intervention prevented crashes. The _surrogate paradox_ is the possibility that the surrogate improves while the desired crash outcome fails to improve or becomes worse, including because effects bypass the surrogate.
 
 ## Three distinct claims for velocity.report
 
-| Claim | What must be shown | What the current field pipeline can support |
-| --- | --- | --- |
-| **Physical measurement validity** | Braking and acceleration represent vehicle motion rather than LiDAR viewpoint drift, centroid shifts, fragment reassociation or derivative noise. Timing, longitudinal direction, uncertainty, suppression and observation coverage are explicit. | A development/validation question; use reviewed physical references, the existing geometry and estimation gates, and supplemental GNSS/IMU passes. |
-| **Predictive safety association** | A declared event definition and exposure denominator associate with independently sourced crashes or qualified conflicts in held-out sites and periods, while traffic mix, road class, signal state and opportunity are accounted for. | Not established by an accurate braking measurement alone. Requires multi-site outcome and exposure evidence with appropriate spatial/temporal matching. |
-| **Causal surrogate validity** | With a clearly defined intervention and crash outcome, causal assumptions, estimable mediation, surrogate-paradox checks and cross-setting comparability hold. | Not established. Cannot be inferred from a cross-site ranking or single-site before/after braking change. Requires a separate future research design and outcome evidence. |
+| Claim                             | What must be shown                                                                                                                                                                                                                                | What the current field pipeline can support                                                                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Physical measurement validity** | Braking and acceleration represent vehicle motion rather than LiDAR viewpoint drift, centroid shifts, fragment reassociation or derivative noise. Timing, longitudinal direction, uncertainty, suppression and observation coverage are explicit. | A development/validation question; use reviewed physical references, the existing geometry and estimation gates, and supplemental GNSS/IMU passes.                         |
+| **Predictive safety association** | A declared event definition and exposure denominator associate with independently sourced crashes or qualified conflicts in held-out sites and periods, while traffic mix, road class, signal state and opportunity are accounted for.            | Not established by an accurate braking measurement alone. Requires multi-site outcome and exposure evidence with appropriate spatial/temporal matching.                    |
+| **Causal surrogate validity**     | With a clearly defined intervention and crash outcome, causal assumptions, estimable mediation, surrogate-paradox checks and cross-setting comparability hold.                                                                                    | Not established. Cannot be inferred from a cross-site ranking or single-site before/after braking change. Requires a separate future research design and outcome evidence. |
 
-The first claim is a **prerequisite for** the other two, but passing it is not evidence that the others passed. In particular, a LiDAR-derived hard-braking frequency is not automatically a *rear-end crash probability*.
+The first claim is a **prerequisite for** the other two, but passing it is not evidence that the others passed. In particular, a LiDAR-derived hard-braking frequency is not automatically a _rear-end crash probability_.
 
 ## Existing complementary evidence (not newly published)
 
-[Nasri et al. (2026), *Journal of Safety Research*](https://doi.org/10.1016/j.jsr.2026.04.008), reviewed in [the October 22 DRAC/TTC/PET note](2026-10-22/drac-and-conflict-metrics.md), analyzed **54.8 million one-second trajectory samples at 139 signalized intersections in Tucson**, linked to five years of police-reported crashes. DRAC was the strongest of the tested surrogate predictors across their model classes. In negative-binomial models, 1,000 additional *critical DRAC events* were associated with about **5–10% higher expected counts** of selected crash types. TTC contributed less; PET had little value at their one-second sampling resolution.
+[Nasri et al. (2026), _Journal of Safety Research_](https://doi.org/10.1016/j.jsr.2026.04.008), reviewed in [the October 22 DRAC/TTC/PET note](2026-10-22/drac-and-conflict-metrics.md), analyzed **54.8 million one-second trajectory samples at 139 signalized intersections in Tucson**, linked to five years of police-reported crashes. DRAC was the strongest of the tested surrogate predictors across their model classes. In negative-binomial models, 1,000 additional _critical DRAC events_ were associated with about **5–10% higher expected counts** of selected crash types. TTC contributed less; PET had little value at their one-second sampling resolution.
 
-This is **observational crash-count association, not causal mediation validation**. DRAC denotes a *required* deceleration to avoid a modeled collision under declared assumptions; it must not be relabeled as a measured hard-braking maneuver. The effect size is specific to the authors' event definitions, observation density, crash outcomes, model and study network; it is not a portable threshold for a 10 Hz nominal / lower effective-rate roadside LiDAR survey. Cross-study event rates cannot be compared without compatible exposure and sampling.
+This is **observational crash-count association, not causal mediation validation**. DRAC denotes a _required_ deceleration to avoid a modeled collision under declared assumptions; it must not be relabeled as a measured hard-braking maneuver. The effect size is specific to the authors' event definitions, observation density, crash outcomes, model and study network; it is not a portable threshold for a 10 Hz nominal / lower effective-rate roadside LiDAR survey. Cross-study event rates cannot be compared without compatible exposure and sampling.
 
 ## Implications for approach stability and spatial braking maps
 
@@ -56,7 +58,7 @@ If triggered, design a falsifiable study:
 
 No new field collection, crash database import or production metric is authorized by this note. Existing 05x physical measurement and 07x behavior schedules remain unchanged.
 
-## Open questions for future literature review
+## Open questions
 
 - What numerical surrogacy result, if any, does the full Wu–Flannagan paper obtain for hard braking and rear-end crashes? What exact hard-braking definition and treatment variable does it use?
 - Which assumptions can be tested or bounded using anonymized fixed-sensor surveys, and which require external crash/outcome and intervention records?
