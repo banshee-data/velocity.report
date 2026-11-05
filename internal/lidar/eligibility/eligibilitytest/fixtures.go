@@ -25,6 +25,8 @@ type PackOptions struct {
 	Objects []string
 	// Status is every object's and mask's review status.
 	Status annotation.ReviewStatus
+	// NoLabels leaves the pack without a label set, for Attach.
+	NoLabels bool
 }
 
 // Pack writes a three-sample pack with a label set and returns it.
@@ -72,6 +74,9 @@ func Pack(t testing.TB, root string, o PackOptions) *annotation.Pack {
 	p, err := annotation.OpenPack(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if o.NoLabels {
+		return p
 	}
 	s := annotation.NewSidecar(p)
 	s.Change = annotation.Provenance{Author: "op", Operation: "label"}
@@ -181,4 +186,57 @@ func CaptureEntry(id, site, sha, basename string) map[string]any {
 
 func fileSHA(path string) (string, error) {
 	return sha256File(path)
+}
+
+// LabelSetDir is the directory of the label set a pack links.
+func LabelSetDir(t testing.TB, p *annotation.Pack) string {
+	t.Helper()
+	link, err := annotation.ReadLabelSetLink(p.Dir)
+	if err != nil || link == nil {
+		t.Fatalf("pack %s links no label set: %v", p.Dir, err)
+	}
+	return link.LabelSetDir(p.Dir)
+}
+
+// Attach adds another run's pack of the same capture to a label set and
+// links it, as velocity lidar labels attach does.
+func Attach(t testing.TB, p *annotation.Pack, labelSetDir string) {
+	t.Helper()
+	ls, err := labelset.Open(labelSetDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := labelset.AddPackDomain(ls.Manifest.Layout, &ls.State, p); err != nil {
+		t.Fatal(err)
+	}
+	if err := ls.Save(labelset.Change{Author: "op", Operation: "attach_pack"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := annotation.WriteLabelSetLink(p, ls.Manifest.LabelSetID, labelSetDir); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Bind records a capture file in a label set's applies_to, as a successful
+// velocity lidar labels bind would, without reading a capture.
+func Bind(t testing.TB, labelSetDir, name, sha string) {
+	t.Helper()
+	path := filepath.Join(labelSetDir, labelset.ManifestFile)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	m["applies_to"] = []any{map[string]any{"name": name, "sha256": sha, "bytes": 1, "udp_port": 2369, "packets_found": 1,
+		"packets_missing": 0, "windows_complete": 3, "windows_partial": 0, "windows_missing": 0, "verified_utc": "2026-11-05T00:00:00Z"}}
+	out, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(out, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }

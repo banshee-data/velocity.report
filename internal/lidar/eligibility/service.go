@@ -372,16 +372,29 @@ func (s *Service) decide(req Request, p policy) Decision {
 	if s.cfg.Ledger == nil {
 		block(CodeLedgerUnavailable, "no use ledger: a development use that cannot be recorded is refused")
 	}
+	// Annotation review is how references are made: it exposes nothing to
+	// tuning, so what is unassigned or held out does not refuse it. Only
+	// what may be blind qualification data does.
+	review := req.Purpose == PurposeAnnotationReview
+	soft := func(code, msg string) {
+		if review {
+			d.Reasons = append(d.Reasons, Reason{Code: code, Message: msg})
+		} else {
+			block(code, msg)
+		}
+	}
 	switch {
 	case !p.configured:
-		block(CodeNotConfigured, "no cohort manifest is configured, so every capture is unassigned: assign sites and captures before development use (assignments are TBD)")
+		soft(CodeNotConfigured, "no cohort manifest is configured, so every capture is unassigned: assign sites and captures before development use (assignments are TBD)")
 	case p.manifestErr != nil:
 		block(CodeManifestInvalid, p.manifestErr.Error())
 	}
-	if p.registryErr != nil {
-		block(CodeRegistryIncomplete, "the frozen splits could not be read: "+p.registryErr.Error())
+	if s.cfg.SplitsDir == "" {
+		soft(CodeRegistryIncomplete, "no annotation root is configured, so the frozen splits that hold data out cannot be read")
+	} else if p.registryErr != nil {
+		soft(CodeRegistryIncomplete, "the frozen splits could not be read: "+p.registryErr.Error())
 	} else if len(p.registry.Unreadable) > 0 {
-		block(CodeRegistryIncomplete, "frozen splits that could not be read may hold data out: "+strings.Join(p.registry.Unreadable, "; "))
+		soft(CodeRegistryIncomplete, "frozen splits that could not be read may hold data out: "+strings.Join(p.registry.Unreadable, "; "))
 	}
 	var exposures map[string][]Use
 	if req.HeldOutScore && s.cfg.Ledger != nil {
@@ -406,10 +419,19 @@ func (s *Service) decideInput(req Request, p policy, in Input, exposures map[str
 		out.Reasons = append(out.Reasons, Reason{Code: code, Message: msg, Blocking: true})
 	}
 	note := func(code, msg string) { out.Reasons = append(out.Reasons, Reason{Code: code, Message: msg}) }
+	review := req.Purpose == PurposeAnnotationReview
+	// A review of data whose identity is unknown is refused only when the
+	// manifest holds qualification captures it could be one of.
+	qualificationListed := p.manifest != nil && p.manifest.CohortCounts()[CohortQualification].Captures > 0
 	if in.Err != nil {
-		block(CodeIdentityUnknown, fmt.Sprintf("its identity could not be established: %v", in.Err))
+		msg := fmt.Sprintf("its identity could not be established: %v", in.Err)
+		if review && !qualificationListed {
+			note(CodeIdentityUnknown, msg)
+		} else {
+			block(CodeIdentityUnknown, msg)
+		}
 		out.Assignment = Assignment{Cohort: CohortUnassigned}
-		return out
+		return s.finish(out)
 	}
 	if in.Identity.Kind == KindCapture && in.Identity.SHA256 == "" {
 		block(CodeIdentityUnknown, "no hash of its bytes: a capture is identified by its content")
@@ -430,6 +452,8 @@ func (s *Service) decideInput(req Request, p policy, in Input, exposures map[str
 		switch {
 		case out.Assignment.Conflict != "":
 			block(CodeConflict, out.Assignment.Conflict)
+		case review && !qualificationListed:
+			note(CodeUnassigned, "unassigned: its site and cohort are TBD")
 		case p.manifest != nil:
 			block(CodeUnassigned, "not in the cohort manifest: its site and cohort are TBD")
 		default:
@@ -628,6 +652,8 @@ func (s *Service) Status() Status {
 		devBlocked = "no cohort manifest: every capture is unassigned (TBD)"
 	case st.Manifest.State == "invalid":
 		devBlocked = "the cohort manifest is invalid"
+	case s.cfg.SplitsDir == "":
+		devBlocked = "no annotation root is configured, so frozen splits cannot be read"
 	case st.Registry.Error != "" || len(st.Registry.Unreadable) > 0:
 		devBlocked = "some frozen splits could not be read"
 	}

@@ -34,8 +34,12 @@ type packListing struct {
 	LabelSetPackets  int                `json:"label_set_packets,omitempty"`
 	LabelSetWindows  int                `json:"label_set_windows,omitempty"`
 	LabelSetCaptures []labelset.Binding `json:"label_set_captures,omitempty"`
-	Status           string             `json:"status"`
-	Error            string             `json:"error,omitempty"`
+	// LabelSetDir and LabelSetState are for the workspace, which joins
+	// packs to their label set; the directory is not served.
+	LabelSetDir   string `json:"-"`
+	LabelSetState string `json:"label_set_state,omitempty"`
+	Status        string `json:"status"`
+	Error         string `json:"error,omitempty"`
 }
 
 func (ws *Server) handleAnnotationPacks(w http.ResponseWriter, r *http.Request) {
@@ -120,6 +124,7 @@ func readPackListing(dir string) packListing {
 		return item
 	}
 	item.LabelSetID, item.LabelSetName, item.LabelSetRevision = ls.Manifest.LabelSetID, ls.Manifest.Name, ls.Revision()
+	item.LabelSetDir, item.LabelSetState = ls.Dir, ls.StateDigest()
 	item.LabelSetPackets, item.LabelSetWindows = len(ls.State.Packets), len(ls.State.Windows)
 	item.LabelSetCaptures = ls.Manifest.AppliesTo
 	item.Objects, item.Masks = len(ls.State.Records.Objects), len(ls.State.Masks)

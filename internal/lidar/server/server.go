@@ -12,6 +12,7 @@ import (
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
 	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/capjobs"
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
 	"github.com/banshee-data/velocity.report/internal/lidar/l1packets/network"
 	"github.com/banshee-data/velocity.report/internal/lidar/l5tracks"
 	"github.com/banshee-data/velocity.report/internal/lidar/l6objects"
@@ -142,6 +143,15 @@ type Server struct {
 	// land anywhere a VRLOG could be read from.
 	annotationPacksDir string
 
+	// cohortManifestPath and eligibility are the development-use guard (see
+	// eligibility_api.go). eligibility is built on first use.
+	cohortManifestPath string
+	eligibilityOnce    sync.Once
+	eligibility        *eligibility.Service
+	// clipFilesForTest replaces the clip lookup a HINT request's guard
+	// makes, in tests that have no database.
+	clipFilesForTest func(clipID string) ([]string, error)
+
 	// segmentSelectors is the catalogue the segments API ranks with. Nil
 	// reads the default one: the repository's file, or the binary's copy.
 	segmentSelectors *segments.Catalogue
@@ -151,6 +161,9 @@ type Server struct {
 	// segment_read_cache.go.
 	packListings      packListingCache
 	segmentRecordings recordingSeriesCache
+	// workspace keeps label-set and physical-reference reads for the
+	// labelling workspace (workspace_cache.go).
+	workspace workspaceCache
 
 	// latestFgCounts holds counts from the most recent foreground snapshot for status UI.
 	fgCountsMu     sync.RWMutex
@@ -295,6 +308,10 @@ type Config struct {
 	// contents, and a pack write landing among them would be a surprise
 	// either way it went.
 	AnnotationPacksDir string
+	// CohortManifestPath is the site/capture cohort manifest the
+	// eligibility service reads. Empty means none is configured: every
+	// capture is unassigned and development use is refused.
+	CohortManifestPath string
 	TuningConfig       *cfgpkg.TuningConfig
 	// TuningConfigDir is the directory whose .json files GET /api/lidar/configs
 	// lists and a replay may start from, by the tuning_config field of
@@ -443,6 +460,7 @@ func NewServer(config Config) *Server {
 		latestFgCounts:     make(map[string]int),
 		plotsBaseDir:       config.PlotsBaseDir,
 		annotationPacksDir: annotationPacksDir,
+		cohortManifestPath: config.CohortManifestPath,
 		segmentSelectors:   config.SegmentSelectors,
 		onPCAPStarted:      config.OnPCAPStarted,
 		onPCAPStopped:      config.OnPCAPStopped,

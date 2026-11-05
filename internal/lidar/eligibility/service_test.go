@@ -369,9 +369,13 @@ func TestLiveUnreadableSplitAndNoLedger(t *testing.T) {
 		t.Fatalf("%+v", d)
 	}
 	os.Remove(filepath.Join(e.root, "splits", "broken.json"))
-	noLedger := eligibility.New(eligibility.Config{ManifestPath: e.manifest})
+	noLedger := eligibility.New(eligibility.Config{ManifestPath: e.manifest, SplitsDir: filepath.Join(e.root, "splits")})
 	if d, _ := noLedger.Authorize(e.request(noLedger, eligibility.PurposeTuning, path)); !has(codes(d), eligibility.CodeLedgerUnavailable) {
 		t.Fatalf("%+v", d)
+	}
+	noRoot := eligibility.New(eligibility.Config{ManifestPath: e.manifest, Ledger: e.ledger})
+	if d, _ := noRoot.Authorize(e.request(noRoot, eligibility.PurposeTuning, path)); !has(codes(d), eligibility.CodeRegistryIncomplete) {
+		t.Fatalf("no annotation root: %+v", d)
 	}
 }
 

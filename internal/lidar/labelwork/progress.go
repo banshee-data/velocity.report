@@ -70,11 +70,13 @@ type ObjectSpan struct {
 	Status      annotation.ReviewStatus `json:"status"`
 	FirstWindow int                     `json:"first_window"`
 	LastWindow  int                     `json:"last_window"`
-	// FirstNs and LastNs are unknown in a label set alone; a pack's samples
-	// carry them.
-	Masks         int `json:"masks"`
-	ReviewedMasks int `json:"reviewed_masks"`
-	ProposedMasks int `json:"proposed_masks"`
+	// FirstNs and LastNs are the capture times of the span's first and last
+	// windows, when the label set records them; zero when it does not.
+	FirstNs       int64 `json:"first_ns,string"`
+	LastNs        int64 `json:"last_ns,string"`
+	Masks         int   `json:"masks"`
+	ReviewedMasks int   `json:"reviewed_masks"`
+	ProposedMasks int   `json:"proposed_masks"`
 	// SpanWindows is how many of the label set's windows lie within the
 	// span, the masks it could have.
 	SpanWindows int  `json:"span_windows"`
@@ -124,8 +126,10 @@ func MembershipProgress(s *labelset.State) LabelSetProgress {
 		order = append(order, o.ObjectID)
 	}
 	windowIDs := make([]int, 0, len(s.Windows))
+	windows := make(map[int]labelset.Window, len(s.Windows))
 	for _, w := range s.Windows {
 		windowIDs = append(windowIDs, w.WindowID)
+		windows[w.WindowID] = w
 	}
 	sort.Ints(windowIDs)
 	occlusionStated, occluded, incomplete := 0, 0, map[string]bool{}
@@ -181,6 +185,7 @@ func MembershipProgress(s *labelset.State) LabelSetProgress {
 			lo := sort.SearchInts(windowIDs, sp.FirstWindow)
 			hi := sort.SearchInts(windowIDs, sp.LastWindow+1)
 			sp.SpanWindows = hi - lo
+			sp.FirstNs, sp.LastNs = windows[sp.FirstWindow].CaptureStartNs, windows[sp.LastWindow].CaptureEndNs
 			spanWindows += sp.SpanWindows
 			masksInSpan += sp.Masks
 		}
