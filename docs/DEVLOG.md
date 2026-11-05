@@ -8,7 +8,7 @@ older entries stay put, however tempting hindsight may be.
 
 **Formatting:** one `## Month DD, YYYY - Theme` heading per UTC date, newest first, with no date ranges. Each bullet is one line in the past tense and ends with the pull request(s) that delivered it, `(#NNN)`. Unlanded branch work starts with `{branch-name}` until it merges. See `.github/STYLE.md` (Logs and registers).
 
-## November 05, 2026 - Reacquisition evidence
+## November 5, 2026 - Reacquisition evidence
 
 - {codex/reacquisition-acceptance} Added checked-in overlap/tentative identity parameter sets with replay alias parity and a labelled acceptance component that writes each clause and refuses tuning, unfrozen or unreviewed evidence; kept promotion pending the independent reviewed window: [report](lidar/operations/reacquisition-cloud-acceptance-2026-11.md).
 

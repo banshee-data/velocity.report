@@ -1,8 +1,9 @@
 package perframeeval
 
 import (
-	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 	"math"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
 )
 
 // IdentityGate is the labelled per-frame component of l5id0004's rule. It

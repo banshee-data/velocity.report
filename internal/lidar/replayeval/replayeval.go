@@ -1398,7 +1398,7 @@ func trackerConfigFor(l5 *config.L5CvKfV1, mode l5tracks.MeasurementSource, expe
 	}
 	if overlapEnd != 0 {
 		if trackerConfig.OverlapEndFrames != 0 && trackerConfig.OverlapEndFrames != overlapEnd {
-			return l5tracks.TrackerConfig{}, fmt.Errorf("overlap-end replay alias conflicts with tuning identity.overlap_end_frames")
+			return l5tracks.TrackerConfig{}, fmt.Errorf("overlap-end replay alias conflicts with tuning identity.overlap_end_frames (tuning=%d, alias=%d)", trackerConfig.OverlapEndFrames, overlapEnd)
 		}
 		trackerConfig.OverlapEndFrames = overlapEnd
 	}
