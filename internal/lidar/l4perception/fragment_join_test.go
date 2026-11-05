@@ -61,7 +61,7 @@ func TestMotionJoinPreservesCompleteMembershipAndInput(t *testing.T) {
 }
 
 func TestMotionJoinRefusesAmbiguityAndPreservesRejectedGroups(t *testing.T) {
-	for _, name := range []string{"ambiguous-neighbour", "outside-prior", "gap-too-long", "shape-filter", "missing-membership", "nonfinite-prior", "duplicate-prior", "no-prior"} {
+	for _, name := range []string{"ambiguous-neighbour", "outside-prior", "gap-too-long", "shape-filter", "missing-membership", "nonfinite-prior", "duplicate-prior", "no-prior", "invalid-id", "duplicate-id", "bad-label", "nonfinite-member"} {
 		t.Run(name, func(t *testing.T) {
 			c, tr, p, h := fragmentFixture(t)
 			hints := []FragmentHint{h}
@@ -83,6 +83,16 @@ func TestMotionJoinRefusesAmbiguityAndPreservesRejectedGroups(t *testing.T) {
 				hints = append(hints, h)
 			case "no-prior":
 				hints = nil
+			case "invalid-id":
+				c[0].ClusterID = int64(len(tr.Processed) + 1)
+			case "duplicate-id":
+				c[1].ClusterID = c[0].ClusterID
+			case "bad-label":
+				tr.Labels = append([]int(nil), tr.Labels...)
+				tr.Labels[0] = len(tr.Processed) + 1
+			case "nonfinite-member":
+				tr.Processed = append([]WorldPoint(nil), tr.Processed...)
+				tr.Processed[0].Z = math.NaN()
 			}
 			out, trace, joined := JoinMotionFragments(c, tr, p, hints, gap, .15)
 			if joined != 0 || !reflect.DeepEqual(out, c) || !reflect.DeepEqual(trace, tr) {

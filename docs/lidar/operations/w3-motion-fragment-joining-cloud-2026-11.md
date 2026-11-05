@@ -95,7 +95,7 @@ These shared-host wall times do not qualify runtime cost or Pi throughput.
 
 The full Go suite passed. After the process-noise correction, the pipeline,
 replay and server suites passed again, as did the added covariance-bound,
-mixed-shape and immutable-config properties. Go vet/lint, documentation lint,
+mixed-shape and immutable-config properties. Both new internal implementation files passed the 98 % branch-added coverage gate at 100 % of statements. Go vet/lint, documentation lint,
 experiment validation, config-order and raw-output guards passed.
 
 Baseline tuning SHA-256:

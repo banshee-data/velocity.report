@@ -109,9 +109,6 @@ func JoinMotionFragments(clusters []WorldCluster, trace DBSCANTrace, params DBSC
 		if ci, ok := index[label]; ok {
 			labels[i] = int(clusters[root(ci)].ClusterID)
 		}
-		if labels[i] > maxID {
-			maxID = labels[i]
-		}
 	}
 	trial := buildClusters(trace.Processed, labels, maxID, params)
 	accepted := make(map[int64]bool, len(trial))
