@@ -84,10 +84,10 @@ envelope "does not, by itself, prove that the complete driving system is safe".
 Brandon Basso (VP Engineering, Simulation, Evaluation and Validation) names the method
 "Validation 2.0" and gives it three pillars.
 
-1. **Closed-loop simulation** with the GAIA world model, which "initializes interactive scenarios <!-- spelling-ignore -->
-   directly from unstructured real-world video, such as dashcam footage", and which active
-   learning steers toward the scenarios where the simulation itself needs improving, "to reduce
-   the sim-to-real gap as an end-to-end problem".
+1. **Closed-loop simulation** with GAIA, Wayve's generative simulator, which "initializes <!-- spelling-ignore -->
+   interactive scenarios directly from unstructured real-world video, such as dashcam footage",
+   and which active learning steers toward the scenarios where the simulation itself needs
+   improving, "to reduce the sim-to-real gap as an end-to-end problem".
 2. **A learned critic,** GRADER (Generalizable Reward for Autonomous Driving Evaluation and RL), <!-- spelling-ignore -->
    "an offline component independent of the AV stack" that "maintains high recall and generalizes <!-- spelling-ignore -->
    across ODDs, vehicle types, and geographies". It is offered against the alternative the post
@@ -320,7 +320,7 @@ their methods.
 | Fabris, _Building a Safe AI Driver_, [wayve.ai/thinking/building-a-safe-ai-driver](https://wayve.ai/thinking/building-a-safe-ai-driver/)                                               | November 4, 2026 | Read     |
 | Basso, _Validating the AI Driver_, [wayve.ai/thinking/validating-the-ai-driver](https://wayve.ai/thinking/validating-the-ai-driver/)                                                   | November 4, 2026 | Read     |
 | Arani and Dagan, _Language Should Ride Shotgun, Not Stall the Control Loop_, [wayve.ai/thinking/language-should-ride-shotgun](https://wayve.ai/thinking/language-should-ride-shotgun/) | November 4, 2026 | Read     |
-| Wayve, _GAIA-4: Multimodal World Models Powering Closed-Loop Simulation_ (linked from all three posts)                                                                                 | August 3, 2026   | Not read |
+| Wayve, _GAIA-4_, the closed-loop simulation post linked from all three posts                                                                                                           | August 3, 2026   | Not read |
 | LINGO-1 (2023) and LINGO-2 (2024), named in Part 3                                                                                                                                     |                  | Not read |
 
 ## Provenance
