@@ -144,6 +144,11 @@ in `Stale`; saves refuse them. No file is rewritten to mark them.
 | `FrozenSplit.CaseRoles`         | A corpus case's role; a held-out case replays only as a held-out score, which takes no other                    |
 | `FrozenSplit.CheckCaseCaptures` | Refuse a replay of a case unless each capture is the case's: by SHA-256 where declared, else by basename        |
 
+A frozen split binds a run given the split. The eligibility guard (`internal/lidar/eligibility`)
+reads every split beneath the annotation root, with the cohort manifest and the use ledger, at the
+development entry points it covers; see the
+[labelling workspace guide](../../../docs/lidar/operations/labelling-workspace.md#development-eligibility).
+
 Masks a person did not certify become ignore points rather than truth: unreviewed, not a road user,
 not visible, only uncertain returns, or completeness never stated. Rejected and empty masks are
 dropped. The per-frame evaluator that consumes these, and the manifest's field table, are

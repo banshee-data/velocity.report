@@ -124,9 +124,14 @@ import (
 // recompute it. Everything Bind can derive from pinned bytes it derives, so
 // such an edit cannot change them; what remains is the operator's own
 // statement: the partitions and their roles, the episodes, the cases and
-// their captures, the Tuned record and the freeze record. And the held-out
-// guarantee binds only a run given the split: a replay or evaluation run
-// without one is not checked against it, and records no split.
+// their captures, the Tuned record and the freeze record. And this file's
+// held-out guarantee binds only a run given the split: a replay or evaluation
+// run without one is not checked against it here, and records no split. The
+// eligibility guard (internal/lidar/eligibility) reads every frozen split
+// beneath the annotation root at the entry points it covers, so a run there
+// that names no split, or starts a new lineage, is still refused what any
+// split holds out; the entry points it does not yet cover are listed in
+// docs/lidar/operations/labelling-workspace.md.
 
 // FrozenSplitSchemaVersion is the feature-free layout FreezeSplit writes. Version 1,
 // SplitSchemaVersion, remains the hand-written single-pack manifest.
