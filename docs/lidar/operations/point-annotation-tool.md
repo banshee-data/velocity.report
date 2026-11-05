@@ -678,6 +678,9 @@ this mode.
 
 ### Freezing from the window
 
+The web [labelling workspace](labelling-workspace.md) previews and freezes the same way, from
+a label set's page, and tracks what is left to review before a freeze.
+
 **Freeze Split…** (beneath the editing column) freezes a reviewed split through the service. The
 window does not author the split: choose a draft file in the CLI's format
 (`velocity.report/split-draft`), naming each pack by its folder beneath the service's annotation

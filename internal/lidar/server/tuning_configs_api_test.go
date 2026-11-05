@@ -282,6 +282,9 @@ func TestHandlePCAPStartAppliesATuningConfig(t *testing.T) {
 	}
 	ws.pcapSafeDir = pcapDir
 	ws.setBaseContext(context.Background())
+	// An experiment arm's replay is a development evaluation: the capture
+	// must be development data before its configuration is applied.
+	ledger := allowDevelopment(t, ws, filepath.Join(pcapDir, "capture.pcap"))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/lidar/pcap/start?sensor_id=sensor-replay-config",
 		bytes.NewBufferString(`{"pcap_file":"capture.pcap","tuning_config":"../secret.json"}`))
@@ -312,6 +315,9 @@ func TestHandlePCAPStartAppliesATuningConfig(t *testing.T) {
 	}
 	if got := ws.tracker.GetConfig(); !got.SolidBody.RectangleHeading || !got.NearEdgeTracking {
 		t.Fatalf("the replay started without the config: %+v", got.SolidBody)
+	}
+	if len(ledger.Uses) != 4 || ledger.Uses[0].Purpose != "development_evaluation" || ledger.Uses[0].ConfigDigest != "experiments/candidate.json" {
+		t.Fatalf("the arm's replay is recorded with its parameter set: %+v", ledger.Uses)
 	}
 }
 
