@@ -91,7 +91,7 @@ some `overlap-end` row at the same frame has a drawn footprint (its `psi_deg`, `
 `width`, grown by 0.25 m as `overlap_end_body` grows a live body) that contains the `a0` row's
 centre, or whose footprint overlaps the `a0` row's by half the smaller. Nothing can tell yet
 whether the roughly 40 unexplained losses a set (1.6 % of moving tracks, still over the 1 %
-bound) are real vehicles; that is [l5id0013](../../../data/experiments/l5id/l5id0013.md)'s read,
+bound) are real vehicles; that is [l5id0016](../../../data/experiments/l5id/l5id0016.md)'s read,
 and only labels would settle it. No other failed arm changes under a corrected measure: `veil`,
 `held`, `conditional` and the constrained plane fail on figures the measure saw correctly, and the
 radius graph's bar is the owner's to reset, not a rescoring's.
@@ -163,7 +163,7 @@ floor of 5 admits far sparse instants that DBSCAN's core rule called noise, the 
 are the sparse ones and arrive split. The doubling may be a denominator effect, not a splitting
 rule. Nothing can tell yet, because the report carries shares and not counts; the fragmented
 count at 50 m+ under each arm is in the archived kirk0 evidence and is a zero-code read
-([l4clus0008](../../../data/experiments/l4clus/l4clus0008.md)). A range-conditioned join is not a
+([l4clus0009](../../../data/experiments/l4clus/l4clus0009.md)). A range-conditioned join is not a
 defensible arm before that read, and kirk0 has too few far objects to tune one on without it
 becoming a kirk0 result.
 
@@ -175,7 +175,7 @@ the same clusters, and under the shipped gate a confirmed track whose own object
 a newborn's cluster (K10's finding, which tentative priority exists to stop). If so, the cap is
 hiding an association sensitivity rather than saving identity, and `nocap` with
 `tentative_priority` should bring the switches back without losing the returns. That is a
-zero-code kirk0 arm in l4clus0008. Nothing can tell yet whether the Pi can afford it: the cap's
+zero-code kirk0 arm in l4clus0009. Nothing can tell yet whether the Pi can afford it: the cap's
 job is the frame-time tail (p99 48 to 153 ms on the Mac at 16,000), and perf0001 has not run.
 
 ### C. The overlap end: the one large lever
@@ -190,7 +190,7 @@ frames between, the body's cluster is unassociated and seeds a new tentative tra
 of under a second. If that is right, the brief tracks are re-births on the surviving body and are
 the same physical object as the survivor. Nothing can tell yet: the archived rows can, because
 each brief track's rows either lie inside a surviving track's footprint at the same frames or do
-not. [l5id0013](../../../data/experiments/l5id/l5id0013.md) classifies them as re-births, splits
+not. [l5id0016](../../../data/experiments/l5id/l5id0016.md) classifies them as re-births, splits
 on the surviving body, or other, with the definitions fixed in its spec.
 
 **C10. A birth gate.** Measured: the on-body test exists (`liveConfirmedBodies`, the cluster's
@@ -217,7 +217,7 @@ be a different one from the one `a0` carried. Inferred: a surviving older track 
 converged velocity, so the tail is unlikely to come from the survivor; it is more likely the
 re-born brief tracks of C9, whose p85 over a few frames of a young filter is noise, or pairs where
 the covering track sits on a different part of a long body with the same speed but a different
-`a0` partner. Nothing can tell yet which: the rows carry each track's speed and age, so l5id0013
+`a0` partner. Nothing can tell yet which: the rows carry each track's speed and age, so l5id0016
 bins the tail by the covering track's age at the match and reports it; it decides nothing, and
 l5id0014's speed clause is read on the birth gate's own rows.
 
@@ -226,7 +226,7 @@ within 6 m on half their frames; 218 and 229 with an `overlap-end` track within 
 set with neither. Inferred: the 6 m diagnostic was written after the result and is itself a
 point match; the body-aware match of A2 is the right ruler, and it would also reread the 112 and
 132 "shortened" tracks, some of which are a body carried by one track where `a0` carried it in
-two. Nothing can tell yet whether the 40 are real; l5id0013 lists them per site with their span,
+two. Nothing can tell yet whether the 40 are real; l5id0016 lists them per site with their span,
 length and class so the owner can look at the worst site's in the visualiser, and label0003's
 spans (F20) are the first truth that could count them.
 
@@ -373,10 +373,10 @@ The chain from a capture to the three goals, each link with its measured state:
 2. **Foreground.** Refined since #901: painted structure ×0.12, moving-track time ×1.97 held out.
    What clutter is made of at each site is unmeasured. l6cls0004.
 3. **Clusters.** 6.5 % of 20 to 35 m instants split on kirk0; the cap bites at 10 of 23 sites and
-   its identity cost is unexplained. l4clus0008.
+   its identity cost is unexplained. l4clus0009.
 4. **Tracks.** One vehicle track in four duplicated under the defaults; the overlap end removes
    that at every site read and is off, failing a cost account whose lost-track clause mostly
-   counts the duplicates it removed. l5id0013, then l5id0014.
+   counts the duplicates it removed. l5id0016, then l5id0014.
 5. **Scores.** 21 reviewed objects on one capture, two of them trucks; no interval on any figure;
    `a0` differs by 0.001 HOTA between reports. l5id0015.
 6. **Figures.** Counts, p85 and p98 by site have never been compared between arms; no speed
@@ -394,26 +394,26 @@ for the pcl-20261102 evidence, the results share for l5id0012's rows), outside a
 
 | Rank | Spec                                                                     | Question                                                                                                                                                   | Runs without a person             | Machine | Agent implement | Unblocks                                                                                                      |
 | ---- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------- | --------------- | ------------------------------------------------------------------------------------------------------------- |
-| 1    | [l5id0013](../../../data/experiments/l5id/l5id0013.md) (new)             | l5id0012's lost and shortened clauses reread with a body-aware match on the archived rows; the brief tracks classified; the speed tail binned by track age | Yes, zero replay                  | 45m     | 2h              | Whether the overlap end's cost is the scorer's or real; what l5id0014 must remove; the 40 losses a set listed |
+| 1    | [l5id0016](../../../data/experiments/l5id/l5id0016.md) (new)             | l5id0012's lost and shortened clauses reread with a body-aware match on the archived rows; the brief tracks classified; the speed tail binned by track age | Yes, zero replay                  | 45m     | 2h              | Whether the overlap end's cost is the scorer's or real; what l5id0014 must remove; the 40 losses a set listed |
 | 2    | [l5id0015](../../../data/experiments/l5id/l5id0015.md) (new)             | A bootstrap over kirk0's reviewed objects: how wide HOTA, IDF1 and the switch counts are, and which of the round's deltas stand                            | Yes, in the cloud on kirk0        | 20m     | 2h              | Every kirk0 clause written after it; the `a0` anchor                                                          |
 | 3    | [l5id0014](../../../data/experiments/l5id/l5id0014.md) (new)             | A birth gate on the live body, with the overlap end: duplicates gone without brief tracks, under l5id0012's clauses and the body-aware match               | Yes; held-out clause waits on 6   | 2h40m   | 3h              | The candidate for label0003's spans and label0001's window; the only new lever this round                     |
 | 4    | [l6cls0004](../../../data/experiments/l6cls/l6cls0004.md) (new)          | Clutter sorted into artefact, stationary road user and fragment of a mover on the archived evidence; spurious-cluster recurrence per site                  | Yes, zero replay                  | 1h      | 2h              | Which layer owns noise at which site; the clutter definition every later gate reads                           |
 | 5    | [figure0001](../../../data/experiments/figure/figure0001.md) (new area)  | Vehicle count, p85 and p98 by site under every archived arm against `a0`                                                                                   | Yes, zero replay                  | 1h      | 2h              | Which stability work the headline figures depend on; the first confidence statement the survey can make       |
 | 6    | [label0003](../../../data/experiments/label/label0003.md) (new)          | Road-user spans on label0001's lot-drawn window, before masks: the truth l5id0012's clause 1 and the counts need                                           | No: 2h15m operator                | none    | none            | l5id0014's held-out clause; a lost-vehicle count with truth; label0001's window drawn and cut                 |
-| 7    | [l4clus0008](../../../data/experiments/l4clus/l4clus0008.md) (new)       | `nocap` with tentative priority on kirk0; the radius graph's 50 m+ split as a count; zero code                                                             | Yes, in the cloud on kirk0        | 24m     | none            | Whether the cap hides a tracker sensitivity; whether the radius graph is retired or its bar reset             |
+| 7    | [l4clus0009](../../../data/experiments/l4clus/l4clus0009.md) (new)       | `nocap` with tentative priority on kirk0; the radius graph's 50 m+ split as a count; zero code                                                             | Yes, in the cloud on kirk0        | 24m     | none            | Whether the cap hides a tracker sensitivity; whether the radius graph is retired or its bar reset             |
 | 8    | [l3bg0030](../../../data/experiments/l3bg/l3bg0030.md) (rule fixed here) | The relative settling criterion at 0.075, held out on the second segments, with the downstream cost of an unsettled scene reported                         | Yes                               | 1h40m   | 2h              | Whether settling can decide anything; nothing on goals 1 and 2 directly, which is why it is last              |
 | 9    | [label0001](../../../data/experiments/label/label0001.md) (October 13)   | The labelled, frozen held-out window                                                                                                                       | No: 8h15m operator, 2h with spans | none    | none            | Every adoption; unchanged in rank from October, and still the critical path                                   |
 
 **Two overnight runs.** The first is rescoring and zero-code reads on hosts that hold the
-evidence: l5id0013 and figure0001 on the results share, l6cls0004 on hydra's volume, l4clus0008
+evidence: l5id0016 and figure0001 on the results share, l6cls0004 on hydra's volume, l4clus0009
 and l5id0015 anywhere kirk0 is. Each needs its `manual:implement` step closed first, and all five
 are scripts or a scorer flag with fixture tests, not pipeline code. The second night runs
 l5id0014 and l3bg0030, the two with tracker or grid code, each rule committed with its spec
-before its replays. In the cloud only kirk0 runs (l5id0015, l4clus0008, l5id0014's kirk step);
+before its replays. In the cloud only kirk0 runs (l5id0015, l4clus0009, l5id0014's kirk step);
 the corpus steps need the NAS or the LiDAR volume, and the rescoring steps need the archived
 rows, which never enter a checkout.
 
-**What is read first.** l5id0013's answer decides l5id0014's shape: if the brief tracks are not
+**What is read first.** l5id0016's answer decides l5id0014's shape: if the brief tracks are not
 re-births on the surviving body, the birth gate is the wrong lever and the spec is amended before
 its replays. l5id0015's intervals decide how the rest of the round's kirk0 clauses are read.
 figure0001's answer decides whether goal 3 has a problem to solve or a statement to make.
@@ -431,7 +431,7 @@ unread label-free.
 | 1     | **label0003, select and cut.** label0001's draw: `velocity lidar segments --finder random --role held_out` on embarcadero-folsom, the draw recorded, the pack cut with `annotation-clip`. An agent does everything but confirm the draw | 15m         | [segments finder](../../plans/lidar-annotation-segment-finder-plan.md), [one-step clip](point-annotation-tool.md#choosing-what-to-cut) | Everything below                                                      |
 | 2     | **label0003, spans.** Every road user's first and last frame, class, and whether it is the same vehicle as another span, as kirk1's reference 60a4774c holds them; frozen with role `held_out`                                          | 2h          | The label sets and the annotation window; kirk1's reference is the worked example                                                      | l5id0014's held-out clause; the lost-vehicle count with truth; counts |
 | 3     | **label0001, masks and review.** The same window's road users and full-scene labels, then the second pass that grades every proposal                                                                                                    | 7h15m       | [label sets](label-sets.md), [checks as warnings](point-annotation-tool.md#checks)                                                     | The per-frame identity comparison, l3bg0009, W7, every gate           |
-| 4     | **l5id0013's forty.** Open the worst site's listed lost tracks in the visualiser and say what they are (an hour, after l5id0013 reports)                                                                                                | 1h          | The visualiser's VRLOG replay                                                                                                          | Whether the 1 % bound is met in truth where the scorer cannot say     |
+| 4     | **l5id0016's forty.** Open the worst site's listed lost tracks in the visualiser and say what they are (an hour, after l5id0016 reports)                                                                                                | 1h          | The visualiser's VRLOG replay                                                                                                          | Whether the 1 % bound is met in truth where the scorer cannot say     |
 | 5     | **E17's capture.** The OPS243 beside the LiDAR for one 20-minute placement at a straight corpus site, both recording                                                                                                                    | 2h          | The radar ingest and transit worker; the LiDAR recorder                                                                                | A calibrated bound on track speeds; figure0001's successor            |
 
 About ten and a half hours for items 1 to 4; item 5 is fieldwork the owner schedules. The two
@@ -442,12 +442,12 @@ window, not two.
 
 | Item                                                                      | Change                                                                                                                                                           | Why                                                                                                         |
 | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| Overlap end with tentative priority on label0001 (Parked, PCL candidates) | Names l5id0013 for "what its added brief tracks are" and l5id0014 as the candidate that goes to the window; label0003's spans as the first truth it is scored on | The item asked a question with no spec; the rescoring answers it without a replay                           |
-| Reacquisition and identity acceptance, v0.5.6                             | Gains l5id0013, l5id0014, l5id0015 and label0003 beside l5id0006                                                                                                 | The identity gate's evidence now has an interval and a smaller truth product                                |
+| Overlap end with tentative priority on label0001 (Parked, PCL candidates) | Names l5id0016 for "what its added brief tracks are" and l5id0014 as the candidate that goes to the window; label0003's spans as the first truth it is scored on | The item asked a question with no spec; the rescoring answers it without a replay                           |
+| Reacquisition and identity acceptance, v0.5.6                             | Gains l5id0016, l5id0014, l5id0015 and label0003 beside l5id0006                                                                                                 | The identity gate's evidence now has an interval and a smaller truth product                                |
 | Organised PCD export and the reviewed oracle (Parked, PCL candidates)     | Parked harder: no remaining experiment in this review needs a PCL oracle; it returns if geom0013 or a Gerardus comparator is scheduled                           | Both PCL arms failed on figures an oracle would not change; the ground oracle already exists for ground0006 |
 | Road prior after ground0006 (Parked)                                      | Unchanged, and off this round's path                                                                                                                             | It serves the box's base and the clip, not stability or noise                                               |
 | PCL plan, Outstanding: l3bg0028 `coast` arm                               | Parked until label0001: the overlap end already removes the ghost tracks the footprint evidence was to expire                                                    | 87 to 5 switches leaves little for a coasting-evidence arm to show on kirk0                                 |
-| PCL plan, Outstanding: the radius-graph port                              | Not built; l4clus0008 reads whether the 50 m+ figure is a denominator effect, and the five-point bar is the owner's to reset                                     | 2 of 5 points against a baseline that moved from 35 % to 6.5 %                                              |
+| PCL plan, Outstanding: the radius-graph port                              | Not built; l4clus0009 reads whether the 50 m+ figure is a denominator effect, and the five-point bar is the owner's to reset                                     | 2 of 5 points against a baseline that moved from 35 % to 6.5 %                                              |
 | l3bg0030                                                                  | Rule fixed: ratio 0.075, held out on the second segments, the downstream cost reported                                                                           | The spec left its rule to the next run; this is that run                                                    |
 
 Nothing is retired. geom0013, l5id0007 to l5id0011, l3bg0026, l3bg0009 and perf0001 stand as
@@ -457,7 +457,7 @@ proposed or approved; this review changes their order, not their content.
 
 | Work                                                                                                                                                                                                    | Size     | Reads it               | Why it matters                                                                                        |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `lidar_flip_cost.py --match footprint`: coverage by drawn footprint (heading, length, width grown 0.25 m) rather than a 2 m point; `--brief-origin` classifying each brief track; the speed tail by age | S        | l5id0013               | The lost-track clause as written counts what the option removes                                       |
+| `lidar_flip_cost.py --match footprint`: coverage by drawn footprint (heading, length, width grown 0.25 m) rather than a 2 m point; `--brief-origin` classifying each brief track; the speed tail by age | S        | l5id0016               | The lost-track clause as written counts what the option removes                                       |
 | `lidar-ground-truth-eval perframe -bootstrap N`: resample reviewed objects with replacement, paired across arms, 5th to 95th percentiles of HOTA, IDF1, switches, fragmentations                        | S {math} | l5id0015               | No kirk0 clause has an interval; the `a0` anchor                                                      |
 | `TrackerConfig.BirthGateOnBody` (replay `birth_gate_body`): no hits accrue for a tentative track inside a live confirmed body; deleted after `max_misses` such frames; reuses `liveConfirmedBodies`     | S        | l5id0014               | Removes a duplicate before it is published, so no brief track is left and no confirmed track is ended |
 | `lidar_clutter_origin.py`: the three clutter classes of D13 and the 0.5 m recurrence grid of D14, from evidence databases or rows                                                                       | S        | l6cls0004              | Says which layer owns noise at each site before any filter is built                                   |
@@ -483,14 +483,38 @@ evidence is in the archived rows, not in a paper.
 
 | Decision                                                                                      | Recommendation                                                                                                                                                                        |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Approve l5id0013, l5id0015, l6cls0004, figure0001 and l4clus0008 for the first overnight run  | Yes: five rescorings and zero-code reads, no default at risk, and together they say whether the round's failures were the candidates' or the measures'                                |
-| Approve l5id0014 and l3bg0030 for the second night                                            | Yes, l5id0014 after l5id0013 reports; amend it first if the brief tracks are not re-births                                                                                            |
+| Approve l5id0016, l5id0015, l6cls0004, figure0001 and l4clus0009 for the first overnight run  | Yes: five rescorings and zero-code reads, no default at risk, and together they say whether the round's failures were the candidates' or the measures'                                |
+| Approve l5id0014 and l3bg0030 for the second night                                            | Yes, l5id0014 after l5id0016 reports; amend it first if the brief tracks are not re-births                                                                                            |
 | Approve the `figure` area                                                                     | Yes: goal 3 had no area and no measure                                                                                                                                                |
 | Approve label0003 and schedule its two hours, then label0001's                                | Yes, first among the person's tasks; it is the cheapest truth the identity decision can have and spends no second window                                                              |
-| Reset the radius graph's five-point bar, or retire the arm                                    | Neither yet: read l4clus0008's count first. If the 50 m+ doubling is a denominator effect, a bar of two points at 20 to 35 m with no rise in the 50 m+ fragmented count is defensible |
+| Reset the radius graph's five-point bar, or retire the arm                                    | Neither yet: read l4clus0009's count first. If the 50 m+ doubling is a denominator effect, a bar of two points at 20 to 35 m with no rise in the 50 m+ fragmented count is defensible |
 | The `a0` anchor and the `dev`-stamp refusal in the run preflight                              | Yes; both are an hour of an agent's time and would have caught F22                                                                                                                    |
 | One 20-minute placement of the OPS243 beside the LiDAR at a straight corpus site              | Schedule it; it is the only path to a calibrated speed bound, and it costs an afternoon                                                                                               |
 | Whether a kirk0 delta under 0.01 HOTA or 10 switches decides anything before l5id0015 reports | No: read it as not distinguishable, and write the next rules against the interval                                                                                                     |
+
+## Since this review was written
+
+Three pull requests merged to main on November 5, after the review's commit, and the specs were
+renumbered around them: this review's rescoring is l5id0016 and its zero-code kirk0 reads are
+l4clus0009, because main's l5id0013 and l4clus0008 had taken those slugs.
+
+- [Reacquisition acceptance on current defaults](reacquisition-cloud-acceptance-2026-11.md)
+  (l5id0013, #929) puts the overlap end and tentative priority in a checked-in
+  `l5.cv_kf_v1.identity` block (parameter sets `identity-body-older.json` and
+  `identity-body-older-tentative.json`) and adds `lidar-ground-truth-eval perframe
+-identity-gate`. Its kirk0 screen on the current build measures brief tracks 12 under `a0`, 29
+  under `body-older` and 18 under `body-older-tentative`, with duplicate pairs per hundred 22.7,
+  7.7 and 10.8: the brief-track cost this review's C9 asks about, on kirk0 alone. Labelled
+  figures were not scored. l5id0014's and l5id0016's arms may run from those parameter sets
+  instead of replay options; the rules are unchanged.
+- [Motion-supported fragment joining](w3-motion-fragment-joining-cloud-2026-11.md) (l4clus0008,
+  #930) joins components inside one recent, well-constrained moving body's predicted footprint:
+  39 joins on kirk0, spurious clusters a frame −8.9 %, duplicates unchanged, labelled figures not
+  scored. It is a temporal lever on a per-frame problem, which is what B6 infers the next gains
+  will be.
+- The empty-frame lifecycle (#928) advances L5 through empty and unavailable frames. It may move
+  kirk0's `a0` figures again, which is one more reason l5id0015 records the anchor at its own
+  commit before reading any delta.
 
 ## What this review does not establish
 
@@ -500,7 +524,7 @@ reports' own diagnostics (the 6 m partner read, the scorer's definitions) and fr
 code, not a rescored figure. The error budget's ceilings are arithmetic on kirk0, one capture
 with 21 reviewed objects, and say nothing about the corpus's queues, which is where the overlap
 end's earlier form failed. The birth gate's mechanism (C9) is read from the code, not observed;
-l5id0013 may refute it, in which case l5id0014 is amended before its replays. The segment counts
+l5id0016 may refute it, in which case l5id0014 is amended before its replays. The segment counts
 in F21 are the archive index's minutes divided by five, not the registry's case sets, which
 differ for ashbury-downey. The person-time estimates for span labels are kirk1's reference by
 analogy; no operator has timed that product. The briefings were not read.

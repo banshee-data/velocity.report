@@ -70,7 +70,7 @@ No default changes. The bounds are reporting bounds, not acceptance: nothing her
 is right, only how far it moves.
 
 **What could mislead.** `a0` is not truth: an arm that lowers a count by removing duplicates moves
-the figure toward the vehicles, and the reading cannot tell that from losing vehicles; l5id0013's
+the figure toward the vehicles, and the reading cannot tell that from losing vehicles; l5id0016's
 footprint read does. The percentiles over a five-minute segment at a quiet site rest on a few
 tracks. The rows are the published box's rows; a track's speed is the filter's, so a young track's
 spike is what the rolling median removes, and a slow truck's maximum is its real one.

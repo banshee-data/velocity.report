@@ -482,10 +482,18 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 		return TrackerConfig{}
 	}
 	nearEdge, medoidGate := false, false
+	var identity config.L5Identity
+	if l5cfg.Identity != nil {
+		identity = *l5cfg.Identity
+	}
 	if sb := l5cfg.SolidBody; sb != nil && sb.Enabled {
 		nearEdge, medoidGate = sb.NearEdgeTracking, sb.NearEdgeMedoidGate
 	}
 	return TrackerConfig{
+		TentativePriority:                identity.TentativePriority,
+		OverlapEndFrames:                 identity.OverlapEndFrames,
+		OverlapEndOnBody:                 identity.OverlapEndOnBody,
+		OverlapEndKeepOlder:              identity.OverlapEndKeepOlder,
 		SolidBody:                        SolidBodyOptionsFromTuning(l5cfg.SolidBody),
 		BoxModel:                         BoxModelConfigFromTuning(l5cfg.BoxModel),
 		NearEdgeTracking:                 nearEdge,

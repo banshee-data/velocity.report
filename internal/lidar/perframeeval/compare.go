@@ -64,6 +64,7 @@ type PairedResult struct {
 
 // Comparison is two arms scored against one reference.
 type Comparison struct {
+	IdentityAcceptance  *IdentityGate         `json:"identity_acceptance,omitempty"`
 	Schema              string                `json:"schema"`
 	SchemaVersion       int                   `json:"schema_version"`
 	Reference           ReferenceIdentity     `json:"reference"`

@@ -693,3 +693,26 @@ negative; `yaw_accel_sigma` is positive and `centre_pull` at most 1. `rectangle_
 | `pipeline.flush_interval`   | string | [GetFlushInterval](../internal/config/tuning_accessors.go)   | Background snapshot cadence.                                                     |
 | `pipeline.background_flush` | bool   | [GetBackgroundFlush](../internal/config/tuning_accessors.go) | Background snapshot master switch.                                               |
 | `pipeline.frame_budget_ms`  | float  | [GetFrameBudgetMs](../internal/config/profile.go)            | Per-frame wall-clock ceiling; frames beyond it count as over budget. Default 98. |
+
+## Default-off motion-supported fragment joining
+
+`l4.dbscan_xy_v1.fragment_join` optionally enables the bounded W3 candidate.
+Use [motion-fragment-join.json](experiments/motion-fragment-join.json); omitted,
+the block preserves default clustering and its fingerprint. Configuration
+validates maximum gap 2 m, footprint margin at most 0.15 m, age at most 0.2 s,
+minimum speed at least 2 m/s and position standard deviation at most 0.75 m.
+Startup and the offline tools carry these settings; they are not a new runtime
+parameter API. Detection-only and L3-only profiles do not borrow L5 priors.
+See the [cloud screen](../docs/lidar/operations/w3-motion-fragment-joining-cloud-2026-11.md)
+for the rule, member lineage and remaining acceptance gates.
+
+## Default-off identity acceptance options
+
+The optional `l5.cv_kf_v1.identity` block holds `tentative_priority`,
+`overlap_end_frames`, `overlap_end_on_body` and `overlap_end_keep_older`.
+Absent, defaults and their fingerprint stay unchanged. Body/older qualifiers
+require a positive frame count. The offline tools and startup use the same
+tracker mapping; replay aliases add the same options, while a contradictory
+frame count refuses. These are experimental settings, not a promoted default
+or new runtime-parameter API. Use the registered `identity-body-older.json`
+and `identity-body-older-tentative.json` sets for [l5id0013](../data/experiments/l5id/l5id0013.md).

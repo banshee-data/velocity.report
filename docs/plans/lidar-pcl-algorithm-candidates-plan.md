@@ -277,7 +277,7 @@ work; closure of a source question does not pass their acceptance gates. The
 [November 5 experiment review](../lidar/operations/experiment-review-2026-11-05.md) parks the PCD
 export and oracle (no remaining experiment on its path needs one), parks l3bg0028's `coast` arm
 until label0001, and does not build the radius-graph port:
-[l4clus0008](../../data/experiments/l4clus/l4clus0008.md) first reads whether its 50 m+ figure is
+[l4clus0009](../../data/experiments/l4clus/l4clus0009.md) first reads whether its 50 m+ figure is
 a denominator effect, and the five-point bar is the owner's to reset.
 
 ### Deferred
