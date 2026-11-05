@@ -20,6 +20,7 @@ labelled clauses #929 and #930 could not read.
   [l3bg0030](../../../data/experiments/l3bg/l3bg0030.md) (kirk0 only),
   [figure0002](../../../data/experiments/figure/figure0002.md),
   [l5est0003](../../../data/experiments/l5est/l5est0003.md),
+  [l5id0017](../../../data/experiments/l5id/l5id0017.md),
   [l4clus0008](../../../data/experiments/l4clus/l4clus0008.md) and
   [l5id0013](../../../data/experiments/l5id/l5id0013.md) (their labelled clauses)
 - **Layers:** L3 settling, L4 input cap and joining, L5 identity, the per-frame evaluator
@@ -68,7 +69,8 @@ labelled clauses #929 and #930 could not read.
 - **A looser velocity process noise is an identity lever (l5est0003).** It did not end the
   filter's lag on kirk0's trucks, its question; but doubling `process_noise_vel` took kirk0's
   switches from 90 to 43, with HOTA and IDF1 gains that keep their sign over the bootstrap.
-  Proposed as l5est0004 for the corpus and the held-out window.
+  Proposed as l5est0004 for the corpus and the held-out window. With the overlap end on it adds
+  nothing (l5id0017): the two remove the same errors.
 - **The relative settling criterion does not settle kirk0.** kirk0's spread delta over its mean
   spread never falls under 0.075 before the ceiling (lowest 0.076 at 27.9 s, median 0.104), so the
   ratio arm settles at 30 s, as the honest absolute one does, and scores the same. A quiet scene
@@ -335,6 +337,16 @@ rises from 38 to 41 and the maximum-speed percentiles by 0.03 to 0.14 m/s. It wa
 looking, on the tuning capture, so it is proposed as
 [l5est0004](../../../data/experiments/l5est/l5est0004.md) with its corpus and held-out rule written
 now, not adopted.
+
+## l5id0017: the two identity levers together
+
+Against `overlap-end` (both at `d71b7b7`), the combination with twice the velocity process noise
+reads HOTA 0.4373 against 0.4374, IDF1 0.4951 against 0.4961, 5 switches against 5 and 36
+fragmentations against 34; the paired bootstrap's HOTA delta runs from −0.0008 to +0.0019 and its
+IDF1 delta from −0.0010 to +0.0001, so neither gain keeps its sign, and brief tracks rise from 18
+to 24. By the rule's second reading, the velocity noise's kirk0 gain lies in what the overlap end
+already removes: duplicates a coasting track leaves, which a velocity that follows the body sooner
+lets the live track reclaim. l5est0004 runs as written, without a combined arm.
 
 ## What this run does not establish
 
