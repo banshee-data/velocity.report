@@ -159,12 +159,33 @@ func fragmentContains(r Rect, p WorldPoint, margin float64) bool {
 }
 
 func fragmentsNear(a, b []WorldPoint, gap float64) bool {
+	// Index the smaller membership and stop at the first exact match. Full
+	// memberships can contain thousands of returns; comparing every pair makes
+	// a refused join particularly expensive. A gap-sized grid limits each query
+	// to neighbouring cells without changing the inclusive distance test.
+	if len(a) < len(b) {
+		a, b = b, a
+	}
+	type cell struct{ x, y int64 }
+	key := func(p WorldPoint) cell {
+		return cell{int64(math.Floor(p.X / gap)), int64(math.Floor(p.Y / gap))}
+	}
+	grid := make(map[cell][]WorldPoint)
+	for _, p := range b {
+		k := key(p)
+		grid[k] = append(grid[k], p)
+	}
 	g2 := gap * gap
 	for _, p := range a {
-		for _, q := range b {
-			dx, dy := p.X-q.X, p.Y-q.Y
-			if dx*dx+dy*dy <= g2 {
-				return true
+		k := key(p)
+		for x := int64(-1); x <= 1; x++ {
+			for y := int64(-1); y <= 1; y++ {
+				for _, q := range grid[cell{k.x + x, k.y + y}] {
+					dx, dy := p.X-q.X, p.Y-q.Y
+					if dx*dx+dy*dy <= g2 {
+						return true
+					}
+				}
 			}
 		}
 	}

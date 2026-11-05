@@ -2,10 +2,73 @@ package l4perception
 
 import (
 	"math"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 )
+
+func bruteFragmentsNear(a, b []WorldPoint, gap float64) bool {
+	for _, p := range a {
+		for _, q := range b {
+			dx, dy := p.X-q.X, p.Y-q.Y
+			if dx*dx+dy*dy <= gap*gap {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func TestFragmentGridMatchesExactDistance(t *testing.T) {
+	rng := rand.New(rand.NewSource(731))
+	for trial := 0; trial < 500; trial++ {
+		a, b := make([]WorldPoint, rng.Intn(40)), make([]WorldPoint, rng.Intn(40))
+		for _, points := range [][]WorldPoint{a, b} {
+			for i := range points {
+				points[i] = WorldPoint{X: rng.Float64()*20 - 10, Y: rng.Float64()*20 - 10}
+			}
+		}
+		gap := .05 + rng.Float64()*2
+		if got, want := fragmentsNear(a, b, gap), bruteFragmentsNear(a, b, gap); got != want {
+			t.Fatalf("trial %d: grid=%v exact=%v", trial, got, want)
+		}
+	}
+	// Include exact-distance matches across positive and negative cell edges,
+	// and a diagonal neighbour that is outside the circular threshold.
+	for _, x := range []float64{-2, -.5, 0, .5, 2} {
+		a := []WorldPoint{{X: x, Y: -.5}}
+		for _, q := range []WorldPoint{{X: x + .5, Y: -.5}, {X: x, Y: 0}, {X: x + .5, Y: 0}} {
+			b := []WorldPoint{q}
+			if fragmentsNear(a, b, .5) != bruteFragmentsNear(a, b, .5) {
+				t.Fatalf("boundary mismatch: %v %v", a, b)
+			}
+		}
+	}
+}
+
+func BenchmarkFragmentGapLargeMembership(b *testing.B) {
+	a, other := make([]WorldPoint, 2048), make([]WorldPoint, 4096)
+	for i := range a {
+		a[i] = WorldPoint{X: float64(i%64) * .01, Y: float64(i/64) * .01}
+	}
+	for i := range other {
+		other[i] = WorldPoint{X: 2 + float64(i%64)*.01, Y: float64(i/64) * .01}
+	}
+	for _, tc := range []struct {
+		name string
+		near func([]WorldPoint, []WorldPoint, float64) bool
+	}{{"grid", fragmentsNear}, {"all-pairs", bruteFragmentsNear}} {
+		b.Run(tc.name, func(b *testing.B) {
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				if tc.near(a, other, .5) {
+					b.Fatal("separated fragments joined")
+				}
+			}
+		})
+	}
+}
 
 func fragmentFixture(t *testing.T) ([]WorldCluster, DBSCANTrace, DBSCANParams, FragmentHint) {
 	t.Helper()

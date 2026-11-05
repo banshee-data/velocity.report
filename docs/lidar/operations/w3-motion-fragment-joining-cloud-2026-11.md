@@ -98,6 +98,14 @@ replay and server suites passed again, as did the added covariance-bound,
 mixed-shape and immutable-config properties. Both new internal implementation files passed the 98 % branch-added coverage gate at 100 % of statements. Go vet/lint, documentation lint,
 experiment validation, config-order and raw-output guards passed.
 
+Review replaced the full-membership all-pairs gap scan with a gap-sized spatial
+grid and the same inclusive squared-distance check. A fixed-seed 500-case oracle
+comparison and cell-boundary cases agree with the original scan. On this cloud
+host, a separated 2,048-by-4,096-return benchmark took 1.014 ms with the grid
+against 6.759 ms with the all-pairs scan (200 ms benchmark duration). The grid
+allocated 389 KB per call against zero for the scan; dense neighbouring cells can
+still require many comparisons. This microbenchmark is not a G12 or Pi result.
+
 Baseline tuning SHA-256:
 `9ad7377fa5d356ba5f9d8756d48721708071da3295702350c835110b38b41675`.
 Candidate `config/experiments/motion-fragment-join.json` SHA-256:
