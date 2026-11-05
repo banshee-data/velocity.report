@@ -125,6 +125,108 @@ class MetalRenderer: NSObject, MTKViewDelegate {
         encoder.drawPrimitives(type: .line, vertexStart: 0, vertexCount: coverageRingCount)
     }
 
+    // MARK: - Nearby sites (Item 8)
+
+    /// One nearby site's boxes, heading lines and coverage ring, drawn by
+    /// its own sensor-to-city. Nothing in one is from another site.
+    struct NearbyDrawable {
+        let siteID: String
+        let worldFromSensor: simd_double4x4
+        let boxIDs: [String]
+        let boxes: MTLBuffer?
+        let boxCount: Int
+        let lines: MTLBuffer?
+        let lineVertexCount: Int
+    }
+    private(set) var nearby: [NearbyDrawable] = []
+
+    /// Box instances for the city view: class colour, faded to the
+    /// coverage edge, none beyond it. 16 floats of transform, 4 of colour.
+    static func cityBoxInstances(_ boxes: [SceneBox], coverage: SiteCoverage) -> [Float] {
+        var out = [Float]()
+        for b in boxes {
+            let distance = simd_length(SIMD2(b.x, b.y))
+            let alpha = coverage.opacity(atDistance: distance)
+            guard alpha > 0 else { continue }
+            let transform =
+                simd_float4x4(translation: SIMD3(b.x, b.y, b.z))
+                * simd_float4x4(rotationZ: b.boxHeading)
+                * simd_float4x4(
+                    diagonal: SIMD4(max(b.length, 0.1), max(b.width, 0.1), max(b.height, 0.1), 1))
+            for col in 0..<4 { for row in 0..<4 { out.append(transform[col][row]) } }
+            let c = ClassColour.colour(for: b.classLabel)
+            out += [c.x, c.y, c.z, alpha]
+        }
+        return out
+    }
+
+    /// A heading line per moving box, from its centre forward, plus the
+    /// site's coverage ring: line vertices of x, y, z, r, g, b, a.
+    static func cityHeadingLines(_ boxes: [SceneBox], coverage: SiteCoverage) -> [Float] {
+        var out = [Float]()
+        for b in boxes where b.speed > 0.5 {
+            let alpha = coverage.opacity(atDistance: simd_length(SIMD2(b.x, b.y)))
+            guard alpha > 0 else { continue }
+            let c = ClassColour.colour(for: b.classLabel)
+            let reach = b.length / 2 + 1.5
+            out += [b.x, b.y, b.z, c.x, c.y, c.z, alpha]
+            out += [
+                b.x + cos(b.heading) * reach, b.y + sin(b.heading) * reach, b.z, c.x, c.y, c.z,
+                alpha,
+            ]
+        }
+        return out + coverage.ring(groundZ: SiteCoverage.groundZ)
+    }
+
+    /// Replaces the nearby sites drawn.
+    func setNearbySites(_ frames: [NearbySiteFrame]) {
+        func buffer(_ floats: [Float]) -> MTLBuffer? {
+            floats.isEmpty
+                ? nil
+                : device.makeBuffer(
+                    bytes: floats, length: floats.count * 4, options: .storageModeShared)
+        }
+        nearby = frames.map { frame in
+            let instances = Self.cityBoxInstances(frame.boxes, coverage: .standard)
+            let lines = Self.cityHeadingLines(frame.boxes, coverage: .standard)
+            return NearbyDrawable(
+                siteID: frame.siteID, worldFromSensor: frame.worldFromSensor,
+                boxIDs: frame.boxes.map(\.id), boxes: buffer(instances),
+                boxCount: instances.count / 20, lines: buffer(lines),
+                lineVertexCount: lines.count / 7)
+        }
+        view?.needsDisplay = true
+    }
+
+    private func drawNearbySites(encoder: MTLRenderCommandEncoder) {
+        guard isCityMode, !nearby.isEmpty, let boxPipeline, let linePipeline,
+            let boxVerts = boxVertices
+        else { return }
+        for site in nearby {
+            var u = Self.uniforms(
+                Uniforms(
+                    modelViewProjection: camera.projectionMatrix * camera.viewMatrix,
+                    modelView: camera.viewMatrix, pointSize: pointSize, time: uniforms.time,
+                    padding: .zero), model: origin.model(site.worldFromSensor))
+            if let boxes = site.boxes, site.boxCount > 0 {
+                encoder.setRenderPipelineState(boxPipeline)
+                encoder.setVertexBuffer(boxVerts, offset: 0, index: 0)
+                encoder.setVertexBuffer(boxes, offset: 0, index: 1)
+                encoder.setVertexBytes(&u, length: MemoryLayout<Uniforms>.stride, index: 2)
+                encoder.drawPrimitives(
+                    type: .line, vertexStart: 0, vertexCount: boxVertexCount,
+                    instanceCount: site.boxCount)
+            }
+            if let lines = site.lines, site.lineVertexCount > 0 {
+                encoder.setRenderPipelineState(linePipeline)
+                encoder.setVertexBuffer(lines, offset: 0, index: 0)
+                encoder.setVertexBytes(&u, length: MemoryLayout<Uniforms>.stride, index: 1)
+                encoder.drawPrimitives(
+                    type: .line, vertexStart: 0, vertexCount: site.lineVertexCount)
+            }
+        }
+    }
+
     /// Places the city tiles in the renderer's world frame; nil hides them.
     func placeCityTiles(worldFromCity: simd_double4x4?) {
         cityTilesPlaced = worldFromCity != nil
@@ -1551,6 +1653,8 @@ class MetalRenderer: NSObject, MTKViewDelegate {
                 instanceCount: overlayBoxes.count)
         }
 
+        drawNearbySites(encoder: encoder)
+
         // Draw trails (each trail as a separate lineStrip)
         if showTrails, let pipeline = trailPipeline, let vertices = trailVertices,
             !trailSegments.isEmpty
@@ -1811,6 +1915,7 @@ class MetalRenderer: NSObject, MTKViewDelegate {
             camera.up = SIMD3(0, 0, 1)
         } else {
             origin.anchor = .zero
+            nearby = []
             onCityOverlay?(CityOverlay())
             lastOverlay = CityOverlay()
             // The site's own frame again: the view the operator had there.

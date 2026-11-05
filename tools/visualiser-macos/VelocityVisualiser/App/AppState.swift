@@ -341,12 +341,40 @@ private let logger = DevLogger(category: "AppState")
     }
 
     /// City mode on or off: the renderer's world becomes the city's, and the
-    /// street painter, which works in the site's plan view, stops.
+    /// street painter, which works in the site's plan view, stops. In city
+    /// mode the sites around the camera play from their published scenes.
     func cityModeChanged(_ on: Bool) {
         if on { streets.setPainting(false) }
         let centre = city.tileset.map { $0.root.cityCentre }
         renderer?.setCityMode(on, overview: centre)
         reprojectLabels()
+        nearbyTimer?.invalidate()
+        nearbyTimer = nil
+        if on {
+            nearbyTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) {
+                [weak self] _ in Task { @MainActor in await self?.refreshNearbySites() }
+            }
+        } else {
+            nearby.stopAll()
+            renderer?.setNearbySites([])
+        }
+    }
+
+    /// Plays the nearby sites one step: which play follows the camera, and
+    /// each shows its own frame on its own clock.
+    func refreshNearbySites() async {
+        guard let renderer, renderer.isCityMode, !nearbyRefreshing else { return }
+        nearbyRefreshing = true
+        defer { nearbyRefreshing = false }
+        let target = renderer.origin.world(renderer.camera.target)
+        nearby.update(sites: city.sites, focusedID: siteContext.site?.id, near: target)
+        let frames = await nearby.frames()
+        guard renderer.isCityMode else { return }
+        renderer.setNearbySites(frames)
+        let clocks = Dictionary(
+            frames.compactMap { f in f.clock.map { (f.siteID, $0) } },
+            uniquingKeysWith: { a, _ in a })
+        if clocks != city.siteClocks { city.siteClocks = clocks }
     }
 
     /// Where the operator's per-site preferences (live servers) are kept;
@@ -528,6 +556,10 @@ private let logger = DevLogger(category: "AppState")
 
     /// The city site index and the switch between its sites.
     let city: CityViewSession
+    /// The sites around the one playing, from their published scenes.
+    let nearby = NearbySites()
+    private var nearbyTimer: Timer?
+    private var nearbyRefreshing = false
     /// Closing the pane stops its orbit (putting the camera back) and its
     /// flight.
     @Published var showCameraPane: Bool = false { didSet { camera.isPaneOpen = showCameraPane } }
@@ -588,6 +620,10 @@ private let logger = DevLogger(category: "AppState")
             self?.renderer?.citySites = index?.sites ?? []
         }
         city.onCityMode = { [weak self] on in self?.cityModeChanged(on) }
+        nearby.indexURL = { [weak self] in self?.city.indexURL }
+        nearby.liveServer = { [weak self] id in
+            CityLiveServers.server(for: id, in: self?.siteDefaults)
+        }
         city.onTileset = { [weak self] tileset, url in
             self?.renderer?.cityTiles.setTileset(tileset, url: url)
             self?.renderer?.view?.needsDisplay = true

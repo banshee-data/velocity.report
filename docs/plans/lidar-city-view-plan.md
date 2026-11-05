@@ -339,6 +339,22 @@ fading over the last 15 % with a ring at the edge, coloured by class only (`Clas
 line of copy at the foot of the view. `CityMode.swift` holds the flight, coverage, colours and
 overlay layout; `CityModeTests.swift` tests them against the shared fixtures.
 
+**As built (Item 8):** `City/SceneExport.swift` reads a scene export's `manifest.json`, each
+part's `header.json`, `index.json` and `timeline.json`, and its gzipped NDJSON chunks, keeping
+boxes and headings and skipping points; chunks are cached three at a time and a chunk that cannot
+be read is not asked for again. In city mode `NearbySites` (`App/NearbySites.swift`) plays up to
+eight placed sites within 1.5 km of the camera's target, besides the focused one, nearest first.
+Each opens its published scene, found from the site index's location by the index's
+`scene.assets` path (or `scenes/<id>/assets/` in a source checkout), and plays it on its own
+looping clock started when it came into view; its marker shows its own recording time of day.
+Each is drawn by its own sensor-to-city inside its own coverage ring, boxes class-coloured with a
+heading line, and its box ids are namespaced by site. A site with a live server kept for it is
+streamed from that Pi instead, one `VisualiserClient` per Pi, each with its own `SiteContext`.
+`SceneExportTests.swift` reads `testdata/city-view/scenes/columbus-broadway/assets/`, a trimmed
+copy of that scene's published clip, and checks that no drawn object holds two sites' boxes. The
+street-range limit (8) and range (1.5 km) are starting values, not yet measured against a frame
+budget.
+
 ## Scope
 
 ### Item 1: placement sidecar and city site index
@@ -545,12 +561,12 @@ None recorded. The owner settled the last two on 2026-11-04 (see Design decision
 - [x] Item 5: visualiser `SiteContext` and site switching (`M`)
 - [x] Item 6: visualiser city frame, precision and tile reader (`L`)
 - [x] Item 7: visualiser city mode (`M`)
+- [x] Item 8: visualiser, other sites from published scenes (`M`)
 
 ### Outstanding
 
 - [ ] Item 3: web city view, zoomed out (`M`)
 - [ ] Item 4: web, into a site and between sites (`M`)
-- [ ] Item 8: visualiser, other sites from published scenes (`M`)
 
 ### Deferred
 
