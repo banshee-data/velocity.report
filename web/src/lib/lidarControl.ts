@@ -77,6 +77,8 @@ export interface LidarStatus {
 	data_source: string;
 	pcap_file?: string;
 	pcap_in_progress: boolean;
+	/** Whether a replay holds the slot; absent from servers before #931. */
+	replay_active?: boolean;
 	uptime: string;
 	stats?: PacketStats;
 	pcap_safe_dir?: string;
@@ -288,14 +290,16 @@ export function stopReplay(sensorId: string): Promise<unknown> {
 }
 
 /**
- * Whether a replay holds the pipeline. A PCAP replay sets pcap_in_progress; a
- * VRLOG replay does not, and shows only as data_source "vrlog". The server
- * refuses a new replay while either runs.
+ * Whether a replay holds the replay slot, so the server would refuse a new one.
+ * replay_active says so directly. A server without it is read from the older
+ * fields: a PCAP replay sets pcap_in_progress, and a VRLOG replay shows only as
+ * data_source "vrlog" (which a parked, finished VRLOG replay keeps too).
  */
 export function replayRunning(
-	status: Pick<LidarStatus, 'data_source' | 'pcap_in_progress'> | null | undefined
+	status: Pick<LidarStatus, 'data_source' | 'pcap_in_progress' | 'replay_active'> | null | undefined
 ): boolean {
 	if (!status) return false;
+	if (typeof status.replay_active === 'boolean') return status.replay_active;
 	return status.pcap_in_progress || status.data_source === 'vrlog';
 }
 

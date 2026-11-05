@@ -268,16 +268,20 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := struct {
-		Status            string         `json:"status"`
-		SensorID          string         `json:"sensor_id"`
-		UDPPort           int            `json:"udp_port"`
-		Forwarding        bool           `json:"forwarding_enabled"`
-		ForwardAddr       string         `json:"forward_addr,omitempty"`
-		ForwardPort       int            `json:"forward_port,omitempty"`
-		ParsingEnabled    bool           `json:"parsing_enabled"`
-		DataSource        string         `json:"data_source"`
-		PCAPFile          string         `json:"pcap_file,omitempty"`
-		PCAPInProgress    bool           `json:"pcap_in_progress"`
+		Status         string `json:"status"`
+		SensorID       string `json:"sensor_id"`
+		UDPPort        int    `json:"udp_port"`
+		Forwarding     bool   `json:"forwarding_enabled"`
+		ForwardAddr    string `json:"forward_addr,omitempty"`
+		ForwardPort    int    `json:"forward_port,omitempty"`
+		ParsingEnabled bool   `json:"parsing_enabled"`
+		DataSource     string `json:"data_source"`
+		PCAPFile       string `json:"pcap_file,omitempty"`
+		PCAPInProgress bool   `json:"pcap_in_progress"`
+		// ReplayActive is whether a replay holds the slot. A VRLOG replay sets
+		// it but not pcap_in_progress, and a parked finished replay clears it
+		// while data_source stays on the replayed source.
+		ReplayActive      bool           `json:"replay_active"`
 		Uptime            string         `json:"uptime"`
 		Stats             *StatsSnapshot `json:"stats,omitempty"`
 		PCAPSafeDir       string         `json:"pcap_safe_dir,omitempty"`
@@ -295,6 +299,7 @@ func (ws *Server) handleLidarStatus(w http.ResponseWriter, r *http.Request) {
 		DataSource:       state.DataSourceWire(),
 		PCAPFile:         currentPCAPFile,
 		PCAPInProgress:   pcapInProgress,
+		ReplayActive:     state.ReplayActive,
 		Uptime:           uptime,
 		Stats:            statsSnapshot,
 		PCAPSafeDir:      ws.pcapSafeDir,
