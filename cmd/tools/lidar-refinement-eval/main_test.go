@@ -10,7 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/banshee-data/velocity.report/internal/db"
 	"github.com/banshee-data/velocity.report/internal/lidar/annotation"
+	fx "github.com/banshee-data/velocity.report/internal/lidar/eligibility/eligibilitytest"
 	"github.com/banshee-data/velocity.report/internal/lidar/l8analytics"
 	"github.com/banshee-data/velocity.report/internal/lidar/replayeval"
 )
@@ -90,6 +92,26 @@ func TestFrozenSplitHoldsTheCaseToItsRole(t *testing.T) {
 	}
 	var stdout, stderr bytes.Buffer
 	args := append(append([]string(nil), base...), "-case", "kirk0", "-split-manifest", splitPath)
+	// The split allows it, and without a cohort manifest the guard still
+	// refuses it before the capture is read.
+	if code := run(args, &stdout, &stderr); code != 2 || !strings.Contains(stderr.String(), "no cohort manifest") {
+		t.Fatalf("unassigned capture: exit %d (%s)", code, stderr.String())
+	}
+	root := filepath.Join(dir, "annotation")
+	if err := os.MkdirAll(filepath.Join(root, "splits"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ledger := filepath.Join(dir, "ledger.db")
+	d, err := db.NewDB(ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	manifest := fx.Manifest(t, dir, map[string]any{"sites": []any{fx.Site("kirk", "development")},
+		"captures": []any{fx.CaptureEntry("kirk0", "kirk", kirk0SHA, "kirk0.pcapng")}})
+	args = append(args, "-cohort-manifest", manifest, "-annotation-root", root, "-eligibility-db", ledger, "-actor", "tester")
+	stdout.Reset()
+	stderr.Reset()
 	if code := run(args, &stdout, &stderr); code != 1 {
 		t.Fatalf("accepted use: exit %d, want the replay's failure (%s)", code, stderr.String())
 	}

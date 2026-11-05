@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
 )
 
 // SweepRunner defines the interface for parameter sweep operations.
@@ -51,6 +53,10 @@ func (ws *Server) handleSweepStart(w http.ResponseWriter, r *http.Request) {
 	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if !ws.authorizeDevelopment(w, r, eligibility.Request{Purpose: eligibility.PurposeTuning, Inputs: ws.sweepInputs(req)}) {
 		return
 	}
 
@@ -115,6 +121,10 @@ func (ws *Server) handleAutoTuneStart(w http.ResponseWriter, r *http.Request) {
 	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if !ws.authorizeDevelopment(w, r, eligibility.Request{Purpose: eligibility.PurposeTuning, Inputs: ws.sweepInputs(req)}) {
 		return
 	}
 
@@ -258,6 +268,10 @@ func (ws *Server) handleHINTStart(w http.ResponseWriter, r *http.Request) {
 	var req map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		ws.writeJSONError(w, http.StatusBadRequest, "invalid request: "+err.Error())
+		return
+	}
+
+	if !ws.authorizeDevelopment(w, r, eligibility.Request{Purpose: eligibility.PurposeTuning, Inputs: ws.hintInputs(req)}) {
 		return
 	}
 

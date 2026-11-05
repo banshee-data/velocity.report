@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/banshee-data/velocity.report/internal/lidar/eligibility"
 	sqlite "github.com/banshee-data/velocity.report/internal/lidar/storage/sqlite"
 )
 
@@ -199,6 +200,21 @@ func (ws *Server) handlePCAPStart(w http.ResponseWriter, r *http.Request) {
 		ws.writeJSONError(w, http.StatusBadRequest,
 			"missing 'pcap_file' or 'pcap_files' in request body")
 		return
+	}
+
+	// An experiment arm's replay is a development evaluation: decided, and
+	// recorded, before its parameters are applied or a packet is read. Any
+	// other replay is production processing and is not gated.
+	if experimentConfig(tuningConfig) {
+		files := replayFiles
+		if len(files) == 0 {
+			files = []string{pcapFile}
+		}
+		if !ws.authorizeDevelopment(w, r, eligibility.Request{
+			Purpose: eligibility.PurposeDevelopmentEvaluation, Inputs: ws.captureInputs(files...), ConfigDigest: tuningConfig,
+		}) {
+			return
+		}
 	}
 
 	ws.dataSourceMu.Lock()
