@@ -3,6 +3,7 @@ package l3grid
 import (
 	"math"
 	"testing"
+	"time"
 )
 
 func TestFitGroundSurfaceRecoversConstantGradeDespiteHighOutliers(t *testing.T) {
@@ -250,5 +251,56 @@ func TestBlendedHeightAtWithoutCellsIsTheGlobalPlane(t *testing.T) {
 	s := RegionalGroundSurface{Global: GroundSurface{A: 0.01, C: -2}}
 	if got, want := s.BlendedHeightAt(50, 3), s.HeightAt(50, 3); math.Abs(got-want) > 1e-9 {
 		t.Fatalf("BlendedHeightAt = %.4f, want the global plane's %.4f", got, want)
+	}
+}
+
+func TestGroundSurfaceVersionSurvivesSnapshotAndReset(t *testing.T) {
+	var absent *BackgroundManager
+	if v, ready := absent.GroundSurfaceVersion(); v != 0 || ready {
+		t.Fatal("nil manager has a surface version")
+	}
+	bm := NewBackgroundManager("surface-revision", 1, 10, DefaultBackgroundConfig().ToBackgroundParams(), nil)
+	v0, _ := bm.GroundSurfaceVersion()
+	if err := bm.SetRingElevations([]float64{-10}); err != nil {
+		t.Fatal(err)
+	}
+	v1, _ := bm.GroundSurfaceVersion()
+	if v1 <= v0 {
+		t.Fatal("elevation change not versioned")
+	}
+	p := bm.GetParams()
+	if err := bm.SetParams(p); err != nil {
+		t.Fatal(err)
+	}
+	v2, _ := bm.GroundSurfaceVersion()
+	if v2 <= v1 {
+		t.Fatal("params not versioned")
+	}
+	if _, err := bm.ProcessFramePolarWithMaskAt([]PointPolar{{Channel: 1, Azimuth: 0, Distance: 10}}, time.Unix(1700000000, 0)); err != nil {
+		t.Fatal(err)
+	}
+	v3, _ := bm.GroundSurfaceVersion()
+	if v3 <= v2 {
+		t.Fatal("cell updates not versioned")
+	}
+	bm.Grid.mu.Lock()
+	bm.Grid.ChangesSinceSnapshot = 0
+	bm.Grid.mu.Unlock()
+	if v, _ := bm.GroundSurfaceVersion(); v != v3 {
+		t.Fatal("snapshot counter rewound the surface version")
+	}
+	if err := bm.ResetGrid(); err != nil {
+		t.Fatal(err)
+	}
+	v4, ready := bm.GroundSurfaceVersion()
+	if v4 <= v3 || ready {
+		t.Fatal("reset did not invalidate surface")
+	}
+	if err := bm.SetRingElevations(nil); err != nil {
+		t.Fatal(err)
+	}
+	v5, _ := bm.GroundSurfaceVersion()
+	if v5 <= v4 {
+		t.Fatal("cleared elevations not versioned")
 	}
 }

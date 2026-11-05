@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	cfgpkg "github.com/banshee-data/velocity.report/internal/config"
@@ -391,6 +392,9 @@ func validateRuntimeTuningPath(path string) error {
 		return nil
 	case strings.HasPrefix(path, "l4.dbscan_xy_v1."):
 		field := strings.TrimPrefix(path, "l4.dbscan_xy_v1.")
+		if field == "surface_ground" || strings.HasPrefix(field, "surface_ground.") {
+			return nil
+		}
 		switch field {
 		case "foreground_dbscan_eps", "foreground_min_cluster_points", "foreground_max_input_points":
 			return nil
@@ -418,6 +422,10 @@ func applyRuntimeTuningPath(ws *Server, bm *l3grid.BackgroundManager, cfg *cfgpk
 		params := bm.GetParams()
 		l3 := cfg.L3.ActiveCommon()
 		l4 := cfg.L4.ActiveCommon()
+		if path == "l4.dbscan_xy_v1.surface_ground" || strings.HasPrefix(path, "l4.dbscan_xy_v1.surface_ground.") {
+			ws.surfaceGround.Store(cfg.GetSurfaceGround())
+			return nil
+		}
 		if path == "l3.ema_baseline_v1.track_guard" || strings.HasPrefix(path, "l3.ema_baseline_v1.track_guard.") {
 			// The whole block goes on at once, as the box model's does.
 			params.TrackGuard = l3grid.TrackGuardParamsFromTuning(l3.TrackGuard)
@@ -683,4 +691,10 @@ func jsonName(field reflect.StructField) (string, bool) {
 		return field.Name, true
 	}
 	return name, true
+}
+
+// SurfaceGroundFlag is read by the callback once per frame. Writers publish
+// complete immutable blocks only after the entire tuning patch validates.
+func (ws *Server) SurfaceGroundFlag() *atomic.Pointer[cfgpkg.L4SurfaceGround] {
+	return &ws.surfaceGround
 }

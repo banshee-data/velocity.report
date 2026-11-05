@@ -360,6 +360,9 @@ func (c *L3EmaTrackAssistV2) Validate() error {
 
 // Validate validates common L4 fields.
 func (c *L4Common) Validate() error {
+	if err := c.SurfaceGround.Validate(); err != nil {
+		return fmt.Errorf("surface_ground: %w", err)
+	}
 	if j := c.FragmentJoin; j != nil {
 		if !(j.MaxGapMetres > 0 && j.MaxGapMetres <= 2) || !(j.MarginMetres >= 0 && j.MarginMetres <= .15) ||
 			!(j.MaxAgeSecs > 0 && j.MaxAgeSecs <= .2) || !(j.MinSpeedMps >= 2) ||
@@ -646,6 +649,20 @@ func (b *L5BoxModel) Validate() error {
 	}
 	if b.CentrePull > 1 {
 		return fmt.Errorf("centre_pull must be within [0, 1], got %v", b.CentrePull)
+	}
+	return nil
+}
+
+// Validate checks finite, ordered height bounds and a non-negative cell size.
+func (s *L4SurfaceGround) Validate() error {
+	if s == nil {
+		return nil
+	}
+	if math.IsNaN(s.FloorMetres) || math.IsInf(s.FloorMetres, 0) || s.FloorMetres < 0 || math.IsNaN(s.CeilingMetres) || math.IsInf(s.CeilingMetres, 0) || s.CeilingMetres <= s.FloorMetres {
+		return fmt.Errorf("requires finite 0 <= floor_metres < ceiling_metres")
+	}
+	if math.IsNaN(s.CellMetres) || math.IsInf(s.CellMetres, 0) || s.CellMetres < 0 {
+		return fmt.Errorf("cell_metres must be finite and non-negative (zero selects a global plane)")
 	}
 	return nil
 }

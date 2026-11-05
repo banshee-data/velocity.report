@@ -102,7 +102,13 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 	warmupElapsed := time.Duration(0)
 
 	g.mu.Lock()
-	defer g.mu.Unlock()
+	geometryChanged := false
+	defer func() {
+		if geometryChanged {
+			g.surfaceRevision++
+		}
+		g.mu.Unlock()
+	}()
 
 	// Initialise warmup counters on first frame
 	startTimeWasZero := bm.StartTime.IsZero()
@@ -580,6 +586,7 @@ func (bm *BackgroundManager) ProcessFramePolarWithMaskAt(points []PointPolar, no
 
 		if !readOnly {
 			g.ChangesSinceSnapshot++
+			geometryChanged = true
 		}
 
 		// Update per-range acceptance metrics (mirrors ProcessFramePolar logic).

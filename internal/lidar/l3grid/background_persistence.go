@@ -397,6 +397,7 @@ func (bm *BackgroundManager) restoreFromSnapshotLocked(regionStore RegionStore, 
 				opsf("[BackgroundManager] Error deserializing grid blob: %v", err)
 			} else if len(cells) == len(g.Cells) {
 				copy(g.Cells, cells)
+				g.surfaceRevision++
 				// Update nonzero cell count
 				nonzero := 0
 				for i := range cells {
