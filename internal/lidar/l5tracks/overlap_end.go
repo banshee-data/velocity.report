@@ -162,3 +162,31 @@ func rectOverlapShare(p, q drawnRect) float64 {
 func (r drawnRect) rect() l4perception.Rect {
 	return l4perception.Rect{X: r.x, Y: r.y, HeadingRad: r.psi, Length: r.length, Width: r.wd}
 }
+
+// birthGate applies TrackerConfig.BirthGateOnBody to a tentative track just
+// updated: when its position lies within another live confirmed body, the
+// hit it earned does not count toward confirmation, and once that has held
+// on MaxMisses frames the track is ended. A frame outside every live body
+// clears the count. It reports whether the track was ended.
+func (t *Tracker) birthGate(track *TrackedObject, bodies []drawnRect, nowNanos int64) bool {
+	inside := false
+	for _, b := range bodies {
+		if b.id != track.TrackID && rectContains(b, float64(track.X), float64(track.Y)) {
+			inside = true
+			break
+		}
+	}
+	if !inside {
+		track.birthGated = 0
+		return false
+	}
+	if track.Hits > 0 {
+		track.Hits--
+	}
+	track.birthGated++
+	if track.birthGated >= t.Config.MaxMisses {
+		t.deleteExpired(track, nowNanos, ExpiryBirthGated)
+		return true
+	}
+	return false
+}

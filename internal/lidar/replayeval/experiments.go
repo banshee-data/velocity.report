@@ -163,6 +163,12 @@ const (
 	// and are refused without it: the on-body test, and ending the younger.
 	ExperimentOverlapEndBody  = "overlap_end_body"
 	ExperimentOverlapEndOlder = "overlap_end_older"
+	// ExperimentBirthGateBody is TrackerConfig.BirthGateOnBody: a tentative
+	// track inside a live confirmed track's observed returns does not
+	// confirm, and ends after MaxMisses such frames (experiment l5id0014). It
+	// reads the overlap end's on-body test and is refused without
+	// overlap_end_body.
+	ExperimentBirthGateBody = "birth_gate_body"
 	// ExperimentOcclusionContinuity: all four. It does not imply
 	// capture_gap_predict; name both for prediction in capture time too.
 	ExperimentOcclusionContinuity = "occlusion_continuity"
@@ -346,6 +352,7 @@ var knownExperiments = map[string]bool{
 	ExperimentOverlapEnd3:          true,
 	ExperimentOverlapEndBody:       true,
 	ExperimentOverlapEndOlder:      true,
+	ExperimentBirthGateBody:        true,
 	ExperimentFixedLagRTS:          true,
 	ExperimentSolidBody:            true,
 

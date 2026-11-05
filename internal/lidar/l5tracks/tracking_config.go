@@ -208,6 +208,15 @@ type TrackerConfig struct {
 	// the cluster back next frame.
 	OverlapEndOnBody    bool
 	OverlapEndKeepOlder bool
+	// BirthGateOnBody refuses confirmation to a tentative track inside
+	// another confirmed track's observed returns: on each frame its updated
+	// position lies within a live confirmed body (OverlapEndOnBody's test,
+	// the same quarter-metre margin), its hit does not count toward
+	// HitsToConfirm, and after MaxMisses such frames it is ended. It acts
+	// before a duplicate is published, where the overlap end acts after, so
+	// it leaves no brief confirmed track behind (experiment l5id0014). It
+	// reads the on-body test and is refused without OverlapEndOnBody.
+	BirthGateOnBody bool
 
 	// ClassIdentity refuses to pair a track L6 has labelled a pedestrian,
 	// cyclist or motorcyclist with a cluster outside that label's geometric

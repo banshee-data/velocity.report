@@ -223,7 +223,7 @@ func TestExperimentsHashSuffix(t *testing.T) {
 
 func TestKnownExperimentsIsSortedAndComplete(t *testing.T) {
 	got := KnownExperiments()
-	want := []string{ExperimentAdaptiveUncertainty, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
+	want := []string{ExperimentAdaptiveUncertainty, ExperimentBirthGateBody, ExperimentBorderClasses, ExperimentBoxGround, ExperimentCaptureGapPredict, ExperimentCascade, ExperimentClassCoastBounds,
 		ExperimentClassIdentity, ExperimentCoastSupport, ExperimentCoastTimeInflation, ExperimentContainmentClaim, ExperimentContestedRejoin,
 		ExperimentDensityCap, ExperimentDwellPolicy,
 		ExperimentDwellPolicyT40, ExperimentDwellPolicyT40Drift2m, ExperimentDwellPolicyT40Median, ExperimentDwellPolicyT60,
@@ -684,6 +684,29 @@ func TestOverlapEndSettingsAreExclusive(t *testing.T) {
 	}
 	if got.OverlapEndFrames != 1 || !got.OverlapEndOnBody || !got.OverlapEndKeepOlder {
 		t.Fatalf("qualified overlap end: frames %d body %v older %v", got.OverlapEndFrames, got.OverlapEndOnBody, got.OverlapEndKeepOlder)
+	}
+}
+
+// birth_gate_body reads the overlap end's on-body test: refused without it,
+// and with it reaches TrackerConfig.BirthGateOnBody.
+func TestBirthGateNeedsTheOnBodyTest(t *testing.T) {
+	l5 := config.MustLoadDefaultConfig().L5.CvKfV1
+	if _, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentBirthGateBody}, nil); err == nil {
+		t.Fatal("birth_gate_body was accepted without overlap_end_body")
+	}
+	got, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEndBody, ExperimentBirthGateBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.BirthGateOnBody || !got.OverlapEndOnBody {
+		t.Fatalf("birth gate: gate %v body %v", got.BirthGateOnBody, got.OverlapEndOnBody)
+	}
+	off, err := trackerConfigFor(l5, "", []string{ExperimentOverlapEnd1, ExperimentOverlapEndBody}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if off.BirthGateOnBody {
+		t.Fatal("the birth gate is on without its name")
 	}
 }
 
