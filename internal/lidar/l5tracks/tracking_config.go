@@ -237,6 +237,9 @@ type TrackerConfig struct {
 	// solid body with Containment and does nothing without it. Default false.
 	// See containment_claim.go.
 	ContainmentClaim bool
+	// ContainmentClaimCardinalityGuard restores all proposed refusals when
+	// they lower maximum matching size. Default false; experiment l5id0018.
+	ContainmentClaimCardinalityGuard bool
 	// MeasurementSourceMode selects the position model. Empty means the
 	// production medoid; obb_centre_v1 opts into D2's candidate.
 	MeasurementSourceMode   MeasurementSource
@@ -505,6 +508,7 @@ func TrackerConfigFromTuning(l5cfg *config.L5CvKfV1) TrackerConfig {
 	return TrackerConfig{
 		LikelihoodAssociationCost:        association.LikelihoodCost,
 		ContainmentClaim:                 association.ContainmentClaim,
+		ContainmentClaimCardinalityGuard: association.CardinalityGuard != nil && association.CardinalityGuard.Enabled,
 		TentativePriority:                identity.TentativePriority,
 		OverlapEndFrames:                 identity.OverlapEndFrames,
 		OverlapEndOnBody:                 identity.OverlapEndOnBody,

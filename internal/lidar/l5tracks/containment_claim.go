@@ -12,7 +12,8 @@ package l5tracks
 // bidder is not subject to the test. Where every bidder fails, nothing is
 // refused. This preserves a bidder in each row, but not the cardinality of
 // the global assignment: multiple clusters may need the same remaining track.
-// The rule can therefore leave clusters unmatched and cause new births.
+// The unguarded rule can therefore leave clusters unmatched and cause new births.
+// l5id0018 optionally restores all refusals when maximum matching size falls.
 
 // containmentClaimLevel is G5's containment level: a box holds a cluster
 // when at least this share of the cluster's points lie inside it.
@@ -26,11 +27,13 @@ func (t *Tracker) applyContainmentClaim(costMatrix [][]float32, clusters []World
 		return
 	}
 	forbidden := float32(hungarianlnf)
+	var original [][]float32
+	var refusalCount int64
 	for row, ci := range clusterIdx {
 		var refused []int
 		others := 0
 		for tj, trackID := range trackIDs {
-			if costMatrix[row][tj] >= forbidden {
+			if hungarianForbidden(costMatrix[row][tj]) {
 				continue
 			}
 			if t.boxCannotHold(t.Tracks[trackID], clusters[ci]) {
@@ -42,11 +45,37 @@ func (t *Tracker) applyContainmentClaim(costMatrix [][]float32, clusters []World
 		if len(refused) == 0 || others == 0 {
 			continue
 		}
+		if t.Config.ContainmentClaimCardinalityGuard && original == nil {
+			original = make([][]float32, len(costMatrix))
+			for i := range costMatrix {
+				original[i] = append([]float32(nil), costMatrix[i]...)
+			}
+		}
 		for _, tj := range refused {
 			costMatrix[row][tj] = forbidden
-			t.continuity.ContainmentClaimRefusals++
+			refusalCount++
 		}
 	}
+	if original != nil && assignmentCardinality(costMatrix) < assignmentCardinality(original) {
+		for i := range costMatrix {
+			copy(costMatrix[i], original[i])
+		}
+		t.continuity.ContainmentClaimGuardFallbacks++
+		return
+	}
+	t.continuity.ContainmentClaimRefusals += refusalCount
+}
+
+// HungarianAssign maximises cardinality before minimising cost. The guard
+// compares that objective, not a row-wise count of remaining bidders.
+func assignmentCardinality(cost [][]float32) int {
+	count := 0
+	for _, col := range HungarianAssign(cost) {
+		if col >= 0 {
+			count++
+		}
+	}
+	return count
 }
 
 // boxCannotHold reports whether the rule applies to the track and its box

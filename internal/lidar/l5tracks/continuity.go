@@ -1019,6 +1019,10 @@ type ContinuityStats struct {
 	// a confirmed track whose box could not hold a cluster another bidder's
 	// could. Zero, and omitted, with the option off.
 	ContainmentClaimRefusals int64 `json:"containment_claim_refusals,omitempty"`
+	// ContainmentClaimGuardFallbacks counts matrices restored because claim
+	// refusals would lower maximum matching cardinality. Restored edges are
+	// excluded from ContainmentClaimRefusals.
+	ContainmentClaimGuardFallbacks int64 `json:"containment_claim_guard_fallbacks,omitempty"`
 }
 
 // ContinuityStats returns a snapshot of the continuity diagnostics.
