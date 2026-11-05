@@ -84,6 +84,7 @@ type workspacePack struct {
 	SegmentID  string                      `json:"segment_id,omitempty"`
 	Role       string                      `json:"selection_role,omitempty"`
 	PCAP       string                      `json:"pcap_basename,omitempty"`
+	Samples    int                         `json:"samples"`
 	BuildSHA   string                      `json:"build_git_sha,omitempty"`
 	Physical   *labelwork.PhysicalProgress `json:"physical,omitempty"`
 	Error      string                      `json:"error,omitempty"`
@@ -240,7 +241,7 @@ func (ws *Server) buildWorkspace(now time.Time) ([]workspaceRow, map[string]sour
 			r = rowFor("pack:"+handle, "pack", handle)
 		}
 		pk := workspacePack{Handle: handle, PackDigest: l.PackDigest, DatasetID: l.DatasetID, Run: packRun(handle),
-			SegmentID: l.SegmentID, Role: l.Role, PCAP: l.Source.PCAPBasename, BuildSHA: l.Source.BuildGitSHA, Error: l.Error}
+			SegmentID: l.SegmentID, Role: l.Role, PCAP: l.Source.PCAPBasename, Samples: l.SampleCount, BuildSHA: l.Source.BuildGitSHA, Error: l.Error}
 		if l.Error != "" && r.Error == "" {
 			r.Error = l.Error
 		}

@@ -19,6 +19,7 @@ type packListing struct {
 	DatasetID       string                      `json:"dataset_id"`
 	PackDigest      string                      `json:"pack_digest"`
 	Source          annotation.SourceProvenance `json:"source"`
+	SampleCount     int                         `json:"sample_count"`
 	Role            string                      `json:"role,omitempty"`
 	SegmentID       string                      `json:"segment_id,omitempty"`
 	Objects         int                         `json:"objects"`
@@ -80,6 +81,7 @@ func readPackListing(dir string) packListing {
 	item.DatasetID = manifest.DatasetID
 	item.PackDigest = manifest.PackDigest
 	item.Source = manifest.Source
+	item.SampleCount = manifest.SampleCount
 	if manifest.SchemaVersion != annotation.PackSchemaVersion {
 		item.Error = fmt.Sprintf("pack schema version %d, this build reads %d only (a version 1 pack is read by the git tag annotation-v1-reader)",
 			manifest.SchemaVersion, annotation.PackSchemaVersion)
