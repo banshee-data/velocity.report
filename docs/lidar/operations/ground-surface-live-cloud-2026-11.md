@@ -41,3 +41,18 @@ No ground0002 acceptance result or changed default is claimed. Its corpus,
 reviewed geometry/identity score and Pi frame-time evidence remain outstanding.
 The engineering tests use synthetic backgrounds and capture timestamps; they do
 not validate a physical mounting calibration or cross-site recall.
+
+
+## Engineering verification
+
+The full Go suite and Go/documentation lint passed on Linux with Go 1.27.1.
+The Makefile native build reported `0.5.1-pre50` and source commit
+`355fc8aa7186a44baa0c537ed86a19858a9da747`. Runtime and replay tests load the
+registered files, verify exact alias agreement and refuse conflicting settings.
+No scientific surface-clip comparison was run, and no Pi result is claimed.
+
+Registered configuration file SHA-256 values at that implementation:
+
+- `config/experiments/surface-ground-10m.json`: `8dab80bfd3aa60af4e0ccbd64f374063e613e6ea0e7827f0db7e1e9968c3441e`.
+- `config/experiments/surface-ground-global.json`: `518b304cfe6508bcc25d7af689b9b23dd3f7c8fea468200374dbb4febc969541`.
+- `config/experiments/surface-ground-5m.json`: `9ec2f6d4dd9c28777bea62c81d0df3967c56ff096730cad96ba259fc938a6fc3`.
